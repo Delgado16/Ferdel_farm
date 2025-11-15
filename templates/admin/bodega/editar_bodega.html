@@ -1,0 +1,94 @@
+{% extends "layout.html" %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Encabezado de la página -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="h3 mb-0 text-gray-800">Editar Bodega</h1>
+        <a href="{{ url_for('admin_bodega') }}" class="btn btn-secondary">
+            <i class="fas fa-arrow-left mr-2"></i>Volver a Bodegas
+        </a>
+    </div>
+
+    <!-- Mensajes flash -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                    {{ message }}
+                    <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    <!-- Formulario de edición -->
+    <div class="card shadow mb-4">
+        <div class="card-header py-3">
+            <h6 class="m-0 font-weight-bold text-primary">Información de la Bodega</h6>
+        </div>
+        <div class="card-body">
+            <form action="{{ url_for('admin_editar_bodega', id=bodega.ID_Bodega) }}" method="POST">
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="form-group">
+                            <label for="id_bodega">ID de Bodega</label>
+                            <input type="text" class="form-control" id="id_bodega" 
+                                   value="{{ bodega.ID_Bodega }}" readonly disabled>
+                            <small class="form-text text-muted">El ID de la bodega no se puede modificar</small>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="form-group">
+                            <label for="estado">Estado</label>
+                            <select class="form-control" id="estado" name="estado">
+                                <option value="activa" {% if bodega.Estado == 'activa' %}selected{% endif %}>Activa</option>
+                                <option value="inactiva" {% if bodega.Estado == 'inactiva' %}selected{% endif %}>Inactiva</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="nombre">Nombre de la Bodega *</label>
+                    <input type="text" class="form-control" id="nombre" name="nombre" 
+                           value="{{ bodega.Nombre }}" required placeholder="Ingrese el nombre de la bodega">
+                    <small class="form-text text-muted">El nombre es obligatorio</small>
+                </div>
+
+                <div class="form-group">
+                    <label for="id_empresa">Empresa *</label>
+                    <select class="form-control" id="id_empresa" name="id_empresa" required>
+                        <option value="">Seleccione una empresa</option>
+                        {% for empresa in empresas %}
+                        <option value="{{ empresa.ID_Empresa }}" 
+                                {% if bodega.ID_Empresa == empresa.ID_Empresa %}selected{% endif %}>
+                            {{ empresa.Nombre_Empresa }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                    <small class="form-text text-muted">Seleccione la empresa a la que pertenece la bodega.</small>
+                </div>
+
+                <div class="form-group">
+                    <label for="ubicacion">Ubicación</label>
+                    <textarea class="form-control" id="ubicacion" name="ubicacion" 
+                              rows="3" placeholder="Ingrese la ubicación de la bodega">{{ bodega.Ubicacion or '' }}</textarea>
+                    <small class="form-text text-muted">Descripción de la ubicación física</small>
+                </div>
+
+                <div class="form-group mt-4">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save mr-2"></i>Guardar Cambios
+                    </button>
+                    <a href="{{ url_for('admin_bodega') }}" class="btn btn-secondary">
+                        <i class="fas fa-times mr-2"></i>Cancelar
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,318 @@
+{% extends "layout.html" %}
+
+{% block title %}Editar Usuario - FerDel{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-md-8 mx-auto">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h3 class="card-title mb-0">
+                        <i class="bi bi-person-gear"></i> Editar Usuario
+                    </h3>
+                    <a href="{{ url_for('admin_usuarios') }}" class="btn btn-light btn-sm float-end">
+                        <i class="bi bi-arrow-left"></i> Volver a Usuarios
+                    </a>
+                </div>
+                <div class="card-body">
+                    {% with messages = get_flashed_messages(with_categories=true) %}
+                        {% if messages %}
+                            {% for category, message in messages %}
+                                <div class="alert alert-{{ category }} alert-dismissible fade show">
+                                    {{ message }}
+                                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                                </div>
+                            {% endfor %}
+                        {% endif %}
+                    {% endwith %}
+
+                    <!-- Información del usuario actual -->
+                    <div class="alert alert-info">
+                        <small>
+                            <strong>Usuario ID:</strong> {{ usuario.ID_Usuario }} | 
+                            <strong>Creado:</strong> {{ usuario.Fecha_Creacion|default('N/A') }} | 
+                            <strong>Último acceso:</strong> {{ usuario.Ultimo_Acceso|default('Nunca') }}
+                        </small>
+                    </div>
+
+                    <form method="POST" id="editarUsuarioForm" novalidate>
+                        <!-- Username con validación -->
+                        <div class="mb-3">
+                            <label for="username" class="form-label">Nombre de Usuario <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="username" name="username" 
+                                   value="{{ usuario.NombreUsuario }}" 
+                                   required minlength="3" maxlength="50"
+                                   pattern="[a-zA-Z0-9_]+" 
+                                   title="Solo letras, números y guiones bajos">
+                            <div class="form-text">Mínimo 3 caracteres. Solo letras, números y _</div>
+                            <div class="invalid-feedback">Por favor ingresa un nombre de usuario válido (mínimo 3 caracteres)</div>
+                        </div>
+
+                        <!-- Rol con validación -->
+                        <div class="mb-3">
+                            <label for="rol_id" class="form-label">Rol <span class="text-danger">*</span></label>
+                            <select class="form-select" id="rol_id" name="rol_id" required>
+                                <option value="" disabled>Seleccionar Rol...</option>
+                                {% for rol in roles %}
+                                    <option value="{{ rol.ID_Rol }}" 
+                                            {% if rol.ID_Rol == usuario.ID_Rol %}selected{% endif %}>
+                                        {{ rol.Nombre_Rol }}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                            <div class="invalid-feedback">Por favor selecciona un rol</div>
+                        </div>
+
+                        <!-- Empresa con validación -->
+                        <div class="mb-3">
+                            <label for="empresa_id" class="form-label">Empresa <span class="text-danger">*</span></label>
+                            <select class="form-select" id="empresa_id" name="empresa_id" required>
+                                <option value="" disabled>Seleccionar Empresa...</option>
+                                {% for empresa in empresas %}
+                                    <option value="{{ empresa.ID_Empresa }}" 
+                                            {% if empresa.ID_Empresa == usuario.ID_Empresa %}selected{% endif %}>
+                                        {{ empresa.Nombre_Empresa }}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                            <div class="invalid-feedback">Por favor selecciona una empresa</div>
+                        </div>
+
+                        <!-- Estado con badges visuales -->
+                        <div class="mb-3">
+                            <label for="estado" class="form-label">Estado <span class="text-danger">*</span></label>
+                            <select class="form-select" id="estado" name="estado" required>
+                                <option value="ACTIVO" 
+                                        {% if usuario.Estado.upper() == 'ACTIVO' %}selected{% endif %}
+                                        data-badge="bg-success">
+                                    Activo
+                                </option>
+                                <option value="INACTIVO" 
+                                        {% if usuario.Estado.upper() == 'INACTIVO' %}selected{% endif %}
+                                        data-badge="bg-warning">
+                                    Inactivo
+                                </option>
+                                <option value="BLOQUEADO" 
+                                        {% if usuario.Estado.upper() == 'BLOQUEADO' %}selected{% endif %}
+                                        data-badge="bg-danger">
+                                    Bloqueado
+                                </option>
+                                <option value="PENDIENTE" 
+                                        {% if usuario.Estado.upper() == 'PENDIENTE' %}selected{% endif %}
+                                        data-badge="bg-secondary">
+                                    Pendiente
+                                </option>
+                            </select>
+                            <div class="form-text">
+                                Estado actual: 
+                                <span class="badge bg-{% if usuario.Estado.upper() == 'ACTIVO' %}success{% elif usuario.Estado.upper() == 'INACTIVO' %}warning{% elif usuario.Estado.upper() == 'BLOQUEADO' %}danger{% else %}secondary{% endif %}">
+                                    {{ usuario.Estado }}
+                                </span>
+                            </div>
+                            <div class="invalid-feedback">Por favor selecciona un estado</div>
+                        </div>
+
+                        <!-- Contraseña con validación mejorada -->
+                        <div class="mb-4">
+                            <label for="password" class="form-label">Nueva Contraseña</label>
+                            <input type="password" class="form-control" id="password" name="password"
+                                   placeholder="Dejar vacío para mantener la contraseña actual"
+                                   minlength="6"
+                                   pattern="^(?=.*[A-Za-z])(?=.*\d).{6,}$"
+                                   title="Mínimo 6 caracteres con al menos una letra y un número">
+                            <div class="form-text">
+                                <i class="bi bi-info-circle"></i> 
+                                Mínimo 6 caracteres con al menos una letra y un número. 
+                                <strong>Dejar vacío para no cambiar la contraseña.</strong>
+                            </div>
+                            <div class="invalid-feedback">La contraseña debe tener al menos 6 caracteres con letras y números</div>
+                            
+                            <!-- Indicador de fortaleza de contraseña -->
+                            <div class="password-strength mt-2" style="display: none;">
+                                <div class="progress" style="height: 5px;">
+                                    <div class="progress-bar" role="progressbar" style="width: 0%"></div>
+                                </div>
+                                <small class="password-feedback text-muted"></small>
+                            </div>
+                        </div>
+
+                        <!-- Confirmación de contraseña (solo si se llena el campo de password) -->
+                        <div class="mb-4" id="confirmPasswordGroup" style="display: none;">
+                            <label for="confirm_password" class="form-label">Confirmar Nueva Contraseña</label>
+                            <input type="password" class="form-control" id="confirm_password" name="confirm_password"
+                                   placeholder="Repite la nueva contraseña">
+                            <div class="invalid-feedback" id="confirmPasswordFeedback" style="display: none;">
+                                Las contraseñas no coinciden
+                            </div>
+                        </div>
+
+                        <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                            <a href="{{ url_for('admin_usuarios') }}" class="btn btn-secondary me-md-2">
+                                <i class="bi bi-x-circle"></i> Cancelar
+                            </a>
+                            <button type="submit" class="btn btn-primary" id="submitBtn">
+                                <i class="bi bi-check-circle"></i> Actualizar Usuario
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('editarUsuarioForm');
+    const passwordInput = document.getElementById('password');
+    const confirmPasswordGroup = document.getElementById('confirmPasswordGroup');
+    const confirmPasswordInput = document.getElementById('confirmPassword');
+    const confirmPasswordFeedback = document.getElementById('confirmPasswordFeedback');
+    const passwordStrength = document.querySelector('.password-strength');
+    const progressBar = document.querySelector('.progress-bar');
+    const passwordFeedback = document.querySelector('.password-feedback');
+
+    // Mostrar/ocultar confirmación de contraseña
+    passwordInput.addEventListener('input', function() {
+        if (this.value.length > 0) {
+            confirmPasswordGroup.style.display = 'block';
+            confirmPasswordInput.setAttribute('required', 'required');
+        } else {
+            confirmPasswordGroup.style.display = 'none';
+            confirmPasswordInput.removeAttribute('required');
+            confirmPasswordInput.value = '';
+        }
+        checkPasswordStrength(this.value);
+    });
+
+    // Validar confirmación de contraseña
+    confirmPasswordInput?.addEventListener('input', function() {
+        if (passwordInput.value !== this.value) {
+            this.setCustomValidity('Las contraseñas no coinciden');
+            confirmPasswordFeedback.style.display = 'block';
+            this.classList.add('is-invalid');
+        } else {
+            this.setCustomValidity('');
+            confirmPasswordFeedback.style.display = 'none';
+            this.classList.remove('is-invalid');
+        }
+    });
+
+    // Validación de fortaleza de contraseña
+    function checkPasswordStrength(password) {
+        if (password.length === 0) {
+            passwordStrength.style.display = 'none';
+            return;
+        }
+
+        passwordStrength.style.display = 'block';
+        
+        let strength = 0;
+        let feedback = '';
+
+        // Longitud mínima
+        if (password.length >= 6) strength += 25;
+        
+        // Contiene números
+        if (/\d/.test(password)) strength += 25;
+        
+        // Contiene letras
+        if (/[a-zA-Z]/.test(password)) strength += 25;
+        
+        // Contiene caracteres especiales
+        if (/[^a-zA-Z0-9]/.test(password)) strength += 25;
+
+        // Actualizar barra de progreso y feedback
+        progressBar.style.width = strength + '%';
+        
+        if (strength < 50) {
+            progressBar.className = 'progress-bar bg-danger';
+            feedback = 'Contraseña débil';
+        } else if (strength < 75) {
+            progressBar.className = 'progress-bar bg-warning';
+            feedback = 'Contraseña media';
+        } else {
+            progressBar.className = 'progress-bar bg-success';
+            feedback = 'Contraseña fuerte';
+        }
+        
+        passwordFeedback.textContent = feedback;
+    }
+
+    // Validación del formulario
+    form.addEventListener('submit', function(event) {
+        // Validar confirmación de contraseña si es necesario
+        if (passwordInput.value.length > 0 && passwordInput.value !== confirmPasswordInput.value) {
+            confirmPasswordInput.setCustomValidity('Las contraseñas no coinciden');
+            confirmPasswordFeedback.style.display = 'block';
+            confirmPasswordInput.classList.add('is-invalid');
+        } else {
+            confirmPasswordInput.setCustomValidity('');
+            confirmPasswordFeedback.style.display = 'none';
+        }
+
+        if (!form.checkValidity()) {
+            event.preventDefault();
+            event.stopPropagation();
+        }
+        
+        form.classList.add('was-validated');
+    });
+
+    // Validación en tiempo real para mejor UX
+    const inputs = form.querySelectorAll('input, select');
+    inputs.forEach(input => {
+        input.addEventListener('blur', function() {
+            this.checkValidity();
+        });
+        
+        input.addEventListener('input', function() {
+            // Limpiar validación cuando el usuario empiece a escribir
+            if (this.classList.contains('is-invalid')) {
+                this.classList.remove('is-invalid');
+            }
+        });
+    });
+
+    // Prevenir envío con Enter en campos individuales
+    form.querySelectorAll('input').forEach(input => {
+        input.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+            }
+        });
+    });
+});
+</script>
+
+<style>
+.password-strength {
+    transition: all 0.3s ease;
+}
+
+.card-header {
+    border-bottom: 2px solid #dee2e6;
+}
+
+.form-text {
+    font-size: 0.875rem;
+}
+
+.invalid-feedback {
+    display: block;
+}
+
+.was-validated .form-control:invalid,
+.was-validated .form-select:invalid {
+    border-color: #dc3545;
+    padding-right: calc(1.5em + 0.75rem);
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12' width='12' height='12' fill='none' stroke='%23dc3545'%3e%3ccircle cx='6' cy='6' r='4.5'/%3e%3cpath d='m5.8 3.6.4.4.4-.4'/%3e%3cpath d='M6 7v1'/%3e%3c/svg%3e");
+    background-repeat: no-repeat;
+    background-position: right calc(0.375em + 0.1875rem) center;
+    background-size: calc(0.75em + 0.375rem) calc(0.75em + 0.375rem);
+}
+</style>
+{% endblock %}

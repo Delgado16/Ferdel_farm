@@ -1,0 +1,914 @@
+{% extends "layout.html" %}
+
+{% block title %}Nueva Compra - Sistema Inventarios{% endblock %}
+
+{% block content %}
+<style>
+    :root {
+        --primary-color: #2c5aa0;
+        --secondary-color: #6c757d;
+        --success-color: #198754;
+        --warning-color: #ffc107;
+        --danger-color: #dc3545;
+        --light-bg: #f8f9fa;
+        --border-color: #dee2e6;
+    }
+
+    .compra-container {
+        max-width: 1400px;
+        margin: 2rem auto;
+        padding: 0 1rem;
+    }
+
+    .card {
+        border: none;
+        border-radius: 10px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        margin-bottom: 1.5rem;
+        background: #fff;
+    }
+
+    .card-header {
+        background: linear-gradient(135deg, var(--primary-color), #1e3a6d);
+        color: white;
+        border-radius: 10px 10px 0 0 !important;
+        padding: 1.25rem 1.5rem;
+        border-bottom: none;
+    }
+
+    .card-header h2 {
+        margin: 0;
+        font-weight: 600;
+        font-size: 1.5rem;
+    }
+
+    .card-body {
+        padding: 2rem;
+    }
+
+    .section-title {
+        color: var(--primary-color);
+        font-weight: 600;
+        margin-bottom: 1.5rem;
+        padding-bottom: 0.75rem;
+        border-bottom: 2px solid var(--light-bg);
+        font-size: 1.25rem;
+    }
+
+    .form-label {
+        font-weight: 600;
+        margin-bottom: 0.5rem;
+        color: #495057;
+        font-size: 0.9rem;
+    }
+
+    .form-control, .form-select {
+        border-radius: 6px;
+        border: 1px solid var(--border-color);
+        padding: 0.75rem;
+        font-size: 0.9rem;
+        transition: all 0.2s ease;
+    }
+
+    .form-control:focus, .form-select:focus {
+        border-color: var(--primary-color);
+        box-shadow: 0 0 0 0.2rem rgba(44, 90, 160, 0.25);
+        transform: translateY(-1px);
+    }
+
+    .btn-primary {
+        background: linear-gradient(135deg, var(--primary-color), #1e3a6d);
+        border: none;
+        border-radius: 6px;
+        padding: 0.75rem 1.5rem;
+        font-weight: 600;
+        transition: all 0.2s ease;
+    }
+
+    .btn-primary:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(44, 90, 160, 0.3);
+    }
+
+    .btn-success {
+        background: linear-gradient(135deg, var(--success-color), #146c43);
+        border: none;
+    }
+
+    .btn-warning {
+        background: linear-gradient(135deg, var(--warning-color), #e0a800);
+        border: none;
+        color: #000;
+    }
+
+    .btn-danger {
+        background: linear-gradient(135deg, var(--danger-color), #b02a37);
+        border: none;
+    }
+
+    .product-table {
+        width: 100%;
+        border-collapse: collapse;
+        background: #fff;
+        border-radius: 8px;
+        overflow: hidden;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    }
+
+    .product-table th {
+        background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+        font-weight: 700;
+        padding: 1rem;
+        text-align: left;
+        border-bottom: 2px solid var(--border-color);
+        color: #495057;
+        font-size: 0.85rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    .product-table td {
+        padding: 1rem;
+        border-bottom: 1px solid var(--border-color);
+        vertical-align: middle;
+        background: #fff;
+    }
+
+    .product-table tr:hover td {
+        background-color: #f8f9fa;
+    }
+
+    .product-table tr:last-child td {
+        border-bottom: none;
+    }
+
+    .total-summary {
+        background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+        border-radius: 8px;
+        padding: 1.5rem;
+        margin-top: 2rem;
+        border: 1px solid var(--border-color);
+    }
+
+    .total-row {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 0.75rem;
+        font-size: 1rem;
+    }
+
+    .grand-total {
+        font-weight: 700;
+        font-size: 1.3rem;
+        border-top: 2px solid var(--border-color);
+        padding-top: 1rem;
+        margin-top: 1rem;
+        color: var(--primary-color);
+    }
+
+    .alert {
+        border-radius: 8px;
+        padding: 1rem 1.25rem;
+        margin-bottom: 1.5rem;
+        border: none;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    }
+
+    .is-invalid {
+        border-color: var(--danger-color);
+        box-shadow: 0 0 0 0.2rem rgba(220, 53, 69, 0.25);
+    }
+
+    .invalid-feedback {
+        display: none;
+        color: var(--danger-color);
+        font-size: 0.8rem;
+        margin-top: 0.25rem;
+        font-weight: 500;
+    }
+
+    .is-invalid ~ .invalid-feedback {
+        display: block;
+    }
+
+    .required-field::after {
+        content: " *";
+        color: var(--danger-color);
+    }
+
+    .form-section {
+        background: #fafbfc;
+        border-radius: 8px;
+        padding: 1.5rem;
+        margin-bottom: 2rem;
+        border: 1px solid var(--border-color);
+    }
+
+    .credito-info {
+        background: linear-gradient(135deg, #fff3cd, #ffeaa7);
+        border: 1px solid #ffecb5;
+        border-radius: 6px;
+        padding: 1rem;
+        margin-top: 1rem;
+        display: none;
+    }
+
+    .product-actions {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1.5rem;
+    }
+
+    /* Responsive */
+    @media (max-width: 1200px) {
+        .compra-container {
+            max-width: 100%;
+            margin: 1rem auto;
+        }
+    }
+
+    @media (max-width: 768px) {
+        .compra-container {
+            padding: 0 0.5rem;
+            margin: 0.5rem auto;
+        }
+
+        .card-body {
+            padding: 1rem;
+        }
+
+        .product-table {
+            display: block;
+            overflow-x: auto;
+        }
+
+        .product-table th,
+        .product-table td {
+            min-width: 120px;
+            padding: 0.75rem 0.5rem;
+        }
+
+        .btn-responsive {
+            width: 100%;
+            margin-bottom: 0.5rem;
+        }
+
+        .total-summary {
+            padding: 1rem;
+        }
+
+        .form-section {
+            padding: 1rem;
+        }
+    }
+
+    @media (max-width: 576px) {
+        .card-header h2 {
+            font-size: 1.25rem;
+        }
+
+        .section-title {
+            font-size: 1.1rem;
+        }
+
+        .form-control, .form-select {
+            padding: 0.6rem;
+        }
+
+        .product-actions {
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .product-actions .btn {
+            width: 100%;
+        }
+    }
+
+    /* Loading states */
+    .loading {
+        opacity: 0.6;
+        pointer-events: none;
+    }
+
+    .spinner-border-sm {
+        width: 1rem;
+        height: 1rem;
+    }
+
+    /* Stock indicators */
+    .stock-low {
+        color: var(--danger-color);
+        font-weight: 600;
+    }
+
+    .stock-medium {
+        color: var(--warning-color);
+        font-weight: 600;
+    }
+
+    .stock-good {
+        color: var(--success-color);
+        font-weight: 600;
+    }
+
+    /* Alertas flotantes */
+    .alert-flotante {
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        z-index: 1100;
+        min-width: 300px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    }
+
+    /* Estilo específico para C$ */
+    .input-group-text {
+        background-color: #e9ecef;
+        border: 1px solid #ced4da;
+        font-weight: 600;
+        color: #495057;
+    }
+</style>
+
+<div class="compra-container">
+    <div class="card">
+        <div class="card-header">
+            <h2><i class="fas fa-shopping-cart me-2"></i>Registrar Nueva Compra</h2>
+        </div>
+        <div class="card-body">
+            <form id="formCompra" method="POST" novalidate>
+                <!-- Campo oculto para el ID del usuario -->
+                <input type="hidden" id="id_usuario_creacion" name="id_usuario_creacion" value="{{ session.get('id_usuario', 1) }}">
+
+                <!-- Información General de la Compra -->
+                <div class="form-section">
+                    <h4 class="section-title"><i class="fas fa-info-circle me-2"></i>Información General</h4>
+                    <div class="row g-3">
+                        <div class="col-md-4">
+                            <label for="id_tipo_movimiento" class="form-label required-field">Tipo de Movimiento</label>
+                            <select class="form-select" id="id_tipo_movimiento" name="id_tipo_movimiento" required>
+                                <option value="" disabled selected>Seleccionar tipo...</option>
+                                {% for tipo in tipos_movimiento %}
+                                <option value="{{ tipo.ID_TipoMovimiento }}">{{ tipo.Descripcion }}</option>
+                                {% endfor %}
+                            </select>
+                            <div class="invalid-feedback">Por favor seleccione el tipo de movimiento</div>
+                        </div>
+
+                        <div class="col-md-4">
+                            <label for="fecha" class="form-label required-field">Fecha de Compra</label>
+                            <input type="date" class="form-control" id="fecha" name="fecha" required>
+                            <div class="invalid-feedback">Por favor ingrese la fecha de compra</div>
+                        </div>
+
+                        <div class="col-md-4">
+                            <label for="n_factura_externa" class="form-label">N° Factura Externa</label>
+                            <input type="text" class="form-control" id="n_factura_externa" name="n_factura_externa" placeholder="Opcional">
+                        </div>
+
+                        <div class="col-md-4">
+                            <label for="id_proveedor" class="form-label">Proveedor</label>
+                            <select class="form-select" id="id_proveedor" name="id_proveedor">
+                                <option value="" selected>Seleccionar proveedor...</option>
+                                {% for proveedor in proveedores %}
+                                <option value="{{ proveedor.ID_Proveedor }}">{{ proveedor.Nombre }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <div class="col-md-4">
+                            <label for="tipo_compra" class="form-label required-field">Tipo de Compra</label>
+                            <select class="form-select" id="tipo_compra" name="tipo_compra" required>
+                                <option value="CONTADO">CONTADO</option>
+                                <option value="CREDITO">CRÉDITO</option>
+                            </select>
+                            <div class="invalid-feedback">Por favor seleccione el tipo de compra</div>
+                        </div>
+
+                        <div class="col-md-4">
+                            <label for="id_bodega" class="form-label required-field">Bodega de Destino</label>
+                            <select class="form-select" id="id_bodega" name="id_bodega" required>
+                                <option value="" disabled selected>Seleccionar bodega...</option>
+                                {% for bodega in bodegas %}
+                                <option value="{{ bodega.ID_Bodega }}">{{ bodega.Nombre }}</option>
+                                {% endfor %}
+                            </select>
+                            <div class="invalid-feedback">Por favor seleccione una bodega</div>
+                        </div>
+
+                        <!-- Campo de fecha de vencimiento (solo para crédito) -->
+                        <div class="col-12" id="fecha_vencimiento_group" style="display: none;">
+                            <label for="fecha_vencimiento" class="form-label">Fecha de Vencimiento (Crédito)</label>
+                            <input type="date" class="form-control" id="fecha_vencimiento" name="fecha_vencimiento">
+                            <div class="credito-info">
+                                <small><i class="fas fa-info-circle me-1"></i>Se generará automáticamente una cuenta por pagar para esta compra a crédito.</small>
+                            </div>
+                        </div>
+
+                        <div class="col-12">
+                            <label for="observacion" class="form-label">Observaciones</label>
+                            <textarea class="form-control" id="observacion" name="observacion" rows="3" placeholder="Observaciones adicionales sobre la compra..."></textarea>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Detalles de Productos -->
+                <div class="form-section">
+                    <div class="product-actions">
+                        <h4 class="section-title mb-0"><i class="fas fa-boxes me-2"></i>Detalles de Productos</h4>
+                        <button type="button" class="btn btn-primary" id="btn-agregar-producto">
+                            <i class="fas fa-plus me-1"></i>Agregar Producto
+                        </button>
+                    </div>
+                    
+                    <div class="table-responsive">
+                        <table class="table product-table">
+                            <thead>
+                                <tr>
+                                    <th>Producto</th>
+                                    <th width="120">Cantidad</th>
+                                    <th width="150">Costo Unitario</th>
+                                    <th width="150">Precio Unitario</th>
+                                    <th width="120">Lote</th>
+                                    <th width="150">Fecha Vencimiento</th>
+                                    <th width="150">Subtotal</th>
+                                    <th width="80">Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody id="productos-container">
+                                <!-- Los productos se agregarán aquí dinámicamente -->
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Mensaje cuando no hay productos -->
+                    <div id="no-products-message" class="text-center py-4" style="display: none;">
+                        <i class="fas fa-box-open fa-3x text-muted mb-3"></i>
+                        <h5 class="text-muted">No hay productos agregados</h5>
+                        <p class="text-muted">Haga clic en "Agregar Producto" para comenzar</p>
+                    </div>
+                </div>
+
+                <!-- Resumen de Totales -->
+                <div class="total-summary">
+                    <div class="total-row">
+                        <span>Total Productos:</span>
+                        <span id="total-productos">0</span>
+                    </div>
+                    <div class="total-row">
+                        <span>Subtotal:</span>
+                        <span id="subtotal">C$ 0.00</span>
+                    </div>
+                    <div class="total-row grand-total">
+                        <span>TOTAL COMPRA:</span>
+                        <span id="total-compra">C$ 0.00</span>
+                    </div>
+                </div>
+
+                <!-- Botones de Acción -->
+                <div class="d-flex justify-content-end gap-3 mt-4">
+                    <button type="button" class="btn btn-secondary btn-responsive" onclick="window.history.back()">
+                        <i class="fas fa-times me-1"></i> Cancelar
+                    </button>
+                    <button type="submit" class="btn btn-primary btn-responsive">
+                        <i class="fas fa-save me-1"></i> Guardar Compra
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+let productos = [];
+let contadorProductos = 0;
+
+// Establecer fecha actual por defecto
+document.addEventListener('DOMContentLoaded', function() {
+    const today = new Date().toISOString().split('T')[0];
+    document.getElementById('fecha').value = today;
+    
+    // Asignar eventos
+    document.getElementById('btn-agregar-producto').addEventListener('click', agregarProducto);
+    
+    // Controlar visibilidad de fecha de vencimiento para crédito
+    document.getElementById('tipo_compra').addEventListener('change', function() {
+        const fechaVencimientoGroup = document.getElementById('fecha_vencimiento_group');
+        if (this.value === 'CREDITO') {
+            fechaVencimientoGroup.style.display = 'block';
+            // Establecer fecha de vencimiento por defecto (30 días)
+            const fechaCompra = document.getElementById('fecha').value;
+            if (fechaCompra) {
+                const fechaVencimiento = new Date(fechaCompra);
+                fechaVencimiento.setDate(fechaVencimiento.getDate() + 30);
+                document.getElementById('fecha_vencimiento').value = fechaVencimiento.toISOString().split('T')[0];
+            }
+            
+            // Validar que haya proveedor seleccionado
+            const proveedor = document.getElementById('id_proveedor').value;
+            if (!proveedor) {
+                mostrarAlerta('warning', '⚠️ Advertencia', 'Para compras a crédito debe seleccionar un proveedor');
+            }
+        } else {
+            fechaVencimientoGroup.style.display = 'none';
+        }
+    });
+
+    // Actualizar fecha de vencimiento cuando cambia la fecha de compra
+    document.getElementById('fecha').addEventListener('change', function() {
+        if (document.getElementById('tipo_compra').value === 'CREDITO') {
+            const fechaVencimiento = new Date(this.value);
+            fechaVencimiento.setDate(fechaVencimiento.getDate() + 30);
+            document.getElementById('fecha_vencimiento').value = fechaVencimiento.toISOString().split('T')[0];
+        }
+    });
+
+    // Validar proveedor cuando se selecciona crédito
+    document.getElementById('id_proveedor').addEventListener('change', function() {
+        if (document.getElementById('tipo_compra').value === 'CREDITO' && !this.value) {
+            mostrarAlerta('warning', '⚠️ Advertencia', 'Para compras a crédito debe seleccionar un proveedor');
+        }
+    });
+
+    // Agregar primera fila de producto
+    agregarProducto();
+});
+
+function agregarProducto() {
+    contadorProductos++;
+    const productoHTML = `
+        <tr class="producto-item" id="producto-${contadorProductos}">
+            <td>
+                <select class="form-select producto-select" data-name="producto" required onchange="actualizarInfoProducto(${contadorProductos})">
+                    <option value="" disabled selected>Seleccionar producto...</option>
+                    {% for producto in productos %}
+                    <option value="{{ producto.ID_Producto }}" 
+                            data-codigo="{{ producto.COD_Producto }}"
+                            data-existencia="{{ producto.Existencias }}"
+                            data-precio="{{ producto.Precio_Venta or producto.Costo_Unitario or 0 }}">
+                        {{ producto.Descripcion }} ({{ producto.COD_Producto }})
+                    </option>
+                    {% endfor %}
+                </select>
+                <div class="invalid-feedback">Seleccione un producto</div>
+                <small class="text-muted stock-info" id="stock-info-${contadorProductos}" style="display: none;"></small>
+            </td>
+            <td>
+                <input type="number" class="form-control cantidad" data-name="cantidad" min="0.01" step="0.01" required onchange="calcularSubtotal(${contadorProductos})">
+                <div class="invalid-feedback">Ingrese una cantidad válida</div>
+            </td>
+            <td>
+                <div class="input-group">
+                    <span class="input-group-text">C$</span>
+                    <input type="number" class="form-control costo" data-name="costo" step="0.01" min="0" required onchange="calcularSubtotal(${contadorProductos})">
+                </div>
+                <div class="invalid-feedback">Ingrese un costo válido</div>
+            </td>
+            <td>
+                <div class="input-group">
+                    <span class="input-group-text">C$</span>
+                    <input type="number" class="form-control precio" data-name="precio" step="0.01" min="0" required onchange="actualizarPrecio(${contadorProductos})">
+                </div>
+                <div class="invalid-feedback">Ingrese un precio válido</div>
+            </td>
+            <td>
+                <input type="text" class="form-control lote" data-name="lote" placeholder="Opcional">
+            </td>
+            <td>
+                <input type="date" class="form-control fecha-vencimiento" data-name="fecha_vencimiento">
+            </td>
+            <td>
+                <div class="input-group">
+                    <span class="input-group-text">C$</span>
+                    <input type="text" class="form-control subtotal" readonly>
+                </div>
+            </td>
+            <td>
+                <button type="button" class="btn btn-danger btn-sm" onclick="eliminarProducto(${contadorProductos})" title="Eliminar producto">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </td>
+        </tr>
+    `;
+    document.getElementById('productos-container').insertAdjacentHTML('beforeend', productoHTML);
+    actualizarTotales();
+    actualizarMensajeProductos();
+    
+    // Desplazarse a la nueva fila en móviles
+    if (window.innerWidth <= 768) {
+        document.getElementById(`producto-${contadorProductos}`).scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+}
+
+function eliminarProducto(id) {
+    const fila = document.getElementById(`producto-${id}`);
+    if (fila) {
+        fila.remove();
+        productos = productos.filter(p => p.id !== id);
+        actualizarTotales();
+        actualizarMensajeProductos();
+    }
+}
+
+function actualizarInfoProducto(id) {
+    const fila = document.getElementById(`producto-${id}`);
+    const select = fila.querySelector('.producto-select');
+    const stockInfo = document.getElementById(`stock-info-${id}`);
+    const precioInput = fila.querySelector('.precio');
+    const costoInput = fila.querySelector('.costo');
+    
+    if (select.value && select.selectedOptions[0].dataset) {
+        const existencia = parseInt(select.selectedOptions[0].dataset.existencia) || 0;
+        const precioSugerido = parseFloat(select.selectedOptions[0].dataset.precio) || 0;
+        
+        let stockClass = 'stock-good';
+        let stockText = 'Stock suficiente';
+        
+        if (existencia <= 5) {
+            stockClass = 'stock-low';
+            stockText = 'Stock bajo';
+        } else if (existencia <= 15) {
+            stockClass = 'stock-medium';
+            stockText = 'Stock medio';
+        }
+        
+        stockInfo.innerHTML = `<span class="${stockClass}">${stockText}: ${existencia} unidades</span>`;
+        stockInfo.style.display = 'block';
+        
+        // Auto-completar precio unitario si está vacío
+        if (precioSugerido > 0 && (!precioInput.value || precioInput.value == '0')) {
+            precioInput.value = precioSugerido.toFixed(2);
+        }
+        
+        // Si el costo está vacío, sugerir un costo basado en el precio
+        if ((!costoInput.value || costoInput.value == '0') && precioSugerido > 0) {
+            // Sugerir un costo que sea el 70% del precio (30% de margen)
+            const costoSugerido = (precioSugerido * 0.7).toFixed(2);
+            costoInput.value = costoSugerido;
+            calcularSubtotal(id);
+        }
+    } else {
+        stockInfo.style.display = 'none';
+    }
+}
+
+function actualizarPrecio(id) {
+    const fila = document.getElementById(`producto-${id}`);
+    const precioInput = fila.querySelector('.precio');
+    const precioValue = parseFloat(precioInput.value) || 0;
+    
+    // Validar que el precio no sea menor al costo
+    const costo = parseFloat(fila.querySelector('.costo').value) || 0;
+    if (precioValue > 0 && precioValue < costo) {
+        mostrarAlerta('warning', '⚠️ Advertencia', 'El precio de venta es menor al costo. Esto generará pérdidas.');
+    }
+}
+
+function calcularSubtotal(id) {
+    const fila = document.getElementById(`producto-${id}`);
+    if (!fila) return;
+    
+    const cantidad = parseFloat(fila.querySelector('.cantidad').value) || 0;
+    const costo = parseFloat(fila.querySelector('.costo').value) || 0;
+    const subtotal = cantidad * costo;
+    
+    fila.querySelector('.subtotal').value = subtotal.toFixed(2);
+    actualizarTotales();
+}
+
+function actualizarTotales() {
+    const subtotales = document.querySelectorAll('.subtotal');
+    let totalCompra = 0;
+    let totalProductos = 0;
+
+    subtotales.forEach(subtotal => {
+        const valor = parseFloat(subtotal.value) || 0;
+        if (valor > 0) {
+            totalCompra += valor;
+            totalProductos++;
+        }
+    });
+
+    document.getElementById('total-compra').textContent = `C$ ${totalCompra.toFixed(2)}`;
+    document.getElementById('subtotal').textContent = `C$ ${totalCompra.toFixed(2)}`;
+    document.getElementById('total-productos').textContent = totalProductos;
+}
+
+function actualizarMensajeProductos() {
+    const filas = document.querySelectorAll('.producto-item').length;
+    const mensaje = document.getElementById('no-products-message');
+    
+    if (filas === 0) {
+        mensaje.style.display = 'block';
+    } else {
+        mensaje.style.display = 'none';
+    }
+}
+
+function mostrarAlerta(tipo, titulo, mensaje) {
+    // Eliminar alertas existentes
+    const alertasExistentes = document.querySelectorAll('.alert-flotante');
+    alertasExistentes.forEach(alerta => alerta.remove());
+    
+    const alerta = document.createElement('div');
+    alerta.className = `alert alert-${tipo} alert-dismissible fade show alert-flotante`;
+    alerta.innerHTML = `
+        <strong>${titulo}</strong> ${mensaje}
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    `;
+    document.body.appendChild(alerta);
+    
+    // Eliminar automáticamente después de 5 segundos
+    setTimeout(() => {
+        if (alerta.parentNode) {
+            alerta.remove();
+        }
+    }, 5000);
+}
+
+// FUNCIÓN CORREGIDA - Enviar formulario con FormData
+document.getElementById('formCompra').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    if (!validarCompra()) {
+        return;
+    }
+
+    // Crear FormData nuevo en lugar de usar el del formulario
+    const formData = new FormData();
+
+    // Agregar campos principales manualmente
+    formData.append('id_tipo_movimiento', document.getElementById('id_tipo_movimiento').value);
+    formData.append('fecha', document.getElementById('fecha').value);
+    formData.append('n_factura_externa', document.getElementById('n_factura_externa').value);
+    formData.append('id_proveedor', document.getElementById('id_proveedor').value);
+    formData.append('tipo_compra', document.getElementById('tipo_compra').value);
+    formData.append('id_bodega', document.getElementById('id_bodega').value);
+    formData.append('observacion', document.getElementById('observacion').value);
+    formData.append('id_usuario_creacion', document.getElementById('id_usuario_creacion').value);
+    
+    // Agregar fecha de vencimiento si existe y es crédito
+    if (document.getElementById('tipo_compra').value === 'CREDITO') {
+        const fechaVencimiento = document.getElementById('fecha_vencimiento');
+        if (fechaVencimiento && fechaVencimiento.value) {
+            formData.append('fecha_vencimiento', fechaVencimiento.value);
+        }
+    }
+
+    // Recolectar productos de la tabla
+    const productoElements = document.querySelectorAll('.producto-item');
+    let productosValidos = 0;
+    
+    productoElements.forEach((item) => {
+        const select = item.querySelector('.producto-select');
+        const cantidad = item.querySelector('.cantidad');
+        const costo = item.querySelector('.costo');
+        const precio = item.querySelector('.precio');
+        const lote = item.querySelector('.lote');
+        const fechaVencimiento = item.querySelector('.fecha-vencimiento');
+        
+        // Solo agregar productos válidos
+        if (select.value && cantidad.value && costo.value && precio.value) {
+            formData.append('productos[]', select.value);
+            formData.append('cantidades[]', parseFloat(cantidad.value).toFixed(2));
+            formData.append('costos_unitarios[]', parseFloat(costo.value).toFixed(2));
+            formData.append('precios_unitarios[]', parseFloat(precio.value).toFixed(2));
+            formData.append('lotes[]', lote?.value || '');
+            formData.append('fechas_vencimiento[]', fechaVencimiento?.value || '');
+            
+            productosValidos++;
+        }
+    });
+
+    // Validaciones adicionales
+    const tipoCompra = document.getElementById('tipo_compra').value;
+    const idProveedor = document.getElementById('id_proveedor').value;
+    
+    if (tipoCompra === 'CREDITO' && !idProveedor) {
+        mostrarAlerta('danger', '❌ Error!', 'Para compras a crédito debe seleccionar un proveedor');
+        document.getElementById('id_proveedor').focus();
+        return;
+    }
+
+    if (productosValidos === 0) {
+        mostrarAlerta('danger', '❌ Error!', 'Debe agregar al menos un producto válido');
+        return;
+    }
+
+    // Debug: mostrar datos que se enviarán
+    console.log('Enviando datos:');
+    for (let [key, value] of formData.entries()) {
+        console.log(key, value);
+    }
+
+    // Mostrar loading
+    const submitBtn = this.querySelector('button[type="submit"]');
+    const originalText = submitBtn.innerHTML;
+    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> Guardando...';
+    submitBtn.disabled = true;
+    this.classList.add('loading');
+
+    // Enviar datos
+    fetch("{{ url_for('admin_crear_compra') }}", {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => {
+        if (response.redirected) {
+            window.location.href = response.url;
+            return;
+        }
+        return response.text().then(text => {
+            try {
+                return JSON.parse(text);
+            } catch {
+                throw new Error('Error en el servidor');
+            }
+        });
+    })
+    .then(resultado => {
+        if (resultado && resultado.success) {
+            mostrarAlerta('success', '✅ Éxito!', 'Compra creada exitosamente');
+            setTimeout(() => {
+                window.location.href = "{{ url_for('admin_compras_entradas') }}";
+            }, 1500);
+        } else {
+            throw new Error(resultado?.message || 'Error al crear compra');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        mostrarAlerta('danger', '❌ Error!', error.message || 'Error al crear compra. Verifique la consola para más detalles.');
+    })
+    .finally(() => {
+        submitBtn.innerHTML = originalText;
+        submitBtn.disabled = false;
+        this.classList.remove('loading');
+    });
+});
+
+function validarCompra() {
+    let valido = true;
+    
+    // Validar campos principales
+    const camposPrincipales = document.querySelectorAll('#formCompra [required]');
+    camposPrincipales.forEach(campo => {
+        if (!campo.value) {
+            campo.classList.add("is-invalid");
+            valido = false;
+        } else {
+            campo.classList.remove("is-invalid");
+        }
+    });
+
+    // Validar productos
+    const filas = document.querySelectorAll(".producto-item");
+    if (filas.length === 0) {
+        mostrarAlerta('danger', '❌ Error!', 'Debe agregar al menos un producto a la compra.');
+        return false;
+    }
+    
+    // Validar cada fila de producto
+    let hayProductosValidos = false;
+    filas.forEach(fila => {
+        const select = fila.querySelector("select");
+        const cantidad = fila.querySelector(".cantidad");
+        const costo = fila.querySelector(".costo");
+        const precio = fila.querySelector(".precio");
+        
+        if (select.value && cantidad.value && costo.value && precio.value) {
+            hayProductosValidos = true;
+            select.classList.remove("is-invalid");
+            cantidad.classList.remove("is-invalid");
+            costo.classList.remove("is-invalid");
+            precio.classList.remove("is-invalid");
+        } else {
+            valido = false;
+            if (!select.value) select.classList.add("is-invalid");
+            if (!cantidad.value) cantidad.classList.add("is-invalid");
+            if (!costo.value) costo.classList.add("is-invalid");
+            if (!precio.value) precio.classList.add("is-invalid");
+        }
+    });
+    
+    if (!hayProductosValidos) {
+        mostrarAlerta('danger', '❌ Error!', 'Debe completar todos los campos requeridos en los productos.');
+        valido = false;
+    }
+    
+    if (!valido) {
+        // Desplazarse al primer error
+        const primerError = document.querySelector(".is-invalid");
+        if (primerError) {
+            primerError.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+        
+        mostrarAlerta('danger', '❌ Error!', 'Por favor complete todos los campos requeridos.');
+    }
+    
+    return valido;
+}
+</script>
+{% endblock %}

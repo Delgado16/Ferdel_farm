@@ -1,0 +1,232 @@
+{% extends "layout.html" %}
+
+{% block title %}Editar Producto{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1><i class="fas fa-edit me-2"></i>Editar Producto</h1>
+        <a href="{{ url_for('admin_productos') }}" class="btn btn-secondary">
+            <i class="fas fa-arrow-left me-2"></i>Volver a Productos
+        </a>
+    </div>
+
+    <!-- Mensajes Flash -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="alert alert-{{ 'danger' if category == 'error' else category }} alert-dismissible fade show" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    <!-- Formulario de Edición -->
+    <div class="card">
+        <div class="card-header">
+            <h5 class="card-title mb-0"><i class="fas fa-box me-2"></i>Información del Producto</h5>
+        </div>
+        <div class="card-body">
+            <!-- Información de Existencias -->
+            <div class="alert alert-info mb-4">
+                <div class="row">
+                    <div class="col-md-6">
+                        <strong><i class="fas fa-warehouse me-2"></i>Existencias Globales:</strong>
+                        <span class="badge bg-primary fs-6 ms-2">
+                            {{ "%.2f"|format(producto['Existencias']) }} {{ producto['Abreviatura'] }}
+                        </span>
+                    </div>
+                    <div class="col-md-6">
+                        <strong><i class="fas fa-boxes me-2"></i>Stock Mínimo:</strong>
+                        <span class="badge bg-warning fs-6 ms-2">
+                            {{ "%.2f"|format(producto['Stock_Minimo']) }} {{ producto['Abreviatura'] }}
+                        </span>
+                    </div>
+                </div>
+            </div>
+
+            <form method="POST" action="{{ url_for('admin_editar_producto', id_producto=producto['ID_Producto']) }}">
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">ID Producto</label>
+                        <input type="text" class="form-control" value="{{ producto['ID_Producto'] }}" readonly disabled>
+                        <div class="form-text">Identificador único del producto (no editable)</div>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">Código Producto</label>
+                        <input type="text" class="form-control" name="COD_Producto" 
+                               value="{{ producto['COD_Producto'] or '' }}" placeholder="Ej: PROD-001">
+                        <div class="form-text">Código único identificador del producto (opcional)</div>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-md-12 mb-3">
+                        <label class="form-label">Descripción *</label>
+                        <input type="text" class="form-control" name="Descripcion" 
+                               value="{{ producto['Descripcion'] }}" placeholder="Descripción del producto" required>
+                        <div class="form-text">Nombre o descripción completa del producto</div>
+                    </div>
+                </div>
+                
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">Unidad de Medida *</label>
+                        <select class="form-select" name="Unidad_Medida" required>
+                            <option value="">Seleccionar unidad</option>
+                            {% for unidad in unidades %}
+                            <option value="{{ unidad['ID_Unidad'] }}" 
+                                    {% if producto['Unidad_Medida'] == unidad['ID_Unidad'] %}selected{% endif %}>
+                                {{ unidad['Descripcion'] }} 
+                                {% if unidad['Abreviatura'] %}({{ unidad['Abreviatura'] }}){% endif %}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">Categoría *</label>
+                        <select class="form-select" name="ID_Categoria" required>
+                            <option value="">Seleccionar categoría</option>
+                            {% for categoria in categorias %}
+                            <option value="{{ categoria['ID_Categoria'] }}" 
+                                    {% if producto['ID_Categoria'] == categoria['ID_Categoria'] %}selected{% endif %}>
+                                {{ categoria['Descripcion'] }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="row">
+                    <div class="col-md-4 mb-3">
+                        <label class="form-label">Precio Venta *</label>
+                        <input type="number" class="form-control" name="Precio_Venta" 
+                               value="{{ producto['Precio_Venta'] or 0 }}" step="0.01" min="0" required>
+                        <div class="form-text">Precio de venta unitario</div>
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <label class="form-label">Stock Mínimo</label>
+                        <input type="number" class="form-control" name="Stock_Minimo" 
+                               value="{{ producto['Stock_Minimo'] or 5 }}" step="0.01" min="0">
+                        <div class="form-text">Nivel mínimo de inventario</div>
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <label class="form-label">Estado</label>
+                        <select class="form-select" name="Estado">
+                            <option value="1" {% if producto['Estado'] == 1 %}selected{% endif %}>Activo</option>
+                            <option value="0" {% if producto['Estado'] == 0 %}selected{% endif %}>Inactivo</option>
+                        </select>
+                        <div class="form-text">Estado del producto en el sistema</div>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">Empresa *</label>
+                        <select class="form-select" name="ID_Empresa" required>
+                            <option value="">Seleccionar empresa</option>
+                            {% for empresa in empresas %}
+                            <option value="{{ empresa['ID_Empresa'] }}" 
+                                    {% if producto['ID_Empresa'] == empresa['ID_Empresa'] %}selected{% endif %}>
+                                {{ empresa['Nombre_Empresa'] }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">Existencias Totales</label>
+                        <input type="text" class="form-control" value="{{ "%.2f"|format(producto['Existencias']) }}" readonly disabled>
+                        <div class="form-text">Existencias totales en todas las bodegas (solo lectura)</div>
+                    </div>
+                </div>
+
+                <!-- Información de Inventario por Bodega -->
+                {% if inventario_bodegas %}
+                <div class="row mt-4">
+                    <div class="col-12">
+                        <h6 class="mb-3"><i class="fas fa-warehouse me-2"></i>Inventario por Bodega</h6>
+                        <div class="table-responsive">
+                            <table class="table table-sm table-bordered">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Bodega</th>
+                                        <th>Empresa</th>
+                                        <th>Existencias</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for inventario in inventario_bodegas %}
+                                    <tr>
+                                        <td>{{ inventario['Nombre_Bodega'] }}</td>
+                                        <td>{{ inventario['Nombre_Empresa'] }}</td>
+                                        <td class="{% if inventario['Existencias'] <= producto['Stock_Minimo'] %}table-warning{% endif %}">
+                                            {{ "%.2f"|format(inventario['Existencias']) }}
+                                            {% if inventario['Existencias'] <= producto['Stock_Minimo'] %}
+                                            <i class="fas fa-exclamation-triangle text-warning ms-1" title="Stock por debajo del mínimo"></i>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                        <div class="form-text">Para modificar existencias, use el módulo de movimientos de inventario</div>
+                    </div>
+                </div>
+                {% else %}
+                <div class="row mt-4">
+                    <div class="col-12">
+                        <div class="alert alert-warning">
+                            <i class="fas fa-exclamation-triangle me-2"></i>
+                            Este producto no tiene existencias registradas en ninguna bodega.
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+
+                <!-- Información de Auditoría -->
+                <div class="row mt-4">
+                    <div class="col-12">
+                        <hr>
+                        <h6 class="mb-3"><i class="fas fa-history me-2"></i>Información de Auditoría</h6>
+                        <div class="row">
+                            <div class="col-md-4">
+                                <small class="text-muted">Creado por:</small>
+                                <p class="mb-1">{{ producto['Usuario_Creador_Nombre'] or 'Sistema' }}</p>
+                            </div>
+                            <div class="col-md-4">
+                                <small class="text-muted">Fecha creación:</small>
+                                <p class="mb-1">
+                                    {% if producto['Fecha_Creacion'] %}
+                                        {{ producto['Fecha_Creacion'].strftime('%d/%m/%Y %H:%M') }}
+                                    {% else %}
+                                        N/A
+                                    {% endif %}
+                                </p>
+                            </div>
+                            <div class="col-md-4">
+                                <small class="text-muted">Última actualización:</small>
+                                <p class="mb-1">{{ fecha_actual }}</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row mt-4">
+                    <div class="col-12">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-save me-2"></i>Guardar Cambios
+                        </button>
+                        <a href="{{ url_for('admin_productos') }}" class="btn btn-secondary">
+                            <i class="fas fa-times me-2"></i>Cancelar
+                        </a>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,668 @@
+{% extends "layout.html" %}
+
+{% block title %}Detalles de Compra #{{ movimiento.ID_Movimiento }}{% endblock %}
+
+{% block content %}
+<style>
+    :root {
+        --primary-color: #3498db;
+        --secondary-color: #2c3e50;
+        --success-color: #27ae60;
+        --warning-color: #f39c12;
+        --danger-color: #e74c3c;
+        --info-color: #17a2b8;
+        --light-color: #f8f9fa;
+        --dark-color: #343a40;
+        --border-radius: 8px;
+        --box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        --transition: all 0.3s ease;
+    }
+    
+    .card {
+        border: none;
+        border-radius: var(--border-radius);
+        box-shadow: var(--box-shadow);
+        transition: var(--transition);
+        overflow: hidden;
+    }
+    
+    .card:hover {
+        box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+        transform: translateY(-2px);
+    }
+    
+    .card-header {
+        border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+        padding: 1rem 1.5rem;
+        font-weight: 600;
+    }
+    
+    .card-header h5 {
+        font-weight: 600;
+        letter-spacing: 0.5px;
+        margin: 0;
+        display: flex;
+        align-items: center;
+    }
+    
+    .card-header h5 i {
+        margin-right: 0.5rem;
+    }
+    
+    .font-weight-semibold {
+        font-weight: 600;
+    }
+    
+    .text-label {
+        color: #6c757d;
+        font-weight: 600;
+        min-width: 140px;
+    }
+    
+    .text-value {
+        color: #343a40;
+        font-weight: 500;
+    }
+    
+    .table-details {
+        width: 100%;
+    }
+    
+    .table-details td {
+        padding: 10px 12px;
+        vertical-align: top;
+        border-bottom: 1px solid #f0f0f0;
+    }
+    
+    .table-details tr:last-child td {
+        border-bottom: none;
+    }
+    
+    .card-title {
+        font-weight: 600;
+        color: var(--secondary-color);
+    }
+    
+    .status-badge {
+        font-size: 0.85rem;
+        padding: 6px 12px;
+        border-radius: 20px;
+    }
+    
+    .amount-highlight {
+        font-size: 1.25rem;
+        font-weight: 700;
+    }
+    
+    .bg-gradient-primary {
+        background: linear-gradient(135deg, var(--primary-color), #2980b9) !important;
+    }
+    
+    .bg-gradient-info {
+        background: linear-gradient(135deg, var(--info-color), #138496) !important;
+    }
+    
+    .bg-gradient-success {
+        background: linear-gradient(135deg, var(--success-color), #219653) !important;
+    }
+    
+    .bg-gradient-warning {
+        background: linear-gradient(135deg, var(--warning-color), #e67e22) !important;
+    }
+    
+    .bg-gradient-danger {
+        background: linear-gradient(135deg, var(--danger-color), #c0392b) !important;
+    }
+    
+    .bg-gradient-dark {
+        background: linear-gradient(135deg, var(--secondary-color), #1a252f) !important;
+    }
+    
+    .btn {
+        border-radius: var(--border-radius);
+        font-weight: 600;
+        transition: var(--transition);
+        padding: 0.5rem 1rem;
+    }
+    
+    .btn-group .btn {
+        margin-left: 0.5rem;
+    }
+    
+    .alert {
+        border-radius: var(--border-radius);
+        border: none;
+        box-shadow: var(--box-shadow);
+    }
+    
+    .table {
+        border-collapse: separate;
+        border-spacing: 0;
+    }
+    
+    .table th {
+        border-top: none;
+        font-weight: 600;
+        text-transform: uppercase;
+        font-size: 0.85rem;
+        letter-spacing: 0.5px;
+        padding: 1rem 0.75rem;
+    }
+    
+    .table td {
+        padding: 1rem 0.75rem;
+        vertical-align: middle;
+    }
+    
+    .table tbody tr {
+        transition: var(--transition);
+    }
+    
+    .table tbody tr:hover {
+        background-color: rgba(0, 0, 0, 0.02);
+    }
+    
+    .badge-pill {
+        border-radius: 50px;
+    }
+    
+    .info-box {
+        display: flex;
+        align-items: center;
+        padding: 1rem;
+        border-radius: var(--border-radius);
+        background-color: white;
+        box-shadow: var(--box-shadow);
+        margin-bottom: 1rem;
+    }
+    
+    .info-box-icon {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 60px;
+        height: 60px;
+        border-radius: var(--border-radius);
+        margin-right: 1rem;
+        font-size: 1.5rem;
+    }
+    
+    .info-box-content {
+        flex: 1;
+    }
+    
+    .info-box-text {
+        font-size: 0.9rem;
+        color: #6c757d;
+        margin-bottom: 0.25rem;
+    }
+    
+    .info-box-number {
+        font-size: 1.5rem;
+        font-weight: 700;
+    }
+    
+    .divider {
+        height: 1px;
+        background: linear-gradient(to right, transparent, #dee2e6, transparent);
+        margin: 1.5rem 0;
+    }
+    
+    @media print {
+        .btn, .alert {
+            display: none !important;
+        }
+        
+        .card {
+            box-shadow: none !important;
+            border: 1px solid #dee2e6 !important;
+        }
+    }
+</style>
+
+<div class="container-fluid">
+    <!-- Header -->
+    <div class="d-sm-flex align-items-center justify-content-between mb-4">
+        <div>
+            <h1 class="h3 mb-1 text-gray-800 font-weight-bold">
+                <i class="fas fa-file-invoice-dollar text-primary mr-2"></i>
+                Detalles de Compra
+            </h1>
+            <p class="text-muted mb-0 font-weight-normal">N° Movimiento: #{{ movimiento.ID_Movimiento }}</p>
+        </div>
+        <div class="d-flex">
+            <a href="{{ url_for('admin_compras_entradas') }}" class="btn btn-secondary font-weight-semibold">
+                <i class="fas fa-arrow-left mr-2"></i>Volver a Compras
+            </a>
+            <button onclick="window.print()" class="btn btn-outline-primary font-weight-semibold ml-2">
+                <i class="fas fa-print mr-2"></i>Imprimir
+            </button>
+            {% if movimiento.Estado == 1 %}
+            <a href="{{ url_for('admin_editar_compra', id_movimiento=movimiento.ID_Movimiento) }}" 
+               class="btn btn-warning font-weight-semibold ml-2">
+                <i class="fas fa-edit mr-2"></i>Editar
+            </a>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Estado y Alertas -->
+    <div class="row mb-4">
+        <div class="col-12">
+            {% if movimiento.Estado == 0 %}
+            <div class="alert alert-danger d-flex align-items-center">
+                <div class="alert-icon mr-3">
+                    <i class="fas fa-ban fa-2x"></i>
+                </div>
+                <div>
+                    <h4 class="alert-heading mb-1 font-weight-bold">COMPRA ANULADA</h4>
+                    <p class="mb-0 font-weight-normal">Esta compra ha sido anulada y no está activa en el sistema.</p>
+                </div>
+            </div>
+            {% else %}
+            <div class="alert alert-success d-flex align-items-center">
+                <div class="alert-icon mr-3">
+                    <i class="fas fa-check-circle fa-2x"></i>
+                </div>
+                <div>
+                    <h4 class="alert-heading mb-1 font-weight-bold">COMPRA ACTIVA</h4>
+                    <p class="mb-0 font-weight-normal">Esta compra está activa y registrada en el sistema.</p>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Resumen Rápido -->
+    <div class="row mb-4">
+        <div class="col-xl-3 col-md-6">
+            <div class="info-box">
+                <div class="info-box-icon bg-gradient-primary text-white">
+                    <i class="fas fa-boxes"></i>
+                </div>
+                <div class="info-box-content">
+                    <span class="info-box-text">Total Productos</span>
+                    <span class="info-box-number text-primary">{{ movimiento.Total_Productos or 0 }}</span>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-md-6">
+            <div class="info-box">
+                <div class="info-box-icon bg-gradient-info text-white">
+                    <i class="fas fa-balance-scale"></i>
+                </div>
+                <div class="info-box-content">
+                    <span class="info-box-text">Total Cantidad</span>
+                    <span class="info-box-number text-info">{{ total_cantidad|round(2) }}</span>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-md-6">
+            <div class="info-box">
+                <div class="info-box-icon bg-gradient-success text-white">
+                    <i class="fas fa-money-bill-wave"></i>
+                </div>
+                <div class="info-box-content">
+                    <span class="info-box-text">Total Compra</span>
+                    <span class="info-box-number text-success">C${{ "{:,.2f}".format(movimiento.Total_Compra or 0) }}</span>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-md-6">
+            <div class="info-box">
+                <div class="info-box-icon bg-gradient-warning text-white">
+                    <i class="fas fa-calendar-day"></i>
+                </div>
+                <div class="info-box-content">
+                    <span class="info-box-text">Fecha Compra</span>
+                    <span class="info-box-number text-warning">{{ movimiento.Fecha.strftime('%d/%m/%Y') if movimiento.Fecha else 'N/A' }}</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Información Principal -->
+        <div class="col-lg-8">
+            <!-- Información de la Compra -->
+            <div class="card shadow mb-4">
+                <div class="card-header bg-gradient-primary text-white py-3">
+                    <h5 class="mb-0 font-weight-bold">
+                        <i class="fas fa-info-circle mr-2"></i>
+                        Información de la Compra
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <table class="table-details w-100">
+                                <tr>
+                                    <td class="text-label">N° Movimiento:</td>
+                                    <td class="text-value font-weight-bold text-primary">#{{ movimiento.ID_Movimiento }}</td>
+                                </tr>
+                                <tr>
+                                    <td class="text-label">Factura Externa:</td>
+                                    <td class="text-value">
+                                        {% if movimiento.N_Factura_Externa %}
+                                        <span class="badge badge-light border font-weight-normal status-badge">
+                                            {{ movimiento.N_Factura_Externa }}
+                                        </span>
+                                        {% else %}
+                                        <span class="text-muted">N/A</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td class="text-label">Fecha Compra:</td>
+                                    <td class="text-value">{{ movimiento.Fecha.strftime('%d/%m/%Y') if movimiento.Fecha else 'N/A' }}</td>
+                                </tr>
+                            </table>
+                        </div>
+                        <div class="col-md-6">
+                            <table class="table-details w-100">
+                                <tr>
+                                    <td class="text-label">Tipo Compra:</td>
+                                    <td class="text-value">
+                                        <span class="badge {{ 'badge-success' if movimiento.Tipo_Compra == 'CONTADO' else 'badge-warning' }} status-badge">
+                                            <i class="fas fa-{{ 'money-bill-wave' if movimiento.Tipo_Compra == 'CONTADO' else 'credit-card' }} mr-1"></i>
+                                            {{ movimiento.Tipo_Compra or 'CONTADO' }}
+                                        </span>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td class="text-label">Bodega:</td>
+                                    <td class="text-value">
+                                        <span class="badge badge-secondary status-badge">{{ movimiento.Bodega or 'N/A' }}</span>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td class="text-label">Total Productos:</td>
+                                    <td class="text-value font-weight-bold text-info">{{ movimiento.Total_Productos or 0 }}</td>
+                                </tr>
+                                <tr>
+                                    <td class="text-label">Total Compra:</td>
+                                    <td class="text-value font-weight-bold text-success amount-highlight">C${{ "{:,.2f}".format(movimiento.Total_Compra or 0) }}</td>
+                                </tr>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Información del Proveedor -->
+            {% if movimiento.Proveedor %}
+            <div class="card shadow mb-4">
+                <div class="card-header bg-gradient-info text-white py-3">
+                    <h5 class="mb-0 font-weight-bold">
+                        <i class="fas fa-truck mr-2"></i>
+                        Información del Proveedor
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <table class="table-details w-100">
+                                <tr>
+                                    <td class="text-label">Proveedor:</td>
+                                    <td class="text-value font-weight-bold text-primary">{{ movimiento.Proveedor }}</td>
+                                </tr>
+                                <tr>
+                                    <td class="text-label">RUC/Cédula:</td>
+                                    <td class="text-value">{{ movimiento.RUC_Proveedor or 'N/A' }}</td>
+                                </tr>
+                            </table>
+                        </div>
+                        <div class="col-md-6">
+                            <table class="table-details w-100">
+                                <tr>
+                                    <td class="text-label">Teléfono:</td>
+                                    <td class="text-value">{{ movimiento.Telefono_Proveedor or 'N/A' }}</td>
+                                </tr>
+                                <tr>
+                                    <td class="text-label">Dirección:</td>
+                                    <td class="text-value">{{ movimiento.Direccion_Proveedor or 'N/A' }}</td>
+                                </tr>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Cuenta por Pagar (si es crédito) -->
+            {% if cuenta_por_pagar and movimiento.Tipo_Compra == 'CREDITO' %}
+            <div class="card shadow mb-4 border-warning">
+                <div class="card-header bg-gradient-warning text-white py-3">
+                    <h5 class="mb-0 font-weight-bold">
+                        <i class="fas fa-clock mr-2"></i>
+                        Cuenta por Pagar
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <table class="table-details w-100">
+                                <tr>
+                                    <td class="text-label">Fecha Vencimiento:</td>
+                                    <td class="text-value font-weight-bold">
+                                        {{ cuenta_por_pagar.Fecha_Vencimiento.strftime('%d/%m/%Y') if cuenta_por_pagar.Fecha_Vencimiento else 'N/A' }}
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td class="text-label">Monto Movimiento:</td>
+                                    <td class="text-value font-weight-bold text-warning">
+                                        C${{ "{:,.2f}".format(cuenta_por_pagar.Monto_Movimiento or 0) }}
+                                    </td>
+                                </tr>
+                            </table>
+                        </div>
+                        <div class="col-md-6">
+                            <table class="table-details w-100">
+                                <tr>
+                                    <td class="text-label">Saldo Pendiente:</td>
+                                    <td class="text-value font-weight-bold text-danger amount-highlight">
+                                        C${{ "{:,.2f}".format(cuenta_por_pagar.Saldo_Pendiente or 0) }}
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td class="text-label">Estado:</td>
+                                    <td class="text-value">
+                                        <span class="badge {{ 'badge-success' if cuenta_por_pagar.Estado == 1 else 'badge-secondary' }} status-badge">
+                                            {{ 'Activa' if cuenta_por_pagar.Estado == 1 else 'Inactiva' }}
+                                        </span>
+                                    </td>
+                                </tr>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Información Secundaria -->
+        <div class="col-lg-4">
+            <!-- Información de Auditoría -->
+            <div class="card shadow mb-4">
+                <div class="card-header bg-gradient-dark text-white py-3">
+                    <h5 class="mb-0 font-weight-bold">
+                        <i class="fas fa-history mr-2"></i>
+                        Información de Auditoría
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <table class="table-details w-100">
+                        <tr>
+                            <td class="text-label">Creado por:</td>
+                            <td class="text-value">{{ movimiento.Usuario_Creacion or 'N/A' }}</td>
+                        </tr>
+                        <tr>
+                            <td class="text-label">Fecha Creación:</td>
+                            <td class="text-value">
+                                {% if movimiento.Fecha_Creacion %}
+                                {{ movimiento.Fecha_Creacion.strftime('%d/%m/%Y %H:%M') }}
+                                {% else %}
+                                N/A
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% if movimiento.Usuario_Modificacion %}
+                        <tr>
+                            <td class="text-label">Modificado por:</td>
+                            <td class="text-value">{{ movimiento.Usuario_Modificacion }}</td>
+                        </tr>
+                        <tr>
+                            <td class="text-label">Fecha Modificación:</td>
+                            <td class="text-value">
+                                {% if movimiento.Fecha_Modificacion %}
+                                {{ movimiento.Fecha_Modificacion.strftime('%d/%m/%Y %H:%M') }}
+                                {% else %}
+                                N/A
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endif %}
+                    </table>
+                </div>
+            </div>
+
+            <!-- Resumen de Totales -->
+            <div class="card shadow mb-4 border-success">
+                <div class="card-header bg-gradient-success text-white py-3">
+                    <h5 class="mb-0 font-weight-bold">
+                        <i class="fas fa-chart-bar mr-2"></i>
+                        Resumen de Totales
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <table class="table-details w-100">
+                        <tr>
+                            <td class="text-label">Total Productos:</td>
+                            <td class="text-value font-weight-bold text-right text-primary">{{ movimiento.Total_Productos or 0 }}</td>
+                        </tr>
+                        <tr>
+                            <td class="text-label">Total Cantidad:</td>
+                            <td class="text-value font-weight-bold text-right text-info">{{ total_cantidad|round(2) }}</td>
+                        </tr>
+                        <tr class="border-top">
+                            <td class="text-label font-weight-bold">Total Compra:</td>
+                            <td class="text-value font-weight-bold text-right text-success amount-highlight">
+                                C${{ "{:,.2f}".format(movimiento.Total_Compra or 0) }}
+                            </td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Observaciones -->
+            {% if movimiento.Observacion %}
+            <div class="card shadow mb-4">
+                <div class="card-header bg-secondary text-white py-3">
+                    <h5 class="mb-0 font-weight-bold">
+                        <i class="fas fa-sticky-note mr-2"></i>
+                        Observaciones
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <p class="mb-0 font-weight-normal">{{ movimiento.Observacion }}</p>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Detalles de Productos -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card shadow">
+                <div class="card-header bg-gradient-info text-white py-3">
+                    <h5 class="mb-0 font-weight-bold">
+                        <i class="fas fa-boxes mr-2"></i>
+                        Productos de la Compra
+                        <span class="badge badge-light ml-2 status-badge">{{ detalles|length }} productos</span>
+                    </h5>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0">
+                            <thead class="bg-light">
+                                <tr>
+                                    <th class="border-0 font-weight-semibold">#</th>
+                                    <th class="border-0 font-weight-semibold">Código</th>
+                                    <th class="border-0 font-weight-semibold">Producto</th>
+                                    <th class="border-0 text-center font-weight-semibold">Cantidad</th>
+                                    <th class="border-0 text-center font-weight-semibold">Unidad</th>
+                                    <th class="border-0 text-right font-weight-semibold">Costo Unitario</th>
+                                    <th class="border-0 text-right font-weight-semibold">Subtotal</th>
+                                    <th class="border-0 font-weight-semibold">Lote</th>
+                                    <th class="border-0 font-weight-semibold">Vencimiento</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for detalle in detalles %}
+                                <tr>
+                                    <td class="font-weight-semibold">{{ loop.index }}</td>
+                                    <td class="font-weight-semibold text-primary">{{ detalle.COD_Producto or 'N/A' }}</td>
+                                    <td>
+                                        <div class="font-weight-semibold">{{ detalle.Producto_Desc or 'N/A' }}</div>
+                                        <small class="text-muted">Existencia: {{ detalle.Existencias_Actuales or 0 }}</small>
+                                    </td>
+                                    <td class="text-center">
+                                        <span class="badge badge-info badge-pill p-2 font-weight-semibold">
+                                            {{ "%.4f"|format(detalle.Cantidad) if detalle.Cantidad else '0.0000' }}
+                                        </span>
+                                    </td>
+                                    <td class="text-center text-muted font-weight-normal">
+                                        {{ detalle.Unidad_Medida or 'N/A' }}
+                                    </td>
+                                    <td class="text-right font-weight-semibold">
+                                        C${{ "%.4f"|format(detalle.Costo_Unitario or 0) }}
+                                    </td>
+                                    <td class="text-right font-weight-semibold text-success">
+                                        C${{ "%.4f"|format(detalle.Subtotal or 0) }}
+                                    </td>
+                                    <td>
+                                        {% if detalle.Lote %}
+                                        <span class="badge badge-secondary font-weight-normal">{{ detalle.Lote }}</span>
+                                        {% else %}
+                                        <span class="text-muted">N/A</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if detalle.Fecha_Vencimiento %}
+                                            <span class="badge badge-light border font-weight-normal">
+                                                {{ detalle.Fecha_Vencimiento.strftime('%d/%m/%Y') }}
+                                            </span>
+                                        {% else %}
+                                            <span class="text-muted">N/A</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% else %}
+                                <tr>
+                                    <td colspan="9" class="text-center text-muted py-4">
+                                        <i class="fas fa-inbox fa-2x mb-2"></i>
+                                        <br>
+                                        <span class="font-weight-semibold">No se encontraron productos en esta compra</span>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                            <tfoot class="bg-light font-weight-semibold">
+                                <tr>
+                                    <td colspan="3" class="text-right">TOTALES:</td>
+                                    <td class="text-center text-primary">{{ "%.4f"|format(total_cantidad) }}</td>
+                                    <td></td>
+                                    <td></td>
+                                    <td class="text-right text-success">C${{ "{:,.4f}".format(movimiento.Total_Compra or 0) }}</td>
+                                    <td colspan="2"></td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

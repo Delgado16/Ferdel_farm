@@ -1,0 +1,513 @@
+{% extends "layout.html" %}
+
+{% block title %}Dashboard - Jefe de Control Galera{% endblock %}
+
+{% block page_title %}Dashboard de Producción Avícola{% endblock %}
+
+{% block content %}
+<!-- Filtros Rápidos -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-3">
+                        <label class="form-label">Galera</label>
+                        <select class="form-select" id="filter-galera">
+                            <option value="">Todas las Galeras</option>
+                            {% for galera in galeras %}
+                            <option value="{{ galera.ID_Galera }}">{{ galera.Nombre }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Lote</label>
+                        <select class="form-select" id="filter-lote">
+                            <option value="">Todos los Lotes</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Fecha Inicio</label>
+                        <input type="date" class="form-control" id="filter-fecha-inicio" value="{{ fecha_inicio }}">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Fecha Fin</label>
+                        <input type="date" class="form-control" id="filter-fecha-fin" value="{{ fecha_fin }}">
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- KPIs Principales -->
+<div class="row">
+    <div class="col-xl-3 col-md-6 mb-4">
+        <div class="card stat-card border-start-primary">
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-8">
+                        <div class="stat-number text-primary" id="tasa-postura-hoy">--%</div>
+                        <div class="stat-label">Tasa de Postura Hoy</div>
+                    </div>
+                    <div class="col-4 text-end">
+                        <i class="fas fa-egg fa-3x text-primary opacity-25"></i>
+                    </div>
+                </div>
+                <div class="mt-2">
+                    <span class="badge bg-success badge-indicator" id="tasa-postura-trend">
+                        <i class="fas fa-arrow-up"></i> 2.1%
+                    </span>
+                    <small class="text-muted">vs ayer</small>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-xl-3 col-md-6 mb-4">
+        <div class="card stat-card border-start-success">
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-8">
+                        <div class="stat-number text-success" id="huevos-hoy">--</div>
+                        <div class="stat-label">Huevos Producidos Hoy</div>
+                    </div>
+                    <div class="col-4 text-end">
+                        <i class="fas fa-clipboard-check fa-3x text-success opacity-25"></i>
+                    </div>
+                </div>
+                <div class="mt-2">
+                    <span class="badge bg-success badge-indicator" id="huevos-trend">
+                        <i class="fas fa-arrow-up"></i> 45
+                    </span>
+                    <small class="text-muted">vs ayer</small>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-xl-3 col-md-6 mb-4">
+        <div class="card stat-card border-start-warning">
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-8">
+                        <div class="stat-number text-warning" id="mortalidad-acumulada">--%</div>
+                        <div class="stat-label">Mortalidad Acumulada</div>
+                    </div>
+                    <div class="col-4 text-end">
+                        <i class="fas fa-heartbeat fa-3x text-warning opacity-25"></i>
+                    </div>
+                </div>
+                <div class="mt-2">
+                    <span class="badge bg-danger badge-indicator" id="mortalidad-trend">
+                        <i class="fas fa-arrow-up"></i> 0.2%
+                    </span>
+                    <small class="text-muted">última semana</small>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-xl-3 col-md-6 mb-4">
+        <div class="card stat-card border-start-info">
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-8">
+                        <div class="stat-number text-info" id="conversion-alimenticia">--</div>
+                        <div class="stat-label">Conversión Alimenticia</div>
+                    </div>
+                    <div class="col-4 text-end">
+                        <i class="fas fa-weight fa-3x text-info opacity-25"></i>
+                    </div>
+                </div>
+                <div class="mt-2">
+                    <span class="badge bg-success badge-indicator" id="conversion-trend">
+                        <i class="fas fa-arrow-down"></i> 0.1
+                    </span>
+                    <small class="text-muted">mejorando</small>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Gráficos y Métricas -->
+<div class="row">
+    <!-- Producción Semanal -->
+    <div class="col-xl-8 col-lg-7 mb-4">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-chart-line me-2"></i>
+                    Producción Semanal de Huevos
+                </h5>
+                <div class="btn-group btn-group-sm">
+                    <button class="btn btn-outline-secondary active" data-period="week">Semana</button>
+                    <button class="btn btn-outline-secondary" data-period="month">Mes</button>
+                </div>
+            </div>
+            <div class="card-body">
+                <canvas id="produccionChart" height="250"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Resumen de Lotes Activos -->
+    <div class="col-xl-4 col-lg-5 mb-4">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="bi bi-house-check me-2"></i>
+                    Lotes Activos
+                </h5>
+            </div>
+            <div class="card-body p-0">
+                <div class="list-group list-group-flush" id="lotes-activos-list">
+                    <!-- Se llenará dinámicamente -->
+                    <div class="list-group-item">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h6 class="mb-1">Lote #001 - Galera A</h6>
+                                <small class="text-muted">1,800 gallinas • 25 semanas</small>
+                            </div>
+                            <span class="badge bg-success">95.2%</span>
+                        </div>
+                        <div class="progress mt-2" style="height: 5px;">
+                            <div class="progress-bar bg-success" style="width: 95.2%"></div>
+                        </div>
+                    </div>
+                    <div class="list-group-item">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h6 class="mb-1">Lote #002 - Galera B</h6>
+                                <small class="text-muted">2,000 gallinas • 22 semanas</small>
+                            </div>
+                            <span class="badge bg-warning">88.7%</span>
+                        </div>
+                        <div class="progress mt-2" style="height: 5px;">
+                            <div class="progress-bar bg-warning" style="width: 88.7%"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Segunda Fila de Gráficos -->
+<div class="row">
+    <!-- Mortalidad por Causa -->
+    <div class="col-md-6 mb-4">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-chart-pie me-2"></i>
+                    Mortalidad por Causa (Última Semana)
+                </h5>
+            </div>
+            <div class="card-body">
+                <canvas id="mortalidadChart" height="250"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Conversión Alimenticia -->
+    <div class="col-md-6 mb-4">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-balance-scale me-2"></i>
+                    Conversión Alimenticia por Lote
+                </h5>
+            </div>
+            <div class="card-body">
+                <canvas id="conversionChart" height="250"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Alertas y Tareas Pendientes -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-bell me-2"></i>
+                    Alertas y Tareas Pendientes
+                </h5>
+                <span class="badge bg-danger">3 Nuevas</span>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="alert alert-warning d-flex align-items-center mb-3">
+                            <i class="fas fa-exclamation-triangle me-3 fa-lg"></i>
+                            <div>
+                                <h6 class="alert-heading mb-1">Temperatura Elevada</h6>
+                                <small class="mb-0">Galera C - 28°C (Máx: 26°C)</small>
+                            </div>
+                        </div>
+                        <div class="alert alert-info d-flex align-items-center mb-3">
+                            <i class="fas fa-syringe me-3 fa-lg"></i>
+                            <div>
+                                <h6 class="alert-heading mb-1">Vacunación Pendiente</h6>
+                                <small class="mb-0">Lote #003 - Programa para mañana</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="alert alert-danger d-flex align-items-center mb-3">
+                            <i class="fas fa-skull-crossbones me-3 fa-lg"></i>
+                            <div>
+                                <h6 class="alert-heading mb-1">Mortalidad Elevada</h6>
+                                <small class="mb-0">Lote #002 - 15 aves hoy (2.1%)</small>
+                            </div>
+                        </div>
+                        <div class="alert alert-success d-flex align-items-center mb-3">
+                            <i class="fas fa-check-circle me-3 fa-lg"></i>
+                            <div>
+                                <h6 class="alert-heading mb-1">Limpieza Completada</h6>
+                                <small class="mb-0">Galera A - Comederos y bebederos</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Formulario de Registro Diario -->
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-edit me-2"></i>
+                    Registro Diario de Producción
+                </h5>
+                <div>
+                    <select id="select-lote" class="form-select form-select-sm d-inline-block" style="width: 200px;">
+                        <option value="">Seleccionar Lote</option>
+                        {% for lote in lotes_activos %}
+                        <option value="{{ lote.ID_Lote }}">Lote {{ lote.ID_Lote }} - {{ lote.galera.Nombre }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+            <div class="card-body">
+                <form id="dailyForm">
+                    <div class="row">
+                        <div class="col-md-3 mb-3">
+                            <label for="huevos" class="form-label">Huevos Recolectados</label>
+                            <input type="number" class="form-control" id="huevos" name="huevos" required min="0">
+                            <div class="form-text">Cantidad total de huevos</div>
+                        </div>
+                        <div class="col-md-3 mb-3">
+                            <label for="alimento" class="form-label">Alimento Consumido (kg)</label>
+                            <input type="number" step="0.1" class="form-control" id="alimento" name="alimento" required min="0">
+                            <div class="form-text">Peso en kilogramos</div>
+                        </div>
+                        <div class="col-md-3 mb-3">
+                            <label for="mortalidad" class="form-label">Mortalidad</label>
+                            <input type="number" class="form-control" id="mortalidad" name="mortalidad" required min="0">
+                            <div class="form-text">Número de aves muertas</div>
+                        </div>
+                        <div class="col-md-3 mb-3">
+                            <label for="causa_mortalidad" class="form-label">Causa Mortalidad</label>
+                            <select class="form-select" id="causa_mortalidad" name="causa_mortalidad">
+                                <option value="">Seleccionar causa...</option>
+                                <option value="Natural">Natural</option>
+                                <option value="Enfermedad">Enfermedad</option>
+                                <option value="Aplastamiento">Aplastamiento</option>
+                                <option value="Canibalismo">Canibalismo</option>
+                                <option value="Otra">Otra</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="observaciones" class="form-label">Observaciones</label>
+                            <textarea class="form-control" id="observaciones" name="observaciones" rows="2" placeholder="Notas adicionales..."></textarea>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Estado General del Lote</label>
+                            <div class="btn-group w-100" role="group">
+                                <input type="radio" class="btn-check" name="estado_general" id="estado_excelente" value="Excelente" autocomplete="off">
+                                <label class="btn btn-outline-success" for="estado_excelente">Excelente</label>
+
+                                <input type="radio" class="btn-check" name="estado_general" id="estado_bueno" value="Bueno" autocomplete="off" checked>
+                                <label class="btn btn-outline-primary" for="estado_bueno">Bueno</label>
+
+                                <input type="radio" class="btn-check" name="estado_general" id="estado_regular" value="Regular" autocomplete="off">
+                                <label class="btn btn-outline-warning" for="estado_regular">Regular</label>
+
+                                <input type="radio" class="btn-check" name="estado_general" id="estado_malo" value="Malo" autocomplete="off">
+                                <label class="btn btn-outline-danger" for="estado_malo">Malo</label>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="d-flex gap-2">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-save me-1"></i>
+                            Guardar Registro
+                        </button>
+                        <button type="reset" class="btn btn-outline-secondary">
+                            <i class="fas fa-undo me-1"></i>
+                            Limpiar
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Configuración de gráficos
+document.addEventListener('DOMContentLoaded', function() {
+    // Gráfico de Producción
+    const productionCtx = document.getElementById('produccionChart').getContext('2d');
+    const productionChart = new Chart(productionCtx, {
+        type: 'line',
+        data: {
+            labels: ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'],
+            datasets: [
+                {
+                    label: 'Lote #001',
+                    data: [1750, 1820, 1790, 1850, 1800, 1750, 1700],
+                    borderColor: '#3498db',
+                    backgroundColor: 'rgba(52, 152, 219, 0.1)',
+                    tension: 0.4,
+                    fill: true
+                },
+                {
+                    label: 'Lote #002',
+                    data: [1600, 1650, 1700, 1680, 1720, 1690, 1650],
+                    borderColor: '#e74c3c',
+                    backgroundColor: 'rgba(231, 76, 60, 0.1)',
+                    tension: 0.4,
+                    fill: true
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: {
+                    position: 'top',
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: false,
+                    title: {
+                        display: true,
+                        text: 'Cantidad de Huevos'
+                    }
+                }
+            }
+        }
+    });
+
+    // Gráfico de Mortalidad
+    const mortalityCtx = document.getElementById('mortalidadChart').getContext('2d');
+    const mortalityChart = new Chart(mortalityCtx, {
+        type: 'doughnut',
+        data: {
+            labels: ['Natural', 'Enfermedad', 'Aplastamiento', 'Canibalismo', 'Otra'],
+            datasets: [{
+                data: [45, 25, 15, 10, 5],
+                backgroundColor: [
+                    '#2ecc71',
+                    '#e74c3c',
+                    '#f39c12',
+                    '#9b59b6',
+                    '#95a5a6'
+                ]
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: {
+                    position: 'bottom'
+                }
+            }
+        }
+    });
+
+    // Gráfico de Conversión Alimenticia
+    const conversionCtx = document.getElementById('conversionChart').getContext('2d');
+    const conversionChart = new Chart(conversionCtx, {
+        type: 'bar',
+        data: {
+            labels: ['Lote #001', 'Lote #002', 'Lote #003', 'Lote #004'],
+            datasets: [{
+                label: 'Conversión Alimenticia',
+                data: [2.1, 2.3, 2.0, 2.4],
+                backgroundColor: [
+                    'rgba(52, 152, 219, 0.8)',
+                    'rgba(46, 204, 113, 0.8)',
+                    'rgba(155, 89, 182, 0.8)',
+                    'rgba(241, 196, 15, 0.8)'
+                ],
+                borderColor: [
+                    '#3498db',
+                    '#2ecc71',
+                    '#9b59b6',
+                    '#f1c40f'
+                ],
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    title: {
+                        display: true,
+                        text: 'kg alimento/docena huevos'
+                    }
+                }
+            }
+        }
+    });
+
+    // Manejo del formulario
+    document.getElementById('dailyForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        const formData = {
+            lote: document.getElementById('select-lote').value,
+            huevos: document.getElementById('huevos').value,
+            alimento: document.getElementById('alimento').value,
+            mortalidad: document.getElementById('mortalidad').value,
+            causa_mortalidad: document.getElementById('causa_mortalidad').value,
+            observaciones: document.getElementById('observaciones').value,
+            estado_general: document.querySelector('input[name="estado_general"]:checked').value
+        };
+
+        // Simular envío a API
+        console.log('Datos a enviar:', formData);
+        
+        // Mostrar confirmación
+        alert('Registro guardado exitosamente');
+        this.reset();
+    });
+
+    // Filtros interactivos
+    document.getElementById('filter-galera').addEventListener('change', function() {
+        // Aquí iría la lógica para filtrar los lotes
+        console.log('Galera seleccionada:', this.value);
+    });
+
+    // Actualizar fecha actual
+    document.getElementById('current-date').textContent = new Date().toLocaleDateString('es-ES');
+});
+</script>
+{% endblock %}

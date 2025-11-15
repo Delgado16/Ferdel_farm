@@ -1,0 +1,114 @@
+{% extends "layout.html" %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Encabezado de la página -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="h3 mb-0 text-gray-800">Gestión de Bodegas</h1>
+        <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#crearBodegaModal">
+            <i class="fas fa-plus-circle mr-2"></i>Nueva Bodega
+        </button>
+    </div>
+
+    <!-- Mensajes flash -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    <!-- Tabla de bodegas -->
+    <div class="card shadow mb-4">
+        <div class="card-header py-3">
+            <h6 class="m-0 font-weight-bold text-primary">Lista de Bodegas</h6>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-bordered" width="100%" cellspacing="0">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Nombre</th>
+                            <th>Empresa</th>
+                            <th>Ubicación</th>
+                            <th>Estado</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for bodega in bodegas %}
+                        <tr>
+                            <td>{{ bodega.ID_Bodega }}</td>
+                            <td>{{ bodega.Nombre }}</td>
+                            <td>{{ bodega.Nombre_Empresa }}</td>
+                            <td>{{ bodega.Ubicacion or 'N/A' }}</td>
+                            <td>
+                                <span class="badge {% if bodega.Estado == 'activa' %}bg-success{% else %}bg-secondary{% endif %}">
+                                    {{ bodega.Estado|title }}
+                                </span>
+                            </td>
+                            <td>
+                                <a href="{{ url_for('admin_editar_bodega', id=bodega.ID_Bodega) }}" 
+                                   class="btn btn-warning btn-sm" 
+                                   title="Editar bodega">
+                                    <i class="fas fa-edit"></i> Editar
+                                </a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para crear bodega -->
+<div class="modal fade" id="crearBodegaModal" tabindex="-1" aria-labelledby="crearBodegaModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="crearBodegaModalLabel">Crear Nueva Bodega</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form action="{{ url_for('admin_bodega_crear') }}" method="POST">
+                <div class="modal-body">
+                    <div class="form-group mb-3">
+                        <label for="nombre" class="form-label">Nombre de la Bodega *</label>
+                        <input type="text" class="form-control" id="nombre" name="nombre" required 
+                               placeholder="Ingrese el nombre de la bodega">
+                        <small class="form-text text-muted">El nombre es requerido y debe ser único.</small>
+                    </div>
+                    
+                    <div class="form-group mb-3">
+                        <label for="id_empresa" class="form-label">Empresa *</label>
+                        <select class="form-control" id="id_empresa" name="id_empresa" required>
+                            <option value="">Seleccione una empresa</option>
+                            {% for empresa in empresas %}
+                            <option value="{{ empresa.ID_Empresa }}">{{ empresa.Nombre_Empresa }}</option>
+                            {% endfor %}
+                        </select>
+                        <small class="form-text text-muted">Seleccione la empresa a la que pertenece la bodega.</small>
+                    </div>
+                    
+                    <div class="form-group mb-3">
+                        <label for="ubicacion" class="form-label">Ubicación</label>
+                        <textarea class="form-control" id="ubicacion" name="ubicacion" 
+                                  rows="2" placeholder="Ingrese la ubicación de la bodega"></textarea>
+                        <small class="form-text text-muted">Descripción de la ubicación física (opcional).</small>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Crear Bodega</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

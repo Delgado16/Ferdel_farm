@@ -1,0 +1,130 @@
+{% extends "layout.html" %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-sm-flex align-items-center justify-content-between mb-4">
+        <h1 class="h3 mb-0 text-gray-800">Movimientos de Inventario</h1>
+        <button type="button" class="btn btn-primary" data-toggle="modal" data-target="#crearMovimientoModal">
+            <i class="fas fa-plus-circle"></i> Nuevo Movimiento
+        </button>
+    </div>
+
+    <!-- Mensajes Flash -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                    {{ message }}
+                    <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    <!-- Tabla de Movimientos -->
+    <div class="card shadow mb-4">
+        <div class="card-header py-3">
+            <h6 class="m-0 font-weight-bold text-primary">Lista de Movimientos</h6>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-bordered" id="dataTable" width="100%" cellspacing="0">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Descripción</th>
+                            <th>Adición</th>
+                            <th>Letra</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for movimiento in movimientos %}
+                        <tr>
+                            <td>{{ movimiento.ID_TipoMovimiento }}</td>
+                            <td>{{ movimiento.Descripcion }}</td>
+                            <td>{{ movimiento.Adicion or '' }}</td>
+                            <td>{{ movimiento.Letra }}</td>
+                            <td>
+                                <a href="{{ url_for('admin_editar_movimiento', id=movimiento.ID_TipoMovimiento) }}" 
+                                   class="btn btn-warning btn-sm">
+                                    <i class="fas fa-edit"></i> Editar
+                                </a>
+                                <form action="{{ url_for('admin_eliminar_movimiento', id=movimiento.ID_TipoMovimiento) }}" 
+                                      method="POST" style="display: inline;">
+                                    <button type="submit" class="btn btn-danger btn-sm" 
+                                            onclick="return confirm('¿Estás seguro de eliminar este movimiento?')">
+                                        <i class="fas fa-trash"></i> Eliminar
+                                    </button>
+                                </form>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para Crear Movimiento -->
+<div class="modal fade" id="crearMovimientoModal" tabindex="-1" role="dialog" aria-labelledby="crearMovimientoModalLabel" aria-hidden="true">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="crearMovimientoModalLabel">Crear Nuevo Movimiento</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <form id="formCrearMovimiento" method="POST" action="{{ url_for('admin_crear_movimiento') }}">
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label for="descripcion" class="col-form-label">Descripción *</label>
+                        <input type="text" class="form-control" id="descripcion" name="descripcion" required 
+                               placeholder="Ingrese la descripción del movimiento">
+                        <small class="form-text text-muted">Este campo es obligatorio</small>
+                    </div>
+                    <div class="form-group">
+                        <label for="adicion" class="col-form-label">Adición</label>
+                        <input type="text" class="form-control" id="adicion" name="adicion" 
+                               placeholder="Ingrese la adición (opcional)">
+                    </div>
+                    <div class="form-group">
+                        <label for="letra" class="col-form-label">Letra *</label>
+                        <input type="text" class="form-control" id="letra" name="letra" required 
+                               maxlength="10" placeholder="Ej: A, B, C">
+                        <small class="form-text text-muted">Máximo 10 caracteres</small>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Guardar Movimiento</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Limpiar el formulario de crear cuando se cierra el modal
+    $('#crearMovimientoModal').on('hidden.bs.modal', function () {
+        $(this).find('form')[0].reset();
+    });
+
+    // Validación básica del formulario de creación
+    document.getElementById('formCrearMovimiento').addEventListener('submit', function(e) {
+        var descripcion = document.getElementById('descripcion').value.trim();
+        var letra = document.getElementById('letra').value.trim();
+        
+        if (!descripcion || !letra) {
+            e.preventDefault();
+            alert('Por favor, complete todos los campos obligatorios.');
+        }
+    });
+</script>
+{% endblock %}

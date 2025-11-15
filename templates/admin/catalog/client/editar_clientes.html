@@ -1,0 +1,66 @@
+{% extends "layout.html" %}
+{% block title %}Editar Cliente{% endblock %}
+{% block content %}
+<div class="container mt-4">
+    <h3 class="mb-3 text-warning text-center">Editar Cliente</h3>
+
+    <!-- Mostrar mensajes flash -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+    {% for category, message in messages %}
+    <div class="alert alert-{{ 'danger' if category == 'danger' else 'success' }} alert-dismissible fade show"
+        role="alert">
+        {{ message }}
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+    {% endfor %}
+    {% endif %}
+    {% endwith %}
+
+    <form method="post" action="{{ url_for('admin_editar_cliente', id=cliente.ID_Cliente) }}"
+        class="row g-3 border rounded-3 p-3 bg-light mx-auto" style="max-width: 700px;">
+        <div class="col-md-6">
+            <label class="form-label">Nombre: <span class="text-danger">*</span></label>
+            <input type="text" name="nombre" class="form-control" value="{{ cliente.Nombre }}" required maxlength="255">
+            <div class="form-text">El nombre del cliente es obligatorio</div>
+        </div>
+        <div class="col-md-6">
+            <label class="form-label">Teléfono:</label>
+            <input type="text" name="telefono" class="form-control" value="{{ cliente.Telefono or '' }}" maxlength="20">
+        </div>
+        <div class="col-md-8">
+            <label class="form-label">Dirección:</label>
+            <input type="text" name="direccion" class="form-control" value="{{ cliente.Direccion or '' }}"
+                maxlength="255">
+        </div>
+        <div class="col-md-4">
+            <label class="form-label">RUC/Cédula:</label>
+            <input type="text" name="ruc_cedula" class="form-control" value="{{ cliente.RUC_CEDULA or '' }}"
+                maxlength="20">
+            <div class="form-text">Debe ser único por cliente activo</div>
+        </div>
+        <div class="col-md-6">
+            <label class="form-label">Estado:</label>
+            <select name="estado" class="form-select">
+                <option value="ACTIVO" {% if cliente.Estado=='ACTIVO' %}selected{% endif %}>Activo</option>
+                <option value="INACTIVO" {% if cliente.Estado=='INACTIVO' %}selected{% endif %}>Inactivo</option>
+            </select>
+            <div class="form-text">Los clientes inactivos no aparecerán en listas</div>
+        </div>
+        <div class="col-12">
+            <div class="alert alert-info">
+                <small>
+                    <strong>Información:</strong><br>
+                    - Los clientes inactivos no aparecerán en las listas de selección<br>
+                    - El RUC/Cédula debe ser único solo entre clientes activos<br>
+                    - Puedes reactivar un cliente cambiando su estado a "Activo"
+                </small>
+            </div>
+        </div>
+        <div class="col-12 text-center">
+            <button type="submit" class="btn btn-primary">Guardar Cambios</button>
+            <a href="{{ url_for('admin_clientes') }}" class="btn btn-secondary ms-2">Cancelar</a>
+        </div>
+    </form>
+</div>
+{% endblock %}

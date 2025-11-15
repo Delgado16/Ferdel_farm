@@ -1,0 +1,132 @@
+{% extends "layout.html" %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-sm-flex align-items-center justify-content-between mb-4">
+        <h1 class="h3 mb-0 text-gray-800">Gestión de Categorías de Productos</h1>
+        <button type="button" class="btn btn-primary" data-toggle="modal" data-target="#crearCategoriaModal">
+            <i class="fas fa-plus fa-sm"></i> Nueva Categoría
+        </button>
+    </div>
+
+    <!-- Tabla de categorías -->
+    <div class="card shadow mb-4">
+        <div class="card-header py-3">
+            <h6 class="m-0 font-weight-bold text-primary">Lista de Categorías</h6>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-bordered" id="dataTable" width="100%" cellspacing="0">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Descripción</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for categoria in categorias %}
+                        <tr>
+                            <td>{{ categoria.ID_Categoria }}</td>
+                            <td>{{ categoria.Descripcion }}</td>
+                            <td>
+                                <button type="button" class="btn btn-warning btn-sm" 
+                                        data-toggle="modal" 
+                                        data-target="#editarCategoriaModal"
+                                        data-id="{{ categoria.ID_Categoria }}"
+                                        data-descripcion="{{ categoria.Descripcion }}">
+                                    <i class="fas fa-edit"></i> Editar
+                                </button>
+                                <form action="{{ url_for('admin_categorias_eliminar', id=categoria.ID_Categoria) }}" 
+                                      method="POST" class="d-inline">
+                                    <button type="submit" class="btn btn-danger btn-sm" 
+                                            onclick="return confirm('¿Estás seguro de eliminar esta categoría?')">
+                                        <i class="fas fa-trash"></i> Eliminar
+                                    </button>
+                                </form>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para Crear Categoría -->
+<div class="modal fade" id="crearCategoriaModal" tabindex="-1" role="dialog" aria-labelledby="crearCategoriaModalLabel" aria-hidden="true">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="crearCategoriaModalLabel">Crear Nueva Categoría</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <form action="{{ url_for('admin_categorias_crear') }}" method="POST">
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label for="descripcion">Descripción:</label>
+                        <input type="text" class="form-control" id="descripcion" name="descripcion" 
+                               placeholder="Ingrese la descripción de la categoría" required>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Guardar Categoría</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para Editar Categoría -->
+<div class="modal fade" id="editarCategoriaModal" tabindex="-1" role="dialog" aria-labelledby="editarCategoriaModalLabel" aria-hidden="true">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="editarCategoriaModalLabel">Editar Categoría</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <form id="formEditarCategoria" method="POST">
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label for="descripcion_editar">Descripción:</label>
+                        <input type="text" class="form-control" id="descripcion_editar" name="descripcion" 
+                               placeholder="Ingrese la descripción de la categoría" required>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Actualizar Categoría</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Script para manejar el modal de edición
+    $('#editarCategoriaModal').on('show.bs.modal', function (event) {
+        var button = $(event.relatedTarget); // Botón que activó el modal
+        var id = button.data('id');
+        var descripcion = button.data('descripcion');
+        
+        var modal = $(this);
+        modal.find('#descripcion_editar').val(descripcion);
+        
+        // Actualizar el action del formulario con el ID correcto
+        modal.find('#formEditarCategoria').attr('action', '/admin/catalog/categorias/editar/' + id);
+    });
+
+    // Limpiar el modal de crear cuando se cierre
+    $('#crearCategoriaModal').on('hidden.bs.modal', function () {
+        $(this).find('form')[0].reset();
+    });
+</script>
+{% endblock %}

@@ -1,0 +1,201 @@
+{% extends "layout.html" %}
+
+{% block title %}Gestión de Usuarios - FerDel{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1>Gestión de Usuarios</h1>
+    <a href="{{ url_for('admin_dashboard') }}" class="btn btn-outline-secondary">
+        <i class="bi bi-arrow-left"></i> Volver al Dashboard
+    </a>
+</div>
+
+<!-- Botón crear usuario -->
+<button class="btn btn-primary mb-3" data-bs-toggle="modal" data-bs-target="#crearUsuarioModal">
+    <i class="bi bi-person-plus"></i> Crear Nuevo Usuario
+</button>
+
+<!-- Mensajes flash -->
+{% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+        {% for category, message in messages %}
+            <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+        {% endfor %}
+    {% endif %}
+{% endwith %}
+
+<!-- Tabla de usuarios -->
+{% if usuarios %}
+<div class="card">
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-striped table-hover">
+                <thead class="table-dark">
+                    <tr>
+                        <th>ID</th>
+                        <th>Usuario</th>
+                        <th>Rol</th>
+                        <th>Empresa</th>
+                        <th>Estado</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for usuario in usuarios %}
+                    <tr>
+                        <td><strong>#{{ usuario.ID_Usuario }}</strong></td>
+                        <td>{{ usuario.NombreUsuario }}</td>
+                        <td>
+                            <span class="badge bg-info">{{ usuario.Rol }}</span>
+                        </td>
+                        <td>{{ usuario.Nombre_Empresa }}</td>
+                        <td>
+                            <span class="badge bg-{% if usuario.Estado == 'Activo' %}success{% else %}danger{% endif %}">
+                                {{ usuario.Estado }}
+                            </span>
+                        </td>
+                        <td>
+                            <div class="btn-group btn-group-sm" role="group">
+                                <a href="{{ url_for('editar_usuario', user_id=usuario.ID_Usuario) }}" 
+                                   class="btn btn-outline-primary" title="Editar usuario">
+                                    <i class="bi bi-pencil"></i> Editar
+                                </a>
+                                
+                                <a href="#" 
+                                   class="btn btn-outline-secondary" title="Añadir acceso">
+                                    <i class="bi bi-shield-plus"></i> Acceso
+                                </a>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% else %}
+<div class="alert alert-warning">
+    <i class="bi bi-exclamation-triangle"></i> No se encontraron usuarios en el sistema.
+</div>
+{% endif %}
+
+<!-- Modal para crear usuario -->
+<div class="modal fade" id="crearUsuarioModal" tabindex="-1" aria-labelledby="crearUsuarioModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="crearUsuarioModalLabel">
+                    <i class="bi bi-person-plus"></i> Crear Nuevo Usuario
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form method="POST" action="{{ url_for('crear_usuario') }}" id="crearUsuarioForm" novalidate>
+                <div class="modal-body">
+                    <!-- Username -->
+                    <div class="mb-3">
+                        <label for="username" class="form-label">Nombre de usuario <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="username" name="username" 
+                               required minlength="3" maxlength="50"
+                               placeholder="ej: juan_perez">
+                        <div class="form-text">Mínimo 3 caracteres. Solo letras, números y _</div>
+                    </div>
+                    
+                    <!-- Password -->
+                    <div class="mb-3">
+                        <label for="password" class="form-label">Contraseña <span class="text-danger">*</span></label>
+                        <input type="password" class="form-control" id="password" name="password" 
+                               required minlength="6"
+                               placeholder="Mínimo 6 caracteres">
+                        <div class="form-text">Mínimo 6 caracteres</div>
+                    </div>
+
+                    <!-- Confirmar Password -->
+                    <div class="mb-3">
+                        <label for="confirm_password" class="form-label">Confirmar Contraseña <span class="text-danger">*</span></label>
+                        <input type="password" class="form-control" id="confirm_password" name="confirm_password" 
+                               required placeholder="Repite la contraseña">
+                    </div>
+                    
+                    <!-- Rol -->
+                    <div class="mb-3">
+                        <label for="rol_id" class="form-label">Rol <span class="text-danger">*</span></label>
+                        <select class="form-select" id="rol_id" name="rol_id" required>
+                            <option value="" selected disabled>Seleccione un Rol...</option>
+                            {% for rol in roles %}
+                                <option value="{{ rol.ID_Rol }}">{{ rol.Nombre_Rol }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
+                    <!-- Empresa -->
+                    <div class="mb-3">
+                        <label for="empresa_id" class="form-label">Empresa <span class="text-danger">*</span></label>
+                        <select class="form-select" id="empresa_id" name="empresa_id" required>
+                            <option value="" selected disabled>Seleccione una empresa...</option>
+                            {% for empresa in empresas %}
+                                <option value="{{ empresa.ID_Empresa }}">{{ empresa.Nombre_Empresa }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="bi bi-x-circle"></i> Cancelar
+                    </button>
+                    <button type="submit" class="btn btn-primary" id="submitBtn">
+                        <i class="bi bi-check-circle"></i> Crear Usuario
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('crearUsuarioForm');
+    const password = document.getElementById('password');
+    const confirmPassword = document.getElementById('confirm_password');
+    
+    // Validación de confirmación de contraseña
+    function validatePassword() {
+        if (password.value !== confirmPassword.value) {
+            confirmPassword.setCustomValidity('Las contraseñas no coinciden');
+            confirmPassword.classList.add('is-invalid');
+            return false;
+        } else {
+            confirmPassword.setCustomValidity('');
+            confirmPassword.classList.remove('is-invalid');
+            return true;
+        }
+    }
+    
+    // Event listeners
+    password.addEventListener('input', validatePassword);
+    confirmPassword.addEventListener('input', validatePassword);
+    
+    // Validación del formulario
+    form.addEventListener('submit', function(event) {
+        if (!validatePassword() || !form.checkValidity()) {
+            event.preventDefault();
+            event.stopPropagation();
+        }
+        form.classList.add('was-validated');
+    });
+    
+    // Limpiar formulario al cerrar modal
+    document.getElementById('crearUsuarioModal').addEventListener('hidden.bs.modal', function () {
+        form.reset();
+        form.classList.remove('was-validated');
+        confirmPassword.setCustomValidity('');
+        confirmPassword.classList.remove('is-invalid');
+    });
+});
+</script>
+{% endblock %}

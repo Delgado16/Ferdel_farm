@@ -1,0 +1,370 @@
+{% extends "layout.html" %}
+
+{% block title %}Gestión de Proveedores{% endblock %}
+
+{% block head %}
+<!-- Bootstrap CSS -->
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+<!-- Bootstrap Icons -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.8.1/font/bootstrap-icons.css">
+<style>
+    .table-responsive {
+        overflow-x: auto;
+    }
+    .action-buttons {
+        white-space: nowrap;
+    }
+    .pagination {
+        margin-top: 20px;
+    }
+    .empty-state {
+        padding: 3rem 1rem;
+        text-align: center;
+        color: #6c757d;
+    }
+    .status-active {
+        color: #198754;
+        font-weight: 500;
+    }
+    .status-inactive {
+        color: #dc3545;
+        font-weight: 500;
+    }
+    .required-field::after {
+        content: " *";
+        color: #dc3545;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <!-- Mensajes flash -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="alert alert-{{ category }} alert-dismissible fade show">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    <div class="card shadow">
+        <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+            <h3 class="card-title mb-0">
+                <i class="bi bi-truck"></i> Lista de Proveedores
+            </h3>
+            <button type="button" class="btn btn-light btn-sm" data-bs-toggle="modal" data-bs-target="#nuevoProveedorModal">
+                <i class="bi bi-plus-circle"></i> Agregar Proveedor
+            </button>
+        </div>
+
+        <div class="card-body">
+            <!-- Formulario de búsqueda -->
+            <form method="get" class="mb-4">
+                <div class="row g-2">
+                    <div class="col-md-8">
+                        <input type="text" name="q" class="form-control" placeholder="Buscar por nombre, RUC/Cédula o teléfono..." 
+                               value="{{ search }}">
+                    </div>
+                    <div class="col-md-2">
+                        <button class="btn btn-primary w-100" type="submit">
+                            <i class="bi bi-search"></i> Buscar
+                        </button>
+                    </div>
+                    <div class="col-md-2">
+                        {% if search %}
+                        <a href="{{ url_for('admin_proveedores') }}" class="btn btn-outline-secondary w-100">
+                            <i class="bi bi-arrow-clockwise"></i> Limpiar
+                        </a>
+                        {% endif %}
+                    </div>
+                </div>
+            </form>
+
+            <!-- Información de resultados -->
+            {% if search %}
+            <div class="alert alert-info d-flex align-items-center">
+                <i class="bi bi-info-circle me-2"></i>
+                <div>
+                    <strong>{{ total }}</strong> proveedor(es) encontrado(s) 
+                    {% if search %}para "<strong>{{ search }}</strong>"{% endif %}
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Tabla de proveedores -->
+            <div class="table-responsive">
+                <table class="table table-hover table-bordered">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Nombre</th>
+                            <th>Teléfono</th>
+                            <th>RUC/Cédula</th>
+                            <th>Dirección</th>
+                            <th>Empresa</th>
+                            <th>Estado</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% if proveedores %}
+                            {% for proveedor in proveedores %}
+                            <tr>
+                                <td>
+                                    <strong>{{ proveedor.Nombre }}</strong>
+                                </td>
+                                <td>
+                                    {% if proveedor.Telefono %}
+                                    <a href="tel:{{ proveedor.Telefono }}" class="text-decoration-none">
+                                        <i class="bi bi-telephone"></i> {{ proveedor.Telefono }}
+                                    </a>
+                                    {% else %}
+                                    <span class="text-muted">-</span>
+                                    {% endif %}
+                                </td>
+                                <td>{{ proveedor.RUC_CEDULA or '-' }}</td>
+                                <td>
+                                    {% if proveedor.Direccion %}
+                                    {{ proveedor.Direccion }}
+                                    {% else %}
+                                    <span class="text-muted">-</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if proveedor.Nombre_Empresa %}
+                                    <span class="badge bg-secondary">{{ proveedor.Nombre_Empresa }}</span>
+                                    {% else %}
+                                    <span class="text-muted">-</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if proveedor.Estado == 'ACTIVO' %}
+                                    <span class="status-active">
+                                        <i class="bi bi-check-circle-fill"></i> Activo
+                                    </span>
+                                    {% else %}
+                                    <span class="status-inactive">
+                                        <i class="bi bi-x-circle-fill"></i> Inactivo
+                                    </span>
+                                    {% endif %}
+                                </td>
+                                <td class="action-buttons">
+                                    <div class="btn-group btn-group-sm">
+                                        <a href="#"
+                                           class="btn btn-outline-primary" title="Ver detalle">
+                                            <i class="bi bi-eye-fill"></i>
+                                        </a>
+                                        <a href="{{ url_for('admin_editar_proveedor', id=proveedor.ID_Proveedor) }}"
+                                           class="btn btn-outline-secondary" title="Editar">
+                                            <i class="bi bi-pencil-fill"></i>
+                                        </a>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        {% else %}
+                            <tr>
+                                <td colspan="7" class="text-center">
+                                    <div class="empty-state">
+                                        <i class="bi bi-truck display-1 text-muted"></i>
+                                        <h4 class="mt-3">No se encontraron proveedores</h4>
+                                        <p class="text-muted">
+                                            {% if search %}
+                                            No hay resultados para tu búsqueda. Intenta con otros términos.
+                                            {% else %}
+                                            No hay proveedores registrados. ¡Agrega el primero!
+                                            {% endif %}
+                                        </p>
+                                        {% if not search %}
+                                        <button type="button" class="btn btn-primary mt-2" data-bs-toggle="modal" data-bs-target="#nuevoProveedorModal">
+                                            <i class="bi bi-plus-circle"></i> Agregar Primer Proveedor
+                                        </button>
+                                        {% endif %}
+                                    </div>
+                                </td>
+                            </tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Paginación -->
+            {% if total > per_page %}
+            <nav aria-label="Page navigation">
+                <ul class="pagination justify-content-center">
+                    {% if page > 1 %}
+                    <li class="page-item">
+                        <a class="page-link" href="{{ url_for('admin_proveedores', page=page-1, q=search) }}" aria-label="Previous">
+                            <span aria-hidden="true">&laquo;</span>
+                        </a>
+                    </li>
+                    {% endif %}
+                    
+                    {% set total_pages = (total / per_page)|round(0, 'ceil')|int %}
+                    {% for p in range(1, total_pages + 1) %}
+                        {% if p >= page - 2 and p <= page + 2 %}
+                        <li class="page-item {% if p == page %}active{% endif %}">
+                            <a class="page-link" href="{{ url_for('admin_proveedores', page=p, q=search) }}">{{ p }}</a>
+                        </li>
+                        {% endif %}
+                    {% endfor %}
+                    
+                    {% if page < total_pages %}
+                    <li class="page-item">
+                        <a class="page-link" href="{{ url_for('admin_proveedores', page=page+1, q=search) }}" aria-label="Next">
+                            <span aria-hidden="true">&raquo;</span>
+                        </a>
+                    </li>
+                    {% endif %}
+                </ul>
+                <div class="text-center text-muted small mt-2">
+                    Página {{ page }} de {{ total_pages }} - Total: {{ total }} proveedor(es)
+                </div>
+            </nav>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Modal para nuevo proveedor -->
+<div class="modal fade" id="nuevoProveedorModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="post" action="{{ url_for('admin_crear_proveedor') }}">
+                <div class="modal-header">
+                    <h5 class="modal-title">Nuevo Proveedor</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="nombre" class="form-label required-field">Nombre del Proveedor</label>
+                        <input type="text" class="form-control" id="nombre" name="nombre" required 
+                               placeholder="Ingrese el nombre del proveedor" maxlength="255">
+                        <div class="form-text">El nombre es obligatorio (máximo 255 caracteres)</div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="telefono" class="form-label">Teléfono</label>
+                        <input type="tel" class="form-control" id="telefono" name="telefono" 
+                               placeholder="Ej: 0991234567" maxlength="20">
+                        <div class="form-text">Formato: números, espacios, +, -, ()</div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="direccion" class="form-label">Dirección</label>
+                        <textarea class="form-control" id="direccion" name="direccion" rows="2" 
+                                  placeholder="Ingrese la dirección del proveedor" maxlength="500"></textarea>
+                        <div class="form-text">Máximo 500 caracteres</div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="ruc_cedula" class="form-label">RUC/Cédula</label>
+                        <input type="text" class="form-control" id="ruc_cedula" name="ruc_cedula" 
+                               placeholder="Ej: 1234567890123" maxlength="20">
+                        <div class="form-text">Opcional. Si se proporciona, debe ser único.</div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-check-circle"></i> Guardar Proveedor
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<!-- Bootstrap JS -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Validación del formulario de nuevo proveedor
+    const form = document.querySelector('#nuevoProveedorModal form');
+    if (form) {
+        form.addEventListener('submit', function(e) {
+            const nombre = document.getElementById('nombre').value.trim();
+            if (!nombre) {
+                e.preventDefault();
+                alert('El nombre del proveedor es obligatorio');
+                document.getElementById('nombre').focus();
+                return false;
+            }
+            
+            if (nombre.length > 255) {
+                e.preventDefault();
+                alert('El nombre no puede tener más de 255 caracteres');
+                document.getElementById('nombre').focus();
+                return false;
+            }
+            
+            // Validación opcional: formato de teléfono
+            const telefono = document.getElementById('telefono').value.trim();
+            if (telefono && !/^[\d\s\-+()]{7,20}$/.test(telefono)) {
+                e.preventDefault();
+                alert('Por favor ingrese un número de teléfono válido (7-20 caracteres, solo números y caracteres especiales comunes)');
+                document.getElementById('telefono').focus();
+                return false;
+            }
+            
+            // Validación de longitud de dirección
+            const direccion = document.getElementById('direccion').value.trim();
+            if (direccion.length > 500) {
+                e.preventDefault();
+                alert('La dirección no puede tener más de 500 caracteres');
+                document.getElementById('direccion').focus();
+                return false;
+            }
+            
+            // Validación de RUC/Cédula (solo números, opcional)
+            const rucCedula = document.getElementById('ruc_cedula').value.trim();
+            if (rucCedula && !/^\d{10,20}$/.test(rucCedula)) {
+                e.preventDefault();
+                alert('El RUC/Cédula debe contener solo números (10-20 dígitos)');
+                document.getElementById('ruc_cedula').focus();
+                return false;
+            }
+            
+            return true;
+        });
+    }
+
+    // Auto-focus en el campo de búsqueda
+    const searchInput = document.querySelector('input[name="q"]');
+    if (searchInput) {
+        searchInput.focus();
+    }
+
+    // Limpiar formulario cuando se cierra el modal
+    const modal = document.getElementById('nuevoProveedorModal');
+    if (modal) {
+        modal.addEventListener('hidden.bs.modal', function() {
+            const form = this.querySelector('form');
+            if (form) {
+                form.reset();
+            }
+        });
+        
+        // Auto-focus en el campo nombre cuando se abre el modal
+        modal.addEventListener('shown.bs.modal', function() {
+            const nombreInput = document.getElementById('nombre');
+            if (nombreInput) {
+                nombreInput.focus();
+            }
+        });
+    }
+
+    // Prevenir envío del formulario con Enter en campos individuales
+    const inputs = document.querySelectorAll('#nuevoProveedorModal input, #nuevoProveedorModal textarea');
+    inputs.forEach(input => {
+        input.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+            }
+        });
+    });
+});
+</script>
+{% endblock %}

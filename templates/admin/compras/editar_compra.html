@@ -1,0 +1,601 @@
+{% extends "layout.html" %}
+
+{% block title %}Editar Compra - Sistema Inventarios{% endblock %}
+
+{% block content %}
+<style>
+    :root {
+        --primary-color: #2c5aa0;
+        --secondary-color: #6c757d;
+        --success-color: #198754;
+        --warning-color: #ffc107;
+        --danger-color: #dc3545;
+        --light-bg: #f8f9fa;
+        --border-color: #dee2e6;
+    }
+
+    .compra-container {
+        max-width: 1400px;
+        margin: 2rem auto;
+        padding: 0 1rem;
+    }
+
+    .card {
+        border: none;
+        border-radius: 10px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        margin-bottom: 1.5rem;
+        background: #fff;
+    }
+
+    .card-header {
+        background: linear-gradient(135deg, var(--primary-color), #1e3a6d);
+        color: white;
+        border-radius: 10px 10px 0 0 !important;
+        padding: 1.25rem 1.5rem;
+        border-bottom: none;
+    }
+
+    .card-header h2 {
+        margin: 0;
+        font-weight: 600;
+        font-size: 1.5rem;
+    }
+
+    .card-body {
+        padding: 2rem;
+    }
+
+    .section-title {
+        color: var(--primary-color);
+        font-weight: 600;
+        margin-bottom: 1.5rem;
+        padding-bottom: 0.75rem;
+        border-bottom: 2px solid var(--light-bg);
+        font-size: 1.25rem;
+    }
+
+    .form-label {
+        font-weight: 600;
+        margin-bottom: 0.5rem;
+        color: #495057;
+        font-size: 0.9rem;
+    }
+
+    .form-control, .form-select {
+        border-radius: 6px;
+        border: 1px solid var(--border-color);
+        padding: 0.75rem;
+        font-size: 0.9rem;
+        transition: all 0.2s ease;
+    }
+
+    .form-control:focus, .form-select:focus {
+        border-color: var(--primary-color);
+        box-shadow: 0 0 0 0.2rem rgba(44, 90, 160, 0.25);
+    }
+
+    .btn-primary {
+        background: linear-gradient(135deg, var(--primary-color), #1e3a6d);
+        border: none;
+        border-radius: 6px;
+        padding: 0.75rem 1.5rem;
+        font-weight: 600;
+    }
+
+    .btn-success {
+        background: linear-gradient(135deg, var(--success-color), #146c43);
+        border: none;
+    }
+
+    .btn-danger {
+        background: linear-gradient(135deg, var(--danger-color), #b02a37);
+        border: none;
+    }
+
+    .product-table {
+        width: 100%;
+        border-collapse: collapse;
+        background: #fff;
+        border-radius: 8px;
+        overflow: hidden;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    }
+
+    .product-table th {
+        background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+        font-weight: 700;
+        padding: 1rem;
+        text-align: left;
+        border-bottom: 2px solid var(--border-color);
+        color: #495057;
+        font-size: 0.85rem;
+        text-transform: uppercase;
+    }
+
+    .product-table td {
+        padding: 1rem;
+        border-bottom: 1px solid var(--border-color);
+        vertical-align: middle;
+    }
+
+    .total-summary {
+        background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+        border-radius: 8px;
+        padding: 1.5rem;
+        margin-top: 2rem;
+        border: 1px solid var(--border-color);
+    }
+
+    .alert {
+        border-radius: 8px;
+        padding: 1rem 1.25rem;
+        margin-bottom: 1.5rem;
+        border: none;
+    }
+
+    .form-section {
+        background: #fafbfc;
+        border-radius: 8px;
+        padding: 1.5rem;
+        margin-bottom: 2rem;
+        border: 1px solid var(--border-color);
+    }
+
+    .credito-info {
+        background: linear-gradient(135deg, #fff3cd, #ffeaa7);
+        border: 1px solid #ffecb5;
+        border-radius: 6px;
+        padding: 1rem;
+        margin-top: 1rem;
+    }
+
+    @media (max-width: 768px) {
+        .compra-container {
+            padding: 0 0.5rem;
+        }
+
+        .card-body {
+            padding: 1rem;
+        }
+
+        .product-table {
+            display: block;
+            overflow-x: auto;
+        }
+    }
+</style>
+
+<div class="compra-container">
+    <div class="card">
+        <div class="card-header">
+            <h2><i class="fas fa-edit me-2"></i>Editar Compra #{{ movimiento.ID_Movimiento }}</h2>
+        </div>
+        <div class="card-body">
+            <!-- CAMBIO IMPORTANTE: método POST y enctype -->
+            <form id="formEditarCompra" method="POST" novalidate>
+                <input type="hidden" name="id_movimiento" value="{{ movimiento.ID_Movimiento }}">
+                <input type="hidden" name="id_usuario_modificacion" value="{{ session.get('user_id', 1) }}">
+
+                <!-- Información General -->
+                <div class="form-section">
+                    <h4 class="section-title"><i class="fas fa-info-circle me-2"></i>Información General</h4>
+                    <div class="row g-3">
+                        <div class="col-md-4">
+                            <label for="id_tipo_movimiento" class="form-label">Tipo de Movimiento</label>
+                            <select class="form-select" id="id_tipo_movimiento" name="id_tipo_movimiento" required>
+                                <option value="" disabled>Seleccionar tipo...</option>
+                                {% for tipo in tipos_movimiento %}
+                                <option value="{{ tipo.ID_TipoMovimiento }}" 
+                                        {% if tipo.ID_TipoMovimiento == movimiento.ID_TipoMovimiento %}selected{% endif %}>
+                                    {{ tipo.Descripcion }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <div class="col-md-4">
+                            <label for="fecha" class="form-label">Fecha de Compra</label>
+                            <input type="date" class="form-control" id="fecha" name="fecha" 
+                                   value="{{ movimiento.Fecha.strftime('%Y-%m-%d') if movimiento.Fecha else '' }}" required>
+                        </div>
+
+                        <div class="col-md-4">
+                            <label for="n_factura_externa" class="form-label">N° Factura Externa</label>
+                            <input type="text" class="form-control" id="n_factura_externa" name="n_factura_externa" 
+                                   value="{{ movimiento.N_Factura_Externa or '' }}" placeholder="Opcional">
+                        </div>
+
+                        <div class="col-md-4">
+                            <label for="id_proveedor" class="form-label">Proveedor</label>
+                            <select class="form-select" id="id_proveedor" name="id_proveedor">
+                                <option value="" selected>Seleccionar proveedor...</option>
+                                {% for proveedor in proveedores %}
+                                <option value="{{ proveedor.ID_Proveedor }}" 
+                                        {% if proveedor.ID_Proveedor == movimiento.ID_Proveedor %}selected{% endif %}>
+                                    {{ proveedor.Nombre }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <div class="col-md-4">
+                            <label for="tipo_compra" class="form-label">Tipo de Compra</label>
+                            <select class="form-select" id="tipo_compra" name="tipo_compra" required>
+                                <option value="CONTADO" {% if movimiento.Tipo_Compra == 'CONTADO' %}selected{% endif %}>CONTADO</option>
+                                <option value="CREDITO" {% if movimiento.Tipo_Compra == 'CREDITO' %}selected{% endif %}>CRÉDITO</option>
+                            </select>
+                        </div>
+
+                        <div class="col-md-4">
+                            <label for="id_bodega" class="form-label">Bodega de Destino</label>
+                            <select class="form-select" id="id_bodega" name="id_bodega" required>
+                                <option value="" disabled>Seleccionar bodega...</option>
+                                {% for bodega in bodegas %}
+                                <option value="{{ bodega.ID_Bodega }}" 
+                                        {% if bodega.ID_Bodega == movimiento.ID_Bodega %}selected{% endif %}>
+                                    {{ bodega.Nombre }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <!-- Fecha Vencimiento para Crédito -->
+                        <div class="col-12" id="fecha_vencimiento_group" 
+                             style="display: {% if movimiento.Tipo_Compra == 'CREDITO' and cuenta_por_pagar %}block{% else %}none{% endif %};">
+                            <label for="fecha_vencimiento" class="form-label">Fecha de Vencimiento (Crédito)</label>
+                            <input type="date" class="form-control" id="fecha_vencimiento" name="fecha_vencimiento"
+                                   value="{% if cuenta_por_pagar and cuenta_por_pagar.Fecha_Vencimiento %}{{ cuenta_por_pagar.Fecha_Vencimiento.strftime('%Y-%m-%d') }}{% endif %}">
+                            <div class="credito-info">
+                                <small><i class="fas fa-info-circle me-1"></i>
+                                    {% if cuenta_por_pagar %}
+                                        Cuenta por pagar: ${{ "%.2f"|format(cuenta_por_pagar.Monto_Movimiento) }} | 
+                                        Saldo: ${{ "%.2f"|format(cuenta_por_pagar.Saldo_Pendiente) }}
+                                    {% else %}
+                                        Se generará una nueva cuenta por pagar
+                                    {% endif %}
+                                </small>
+                            </div>
+                        </div>
+
+                        <div class="col-12">
+                            <label for="observacion" class="form-label">Observaciones</label>
+                            <textarea class="form-control" id="observacion" name="observacion" rows="3" 
+                                      placeholder="Observaciones adicionales...">{{ movimiento.Observacion or '' }}</textarea>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Detalles de Productos -->
+                <div class="form-section">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h4 class="section-title mb-0"><i class="fas fa-boxes me-2"></i>Detalles de Productos</h4>
+                        <button type="button" class="btn btn-primary" id="btn-agregar-producto">
+                            <i class="fas fa-plus me-1"></i>Agregar Producto
+                        </button>
+                    </div>
+                    
+                    <div class="table-responsive">
+                        <table class="table product-table">
+                            <thead>
+                                <tr>
+                                    <th>Producto</th>
+                                    <th width="120">Cantidad</th>
+                                    <th width="150">Costo Unitario</th>
+                                    <th width="150">Precio Unitario</th>
+                                    <th width="120">Lote</th>
+                                    <th width="150">Fecha Vencimiento</th>
+                                    <th width="150">Subtotal</th>
+                                    <th width="80">Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody id="productos-container">
+                                {% for detalle in detalles %}
+                                <tr class="producto-item">
+                                    <td>
+                                        <!-- CAMBIO: nombres de campos compatibles con backend -->
+                                        <select class="form-select producto-select" name="productos[]" required>
+                                            <option value="" disabled>Seleccionar producto...</option>
+                                            {% for producto in productos %}
+                                            <option value="{{ producto.ID_Producto }}" 
+                                                    data-existencia="{{ producto.Existencias }}"
+                                                    {% if producto.ID_Producto == detalle.ID_Producto %}selected{% endif %}>
+                                                {{ producto.Descripcion }} ({{ producto.COD_Producto }})
+                                            </option>
+                                            {% endfor %}
+                                        </select>
+                                        <small class="text-muted stock-info" style="display: none;"></small>
+                                    </td>
+                                    <td>
+                                        <input type="number" class="form-control cantidad" 
+                                               name="cantidades[]"
+                                               value="{{ detalle.Cantidad }}" min="0.01" step="0.01" required>
+                                    </td>
+                                    <td>
+                                        <div class="input-group">
+                                            <span class="input-group-text">$</span>
+                                            <input type="number" class="form-control costo" 
+                                                   name="costos_unitarios[]"
+                                                   value="{{ detalle.Costo_Unitario }}" step="0.01" min="0" required>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <div class="input-group">
+                                            <span class="input-group-text">$</span>
+                                            <input type="number" class="form-control precio" 
+                                                   name="precios_unitarios[]"
+                                                   value="{{ detalle.Precio_Unitario or detalle.Costo_Unitario }}" step="0.01" min="0">
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <input type="text" class="form-control lote" 
+                                               name="lotes[]"
+                                               value="{{ detalle.Lote or '' }}" placeholder="Opcional">
+                                    </td>
+                                    <td>
+                                        <input type="date" class="form-control fecha-vencimiento" 
+                                               name="fechas_vencimiento[]"
+                                               value="{% if detalle.Fecha_Vencimiento %}{{ detalle.Fecha_Vencimiento.strftime('%Y-%m-%d') }}{% endif %}">
+                                    </td>
+                                    <td>
+                                        <div class="input-group">
+                                            <span class="input-group-text">$</span>
+                                            <input type="text" class="form-control subtotal" 
+                                                   value="{{ "%.2f"|format(detalle.Subtotal) }}" readonly>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <button type="button" class="btn btn-danger btn-sm btn-eliminar-producto">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Resumen de Totales -->
+                <div class="total-summary">
+                    <div class="total-row">
+                        <span>Total Productos:</span>
+                        <span id="total-productos">{{ detalles|length }}</span>
+                    </div>
+                    <div class="total-row">
+                        <span>Subtotal:</span>
+                        <span id="subtotal">${{ "%.2f"|format(movimiento.Total_Compra or 0) }}</span>
+                    </div>
+                    <div class="total-row grand-total">
+                        <span>TOTAL COMPRA:</span>
+                        <span id="total-compra">${{ "%.2f"|format(movimiento.Total_Compra or 0) }}</span>
+                    </div>
+                </div>
+
+                <!-- Botones de Acción -->
+                <div class="d-flex justify-content-end gap-3 mt-4">
+                    <a href="{{ url_for('admin_compras_entradas') }}" class="btn btn-secondary btn-responsive">
+                        <i class="fas fa-times me-1"></i> Cancelar
+                    </a>
+                    <button type="submit" class="btn btn-primary btn-responsive">
+                        <i class="fas fa-save me-1"></i> Actualizar Compra
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+let contadorProductos = {{ detalles|length }};
+
+document.addEventListener('DOMContentLoaded', function() {
+    // Controlar visibilidad de fecha de vencimiento
+    document.getElementById('tipo_compra').addEventListener('change', function() {
+        const fechaVencimientoGroup = document.getElementById('fecha_vencimiento_group');
+        if (this.value === 'CREDITO') {
+            fechaVencimientoGroup.style.display = 'block';
+            // Establecer fecha de vencimiento por defecto si no existe
+            if (!document.getElementById('fecha_vencimiento').value) {
+                const fechaCompra = document.getElementById('fecha').value;
+                if (fechaCompra) {
+                    const fechaVencimiento = new Date(fechaCompra);
+                    fechaVencimiento.setDate(fechaVencimiento.getDate() + 30);
+                    document.getElementById('fecha_vencimiento').value = fechaVencimiento.toISOString().split('T')[0];
+                }
+            }
+        } else {
+            fechaVencimientoGroup.style.display = 'none';
+        }
+    });
+
+    // Agregar nuevo producto
+    document.getElementById('btn-agregar-producto').addEventListener('click', agregarProducto);
+
+    // Calcular subtotales para productos existentes
+    document.querySelectorAll('.producto-item').forEach((fila) => {
+        actualizarSubtotal(fila);
+        // Agregar event listeners a los campos existentes
+        fila.querySelector('.cantidad').addEventListener('input', () => actualizarSubtotal(fila));
+        fila.querySelector('.costo').addEventListener('input', () => actualizarSubtotal(fila));
+        fila.querySelector('.precio').addEventListener('input', () => actualizarSubtotal(fila));
+    });
+
+    // Eliminar producto
+    document.addEventListener('click', function(e) {
+        if (e.target.closest('.btn-eliminar-producto')) {
+            const fila = e.target.closest('.producto-item');
+            if (document.querySelectorAll('.producto-item').length > 1) {
+                fila.remove();
+                actualizarTotales();
+            } else {
+                alert('Debe haber al menos un producto en la compra');
+            }
+        }
+    });
+
+    // Validación del formulario antes de enviar
+    document.getElementById('formEditarCompra').addEventListener('submit', function(e) {
+        if (!validarCompra()) {
+            e.preventDefault();
+            return false;
+        }
+        
+        // Mostrar loading
+        const submitBtn = document.querySelector('button[type="submit"]');
+        const originalText = submitBtn.innerHTML;
+        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> Actualizando...';
+        submitBtn.disabled = true;
+        
+        // El formulario se enviará normalmente por POST
+        return true;
+    });
+});
+
+function agregarProducto() {
+    contadorProductos++;
+    const productoHTML = `
+        <tr class="producto-item">
+            <td>
+                <select class="form-select producto-select" name="productos[]" required>
+                    <option value="" disabled selected>Seleccionar producto...</option>
+                    {% for producto in productos %}
+                    <option value="{{ producto.ID_Producto }}" 
+                            data-existencia="{{ producto.Existencias }}">
+                        {{ producto.Descripcion }} ({{ producto.COD_Producto }})
+                    </option>
+                    {% endfor %}
+                </select>
+                <small class="text-muted stock-info" style="display: none;"></small>
+            </td>
+            <td>
+                <input type="number" class="form-control cantidad" name="cantidades[]" 
+                       min="0.01" step="0.01" value="1" required>
+            </td>
+            <td>
+                <div class="input-group">
+                    <span class="input-group-text">$</span>
+                    <input type="number" class="form-control costo" name="costos_unitarios[]" 
+                           step="0.01" min="0" value="0" required>
+                </div>
+            </td>
+            <td>
+                <div class="input-group">
+                    <span class="input-group-text">$</span>
+                    <input type="number" class="form-control precio" name="precios_unitarios[]" 
+                           step="0.01" min="0" value="0">
+                </div>
+            </td>
+            <td>
+                <input type="text" class="form-control lote" name="lotes[]" placeholder="Opcional">
+            </td>
+            <td>
+                <input type="date" class="form-control fecha-vencimiento" name="fechas_vencimiento[]">
+            </td>
+            <td>
+                <div class="input-group">
+                    <span class="input-group-text">$</span>
+                    <input type="text" class="form-control subtotal" value="0.00" readonly>
+                </div>
+            </td>
+            <td>
+                <button type="button" class="btn btn-danger btn-sm btn-eliminar-producto">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </td>
+        </tr>
+    `;
+    document.getElementById('productos-container').insertAdjacentHTML('beforeend', productoHTML);
+    
+    // Agregar event listeners al nuevo producto
+    const nuevaFila = document.querySelector('.producto-item:last-child');
+    nuevaFila.querySelector('.cantidad').addEventListener('input', () => actualizarSubtotal(nuevaFila));
+    nuevaFila.querySelector('.costo').addEventListener('input', () => actualizarSubtotal(nuevaFila));
+    nuevaFila.querySelector('.precio').addEventListener('input', () => actualizarSubtotal(nuevaFila));
+    
+    actualizarTotales();
+}
+
+function actualizarSubtotal(fila) {
+    const cantidad = parseFloat(fila.querySelector('.cantidad').value) || 0;
+    const costo = parseFloat(fila.querySelector('.costo').value) || 0;
+    const subtotal = cantidad * costo;
+    
+    fila.querySelector('.subtotal').value = subtotal.toFixed(2);
+    actualizarTotales();
+}
+
+function actualizarTotales() {
+    let totalCompra = 0;
+    let totalProductos = 0;
+
+    document.querySelectorAll('.producto-item').forEach(fila => {
+        const subtotal = parseFloat(fila.querySelector('.subtotal').value) || 0;
+        if (subtotal > 0) {
+            totalCompra += subtotal;
+            totalProductos++;
+        }
+    });
+
+    document.getElementById('total-compra').textContent = `$${totalCompra.toFixed(2)}`;
+    document.getElementById('subtotal').textContent = `$${totalCompra.toFixed(2)}`;
+    document.getElementById('total-productos').textContent = totalProductos;
+}
+
+function validarCompra() {
+    let valido = true;
+
+    // Validar campos principales
+    const camposRequeridos = document.querySelectorAll('[required]');
+    camposRequeridos.forEach(campo => {
+        if (!campo.value) {
+            campo.classList.add('is-invalid');
+            valido = false;
+        } else {
+            campo.classList.remove('is-invalid');
+        }
+    });
+
+    // Validar productos
+    const productos = document.querySelectorAll('.producto-item');
+    if (productos.length === 0) {
+        alert('Debe agregar al menos un producto');
+        return false;
+    }
+
+    let productosValidos = false;
+    productos.forEach(fila => {
+        const select = fila.querySelector('.producto-select');
+        const cantidad = fila.querySelector('.cantidad');
+        const costo = fila.querySelector('.costo');
+        
+        if (select.value && cantidad.value && costo.value) {
+            productosValidos = true;
+        } else {
+            // Marcar campos inválidos
+            if (!select.value) select.classList.add('is-invalid');
+            if (!cantidad.value) cantidad.classList.add('is-invalid');
+            if (!costo.value) costo.classList.add('is-invalid');
+            valido = false;
+        }
+    });
+
+    if (!productosValidos) {
+        alert('Todos los productos deben tener datos válidos');
+        return false;
+    }
+
+    // Validar compra a crédito
+    const tipoCompra = document.getElementById('tipo_compra').value;
+    const idProveedor = document.getElementById('id_proveedor').value;
+    
+    if (tipoCompra === 'CREDITO' && !idProveedor) {
+        alert('Para compras a crédito debe seleccionar un proveedor');
+        document.getElementById('id_proveedor').classList.add('is-invalid');
+        return false;
+    }
+
+    return valido;
+}
+</script>
+{% endblock %}
