@@ -73,6 +73,7 @@
     .form-control:focus, .form-select:focus {
         border-color: var(--primary-color);
         box-shadow: 0 0 0 0.2rem rgba(44, 90, 160, 0.25);
+        transform: translateY(-1px);
     }
 
     .btn-primary {
@@ -81,11 +82,23 @@
         border-radius: 6px;
         padding: 0.75rem 1.5rem;
         font-weight: 600;
+        transition: all 0.2s ease;
+    }
+
+    .btn-primary:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(44, 90, 160, 0.3);
     }
 
     .btn-success {
         background: linear-gradient(135deg, var(--success-color), #146c43);
         border: none;
+    }
+
+    .btn-warning {
+        background: linear-gradient(135deg, var(--warning-color), #e0a800);
+        border: none;
+        color: #000;
     }
 
     .btn-danger {
@@ -111,12 +124,22 @@
         color: #495057;
         font-size: 0.85rem;
         text-transform: uppercase;
+        letter-spacing: 0.5px;
     }
 
     .product-table td {
         padding: 1rem;
         border-bottom: 1px solid var(--border-color);
         vertical-align: middle;
+        background: #fff;
+    }
+
+    .product-table tr:hover td {
+        background-color: #f8f9fa;
+    }
+
+    .product-table tr:last-child td {
+        border-bottom: none;
     }
 
     .total-summary {
@@ -127,11 +150,50 @@
         border: 1px solid var(--border-color);
     }
 
+    .total-row {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 0.75rem;
+        font-size: 1rem;
+    }
+
+    .grand-total {
+        font-weight: 700;
+        font-size: 1.3rem;
+        border-top: 2px solid var(--border-color);
+        padding-top: 1rem;
+        margin-top: 1rem;
+        color: var(--primary-color);
+    }
+
     .alert {
         border-radius: 8px;
         padding: 1rem 1.25rem;
         margin-bottom: 1.5rem;
         border: none;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    }
+
+    .is-invalid {
+        border-color: var(--danger-color);
+        box-shadow: 0 0 0 0.2rem rgba(220, 53, 69, 0.25);
+    }
+
+    .invalid-feedback {
+        display: none;
+        color: var(--danger-color);
+        font-size: 0.8rem;
+        margin-top: 0.25rem;
+        font-weight: 500;
+    }
+
+    .is-invalid ~ .invalid-feedback {
+        display: block;
+    }
+
+    .required-field::after {
+        content: " *";
+        color: var(--danger-color);
     }
 
     .form-section {
@@ -148,11 +210,81 @@
         border-radius: 6px;
         padding: 1rem;
         margin-top: 1rem;
+        display: none;
+    }
+
+    .product-actions {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1.5rem;
+    }
+
+    .filter-section {
+        background: linear-gradient(135deg, #e3f2fd, #bbdefb);
+        border-radius: 8px;
+        padding: 1rem;
+        margin-bottom: 1rem;
+        border: 1px solid #90caf9;
+    }
+
+    /* Loading states */
+    .loading {
+        opacity: 0.6;
+        pointer-events: none;
+    }
+
+    .spinner-border-sm {
+        width: 1rem;
+        height: 1rem;
+    }
+
+    /* Stock indicators */
+    .stock-low {
+        color: var(--danger-color);
+        font-weight: 600;
+    }
+
+    .stock-medium {
+        color: var(--warning-color);
+        font-weight: 600;
+    }
+
+    .stock-good {
+        color: var(--success-color);
+        font-weight: 600;
+    }
+
+    /* Alertas flotantes */
+    .alert-flotante {
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        z-index: 1100;
+        min-width: 300px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    }
+
+    /* Estilo específico para C$ */
+    .input-group-text {
+        background-color: #e9ecef;
+        border: 1px solid #ced4da;
+        font-weight: 600;
+        color: #495057;
+    }
+
+    /* Responsive */
+    @media (max-width: 1200px) {
+        .compra-container {
+            max-width: 100%;
+            margin: 1rem auto;
+        }
     }
 
     @media (max-width: 768px) {
         .compra-container {
             padding: 0 0.5rem;
+            margin: 0.5rem auto;
         }
 
         .card-body {
@@ -163,6 +295,52 @@
             display: block;
             overflow-x: auto;
         }
+
+        .product-table th,
+        .product-table td {
+            min-width: 120px;
+            padding: 0.75rem 0.5rem;
+        }
+
+        .btn-responsive {
+            width: 100%;
+            margin-bottom: 0.5rem;
+        }
+
+        .total-summary {
+            padding: 1rem;
+        }
+
+        .form-section {
+            padding: 1rem;
+        }
+
+        .filter-section {
+            padding: 0.75rem;
+        }
+    }
+
+    @media (max-width: 576px) {
+        .card-header h2 {
+            font-size: 1.25rem;
+        }
+
+        .section-title {
+            font-size: 1.1rem;
+        }
+
+        .form-control, .form-select {
+            padding: 0.6rem;
+        }
+
+        .product-actions {
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .product-actions .btn {
+            width: 100%;
+        }
     }
 </style>
 
@@ -172,17 +350,16 @@
             <h2><i class="fas fa-edit me-2"></i>Editar Compra #{{ movimiento.ID_Movimiento }}</h2>
         </div>
         <div class="card-body">
-            <!-- CAMBIO IMPORTANTE: método POST y enctype -->
             <form id="formEditarCompra" method="POST" novalidate>
                 <input type="hidden" name="id_movimiento" value="{{ movimiento.ID_Movimiento }}">
-                <input type="hidden" name="id_usuario_modificacion" value="{{ session.get('user_id', 1) }}">
+                <input type="hidden" name="id_usuario_modificacion" value="{{ session.get('id_usuario', 1) }}">
 
                 <!-- Información General -->
                 <div class="form-section">
                     <h4 class="section-title"><i class="fas fa-info-circle me-2"></i>Información General</h4>
                     <div class="row g-3">
                         <div class="col-md-4">
-                            <label for="id_tipo_movimiento" class="form-label">Tipo de Movimiento</label>
+                            <label for="id_tipo_movimiento" class="form-label required-field">Tipo de Movimiento</label>
                             <select class="form-select" id="id_tipo_movimiento" name="id_tipo_movimiento" required>
                                 <option value="" disabled>Seleccionar tipo...</option>
                                 {% for tipo in tipos_movimiento %}
@@ -192,12 +369,14 @@
                                 </option>
                                 {% endfor %}
                             </select>
+                            <div class="invalid-feedback">Por favor seleccione el tipo de movimiento</div>
                         </div>
 
                         <div class="col-md-4">
-                            <label for="fecha" class="form-label">Fecha de Compra</label>
+                            <label for="fecha" class="form-label required-field">Fecha de Compra</label>
                             <input type="date" class="form-control" id="fecha" name="fecha" 
                                    value="{{ movimiento.Fecha.strftime('%Y-%m-%d') if movimiento.Fecha else '' }}" required>
+                            <div class="invalid-feedback">Por favor ingrese la fecha de compra</div>
                         </div>
 
                         <div class="col-md-4">
@@ -220,15 +399,16 @@
                         </div>
 
                         <div class="col-md-4">
-                            <label for="tipo_compra" class="form-label">Tipo de Compra</label>
+                            <label for="tipo_compra" class="form-label required-field">Tipo de Compra</label>
                             <select class="form-select" id="tipo_compra" name="tipo_compra" required>
                                 <option value="CONTADO" {% if movimiento.Tipo_Compra == 'CONTADO' %}selected{% endif %}>CONTADO</option>
                                 <option value="CREDITO" {% if movimiento.Tipo_Compra == 'CREDITO' %}selected{% endif %}>CRÉDITO</option>
                             </select>
+                            <div class="invalid-feedback">Por favor seleccione el tipo de compra</div>
                         </div>
 
                         <div class="col-md-4">
-                            <label for="id_bodega" class="form-label">Bodega de Destino</label>
+                            <label for="id_bodega" class="form-label required-field">Bodega de Destino</label>
                             <select class="form-select" id="id_bodega" name="id_bodega" required>
                                 <option value="" disabled>Seleccionar bodega...</option>
                                 {% for bodega in bodegas %}
@@ -238,6 +418,31 @@
                                 </option>
                                 {% endfor %}
                             </select>
+                            <div class="invalid-feedback">Por favor seleccione una bodega</div>
+                        </div>
+
+                        <!-- NUEVO: Filtro por Categoría de Producto -->
+                        <div class="col-md-6">
+                            <label for="filtro_categoria" class="form-label">Filtrar Productos por Categoría</label>
+                            <select class="form-select" id="filtro_categoria" name="filtro_categoria">
+                                <option value="0">Todas las categorías</option>
+                                {% for categoria in categorias %}
+                                <option value="{{ categoria.ID_Categoria }}">{{ categoria.Descripcion }}</option>
+                                {% endfor %}
+                            </select>
+                            <small class="text-muted">Filtre los productos por categoría para facilitar la búsqueda</small>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label">&nbsp;</label>
+                            <div class="d-flex gap-2 mt-2">
+                                <button type="button" class="btn btn-outline-primary btn-sm" id="btn-aplicar-filtro">
+                                    <i class="fas fa-filter me-1"></i>Aplicar Filtro
+                                </button>
+                                <button type="button" class="btn btn-outline-secondary btn-sm" id="btn-limpiar-filtro">
+                                    <i class="fas fa-times me-1"></i>Limpiar
+                                </button>
+                            </div>
                         </div>
 
                         <!-- Fecha Vencimiento para Crédito -->
@@ -249,8 +454,8 @@
                             <div class="credito-info">
                                 <small><i class="fas fa-info-circle me-1"></i>
                                     {% if cuenta_por_pagar %}
-                                        Cuenta por pagar: ${{ "%.2f"|format(cuenta_por_pagar.Monto_Movimiento) }} | 
-                                        Saldo: ${{ "%.2f"|format(cuenta_por_pagar.Saldo_Pendiente) }}
+                                        Cuenta por pagar: C${{ "%.2f"|format(cuenta_por_pagar.Monto_Movimiento) }} | 
+                                        Saldo: C${{ "%.2f"|format(cuenta_por_pagar.Saldo_Pendiente) }}
                                     {% else %}
                                         Se generará una nueva cuenta por pagar
                                     {% endif %}
@@ -268,11 +473,27 @@
 
                 <!-- Detalles de Productos -->
                 <div class="form-section">
-                    <div class="d-flex justify-content-between align-items-center mb-3">
+                    <div class="product-actions">
                         <h4 class="section-title mb-0"><i class="fas fa-boxes me-2"></i>Detalles de Productos</h4>
-                        <button type="button" class="btn btn-primary" id="btn-agregar-producto">
-                            <i class="fas fa-plus me-1"></i>Agregar Producto
-                        </button>
+                        <div class="d-flex gap-2">
+                            <button type="button" class="btn btn-primary" id="btn-agregar-producto">
+                                <i class="fas fa-plus me-1"></i>Agregar Producto
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- Información del filtro aplicado -->
+                    <div class="filter-section" id="filtro-info" style="display: none;">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <i class="fas fa-filter me-2 text-primary"></i>
+                                <strong>Filtro aplicado:</strong> 
+                                <span id="filtro-actual">Todas las categorías</span>
+                            </div>
+                            <button type="button" class="btn btn-sm btn-outline-secondary" id="btn-quitar-filtro">
+                                <i class="fas fa-times me-1"></i>Quitar filtro
+                            </button>
+                        </div>
                     </div>
                     
                     <div class="table-responsive">
@@ -291,61 +512,62 @@
                             </thead>
                             <tbody id="productos-container">
                                 {% for detalle in detalles %}
-                                <tr class="producto-item">
+                                <tr class="producto-item" id="producto-{{ loop.index }}">
                                     <td>
-                                        <!-- CAMBIO: nombres de campos compatibles con backend -->
-                                        <select class="form-select producto-select" name="productos[]" required>
+                                        <select class="form-select producto-select" name="productos[]" required onchange="actualizarInfoProducto({{ loop.index }})">
                                             <option value="" disabled>Seleccionar producto...</option>
                                             {% for producto in productos %}
                                             <option value="{{ producto.ID_Producto }}" 
+                                                    data-codigo="{{ producto.COD_Producto }}"
                                                     data-existencia="{{ producto.Existencias }}"
+                                                    data-precio="{{ producto.Precio_Venta or 0 }}"
+                                                    data-categoria="{{ producto.ID_Categoria }}"
                                                     {% if producto.ID_Producto == detalle.ID_Producto %}selected{% endif %}>
                                                 {{ producto.Descripcion }} ({{ producto.COD_Producto }})
                                             </option>
                                             {% endfor %}
                                         </select>
-                                        <small class="text-muted stock-info" style="display: none;"></small>
+                                        <div class="invalid-feedback">Seleccione un producto</div>
+                                        <small class="text-muted stock-info" id="stock-info-{{ loop.index }}" style="display: none;"></small>
                                     </td>
                                     <td>
-                                        <input type="number" class="form-control cantidad" 
-                                               name="cantidades[]"
-                                               value="{{ detalle.Cantidad }}" min="0.01" step="0.01" required>
-                                    </td>
-                                    <td>
-                                        <div class="input-group">
-                                            <span class="input-group-text">$</span>
-                                            <input type="number" class="form-control costo" 
-                                                   name="costos_unitarios[]"
-                                                   value="{{ detalle.Costo_Unitario }}" step="0.01" min="0" required>
-                                        </div>
+                                        <input type="number" class="form-control cantidad" name="cantidades[]"
+                                               value="{{ detalle.Cantidad }}" min="0.01" step="0.01" required onchange="calcularSubtotal({{ loop.index }})">
+                                        <div class="invalid-feedback">Ingrese una cantidad válida</div>
                                     </td>
                                     <td>
                                         <div class="input-group">
-                                            <span class="input-group-text">$</span>
-                                            <input type="number" class="form-control precio" 
-                                                   name="precios_unitarios[]"
-                                                   value="{{ detalle.Precio_Unitario or detalle.Costo_Unitario }}" step="0.01" min="0">
+                                            <span class="input-group-text">C$</span>
+                                            <input type="number" class="form-control costo" name="costos_unitarios[]"
+                                                   value="{{ detalle.Costo_Unitario }}" step="0.01" min="0" required onchange="calcularSubtotal({{ loop.index }})">
                                         </div>
+                                        <div class="invalid-feedback">Ingrese un costo válido</div>
                                     </td>
                                     <td>
-                                        <input type="text" class="form-control lote" 
-                                               name="lotes[]"
+                                        <div class="input-group">
+                                            <span class="input-group-text">C$</span>
+                                            <input type="number" class="form-control precio" name="precios_unitarios[]"
+                                                   value="{{ detalle.Precio_Unitario or detalle.Costo_Unitario }}" step="0.01" min="0" required onchange="actualizarPrecio({{ loop.index }})">
+                                        </div>
+                                        <div class="invalid-feedback">Ingrese un precio válido</div>
+                                    </td>
+                                    <td>
+                                        <input type="text" class="form-control lote" name="lotes[]"
                                                value="{{ detalle.Lote or '' }}" placeholder="Opcional">
                                     </td>
                                     <td>
-                                        <input type="date" class="form-control fecha-vencimiento" 
-                                               name="fechas_vencimiento[]"
+                                        <input type="date" class="form-control fecha-vencimiento" name="fechas_vencimiento[]"
                                                value="{% if detalle.Fecha_Vencimiento %}{{ detalle.Fecha_Vencimiento.strftime('%Y-%m-%d') }}{% endif %}">
                                     </td>
                                     <td>
                                         <div class="input-group">
-                                            <span class="input-group-text">$</span>
+                                            <span class="input-group-text">C$</span>
                                             <input type="text" class="form-control subtotal" 
                                                    value="{{ "%.2f"|format(detalle.Subtotal) }}" readonly>
                                         </div>
                                     </td>
                                     <td>
-                                        <button type="button" class="btn btn-danger btn-sm btn-eliminar-producto">
+                                        <button type="button" class="btn btn-danger btn-sm" onclick="eliminarProducto({{ loop.index }})" title="Eliminar producto">
                                             <i class="fas fa-trash"></i>
                                         </button>
                                     </td>
@@ -353,6 +575,13 @@
                                 {% endfor %}
                             </tbody>
                         </table>
+                    </div>
+
+                    <!-- Mensaje cuando no hay productos -->
+                    <div id="no-products-message" class="text-center py-4" style="display: none;">
+                        <i class="fas fa-box-open fa-3x text-muted mb-3"></i>
+                        <h5 class="text-muted">No hay productos agregados</h5>
+                        <p class="text-muted">Haga clic en "Agregar Producto" para comenzar</p>
                     </div>
                 </div>
 
@@ -364,11 +593,11 @@
                     </div>
                     <div class="total-row">
                         <span>Subtotal:</span>
-                        <span id="subtotal">${{ "%.2f"|format(movimiento.Total_Compra or 0) }}</span>
+                        <span id="subtotal">C$ {{ "%.2f"|format(movimiento.Total_Compra or 0) }}</span>
                     </div>
                     <div class="total-row grand-total">
                         <span>TOTAL COMPRA:</span>
-                        <span id="total-compra">${{ "%.2f"|format(movimiento.Total_Compra or 0) }}</span>
+                        <span id="total-compra">C$ {{ "%.2f"|format(movimiento.Total_Compra or 0) }}</span>
                     </div>
                 </div>
 
@@ -387,104 +616,199 @@
 </div>
 
 <script>
+// Variables globales
 let contadorProductos = {{ detalles|length }};
+let filtroCategoriaActual = 0;
+let productosEnCache = [];
 
+// ========== INICIALIZACIÓN ==========
 document.addEventListener('DOMContentLoaded', function() {
+    console.log('🔄 Inicializando formulario de edición...');
+    
+    // Verificar que los elementos existen
+    const btnAgregar = document.getElementById('btn-agregar-producto');
+    const btnFiltro = document.getElementById('btn-aplicar-filtro');
+    const btnLimpiar = document.getElementById('btn-limpiar-filtro');
+    
+    if (!btnAgregar) {
+        console.error('❌ No se encontró el botón btn-agregar-producto');
+        return;
+    }
+    if (!btnFiltro) {
+        console.error('❌ No se encontró el botón btn-aplicar-filtro');
+        return;
+    }
+    
+    console.log('✅ Botones encontrados correctamente');
+    
+    // Asignar eventos
+    btnAgregar.addEventListener('click', agregarProducto);
+    btnFiltro.addEventListener('click', aplicarFiltroCategoria);
+    btnLimpiar.addEventListener('click', limpiarFiltro);
+    
     // Controlar visibilidad de fecha de vencimiento
-    document.getElementById('tipo_compra').addEventListener('change', function() {
-        const fechaVencimientoGroup = document.getElementById('fecha_vencimiento_group');
-        if (this.value === 'CREDITO') {
-            fechaVencimientoGroup.style.display = 'block';
-            // Establecer fecha de vencimiento por defecto si no existe
-            if (!document.getElementById('fecha_vencimiento').value) {
-                const fechaCompra = document.getElementById('fecha').value;
-                if (fechaCompra) {
-                    const fechaVencimiento = new Date(fechaCompra);
-                    fechaVencimiento.setDate(fechaVencimiento.getDate() + 30);
-                    document.getElementById('fecha_vencimiento').value = fechaVencimiento.toISOString().split('T')[0];
-                }
-            }
-        } else {
-            fechaVencimientoGroup.style.display = 'none';
-        }
-    });
-
-    // Agregar nuevo producto
-    document.getElementById('btn-agregar-producto').addEventListener('click', agregarProducto);
-
-    // Calcular subtotales para productos existentes
-    document.querySelectorAll('.producto-item').forEach((fila) => {
-        actualizarSubtotal(fila);
-        // Agregar event listeners a los campos existentes
-        fila.querySelector('.cantidad').addEventListener('input', () => actualizarSubtotal(fila));
-        fila.querySelector('.costo').addEventListener('input', () => actualizarSubtotal(fila));
-        fila.querySelector('.precio').addEventListener('input', () => actualizarSubtotal(fila));
-    });
-
-    // Eliminar producto
-    document.addEventListener('click', function(e) {
-        if (e.target.closest('.btn-eliminar-producto')) {
-            const fila = e.target.closest('.producto-item');
-            if (document.querySelectorAll('.producto-item').length > 1) {
-                fila.remove();
-                actualizarTotales();
+    const tipoCompraSelect = document.getElementById('tipo_compra');
+    if (tipoCompraSelect) {
+        tipoCompraSelect.addEventListener('change', function() {
+            const fechaVencimientoGroup = document.getElementById('fecha_vencimiento_group');
+            if (this.value === 'CREDITO') {
+                fechaVencimientoGroup.style.display = 'block';
             } else {
-                alert('Debe haber al menos un producto en la compra');
+                fechaVencimientoGroup.style.display = 'none';
             }
-        }
-    });
-
-    // Validación del formulario antes de enviar
-    document.getElementById('formEditarCompra').addEventListener('submit', function(e) {
-        if (!validarCompra()) {
-            e.preventDefault();
-            return false;
-        }
-        
-        // Mostrar loading
-        const submitBtn = document.querySelector('button[type="submit"]');
-        const originalText = submitBtn.innerHTML;
-        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> Actualizando...';
-        submitBtn.disabled = true;
-        
-        // El formulario se enviará normalmente por POST
-        return true;
-    });
+        });
+    }
+    
+    // Inicializar productos existentes
+    inicializarProductosExistentes();
+    actualizarMensajeProductos();
+    
+    console.log('✅ Formulario de edición inicializado correctamente');
 });
 
+// ========== FUNCIONES DE FILTRO ==========
+
+async function aplicarFiltroCategoria() {
+    console.log('🔍 Aplicando filtro...');
+    
+    const categoriaSelect = document.getElementById('filtro_categoria');
+    if (!categoriaSelect) {
+        console.error('❌ No se encontró el select de categoría');
+        return;
+    }
+    
+    const idCategoria = categoriaSelect.value;
+    const nombreCategoria = categoriaSelect.options[categoriaSelect.selectedIndex].text;
+    
+    console.log('Filtrando por categoría:', idCategoria, nombreCategoria);
+    
+    try {
+        // Mostrar loading
+        const btnFiltro = document.getElementById('btn-aplicar-filtro');
+        btnFiltro.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> Cargando...';
+        btnFiltro.disabled = true;
+
+        // Cargar productos filtrados
+        const url = `/admin/compras/productos-por-categoria/${idCategoria}`;
+        console.log('URL:', url);
+        
+        const response = await fetch(url);
+        
+        if (!response.ok) {
+            throw new Error(`Error HTTP: ${response.status}`);
+        }
+        
+        const productos = await response.json();
+        console.log('Productos recibidos:', productos);
+        
+        // Actualizar todos los selects
+        const selects = document.querySelectorAll('.producto-select');
+        console.log('Selects a actualizar:', selects.length);
+        
+        selects.forEach(select => {
+            actualizarSelectConProductos(select, productos);
+        });
+        
+        // Actualizar UI del filtro
+        const filtroInfo = document.getElementById('filtro-info');
+        const filtroActual = document.getElementById('filtro-actual');
+        
+        if (idCategoria === '0') {
+            filtroInfo.style.display = 'none';
+        } else {
+            filtroInfo.style.display = 'block';
+            filtroActual.textContent = nombreCategoria;
+        }
+        
+        mostrarAlerta('success', '✅ Filtro aplicado', `Mostrando ${productos.length} productos`);
+        
+    } catch (error) {
+        console.error('Error al aplicar filtro:', error);
+        mostrarAlerta('danger', '❌ Error', 'No se pudieron cargar los productos');
+    } finally {
+        const btnFiltro = document.getElementById('btn-aplicar-filtro');
+        btnFiltro.innerHTML = '<i class="fas fa-filter me-1"></i>Aplicar Filtro';
+        btnFiltro.disabled = false;
+    }
+}
+
+function actualizarSelectConProductos(select, productos) {
+    const valorActual = select.value;
+    
+    // Limpiar select
+    select.innerHTML = '<option value="" disabled selected>Seleccionar producto...</option>';
+    
+    // Agregar productos
+    productos.forEach(producto => {
+        const option = document.createElement('option');
+        option.value = producto.id;
+        option.textContent = `${producto.descripcion} (${producto.codigo})`;
+        option.dataset.codigo = producto.codigo;
+        option.dataset.existencia = producto.existencias;
+        option.dataset.precio = producto.precio_venta || 0;
+        option.dataset.categoria = producto.id_categoria;
+        
+        select.appendChild(option);
+    });
+    
+    // Restaurar selección anterior si existe
+    if (valorActual) {
+        select.value = valorActual;
+    }
+}
+
+function limpiarFiltro() {
+    console.log('🧹 Limpiando filtro...');
+    
+    document.getElementById('filtro_categoria').value = '0';
+    document.getElementById('filtro-info').style.display = 'none';
+    filtroCategoriaActual = 0;
+    
+    // Recargar todos los productos
+    aplicarFiltroCategoria();
+}
+
+// ========== FUNCIONES DE PRODUCTOS ==========
+
 function agregarProducto() {
+    console.log(' Agregando nuevo producto...');
+    
     contadorProductos++;
     const productoHTML = `
-        <tr class="producto-item">
+        <tr class="producto-item" id="producto-${contadorProductos}">
             <td>
-                <select class="form-select producto-select" name="productos[]" required>
+                <select class="form-select producto-select" name="productos[]" required onchange="actualizarInfoProducto(${contadorProductos})">
                     <option value="" disabled selected>Seleccionar producto...</option>
                     {% for producto in productos %}
                     <option value="{{ producto.ID_Producto }}" 
-                            data-existencia="{{ producto.Existencias }}">
+                            data-codigo="{{ producto.COD_Producto }}"
+                            data-existencia="{{ producto.Existencias }}"
+                            data-precio="{{ producto.Precio_Venta or 0 }}"
+                            data-categoria="{{ producto.ID_Categoria }}">
                         {{ producto.Descripcion }} ({{ producto.COD_Producto }})
                     </option>
                     {% endfor %}
                 </select>
-                <small class="text-muted stock-info" style="display: none;"></small>
+                <div class="invalid-feedback">Seleccione un producto</div>
+                <small class="text-muted stock-info" id="stock-info-${contadorProductos}"></small>
             </td>
             <td>
-                <input type="number" class="form-control cantidad" name="cantidades[]" 
-                       min="0.01" step="0.01" value="1" required>
-            </td>
-            <td>
-                <div class="input-group">
-                    <span class="input-group-text">$</span>
-                    <input type="number" class="form-control costo" name="costos_unitarios[]" 
-                           step="0.01" min="0" value="0" required>
-                </div>
+                <input type="number" class="form-control cantidad" name="cantidades[]" min="0.01" step="0.01" value="1" required onchange="calcularSubtotal(${contadorProductos})">
+                <div class="invalid-feedback">Ingrese una cantidad válida</div>
             </td>
             <td>
                 <div class="input-group">
-                    <span class="input-group-text">$</span>
-                    <input type="number" class="form-control precio" name="precios_unitarios[]" 
-                           step="0.01" min="0" value="0">
+                    <span class="input-group-text">C$</span>
+                    <input type="number" class="form-control costo" name="costos_unitarios[]" step="0.01" min="0" value="0" required onchange="calcularSubtotal(${contadorProductos})">
                 </div>
+                <div class="invalid-feedback">Ingrese un costo válido</div>
+            </td>
+            <td>
+                <div class="input-group">
+                    <span class="input-group-text">C$</span>
+                    <input type="number" class="form-control precio" name="precios_unitarios[]" step="0.01" min="0" value="0" required onchange="actualizarPrecio(${contadorProductos})">
+                </div>
+                <div class="invalid-feedback">Ingrese un precio válido</div>
             </td>
             <td>
                 <input type="text" class="form-control lote" name="lotes[]" placeholder="Opcional">
@@ -494,29 +818,121 @@ function agregarProducto() {
             </td>
             <td>
                 <div class="input-group">
-                    <span class="input-group-text">$</span>
+                    <span class="input-group-text">C$</span>
                     <input type="text" class="form-control subtotal" value="0.00" readonly>
                 </div>
             </td>
             <td>
-                <button type="button" class="btn btn-danger btn-sm btn-eliminar-producto">
-                    <i class="fas fa-trash"></i>
+                <button type="button" class="btn btn-danger btn-sm" onclick="eliminarProducto(${contadorProductos})" title="Eliminar producto">
+                    <i class="fas fa-trash"></i>Quitar Producto
                 </button>
             </td>
         </tr>
     `;
-    document.getElementById('productos-container').insertAdjacentHTML('beforeend', productoHTML);
     
-    // Agregar event listeners al nuevo producto
-    const nuevaFila = document.querySelector('.producto-item:last-child');
-    nuevaFila.querySelector('.cantidad').addEventListener('input', () => actualizarSubtotal(nuevaFila));
-    nuevaFila.querySelector('.costo').addEventListener('input', () => actualizarSubtotal(nuevaFila));
-    nuevaFila.querySelector('.precio').addEventListener('input', () => actualizarSubtotal(nuevaFila));
+    const container = document.getElementById('productos-container');
+    if (!container) {
+        console.error('❌ No se encontró el contenedor de productos');
+        return;
+    }
+    
+    container.insertAdjacentHTML('beforeend', productoHTML);
+    console.log('✅ Producto agregado correctamente');
     
     actualizarTotales();
+    actualizarMensajeProductos();
 }
 
-function actualizarSubtotal(fila) {
+function eliminarProducto(id) {
+    console.log('🗑️ Eliminando producto:', id);
+    
+    const fila = document.getElementById(`producto-${id}`);
+    if (fila) {
+        // Verificar que quede al menos un producto
+        const totalProductos = document.querySelectorAll('.producto-item').length;
+        if (totalProductos <= 1) {
+            mostrarAlerta('warning', '⚠️ Advertencia', 'Debe haber al menos un producto en la compra');
+            return;
+        }
+        
+        fila.remove();
+        actualizarTotales();
+        actualizarMensajeProductos();
+        console.log('✅ Producto eliminado correctamente');
+    }
+}
+
+function inicializarProductosExistentes() {
+    console.log('🔄 Inicializando productos existentes...');
+    
+    const productosExistentes = document.querySelectorAll('.producto-item');
+    console.log('Productos existentes encontrados:', productosExistentes.length);
+    
+    productosExistentes.forEach((fila, index) => {
+        const id = index + 1;
+        
+        // Agregar event listeners
+        const cantidadInput = fila.querySelector('.cantidad');
+        const costoInput = fila.querySelector('.costo');
+        
+        if (cantidadInput && costoInput) {
+            cantidadInput.addEventListener('input', () => calcularSubtotal(id));
+            costoInput.addEventListener('input', () => calcularSubtotal(id));
+        }
+        
+        // Actualizar información inicial
+        actualizarInfoProducto(id);
+    });
+}
+
+function actualizarInfoProducto(id) {
+    const fila = document.getElementById(`producto-${id}`);
+    if (!fila) return;
+    
+    const select = fila.querySelector('.producto-select');
+    const stockInfo = document.getElementById(`stock-info-${id}`);
+    
+    if (select && select.value && select.selectedOptions[0].dataset) {
+        const dataset = select.selectedOptions[0].dataset;
+        const existencia = parseInt(dataset.existencia) || 0;
+        
+        let stockClass = 'stock-good';
+        let stockText = 'Stock suficiente';
+        
+        if (existencia <= 5) {
+            stockClass = 'stock-low';
+            stockText = 'Stock bajo';
+        } else if (existencia <= 15) {
+            stockClass = 'stock-medium';
+            stockText = 'Stock medio';
+        }
+        
+        if (stockInfo) {
+            stockInfo.innerHTML = `<span class="${stockClass}">${stockText}: ${existencia} unidades</span>`;
+            stockInfo.style.display = 'block';
+        }
+    } else if (stockInfo) {
+        stockInfo.style.display = 'none';
+    }
+}
+
+function actualizarPrecio(id) {
+    const fila = document.getElementById(`producto-${id}`);
+    if (!fila) return;
+    
+    const precioInput = fila.querySelector('.precio');
+    const precioValue = parseFloat(precioInput.value) || 0;
+    const costo = parseFloat(fila.querySelector('.costo').value) || 0;
+    
+    if (precioValue > 0 && precioValue < costo) {
+        mostrarAlerta('warning', '⚠️ Advertencia', 'El precio de venta es menor al costo');
+    }
+}
+
+function calcularSubtotal(id) {
+    const fila = document.getElementById(`producto-${id}`);
+    if (!fila) return;
+    
     const cantidad = parseFloat(fila.querySelector('.cantidad').value) || 0;
     const costo = parseFloat(fila.querySelector('.costo').value) || 0;
     const subtotal = cantidad * costo;
@@ -529,24 +945,73 @@ function actualizarTotales() {
     let totalCompra = 0;
     let totalProductos = 0;
 
-    document.querySelectorAll('.producto-item').forEach(fila => {
-        const subtotal = parseFloat(fila.querySelector('.subtotal').value) || 0;
-        if (subtotal > 0) {
-            totalCompra += subtotal;
+    document.querySelectorAll('.subtotal').forEach(subtotal => {
+        const valor = parseFloat(subtotal.value) || 0;
+        if (valor > 0) {
+            totalCompra += valor;
             totalProductos++;
         }
     });
 
-    document.getElementById('total-compra').textContent = `$${totalCompra.toFixed(2)}`;
-    document.getElementById('subtotal').textContent = `$${totalCompra.toFixed(2)}`;
+    document.getElementById('total-compra').textContent = `C$ ${totalCompra.toFixed(2)}`;
+    document.getElementById('subtotal').textContent = `C$ ${totalCompra.toFixed(2)}`;
     document.getElementById('total-productos').textContent = totalProductos;
 }
+
+function actualizarMensajeProductos() {
+    const filas = document.querySelectorAll('.producto-item').length;
+    const mensaje = document.getElementById('no-products-message');
+    
+    if (mensaje) {
+        mensaje.style.display = filas === 0 ? 'block' : 'none';
+    }
+}
+
+// ========== FUNCIONES AUXILIARES ==========
+
+function mostrarAlerta(tipo, titulo, mensaje) {
+    // Eliminar alertas existentes
+    const alertasExistentes = document.querySelectorAll('.alert-flotante');
+    alertasExistentes.forEach(alerta => alerta.remove());
+    
+    const alerta = document.createElement('div');
+    alerta.className = `alert alert-${tipo} alert-dismissible fade show alert-flotante`;
+    alerta.innerHTML = `
+        <strong>${titulo}</strong> ${mensaje}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    document.body.appendChild(alerta);
+    
+    setTimeout(() => {
+        if (alerta.parentNode) {
+            alerta.remove();
+        }
+    }, 5000);
+}
+
+// ========== VALIDACIÓN DEL FORMULARIO ==========
+
+document.getElementById('formEditarCompra').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    if (!validarCompra()) {
+        return;
+    }
+
+    // Mostrar loading
+    const submitBtn = this.querySelector('button[type="submit"]');
+    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> Actualizando...';
+    submitBtn.disabled = true;
+
+    // Enviar formulario normalmente (POST)
+    this.submit();
+});
 
 function validarCompra() {
     let valido = true;
 
     // Validar campos principales
-    const camposRequeridos = document.querySelectorAll('[required]');
+    const camposRequeridos = document.querySelectorAll('#formEditarCompra [required]');
     camposRequeridos.forEach(campo => {
         if (!campo.value) {
             campo.classList.add('is-invalid');
@@ -559,10 +1024,11 @@ function validarCompra() {
     // Validar productos
     const productos = document.querySelectorAll('.producto-item');
     if (productos.length === 0) {
-        alert('Debe agregar al menos un producto');
+        mostrarAlerta('danger', '❌ Error', 'Debe agregar al menos un producto');
         return false;
     }
 
+    // Validar cada producto
     let productosValidos = false;
     productos.forEach(fila => {
         const select = fila.querySelector('.producto-select');
@@ -572,7 +1038,6 @@ function validarCompra() {
         if (select.value && cantidad.value && costo.value) {
             productosValidos = true;
         } else {
-            // Marcar campos inválidos
             if (!select.value) select.classList.add('is-invalid');
             if (!cantidad.value) cantidad.classList.add('is-invalid');
             if (!costo.value) costo.classList.add('is-invalid');
@@ -581,17 +1046,7 @@ function validarCompra() {
     });
 
     if (!productosValidos) {
-        alert('Todos los productos deben tener datos válidos');
-        return false;
-    }
-
-    // Validar compra a crédito
-    const tipoCompra = document.getElementById('tipo_compra').value;
-    const idProveedor = document.getElementById('id_proveedor').value;
-    
-    if (tipoCompra === 'CREDITO' && !idProveedor) {
-        alert('Para compras a crédito debe seleccionar un proveedor');
-        document.getElementById('id_proveedor').classList.add('is-invalid');
+        mostrarAlerta('danger', '❌ Error', 'Complete todos los campos de productos');
         return false;
     }
 

@@ -711,10 +711,10 @@ async function limpiarFiltro() {
 
 function agregarProducto() {
     contadorProductos++;
-    const productoHTML = `
+    const productoHTML =`
         <tr class="producto-item" id="producto-${contadorProductos}">
             <td>
-                <select class="form-select producto-select" data-name="producto" required onchange="actualizarInfoProducto(${contadorProductos})">
+                <select class="form-select producto-select" name="productos[]" required onchange="actualizarInfoProducto(${contadorProductos})">
                     <option value="" disabled selected>Seleccionar producto...</option>
                     {% for producto in productos %}
                     <option value="{{ producto.ID_Producto }}" 
@@ -727,36 +727,36 @@ function agregarProducto() {
                     {% endfor %}
                 </select>
                 <div class="invalid-feedback">Seleccione un producto</div>
-                <small class="text-muted stock-info" id="stock-info-${contadorProductos}" style="display: none;"></small>
+                <small class="text-muted stock-info" id="stock-info-${contadorProductos}"></small>
             </td>
             <td>
-                <input type="number" class="form-control cantidad" data-name="cantidad" min="0.01" step="0.01" required onchange="calcularSubtotal(${contadorProductos})">
+                <input type="number" class="form-control cantidad" name="cantidades[]" min="0.01" step="0.01" value="1" required onchange="calcularSubtotal(${contadorProductos})">
                 <div class="invalid-feedback">Ingrese una cantidad válida</div>
             </td>
             <td>
                 <div class="input-group">
                     <span class="input-group-text">C$</span>
-                    <input type="number" class="form-control costo" data-name="costo" step="0.01" min="0" required onchange="calcularSubtotal(${contadorProductos})">
+                    <input type="number" class="form-control costo" name="costos_unitarios[]" step="0.01" min="0" value="0" required onchange="calcularSubtotal(${contadorProductos})">
                 </div>
                 <div class="invalid-feedback">Ingrese un costo válido</div>
             </td>
             <td>
                 <div class="input-group">
                     <span class="input-group-text">C$</span>
-                    <input type="number" class="form-control precio" data-name="precio" step="0.01" min="0" required onchange="actualizarPrecio(${contadorProductos})">
+                    <input type="number" class="form-control precio" name="precios_unitarios[]" step="0.01" min="0" value="0" required onchange="actualizarPrecio(${contadorProductos})">
                 </div>
                 <div class="invalid-feedback">Ingrese un precio válido</div>
             </td>
             <td>
-                <input type="text" class="form-control lote" data-name="lote" placeholder="Opcional">
+                <input type="text" class="form-control lote" name="lotes[]" placeholder="Opcional">
             </td>
             <td>
-                <input type="date" class="form-control fecha-vencimiento" data-name="fecha_vencimiento">
+                <input type="date" class="form-control fecha-vencimiento" name="fechas_vencimiento[]">
             </td>
             <td>
                 <div class="input-group">
                     <span class="input-group-text">C$</span>
-                    <input type="text" class="form-control subtotal" readonly>
+                    <input type="text" class="form-control subtotal" value="0.00" readonly>
                 </div>
             </td>
             <td>
