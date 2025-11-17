@@ -2305,7 +2305,6 @@ def admin_compras_entradas():
 def admin_crear_compra():
     try:
         if request.method == 'GET':
-            # Código para mostrar el formulario (se mantiene igual)
             with get_db_cursor(True) as cursor:
                 # Obtener tipos de movimiento de entrada/compra
                 cursor.execute("""
@@ -2324,11 +2323,18 @@ def admin_crear_compra():
                 cursor.execute("SELECT ID_Bodega, Nombre FROM bodegas WHERE Estado = 'activa'")
                 bodegas = cursor.fetchall()
                 
-                # Obtener productos activos
+                # Obtener categorías de productos
+                cursor.execute("SELECT ID_Categoria, Descripcion FROM categorias_producto ORDER BY Descripcion")
+                categorias = cursor.fetchall()
+                
+                # Obtener productos activos CON PRECIO_VENTA (CORREGIDO)
                 cursor.execute("""
-                    SELECT ID_Producto, COD_Producto, Descripcion, Existencias 
-                    FROM Productos 
-                    WHERE Estado = 1
+                    SELECT p.ID_Producto, p.COD_Producto, p.Descripcion, p.Existencias, 
+                           p.Precio_Venta, p.ID_Categoria, c.Descripcion as Categoria
+                    FROM Productos p
+                    LEFT JOIN categorias_producto c ON p.ID_Categoria = c.ID_Categoria
+                    WHERE p.Estado = 1
+                    ORDER BY c.Descripcion, p.Descripcion
                 """)
                 productos = cursor.fetchall()
                 
@@ -2336,10 +2342,12 @@ def admin_crear_compra():
                                     tipos_movimiento=tipos_movimiento,
                                     proveedores=proveedores,
                                     bodegas=bodegas,
-                                    productos=productos)
+                                    productos=productos,
+                                    categorias=categorias)
         
         elif request.method == 'POST':
-            # Obtener datos del formulario - CORREGIDO para aceptar form-data
+            # (MANTENER TU LÓGICA POST EXISTENTE)
+            # Obtener datos del formulario
             id_tipo_movimiento = request.form.get('id_tipo_movimiento')
             n_factura_externa = request.form.get('n_factura_externa')
             fecha = request.form.get('fecha')
@@ -2350,7 +2358,7 @@ def admin_crear_compra():
             id_usuario_creacion = request.form.get('id_usuario_creacion')
             fecha_vencimiento = request.form.get('fecha_vencimiento')
             
-            # Obtener productos del formulario - CORREGIDA LA ESTRUCTURA
+            # Obtener productos del formulario
             productos = []
             producto_ids = request.form.getlist('productos[]')
             cantidades = request.form.getlist('cantidades[]')
@@ -2359,7 +2367,7 @@ def admin_crear_compra():
             lotes = request.form.getlist('lotes[]')
             fechas_vencimiento = request.form.getlist('fechas_vencimiento[]')
             
-            print(f"Datos recibidos - Productos: {len(producto_ids)}, IDs: {producto_ids}")  # Debug
+            print(f"Datos recibidos - Productos: {len(producto_ids)}, IDs: {producto_ids}")
             
             # Validar datos requeridos
             if not all([id_tipo_movimiento, fecha, id_bodega, id_usuario_creacion]):
@@ -2371,10 +2379,9 @@ def admin_crear_compra():
                 flash('Debe agregar al menos un producto', 'error')
                 return redirect(url_for('admin_crear_compra'))
             
-            # Construir lista de productos - CORREGIDO
+            # Construir lista de productos
             for i in range(len(producto_ids)):
                 if producto_ids[i] and cantidades[i] and costos_unitarios[i]:
-                    # CORRECCIÓN: Redondear decimales a 2 posiciones
                     cantidad = round(float(cantidades[i]), 2)
                     costo_unitario = round(float(costos_unitarios[i]), 2)
                     precio_unitario = round(float(precios_unitarios[i]) if precios_unitarios[i] and precios_unitarios[i] != '' else costo_unitario, 2)
@@ -2394,7 +2401,7 @@ def admin_crear_compra():
                 if id_usuario <= 0:
                     raise ValueError("ID debe ser mayor a 0")
             except (ValueError, TypeError) as e:
-                print(f"Error en ID usuario: {e}")  # Debug
+                print(f"Error en ID usuario: {e}")
                 flash('ID de usuario no válido', 'error')
                 return redirect(url_for('admin_crear_compra'))
             
@@ -2426,7 +2433,7 @@ def admin_crear_compra():
                 ))
                 
                 id_movimiento = cursor.lastrowid
-                print(f"Movimiento creado con ID: {id_movimiento}")  # Debug
+                print(f"Movimiento creado con ID: {id_movimiento}")
                 
                 # Insertar detalles del movimiento
                 for producto in productos:
@@ -2458,7 +2465,6 @@ def admin_crear_compra():
                 
                 # CREAR CUENTA POR PAGAR SI ES CRÉDITO
                 if tipo_compra == 'CREDITO' and id_proveedor:
-                    # Usar fecha_vencimiento del formulario o calcular
                     if not fecha_vencimiento:
                         from datetime import datetime, timedelta
                         fecha_compra = datetime.strptime(fecha, '%Y-%m-%d')
@@ -2489,9 +2495,125 @@ def admin_crear_compra():
     except Exception as e:
         print(f"Error completo al crear compra: {str(e)}")
         import traceback
-        print(f"Traceback: {traceback.format_exc()}")  # Debug detallado
+        print(f"Traceback: {traceback.format_exc()}")
         flash(f'Error al crear compra: {str(e)}', 'error')
         return redirect(url_for('admin_crear_compra'))
+
+# RUTA AUXILIAR PARA PRODUCTOS POR CATEGORÍA (CORREGIDA PARA DICCIONARIOS)
+@app.route('/admin/compras/productos-por-categoria/<int:id_categoria>')
+@admin_required
+def obtener_productos_por_categoria_compra(id_categoria):
+    """
+    Endpoint para obtener productos filtrados por categoría - CORREGIDO
+    """
+    try:
+        with get_db_cursor(True) as cursor:
+            if id_categoria == 0:  # Todas las categorías
+                cursor.execute("""
+                    SELECT ID_Producto, COD_Producto, Descripcion, Existencias,
+                           Precio_Venta, ID_Categoria
+                    FROM Productos 
+                    WHERE Estado = 1
+                    ORDER BY Descripcion
+                """)
+            else:
+                cursor.execute("""
+                    SELECT ID_Producto, COD_Producto, Descripcion, Existencias,
+                           Precio_Venta, ID_Categoria
+                    FROM Productos 
+                    WHERE Estado = 1 AND ID_Categoria = %s
+                    ORDER BY Descripcion
+                """, (id_categoria,))
+            
+            productos = cursor.fetchall()
+            print(f"✅ Productos encontrados: {len(productos)} para categoría {id_categoria}")
+            
+            productos_list = []
+            for producto in productos:
+                # USAR DICCIONARIOS (porque dictionary=True)
+                productos_list.append({
+                    'id': producto['ID_Producto'],
+                    'codigo': producto['COD_Producto'],
+                    'descripcion': producto['Descripcion'],
+                    'existencias': float(producto['Existencias']) if producto['Existencias'] is not None else 0,
+                    'precio_venta': float(producto['Precio_Venta']) if producto['Precio_Venta'] is not None else 0,
+                    'id_categoria': producto['ID_Categoria']
+                })
+            
+            print(f"📦 Productos procesados exitosamente: {len(productos_list)}")
+            return jsonify(productos_list)
+            
+    except Exception as e:
+        print(f"❌ Error al obtener productos por categoría: {str(e)}")
+        import traceback
+        print(f"❌ Traceback: {traceback.format_exc()}")
+        return jsonify({'error': str(e)}), 500
+
+# RUTA AUXILIAR PARA TODOS LOS PRODUCTOS (CORREGIDA PARA DICCIONARIOS)
+@app.route('/admin/compras/todos-los-productos')
+@admin_required
+def obtener_todos_los_productos_compra():
+    """
+    Endpoint para obtener todos los productos - CORREGIDO
+    """
+    try:
+        with get_db_cursor(True) as cursor:
+            cursor.execute("""
+                SELECT ID_Producto, COD_Producto, Descripcion, Existencias,
+                       Precio_Venta, ID_Categoria
+                FROM Productos 
+                WHERE Estado = 1
+                ORDER BY Descripcion
+            """)
+            
+            productos = cursor.fetchall()
+            print(f"✅ Todos los productos encontrados: {len(productos)}")
+            
+            productos_list = []
+            for producto in productos:
+                # USAR DICCIONARIOS (porque dictionary=True)
+                productos_list.append({
+                    'id': producto['ID_Producto'],
+                    'codigo': producto['COD_Producto'],
+                    'descripcion': producto['Descripcion'],
+                    'existencias': float(producto['Existencias']) if producto['Existencias'] is not None else 0,
+                    'precio_venta': float(producto['Precio_Venta']) if producto['Precio_Venta'] is not None else 0,
+                    'id_categoria': producto['ID_Categoria']
+                })
+            
+            return jsonify(productos_list)
+            
+    except Exception as e:
+        print(f"❌ Error al obtener todos los productos: {str(e)}")
+        import traceback
+        print(f"❌ Traceback: {traceback.format_exc()}")
+        return jsonify({'error': str(e)}), 500
+
+# RUTA PARA CATEGORÍAS (CORREGIDA PARA DICCIONARIOS)
+@app.route('/admin/compras/categorias-productos')
+@admin_required
+def obtener_categorias_productos_compra():
+    """
+    Endpoint para obtener todas las categorías
+    """
+    try:
+        with get_db_cursor(True) as cursor:
+            cursor.execute("SELECT ID_Categoria, Descripcion FROM categorias_producto ORDER BY Descripcion")
+            categorias = cursor.fetchall()
+            
+            categorias_list = []
+            for categoria in categorias:
+                # USAR DICCIONARIOS (porque dictionary=True)
+                categorias_list.append({
+                    'id': categoria['ID_Categoria'],
+                    'descripcion': categoria['Descripcion']
+                })
+            
+            return jsonify(categorias_list)
+            
+    except Exception as e:
+        print(f"Error al obtener categorías: {str(e)}")
+        return jsonify({'error': str(e)}), 500
 
 @app.route('/admin/compras/compras-entradas/editar/<int:id_movimiento>', methods=['GET', 'POST'])
 @admin_required
