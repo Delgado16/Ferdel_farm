@@ -6,21 +6,35 @@
 <div class="container-fluid">
     <!-- Header -->
     <div class="d-sm-flex align-items-center justify-content-between mb-4">
-        <h1 class="h3 mb-0 text-gray-800">
-            <i class="fas fa-money-bill-wave text-primary"></i> Registrar Pago
-        </h1>
-        <a href="{{ url_for('admin_cuentas_por_pagar') }}" class="d-none d-sm-inline-block btn btn-sm btn-secondary shadow-sm">
-            <i class="fas fa-arrow-left fa-sm text-white-50"></i> Volver a Cuentas
-        </a>
+        <div class="d-flex align-items-center">
+            <div class="icon-circle bg-success text-white mr-3">
+                <i class="fas fa-money-bill-wave"></i>
+            </div>
+            <div>
+                <h1 class="h3 mb-0 text-gray-800">Registrar Pago</h1>
+                <p class="text-muted mb-0">Completar transacción de cuenta por pagar</p>
+            </div>
+        </div>
+        <div>
+            <a href="{{ url_for('historial_pagos_cuenta', id_cuenta=cuenta_info.ID_Cuenta if cuenta_info else '') }}" 
+               class="btn btn-outline-info mr-2">
+                <i class="fas fa-history mr-1"></i> Historial
+            </a>
+            <a href="{{ url_for('admin_cuentas_por_pagar') }}" class="btn btn-secondary">
+                <i class="fas fa-arrow-left mr-1"></i> Volver
+            </a>
+        </div>
     </div>
 
     <!-- Alert Messages -->
     {% with messages = get_flashed_messages(with_categories=true) %}
         {% if messages %}
             {% for category, message in messages %}
-                <div class="alert alert-{{ 'danger' if category == 'error' else 'success' }} alert-dismissible fade show" role="alert">
-                    <i class="fas fa-{{ 'exclamation-triangle' if category == 'error' else 'check-circle' }} mr-2"></i>
-                    {{ message }}
+                <div class="alert alert-{{ 'danger' if category == 'error' else 'success' }} alert-dismissible fade show shadow-sm" role="alert">
+                    <div class="d-flex align-items-center">
+                        <i class="fas fa-{{ 'exclamation-triangle' if category == 'error' else 'check-circle' }} mr-2"></i>
+                        <span>{{ message }}</span>
+                    </div>
                     <button type="button" class="close" data-dismiss="alert" aria-label="Close">
                         <span aria-hidden="true">&times;</span>
                     </button>
@@ -32,126 +46,385 @@
     <div class="row">
         <div class="col-lg-8">
             <div class="card shadow mb-4">
-                <div class="card-header py-3">
-                    <h6 class="m-0 font-weight-bold text-primary">
+                <div class="card-header bg-success text-white py-3">
+                    <h6 class="m-0 font-weight-bold">
                         <i class="fas fa-credit-card mr-2"></i>Información del Pago
                     </h6>
                 </div>
                 <div class="card-body">
+                    {% if cuenta_info %}
+                    <!-- Información de la cuenta -->
+                    <div class="account-summary-card mb-4">
+                        <div class="d-flex justify-content-between align-items-start mb-3">
+                            <h6 class="font-weight-bold text-success mb-0">
+                                <i class="fas fa-file-invoice-dollar mr-2"></i>Cuenta #{{ cuenta_info.ID_Cuenta }}
+                            </h6>
+                            <span class="badge badge-pill {{ 'badge-warning' if cuenta_info.Saldo_Pendiente > 0 else 'badge-success' }}">
+                                {{ 'PENDIENTE' if cuenta_info.Saldo_Pendiente > 0 else 'PAGADA' }}
+                            </span>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="info-item">
+                                    <label class="text-muted small mb-1">Proveedor</label>
+                                    <div class="font-weight-bold">{{ cuenta_info.Proveedor }}</div>
+                                </div>
+                                <div class="info-item">
+                                    <label class="text-muted small mb-1">Documento</label>
+                                    <div class="font-weight-bold text-primary">{{ cuenta_info.Num_Documento or 'N/A' }}</div>
+                                </div>
+                                {% if cuenta_info.Observacion %}
+                                <div class="info-item">
+                                    <label class="text-muted small mb-1">Observación</label>
+                                    <div class="small">{{ cuenta_info.Observacion }}</div>
+                                </div>
+                                {% endif %}
+                            </div>
+                            <div class="col-md-6">
+                                <div class="info-item">
+                                    <label class="text-muted small mb-1">Monto Total</label>
+                                    <div class="font-weight-bold text-dark">${{ "{:,.2f}".format(cuenta_info.Monto_Movimiento) }}</div>
+                                </div>
+                                <div class="info-item">
+                                    <label class="text-muted small mb-1">Saldo Pendiente</label>
+                                    <div class="font-weight-bold {{ 'text-danger' if cuenta_info.Saldo_Pendiente > 0 else 'text-success' }}">
+                                        ${{ "{:,.2f}".format(cuenta_info.Saldo_Pendiente) }}
+                                    </div>
+                                </div>
+                                {% if cuenta_info.Fecha_Vencimiento %}
+                                <div class="info-item">
+                                    <label class="text-muted small mb-1">Vencimiento</label>
+                                    <div class="font-weight-bold {{ 'text-danger' if cuenta_info.dias_vencimiento and cuenta_info.dias_vencimiento < 0 else 'text-dark' }}">
+                                        {{ cuenta_info.Fecha_Vencimiento.strftime('%d/%m/%Y') }}
+                                        {% if cuenta_info.dias_vencimiento %}
+                                            <small class="d-block {{ 'text-danger' if cuenta_info.dias_vencimiento < 0 else 'text-warning' if cuenta_info.dias_vencimiento <= 3 else 'text-muted' }}">
+                                                {% if cuenta_info.dias_vencimiento < 0 %}
+                                                    Vencido hace {{ -cuenta_info.dias_vencimiento }} días
+                                                {% elif cuenta_info.dias_vencimiento == 0 %}
+                                                    Vence hoy
+                                                {% else %}
+                                                    En {{ cuenta_info.dias_vencimiento }} días
+                                                {% endif %}
+                                            </small>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+
                     <form id="formPago" action="{{ url_for('registrar_pago_cuenta') }}" method="POST">
-                        {% if cuenta_info %}
                         <input type="hidden" name="id_cuenta" value="{{ cuenta_info.ID_Cuenta }}">
                         
-                        <!-- Información de la cuenta -->
-                        <div class="alert alert-info mb-4">
-                            <h6 class="alert-heading"><i class="fas fa-info-circle mr-2"></i>Información de la Cuenta</h6>
-                            <div class="row mt-2">
+                        <!-- Monto y Fecha -->
+                        <div class="form-section mb-4">
+                            <h6 class="section-title">Monto y Fecha</h6>
+                            <div class="row">
                                 <div class="col-md-6">
-                                    <strong>Proveedor:</strong> {{ cuenta_info.Proveedor }}<br>
-                                    <strong>Documento:</strong> {{ cuenta_info.Num_Documento or 'N/A' }}
+                                    <div class="form-group">
+                                        <label for="monto_pago" class="font-weight-bold required">Monto a Pagar</label>
+                                        <div class="input-group">
+                                            <div class="input-group-prepend">
+                                                <span class="input-group-text bg-light">$</span>
+                                            </div>
+                                            <input type="number" step="0.01" class="form-control" id="monto_pago" name="monto_pago" 
+                                                   value="{{ cuenta_info.Saldo_Pendiente }}" 
+                                                   max="{{ cuenta_info.Saldo_Pendiente }}" 
+                                                   min="0.01" required>
+                                        </div>
+                                        <div class="d-flex justify-content-between mt-1">
+                                            <small class="form-text text-muted">Monto máximo disponible</small>
+                                            <small class="form-text font-weight-bold">$<span id="monto-maximo">{{ "{:,.2f}".format(cuenta_info.Saldo_Pendiente) }}</span></small>
+                                        </div>
+                                        <div class="progress mt-2" style="height: 4px;">
+                                            <div id="monto-progress" class="progress-bar bg-success" role="progressbar" style="width: 100%"></div>
+                                        </div>
+                                    </div>
                                 </div>
                                 <div class="col-md-6">
-                                    <strong>Monto Total:</strong> ${{ "{:,.2f}".format(cuenta_info.Monto_Movimiento) }}<br>
-                                    <strong>Saldo Pendiente:</strong> $<span id="saldo-pendiente">{{ "{:,.2f}".format(cuenta_info.Saldo_Pendiente) }}</span>
-                                </div>
-                            </div>
-                        </div>
-                        {% else %}
-                        <div class="alert alert-warning">
-                            <i class="fas fa-exclamation-triangle mr-2"></i>
-                            No se encontró información de la cuenta. 
-                            <a href="{{ url_for('admin_cuentas_por_pagar') }}">Volver a cuentas por pagar</a>
-                        </div>
-                        {% endif %}
-
-                        <div class="row">
-                            <div class="col-md-6">
-                                <div class="form-group">
-                                    <label for="monto_pago" class="font-weight-bold">Monto a Pagar *</label>
-                                    <input type="number" step="0.01" class="form-control" id="monto_pago" name="monto_pago" 
-                                           value="{{ cuenta_info.Saldo_Pendiente if cuenta_info else '' }}" 
-                                           max="{{ cuenta_info.Saldo_Pendiente if cuenta_info else '' }}" 
-                                           min="0.01" required>
-                                    <small class="form-text text-muted">Monto máximo: $<span id="monto-maximo">{{ "{:,.2f}".format(cuenta_info.Saldo_Pendiente) if cuenta_info else '0.00' }}</span></small>
-                                </div>
-                            </div>
-                            <div class="col-md-6">
-                                <div class="form-group">
-                                    <label for="fecha_pago" class="font-weight-bold">Fecha de Pago *</label>
-                                    <input type="date" class="form-control" id="fecha_pago" name="fecha_pago" 
-                                           value="{{ today }}" required>
+                                    <div class="form-group">
+                                        <label for="fecha_pago" class="font-weight-bold required">Fecha de Pago</label>
+                                        <input type="date" class="form-control" id="fecha_pago" name="fecha_pago" 
+                                               value="{{ today }}" required>
+                                        <small class="form-text text-muted">Fecha en que se realiza el pago</small>
+                                    </div>
                                 </div>
                             </div>
                         </div>
                         
-                        <div class="row">
-                            <div class="col-md-6">
-                                <div class="form-group">
-                                    <label for="id_metodo_pago" class="font-weight-bold">Método de Pago *</label>
-                                    <select class="form-control" id="id_metodo_pago" name="id_metodo_pago" required>
-                                        <option value="">Seleccionar método...</option>
-                                        {% for metodo in metodos_pago %}
-                                        <option value="{{ metodo.ID_MetodoPago }}">{{ metodo.Nombre }}</option>
-                                        {% endfor %}
-                                    </select>
+                        <!-- Método de Pago -->
+                        <div class="form-section mb-4">
+                            <h6 class="section-title">Método de Pago</h6>
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="form-group">
+                                        <label for="id_metodo_pago" class="font-weight-bold required">Método</label>
+                                        <select class="form-control" id="id_metodo_pago" name="id_metodo_pago" required>
+                                            <option value="">Seleccionar método...</option>
+                                            {% for metodo in metodos_pago %}
+                                            <option value="{{ metodo.ID_MetodoPago }}" data-desc="{{ metodo.Descripcion or '' }}">
+                                                {{ metodo.Nombre }}
+                                            </option>
+                                            {% endfor %}
+                                        </select>
+                                        <small class="form-text text-muted" id="metodo-descripcion"></small>
+                                    </div>
                                 </div>
-                            </div>
-                            <div class="col-md-6">
-                                <div class="form-group">
-                                    <label for="detalles_metodo" class="font-weight-bold">Detalles del Método</label>
-                                    <input type="text" class="form-control" id="detalles_metodo" name="detalles_metodo" 
-                                           placeholder="N° cheque, referencia transferencia, etc.">
-                                    <small class="form-text text-muted" id="ayuda-metodo"></small>
+                                <div class="col-md-6">
+                                    <div class="form-group">
+                                        <label for="detalles_metodo" class="font-weight-bold">Detalles del Método</label>
+                                        <input type="text" class="form-control" id="detalles_metodo" name="detalles_metodo" 
+                                               placeholder="Ej: N° cheque, referencia, etc.">
+                                        <small class="form-text text-muted" id="ayuda-metodo">Complete según el método seleccionado</small>
+                                    </div>
                                 </div>
                             </div>
                         </div>
                         
-                        <div class="form-group">
-                            <label for="comentarios_pago" class="font-weight-bold">Comentarios</label>
-                            <textarea class="form-control" id="comentarios_pago" name="comentarios_pago" rows="3" 
-                                      placeholder="Observaciones adicionales del pago..."></textarea>
+                        <!-- Información Adicional -->
+                        <div class="form-section">
+                            <h6 class="section-title">Información Adicional</h6>
+                            <div class="form-group">
+                                <label for="comentarios_pago" class="font-weight-bold">Comentarios</label>
+                                <textarea class="form-control" id="comentarios_pago" name="comentarios_pago" rows="3" 
+                                          placeholder="Observaciones adicionales sobre este pago..."></textarea>
+                                <small class="form-text text-muted">Opcional: información relevante sobre la transacción</small>
+                            </div>
                         </div>
                         
-                        <div class="form-group mt-4">
-                            <button type="submit" class="btn btn-success btn-lg">
+                        <!-- Action Buttons -->
+                        <div class="form-actions mt-5 pt-4 border-top">
+                            <button type="submit" class="btn btn-success btn-lg px-5">
                                 <i class="fas fa-check-circle mr-2"></i>Registrar Pago
                             </button>
-                            <a href="{{ url_for('admin_cuentas_por_pagar') }}" class="btn btn-secondary btn-lg">
+                            <a href="{{ url_for('admin_cuentas_por_pagar') }}" class="btn btn-outline-secondary btn-lg px-4">
                                 <i class="fas fa-times mr-2"></i>Cancelar
                             </a>
                         </div>
                     </form>
+                    {% else %}
+                    <!-- Estado sin información de cuenta -->
+                    <div class="text-center py-5">
+                        <div class="icon-circle bg-warning text-white mb-3 mx-auto" style="width: 80px; height: 80px;">
+                            <i class="fas fa-exclamation-triangle fa-2x"></i>
+                        </div>
+                        <h4 class="text-warning">Cuenta no encontrada</h4>
+                        <p class="text-muted mb-4">No se pudo cargar la información de la cuenta seleccionada.</p>
+                        <a href="{{ url_for('admin_cuentas_por_pagar') }}" class="btn btn-primary">
+                            <i class="fas fa-arrow-left mr-2"></i>Volver a Cuentas por Pagar
+                        </a>
+                    </div>
+                    {% endif %}
                 </div>
             </div>
         </div>
         
         <div class="col-lg-4">
-            <!-- Panel de ayuda -->
+            <!-- Resumen del Pago -->
             <div class="card shadow mb-4">
-                <div class="card-header py-3">
-                    <h6 class="m-0 font-weight-bold text-primary">
-                        <i class="fas fa-question-circle mr-2"></i>Ayuda
+                <div class="card-header bg-primary text-white py-3">
+                    <h6 class="m-0 font-weight-bold">
+                        <i class="fas fa-calculator mr-2"></i>Resumen del Pago
                     </h6>
                 </div>
                 <div class="card-body">
-                    <h6 class="font-weight-bold text-primary">Métodos de Pago:</h6>
-                    <ul class="list-unstyled small">
-                        <li><strong>Efectivo:</strong> No requiere detalles adicionales</li>
-                        <li><strong>Tarjeta:</strong> Últimos 4 dígitos de la tarjeta</li>
-                        <li><strong>Transferencia:</strong> Número de referencia</li>
-                        <li><strong>Crédito:</strong> Términos del crédito</li>
-                        <li><strong>Cheque:</strong> Número de cheque</li>
-                    </ul>
+                    <div class="summary-item mb-3">
+                        <div class="d-flex justify-content-between mb-1">
+                            <span class="text-muted">Saldo Actual:</span>
+                            <span class="font-weight-bold">$<span id="summary-saldo">{{ "{:,.2f}".format(cuenta_info.Saldo_Pendiente) if cuenta_info else '0.00' }}</span></span>
+                        </div>
+                    </div>
+                    <div class="summary-item mb-3">
+                        <div class="d-flex justify-content-between mb-1">
+                            <span class="text-muted">Monto a Pagar:</span>
+                            <span class="font-weight-bold text-success">$<span id="summary-monto">0.00</span></span>
+                        </div>
+                    </div>
                     <hr>
-                    <p class="small text-muted">
-                        <i class="fas fa-lightbulb mr-1"></i>
-                        El sistema actualizará automáticamente el saldo pendiente de la cuenta.
-                    </p>
+                    <div class="summary-item mb-3">
+                        <div class="d-flex justify-content-between">
+                            <span class="font-weight-bold">Nuevo Saldo:</span>
+                            <span class="font-weight-bold text-primary">$<span id="summary-nuevo-saldo">{{ "{:,.2f}".format(cuenta_info.Saldo_Pendiente) if cuenta_info else '0.00' }}</span></span>
+                        </div>
+                    </div>
+                    <div class="alert alert-light border mt-3">
+                        <small class="text-muted">
+                            <i class="fas fa-info-circle mr-1"></i>
+                            Después del pago, la cuenta {{ 'se marcará como pagada' if cuenta_info and cuenta_info.Saldo_Pendiente == cuenta_info.Monto_Movimiento else 'mantendrá saldo pendiente' }}.
+                        </small>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Métodos de Pago -->
+            <div class="card shadow mb-4">
+                <div class="card-header bg-info text-white py-3">
+                    <h6 class="m-0 font-weight-bold">
+                        <i class="fas fa-question-circle mr-2"></i>Guía de Métodos
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="method-guide">
+                        {% for metodo in metodos_pago %}
+                        <div class="method-item mb-3 pb-3 {{ 'border-bottom' if not loop.last }}">
+                            <div class="d-flex align-items-start">
+                                <div class="method-icon mr-3">
+                                    <i class="fas fa-{{ 
+                                        'money-bill-wave' if 'Efectivo' in metodo.Nombre else 
+                                        'credit-card' if 'Tarjeta' in metodo.Nombre else 
+                                        'exchange-alt' if 'Transferencia' in metodo.Nombre else 
+                                        'file-invoice-dollar' if 'Cheque' in metodo.Nombre else 
+                                        'hand-holding-usd' if 'Crédito' in metodo.Nombre else 
+                                        'wallet' 
+                                    }} text-info"></i>
+                                </div>
+                                <div class="flex-grow-1">
+                                    <h6 class="font-weight-bold mb-1">{{ metodo.Nombre }}</h6>
+                                    <p class="small text-muted mb-0">{{ metodo.Descripcion or 'Detalles específicos del método' }}</p>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
                 </div>
             </div>
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block styles %}
+<style>
+/* Icon circles */
+.icon-circle {
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.2rem;
+}
+
+/* Account summary card */
+.account-summary-card {
+    background: linear-gradient(135deg, #f8f9fc 0%, #ffffff 100%);
+    border: 1px solid #e3e6f0;
+    border-radius: 0.5rem;
+    padding: 1.5rem;
+    border-left: 4px solid #1cc88a;
+}
+
+.info-item {
+    margin-bottom: 1rem;
+}
+
+.info-item:last-child {
+    margin-bottom: 0;
+}
+
+/* Form sections */
+.form-section {
+    padding: 1.5rem;
+    background: #f8f9fc;
+    border-radius: 0.5rem;
+    border: 1px solid #e3e6f0;
+}
+
+.section-title {
+    color: #4e73df;
+    font-weight: 600;
+    margin-bottom: 1.25rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 2px solid #eaecf4;
+    font-size: 1rem;
+}
+
+/* Required field indicator */
+.required::after {
+    content: " *";
+    color: #e74a3b;
+}
+
+/* Form actions */
+.form-actions {
+    text-align: center;
+}
+
+/* Method guide */
+.method-guide {
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+.method-icon {
+    width: 30px;
+    text-align: center;
+}
+
+.method-item {
+    transition: all 0.2s;
+}
+
+.method-item:hover {
+    transform: translateX(5px);
+}
+
+/* Progress bar */
+.progress {
+    background-color: #eaecf4;
+    border-radius: 2px;
+}
+
+/* Summary card */
+.summary-item {
+    padding: 0.5rem 0;
+}
+
+/* Card header improvements */
+.card-header {
+    border-radius: 0.5rem 0.5rem 0 0 !important;
+}
+
+/* Input group improvements */
+.input-group-text {
+    border-color: #d1d3e2;
+    background-color: #f8f9fc;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .form-section {
+        padding: 1rem;
+    }
+    
+    .icon-circle {
+        width: 40px;
+        height: 40px;
+        font-size: 1rem;
+    }
+    
+    .btn-lg {
+        padding: 0.75rem 1.5rem;
+        font-size: 1rem;
+    }
+}
+
+/* Animation for form interactions */
+.form-control:focus {
+    border-color: #4e73df;
+    box-shadow: 0 0 0 0.2rem rgba(78, 115, 223, 0.25);
+    transition: all 0.3s;
+}
+
+/* Badge improvements */
+.badge-pill {
+    font-size: 0.75rem;
+    padding: 0.35rem 0.75rem;
+}
+</style>
 {% endblock %}
 
 {% block scripts %}
@@ -160,79 +433,150 @@
 const today = new Date().toISOString().split('T')[0];
 document.getElementById('fecha_pago').value = today;
 
-// Ayuda contextual para métodos de pago
-document.getElementById('id_metodo_pago').addEventListener('change', function() {
-    const metodo = this.options[this.selectedIndex].text;
-    const ayudaMetodo = document.getElementById('ayuda-metodo');
+// Elementos del DOM
+const montoPagoInput = document.getElementById('monto_pago');
+const saldoPendiente = parseFloat('{{ cuenta_info.Saldo_Pendiente if cuenta_info else 0 }}');
+const metodoPagoSelect = document.getElementById('id_metodo_pago');
+const detallesMetodoInput = document.getElementById('detalles_metodo');
+const ayudaMetodo = document.getElementById('ayuda-metodo');
+const metodoDescripcion = document.getElementById('metodo-descripcion');
+const montoProgress = document.getElementById('monto-progress');
+
+// Elementos del resumen
+const summarySaldo = document.getElementById('summary-saldo');
+const summaryMonto = document.getElementById('summary-monto');
+const summaryNuevoSaldo = document.getElementById('summary-nuevo-saldo');
+
+// Actualizar resumen en tiempo real
+function actualizarResumen() {
+    const montoPago = parseFloat(montoPagoInput.value) || 0;
+    const nuevoSaldo = Math.max(0, saldoPendiente - montoPago);
     
-    switch(metodo) {
+    // Actualizar elementos del resumen
+    summaryMonto.textContent = montoPago.toFixed(2);
+    summaryNuevoSaldo.textContent = nuevoSaldo.toFixed(2);
+    
+    // Actualizar barra de progreso
+    const porcentaje = (montoPago / saldoPendiente) * 100;
+    montoProgress.style.width = Math.min(porcentaje, 100) + '%';
+    
+    // Cambiar color de la barra según el porcentaje
+    if (porcentaje >= 100) {
+        montoProgress.className = 'progress-bar bg-success';
+    } else if (porcentaje >= 50) {
+        montoProgress.className = 'progress-bar bg-warning';
+    } else {
+        montoProgress.className = 'progress-bar bg-info';
+    }
+}
+
+// Ayuda contextual para métodos de pago
+function actualizarAyudaMetodo() {
+    const metodo = metodoPagoSelect.options[metodoPagoSelect.selectedIndex];
+    const metodoNombre = metodo.text;
+    const metodoDesc = metodo.getAttribute('data-desc');
+    
+    // Actualizar descripción del método
+    metodoDescripcion.textContent = metodoDesc || '';
+    
+    // Actualizar ayuda específica
+    switch(metodoNombre) {
         case 'Cheque':
             ayudaMetodo.textContent = 'Ingrese el número de cheque';
+            detallesMetodoInput.placeholder = 'Ej: CH-2024-001234';
             break;
-        case 'Transferencia':
+        case 'Transferencia Bancaria':
             ayudaMetodo.textContent = 'Ingrese el número de referencia o transacción';
+            detallesMetodoInput.placeholder = 'Ej: REF-2024-567890';
             break;
-        case 'Tarjeta':
+        case 'Tarjeta de Crédito':
+        case 'Tarjeta de Débito':
             ayudaMetodo.textContent = 'Ingrese los últimos 4 dígitos de la tarjeta';
+            detallesMetodoInput.placeholder = 'Ej: **** 1234';
             break;
         case 'Efectivo':
             ayudaMetodo.textContent = 'No se requieren detalles adicionales';
+            detallesMetodoInput.placeholder = 'Pago en efectivo';
+            detallesMetodoInput.value = 'Pago en efectivo';
             break;
-        case 'Crédito':
+        case 'Crédito Comercial':
             ayudaMetodo.textContent = 'Especifique los términos del crédito';
+            detallesMetodoInput.placeholder = 'Ej: 30 días neto';
             break;
         default:
-            ayudaMetodo.textContent = 'Detalles adicionales del método de pago';
+            ayudaMetodo.textContent = 'Complete los detalles del método de pago';
+            detallesMetodoInput.placeholder = 'Detalles específicos...';
     }
-});
+}
 
 // Validar monto en tiempo real
-document.getElementById('monto_pago').addEventListener('input', function() {
-    const montoPago = parseFloat(this.value) || 0;
-    const saldoPendiente = parseFloat(document.getElementById('saldo-pendiente').textContent.replace(/,/g, ''));
+function validarMonto() {
+    const montoPago = parseFloat(montoPagoInput.value) || 0;
     const btnSubmit = document.querySelector('button[type="submit"]');
     
     if (montoPago > saldoPendiente) {
-        this.classList.add('is-invalid');
+        montoPagoInput.classList.add('is-invalid');
+        btnSubmit.disabled = true;
+    } else if (montoPago <= 0) {
+        montoPagoInput.classList.add('is-invalid');
         btnSubmit.disabled = true;
     } else {
-        this.classList.remove('is-invalid');
+        montoPagoInput.classList.remove('is-invalid');
         btnSubmit.disabled = false;
     }
-});
+    
+    actualizarResumen();
+}
 
-// Validar formulario antes de enviar
-document.getElementById('formPago').addEventListener('submit', function(e) {
-    const montoPago = parseFloat(document.getElementById('monto_pago').value);
-    const saldoPendiente = parseFloat(document.getElementById('saldo-pendiente').textContent.replace(/,/g, ''));
-    const metodoPago = document.getElementById('id_metodo_pago').value;
+// Event Listeners
+montoPagoInput.addEventListener('input', validarMonto);
+metodoPagoSelect.addEventListener('change', actualizarAyudaMetodo);
+
+// Inicializar
+document.addEventListener('DOMContentLoaded', function() {
+    actualizarResumen();
+    validarMonto();
     
-    let errores = [];
-    
-    if (!metodoPago) {
-        errores.push('Debe seleccionar un método de pago');
-        document.getElementById('id_metodo_pago').classList.add('is-invalid');
-    } else {
-        document.getElementById('id_metodo_pago').classList.remove('is-invalid');
-    }
-    
-    if (montoPago > saldoPendiente) {
-        errores.push('El monto a pagar no puede ser mayor al saldo pendiente');
-        document.getElementById('monto_pago').classList.add('is-invalid');
-    } else {
-        document.getElementById('monto_pago').classList.remove('is-invalid');
-    }
-    
-    if (montoPago <= 0) {
-        errores.push('El monto a pagar debe ser mayor a cero');
-        document.getElementById('monto_pago').classList.add('is-invalid');
-    }
-    
-    if (errores.length > 0) {
-        e.preventDefault();
-        alert('Errores en el formulario:\n\n• ' + errores.join('\n• '));
-        return false;
-    }
+    // Validar formulario antes de enviar
+    document.getElementById('formPago').addEventListener('submit', function(e) {
+        const montoPago = parseFloat(montoPagoInput.value);
+        const metodoPago = metodoPagoSelect.value;
+        
+        let errores = [];
+        
+        if (!metodoPago) {
+            errores.push('Debe seleccionar un método de pago');
+            metodoPagoSelect.classList.add('is-invalid');
+        } else {
+            metodoPagoSelect.classList.remove('is-invalid');
+        }
+        
+        if (montoPago > saldoPendiente) {
+            errores.push('El monto a pagar no puede ser mayor al saldo pendiente');
+        }
+        
+        if (montoPago <= 0) {
+            errores.push('El monto a pagar debe ser mayor a cero');
+        }
+        
+        if (errores.length > 0) {
+            e.preventDefault();
+            
+            // Mostrar errores en un modal o alerta mejorada
+            const errorHtml = `
+                <div class="alert alert-danger">
+                    <h6 class="alert-heading"><i class="fas fa-exclamation-triangle mr-2"></i>Errores en el formulario</h6>
+                    <ul class="mb-0">
+                        ${errores.map(error => `<li>${error}</li>`).join('')}
+                    </ul>
+                </div>
+            `;
+            
+            // Puedes reemplazar esto con un modal personalizado
+            alert('Por favor corrija los siguientes errores:\n\n• ' + errores.join('\n• '));
+            return false;
+        }
+    });
 });
 </script>
 {% endblock %}
