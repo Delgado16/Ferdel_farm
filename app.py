@@ -2308,10 +2308,9 @@ def admin_crear_compra():
             with get_db_cursor(True) as cursor:
                 # Obtener tipos de movimiento de entrada/compra
                 cursor.execute("""
-                SELECT ID_TipoMovimiento, Descripcion, Letra, Adicion
+                SELECT *
                 FROM catalogo_movimientos 
-                WHERE Adicion = 'ENTRADA' OR Letra = 'E'
-                ORDER BY Descripcion
+                WHERE ID_TipoMovimiento = 1
                 """)
                 tipos_movimiento = cursor.fetchall()
                 
@@ -3379,6 +3378,405 @@ def historial_pagos_cuenta(id_cuenta):
         print(f"Error al cargar historial de pagos: {str(e)}")
         flash(f'Error al cargar historial de pagos: {str(e)}', 'error')
         return redirect(url_for('admin_cuentas_por_pagar'))
+
+#Modulo VENTAS
+@app.route('/admin/ventas/ventas-salidas', methods=['GET'])
+@admin_required
+@bitacora_decorator("VENTAS-SALIDAS")
+def admin_ventas_salidas():
+    try:
+        with get_db_cursor() as cursor:
+            cursor.execute("""
+                SELECT 
+                    mi.ID_Movimiento,
+                    mi.N_Factura_Externa,
+                    mi.Fecha,
+                    c.Nombre as Cliente,
+                    mi.Tipo_Compra,
+                    mi.Observacion,
+                    b.Nombre as Bodega,
+                    cm.Descripcion as Tipo_Movimiento,
+                    cm.Letra,
+                    u.NombreUsuario as Usuario_Creacion,
+                    mi.Fecha_Creacion,
+                    mi.Estado,
+                    (SELECT COUNT(*) FROM Detalle_Movimientos_Inventario dmi 
+                     WHERE dmi.ID_Movimiento = mi.ID_Movimiento) as Total_Productos,
+                    (SELECT SUM(Subtotal) FROM Detalle_Movimientos_Inventario dmi 
+                     WHERE dmi.ID_Movimiento = mi.ID_Movimiento) as Total_Venta,
+                    mi.ID_Factura_Venta,
+                    f.ID_Factura
+                FROM Movimientos_Inventario mi
+                LEFT JOIN Clientes c ON mi.ID_Cliente = c.ID_Cliente  -- Ahora usa ID_Cliente
+                LEFT JOIN bodegas b ON mi.ID_Bodega = b.ID_Bodega
+                LEFT JOIN catalogo_movimientos cm ON mi.ID_TipoMovimiento = cm.ID_TipoMovimiento
+                LEFT JOIN usuarios u ON mi.ID_Usuario_Creacion = u.ID_Usuario
+                LEFT JOIN Facturacion f ON mi.ID_Factura_Venta = f.ID_Factura
+                WHERE cm.Adicion = 'SALIDA' OR cm.Letra = 'S'
+                ORDER BY mi.Fecha DESC, mi.ID_Movimiento DESC
+            """)
+            ventas = cursor.fetchall()
+            return render_template('admin/ventas/ventas_salidas.html', 
+                                 ventas=ventas)
+    except Exception as e:
+        flash(f'Error al cargar ventas: {str(e)}', 'error')
+        return redirect(url_for('admin_dashboard'))
+
+@app.route('/admin/ventas/ventas-salidas/crear', methods=['GET', 'POST'])
+@admin_required
+@bitacora_decorator("VENTAS-SALIDAS-CREAR")
+def admin_crear_venta():
+    try:
+        if request.method == 'GET':
+            with get_db_cursor(True) as cursor:
+                # Obtener tipos de movimiento de salida/venta
+                cursor.execute("""
+                SELECT *
+                FROM catalogo_movimientos 
+                WHERE ID_TipoMovimiento = 2  -- Cambiar por el ID de ventas
+                """)
+                tipos_movimiento = cursor.fetchall()
+                
+                # Obtener clientes activos
+                cursor.execute("""
+                    SELECT ID_Cliente, Nombre, RUC_CEDULA 
+                    FROM Clientes 
+                    WHERE Estado = 'ACTIVO' 
+                    ORDER BY Nombre
+                """)
+                clientes = cursor.fetchall()
+                
+                # Obtener bodegas activas
+                cursor.execute("SELECT ID_Bodega, Nombre FROM bodegas WHERE Estado = 'activa'")
+                bodegas = cursor.fetchall()
+                
+                # Obtener categorías de productos
+                cursor.execute("SELECT ID_Categoria, Descripcion FROM categorias_producto ORDER BY Descripcion")
+                categorias = cursor.fetchall()
+                
+                # Obtener productos activos con existencias
+                cursor.execute("""
+                    SELECT p.ID_Producto, p.COD_Producto, p.Descripcion, p.Existencias, 
+                           p.Precio_Venta, p.ID_Categoria, c.Descripcion as Categoria
+                    FROM Productos p
+                    LEFT JOIN categorias_producto c ON p.ID_Categoria = c.ID_Categoria
+                    WHERE p.Estado = 1 AND p.Existencias > 0
+                    ORDER BY c.Descripcion, p.Descripcion
+                """)
+                productos = cursor.fetchall()
+                
+                return render_template('admin/ventas/crear_venta.html',
+                                    tipos_movimiento=tipos_movimiento,
+                                    clientes=clientes,
+                                    bodegas=bodegas,
+                                    productos=productos,
+                                    categorias=categorias)
+        
+        elif request.method == 'POST':
+            # Obtener datos del formulario
+            id_tipo_movimiento = request.form.get('id_tipo_movimiento')
+            n_factura_externa = request.form.get('n_factura_externa')
+            fecha = request.form.get('fecha')
+            id_cliente = request.form.get('id_cliente')
+            tipo_venta = request.form.get('tipo_venta', 'CONTADO')
+            observacion = request.form.get('observacion')
+            id_bodega = request.form.get('id_bodega')
+            id_usuario_creacion = request.form.get('id_usuario_creacion')
+            fecha_vencimiento = request.form.get('fecha_vencimiento')
+            
+            # Obtener productos del formulario
+            productos = []
+            producto_ids = request.form.getlist('productos[]')
+            cantidades = request.form.getlist('cantidades[]')
+            precios_unitarios = request.form.getlist('precios_unitarios[]')
+            lotes = request.form.getlist('lotes[]')
+            fechas_vencimiento = request.form.getlist('fechas_vencimiento[]')
+            
+            print(f"Datos recibidos - Productos: {len(producto_ids)}, IDs: {producto_ids}")
+            
+            # Validar datos requeridos
+            if not all([id_tipo_movimiento, fecha, id_bodega, id_usuario_creacion]):
+                flash('Todos los campos obligatorios deben ser completados', 'error')
+                return redirect(url_for('admin_crear_venta'))
+            
+            # Validar que hay productos
+            if not producto_ids or len(producto_ids) == 0:
+                flash('Debe agregar al menos un producto', 'error')
+                return redirect(url_for('admin_crear_venta'))
+            
+            # Validar usuario
+            try:
+                id_usuario = int(id_usuario_creacion)
+                if id_usuario <= 0:
+                    raise ValueError("ID debe ser mayor a 0")
+            except (ValueError, TypeError) as e:
+                print(f"Error en ID usuario: {e}")
+                flash('ID de usuario no válido', 'error')
+                return redirect(url_for('admin_crear_venta'))
+            
+            # Construir lista de productos y validar existencias
+            with get_db_cursor(True) as cursor:
+                for i in range(len(producto_ids)):
+                    if producto_ids[i] and cantidades[i] and precios_unitarios[i]:
+                        cantidad = round(float(cantidades[i]), 2)
+                        precio_unitario = round(float(precios_unitarios[i]), 2)
+                        
+                        # Validar existencias
+                        cursor.execute("SELECT Existencias FROM Productos WHERE ID_Producto = %s", (producto_ids[i],))
+                        producto_info = cursor.fetchone()
+                        if producto_info and producto_info['Existencias'] < cantidad:
+                            flash(f'No hay suficientes existencias para el producto seleccionado. Disponible: {producto_info["Existencias"]}', 'error')
+                            return redirect(url_for('admin_crear_venta'))
+                        
+                        productos.append({
+                            'id_producto': producto_ids[i],
+                            'cantidad': cantidad,
+                            'precio_unitario': precio_unitario,
+                            'lote': lotes[i] if i < len(lotes) and lotes[i] != '' else None,
+                            'fecha_vencimiento': fechas_vencimiento[i] if i < len(fechas_vencimiento) and fechas_vencimiento[i] != '' else None
+                        })
+            
+            with get_db_cursor() as cursor:
+                # Calcular total de la venta
+                total_venta = sum(
+                    producto['cantidad'] * producto['precio_unitario'] 
+                    for producto in productos
+                )
+                
+                # Insertar movimiento principal
+                cursor.execute("""
+                    INSERT INTO Movimientos_Inventario (
+                        ID_TipoMovimiento, N_Factura_Externa, Fecha, ID_Cliente,  -- Ahora usa ID_Cliente
+                        Tipo_Compra, Observacion, ID_Empresa, ID_Bodega, 
+                        ID_Usuario_Creacion, ID_Usuario_Modificacion
+                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                """, (
+                    id_tipo_movimiento,
+                    n_factura_externa,
+                    fecha,
+                    id_cliente if id_cliente else None,  # Se almacena en ID_Cliente
+                    tipo_venta,
+                    observacion,
+                    session.get('id_empresa', 1),
+                    id_bodega,
+                    id_usuario,
+                    id_usuario
+                ))
+                
+                id_movimiento = cursor.lastrowid
+                print(f"Movimiento de venta creado con ID: {id_movimiento}")
+                
+                # Insertar detalles del movimiento
+                for producto in productos:
+                    subtotal = round(producto['cantidad'] * producto['precio_unitario'], 2)
+                    
+                    cursor.execute("""
+                        INSERT INTO Detalle_Movimientos_Inventario (
+                            ID_Movimiento, ID_Producto, Cantidad, Precio_Unitario, 
+                            Subtotal, Lote, Fecha_Vencimiento, ID_Usuario_Creacion
+                        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                    """, (
+                        id_movimiento,
+                        producto['id_producto'],
+                        producto['cantidad'],
+                        producto['precio_unitario'],
+                        subtotal,
+                        producto['lote'],
+                        producto['fecha_vencimiento'],
+                        id_usuario
+                    ))
+                    
+                    # Actualizar existencias del producto (RESTAR en ventas)
+                    cursor.execute("""
+                        UPDATE Productos 
+                        SET Existencias = Existencias - %s 
+                        WHERE ID_Producto = %s
+                    """, (producto['cantidad'], producto['id_producto']))
+                
+                # CREAR FACTURA
+                cursor.execute("""
+                    INSERT INTO Facturacion (
+                        Fecha, IDCliente, Tipo_Compra, Observacion, 
+                        ID_Empresa, ID_Usuario_Creacion
+                    ) VALUES (%s, %s, %s, %s, %s, %s)
+                """, (
+                    fecha,
+                    id_cliente if id_cliente else None,
+                    tipo_venta,
+                    observacion,
+                    session.get('id_empresa', 1),
+                    id_usuario
+                ))
+                
+                id_factura = cursor.lastrowid
+                
+                # CREAR DETALLE DE FACTURACIÓN
+                for producto in productos:
+                    total_producto = round(producto['cantidad'] * producto['precio_unitario'], 2)
+                    
+                    cursor.execute("""
+                        INSERT INTO Detalle_Facturacion (
+                            ID_Factura, ID_Producto, Cantidad, Costo, Total
+                        ) VALUES (%s, %s, %s, %s, %s)
+                    """, (
+                        id_factura,
+                        producto['id_producto'],
+                        producto['cantidad'],
+                        producto['precio_unitario'],  # En tu estructura se llama Costo pero es el precio de venta
+                        total_producto
+                    ))
+                
+                # CREAR CUENTA POR COBRAR SI ES CRÉDITO
+                if tipo_venta == 'CREDITO' and id_cliente:
+                    if not fecha_vencimiento:
+                        from datetime import datetime, timedelta
+                        fecha_venta = datetime.strptime(fecha, '%Y-%m-%d')
+                        fecha_vencimiento = (fecha_venta + timedelta(days=30)).strftime('%Y-%m-%d')
+                    
+                    cursor.execute("""
+                        INSERT INTO Cuentas_Por_Cobrar (
+                            Fecha, ID_Cliente, Num_Documento, Observacion,
+                            Fecha_Vencimiento, Tipo_Movimiento, Monto_Movimiento, ID_Empresa,
+                            Saldo_Pendiente, ID_Factura, ID_Usuario_Creacion
+                        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    """, (
+                        fecha,
+                        id_cliente,
+                        n_factura_externa or f"VTA-{id_movimiento}",
+                        observacion or 'Venta a crédito',
+                        fecha_vencimiento,
+                        id_tipo_movimiento,
+                        total_venta,
+                        session.get('id_empresa', 1),
+                        total_venta,
+                        id_factura,
+                        id_usuario
+                    ))
+                
+                flash('Venta creada exitosamente', 'success')
+                return redirect(url_for('admin_ventas_salidas'))            
+    except Exception as e:
+        print(f"Error completo al crear venta: {str(e)}")
+        import traceback
+        print(f"Traceback: {traceback.format_exc()}")
+        flash(f'Error al crear venta: {str(e)}', 'error')
+        return redirect(url_for('admin_crear_venta'))
+    
+# RUTAS AUXILIARES PARA VENTAS - ADAPTADAS DE COMPRAS
+
+# RUTA AUXILIAR PARA PRODUCTOS POR CATEGORÍA (PARA VENTAS)
+@app.route('/admin/ventas/productos-por-categoria/<int:id_categoria>')
+@admin_required
+def obtener_productos_por_categoria_venta(id_categoria):
+    """
+    Endpoint para obtener productos filtrados por categoría - PARA VENTAS
+    """
+    try:
+        with get_db_cursor(True) as cursor:
+            if id_categoria == 0:  # Todas las categorías
+                cursor.execute("""
+                    SELECT ID_Producto, COD_Producto, Descripcion, Existencias,
+                           Precio_Venta, ID_Categoria
+                    FROM Productos 
+                    WHERE Estado = 1 AND Existencias > 0
+                    ORDER BY Descripcion
+                """)
+            else:
+                cursor.execute("""
+                    SELECT ID_Producto, COD_Producto, Descripcion, Existencias,
+                           Precio_Venta, ID_Categoria
+                    FROM Productos 
+                    WHERE Estado = 1 AND Existencias > 0 AND ID_Categoria = %s
+                    ORDER BY Descripcion
+                """, (id_categoria,))
+            
+            productos = cursor.fetchall()
+            print(f"✅ Productos encontrados para ventas: {len(productos)} para categoría {id_categoria}")
+            
+            productos_list = []
+            for producto in productos:
+                productos_list.append({
+                    'id': producto['ID_Producto'],
+                    'codigo': producto['COD_Producto'],
+                    'descripcion': producto['Descripcion'],
+                    'existencias': float(producto['Existencias']) if producto['Existencias'] is not None else 0,
+                    'precio_venta': float(producto['Precio_Venta']) if producto['Precio_Venta'] is not None else 0,
+                    'id_categoria': producto['ID_Categoria']
+                })
+            
+            print(f"📦 Productos procesados exitosamente para ventas: {len(productos_list)}")
+            return jsonify(productos_list)
+            
+    except Exception as e:
+        print(f"❌ Error al obtener productos por categoría para ventas: {str(e)}")
+        import traceback
+        print(f"❌ Traceback: {traceback.format_exc()}")
+        return jsonify({'error': str(e)}), 500
+
+# RUTA AUXILIAR PARA TODOS LOS PRODUCTOS (PARA VENTAS)
+@app.route('/admin/ventas/todos-los-productos')
+@admin_required
+def obtener_todos_los_productos_venta():
+    """
+    Endpoint para obtener todos los productos - PARA VENTAS
+    """
+    try:
+        with get_db_cursor(True) as cursor:
+            cursor.execute("""
+                SELECT ID_Producto, COD_Producto, Descripcion, Existencias,
+                       Precio_Venta, ID_Categoria
+                FROM Productos 
+                WHERE Estado = 1 AND Existencias > 0
+                ORDER BY Descripcion
+            """)
+            
+            productos = cursor.fetchall()
+            print(f"✅ Todos los productos encontrados para ventas: {len(productos)}")
+            
+            productos_list = []
+            for producto in productos:
+                productos_list.append({
+                    'id': producto['ID_Producto'],
+                    'codigo': producto['COD_Producto'],
+                    'descripcion': producto['Descripcion'],
+                    'existencias': float(producto['Existencias']) if producto['Existencias'] is not None else 0,
+                    'precio_venta': float(producto['Precio_Venta']) if producto['Precio_Venta'] is not None else 0,
+                    'id_categoria': producto['ID_Categoria']
+                })
+            
+            return jsonify(productos_list)
+            
+    except Exception as e:
+        print(f"❌ Error al obtener todos los productos para ventas: {str(e)}")
+        import traceback
+        print(f"❌ Traceback: {traceback.format_exc()}")
+        return jsonify({'error': str(e)}), 500
+
+# RUTA PARA CATEGORÍAS (PARA VENTAS)
+@app.route('/admin/ventas/categorias-productos')
+@admin_required
+def obtener_categorias_productos_venta():
+    """
+    Endpoint para obtener todas las categorías - PARA VENTAS
+    """
+    try:
+        with get_db_cursor(True) as cursor:
+            cursor.execute("SELECT ID_Categoria, Descripcion FROM categorias_producto ORDER BY Descripcion")
+            categorias = cursor.fetchall()
+            
+            categorias_list = []
+            for categoria in categorias:
+                categorias_list.append({
+                    'id': categoria['ID_Categoria'],
+                    'descripcion': categoria['Descripcion']
+                })
+            
+            return jsonify(categorias_list)
+            
+    except Exception as e:
+        print(f"Error al obtener categorías para ventas: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
 
 #Iniciar Aplicación
 if __name__ == '__main__':
