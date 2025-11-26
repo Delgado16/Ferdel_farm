@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ticket de Venta #{{ ticket.id_factura }}</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        @media print {
+            @page { 
+                margin: 0; 
+                size: 80mm auto; 
+            }
+            body { 
+                margin: 0; 
+                font-family: 'Courier New', monospace, Arial, sans-serif; 
+                font-size: 12px; 
+                background: white;
+                color: black;
+            }
+            .no-print { 
+                display: none !important; 
+            }
+            .container { 
+                max-width: 100% !important;
+                padding: 0 5px;
+            }
+        }
+        
+        body { 
+            font-family: 'Courier New', monospace, Arial, sans-serif; 
+            font-size: 12px; 
+            margin: 0;
+            padding: 10px;
+            background: #f8f9fa;
+        }
+        
+        .ticket-container {
+            max-width: 80mm;
+            margin: 0 auto;
+            background: white;
+            padding: 15px;
+            border: 1px solid #ddd;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+        
+        .text-center { text-align: center; }
+        .text-right { text-align: right; }
+        .bold { font-weight: bold; }
+        .divider { 
+            border-top: 1px dashed #000; 
+            margin: 8px 0; 
+            padding-top: 8px;
+        }
+        .double-divider { 
+            border-top: 2px solid #000; 
+            margin: 10px 0; 
+        }
+        
+        table { 
+            width: 100%; 
+            border-collapse: collapse; 
+            margin: 5px 0;
+        }
+        
+        th, td { 
+            padding: 3px 2px; 
+            vertical-align: top;
+        }
+        
+        .item-desc { 
+            font-size: 11px; 
+            line-height: 1.2;
+        }
+        
+        .small { 
+            font-size: 10px; 
+            line-height: 1.2;
+        }
+        
+        .x-small { 
+            font-size: 9px; 
+            line-height: 1.1;
+        }
+        
+        .total-row {
+            border-top: 1px solid #000;
+            border-bottom: 2px solid #000;
+        }
+        
+        .credito-alert {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            padding: 5px;
+            margin: 5px 0;
+            border-radius: 3px;
+        }
+    </style>
+</head>
+<body>
+    <div class="ticket-container">
+        <!-- Encabezado de la Empresa -->
+        <div class="text-center">
+            <div class="bold" style="font-size: 14px; text-transform: uppercase;">{{ ticket.empresa.nombre }}</div>
+            <div class="small">RUC: {{ ticket.empresa.ruc }}</div>
+            <div class="small">{{ ticket.empresa.direccion }}</div>
+            <div class="small">Tel: {{ ticket.empresa.telefono }}</div>
+            <div class="double-divider"></div>
+        </div>
+        
+        <!-- Información de la Factura -->
+        <div class="text-center">
+            <div class="bold" style="font-size: 13px;">FACTURA #{{ ticket.id_factura }}</div>
+            <div class="small">Emisión Factura: {{ ticket.hora_emision.strftime('%d/%m/%Y %H:%M:%S') }}</div>
+            <div class="small">Atendido por: {{ ticket.usuario }}</div>
+            {% if ticket.movimiento and ticket.movimiento.Bodega %}
+            <div class="x-small">Bodega: {{ ticket.movimiento.Bodega }}</div>
+            {% endif %}
+            <div class="divider"></div>
+        </div>
+        
+        <!-- Datos del Cliente -->
+        <div>
+            <div class="small"><strong>Cliente:</strong> {{ ticket.cliente }}</div>
+            <div class="small"><strong>RUC/Cédula:</strong> {{ ticket.ruc_cliente }}</div>
+            <div class="small"><strong>Tipo Venta:</strong> {{ ticket.tipo_venta }}</div>
+            {% if ticket.observacion %}
+            <div class="x-small"><strong>Observaciones:</strong> {{ ticket.observacion }}</div>
+            {% endif %}
+        </div>
+        <div class="divider"></div>
+        
+        <!-- Detalles de Productos -->
+        <table>
+            <thead>
+                <tr class="small">
+                    <th style="text-align: left">Descripción</th>
+                    <th style="text-align: right">Cant</th>
+                    <th style="text-align: right">P.Unit</th>
+                    <th style="text-align: right">Total</th>
+                </tr>
+                <tr><td colspan="4" style="border-bottom: 1px dashed #000; padding: 2px 0;"></td></tr>
+            </thead>
+            <tbody>
+                {% for item in ticket.detalles %}
+                <tr>
+                    <td style="text-align: left" class="item-desc">
+                        <div>{{ item.Producto[:25] }}{% if item.Producto|length > 25 %}...{% endif %}</div>
+                        {% if item.COD_Producto and item.COD_Producto != 'N/A' %}
+                        <div class="x-small">Cod: {{ item.COD_Producto }}</div>
+                        {% endif %}
+                    </td>
+                    <td style="text-align: right; white-space: nowrap;" class="small">
+                        {{ "%.2f"|format(item.Cantidad) }}
+                    </td>
+                    <td style="text-align: right; white-space: nowrap;" class="small">
+                        C${{ "%.2f"|format(item.Precio) }}
+                    </td>
+                    <td style="text-align: right; white-space: nowrap;" class="small">
+                        C${{ "%.2f"|format(item.Subtotal) }}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        
+        <div class="double-divider"></div>
+        
+        <!-- Totales -->
+        <table>
+            <tr class="total-row bold">
+                <td style="text-align: left">TOTAL:</td>
+                <td colspan="2"></td>
+                <td style="text-align: right; font-size: 13px;">C${{ "%.2f"|format(ticket.total) }}</td>
+            </tr>
+        </table>
+        
+        <!-- Información de Crédito si aplica -->
+        {% if ticket.tiene_credito and ticket.cuenta_cobrar %}
+        <div class="credito-alert x-small">
+            <div class="bold text-center">*** VENTA A CRÉDITO ***</div>
+            <div>Saldo Pendiente: C${{ "%.2f"|format(ticket.cuenta_cobrar.Saldo_Pendiente) }}</div>
+            {% if ticket.cuenta_cobrar.Fecha_Vencimiento %}
+            <div>Vence: {{ ticket.cuenta_cobrar.Fecha_Vencimiento.strftime('%d/%m/%Y') }}</div>
+            {% endif %}
+        </div>
+        {% endif %}
+        
+        <div class="divider"></div>
+        
+        <!-- Pie del Ticket -->
+        <div class="text-center x-small">
+            <div class="bold">¡Gracias por su compra!</div>
+            <div>Vuelva pronto</div>
+            <div style="margin-top: 10px;">
+                <div>--- Original ---</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Botones de Control -->
+    <div class="no-print container mt-4">
+        <div class="row justify-content-center">
+            <div class="col-auto">
+                <div class="btn-group" role="group">
+                    <button onclick="window.print()" class="btn btn-primary btn-sm">
+                        <i class="fas fa-print"></i> Imprimir Ticket
+                    </button>
+                    <button onclick="window.history.back()" class="btn btn-secondary btn-sm">
+                        <i class="fas fa-times"></i> Cerrar
+                    </button>
+                    <a href="{{ url_for('admin_ventas_salidas') }}" class="btn btn-success btn-sm">
+                        <i class="fas fa-list"></i> Volver a Ventas
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Auto-imprimir al cargar (opcional - descomentar si se necesita)
+        // window.onload = function() {
+        //     setTimeout(() => {
+        //         window.print();
+        //     }, 500);
+        // };
+    </script>
+</body>
+</html>

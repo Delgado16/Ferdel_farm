@@ -4,11 +4,79 @@
 
 {% block content %}
 <div class="container-fluid">
+    <!-- Header Mejorado -->
     <div class="d-sm-flex align-items-center justify-content-between mb-4">
-        <h1 class="h3 mb-0 text-gray-800">Gestión de Ventas - Salidas</h1>
-        <a href="{{ url_for('admin_crear_venta') }}" class="d-none d-sm-inline-block btn btn-sm btn-primary shadow-sm">
-            <i class="fas fa-plus fa-sm text-white-50"></i> Nueva Venta
+        <div>
+            <h1 class="h3 mb-1 text-gray-800">Gestión de Ventas</h1>
+            <p class="text-muted small">Salidas y control de inventario</p>
+        </div>
+        <a href="{{ url_for('admin_crear_venta') }}" class="btn btn-primary shadow-sm">
+            <i class="fas fa-plus fa-sm mr-2"></i> Nueva Venta
         </a>
+    </div>
+
+    <!-- Estadísticas de Ventas Mejoradas -->
+    <div class="row mb-4">
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-primary shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">Total Ventas</div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ total_ventas }}</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-shopping-cart fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-success shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-success text-uppercase mb-1">Ventas Contado</div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ ventas_contado }}</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-money-bill-wave fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-warning shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">Ventas Crédito</div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ ventas_credito }}</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-credit-card fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-info shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-info text-uppercase mb-1">Monto Total</div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">C${{ "{:,.2f}".format(monto_total) }}</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-dollar-sign fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 
     <!-- Mensajes Flash -->
@@ -16,6 +84,7 @@
         {% if messages %}
             {% for category, message in messages %}
                 <div class="alert alert-{{ 'danger' if category == 'error' else 'success' }} alert-dismissible fade show" role="alert">
+                    <i class="fas fa-{{ 'exclamation-triangle' if category == 'error' else 'check-circle' }} mr-2"></i>
                     {{ message }}
                     <button type="button" class="close" data-dismiss="alert" aria-label="Close">
                         <span aria-hidden="true">&times;</span>
@@ -25,91 +94,91 @@
         {% endif %}
     {% endwith %}
 
-    <!-- Card -->
+    <!-- Card Principal Mejorada -->
     <div class="card shadow mb-4">
-        <div class="card-header py-3 d-flex justify-content-between align-items-center">
+        <div class="card-header py-3 d-flex flex-column flex-md-row justify-content-between align-items-center">
             <h6 class="m-0 font-weight-bold text-primary">Lista de Ventas Realizadas</h6>
-            <div class="dropdown">
-                <button class="btn btn-outline-secondary btn-sm dropdown-toggle" type="button" id="dropdownMenuButton" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
-                    <i class="fas fa-cog"></i> Opciones
-                </button>
-                <div class="dropdown-menu dropdown-menu-right" aria-labelledby="dropdownMenuButton">
-                    <a class="dropdown-item" href="#" onclick="exportToExcel()"><i class="fas fa-file-excel"></i> Exportar a Excel</a>
-                    <a class="dropdown-item" href="#" onclick="printTable()"><i class="fas fa-print"></i> Imprimir</a>
+            <div class="mt-2 mt-md-0">
+                <div class="dropdown d-inline-block">
+                    <button class="btn btn-outline-secondary btn-sm dropdown-toggle" type="button" id="dropdownMenuButton" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                        <i class="fas fa-cog"></i> Opciones
+                    </button>
+                    <div class="dropdown-menu dropdown-menu-right" aria-labelledby="dropdownMenuButton">
+                        <a class="dropdown-item" href="#" onclick="exportToExcel()"><i class="fas fa-file-excel mr-2"></i> Exportar a Excel</a>
+                        <a class="dropdown-item" href="#" onclick="printTable()"><i class="fas fa-print mr-2"></i> Imprimir</a>
+                    </div>
                 </div>
             </div>
         </div>
         <div class="card-body">
-            <!-- Filtros -->
+            <!-- Filtros Mejorados -->
             <div class="row mb-3">
-                <div class="col-md-3">
-                    <input type="text" class="form-control form-control-sm" id="searchInput" placeholder="Buscar...">
+                <div class="col-lg-4 col-md-6 mb-2">
+                    <div class="input-group input-group-sm">
+                        <div class="input-group-prepend">
+                            <span class="input-group-text"><i class="fas fa-search"></i></span>
+                        </div>
+                        <input type="text" class="form-control" id="searchInput" placeholder="Buscar...">
+                    </div>
                 </div>
-                <div class="col-md-2">
+                <div class="col-lg-3 col-md-6 mb-2">
                     <select class="form-control form-control-sm" id="estadoFilter">
                         <option value="">Todos los estados</option>
-                        <option value="1">Activo</option>
-                        <option value="0">Anulado</option>
+                        <option value="ACTIVA">Activa</option>
+                        <option value="ANULADA">Anulada</option>
                     </select>
                 </div>
-                <div class="col-md-2">
+                <div class="col-lg-3 col-md-6 mb-2">
                     <select class="form-control form-control-sm" id="tipoVentaFilter">
                         <option value="">Todos los tipos</option>
                         <option value="CONTADO">Contado</option>
-                        <option value="CREDITO">Crédito</option>
+                        <option value="CRÉDITO">Crédito</option>
                     </select>
                 </div>
-                <div class="col-md-2">
-                    <button class="btn btn-sm btn-outline-secondary" onclick="clearFilters()">
-                        <i class="fas fa-times"></i> Limpiar
+                <div class="col-lg-2 col-md-6 mb-2">
+                    <button class="btn btn-sm btn-outline-secondary w-100" onclick="clearFilters()">
+                        <i class="fas fa-times mr-1"></i> Limpiar
                     </button>
                 </div>
             </div>
 
+            <!-- Tabla Mejorada -->
             <div class="table-responsive">
                 <table class="table table-bordered table-hover table-striped" id="dataTable" width="100%" cellspacing="0">
                     <thead class="thead-dark">
                         <tr>
-                            <th>ID</th>
-                            <th>Fecha</th>
-                            <th>Factura</th>
+                            <th class="text-center">Fecha</th>
                             <th>Cliente</th>
-                            <th>Tipo Venta</th>
-                            <th>Bodega</th>
-                            <th class="text-center">Total Productos</th>
-                            <th class="text-right">Total Venta</th>
-                            <th>Usuario</th>
+                            <th class="d-none d-md-table-cell">RUC/Cédula</th>
+                            <th class="text-center">Tipo Venta</th>
+                            <th class="d-none d-lg-table-cell">Bodega</th>
+                            <th class="text-center">Productos</th>
+                            <th class="text-right">Total</th>
+                            <th class="d-none d-lg-table-cell">Usuario</th>
                             <th class="text-center">Estado</th>
                             <th class="text-center">Acciones</th>
                         </tr>
                     </thead>
                     <tbody>
                         {% for venta in ventas %}
-                        <tr class="{{ 'table-secondary' if venta.Estado == 0 else '' }}">
-                            <td class="font-weight-bold">{{ venta.ID_Movimiento }}</td>
-                            <td>
+                        <tr class="{{ 'table-secondary' if venta.Estado_Movimiento == 0 else '' }}">
+                            <td class="text-center">
                                 <small class="text-muted">{{ venta.Fecha.strftime('%d/%m/%Y') if venta.Fecha else 'N/A' }}</small>
-                            </td>
-                            <td>
-                                {% if venta.N_Factura_Externa %}
-                                    <span class="badge badge-light border text-dark font-weight-normal">
-                                        {{ venta.N_Factura_Externa }}
-                                    </span>
-                                {% else %}
-                                    <span class="text-muted">N/A</span>
-                                {% endif %}
                             </td>
                             <td>
                                 <span class="font-weight-bold text-primary">{{ venta.Cliente or 'N/A' }}</span>
                             </td>
-                            <td>
-                                <span class="badge {{ 'badge-success-light text-success' if venta.Tipo_Compra == 'CONTADO' else 'badge-warning-light text-warning' }} p-2 border">
-                                    <i class="fas fa-{{ 'money-bill-wave' if venta.Tipo_Venta == 'CONTADO' else 'credit-card' }} mr-1"></i>
-                                    {{ venta.Tipo_Compra or 'CONTADO' }}
+                            <td class="d-none d-md-table-cell">
+                                <span class="text-muted">{{ venta.RUC_Cliente or 'N/A' }}</span>
+                            </td>
+                            <td class="text-center">
+                                <span class="badge {{ 'badge-success-light text-success' if venta.Tipo_Venta_Formateado == 'CONTADO' else 'badge-warning-light text-warning' }} p-2 border">
+                                    <i class="fas fa-{{ 'money-bill-wave' if venta.Tipo_Venta_Formateado == 'CONTADO' else 'credit-card' }} mr-1"></i>
+                                    {{ venta.Tipo_Venta_Formateado or 'CONTADO' }}
                                 </span>
                             </td>
-                            <td>
-                                <span class="badge badge-secondary-light text-dark border">{{ venta.Bodega }}</span>
+                            <td class="d-none d-lg-table-cell">
+                                <span class="badge badge-secondary-light text-dark border">{{ venta.Bodega or 'N/A' }}</span>
                             </td>
                             <td class="text-center">
                                 <span class="badge badge-info badge-pill p-2 text-dark border">{{ venta.Total_Productos or 0 }}</span>
@@ -117,31 +186,34 @@
                             <td class="text-right font-weight-bold text-success">
                                 C${{ "{:,.2f}".format(venta.Total_Venta or 0) }}
                             </td>
-                            <td>
-                                <small class="text-muted">{{ venta.Usuario_Creacion }}</small>
+                            <td class="d-none d-lg-table-cell">
+                                <small class="text-muted">{{ venta.Usuario_Creacion or 'N/A' }}</small>
                             </td>
                             <td class="text-center">
-                                <span class="badge {{ 'badge-success-light text-success' if venta.Estado == 1 else 'badge-secondary-light text-secondary' }} p-2 border">
-                                    <i class="fas fa-{{ 'check-circle' if venta.Estado == 1 else 'ban' }} mr-1"></i>
-                                    {{ 'Activo' if venta.Estado == 1 else 'Anulado' }}
+                                <span class="badge {{ 'badge-success-light text-success' if venta.Estado_Movimiento == 1 else 'badge-secondary-light text-secondary' }} p-2 border">
+                                    <i class="fas fa-{{ 'check-circle' if venta.Estado_Movimiento == 1 else 'ban' }} mr-1"></i>
+                                    {{ venta.Estado_Formateado or 'PENDIENTE' }}
                                 </span>
                             </td>
                             <td>
                                 <div class="btn-group btn-group-sm" role="group">
                                     <!-- BOTÓN VER DETALLES - NUEVA PÁGINA -->
-                                    <a href="#" 
+                                    <a href="{{ url_for('admin_detalles_venta', id_factura=venta.ID_Factura) }}" 
                                        class="btn btn-outline-info" title="Ver Detalles Completos">
-                                        <i class="fas fa-eye"></i> Detalles
+                                        <i class="fas fa-eye"></i>
+                                        <span class="d-none d-md-inline"> Detalles</span>
                                     </a>
                                     
-                                    {% if venta.Estado == 1 %}
-                                    <a href="#" 
+                                    {% if venta.Estado_Movimiento == 1 %}
+                                    <a href="{{ url_for('admin_editar_venta', id_factura=venta.ID_Factura) }}" 
                                        class="btn btn-outline-primary" title="Editar">
-                                        <i class="fas fa-edit"></i> Editar
+                                        <i class="fas fa-edit"></i>
+                                        <span class="d-none d-md-inline"> Editar</span>
                                     </a>
                                     <button class="btn btn-outline-danger" title="Anular" 
-                                            onclick="anularVenta({{ venta.ID_Movimiento }}, this)">
-                                        <i class="fas fa-ban"></i> Anular
+                                            onclick="anularVenta({{ venta.ID_Factura }}, this)">
+                                        <i class="fas fa-ban"></i>
+                                        <span class="d-none d-md-inline"> Anular</span>
                                     </button>
                                     {% else %}
                                     <button class="btn btn-outline-secondary" disabled title="Venta anulada">
@@ -153,7 +225,7 @@
                         </tr>
                         {% else %}
                         <tr>
-                            <td colspan="11" class="text-center text-muted py-4">
+                            <td colspan="10" class="text-center text-muted py-4">
                                 <i class="fas fa-inbox fa-2x mb-2"></i>
                                 <br>
                                 No se encontraron ventas registradas
@@ -163,23 +235,25 @@
                     </tbody>
                     <tfoot>
                         <tr class="bg-light">
-                            <td colspan="6" class="text-right font-weight-bold">Totales:</td>
+                            <td colspan="5" class="text-right font-weight-bold d-none d-md-table-cell">Totales:</td>
+                            <td colspan="2" class="text-right font-weight-bold d-md-none">Totales:</td>
                             <td class="text-center font-weight-bold text-primary">
                                 {{ ventas|sum(attribute='Total_Productos') or 0 }}
                             </td>
                             <td class="text-right font-weight-bold text-success">
-                                C${{ "{:,.2f}".format(ventas|sum(attribute='Total_Venta') or 0) }}
+                                C${{ "{:,.2f}".format(monto_total) }}
                             </td>
-                            <td colspan="3"></td>
+                            <td colspan="2" class="d-none d-lg-table-cell"></td>
+                            <td colspan="1" class="d-lg-none"></td>
                         </tr>
                     </tfoot>
                 </table>
             </div>
 
-            <!-- Paginación -->
+            <!-- Paginación Mejorada -->
             {% if ventas and ventas|length > 0 %}
-            <div class="d-flex justify-content-between align-items-center mt-3">
-                <div class="text-muted">
+            <div class="d-flex flex-column flex-md-row justify-content-between align-items-center mt-3">
+                <div class="text-muted mb-2 mb-md-0">
                     Mostrando <strong>{{ ventas|length }}</strong> venta(s)
                 </div>
                 <nav>
@@ -199,7 +273,7 @@
     </div>
 </div>
 
-<!-- ========== MODAL DE ANULACIÓN ========== -->
+<!-- ========== MODAL DE ANULACIÓN MEJORADO ========== -->
 <div class="modal fade" id="confirmarAnularModal" tabindex="-1" role="dialog" aria-labelledby="confirmarAnularModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-lg" role="document">
         <div class="modal-content">
@@ -220,20 +294,20 @@
                     </div>
                     
                     <div class="row mb-4">
-                        <div class="col-md-6">
+                        <div class="col-md-6 mb-3 mb-md-0">
                             <h6 class="text-dark"><i class="fas fa-file-invoice mr-2"></i>Información de la Venta</h6>
                             <table class="table table-sm table-borderless">
                                 <tr>
-                                    <td class="text-muted">N° Venta:</td>
+                                    <td class="text-muted">N° Factura:</td>
                                     <td class="font-weight-bold text-primary" id="anularFacturaNumero">-</td>
-                                </tr>
-                                <tr>
-                                    <td class="text-muted">Factura Externa:</td>
-                                    <td id="anularFacturaExterna">-</td>
                                 </tr>
                                 <tr>
                                     <td class="text-muted">Cliente:</td>
                                     <td id="anularCliente">-</td>
+                                </tr>
+                                <tr>
+                                    <td class="text-muted">RUC/Cédula:</td>
+                                    <td id="anularRUC">-</td>
                                 </tr>
                                 <tr>
                                     <td class="text-muted">Total:</td>
@@ -244,10 +318,9 @@
                         <div class="col-md-6">
                             <h6 class="text-dark"><i class="fas fa-exclamation-circle mr-2"></i>Consecuencias</h6>
                             <ul class="small pl-3">
-                                <li>Las existencias de productos serán reversadas (sumadas al inventario)</li>
+                                <li>Las existencias de productos serán reversadas</li>
                                 <li>La venta se marcará como "Anulada"</li>
                                 <li>Si existe cuenta por cobrar, será cancelada</li>
-                                <li>La factura asociada será anulada</li>
                                 <li>Se registrará en la bitácora del sistema</li>
                                 <li>Esta acción es irreversible</li>
                             </ul>
@@ -298,8 +371,8 @@
 
 {% block scripts %}
 <script>
-// Variable global para almacenar el ID del movimiento actual
-let movimientoActual = null;
+// Variable global para almacenar el ID de la factura actual
+let facturaActual = null;
 
 // Inicializar DataTable
 $(document).ready(function() {
@@ -322,12 +395,12 @@ $(document).ready(function() {
 
     // Configurar evento del botón de confirmar anulación
     $('#confirmarAnularModal').on('show.bs.modal', function() {
-        console.log('Modal de anulación abierto para movimiento:', movimientoActual);
+        console.log('Modal de anulación abierto para factura:', facturaActual);
     });
 
     $('#confirmarAnularModal').on('hidden.bs.modal', function() {
-        // Resetear el movimiento actual cuando se cierra el modal
-        movimientoActual = null;
+        // Resetear la factura actual cuando se cierra el modal
+        facturaActual = null;
         // Resetear el formulario
         $('#formAnularVenta')[0].reset();
     });
@@ -340,15 +413,15 @@ $(document).ready(function() {
     $('#estadoFilter').change(function() {
         const value = $(this).val();
         if (value === '') {
-            $('#dataTable').DataTable().column(9).search('').draw();
+            $('#dataTable').DataTable().column(8).search('').draw();
         } else {
-            $('#dataTable').DataTable().column(9).search(value === '1' ? 'Activo' : 'Anulado').draw();
+            $('#dataTable').DataTable().column(8).search(value).draw();
         }
     });
 
     $('#tipoVentaFilter').change(function() {
         const value = $(this).val();
-        $('#dataTable').DataTable().column(4).search(value).draw();
+        $('#dataTable').DataTable().column(3).search(value).draw();
     });
 
     // Validar formulario de anulación antes de enviar
@@ -371,27 +444,27 @@ $(document).ready(function() {
     });
 });
 
-function anularVenta(idMovimiento, button) {
-    console.log('Anular venta:', idMovimiento);
+function anularVenta(idFactura, button) {
+    console.log('Anular venta:', idFactura);
     
     // Obtener información de la fila para mostrar en el modal
     const row = $(button).closest('tr');
-    const factura = row.find('td').eq(2).text().trim();
-    const cliente = row.find('td').eq(3).text().trim();
-    const total = row.find('td').eq(7).text().trim();
-    const numeroVenta = row.find('td').eq(0).text().trim();
+    const cliente = row.find('td').eq(1).text().trim();
+    const ruc = row.find('td').eq(2).text().trim();
+    const total = row.find('td').eq(6).text().trim();
+    const numeroFactura = row.find('td').eq(0).text().trim();
 
-    // Almacenar el ID del movimiento actual
-    movimientoActual = idMovimiento;
+    // Almacenar el ID de la factura actual
+    facturaActual = idFactura;
 
     // Llenar el modal de confirmación
-    $('#anularFacturaNumero').text(numeroVenta);
-    $('#anularFacturaExterna').text(factura !== 'N/A' ? factura : 'Sin factura externa');
+    $('#anularFacturaNumero').text(numeroFactura);
     $('#anularCliente').text(cliente);
+    $('#anularRUC').text(ruc !== 'N/A' ? ruc : 'Sin RUC/Cédula');
     $('#anularTotal').text(total);
 
     // Actualizar el action del formulario con el ID correcto
-    $('#formAnularVenta').attr('action', `/admin/ventas/ventas-salidas/anular/${idMovimiento}`);
+    $('#formAnularVenta').attr('action', `/admin/ventas/ventas-salidas/anular/${idFactura}`);
 
     // Limpiar y preparar el formulario
     $('#motivoAnulacion').val('');
@@ -485,6 +558,7 @@ function recargarPagina() {
 </script>
 
 <style>
+/* Estilos generales mejorados */
 .table th {
     font-size: 0.85rem;
     font-weight: 600;
@@ -555,23 +629,77 @@ function recargarPagina() {
     border-radius: 4px;
 }
 
-/* Responsive para botones en móviles */
+/* Responsive para móviles */
 @media (max-width: 768px) {
+    .card-header {
+        flex-direction: column;
+        align-items: flex-start !important;
+    }
+    
     .btn-group {
         display: flex;
-        flex-direction: column;
+        flex-wrap: wrap;
     }
     
     .btn-group .btn {
-        margin: 2px 0;
-        text-align: left;
+        margin: 2px;
+        flex: 1;
+        min-width: 80px;
+        text-align: center;
     }
     
     .table-responsive {
         font-size: 0.8rem;
     }
+    
+    .table th, .table td {
+        padding: 0.5rem;
+    }
+    
+    .badge {
+        font-size: 0.7rem;
+        padding: 0.3rem 0.5rem;
+    }
+    
+    /* Ocultar columnas menos importantes en móviles */
+    .d-none.d-md-table-cell,
+    .d-none.d-lg-table-cell {
+        display: none !important;
+    }
 }
 
+/* Responsive para tablets */
+@media (max-width: 992px) and (min-width: 769px) {
+    .d-none.d-lg-table-cell {
+        display: none !important;
+    }
+}
+
+/* Mejoras para pantallas muy pequeñas */
+@media (max-width: 576px) {
+    .container-fluid {
+        padding: 0 10px;
+    }
+    
+    .card-body {
+        padding: 10px;
+    }
+    
+    .btn-group .btn span {
+        display: none;
+    }
+    
+    .btn-group .btn {
+        min-width: 40px;
+    }
+    
+    .filtros .col-lg-3,
+    .filtros .col-lg-2 {
+        margin-bottom: 10px;
+    }
+}
+
+/* Estilos para impresión */
 @media print {
     .btn, .dropdown, .pagination, .alert, .card-header .dropdown {
         display: none !important;
@@ -596,6 +724,56 @@ function recargarPagina() {
         background-color: #f8f9fa !important;
         color: #000 !important;
     }
+    
+    .d-none {
+        display: table-cell !important;
+    }
+}
+
+/* Mejoras visuales adicionales */
+.card {
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.card-header {
+    background-color: #f8f9fc;
+    border-bottom: 1px solid #e3e6f0;
+}
+
+.btn {
+    border-radius: 4px;
+    transition: all 0.2s;
+}
+
+.btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.table-striped tbody tr:nth-of-type(odd) {
+    background-color: rgba(0,0,0,.02);
+}
+
+/* Mejoras para los filtros */
+.input-group-text {
+    background-color: #f8f9fa;
+    border-color: #d1d3e2;
+}
+
+.form-control:focus {
+    border-color: #80bdff;
+    box-shadow: 0 0 0 0.2rem rgba(0,123,255,.25);
+}
+
+/* Animaciones suaves */
+.fade-in {
+    animation: fadeIn 0.5s ease-in;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
 }
 </style>
 {% endblock %}

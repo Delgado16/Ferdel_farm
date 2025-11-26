@@ -1,0 +1,126 @@
+{% extends "layout.html" %}
+
+{% block title %}Cuentas por Cobrar{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <h1 class="h3 mb-4 text-gray-800">Cuentas por Cobrar</h1>
+
+    <!-- Resumen -->
+    <div class="row mb-4">
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-primary shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">
+                                Total Pendiente</div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">C${{ "%.2f"|format(total_pendiente) }}</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-success shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-success text-uppercase mb-1">
+                                Saldo por Cobrar</div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">C${{ "%.2f"|format(total_saldo) }}</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tabla de Cuentas -->
+    <div class="card shadow mb-4">
+        <div class="card-header py-3">
+            <h6 class="m-0 font-weight-bold text-primary">Lista de Cuentas por Cobrar</h6>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-bordered" width="100%" cellspacing="0">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Fecha</th>
+                            <th>Cliente</th>
+                            <th>RUC/Cédula</th>
+                            <th>Documento</th>
+                            <th>Factura</th>
+                            <th>Monto Total</th>
+                            <th>Saldo Pendiente</th>
+                            <th>Vencimiento</th>
+                            <th>Estado</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for cuenta in cuentas %}
+                        <tr>
+                            <td>{{ cuenta.ID_Movimiento }}</td>
+                            <td>{{ cuenta.Fecha.strftime('%d/%m/%Y') if cuenta.Fecha else '' }}</td>
+                            <td>{{ cuenta.NombreCliente }}</td>
+                            <td>{{ cuenta.CedulaCliente or 'N/A' }}</td>
+                            <td>{{ cuenta.Num_Documento }}</td>
+                            <td>
+                                {% if cuenta.NumeroFactura %}
+                                    <span class="badge badge-info">{{ cuenta.NumeroFactura }}</span>
+                                {% else %}
+                                    <span class="text-muted">N/A</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-right">C${{ "%.2f"|format(cuenta.Monto_Movimiento) }}</td>
+                            <td class="text-right">
+                                <strong class="{% if cuenta.Saldo_Pendiente > 0 %}text-danger{% else %}text-success{% endif %}">
+                                    C${{ "%.2f"|format(cuenta.Saldo_Pendiente) }}
+                                </strong>
+                            </td>
+                            <td>
+                                {% if cuenta.Fecha_Vencimiento %}
+                                    {{ cuenta.Fecha_Vencimiento.strftime('%d/%m/%Y') }}
+                                    {% if cuenta.Estado == 'Vencido' %}
+                                    <span class="badge badge-danger">{{ cuenta.DiasVencido }} días</span>
+                                    {% endif %}
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if cuenta.Estado == 'Pagado' %}
+                                    <span class="badge badge-success">Pagado</span>
+                                {% elif cuenta.Estado == 'Vencido' %}
+                                    <span class="badge badge-danger">Vencido</span>
+                                {% else %}
+                                    <span class="badge badge-warning">Pendiente</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <div class="btn-group">
+                                    <a href="#" 
+                                       class="btn btn-info btn-sm" title="Ver Detalle">
+                                        <i class="fas fa-eye"></i>
+                                    </a>
+                                    {% if cuenta.Saldo_Pendiente > 0 %}
+                                    <a href="#" 
+                                       class="btn btn-success btn-sm" title="Registrar Pago">
+                                        <i class="fas fa-money-bill-wave"></i>
+                                    </a>
+                                    {% endif %}
+                                </div>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="11" class="text-center">No hay cuentas por cobrar</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -228,6 +228,14 @@
         border: 1px solid #90caf9;
     }
 
+    .bodega-info {
+        background: linear-gradient(135deg, #e8f5e8, #c8e6c9);
+        border: 1px solid #a5d6a7;
+        border-radius: 6px;
+        padding: 1rem;
+        margin-bottom: 1rem;
+    }
+
     /* Loading states */
     .loading {
         opacity: 0.6;
@@ -350,37 +358,37 @@
             <h2><i class="fas fa-cash-register me-2"></i>Registrar Nueva Venta</h2>
         </div>
         <div class="card-body">
-            <form id="formVenta" method="POST" novalidate>
-                <!-- Campo oculto para el ID del usuario -->
-                <input type="hidden" id="id_usuario_creacion" name="id_usuario_creacion" value="{{ session.get('id_usuario', 1) }}">
+            <!-- Mostrar mensajes flash -->
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="alert alert-{{ 'danger' if category == 'error' else 'success' }} alert-dismissible fade show">
+                            {{ message }}
+                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                        </div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
 
+            <!-- Información de Bodega -->
+            {% if bodega_principal %}
+            <div class="bodega-info">
+                <div class="d-flex align-items-center">
+                    <i class="fas fa-warehouse fa-2x text-success me-3"></i>
+                    <div>
+                        <h5 class="mb-1">Bodega: {{ bodega_principal.Nombre }}</h5>
+                        <p class="mb-0">Todos los productos se venderán desde esta bodega</p>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <form id="formVenta" method="POST" novalidate>
                 <!-- Información General de la Venta -->
                 <div class="form-section">
                     <h4 class="section-title"><i class="fas fa-info-circle me-2"></i>Información General</h4>
                     <div class="row g-3">
-                        <div class="col-md-4">
-                            <label for="id_tipo_movimiento" class="form-label required-field">Tipo de Movimiento</label>
-                            <select class="form-select" id="id_tipo_movimiento" name="id_tipo_movimiento" required>
-                                <option value="" disabled selected>Seleccionar tipo...</option>
-                                {% for tipo in tipos_movimiento %}
-                                <option value="{{ tipo.ID_TipoMovimiento }}">{{ tipo.Descripcion }}</option>
-                                {% endfor %}
-                            </select>
-                            <div class="invalid-feedback">Por favor seleccione el tipo de movimiento</div>
-                        </div>
-
-                        <div class="col-md-4">
-                            <label for="fecha" class="form-label required-field">Fecha de Venta</label>
-                            <input type="date" class="form-control" id="fecha" name="fecha" required>
-                            <div class="invalid-feedback">Por favor ingrese la fecha de venta</div>
-                        </div>
-
-                        <div class="col-md-4">
-                            <label for="n_factura_externa" class="form-label">N° Factura Externa</label>
-                            <input type="text" class="form-control" id="n_factura_externa" name="n_factura_externa" placeholder="Opcional">
-                        </div>
-
-                        <div class="col-md-4">
+                        <div class="col-md-6">
                             <label for="id_cliente" class="form-label">Cliente</label>
                             <select class="form-select" id="id_cliente" name="id_cliente">
                                 <option value="" selected>Seleccionar cliente...</option>
@@ -390,28 +398,20 @@
                             </select>
                         </div>
 
-                        <div class="col-md-4">
+                        <div class="col-md-6">
                             <label for="tipo_venta" class="form-label required-field">Tipo de Venta</label>
                             <select class="form-select" id="tipo_venta" name="tipo_venta" required>
-                                <option value="CONTADO">CONTADO</option>
-                                <option value="CREDITO">CRÉDITO</option>
+                                <option value="contado">CONTADO</option>
+                                <option value="credito">CRÉDITO</option>
                             </select>
                             <div class="invalid-feedback">Por favor seleccione el tipo de venta</div>
                         </div>
 
-                        <div class="col-md-4">
-                            <label for="id_bodega" class="form-label required-field">Bodega de Salida</label>
-                            <select class="form-select" id="id_bodega" name="id_bodega" required>
-                                <option value="" disabled selected>Seleccionar bodega...</option>
-                                {% for bodega in bodegas %}
-                                <option value="{{ bodega.ID_Bodega }}">{{ bodega.Nombre }}</option>
-                                {% endfor %}
-                            </select>
-                            <div class="invalid-feedback">Por favor seleccione una bodega</div>
-                        </div>
+                        <!-- Campo bodega OCULTO con valor fijo -->
+                        <input type="hidden" id="id_bodega" name="id_bodega" value="{{ bodega_principal.ID_Bodega if bodega_principal else 1 }}">
 
                         <!-- Filtro por Categoría de Producto -->
-                        <div class="col-md-6">
+                        <div class="col-md-8">
                             <label for="filtro_categoria" class="form-label">Filtrar Productos por Categoría</label>
                             <select class="form-select" id="filtro_categoria" name="filtro_categoria">
                                 <option value="0">Todas las categorías</option>
@@ -422,7 +422,7 @@
                             <small class="text-muted">Filtre los productos por categoría para facilitar la búsqueda</small>
                         </div>
 
-                        <div class="col-md-6">
+                        <div class="col-md-4">
                             <label class="form-label">&nbsp;</label>
                             <div class="d-flex gap-2 mt-2">
                                 <button type="button" class="btn btn-outline-primary btn-sm" id="btn-aplicar-filtro">
@@ -539,7 +539,6 @@ let productosEnCache = [];
 // Establecer fecha actual por defecto
 document.addEventListener('DOMContentLoaded', function() {
     const today = new Date().toISOString().split('T')[0];
-    document.getElementById('fecha').value = today;
     
     // Asignar eventos
     document.getElementById('btn-agregar-producto').addEventListener('click', agregarProducto);
@@ -550,15 +549,12 @@ document.addEventListener('DOMContentLoaded', function() {
     // Controlar visibilidad de fecha de vencimiento para crédito
     document.getElementById('tipo_venta').addEventListener('change', function() {
         const fechaVencimientoGroup = document.getElementById('fecha_vencimiento_group');
-        if (this.value === 'CREDITO') {
+        if (this.value === 'credito') {
             fechaVencimientoGroup.style.display = 'block';
             // Establecer fecha de vencimiento por defecto (30 días)
-            const fechaVenta = document.getElementById('fecha').value;
-            if (fechaVenta) {
-                const fechaVencimiento = new Date(fechaVenta);
-                fechaVencimiento.setDate(fechaVencimiento.getDate() + 30);
-                document.getElementById('fecha_vencimiento').value = fechaVencimiento.toISOString().split('T')[0];
-            }
+            const fechaVencimiento = new Date();
+            fechaVencimiento.setDate(fechaVencimiento.getDate() + 30);
+            document.getElementById('fecha_vencimiento').value = fechaVencimiento.toISOString().split('T')[0];
             
             // Validar que haya cliente seleccionado
             const cliente = document.getElementById('id_cliente').value;
@@ -567,21 +563,13 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         } else {
             fechaVencimientoGroup.style.display = 'none';
-        }
-    });
-
-    // Actualizar fecha de vencimiento cuando cambia la fecha de venta
-    document.getElementById('fecha').addEventListener('change', function() {
-        if (document.getElementById('tipo_venta').value === 'CREDITO') {
-            const fechaVencimiento = new Date(this.value);
-            fechaVencimiento.setDate(fechaVencimiento.getDate() + 30);
-            document.getElementById('fecha_vencimiento').value = fechaVencimiento.toISOString().split('T')[0];
+            document.getElementById('id_cliente').classList.remove('is-invalid');
         }
     });
 
     // Validar cliente cuando se selecciona crédito
     document.getElementById('id_cliente').addEventListener('change', function() {
-        if (document.getElementById('tipo_venta').value === 'CREDITO' && !this.value) {
+        if (document.getElementById('tipo_venta').value === 'credito' && !this.value) {
             mostrarAlerta('warning', '⚠️ Advertencia', 'Para ventas a crédito debe seleccionar un cliente');
         }
     });
@@ -590,12 +578,13 @@ document.addEventListener('DOMContentLoaded', function() {
     agregarProducto();
 });
 
+// APLICAR FILTRO POR CATEGORÍA
 async function aplicarFiltroCategoria() {
     const categoriaSelect = document.getElementById('filtro_categoria');
     const idCategoria = categoriaSelect.value;
     const nombreCategoria = categoriaSelect.options[categoriaSelect.selectedIndex].text;
     
-    console.log('[v0] Applying filter - ID Categoria:', idCategoria);
+    console.log('[VENTAS] Applying filter - Categoria:', idCategoria);
     
     try {
         // Mostrar loading
@@ -604,22 +593,19 @@ async function aplicarFiltroCategoria() {
         btnFiltro.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> Cargando...';
         btnFiltro.disabled = true;
 
-        // Cargar productos filtrados desde el servidor
+        // URL sin parámetro de bodega
         const url = `/admin/ventas/productos-por-categoria/${idCategoria}`;
-        console.log('[v0] Request URL:', url);
+        
+        console.log('[VENTAS] Request URL:', url);
         
         const response = await fetch(url);
         
-        console.log('[v0] Response status:', response.status);
-        
         if (!response.ok) {
             const errorText = await response.text();
-            console.error('[v0] Error response:', errorText);
-            throw new Error(`Error HTTP: ${response.status} - ${response.statusText}`);
+            throw new Error(`Error HTTP: ${response.status}`);
         }
         
         const productosRecibidos = await response.json();
-        console.log('[v0] Products received:', productosRecibidos);
         
         if (productosRecibidos.error) {
             throw new Error(productosRecibidos.error);
@@ -627,16 +613,26 @@ async function aplicarFiltroCategoria() {
 
         productosEnCache = productosRecibidos;
         filtroCategoriaActual = idCategoria;
-        console.log('[v0] Filter cache updated. Current filter ID:', filtroCategoriaActual);
-
-        // Actualizar todos los selects de productos con los datos en caché
+        
+        // Solo actualizar selects VACÍOS, mantener los que ya tienen productos
         const selectsProductos = document.querySelectorAll('.producto-select');
-        console.log('[v0] Updating selects:', selectsProductos.length);
+        console.log('[VENTAS] Updating ONLY EMPTY selects. Total selects:', selectsProductos.length);
+        
+        let selectsActualizados = 0;
+        let selectsMantenidos = 0;
         
         selectsProductos.forEach((select, index) => {
-            console.log(`[v0] Updating select ${index + 1}`);
-            actualizarSelectConProductos(select, productosRecibidos);
+            if (!select.value || select.value === "") {
+                console.log(`[VENTAS] Updating empty select ${index + 1}`);
+                actualizarSelectConProductos(select, productosRecibidos);
+                selectsActualizados++;
+            } else {
+                console.log(`[VENTAS] Keeping select ${index + 1} with existing product:`, select.value);
+                selectsMantenidos++;
+            }
         });
+        
+        console.log(`[VENTAS] Updated ${selectsActualizados} empty selects, kept ${selectsMantenidos} with products`);
         
         // Mostrar información del filtro
         const filtroInfo = document.getElementById('filtro-info');
@@ -650,10 +646,11 @@ async function aplicarFiltroCategoria() {
             filtroActual.textContent = nombreCategoria;
         }
         
-        mostrarAlerta('success', 'Filtro aplicado', `Mostrando ${productosRecibidos.length} productos de: ${nombreCategoria}`);
+        mostrarAlerta('success', 'Filtro aplicado', 
+            `Mostrando productos de la categoría: ${nombreCategoria}. ${selectsActualizados} selects actualizados, ${selectsMantenidos} productos mantenidos.`);
         
     } catch (error) {
-        console.error('[v0] Error applying filter:', error);
+        console.error('[VENTAS] Error applying filter:', error);
         mostrarAlerta('danger', ' Error', `No se pudieron cargar los productos: ${error.message}`);
     } finally {
         // Restaurar botón
@@ -664,8 +661,6 @@ async function aplicarFiltroCategoria() {
 }
 
 function actualizarSelectConProductos(select, productos) {
-    const valorActual = select.value;
-    
     // Limpiar opciones actuales
     select.innerHTML = '<option value="" disabled selected>Seleccionar producto...</option>';
     
@@ -673,7 +668,7 @@ function actualizarSelectConProductos(select, productos) {
     productos.forEach(producto => {
         const option = document.createElement('option');
         option.value = producto.id;
-        option.textContent = `${producto.descripcion} (${producto.codigo})`;
+        option.textContent = `${producto.descripcion} (${producto.codigo}) - Stock: ${producto.existencias}`;
         option.dataset.codigo = producto.codigo;
         option.dataset.existencia = producto.existencias;
         option.dataset.precio = producto.precio_venta || 0;
@@ -681,27 +676,18 @@ function actualizarSelectConProductos(select, productos) {
         
         select.appendChild(option);
     });
-    
-    // Restaurar selección anterior si existe
-    if (valorActual) {
-        const opcionExistente = Array.from(select.options).find(opt => opt.value === valorActual);
-        if (opcionExistente) {
-            select.value = valorActual;
-            const idFila = select.closest('.producto-item').id.split('-')[1];
-            actualizarInfoProducto(idFila);
-        }
-    }
 }
 
-async function limpiarFiltro() {
-    console.log('[v0] Clearing filter');
+function limpiarFiltro() {
+    console.log('[VENTAS] Clearing filter');
     document.getElementById('filtro_categoria').value = '0';
     document.getElementById('filtro-info').style.display = 'none';
     filtroCategoriaActual = 0;
     productosEnCache = [];
     
-    await aplicarFiltroCategoria();
-    mostrarAlerta('info', 'ℹ️ Filtro limpiado', 'Mostrando todos los productos');
+    // Solo recargar productos para selects vacíos
+    aplicarFiltroCategoria();
+    mostrarAlerta('info', 'ℹ️ Filtro limpiado', 'Los productos ya seleccionados se mantienen. Nuevas selecciones mostrarán todos los productos.');
 }
 
 function agregarProducto() {
@@ -717,7 +703,7 @@ function agregarProducto() {
                             data-existencia="{{ producto.Existencias }}"
                             data-precio="{{ producto.Precio_Venta or 0 }}"
                             data-categoria="{{ producto.ID_Categoria }}">
-                        {{ producto.Descripcion }} ({{ producto.COD_Producto }})
+                        {{ producto.Descripcion }} ({{ producto.COD_Producto }}) - Stock: {{ producto.Existencias }}
                     </option>
                     {% endfor %}
                 </select>
@@ -725,7 +711,9 @@ function agregarProducto() {
                 <small class="text-muted stock-info" id="stock-info-${contadorProductos}"></small>
             </td>
             <td>
-                <input type="number" class="form-control cantidad" name="cantidades[]" min="0.01" step="0.01" value="1" required onchange="calcularSubtotal(${contadorProductos})">
+                <input type="number" class="form-control cantidad" name="cantidades[]" min="0.01" step="0.01" value="1" required 
+                       onchange="calcularSubtotal(${contadorProductos})" 
+                       oninput="validarStockEnTiempoReal(${contadorProductos})">
                 <div class="invalid-feedback">Ingrese una cantidad válida</div>
             </td>
             <td>
@@ -743,15 +731,16 @@ function agregarProducto() {
             </td>
             <td>
                 <button type="button" class="btn btn-danger btn-sm" onclick="eliminarProducto(${contadorProductos})" title="Eliminar producto">
-                    <i class="fas fa-trash"></i>Quitar Producto
+                    <i class="fas fa-trash"></i>Quitar
                 </button>
             </td>
         </tr>
     `;
     document.getElementById('productos-container').insertAdjacentHTML('beforeend', productoHTML);
     
+    // Si hay filtro activo, aplicarlo solo a esta NUEVA fila
     if (filtroCategoriaActual !== 0 && productosEnCache.length > 0) {
-        console.log('[v0] Applying cached filter to new product select');
+        console.log('[VENTAS] Applying cached filter to NEW product select only');
         const nuevoSelect = document.getElementById(`producto-${contadorProductos}`).querySelector('.producto-select');
         actualizarSelectConProductos(nuevoSelect, productosEnCache);
     }
@@ -775,38 +764,88 @@ function eliminarProducto(id) {
     }
 }
 
-function actualizarInfoProducto(id) {
+// ACTUALIZACIÓN EN TIEMPO REAL AL SELECCIONAR PRODUCTO
+async function actualizarInfoProducto(id) {
     const fila = document.getElementById(`producto-${id}`);
     const select = fila.querySelector('.producto-select');
     const stockInfo = document.getElementById(`stock-info-${id}`);
     const precioInput = fila.querySelector('.precio');
+    const cantidadInput = fila.querySelector('.cantidad');
     
     if (select.value && select.selectedOptions[0].dataset) {
-        const existencia = parseInt(select.selectedOptions[0].dataset.existencia) || 0;
-        const precioSugerido = parseFloat(select.selectedOptions[0].dataset.precio) || 0;
-        
-        let stockClass = 'stock-good';
-        let stockText = 'Stock suficiente';
-        
-        if (existencia <= 5) {
-            stockClass = 'stock-low';
-            stockText = 'Stock bajo';
-        } else if (existencia <= 15) {
-            stockClass = 'stock-medium';
-            stockText = 'Stock medio';
+        try {
+            // Verificar stock actual
+            const stockActual = await obtenerStockActual(select.value);
+            const precioSugerido = parseFloat(select.selectedOptions[0].dataset.precio) || 0;
+            
+            let stockClass = 'stock-good';
+            let stockText = `Stock disponible: ${stockActual} unidades`;
+            
+            if (stockActual <= 5) {
+                stockClass = 'stock-low';
+                stockText = `Stock bajo: ${stockActual} unidades`;
+            } else if (stockActual <= 15) {
+                stockClass = 'stock-medium';
+                stockText = `Stock medio: ${stockActual} unidades`;
+            }
+            
+            stockInfo.innerHTML = `<span class="${stockClass}">${stockText}</span>`;
+            stockInfo.style.display = 'block';
+            
+            // Auto-completar precio unitario si está vacío
+            if (precioSugerido > 0 && (!precioInput.value || precioInput.value == '0')) {
+                precioInput.value = precioSugerido.toFixed(2);
+                calcularSubtotal(id);
+            }
+            
+            // VALIDACIÓN EN TIEMPO REAL: cantidad vs stock
+            const cantidadActual = parseFloat(cantidadInput.value) || 0;
+            validarCantidadVsStock(cantidadInput, cantidadActual, stockActual, stockInfo);
+            
+        } catch (error) {
+            console.error('Error en actualización tiempo real:', error);
+            stockInfo.innerHTML = `<span class="text-danger">Error al verificar stock</span>`;
         }
-        
-        stockInfo.innerHTML = `<span class="${stockClass}">${stockText}: ${existencia} unidades</span>`;
-        stockInfo.style.display = 'block';
-        
-        // Auto-completar precio unitario si está vacío
-        if (precioSugerido > 0 && (!precioInput.value || precioInput.value == '0')) {
-            precioInput.value = precioSugerido.toFixed(2);
-            calcularSubtotal(id);
-        }
-        
     } else {
         stockInfo.style.display = 'none';
+        cantidadInput.classList.remove('is-invalid');
+    }
+}
+
+// VALIDACIÓN EN TIEMPO REAL AL ESCRIBIR CANTIDAD
+async function validarStockEnTiempoReal(id) {
+    const fila = document.getElementById(`producto-${id}`);
+    const select = fila.querySelector('.producto-select');
+    const cantidadInput = fila.querySelector('.cantidad');
+    const stockInfo = document.getElementById(`stock-info-${id}`);
+    
+    if (select.value && cantidadInput.value) {
+        try {
+            const stockActual = await obtenerStockActual(select.value);
+            const cantidadRequerida = parseFloat(cantidadInput.value) || 0;
+            
+            validarCantidadVsStock(cantidadInput, cantidadRequerida, stockActual, stockInfo);
+        } catch (error) {
+            console.error('Error en validación tiempo real:', error);
+        }
+    }
+}
+
+// FUNCIÓN AUXILIAR PARA VALIDACIÓN DE STOCK
+function validarCantidadVsStock(cantidadInput, cantidadRequerida, stockActual, stockInfo) {
+    if (cantidadRequerida > stockActual) {
+        cantidadInput.classList.add('is-invalid');
+        if (stockInfo) {
+            const currentContent = stockInfo.innerHTML.split('<br>')[0]; // Mantener info original
+            stockInfo.innerHTML = currentContent + `<br><small class="text-danger">⚠️ Cantidad excede stock disponible</small>`;
+        }
+    } else {
+        cantidadInput.classList.remove('is-invalid');
+        // Remover mensaje de error si existe
+        if (stockInfo) {
+            const currentContent = stockInfo.innerHTML.split('<br>')[0];
+            stockInfo.innerHTML = currentContent;
+        }
     }
 }
 
@@ -870,134 +909,88 @@ function mostrarAlerta(tipo, titulo, mensaje) {
     }, 5000);
 }
 
-// FUNCIÓN CORREGIDA - Enviar formulario con FormData
-document.getElementById('formVenta').addEventListener('submit', function(e) {
-    e.preventDefault();
-    
-    if (!validarVenta()) {
-        return;
-    }
-
-    const formData = new FormData();
-
-    // Agregar campos principales manualmente
-    formData.append('id_tipo_movimiento', document.getElementById('id_tipo_movimiento').value);
-    formData.append('fecha', document.getElementById('fecha').value);
-    formData.append('n_factura_externa', document.getElementById('n_factura_externa').value);
-    formData.append('id_cliente', document.getElementById('id_cliente').value);
-    formData.append('tipo_venta', document.getElementById('tipo_venta').value);
-    formData.append('id_bodega', document.getElementById('id_bodega').value);
-    formData.append('observacion', document.getElementById('observacion').value);
-    formData.append('id_usuario_creacion', document.getElementById('id_usuario_creacion').value);
-    
-    // Agregar fecha de vencimiento si existe y es crédito
-    if (document.getElementById('tipo_venta').value === 'CREDITO') {
-        const fechaVencimiento = document.getElementById('fecha_vencimiento');
-        if (fechaVencimiento && fechaVencimiento.value) {
-            formData.append('fecha_vencimiento', fechaVencimiento.value);
-        }
-    }
-
-    // Recolectar productos de la tabla
-    const productoElements = document.querySelectorAll('.producto-item');
-    let productosValidos = 0;
-    
-    productoElements.forEach((item) => {
-        const select = item.querySelector('.producto-select');
-        const cantidad = item.querySelector('.cantidad');
-        const precio = item.querySelector('.precio');
+// VERIFICACIÓN DE STOCK EN TIEMPO REAL - SIMPLIFICADA
+async function obtenerStockActual(idProducto) {
+    try {
+        const url = `/admin/ventas/verificar-stock/${idProducto}`;
         
-        // Solo agregar productos válidos
-        if (select.value && cantidad.value && precio.value) {
-            formData.append('productos[]', select.value);
-            formData.append('cantidades[]', parseFloat(cantidad.value).toFixed(2));
-            formData.append('precios_unitarios[]', parseFloat(precio.value).toFixed(2));
-            // Enviar arrays vacíos para lotes y fechas_vencimiento para mantener la estructura esperada
-            formData.append('lotes[]', '');
-            formData.append('fechas_vencimiento[]', '');
-            
-            productosValidos++;
+        const response = await fetch(url);
+        
+        if (!response.ok) {
+            throw new Error('Error al verificar stock');
         }
-    });
+        
+        const data = await response.json();
+        
+        if (data.error) {
+            throw new Error(data.error);
+        }
+        
+        console.log(`[STOCK] Stock en tiempo real: ${data.existencias} unidades`);
+        return data.existencias;
+    } catch (error) {
+        console.error('Error obteniendo stock en tiempo real:', error);
+        return 0;
+    }
+}
 
-    // Validaciones adicionales
-    const tipoVenta = document.getElementById('tipo_venta').value;
-    const idCliente = document.getElementById('id_cliente').value;
+// VERIFICACIÓN DE STOCK PARA TODOS LOS PRODUCTOS ANTES DE ENVIAR
+async function verificarStockProductos() {
+    const productosConProblemas = [];
+    const filas = document.querySelectorAll(".producto-item");
     
-    if (tipoVenta === 'CREDITO' && !idCliente) {
-        mostrarAlerta('danger', '❌ Error!', 'Para ventas a crédito debe seleccionar un cliente');
-        document.getElementById('id_cliente').focus();
-        return;
-    }
-
-    if (productosValidos === 0) {
-        mostrarAlerta('danger', '❌ Error!', 'Debe agregar al menos un producto válido');
-        return;
-    }
-
-    // Debug: mostrar datos que se enviarán
-    console.log('Enviando datos de venta:');
-    for (let [key, value] of formData.entries()) {
-        console.log(key, value);
-    }
-
-    // Mostrar loading
-    const submitBtn = this.querySelector('button[type="submit"]');
-    const originalText = submitBtn.innerHTML;
-    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> Guardando...';
-    submitBtn.disabled = true;
-    this.classList.add('loading');
-
-    // Enviar datos
-    fetch("{{ url_for('admin_crear_venta') }}", {
-        method: 'POST',
-        body: formData
-    })
-    .then(response => {
-        if (response.redirected) {
-            window.location.href = response.url;
-            return;
-        }
-        return response.text().then(text => {
+    for (const fila of filas) {
+        const select = fila.querySelector(".producto-select");
+        const cantidadInput = fila.querySelector(".cantidad");
+        
+        if (select.value && cantidadInput.value) {
+            const idProducto = select.value;
+            const cantidadRequerida = parseFloat(cantidadInput.value);
+            
             try {
-                return JSON.parse(text);
-            } catch {
-                throw new Error('Error en el servidor');
+                // VERIFICACIÓN FINAL EN TIEMPO REAL
+                const stockActual = await obtenerStockActual(idProducto);
+                
+                if (stockActual < cantidadRequerida) {
+                    const descripcion = select.options[select.selectedIndex].text;
+                    productosConProblemas.push({
+                        descripcion: descripcion,
+                        stockActual: stockActual,
+                        cantidadRequerida: cantidadRequerida
+                    });
+                }
+            } catch (error) {
+                console.error('Error verificando stock final:', error);
+                productosConProblemas.push({
+                    descripcion: select.options[select.selectedIndex].text,
+                    stockActual: 0,
+                    cantidadRequerida: cantidadRequerida,
+                    error: true
+                });
             }
-        });
-    })
-    .then(resultado => {
-        if (resultado && resultado.success) {
-            mostrarAlerta('success', '✅ Éxito!', 'Venta creada exitosamente');
-            setTimeout(() => {
-                window.location.href = "{{ url_for('admin_ventas_salidas') }}";
-            }, 1500);
-        } else {
-            throw new Error(resultado?.message || 'Error al crear venta');
         }
-    })
-    .catch(error => {
-        console.error('Error:', error);
-        mostrarAlerta('danger', '❌ Error!', error.message || 'Error al crear venta. Verifique la consola para más detalles.');
-    })
-    .finally(() => {
-        submitBtn.innerHTML = originalText;
-        submitBtn.disabled = false;
-        this.classList.remove('loading');
-    });
-});
+    }
+    
+    return productosConProblemas;
+}
 
-function validarVenta() {
+function validarVentaBasica() {
+    // Solo validaciones básicas (no async)
     let valido = true;
     
-    // Validar campos principales
-    const camposPrincipales = document.querySelectorAll('#formVenta [required]');
-    camposPrincipales.forEach(campo => {
-        if (!campo.value) {
-            campo.classList.add("is-invalid");
+    const camposRequeridos = [
+        { id: 'tipo_venta', nombre: 'Tipo de venta' }
+        // id_bodega ya no es requerido porque tiene valor por defecto
+    ];
+    
+    camposRequeridos.forEach(campo => {
+        const elemento = document.getElementById(campo.id);
+        if (!elemento.value) {
+            elemento.classList.add("is-invalid");
+            mostrarAlerta('warning', '⚠️ Campo requerido', `${campo.nombre} es obligatorio`);
             valido = false;
         } else {
-            campo.classList.remove("is-invalid");
+            elemento.classList.remove("is-invalid");
         }
     });
 
@@ -1008,28 +1001,40 @@ function validarVenta() {
         return false;
     }
     
-    // Validar cada fila de producto
+    // Validar que haya al menos un producto con cantidad > 0
     let hayProductosValidos = false;
     filas.forEach(fila => {
-        const select = fila.querySelector("select");
+        const select = fila.querySelector(".producto-select");
         const cantidad = fila.querySelector(".cantidad");
         const precio = fila.querySelector(".precio");
         
-        if (select.value && cantidad.value && precio.value) {
+        const cantidadVal = parseFloat(cantidad.value) || 0;
+        const precioVal = parseFloat(precio.value) || 0;
+        
+        if (select.value && cantidadVal > 0 && precioVal > 0) {
             hayProductosValidos = true;
             select.classList.remove("is-invalid");
             cantidad.classList.remove("is-invalid");
             precio.classList.remove("is-invalid");
         } else {
-            valido = false;
             if (!select.value) select.classList.add("is-invalid");
-            if (!cantidad.value) cantidad.classList.add("is-invalid");
-            if (!precio.value) precio.classList.add("is-invalid");
+            if (cantidadVal <= 0) cantidad.classList.add("is-invalid");
+            if (precioVal <= 0) precio.classList.add("is-invalid");
         }
     });
     
     if (!hayProductosValidos) {
-        mostrarAlerta('danger', '❌ Error!', 'Debe completar todos los campos requeridos en los productos.');
+        mostrarAlerta('danger', '❌ Error!', 'Debe agregar al menos un producto con cantidad y precio válidos.');
+        valido = false;
+    }
+    
+    // Validación específica para crédito
+    const tipoVenta = document.getElementById('tipo_venta').value;
+    const idCliente = document.getElementById('id_cliente').value;
+    
+    if (tipoVenta === 'credito' && !idCliente) {
+        mostrarAlerta('warning', '⚠️ Cliente requerido', 'Para ventas a crédito debe seleccionar un cliente');
+        document.getElementById('id_cliente').classList.add('is-invalid');
         valido = false;
     }
     
@@ -1039,11 +1044,160 @@ function validarVenta() {
         if (primerError) {
             primerError.scrollIntoView({ behavior: 'smooth', block: 'center' });
         }
-        
-        mostrarAlerta('danger', '❌ Error!', 'Por favor complete todos los campos requeridos.');
     }
     
     return valido;
 }
+
+async function validarStockVenta() {
+    const productosConProblemas = await verificarStockProductos();
+    
+    if (productosConProblemas.length > 0) {
+        const productosError = productosConProblemas.map(p => 
+            `${p.descripcion} (Stock: ${p.stockActual}, Requerido: ${p.cantidadRequerida})`
+        ).join(', ');
+        
+        mostrarAlerta('danger', '❌ Stock Insuficiente!', 
+            `Los siguientes productos no tienen suficiente stock: ${productosError}`);
+        return false;
+    }
+    
+    return true;
+}
+
+function procesarVenta() {
+    const formData = new FormData();
+
+    // Agregar campos EXACTAMENTE como los espera el backend
+    formData.append('id_cliente', document.getElementById('id_cliente').value);
+    formData.append('tipo_venta', document.getElementById('tipo_venta').value);
+    formData.append('id_bodega', document.getElementById('id_bodega').value);
+    formData.append('observacion', document.getElementById('observacion').value);
+    
+    // Si es crédito, agregar fecha de vencimiento
+    if (document.getElementById('tipo_venta').value === 'credito') {
+        const fechaVencimiento = document.getElementById('fecha_vencimiento').value;
+        if (fechaVencimiento) {
+            formData.append('fecha_vencimiento', fechaVencimiento);
+        }
+    }
+    
+    // Campos de productos - usar los nombres exactos que espera el backend
+    const productoElements = document.querySelectorAll('.producto-item');
+    let productosValidos = 0;
+    
+    productoElements.forEach((item) => {
+        const select = item.querySelector('.producto-select');
+        const cantidad = item.querySelector('.cantidad');
+        const precio = item.querySelector('.precio');
+        
+        if (select.value && cantidad.value && precio.value && parseFloat(cantidad.value) > 0) {
+            // USAR LOS NOMBRES EXACTOS QUE ESPERA EL BACKEND
+            formData.append('producto_id[]', select.value);
+            formData.append('cantidad[]', parseFloat(cantidad.value).toFixed(2));
+            formData.append('precio[]', parseFloat(precio.value).toFixed(2));
+            
+            productosValidos++;
+        }
+    });
+
+    // Validaciones críticas
+    if (productosValidos === 0) {
+        mostrarAlerta('danger', '❌ Error!', 'Debe agregar al menos un producto válido');
+        return;
+    }
+
+    const tipoVenta = document.getElementById('tipo_venta').value;
+    const idCliente = document.getElementById('id_cliente').value;
+    
+    if (tipoVenta === 'credito' && !idCliente) {
+        mostrarAlerta('danger', '❌ Error!', 'Para ventas a crédito debe seleccionar un cliente');
+        document.getElementById('id_cliente').focus();
+        return;
+    }
+
+    // Mostrar loading
+    const submitBtn = document.querySelector('#formVenta button[type="submit"]');
+    const originalText = submitBtn.innerHTML;
+    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> Procesando...';
+    submitBtn.disabled = true;
+
+    console.log('📨 Enviando datos de venta al servidor...');
+
+    // Enviar datos al endpoint CORRECTO
+    fetch("{{ url_for('admin_crear_venta') }}", {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => {
+        console.log('📨 Response status:', response.status);
+        console.log('📨 Response ok:', response.ok);
+        
+        if (!response.ok) {
+            throw new Error(`Error HTTP: ${response.status}`);
+        }
+        
+        return response.json();
+    })
+    .then(resultado => {
+        console.log('📊 Resultado del servidor:', resultado);
+        
+        if (resultado.success) {
+            // ÉXITO - Mostrar mensaje de éxito y opciones
+            const successMessage = `✅ ${resultado.message}`;
+            console.log('✅ Venta exitosa:', successMessage);
+            
+            mostrarAlerta('success', '✅ Venta Exitosa!', 
+                `${resultado.message}<br>
+                 <div class="mt-2">
+                     <a href="${resultado.redirect_url}" class="btn btn-success btn-sm me-2">
+                         <i class="fas fa-receipt me-1"></i>Ver Ticket
+                     </a>
+                     <button onclick="location.reload()" class="btn btn-outline-secondary btn-sm">
+                         <i class="fas fa-plus me-1"></i>Nueva Venta
+                     </button>
+                 </div>`
+            );
+            
+            // Limpiar formulario después de 2 segundos
+            setTimeout(() => {
+                document.getElementById('formVenta').reset();
+                document.getElementById('productos-container').innerHTML = '';
+                agregarProducto();
+                actualizarTotales();
+            }, 2000);
+            
+        } else {
+            throw new Error(resultado.error || 'Error desconocido del servidor');
+        }
+    })
+    .catch(error => {
+        console.error('❌ Error completo:', error);
+        mostrarAlerta('danger', '❌ Error!', error.message || 'Error al procesar la venta');
+    })
+    .finally(() => {
+        submitBtn.innerHTML = originalText;
+        submitBtn.disabled = false;
+    });
+}
+
+// FUNCIÓN CORREGIDA - Enviar formulario con validación en tiempo real
+document.getElementById('formVenta').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    // Validación síncrona primero
+    if (!validarVentaBasica()) {
+        return;
+    }
+
+    // Luego validación asíncrona de stock EN TIEMPO REAL
+    const esStockValido = await validarStockVenta();
+    if (!esStockValido) {
+        return;
+    }
+
+    // Si todo está bien, procesar la venta
+    procesarVenta();
+});
 </script>
 {% endblock %}
