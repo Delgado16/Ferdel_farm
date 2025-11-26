@@ -96,12 +96,39 @@
             margin: 5px 0;
             border-radius: 3px;
         }
+        
+        .logo {
+            max-width: 100%;
+            height: auto;
+            max-height: 50px;
+            margin-bottom: 5px;
+        }
+        
+        /* Estilo de respaldo si la imagen no carga */
+        .logo-placeholder {
+            display: none;
+        }
+        
+        .logo:error + .logo-placeholder {
+            display: block;
+            font-weight: bold;
+            font-size: 16px;
+            padding: 10px;
+        }
     </style>
 </head>
 <body>
     <div class="ticket-container">
         <!-- Encabezado de la Empresa -->
         <div class="text-center">
+            <!-- Opción 1: Usar url_for (Recomendado) -->
+            <img src="{{ url_for('static', filename='ferdel.png') }}" alt="Logo {{ ticket.empresa.nombre }}" class="logo">
+            
+            <!-- Respaldo si la imagen no carga -->
+            <div class="logo-placeholder">
+                {{ ticket.empresa.nombre }}
+            </div>
+            
             <div class="bold" style="font-size: 14px; text-transform: uppercase;">{{ ticket.empresa.nombre }}</div>
             <div class="small">RUC: {{ ticket.empresa.ruc }}</div>
             <div class="small">{{ ticket.empresa.direccion }}</div>
@@ -109,6 +136,7 @@
             <div class="double-divider"></div>
         </div>
         
+        <!-- El resto de tu código se mantiene igual -->
         <!-- Información de la Factura -->
         <div class="text-center">
             <div class="bold" style="font-size: 13px;">FACTURA #{{ ticket.id_factura }}</div>
@@ -219,12 +247,17 @@
     </div>
 
     <script>
-        // Auto-imprimir al cargar (opcional - descomentar si se necesita)
-        // window.onload = function() {
-        //     setTimeout(() => {
-        //         window.print();
-        //     }, 500);
-        // };
+        // Verificar si la imagen carga correctamente
+        document.addEventListener('DOMContentLoaded', function() {
+            var logo = document.querySelector('.logo');
+            if (logo) {
+                logo.onerror = function() {
+                    console.log('Logo no encontrado en: ' + this.src);
+                    // Si no carga, probar con ruta absoluta
+                    this.src = '/static/ferdel.png';
+                };
+            }
+        });
     </script>
 </body>
 </html>

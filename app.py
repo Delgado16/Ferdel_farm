@@ -15,6 +15,7 @@ import time
 import threading
 import traceback
 import json
+from decimal import Decimal
 import logging
 import os
 import secrets
@@ -4695,7 +4696,11 @@ def admin_cuentascobrar():
 def admin_registrar_pago(id_movimiento):
     if request.method == 'POST':
         try:
-            monto_pago = float(request.form['monto'])
+            # Convertir el monto del formulario a Decimal
+            from decimal import Decimal
+            monto_pago_str = request.form['monto']
+            monto_pago = Decimal(monto_pago_str)
+            
             id_metodo_pago = request.form['metodo_pago']
             comentarios = request.form.get('comentarios', '')
             detalles_metodo = request.form.get('detalles_metodo', '')
@@ -4703,9 +4708,10 @@ def admin_registrar_pago(id_movimiento):
             with get_db_cursor(True) as cursor:
                 # Verificar saldo pendiente y datos de la cuenta
                 cursor.execute("""
-                    SELECT Saldo_Pendiente, ID_Cliente, Monto_Movimiento 
-                    FROM Cuentas_Por_Cobrar 
-                    WHERE ID_Movimiento = %s
+                    SELECT c.Saldo_Pendiente, c.ID_Cliente, c.Monto_Movimiento, cl.Nombre as NombreCliente
+                    FROM Cuentas_Por_Cobrar c
+                    LEFT JOIN clientes cl ON c.ID_Cliente = cl.ID_Cliente
+                    WHERE c.ID_Movimiento = %s
                 """, (id_movimiento,))
                 resultado = cursor.fetchone()
                 
@@ -4713,10 +4719,11 @@ def admin_registrar_pago(id_movimiento):
                     flash("Cuenta por cobrar no encontrada")
                     return redirect(url_for('admin_cuentascobrar'))
                 
-                saldo_actual = resultado['Saldo_Pendiente']
+                # Asegurar que saldo_actual sea Decimal
+                saldo_actual = Decimal(str(resultado['Saldo_Pendiente']))
                 
-                # Validaciones
-                if monto_pago <= 0:
+                # Validaciones con Decimal
+                if monto_pago <= Decimal('0'):
                     flash("El monto del pago debe ser mayor a cero")
                     return redirect(url_for('admin_registrar_pago', id_movimiento=id_movimiento))
                 
@@ -4724,42 +4731,63 @@ def admin_registrar_pago(id_movimiento):
                     flash(f"El monto del pago (${monto_pago:,.2f}) no puede ser mayor al saldo pendiente (${saldo_actual:,.2f})")
                     return redirect(url_for('admin_registrar_pago', id_movimiento=id_movimiento))
                 
-                # Registrar pago
+                # Registrar pago - convertir a float para la base de datos
                 cursor.execute("""
                     INSERT INTO Pagos_CuentasCobrar 
                     (ID_Movimiento, Monto, ID_MetodoPago, Comentarios, Detalles_Metodo, ID_Usuario_Creacion)
                     VALUES (%s, %s, %s, %s, %s, %s)
                 """, (
                     id_movimiento,
-                    monto_pago,
+                    float(monto_pago),  # Convertir a float para la inserción
                     id_metodo_pago,
                     comentarios,
                     detalles_metodo,
                     current_user.id
                 ))
                 
-                # Actualizar saldo pendiente
+                # Actualizar saldo pendiente - ambos son Decimal para la operación
                 nuevo_saldo = saldo_actual - monto_pago
+                
+                # Convertir a float para la actualización en la base de datos
                 cursor.execute("""
                     UPDATE Cuentas_Por_Cobrar 
                     SET Saldo_Pendiente = %s 
                     WHERE ID_Movimiento = %s
-                """, (nuevo_saldo, id_movimiento))
+                """, (float(nuevo_saldo), id_movimiento))
                 
-                flash(f"Pago de ${monto_pago:,.2f} registrado exitosamente. Saldo restante: ${nuevo_saldo:,.2f}")
+                # Determinar estado final
+                estado_final = "Cancelado" if nuevo_saldo == Decimal('0') else "Pendiente"
+                
+                flash(f"✅ Pago de ${float(monto_pago):,.2f} registrado exitosamente. Saldo restante: ${float(nuevo_saldo):,.2f} - Estado: {estado_final}")
                 return redirect(url_for('admin_detalle_cuentacobrar', id_movimiento=id_movimiento))
                 
+        except ValueError as e:
+            flash(f"❌ Error: El monto ingresado no es válido")
+            return redirect(url_for('admin_registrar_pago', id_movimiento=id_movimiento))
         except Exception as e:
-            flash(f"Error al registrar pago: {e}")
+            flash(f"❌ Error al registrar pago: {e}")
+            return redirect(url_for('admin_registrar_pago', id_movimiento=id_movimiento))
     
     # GET: Cargar datos para el formulario
     try:
         with get_db_cursor(True) as cursor:
-            # Datos de la cuenta
+            # Datos de la cuenta con estado calculado
             cursor.execute("""
-                SELECT c.*, cl.Nombre as NombreCliente
+                SELECT 
+                    c.*, 
+                    cl.Nombre as NombreCliente,
+                    cl.Telefono as TelefonoCliente,
+                    cl.Direccion as DireccionCliente,
+                    cl.RUC_CEDULA,
+                    e.Nombre_Empresa,
+                    CASE 
+                        WHEN c.Saldo_Pendiente = 0 THEN 'Cancelado'
+                        WHEN c.Fecha_Vencimiento < CURDATE() THEN 'Vencido'
+                        ELSE 'Pendiente'
+                    END as Estado_Actual
                 FROM Cuentas_Por_Cobrar c
-                LEFT JOIN Clientes cl ON c.ID_Cliente = cl.ID_Cliente
+                LEFT JOIN clientes cl ON c.ID_Cliente = cl.ID_Cliente
+                LEFT JOIN empresa e ON c.ID_Empresa = e.ID_Empresa
                 WHERE c.ID_Movimiento = %s
             """, (id_movimiento,))
             cuenta = cursor.fetchone()
@@ -4768,16 +4796,158 @@ def admin_registrar_pago(id_movimiento):
                 flash("Cuenta por cobrar no encontrada")
                 return redirect(url_for('admin_cuentascobrar'))
             
+            # Convertir Decimal a float para el template
+            if cuenta['Saldo_Pendiente']:
+                cuenta['Saldo_Pendiente'] = float(cuenta['Saldo_Pendiente'])
+            if cuenta['Monto_Movimiento']:
+                cuenta['Monto_Movimiento'] = float(cuenta['Monto_Movimiento'])
+            
             # Métodos de pago disponibles
-            cursor.execute("SELECT ID_MetodoPago, Nombre FROM Metodos_Pago WHERE Activo = 1")
+            cursor.execute("SELECT ID_MetodoPago, Nombre FROM Metodos_Pago")
             metodos_pago = cursor.fetchall()
+            
+            # Pasar la fecha actual para comparar vencimientos
+            from datetime import datetime
+            today = datetime.now().date()
             
             return render_template('admin/ventas/cxcobrar/registrar_pago.html',
                                  cuenta=cuenta, 
-                                 metodos_pago=metodos_pago)
+                                 metodos_pago=metodos_pago,
+                                 today=today)
                                  
     except Exception as e:
-        flash(f"Error al cargar formulario de pago: {e}")
+        flash(f"❌ Error al cargar formulario de pago: {e}")
+        return redirect(url_for('admin_cuentascobrar'))
+
+@app.route('/admin/ventas/cxcobrar/detalle/<int:id_movimiento>')
+@admin_required
+@bitacora_decorator("DETALLE-CUENTA-COBRAR")
+def admin_detalle_cuentacobrar(id_movimiento):
+    try:
+        with get_db_cursor(True) as cursor:
+            # DATOS PRINCIPALES CORREGIDOS CON JOINS EXACTOS
+            cursor.execute("""
+                SELECT 
+                    c.ID_Movimiento,
+                    c.Fecha,
+                    c.ID_Cliente,
+                    c.Num_Documento,
+                    c.Observacion,
+                    c.Fecha_Vencimiento,
+                    c.Tipo_Movimiento,
+                    c.Monto_Movimiento,
+                    c.ID_Empresa,
+                    COALESCE(c.Saldo_Pendiente, 0) as Saldo_Pendiente,
+                    c.ID_Factura,
+                    c.ID_Usuario_Creacion,
+                    COALESCE(cl.Nombre, 'Cliente no encontrado') as NombreCliente,
+                    COALESCE(cl.RUC_CEDULA, 'N/A') as CedulaCliente,
+                    COALESCE(cl.Telefono, 'N/A') as TelefonoCliente,
+                    COALESCE(cl.Direccion, 'N/A') as DireccionCliente,
+                    COALESCE(e.Nombre_Empresa, 'N/A') as Nombre_Empresa,
+                    CASE 
+                        WHEN f.ID_Factura IS NOT NULL THEN CONCAT('FAC-', LPAD(f.ID_Factura, 5, '0'))
+                        ELSE 'N/A'
+                    END as NumeroFactura,
+                    f.Fecha as FechaFactura,
+                    COALESCE(u.NombreUsuario, 'N/A') as UsuarioCreacion,
+                    CASE 
+                        WHEN COALESCE(c.Saldo_Pendiente, 0) = 0 THEN 'Cancelado'
+                        WHEN c.Fecha_Vencimiento < CURDATE() AND COALESCE(c.Saldo_Pendiente, 0) > 0 THEN 'Vencido'
+                        ELSE 'Pendiente'
+                    END as Estado,
+                    CASE 
+                        WHEN c.Fecha_Vencimiento IS NOT NULL 
+                             AND c.Fecha_Vencimiento < CURDATE() 
+                             AND COALESCE(c.Saldo_Pendiente, 0) > 0 
+                        THEN DATEDIFF(CURDATE(), c.Fecha_Vencimiento)
+                        ELSE 0
+                    END as DiasVencido,
+                    # Información adicional útil
+                    c.Monto_Movimiento - COALESCE(c.Saldo_Pendiente, 0) as TotalPagadoCalculado
+                FROM Cuentas_Por_Cobrar c
+                LEFT JOIN clientes cl ON c.ID_Cliente = cl.ID_Cliente
+                LEFT JOIN empresa e ON c.ID_Empresa = e.ID_Empresa
+                LEFT JOIN Facturacion f ON c.ID_Factura = f.ID_Factura  -- CORREGIDO: Facturacion con F mayúscula
+                LEFT JOIN usuarios u ON c.ID_Usuario_Creacion = u.ID_Usuario
+                WHERE c.ID_Movimiento = %s
+            """, (id_movimiento,))
+            
+            cuenta = cursor.fetchone()
+            
+            if not cuenta:
+                flash("❌ Error: Cuenta por cobrar no encontrada", "error")
+                return redirect(url_for('admin_cuentascobrar'))
+            
+            # HISTORIAL DE PAGOS CORREGIDO
+            cursor.execute("""
+                SELECT 
+                    p.ID_Pago,
+                    p.ID_Movimiento,
+                    p.Monto,
+                    p.ID_MetodoPago,
+                    p.Comentarios,
+                    p.Detalles_Metodo,
+                    p.ID_Usuario_Creacion,
+                    p.Fecha,
+                    COALESCE(mp.Nombre, 'Método no disponible') as MetodoPago,
+                    COALESCE(u.NombreUsuario, 'Usuario no disponible') as UsuarioRegistro,
+                    DATE_FORMAT(p.Fecha, '%%d/%%m/%%Y %%H:%%i') as FechaFormateada,
+                    DATE_FORMAT(p.Fecha, '%%Y-%%m-%%d') as FechaCorta
+                FROM Pagos_CuentasCobrar p
+                LEFT JOIN metodos_pago mp ON p.ID_MetodoPago = mp.ID_MetodoPago  -- CORREGIDO: metodos_pago en minúsculas
+                LEFT JOIN usuarios u ON p.ID_Usuario_Creacion = u.ID_Usuario
+                WHERE p.ID_Movimiento = %s
+                ORDER BY p.Fecha DESC
+            """, (id_movimiento,))
+            
+            pagos = cursor.fetchall()
+            
+            # CÁLCULOS SEGUROS CON DECIMAL
+            from decimal import Decimal
+            
+            # Convertir a Decimal de forma segura
+            monto_movimiento = Decimal(str(cuenta['Monto_Movimiento']))
+            saldo_pendiente = Decimal(str(cuenta['Saldo_Pendiente']))
+            
+            # Calcular total pagado de forma precisa y segura
+            total_pagado = sum(Decimal(str(pago['Monto'])) for pago in pagos) if pagos else Decimal('0')
+            
+            # Validar consistencia de datos
+            saldo_teorico = monto_movimiento - total_pagado
+            diferencia = abs(saldo_pendiente - saldo_teorico)
+            
+            # Si hay diferencia significativa, mostrar advertencia
+            tiene_inconsistencia = diferencia > Decimal('0.01')
+            
+            # ESTADÍSTICAS ADICIONALES MEJORADAS
+            primer_pago = pagos[-1] if pagos and len(pagos) > 0 else None
+            ultimo_pago = pagos[0] if pagos and len(pagos) > 0 else None
+            
+            # INFORMACIÓN ADICIONAL ÚTIL
+            total_abonado = monto_movimiento - saldo_pendiente
+            porcentaje_pagado = (total_abonado / monto_movimiento * 100) if monto_movimiento > 0 else 0
+            
+            # PREPARAR DATOS PARA TEMPLATE
+            datos_template = {
+                'cuenta': cuenta,
+                'pagos': pagos,
+                'total_pagado': float(total_pagado),
+                'total_abonado': float(total_abonado),
+                'porcentaje_pagado': round(float(porcentaje_pagado), 2),
+                'tiene_inconsistencia': tiene_inconsistencia,
+                'diferencia': float(diferencia),
+                'primer_pago': primer_pago,
+                'ultimo_pago': ultimo_pago,
+                'monto_movimiento_formateado': float(monto_movimiento),
+                'saldo_pendiente_formateado': float(saldo_pendiente),
+                'saldo_teorico': float(saldo_teorico)
+            }
+            
+            return render_template('admin/ventas/cxcobrar/detalle_cuenta.html', **datos_template)
+                                 
+    except Exception as e:
+        flash(f"❌ Error al cargar detalle de cuenta: {str(e)}", "error")
         return redirect(url_for('admin_cuentascobrar'))
 
 #Iniciar Aplicación

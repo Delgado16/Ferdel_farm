@@ -1,0 +1,349 @@
+{% extends "layout.html" %}
+
+{% block title %}Registrar Pago - {{ cuenta.Num_Documento }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <h1 class="h3 mb-4 text-gray-800">Registrar Pago</h1>
+
+    <div class="row">
+        <div class="col-lg-8">
+            <!-- Información de la Cuenta -->
+            <div class="card shadow mb-4">
+                <div class="card-header py-3 bg-info text-white">
+                    <h6 class="m-0 font-weight-bold">Información de la Cuenta por Cobrar</h6>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <p><strong>Cliente:</strong> {{ cuenta.NombreCliente }}</p>
+                            <p><strong>Documento:</strong> {{ cuenta.Num_Documento }}</p>
+                            <p><strong>Fecha Emisión:</strong> {{ cuenta.Fecha.strftime('%d/%m/%Y') if cuenta.Fecha }}</p>
+                            <p><strong>Estado Actual:</strong> 
+                                {% if cuenta.Estado_Actual == 'Cancelado' %}
+                                    <span class="badge badge-success">Cancelado</span>
+                                {% elif cuenta.Estado_Actual == 'Vencido' %}
+                                    <span class="badge badge-danger">Vencido</span>
+                                {% else %}
+                                    <span class="badge badge-warning">Pendiente</span>
+                                {% endif %}
+                            </p>
+                        </div>
+                        <div class="col-md-6">
+                            <p><strong>Monto Total:</strong> <span class="font-weight-bold">${{ "%.2f"|format(cuenta.Monto_Movimiento) }}</span></p>
+                            <p><strong>Saldo Pendiente:</strong> 
+                                <span class="text-danger font-weight-bold" style="font-size: 1.2rem;">${{ "%.2f"|format(cuenta.Saldo_Pendiente) }}</span>
+                            </p>
+                            <p><strong>Fecha Vencimiento:</strong> 
+                                {% if cuenta.Fecha_Vencimiento %}
+                                    {{ cuenta.Fecha_Vencimiento.strftime('%d/%m/%Y') }}
+                                    {% if cuenta.Fecha_Vencimiento < today %}
+                                    <span class="badge badge-danger">Vencido</span>
+                                    {% endif %}
+                                {% else %}
+                                    N/A
+                                {% endif %}
+                            </p>
+                        </div>
+                    </div>
+                    
+                    <!-- Barra de progreso del pago -->
+                    <div class="row mt-3">
+                        <div class="col-12">
+                            <div class="progress" style="height: 25px;">
+                                {% set porcentaje = ((cuenta.Monto_Movimiento - cuenta.Saldo_Pendiente) / cuenta.Monto_Movimiento * 100) if cuenta.Monto_Movimiento > 0 else 0 %}
+                                <div class="progress-bar bg-success" role="progressbar" 
+                                     style="width: {{ porcentaje }}%;" 
+                                     aria-valuenow="{{ porcentaje }}" aria-valuemin="0" aria-valuemax="100">
+                                    {{ "%.1f"|format(porcentaje) }}% Pagado
+                                </div>
+                            </div>
+                            <div class="d-flex justify-content-between mt-1">
+                                <small>Pagado: ${{ "%.2f"|format(cuenta.Monto_Movimiento - cuenta.Saldo_Pendiente) }}</small>
+                                <small>Total: ${{ "%.2f"|format(cuenta.Monto_Movimiento) }}</small>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    {% if cuenta.Observacion %}
+                    <div class="row mt-3">
+                        <div class="col-12">
+                            <p><strong>Observación:</strong></p>
+                            <div class="border p-2 bg-light rounded">
+                                {{ cuenta.Observacion }}
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Formulario de Pago -->
+            <div class="card shadow mb-4">
+                <div class="card-header py-3 bg-success text-white">
+                    <h6 class="m-0 font-weight-bold">Registrar Pago</h6>
+                </div>
+                <div class="card-body">
+                    <form method="POST" action="{{ url_for('admin_registrar_pago', id_movimiento=cuenta.ID_Movimiento) }}" id="formPago">
+                        <div class="form-group">
+                            <label for="monto" class="font-weight-bold">Monto del Pago *</label>
+                            <input type="number" class="form-control form-control-lg" id="monto" name="monto" 
+                                   step="0.01" min="0.01" max="{{ "%.2f"|format(cuenta.Saldo_Pendiente) }}" 
+                                   required placeholder="0.00" style="font-size: 1.2rem;"
+                                   value="{{ "%.2f"|format(cuenta.Saldo_Pendiente) if cuenta.Saldo_Pendiente > 0 else '' }}">
+                            <small class="form-text text-muted">
+                                Saldo disponible: <span class="font-weight-bold text-danger">${{ "%.2f"|format(cuenta.Saldo_Pendiente) }}</span>
+                            </small>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="metodo_pago" class="font-weight-bold">Método de Pago *</label>
+                            <select class="form-control" id="metodo_pago" name="metodo_pago" required>
+                                <option value="">Seleccionar método de pago...</option>
+                                {% for metodo in metodos_pago %}
+                                <option value="{{ metodo.ID_MetodoPago }}">{{ metodo.Nombre }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="detalles_metodo" class="font-weight-bold">Detalles del Método de Pago</label>
+                            <input type="text" class="form-control" id="detalles_metodo" name="detalles_metodo"
+                                   placeholder="Ej: Número de transferencia, referencia, cheque, etc.">
+                            <small class="form-text text-muted">
+                                Complete esta información según el método de pago seleccionado
+                            </small>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="comentarios" class="font-weight-bold">Comentarios u Observaciones</label>
+                            <textarea class="form-control" id="comentarios" name="comentarios" 
+                                      rows="3" placeholder="Observaciones adicionales sobre el pago..."></textarea>
+                        </div>
+
+                        <div class="form-group mt-4">
+                            <button type="submit" class="btn btn-success btn-lg mr-2" id="btnRegistrar">
+                                <i class="fas fa-check-circle"></i> Registrar Pago
+                            </button>
+                            <a href="{{ url_for('admin_detalle_cuentacobrar', id_movimiento=cuenta.ID_Movimiento) }}" 
+                               class="btn btn-secondary btn-lg">
+                                <i class="fas fa-times"></i> Cancelar
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-4">
+            <!-- Resumen del Pago -->
+            <div class="card shadow mb-4">
+                <div class="card-header py-3 bg-primary text-white">
+                    <h6 class="m-0 font-weight-bold">Resumen del Pago</h6>
+                </div>
+                <div class="card-body">
+                    <div class="text-center mb-4">
+                        <i class="fas fa-money-bill-wave fa-3x text-success mb-3"></i>
+                        <h5 class="font-weight-bold">Información Importante</h5>
+                    </div>
+                    
+                    <div class="alert alert-info">
+                        <h6><i class="fas fa-info-circle"></i> Notas:</h6>
+                        <ul class="mb-0 pl-3">
+                            <li>El pago se registrará inmediatamente</li>
+                            <li>El saldo pendiente se actualizará automáticamente</li>
+                            <li>Se generará un comprobante en el historial</li>
+                            <li>El pago no se puede modificar después de registrado</li>
+                        </ul>
+                    </div>
+
+                    <div class="border-top pt-3 mt-3">
+                        <h6 class="font-weight-bold">Datos Actuales:</h6>
+                        <table class="table table-sm table-borderless">
+                            <tr>
+                                <td>Monto Original:</td>
+                                <td class="text-right font-weight-bold">${{ "%.2f"|format(cuenta.Monto_Movimiento) }}</td>
+                            </tr>
+                            <tr>
+                                <td>Saldo Pendiente:</td>
+                                <td class="text-right font-weight-bold text-danger">${{ "%.2f"|format(cuenta.Saldo_Pendiente) }}</td>
+                            </tr>
+                            <tr>
+                                <td>Pagado:</td>
+                                <td class="text-right font-weight-bold text-success">
+                                    ${{ "%.2f"|format(cuenta.Monto_Movimiento - cuenta.Saldo_Pendiente) }}
+                                </td>
+                            </tr>
+                        </table>
+                    </div>
+
+                    <!-- Simulación de nuevo saldo -->
+                    <div class="border-top pt-3 mt-3">
+                        <h6 class="font-weight-bold">Después del Pago:</h6>
+                        <div id="simulacionSaldo" class="mt-2 p-2 bg-light rounded">
+                            <p class="mb-1">Nuevo saldo: <span id="nuevoSaldo" class="font-weight-bold">${{ "%.2f"|format(cuenta.Saldo_Pendiente) }}</span></p>
+                            <p class="mb-0">Estado: <span id="nuevoEstado" class="badge badge-warning">Pendiente</span></p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Información de Contacto -->
+            {% if cuenta.TelefonoCliente or cuenta.DireccionCliente %}
+            <div class="card shadow mb-4">
+                <div class="card-header py-3 bg-warning text-dark">
+                    <h6 class="m-0 font-weight-bold">Información del Cliente</h6>
+                </div>
+                <div class="card-body">
+                    {% if cuenta.TelefonoCliente %}
+                    <p><strong>Teléfono:</strong><br>{{ cuenta.TelefonoCliente }}</p>
+                    {% endif %}
+                    {% if cuenta.DireccionCliente %}
+                    <p><strong>Dirección:</strong><br>{{ cuenta.DireccionCliente }}</p>
+                    {% endif %}
+                    {% if cuenta.RUC_CEDULA %}
+                    <p><strong>RUC/Cédula:</strong><br>{{ cuenta.RUC_CEDULA }}</p>
+                    {% endif %}
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Acciones Rápidas -->
+            <div class="card shadow">
+                <div class="card-header py-3 bg-secondary text-white">
+                    <h6 class="m-0 font-weight-bold">Acciones Rápidas</h6>
+                </div>
+                <div class="card-body text-center">
+                    <a href="{{ url_for('admin_detalle_cuentacobrar', id_movimiento=cuenta.ID_Movimiento) }}" 
+                       class="btn btn-info btn-block mb-2">
+                        <i class="fas fa-history"></i> Ver Historial
+                    </a>
+                    <a href="{{ url_for('admin_cuentascobrar') }}" 
+                       class="btn btn-outline-secondary btn-block">
+                        <i class="fas fa-list"></i> Volver a Lista
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const montoInput = document.getElementById('monto');
+    const saldoMaximo = parseFloat({{ cuenta.Saldo_Pendiente }}); // Cambio importante aquí
+    const form = document.getElementById('formPago');
+    const nuevoSaldoSpan = document.getElementById('nuevoSaldo');
+    const nuevoEstadoSpan = document.getElementById('nuevoEstado');
+    
+    // Función para actualizar la simulación
+    function actualizarSimulacion() {
+        let montoPago = parseFloat(montoInput.value) || 0;
+        let nuevoSaldo = saldoMaximo - montoPago;
+        
+        // Asegurar que no sea negativo
+        if (nuevoSaldo < 0) {
+            nuevoSaldo = 0;
+        }
+        
+        // Actualizar display del nuevo saldo
+        nuevoSaldoSpan.textContent = '$' + nuevoSaldo.toFixed(2);
+        
+        // Actualizar estado
+        if (nuevoSaldo === 0) {
+            nuevoEstadoSpan.className = 'badge badge-success';
+            nuevoEstadoSpan.textContent = 'Cancelado';
+        } else if (nuevoSaldo > 0) {
+            nuevoEstadoSpan.className = 'badge badge-warning';
+            nuevoEstadoSpan.textContent = 'Pendiente';
+        } else {
+            nuevoEstadoSpan.className = 'badge badge-danger';
+            nuevoEstadoSpan.textContent = 'Error';
+        }
+        
+        // Cambiar color del nuevo saldo
+        if (nuevoSaldo === 0) {
+            nuevoSaldoSpan.className = 'font-weight-bold text-success';
+        } else if (nuevoSaldo > 0) {
+            nuevoSaldoSpan.className = 'font-weight-bold text-danger';
+        } else {
+            nuevoSaldoSpan.className = 'font-weight-bold text-danger';
+        }
+    }
+    
+    // Validar monto máximo y actualizar simulación
+    montoInput.addEventListener('input', function() {
+        let valor = parseFloat(this.value) || 0;
+        
+        if (valor > saldoMaximo) {
+            this.value = saldoMaximo.toFixed(2);
+            valor = saldoMaximo;
+        }
+        
+        if (valor < 0) {
+            this.value = '';
+            valor = 0;
+        }
+        
+        actualizarSimulacion();
+    });
+
+    // Validar formulario antes de enviar
+    form.addEventListener('submit', function(e) {
+        const monto = parseFloat(montoInput.value) || 0;
+        const metodoPago = document.getElementById('metodo_pago').value;
+        
+        // Validaciones
+        if (monto <= 0) {
+            e.preventDefault();
+            alert('❌ Por favor ingrese un monto válido (mayor a cero)');
+            montoInput.focus();
+            return false;
+        }
+        
+        if (monto > saldoMaximo) {
+            e.preventDefault();
+            alert('❌ El monto no puede ser mayor al saldo pendiente ($' + saldoMaximo.toFixed(2) + ')');
+            montoInput.focus();
+            return false;
+        }
+        
+        if (!metodoPago) {
+            e.preventDefault();
+            alert('❌ Por favor seleccione un método de pago');
+            document.getElementById('metodo_pago').focus();
+            return false;
+        }
+        
+        // Confirmación final
+        const nuevoSaldo = saldoMaximo - monto;
+        const estadoFinal = nuevoSaldo === 0 ? 'CANCELADO' : 'PENDIENTE';
+        
+        const confirmMessage = `¿Está seguro de registrar este pago?\n\n` +
+                              `Monto del pago: $${monto.toFixed(2)}\n` +
+                              `Saldo anterior: $${saldoMaximo.toFixed(2)}\n` +
+                              `Nuevo saldo: $${nuevoSaldo.toFixed(2)}\n` +
+                              `Estado final: ${estadoFinal}`;
+        
+        if (!confirm(confirmMessage)) {
+            e.preventDefault();
+            return false;
+        }
+        
+        // Deshabilitar botón para evitar doble envío
+        const btnRegistrar = document.getElementById('btnRegistrar');
+        btnRegistrar.disabled = true;
+        btnRegistrar.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Procesando...';
+    });
+
+    // Inicializar simulación
+    actualizarSimulacion();
+    
+    // Auto-focus en el campo de monto
+    montoInput.focus();
+    montoInput.select();
+});
+</script>
+{% endblock %}
