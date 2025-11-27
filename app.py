@@ -2069,26 +2069,26 @@ def admin_crear_producto():
         # Obtener datos del formulario
         cod_producto = request.form.get('COD_Producto')
         descripcion = request.form.get('Descripcion')
-        unidad_medida = request.form.get('Unidad_Medida')
+        id_unidad_medida = request.form.get('Unidad_Medida')  # Este es el ID
         id_categoria = request.form.get('ID_Categoria')
         precio_venta = request.form.get('Precio_Venta')
         id_empresa = request.form.get('ID_Empresa', 1)
         stock_minimo = request.form.get('Stock_Minimo', 5)
         cantidad_inicial = request.form.get('Cantidad_Inicial')
         id_bodega = request.form.get('ID_Bodega')
+        estado = request.form.get('Estado', 1)
         usuario_creador = session.get('id_usuario', 1)
 
         # Validaciones básicas
-        if not descripcion or not unidad_medida or not id_categoria:
+        if not all([descripcion, id_unidad_medida, id_categoria]):
             flash('Descripción, unidad de medida y categoría son campos obligatorios', 'error')
             return redirect(url_for('admin_productos'))
 
-        # Validar que se especifique bodega
         if not id_bodega:
             flash('Debe seleccionar una bodega para el inventario inicial', 'error')
             return redirect(url_for('admin_productos'))
 
-        # Validar cantidad inicial
+        # Validar y convertir valores numéricos
         try:
             cantidad_inicial = float(cantidad_inicial) if cantidad_inicial else 0
             if cantidad_inicial < 0:
@@ -2097,13 +2097,40 @@ def admin_crear_producto():
         except (ValueError, TypeError):
             cantidad_inicial = 0
 
+        try:
+            precio_venta = float(precio_venta) if precio_venta else 0.0
+            if precio_venta < 0:
+                flash('El precio de venta no puede ser negativo', 'error')
+                return redirect(url_for('admin_productos'))
+        except (ValueError, TypeError):
+            precio_venta = 0.0
+
+        try:
+            stock_minimo = float(stock_minimo) if stock_minimo else 5.0
+        except (ValueError, TypeError):
+            stock_minimo = 5.0
+
+        try:
+            estado = int(estado)
+        except (ValueError, TypeError):
+            estado = 1
+
         with get_db_cursor(commit=True) as cursor:
-            # Verificar si el código de producto ya existe (solo si se proporciona código)
+            # Verificar si el código de producto ya existe
             if cod_producto:
                 cursor.execute("SELECT ID_Producto FROM Productos WHERE COD_Producto = %s", (cod_producto,))
                 if cursor.fetchone():
                     flash('El código de producto ya existe', 'error')
                     return redirect(url_for('admin_productos'))
+            else:
+                # Generar código automático si no se proporciona
+                cursor.execute("""
+                    SELECT COALESCE(MAX(CAST(COD_Producto AS UNSIGNED)), 0) + 1 
+                    FROM Productos 
+                    WHERE COD_Producto REGEXP '^[0-9]+$'
+                """)
+                result = cursor.fetchone()
+                cod_producto = str(result[0]) if result else "1"
 
             # Verificar que la bodega existe y está activa
             cursor.execute("""
@@ -2114,15 +2141,15 @@ def admin_crear_producto():
                 flash('La bodega seleccionada no es válida', 'error')
                 return redirect(url_for('admin_productos'))
 
-            # Insertar nuevo producto - CORREGIDO según tu estructura
+            # Insertar nuevo producto CON EXISTENCIAS
             cursor.execute("""
                 INSERT INTO Productos (
-                    COD_Producto, Descripcion, Unidad_Medida, ID_Categoria, 
-                    Precio_Venta, ID_Empresa, Stock_Minimo, Usuario_Creador, Estado
-                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    COD_Producto, Descripcion, Unidad_Medida, Existencias, Estado,
+                    ID_Categoria, Precio_Venta, ID_Empresa, Usuario_Creador, Stock_Minimo
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             """, (
-                cod_producto, descripcion, unidad_medida, id_categoria,
-                precio_venta, id_empresa, stock_minimo, usuario_creador, 1  # Estado = 1 (activo)
+                cod_producto, descripcion, id_unidad_medida, cantidad_inicial, estado,
+                id_categoria, precio_venta, id_empresa, usuario_creador, stock_minimo
             ))
 
             # Obtener el ID del producto recién creado
@@ -2134,7 +2161,7 @@ def admin_crear_producto():
                 VALUES (%s, %s, %s)
             """, (id_bodega, producto_id, cantidad_inicial))
 
-        flash(f'Producto creado exitosamente con {cantidad_inicial} unidades en inventario', 'success')
+        flash(f'Producto "{descripcion}" creado exitosamente con {cantidad_inicial} unidades en inventario', 'success')
         
     except Exception as e:
         flash(f'Error al crear producto: {str(e)}', 'error')
@@ -2412,28 +2439,20 @@ def admin_compras_entradas():
 def admin_crear_compra():
     try:
         if request.method == 'GET':
+            # (MANTENER TU CÓDIGO GET EXISTENTE)
             with get_db_cursor(True) as cursor:
-                # Obtener tipos de movimiento de entrada/compra
-                cursor.execute("""
-                SELECT *
-                FROM catalogo_movimientos 
-                WHERE ID_TipoMovimiento = 1
-                """)
+                cursor.execute("SELECT * FROM catalogo_movimientos WHERE ID_TipoMovimiento = 1")
                 tipos_movimiento = cursor.fetchall()
                 
-                # Obtener proveedores activos
                 cursor.execute("SELECT ID_Proveedor, Nombre FROM Proveedores WHERE Estado = 'ACTIVO' ORDER BY Nombre")
                 proveedores = cursor.fetchall()
                 
-                # Obtener bodegas activas
                 cursor.execute("SELECT ID_Bodega, Nombre FROM bodegas WHERE Estado = 'activa'")
                 bodegas = cursor.fetchall()
                 
-                # Obtener categorías de productos
                 cursor.execute("SELECT ID_Categoria, Descripcion FROM categorias_producto ORDER BY Descripcion")
                 categorias = cursor.fetchall()
                 
-                # Obtener productos activos CON PRECIO_VENTA (CORREGIDO)
                 cursor.execute("""
                     SELECT p.ID_Producto, p.COD_Producto, p.Descripcion, p.Existencias, 
                            p.Precio_Venta, p.ID_Categoria, c.Descripcion as Categoria
@@ -2452,7 +2471,6 @@ def admin_crear_compra():
                                     categorias=categorias)
         
         elif request.method == 'POST':
-            # (MANTENER TU LÓGICA POST EXISTENTE)
             # Obtener datos del formulario
             id_tipo_movimiento = request.form.get('id_tipo_movimiento')
             n_factura_externa = request.form.get('n_factura_externa')
@@ -2511,7 +2529,8 @@ def admin_crear_compra():
                 flash('ID de usuario no válido', 'error')
                 return redirect(url_for('admin_crear_compra'))
             
-            with get_db_cursor() as cursor:
+            # USAR TRANSACCIÓN CON COMMIT
+            with get_db_cursor(commit=True) as cursor:
                 # Calcular total de la compra
                 total_compra = sum(
                     producto['cantidad'] * producto['costo_unitario'] 
@@ -2541,10 +2560,11 @@ def admin_crear_compra():
                 id_movimiento = cursor.lastrowid
                 print(f"Movimiento creado con ID: {id_movimiento}")
                 
-                # Insertar detalles del movimiento
+                # Insertar detalles del movimiento y ACTUALIZAR INVENTARIOS
                 for producto in productos:
                     subtotal = round(producto['cantidad'] * producto['costo_unitario'], 2)
                     
+                    # Insertar detalle del movimiento
                     cursor.execute("""
                         INSERT INTO Detalle_Movimientos_Inventario (
                             ID_Movimiento, ID_Producto, Cantidad, Costo_Unitario, 
@@ -2562,12 +2582,37 @@ def admin_crear_compra():
                         id_usuario
                     ))
                     
-                    # Actualizar existencias del producto
+                    # ACTUALIZACIÓN CRÍTICA: Actualizar AMBAS tablas de inventario
+                    
+                    # 1. Actualizar Productos.Existencias (existencias totales)
                     cursor.execute("""
                         UPDATE Productos 
                         SET Existencias = Existencias + %s 
                         WHERE ID_Producto = %s
                     """, (producto['cantidad'], producto['id_producto']))
+                    
+                    # 2. Actualizar Inventario_Bodega (existencias por bodega)
+                    # Verificar si ya existe registro para este producto-bodega
+                    cursor.execute("""
+                        SELECT ID_Producto FROM Inventario_Bodega 
+                        WHERE ID_Bodega = %s AND ID_Producto = %s
+                    """, (id_bodega, producto['id_producto']))
+                    
+                    existing_record = cursor.fetchone()
+                    
+                    if existing_record:
+                        # Actualizar existencias si ya existe
+                        cursor.execute("""
+                            UPDATE Inventario_Bodega 
+                            SET Existencias = Existencias + %s 
+                            WHERE ID_Bodega = %s AND ID_Producto = %s
+                        """, (producto['cantidad'], id_bodega, producto['id_producto']))
+                    else:
+                        # Insertar nuevo registro si no existe
+                        cursor.execute("""
+                            INSERT INTO Inventario_Bodega (ID_Bodega, ID_Producto, Existencias)
+                            VALUES (%s, %s, %s)
+                        """, (id_bodega, producto['id_producto'], producto['cantidad']))
                 
                 # CREAR CUENTA POR PAGAR SI ES CRÉDITO
                 if tipo_compra == 'CREDITO' and id_proveedor:
@@ -2600,7 +2645,6 @@ def admin_crear_compra():
                 return redirect(url_for('admin_compras_entradas'))            
     except Exception as e:
         print(f"Error completo al crear compra: {str(e)}")
-        import traceback
         print(f"Traceback: {traceback.format_exc()}")
         flash(f'Error al crear compra: {str(e)}', 'error')
         return redirect(url_for('admin_crear_compra'))
