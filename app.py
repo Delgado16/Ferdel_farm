@@ -2649,111 +2649,139 @@ def admin_crear_compra():
         flash(f'Error al crear compra: {str(e)}', 'error')
         return redirect(url_for('admin_crear_compra'))
 
-# RUTA AUXILIAR PARA PRODUCTOS POR CATEGORÍA (CORREGIDA PARA DICCIONARIOS)
+# RUTAS AUXILIARES PARA COMPRAS - CORREGIDAS (SOLO TABLA PRODUCTOS)
 @app.route('/admin/compras/productos-por-categoria/<int:id_categoria>')
 @admin_required
 def obtener_productos_por_categoria_compra(id_categoria):
     """
-    Endpoint para obtener productos filtrados por categoría - CORREGIDO
+    Endpoint para obtener productos filtrados por categoría - COMPRAS (EXISTENCIAS TOTALES)
     """
     try:
+        id_empresa = session.get('id_empresa', 1)
+        
+        print(f"🔍 [COMPRAS] Filtrando productos - Categoría: {id_categoria}")
+        
         with get_db_cursor(True) as cursor:
             if id_categoria == 0:  # Todas las categorías
                 cursor.execute("""
-                    SELECT ID_Producto, COD_Producto, Descripcion, Existencias,
-                           Precio_Venta, ID_Categoria
-                    FROM Productos 
-                    WHERE Estado = 1
-                    ORDER BY Descripcion
-                """)
+                    SELECT 
+                        p.ID_Producto, 
+                        p.COD_Producto, 
+                        p.Descripcion, 
+                        COALESCE(p.Existencias, 0) as Existencias,
+                        COALESCE(p.Precio_Venta, 0) as Precio_Venta, 
+                        p.ID_Categoria,
+                        c.Descripcion as Categoria
+                    FROM productos p
+                    LEFT JOIN categorias_producto c ON p.ID_Categoria = c.ID_Categoria
+                    WHERE p.Estado = 1 
+                    AND (p.ID_Empresa = %s OR p.ID_Empresa IS NULL)
+                    ORDER BY c.Descripcion, p.Descripcion
+                """, (id_empresa,))
             else:
                 cursor.execute("""
-                    SELECT ID_Producto, COD_Producto, Descripcion, Existencias,
-                           Precio_Venta, ID_Categoria
-                    FROM Productos 
-                    WHERE Estado = 1 AND ID_Categoria = %s
-                    ORDER BY Descripcion
-                """, (id_categoria,))
+                    SELECT 
+                        p.ID_Producto, 
+                        p.COD_Producto, 
+                        p.Descripcion, 
+                        COALESCE(p.Existencias, 0) as Existencias,
+                        COALESCE(p.Precio_Venta, 0) as Precio_Venta,
+                        p.ID_Categoria,
+                        c.Descripcion as Categoria
+                    FROM productos p
+                    LEFT JOIN categorias_producto c ON p.ID_Categoria = c.ID_Categoria
+                    WHERE p.Estado = 1 
+                    AND p.ID_Categoria = %s 
+                    AND (p.ID_Empresa = %s OR p.ID_Empresa IS NULL)
+                    ORDER BY p.Descripcion
+                """, (id_categoria, id_empresa))
             
             productos = cursor.fetchall()
-            print(f"✅ Productos encontrados: {len(productos)} para categoría {id_categoria}")
+            print(f"✅ [COMPRAS] Productos encontrados: {len(productos)} para categoría {id_categoria}")
             
             productos_list = []
             for producto in productos:
-                # USAR DICCIONARIOS (porque dictionary=True)
                 productos_list.append({
                     'id': producto['ID_Producto'],
                     'codigo': producto['COD_Producto'],
                     'descripcion': producto['Descripcion'],
-                    'existencias': float(producto['Existencias']) if producto['Existencias'] is not None else 0,
-                    'precio_venta': float(producto['Precio_Venta']) if producto['Precio_Venta'] is not None else 0,
-                    'id_categoria': producto['ID_Categoria']
+                    'existencias': float(producto['Existencias']),
+                    'precio_venta': float(producto['Precio_Venta']),
+                    'id_categoria': producto['ID_Categoria'],
+                    'categoria': producto['Categoria']
                 })
             
-            print(f"📦 Productos procesados exitosamente: {len(productos_list)}")
             return jsonify(productos_list)
             
     except Exception as e:
-        print(f"❌ Error al obtener productos por categoría: {str(e)}")
+        print(f"❌ [COMPRAS] Error al obtener productos por categoría: {str(e)}")
         import traceback
-        print(f"❌ Traceback: {traceback.format_exc()}")
+        print(f"❌ [COMPRAS] Traceback: {traceback.format_exc()}")
         return jsonify({'error': str(e)}), 500
 
-# RUTA AUXILIAR PARA TODOS LOS PRODUCTOS (CORREGIDA PARA DICCIONARIOS)
-@app.route('/admin/compras/todos-los-productos')
+@app.route('/admin/compras/verificar-existencias/<int:id_producto>')
 @admin_required
-def obtener_todos_los_productos_compra():
+def verificar_existencias_producto(id_producto):
     """
-    Endpoint para obtener todos los productos - CORREGIDO
+    Endpoint para verificar existencias actuales - COMPRAS (EXISTENCIAS TOTALES)
     """
     try:
+        id_empresa = session.get('id_empresa', 1)
+        
+        print(f"🔍 [COMPRAS-EXISTENCIAS] Verificando producto: {id_producto}")
+        
         with get_db_cursor(True) as cursor:
             cursor.execute("""
-                SELECT ID_Producto, COD_Producto, Descripcion, Existencias,
-                       Precio_Venta, ID_Categoria
-                FROM Productos 
-                WHERE Estado = 1
-                ORDER BY Descripcion
-            """)
+                SELECT 
+                    p.ID_Producto,
+                    p.Descripcion,
+                    COALESCE(p.Existencias, 0) as Existencias,
+                    COALESCE(p.Precio_Venta, 0) as Precio_Venta
+                FROM productos p
+                WHERE p.ID_Producto = %s 
+                AND (p.ID_Empresa = %s OR p.ID_Empresa IS NULL)
+                AND p.Estado = 1
+            """, (id_producto, id_empresa))
             
-            productos = cursor.fetchall()
-            print(f"✅ Todos los productos encontrados: {len(productos)}")
+            producto = cursor.fetchone()
             
-            productos_list = []
-            for producto in productos:
-                # USAR DICCIONARIOS (porque dictionary=True)
-                productos_list.append({
-                    'id': producto['ID_Producto'],
-                    'codigo': producto['COD_Producto'],
+            if producto:
+                existencias = float(producto['Existencias'])
+                precio = float(producto['Precio_Venta'])
+                
+                print(f"✅ [COMPRAS-EXISTENCIAS] Producto {id_producto}: {existencias} unidades")
+                
+                return jsonify({
+                    'id_producto': producto['ID_Producto'],
                     'descripcion': producto['Descripcion'],
-                    'existencias': float(producto['Existencias']) if producto['Existencias'] is not None else 0,
-                    'precio_venta': float(producto['Precio_Venta']) if producto['Precio_Venta'] is not None else 0,
-                    'id_categoria': producto['ID_Categoria']
+                    'existencias': existencias,
+                    'precio_venta': precio
                 })
-            
-            return jsonify(productos_list)
-            
+            else:
+                print(f"❌ [COMPRAS-EXISTENCIAS] Producto {id_producto} no encontrado")
+                return jsonify({'error': 'Producto no encontrado'}), 404
+                
     except Exception as e:
-        print(f"❌ Error al obtener todos los productos: {str(e)}")
-        import traceback
-        print(f"❌ Traceback: {traceback.format_exc()}")
+        print(f"❌ [COMPRAS-EXISTENCIAS] Error al verificar existencias: {str(e)}")
         return jsonify({'error': str(e)}), 500
 
-# RUTA PARA CATEGORÍAS (CORREGIDA PARA DICCIONARIOS)
 @app.route('/admin/compras/categorias-productos')
 @admin_required
 def obtener_categorias_productos_compra():
     """
-    Endpoint para obtener todas las categorías
+    Endpoint para obtener todas las categorías - COMPRAS
     """
     try:
         with get_db_cursor(True) as cursor:
-            cursor.execute("SELECT ID_Categoria, Descripcion FROM categorias_producto ORDER BY Descripcion")
+            cursor.execute("""
+                SELECT ID_Categoria, Descripcion 
+                FROM categorias_producto 
+                ORDER BY Descripcion
+            """)
             categorias = cursor.fetchall()
             
             categorias_list = []
             for categoria in categorias:
-                # USAR DICCIONARIOS (porque dictionary=True)
                 categorias_list.append({
                     'id': categoria['ID_Categoria'],
                     'descripcion': categoria['Descripcion']
@@ -2762,7 +2790,7 @@ def obtener_categorias_productos_compra():
             return jsonify(categorias_list)
             
     except Exception as e:
-        print(f"Error al obtener categorías: {str(e)}")
+        print(f"❌ [COMPRAS] Error al obtener categorías: {str(e)}")
         return jsonify({'error': str(e)}), 500
 
 @app.route('/admin/compras/compras-entradas/editar/<int:id_movimiento>', methods=['GET', 'POST'])

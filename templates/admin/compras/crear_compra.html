@@ -537,7 +537,7 @@
 let productos = [];
 let contadorProductos = 0;
 let filtroCategoriaActual = 0;
-let productosEnCache = []; // Add cache to store filtered products
+let productosEnCache = [];
 
 // Establecer fecha actual por defecto
 document.addEventListener('DOMContentLoaded', function() {
@@ -570,6 +570,7 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         } else {
             fechaVencimientoGroup.style.display = 'none';
+            document.getElementById('id_proveedor').classList.remove('is-invalid');
         }
     });
 
@@ -593,12 +594,13 @@ document.addEventListener('DOMContentLoaded', function() {
     agregarProducto();
 });
 
+// APLICAR FILTRO POR CATEGORÍA - COMPRAS
 async function aplicarFiltroCategoria() {
     const categoriaSelect = document.getElementById('filtro_categoria');
     const idCategoria = categoriaSelect.value;
     const nombreCategoria = categoriaSelect.options[categoriaSelect.selectedIndex].text;
     
-    console.log('[v0] Applying filter - ID Categoria:', idCategoria);
+    console.log('[COMPRAS] Applying filter - Categoria:', idCategoria);
     
     try {
         // Mostrar loading
@@ -607,22 +609,18 @@ async function aplicarFiltroCategoria() {
         btnFiltro.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> Cargando...';
         btnFiltro.disabled = true;
 
-        // Cargar productos filtrados desde el servidor
         const url = `/admin/compras/productos-por-categoria/${idCategoria}`;
-        console.log('[v0] Request URL:', url);
+        
+        console.log('[COMPRAS] Request URL:', url);
         
         const response = await fetch(url);
         
-        console.log('[v0] Response status:', response.status);
-        
         if (!response.ok) {
             const errorText = await response.text();
-            console.error('[v0] Error response:', errorText);
-            throw new Error(`Error HTTP: ${response.status} - ${response.statusText}`);
+            throw new Error(`Error HTTP: ${response.status}`);
         }
         
         const productosRecibidos = await response.json();
-        console.log('[v0] Products received:', productosRecibidos);
         
         if (productosRecibidos.error) {
             throw new Error(productosRecibidos.error);
@@ -630,16 +628,26 @@ async function aplicarFiltroCategoria() {
 
         productosEnCache = productosRecibidos;
         filtroCategoriaActual = idCategoria;
-        console.log('[v0] Filter cache updated. Current filter ID:', filtroCategoriaActual);
-
-        // Actualizar todos los selects de productos con los datos en caché
+        
+        // Solo actualizar selects VACÍOS, mantener los que ya tienen productos
         const selectsProductos = document.querySelectorAll('.producto-select');
-        console.log('[v0] Updating selects:', selectsProductos.length);
+        console.log('[COMPRAS] Updating ONLY EMPTY selects. Total selects:', selectsProductos.length);
+        
+        let selectsActualizados = 0;
+        let selectsMantenidos = 0;
         
         selectsProductos.forEach((select, index) => {
-            console.log(`[v0] Updating select ${index + 1}`);
-            actualizarSelectConProductos(select, productosRecibidos);
+            if (!select.value || select.value === "") {
+                console.log(`[COMPRAS] Updating empty select ${index + 1}`);
+                actualizarSelectConProductos(select, productosRecibidos);
+                selectsActualizados++;
+            } else {
+                console.log(`[COMPRAS] Keeping select ${index + 1} with existing product:`, select.value);
+                selectsMantenidos++;
+            }
         });
+        
+        console.log(`[COMPRAS] Updated ${selectsActualizados} empty selects, kept ${selectsMantenidos} with products`);
         
         // Mostrar información del filtro
         const filtroInfo = document.getElementById('filtro-info');
@@ -653,10 +661,11 @@ async function aplicarFiltroCategoria() {
             filtroActual.textContent = nombreCategoria;
         }
         
-        mostrarAlerta('success', 'Filtro aplicado', `Mostrando ${productosRecibidos.length} productos de: ${nombreCategoria}`);
+        mostrarAlerta('success', 'Filtro aplicado', 
+            `Mostrando productos de la categoría: ${nombreCategoria}. ${selectsActualizados} selects actualizados, ${selectsMantenidos} productos mantenidos.`);
         
     } catch (error) {
-        console.error('[v0] Error applying filter:', error);
+        console.error('[COMPRAS] Error applying filter:', error);
         mostrarAlerta('danger', ' Error', `No se pudieron cargar los productos: ${error.message}`);
     } finally {
         // Restaurar botón
@@ -666,10 +675,7 @@ async function aplicarFiltroCategoria() {
     }
 }
 
-// NUEVA FUNCIÓN - Actualizar select con productos
 function actualizarSelectConProductos(select, productos) {
-    const valorActual = select.value;
-    
     // Limpiar opciones actuales
     select.innerHTML = '<option value="" disabled selected>Seleccionar producto...</option>';
     
@@ -677,36 +683,27 @@ function actualizarSelectConProductos(select, productos) {
     productos.forEach(producto => {
         const option = document.createElement('option');
         option.value = producto.id;
-        option.textContent = `${producto.descripcion} (${producto.codigo})`;
+        option.textContent = `${producto.descripcion} (${producto.codigo}) - Stock: ${producto.existencias}`;
         option.dataset.codigo = producto.codigo;
         option.dataset.existencia = producto.existencias;
         option.dataset.precio = producto.precio_venta || 0;
+        option.dataset.costo = producto.costo_unitario || 0;
         option.dataset.categoria = producto.id_categoria;
         
         select.appendChild(option);
     });
-    
-    // Restaurar selección anterior si existe
-    if (valorActual) {
-        const opcionExistente = Array.from(select.options).find(opt => opt.value === valorActual);
-        if (opcionExistente) {
-            select.value = valorActual;
-            const idFila = select.closest('.producto-item').id.split('-')[1];
-            actualizarInfoProducto(idFila);
-        }
-    }
 }
 
-async function limpiarFiltro() {
-    console.log('[v0] Clearing filter');
+function limpiarFiltro() {
+    console.log('[COMPRAS] Clearing filter');
     document.getElementById('filtro_categoria').value = '0';
     document.getElementById('filtro-info').style.display = 'none';
-    filtroCategoriaActual = 0; // Reset filter
-    productosEnCache = []; // Clear cache
+    filtroCategoriaActual = 0;
+    productosEnCache = [];
     
-    // Recargar todos los productos
-    await aplicarFiltroCategoria();
-    mostrarAlerta('info', 'ℹ️ Filtro limpiado', 'Mostrando todos los productos');
+    // Solo recargar productos para selects vacíos
+    aplicarFiltroCategoria();
+    mostrarAlerta('info', 'ℹ️ Filtro limpiado', 'Los productos ya seleccionados se mantienen. Nuevas selecciones mostrarán todos los productos.');
 }
 
 function agregarProducto() {
@@ -721,8 +718,9 @@ function agregarProducto() {
                             data-codigo="{{ producto.COD_Producto }}"
                             data-existencia="{{ producto.Existencias }}"
                             data-precio="{{ producto.Precio_Venta or 0 }}"
+                            data-costo="{{ producto.Costo_Unitario or 0 }}"
                             data-categoria="{{ producto.ID_Categoria }}">
-                        {{ producto.Descripcion }} ({{ producto.COD_Producto }})
+                        {{ producto.Descripcion }} ({{ producto.COD_Producto }}) - Stock: {{ producto.Existencias }}
                     </option>
                     {% endfor %}
                 </select>
@@ -730,7 +728,8 @@ function agregarProducto() {
                 <small class="text-muted stock-info" id="stock-info-${contadorProductos}"></small>
             </td>
             <td>
-                <input type="number" class="form-control cantidad" name="cantidades[]" min="0.01" step="0.01" value="1" required onchange="calcularSubtotal(${contadorProductos})">
+                <input type="number" class="form-control cantidad" name="cantidades[]" min="0.01" step="0.01" value="1" required 
+                       onchange="calcularSubtotal(${contadorProductos})">
                 <div class="invalid-feedback">Ingrese una cantidad válida</div>
             </td>
             <td>
@@ -761,15 +760,16 @@ function agregarProducto() {
             </td>
             <td>
                 <button type="button" class="btn btn-danger btn-sm" onclick="eliminarProducto(${contadorProductos})" title="Eliminar producto">
-                    <i class="fas fa-trash"></i>Quitar Producto
+                    <i class="fas fa-trash"></i>Quitar
                 </button>
             </td>
         </tr>
     `;
     document.getElementById('productos-container').insertAdjacentHTML('beforeend', productoHTML);
     
+    // Si hay filtro activo, aplicarlo solo a esta NUEVA fila
     if (filtroCategoriaActual !== 0 && productosEnCache.length > 0) {
-        console.log('[v0] Applying cached filter to new product select');
+        console.log('[COMPRAS] Applying cached filter to NEW product select only');
         const nuevoSelect = document.getElementById(`producto-${contadorProductos}`).querySelector('.producto-select');
         actualizarSelectConProductos(nuevoSelect, productosEnCache);
     }
@@ -793,7 +793,8 @@ function eliminarProducto(id) {
     }
 }
 
-function actualizarInfoProducto(id) {
+// ACTUALIZACIÓN EN TIEMPO REAL AL SELECCIONAR PRODUCTO - COMPRAS
+async function actualizarInfoProducto(id) {
     const fila = document.getElementById(`producto-${id}`);
     const select = fila.querySelector('.producto-select');
     const stockInfo = document.getElementById(`stock-info-${id}`);
@@ -801,34 +802,40 @@ function actualizarInfoProducto(id) {
     const costoInput = fila.querySelector('.costo');
     
     if (select.value && select.selectedOptions[0].dataset) {
-        const existencia = parseInt(select.selectedOptions[0].dataset.existencia) || 0;
-        const precioSugerido = parseFloat(select.selectedOptions[0].dataset.precio) || 0;
-        
-        let stockClass = 'stock-good';
-        let stockText = 'Stock suficiente';
-        
-        if (existencia <= 5) {
-            stockClass = 'stock-low';
-            stockText = 'Stock bajo';
-        } else if (existencia <= 15) {
-            stockClass = 'stock-medium';
-            stockText = 'Stock medio';
-        }
-        
-        stockInfo.innerHTML = `<span class="${stockClass}">${stockText}: ${existencia} unidades</span>`;
-        stockInfo.style.display = 'block';
-        
-        // Auto-completar precio unitario si está vacío
-        if (precioSugerido > 0 && (!precioInput.value || precioInput.value == '0')) {
-            precioInput.value = precioSugerido.toFixed(2);
-        }
-        
-        // Si el costo está vacío, sugerir un costo basado en el precio
-        if ((!costoInput.value || costoInput.value == '0') && precioSugerido > 0) {
-            // Sugerir un costo que sea el 70% del precio (30% de margen)
-            const costoSugerido = (precioSugerido * 0.7).toFixed(2);
-            costoInput.value = costoSugerido;
-            calcularSubtotal(id);
+        try {
+            // Verificar existencias actuales
+            const existenciasActual = await obtenerExistenciasActuales(select.value);
+            const precioSugerido = parseFloat(select.selectedOptions[0].dataset.precio) || 0;
+            const costoSugerido = parseFloat(select.selectedOptions[0].dataset.costo) || 0;
+            
+            let stockClass = 'stock-good';
+            let stockText = `Stock actual: ${existenciasActual} unidades`;
+            
+            if (existenciasActual <= 5) {
+                stockClass = 'stock-low';
+                stockText = `Stock bajo: ${existenciasActual} unidades`;
+            } else if (existenciasActual <= 15) {
+                stockClass = 'stock-medium';
+                stockText = `Stock medio: ${existenciasActual} unidades`;
+            }
+            
+            stockInfo.innerHTML = `<span class="${stockClass}">${stockText}</span>`;
+            stockInfo.style.display = 'block';
+            
+            // Auto-completar costo unitario si está vacío
+            if (costoSugerido > 0 && (!costoInput.value || costoInput.value == '0')) {
+                costoInput.value = costoSugerido.toFixed(2);
+                calcularSubtotal(id);
+            }
+            
+            // Auto-completar precio unitario si está vacío
+            if (precioSugerido > 0 && (!precioInput.value || precioInput.value == '0')) {
+                precioInput.value = precioSugerido.toFixed(2);
+            }
+            
+        } catch (error) {
+            console.error('Error en actualización tiempo real:', error);
+            stockInfo.innerHTML = `<span class="text-danger">Error al verificar existencias</span>`;
         }
     } else {
         stockInfo.style.display = 'none';
@@ -889,7 +896,6 @@ function actualizarMensajeProductos() {
 }
 
 function mostrarAlerta(tipo, titulo, mensaje) {
-    // Eliminar alertas existentes
     const alertasExistentes = document.querySelectorAll('.alert-flotante');
     alertasExistentes.forEach(alerta => alerta.remove());
     
@@ -901,7 +907,6 @@ function mostrarAlerta(tipo, titulo, mensaje) {
     `;
     document.body.appendChild(alerta);
     
-    // Eliminar automáticamente después de 5 segundos
     setTimeout(() => {
         if (alerta.parentNode) {
             alerta.remove();
@@ -909,18 +914,117 @@ function mostrarAlerta(tipo, titulo, mensaje) {
     }, 5000);
 }
 
-// FUNCIÓN CORREGIDA - Enviar formulario con FormData
-document.getElementById('formCompra').addEventListener('submit', function(e) {
-    e.preventDefault();
-    
-    if (!validarCompra()) {
-        return;
+// VERIFICACIÓN DE EXISTENCIAS EN TIEMPO REAL - COMPRAS
+async function obtenerExistenciasActuales(idProducto) {
+    try {
+        const url = `/admin/compras/verificar-existencias/${idProducto}`;
+        
+        const response = await fetch(url);
+        
+        if (!response.ok) {
+            throw new Error('Error al verificar existencias');
+        }
+        
+        const data = await response.json();
+        
+        if (data.error) {
+            throw new Error(data.error);
+        }
+        
+        console.log(`[COMPRAS-EXISTENCIAS] Existencias en tiempo real: ${data.existencias} unidades`);
+        return data.existencias;
+    } catch (error) {
+        console.error('Error obteniendo existencias en tiempo real:', error);
+        return 0;
     }
+}
 
-    // Crear FormData nuevo en lugar de usar el del formulario
+// VALIDACIÓN BÁSICA PARA COMPRAS
+function validarCompraBasica() {
+    let valido = true;
+    
+    const camposRequeridos = [
+        { id: 'id_tipo_movimiento', nombre: 'Tipo de movimiento' },
+        { id: 'fecha', nombre: 'Fecha de compra' },
+        { id: 'id_bodega', nombre: 'Bodega de destino' },
+        { id: 'tipo_compra', nombre: 'Tipo de compra' }
+    ];
+    
+    camposRequeridos.forEach(campo => {
+        const elemento = document.getElementById(campo.id);
+        if (!elemento.value) {
+            elemento.classList.add("is-invalid");
+            mostrarAlerta('warning', '⚠️ Campo requerido', `${campo.nombre} es obligatorio`);
+            valido = false;
+        } else {
+            elemento.classList.remove("is-invalid");
+        }
+    });
+
+    // Validar productos
+    const filas = document.querySelectorAll(".producto-item");
+    if (filas.length === 0) {
+        mostrarAlerta('danger', '❌ Error!', 'Debe agregar al menos un producto a la compra.');
+        return false;
+    }
+    
+    // Validar que haya al menos un producto con cantidad > 0 y costo > 0
+    let hayProductosValidos = false;
+    filas.forEach(fila => {
+        const select = fila.querySelector(".producto-select");
+        const cantidad = fila.querySelector(".cantidad");
+        const costo = fila.querySelector(".costo");
+        const precio = fila.querySelector(".precio");
+        
+        const cantidadVal = parseFloat(cantidad.value) || 0;
+        const costoVal = parseFloat(costo.value) || 0;
+        const precioVal = parseFloat(precio.value) || 0;
+        
+        if (select.value && cantidadVal > 0 && costoVal > 0 && precioVal > 0) {
+            hayProductosValidos = true;
+            select.classList.remove("is-invalid");
+            cantidad.classList.remove("is-invalid");
+            costo.classList.remove("is-invalid");
+            precio.classList.remove("is-invalid");
+        } else {
+            if (!select.value) select.classList.add("is-invalid");
+            if (cantidadVal <= 0) cantidad.classList.add("is-invalid");
+            if (costoVal <= 0) costo.classList.add("is-invalid");
+            if (precioVal <= 0) precio.classList.add("is-invalid");
+        }
+    });
+    
+    if (!hayProductosValidos) {
+        mostrarAlerta('danger', '❌ Error!', 'Debe agregar al menos un producto con cantidad, costo y precio válidos.');
+        valido = false;
+    }
+    
+    // Validación específica para crédito
+    const tipoCompra = document.getElementById('tipo_compra').value;
+    const idProveedor = document.getElementById('id_proveedor').value;
+    
+    if (tipoCompra === 'CREDITO' && !idProveedor) {
+        mostrarAlerta('warning', '⚠️ Proveedor requerido', 'Para compras a crédito debe seleccionar un proveedor');
+        document.getElementById('id_proveedor').classList.add('is-invalid');
+        valido = false;
+    }
+    
+    if (!valido) {
+        // Desplazarse al primer error
+        const primerError = document.querySelector(".is-invalid");
+        if (primerError) {
+            primerError.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+    }
+    
+    return valido;
+}
+
+// PROCESAR COMPRA
+function procesarCompra() {
     const formData = new FormData();
 
-    // Agregar campos principales manualmente
+    // Agregar campos EXACTAMENTE como los espera el backend
     formData.append('id_tipo_movimiento', document.getElementById('id_tipo_movimiento').value);
     formData.append('fecha', document.getElementById('fecha').value);
     formData.append('n_factura_externa', document.getElementById('n_factura_externa').value);
@@ -930,15 +1034,15 @@ document.getElementById('formCompra').addEventListener('submit', function(e) {
     formData.append('observacion', document.getElementById('observacion').value);
     formData.append('id_usuario_creacion', document.getElementById('id_usuario_creacion').value);
     
-    // Agregar fecha de vencimiento si existe y es crédito
+    // Si es crédito, agregar fecha de vencimiento
     if (document.getElementById('tipo_compra').value === 'CREDITO') {
-        const fechaVencimiento = document.getElementById('fecha_vencimiento');
-        if (fechaVencimiento && fechaVencimiento.value) {
-            formData.append('fecha_vencimiento', fechaVencimiento.value);
+        const fechaVencimiento = document.getElementById('fecha_vencimiento').value;
+        if (fechaVencimiento) {
+            formData.append('fecha_vencimiento', fechaVencimiento);
         }
     }
-
-    // Recolectar productos de la tabla
+    
+    // Campos de productos - usar los nombres exactos que espera el backend
     const productoElements = document.querySelectorAll('.producto-item');
     let productosValidos = 0;
     
@@ -950,8 +1054,8 @@ document.getElementById('formCompra').addEventListener('submit', function(e) {
         const lote = item.querySelector('.lote');
         const fechaVencimiento = item.querySelector('.fecha-vencimiento');
         
-        // Solo agregar productos válidos
-        if (select.value && cantidad.value && costo.value && precio.value) {
+        if (select.value && cantidad.value && costo.value && precio.value && parseFloat(cantidad.value) > 0) {
+            // USAR LOS NOMBRES EXACTOS QUE ESPERA EL BACKEND
             formData.append('productos[]', select.value);
             formData.append('cantidades[]', parseFloat(cantidad.value).toFixed(2));
             formData.append('costos_unitarios[]', parseFloat(costo.value).toFixed(2));
@@ -963,7 +1067,12 @@ document.getElementById('formCompra').addEventListener('submit', function(e) {
         }
     });
 
-    // Validaciones adicionales
+    // Validaciones críticas
+    if (productosValidos === 0) {
+        mostrarAlerta('danger', '❌ Error!', 'Debe agregar al menos un producto válido');
+        return;
+    }
+
     const tipoCompra = document.getElementById('tipo_compra').value;
     const idProveedor = document.getElementById('id_proveedor').value;
     
@@ -973,123 +1082,69 @@ document.getElementById('formCompra').addEventListener('submit', function(e) {
         return;
     }
 
-    if (productosValidos === 0) {
-        mostrarAlerta('danger', '❌ Error!', 'Debe agregar al menos un producto válido');
-        return;
-    }
-
-    // Debug: mostrar datos que se enviarán
-    console.log('Enviando datos:');
-    for (let [key, value] of formData.entries()) {
-        console.log(key, value);
-    }
-
     // Mostrar loading
-    const submitBtn = this.querySelector('button[type="submit"]');
+    const submitBtn = document.querySelector('#formCompra button[type="submit"]');
     const originalText = submitBtn.innerHTML;
-    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> Guardando...';
+    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> Procesando...';
     submitBtn.disabled = true;
-    this.classList.add('loading');
 
-    // Enviar datos - CORREGIR LA URL SEGÚN TU RUTA
+    console.log('📨 Enviando datos de compra al servidor...');
+
+    // Enviar datos al endpoint CORRECTO
     fetch("{{ url_for('admin_crear_compra') }}", {
         method: 'POST',
         body: formData
     })
     .then(response => {
+        console.log('📨 Response status:', response.status);
+        
         if (response.redirected) {
             window.location.href = response.url;
             return;
         }
-        return response.text().then(text => {
-            try {
-                return JSON.parse(text);
-            } catch {
-                throw new Error('Error en el servidor');
-            }
-        });
+        
+        return response.json();
     })
     .then(resultado => {
+        console.log('📊 Resultado del servidor:', resultado);
+        
         if (resultado && resultado.success) {
-            mostrarAlerta('success', '✅ Éxito!', 'Compra creada exitosamente');
+            // ÉXITO - Mostrar mensaje de éxito
+            const successMessage = `✅ ${resultado.message}`;
+            console.log('✅ Compra exitosa:', successMessage);
+            
+            mostrarAlerta('success', '✅ Compra Exitosa!', resultado.message);
+            
+            // Redirigir después de 2 segundos
             setTimeout(() => {
                 window.location.href = "{{ url_for('admin_compras_entradas') }}";
-            }, 1500);
+            }, 2000);
+            
         } else {
-            throw new Error(resultado?.message || 'Error al crear compra');
+            throw new Error(resultado?.error || 'Error desconocido del servidor');
         }
     })
     .catch(error => {
-        console.error('Error:', error);
-        mostrarAlerta('danger', '❌ Error!', error.message || 'Error al crear compra. Verifique la consola para más detalles.');
+        console.error('❌ Error completo:', error);
+        mostrarAlerta('danger', '❌ Error!', error.message || 'Error al procesar la compra');
     })
     .finally(() => {
         submitBtn.innerHTML = originalText;
         submitBtn.disabled = false;
-        this.classList.remove('loading');
     });
-});
-
-function validarCompra() {
-    let valido = true;
-    
-    // Validar campos principales
-    const camposPrincipales = document.querySelectorAll('#formCompra [required]');
-    camposPrincipales.forEach(campo => {
-        if (!campo.value) {
-            campo.classList.add("is-invalid");
-            valido = false;
-        } else {
-            campo.classList.remove("is-invalid");
-        }
-    });
-
-    // Validar productos
-    const filas = document.querySelectorAll(".producto-item");
-    if (filas.length === 0) {
-        mostrarAlerta('danger', '❌ Error!', 'Debe agregar al menos un producto a la compra.');
-        return false;
-    }
-    
-    // Validar cada fila de producto
-    let hayProductosValidos = false;
-    filas.forEach(fila => {
-        const select = fila.querySelector("select");
-        const cantidad = fila.querySelector(".cantidad");
-        const costo = fila.querySelector(".costo");
-        const precio = fila.querySelector(".precio");
-        
-        if (select.value && cantidad.value && costo.value && precio.value) {
-            hayProductosValidos = true;
-            select.classList.remove("is-invalid");
-            cantidad.classList.remove("is-invalid");
-            costo.classList.remove("is-invalid");
-            precio.classList.remove("is-invalid");
-        } else {
-            valido = false;
-            if (!select.value) select.classList.add("is-invalid");
-            if (!cantidad.value) cantidad.classList.add("is-invalid");
-            if (!costo.value) costo.classList.add("is-invalid");
-            if (!precio.value) precio.classList.add("is-invalid");
-        }
-    });
-    
-    if (!hayProductosValidos) {
-        mostrarAlerta('danger', '❌ Error!', 'Debe completar todos los campos requeridos en los productos.');
-        valido = false;
-    }
-    
-    if (!valido) {
-        // Desplazarse al primer error
-        const primerError = document.querySelector(".is-invalid");
-        if (primerError) {
-            primerError.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        }
-        
-        mostrarAlerta('danger', '❌ Error!', 'Por favor complete todos los campos requeridos.');
-    }
-    
-    return valido;
 }
+
+// FUNCIÓN CORREGIDA - Enviar formulario con validación
+document.getElementById('formCompra').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    // Validación síncrona primero
+    if (!validarCompraBasica()) {
+        return;
+    }
+
+    // Si todo está bien, procesar la compra
+    procesarCompra();
+});
 </script>
 {% endblock %}
