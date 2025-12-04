@@ -1,0 +1,324 @@
+{% extends "layout.html" %}
+
+{% block title %}Reportes de Movimientos{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="h3 mb-0 text-gray-800">
+            <i class="fas fa-chart-bar me-2"></i>Reportes de Movimientos
+        </h1>
+        <div>
+            <a href="{{ url_for('admin_historial_movimientos') }}" class="btn btn-secondary">
+                <i class="fas fa-arrow-left me-1"></i> Volver
+            </a>
+        </div>
+    </div>
+
+    <!-- Estadísticas del Mes -->
+    <div class="row mb-4">
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-primary shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">
+                                Total Movimientos (Mes)
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">
+                                {{ estadisticas.total_movimientos or 0 }}
+                            </div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-history fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-success shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-success text-uppercase mb-1">
+                                Entradas (Mes)
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">
+                                {{ estadisticas.entradas or 0 }}
+                            </div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-sign-in-alt fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-danger shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-danger text-uppercase mb-1">
+                                Salidas (Mes)
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">
+                                {{ estadisticas.salidas or 0 }}
+                            </div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-sign-out-alt fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-warning shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">
+                                Transferencias (Mes)
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">
+                                {{ estadisticas.transferencias or 0 }}
+                            </div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-exchange-alt fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Reporte Filtrado -->
+        <div class="col-lg-8">
+            <div class="card shadow mb-4">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">
+                        <i class="fas fa-filter me-1"></i>Generar Reporte Filtrado
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <form method="POST" action="{{ url_for('admin_reporte_filtrado') }}">
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label class="form-label">Fecha Desde</label>
+                                <input type="date" name="fecha_inicio" class="form-control" 
+                                       value="{{ fecha_actual[:8] }}01">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Fecha Hasta</label>
+                                <input type="date" name="fecha_fin" class="form-control" 
+                                       value="{{ fecha_actual }}">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Tipo de Movimiento</label>
+                                <select name="id_tipo_movimiento" class="form-select">
+                                    <option value="todos">Todos los tipos</option>
+                                    {% for tipo in tipos_movimiento %}
+                                    <option value="{{ tipo.ID_TipoMovimiento }}">
+                                        {{ tipo.Descripcion }}
+                                    </option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Bodega</label>
+                                <select name="id_bodega" class="form-select">
+                                    <option value="todas">Todas las bodegas</option>
+                                    {% for bodega in bodegas %}
+                                    <option value="{{ bodega.ID_Bodega }}">
+                                        {{ bodega.Nombre }}
+                                    </option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-12">
+                                <button type="submit" class="btn btn-primary w-100">
+                                    <i class="fas fa-file-alt me-1"></i> Generar Reporte
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Últimos Movimientos -->
+            <div class="card shadow">
+                <div class="card-header py-3 d-flex justify-content-between align-items-center">
+                    <h6 class="m-0 font-weight-bold text-primary">
+                        <i class="fas fa-history me-1"></i>Últimos Movimientos
+                    </h6>
+                    <a href="{{ url_for('admin_historial_movimientos') }}" class="btn btn-sm btn-primary">
+                        Ver Todos
+                    </a>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-sm table-hover">
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Fecha</th>
+                                    <th>Tipo</th>
+                                    <th>Bodega</th>
+                                    <th>Productos</th>
+                                    <th>Total</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for mov in ultimos_movimientos %}
+                                <tr>
+                                    <td>
+                                        <a href="{{ url_for('admin_detalle_movimiento', id_movimiento=mov.ID_Movimiento) }}">
+                                            #{{ mov.ID_Movimiento }}
+                                        </a>
+                                    </td>
+                                    <td>{{ mov.Fecha }}</td>
+                                    <td>
+                                        <span class="badge 
+                                            {% if mov.Letra == 'E' %}bg-success
+                                            {% elif mov.Letra == 'S' %}bg-danger
+                                            {% else %}bg-warning{% endif %}">
+                                            {{ mov.Tipo }}
+                                        </span>
+                                    </td>
+                                    <td>{{ mov.Bodega_Origen }}</td>
+                                    <td>{{ mov.Productos }}</td>
+                                    <td>${{ "%.2f"|format(mov.Total_Costo or 0) }}</td>
+                                </tr>
+                                {% else %}
+                                <tr>
+                                    <td colspan="6" class="text-center text-muted py-3">
+                                        No hay movimientos recientes
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Productos con Stock Bajo -->
+        <div class="col-lg-4">
+            <div class="card shadow mb-4">
+                <div class="card-header py-3 bg-warning text-dark">
+                    <h6 class="m-0 font-weight-bold">
+                        <i class="fas fa-exclamation-triangle me-1"></i>Productos con Stock Bajo
+                    </h6>
+                </div>
+                <div class="card-body">
+                    {% if productos_stock_bajo %}
+                    <div class="list-group">
+                        {% for producto in productos_stock_bajo %}
+                        <div class="list-group-item list-group-item-action">
+                            <div class="d-flex w-100 justify-content-between">
+                                <h6 class="mb-1">{{ producto.Descripcion }}</h6>
+                                <small class="text-danger">
+                                    {{ producto.Existencias }} / {{ producto.Stock_Minimo }}
+                                </small>
+                            </div>
+                            <p class="mb-1">
+                                <small>Código: {{ producto.COD_Producto or 'N/A' }}</small>
+                            </p>
+                            <small class="text-muted">
+                                {{ producto.Unidad_Medida }}
+                                {% if producto.Total_Bodegas %}
+                                | Total en bodegas: {{ producto.Total_Bodegas }}
+                                {% endif %}
+                            </small>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="text-center py-4">
+                        <i class="fas fa-check-circle fa-2x text-success mb-3"></i>
+                        <p class="text-muted">Todos los productos tienen stock suficiente</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Estadísticas Financieras -->
+            <div class="card shadow">
+                <div class="card-header py-3 bg-info text-white">
+                    <h6 class="m-0 font-weight-bold">
+                        <i class="fas fa-chart-line me-1"></i>Estadísticas Financieras (Mes)
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="text-center mb-3">
+                        <div class="h4 font-weight-bold text-primary">
+                            ${{ "%.2f"|format(estadisticas.total_ventas or 0) }}
+                        </div>
+                        <small class="text-muted">Total Ventas</small>
+                    </div>
+                    
+                    <div class="text-center mb-3">
+                        <div class="h4 font-weight-bold text-success">
+                            ${{ "%.2f"|format(estadisticas.total_compras or 0) }}
+                        </div>
+                        <small class="text-muted">Total Compras</small>
+                    </div>
+                    
+                    <hr>
+                    
+                    <div class="text-center">
+                        {% set diferencia = (estadisticas.total_ventas or 0) - (estadisticas.total_compras or 0) %}
+                        <div class="h4 font-weight-bold 
+                            {% if diferencia > 0 %}text-success{% else %}text-danger{% endif %}">
+                            ${{ "%.2f"|format(diferencia) }}
+                        </div>
+                        <small class="text-muted">Diferencia (Ventas - Compras)</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- JavaScript -->
+<script>
+$(document).ready(function() {
+    // Fecha de hoy por defecto en filtros
+    const hoy = new Date().toISOString().split('T')[0];
+    const primerDiaMes = new Date();
+    primerDiaMes.setDate(1);
+    const primerDiaFormato = primerDiaMes.toISOString().split('T')[0];
+    
+    // Verificar si los campos están vacíos y establecer valores por defecto
+    const fechaInicioInput = $('input[name="fecha_inicio"]');
+    const fechaFinInput = $('input[name="fecha_fin"]');
+    
+    if (!fechaInicioInput.val()) {
+        fechaInicioInput.val(primerDiaFormato);
+    }
+    if (!fechaFinInput.val()) {
+        fechaFinInput.val(hoy);
+    }
+    
+    // Validar que fecha de inicio no sea mayor que fecha fin
+    $('form').submit(function(e) {
+        const fechaInicio = new Date(fechaInicioInput.val());
+        const fechaFin = new Date(fechaFinInput.val());
+        
+        if (fechaInicio > fechaFin) {
+            e.preventDefault();
+            alert('La fecha de inicio no puede ser mayor que la fecha final');
+            return false;
+        }
+    });
+});
+</script>
+{% endblock %}

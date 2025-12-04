@@ -1,0 +1,739 @@
+{% extends "layout.html" %}
+
+{% block title %}Nueva Salida de Inventario{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="h3 mb-0 text-gray-800">
+            <i class="fas fa-sign-out-alt text-danger me-2"></i>Nueva Salida
+        </h1>
+        <div>
+            <a href="{{ url_for('admin_historial_movimientos') }}" class="btn btn-secondary">
+                <i class="fas fa-arrow-left me-1"></i> Volver
+            </a>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-lg-8">
+            <!-- Formulario Principal -->
+            <div class="card shadow mb-4">
+                <div class="card-header py-3 bg-danger text-white">
+                    <h6 class="m-0 font-weight-bold">
+                        <i class="fas fa-info-circle me-1"></i>Información de Salida
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <form id="formSalida" method="POST" action="{{ url_for('admin_procesar_salida') }}">
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label class="form-label required">Fecha</label>
+                                <input type="date" name="fecha" class="form-control" value="{{ fecha_actual }}"
+                                    required>
+                            </div>
+
+                            <div class="col-md-6">
+                                <label class="form-label required">Tipo de Movimiento</label>
+                                <select name="id_tipo_movimiento" id="select-tipo-movimiento" class="form-select" required
+                                    onchange="mostrarCamposPorTipo()">
+                                    <option value="">Seleccionar...</option>
+                                    {% for tipo in tipos_movimiento %}
+                                    <option value="{{ tipo.ID_TipoMovimiento }}">
+                                        {{ tipo.Descripcion }}
+                                    </option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+
+                            <div class="col-md-6">
+                                <label class="form-label required">Bodega</label>
+                                <select name="id_bodega" id="select-bodega" class="form-select" required
+                                    onchange="cargarProductosBodega()">
+                                    <option value="">Seleccionar...</option>
+                                    {% for bodega in bodegas %}
+                                    <option value="{{ bodega.ID_Bodega }}">
+                                        {{ bodega.Nombre }}
+                                    </option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+
+                            <!-- Campo Cliente (solo para ventas) -->
+                            <div class="col-md-6 cliente-field" style="display: none;">
+                                <label class="form-label">Cliente</label>
+                                <select name="id_cliente" id="select-cliente" class="form-select">
+                                    <option value="">Seleccionar...</option>
+                                    {% for cliente in clientes %}
+                                    <option value="{{ cliente.ID_Cliente }}">
+                                        {{ cliente.Nombre }}
+                                    </option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+
+                            <!-- Campo Factura (solo para ventas) -->
+                            <div class="col-md-6 factura-field" style="display: none;">
+                                <label class="form-label">Factura Asociada</label>
+                                <select name="id_factura_venta" id="select-factura" class="form-select">
+                                    <option value="">Seleccionar...</option>
+                                    {% for factura in facturas %}
+                                    <option value="{{ factura.ID_Factura }}">
+                                        Factura #{{ factura.ID_Factura }} - {{ factura.Cliente }} ({{ factura.Fecha }}) - {{ factura.Items }} items
+                                    </option>
+                                    {% endfor %}
+                                </select>
+                                <small class="text-muted">Facturas de los últimos 30 días</small>
+                            </div>
+
+                            <div class="col-12">
+                                <label class="form-label">Observaciones</label>
+                                <textarea name="observacion" class="form-control" rows="2" 
+                                    placeholder="Ej: Salida para venta, consumo interno, ajuste de inventario..."></textarea>
+                            </div>
+                        </div>
+
+                        <!-- Productos -->
+                        <div class="mt-4">
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <h5 class="mb-0">
+                                    <i class="fas fa-boxes me-2"></i>Productos a Retirar
+                                </h5>
+                                <button type="button" class="btn btn-primary btn-sm" onclick="agregarProductoSalida()">
+                                    <i class="fas fa-plus me-1"></i> Agregar Producto
+                                </button>
+                            </div>
+
+                            <div class="alert alert-warning alert-dismissible fade show" id="stock-alert" style="display: none;" role="alert">
+                                <i class="fas fa-exclamation-triangle me-2"></i>
+                                <span id="stock-alert-message"></span>
+                                <button type="button" class="btn-close" onclick="document.getElementById('stock-alert').style.display = 'none';"></button>
+                            </div>
+
+                            <div class="table-responsive">
+                                <table class="table table-sm table-bordered">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th width="30%">Producto</th>
+                                            <th width="15%">Stock Disponible</th>
+                                            <th width="15%">Cantidad</th>
+                                            <th width="15%">Precio Unitario</th>
+                                            <th width="15%">Subtotal</th>
+                                            <th width="10%" class="text-center">Acciones</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="productos-tbody">
+                                        <!-- Productos se agregarán aquí dinámicamente -->
+                                        <tr id="no-products" class="text-center">
+                                            <td colspan="6" class="text-muted py-4">
+                                                <i class="fas fa-box-open fa-2x mb-3"></i><br>
+                                                No hay productos agregados
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                    <tfoot class="table-secondary">
+                                        <tr>
+                                            <td colspan="3" class="text-end">
+                                                <strong>Total Productos:</strong>
+                                                <span id="total-productos-count" class="ms-2">0</span>
+                                            </td>
+                                            <td colspan="2" class="text-end">
+                                                <strong>Total Salida:</strong>
+                                                <span id="total-salida" class="ms-2">$0.00</span>
+                                            </td>
+                                            <td></td>
+                                        </tr>
+                                    </tfoot>
+                                </table>
+                            </div>
+
+                            <input type="hidden" name="productos" id="productos-json" value="[]" required>
+                        </div>
+
+                        <div class="mt-4 pt-3 border-top">
+                            <div class="d-flex justify-content-end">
+                                <a href="{{ url_for('admin_historial_movimientos') }}" class="btn btn-secondary me-2">
+                                    <i class="fas fa-times me-1"></i> Cancelar
+                                </a>
+                                <button type="submit" class="btn btn-danger">
+                                    <i class="fas fa-save me-1"></i> Guardar Salida
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-4">
+            <!-- Productos Disponibles en Bodega -->
+            <div class="card shadow mb-4">
+                <div class="card-header py-3 bg-primary text-white">
+                    <h6 class="m-0 font-weight-bold">
+                        <i class="fas fa-box me-1"></i>Productos Disponibles
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <input type="text" id="buscar-producto" class="form-control" 
+                            placeholder="Buscar producto..." onkeyup="filtrarProductos()">
+                    </div>
+
+                    <div id="lista-productos-bodega" class="list-group" style="max-height: 400px; overflow-y: auto;">
+                        <div class="text-center py-4 text-muted">
+                            <i class="fas fa-warehouse fa-2x mb-2"></i>
+                            <p>Seleccione una bodega para ver los productos disponibles</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Resumen -->
+            <div class="card shadow">
+                <div class="card-header py-3 bg-info text-white">
+                    <h6 class="m-0 font-weight-bold">
+                        <i class="fas fa-clipboard-check me-1"></i>Resumen
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <ul class="list-group list-group-flush">
+                        <li class="list-group-item d-flex justify-content-between">
+                            <span><i class="fas fa-boxes me-2"></i>Productos:</span>
+                            <strong id="resumen-cantidad">0</strong>
+                        </li>
+                        <li class="list-group-item d-flex justify-content-between">
+                            <span><i class="fas fa-cubes me-2"></i>Total Unidades:</span>
+                            <strong id="resumen-unidades">0</strong>
+                        </li>
+                        <li class="list-group-item d-flex justify-content-between">
+                            <span><i class="fas fa-dollar-sign me-2"></i>Total Venta:</span>
+                            <strong id="resumen-total">$0.00</strong>
+                        </li>
+                        <li class="list-group-item d-flex justify-content-between">
+                            <span><i class="fas fa-weight me-2"></i>Peso Estimado:</span>
+                            <strong id="resumen-peso">0.00 kg</strong>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- Ayuda -->
+            <div class="card shadow mt-3">
+                <div class="card-header py-3 bg-success text-white">
+                    <h6 class="m-0 font-weight-bold">
+                        <i class="fas fa-question-circle me-1"></i>Ayuda Rápida
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <small class="text-muted">
+                        <p><strong>Pasos para registrar salida:</strong></p>
+                        <ol class="small">
+                            <li>Seleccione fecha y tipo de movimiento</li>
+                            <li>Seleccione la bodega de origen</li>
+                            <li>Agregue productos desde la lista derecha</li>
+                            <li>Verifique cantidades y precios</li>
+                            <li>Haga clic en "Guardar Salida"</li>
+                        </ol>
+                    </small>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- JavaScript -->
+<script>
+    // Variables globales
+    let productosSalida = [];
+    let productosDisponibles = [];
+    let contadorProductos = 0;
+
+    // Mostrar/ocultar campos según tipo de movimiento
+    function mostrarCamposPorTipo() {
+        const tipoMovimiento = document.getElementById('select-tipo-movimiento').value;
+        const clienteField = document.querySelector('.cliente-field');
+        const facturaField = document.querySelector('.factura-field');
+        
+        // Por defecto ocultar ambos
+        clienteField.style.display = 'none';
+        facturaField.style.display = 'none';
+        
+        // Mostrar según tipo (ejemplo: si tipo es VENTA, mostrar ambos)
+        // Ajusta según tus IDs de tipo de movimiento
+        if (tipoMovimiento === '2' || tipoMovimiento === '3') { // Ejemplo para ventas
+            clienteField.style.display = 'block';
+            facturaField.style.display = 'block';
+        } else if (tipoMovimiento === '1') { // Ejemplo para consumo
+            // Solo mostrar cliente si es necesario
+            clienteField.style.display = 'none';
+            facturaField.style.display = 'none';
+        }
+    }
+
+    // Cargar productos de la bodega seleccionada
+    function cargarProductosBodega() {
+        const bodegaId = document.getElementById('select-bodega').value;
+        const lista = document.getElementById('lista-productos-bodega');
+
+        if (!bodegaId) {
+            lista.innerHTML = `
+                <div class="text-center py-4 text-muted">
+                    <i class="fas fa-warehouse fa-2x mb-2"></i>
+                    <p>Seleccione una bodega primero</p>
+                </div>
+            `;
+            return;
+        }
+
+        lista.innerHTML = `
+            <div class="text-center py-3">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Cargando...</span>
+                </div>
+                <p class="mt-2">Cargando productos...</p>
+            </div>
+        `;
+
+        fetch(`/api/productos/buscar?q=&bodega=${bodegaId}`)
+            .then(response => response.json())
+            .then(data => {
+                productosDisponibles = data;
+                renderizarProductosDisponibles();
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                lista.innerHTML = `
+                    <div class="alert alert-danger">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        Error al cargar productos
+                    </div>
+                `;
+            });
+    }
+
+    // Renderizar productos disponibles
+    function renderizarProductosDisponibles() {
+        const lista = document.getElementById('lista-productos-bodega');
+        
+        if (productosDisponibles.error) {
+            lista.innerHTML = `
+                <div class="alert alert-danger">
+                    ${productosDisponibles.error}
+                </div>
+            `;
+            return;
+        }
+
+        if (productosDisponibles.length === 0) {
+            lista.innerHTML = `
+                <div class="alert alert-warning">
+                    <i class="fas fa-exclamation-circle me-2"></i>
+                    No hay productos en esta bodega
+                </div>
+            `;
+            return;
+        }
+
+        // Filtrar solo productos con stock
+        const productosConStock = productosDisponibles.filter(p => p.Stock_Bodega > 0);
+
+        if (productosConStock.length === 0) {
+            lista.innerHTML = `
+                <div class="alert alert-warning">
+                    <i class="fas fa-exclamation-circle me-2"></i>
+                    No hay productos con stock disponible
+                </div>
+            `;
+            return;
+        }
+
+        let html = '';
+        productosConStock.forEach(producto => {
+            const yaAgregado = document.querySelector(`.id-producto[value="${producto.ID_Producto}"]`);
+            const claseAgregado = yaAgregado ? 'list-group-item-success' : '';
+            
+            html += `
+                <a href="#" class="list-group-item list-group-item-action ${claseAgregado}" 
+                    onclick="seleccionarProductoSalida(${JSON.stringify(producto).replace(/"/g, '&quot;')})"
+                    data-nombre="${producto.Descripcion.toLowerCase()}"
+                    data-codigo="${(producto.COD_Producto || '').toLowerCase()}">
+                    <div class="d-flex w-100 justify-content-between">
+                        <h6 class="mb-1">${producto.Descripcion}</h6>
+                        <small class="text-muted">${producto.Stock_Bodega} disp.</small>
+                    </div>
+                    <p class="mb-1 small">
+                        <span class="badge bg-secondary">${producto.COD_Producto || 'Sin código'}</span>
+                        <span class="badge bg-info ms-1">$${producto.Precio_Venta || '0.00'}</span>
+                    </p>
+                    <small class="text-muted">
+                        ${producto.Categoria || 'Sin categoría'} • ${producto.Unidad_Medida || 'Unidad'}
+                    </small>
+                </a>
+            `;
+        });
+        
+        lista.innerHTML = html;
+    }
+
+    // Filtrar productos por búsqueda
+    function filtrarProductos() {
+        const busqueda = document.getElementById('buscar-producto').value.toLowerCase();
+        const items = document.querySelectorAll('#lista-productos-bodega .list-group-item');
+        
+        items.forEach(item => {
+            const nombre = item.getAttribute('data-nombre') || '';
+            const codigo = item.getAttribute('data-codigo') || '';
+            
+            if (nombre.includes(busqueda) || codigo.includes(busqueda)) {
+                item.style.display = 'block';
+            } else {
+                item.style.display = 'none';
+            }
+        });
+    }
+
+    // Seleccionar producto para salida
+    function seleccionarProductoSalida(producto) {
+        // Verificar si ya existe en la tabla
+        const existente = document.querySelector(`.id-producto[value="${producto.ID_Producto}"]`);
+        
+        if (existente) {
+            // Incrementar cantidad si ya existe
+            const filaExistente = existente.closest('tr');
+            const cantidadInput = filaExistente.querySelector('.cantidad');
+            const stockMax = parseFloat(filaExistente.querySelector('.stock-disponible').value) || 0;
+            const cantidadActual = parseFloat(cantidadInput.value) || 1;
+            
+            if (cantidadActual < stockMax) {
+                cantidadInput.value = cantidadActual + 1;
+                const index = Array.from(filaExistente.parentNode.children).indexOf(filaExistente) - 1; // Restar 1 por la fila de "no hay productos"
+                validarCantidad(index);
+                mostrarAlertaStock(`Cantidad incrementada para ${producto.Descripcion}`, 'success');
+            } else {
+                mostrarAlertaStock(`Stock máximo alcanzado para ${producto.Descripcion}`, 'warning');
+            }
+            return;
+        }
+
+        // Ocultar mensaje "no hay productos"
+        document.getElementById('no-products').style.display = 'none';
+        
+        // Agregar nuevo producto
+        agregarProductoSalida(producto);
+        renderizarProductosDisponibles(); // Actualizar lista para marcar como agregado
+    }
+
+    // Mostrar alerta de stock
+    function mostrarAlertaStock(mensaje, tipo = 'warning') {
+        const alertDiv = document.getElementById('stock-alert');
+        const alertMessage = document.getElementById('stock-alert-message');
+        
+        alertDiv.className = `alert alert-${tipo} alert-dismissible fade show`;
+        alertMessage.innerHTML = `<i class="fas fa-${tipo === 'success' ? 'check-circle' : 'exclamation-triangle'} me-2"></i>${mensaje}`;
+        alertDiv.style.display = 'block';
+        
+        // Auto-ocultar después de 5 segundos si es éxito
+        if (tipo === 'success') {
+            setTimeout(() => {
+                alertDiv.style.display = 'none';
+            }, 3000);
+        }
+    }
+
+    // Agregar producto a salida
+    function agregarProductoSalida(producto = null) {
+        const tbody = document.getElementById('productos-tbody');
+        const index = contadorProductos++;
+        
+        // Crear fila
+        const fila = document.createElement('tr');
+        fila.id = `producto-salida-${index}`;
+        fila.className = 'align-middle';
+        
+        const productoNombre = producto ? producto.Descripcion : '';
+        const stockDisponible = producto ? (producto.Stock_Bodega || 0) : 0;
+        const precioVenta = producto ? (producto.Precio_Venta || 0) : 0;
+        const unidadMedida = producto ? (producto.Unidad_Medida || 'Unidad') : 'Unidad';
+        const peso = producto ? (producto.Peso || 0) : 0;
+
+        fila.innerHTML = `
+            <td>
+                <input type="hidden" name="productos[${index}][id_producto]" 
+                       value="${producto ? producto.ID_Producto : ''}" class="id-producto">
+                <div class="fw-bold">${productoNombre}</div>
+                <small class="text-muted">
+                    ${producto ? (producto.COD_Producto || 'Sin código') : ''}
+                    ${unidadMedida ? ` • ${unidadMedida}` : ''}
+                </small>
+            </td>
+            <td>
+                <div class="d-flex align-items-center">
+                    <span class="badge bg-${stockDisponible > 0 ? 'success' : 'danger'} me-2">
+                        ${stockDisponible}
+                    </span>
+                    <small>${unidadMedida}</small>
+                </div>
+                <input type="hidden" class="stock-disponible" value="${stockDisponible}">
+                <input type="hidden" class="peso-producto" value="${peso}">
+            </td>
+            <td>
+                <div class="input-group input-group-sm">
+                    <input type="number" step="0.001" min="0.001" max="${stockDisponible}"
+                           name="productos[${index}][cantidad]" 
+                           class="form-control form-control-sm cantidad" 
+                           value="1" 
+                           onchange="validarCantidad(${index})"
+                           oninput="calcularSubtotalSalida(${index})">
+                    <span class="input-group-text">${unidadMedida}</span>
+                </div>
+                <small class="text-danger max-error" style="display: none; font-size: 0.75em;">
+                    Máximo: ${stockDisponible}
+                </small>
+            </td>
+            <td>
+                <div class="input-group input-group-sm">
+                    <span class="input-group-text">$</span>
+                    <input type="number" step="0.01" min="0" 
+                           name="productos[${index}][precio_unitario]" 
+                           class="form-control form-control-sm precio" 
+                           value="${precioVenta}"
+                           onchange="calcularSubtotalSalida(${index})"
+                           oninput="calcularSubtotalSalida(${index})">
+                </div>
+                <input type="hidden" name="productos[${index}][costo_unitario]" 
+                       value="${producto ? (producto.Costo_Promedio || 0) : 0}" class="costo-unitario">
+            </td>
+            <td>
+                <input type="text" class="form-control form-control-sm subtotal" 
+                       value="$0.00" readonly>
+            </td>
+            <td class="text-center">
+                <button type="button" class="btn btn-danger btn-sm" 
+                        onclick="eliminarProductoSalida(${index})"
+                        title="Eliminar producto">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </td>
+        `;
+
+        tbody.appendChild(fila);
+        
+        if (producto) {
+            calcularSubtotalSalida(index);
+            validarCantidad(index);
+        }
+        
+        actualizarResumenSalida();
+    }
+
+    // Validar cantidad no exceda stock
+    function validarCantidad(index) {
+        const fila = document.getElementById(`producto-salida-${index}`);
+        if (!fila) return;
+        
+        const cantidadInput = fila.querySelector('.cantidad');
+        const maxStock = parseFloat(fila.querySelector('.stock-disponible').value) || 0;
+        const cantidad = parseFloat(cantidadInput.value) || 0;
+        const errorElement = fila.querySelector('.max-error');
+        const productoNombre = fila.querySelector('.fw-bold').textContent;
+
+        if (cantidad > maxStock) {
+            cantidadInput.value = maxStock;
+            errorElement.style.display = 'block';
+            mostrarAlertaStock(`Cantidad ajustada al máximo disponible para ${productoNombre}`, 'warning');
+        } else if (cantidad <= 0) {
+            cantidadInput.value = 1;
+            errorElement.style.display = 'none';
+        } else {
+            errorElement.style.display = 'none';
+        }
+
+        calcularSubtotalSalida(index);
+    }
+
+    // Calcular subtotal para salida
+    function calcularSubtotalSalida(index) {
+        const fila = document.getElementById(`producto-salida-${index}`);
+        if (!fila) return;
+        
+        const cantidad = parseFloat(fila.querySelector('.cantidad').value) || 0;
+        const precio = parseFloat(fila.querySelector('.precio').value) || 0;
+        const subtotal = cantidad * precio;
+
+        fila.querySelector('.subtotal').value = `$${subtotal.toFixed(2)}`;
+        actualizarResumenSalida();
+    }
+
+    // Eliminar producto de salida
+    function eliminarProductoSalida(index) {
+        const fila = document.getElementById(`producto-salida-${index}`);
+        if (fila) {
+            fila.remove();
+            actualizarResumenSalida();
+            renderizarProductosDisponibles(); // Actualizar lista
+            
+            // Mostrar mensaje si no hay productos
+            if (document.querySelectorAll('#productos-tbody tr').length === 1) { // Solo queda la fila "no products"
+                document.getElementById('no-products').style.display = '';
+            }
+        }
+    }
+
+    // Actualizar resumen de salida
+    function actualizarResumenSalida() {
+        let total = 0;
+        let unidades = 0;
+        let cantidadProductos = 0;
+        let pesoTotal = 0;
+
+        document.querySelectorAll('#productos-tbody tr').forEach(fila => {
+            if (fila.id && fila.id.startsWith('producto-salida-')) {
+                const cantidad = parseFloat(fila.querySelector('.cantidad').value) || 0;
+                const precio = parseFloat(fila.querySelector('.precio').value) || 0;
+                const peso = parseFloat(fila.querySelector('.peso-producto').value) || 0;
+
+                unidades += cantidad;
+                total += cantidad * precio;
+                pesoTotal += cantidad * peso;
+                cantidadProductos++;
+            }
+        });
+
+        // Actualizar resumen
+        document.getElementById('resumen-cantidad').textContent = cantidadProductos;
+        document.getElementById('resumen-unidades').textContent = unidades.toFixed(3);
+        document.getElementById('resumen-total').textContent = `$${total.toFixed(2)}`;
+        document.getElementById('resumen-peso').textContent = `${pesoTotal.toFixed(2)} kg`;
+        
+        // Actualizar totales en tabla
+        document.getElementById('total-salida').textContent = `$${total.toFixed(2)}`;
+        document.getElementById('total-productos-count').textContent = cantidadProductos;
+
+        // Actualizar JSON oculto
+        const productosData = [];
+        document.querySelectorAll('#productos-tbody tr').forEach(fila => {
+            if (fila.id && fila.id.startsWith('producto-salida-')) {
+                const producto = {
+                    id_producto: fila.querySelector('.id-producto').value,
+                    cantidad: fila.querySelector('.cantidad').value,
+                    precio_unitario: fila.querySelector('.precio').value || '0.00',
+                    costo_unitario: fila.querySelector('.costo-unitario').value || '0.00'
+                };
+                productosData.push(producto);
+            }
+        });
+
+        document.getElementById('productos-json').value = JSON.stringify(productosData);
+    }
+
+    // Validar formulario antes de enviar
+    function validarFormularioSalida() {
+        const bodegaId = document.getElementById('select-bodega').value;
+        if (!bodegaId) {
+            alert('❌ Debe seleccionar una bodega');
+            return false;
+        }
+
+        const tipoMovimiento = document.querySelector('select[name="id_tipo_movimiento"]').value;
+        if (!tipoMovimiento) {
+            alert('❌ Debe seleccionar un tipo de movimiento');
+            return false;
+        }
+
+        const productosData = JSON.parse(document.getElementById('productos-json').value);
+        if (productosData.length === 0) {
+            alert('❌ Debe agregar al menos un producto');
+            return false;
+        }
+
+        // Verificar stock antes de enviar
+        let stockValido = true;
+        let mensajeError = '';
+
+        document.querySelectorAll('#productos-tbody tr').forEach(fila => {
+            if (fila.id && fila.id.startsWith('producto-salida-')) {
+                const idProducto = fila.querySelector('.id-producto').value;
+                const cantidad = parseFloat(fila.querySelector('.cantidad').value) || 0;
+                const stockDisponible = parseFloat(fila.querySelector('.stock-disponible').value) || 0;
+                const productoNombre = fila.querySelector('.fw-bold').textContent;
+
+                if (cantidad > stockDisponible) {
+                    stockValido = false;
+                    mensajeError += `• ${productoNombre}: Solicitado ${cantidad}, Disponible ${stockDisponible}\n`;
+                }
+            }
+        });
+
+        if (!stockValido) {
+            alert(`⚠️ Stock insuficiente:\n${mensajeError}`);
+            return false;
+        }
+
+        return true;
+    }
+
+    // Inicialización
+    document.addEventListener('DOMContentLoaded', function () {
+        // Fecha de hoy por defecto
+        const hoy = new Date().toISOString().split('T')[0];
+        document.querySelector('input[name="fecha"]').value = hoy;
+        
+        // Configurar evento submit del formulario
+        document.getElementById('formSalida').addEventListener('submit', function (e) {
+            if (!validarFormularioSalida()) {
+                e.preventDefault();
+                return;
+            }
+            
+            if (!confirm('¿Está seguro de guardar esta salida de inventario?')) {
+                e.preventDefault();
+            }
+        });
+        
+        // Prevenir entrada de valores negativos
+        document.addEventListener('input', function(e) {
+            if (e.target.type === 'number') {
+                if (e.target.value < 0) {
+                    e.target.value = Math.abs(e.target.value);
+                }
+            }
+        });
+    });
+</script>
+
+<style>
+    .required:after {
+        content: " *";
+        color: red;
+    }
+    
+    .list-group-item-success {
+        background-color: rgba(25, 135, 84, 0.1);
+        border-left: 4px solid #198754;
+    }
+    
+    .table th {
+        font-size: 0.9rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    
+    .input-group-text {
+        font-size: 0.875rem;
+    }
+    
+    #stock-alert {
+        border-left: 4px solid #ffc107;
+    }
+    
+    .max-error {
+        font-size: 0.75em;
+    }
+    
+    .badge {
+        font-size: 0.75em;
+        padding: 0.25em 0.5em;
+    }
+</style>
+{% endblock %}

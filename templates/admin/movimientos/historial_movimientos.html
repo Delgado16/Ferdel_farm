@@ -1,0 +1,238 @@
+{% extends "layout.html" %}
+
+{% block title %}Historial de Movimientos{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="h3 mb-0 text-gray-800">
+            <i class="fas fa-history me-2"></i>Historial de Movimientos
+        </h1>
+        <div>
+            <a href="{{ url_for('admin_reportes_movimientos') }}" class="btn btn-info">
+                <i class="fas fa-chart-bar me-1"></i> Reportes
+            </a>
+        </div>
+    </div>
+
+    <!-- Filtros -->
+    <div class="card shadow mb-4">
+        <div class="card-header py-3">
+            <h6 class="m-0 font-weight-bold text-primary">
+                <i class="fas fa-filter me-1"></i>Filtros
+            </h6>
+        </div>
+        <div class="card-body">
+            <form method="GET" class="row g-3">
+                <div class="col-md-3">
+                    <label class="form-label">Tipo de Movimiento</label>
+                    <select name="tipo" class="form-select">
+                        <option value="todos" {% if tipo_filtro == 'todos' %}selected{% endif %}>Todos</option>
+                        {% for tipo in tipos_movimiento %}
+                        <option value="{{ tipo.ID_TipoMovimiento }}" 
+                                {% if tipo_filtro == tipo.ID_TipoMovimiento|string %}selected{% endif %}>
+                            {{ tipo.Descripcion }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Fecha Desde</label>
+                    <input type="date" name="fecha_inicio" class="form-control" 
+                           value="{{ fecha_inicio }}">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Fecha Hasta</label>
+                    <input type="date" name="fecha_fin" class="form-control" 
+                           value="{{ fecha_fin }}">
+                </div>
+                <div class="col-md-3 d-flex align-items-end">
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="fas fa-search me-1"></i> Filtrar
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Tabla de Movimientos -->
+    <div class="card shadow">
+        <div class="card-header py-3 d-flex justify-content-between align-items-center">
+            <h6 class="m-0 font-weight-bold text-primary">
+                <i class="fas fa-list me-1"></i>Movimientos Registrados
+                <span class="badge bg-primary ms-2">{{ total }}</span>
+            </h6>
+            <div>
+                <a href="{{ url_for('admin_nueva_entrada_form') }}" class="btn btn-success btn-sm">
+                    <i class="fas fa-plus-circle me-1"></i> Nueva Entrada
+                </a>
+                <a href="{{ url_for('admin_nueva_salida_form') }}" class="btn btn-danger btn-sm ms-1">
+                    <i class="fas fa-minus-circle me-1"></i> Nueva Salida
+                </a>
+                <a href="{{ url_for('admin_nueva_transferencia_form') }}" class="btn btn-warning btn-sm ms-1">
+                    <i class="fas fa-exchange-alt me-1"></i> Transferencia
+                </a>
+            </div>
+        </div>
+        <div class="card-body">
+            {% if movimientos %}
+            <div class="table-responsive">
+                <table class="table table-hover table-striped">
+                    <thead class="table-dark">
+                        <tr>
+                            <th>ID</th>
+                            <th>Fecha</th>
+                            <th>Tipo</th>
+                            <th>Bodega</th>
+                            <th>Productos</th>
+                            <th>Total</th>
+                            <th>Usuario</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for mov in movimientos %}
+                        <tr>
+                            <td><strong>#{{ mov.ID_Movimiento }}</strong></td>
+                            <td>{{ mov.Fecha }}</td>
+                            <td>
+                                <span class="badge 
+                                    {% if mov.Letra == 'E' %}bg-success
+                                    {% elif mov.Letra == 'S' %}bg-danger
+                                    {% else %}bg-warning{% endif %}">
+                                    {{ mov.Tipo_Movimiento_Descripcion }}
+                                </span>
+                            </td>
+                            <td>
+                                {{ mov.Bodega_Origen_Nombre }}
+                                {% if mov.Bodega_Destino_Nombre %}
+                                <i class="fas fa-arrow-right text-muted mx-1"></i>
+                                {{ mov.Bodega_Destino_Nombre }}
+                                {% endif %}
+                            </td>
+                            <td>
+                                <span class="badge bg-info">{{ mov.Cantidad_Productos }}</span>
+                            </td>
+                            <td>
+                                <strong>${{ "{:,.2f}".format(mov.Total_Costo or 0) }}</strong>
+                            </td>
+                            <td>{{ mov.Usuario_Creacion_Nombre }}</td>
+                            <td>
+                                <div class="btn-group btn-group-sm">
+                                    <a href="{{ url_for('admin_detalle_movimiento', id_movimiento=mov.ID_Movimiento) }}" 
+                                       class="btn btn-info" title="Ver Detalle">
+                                        <i class="fas fa-eye"></i> Ver Detalle
+                                    </a>
+                                    <a href="{{ url_for('admin_imprimir_movimiento', id_movimiento=mov.ID_Movimiento) }}" 
+                                       class="btn btn-secondary" title="Imprimir" target="_blank">
+                                        <i class="fas fa-print"></i>Imprimir
+                                    </a>
+                                    {% if mov.Estado == 1 %}
+                                    <button type="button" class="btn btn-danger" 
+                                            data-bs-toggle="modal" 
+                                            data-bs-target="#anularModal{{ mov.ID_Movimiento }}"
+                                            title="Anular">
+                                        <i class="fas fa-ban"></i>Anular
+                                    </button>
+                                    {% endif %}
+                                </div>
+
+                                <!-- Modal para anular -->
+                                <div class="modal fade" id="anularModal{{ mov.ID_Movimiento }}" tabindex="-1">
+                                    <div class="modal-dialog">
+                                        <div class="modal-content">
+                                            <div class="modal-header bg-danger text-white">
+                                                <h5 class="modal-title">
+                                                    <i class="fas fa-exclamation-triangle me-2"></i>
+                                                    Confirmar Anulación
+                                                </h5>
+                                                <button type="button" class="btn-close btn-close-white" 
+                                                        data-bs-dismiss="modal"></button>
+                                            </div>
+                                            <form method="POST" 
+                                                  action="{{ url_for('admin_anular_movimiento', id_movimiento=mov.ID_Movimiento) }}">
+                                                <div class="modal-body">
+                                                    <p>¿Está seguro que desea anular el movimiento 
+                                                        <strong>#{{ mov.ID_Movimiento }}</strong>?</p>
+                                                    <p class="text-danger">
+                                                        <i class="fas fa-exclamation-circle me-1"></i>
+                                                        Esta acción revertirá los cambios en el inventario.
+                                                    </p>
+                                                    <div class="mb-3">
+                                                        <label class="form-label">Motivo de anulación:</label>
+                                                        <textarea name="motivo" class="form-control" 
+                                                                  rows="3" required></textarea>
+                                                    </div>
+                                                </div>
+                                                <div class="modal-footer">
+                                                    <button type="button" class="btn btn-secondary" 
+                                                            data-bs-dismiss="modal">Cancelar</button>
+                                                    <button type="submit" class="btn btn-danger">
+                                                        <i class="fas fa-ban me-1"></i> Anular Movimiento
+                                                    </button>
+                                                </div>
+                                            </form>
+                                        </div>
+                                    </div>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Paginación -->
+            {% if total_pages > 1 %}
+            <nav aria-label="Page navigation" class="mt-4">
+                <ul class="pagination justify-content-center">
+                    <li class="page-item {% if page == 1 %}disabled{% endif %}">
+                        <a class="page-link" href="?page={{ page-1 }}{% if tipo_filtro != 'todos' %}&tipo={{ tipo_filtro }}{% endif %}{% if fecha_inicio %}&fecha_inicio={{ fecha_inicio }}{% endif %}{% if fecha_fin %}&fecha_fin={{ fecha_fin }}{% endif %}">
+                            <i class="fas fa-chevron-left"></i>
+                        </a>
+                    </li>
+                    
+                    {% for p in range(1, total_pages + 1) %}
+                    <li class="page-item {% if p == page %}active{% endif %}">
+                        <a class="page-link" href="?page={{ p }}{% if tipo_filtro != 'todos' %}&tipo={{ tipo_filtro }}{% endif %}{% if fecha_inicio %}&fecha_inicio={{ fecha_inicio }}{% endif %}{% if fecha_fin %}&fecha_fin={{ fecha_fin }}{% endif %}">
+                            {{ p }}
+                        </a>
+                    </li>
+                    {% endfor %}
+                    
+                    <li class="page-item {% if page == total_pages %}disabled{% endif %}">
+                        <a class="page-link" href="?page={{ page+1 }}{% if tipo_filtro != 'todos' %}&tipo={{ tipo_filtro }}{% endif %}{% if fecha_inicio %}&fecha_inicio={{ fecha_inicio }}{% endif %}{% if fecha_fin %}&fecha_fin={{ fecha_fin }}{% endif %}">
+                            <i class="fas fa-chevron-right"></i>
+                        </a>
+                    </li>
+                </ul>
+            </nav>
+            {% endif %}
+
+            {% else %}
+            <div class="text-center py-5">
+                <i class="fas fa-inbox fa-4x text-muted mb-3"></i>
+                <h4 class="text-muted">No hay movimientos registrados</h4>
+                <p class="text-muted">Comience registrando un nuevo movimiento</p>
+                <a href="{{ url_for('admin_nueva_entrada_form') }}" class="btn btn-primary">
+                    <i class="fas fa-plus-circle me-1"></i> Registrar Movimiento
+                </a>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- JavaScript para búsqueda en tiempo real -->
+<script>
+$(document).ready(function() {
+    // Fecha de hoy por defecto en filtros
+    if(!$('input[name="fecha_inicio"]').val()) {
+        $('input[name="fecha_inicio"]').val(new Date().toISOString().split('T')[0]);
+    }
+    if(!$('input[name="fecha_fin"]').val()) {
+        $('input[name="fecha_fin"]').val(new Date().toISOString().split('T')[0]);
+    }
+});
+</script>
+{% endblock %}

@@ -1,0 +1,320 @@
+{% extends "layout.html" %}
+
+{% block title %}Detalle de Movimiento #{{ movimiento.ID_Movimiento }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="h3 mb-0 text-gray-800">
+            <i class="fas fa-file-invoice me-2"></i>Movimiento #{{ movimiento.ID_Movimiento }}
+        </h1>
+        <div>
+            <a href="{{ url_for('admin_historial_movimientos') }}" class="btn btn-secondary">
+                <i class="fas fa-arrow-left me-1"></i> Volver
+            </a>
+            <a href="{{ url_for('admin_imprimir_movimiento', id_movimiento=movimiento.ID_Movimiento) }}" 
+               class="btn btn-primary ms-1" target="_blank">
+                <i class="fas fa-print me-1"></i> Imprimir
+            </a>
+            {% if movimiento.Estado == 1 %}
+            <button type="button" class="btn btn-danger ms-1" 
+                    data-bs-toggle="modal" data-bs-target="#anularModal">
+                <i class="fas fa-ban me-1"></i> Anular
+            </button>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Información General -->
+        <div class="col-lg-4 mb-4">
+            <div class="card shadow">
+                <div class="card-header py-3 
+                    {% if movimiento.Letra == 'E' %}bg-success text-white
+                    {% elif movimiento.Letra == 'S' %}bg-danger text-white
+                    {% else %}bg-warning text-dark{% endif %}">
+                    <h6 class="m-0 font-weight-bold">
+                        <i class="fas fa-info-circle me-1"></i>Información General
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <table class="table table-sm">
+                        <tr>
+                            <th class="text-muted">ID:</th>
+                            <td><strong>#{{ movimiento.ID_Movimiento }}</strong></td>
+                        </tr>
+                        <tr>
+                            <th class="text-muted">Fecha:</th>
+                            <td>{{ movimiento.Fecha }}</td>
+                        </tr>
+                        <tr>
+                            <th class="text-muted">Tipo:</th>
+                            <td>
+                                <span class="badge 
+                                    {% if movimiento.Letra == 'E' %}bg-success
+                                    {% elif movimiento.Letra == 'S' %}bg-danger
+                                    {% else %}bg-warning{% endif %}">
+                                    {{ movimiento.Tipo_Movimiento_Descripcion }}
+                                </span>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th class="text-muted">Bodega:</th>
+                            <td>
+                                {{ movimiento.Bodega_Origen_Nombre }}
+                                {% if movimiento.Bodega_Destino_Nombre %}
+                                <i class="fas fa-arrow-right text-muted mx-1"></i>
+                                {{ movimiento.Bodega_Destino_Nombre }}
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% if movimiento.Proveedor_Nombre %}
+                        <tr>
+                            <th class="text-muted">Proveedor:</th>
+                            <td>{{ movimiento.Proveedor_Nombre }}</td>
+                        </tr>
+                        {% endif %}
+                        {% if movimiento.Cliente_Nombre %}
+                        <tr>
+                            <th class="text-muted">Cliente:</th>
+                            <td>{{ movimiento.Cliente_Nombre }}</td>
+                        </tr>
+                        {% endif %}
+                        {% if movimiento.Tipo_Compra %}
+                        <tr>
+                            <th class="text-muted">Tipo Compra:</th>
+                            <td>
+                                <span class="badge 
+                                    {% if movimiento.Tipo_Compra == 'CONTADO' %}bg-success
+                                    {% else %}bg-warning text-dark{% endif %}">
+                                    {{ movimiento.Tipo_Compra }}
+                                </span>
+                            </td>
+                        </tr>
+                        {% endif %}
+                        {% if movimiento.N_Factura_Externa %}
+                        <tr>
+                            <th class="text-muted">Factura Externa:</th>
+                            <td>{{ movimiento.N_Factura_Externa }}</td>
+                        </tr>
+                        {% endif %}
+                        <tr>
+                            <th class="text-muted">Usuario:</th>
+                            <td>{{ movimiento.Usuario_Creacion_Nombre }}</td>
+                        </tr>
+                        <tr>
+                            <th class="text-muted">Estado:</th>
+                            <td>
+                                {% if movimiento.Estado == 1 %}
+                                <span class="badge bg-success">Activo</span>
+                                {% else %}
+                                <span class="badge bg-danger">Anulado</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+            
+            <!-- Totales -->
+            <div class="card shadow mt-4">
+                <div class="card-header py-3 bg-info text-white">
+                    <h6 class="m-0 font-weight-bold">
+                        <i class="fas fa-calculator me-1"></i>Totales
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <table class="table table-sm">
+                        <tr>
+                            <th class="text-muted">Productos:</th>
+                            <td class="text-end">{{ detalle|length }}</td>
+                        </tr>
+                        <tr>
+                            <th class="text-muted">Total Unidades:</th>
+                            <td class="text-end">{{ "%.3f"|format(total_cantidad) }}</td>
+                        </tr>
+                        <tr>
+                            <th class="text-muted">Total Costo:</th>
+                            <td class="text-end">
+                                <strong>${{ "%.2f"|format(total_costo) }}</strong>
+                            </td>
+                        </tr>
+                        {% if total_precio > 0 %}
+                        <tr>
+                            <th class="text-muted">Total Precio:</th>
+                            <td class="text-end">
+                                <strong class="text-success">${{ "%.2f"|format(total_precio) }}</strong>
+                            </td>
+                        </tr>
+                        {% endif %}
+                    </table>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Detalle de Productos -->
+        <div class="col-lg-8">
+            <div class="card shadow">
+                <div class="card-header py-3 d-flex justify-content-between align-items-center">
+                    <h6 class="m-0 font-weight-bold text-primary">
+                        <i class="fas fa-boxes me-1"></i>Productos
+                        <span class="badge bg-primary ms-2">{{ detalle|length }}</span>
+                    </h6>
+                    <div>
+                        <span class="text-muted">
+                            {% if movimiento.Letra == 'E' %}
+                            <i class="fas fa-sign-in-alt text-success me-1"></i>Entrada
+                            {% elif movimiento.Letra == 'S' %}
+                            <i class="fas fa-sign-out-alt text-danger me-1"></i>Salida
+                            {% else %}
+                            <i class="fas fa-exchange-alt text-warning me-1"></i>Transferencia
+                            {% endif %}
+                        </span>
+                    </div>
+                </div>
+                <div class="card-body">
+                    {% if detalle %}
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Código</th>
+                                    <th>Producto</th>
+                                    <th>Cantidad</th>
+                                    <th>Costo Unitario</th>
+                                    {% if movimiento.Letra == 'S' %}
+                                    <th>Precio Unitario</th>
+                                    {% endif %}
+                                    <th>Subtotal</th>
+                                    {% if detalle[0].Lote %}
+                                    <th>Lote</th>
+                                    {% endif %}
+                                    <th>Stock Actual</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for item in detalle %}
+                                <tr>
+                                    <td>
+                                        <small class="text-muted">{{ item.COD_Producto or 'N/A' }}</small>
+                                    </td>
+                                    <td>
+                                        <strong>{{ item.Producto_Descripcion }}</strong>
+                                        <br>
+                                        <small class="text-muted">{{ item.Unidad_Abreviatura or item.Unidad_Medida_Descripcion }}</small>
+                                    </td>
+                                    <td>{{ "%.3f"|format(item.Cantidad) }}</td>
+                                    <td>${{ "%.2f"|format(item.Costo_Unitario) }}</td>
+                                    {% if movimiento.Letra == 'S' %}
+                                    <td>${{ "%.2f"|format(item.Precio_Unitario) }}</td>
+                                    {% endif %}
+                                    <td>
+                                        <strong>${{ "%.2f"|format(item.Subtotal) }}</strong>
+                                    </td>
+                                    {% if item.Lote %}
+                                    <td>
+                                        <span class="badge bg-info">{{ item.Lote }}</span>
+                                        {% if item.Fecha_Vencimiento %}
+                                        <br>
+                                        <small class="text-muted">{{ item.Fecha_Vencimiento }}</small>
+                                        {% endif %}
+                                    </td>
+                                    {% endif %}
+                                    <td>
+                                        <span class="badge 
+                                            {% if item.Stock_Actual and item.Stock_Actual > 0 %}bg-success
+                                            {% else %}bg-danger{% endif %}">
+                                            {{ item.Stock_Actual or 0 }}
+                                        </span>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                            <tfoot class="table-secondary">
+                                <tr>
+                                    <td colspan="{% if movimiento.Letra == 'S' %}5{% else %}4{% endif %}" 
+                                        class="text-end"><strong>Total:</strong></td>
+                                    <td><strong>${{ "%.2f"|format(total_costo) }}</strong></td>
+                                    {% if detalle[0].Lote %}<td></td>{% endif %}
+                                    <td></td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="text-center py-5">
+                        <i class="fas fa-box-open fa-3x text-muted mb-3"></i>
+                        <h5 class="text-muted">No hay productos en este movimiento</h5>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <!-- Observaciones -->
+            {% if movimiento.Observacion %}
+            <div class="card shadow mt-4">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">
+                        <i class="fas fa-sticky-note me-1"></i>Observaciones
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <p class="mb-0">{{ movimiento.Observacion }}</p>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Modal para anular -->
+{% if movimiento.Estado == 1 %}
+<div class="modal fade" id="anularModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    Confirmar Anulación
+                </h5>
+                <button type="button" class="btn-close btn-close-white" 
+                        data-bs-dismiss="modal"></button>
+            </div>
+            <form method="POST" 
+                  action="{{ url_for('admin_anular_movimiento', id_movimiento=movimiento.ID_Movimiento) }}">
+                <div class="modal-body">
+                    <p>¿Está seguro que desea anular el movimiento 
+                        <strong>#{{ movimiento.ID_Movimiento }}</strong>?</p>
+                    <p class="text-danger">
+                        <i class="fas fa-exclamation-circle me-1"></i>
+                        Esta acción revertirá los cambios en el inventario y no se puede deshacer.
+                    </p>
+                    <div class="mb-3">
+                        <label class="form-label">Motivo de anulación:</label>
+                        <textarea name="motivo" class="form-control" rows="3" required></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" 
+                            data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-danger">
+                        <i class="fas fa-ban me-1"></i> Anular Movimiento
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- JavaScript -->
+<script>
+$(document).ready(function() {
+    // Si hay parámetros de éxito en la URL
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.has('success')) {
+        toastr.success('Movimiento procesado exitosamente');
+    }
+});
+</script>
+{% endblock %}
