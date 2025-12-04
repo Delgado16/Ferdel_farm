@@ -325,7 +325,6 @@
 
         .filter-section {
             padding: 0.75rem;
-        }
     }
 
     @media (max-width: 576px) {
@@ -407,7 +406,7 @@
                             <div class="invalid-feedback">Por favor seleccione el tipo de venta</div>
                         </div>
 
-                        <!-- Campo bodega OCULTO con valor fijo -->
+                        <!-- Campo bodega OCULTO con valor fijo (para referencia, pero no se envía al backend) -->
                         <input type="hidden" id="id_bodega" name="id_bodega" value="{{ bodega_principal.ID_Bodega if bodega_principal else 1 }}">
 
                         <!-- Filtro por Categoría de Producto -->
@@ -521,7 +520,7 @@
                     <button type="button" class="btn btn-secondary btn-responsive" onclick="window.history.back()">
                         <i class="fas fa-times me-1"></i> Cancelar
                     </button>
-                    <button type="submit" class="btn btn-primary btn-responsive">
+                    <button type="submit" class="btn btn-primary btn-responsive" id="btn-submit">
                         <i class="fas fa-save me-1"></i> Guardar Venta
                     </button>
                 </div>
@@ -695,7 +694,7 @@ function agregarProducto() {
     const productoHTML =`
         <tr class="producto-item" id="producto-${contadorProductos}">
             <td>
-                <select class="form-select producto-select" name="productos[]" required onchange="actualizarInfoProducto(${contadorProductos})">
+                <select class="form-select producto-select" name="producto_id[]" required onchange="actualizarInfoProducto(${contadorProductos})">
                     <option value="" disabled selected>Seleccionar producto...</option>
                     {% for producto in productos %}
                     <option value="{{ producto.ID_Producto }}" 
@@ -711,7 +710,7 @@ function agregarProducto() {
                 <small class="text-muted stock-info" id="stock-info-${contadorProductos}"></small>
             </td>
             <td>
-                <input type="number" class="form-control cantidad" name="cantidades[]" min="0.01" step="0.01" value="1" required 
+                <input type="number" class="form-control cantidad" name="cantidad[]" min="0.01" step="0.01" value="1" required 
                        onchange="calcularSubtotal(${contadorProductos})" 
                        oninput="validarStockEnTiempoReal(${contadorProductos})">
                 <div class="invalid-feedback">Ingrese una cantidad válida</div>
@@ -719,7 +718,7 @@ function agregarProducto() {
             <td>
                 <div class="input-group">
                     <span class="input-group-text">C$</span>
-                    <input type="number" class="form-control precio" name="precios_unitarios[]" step="0.01" min="0" value="0" required onchange="calcularSubtotal(${contadorProductos})">
+                    <input type="number" class="form-control precio" name="precio[]" step="0.01" min="0" value="0" required onchange="calcularSubtotal(${contadorProductos})">
                 </div>
                 <div class="invalid-feedback">Ingrese un precio válido</div>
             </td>
@@ -980,7 +979,6 @@ function validarVentaBasica() {
     
     const camposRequeridos = [
         { id: 'tipo_venta', nombre: 'Tipo de venta' }
-        // id_bodega ya no es requerido porque tiene valor por defecto
     ];
     
     camposRequeridos.forEach(campo => {
@@ -1066,23 +1064,26 @@ async function validarStockVenta() {
 }
 
 function procesarVenta() {
+    // Debug: Mostrar todos los datos del formulario
+    console.log("=== DATOS DEL FORMULARIO ===");
+    const form = document.getElementById('formVenta');
+    const formDataDebug = new FormData(form);
+    for (let [key, value] of formDataDebug.entries()) {
+        console.log(`${key}: ${value}`);
+    }
+    console.log("============================");
+
     const formData = new FormData();
 
     // Agregar campos EXACTAMENTE como los espera el backend
     formData.append('id_cliente', document.getElementById('id_cliente').value);
     formData.append('tipo_venta', document.getElementById('tipo_venta').value);
-    formData.append('id_bodega', document.getElementById('id_bodega').value);
     formData.append('observacion', document.getElementById('observacion').value);
     
-    // Si es crédito, agregar fecha de vencimiento
-    if (document.getElementById('tipo_venta').value === 'credito') {
-        const fechaVencimiento = document.getElementById('fecha_vencimiento').value;
-        if (fechaVencimiento) {
-            formData.append('fecha_vencimiento', fechaVencimiento);
-        }
-    }
+    // NOTA: El backend NO espera id_bodega, lo obtiene automáticamente
+    // NOTA: fecha_vencimiento no se usa, se genera automáticamente
     
-    // Campos de productos - usar los nombres exactos que espera el backend
+    // Campos de productos - CORREGIR los nombres exactos que espera el backend
     const productoElements = document.querySelectorAll('.producto-item');
     let productosValidos = 0;
     
@@ -1098,6 +1099,8 @@ function procesarVenta() {
             formData.append('precio[]', parseFloat(precio.value).toFixed(2));
             
             productosValidos++;
+            
+            console.log(`Producto ${productosValidos}: ID=${select.value}, Cantidad=${cantidad.value}, Precio=${precio.value}`);
         }
     });
 
@@ -1123,6 +1126,12 @@ function procesarVenta() {
     submitBtn.disabled = true;
 
     console.log('📨 Enviando datos de venta al servidor...');
+    console.log('Datos a enviar:');
+    
+    // Mostrar qué datos se están enviando
+    for (let pair of formData.entries()) {
+        console.log(pair[0] + ': ' + pair[1]);
+    }
 
     // Enviar datos al endpoint CORRECTO
     fetch("{{ url_for('admin_crear_venta') }}", {
@@ -1165,6 +1174,8 @@ function procesarVenta() {
                 document.getElementById('productos-container').innerHTML = '';
                 agregarProducto();
                 actualizarTotales();
+                // Ocultar fecha de vencimiento si estaba visible
+                document.getElementById('fecha_vencimiento_group').style.display = 'none';
             }, 2000);
             
         } else {
@@ -1185,17 +1196,25 @@ function procesarVenta() {
 document.getElementById('formVenta').addEventListener('submit', async function(e) {
     e.preventDefault();
     
+    console.log('🔄 Iniciando procesamiento del formulario...');
+    
     // Validación síncrona primero
     if (!validarVentaBasica()) {
+        console.log('❌ Validación básica fallida');
         return;
     }
 
+    console.log('✅ Validación básica exitosa, verificando stock...');
+    
     // Luego validación asíncrona de stock EN TIEMPO REAL
     const esStockValido = await validarStockVenta();
     if (!esStockValido) {
+        console.log('❌ Validación de stock fallida');
         return;
     }
 
+    console.log('✅ Validación de stock exitosa, procesando venta...');
+    
     // Si todo está bien, procesar la venta
     procesarVenta();
 });

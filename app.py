@@ -3852,7 +3852,7 @@ def admin_crear_venta():
                     VALUES (%s, %s, CURDATE(), %s, %s, %s, %s, 1, %s)
                 """, (
                     id_tipo_movimiento,
-                    id_bodega_principal,  # Usar bodega principal
+                    id_bodega_principal,
                     'CREDITO' if tipo_venta == 'credito' else 'CONTADO',
                     observacion or 'Venta realizada',
                     id_empresa,
@@ -3860,7 +3860,52 @@ def admin_crear_venta():
                     id_factura
                 ))
                 
-                # 4. Si es crédito, crear cuenta por cobrar
+                # Obtener el ID del movimiento de inventario
+                cursor.execute("SELECT LAST_INSERT_ID() as id_movimiento")
+                id_movimiento = cursor.fetchone()['id_movimiento']
+                print(f"📋 Movimiento de inventario creado: #{id_movimiento}")
+                
+                # 4. Insertar detalles del movimiento de inventario
+                for i in range(len(productos_ids)):
+                    id_producto = productos_ids[i]
+                    cantidad = float(cantidades[i]) if cantidades[i] else 0
+                    precio = float(precios[i]) if precios[i] else 0
+                    
+                    if cantidad <= 0 or precio <= 0:
+                        continue
+                    
+                    # Obtener información adicional del producto
+                    cursor.execute("""
+                        SELECT COD_Producto, Descripcion 
+                        FROM productos 
+                        WHERE ID_Producto = %s
+                    """, (id_producto,))
+                    producto_info = cursor.fetchone()
+                    
+                    subtotal = cantidad * precio
+                    
+                    # Insertar detalle del movimiento de inventario según la estructura real
+                    cursor.execute("""
+                        INSERT INTO detalle_movimientos_inventario (
+                            ID_Movimiento, ID_Producto, Cantidad, 
+                            Costo_Unitario, Precio_Unitario, Subtotal,
+                            Lote, Fecha_Vencimiento, ID_Usuario_Creacion
+                        )
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    """, (
+                        id_movimiento,
+                        id_producto,
+                        cantidad,
+                        precio,  # Costo_Unitario (en ventas el costo es el precio de venta)
+                        precio,  # Precio_Unitario
+                        subtotal,
+                        None,  # Lote (dejar NULL si no se manejan lotes)
+                        None,  # Fecha_Vencimiento (dejar NULL)
+                        id_usuario
+                    ))
+                    print(f"  Detalle movimiento creado para producto: {producto_info['COD_Producto']}")
+                
+                # 5. Si es crédito, crear cuenta por cobrar
                 if tipo_venta == 'credito':
                     cursor.execute("""
                         INSERT INTO Cuentas_Por_Cobrar (
@@ -5047,7 +5092,7 @@ def admin_historial_movimientos():
         fecha_fin = request.args.get('fecha_fin', '')
         
         with get_db_cursor(True) as cursor:
-            # Construir consulta base
+            # Construir consulta base CORREGIDA
             query = """
                 SELECT mi.*, 
                        cm.Descripcion as Tipo_Movimiento_Descripcion,
@@ -5064,7 +5109,8 @@ def admin_historial_movimientos():
                 LEFT JOIN catalogo_movimientos cm ON mi.ID_TipoMovimiento = cm.ID_TipoMovimiento
                 LEFT JOIN bodegas bo ON mi.ID_Bodega = bo.ID_Bodega
                 LEFT JOIN bodegas bd ON mi.ID_Bodega_Destino = bd.ID_Bodega
-                LEFT JOIN proveedores p ON mi.ID_Proveedor = p.ID_Proveedor
+                LEFT JOIN proveedores p ON mi.ID_Proveedor = p.ID_Proveedor 
+                    AND p.ID_Empresa = mi.ID_Empresa  -- IMPORTANTE: filtrar por misma empresa
                 LEFT JOIN usuarios u ON mi.ID_Usuario_Creacion = u.ID_Usuario
                 WHERE mi.Estado = 1
             """
