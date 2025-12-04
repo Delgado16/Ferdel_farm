@@ -21,7 +21,6 @@ import os
 import secrets
 from dotenv import load_dotenv
 import contextlib
-import calendar
 
 load_dotenv()
 app = Flask(__name__)
@@ -5176,15 +5175,12 @@ def admin_nueva_entrada_form():
                 ORDER BY p.Descripcion
             """)
             productos = cursor.fetchall()
-
-            fecha_actual = datetime.now().strftime('%Y-%m-%d')
             
             return render_template('admin/movimientos/nueva_entrada.html',
                                  tipos_movimiento=tipos_movimiento,
                                  proveedores=proveedores,
                                  bodegas=bodegas,
-                                 productos=productos,
-                                 fecha_actual=fecha_actual)
+                                 productos=productos)
     except Exception as e:
         flash(f"Error al cargar formulario: {str(e)}", 'error')
         return redirect(url_for('admin_historial_movimientos'))
@@ -5314,10 +5310,10 @@ def admin_nueva_salida_form():
             """)
             clientes = cursor.fetchall()
             
-            # Obtener facturas pendientes - CORREGIDO
+            # Obtener facturas pendientes
             cursor.execute("""
                 SELECT f.ID_Factura, f.Fecha, c.Nombre as Cliente,
-                       (SELECT COUNT(*) FROM detalle_facturacion 
+                       (SELECT COUNT(*) FROM detalle_factura 
                         WHERE ID_Factura = f.ID_Factura) as Items
                 FROM facturacion f
                 JOIN clientes c ON f.IDCliente = c.ID_Cliente
@@ -5327,15 +5323,12 @@ def admin_nueva_salida_form():
                 LIMIT 50
             """, (session.get('id_empresa', 1),))
             facturas = cursor.fetchall()
-
-            fecha_actual = datetime.now().strftime('%Y-%m-%d')
             
             return render_template('admin/movimientos/nueva_salida.html',
                                  tipos_movimiento=tipos_movimiento,
                                  bodegas=bodegas,
                                  clientes=clientes,
-                                 facturas=facturas,
-                                 fecha_actual=fecha_actual)
+                                 facturas=facturas)
     except Exception as e:
         flash(f"Error al cargar formulario: {str(e)}", 'error')
         return redirect(url_for('admin_historial_movimientos'))
@@ -5350,8 +5343,6 @@ def admin_procesar_salida():
         fecha = request.form.get('fecha')
         id_tipo_movimiento = int(request.form.get('id_tipo_movimiento'))
         id_bodega = int(request.form.get('id_bodega'))
-        id_cliente = request.form.get('id_cliente')
-        id_factura = request.form.get('id_factura_venta')
         
         if not all([fecha, id_tipo_movimiento, id_bodega]):
             flash("Fecha, tipo de movimiento y bodega son requeridos", 'error')
@@ -5375,7 +5366,7 @@ def admin_procesar_salida():
             
             for prod in productos:
                 cursor.execute("""
-                    SELECT Existencias, ID_Producto
+                    SELECT Existencias 
                     FROM inventario_bodega 
                     WHERE ID_Bodega = %s AND ID_Producto = %s
                 """, (id_bodega, prod['id_producto']))
@@ -5395,8 +5386,7 @@ def admin_procesar_salida():
                     productos_insuficientes.append({
                         'producto': producto_nombre,
                         'solicitado': float(cantidad_necesaria),
-                        'disponible': float(stock_disponible),
-                        'id_producto': prod['id_producto']
+                        'disponible': float(stock_disponible)
                     })
             
             if productos_insuficientes:
@@ -5406,27 +5396,16 @@ def admin_procesar_salida():
                 flash(mensaje_error, 'error')
                 return redirect(url_for('admin_nueva_salida_form'))
             
-            # Si es una venta, validar que exista la factura si se especificó
-            if id_tipo_movimiento == TIPO_VENTA and id_factura:
-                cursor.execute("""
-                    SELECT ID_Factura FROM facturacion 
-                    WHERE ID_Factura = %s AND ID_Empresa = %s
-                """, (id_factura, session.get('id_empresa', 1)))
-                if not cursor.fetchone():
-                    flash("La factura especificada no existe", 'error')
-                    return redirect(url_for('admin_nueva_salida_form'))
-            
             # Insertar movimiento de salida
             cursor.execute("""
                 INSERT INTO movimientos_inventario 
                 (ID_TipoMovimiento, Fecha, ID_Bodega, ID_Factura_Venta,
-                 ID_Cliente, Observacion, ID_Empresa, ID_Usuario_Creacion)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                 Observacion, ID_Empresa, ID_Usuario_Creacion)
+                VALUES (%s, %s, %s, %s, %s, %s, %s)
             """, (
                 id_tipo_movimiento, fecha, id_bodega,
-                id_factura or None,
-                id_cliente or None,
-                request.form.get('observacion', ''),
+                request.form.get('id_factura_venta') or None,
+                request.form.get('observacion'),
                 session.get('id_empresa', 1),
                 session.get('user_id')
             ))
@@ -5437,7 +5416,6 @@ def admin_procesar_salida():
             for prod in productos:
                 cantidad = Decimal(str(prod['cantidad']))
                 precio_unitario = Decimal(str(prod.get('precio_unitario', 0)))
-                lote = prod.get('lote', '')
                 
                 # Obtener costo promedio (último costo de entrada)
                 cursor.execute("""
@@ -5461,11 +5439,11 @@ def admin_procesar_salida():
                 cursor.execute("""
                     INSERT INTO detalle_movimientos_inventario
                     (ID_Movimiento, ID_Producto, Cantidad, Costo_Unitario,
-                     Precio_Unitario, Lote, Subtotal, ID_Usuario_Creacion)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                     Precio_Unitario, Subtotal, ID_Usuario_Creacion)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s)
                 """, (
                     id_movimiento, prod['id_producto'], cantidad,
-                    costo_unitario, precio_unitario, lote, subtotal,
+                    costo_unitario, precio_unitario, subtotal,
                     session.get('user_id')
                 ))
                 
@@ -5483,52 +5461,12 @@ def admin_procesar_salida():
                     WHERE ID_Producto = %s
                 """, (cantidad, prod['id_producto']))
             
-            # Si es una venta y está asociada a una factura, actualizar factura
-            if id_tipo_movimiento == TIPO_VENTA and id_factura:
-                cursor.execute("""
-                    UPDATE facturacion 
-                    SET Estado_Inventario = 'PROCESADO'
-                    WHERE ID_Factura = %s
-                """, (id_factura,))
-            
             flash(f"✅ Salida registrada exitosamente! ID: {id_movimiento}", 'success')
             return redirect(url_for('admin_detalle_movimiento', id_movimiento=id_movimiento))
             
-    except ValueError as ve:
-        flash(f"❌ Error de formato: {str(ve)}", 'error')
-        return redirect(url_for('admin_nueva_salida_form'))
     except Exception as e:
         flash(f"❌ Error al procesar salida: {str(e)}", 'error')
         return redirect(url_for('admin_nueva_salida_form'))
-    
-@app.route('/api/facturas/<int:id_factura>/detalle')
-@admin_required
-def api_detalle_factura(id_factura):
-    """Obtener detalle de una factura específica"""
-    try:
-        with get_db_cursor(True) as cursor:
-            cursor.execute("""
-                SELECT df.ID_Detalle, df.ID_Producto, p.Descripcion,
-                       df.Cantidad, df.Costo, df.Total,
-                       p.COD_Producto, p.Existencias as Stock_General
-                FROM detalle_facturacion df
-                JOIN productos p ON df.ID_Producto = p.ID_Producto
-                WHERE df.ID_Factura = %s
-            """, (id_factura,))
-            
-            detalle = cursor.fetchall()
-            
-            return jsonify({
-                'success': True,
-                'factura_id': id_factura,
-                'detalle': detalle,
-                'total_items': len(detalle)
-            })
-    except Exception as e:
-        return jsonify({
-            'success': False,
-            'error': str(e)
-        }), 500
 
 # 6. NUEVA TRANSFERENCIA (Traslado)
 @app.route('/admin/movimientos/transferencia/nueva')
@@ -5851,18 +5789,13 @@ def admin_reportes_movimientos():
                 LIMIT 10
             """)
             productos_stock_bajo = cursor.fetchall()
-
-            fecha_actual = datetime.now().strftime('%Y-%m-%d')
-            primer_dia_mes = datetime.now().replace(day=1).strftime('%Y-%m-%d')
             
             return render_template('admin/movimientos/reportes.html',
                                  tipos_movimiento=tipos_movimiento,
                                  bodegas=bodegas,
                                  estadisticas=estadisticas,
                                  ultimos_movimientos=ultimos_movimientos,
-                                 productos_stock_bajo=productos_stock_bajo,
-                                 fecha_actual=fecha_actual,
-                                 primer_dia_mes=primer_dia_mes)
+                                 productos_stock_bajo=productos_stock_bajo)
             
     except Exception as e:
         flash(f"Error al cargar reportes: {str(e)}", 'error')

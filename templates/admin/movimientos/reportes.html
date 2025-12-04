@@ -113,12 +113,12 @@
                             <div class="col-md-6">
                                 <label class="form-label">Fecha Desde</label>
                                 <input type="date" name="fecha_inicio" class="form-control" 
-                                       value="{{ fecha_actual[:8] }}01">
+                                       value="{{ '' | date('Y-m-01') }}">
                             </div>
                             <div class="col-md-6">
                                 <label class="form-label">Fecha Hasta</label>
                                 <input type="date" name="fecha_fin" class="form-control" 
-                                       value="{{ fecha_actual }}">
+                                       value="{{ '' | date('Y-m-d') }}">
                             </div>
                             <div class="col-md-6">
                                 <label class="form-label">Tipo de Movimiento</label>
@@ -297,28 +297,13 @@ $(document).ready(function() {
     primerDiaMes.setDate(1);
     const primerDiaFormato = primerDiaMes.toISOString().split('T')[0];
     
-    // Verificar si los campos están vacíos y establecer valores por defecto
-    const fechaInicioInput = $('input[name="fecha_inicio"]');
-    const fechaFinInput = $('input[name="fecha_fin"]');
-    
-    if (!fechaInicioInput.val()) {
-        fechaInicioInput.val(primerDiaFormato);
+    // Si no hay fecha, establecer rangos por defecto
+    if (!$('input[name="fecha_inicio"]').val()) {
+        $('input[name="fecha_inicio"]').val(primerDiaFormato);
     }
-    if (!fechaFinInput.val()) {
-        fechaFinInput.val(hoy);
+    if (!$('input[name="fecha_fin"]').val()) {
+        $('input[name="fecha_fin"]').val(hoy);
     }
-    
-    // Validar que fecha de inicio no sea mayor que fecha fin
-    $('form').submit(function(e) {
-        const fechaInicio = new Date(fechaInicioInput.val());
-        const fechaFin = new Date(fechaFinInput.val());
-        
-        if (fechaInicio > fechaFin) {
-            e.preventDefault();
-            alert('La fecha de inicio no puede ser mayor que la fecha final');
-            return false;
-        }
-    });
 });
 </script>
 {% endblock %}

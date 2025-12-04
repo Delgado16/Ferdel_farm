@@ -29,10 +29,10 @@
                         <div class="row g-3">
                             <div class="col-md-6">
                                 <label class="form-label required">Fecha</label>
-                                <input type="date" name="fecha" class="form-control" value="{{ fecha_actual }}"
-                                    required>
+                                <input type="date" name="fecha" class="form-control" 
+                                       value="{{ '' | date('Y-m-d') }}" required>
                             </div>
-
+                            
                             <div class="col-md-6">
                                 <label class="form-label required">Tipo de Movimiento</label>
                                 <select name="id_tipo_movimiento" class="form-select" required>
@@ -44,7 +44,7 @@
                                     {% endfor %}
                                 </select>
                             </div>
-
+                            
                             <div class="col-md-6">
                                 <label class="form-label">Proveedor</label>
                                 <select name="id_proveedor" class="form-select">
@@ -56,7 +56,7 @@
                                     {% endfor %}
                                 </select>
                             </div>
-
+                            
                             <div class="col-md-6">
                                 <label class="form-label required">Bodega</label>
                                 <select name="id_bodega" class="form-select" required>
@@ -68,7 +68,7 @@
                                     {% endfor %}
                                 </select>
                             </div>
-
+                            
                             <div class="col-md-6">
                                 <label class="form-label">Tipo de Compra</label>
                                 <select name="tipo_compra" class="form-select">
@@ -77,29 +77,30 @@
                                     <option value="CREDITO">Crédito</option>
                                 </select>
                             </div>
-
+                            
                             <div class="col-md-6">
                                 <label class="form-label">N° Factura Externa</label>
                                 <input type="text" name="n_factura_externa" class="form-control">
                             </div>
-
+                            
                             <div class="col-12">
                                 <label class="form-label">Observaciones</label>
                                 <textarea name="observacion" class="form-control" rows="3"></textarea>
                             </div>
                         </div>
-
+                        
                         <!-- Productos -->
                         <div class="mt-4">
                             <div class="d-flex justify-content-between align-items-center mb-3">
                                 <h5 class="mb-0">
                                     <i class="fas fa-boxes me-2"></i>Productos
                                 </h5>
-                                <button type="button" class="btn btn-primary btn-sm" onclick="agregarProducto()">
+                                <button type="button" class="btn btn-primary btn-sm" 
+                                        onclick="agregarProducto()">
                                     <i class="fas fa-plus me-1"></i> Agregar Producto
                                 </button>
                             </div>
-
+                            
                             <div id="productos-container" class="table-responsive">
                                 <table class="table table-sm">
                                     <thead>
@@ -126,13 +127,14 @@
                                     </tfoot>
                                 </table>
                             </div>
-
+                            
                             <input type="hidden" name="productos" id="productos-json" required>
                         </div>
-
+                        
                         <div class="mt-4 pt-3 border-top">
                             <div class="d-flex justify-content-end">
-                                <button type="button" class="btn btn-secondary me-2" onclick="window.history.back()">
+                                <button type="button" class="btn btn-secondary me-2" 
+                                        onclick="window.history.back()">
                                     Cancelar
                                 </button>
                                 <button type="submit" class="btn btn-success">
@@ -144,7 +146,7 @@
                 </div>
             </div>
         </div>
-
+        
         <div class="col-lg-4">
             <!-- Lista de Productos Disponibles -->
             <div class="card shadow mb-4">
@@ -155,17 +157,18 @@
                 </div>
                 <div class="card-body">
                     <div class="input-group mb-3">
-                        <input type="text" id="buscar-producto" class="form-control"
-                            placeholder="Código o nombre del producto...">
-                        <button class="btn btn-outline-primary" type="button" onclick="buscarProductos()">
+                        <input type="text" id="buscar-producto" class="form-control" 
+                               placeholder="Código o nombre del producto...">
+                        <button class="btn btn-outline-primary" type="button" 
+                                onclick="buscarProductos()">
                             <i class="fas fa-search"></i>
                         </button>
                     </div>
-
+                    
                     <div id="resultados-productos" class="list-group" style="max-height: 400px; overflow-y: auto;">
                         {% for producto in productos %}
-                        <a href="#" class="list-group-item list-group-item-action"
-                            onclick="seleccionarProducto({{ producto|tojson }})">
+                        <a href="#" class="list-group-item list-group-item-action" 
+                           onclick="seleccionarProducto({{ producto|tojson }})">
                             <div class="d-flex w-100 justify-content-between">
                                 <h6 class="mb-1">{{ producto.Descripcion }}</h6>
                                 <small class="text-muted">Stock: {{ producto.Existencias_Actuales or 0 }}</small>
@@ -179,7 +182,7 @@
                     </div>
                 </div>
             </div>
-
+            
             <!-- Resumen -->
             <div class="card shadow">
                 <div class="card-header py-3 bg-info text-white">
@@ -210,17 +213,17 @@
 
 <!-- JavaScript -->
 <script>
-    let productos = [];
-    let contadorProductos = 0;
+let productos = [];
+let contadorProductos = 0;
 
-    // Agregar producto al formulario
-    function agregarProducto(producto = null) {
-        const tbody = document.getElementById('productos-tbody');
-        const index = contadorProductos++;
-
-        const fila = document.createElement('tr');
-        fila.id = `producto-${index}`;
-        fila.innerHTML = `
+// Agregar producto al formulario
+function agregarProducto(producto = null) {
+    const tbody = document.getElementById('productos-tbody');
+    const index = contadorProductos++;
+    
+    const fila = document.createElement('tr');
+    fila.id = `producto-${index}`;
+    fila.innerHTML = `
         <td>
             <input type="hidden" name="productos[${index}][id_producto]" 
                    value="${producto ? producto.ID_Producto : ''}" class="id-producto">
@@ -265,108 +268,108 @@
             </button>
         </td>
     `;
-
-        tbody.appendChild(fila);
-        if (producto) {
-            calcularSubtotal(index);
-        }
-        actualizarResumen();
+    
+    tbody.appendChild(fila);
+    if (producto) {
+        calcularSubtotal(index);
     }
+    actualizarResumen();
+}
 
-    // Calcular subtotal
-    function calcularSubtotal(index) {
-        const fila = document.getElementById(`producto-${index}`);
+// Calcular subtotal
+function calcularSubtotal(index) {
+    const fila = document.getElementById(`producto-${index}`);
+    const cantidad = parseFloat(fila.querySelector('.cantidad').value) || 0;
+    const costo = parseFloat(fila.querySelector('.costo').value) || 0;
+    const subtotal = cantidad * costo;
+    
+    fila.querySelector('.subtotal').value = `$${subtotal.toFixed(2)}`;
+    actualizarResumen();
+}
+
+// Eliminar producto
+function eliminarProducto(index) {
+    document.getElementById(`producto-${index}`).remove();
+    actualizarResumen();
+}
+
+// Actualizar resumen
+function actualizarResumen() {
+    let total = 0;
+    let unidades = 0;
+    let cantidadProductos = 0;
+    
+    document.querySelectorAll('#productos-tbody tr').forEach(fila => {
         const cantidad = parseFloat(fila.querySelector('.cantidad').value) || 0;
         const costo = parseFloat(fila.querySelector('.costo').value) || 0;
-        const subtotal = cantidad * costo;
+        
+        unidades += cantidad;
+        total += cantidad * costo;
+        cantidadProductos++;
+    });
+    
+    document.getElementById('resumen-cantidad').textContent = cantidadProductos;
+    document.getElementById('resumen-unidades').textContent = unidades.toFixed(3);
+    document.getElementById('resumen-total').textContent = `$${total.toFixed(2)}`;
+    document.getElementById('total-entrada').textContent = `$${total.toFixed(2)}`;
+    
+    // Actualizar JSON oculto
+    const productosData = [];
+    document.querySelectorAll('#productos-tbody tr').forEach(fila => {
+        const producto = {
+            id_producto: fila.querySelector('.id-producto').value,
+            cantidad: fila.querySelector('.cantidad').value,
+            costo_unitario: fila.querySelector('.costo').value,
+            precio_unitario: fila.querySelector('.precio').value || '0.00',
+            lote: fila.querySelector('.lote').value || '',
+            fecha_vencimiento: fila.querySelector('.vencimiento').value || ''
+        };
+        productosData.push(producto);
+    });
+    
+    document.getElementById('productos-json').value = JSON.stringify(productosData);
+}
 
-        fila.querySelector('.subtotal').value = `$${subtotal.toFixed(2)}`;
-        actualizarResumen();
+// Buscar productos
+function buscarProductos() {
+    const termino = document.getElementById('buscar-producto').value;
+    const bodega = document.querySelector('select[name="id_bodega"]').value;
+    
+    if (!termino.trim()) {
+        alert('Ingrese un término de búsqueda');
+        return;
     }
-
-    // Eliminar producto
-    function eliminarProducto(index) {
-        document.getElementById(`producto-${index}`).remove();
-        actualizarResumen();
-    }
-
-    // Actualizar resumen
-    function actualizarResumen() {
-        let total = 0;
-        let unidades = 0;
-        let cantidadProductos = 0;
-
-        document.querySelectorAll('#productos-tbody tr').forEach(fila => {
-            const cantidad = parseFloat(fila.querySelector('.cantidad').value) || 0;
-            const costo = parseFloat(fila.querySelector('.costo').value) || 0;
-
-            unidades += cantidad;
-            total += cantidad * costo;
-            cantidadProductos++;
-        });
-
-        document.getElementById('resumen-cantidad').textContent = cantidadProductos;
-        document.getElementById('resumen-unidades').textContent = unidades.toFixed(3);
-        document.getElementById('resumen-total').textContent = `$${total.toFixed(2)}`;
-        document.getElementById('total-entrada').textContent = `$${total.toFixed(2)}`;
-
-        // Actualizar JSON oculto
-        const productosData = [];
-        document.querySelectorAll('#productos-tbody tr').forEach(fila => {
-            const producto = {
-                id_producto: fila.querySelector('.id-producto').value,
-                cantidad: fila.querySelector('.cantidad').value,
-                costo_unitario: fila.querySelector('.costo').value,
-                precio_unitario: fila.querySelector('.precio').value || '0.00',
-                lote: fila.querySelector('.lote').value || '',
-                fecha_vencimiento: fila.querySelector('.vencimiento').value || ''
-            };
-            productosData.push(producto);
-        });
-
-        document.getElementById('productos-json').value = JSON.stringify(productosData);
-    }
-
-    // Buscar productos
-    function buscarProductos() {
-        const termino = document.getElementById('buscar-producto').value;
-        const bodega = document.querySelector('select[name="id_bodega"]').value;
-
-        if (!termino.trim()) {
-            alert('Ingrese un término de búsqueda');
-            return;
-        }
-
-        fetch(`/api/productos/buscar?q=${encodeURIComponent(termino)}&bodega=${bodega}`)
-            .then(response => response.json())
-            .then(data => {
-                const resultados = document.getElementById('resultados-productos');
-                resultados.innerHTML = '';
-
-                if (data.error) {
-                    resultados.innerHTML = `
+    
+    fetch(`/api/productos/buscar?q=${encodeURIComponent(termino)}&bodega=${bodega}`)
+        .then(response => response.json())
+        .then(data => {
+            const resultados = document.getElementById('resultados-productos');
+            resultados.innerHTML = '';
+            
+            if (data.error) {
+                resultados.innerHTML = `
                     <div class="alert alert-danger">
                         ${data.error}
                     </div>
                 `;
-                    return;
-                }
-
-                if (data.length === 0) {
-                    resultados.innerHTML = `
+                return;
+            }
+            
+            if (data.length === 0) {
+                resultados.innerHTML = `
                     <div class="alert alert-warning">
                         No se encontraron productos
                     </div>
                 `;
-                    return;
-                }
-
-                data.forEach(producto => {
-                    const item = document.createElement('a');
-                    item.className = 'list-group-item list-group-item-action';
-                    item.href = '#';
-                    item.onclick = () => seleccionarProducto(producto);
-                    item.innerHTML = `
+                return;
+            }
+            
+            data.forEach(producto => {
+                const item = document.createElement('a');
+                item.className = 'list-group-item list-group-item-action';
+                item.href = '#';
+                item.onclick = () => seleccionarProducto(producto);
+                item.innerHTML = `
                     <div class="d-flex w-100 justify-content-between">
                         <h6 class="mb-1">${producto.Descripcion}</h6>
                         <small class="text-muted">Stock: ${producto.Stock_Bodega || 0}</small>
@@ -378,70 +381,70 @@
                         Costo: $${producto.Precio_Venta || '0.00'} | ${producto.Unidad_Descripcion || ''}
                     </small>
                 `;
-                    resultados.appendChild(item);
-                });
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                document.getElementById('resultados-productos').innerHTML = `
+                resultados.appendChild(item);
+            });
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            document.getElementById('resultados-productos').innerHTML = `
                 <div class="alert alert-danger">
                     Error al buscar productos
                 </div>
             `;
-            });
+        });
+}
+
+// Seleccionar producto de la lista
+function seleccionarProducto(producto) {
+    // Verificar si ya existe en la tabla
+    const existente = Array.from(document.querySelectorAll('.id-producto'))
+        .find(input => input.value == producto.ID_Producto);
+    
+    if (existente) {
+        alert('Este producto ya está en la lista');
+        return;
     }
+    
+    agregarProducto(producto);
+    document.getElementById('buscar-producto').value = '';
+    document.getElementById('resultados-productos').innerHTML = '';
+}
 
-    // Seleccionar producto de la lista
-    function seleccionarProducto(producto) {
-        // Verificar si ya existe en la tabla
-        const existente = Array.from(document.querySelectorAll('.id-producto'))
-            .find(input => input.value == producto.ID_Producto);
-
-        if (existente) {
-            alert('Este producto ya está en la lista');
+// Validar formulario antes de enviar
+document.getElementById('formEntrada').addEventListener('submit', function(e) {
+    const productosData = JSON.parse(document.getElementById('productos-json').value);
+    
+    if (productosData.length === 0) {
+        e.preventDefault();
+        alert('Debe agregar al menos un producto');
+        return;
+    }
+    
+    // Validar que todos los productos tengan cantidad y costo
+    for (let producto of productosData) {
+        if (!producto.cantidad || parseFloat(producto.cantidad) <= 0) {
+            e.preventDefault();
+            alert('Todos los productos deben tener una cantidad válida');
             return;
         }
-
-        agregarProducto(producto);
-        document.getElementById('buscar-producto').value = '';
-        document.getElementById('resultados-productos').innerHTML = '';
     }
+    
+    if (!confirm('¿Está seguro de guardar esta entrada?')) {
+        e.preventDefault();
+    }
+});
 
-    // Validar formulario antes de enviar
-    document.getElementById('formEntrada').addEventListener('submit', function (e) {
-        const productosData = JSON.parse(document.getElementById('productos-json').value);
-
-        if (productosData.length === 0) {
-            e.preventDefault();
-            alert('Debe agregar al menos un producto');
-            return;
-        }
-
-        // Validar que todos los productos tengan cantidad y costo
-        for (let producto of productosData) {
-            if (!producto.cantidad || parseFloat(producto.cantidad) <= 0) {
-                e.preventDefault();
-                alert('Todos los productos deben tener una cantidad válida');
-                return;
-            }
-        }
-
-        if (!confirm('¿Está seguro de guardar esta entrada?')) {
-            e.preventDefault();
-        }
-    });
-
-    // Fecha de hoy por defecto
-    document.addEventListener('DOMContentLoaded', function () {
-        const hoy = new Date().toISOString().split('T')[0];
-        document.querySelector('input[name="fecha"]').value = hoy;
-    });
+// Fecha de hoy por defecto
+document.addEventListener('DOMContentLoaded', function() {
+    const hoy = new Date().toISOString().split('T')[0];
+    document.querySelector('input[name="fecha"]').value = hoy;
+});
 </script>
 
 <style>
-    .required:after {
-        content: " *";
-        color: red;
-    }
+.required:after {
+    content: " *";
+    color: red;
+}
 </style>
 {% endblock %}
