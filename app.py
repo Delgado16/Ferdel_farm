@@ -5317,27 +5317,62 @@ def admin_nueva_entrada_form():
             """)
             bodegas = cursor.fetchall()
             
-            # Obtener productos activos
+            # Obtener productos activos CON SU STOCK TOTAL - MODIFICADO
             cursor.execute("""
-                SELECT p.ID_Producto, p.COD_Producto, p.Descripcion, 
-                       p.Unidad_Medida, um.Descripcion as Unidad_Descripcion,
-                       p.Precio_Venta,
-                       (SELECT Existencias FROM inventario_bodega 
-                        WHERE ID_Producto = p.ID_Producto 
-                        AND ID_Bodega = (SELECT MIN(ID_Bodega) FROM bodegas LIMIT 1)
-                        LIMIT 1) as Existencias_Actuales
+                SELECT 
+                    p.ID_Producto, 
+                    p.COD_Producto, 
+                    p.Descripcion, 
+                    p.Unidad_Medida, 
+                    um.Descripcion as Unidad_Descripcion,
+                    p.Precio_Venta, 
+                    p.Stock_Minimo,
+                    cp.Descripcion as Categoria_Descripcion,
+                    COALESCE(SUM(ib.Existencias), 0) as Existencias_Totales
                 FROM productos p
                 LEFT JOIN unidades_medida um ON p.Unidad_Medida = um.ID_Unidad
-                WHERE p.Estado = 1
+                LEFT JOIN categorias_producto cp ON p.ID_Categoria = cp.ID_Categoria
+                LEFT JOIN inventario_bodega ib ON p.ID_Producto = ib.ID_Producto
+                WHERE p.Estado = 'activo'
+                GROUP BY p.ID_Producto, p.COD_Producto, p.Descripcion, 
+                         p.Unidad_Medida, um.Descripcion, p.Precio_Venta, 
+                         p.Stock_Minimo, cp.Descripcion
                 ORDER BY p.Descripcion
+                LIMIT 100
             """)
             productos = cursor.fetchall()
+            
+            # Obtener también el stock por bodega para cada producto
+            productos_con_stock = []
+            for producto in productos:
+                producto_dict = dict(producto)
+                
+                # Consultar stock por bodega
+                cursor.execute("""
+                    SELECT 
+                        b.ID_Bodega,
+                        b.Nombre as Bodega,
+                        COALESCE(ib.Existencias, 0) as Existencias
+                    FROM bodegas b
+                    LEFT JOIN inventario_bodega ib ON b.ID_Bodega = ib.ID_Bodega 
+                        AND ib.ID_Producto = %s
+                    WHERE b.Estado = 1
+                    ORDER BY b.Nombre
+                """, (producto['ID_Producto'],))
+                
+                stock_bodegas = cursor.fetchall()
+                producto_dict['stock_bodegas'] = stock_bodegas
+                
+                productos_con_stock.append(producto_dict)
+
+            fecha_hoy = datetime.now().strftime('%Y-%m-%d')
             
             return render_template('admin/movimientos/nueva_entrada.html',
                                  tipos_movimiento=tipos_movimiento,
                                  proveedores=proveedores,
                                  bodegas=bodegas,
-                                 productos=productos)
+                                 productos=productos_con_stock,
+                                 fecha_hoy=fecha_hoy)
     except Exception as e:
         flash(f"Error al cargar formulario: {str(e)}", 'error')
         return redirect(url_for('admin_historial_movimientos'))
@@ -5413,7 +5448,7 @@ def admin_procesar_entrada():
                     session.get('user_id')
                 ))
                 
-                # ACTUALIZAR inventario_bodega
+                # ACTUALIZAR inventario_bodega - MODIFICADO
                 cursor.execute("""
                     INSERT INTO inventario_bodega (ID_Bodega, ID_Producto, Existencias)
                     VALUES (%s, %s, %s)
@@ -5421,12 +5456,8 @@ def admin_procesar_entrada():
                     Existencias = Existencias + VALUES(Existencias)
                 """, (id_bodega, prod['id_producto'], cantidad))
                 
-                # ACTUALIZAR existencias generales
-                cursor.execute("""
-                    UPDATE productos 
-                    SET Existencias = Existencias + %s
-                    WHERE ID_Producto = %s
-                """, (cantidad, prod['id_producto']))
+                # NOTA: Ya NO actualizamos la tabla productos ya que no tiene campo Existencias
+                # El inventario total se calcula dinámicamente sumando inventario_bodega
             
             flash(f"✅ Entrada registrada exitosamente! ID: {id_movimiento}", 'success')
             return redirect(url_for('admin_detalle_movimiento', id_movimiento=id_movimiento))
@@ -5434,6 +5465,18 @@ def admin_procesar_entrada():
     except Exception as e:
         flash(f"❌ Error al procesar entrada: {str(e)}", 'error')
         return redirect(url_for('admin_nueva_entrada_form'))
+    
+def obtener_existencias_producto(id_producto):
+    """Obtener existencias totales de un producto sumando todas las bodegas"""
+    with get_db_cursor(True) as cursor:
+        cursor.execute("""
+            SELECT COALESCE(SUM(Existencias), 0) as Existencias_Totales
+            FROM inventario_bodega
+            WHERE ID_Producto = %s
+        """, (id_producto,))
+        
+        result = cursor.fetchone()
+        return result['Existencias_Totales'] if result else 0
 
 # 4. NUEVA SALIDA (Venta/Consumo)
 @app.route('/admin/movimientos/salida/nueva')

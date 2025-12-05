@@ -30,12 +30,12 @@
                             <div class="col-md-6">
                                 <label class="form-label required">Fecha</label>
                                 <input type="date" name="fecha" class="form-control" 
-                                       value="{{ '' | date('Y-m-d') }}" required>
+                                       value="{{ fecha_hoy }}" required>
                             </div>
                             
                             <div class="col-md-6">
                                 <label class="form-label required">Tipo de Movimiento</label>
-                                <select name="id_tipo_movimiento" class="form-select" required>
+                                <select name="id_tipo_movimiento" class="form-select" required id="tipo-movimiento">
                                     <option value="">Seleccionar...</option>
                                     {% for tipo in tipos_movimiento %}
                                     <option value="{{ tipo.ID_TipoMovimiento }}">
@@ -45,9 +45,9 @@
                                 </select>
                             </div>
                             
-                            <div class="col-md-6">
+                            <div class="col-md-6" id="proveedor-container">
                                 <label class="form-label">Proveedor</label>
-                                <select name="id_proveedor" class="form-select">
+                                <select name="id_proveedor" class="form-select" id="select-proveedor">
                                     <option value="">Seleccionar...</option>
                                     {% for proveedor in proveedores %}
                                     <option value="{{ proveedor.ID_Proveedor }}">
@@ -58,8 +58,8 @@
                             </div>
                             
                             <div class="col-md-6">
-                                <label class="form-label required">Bodega</label>
-                                <select name="id_bodega" class="form-select" required>
+                                <label class="form-label required">Bodega Destino</label>
+                                <select name="id_bodega" class="form-select" required id="select-bodega">
                                     <option value="">Seleccionar...</option>
                                     {% for bodega in bodegas %}
                                     <option value="{{ bodega.ID_Bodega }}">
@@ -69,18 +69,18 @@
                                 </select>
                             </div>
                             
-                            <div class="col-md-6">
+                            <div class="col-md-6" id="tipo-compra-container">
                                 <label class="form-label">Tipo de Compra</label>
-                                <select name="tipo_compra" class="form-select">
+                                <select name="tipo_compra" class="form-select" id="select-tipo-compra">
                                     <option value="">Seleccionar...</option>
                                     <option value="CONTADO">Contado</option>
                                     <option value="CREDITO">Crédito</option>
                                 </select>
                             </div>
                             
-                            <div class="col-md-6">
+                            <div class="col-md-6" id="factura-container">
                                 <label class="form-label">N° Factura Externa</label>
-                                <input type="text" name="n_factura_externa" class="form-control">
+                                <input type="text" name="n_factura_externa" class="form-control" id="input-factura">
                             </div>
                             
                             <div class="col-12">
@@ -101,6 +101,11 @@
                                 </button>
                             </div>
                             
+                            <div class="alert alert-info d-none" id="alerta-productos">
+                                <i class="fas fa-info-circle me-2"></i>
+                                Seleccione una bodega para ver los productos disponibles
+                            </div>
+                            
                             <div id="productos-container" class="table-responsive">
                                 <table class="table table-sm">
                                     <thead>
@@ -108,10 +113,11 @@
                                             <th>Producto</th>
                                             <th>Cantidad</th>
                                             <th>Costo Unitario</th>
-                                            <th>Precio Unitario</th>
+                                            <th>Precio Venta</th>
                                             <th>Lote</th>
                                             <th>Vencimiento</th>
                                             <th>Subtotal</th>
+                                            <th>Stock Actual</th>
                                             <th></th>
                                         </tr>
                                     </thead>
@@ -122,7 +128,7 @@
                                         <tr class="table-secondary">
                                             <td colspan="6" class="text-end"><strong>Total:</strong></td>
                                             <td><strong id="total-entrada">$0.00</strong></td>
-                                            <td></td>
+                                            <td colspan="2"></td>
                                         </tr>
                                     </tfoot>
                                 </table>
@@ -156,6 +162,18 @@
                     </h6>
                 </div>
                 <div class="card-body">
+                    <div class="mb-3">
+                        <label class="form-label">Bodega para consultar stock:</label>
+                        <select class="form-select mb-2" id="bodega-busqueda">
+                            <option value="">Seleccionar bodega...</option>
+                            {% for bodega in bodegas %}
+                            <option value="{{ bodega.ID_Bodega }}">
+                                {{ bodega.Nombre }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
                     <div class="input-group mb-3">
                         <input type="text" id="buscar-producto" class="form-control" 
                                placeholder="Código o nombre del producto...">
@@ -166,19 +184,10 @@
                     </div>
                     
                     <div id="resultados-productos" class="list-group" style="max-height: 400px; overflow-y: auto;">
-                        {% for producto in productos %}
-                        <a href="#" class="list-group-item list-group-item-action" 
-                           onclick="seleccionarProducto({{ producto|tojson }})">
-                            <div class="d-flex w-100 justify-content-between">
-                                <h6 class="mb-1">{{ producto.Descripcion }}</h6>
-                                <small class="text-muted">Stock: {{ producto.Existencias_Actuales or 0 }}</small>
-                            </div>
-                            <p class="mb-1">
-                                <small>Código: {{ producto.COD_Producto or 'N/A' }}</small>
-                            </p>
-                            <small class="text-muted">{{ producto.Unidad_Descripcion or '' }}</small>
-                        </a>
-                        {% endfor %}
+                        <div class="text-center text-muted p-3">
+                            <i class="fas fa-box-open fa-2x mb-2"></i><br>
+                            Use el buscador para encontrar productos
+                        </div>
                     </div>
                 </div>
             </div>
@@ -204,6 +213,10 @@
                             <span>Total Costo:</span>
                             <strong id="resumen-total">$0.00</strong>
                         </li>
+                        <li class="list-group-item d-flex justify-content-between">
+                            <span>Total Valor Venta:</span>
+                            <strong id="resumen-venta">$0.00</strong>
+                        </li>
                     </ul>
                 </div>
             </div>
@@ -215,6 +228,22 @@
 <script>
 let productos = [];
 let contadorProductos = 0;
+
+// Mostrar/ocultar campos según tipo de movimiento
+function configurarCamposPorTipo() {
+    const tipoMovimiento = document.getElementById('tipo-movimiento').value;
+    const esCompra = tipoMovimiento === '1'; // TIPO_COMPRA = 1
+    
+    // Mostrar/ocultar campos de proveedor
+    document.getElementById('proveedor-container').style.display = esCompra ? 'block' : 'none';
+    document.getElementById('select-proveedor').required = esCompra;
+    
+    // Mostrar/ocultar campos de tipo de compra
+    document.getElementById('tipo-compra-container').style.display = esCompra ? 'block' : 'none';
+    
+    // Mostrar/ocultar campo de factura
+    document.getElementById('factura-container').style.display = esCompra ? 'block' : 'none';
+}
 
 // Agregar producto al formulario
 function agregarProducto(producto = null) {
@@ -229,29 +258,32 @@ function agregarProducto(producto = null) {
                    value="${producto ? producto.ID_Producto : ''}" class="id-producto">
             <input type="text" class="form-control form-control-sm producto-nombre" 
                    value="${producto ? producto.Descripcion : ''}" readonly>
+            <small class="text-muted">${producto ? (producto.COD_Producto || 'Sin código') : ''}</small>
         </td>
         <td>
             <input type="number" step="0.001" min="0.001" 
                    name="productos[${index}][cantidad]" 
                    class="form-control form-control-sm cantidad" 
-                   value="1" onchange="calcularSubtotal(${index})">
+                   value="1" onchange="calcularSubtotal(${index})" required>
         </td>
         <td>
             <input type="number" step="0.01" min="0" 
                    name="productos[${index}][costo_unitario]" 
                    class="form-control form-control-sm costo" 
-                   value="${producto ? (producto.Precio_Venta * 0.8).toFixed(2) : '0.00'}" 
-                   onchange="calcularSubtotal(${index})">
+                   value="${producto ? '0.00' : '0.00'}" 
+                   onchange="calcularSubtotal(${index})" required>
         </td>
         <td>
             <input type="number" step="0.01" min="0" 
                    name="productos[${index}][precio_unitario]" 
                    class="form-control form-control-sm precio" 
-                   value="${producto ? producto.Precio_Venta || '0.00' : '0.00'}">
+                   value="${producto ? (producto.Precio_Venta || '0.00') : '0.00'}"
+                   onchange="actualizarResumen()">
         </td>
         <td>
             <input type="text" name="productos[${index}][lote]" 
-                   class="form-control form-control-sm lote">
+                   class="form-control form-control-sm lote" 
+                   placeholder="Opcional">
         </td>
         <td>
             <input type="date" name="productos[${index}][fecha_vencimiento]" 
@@ -260,6 +292,9 @@ function agregarProducto(producto = null) {
         <td>
             <input type="text" class="form-control form-control-sm subtotal" 
                    value="$0.00" readonly>
+        </td>
+        <td class="stock-actual" data-id-producto="${producto ? producto.ID_Producto : ''}">
+            ${producto ? (producto.Stock_Actual || '0.00') : '0.00'}
         </td>
         <td>
             <button type="button" class="btn btn-danger btn-sm" 
@@ -270,9 +305,22 @@ function agregarProducto(producto = null) {
     `;
     
     tbody.appendChild(fila);
+    
+    // Mostrar alerta si no hay productos
+    document.getElementById('alerta-productos').classList.add('d-none');
+    
     if (producto) {
         calcularSubtotal(index);
+        // Si es compra, sugerir costo (80% del precio de venta)
+        const tipoMovimiento = document.getElementById('tipo-movimiento').value;
+        if (tipoMovimiento === '1' && producto.Precio_Venta) {
+            const costoInput = fila.querySelector('.costo');
+            const costoCalculado = (parseFloat(producto.Precio_Venta) * 0.8).toFixed(2);
+            costoInput.value = costoCalculado;
+            calcularSubtotal(index);
+        }
     }
+    
     actualizarResumen();
 }
 
@@ -291,27 +339,36 @@ function calcularSubtotal(index) {
 function eliminarProducto(index) {
     document.getElementById(`producto-${index}`).remove();
     actualizarResumen();
+    
+    // Mostrar alerta si no quedan productos
+    if (document.querySelectorAll('#productos-tbody tr').length === 0) {
+        document.getElementById('alerta-productos').classList.remove('d-none');
+    }
 }
 
 // Actualizar resumen
 function actualizarResumen() {
-    let total = 0;
+    let totalCosto = 0;
+    let totalVenta = 0;
     let unidades = 0;
     let cantidadProductos = 0;
     
     document.querySelectorAll('#productos-tbody tr').forEach(fila => {
         const cantidad = parseFloat(fila.querySelector('.cantidad').value) || 0;
         const costo = parseFloat(fila.querySelector('.costo').value) || 0;
+        const precio = parseFloat(fila.querySelector('.precio').value) || 0;
         
         unidades += cantidad;
-        total += cantidad * costo;
+        totalCosto += cantidad * costo;
+        totalVenta += cantidad * precio;
         cantidadProductos++;
     });
     
     document.getElementById('resumen-cantidad').textContent = cantidadProductos;
     document.getElementById('resumen-unidades').textContent = unidades.toFixed(3);
-    document.getElementById('resumen-total').textContent = `$${total.toFixed(2)}`;
-    document.getElementById('total-entrada').textContent = `$${total.toFixed(2)}`;
+    document.getElementById('resumen-total').textContent = `$${totalCosto.toFixed(2)}`;
+    document.getElementById('resumen-venta').textContent = `$${totalVenta.toFixed(2)}`;
+    document.getElementById('total-entrada').textContent = `$${totalCosto.toFixed(2)}`;
     
     // Actualizar JSON oculto
     const productosData = [];
@@ -333,14 +390,19 @@ function actualizarResumen() {
 // Buscar productos
 function buscarProductos() {
     const termino = document.getElementById('buscar-producto').value;
-    const bodega = document.querySelector('select[name="id_bodega"]').value;
+    const bodegaBusqueda = document.getElementById('bodega-busqueda').value;
     
     if (!termino.trim()) {
         alert('Ingrese un término de búsqueda');
         return;
     }
     
-    fetch(`/api/productos/buscar?q=${encodeURIComponent(termino)}&bodega=${bodega}`)
+    if (!bodegaBusqueda) {
+        alert('Seleccione una bodega para consultar el stock');
+        return;
+    }
+    
+    fetch(`/api/productos/buscar?q=${encodeURIComponent(termino)}&bodega=${bodegaBusqueda}`)
         .then(response => response.json())
         .then(data => {
             const resultados = document.getElementById('resultados-productos');
@@ -369,16 +431,30 @@ function buscarProductos() {
                 item.className = 'list-group-item list-group-item-action';
                 item.href = '#';
                 item.onclick = () => seleccionarProducto(producto);
+                
+                // Mostrar información del stock
+                let stockInfo = '';
+                if (producto.stock_bodegas && producto.stock_bodegas.length > 0) {
+                    stockInfo = producto.stock_bodegas
+                        .map(s => `${s.Bodega}: ${s.Existencias}`)
+                        .join('<br>');
+                }
+                
                 item.innerHTML = `
                     <div class="d-flex w-100 justify-content-between">
                         <h6 class="mb-1">${producto.Descripcion}</h6>
-                        <small class="text-muted">Stock: ${producto.Stock_Bodega || 0}</small>
+                        <small class="text-muted">Stock: ${producto.Stock_Actual || 0}</small>
                     </div>
                     <p class="mb-1">
-                        <small>Código: ${producto.COD_Producto || 'N/A'}</small>
+                        <small>Código: ${producto.COD_Producto || 'Sin código'}</small><br>
+                        <small>Categoría: ${producto.Categoria_Descripcion || 'Sin categoría'}</small>
                     </p>
                     <small class="text-muted">
-                        Costo: $${producto.Precio_Venta || '0.00'} | ${producto.Unidad_Descripcion || ''}
+                        <div class="d-flex justify-content-between">
+                            <span>Precio: $${producto.Precio_Venta || '0.00'}</span>
+                            <span>${producto.Unidad_Descripcion || ''}</span>
+                        </div>
+                        ${stockInfo ? `<small class="text-info"><i class="fas fa-warehouse me-1"></i>${stockInfo}</small>` : ''}
                     </small>
                 `;
                 resultados.appendChild(item);
@@ -405,6 +481,15 @@ function seleccionarProducto(producto) {
         return;
     }
     
+    // Añadir stock actual de la bodega seleccionada
+    const bodegaId = document.getElementById('select-bodega').value;
+    if (producto.stock_bodegas) {
+        const stockBodega = producto.stock_bodegas.find(s => s.ID_Bodega == bodegaId);
+        producto.Stock_Actual = stockBodega ? stockBodega.Existencias : 0;
+    } else {
+        producto.Stock_Actual = 0;
+    }
+    
     agregarProducto(producto);
     document.getElementById('buscar-producto').value = '';
     document.getElementById('resultados-productos').innerHTML = '';
@@ -427,6 +512,20 @@ document.getElementById('formEntrada').addEventListener('submit', function(e) {
             alert('Todos los productos deben tener una cantidad válida');
             return;
         }
+        
+        if (!producto.costo_unitario || parseFloat(producto.costo_unitario) <= 0) {
+            e.preventDefault();
+            alert('Todos los productos deben tener un costo unitario válido');
+            return;
+        }
+    }
+    
+    // Validar bodega destino
+    const bodegaDestino = document.getElementById('select-bodega').value;
+    if (!bodegaDestino) {
+        e.preventDefault();
+        alert('Debe seleccionar una bodega destino');
+        return;
     }
     
     if (!confirm('¿Está seguro de guardar esta entrada?')) {
@@ -434,10 +533,46 @@ document.getElementById('formEntrada').addEventListener('submit', function(e) {
     }
 });
 
-// Fecha de hoy por defecto
+// Event listeners
 document.addEventListener('DOMContentLoaded', function() {
+    // Configurar fecha actual
     const hoy = new Date().toISOString().split('T')[0];
     document.querySelector('input[name="fecha"]').value = hoy;
+    
+    // Mostrar alerta inicial
+    document.getElementById('alerta-productos').classList.remove('d-none');
+    
+    // Configurar cambios en tipo de movimiento
+    document.getElementById('tipo-movimiento').addEventListener('change', configurarCamposPorTipo);
+    
+    // Configurar cambios en bodega destino
+    document.getElementById('select-bodega').addEventListener('change', function() {
+        // Actualizar stock actual de los productos en la tabla
+        const bodegaId = this.value;
+        document.querySelectorAll('#productos-tbody tr').forEach(fila => {
+            const idProducto = fila.querySelector('.id-producto').value;
+            const stockCell = fila.querySelector('.stock-actual');
+            
+            if (idProducto && bodegaId) {
+                // Aquí podrías hacer una llamada AJAX para obtener el stock actual
+                // Por ahora, mostramos "Consultando..."
+                stockCell.textContent = 'Consultando...';
+                
+                // Simular consulta de stock
+                setTimeout(() => {
+                    stockCell.textContent = '0.00'; // Esto se debería reemplazar con una consulta real
+                }, 500);
+            }
+        });
+    });
+    
+    // Configurar búsqueda por Enter
+    document.getElementById('buscar-producto').addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            buscarProductos();
+        }
+    });
 });
 </script>
 
@@ -445,6 +580,20 @@ document.addEventListener('DOMContentLoaded', function() {
 .required:after {
     content: " *";
     color: red;
+}
+
+#productos-container table th {
+    white-space: nowrap;
+}
+
+.stock-actual {
+    font-weight: bold;
+    color: #198754;
+}
+
+.list-group-item:hover {
+    background-color: #f8f9fa;
+    cursor: pointer;
 }
 </style>
 {% endblock %}
