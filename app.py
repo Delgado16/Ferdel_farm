@@ -1994,7 +1994,7 @@ def admin_editar_bodega(id):
 def admin_productos():
     try:
         with get_db_cursor() as cursor:
-            # Consulta de productos CORREGIDA - Usando las existencias de la tabla Productos
+            # Consulta de productos - Sumando existencias de Inventario_Bodega
             cursor.execute("""
                 SELECT 
                     p.ID_Producto,
@@ -2003,7 +2003,7 @@ def admin_productos():
                     p.Unidad_Medida,
                     um.Descripcion as Nombre_Unidad,
                     um.Abreviatura,
-                    p.Existencias as Existencias,  -- ← USAR EXISTENCIAS DIRECTAMENTE DE PRODUCTOS
+                    COALESCE(SUM(ib.Existencias), 0) as Existencias,
                     p.Estado,
                     p.ID_Categoria,
                     cp.Descripcion as Nombre_Categoria,
@@ -2014,20 +2014,24 @@ def admin_productos():
                     p.Usuario_Creador,
                     u.NombreUsuario as Usuario_Creador_Nombre,
                     p.Stock_Minimo,
-                    -- Información adicional de bodegas (opcional)
-                    (SELECT COUNT(*) FROM Inventario_Bodega ib WHERE ib.ID_Producto = p.ID_Producto) as Bodegas_Con_Stock
+                    (SELECT COUNT(*) FROM Inventario_Bodega ib2 WHERE ib2.ID_Producto = p.ID_Producto) as Bodegas_Con_Stock
                 FROM Productos p
                 LEFT JOIN Unidades_Medida um ON p.Unidad_Medida = um.ID_Unidad
                 LEFT JOIN categorias_producto cp ON p.ID_Categoria = cp.ID_Categoria
                 LEFT JOIN empresa e ON p.ID_Empresa = e.ID_Empresa
                 LEFT JOIN usuarios u ON p.Usuario_Creador = u.ID_Usuario
-                -- ELIMINAMOS el LEFT JOIN con Inventario_Bodega para evitar problemas
-                WHERE p.Estado = 1  -- Solo productos activos
+                LEFT JOIN Inventario_Bodega ib ON p.ID_Producto = ib.ID_Producto
+                -- Cambio en WHERE: 'activo' en lugar de 1
+                WHERE p.Estado = 'activo'
+                GROUP BY p.ID_Producto, p.COD_Producto, p.Descripcion, p.Unidad_Medida, 
+                         um.Descripcion, um.Abreviatura, p.Estado, p.ID_Categoria,
+                         cp.Descripcion, p.Precio_Venta, p.ID_Empresa, e.Nombre_Empresa,
+                         p.Fecha_Creacion, p.Usuario_Creador, u.NombreUsuario, p.Stock_Minimo
                 ORDER BY p.ID_Producto DESC
             """)
             productos = cursor.fetchall()
             
-            # Resto de tu código para obtener categorías, unidades, etc...
+            # Resto del código sigue igual...
             cursor.execute("SELECT ID_Categoria, Descripcion FROM categorias_producto")
             categorias = cursor.fetchall()
             
@@ -2069,15 +2073,17 @@ def admin_crear_producto():
         # Obtener datos del formulario
         cod_producto = request.form.get('COD_Producto')
         descripcion = request.form.get('Descripcion')
-        id_unidad_medida = request.form.get('Unidad_Medida')  # Este es el ID
+        id_unidad_medida = request.form.get('Unidad_Medida')
         id_categoria = request.form.get('ID_Categoria')
         precio_venta = request.form.get('Precio_Venta')
         id_empresa = request.form.get('ID_Empresa', 1)
         stock_minimo = request.form.get('Stock_Minimo', 5)
         cantidad_inicial = request.form.get('Cantidad_Inicial')
         id_bodega = request.form.get('ID_Bodega')
-        estado = request.form.get('Estado', 1)
+        estado = request.form.get('Estado', 'activo')
         usuario_creador = session.get('id_usuario', 1)
+
+        print(f"DEBUG: Datos recibidos - Descripcion: {descripcion}, Bodega: {id_bodega}, Empresa: {id_empresa}")
 
         # Validaciones básicas
         if not all([descripcion, id_unidad_medida, id_categoria]):
@@ -2088,34 +2094,78 @@ def admin_crear_producto():
             flash('Debe seleccionar una bodega para el inventario inicial', 'error')
             return redirect(url_for('admin_productos'))
 
-        # Validar y convertir valores numéricos
+        # Validar y convertir valores
         try:
             cantidad_inicial = float(cantidad_inicial) if cantidad_inicial else 0
-            if cantidad_inicial < 0:
-                flash('La cantidad inicial no puede ser negativa', 'error')
-                return redirect(url_for('admin_productos'))
         except (ValueError, TypeError):
             cantidad_inicial = 0
-
+            
         try:
             precio_venta = float(precio_venta) if precio_venta else 0.0
-            if precio_venta < 0:
-                flash('El precio de venta no puede ser negativo', 'error')
-                return redirect(url_for('admin_productos'))
         except (ValueError, TypeError):
             precio_venta = 0.0
-
+            
         try:
             stock_minimo = float(stock_minimo) if stock_minimo else 5.0
         except (ValueError, TypeError):
             stock_minimo = 5.0
 
         try:
-            estado = int(estado)
+            id_unidad_medida = int(id_unidad_medida)
         except (ValueError, TypeError):
-            estado = 1
+            flash('Unidad de medida no válida', 'error')
+            return redirect(url_for('admin_productos'))
+            
+        try:
+            id_categoria = int(id_categoria)
+        except (ValueError, TypeError):
+            flash('Categoría no válida', 'error')
+            return redirect(url_for('admin_productos'))
+            
+        try:
+            id_empresa = int(id_empresa)
+        except (ValueError, TypeError):
+            id_empresa = 1
+            
+        try:
+            id_bodega = int(id_bodega)
+        except (ValueError, TypeError):
+            flash('Bodega no válida', 'error')
+            return redirect(url_for('admin_productos'))
 
         with get_db_cursor(commit=True) as cursor:
+            print(f"DEBUG: Verificando bodega ID: {id_bodega}")
+            
+            # Verificar que la bodega existe y está activa
+            cursor.execute("""
+                SELECT ID_Bodega, ID_Empresa FROM Bodegas 
+                WHERE ID_Bodega = %s AND Estado = 'activa'
+            """, (id_bodega,))
+            
+            bodega_data = cursor.fetchone()
+            print(f"DEBUG: Datos bodega obtenidos: {bodega_data}")
+            
+            if not bodega_data:
+                flash('La bodega seleccionada no es válida', 'error')
+                return redirect(url_for('admin_productos'))
+            
+            # Manejar tanto diccionarios como tuplas
+            if isinstance(bodega_data, dict):
+                # Si es diccionario (cursorclass=DictCursor)
+                bodega_id = bodega_data.get('ID_Bodega')
+                bodega_empresa_id = bodega_data.get('ID_Empresa')
+            else:
+                # Si es tupla (cursorclass por defecto)
+                bodega_id = bodega_data[0]
+                bodega_empresa_id = bodega_data[1]
+            
+            print(f"DEBUG: Bodega ID: {bodega_id}, Empresa Bodega: {bodega_empresa_id}, Empresa Form: {id_empresa}")
+            
+            # Verificar que la bodega pertenece a la empresa del producto
+            if bodega_empresa_id != id_empresa:
+                flash('La bodega seleccionada no pertenece a la empresa del producto', 'error')
+                return redirect(url_for('admin_productos'))
+
             # Verificar si el código de producto ya existe
             if cod_producto:
                 cursor.execute("SELECT ID_Producto FROM Productos WHERE COD_Producto = %s", (cod_producto,))
@@ -2130,40 +2180,44 @@ def admin_crear_producto():
                     WHERE COD_Producto REGEXP '^[0-9]+$'
                 """)
                 result = cursor.fetchone()
-                cod_producto = str(result[0]) if result else "1"
+                
+                # Manejar tanto diccionarios como tuplas
+                if isinstance(result, dict):
+                    max_cod = result.get(list(result.keys())[0])  # Primer valor del diccionario
+                else:
+                    max_cod = result[0] if result else 0
+                    
+                cod_producto = str(max_cod + 1) if max_cod else "1"
+                print(f"DEBUG: Código generado: {cod_producto}")
 
-            # Verificar que la bodega existe y está activa
-            cursor.execute("""
-                SELECT ID_Bodega FROM Bodegas 
-                WHERE ID_Bodega = %s AND Estado = 'activa'
-            """, (id_bodega,))
-            if not cursor.fetchone():
-                flash('La bodega seleccionada no es válida', 'error')
-                return redirect(url_for('admin_productos'))
-
-            # Insertar nuevo producto CON EXISTENCIAS
+            # Insertar nuevo producto
+            print(f"DEBUG: Insertando producto...")
             cursor.execute("""
                 INSERT INTO Productos (
-                    COD_Producto, Descripcion, Unidad_Medida, Existencias, Estado,
+                    COD_Producto, Descripcion, Unidad_Medida, Estado,
                     ID_Categoria, Precio_Venta, ID_Empresa, Usuario_Creador, Stock_Minimo
-                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
             """, (
-                cod_producto, descripcion, id_unidad_medida, cantidad_inicial, estado,
+                cod_producto, descripcion, id_unidad_medida, estado,
                 id_categoria, precio_venta, id_empresa, usuario_creador, stock_minimo
             ))
 
-            # Obtener el ID del producto recién creado
             producto_id = cursor.lastrowid
+            print(f"DEBUG: Producto creado con ID: {producto_id}")
 
             # Insertar en Inventario_Bodega con la cantidad inicial
             cursor.execute("""
                 INSERT INTO Inventario_Bodega (ID_Bodega, ID_Producto, Existencias)
                 VALUES (%s, %s, %s)
+                ON DUPLICATE KEY UPDATE Existencias = Existencias + VALUES(Existencias)
             """, (id_bodega, producto_id, cantidad_inicial))
 
-        flash(f'Producto "{descripcion}" creado exitosamente con {cantidad_inicial} unidades en inventario', 'success')
+        flash(f'Producto "{descripcion}" creado exitosamente con {cantidad_inicial} unidades en la bodega seleccionada', 'success')
         
     except Exception as e:
+        print(f"ERROR DETALLADO: {str(e)}")
+        import traceback
+        print(traceback.format_exc())
         flash(f'Error al crear producto: {str(e)}', 'error')
     
     return redirect(url_for('admin_productos'))
@@ -2202,7 +2256,7 @@ def admin_editar_producto(id_producto):
             precio_venta = request.form.get('Precio_Venta', 0)
             id_empresa = request.form.get('ID_Empresa')
             stock_minimo = request.form.get('Stock_Minimo', 5)
-            estado = request.form.get('Estado', 1)
+            estado = request.form.get('Estado', 'activo')  # Cambiado: 'activo' por defecto
 
             # Validaciones
             if not descripcion:
@@ -2213,11 +2267,14 @@ def admin_editar_producto(id_producto):
                 flash('Unidad de medida, categoría y empresa son campos obligatorios', 'error')
                 return redirect(url_for('admin_editar_producto', id_producto=id_producto))
 
+            # Validar estado
+            if estado not in ['activo', 'inactivo']:
+                estado = 'activo'
+
             # Convertir valores numéricos
             try:
                 precio_venta = float(precio_venta) if precio_venta else 0
                 stock_minimo = float(stock_minimo) if stock_minimo else 5
-                estado = int(estado) if estado else 1
                 
                 # Validar valores positivos
                 if precio_venta < 0:
@@ -2279,7 +2336,7 @@ def admin_editar_producto(id_producto):
                     precio_venta, 
                     id_empresa, 
                     stock_minimo, 
-                    estado, 
+                    estado,  # Ahora string 'activo'/'inactivo'
                     id_producto
                 ))
 
@@ -2294,7 +2351,7 @@ def admin_editar_producto(id_producto):
         else:
             # ========== CARGAR FORMULARIO GET ==========
             with get_db_cursor() as cursor:
-                # Obtener el producto específico
+                # Obtener el producto específico (sin Existencias de Productos)
                 cursor.execute("""
                     SELECT 
                         p.ID_Producto,
@@ -2303,8 +2360,7 @@ def admin_editar_producto(id_producto):
                         p.Unidad_Medida,
                         um.Descripcion as Nombre_Unidad,
                         um.Abreviatura,
-                        p.Existencias,  -- EXISTENCIAS GLOBALES
-                        p.Estado,
+                        p.Estado,  -- Ahora 'activo' o 'inactivo'
                         p.ID_Categoria,
                         cp.Descripcion as Nombre_Categoria,
                         p.Precio_Venta,
@@ -2313,19 +2369,54 @@ def admin_editar_producto(id_producto):
                         p.Fecha_Creacion,
                         p.Usuario_Creador,
                         u.NombreUsuario as Usuario_Creador_Nombre,
-                        p.Stock_Minimo
+                        p.Stock_Minimo,
+                        -- Calcular existencias totales sumando Inventario_Bodega
+                        COALESCE(SUM(ib.Existencias), 0) as Existencias_Totales
                     FROM Productos p
                     LEFT JOIN Unidades_Medida um ON p.Unidad_Medida = um.ID_Unidad
                     LEFT JOIN categorias_producto cp ON p.ID_Categoria = cp.ID_Categoria
                     LEFT JOIN empresa e ON p.ID_Empresa = e.ID_Empresa
                     LEFT JOIN usuarios u ON p.Usuario_Creador = u.ID_Usuario
+                    LEFT JOIN Inventario_Bodega ib ON p.ID_Producto = ib.ID_Producto
                     WHERE p.ID_Producto = %s
+                    GROUP BY p.ID_Producto, p.COD_Producto, p.Descripcion, p.Unidad_Medida,
+                             um.Descripcion, um.Abreviatura, p.Estado, p.ID_Categoria,
+                             cp.Descripcion, p.Precio_Venta, p.ID_Empresa, e.Nombre_Empresa,
+                             p.Fecha_Creacion, p.Usuario_Creador, u.NombreUsuario, p.Stock_Minimo
                 """, (id_producto,))
                 producto = cursor.fetchone()
                 
                 if not producto:
                     flash('Producto no encontrado', 'error')
                     return redirect(url_for('admin_productos'))
+                
+                # Convertir a diccionario si es necesario
+                if isinstance(producto, dict):
+                    producto_data = producto
+                else:
+                    # Si es tupla, convertir a diccionario
+                    producto_data = {
+                        'ID_Producto': producto[0],
+                        'COD_Producto': producto[1],
+                        'Descripcion': producto[2],
+                        'Unidad_Medida': producto[3],
+                        'Nombre_Unidad': producto[4],
+                        'Abreviatura': producto[5],
+                        'Estado': producto[6],  # 'activo' o 'inactivo'
+                        'ID_Categoria': producto[7],
+                        'Nombre_Categoria': producto[8],
+                        'Precio_Venta': producto[9],
+                        'ID_Empresa': producto[10],
+                        'Nombre_Empresa': producto[11],
+                        'Fecha_Creacion': producto[12],
+                        'Usuario_Creador': producto[13],
+                        'Usuario_Creador_Nombre': producto[14],
+                        'Stock_Minimo': producto[15],
+                        'Existencias_Totales': producto[16] or 0
+                    }
+                
+                print(f"DEBUG - Estado del producto: {producto_data.get('Estado')}")
+                print(f"DEBUG - Existencias totales: {producto_data.get('Existencias_Totales')}")
                 
                 # Obtener datos para los dropdowns
                 cursor.execute("SELECT ID_Categoria, Descripcion FROM categorias_producto")
@@ -2337,7 +2428,7 @@ def admin_editar_producto(id_producto):
                 cursor.execute("SELECT ID_Empresa, Nombre_Empresa FROM empresa WHERE Estado = 'Activo'")
                 empresas = cursor.fetchall()
                 
-                # CONSULTA PARA INVENTARIO POR BODEGA
+                # CONSULTA PARA INVENTARIO POR BODEGA (sin cambios)
                 cursor.execute("""
                     SELECT 
                         b.ID_Bodega, 
@@ -2352,15 +2443,10 @@ def admin_editar_producto(id_producto):
                 """, (id_producto,))
                 inventario_bodegas = cursor.fetchall()
                 
-                from datetime import datetime
                 fecha_actual = datetime.now().strftime('%d/%m/%Y %H:%M')
                 
-                # DEBUG: Verificar qué datos estamos enviando al template
-                print("DEBUG - Producto:", producto)
-                print("DEBUG - Existencias:", producto['Existencias'] if producto else 'No encontrado')
-                
                 return render_template('admin/bodega/producto/editar_producto.html', 
-                                     producto=producto,
+                                     producto=producto_data,
                                      categorias=categorias,
                                      unidades=unidades,
                                      empresas=empresas,
@@ -2369,28 +2455,53 @@ def admin_editar_producto(id_producto):
                 
     except Exception as e:
         flash(f'Error al procesar producto: {str(e)}', 'error')
+        traceback.print_exc()
         return redirect(url_for('admin_productos'))
     
-@app.route('/admin/productos/desactivar/<int:id_producto>', methods=['POST'])
-def admin_desactivar_producto(id_producto):
-    try:
-        # Lógica para desactivar el producto
-        with get_db_cursor() as cursor:
-            cursor.execute("UPDATE Productos SET Estado = 0 WHERE ID_Producto = %s", (id_producto,))
-        flash('Producto desactivado correctamente', 'success')
-    except Exception as e:
-        flash(f'Error al desactivar producto: {str(e)}', 'error')
-    return redirect(url_for('admin_productos'))
-
-@app.route('/admin/productos/activar/<int:id_producto>', methods=['POST'])
+@app.route('/admin/bodega/productos/activar/<int:id_producto>', methods=['POST'])
+@admin_required
+@bitacora_decorator("ACTIVAR_PRODUCTO")
 def admin_activar_producto(id_producto):
     try:
-        # Lógica para activar el producto
-        with get_db_cursor() as cursor:
-            cursor.execute("UPDATE Productos SET Estado = 1 WHERE ID_Producto = %s", (id_producto,))
-        flash('Producto activado correctamente', 'success')
+        with get_db_cursor(commit=True) as cursor:
+            cursor.execute("""
+                UPDATE Productos 
+                SET Estado = 'activo'  -- Cambiado de 1 a 'activo'
+                WHERE ID_Producto = %s
+            """, (id_producto,))
+            
+            # Verificar si se actualizó
+            if cursor.rowcount > 0:
+                flash('Producto activado exitosamente', 'success')
+            else:
+                flash('Producto no encontrado', 'error')
+                
     except Exception as e:
         flash(f'Error al activar producto: {str(e)}', 'error')
+        
+    return redirect(url_for('admin_productos'))
+
+@app.route('/admin/bodega/productos/desactivar/<int:id_producto>', methods=['POST'])
+@admin_required
+@bitacora_decorator("DESACTIVAR_PRODUCTO")
+def admin_desactivar_producto(id_producto):
+    try:
+        with get_db_cursor(commit=True) as cursor:
+            cursor.execute("""
+                UPDATE Productos 
+                SET Estado = 'inactivo'  -- Cambiado de 0 a 'inactivo'
+                WHERE ID_Producto = %s
+            """, (id_producto,))
+            
+            # Verificar si se actualizó
+            if cursor.rowcount > 0:
+                flash('Producto desactivado exitosamente', 'success')
+            else:
+                flash('Producto no encontrado', 'error')
+                
+    except Exception as e:
+        flash(f'Error al desactivar producto: {str(e)}', 'error')
+        
     return redirect(url_for('admin_productos'))
 
 #MODULO PRODUCTOS - COMPRAS

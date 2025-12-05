@@ -63,11 +63,11 @@
                                 </span>
                             </td>
                             <td>{{ producto.Nombre_Categoria }}</td>
-                            <td>${{ "%.2f"|format(producto.Precio_Venta or 0) }}</td>
+                            <td>C${{ "%.2f"|format(producto.Precio_Venta or 0) }}</td>
                             <td>{{ producto.Nombre_Empresa }}</td>
                             <td>{{ producto.Stock_Minimo }}</td>
                             <td>
-                                {% if producto.Estado == 1 %}
+                                {% if producto.Estado == 'activo' %}  <!-- CORREGIDO -->
                                     <span class="badge bg-success">Activo</span>
                                 {% else %}
                                     <span class="badge bg-danger">Inactivo</span>
@@ -81,7 +81,7 @@
                                         <i class="fas fa-edit"></i> Editar
                                     </a>
                                     
-                                    {% if producto.Estado == 1 %}
+                                    {% if producto.Estado == 'activo' %}  <!-- CORREGIDO -->
                                     <!-- Botón Desactivar -->
                                     <form method="POST" action="{{ url_for('admin_desactivar_producto', id_producto=producto.ID_Producto) }}" class="d-inline">
                                         <button type="submit" class="btn btn-danger" 
@@ -194,8 +194,8 @@
                         <div class="col-md-6 mb-3">
                             <label class="form-label">Estado</label>
                             <select class="form-select" name="Estado">
-                                <option value="1" selected>Activo</option>
-                                <option value="0">Inactivo</option>
+                                <option value="activo" selected>Activo</option>  <!-- CORREGIDO -->
+                                <option value="inactivo">Inactivo</option>       <!-- CORREGIDO -->
                             </select>
                             <div class="form-text">Estado inicial del producto</div>
                         </div>
@@ -303,6 +303,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const precioVenta = form.querySelector('input[name="Precio_Venta"]');
             const cantidadInicial = form.querySelector('input[name="Cantidad_Inicial"]');
             const stockMinimo = form.querySelector('input[name="Stock_Minimo"]');
+            const estado = form.querySelector('select[name="Estado"]');
             
             let isValid = true;
             let errorMessage = '';
@@ -339,6 +340,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 isValid = false;
                 errorMessage = 'El stock mínimo no puede ser negativo';
                 stockMinimo.focus();
+            } else if (estado && estado.value && !['activo', 'inactivo'].includes(estado.value)) {
+                isValid = false;
+                errorMessage = 'El estado debe ser "activo" o "inactivo"';
+                estado.focus();
             }
             
             if (!isValid) {
