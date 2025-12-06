@@ -2550,7 +2550,8 @@ def admin_compras_entradas():
 def admin_crear_compra():
     try:
         if request.method == 'GET':
-            # (MANTENER TU CÓDIGO GET EXISTENTE)
+            id_empresa = session.get('id_empresa', 1)
+            
             with get_db_cursor(True) as cursor:
                 cursor.execute("SELECT * FROM catalogo_movimientos WHERE ID_TipoMovimiento = 1")
                 tipos_movimiento = cursor.fetchall()
@@ -2564,14 +2565,25 @@ def admin_crear_compra():
                 cursor.execute("SELECT ID_Categoria, Descripcion FROM categorias_producto ORDER BY Descripcion")
                 categorias = cursor.fetchall()
                 
+                # CONSULTA CORREGIDA: Información básica de productos SIN referencias a ventas
                 cursor.execute("""
-                    SELECT p.ID_Producto, p.COD_Producto, p.Descripcion, p.Existencias, 
-                           p.Precio_Venta, p.ID_Categoria, c.Descripcion as Categoria
-                    FROM Productos p
+                    SELECT 
+                        p.ID_Producto, 
+                        p.COD_Producto, 
+                        p.Descripcion,
+                        COALESCE(p.Precio_Venta, 0) as Precio_Venta, 
+                        p.ID_Categoria, 
+                        c.Descripcion as Categoria,
+                        um.Descripcion as Unidad_Medida,
+                        um.Abreviatura as Simbolo_Medida
+                        -- NO calcular existencias aquí, eso se hace en otras consultas
+                    FROM productos p
                     LEFT JOIN categorias_producto c ON p.ID_Categoria = c.ID_Categoria
-                    WHERE p.Estado = 1
+                    LEFT JOIN unidades_medida um ON p.Unidad_Medida = um.ID_Unidad
+                    WHERE p.Estado = 'activo'
+                    AND (p.ID_Empresa = %s OR p.ID_Empresa IS NULL)
                     ORDER BY c.Descripcion, p.Descripcion
-                """)
+                """, (id_empresa,))
                 productos = cursor.fetchall()
                 
                 return render_template('admin/compras/crear_compra.html',
@@ -2648,13 +2660,13 @@ def admin_crear_compra():
                     for producto in productos
                 )
                 
-                # Insertar movimiento principal
+                # Insertar movimiento principal - AGREGADO ESTADO
                 cursor.execute("""
                     INSERT INTO Movimientos_Inventario (
                         ID_TipoMovimiento, N_Factura_Externa, Fecha, ID_Proveedor, 
                         Tipo_Compra, Observacion, ID_Empresa, ID_Bodega, 
-                        ID_Usuario_Creacion, ID_Usuario_Modificacion
-                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                        ID_Usuario_Creacion, ID_Usuario_Modificacion, Estado
+                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 """, (
                     id_tipo_movimiento,
                     n_factura_externa,
@@ -2665,13 +2677,14 @@ def admin_crear_compra():
                     session.get('id_empresa', 1),
                     id_bodega,
                     id_usuario,
-                    id_usuario
+                    id_usuario,
+                    1  # Estado activo/completado
                 ))
                 
                 id_movimiento = cursor.lastrowid
                 print(f"Movimiento creado con ID: {id_movimiento}")
                 
-                # Insertar detalles del movimiento y ACTUALIZAR INVENTARIOS
+                # Insertar detalles del movimiento
                 for producto in productos:
                     subtotal = round(producto['cantidad'] * producto['costo_unitario'], 2)
                     
@@ -2693,17 +2706,7 @@ def admin_crear_compra():
                         id_usuario
                     ))
                     
-                    # ACTUALIZACIÓN CRÍTICA: Actualizar AMBAS tablas de inventario
-                    
-                    # 1. Actualizar Productos.Existencias (existencias totales)
-                    cursor.execute("""
-                        UPDATE Productos 
-                        SET Existencias = Existencias + %s 
-                        WHERE ID_Producto = %s
-                    """, (producto['cantidad'], producto['id_producto']))
-                    
-                    # 2. Actualizar Inventario_Bodega (existencias por bodega)
-                    # Verificar si ya existe registro para este producto-bodega
+                    # Actualizar Inventario_Bodega (existencias por bodega)
                     cursor.execute("""
                         SELECT ID_Producto FROM Inventario_Bodega 
                         WHERE ID_Bodega = %s AND ID_Producto = %s
@@ -2756,16 +2759,17 @@ def admin_crear_compra():
                 return redirect(url_for('admin_compras_entradas'))            
     except Exception as e:
         print(f"Error completo al crear compra: {str(e)}")
+        import traceback
         print(f"Traceback: {traceback.format_exc()}")
         flash(f'Error al crear compra: {str(e)}', 'error')
         return redirect(url_for('admin_crear_compra'))
-
-# RUTAS AUXILIARES PARA COMPRAS - CORREGIDAS (SOLO TABLA PRODUCTOS)
+    
+# RUTAS AUXILIARES PARA COMPRAS - CORREGIDAS (BASADAS EN MOVIMIENTOS_INVENTARIO)
 @app.route('/admin/compras/productos-por-categoria/<int:id_categoria>')
 @admin_required
 def obtener_productos_por_categoria_compra(id_categoria):
     """
-    Endpoint para obtener productos filtrados por categoría - COMPRAS (EXISTENCIAS TOTALES)
+    Endpoint para obtener productos filtrados por categoría - COMPRAS (EXISTENCIAS BASADAS EN MOVIMIENTOS)
     """
     try:
         id_empresa = session.get('id_empresa', 1)
@@ -2778,14 +2782,25 @@ def obtener_productos_por_categoria_compra(id_categoria):
                     SELECT 
                         p.ID_Producto, 
                         p.COD_Producto, 
-                        p.Descripcion, 
-                        COALESCE(p.Existencias, 0) as Existencias,
+                        p.Descripcion,
                         COALESCE(p.Precio_Venta, 0) as Precio_Venta, 
                         p.ID_Categoria,
-                        c.Descripcion as Categoria
+                        c.Descripcion as Categoria,
+                        um.Descripcion as Unidad_Medida,
+                        um.Abreviatura  as Simbolo_Medida,
+                        -- Calcular existencias basadas SOLO en Movimientos_Inventario (entradas)
+                        COALESCE((
+                            SELECT SUM(dmi.Cantidad) 
+                            FROM Detalle_Movimientos_Inventario dmi
+                            INNER JOIN Movimientos_Inventario mi ON dmi.ID_Movimiento = mi.ID_Movimiento
+                            WHERE dmi.ID_Producto = p.ID_Producto
+                            AND mi.ID_TipoMovimiento = 1  -- Solo entradas/compras
+                            AND mi.Estado = 1  -- Completados
+                        ), 0) as Existencias
                     FROM productos p
                     LEFT JOIN categorias_producto c ON p.ID_Categoria = c.ID_Categoria
-                    WHERE p.Estado = 1 
+                    LEFT JOIN unidades_medida um ON p.Unidad_Medida = um.ID_Unidad
+                    WHERE p.Estado = 'activo'
                     AND (p.ID_Empresa = %s OR p.ID_Empresa IS NULL)
                     ORDER BY c.Descripcion, p.Descripcion
                 """, (id_empresa,))
@@ -2794,14 +2809,25 @@ def obtener_productos_por_categoria_compra(id_categoria):
                     SELECT 
                         p.ID_Producto, 
                         p.COD_Producto, 
-                        p.Descripcion, 
-                        COALESCE(p.Existencias, 0) as Existencias,
+                        p.Descripcion,
                         COALESCE(p.Precio_Venta, 0) as Precio_Venta,
                         p.ID_Categoria,
-                        c.Descripcion as Categoria
+                        c.Descripcion as Categoria,
+                        um.Descripcion as Unidad_Medida,
+                        um.Abreviatura  as Simbolo_Medida,
+                        -- Calcular existencias basadas SOLO en Movimientos_Inventario (entradas)
+                        COALESCE((
+                            SELECT SUM(dmi.Cantidad) 
+                            FROM Detalle_Movimientos_Inventario dmi
+                            INNER JOIN Movimientos_Inventario mi ON dmi.ID_Movimiento = mi.ID_Movimiento
+                            WHERE dmi.ID_Producto = p.ID_Producto
+                            AND mi.ID_TipoMovimiento = 1  -- Solo entradas/compras
+                            AND mi.Estado = 1  -- Completados
+                        ), 0) as Existencias
                     FROM productos p
                     LEFT JOIN categorias_producto c ON p.ID_Categoria = c.ID_Categoria
-                    WHERE p.Estado = 1 
+                    LEFT JOIN unidades_medida um ON p.Unidad_Medida = um.ID_Unidad
+                    WHERE p.Estado = 'activo'
                     AND p.ID_Categoria = %s 
                     AND (p.ID_Empresa = %s OR p.ID_Empresa IS NULL)
                     ORDER BY p.Descripcion
@@ -2819,7 +2845,9 @@ def obtener_productos_por_categoria_compra(id_categoria):
                     'existencias': float(producto['Existencias']),
                     'precio_venta': float(producto['Precio_Venta']),
                     'id_categoria': producto['ID_Categoria'],
-                    'categoria': producto['Categoria']
+                    'categoria': producto['Categoria'],
+                    'unidad_medida': producto['Unidad_Medida'],
+                    'simbolo_medida': producto['Simbolo_Medida']
                 })
             
             return jsonify(productos_list)
@@ -2834,7 +2862,7 @@ def obtener_productos_por_categoria_compra(id_categoria):
 @admin_required
 def verificar_existencias_producto(id_producto):
     """
-    Endpoint para verificar existencias actuales - COMPRAS (EXISTENCIAS TOTALES)
+    Endpoint para verificar existencias actuales - COMPRAS (EXISTENCIAS BASADAS EN MOVIMIENTOS)
     """
     try:
         id_empresa = session.get('id_empresa', 1)
@@ -2846,12 +2874,22 @@ def verificar_existencias_producto(id_producto):
                 SELECT 
                     p.ID_Producto,
                     p.Descripcion,
-                    COALESCE(p.Existencias, 0) as Existencias,
-                    COALESCE(p.Precio_Venta, 0) as Precio_Venta
+                    COALESCE(p.Precio_Venta, 0) as Precio_Venta,
+                    um.Descripcion as Unidad_Medida,
+                    -- Calcular existencias basadas SOLO en Movimientos_Inventario (entradas)
+                    COALESCE((
+                        SELECT SUM(dmi.Cantidad) 
+                        FROM Detalle_Movimientos_Inventario dmi
+                        INNER JOIN Movimientos_Inventario mi ON dmi.ID_Movimiento = mi.ID_Movimiento
+                        WHERE dmi.ID_Producto = p.ID_Producto
+                        AND mi.ID_TipoMovimiento = 1  -- Solo entradas/compras
+                        AND mi.Estado = 1  -- Completados
+                    ), 0) as Existencias
                 FROM productos p
+                LEFT JOIN unidades_medida um ON p.Unidad_Medida = um.ID_Unidad
                 WHERE p.ID_Producto = %s 
                 AND (p.ID_Empresa = %s OR p.ID_Empresa IS NULL)
-                AND p.Estado = 1
+                AND p.Estado = 'activo'
             """, (id_producto, id_empresa))
             
             producto = cursor.fetchone()
@@ -2866,7 +2904,8 @@ def verificar_existencias_producto(id_producto):
                     'id_producto': producto['ID_Producto'],
                     'descripcion': producto['Descripcion'],
                     'existencias': existencias,
-                    'precio_venta': precio
+                    'precio_venta': precio,
+                    'unidad_medida': producto['Unidad_Medida']
                 })
             else:
                 print(f"❌ [COMPRAS-EXISTENCIAS] Producto {id_producto} no encontrado")
@@ -2945,7 +2984,14 @@ def admin_editar_compra(id_movimiento):
                         dmi.ID_Producto,
                         p.COD_Producto,
                         p.Descripcion as Producto_Desc,
-                        p.Existencias,
+                        COALESCE((
+                            SELECT SUM(dmi2.Cantidad) 
+                            FROM Detalle_Movimientos_Inventario dmi2
+                            INNER JOIN Movimientos_Inventario mi2 ON dmi2.ID_Movimiento = mi2.ID_Movimiento
+                            WHERE dmi2.ID_Producto = p.ID_Producto
+                            AND mi2.ID_TipoMovimiento = 1  -- Solo compras
+                            AND mi2.Estado = 1
+                        ), 0) as Existencias,
                         dmi.Cantidad,
                         dmi.Costo_Unitario,
                         dmi.Precio_Unitario,
@@ -2976,17 +3022,25 @@ def admin_editar_compra(id_movimiento):
                 cursor.execute("SELECT ID_Bodega, Nombre FROM bodegas WHERE Estado = 'activa'")
                 bodegas = cursor.fetchall()
                 
-                # Obtener categorías de productos (NUEVO - AGREGADO)
+                # Obtener categorías de productos
                 cursor.execute("SELECT ID_Categoria, Descripcion FROM categorias_producto ORDER BY Descripcion")
                 categorias = cursor.fetchall()
                 
-                # Obtener productos activos CON PRECIO_VENTA (MODIFICADO)
+                # Obtener productos activos CON PRECIO_VENTA y UNIDAD DE MEDIDA
                 cursor.execute("""
-                    SELECT p.ID_Producto, p.COD_Producto, p.Descripcion, p.Existencias,
-                           p.Precio_Venta, p.ID_Categoria, c.Descripcion as Categoria
+                    SELECT 
+                        p.ID_Producto, 
+                        p.COD_Producto, 
+                        p.Descripcion,
+                        p.Precio_Venta, 
+                        p.ID_Categoria, 
+                        c.Descripcion as Categoria,
+                        um.Descripcion as Unidad_Medida,
+                        um.Abreviatura as Simbolo_Medida
                     FROM Productos p
                     LEFT JOIN categorias_producto c ON p.ID_Categoria = c.ID_Categoria
-                    WHERE p.Estado = 1
+                    LEFT JOIN unidades_medida um ON p.Unidad_Medida = um.ID_Unidad
+                    WHERE p.Estado = 'activo'
                     ORDER BY c.Descripcion, p.Descripcion
                 """)
                 productos = cursor.fetchall()
@@ -3006,7 +3060,7 @@ def admin_editar_compra(id_movimiento):
                                     proveedores=proveedores,
                                     bodegas=bodegas,
                                     productos=productos,
-                                    categorias=categorias,  # NUEVO PARÁMETRO
+                                    categorias=categorias,
                                     cuenta_por_pagar=cuenta_por_pagar)
         
         elif request.method == 'POST':
@@ -3068,7 +3122,8 @@ def admin_editar_compra(id_movimiento):
                 flash('ID de usuario no válido', 'error')
                 return redirect(url_for('admin_editar_compra', id_movimiento=id_movimiento))
             
-            with get_db_cursor() as cursor:
+            # USAR get_db_cursor(True) para transacción automática
+            with get_db_cursor(True) as cursor:
                 # 1. Verificar que el movimiento existe y está activo
                 cursor.execute("""
                     SELECT Estado, ID_Bodega, Tipo_Compra, ID_Proveedor 
@@ -3085,24 +3140,25 @@ def admin_editar_compra(id_movimiento):
                     flash('No se puede editar un movimiento anulado', 'error')
                     return redirect(url_for('admin_compras_entradas'))
                 
-                print(f"[EDIT] Reversando existencias de movimiento {id_movimiento}")
+                bodega_anterior = movimiento_actual['ID_Bodega']
+                print(f"[EDIT] Reversando existencias de movimiento {id_movimiento} de bodega {bodega_anterior}")
                 
                 # 2. Reversar existencias de productos anteriores
                 cursor.execute("""
-                    SELECT ID_Producto, Cantidad 
-                    FROM Detalle_Movimientos_Inventario 
-                    WHERE ID_Movimiento = %s
+                    SELECT dmi.ID_Producto, dmi.Cantidad 
+                    FROM Detalle_Movimientos_Inventario dmi
+                    WHERE dmi.ID_Movimiento = %s
                 """, (id_movimiento,))
                 
                 detalles_anteriores = cursor.fetchall()
                 
                 for detalle in detalles_anteriores:
                     cursor.execute("""
-                        UPDATE Productos 
+                        UPDATE Inventario_Bodega 
                         SET Existencias = Existencias - %s 
-                        WHERE ID_Producto = %s
-                    """, (detalle['Cantidad'], detalle['ID_Producto']))
-                    print(f"[EDIT] Reversado producto {detalle['ID_Producto']}: -{detalle['Cantidad']} unidades")
+                        WHERE ID_Bodega = %s AND ID_Producto = %s
+                    """, (detalle['Cantidad'], bodega_anterior, detalle['ID_Producto']))
+                    print(f"[EDIT] Reversado producto {detalle['ID_Producto']} en bodega {bodega_anterior}: -{detalle['Cantidad']} unidades")
                 
                 # 3. Eliminar detalles anteriores
                 cursor.execute("DELETE FROM Detalle_Movimientos_Inventario WHERE ID_Movimiento = %s", (id_movimiento,))
@@ -3160,14 +3216,27 @@ def admin_editar_compra(id_movimiento):
                         id_usuario
                     ))
                     
-                    # Actualizar existencias con los nuevos valores
+                    # Actualizar Inventario_Bodega
                     cursor.execute("""
-                        UPDATE Productos 
-                        SET Existencias = Existencias + %s 
-                        WHERE ID_Producto = %s
-                    """, (cantidad, producto['id_producto']))
+                        SELECT ID_Producto FROM Inventario_Bodega 
+                        WHERE ID_Bodega = %s AND ID_Producto = %s
+                    """, (id_bodega, producto['id_producto']))
                     
-                    print(f"[EDIT] Producto {producto['id_producto']} agregado: +{cantidad} unidades")
+                    existing_record = cursor.fetchone()
+                    
+                    if existing_record:
+                        cursor.execute("""
+                            UPDATE Inventario_Bodega 
+                            SET Existencias = Existencias + %s 
+                            WHERE ID_Bodega = %s AND ID_Producto = %s
+                        """, (cantidad, id_bodega, producto['id_producto']))
+                    else:
+                        cursor.execute("""
+                            INSERT INTO Inventario_Bodega (ID_Bodega, ID_Producto, Existencias)
+                            VALUES (%s, %s, %s)
+                        """, (id_bodega, producto['id_producto'], cantidad))
+                    
+                    print(f"[EDIT] Producto {producto['id_producto']} agregado en bodega {id_bodega}: +{cantidad} unidades")
                 
                 print(f"[EDIT] Total compra actualizado: C$ {total_compra:.2f}")
                 
@@ -3236,12 +3305,13 @@ def admin_editar_compra(id_movimiento):
                     cursor.execute("DELETE FROM Cuentas_Por_Pagar WHERE ID_Movimiento = %s", (id_movimiento,))
                     print(f"[EDIT] Cuenta por pagar eliminada (cambio a contado)")
                 
+                
                 flash('Compra actualizada exitosamente', 'success')
-                print(f"[EDIT] ✅ Compra {id_movimiento} actualizada exitosamente")
+                print(f"[EDIT] Compra {id_movimiento} actualizada exitosamente")
                 return redirect(url_for('admin_compras_entradas'))
                 
     except Exception as e:
-        print(f"❌ Error editando compra: {str(e)}")
+        print(f" Error editando compra: {str(e)}")
         import traceback
         traceback.print_exc()
         
@@ -3368,14 +3438,14 @@ def admin_detalle_compra_completo(id_movimiento):
                 flash('Compra no encontrada', 'error')
                 return redirect(url_for('admin_compras_entradas'))
             
-            # DETALLES CORREGIDOS
+            # DETALLES CORREGIDOS - Obtener existencias desde inventario_bodega
             cursor.execute("""
                 SELECT 
                     dmi.ID_Detalle_Movimiento,
                     dmi.ID_Producto,
                     p.COD_Producto,
                     p.Descripcion as Producto_Desc,
-                    p.Existencias as Existencias_Actuales,
+                    COALESCE(ib.Existencias, 0) as Existencias_Actuales,
                     dmi.Cantidad,
                     dmi.Costo_Unitario,
                     dmi.Precio_Unitario,
@@ -3386,9 +3456,11 @@ def admin_detalle_compra_completo(id_movimiento):
                 FROM Detalle_Movimientos_Inventario dmi
                 INNER JOIN Productos p ON dmi.ID_Producto = p.ID_Producto
                 LEFT JOIN Unidades_Medida um ON p.Unidad_Medida = um.ID_Unidad
+                LEFT JOIN inventario_bodega ib ON dmi.ID_Producto = ib.ID_Producto 
+                    AND ib.ID_Bodega = %s
                 WHERE dmi.ID_Movimiento = %s
                 ORDER BY dmi.ID_Detalle_Movimiento
-            """, (id_movimiento,))
+            """, (movimiento['ID_Bodega'], id_movimiento))
             
             detalles = cursor.fetchall()
             
@@ -3941,13 +4013,6 @@ def admin_crear_venta():
                         SET Existencias = Existencias - %s
                         WHERE ID_Bodega = %s AND ID_Producto = %s
                     """, (cantidad, id_bodega_principal, id_producto))
-                    
-                    # Actualizar existencias generales del producto
-                    cursor.execute("""
-                        UPDATE productos 
-                        SET Existencias = Existencias - %s
-                        WHERE ID_Producto = %s
-                    """, (cantidad, id_producto))
                     
                     print(f" Producto {id_producto}: {cantidad} x C${precio} = C${total_linea}")
                 
@@ -5970,22 +6035,28 @@ def admin_reportes_movimientos():
                 LEFT JOIN bodegas bd ON mi.ID_Bodega_Destino = bd.ID_Bodega
                 JOIN usuarios u ON mi.ID_Usuario_Creacion = u.ID_Usuario
                 WHERE mi.Estado = 1
-                ORDER BY mi.Fecha DESC
+                ORDER BY mi.ID_Movimiento DESC
                 LIMIT 10
             """)
             ultimos_movimientos = cursor.fetchall()
             
-            # Productos con stock bajo
+            # Productos con stock bajo - CORREGIDO
             cursor.execute("""
-                SELECT p.Descripcion, p.COD_Producto, p.Existencias, p.Stock_Minimo,
+                SELECT p.Descripcion, p.COD_Producto, 
+                       COALESCE(SUM(ib.Existencias), 0) as Existencias_Totales,
+                       p.Stock_Minimo,
                        um.Descripcion as Unidad_Medida,
-                       (SELECT SUM(Existencias) FROM inventario_bodega 
-                        WHERE ID_Producto = p.ID_Producto) as Total_Bodegas
+                       (SELECT COUNT(*) FROM inventario_bodega 
+                        WHERE ID_Producto = p.ID_Producto 
+                        AND Existencias > 0) as Bodegas_Con_Stock
                 FROM productos p
+                LEFT JOIN inventario_bodega ib ON p.ID_Producto = ib.ID_Producto
                 LEFT JOIN unidades_medida um ON p.Unidad_Medida = um.ID_Unidad
-                WHERE p.Estado = 1 
-                AND p.Existencias <= p.Stock_Minimo
-                ORDER BY (p.Existencias / NULLIF(p.Stock_Minimo, 0)) ASC
+                WHERE p.Estado = 1
+                GROUP BY p.ID_Producto, p.Descripcion, p.COD_Producto, 
+                         p.Stock_Minimo, um.Descripcion
+                HAVING COALESCE(SUM(ib.Existencias), 0) <= p.Stock_Minimo
+                ORDER BY (COALESCE(SUM(ib.Existencias), 0) / NULLIF(p.Stock_Minimo, 0)) ASC
                 LIMIT 10
             """)
             productos_stock_bajo = cursor.fetchall()

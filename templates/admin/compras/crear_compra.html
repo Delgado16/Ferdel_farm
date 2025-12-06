@@ -347,7 +347,7 @@
 <div class="compra-container">
     <div class="card">
         <div class="card-header">
-            <h2><i class="fas fa-shopping-cart me-2"></i>Registrar Nueva Compra</h2>
+            <h2><i class="fas fa-shopping-cart me-2"></i>Registrar Nueva Compra (Entrada a Bodega)</h2>
         </div>
         <div class="card-body">
             <form id="formCompra" method="POST" novalidate>
@@ -594,13 +594,13 @@ document.addEventListener('DOMContentLoaded', function() {
     agregarProducto();
 });
 
-// APLICAR FILTRO POR CATEGORÍA - COMPRAS
+// APLICAR FILTRO POR CATEGORÍA - COMPRAS (EXISTENCIAS BASADAS EN MOVIMIENTOS_INVENTARIO)
 async function aplicarFiltroCategoria() {
     const categoriaSelect = document.getElementById('filtro_categoria');
     const idCategoria = categoriaSelect.value;
     const nombreCategoria = categoriaSelect.options[categoriaSelect.selectedIndex].text;
     
-    console.log('[COMPRAS] Applying filter - Categoria:', idCategoria);
+    console.log('[COMPRAS] Aplicando filtro - Categoría:', idCategoria);
     
     try {
         // Mostrar loading
@@ -611,13 +611,13 @@ async function aplicarFiltroCategoria() {
 
         const url = `/admin/compras/productos-por-categoria/${idCategoria}`;
         
-        console.log('[COMPRAS] Request URL:', url);
+        console.log('[COMPRAS] URL de petición:', url);
         
         const response = await fetch(url);
         
         if (!response.ok) {
             const errorText = await response.text();
-            throw new Error(`Error HTTP: ${response.status}`);
+            throw new Error(`Error HTTP: ${response.status} - ${errorText}`);
         }
         
         const productosRecibidos = await response.json();
@@ -629,25 +629,52 @@ async function aplicarFiltroCategoria() {
         productosEnCache = productosRecibidos;
         filtroCategoriaActual = idCategoria;
         
-        // Solo actualizar selects VACÍOS, mantener los que ya tienen productos
+        // Actualizar TODOS los selects de productos
         const selectsProductos = document.querySelectorAll('.producto-select');
-        console.log('[COMPRAS] Updating ONLY EMPTY selects. Total selects:', selectsProductos.length);
+        console.log('[COMPRAS] Actualizando selects. Total:', selectsProductos.length);
         
         let selectsActualizados = 0;
         let selectsMantenidos = 0;
         
         selectsProductos.forEach((select, index) => {
-            if (!select.value || select.value === "") {
-                console.log(`[COMPRAS] Updating empty select ${index + 1}`);
-                actualizarSelectConProductos(select, productosRecibidos);
-                selectsActualizados++;
+            const productoSeleccionado = select.value;
+            
+            // Guardar el valor seleccionado actualmente
+            const opcionSeleccionada = select.options[select.selectedIndex];
+            const textoSeleccionado = opcionSeleccionada ? opcionSeleccionada.text : '';
+            
+            // Actualizar el select con los nuevos productos
+            actualizarSelectConProductos(select, productosRecibidos);
+            
+            // Restaurar la selección anterior si existía
+            if (productoSeleccionado) {
+                const opcionExistente = Array.from(select.options).find(
+                    option => option.value === productoSeleccionado
+                );
+                
+                if (opcionExistente) {
+                    select.value = productoSeleccionado;
+                    selectsMantenidos++;
+                    
+                    // Disparar evento de cambio para actualizar información del producto
+                    setTimeout(() => {
+                        const evento = new Event('change');
+                        select.dispatchEvent(evento);
+                    }, 100);
+                } else {
+                    // El producto seleccionado ya no está disponible en el filtro
+                    console.warn(`[COMPRAS] Producto ${productoSeleccionado} ya no disponible con este filtro`);
+                    mostrarAlerta('warning', '⚠️ Producto no disponible', 
+                        `El producto "${textoSeleccionado}" ya no está disponible con el filtro actual. Por favor seleccione otro.`);
+                    select.value = '';
+                    selectsActualizados++;
+                }
             } else {
-                console.log(`[COMPRAS] Keeping select ${index + 1} with existing product:`, select.value);
-                selectsMantenidos++;
+                selectsActualizados++;
             }
         });
         
-        console.log(`[COMPRAS] Updated ${selectsActualizados} empty selects, kept ${selectsMantenidos} with products`);
+        console.log(`[COMPRAS] Actualizados ${selectsActualizados} selects, mantenidos ${selectsMantenidos} productos`);
         
         // Mostrar información del filtro
         const filtroInfo = document.getElementById('filtro-info');
@@ -661,12 +688,15 @@ async function aplicarFiltroCategoria() {
             filtroActual.textContent = nombreCategoria;
         }
         
-        mostrarAlerta('success', 'Filtro aplicado', 
-            `Mostrando productos de la categoría: ${nombreCategoria}. ${selectsActualizados} selects actualizados, ${selectsMantenidos} productos mantenidos.`);
+        // Mostrar mensaje informativo
+        if (selectsActualizados > 0) {
+            mostrarAlerta('success', '✅ Filtro aplicado', 
+                `Mostrando productos de la categoría: ${nombreCategoria}`);
+        }
         
     } catch (error) {
-        console.error('[COMPRAS] Error applying filter:', error);
-        mostrarAlerta('danger', ' Error', `No se pudieron cargar los productos: ${error.message}`);
+        console.error('[COMPRAS] Error al aplicar filtro:', error);
+        mostrarAlerta('danger', '❌ Error', `No se pudieron cargar los productos: ${error.message}`);
     } finally {
         // Restaurar botón
         const btnFiltro = document.getElementById('btn-aplicar-filtro');
@@ -676,6 +706,9 @@ async function aplicarFiltroCategoria() {
 }
 
 function actualizarSelectConProductos(select, productos) {
+    // Guardar el valor seleccionado actualmente
+    const valorSeleccionado = select.value;
+    
     // Limpiar opciones actuales
     select.innerHTML = '<option value="" disabled selected>Seleccionar producto...</option>';
     
@@ -683,46 +716,40 @@ function actualizarSelectConProductos(select, productos) {
     productos.forEach(producto => {
         const option = document.createElement('option');
         option.value = producto.id;
-        option.textContent = `${producto.descripcion} (${producto.codigo}) - Stock: ${producto.existencias}`;
+        option.textContent = `${producto.descripcion} (${producto.codigo}) - Stock: ${producto.existencias || 0}`;
         option.dataset.codigo = producto.codigo;
-        option.dataset.existencia = producto.existencias;
+        option.dataset.existencias = producto.existencias || 0;
         option.dataset.precio = producto.precio_venta || 0;
-        option.dataset.costo = producto.costo_unitario || 0;
         option.dataset.categoria = producto.id_categoria;
+        option.dataset.unidad = producto.unidad_medida || '';
         
         select.appendChild(option);
     });
+    
+    // Restaurar la selección anterior si existe
+    if (valorSeleccionado) {
+        select.value = valorSeleccionado;
+    }
 }
 
 function limpiarFiltro() {
-    console.log('[COMPRAS] Clearing filter');
+    console.log('[COMPRAS] Limpiando filtro');
     document.getElementById('filtro_categoria').value = '0';
     document.getElementById('filtro-info').style.display = 'none';
     filtroCategoriaActual = 0;
-    productosEnCache = [];
     
-    // Solo recargar productos para selects vacíos
+    // Aplicar filtro "todas las categorías"
     aplicarFiltroCategoria();
-    mostrarAlerta('info', 'ℹ️ Filtro limpiado', 'Los productos ya seleccionados se mantienen. Nuevas selecciones mostrarán todos los productos.');
 }
 
 function agregarProducto() {
     contadorProductos++;
-    const productoHTML =`
+    const productoHTML = `
         <tr class="producto-item" id="producto-${contadorProductos}">
             <td>
                 <select class="form-select producto-select" name="productos[]" required onchange="actualizarInfoProducto(${contadorProductos})">
                     <option value="" disabled selected>Seleccionar producto...</option>
-                    {% for producto in productos %}
-                    <option value="{{ producto.ID_Producto }}" 
-                            data-codigo="{{ producto.COD_Producto }}"
-                            data-existencia="{{ producto.Existencias }}"
-                            data-precio="{{ producto.Precio_Venta or 0 }}"
-                            data-costo="{{ producto.Costo_Unitario or 0 }}"
-                            data-categoria="{{ producto.ID_Categoria }}">
-                        {{ producto.Descripcion }} ({{ producto.COD_Producto }}) - Stock: {{ producto.Existencias }}
-                    </option>
-                    {% endfor %}
+                    <!-- Las opciones se cargarán dinámicamente desde la API -->
                 </select>
                 <div class="invalid-feedback">Seleccione un producto</div>
                 <small class="text-muted stock-info" id="stock-info-${contadorProductos}"></small>
@@ -767,11 +794,16 @@ function agregarProducto() {
     `;
     document.getElementById('productos-container').insertAdjacentHTML('beforeend', productoHTML);
     
-    // Si hay filtro activo, aplicarlo solo a esta NUEVA fila
-    if (filtroCategoriaActual !== 0 && productosEnCache.length > 0) {
-        console.log('[COMPRAS] Applying cached filter to NEW product select only');
-        const nuevoSelect = document.getElementById(`producto-${contadorProductos}`).querySelector('.producto-select');
+    // Inicializar el select con productos
+    const nuevoSelect = document.getElementById(`producto-${contadorProductos}`).querySelector('.producto-select');
+    
+    // Si hay productos en caché, usarlos
+    if (productosEnCache.length > 0) {
+        console.log('[COMPRAS] Usando productos en caché para nueva fila');
         actualizarSelectConProductos(nuevoSelect, productosEnCache);
+    } else {
+        // Cargar todos los productos
+        aplicarFiltroCategoria();
     }
     
     actualizarTotales();
@@ -801,41 +833,51 @@ async function actualizarInfoProducto(id) {
     const precioInput = fila.querySelector('.precio');
     const costoInput = fila.querySelector('.costo');
     
-    if (select.value && select.selectedOptions[0].dataset) {
+    if (select.value) {
         try {
-            // Verificar existencias actuales
-            const existenciasActual = await obtenerExistenciasActuales(select.value);
-            const precioSugerido = parseFloat(select.selectedOptions[0].dataset.precio) || 0;
-            const costoSugerido = parseFloat(select.selectedOptions[0].dataset.costo) || 0;
+            // Verificar existencias actuales usando la API
+            const data = await obtenerExistenciasActuales(select.value);
             
+            if (data.error) {
+                throw new Error(data.error);
+            }
+            
+            const existenciasActual = data.existencias;
+            const precioSugerido = data.precio_venta || 0;
+            
+            // Mostrar información de stock
             let stockClass = 'stock-good';
-            let stockText = `Stock actual: ${existenciasActual} unidades`;
+            let stockText = `Stock actual: ${existenciasActual} ${data.unidad_medida || 'unidades'}`;
             
             if (existenciasActual <= 5) {
                 stockClass = 'stock-low';
-                stockText = `Stock bajo: ${existenciasActual} unidades`;
+                stockText = `Stock bajo: ${existenciasActual} ${data.unidad_medida || 'unidades'}`;
             } else if (existenciasActual <= 15) {
                 stockClass = 'stock-medium';
-                stockText = `Stock medio: ${existenciasActual} unidades`;
+                stockText = `Stock medio: ${existenciasActual} ${data.unidad_medida || 'unidades'}`;
             }
             
             stockInfo.innerHTML = `<span class="${stockClass}">${stockText}</span>`;
             stockInfo.style.display = 'block';
-            
-            // Auto-completar costo unitario si está vacío
-            if (costoSugerido > 0 && (!costoInput.value || costoInput.value == '0')) {
-                costoInput.value = costoSugerido.toFixed(2);
-                calcularSubtotal(id);
-            }
             
             // Auto-completar precio unitario si está vacío
             if (precioSugerido > 0 && (!precioInput.value || precioInput.value == '0')) {
                 precioInput.value = precioSugerido.toFixed(2);
             }
             
+            // Sugerir costo basado en precio (80% del precio sugerido)
+            if (precioSugerido > 0 && (!costoInput.value || costoInput.value == '0')) {
+                const costoSugerido = (precioSugerido * 0.8).toFixed(2);
+                costoInput.value = costoSugerido;
+                
+                // Recalcular subtotal
+                calcularSubtotal(id);
+            }
+            
         } catch (error) {
             console.error('Error en actualización tiempo real:', error);
             stockInfo.innerHTML = `<span class="text-danger">Error al verificar existencias</span>`;
+            stockInfo.style.display = 'block';
         }
     } else {
         stockInfo.style.display = 'none';
@@ -914,15 +956,18 @@ function mostrarAlerta(tipo, titulo, mensaje) {
     }, 5000);
 }
 
-// VERIFICACIÓN DE EXISTENCIAS EN TIEMPO REAL - COMPRAS
+// VERIFICACIÓN DE EXISTENCIAS EN TIEMPO REAL - COMPRAS (BASADA EN MOVIMIENTOS_INVENTARIO)
 async function obtenerExistenciasActuales(idProducto) {
     try {
         const url = `/admin/compras/verificar-existencias/${idProducto}`;
         
+        console.log('[COMPRAS] Verificando existencias para producto:', idProducto);
+        
         const response = await fetch(url);
         
         if (!response.ok) {
-            throw new Error('Error al verificar existencias');
+            const errorText = await response.text();
+            throw new Error(`Error HTTP ${response.status}: ${errorText}`);
         }
         
         const data = await response.json();
@@ -932,10 +977,10 @@ async function obtenerExistenciasActuales(idProducto) {
         }
         
         console.log(`[COMPRAS-EXISTENCIAS] Existencias en tiempo real: ${data.existencias} unidades`);
-        return data.existencias;
+        return data;
     } catch (error) {
         console.error('Error obteniendo existencias en tiempo real:', error);
-        return 0;
+        return { existencias: 0, error: error.message };
     }
 }
 
@@ -1089,6 +1134,7 @@ function procesarCompra() {
     submitBtn.disabled = true;
 
     console.log('📨 Enviando datos de compra al servidor...');
+    console.log('📊 Datos enviados:', Array.from(formData.entries()));
 
     // Enviar datos al endpoint CORRECTO
     fetch("{{ url_for('admin_crear_compra') }}", {
@@ -1096,39 +1142,49 @@ function procesarCompra() {
         body: formData
     })
     .then(response => {
-        console.log('📨 Response status:', response.status);
+        console.log('📨 Estado de respuesta:', response.status);
         
+        // Manejar redirecciones
         if (response.redirected) {
+            console.log('🔄 Redirigiendo a:', response.url);
             window.location.href = response.url;
-            return;
+            return null;
         }
         
-        return response.json();
+        return response.text();
     })
-    .then(resultado => {
-        console.log('📊 Resultado del servidor:', resultado);
+    .then(text => {
+        if (text === null) return; // Ya se redirigió
         
-        if (resultado && resultado.success) {
-            // ÉXITO - Mostrar mensaje de éxito
-            const successMessage = `✅ ${resultado.message}`;
-            console.log('✅ Compra exitosa:', successMessage);
-            
-            mostrarAlerta('success', '✅ Compra Exitosa!', resultado.message);
+        console.log('📊 Respuesta del servidor:', text);
+        
+        try {
+            const resultado = JSON.parse(text);
+            if (resultado.error) {
+                throw new Error(resultado.error);
+            }
+            // Si hay éxito pero no redirección
+            mostrarAlerta('success', '✅ Éxito', resultado.message || 'Compra creada exitosamente');
             
             // Redirigir después de 2 segundos
             setTimeout(() => {
                 window.location.href = "{{ url_for('admin_compras_entradas') }}";
             }, 2000);
             
-        } else {
-            throw new Error(resultado?.error || 'Error desconocido del servidor');
+        } catch (e) {
+            // Si no es JSON, verificar si es HTML de error
+            if (text.includes('error') || text.includes('Error')) {
+                throw new Error('Error del servidor');
+            }
+            // Si parece ser HTML normal, asumir que fue redireccionado
+            console.log('ℹ️ Respuesta parece ser HTML, asumiendo redirección');
         }
     })
     .catch(error => {
         console.error('❌ Error completo:', error);
         mostrarAlerta('danger', '❌ Error!', error.message || 'Error al procesar la compra');
-    })
-    .finally(() => {
+        
+        // Restaurar botón
         submitBtn.innerHTML = originalText;
         submitBtn.disabled = false;
     });
@@ -1143,8 +1199,10 @@ document.getElementById('formCompra').addEventListener('submit', async function(
         return;
     }
 
-    // Si todo está bien, procesar la compra
-    procesarCompra();
+    // Confirmación final
+    if (confirm('¿Está seguro de que desea registrar esta compra?')) {
+        procesarCompra();
+    }
 });
 </script>
 {% endblock %}

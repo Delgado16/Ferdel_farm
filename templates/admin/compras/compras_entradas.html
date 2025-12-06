@@ -140,7 +140,7 @@
                                         <i class="fas fa-edit"></i> Editar
                                     </a>
                                     <button class="btn btn-outline-danger" title="Anular" 
-                                            onclick="anularCompra({{ entrada.ID_Movimiento }}, this)">
+                                            onclick="anularCompra({{ entrada.ID_Movimiento }}, '{{ entrada.N_Factura_Externa or entrada.ID_Movimiento }}', '{{ entrada.Proveedor or "N/A" }}', '{{ entrada.Total_Compra or 0 }}', this)">
                                         <i class="fas fa-ban"></i> Anular
                                     </button>
                                     {% else %}
@@ -213,10 +213,22 @@
             </div>
             <!-- FORMULARIO TRADICIONAL PARA ANULACIÓN -->
             <form id="formAnularCompra" method="POST" action="">
+                <!-- Asegúrate de que tu aplicación Flask tenga CSRF habilitado -->
+                {% if csrf_token %}
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                {% endif %}
+                
                 <div class="modal-body">
                     <div class="alert alert-warning">
                         <h6 class="alert-heading"><i class="fas fa-info-circle mr-2"></i>Acción Importante</h6>
                         Está a punto de anular una compra. Esta acción no se puede deshacer y tendrá los siguientes efectos:
+                        <ul class="mt-2 mb-0 small">
+                            <li>Las existencias de productos serán reversadas desde la bodega correspondiente</li>
+                            <li>La compra se marcará como "Anulado" en el sistema</li>
+                            <li>Si existe cuenta por pagar asociada, será cancelada automáticamente</li>
+                            <li>Se registrará en la bitácora del sistema con su usuario</li>
+                            <li>Esta acción es <strong>IRREVERSIBLE</strong></li>
+                        </ul>
                     </div>
                     
                     <div class="row mb-4">
@@ -224,7 +236,7 @@
                             <h6 class="text-dark"><i class="fas fa-file-invoice mr-2"></i>Información de la Compra</h6>
                             <table class="table table-sm table-borderless">
                                 <tr>
-                                    <td class="text-muted">N° Compra:</td>
+                                    <td class="text-muted">N° Movimiento:</td>
                                     <td class="font-weight-bold text-primary" id="anularFacturaNumero">-</td>
                                 </tr>
                                 <tr>
@@ -236,20 +248,18 @@
                                     <td id="anularProveedor">-</td>
                                 </tr>
                                 <tr>
-                                    <td class="text-muted">Total:</td>
+                                    <td class="text-muted">Total Compra:</td>
                                     <td class="font-weight-bold text-success" id="anularTotal">-</td>
                                 </tr>
                             </table>
                         </div>
                         <div class="col-md-6">
-                            <h6 class="text-dark"><i class="fas fa-exclamation-circle mr-2"></i>Consecuencias</h6>
-                            <ul class="small pl-3">
-                                <li>Las existencias de productos serán reversadas</li>
-                                <li>La compra se marcará como "Anulada"</li>
-                                <li>Si existe cuenta por pagar, será cancelada</li>
-                                <li>Se registrará en la bitácora del sistema</li>
-                                <li>Esta acción es irreversible</li>
-                            </ul>
+                            <h6 class="text-dark"><i class="fas fa-exclamation-circle mr-2"></i>Información de Reversión</h6>
+                            <div class="alert alert-info small">
+                                <i class="fas fa-database mr-2"></i>
+                                <strong>Atención:</strong> Las existencias serán descontadas de la <strong>Bodega</strong> específica 
+                                donde se registró esta compra. Esta acción afectará directamente el inventario de dicha bodega.
+                            </div>
                         </div>
                     </div>
                     
@@ -260,33 +270,44 @@
                         </label>
                         <select class="form-control" id="id_usuario_anulacion" name="id_usuario_anulacion" required>
                             <option value="">Seleccione un usuario</option>
-                            {% for usuario in usuarios %}
-                            <option value="{{ usuario.ID_Usuario }}" {{ 'selected' if usuario.ID_Usuario == session.get('user_id') }}>
-                                {{ usuario.NombreUsuario }}
-                            </option>
-                            {% endfor %}
+                            {% if usuarios %}
+                                {% for usuario in usuarios %}
+                                <option value="{{ usuario.ID_Usuario }}" 
+                                        {% if session.get('user_id') and usuario.ID_Usuario == session.get('user_id') %}selected{% endif %}>
+                                    {{ usuario.NombreUsuario }}
+                                </option>
+                                {% endfor %}
+                            {% else %}
+                                <option value="{{ session.get('user_id', '') }}" selected>
+                                    Usuario Actual (ID: {{ session.get('user_id', '') }})
+                                </option>
+                            {% endif %}
                         </select>
+                        <small class="form-text text-muted">Seleccione el usuario autorizado para realizar esta acción.</small>
                     </div>
                     
                     <div class="form-group">
-                        <label for="motivoAnulacion" class="font-weight-bold text-dark">
+                        <label for="motivo_anulacion" class="font-weight-bold text-dark">
                             <i class="fas fa-comment-dots mr-2"></i>Motivo de anulación (opcional)
                         </label>
-                        <textarea class="form-control" id="motivoAnulacion" name="motivo_anulacion" rows="3" 
-                                  placeholder="Describa brevemente el motivo de la anulación..."></textarea>
+                        <textarea class="form-control" id="motivo_anulacion" name="motivo_anulacion" rows="3" 
+                                  placeholder="Describa brevemente el motivo de la anulación (máx. 500 caracteres)..."
+                                  maxlength="500"></textarea>
+                        <small class="form-text text-muted">Este motivo será registrado en el historial del movimiento.</small>
                     </div>
                     
                     <div class="alert alert-info small">
                         <i class="fas fa-info-circle mr-2"></i>
-                        <strong>Nota:</strong> Esta acción será registrada en el sistema con su usuario y fecha/hora.
+                        <strong>Nota:</strong> Esta acción será registrada en el sistema con su usuario, fecha/hora y motivo.
+                        Verifique que todos los datos sean correctos antes de confirmar.
                     </div>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-dismiss="modal">
                         <i class="fas fa-times mr-2"></i>Cancelar
                     </button>
-                    <button type="submit" class="btn btn-warning">
-                        <i class="fas fa-ban mr-2"></i>Sí, Anular Compra
+                    <button type="submit" class="btn btn-warning" id="btnConfirmarAnular">
+                        <i class="fas fa-ban mr-2"></i>Confirmar Anulación
                     </button>
                 </div>
             </form>
@@ -302,6 +323,7 @@ let movimientoActual = null;
 
 // Inicializar DataTable
 $(document).ready(function() {
+    // Inicializar DataTable
     $('#dataTable').DataTable({
         "language": {
             "url": "//cdn.datatables.net/plug-ins/1.10.25/i18n/Spanish.json"
@@ -310,12 +332,10 @@ $(document).ready(function() {
         "order": [[0, "desc"]],
         "dom": '<"row"<"col-sm-12 col-md-6"l><"col-sm-12 col-md-6"f>>rt<"row"<"col-sm-12 col-md-5"i><"col-sm-12 col-md-7"p>>',
         "responsive": true,
-        "buttons": [
-            {
-                extend: 'excel',
-                text: '<i class="fas fa-file-excel"></i> Excel',
-                className: 'btn btn-success btn-sm'
-            }
+        "columnDefs": [
+            { "orderable": false, "targets": [10] }, // Deshabilitar ordenación en columna de acciones
+            { "className": "text-center", "targets": [6, 9] },
+            { "className": "text-right", "targets": [7] }
         ]
     });
 
@@ -329,28 +349,40 @@ $(document).ready(function() {
         movimientoActual = null;
         // Resetear el formulario
         $('#formAnularCompra')[0].reset();
+        // Restablecer el botón de confirmar
+        $('#btnConfirmarAnular').prop('disabled', false).html('<i class="fas fa-ban mr-2"></i>Confirmar Anulación');
     });
 
     // Filtros personalizados
     $('#searchInput').on('keyup', function() {
-        $('#dataTable').DataTable().search(this.value).draw();
+        const table = $('#dataTable').DataTable();
+        table.search(this.value).draw();
     });
 
     $('#estadoFilter').change(function() {
         const value = $(this).val();
+        const table = $('#dataTable').DataTable();
+        
         if (value === '') {
-            $('#dataTable').DataTable().column(9).search('').draw();
+            table.column(9).search('').draw();
         } else {
-            $('#dataTable').DataTable().column(9).search(value === '1' ? 'Activo' : 'Anulado').draw();
+            // Buscar por texto en lugar de valor exacto
+            table.column(9).search(value === '1' ? 'Activo' : 'Anulado', true, false).draw();
         }
     });
 
     $('#tipoCompraFilter').change(function() {
         const value = $(this).val();
-        $('#dataTable').DataTable().column(4).search(value).draw();
+        const table = $('#dataTable').DataTable();
+        
+        if (value === '') {
+            table.column(4).search('').draw();
+        } else {
+            table.column(4).search(value, true, false).draw();
+        }
     });
 
-    // Validar formulario de anulación antes de enviar
+    // Validar formulario de anulación antes de enviar - MÉTODO TRADICIONAL
     $('#formAnularCompra').on('submit', function(e) {
         const usuario = $('#id_usuario_anulacion').val();
         if (!usuario) {
@@ -361,125 +393,217 @@ $(document).ready(function() {
         }
         
         // Mostrar confirmación adicional
-        if (!confirm('¿Está seguro que desea anular esta compra? Esta acción no se puede deshacer.')) {
+        if (!confirm('¿Está absolutamente seguro que desea anular esta compra? Esta acción es IRREVERSIBLE y afectará el inventario de la bodega.')) {
             e.preventDefault();
             return false;
         }
         
+        // Deshabilitar el botón de confirmar para evitar doble envío
+        $('#btnConfirmarAnular').prop('disabled', true).html('<i class="fas fa-spinner fa-spin mr-2"></i>Anulando...');
+        
+        // El formulario se enviará de forma tradicional
         return true;
     });
 });
 
-function anularCompra(idMovimiento, button) {
+function anularCompra(idMovimiento, facturaNumero, proveedor, total, button) {
     console.log('Anular compra:', idMovimiento);
     
-    // Obtener información de la fila para mostrar en el modal
-    const row = $(button).closest('tr');
-    const factura = row.find('td').eq(2).text().trim();
-    const proveedor = row.find('td').eq(3).text().trim();
-    const total = row.find('td').eq(7).text().trim();
-    const numeroCompra = row.find('td').eq(0).text().trim();
-
     // Almacenar el ID del movimiento actual
     movimientoActual = idMovimiento;
 
     // Llenar el modal de confirmación
-    $('#anularFacturaNumero').text(numeroCompra);
-    $('#anularFacturaExterna').text(factura !== 'N/A' ? factura : 'Sin factura externa');
+    $('#anularFacturaNumero').text(`#${idMovimiento}`);
+    $('#anularFacturaExterna').text(facturaNumero !== 'N/A' && facturaNumero !== idMovimiento.toString() ? facturaNumero : 'Sin factura externa');
     $('#anularProveedor').text(proveedor);
-    $('#anularTotal').text(total);
+    
+    // Formatear el total
+    const totalNum = parseFloat(total) || 0;
+    const totalFormatted = 'C$' + totalNum.toLocaleString('es-NI', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+    });
+    $('#anularTotal').text(totalFormatted);
 
     // Actualizar el action del formulario con el ID correcto
-    $('#formAnularCompra').attr('action', `/admin/compras/compras-entradas/anular/${idMovimiento}`);
+    const anularUrl = `/admin/compras/compras-entradas/anular/${idMovimiento}`;
+    $('#formAnularCompra').attr('action', anularUrl);
 
     // Limpiar y preparar el formulario
-    $('#motivoAnulacion').val('');
-    $('#id_usuario_anulacion').val('{{ session.get("user_id", "") }}');
+    $('#motivo_anulacion').val('');
+    
+    // Establecer el usuario actual por defecto si está disponible
+    const userId = '{{ session.get("user_id", "") }}';
+    if (userId) {
+        $('#id_usuario_anulacion').val(userId);
+    } else {
+        $('#id_usuario_anulacion').val('');
+    }
+
+    // Restablecer el botón de confirmar
+    $('#btnConfirmarAnular').prop('disabled', false).html('<i class="fas fa-ban mr-2"></i>Confirmar Anulación');
 
     // Mostrar modal de confirmación
     $('#confirmarAnularModal').modal('show');
 }
 
 function exportToExcel() {
-    // Implementar exportación a Excel usando DataTables
+    // Crear una ventana para exportar a Excel
     const table = $('#dataTable').DataTable();
-    table.button('.buttons-excel').trigger();
+    const data = table.rows({ search: 'applied' }).data();
+    
+    let csvContent = "ID,Fecha,Factura,Proveedor,Tipo Compra,Bodega,Total Productos,Total Compra,Usuario,Estado\n";
+    
+    data.each(function(value, index) {
+        const row = [
+            value[0],  // ID
+            value[1],  // Fecha
+            value[2],  // Factura
+            value[3],  // Proveedor
+            value[4],  // Tipo Compra
+            value[5],  // Bodega
+            value[6],  // Total Productos
+            value[7],  // Total Compra
+            value[8],  // Usuario
+            value[9]   // Estado
+        ].map(field => {
+            // Limpiar HTML y comillas para CSV
+            const tempDiv = document.createElement('div');
+            tempDiv.innerHTML = field;
+            let text = tempDiv.textContent || tempDiv.innerText || '';
+            text = text.replace(/"/g, '""'); // Escapar comillas
+            return `"${text}"`; // Envolver en comillas
+        }).join(',');
+        
+        csvContent += row + '\n';
+    });
+    
+    // Crear archivo y descargar
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', `compras_${new Date().toISOString().slice(0,10)}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
 }
 
 function printTable() {
-    // Crear una ventana de impresión optimizada
-    const originalTable = $('#dataTable').clone();
+    // Obtener la tabla con los filtros aplicados
+    const table = $('#dataTable').DataTable();
+    const filteredData = table.rows({ search: 'applied' }).data();
     
-    // Remover elementos no necesarios para imprimir
-    originalTable.find('.btn-group, .dropdown, .pagination').remove();
-    
-    const printWindow = window.open('', '_blank');
-    printWindow.document.write(`
-        <!DOCTYPE html>
+    // Crear contenido HTML para imprimir
+    let printContent = `
         <html>
         <head>
-            <title>Lista de Compras - ${new Date().toLocaleDateString()}</title>
-            <link href="https://cdn.jsdelivr.net/npm/bootstrap@4.6.0/dist/css/bootstrap.min.css" rel="stylesheet">
+            <title>Reporte de Compras</title>
             <style>
                 body { font-family: Arial, sans-serif; margin: 20px; }
-                .table { font-size: 12px; }
-                .badge { font-size: 11px; border: 1px solid #ccc; }
-                @media print {
-                    body { margin: 0; }
-                    .container { max-width: 100%; }
-                }
-                .text-success { color: #28a745 !important; }
-                .text-danger { color: #dc3545 !important; }
-                .text-warning { color: #ffc107 !important; }
+                h2 { text-align: center; margin-bottom: 20px; }
+                table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+                th { background-color: #f8f9fa; text-align: left; padding: 8px; border: 1px solid #dee2e6; }
+                td { padding: 8px; border: 1px solid #dee2e6; }
+                .text-center { text-align: center; }
+                .text-right { text-align: right; }
+                .badge { display: inline-block; padding: 3px 8px; border-radius: 4px; font-size: 12px; }
+                .footer { text-align: right; font-size: 12px; color: #666; margin-top: 20px; }
             </style>
         </head>
         <body>
-            <div class="container">
-                <h4 class="text-center mb-4">Lista de Compras - ${new Date().toLocaleDateString()}</h4>
-                ${originalTable.html()}
+            <h2>Reporte de Compras</h2>
+            <p><strong>Fecha de generación:</strong> ${new Date().toLocaleDateString('es-NI')}</p>
+            <table>
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Fecha</th>
+                        <th>Factura</th>
+                        <th>Proveedor</th>
+                        <th>Tipo</th>
+                        <th>Bodega</th>
+                        <th>Productos</th>
+                        <th>Total</th>
+                        <th>Usuario</th>
+                        <th>Estado</th>
+                    </tr>
+                </thead>
+                <tbody>
+    `;
+    
+    // Agregar filas de datos
+    filteredData.each(function(value, index) {
+        printContent += `
+            <tr>
+                <td>${value[0]}</td>
+                <td>${value[1]}</td>
+                <td>${value[2]}</td>
+                <td>${value[3]}</td>
+                <td>${value[4]}</td>
+                <td>${value[5]}</td>
+                <td class="text-center">${value[6]}</td>
+                <td class="text-right">${value[7]}</td>
+                <td>${value[8]}</td>
+                <td>${value[9]}</td>
+            </tr>
+        `;
+    });
+    
+    printContent += `
+                </tbody>
+            </table>
+            <div class="footer">
+                <p>Sistema de Gestión - ${new Date().toLocaleString('es-NI')}</p>
             </div>
-            <script>
-                window.onload = function() {
-                    window.print();
-                    setTimeout(() => window.close(), 1000);
-                }
-            <\/script>
         </body>
         </html>
-    `);
+    `;
+    
+    // Abrir ventana de impresión
+    const printWindow = window.open('', '_blank');
+    printWindow.document.write(printContent);
     printWindow.document.close();
+    printWindow.focus();
+    
+    // Esperar a que se cargue el contenido antes de imprimir
+    setTimeout(() => {
+        printWindow.print();
+        printWindow.close();
+    }, 250);
 }
 
 function clearFilters() {
     $('#searchInput').val('');
     $('#estadoFilter').val('');
     $('#tipoCompraFilter').val('');
-    $('#dataTable').DataTable().search('').columns().search('').draw();
+    
+    const table = $('#dataTable').DataTable();
+    table.search('').columns().search('').draw();
 }
 
 function showAlert(type, message) {
     const alertClass = type === 'success' ? 'alert-success' : 'alert-danger';
+    const iconClass = type === 'success' ? 'fa-check-circle' : 'fa-exclamation-circle';
+    
     const alertHtml = `
         <div class="alert ${alertClass} alert-dismissible fade show" role="alert">
+            <i class="fas ${iconClass} mr-2"></i>
             ${message}
             <button type="button" class="close" data-dismiss="alert" aria-label="Close">
                 <span aria-hidden="true">&times;</span>
             </button>
         </div>
     `;
+    
+    // Insertar al inicio del contenedor
     $('.container-fluid').prepend(alertHtml);
     
     // Auto-cerrar después de 5 segundos
     setTimeout(() => {
         $('.alert').alert('close');
     }, 5000);
-}
-
-// Función para recargar la página después de una anulación exitosa
-function recargarPagina() {
-    setTimeout(() => {
-        window.location.reload();
-    }, 2000);
 }
 </script>
 
@@ -543,36 +667,55 @@ function recargarPagina() {
     border-left: 4px solid #ffc107;
 }
 
+#confirmarAnularModal .alert-info {
+    border-left: 4px solid #17a2b8;
+}
+
 /* Estilos para estados */
 .table-secondary {
     opacity: 0.7;
+    background-color: #f8f9fa;
 }
 
 /* Mejoras para botones de acción */
 .btn-group .btn {
     margin: 0 2px;
     border-radius: 4px;
+    transition: all 0.3s ease;
+}
+
+.btn-group .btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
 }
 
 /* Responsive para botones en móviles */
 @media (max-width: 768px) {
     .btn-group {
         display: flex;
-        flex-direction: column;
+        flex-wrap: wrap;
+        gap: 2px;
     }
     
     .btn-group .btn {
-        margin: 2px 0;
-        text-align: left;
+        flex: 1 0 auto;
+        margin: 1px;
+        text-align: center;
+        min-width: 70px;
     }
     
     .table-responsive {
         font-size: 0.8rem;
     }
+    
+    #confirmarAnularModal .modal-dialog {
+        margin: 10px;
+    }
 }
 
 @media print {
-    .btn, .dropdown, .pagination, .alert, .card-header .dropdown {
+    .btn, .dropdown, .pagination, .alert, .card-header .dropdown,
+    .dataTables_filter, .dataTables_length, .dataTables_info, .dataTables_paginate {
         display: none !important;
     }
     
@@ -581,9 +724,20 @@ function recargarPagina() {
         box-shadow: none !important;
     }
     
+    .card-header {
+        background-color: #f8f9fa !important;
+        color: #000 !important;
+        border-bottom: 2px solid #dee2e6 !important;
+    }
+    
     .table th {
         background-color: #f8f9fa !important;
         color: #000 !important;
+        border: 1px solid #dee2e6 !important;
+    }
+    
+    .table td {
+        border: 1px solid #dee2e6 !important;
     }
     
     .table-secondary {
@@ -594,6 +748,10 @@ function recargarPagina() {
         border: 1px solid #ccc !important;
         background-color: #f8f9fa !important;
         color: #000 !important;
+    }
+    
+    .container-fluid {
+        padding: 0 !important;
     }
 }
 </style>

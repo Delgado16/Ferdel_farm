@@ -25,7 +25,7 @@
                             <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">
                                 Total Movimientos (Mes)
                             </div>
-                            <div class="h5 mb-0 font-weight-bold text-gray-800">
+                            <div class="h5 mb-0 font-weight-bold text-gray-800 format-number">
                                 {{ estadisticas.total_movimientos or 0 }}
                             </div>
                         </div>
@@ -45,7 +45,7 @@
                             <div class="text-xs font-weight-bold text-success text-uppercase mb-1">
                                 Entradas (Mes)
                             </div>
-                            <div class="h5 mb-0 font-weight-bold text-gray-800">
+                            <div class="h5 mb-0 font-weight-bold text-gray-800 format-number">
                                 {{ estadisticas.entradas or 0 }}
                             </div>
                         </div>
@@ -65,7 +65,7 @@
                             <div class="text-xs font-weight-bold text-danger text-uppercase mb-1">
                                 Salidas (Mes)
                             </div>
-                            <div class="h5 mb-0 font-weight-bold text-gray-800">
+                            <div class="h5 mb-0 font-weight-bold text-gray-800 format-number">
                                 {{ estadisticas.salidas or 0 }}
                             </div>
                         </div>
@@ -85,7 +85,7 @@
                             <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">
                                 Transferencias (Mes)
                             </div>
-                            <div class="h5 mb-0 font-weight-bold text-gray-800">
+                            <div class="h5 mb-0 font-weight-bold text-gray-800 format-number">
                                 {{ estadisticas.transferencias or 0 }}
                             </div>
                         </div>
@@ -112,13 +112,11 @@
                         <div class="row g-3">
                             <div class="col-md-6">
                                 <label class="form-label">Fecha Desde</label>
-                                <input type="date" name="fecha_inicio" class="form-control" 
-                                       value="{{ '' | date('Y-m-01') }}">
+                                <input type="date" name="fecha_inicio" class="form-control" id="fecha_inicio">
                             </div>
                             <div class="col-md-6">
                                 <label class="form-label">Fecha Hasta</label>
-                                <input type="date" name="fecha_fin" class="form-control" 
-                                       value="{{ '' | date('Y-m-d') }}">
+                                <input type="date" name="fecha_fin" class="form-control" id="fecha_fin">
                             </div>
                             <div class="col-md-6">
                                 <label class="form-label">Tipo de Movimiento</label>
@@ -193,8 +191,8 @@
                                         </span>
                                     </td>
                                     <td>{{ mov.Bodega_Origen }}</td>
-                                    <td>{{ mov.Productos }}</td>
-                                    <td>${{ "%.2f"|format(mov.Total_Costo or 0) }}</td>
+                                    <td class="format-number">{{ mov.Productos or 0 }}</td>
+                                    <td class="format-currency">C${{ "%.2f"|format(mov.Total_Costo or 0) }}</td>
                                 </tr>
                                 {% else %}
                                 <tr>
@@ -225,8 +223,8 @@
                         <div class="list-group-item list-group-item-action">
                             <div class="d-flex w-100 justify-content-between">
                                 <h6 class="mb-1">{{ producto.Descripcion }}</h6>
-                                <small class="text-danger">
-                                    {{ producto.Existencias }} / {{ producto.Stock_Minimo }}
+                                <small class="text-danger format-stock">
+                                    {{ producto.Existencias_Totales }} / {{ producto.Stock_Minimo }}
                                 </small>
                             </div>
                             <p class="mb-1">
@@ -234,8 +232,8 @@
                             </p>
                             <small class="text-muted">
                                 {{ producto.Unidad_Medida }}
-                                {% if producto.Total_Bodegas %}
-                                | Total en bodegas: {{ producto.Total_Bodegas }}
+                                {% if producto.Bodegas_Con_Stock %}
+                                | Bodegas con stock: <span class="format-number">{{ producto.Bodegas_Con_Stock }}</span>
                                 {% endif %}
                             </small>
                         </div>
@@ -259,15 +257,15 @@
                 </div>
                 <div class="card-body">
                     <div class="text-center mb-3">
-                        <div class="h4 font-weight-bold text-primary">
-                            ${{ "%.2f"|format(estadisticas.total_ventas or 0) }}
+                        <div class="h4 font-weight-bold text-primary format-currency">
+                            C${{ "%.2f"|format(estadisticas.total_ventas or 0) }}
                         </div>
                         <small class="text-muted">Total Ventas</small>
                     </div>
                     
                     <div class="text-center mb-3">
-                        <div class="h4 font-weight-bold text-success">
-                            ${{ "%.2f"|format(estadisticas.total_compras or 0) }}
+                        <div class="h4 font-weight-bold text-success format-currency">
+                            C${{ "%.2f"|format(estadisticas.total_compras or 0) }}
                         </div>
                         <small class="text-muted">Total Compras</small>
                     </div>
@@ -277,8 +275,8 @@
                     <div class="text-center">
                         {% set diferencia = (estadisticas.total_ventas or 0) - (estadisticas.total_compras or 0) %}
                         <div class="h4 font-weight-bold 
-                            {% if diferencia > 0 %}text-success{% else %}text-danger{% endif %}">
-                            ${{ "%.2f"|format(diferencia) }}
+                            {% if diferencia > 0 %}text-success{% else %}text-danger{% endif %} format-currency">
+                            C${{ "%.2f"|format(diferencia) }}
                         </div>
                         <small class="text-muted">Diferencia (Ventas - Compras)</small>
                     </div>
@@ -288,22 +286,137 @@
     </div>
 </div>
 
-<!-- JavaScript -->
+<!-- JavaScript Vanilla para formato de números -->
 <script>
-$(document).ready(function() {
-    // Fecha de hoy por defecto en filtros
-    const hoy = new Date().toISOString().split('T')[0];
-    const primerDiaMes = new Date();
-    primerDiaMes.setDate(1);
-    const primerDiaFormato = primerDiaMes.toISOString().split('T')[0];
+// Esperar a que toda la página esté completamente cargada
+window.addEventListener('DOMContentLoaded', function() {
+    console.log('DOM cargado - Iniciando formato de números');
     
-    // Si no hay fecha, establecer rangos por defecto
-    if (!$('input[name="fecha_inicio"]').val()) {
-        $('input[name="fecha_inicio"]').val(primerDiaFormato);
+    // Configurar fechas por defecto
+    const hoy = new Date();
+    const primerDiaMes = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
+    
+    // Formatear fechas como YYYY-MM-DD
+    function formatDate(date) {
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
     }
-    if (!$('input[name="fecha_fin"]').val()) {
-        $('input[name="fecha_fin"]').val(hoy);
+    
+    const fechaInicioInput = document.getElementById('fecha_inicio');
+    const fechaFinInput = document.getElementById('fecha_fin');
+    
+    if (fechaInicioInput) {
+        fechaInicioInput.value = formatDate(primerDiaMes);
     }
+    
+    if (fechaFinInput) {
+        fechaFinInput.value = formatDate(hoy);
+    }
+    
+    // Función para agregar separadores de miles a números
+    function formatNumberWithCommas(num) {
+        if (num === null || num === undefined || num === '') return '0';
+        
+        // Convertir a string y limpiar
+        let numStr = String(num).trim();
+        
+        // Remover cualquier símbolo de moneda o caracter no numérico excepto punto decimal
+        numStr = numStr.replace(/[^0-9.]/g, '');
+        
+        // Intentar convertir a número
+        let number = parseFloat(numStr);
+        
+        if (isNaN(number)) {
+            return '0';
+        }
+        
+        // Verificar si es un número entero
+        const isInteger = Number.isInteger(number) || number % 1 === 0;
+        
+        if (isInteger) {
+            // Para enteros, no mostrar decimales
+            return number.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+        } else {
+            // Para decimales, mostrar 2 decimales
+            return number.toFixed(2).replace(/\d(?=(\d{3})+\.)/g, '$&,');
+        }
+    }
+    
+    // Función para formatear moneda (C$)
+    function formatCurrency(value) {
+        if (!value) return 'C$0.00';
+        
+        let numStr = String(value).trim();
+        // Remover C$ si existe
+        numStr = numStr.replace('C$', '');
+        
+        const number = parseFloat(numStr.replace(/[^0-9.]/g, ''));
+        
+        if (isNaN(number)) {
+            return 'C$0.00';
+        }
+        
+        // Siempre mostrar 2 decimales para moneda
+        return 'C$' + number.toFixed(2).replace(/\d(?=(\d{3})+\.)/g, '$&,');
+    }
+    
+    // Función para formatear stock (existencias / mínimo)
+    function formatStock(value) {
+        if (!value) return '0 / 0';
+        
+        const parts = String(value).split('/');
+        if (parts.length === 2) {
+            const existencias = parseFloat(parts[0].trim().replace(/[^0-9.]/g, ''));
+            const minimo = parseFloat(parts[1].trim().replace(/[^0-9.]/g, ''));
+            
+            if (!isNaN(existencias) && !isNaN(minimo)) {
+                // Formatear ambos números sin decimales
+                const existenciasFormatted = existencias.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+                const minimoFormatted = minimo.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+                return `${existenciasFormatted} / ${minimoFormatted}`;
+            }
+        }
+        
+        // Si no se puede dividir por /, formatear como número simple
+        return formatNumberWithCommas(value);
+    }
+    
+    // Aplicar formato a todos los elementos con clase format-number
+    const numberElements = document.querySelectorAll('.format-number');
+    console.log(`Encontrados ${numberElements.length} elementos con clase format-number`);
+    
+    numberElements.forEach(function(element, index) {
+        const originalText = element.textContent.trim();
+        console.log(`Elemento ${index + 1}: "${originalText}"`);
+        const formattedText = formatNumberWithCommas(originalText);
+        element.textContent = formattedText;
+    });
+    
+    // Aplicar formato a todos los elementos con clase format-currency
+    const currencyElements = document.querySelectorAll('.format-currency');
+    console.log(`Encontrados ${currencyElements.length} elementos con clase format-currency`);
+    
+    currencyElements.forEach(function(element, index) {
+        const originalText = element.textContent.trim();
+        console.log(`Elemento moneda ${index + 1}: "${originalText}"`);
+        const formattedText = formatCurrency(originalText);
+        element.textContent = formattedText;
+    });
+    
+    // Aplicar formato a todos los elementos con clase format-stock
+    const stockElements = document.querySelectorAll('.format-stock');
+    console.log(`Encontrados ${stockElements.length} elementos con clase format-stock`);
+    
+    stockElements.forEach(function(element, index) {
+        const originalText = element.textContent.trim();
+        console.log(`Elemento stock ${index + 1}: "${originalText}"`);
+        const formattedText = formatStock(originalText);
+        element.textContent = formattedText;
+    });
+    
+    console.log('Formato de números completado');
 });
 </script>
 {% endblock %}
