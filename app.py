@@ -2525,17 +2525,24 @@ def admin_compras_entradas():
                     u.NombreUsuario as Usuario_Creacion,
                     mi.Fecha_Creacion,
                     mi.Estado,
-                    (SELECT COUNT(*) FROM Detalle_Movimientos_Inventario dmi 
-                     WHERE dmi.ID_Movimiento = mi.ID_Movimiento) as Total_Productos,
-                    (SELECT SUM(Subtotal) FROM Detalle_Movimientos_Inventario dmi 
-                     WHERE dmi.ID_Movimiento = mi.ID_Movimiento) as Total_Compra
+                    COALESCE(detalle.Total_Productos, 0) as Total_Productos,
+                    COALESCE(detalle.Total_Compra, 0) as Total_Compra
                 FROM Movimientos_Inventario mi
                 LEFT JOIN Proveedores p ON mi.ID_Proveedor = p.ID_Proveedor
                 LEFT JOIN bodegas b ON mi.ID_Bodega = b.ID_Bodega
                 LEFT JOIN catalogo_movimientos cm ON mi.ID_TipoMovimiento = cm.ID_TipoMovimiento
                 LEFT JOIN usuarios u ON mi.ID_Usuario_Creacion = u.ID_Usuario
+                LEFT JOIN (
+                    SELECT 
+                        ID_Movimiento,
+                        COUNT(*) as Total_Productos,
+                        SUM(COALESCE(Subtotal, 0)) as Total_Compra
+                    FROM Detalle_Movimientos_Inventario
+                    GROUP BY ID_Movimiento
+                ) detalle ON mi.ID_Movimiento = detalle.ID_Movimiento
                 WHERE cm.Adicion = 'ENTRADA' OR cm.Letra = 'E'
                 ORDER BY mi.Fecha DESC, mi.ID_Movimiento DESC
+                LIMIT 15
             """)
             entradas = cursor.fetchall()
             return render_template('admin/compras/compras_entradas.html', 
@@ -2565,7 +2572,7 @@ def admin_crear_compra():
                 cursor.execute("SELECT ID_Categoria, Descripcion FROM categorias_producto ORDER BY Descripcion")
                 categorias = cursor.fetchall()
                 
-                # CONSULTA CORREGIDA: Información básica de productos SIN referencias a ventas
+                # CONSULTA CORREGIDA: Información básica de productos
                 cursor.execute("""
                     SELECT 
                         p.ID_Producto, 
@@ -2576,7 +2583,6 @@ def admin_crear_compra():
                         c.Descripcion as Categoria,
                         um.Descripcion as Unidad_Medida,
                         um.Abreviatura as Simbolo_Medida
-                        -- NO calcular existencias aquí, eso se hace en otras consultas
                     FROM productos p
                     LEFT JOIN categorias_producto c ON p.ID_Categoria = c.ID_Categoria
                     LEFT JOIN unidades_medida um ON p.Unidad_Medida = um.ID_Unidad
@@ -2605,14 +2611,12 @@ def admin_crear_compra():
             id_usuario_creacion = request.form.get('id_usuario_creacion')
             fecha_vencimiento = request.form.get('fecha_vencimiento')
             
-            # Obtener productos del formulario
+            # Obtener productos del formulario - SIN LOTE Y FECHA_VENCIMIENTO
             productos = []
             producto_ids = request.form.getlist('productos[]')
             cantidades = request.form.getlist('cantidades[]')
             costos_unitarios = request.form.getlist('costos_unitarios[]')
             precios_unitarios = request.form.getlist('precios_unitarios[]')
-            lotes = request.form.getlist('lotes[]')
-            fechas_vencimiento = request.form.getlist('fechas_vencimiento[]')
             
             print(f"Datos recibidos - Productos: {len(producto_ids)}, IDs: {producto_ids}")
             
@@ -2626,7 +2630,7 @@ def admin_crear_compra():
                 flash('Debe agregar al menos un producto', 'error')
                 return redirect(url_for('admin_crear_compra'))
             
-            # Construir lista de productos
+            # Construir lista de productos - SIN LOTE Y FECHA_VENCIMIENTO
             for i in range(len(producto_ids)):
                 if producto_ids[i] and cantidades[i] and costos_unitarios[i]:
                     cantidad = round(float(cantidades[i]), 2)
@@ -2637,9 +2641,7 @@ def admin_crear_compra():
                         'id_producto': producto_ids[i],
                         'cantidad': cantidad,
                         'costo_unitario': costo_unitario,
-                        'precio_unitario': precio_unitario,
-                        'lote': lotes[i] if i < len(lotes) and lotes[i] != '' else None,
-                        'fecha_vencimiento': fechas_vencimiento[i] if i < len(fechas_vencimiento) and fechas_vencimiento[i] != '' else None
+                        'precio_unitario': precio_unitario
                     })
             
             # Validar usuario
@@ -2660,7 +2662,7 @@ def admin_crear_compra():
                     for producto in productos
                 )
                 
-                # Insertar movimiento principal - AGREGADO ESTADO
+                # Insertar movimiento principal
                 cursor.execute("""
                     INSERT INTO Movimientos_Inventario (
                         ID_TipoMovimiento, N_Factura_Externa, Fecha, ID_Proveedor, 
@@ -2684,16 +2686,16 @@ def admin_crear_compra():
                 id_movimiento = cursor.lastrowid
                 print(f"Movimiento creado con ID: {id_movimiento}")
                 
-                # Insertar detalles del movimiento
+                # Insertar detalles del movimiento - SIN LOTE Y FECHA_VENCIMIENTO
                 for producto in productos:
                     subtotal = round(producto['cantidad'] * producto['costo_unitario'], 2)
                     
                     # Insertar detalle del movimiento
                     cursor.execute("""
-                        INSERT INTO Detalle_Movimientos_Inventario (
+                        INSERT INTO detalle_movimientos_inventario (
                             ID_Movimiento, ID_Producto, Cantidad, Costo_Unitario, 
-                            Precio_Unitario, Subtotal, Lote, Fecha_Vencimiento, ID_Usuario_Creacion
-                        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                            Precio_Unitario, Subtotal, ID_Usuario_Creacion
+                        ) VALUES (%s, %s, %s, %s, %s, %s, %s)
                     """, (
                         id_movimiento,
                         producto['id_producto'],
@@ -2701,8 +2703,6 @@ def admin_crear_compra():
                         producto['costo_unitario'],
                         producto['precio_unitario'],
                         subtotal,
-                        producto['lote'],
-                        producto['fecha_vencimiento'],
                         id_usuario
                     ))
                     
@@ -3906,7 +3906,7 @@ def admin_crear_venta():
             print("📨 Iniciando procesamiento de venta...")
             
             # Obtener datos del formulario
-            id_cliente = request.form.get('id_cliente')
+            id_cliente = request.form.get('id_cliente','').strip()
             tipo_venta = request.form.get('tipo_venta')
             observacion = request.form.get('observacion', '')
             
@@ -4041,7 +4041,7 @@ def admin_crear_venta():
                 id_movimiento = cursor.fetchone()['id_movimiento']
                 print(f"📋 Movimiento de inventario creado: #{id_movimiento}")
                 
-                # 4. Insertar detalles del movimiento de inventario
+                # 4. Insertar detalles del movimiento de inventario (CORREGIDA)
                 for i in range(len(productos_ids)):
                     id_producto = productos_ids[i]
                     cantidad = float(cantidades[i]) if cantidades[i] else 0
@@ -4060,23 +4060,21 @@ def admin_crear_venta():
                     
                     subtotal = cantidad * precio
                     
-                    # Insertar detalle del movimiento de inventario según la estructura real
+                    # CORRECCIÓN: Insertar detalle del movimiento de inventario con la nueva estructura
                     cursor.execute("""
                         INSERT INTO detalle_movimientos_inventario (
                             ID_Movimiento, ID_Producto, Cantidad, 
                             Costo_Unitario, Precio_Unitario, Subtotal,
-                            Lote, Fecha_Vencimiento, ID_Usuario_Creacion
+                            ID_Usuario_Creacion
                         )
-                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s)
                     """, (
                         id_movimiento,
                         id_producto,
                         cantidad,
-                        precio,  # Costo_Unitario (en ventas el costo es el precio de venta)
+                        precio,  # Costo_Unitario
                         precio,  # Precio_Unitario
                         subtotal,
-                        None,  # Lote (dejar NULL si no se manejan lotes)
-                        None,  # Fecha_Vencimiento (dejar NULL)
                         id_usuario
                     ))
                     print(f"  Detalle movimiento creado para producto: {producto_info['COD_Producto']}")
@@ -4464,6 +4462,65 @@ def admin_generar_ticket(id_factura):
         print(f"Error detallado: {traceback.format_exc()}")
         return redirect(url_for('admin_ventas_salidas'))
 
+@app.route('/admin/ventas/todos-productos')
+@admin_required
+def obtener_todos_productos_venta():
+    """
+    Endpoint para obtener TODOS los productos activos con stock
+    """
+    try:
+        id_empresa = session.get('id_empresa', 1)
+        
+        # Obtener la bodega principal
+        with get_db_cursor(True) as cursor:
+            cursor.execute("SELECT ID_Bodega FROM bodegas WHERE Estado = 1 ORDER BY ID_Bodega LIMIT 1")
+            bodega_result = cursor.fetchone()
+            id_bodega = bodega_result['ID_Bodega'] if bodega_result else 1
+        
+        print(f"🔍 [VENTAS] Cargando TODOS los productos - Bodega: {id_bodega}")
+        
+        with get_db_cursor(True) as cursor:
+            cursor.execute("""
+                SELECT 
+                    p.ID_Producto, 
+                    p.COD_Producto, 
+                    p.Descripcion, 
+                    COALESCE(ib.Existencias, 0) as Existencias,
+                    COALESCE(p.Precio_Venta, 0) as Precio_Venta, 
+                    p.ID_Categoria,
+                    c.Descripcion as Categoria
+                FROM productos p
+                LEFT JOIN categorias_producto c ON p.ID_Categoria = c.ID_Categoria
+                LEFT JOIN inventario_bodega ib ON p.ID_Producto = ib.ID_Producto AND ib.ID_Bodega = %s
+                WHERE p.Estado = 1 
+                AND (p.ID_Empresa = %s OR p.ID_Empresa IS NULL)
+                AND COALESCE(ib.Existencias, 0) > 0
+                ORDER BY c.Descripcion, p.Descripcion
+            """, (id_bodega, id_empresa))
+            
+            productos = cursor.fetchall()
+            print(f"✅ [VENTAS] Total productos encontrados: {len(productos)}")
+            
+            productos_list = []
+            for producto in productos:
+                productos_list.append({
+                    'ID_Producto': producto['ID_Producto'],
+                    'COD_Producto': producto['COD_Producto'],
+                    'Descripcion': producto['Descripcion'],
+                    'Existencias': float(producto['Existencias']),
+                    'Precio_Venta': float(producto['Precio_Venta']),
+                    'ID_Categoria': producto['ID_Categoria'],
+                    'Categoria': producto['Categoria']
+                })
+            
+            return jsonify(productos_list)
+            
+    except Exception as e:
+        print(f"❌ [VENTAS] Error al obtener todos los productos: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
+    
 @app.route('/admin/ventas/detalles/<int:id_factura>', methods=['GET'])
 @admin_required
 @bitacora_decorator("DETALLES_VENTA")
@@ -5354,6 +5411,12 @@ def admin_historial_movimientos():
 @app.route('/admin/movimientos/entrada/nueva')
 @admin_required
 def admin_nueva_entrada_form():
+
+    print(f"DEBUG - current_user: {current_user}")
+    print(f"DEBUG - current_user.is_authenticated: {current_user.is_authenticated}")
+    print(f"DEBUG - current_user.id: {getattr(current_user, 'id', 'NO ID ATTRIBUTE')}")
+    print(f"DEBUG - current_user.__dict__: {current_user.__dict__}")
+
     """Mostrar formulario para nueva entrada (compra/producción)"""
     try:
         with get_db_cursor(True) as cursor:
@@ -5382,7 +5445,7 @@ def admin_nueva_entrada_form():
             """)
             bodegas = cursor.fetchall()
             
-            # Obtener productos activos CON SU STOCK TOTAL - MODIFICADO
+            # Obtener productos activos
             cursor.execute("""
                 SELECT 
                     p.ID_Producto, 
@@ -5400,8 +5463,8 @@ def admin_nueva_entrada_form():
                 LEFT JOIN inventario_bodega ib ON p.ID_Producto = ib.ID_Producto
                 WHERE p.Estado = 'activo'
                 GROUP BY p.ID_Producto, p.COD_Producto, p.Descripcion, 
-                         p.Unidad_Medida, um.Descripcion, p.Precio_Venta, 
-                         p.Stock_Minimo, cp.Descripcion
+                         p.Unidad_Medida, p.Precio_Venta, p.Stock_Minimo,
+                         um.Descripcion, cp.Descripcion
                 ORDER BY p.Descripcion
                 LIMIT 100
             """)
@@ -5449,19 +5512,44 @@ def admin_nueva_entrada_form():
 def admin_procesar_entrada():
     """Procesar nueva entrada (compra/producción/ajuste positivo)"""
     try:
+        # Validar que el usuario está autenticado
+        if 'user_id' not in session:
+            flash("Debe iniciar sesión para realizar esta acción", 'error')
+            return redirect(url_for('login'))
+        
+        user_id = session.get('user_id')
+        if not user_id:
+            flash("ID de usuario no encontrado en la sesión", 'error')
+            return redirect(url_for('login'))
+        
         # Validar datos básicos
         fecha = request.form.get('fecha')
-        id_tipo_movimiento = int(request.form.get('id_tipo_movimiento'))
-        id_bodega = int(request.form.get('id_bodega'))
+        id_tipo_movimiento = request.form.get('id_tipo_movimiento')
+        id_bodega = request.form.get('id_bodega')
         
         if not all([fecha, id_tipo_movimiento, id_bodega]):
             flash("Fecha, tipo de movimiento y bodega son requeridos", 'error')
             return redirect(url_for('admin_nueva_entrada_form'))
         
-        # Validar que sea tipo de entrada
-        if id_tipo_movimiento not in [TIPO_COMPRA, TIPO_PRODUCCION, TIPO_AJUSTE]:
-            flash("Tipo de movimiento no válido para entrada", 'error')
+        # Convertir valores
+        try:
+            id_tipo_movimiento = int(id_tipo_movimiento)
+            id_bodega = int(id_bodega)
+        except ValueError:
+            flash("ID de tipo de movimiento o bodega no válido", 'error')
             return redirect(url_for('admin_nueva_entrada_form'))
+        
+        # Validar que sea tipo de entrada (consultar tabla catalogo_movimientos)
+        with get_db_cursor(True) as cursor:
+            cursor.execute("""
+                SELECT Letra FROM catalogo_movimientos 
+                WHERE ID_TipoMovimiento = %s
+            """, (id_tipo_movimiento,))
+            
+            tipo_mov = cursor.fetchone()
+            if not tipo_mov or tipo_mov['Letra'] not in ['E', 'A']:
+                flash("Tipo de movimiento no válido para entrada", 'error')
+                return redirect(url_for('admin_nueva_entrada_form'))
         
         # Obtener productos
         productos_json = request.form.get('productos')
@@ -5469,9 +5557,16 @@ def admin_procesar_entrada():
             flash("Debe agregar al menos un producto", 'error')
             return redirect(url_for('admin_nueva_entrada_form'))
         
-        productos = json.loads(productos_json)
+        try:
+            productos = json.loads(productos_json)
+        except json.JSONDecodeError:
+            flash("Formato de productos no válido", 'error')
+            return redirect(url_for('admin_nueva_entrada_form'))
         
         with get_db_cursor() as cursor:
+            # Validar que la empresa existe en sesión
+            id_empresa = session.get('id_empresa', 1)
+            
             # Insertar movimiento principal
             cursor.execute("""
                 INSERT INTO movimientos_inventario 
@@ -5480,49 +5575,80 @@ def admin_procesar_entrada():
                  ID_Empresa, ID_Usuario_Creacion)
                 VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
             """, (
-                id_tipo_movimiento, fecha,
+                id_tipo_movimiento, 
+                fecha,
                 request.form.get('id_proveedor') or None,
-                request.form.get('tipo_compra'),
+                request.form.get('tipo_compra') or None,
                 id_bodega,
-                request.form.get('n_factura_externa'),
-                request.form.get('observacion'),
-                session.get('id_empresa', 1),
-                session.get('user_id')
+                request.form.get('n_factura_externa') or None,
+                request.form.get('observacion') or None,
+                id_empresa,
+                user_id  # Usar user_id validado
             ))
             
             id_movimiento = cursor.lastrowid
             
             # Procesar cada producto
             for prod in productos:
-                cantidad = Decimal(str(prod['cantidad']))
-                costo_unitario = Decimal(str(prod.get('costo_unitario', 0)))
-                precio_unitario = Decimal(str(prod.get('precio_unitario', 0)))
-                subtotal = cantidad * costo_unitario
-                
-                # Insertar detalle
-                cursor.execute("""
-                    INSERT INTO detalle_movimientos_inventario
-                    (ID_Movimiento, ID_Producto, Cantidad, Costo_Unitario,
-                     Precio_Unitario, Subtotal, Lote, Fecha_Vencimiento,
-                     ID_Usuario_Creacion)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
-                """, (
-                    id_movimiento, prod['id_producto'], cantidad,
-                    costo_unitario, precio_unitario, subtotal,
-                    prod.get('lote'), prod.get('fecha_vencimiento'),
-                    session.get('user_id')
-                ))
-                
-                # ACTUALIZAR inventario_bodega - MODIFICADO
-                cursor.execute("""
-                    INSERT INTO inventario_bodega (ID_Bodega, ID_Producto, Existencias)
-                    VALUES (%s, %s, %s)
-                    ON DUPLICATE KEY UPDATE
-                    Existencias = Existencias + VALUES(Existencias)
-                """, (id_bodega, prod['id_producto'], cantidad))
-                
-                # NOTA: Ya NO actualizamos la tabla productos ya que no tiene campo Existencias
-                # El inventario total se calcula dinámicamente sumando inventario_bodega
+                try:
+                    # Validar campos requeridos
+                    if 'id_producto' not in prod or not prod['id_producto']:
+                        flash("Producto sin ID", 'error')
+                        continue
+                    
+                    if 'cantidad' not in prod or not prod['cantidad']:
+                        flash("Producto sin cantidad", 'error')
+                        continue
+                    
+                    # Convertir valores con validación
+                    id_producto = int(prod['id_producto'])
+                    cantidad = Decimal(str(prod.get('cantidad', 0)))
+                    costo_unitario = Decimal(str(prod.get('costo_unitario', 0)))
+                    precio_unitario = Decimal(str(prod.get('precio_unitario', 0)))
+                    subtotal = cantidad * costo_unitario
+                    
+                    # Validar valores positivos
+                    if cantidad <= 0:
+                        flash(f"Cantidad no válida para producto {id_producto}", 'error')
+                        continue
+                    
+                    # Validar que el producto existe
+                    cursor.execute("""
+                        SELECT ID_Producto FROM productos 
+                        WHERE ID_Producto = %s AND Estado = 'activo'
+                    """, (id_producto,))
+                    
+                    if not cursor.fetchone():
+                        flash(f"Producto ID {id_producto} no encontrado o inactivo", 'error')
+                        continue
+                    
+                    # Insertar detalle
+                    cursor.execute("""
+                        INSERT INTO detalle_movimientos_inventario
+                        (ID_Movimiento, ID_Producto, Cantidad, Costo_Unitario,
+                         Precio_Unitario, Subtotal, ID_Usuario_Creacion)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s)
+                    """, (
+                        id_movimiento, 
+                        id_producto, 
+                        cantidad,
+                        costo_unitario, 
+                        precio_unitario, 
+                        subtotal,
+                        user_id  # Usar user_id validado
+                    ))
+                    
+                    # ACTUALIZAR inventario_bodega
+                    cursor.execute("""
+                        INSERT INTO inventario_bodega (ID_Bodega, ID_Producto, Existencias)
+                        VALUES (%s, %s, %s)
+                        ON DUPLICATE KEY UPDATE
+                        Existencias = Existencias + VALUES(Existencias)
+                    """, (id_bodega, id_producto, cantidad))
+                    
+                except Exception as prod_error:
+                    flash(f"Error con producto {prod.get('id_producto', 'desconocido')}: {str(prod_error)}", 'warning')
+                    continue
             
             flash(f"✅ Entrada registrada exitosamente! ID: {id_movimiento}", 'success')
             return redirect(url_for('admin_detalle_movimiento', id_movimiento=id_movimiento))
@@ -5530,7 +5656,7 @@ def admin_procesar_entrada():
     except Exception as e:
         flash(f"❌ Error al procesar entrada: {str(e)}", 'error')
         return redirect(url_for('admin_nueva_entrada_form'))
-    
+
 def obtener_existencias_producto(id_producto):
     """Obtener existencias totales de un producto sumando todas las bodegas"""
     with get_db_cursor(True) as cursor:

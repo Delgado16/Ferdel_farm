@@ -325,6 +325,7 @@
 
         .filter-section {
             padding: 0.75rem;
+        }
     }
 
     @media (max-width: 576px) {
@@ -347,6 +348,61 @@
 
         .product-actions .btn {
             width: 100%;
+        }
+    }
+
+    /* Estilos para los modales */
+    .modal-confirm .modal-icon {
+        text-align: center;
+        font-size: 4rem;
+        color: #f0ad4e;
+        margin-bottom: 1rem;
+    }
+
+    .modal-success .modal-icon {
+        text-align: center;
+        font-size: 4rem;
+        color: #5cb85c;
+        margin-bottom: 1rem;
+    }
+
+    .resumen-venta {
+        background: #f8f9fa;
+        border-radius: 6px;
+        padding: 1rem;
+        margin: 1rem 0;
+    }
+
+    .resumen-item {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 0.5rem;
+    }
+
+    .resumen-label {
+        font-weight: 600;
+        color: #495057;
+    }
+
+    .resumen-valor {
+        color: #212529;
+    }
+
+    .modal-options {
+        display: flex;
+        justify-content: center;
+        gap: 1rem;
+        margin-top: 1.5rem;
+    }
+
+    @media (max-width: 768px) {
+        .modal-options {
+            flex-direction: column;
+        }
+        
+        .modal-options .btn {
+            width: 100%;
+            margin-bottom: 0.5rem;
         }
     }
 </style>
@@ -435,7 +491,7 @@
 
                         <!-- Campo de fecha de vencimiento (solo para crédito) -->
                         <div class="col-12" id="fecha_vencimiento_group" style="display: none;">
-                            <label for="fecha_vencimiento" class="form-label">Fecha de Vencimiento (Crédito)</label>
+                            <label for="fecha_vencimiento" class="form-label required-field">Fecha de Vencimiento (Crédito)</label>
                             <input type="date" class="form-control" id="fecha_vencimiento" name="fecha_vencimiento">
                             <div class="credito-info">
                                 <small><i class="fas fa-info-circle me-1"></i>Se generará automáticamente una cuenta por cobrar para esta venta a crédito.</small>
@@ -529,15 +585,50 @@
     </div>
 </div>
 
+<!-- Modal de Confirmación de Venta -->
+<div class="modal fade" id="modalConfirmarVenta" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-confirm">
+        <div class="modal-content">
+            <div class="modal-body">
+                <div class="modal-icon">
+                    <i class="fas fa-question-circle"></i>
+                </div>
+                <h4>¿Confirmar Venta?</h4>
+                <p>¿Está seguro que desea procesar esta venta? Esta acción no se puede deshacer.</p>
+                
+                <div class="resumen-venta" id="resumen-confirmacion">
+                    <!-- Aquí se mostrará el resumen de la venta -->
+                </div>
+                
+                <div class="modal-options">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="fas fa-times me-1"></i> Cancelar
+                    </button>
+                    <button type="button" class="btn btn-primary" id="btn-confirmar-procesar">
+                        <i class="fas fa-check me-1"></i> Confirmar
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script>
+// Variables globales
+// Variables globales
 let productos = [];
 let contadorProductos = 0;
 let filtroCategoriaActual = 0;
 let productosEnCache = [];
+let productosBase = []; // Todos los productos sin filtrar
 
-// Establecer fecha actual por defecto
+// Inicialización cuando el DOM está listo
 document.addEventListener('DOMContentLoaded', function() {
+    // Establecer fecha actual por defecto
     const today = new Date().toISOString().split('T')[0];
+    
+    // Cargar todos los productos inicialmente
+    cargarProductosBase();
     
     // Asignar eventos
     document.getElementById('btn-agregar-producto').addEventListener('click', agregarProducto);
@@ -562,6 +653,7 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         } else {
             fechaVencimientoGroup.style.display = 'none';
+            document.getElementById('fecha_vencimiento').value = '';
             document.getElementById('id_cliente').classList.remove('is-invalid');
         }
     });
@@ -573,17 +665,60 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
+    // Evento para confirmar procesamiento de venta
+    document.getElementById('btn-confirmar-procesar').addEventListener('click', function() {
+        console.log('✅ Confirmación recibida, procesando venta...');
+        
+        // Validar fecha de vencimiento si es crédito
+        if (!validarFechaVencimiento()) {
+            return;
+        }
+        
+        // Ocultar modal de confirmación
+        const modalConfirmar = bootstrap.Modal.getInstance(document.getElementById('modalConfirmarVenta'));
+        modalConfirmar.hide();
+        
+        // Procesar la venta
+        procesarVenta();
+    });
+
     // Agregar primera fila de producto
     agregarProducto();
 });
 
-// APLICAR FILTRO POR CATEGORÍA
+// CARGAR TODOS LOS PRODUCTOS BASE (UNA SOLA VEZ)
+async function cargarProductosBase() {
+    try {
+        console.log('[VENTAS] Cargando productos base...');
+        
+        const response = await fetch('/admin/ventas/todos-productos');
+        
+        if (!response.ok) {
+            throw new Error(`Error HTTP: ${response.status}`);
+        }
+        
+        const productosData = await response.json();
+        
+        if (productosData.error) {
+            throw new Error(productosData.error);
+        }
+
+        productosBase = productosData;
+        console.log(`[VENTAS] Productos base cargados: ${productosBase.length} productos`);
+        
+    } catch (error) {
+        console.error('[VENTAS] Error cargando productos base:', error);
+        mostrarAlerta('danger', '❌ Error', 'No se pudieron cargar los productos');
+    }
+}
+
+// APLICAR FILTRO POR CATEGORÍA - VERSIÓN CORREGIDA
 async function aplicarFiltroCategoria() {
     const categoriaSelect = document.getElementById('filtro_categoria');
     const idCategoria = categoriaSelect.value;
     const nombreCategoria = categoriaSelect.options[categoriaSelect.selectedIndex].text;
     
-    console.log('[VENTAS] Applying filter - Categoria:', idCategoria);
+    console.log('[VENTAS] Aplicando filtro - Categoria:', idCategoria);
     
     try {
         // Mostrar loading
@@ -592,46 +727,86 @@ async function aplicarFiltroCategoria() {
         btnFiltro.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> Cargando...';
         btnFiltro.disabled = true;
 
-        // URL sin parámetro de bodega
-        const url = `/admin/ventas/productos-por-categoria/${idCategoria}`;
+        // Determinar qué productos mostrar
+        let productosAMostrar;
         
-        console.log('[VENTAS] Request URL:', url);
-        
-        const response = await fetch(url);
-        
-        if (!response.ok) {
-            const errorText = await response.text();
-            throw new Error(`Error HTTP: ${response.status}`);
+        if (idCategoria == 0) {
+            // Mostrar todos los productos
+            productosAMostrar = productosBase;
+            productosEnCache = [];
+        } else {
+            // Cargar productos filtrados por categoría
+            const response = await fetch(`/admin/ventas/productos-por-categoria/${idCategoria}`);
+            
+            if (!response.ok) {
+                throw new Error(`Error HTTP: ${response.status}`);
+            }
+            
+            const productosRecibidos = await response.json();
+            
+            if (productosRecibidos.error) {
+                throw new Error(productosRecibidos.error);
+            }
+            
+            productosAMostrar = productosRecibidos;
+            productosEnCache = productosRecibidos;
         }
         
-        const productosRecibidos = await response.json();
-        
-        if (productosRecibidos.error) {
-            throw new Error(productosRecibidos.error);
-        }
-
-        productosEnCache = productosRecibidos;
         filtroCategoriaActual = idCategoria;
         
-        // Solo actualizar selects VACÍOS, mantener los que ya tienen productos
+        // ACTUALIZAR SOLO LOS SELECTS QUE ESTÁN VACÍOS
         const selectsProductos = document.querySelectorAll('.producto-select');
-        console.log('[VENTAS] Updating ONLY EMPTY selects. Total selects:', selectsProductos.length);
+        console.log('[VENTAS] Procesando selects. Total:', selectsProductos.length);
         
         let selectsActualizados = 0;
         let selectsMantenidos = 0;
         
         selectsProductos.forEach((select, index) => {
-            if (!select.value || select.value === "") {
-                console.log(`[VENTAS] Updating empty select ${index + 1}`);
-                actualizarSelectConProductos(select, productosRecibidos);
+            const tieneProducto = select.value && select.value !== "";
+            
+            if (!tieneProducto) {
+                // Select vacío - actualizar con productos filtrados
+                console.log(`[VENTAS] Actualizando select vacío ${index + 1}`);
+                actualizarOpcionesSelect(select, productosAMostrar);
                 selectsActualizados++;
             } else {
-                console.log(`[VENTAS] Keeping select ${index + 1} with existing product:`, select.value);
-                selectsMantenidos++;
+                // Select con producto seleccionado - VERIFICAR SI ESTÁ DISPONIBLE CON EL FILTRO
+                const productoId = select.value;
+                const productoEncontrado = productosAMostrar.find(p => 
+                    (p.ID_Producto || p.id) == productoId
+                );
+                
+                if (productoEncontrado) {
+                    // El producto sigue disponible - MANTENER selección
+                    console.log(`[VENTAS] Manteniendo select ${index + 1} con producto ${productoId}`);
+                    
+                    // Solo actualizar las opciones disponibles, manteniendo la selección
+                    actualizarOpcionesSelectManteniendoSeleccion(select, productosAMostrar, productoId);
+                    selectsMantenidos++;
+                } else {
+                    // El producto ya no está disponible con este filtro
+                    console.log(`[VENTAS] Producto ${productoId} no disponible con filtro, limpiando select ${index + 1}`);
+                    
+                    // Limpiar el select
+                    select.value = "";
+                    actualizarOpcionesSelect(select, productosAMostrar);
+                    
+                    // Limpiar campos relacionados
+                    const fila = select.closest('.producto-item');
+                    if (fila) {
+                        fila.querySelector('.precio').value = '0';
+                        fila.querySelector('.cantidad').value = '1';
+                        fila.querySelector('.subtotal').value = '0.00';
+                        const filaId = fila.id.split('-')[1];
+                        document.getElementById(`stock-info-${filaId}`).innerHTML = '';
+                    }
+                    
+                    selectsActualizados++;
+                }
             }
         });
         
-        console.log(`[VENTAS] Updated ${selectsActualizados} empty selects, kept ${selectsMantenidos} with products`);
+        console.log(`[VENTAS] Resultado: Actualizados=${selectsActualizados}, Mantenidos=${selectsMantenidos}`);
         
         // Mostrar información del filtro
         const filtroInfo = document.getElementById('filtro-info');
@@ -645,12 +820,20 @@ async function aplicarFiltroCategoria() {
             filtroActual.textContent = nombreCategoria;
         }
         
-        mostrarAlerta('success', 'Filtro aplicado', 
-            `Mostrando productos de la categoría: ${nombreCategoria}. ${selectsActualizados} selects actualizados, ${selectsMantenidos} productos mantenidos.`);
+        // Mostrar mensaje informativo
+        let mensaje = `Filtro aplicado: ${nombreCategoria}`;
+        if (selectsMantenidos > 0) {
+            mensaje += `. Se mantuvieron ${selectsMantenidos} productos seleccionados.`;
+        }
+        if (selectsActualizados > 0) {
+            mensaje += ` ${selectsActualizados} selects actualizados.`;
+        }
+        
+        mostrarAlerta('success', '✅ Filtro aplicado', mensaje);
         
     } catch (error) {
-        console.error('[VENTAS] Error applying filter:', error);
-        mostrarAlerta('danger', ' Error', `No se pudieron cargar los productos: ${error.message}`);
+        console.error('[VENTAS] Error aplicando filtro:', error);
+        mostrarAlerta('danger', '❌ Error', `No se pudieron cargar los productos: ${error.message}`);
     } finally {
         // Restaurar botón
         const btnFiltro = document.getElementById('btn-aplicar-filtro');
@@ -659,52 +842,168 @@ async function aplicarFiltroCategoria() {
     }
 }
 
-function actualizarSelectConProductos(select, productos) {
-    // Limpiar opciones actuales
-    select.innerHTML = '<option value="" disabled selected>Seleccionar producto...</option>';
+// ACTUALIZAR OPCIONES DE UN SELECT (manteniendo la selección actual)
+function actualizarOpcionesSelectManteniendoSeleccion(select, productos, productoIdAMantener) {
+    // Guardar todas las opciones actuales que NO sean la seleccionada
+    const opcionesActuales = [];
+    for (let i = 0; i < select.options.length; i++) {
+        if (select.options[i].value !== "" && select.options[i].value !== productoIdAMantener) {
+            opcionesActuales.push(select.options[i]);
+        }
+    }
     
-    // Agregar nuevos productos
+    // Crear nueva lista de opciones
+    const opcionesFinales = [];
+    
+    // 1. Opción por defecto
+    const opcionDefault = document.createElement('option');
+    opcionDefault.value = "";
+    opcionDefault.disabled = true;
+    opcionDefault.selected = false;
+    opcionDefault.textContent = "Seleccionar producto...";
+    opcionesFinales.push(opcionDefault);
+    
+    // 2. Primero agregar el producto seleccionado (si existe en la nueva lista)
+    const productoSeleccionado = productos.find(p => (p.ID_Producto || p.id) == productoIdAMantener);
+    if (productoSeleccionado) {
+        const opcion = crearOpcionProducto(productoSeleccionado);
+        opcion.selected = true;
+        opcionesFinales.push(opcion);
+    }
+    
+    // 3. Agregar los otros productos (excluyendo el ya seleccionado)
     productos.forEach(producto => {
-        const option = document.createElement('option');
-        option.value = producto.id;
-        option.textContent = `${producto.descripcion} (${producto.codigo}) - Stock: ${producto.existencias}`;
-        option.dataset.codigo = producto.codigo;
-        option.dataset.existencia = producto.existencias;
-        option.dataset.precio = producto.precio_venta || 0;
-        option.dataset.categoria = producto.id_categoria;
-        
-        select.appendChild(option);
+        const productoId = producto.ID_Producto || producto.id;
+        if (productoId != productoIdAMantener) {
+            opcionesFinales.push(crearOpcionProducto(producto));
+        }
     });
+    
+    // Reemplazar todas las opciones del select
+    select.innerHTML = '';
+    opcionesFinales.forEach(opcion => {
+        select.appendChild(opcion);
+    });
+    
+    console.log(`[SELECT] Actualizado manteniendo producto ${productoIdAMantener}`);
 }
 
+// CREAR OPCIÓN DE PRODUCTO
+function crearOpcionProducto(producto) {
+    const option = document.createElement('option');
+    const productoId = producto.ID_Producto || producto.id;
+    option.value = productoId;
+    option.textContent = `${producto.Descripcion || producto.descripcion} (${producto.COD_Producto || producto.codigo}) - Stock: ${producto.Existencias || producto.existencias}`;
+    option.dataset.codigo = producto.COD_Producto || producto.codigo;
+    option.dataset.existencia = producto.Existencias || producto.existencias;
+    option.dataset.precio = producto.Precio_Venta || producto.precio_venta || 0;
+    option.dataset.categoria = producto.ID_Categoria || producto.id_categoria;
+    
+    return option;
+}
+
+// ACTUALIZAR OPCIONES DE UN SELECT (versión simple)
+function actualizarOpcionesSelect(select, productos) {
+    // Guardar valor actual
+    const valorActual = select.value;
+    
+    // Limpiar TODAS las opciones
+    select.innerHTML = '';
+    
+    // Agregar opción por defecto
+    const opcionDefault = document.createElement('option');
+    opcionDefault.value = "";
+    opcionDefault.disabled = true;
+    opcionDefault.selected = true;
+    opcionDefault.textContent = "Seleccionar producto...";
+    select.appendChild(opcionDefault);
+    
+    // Agregar nuevos productos como opciones
+    productos.forEach(producto => {
+        select.appendChild(crearOpcionProducto(producto));
+    });
+    
+    // Intentar restaurar la selección anterior si existe
+    if (valorActual && valorActual !== "") {
+        // Verificar si el valor anterior todavía está en las opciones
+        const opcionExiste = Array.from(select.options).some(option => 
+            option.value == valorActual
+        );
+        
+        if (opcionExiste) {
+            select.value = valorActual;
+            console.log(`[SELECT] Selección restaurada: ${valorActual}`);
+        }
+    }
+}
+
+// CARGAR PRODUCTOS EN UN SELECT NUEVO
+async function cargarProductosEnSelect(idFila) {
+    const select = document.querySelector(`#producto-${idFila} .producto-select`);
+    
+    // Mostrar loading
+    select.innerHTML = '<option value="" disabled selected><i class="fas fa-spinner fa-spin me-1"></i> Cargando productos...</option>';
+    select.disabled = true;
+    
+    try {
+        let productosAMostrar;
+        
+        if (filtroCategoriaActual !== 0 && productosEnCache.length > 0) {
+            // Usar productos filtrados en caché
+            productosAMostrar = productosEnCache;
+        } else if (filtroCategoriaActual !== 0) {
+            // Cargar productos filtrados
+            const response = await fetch(`/admin/ventas/productos-por-categoria/${filtroCategoriaActual}`);
+            
+            if (!response.ok) {
+                throw new Error(`Error HTTP: ${response.status}`);
+            }
+            
+            productosAMostrar = await response.json();
+            productosEnCache = productosAMostrar;
+        } else {
+            // Mostrar todos los productos
+            productosAMostrar = productosBase;
+        }
+        
+        // Actualizar el select
+        actualizarOpcionesSelect(select, productosAMostrar);
+        
+    } catch (error) {
+        console.error('Error cargando productos:', error);
+        select.innerHTML = '<option value="" disabled selected>Error cargando productos</option>';
+    } finally {
+        select.disabled = false;
+    }
+}
+
+// LIMPIAR FILTRO
 function limpiarFiltro() {
-    console.log('[VENTAS] Clearing filter');
+    console.log('[VENTAS] Limpiando filtro');
     document.getElementById('filtro_categoria').value = '0';
     document.getElementById('filtro-info').style.display = 'none';
     filtroCategoriaActual = 0;
     productosEnCache = [];
     
-    // Solo recargar productos para selects vacíos
-    aplicarFiltroCategoria();
-    mostrarAlerta('info', 'ℹ️ Filtro limpiado', 'Los productos ya seleccionados se mantienen. Nuevas selecciones mostrarán todos los productos.');
+    // Actualizar TODOS los selects con productos base
+    const selectsProductos = document.querySelectorAll('.producto-select');
+    console.log('[VENTAS] Actualizando todos los selects con productos base');
+    
+    selectsProductos.forEach((select, index) => {
+        actualizarOpcionesSelect(select, productosBase);
+    });
+    
+    mostrarAlerta('info', 'ℹ️ Filtro limpiado', 'Mostrando todos los productos disponibles.');
 }
 
+// AGREGAR NUEVA FILA DE PRODUCTO
 function agregarProducto() {
     contadorProductos++;
-    const productoHTML =`
+    const productoHTML = `
         <tr class="producto-item" id="producto-${contadorProductos}">
             <td>
                 <select class="form-select producto-select" name="producto_id[]" required onchange="actualizarInfoProducto(${contadorProductos})">
-                    <option value="" disabled selected>Seleccionar producto...</option>
-                    {% for producto in productos %}
-                    <option value="{{ producto.ID_Producto }}" 
-                            data-codigo="{{ producto.COD_Producto }}"
-                            data-existencia="{{ producto.Existencias }}"
-                            data-precio="{{ producto.Precio_Venta or 0 }}"
-                            data-categoria="{{ producto.ID_Categoria }}">
-                        {{ producto.Descripcion }} ({{ producto.COD_Producto }}) - Stock: {{ producto.Existencias }}
-                    </option>
-                    {% endfor %}
+                    <option value="" disabled selected>Cargando productos...</option>
                 </select>
                 <div class="invalid-feedback">Seleccione un producto</div>
                 <small class="text-muted stock-info" id="stock-info-${contadorProductos}"></small>
@@ -730,19 +1029,15 @@ function agregarProducto() {
             </td>
             <td>
                 <button type="button" class="btn btn-danger btn-sm" onclick="eliminarProducto(${contadorProductos})" title="Eliminar producto">
-                    <i class="fas fa-trash"></i>Quitar
+                    <i class="fas fa-trash"></i> Quitar
                 </button>
             </td>
         </tr>
     `;
     document.getElementById('productos-container').insertAdjacentHTML('beforeend', productoHTML);
     
-    // Si hay filtro activo, aplicarlo solo a esta NUEVA fila
-    if (filtroCategoriaActual !== 0 && productosEnCache.length > 0) {
-        console.log('[VENTAS] Applying cached filter to NEW product select only');
-        const nuevoSelect = document.getElementById(`producto-${contadorProductos}`).querySelector('.producto-select');
-        actualizarSelectConProductos(nuevoSelect, productosEnCache);
-    }
+    // Cargar productos en el select recién creado
+    cargarProductosEnSelect(contadorProductos);
     
     actualizarTotales();
     actualizarMensajeProductos();
@@ -753,6 +1048,7 @@ function agregarProducto() {
     }
 }
 
+// ELIMINAR PRODUCTO
 function eliminarProducto(id) {
     const fila = document.getElementById(`producto-${id}`);
     if (fila) {
@@ -848,6 +1144,7 @@ function validarCantidadVsStock(cantidadInput, cantidadRequerida, stockActual, s
     }
 }
 
+// CALCULAR SUBTOTAL POR PRODUCTO
 function calcularSubtotal(id) {
     const fila = document.getElementById(`producto-${id}`);
     if (!fila) return;
@@ -860,6 +1157,7 @@ function calcularSubtotal(id) {
     actualizarTotales();
 }
 
+// ACTUALIZAR TOTALES GENERALES
 function actualizarTotales() {
     const subtotales = document.querySelectorAll('.subtotal');
     let totalVenta = 0;
@@ -878,6 +1176,7 @@ function actualizarTotales() {
     document.getElementById('total-productos').textContent = totalProductos;
 }
 
+// ACTUALIZAR MENSAJE CUANDO NO HAY PRODUCTOS
 function actualizarMensajeProductos() {
     const filas = document.querySelectorAll('.producto-item').length;
     const mensaje = document.getElementById('no-products-message');
@@ -889,6 +1188,7 @@ function actualizarMensajeProductos() {
     }
 }
 
+// MOSTRAR ALERTA FLOTANTE
 function mostrarAlerta(tipo, titulo, mensaje) {
     const alertasExistentes = document.querySelectorAll('.alert-flotante');
     alertasExistentes.forEach(alerta => alerta.remove());
@@ -908,7 +1208,30 @@ function mostrarAlerta(tipo, titulo, mensaje) {
     }, 5000);
 }
 
-// VERIFICACIÓN DE STOCK EN TIEMPO REAL - SIMPLIFICADA
+// VALIDAR FECHA DE VENCIMIENTO
+function validarFechaVencimiento() {
+    const tipoVenta = document.getElementById('tipo_venta').value;
+    
+    if (tipoVenta === 'credito') {
+        const fechaVencimiento = document.getElementById('fecha_vencimiento').value;
+        const hoy = new Date().toISOString().split('T')[0];
+        
+        if (!fechaVencimiento) {
+            mostrarAlerta('warning', '⚠️ Fecha requerida', 'Para ventas a crédito debe especificar una fecha de vencimiento');
+            document.getElementById('fecha_vencimiento').focus();
+            return false;
+        }
+        
+        if (fechaVencimiento <= hoy) {
+            mostrarAlerta('warning', '⚠️ Fecha inválida', 'La fecha de vencimiento debe ser posterior a hoy');
+            document.getElementById('fecha_vencimiento').focus();
+            return false;
+        }
+    }
+    return true;
+}
+
+// OBTENER STOCK ACTUAL EN TIEMPO REAL
 async function obtenerStockActual(idProducto) {
     try {
         const url = `/admin/ventas/verificar-stock/${idProducto}`;
@@ -933,7 +1256,7 @@ async function obtenerStockActual(idProducto) {
     }
 }
 
-// VERIFICACIÓN DE STOCK PARA TODOS LOS PRODUCTOS ANTES DE ENVIAR
+// VERIFICAR STOCK PARA TODOS LOS PRODUCTOS
 async function verificarStockProductos() {
     const productosConProblemas = [];
     const filas = document.querySelectorAll(".producto-item");
@@ -973,8 +1296,8 @@ async function verificarStockProductos() {
     return productosConProblemas;
 }
 
+// VALIDACIÓN BÁSICA DEL FORMULARIO
 function validarVentaBasica() {
-    // Solo validaciones básicas (no async)
     let valido = true;
     
     const camposRequeridos = [
@@ -1047,6 +1370,7 @@ function validarVentaBasica() {
     return valido;
 }
 
+// VALIDAR STOCK ANTES DE ENVIAR
 async function validarStockVenta() {
     const productosConProblemas = await verificarStockProductos();
     
@@ -1063,16 +1387,91 @@ async function validarStockVenta() {
     return true;
 }
 
-function procesarVenta() {
-    // Debug: Mostrar todos los datos del formulario
-    console.log("=== DATOS DEL FORMULARIO ===");
-    const form = document.getElementById('formVenta');
-    const formDataDebug = new FormData(form);
-    for (let [key, value] of formDataDebug.entries()) {
-        console.log(`${key}: ${value}`);
-    }
-    console.log("============================");
+// FUNCIÓN PARA MOSTRAR RESUMEN EN MODAL DE CONFIRMACIÓN
+function mostrarResumenConfirmacion() {
+    const resumen = document.getElementById('resumen-confirmacion');
+    
+    // Obtener datos del formulario
+    const clienteSelect = document.getElementById('id_cliente');
+    const clienteTexto = clienteSelect.options[clienteSelect.selectedIndex]?.text || 'Cliente no seleccionado';
+    const tipoVenta = document.getElementById('tipo_venta').value.toUpperCase();
+    const totalVenta = document.getElementById('total-venta').textContent;
+    
+    // Contar productos
+    const filas = document.querySelectorAll('.producto-item');
+    let cantidadProductos = 0;
+    let productosLista = '';
+    
+    filas.forEach(fila => {
+        const select = fila.querySelector('.producto-select');
+        const cantidad = fila.querySelector('.cantidad');
+        const precio = fila.querySelector('.precio');
+        
+        if (select.value && cantidad.value && precio.value && parseFloat(cantidad.value) > 0) {
+            cantidadProductos++;
+            const productoNombre = select.options[select.selectedIndex].text.split('(')[0].trim();
+            productosLista += `<div class="resumen-item">
+                <span class="resumen-label">${productoNombre}</span>
+                <span>${cantidad.value} x C$${parseFloat(precio.value).toFixed(2)}</span>
+            </div>`;
+        }
+    });
+    
+    // Construir HTML del resumen
+    resumen.innerHTML = `
+        <div class="resumen-item">
+            <span class="resumen-label">Cliente:</span>
+            <span>${clienteTexto}</span>
+        </div>
+        <div class="resumen-item">
+            <span class="resumen-label">Tipo de Venta:</span>
+            <span>${tipoVenta}</span>
+        </div>
+        <div class="resumen-item">
+            <span class="resumen-label">Cantidad de Productos:</span>
+            <span>${cantidadProductos}</span>
+        </div>
+        ${productosLista}
+        <div class="resumen-item grand-total">
+            <span class="resumen-label">Total a Cobrar:</span>
+            <span class="resumen-valor">${totalVenta}</span>
+        </div>
+    `;
+}
 
+// EVENTO DE ENVÍO DEL FORMULARIO
+document.getElementById('formVenta').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    console.log('🔄 Iniciando procesamiento del formulario...');
+    
+    // Validación síncrona primero
+    if (!validarVentaBasica()) {
+        console.log('❌ Validación básica fallida');
+        return;
+    }
+
+    console.log('✅ Validación básica exitosa, verificando stock...');
+    
+    // Luego validación asíncrona de stock EN TIEMPO REAL
+    const esStockValido = await validarStockVenta();
+    if (!esStockValido) {
+        console.log('❌ Validación de stock fallida');
+        return;
+    }
+
+    console.log('✅ Validación de stock exitosa, mostrando confirmación...');
+    
+    // Mostrar resumen en modal de confirmación
+    mostrarResumenConfirmacion();
+    
+    // Mostrar modal de confirmación
+    const modalConfirmar = new bootstrap.Modal(document.getElementById('modalConfirmarVenta'));
+    modalConfirmar.show();
+});
+
+// PROCESAR VENTA (ENVIAR DATOS AL SERVIDOR)
+function procesarVenta() {
     const formData = new FormData();
 
     // Agregar campos EXACTAMENTE como los espera el backend
@@ -1080,8 +1479,15 @@ function procesarVenta() {
     formData.append('tipo_venta', document.getElementById('tipo_venta').value);
     formData.append('observacion', document.getElementById('observacion').value);
     
+    // Agregar fecha de vencimiento si es crédito
+    if (document.getElementById('tipo_venta').value === 'credito') {
+        const fechaVencimiento = document.getElementById('fecha_vencimiento').value;
+        if (fechaVencimiento) {
+            formData.append('fecha_vencimiento', fechaVencimiento);
+        }
+    }
+    
     // NOTA: El backend NO espera id_bodega, lo obtiene automáticamente
-    // NOTA: fecha_vencimiento no se usa, se genera automáticamente
     
     // Campos de productos - CORREGIR los nombres exactos que espera el backend
     const productoElements = document.querySelectorAll('.producto-item');
@@ -1152,30 +1558,28 @@ function procesarVenta() {
         console.log('📊 Resultado del servidor:', resultado);
         
         if (resultado.success) {
-            // ÉXITO - Mostrar mensaje de éxito y opciones
-            const successMessage = `✅ ${resultado.message}`;
-            console.log('✅ Venta exitosa:', successMessage);
+            // Mostrar mensaje de éxito
+            mostrarAlerta('success', '✅ Venta Exitosa!', `La venta #${resultado.venta_id || 'N/A'} ha sido registrada correctamente.`);
             
-            mostrarAlerta('success', '✅ Venta Exitosa!', 
-                `${resultado.message}<br>
-                 <div class="mt-2">
-                     <a href="${resultado.redirect_url}" class="btn btn-success btn-sm me-2">
-                         <i class="fas fa-receipt me-1"></i>Ver Ticket
-                     </a>
-                     <button onclick="location.reload()" class="btn btn-outline-secondary btn-sm">
-                         <i class="fas fa-plus me-1"></i>Nueva Venta
-                     </button>
-                 </div>`
-            );
+            // Limpiar formulario
+            document.getElementById('formVenta').reset();
+            document.getElementById('productos-container').innerHTML = '';
+            document.getElementById('fecha_vencimiento_group').style.display = 'none';
+            document.getElementById('fecha_vencimiento').value = '';
             
-            // Limpiar formulario después de 2 segundos
+            // Agregar una nueva fila de producto
+            agregarProducto();
+            
+            // Actualizar totales
+            actualizarTotales();
+            
+            // Redirigir o recargar después de 2 segundos
             setTimeout(() => {
-                document.getElementById('formVenta').reset();
-                document.getElementById('productos-container').innerHTML = '';
-                agregarProducto();
-                actualizarTotales();
-                // Ocultar fecha de vencimiento si estaba visible
-                document.getElementById('fecha_vencimiento_group').style.display = 'none';
+                if (resultado.redirect_url) {
+                    window.location.href = resultado.redirect_url;
+                } else {
+                    location.reload();
+                }
             }, 2000);
             
         } else {
@@ -1191,32 +1595,5 @@ function procesarVenta() {
         submitBtn.disabled = false;
     });
 }
-
-// FUNCIÓN CORREGIDA - Enviar formulario con validación en tiempo real
-document.getElementById('formVenta').addEventListener('submit', async function(e) {
-    e.preventDefault();
-    
-    console.log('🔄 Iniciando procesamiento del formulario...');
-    
-    // Validación síncrona primero
-    if (!validarVentaBasica()) {
-        console.log('❌ Validación básica fallida');
-        return;
-    }
-
-    console.log('✅ Validación básica exitosa, verificando stock...');
-    
-    // Luego validación asíncrona de stock EN TIEMPO REAL
-    const esStockValido = await validarStockVenta();
-    if (!esStockValido) {
-        console.log('❌ Validación de stock fallida');
-        return;
-    }
-
-    console.log('✅ Validación de stock exitosa, procesando venta...');
-    
-    // Si todo está bien, procesar la venta
-    procesarVenta();
-});
 </script>
 {% endblock %}

@@ -410,7 +410,7 @@
                             <div class="invalid-feedback">Por favor seleccione una bodega</div>
                         </div>
 
-                        <!-- NUEVO CAMPO: Filtro por Categoría de Producto -->
+                        <!-- Filtro por Categoría de Producto -->
                         <div class="col-md-6">
                             <label for="filtro_categoria" class="form-label">Filtrar Productos por Categoría</label>
                             <select class="form-select" id="filtro_categoria" name="filtro_categoria">
@@ -483,8 +483,6 @@
                                     <th width="120">Cantidad</th>
                                     <th width="150">Costo Unitario</th>
                                     <th width="150">Precio Unitario</th>
-                                    <th width="120">Lote</th>
-                                    <th width="150">Fecha Vencimiento</th>
                                     <th width="150">Subtotal</th>
                                     <th width="80">Acciones</th>
                                 </tr>
@@ -590,17 +588,15 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
-    // Agregar primera fila de producto
+    // Agregar primera fila de producto y cargar productos
     agregarProducto();
 });
 
-// APLICAR FILTRO POR CATEGORÍA - COMPRAS (EXISTENCIAS BASADAS EN MOVIMIENTOS_INVENTARIO)
+// APLICAR FILTRO POR CATEGORÍA
 async function aplicarFiltroCategoria() {
     const categoriaSelect = document.getElementById('filtro_categoria');
     const idCategoria = categoriaSelect.value;
     const nombreCategoria = categoriaSelect.options[categoriaSelect.selectedIndex].text;
-    
-    console.log('[COMPRAS] Aplicando filtro - Categoría:', idCategoria);
     
     try {
         // Mostrar loading
@@ -610,8 +606,6 @@ async function aplicarFiltroCategoria() {
         btnFiltro.disabled = true;
 
         const url = `/admin/compras/productos-por-categoria/${idCategoria}`;
-        
-        console.log('[COMPRAS] URL de petición:', url);
         
         const response = await fetch(url);
         
@@ -631,12 +625,8 @@ async function aplicarFiltroCategoria() {
         
         // Actualizar TODOS los selects de productos
         const selectsProductos = document.querySelectorAll('.producto-select');
-        console.log('[COMPRAS] Actualizando selects. Total:', selectsProductos.length);
         
-        let selectsActualizados = 0;
-        let selectsMantenidos = 0;
-        
-        selectsProductos.forEach((select, index) => {
+        selectsProductos.forEach((select) => {
             const productoSeleccionado = select.value;
             
             // Guardar el valor seleccionado actualmente
@@ -654,7 +644,6 @@ async function aplicarFiltroCategoria() {
                 
                 if (opcionExistente) {
                     select.value = productoSeleccionado;
-                    selectsMantenidos++;
                     
                     // Disparar evento de cambio para actualizar información del producto
                     setTimeout(() => {
@@ -663,18 +652,12 @@ async function aplicarFiltroCategoria() {
                     }, 100);
                 } else {
                     // El producto seleccionado ya no está disponible en el filtro
-                    console.warn(`[COMPRAS] Producto ${productoSeleccionado} ya no disponible con este filtro`);
                     mostrarAlerta('warning', '⚠️ Producto no disponible', 
                         `El producto "${textoSeleccionado}" ya no está disponible con el filtro actual. Por favor seleccione otro.`);
                     select.value = '';
-                    selectsActualizados++;
                 }
-            } else {
-                selectsActualizados++;
             }
         });
-        
-        console.log(`[COMPRAS] Actualizados ${selectsActualizados} selects, mantenidos ${selectsMantenidos} productos`);
         
         // Mostrar información del filtro
         const filtroInfo = document.getElementById('filtro-info');
@@ -689,13 +672,11 @@ async function aplicarFiltroCategoria() {
         }
         
         // Mostrar mensaje informativo
-        if (selectsActualizados > 0) {
-            mostrarAlerta('success', '✅ Filtro aplicado', 
-                `Mostrando productos de la categoría: ${nombreCategoria}`);
-        }
+        mostrarAlerta('success', '✅ Filtro aplicado', 
+            `Mostrando productos de la categoría: ${nombreCategoria}`);
         
     } catch (error) {
-        console.error('[COMPRAS] Error al aplicar filtro:', error);
+        console.error('Error al aplicar filtro:', error);
         mostrarAlerta('danger', '❌ Error', `No se pudieron cargar los productos: ${error.message}`);
     } finally {
         // Restaurar botón
@@ -733,7 +714,6 @@ function actualizarSelectConProductos(select, productos) {
 }
 
 function limpiarFiltro() {
-    console.log('[COMPRAS] Limpiando filtro');
     document.getElementById('filtro_categoria').value = '0';
     document.getElementById('filtro-info').style.display = 'none';
     filtroCategoriaActual = 0;
@@ -749,13 +729,12 @@ function agregarProducto() {
             <td>
                 <select class="form-select producto-select" name="productos[]" required onchange="actualizarInfoProducto(${contadorProductos})">
                     <option value="" disabled selected>Seleccionar producto...</option>
-                    <!-- Las opciones se cargarán dinámicamente desde la API -->
                 </select>
                 <div class="invalid-feedback">Seleccione un producto</div>
                 <small class="text-muted stock-info" id="stock-info-${contadorProductos}"></small>
             </td>
             <td>
-                <input type="number" class="form-control cantidad" name="cantidades[]" min="0.01" step="0.01" value="1" required 
+                <input type="number" class="form-control cantidad" name="cantidades[]" min="0.0001" step="0.0001" value="1" required 
                        onchange="calcularSubtotal(${contadorProductos})">
                 <div class="invalid-feedback">Ingrese una cantidad válida</div>
             </td>
@@ -772,12 +751,6 @@ function agregarProducto() {
                     <input type="number" class="form-control precio" name="precios_unitarios[]" step="0.01" min="0" value="0" required onchange="actualizarPrecio(${contadorProductos})">
                 </div>
                 <div class="invalid-feedback">Ingrese un precio válido</div>
-            </td>
-            <td>
-                <input type="text" class="form-control lote" name="lotes[]" placeholder="Opcional">
-            </td>
-            <td>
-                <input type="date" class="form-control fecha-vencimiento" name="fechas_vencimiento[]">
             </td>
             <td>
                 <div class="input-group">
@@ -799,7 +772,6 @@ function agregarProducto() {
     
     // Si hay productos en caché, usarlos
     if (productosEnCache.length > 0) {
-        console.log('[COMPRAS] Usando productos en caché para nueva fila');
         actualizarSelectConProductos(nuevoSelect, productosEnCache);
     } else {
         // Cargar todos los productos
@@ -825,7 +797,7 @@ function eliminarProducto(id) {
     }
 }
 
-// ACTUALIZACIÓN EN TIEMPO REAL AL SELECCIONAR PRODUCTO - COMPRAS
+// ACTUALIZACIÓN EN TIEMPO REAL AL SELECCIONAR PRODUCTO
 async function actualizarInfoProducto(id) {
     const fila = document.getElementById(`producto-${id}`);
     const select = fila.querySelector('.producto-select');
@@ -956,12 +928,10 @@ function mostrarAlerta(tipo, titulo, mensaje) {
     }, 5000);
 }
 
-// VERIFICACIÓN DE EXISTENCIAS EN TIEMPO REAL - COMPRAS (BASADA EN MOVIMIENTOS_INVENTARIO)
+// VERIFICACIÓN DE EXISTENCIAS EN TIEMPO REAL
 async function obtenerExistenciasActuales(idProducto) {
     try {
         const url = `/admin/compras/verificar-existencias/${idProducto}`;
-        
-        console.log('[COMPRAS] Verificando existencias para producto:', idProducto);
         
         const response = await fetch(url);
         
@@ -976,7 +946,6 @@ async function obtenerExistenciasActuales(idProducto) {
             throw new Error(data.error);
         }
         
-        console.log(`[COMPRAS-EXISTENCIAS] Existencias en tiempo real: ${data.existencias} unidades`);
         return data;
     } catch (error) {
         console.error('Error obteniendo existencias en tiempo real:', error);
@@ -1087,7 +1056,7 @@ function procesarCompra() {
         }
     }
     
-    // Campos de productos - usar los nombres exactos que espera el backend
+    // Campos de productos
     const productoElements = document.querySelectorAll('.producto-item');
     let productosValidos = 0;
     
@@ -1096,17 +1065,15 @@ function procesarCompra() {
         const cantidad = item.querySelector('.cantidad');
         const costo = item.querySelector('.costo');
         const precio = item.querySelector('.precio');
-        const lote = item.querySelector('.lote');
-        const fechaVencimiento = item.querySelector('.fecha-vencimiento');
         
-        if (select.value && cantidad.value && costo.value && precio.value && parseFloat(cantidad.value) > 0) {
-            // USAR LOS NOMBRES EXACTOS QUE ESPERA EL BACKEND
+        if (select.value && cantidad.value && costo.value && precio.value && 
+            parseFloat(cantidad.value) > 0 && parseFloat(costo.value) > 0) {
+            
+            // AGREGAR SOLO LOS CAMPOS QUE EL BACKEND ESPERA
             formData.append('productos[]', select.value);
-            formData.append('cantidades[]', parseFloat(cantidad.value).toFixed(2));
+            formData.append('cantidades[]', parseFloat(cantidad.value).toFixed(4));
             formData.append('costos_unitarios[]', parseFloat(costo.value).toFixed(2));
             formData.append('precios_unitarios[]', parseFloat(precio.value).toFixed(2));
-            formData.append('lotes[]', lote?.value || '');
-            formData.append('fechas_vencimiento[]', fechaVencimiento?.value || '');
             
             productosValidos++;
         }
@@ -1133,20 +1100,13 @@ function procesarCompra() {
     submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> Procesando...';
     submitBtn.disabled = true;
 
-    console.log('📨 Enviando datos de compra al servidor...');
-    console.log('📊 Datos enviados:', Array.from(formData.entries()));
-
-    // Enviar datos al endpoint CORRECTO
-    fetch("{{ url_for('admin_crear_compra') }}", {
+    // ENVIAR A LA RUTA CORRECTA
+    fetch("/admin/compras/compras-entradas/crear", {
         method: 'POST',
         body: formData
     })
     .then(response => {
-        console.log('📨 Estado de respuesta:', response.status);
-        
-        // Manejar redirecciones
         if (response.redirected) {
-            console.log('🔄 Redirigiendo a:', response.url);
             window.location.href = response.url;
             return null;
         }
@@ -1154,30 +1114,27 @@ function procesarCompra() {
         return response.text();
     })
     .then(text => {
-        if (text === null) return; // Ya se redirigió
-        
-        console.log('📊 Respuesta del servidor:', text);
+        if (text === null) return;
         
         try {
             const resultado = JSON.parse(text);
             if (resultado.error) {
                 throw new Error(resultado.error);
             }
-            // Si hay éxito pero no redirección
             mostrarAlerta('success', '✅ Éxito', resultado.message || 'Compra creada exitosamente');
             
             // Redirigir después de 2 segundos
             setTimeout(() => {
-                window.location.href = "{{ url_for('admin_compras_entradas') }}";
+                window.location.href = "/admin/compras/compras-entradas";
             }, 2000);
             
         } catch (e) {
-            // Si no es JSON, verificar si es HTML de error
+            // Si no es JSON, puede ser HTML de error
             if (text.includes('error') || text.includes('Error')) {
-                throw new Error('Error del servidor');
+                throw new Error('Error del servidor al procesar la compra');
             }
-            // Si parece ser HTML normal, asumir que fue redireccionado
-            console.log('ℹ️ Respuesta parece ser HTML, asumiendo redirección');
+            // Intentar manejar la redirección
+            window.location.href = "/admin/compras/compras-entradas";
         }
     })
     .catch(error => {
@@ -1190,7 +1147,7 @@ function procesarCompra() {
     });
 }
 
-// FUNCIÓN CORREGIDA - Enviar formulario con validación
+// ENVIAR FORMULARIO CON VALIDACIÓN
 document.getElementById('formCompra').addEventListener('submit', async function(e) {
     e.preventDefault();
     

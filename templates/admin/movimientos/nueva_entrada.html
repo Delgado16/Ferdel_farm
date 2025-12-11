@@ -101,12 +101,12 @@
                                 </button>
                             </div>
                             
-                            <div class="alert alert-info d-none" id="alerta-productos">
+                            <div class="alert alert-info" id="alerta-productos">
                                 <i class="fas fa-info-circle me-2"></i>
-                                Seleccione una bodega para ver los productos disponibles
+                                Agregue productos usando el botón "Agregar Producto" o buscando en el panel derecho
                             </div>
                             
-                            <div id="productos-container" class="table-responsive">
+                            <div id="productos-container" class="table-responsive" style="display: none;">
                                 <table class="table table-sm">
                                     <thead>
                                         <tr class="table-light">
@@ -114,11 +114,9 @@
                                             <th>Cantidad</th>
                                             <th>Costo Unitario</th>
                                             <th>Precio Venta</th>
-                                            <th>Lote</th>
-                                            <th>Vencimiento</th>
                                             <th>Subtotal</th>
                                             <th>Stock Actual</th>
-                                            <th></th>
+                                            <th>Acciones</th>
                                         </tr>
                                     </thead>
                                     <tbody id="productos-tbody">
@@ -126,7 +124,7 @@
                                     </tbody>
                                     <tfoot>
                                         <tr class="table-secondary">
-                                            <td colspan="6" class="text-end"><strong>Total:</strong></td>
+                                            <td colspan="4" class="text-end"><strong>Total:</strong></td>
                                             <td><strong id="total-entrada">$0.00</strong></td>
                                             <td colspan="2"></td>
                                         </tr>
@@ -143,7 +141,7 @@
                                         onclick="window.history.back()">
                                     Cancelar
                                 </button>
-                                <button type="submit" class="btn btn-success">
+                                <button type="submit" class="btn btn-success" id="btn-guardar" disabled>
                                     <i class="fas fa-save me-1"></i> Guardar Entrada
                                 </button>
                             </div>
@@ -162,18 +160,6 @@
                     </h6>
                 </div>
                 <div class="card-body">
-                    <div class="mb-3">
-                        <label class="form-label">Bodega para consultar stock:</label>
-                        <select class="form-select mb-2" id="bodega-busqueda">
-                            <option value="">Seleccionar bodega...</option>
-                            {% for bodega in bodegas %}
-                            <option value="{{ bodega.ID_Bodega }}">
-                                {{ bodega.Nombre }}
-                            </option>
-                            {% endfor %}
-                        </select>
-                    </div>
-                    
                     <div class="input-group mb-3">
                         <input type="text" id="buscar-producto" class="form-control" 
                                placeholder="Código o nombre del producto...">
@@ -207,7 +193,7 @@
                         </li>
                         <li class="list-group-item d-flex justify-content-between">
                             <span>Total Unidades:</span>
-                            <strong id="resumen-unidades">0</strong>
+                            <strong id="resumen-unidades">0.000</strong>
                         </li>
                         <li class="list-group-item d-flex justify-content-between">
                             <span>Total Costo:</span>
@@ -245,105 +231,204 @@ function configurarCamposPorTipo() {
     document.getElementById('factura-container').style.display = esCompra ? 'block' : 'none';
 }
 
-// Agregar producto al formulario
+// Agregar producto vacío al formulario
 function agregarProducto(producto = null) {
     const tbody = document.getElementById('productos-tbody');
     const index = contadorProductos++;
     
     const fila = document.createElement('tr');
     fila.id = `producto-${index}`;
-    fila.innerHTML = `
-        <td>
-            <input type="hidden" name="productos[${index}][id_producto]" 
-                   value="${producto ? producto.ID_Producto : ''}" class="id-producto">
-            <input type="text" class="form-control form-control-sm producto-nombre" 
-                   value="${producto ? producto.Descripcion : ''}" readonly>
-            <small class="text-muted">${producto ? (producto.COD_Producto || 'Sin código') : ''}</small>
-        </td>
-        <td>
-            <input type="number" step="0.001" min="0.001" 
-                   name="productos[${index}][cantidad]" 
-                   class="form-control form-control-sm cantidad" 
-                   value="1" onchange="calcularSubtotal(${index})" required>
-        </td>
-        <td>
-            <input type="number" step="0.01" min="0" 
-                   name="productos[${index}][costo_unitario]" 
-                   class="form-control form-control-sm costo" 
-                   value="${producto ? '0.00' : '0.00'}" 
-                   onchange="calcularSubtotal(${index})" required>
-        </td>
-        <td>
-            <input type="number" step="0.01" min="0" 
-                   name="productos[${index}][precio_unitario]" 
-                   class="form-control form-control-sm precio" 
-                   value="${producto ? (producto.Precio_Venta || '0.00') : '0.00'}"
-                   onchange="actualizarResumen()">
-        </td>
-        <td>
-            <input type="text" name="productos[${index}][lote]" 
-                   class="form-control form-control-sm lote" 
-                   placeholder="Opcional">
-        </td>
-        <td>
-            <input type="date" name="productos[${index}][fecha_vencimiento]" 
-                   class="form-control form-control-sm vencimiento">
-        </td>
-        <td>
-            <input type="text" class="form-control form-control-sm subtotal" 
-                   value="$0.00" readonly>
-        </td>
-        <td class="stock-actual" data-id-producto="${producto ? producto.ID_Producto : ''}">
-            ${producto ? (producto.Stock_Actual || '0.00') : '0.00'}
-        </td>
-        <td>
-            <button type="button" class="btn btn-danger btn-sm" 
-                    onclick="eliminarProducto(${index})">
-                <i class="fas fa-trash"></i>
-            </button>
-        </td>
-    `;
-    
-    tbody.appendChild(fila);
-    
-    // Mostrar alerta si no hay productos
-    document.getElementById('alerta-productos').classList.add('d-none');
     
     if (producto) {
-        calcularSubtotal(index);
+        // Si se pasa un producto específico
+        fila.innerHTML = `
+            <td>
+                <input type="hidden" name="productos[${index}][id_producto]" 
+                       value="${producto.ID_Producto}" class="id-producto">
+                <div>
+                    <strong>${producto.Descripcion}</strong><br>
+                    <small class="text-muted">${producto.COD_Producto || 'Sin código'}</small><br>
+                    <small class="text-muted">${producto.Categoria_Descripcion || ''}</small>
+                </div>
+            </td>
+            <td>
+                <input type="number" step="0.001" min="0.001" 
+                       name="productos[${index}][cantidad]" 
+                       class="form-control form-control-sm cantidad" 
+                       value="1" onchange="calcularSubtotal(${index})" oninput="calcularSubtotal(${index})" required>
+            </td>
+            <td>
+                <input type="number" step="0.01" min="0" 
+                       name="productos[${index}][costo_unitario]" 
+                       class="form-control form-control-sm costo" 
+                       value="${producto.costo_sugerido || '0.00'}" 
+                       onchange="calcularSubtotal(${index})" oninput="calcularSubtotal(${index})" required>
+            </td>
+            <td>
+                <input type="number" step="0.01" min="0" 
+                       name="productos[${index}][precio_unitario]" 
+                       class="form-control form-control-sm precio" 
+                       value="${producto.Precio_Venta || '0.00'}"
+                       onchange="actualizarResumen()" oninput="actualizarResumen()">
+            </td>
+            <td>
+                <input type="text" class="form-control form-control-sm subtotal" 
+                       value="$0.00" readonly>
+            </td>
+            <td>
+                <span class="badge bg-info">${producto.Existencias_Totales || '0.00'}</span>
+            </td>
+            <td>
+                <button type="button" class="btn btn-danger btn-sm" 
+                        onclick="eliminarProducto(${index})" title="Eliminar">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </td>
+        `;
+        
         // Si es compra, sugerir costo (80% del precio de venta)
         const tipoMovimiento = document.getElementById('tipo-movimiento').value;
         if (tipoMovimiento === '1' && producto.Precio_Venta) {
-            const costoInput = fila.querySelector('.costo');
             const costoCalculado = (parseFloat(producto.Precio_Venta) * 0.8).toFixed(2);
-            costoInput.value = costoCalculado;
-            calcularSubtotal(index);
+            fila.querySelector('.costo').value = costoCalculado;
         }
+    } else {
+        // Producto vacío para selección manual
+        fila.innerHTML = `
+            <td>
+                <select class="form-control form-control-sm select-producto" 
+                        onchange="seleccionarProductoDesdeLista(${index}, this.value)" required>
+                    <option value="">Seleccionar producto...</option>
+                    {% for producto in productos %}
+                    <option value="{{ producto.ID_Producto }}"
+                            data-codigo="{{ producto.COD_Productor|default('') }}"
+                            data-descripcion="{{ producto.Descripcion }}"
+                            data-precio="{{ producto.Precio_Venta|default('0.00') }}"
+                            data-stock="{{ producto.Existencias_Totales|default('0') }}">
+                        {{ producto.Descripcion }} ({{ producto.COD_Productor|default('Sin código') }})
+                    </option>
+                    {% endfor %}
+                </select>
+                <input type="hidden" name="productos[${index}][id_producto]" class="id-producto">
+            </td>
+            <td>
+                <input type="number" step="0.001" min="0.001" 
+                       name="productos[${index}][cantidad]" 
+                       class="form-control form-control-sm cantidad" 
+                       value="1" onchange="calcularSubtotal(${index})" oninput="calcularSubtotal(${index})" required>
+            </td>
+            <td>
+                <input type="number" step="0.01" min="0" 
+                       name="productos[${index}][costo_unitario]" 
+                       class="form-control form-control-sm costo" 
+                       value="0.00" 
+                       onchange="calcularSubtotal(${index})" oninput="calcularSubtotal(${index})" required>
+            </td>
+            <td>
+                <input type="number" step="0.01" min="0" 
+                       name="productos[${index}][precio_unitario]" 
+                       class="form-control form-control-sm precio" 
+                       value="0.00"
+                       onchange="actualizarResumen()" oninput="actualizarResumen()">
+            </td>
+            <td>
+                <input type="text" class="form-control form-control-sm subtotal" 
+                       value="$0.00" readonly>
+            </td>
+            <td>
+                <span class="badge bg-secondary">-</span>
+            </td>
+            <td>
+                <button type="button" class="btn btn-danger btn-sm" 
+                        onclick="eliminarProducto(${index})" title="Eliminar">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </td>
+        `;
+    }
+    
+    tbody.appendChild(fila);
+    
+    // Mostrar tabla y ocultar alerta
+    document.getElementById('productos-container').style.display = 'block';
+    document.getElementById('alerta-productos').style.display = 'none';
+    
+    if (producto) {
+        calcularSubtotal(index);
     }
     
     actualizarResumen();
+    habilitarBotonGuardar();
+}
+
+// Seleccionar producto desde lista desplegable
+function seleccionarProductoDesdeLista(index, productoId) {
+    if (!productoId) return;
+    
+    const select = document.querySelector(`#producto-${index} .select-producto`);
+    const option = select.selectedOptions[0];
+    const fila = document.getElementById(`producto-${index}`);
+    
+    // Actualizar campos ocultos
+    fila.querySelector('.id-producto').value = productoId;
+    
+    // Si hay precio en data attribute, establecerlo
+    if (option.dataset.precio) {
+        fila.querySelector('.precio').value = option.dataset.precio;
+        
+        // Si es compra, sugerir costo (80% del precio)
+        const tipoMovimiento = document.getElementById('tipo-movimiento').value;
+        if (tipoMovimiento === '1') {
+            const costoCalculado = (parseFloat(option.dataset.precio) * 0.8).toFixed(2);
+            fila.querySelector('.costo').value = costoCalculado;
+        }
+    }
+    
+    // Actualizar stock visual
+    const stockBadge = fila.querySelector('.badge');
+    if (option.dataset.stock) {
+        stockBadge.textContent = option.dataset.stock;
+        stockBadge.className = 'badge bg-info';
+    }
+    
+    calcularSubtotal(index);
 }
 
 // Calcular subtotal
 function calcularSubtotal(index) {
     const fila = document.getElementById(`producto-${index}`);
-    const cantidad = parseFloat(fila.querySelector('.cantidad').value) || 0;
-    const costo = parseFloat(fila.querySelector('.costo').value) || 0;
+    if (!fila) return;
+    
+    const cantidadInput = fila.querySelector('.cantidad');
+    const costoInput = fila.querySelector('.costo');
+    const subtotalInput = fila.querySelector('.subtotal');
+    
+    if (!cantidadInput || !costoInput || !subtotalInput) return;
+    
+    const cantidad = parseFloat(cantidadInput.value) || 0;
+    const costo = parseFloat(costoInput.value) || 0;
     const subtotal = cantidad * costo;
     
-    fila.querySelector('.subtotal').value = `$${subtotal.toFixed(2)}`;
+    subtotalInput.value = `$${subtotal.toFixed(2)}`;
     actualizarResumen();
 }
 
 // Eliminar producto
 function eliminarProducto(index) {
-    document.getElementById(`producto-${index}`).remove();
-    actualizarResumen();
-    
-    // Mostrar alerta si no quedan productos
-    if (document.querySelectorAll('#productos-tbody tr').length === 0) {
-        document.getElementById('alerta-productos').classList.remove('d-none');
+    const fila = document.getElementById(`producto-${index}`);
+    if (fila) {
+        fila.remove();
+        actualizarResumen();
+        
+        // Si no quedan productos, mostrar alerta
+        const tbody = document.getElementById('productos-tbody');
+        if (tbody.children.length === 0) {
+            document.getElementById('productos-container').style.display = 'none';
+            document.getElementById('alerta-productos').style.display = 'block';
+        }
     }
+    
+    habilitarBotonGuardar();
 }
 
 // Actualizar resumen
@@ -373,151 +458,139 @@ function actualizarResumen() {
     // Actualizar JSON oculto
     const productosData = [];
     document.querySelectorAll('#productos-tbody tr').forEach(fila => {
-        const producto = {
-            id_producto: fila.querySelector('.id-producto').value,
-            cantidad: fila.querySelector('.cantidad').value,
-            costo_unitario: fila.querySelector('.costo').value,
-            precio_unitario: fila.querySelector('.precio').value || '0.00',
-            lote: fila.querySelector('.lote').value || '',
-            fecha_vencimiento: fila.querySelector('.vencimiento').value || ''
-        };
-        productosData.push(producto);
+        const idProductoInput = fila.querySelector('.id-producto');
+        const cantidadInput = fila.querySelector('.cantidad');
+        const costoInput = fila.querySelector('.costo');
+        const precioInput = fila.querySelector('.precio');
+        
+        if (idProductoInput && cantidadInput && costoInput) {
+            const producto = {
+                id_producto: idProductoInput.value,
+                cantidad: cantidadInput.value,
+                costo_unitario: costoInput.value,
+                precio_unitario: precioInput ? precioInput.value : '0.00'
+            };
+            productosData.push(producto);
+        }
     });
     
     document.getElementById('productos-json').value = JSON.stringify(productosData);
+    habilitarBotonGuardar();
+}
+
+// Habilitar o deshabilitar botón guardar
+function habilitarBotonGuardar() {
+    const productosData = JSON.parse(document.getElementById('productos-json').value || '[]');
+    const btnGuardar = document.getElementById('btn-guardar');
+    
+    if (productosData.length > 0) {
+        // Verificar que todos los productos tengan datos válidos
+        const todosValidos = productosData.every(p => 
+            p.id_producto && 
+            p.cantidad && parseFloat(p.cantidad) > 0 &&
+            p.costo_unitario && parseFloat(p.costo_unitario) >= 0
+        );
+        
+        btnGuardar.disabled = !todosValidos;
+    } else {
+        btnGuardar.disabled = true;
+    }
 }
 
 // Buscar productos
 function buscarProductos() {
-    const termino = document.getElementById('buscar-producto').value;
-    const bodegaBusqueda = document.getElementById('bodega-busqueda').value;
+    const termino = document.getElementById('buscar-producto').value.trim();
     
-    if (!termino.trim()) {
+    if (!termino) {
         alert('Ingrese un término de búsqueda');
         return;
     }
     
-    if (!bodegaBusqueda) {
-        alert('Seleccione una bodega para consultar el stock');
+    // Aquí deberías implementar la búsqueda AJAX real
+    // Por ahora, filtramos los productos que ya están cargados en la página
+    
+    const resultadosDiv = document.getElementById('resultados-productos');
+    resultadosDiv.innerHTML = '';
+    
+    // Convertir productos de Flask a array JavaScript
+    const productosDisponibles = [
+        {% for producto in productos %}
+        {
+            ID_Producto: {{ producto.ID_Producto }},
+            COD_Producto: "{{ producto.COD_Producto|default('') }}",
+            Descripcion: "{{ producto.Descripcion }}",
+            Precio_Venta: "{{ producto.Precio_Venta|default('0.00') }}",
+            Existencias_Totales: "{{ producto.Existencias_Totales|default('0') }}",
+            Categoria_Descripcion: "{{ producto.Categoria_Descripcion|default('') }}",
+            Unidad_Descripcion: "{{ producto.Unidad_Descripcion|default('') }}",
+            costo_sugerido: (parseFloat("{{ producto.Precio_Venta|default('0') }}") * 0.8).toFixed(2)
+        },
+        {% endfor %}
+    ];
+    
+    // Filtrar productos
+    const productosFiltrados = productosDisponibles.filter(p => 
+        p.Descripcion.toLowerCase().includes(termino.toLowerCase()) ||
+        (p.COD_Producto && p.COD_Producto.toLowerCase().includes(termino.toLowerCase()))
+    );
+    
+    if (productosFiltrados.length === 0) {
+        resultadosDiv.innerHTML = `
+            <div class="alert alert-warning">
+                No se encontraron productos con "${termino}"
+            </div>
+        `;
         return;
     }
     
-    fetch(`/api/productos/buscar?q=${encodeURIComponent(termino)}&bodega=${bodegaBusqueda}`)
-        .then(response => response.json())
-        .then(data => {
-            const resultados = document.getElementById('resultados-productos');
-            resultados.innerHTML = '';
+    // Mostrar resultados
+    productosFiltrados.forEach(producto => {
+        const item = document.createElement('a');
+        item.className = 'list-group-item list-group-item-action';
+        item.href = '#';
+        item.onclick = () => {
+            // Verificar si ya existe en la tabla
+            const existente = Array.from(document.querySelectorAll('.id-producto'))
+                .find(input => input.value == producto.ID_Producto);
             
-            if (data.error) {
-                resultados.innerHTML = `
-                    <div class="alert alert-danger">
-                        ${data.error}
-                    </div>
-                `;
+            if (existente) {
+                alert('Este producto ya está en la lista');
                 return;
             }
             
-            if (data.length === 0) {
-                resultados.innerHTML = `
-                    <div class="alert alert-warning">
-                        No se encontraron productos
-                    </div>
-                `;
-                return;
-            }
-            
-            data.forEach(producto => {
-                const item = document.createElement('a');
-                item.className = 'list-group-item list-group-item-action';
-                item.href = '#';
-                item.onclick = () => seleccionarProducto(producto);
-                
-                // Mostrar información del stock
-                let stockInfo = '';
-                if (producto.stock_bodegas && producto.stock_bodegas.length > 0) {
-                    stockInfo = producto.stock_bodegas
-                        .map(s => `${s.Bodega}: ${s.Existencias}`)
-                        .join('<br>');
-                }
-                
-                item.innerHTML = `
-                    <div class="d-flex w-100 justify-content-between">
-                        <h6 class="mb-1">${producto.Descripcion}</h6>
-                        <small class="text-muted">Stock: ${producto.Stock_Actual || 0}</small>
-                    </div>
-                    <p class="mb-1">
-                        <small>Código: ${producto.COD_Producto || 'Sin código'}</small><br>
-                        <small>Categoría: ${producto.Categoria_Descripcion || 'Sin categoría'}</small>
-                    </p>
-                    <small class="text-muted">
-                        <div class="d-flex justify-content-between">
-                            <span>Precio: $${producto.Precio_Venta || '0.00'}</span>
-                            <span>${producto.Unidad_Descripcion || ''}</span>
-                        </div>
-                        ${stockInfo ? `<small class="text-info"><i class="fas fa-warehouse me-1"></i>${stockInfo}</small>` : ''}
-                    </small>
-                `;
-                resultados.appendChild(item);
-            });
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            document.getElementById('resultados-productos').innerHTML = `
-                <div class="alert alert-danger">
-                    Error al buscar productos
+            agregarProducto(producto);
+            document.getElementById('buscar-producto').value = '';
+            resultadosDiv.innerHTML = '<div class="text-center text-muted p-3"><i class="fas fa-check-circle text-success fa-2x mb-2"></i><br>Producto agregado</div>';
+        };
+        
+        item.innerHTML = `
+            <div class="d-flex w-100 justify-content-between">
+                <h6 class="mb-1">${producto.Descripcion}</h6>
+                <small class="text-muted">Stock: ${producto.Existencias_Totales}</small>
+            </div>
+            <p class="mb-1">
+                <small>Código: ${producto.COD_Producto || 'Sin código'}</small><br>
+                <small>Categoría: ${producto.Categoria_Descripcion || 'Sin categoría'}</small>
+            </p>
+            <small class="text-muted">
+                <div class="d-flex justify-content-between">
+                    <span>Precio: $${producto.Precio_Venta}</span>
+                    <span>${producto.Unidad_Descripcion || ''}</span>
                 </div>
-            `;
-        });
-}
-
-// Seleccionar producto de la lista
-function seleccionarProducto(producto) {
-    // Verificar si ya existe en la tabla
-    const existente = Array.from(document.querySelectorAll('.id-producto'))
-        .find(input => input.value == producto.ID_Producto);
-    
-    if (existente) {
-        alert('Este producto ya está en la lista');
-        return;
-    }
-    
-    // Añadir stock actual de la bodega seleccionada
-    const bodegaId = document.getElementById('select-bodega').value;
-    if (producto.stock_bodegas) {
-        const stockBodega = producto.stock_bodegas.find(s => s.ID_Bodega == bodegaId);
-        producto.Stock_Actual = stockBodega ? stockBodega.Existencias : 0;
-    } else {
-        producto.Stock_Actual = 0;
-    }
-    
-    agregarProducto(producto);
-    document.getElementById('buscar-producto').value = '';
-    document.getElementById('resultados-productos').innerHTML = '';
+            </small>
+        `;
+        resultadosDiv.appendChild(item);
+    });
 }
 
 // Validar formulario antes de enviar
 document.getElementById('formEntrada').addEventListener('submit', function(e) {
-    const productosData = JSON.parse(document.getElementById('productos-json').value);
+    const productosData = JSON.parse(document.getElementById('productos-json').value || '[]');
     
     if (productosData.length === 0) {
         e.preventDefault();
         alert('Debe agregar al menos un producto');
-        return;
-    }
-    
-    // Validar que todos los productos tengan cantidad y costo
-    for (let producto of productosData) {
-        if (!producto.cantidad || parseFloat(producto.cantidad) <= 0) {
-            e.preventDefault();
-            alert('Todos los productos deben tener una cantidad válida');
-            return;
-        }
-        
-        if (!producto.costo_unitario || parseFloat(producto.costo_unitario) <= 0) {
-            e.preventDefault();
-            alert('Todos los productos deben tener un costo unitario válido');
-            return;
-        }
+        return false;
     }
     
     // Validar bodega destino
@@ -525,45 +598,52 @@ document.getElementById('formEntrada').addEventListener('submit', function(e) {
     if (!bodegaDestino) {
         e.preventDefault();
         alert('Debe seleccionar una bodega destino');
-        return;
+        return false;
     }
     
-    if (!confirm('¿Está seguro de guardar esta entrada?')) {
+    // Validar tipo de movimiento
+    const tipoMovimiento = document.getElementById('tipo-movimiento').value;
+    if (!tipoMovimiento) {
         e.preventDefault();
+        alert('Debe seleccionar un tipo de movimiento');
+        return false;
     }
+    
+    // Confirmar envío
+    if (!confirm('¿Está seguro de guardar esta entrada de inventario?')) {
+        e.preventDefault();
+        return false;
+    }
+    
+    return true;
 });
 
 // Event listeners
 document.addEventListener('DOMContentLoaded', function() {
-    // Configurar fecha actual
-    const hoy = new Date().toISOString().split('T')[0];
-    document.querySelector('input[name="fecha"]').value = hoy;
-    
-    // Mostrar alerta inicial
-    document.getElementById('alerta-productos').classList.remove('d-none');
+    // Configurar fecha actual si no hay valor
+    const fechaInput = document.querySelector('input[name="fecha"]');
+    if (!fechaInput.value) {
+        const hoy = new Date().toISOString().split('T')[0];
+        fechaInput.value = hoy;
+    }
     
     // Configurar cambios en tipo de movimiento
-    document.getElementById('tipo-movimiento').addEventListener('change', configurarCamposPorTipo);
-    
-    // Configurar cambios en bodega destino
-    document.getElementById('select-bodega').addEventListener('change', function() {
-        // Actualizar stock actual de los productos en la tabla
-        const bodegaId = this.value;
-        document.querySelectorAll('#productos-tbody tr').forEach(fila => {
-            const idProducto = fila.querySelector('.id-producto').value;
-            const stockCell = fila.querySelector('.stock-actual');
-            
-            if (idProducto && bodegaId) {
-                // Aquí podrías hacer una llamada AJAX para obtener el stock actual
-                // Por ahora, mostramos "Consultando..."
-                stockCell.textContent = 'Consultando...';
-                
-                // Simular consulta de stock
-                setTimeout(() => {
-                    stockCell.textContent = '0.00'; // Esto se debería reemplazar con una consulta real
-                }, 500);
-            }
-        });
+    document.getElementById('tipo-movimiento').addEventListener('change', function() {
+        configurarCamposPorTipo();
+        
+        // Si es compra, sugerir costos a los productos existentes
+        if (this.value === '1') {
+            document.querySelectorAll('#productos-tbody tr').forEach(fila => {
+                const precioInput = fila.querySelector('.precio');
+                const costoInput = fila.querySelector('.costo');
+                if (precioInput && costoInput && precioInput.value && parseFloat(precioInput.value) > 0) {
+                    const costoCalculado = (parseFloat(precioInput.value) * 0.8).toFixed(2);
+                    costoInput.value = costoCalculado;
+                    const index = fila.id.split('-')[1];
+                    calcularSubtotal(index);
+                }
+            });
+        }
     });
     
     // Configurar búsqueda por Enter
@@ -573,6 +653,9 @@ document.addEventListener('DOMContentLoaded', function() {
             buscarProductos();
         }
     });
+    
+    // Inicializar configuración de campos
+    configurarCamposPorTipo();
 });
 </script>
 
@@ -584,16 +667,30 @@ document.addEventListener('DOMContentLoaded', function() {
 
 #productos-container table th {
     white-space: nowrap;
+    font-size: 0.875rem;
 }
 
-.stock-actual {
-    font-weight: bold;
-    color: #198754;
+#productos-container table td {
+    vertical-align: middle;
 }
 
 .list-group-item:hover {
     background-color: #f8f9fa;
     cursor: pointer;
+}
+
+.badge {
+    font-size: 0.75rem;
+    min-width: 60px;
+}
+
+input[type="number"] {
+    min-width: 80px;
+}
+
+.form-control-sm {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.875rem;
 }
 </style>
 {% endblock %}
