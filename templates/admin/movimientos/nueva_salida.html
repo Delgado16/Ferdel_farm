@@ -30,12 +30,12 @@
                             <div class="col-md-6">
                                 <label class="form-label required">Fecha</label>
                                 <input type="date" name="fecha" class="form-control" 
-                                       value="{{ '' | date('Y-m-d') }}" required>
+                                       value="{{ fecha_hoy }}" required>
                             </div>
                             
                             <div class="col-md-6">
                                 <label class="form-label required">Tipo de Movimiento</label>
-                                <select name="id_tipo_movimiento" class="form-select" required>
+                                <select name="id_tipo_movimiento" class="form-select" required id="tipo-movimiento">
                                     <option value="">Seleccionar...</option>
                                     {% for tipo in tipos_movimiento %}
                                     <option value="{{ tipo.ID_TipoMovimiento }}">
@@ -47,8 +47,7 @@
                             
                             <div class="col-md-6">
                                 <label class="form-label required">Bodega</label>
-                                <select name="id_bodega" id="select-bodega" class="form-select" required 
-                                        onchange="cargarProductosBodega()">
+                                <select name="id_bodega" id="select-bodega" class="form-select" required>
                                     <option value="">Seleccionar...</option>
                                     {% for bodega in bodegas %}
                                     <option value="{{ bodega.ID_Bodega }}">
@@ -58,21 +57,23 @@
                                 </select>
                             </div>
                             
-                            <div class="col-md-6">
-                                <label class="form-label">Factura Asociada</label>
+                            <!-- Campos para VENTAS -->
+                            <div class="col-md-6" id="factura-container" style="display: none;">
+                                <label class="form-label">Factura Asociada (opcional)</label>
                                 <select name="id_factura_venta" class="form-select">
-                                    <option value="">Seleccionar...</option>
+                                    <option value="">Crear nueva factura</option>
                                     {% for factura in facturas %}
                                     <option value="{{ factura.ID_Factura }}">
-                                        Factura #{{ factura.ID_Factura }} - {{ factura.Cliente }} ({{ factura.Fecha }})
+                                        Factura #{{ factura.ID_Factura }} - {{ factura.Cliente }} 
+                                        ({{ factura.Fecha.strftime('%Y-%m-%d') if factura.Fecha else '' }})
                                     </option>
                                     {% endfor %}
                                 </select>
                             </div>
                             
-                            <div class="col-md-6">
+                            <div class="col-md-6" id="cliente-container" style="display: none;">
                                 <label class="form-label">Cliente</label>
-                                <select name="id_cliente" class="form-select">
+                                <select name="id_cliente" class="form-select" id="select-cliente">
                                     <option value="">Seleccionar...</option>
                                     {% for cliente in clientes %}
                                     <option value="{{ cliente.ID_Cliente }}">
@@ -82,8 +83,21 @@
                                 </select>
                             </div>
                             
+                            <div class="col-md-6" id="tipo-pago-container" style="display: none;">
+                                <label class="form-label">Tipo de Pago</label>
+                                <select name="tipo_pago" class="form-select" id="select-tipo-pago">
+                                    <option value="CONTADO">Contado</option>
+                                    <option value="CREDITO">Crédito</option>
+                                </select>
+                            </div>
+                            
+                            <div class="col-12" id="observacion-factura-container" style="display: none;">
+                                <label class="form-label">Observaciones para Factura</label>
+                                <textarea name="observacion_factura" class="form-control" rows="2"></textarea>
+                            </div>
+                            
                             <div class="col-12">
-                                <label class="form-label">Observaciones</label>
+                                <label class="form-label">Observaciones Generales</label>
                                 <textarea name="observacion" class="form-control" rows="3"></textarea>
                             </div>
                         </div>
@@ -100,17 +114,17 @@
                                 </button>
                             </div>
                             
-                            <div class="table-responsive">
+                            <div class="table-responsive" id="tabla-productos-container" style="display: none;">
                                 <table class="table table-sm">
                                     <thead>
                                         <tr class="table-light">
                                             <th>Producto</th>
                                             <th>Stock Disponible</th>
                                             <th>Cantidad</th>
+                                            <th>Costo Unitario</th>
                                             <th>Precio Unitario</th>
-                                            <th>Lote</th>
                                             <th>Subtotal</th>
-                                            <th></th>
+                                            <th>Acciones</th>
                                         </tr>
                                     </thead>
                                     <tbody id="productos-tbody">
@@ -119,14 +133,19 @@
                                     <tfoot>
                                         <tr class="table-secondary">
                                             <td colspan="5" class="text-end"><strong>Total:</strong></td>
-                                            <td><strong id="total-salida">$0.00</strong></td>
+                                            <td><strong id="total-salida">C$0.00</strong></td>
                                             <td></td>
                                         </tr>
                                     </tfoot>
                                 </table>
                             </div>
                             
-                            <input type="hidden" name="productos" id="productos-json" required>
+                            <div class="alert alert-info" id="alerta-sin-productos">
+                                <i class="fas fa-info-circle me-2"></i>
+                                Seleccione una bodega y agregue productos usando el botón o la lista
+                            </div>
+                            
+                            <input type="hidden" name="productos" id="productos-json" value="[]" required>
                         </div>
                         
                         <div class="mt-4 pt-3 border-top">
@@ -135,7 +154,7 @@
                                         onclick="window.history.back()">
                                     Cancelar
                                 </button>
-                                <button type="submit" class="btn btn-danger">
+                                <button type="submit" class="btn btn-danger" id="btn-guardar" disabled>
                                     <i class="fas fa-save me-1"></i> Guardar Salida
                                 </button>
                             </div>
@@ -154,14 +173,25 @@
                     </h6>
                 </div>
                 <div class="card-body">
-                    <div class="alert alert-info" role="alert">
+                    <div class="alert alert-info" role="alert" id="alerta-bodega">
                         <i class="fas fa-info-circle me-1"></i>
                         Seleccione una bodega para ver los productos disponibles
                     </div>
                     
+                    <div class="input-group mb-3">
+                        <input type="text" id="buscar-producto-bodega" class="form-control" 
+                               placeholder="Buscar producto..." disabled>
+                        <button class="btn btn-outline-primary" type="button" onclick="filtrarProductos()" disabled>
+                            <i class="fas fa-search"></i>
+                        </button>
+                    </div>
+                    
                     <div id="lista-productos-bodega" class="list-group" 
                          style="max-height: 400px; overflow-y: auto;">
-                        <!-- Productos se cargarán dinámicamente -->
+                        <div class="text-center text-muted p-3">
+                            <i class="fas fa-warehouse fa-2x mb-2"></i><br>
+                            Seleccione una bodega primero
+                        </div>
                     </div>
                 </div>
             </div>
@@ -181,11 +211,15 @@
                         </li>
                         <li class="list-group-item d-flex justify-content-between">
                             <span>Total Unidades:</span>
-                            <strong id="resumen-unidades">0</strong>
+                            <strong id="resumen-unidades">0.000</strong>
+                        </li>
+                        <li class="list-group-item d-flex justify-content-between">
+                            <span>Total Costo:</span>
+                            <strong id="resumen-costo">C$0.00</strong>
                         </li>
                         <li class="list-group-item d-flex justify-content-between">
                             <span>Total Venta:</span>
-                            <strong id="resumen-total">$0.00</strong>
+                            <strong id="resumen-total">C$0.00</strong>
                         </li>
                     </ul>
                 </div>
@@ -198,93 +232,168 @@
 <script>
 let productosSalida = [];
 let contadorProductos = 0;
+let productosDisponibles = [];
 
-// Cargar productos de la bodega seleccionada
+// Configurar campos según tipo de movimiento
+function configurarCamposPorTipoSalida() {
+    const tipoMovimiento = document.getElementById('tipo-movimiento').value;
+    const esVenta = tipoMovimiento === '2'; // TIPO_VENTA = 2
+    
+    // Mostrar/ocultar campos de facturación
+    const mostrar = esVenta ? 'block' : 'none';
+    
+    document.getElementById('factura-container').style.display = mostrar;
+    document.getElementById('cliente-container').style.display = mostrar;
+    document.getElementById('tipo-pago-container').style.display = mostrar;
+    document.getElementById('observacion-factura-container').style.display = mostrar;
+    
+    // Configurar campos requeridos
+    document.getElementById('select-cliente').required = esVenta;
+    document.getElementById('select-tipo-pago').required = esVenta;
+    
+    // Si no es venta, limpiar campos de facturación
+    if (!esVenta) {
+        document.getElementById('select-cliente').value = '';
+        document.getElementById('select-tipo-pago').value = 'CONTADO';
+        document.querySelector('textarea[name="observacion_factura"]').value = '';
+    }
+    
+    habilitarBotonGuardar();
+}
+
+// Cargar productos de la bodega seleccionada usando API
 function cargarProductosBodega() {
     const bodegaId = document.getElementById('select-bodega').value;
     const lista = document.getElementById('lista-productos-bodega');
+    const alerta = document.getElementById('alerta-bodega');
+    const buscarInput = document.getElementById('buscar-producto-bodega');
+    const buscarBtn = buscarInput.nextElementSibling;
     
     if (!bodegaId) {
         lista.innerHTML = `
-            <div class="alert alert-warning">
+            <div class="text-center text-muted p-3">
+                <i class="fas fa-warehouse fa-2x mb-2"></i><br>
                 Seleccione una bodega primero
+            </div>
+        `;
+        alerta.innerHTML = '<i class="fas fa-info-circle me-1"></i> Seleccione una bodega para ver los productos';
+        alerta.style.display = 'block';
+        
+        // Deshabilitar búsqueda
+        buscarInput.disabled = true;
+        buscarBtn.disabled = true;
+        buscarInput.value = '';
+        buscarInput.placeholder = 'Seleccione una bodega primero';
+        
+        productosDisponibles = [];
+        return;
+    }
+    
+    alerta.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> Cargando productos...';
+    lista.innerHTML = '';
+    
+    // Habilitar búsqueda
+    buscarInput.disabled = false;
+    buscarBtn.disabled = false;
+    buscarInput.placeholder = 'Buscar producto...';
+    
+    // Llamar a la API
+    fetch(`/api/productos/stock-bodega?bodega=${bodegaId}`)
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Error en la respuesta del servidor');
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (data.error) {
+                throw new Error(data.error);
+            }
+            
+            productosDisponibles = data;
+            
+            if (productosDisponibles.length === 0) {
+                lista.innerHTML = `
+                    <div class="alert alert-warning">
+                        <i class="fas fa-exclamation-triangle me-1"></i>
+                        No hay productos con stock disponible en esta bodega
+                    </div>
+                `;
+                alerta.style.display = 'none';
+            } else {
+                alerta.style.display = 'none';
+                mostrarProductosDisponibles(productosDisponibles);
+            }
+        })
+        .catch(error => {
+            console.error('Error al cargar productos:', error);
+            lista.innerHTML = `
+                <div class="alert alert-danger">
+                    <i class="fas fa-exclamation-circle me-1"></i>
+                    Error al cargar productos: ${error.message}
+                </div>
+            `;
+            alerta.style.display = 'none';
+            productosDisponibles = [];
+        });
+}
+
+// Mostrar productos disponibles
+function mostrarProductosDisponibles(productos) {
+    const lista = document.getElementById('lista-productos-bodega');
+    lista.innerHTML = '';
+    
+    if (productos.length === 0) {
+        lista.innerHTML = `
+            <div class="alert alert-warning">
+                No se encontraron productos
             </div>
         `;
         return;
     }
     
-    lista.innerHTML = `
-        <div class="text-center py-3">
-            <div class="spinner-border text-primary" role="status">
-                <span class="visually-hidden">Cargando...</span>
-            </div>
-            <p class="mt-2">Cargando productos...</p>
-        </div>
-    `;
-    
-    fetch(`/api/productos/buscar?q=&bodega=${bodegaId}`)
-        .then(response => response.json())
-        .then(data => {
-            lista.innerHTML = '';
-            
-            if (data.error) {
-                lista.innerHTML = `
-                    <div class="alert alert-danger">
-                        ${data.error}
-                    </div>
-                `;
-                return;
-            }
-            
-            if (data.length === 0) {
-                lista.innerHTML = `
-                    <div class="alert alert-warning">
-                        No hay productos en esta bodega
-                    </div>
-                `;
-                return;
-            }
-            
-            // Filtrar solo productos con stock
-            const productosConStock = data.filter(p => p.Stock_Bodega > 0);
-            
-            if (productosConStock.length === 0) {
-                lista.innerHTML = `
-                    <div class="alert alert-warning">
-                        No hay productos con stock disponible
-                    </div>
-                `;
-                return;
-            }
-            
-            productosConStock.forEach(producto => {
-                const item = document.createElement('a');
-                item.className = 'list-group-item list-group-item-action';
-                item.href = '#';
-                item.onclick = () => seleccionarProductoSalida(producto);
-                item.innerHTML = `
-                    <div class="d-flex w-100 justify-content-between">
-                        <h6 class="mb-1">${producto.Descripcion}</h6>
-                        <small class="text-muted">${producto.Stock_Bodega} disp.</small>
-                    </div>
+    productos.forEach(producto => {
+        const item = document.createElement('a');
+        item.className = 'list-group-item list-group-item-action';
+        item.href = '#';
+        item.onclick = () => seleccionarProductoSalida(producto);
+        
+        item.innerHTML = `
+            <div class="d-flex w-100 justify-content-between align-items-start">
+                <div class="flex-grow-1">
+                    <h6 class="mb-1">${producto.Descripcion}</h6>
                     <p class="mb-1">
-                        <small>Código: ${producto.COD_Producto || 'N/A'}</small>
+                        <small class="text-muted">Código: ${producto.COD_Producto || 'N/A'}</small><br>
+                        <small class="text-muted">Categoría: ${producto.Categoria_Descripcion || 'Sin categoría'}</small>
                     </p>
-                    <small class="text-muted">
-                        Precio: $${producto.Precio_Venta || '0.00'}
-                    </small>
-                `;
-                lista.appendChild(item);
-            });
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            lista.innerHTML = `
-                <div class="alert alert-danger">
-                    Error al cargar productos
                 </div>
-            `;
-        });
+                <div class="text-end ms-2">
+                    <span class="badge bg-success mb-1">${producto.Stock_Bodega.toFixed(2)} disp.</span><br>
+                    <small class="text-primary">C$${producto.Precio_Venta.toFixed(2)}</small>
+                </div>
+            </div>
+            <small class="text-muted d-block mt-1">
+                <i class="fas fa-balance-scale me-1"></i>${producto.Unidad_Descripcion || 'Unidad'}
+            </small>
+        `;
+        lista.appendChild(item);
+    });
+}
+
+// Filtrar productos por búsqueda
+function filtrarProductos() {
+    const termino = document.getElementById('buscar-producto-bodega').value.toLowerCase();
+    if (!termino || !productosDisponibles.length) {
+        mostrarProductosDisponibles(productosDisponibles);
+        return;
+    }
+    
+    const productosFiltrados = productosDisponibles.filter(p => 
+        p.Descripcion.toLowerCase().includes(termino) ||
+        (p.COD_Producto && p.COD_Producto.toLowerCase().includes(termino)) ||
+        (p.Categoria_Descripcion && p.Categoria_Descripcion.toLowerCase().includes(termino))
+    );
+    mostrarProductosDisponibles(productosFiltrados);
 }
 
 // Agregar producto a salida
@@ -294,71 +403,123 @@ function agregarProductoSalida(producto = null) {
     
     const fila = document.createElement('tr');
     fila.id = `producto-salida-${index}`;
-    fila.innerHTML = `
-        <td>
-            <input type="hidden" name="productos[${index}][id_producto]" 
-                   value="${producto ? producto.ID_Producto : ''}" class="id-producto">
-            <input type="text" class="form-control form-control-sm producto-nombre" 
-                   value="${producto ? producto.Descripcion : ''}" readonly>
-        </td>
-        <td>
-            <input type="text" class="form-control form-control-sm stock-disponible" 
-                   value="${producto ? producto.Stock_Bodega : '0'}" readonly>
-        </td>
-        <td>
-            <input type="number" step="0.001" min="0.001" 
-                   max="${producto ? producto.Stock_Bodega : ''}"
-                   name="productos[${index}][cantidad]" 
-                   class="form-control form-control-sm cantidad" 
-                   value="1" onchange="validarCantidad(${index})">
-            <small class="text-danger max-error" style="display: none;">
-                Máximo: ${producto ? producto.Stock_Bodega : 0}
-            </small>
-        </td>
-        <td>
-            <input type="number" step="0.01" min="0" 
-                   name="productos[${index}][precio_unitario]" 
-                   class="form-control form-control-sm precio" 
-                   value="${producto ? producto.Precio_Venta || '0.00' : '0.00'}"
-                   onchange="calcularSubtotalSalida(${index})">
-        </td>
-        <td>
-            <input type="text" name="productos[${index}][lote]" 
-                   class="form-control form-control-sm lote">
-        </td>
-        <td>
-            <input type="text" class="form-control form-control-sm subtotal" 
-                   value="$0.00" readonly>
-        </td>
-        <td>
-            <button type="button" class="btn btn-danger btn-sm" 
-                    onclick="eliminarProductoSalida(${index})">
-                <i class="fas fa-trash"></i>
-            </button>
-        </td>
-    `;
+    
+    if (producto) {
+        fila.innerHTML = `
+            <td>
+                <input type="hidden" name="productos[${index}][id_producto]" 
+                       value="${producto.ID_Producto}" class="id-producto">
+                <div>
+                    <strong>${producto.Descripcion}</strong><br>
+                    <small class="text-muted">${producto.COD_Producto || 'Sin código'}</small>
+                </div>
+            </td>
+            <td class="text-center">
+                <span class="badge bg-success">${producto.Stock_Bodega.toFixed(2)}</span>
+            </td>
+            <td>
+                <input type="number" step="0.001" min="0.001" max="${producto.Stock_Bodega}"
+                       name="productos[${index}][cantidad]" 
+                       class="form-control form-control-sm cantidad" 
+                       value="1" onchange="validarCantidad(${index})" oninput="validarCantidad(${index})" required>
+                <small class="text-danger d-block" style="font-size: 0.7em;" id="error-${index}"></small>
+            </td>
+            <td>
+                <input type="number" step="0.01" min="0" 
+                       name="productos[${index}][costo_unitario]" 
+                       class="form-control form-control-sm costo" 
+                       value="0.00"
+                       onchange="calcularSubtotalSalida(${index})" oninput="calcularSubtotalSalida(${index})" required>
+            </td>
+            <td>
+                <input type="number" step="0.01" min="0" 
+                       name="productos[${index}][precio_unitario]" 
+                       class="form-control form-control-sm precio" 
+                       value="${producto.Precio_Venta.toFixed(2)}"
+                       onchange="calcularSubtotalSalida(${index})" oninput="calcularSubtotalSalida(${index})">
+            </td>
+            <td>
+                <input type="text" class="form-control form-control-sm subtotal" 
+                       value="C$0.00" readonly>
+            </td>
+            <td class="text-center">
+                <button type="button" class="btn btn-danger btn-sm" 
+                        onclick="eliminarProductoSalida(${index})" title="Eliminar">
+                    <i class="fas fa-trash"></i> Quitar
+                </button>
+            </td>
+        `;
+    } else {
+        // Opción para agregar producto manualmente (sin selección de lista)
+        fila.innerHTML = `
+            <td>
+                <div class="alert alert-warning p-1 m-0">
+                    <small>Seleccione producto de la lista</small>
+                </div>
+                <input type="hidden" name="productos[${index}][id_producto]" class="id-producto">
+            </td>
+            <td class="text-center">
+                <span class="badge bg-secondary">-</span>
+            </td>
+            <td colspan="4" class="text-center">
+                <small class="text-muted">Agregue productos desde la lista</small>
+            </td>
+            <td class="text-center">
+                <button type="button" class="btn btn-danger btn-sm" 
+                        onclick="eliminarProductoSalida(${index})" title="Eliminar">
+                    <i class="fas fa-trash"></i> Quitar
+                </button>
+            </td>
+        `;
+    }
     
     tbody.appendChild(fila);
+    
+    // Mostrar tabla y ocultar alerta
+    document.getElementById('tabla-productos-container').style.display = 'block';
+    document.getElementById('alerta-sin-productos').style.display = 'none';
+    
     if (producto) {
         calcularSubtotalSalida(index);
-        validarCantidad(index);
+        // Si es venta, sugerir costo (60% del precio de venta)
+        const tipoMovimiento = document.getElementById('tipo-movimiento').value;
+        if (tipoMovimiento === '2') {
+            const costoCalculado = (producto.Precio_Venta * 0.6).toFixed(2);
+            fila.querySelector('.costo').value = costoCalculado;
+            calcularSubtotalSalida(index);
+        }
     }
+    
     actualizarResumenSalida();
+    habilitarBotonGuardar();
 }
 
 // Validar cantidad no exceda stock
 function validarCantidad(index) {
     const fila = document.getElementById(`producto-salida-${index}`);
-    const cantidadInput = fila.querySelector('.cantidad');
-    const maxStock = parseFloat(fila.querySelector('.stock-disponible').value) || 0;
-    const cantidad = parseFloat(cantidadInput.value) || 0;
-    const errorElement = fila.querySelector('.max-error');
+    if (!fila) return;
     
-    if (cantidad > maxStock) {
-        cantidadInput.value = maxStock;
-        errorElement.style.display = 'block';
-    } else {
-        errorElement.style.display = 'none';
+    const cantidadInput = fila.querySelector('.cantidad');
+    const errorElement = fila.querySelector(`#error-${index}`);
+    const stockBadge = fila.querySelector('.badge');
+    
+    let maxStock = 0;
+    if (stockBadge && stockBadge.textContent !== '-') {
+        maxStock = parseFloat(stockBadge.textContent) || 0;
+    }
+    
+    const cantidad = parseFloat(cantidadInput.value) || 0;
+    
+    if (errorElement) {
+        if (maxStock > 0 && cantidad > maxStock) {
+            cantidadInput.value = maxStock;
+            errorElement.textContent = `Máx: ${maxStock.toFixed(2)}`;
+            errorElement.classList.remove('d-none');
+            errorElement.classList.add('d-block');
+        } else {
+            errorElement.classList.remove('d-block');
+            errorElement.classList.add('d-none');
+        }
     }
     
     calcularSubtotalSalida(index);
@@ -367,53 +528,124 @@ function validarCantidad(index) {
 // Calcular subtotal para salida
 function calcularSubtotalSalida(index) {
     const fila = document.getElementById(`producto-salida-${index}`);
-    const cantidad = parseFloat(fila.querySelector('.cantidad').value) || 0;
-    const precio = parseFloat(fila.querySelector('.precio').value) || 0;
-    const subtotal = cantidad * precio;
+    if (!fila) return;
     
-    fila.querySelector('.subtotal').value = `$${subtotal.toFixed(2)}`;
+    const cantidadInput = fila.querySelector('.cantidad');
+    const costoInput = fila.querySelector('.costo');
+    const subtotalInput = fila.querySelector('.subtotal');
+    
+    if (!cantidadInput || !costoInput || !subtotalInput) return;
+    
+    const cantidad = parseFloat(cantidadInput.value) || 0;
+    const costo = parseFloat(costoInput.value) || 0;
+    const subtotal = cantidad * costo;
+    
+    subtotalInput.value = `C$${subtotal.toFixed(2)}`;
     actualizarResumenSalida();
 }
 
 // Eliminar producto de salida
 function eliminarProductoSalida(index) {
-    document.getElementById(`producto-salida-${index}`).remove();
-    actualizarResumenSalida();
+    const fila = document.getElementById(`producto-salida-${index}`);
+    if (fila) {
+        fila.remove();
+        actualizarResumenSalida();
+        
+        // Si no quedan productos, mostrar alerta
+        const tbody = document.getElementById('productos-tbody');
+        if (tbody.children.length === 0) {
+            document.getElementById('tabla-productos-container').style.display = 'none';
+            document.getElementById('alerta-sin-productos').style.display = 'block';
+        }
+    }
+    
+    habilitarBotonGuardar();
 }
 
 // Actualizar resumen de salida
 function actualizarResumenSalida() {
-    let total = 0;
+    let totalCosto = 0;
+    let totalVenta = 0;
     let unidades = 0;
     let cantidadProductos = 0;
     
     document.querySelectorAll('#productos-tbody tr').forEach(fila => {
-        const cantidad = parseFloat(fila.querySelector('.cantidad').value) || 0;
-        const precio = parseFloat(fila.querySelector('.precio').value) || 0;
+        const cantidadInput = fila.querySelector('.cantidad');
+        const costoInput = fila.querySelector('.costo');
+        const precioInput = fila.querySelector('.precio');
         
-        unidades += cantidad;
-        total += cantidad * precio;
-        cantidadProductos++;
+        if (!cantidadInput || !costoInput) return;
+        
+        const cantidad = parseFloat(cantidadInput.value) || 0;
+        const costo = parseFloat(costoInput.value) || 0;
+        const precio = precioInput ? parseFloat(precioInput.value) || 0 : 0;
+        
+        if (cantidad > 0 && costo >= 0) {
+            unidades += cantidad;
+            totalCosto += cantidad * costo;
+            totalVenta += cantidad * precio;
+            cantidadProductos++;
+        }
     });
     
     document.getElementById('resumen-cantidad').textContent = cantidadProductos;
     document.getElementById('resumen-unidades').textContent = unidades.toFixed(3);
-    document.getElementById('resumen-total').textContent = `$${total.toFixed(2)}`;
-    document.getElementById('total-salida').textContent = `$${total.toFixed(2)}`;
+    document.getElementById('resumen-costo').textContent = `C$${totalCosto.toFixed(2)}`;
+    document.getElementById('resumen-total').textContent = `C$${totalVenta.toFixed(2)}`;
+    document.getElementById('total-salida').textContent = `C$${totalCosto.toFixed(2)}`;
     
     // Actualizar JSON oculto
     const productosData = [];
     document.querySelectorAll('#productos-tbody tr').forEach(fila => {
-        const producto = {
-            id_producto: fila.querySelector('.id-producto').value,
-            cantidad: fila.querySelector('.cantidad').value,
-            precio_unitario: fila.querySelector('.precio').value || '0.00',
-            lote: fila.querySelector('.lote').value || ''
-        };
-        productosData.push(producto);
+        const idProductoInput = fila.querySelector('.id-producto');
+        const cantidadInput = fila.querySelector('.cantidad');
+        const costoInput = fila.querySelector('.costo');
+        const precioInput = fila.querySelector('.precio');
+        
+        if (idProductoInput && idProductoInput.value && 
+            cantidadInput && costoInput) {
+            const producto = {
+                id_producto: idProductoInput.value,
+                cantidad: cantidadInput.value,
+                costo_unitario: costoInput.value,
+                precio_unitario: precioInput ? precioInput.value : '0.00'
+            };
+            productosData.push(producto);
+        }
     });
     
     document.getElementById('productos-json').value = JSON.stringify(productosData);
+    habilitarBotonGuardar();
+}
+
+// Habilitar o deshabilitar botón guardar
+function habilitarBotonGuardar() {
+    const productosData = JSON.parse(document.getElementById('productos-json').value || '[]');
+    const btnGuardar = document.getElementById('btn-guardar');
+    const bodegaSeleccionada = document.getElementById('select-bodega').value;
+    const tipoMovimiento = document.getElementById('tipo-movimiento').value;
+    
+    let habilitar = false;
+    
+    if (productosData.length > 0 && bodegaSeleccionada && tipoMovimiento) {
+        // Verificar que todos los productos tengan datos válidos
+        const todosValidos = productosData.every(p => 
+            p.id_producto && 
+            p.cantidad && parseFloat(p.cantidad) > 0 &&
+            p.costo_unitario && parseFloat(p.costo_unitario) >= 0
+        );
+        
+        // Si es venta, verificar cliente seleccionado
+        if (tipoMovimiento === '2') {
+            const clienteSeleccionado = document.getElementById('select-cliente').value;
+            const tipoPagoSeleccionado = document.getElementById('select-tipo-pago').value;
+            habilitar = todosValidos && clienteSeleccionado && tipoPagoSeleccionado;
+        } else {
+            habilitar = todosValidos;
+        }
+    }
+    
+    btnGuardar.disabled = !habilitar;
 }
 
 // Seleccionar producto para salida
@@ -432,19 +664,40 @@ function seleccionarProductoSalida(producto) {
 
 // Validar formulario antes de enviar
 document.getElementById('formSalida').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
     const bodegaId = document.getElementById('select-bodega').value;
     if (!bodegaId) {
-        e.preventDefault();
         alert('Debe seleccionar una bodega');
-        return;
+        return false;
     }
     
-    const productosData = JSON.parse(document.getElementById('productos-json').value);
+    const tipoMovimiento = document.getElementById('tipo-movimiento').value;
+    if (!tipoMovimiento) {
+        alert('Debe seleccionar un tipo de movimiento');
+        return false;
+    }
+    
+    // Validaciones específicas para ventas
+    if (tipoMovimiento === '2') {
+        const clienteId = document.getElementById('select-cliente').value;
+        if (!clienteId) {
+            alert('Para ventas debe seleccionar un cliente');
+            return false;
+        }
+        
+        const tipoPago = document.getElementById('select-tipo-pago').value;
+        if (!tipoPago) {
+            alert('Debe seleccionar un tipo de pago');
+            return false;
+        }
+    }
+    
+    const productosData = JSON.parse(document.getElementById('productos-json').value || '[]');
     
     if (productosData.length === 0) {
-        e.preventDefault();
         alert('Debe agregar al menos un producto');
-        return;
+        return false;
     }
     
     // Verificar stock antes de enviar
@@ -452,43 +705,185 @@ document.getElementById('formSalida').addEventListener('submit', function(e) {
     let mensajeError = '';
     
     document.querySelectorAll('#productos-tbody tr').forEach(fila => {
-        const idProducto = fila.querySelector('.id-producto').value;
-        const cantidad = parseFloat(fila.querySelector('.cantidad').value) || 0;
-        const stockDisponible = parseFloat(fila.querySelector('.stock-disponible').value) || 0;
-        const productoNombre = fila.querySelector('.producto-nombre').value;
+        const idProductoInput = fila.querySelector('.id-producto');
+        const cantidadInput = fila.querySelector('.cantidad');
+        const stockBadge = fila.querySelector('.badge');
+        
+        if (!idProductoInput || !idProductoInput.value || !cantidadInput) return;
+        
+        const productoNombre = fila.querySelector('strong') ? fila.querySelector('strong').textContent : 'Producto';
+        const cantidad = parseFloat(cantidadInput.value) || 0;
+        
+        let stockDisponible = 0;
+        if (stockBadge && stockBadge.textContent !== '-') {
+            stockDisponible = parseFloat(stockBadge.textContent) || 0;
+        }
         
         if (cantidad > stockDisponible) {
             stockValido = false;
-            mensajeError += `- ${productoNombre}: Solicitado ${cantidad}, Disponible ${stockDisponible}\n`;
+            mensajeError += `- ${productoNombre}: Solicitado ${cantidad.toFixed(2)}, Disponible ${stockDisponible.toFixed(2)}\n`;
         }
     });
     
     if (!stockValido) {
-        e.preventDefault();
         alert(`Stock insuficiente:\n${mensajeError}`);
-        return;
+        return false;
     }
     
-    if (!confirm('¿Está seguro de guardar esta salida?')) {
-        e.preventDefault();
+    // Confirmar según tipo de movimiento
+    const tipoMovimientoTexto = document.querySelector('#tipo-movimiento option:checked').textContent;
+    let mensajeConfirmacion = '';
+    
+    if (tipoMovimiento === '2') {
+        const tipoPago = document.getElementById('select-tipo-pago').value;
+        const cliente = document.querySelector('#select-cliente option:checked').textContent;
+        
+        mensajeConfirmacion = `¿Está seguro de guardar esta VENTA?\n\n`;
+        mensajeConfirmacion += `Cliente: ${cliente}\n`;
+        mensajeConfirmacion += `Tipo de pago: ${tipoPago}\n`;
+        mensajeConfirmacion += `Productos: ${productosData.length}\n`;
+        mensajeConfirmacion += `Total: ${document.getElementById('total-salida').textContent}\n\n`;
+        mensajeConfirmacion += `Esta acción:\n`;
+        mensajeConfirmacion += `1. Descontará productos del inventario\n`;
+        mensajeConfirmacion += `2. Creará una factura\n`;
+        mensajeConfirmacion += tipoPago === 'CREDITO' ? '3. Creará una cuenta por cobrar' : '3. Marcará como pagado';
+    } else {
+        mensajeConfirmacion = `¿Está seguro de guardar esta ${tipoMovimientoTexto.toUpperCase()}?\n\n`;
+        mensajeConfirmacion += `Productos: ${productosData.length}\n`;
+        mensajeConfirmacion += `Total: ${document.getElementById('total-salida').textContent}`;
+    }
+    
+    if (confirm(mensajeConfirmacion)) {
+        this.submit();
     }
 });
 
-// Fecha de hoy por defecto
+// Event listeners
 document.addEventListener('DOMContentLoaded', function() {
-    const hoy = new Date().toISOString().split('T')[0];
-    document.querySelector('input[name="fecha"]').value = hoy;
+    // Configurar fecha actual
+    const fechaInput = document.querySelector('input[name="fecha"]');
+    if (!fechaInput.value) {
+        const hoy = new Date().toISOString().split('T')[0];
+        fechaInput.value = hoy;
+    }
+    
+    // Configurar cambios en tipo de movimiento
+    document.getElementById('tipo-movimiento').addEventListener('change', configurarCamposPorTipoSalida);
+    
+    // Configurar cambios en bodega
+    document.getElementById('select-bodega').addEventListener('change', function() {
+        cargarProductosBodega();
+        habilitarBotonGuardar();
+    });
+    
+    // Configurar cambios en cliente y tipo pago
+    document.getElementById('select-cliente').addEventListener('change', habilitarBotonGuardar);
+    document.getElementById('select-tipo-pago').addEventListener('change', habilitarBotonGuardar);
+    
+    // Configurar búsqueda por Enter
+    document.getElementById('buscar-producto-bodega').addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            filtrarProductos();
+        }
+    });
+    
+    // Inicializar
+    configurarCamposPorTipoSalida();
+    
+    // Configurar tooltips
+    const tooltipTriggerList = [].slice.call(document.querySelectorAll('[title]'));
+    tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl);
+    });
 });
 </script>
 
 <style>
 .required:after {
     content: " *";
-    color: red;
+    color: #dc3545;
 }
 
-.max-error {
-    font-size: 0.8em;
+#productos-tbody tr td {
+    vertical-align: middle;
+}
+
+.badge {
+    min-width: 65px;
+    font-size: 0.75rem;
+    padding: 0.25em 0.4em;
+}
+
+.form-control-sm {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.875rem;
+    height: calc(1.5em + 0.5rem + 2px);
+}
+
+.list-group-item:hover {
+    background-color: #f8f9fa;
+    cursor: pointer;
+    border-left: 3px solid #0d6efd;
+}
+
+#tabla-productos-container table th {
+    white-space: nowrap;
+    font-size: 0.875rem;
+    background-color: #f8f9fa;
+}
+
+#tabla-productos-container table td {
+    padding: 0.5rem;
+}
+
+.input-group .btn {
+    padding-left: 0.75rem;
+    padding-right: 0.75rem;
+}
+
+.text-primary {
+    color: #0d6efd !important;
+}
+
+.text-success {
+    color: #198754 !important;
+}
+
+.bg-success {
+    background-color: #198754 !important;
+}
+
+.bg-info {
+    background-color: #0dcaf0 !important;
+}
+
+.bg-danger {
+    background-color: #dc3545 !important;
+}
+
+.bg-primary {
+    background-color: #0d6efd !important;
+}
+
+.btn-danger {
+    background-color: #dc3545;
+    border-color: #dc3545;
+}
+
+.btn-danger:hover {
+    background-color: #bb2d3b;
+    border-color: #b02a37;
+}
+
+.btn-primary {
+    background-color: #0d6efd;
+    border-color: #0d6efd;
+}
+
+.btn-primary:hover {
+    background-color: #0b5ed7;
+    border-color: #0a58ca;
 }
 </style>
 {% endblock %}
