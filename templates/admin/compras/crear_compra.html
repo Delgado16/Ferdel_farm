@@ -240,6 +240,15 @@
     }
 
     /* Stock indicators */
+    .stock-danger {
+        color: var(--danger-color);
+        font-weight: 700;
+        background-color: rgba(220, 53, 69, 0.1);
+        padding: 2px 6px;
+        border-radius: 4px;
+        display: inline-block;
+    }
+
     .stock-low {
         color: var(--danger-color);
         font-weight: 600;
@@ -532,17 +541,24 @@
 </div>
 
 <script>
+// ============================================
+// VARIABLES GLOBALES
+// ============================================
 let productos = [];
 let contadorProductos = 0;
 let filtroCategoriaActual = 0;
 let productosEnCache = [];
+
+// ============================================
+// FUNCIONES DE INICIALIZACIÓN
+// ============================================
 
 // Establecer fecha actual por defecto
 document.addEventListener('DOMContentLoaded', function() {
     const today = new Date().toISOString().split('T')[0];
     document.getElementById('fecha').value = today;
     
-    // Asignar eventos
+    // Asignar eventos a botones
     document.getElementById('btn-agregar-producto').addEventListener('click', agregarProducto);
     document.getElementById('btn-aplicar-filtro').addEventListener('click', aplicarFiltroCategoria);
     document.getElementById('btn-limpiar-filtro').addEventListener('click', limpiarFiltro);
@@ -592,6 +608,10 @@ document.addEventListener('DOMContentLoaded', function() {
     agregarProducto();
 });
 
+// ============================================
+// FUNCIONES DE FILTRADO DE PRODUCTOS
+// ============================================
+
 // APLICAR FILTRO POR CATEGORÍA
 async function aplicarFiltroCategoria() {
     const categoriaSelect = document.getElementById('filtro_categoria');
@@ -605,16 +625,19 @@ async function aplicarFiltroCategoria() {
         btnFiltro.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> Cargando...';
         btnFiltro.disabled = true;
 
+        console.log(`🔍 Aplicando filtro para categoría: ${idCategoria} - ${nombreCategoria}`);
+        
         const url = `/admin/compras/productos-por-categoria/${idCategoria}`;
+        console.log(`📤 URL solicitada: ${url}`);
         
         const response = await fetch(url);
         
         if (!response.ok) {
-            const errorText = await response.text();
-            throw new Error(`Error HTTP: ${response.status} - ${errorText}`);
+            throw new Error(`Error HTTP: ${response.status} - ${response.statusText}`);
         }
         
         const productosRecibidos = await response.json();
+        console.log('📥 Datos recibidos:', productosRecibidos);
         
         if (productosRecibidos.error) {
             throw new Error(productosRecibidos.error);
@@ -623,10 +646,13 @@ async function aplicarFiltroCategoria() {
         productosEnCache = productosRecibidos;
         filtroCategoriaActual = idCategoria;
         
+        console.log(`✅ Productos en caché: ${productosRecibidos.length} productos`);
+        
         // Actualizar TODOS los selects de productos
         const selectsProductos = document.querySelectorAll('.producto-select');
+        console.log(`🔄 Actualizando ${selectsProductos.length} selects de productos`);
         
-        selectsProductos.forEach((select) => {
+        selectsProductos.forEach((select, index) => {
             const productoSeleccionado = select.value;
             
             // Guardar el valor seleccionado actualmente
@@ -650,11 +676,14 @@ async function aplicarFiltroCategoria() {
                         const evento = new Event('change');
                         select.dispatchEvent(evento);
                     }, 100);
+                    
+                    console.log(`✅ Select ${index + 1}: Selección restaurada (${productoSeleccionado})`);
                 } else {
                     // El producto seleccionado ya no está disponible en el filtro
+                    console.log(`⚠️ Select ${index + 1}: Producto "${textoSeleccionado}" no disponible en filtro`);
+                    select.value = '';
                     mostrarAlerta('warning', '⚠️ Producto no disponible', 
                         `El producto "${textoSeleccionado}" ya no está disponible con el filtro actual. Por favor seleccione otro.`);
-                    select.value = '';
                 }
             }
         });
@@ -673,10 +702,10 @@ async function aplicarFiltroCategoria() {
         
         // Mostrar mensaje informativo
         mostrarAlerta('success', '✅ Filtro aplicado', 
-            `Mostrando productos de la categoría: ${nombreCategoria}`);
+            `Mostrando ${productosRecibidos.length} productos de: ${nombreCategoria}`);
         
     } catch (error) {
-        console.error('Error al aplicar filtro:', error);
+        console.error('❌ Error al aplicar filtro:', error);
         mostrarAlerta('danger', '❌ Error', `No se pudieron cargar los productos: ${error.message}`);
     } finally {
         // Restaurar botón
@@ -697,12 +726,18 @@ function actualizarSelectConProductos(select, productos) {
     productos.forEach(producto => {
         const option = document.createElement('option');
         option.value = producto.id;
-        option.textContent = `${producto.descripcion} (${producto.codigo}) - Stock: ${producto.existencias || 0}`;
+        
+        // Formatear mejor la información
+        const stock = producto.existencias || 0;
+        const stockText = stock === 0 ? 'SIN STOCK' : `${stock} ${producto.simbolo_medida || ''}`;
+        
+        option.textContent = `${producto.descripcion} (${producto.codigo}) - Stock: ${stockText}`;
         option.dataset.codigo = producto.codigo;
-        option.dataset.existencias = producto.existencias || 0;
+        option.dataset.existencias = stock;
         option.dataset.precio = producto.precio_venta || 0;
         option.dataset.categoria = producto.id_categoria;
         option.dataset.unidad = producto.unidad_medida || '';
+        option.dataset.simbolo = producto.simbolo_medida || '';
         
         select.appendChild(option);
     });
@@ -714,6 +749,7 @@ function actualizarSelectConProductos(select, productos) {
 }
 
 function limpiarFiltro() {
+    console.log('🧹 Limpiando filtro...');
     document.getElementById('filtro_categoria').value = '0';
     document.getElementById('filtro-info').style.display = 'none';
     filtroCategoriaActual = 0;
@@ -722,8 +758,14 @@ function limpiarFiltro() {
     aplicarFiltroCategoria();
 }
 
+// ============================================
+// FUNCIONES DE GESTIÓN DE PRODUCTOS
+// ============================================
+
 function agregarProducto() {
     contadorProductos++;
+    console.log(`➕ Agregando producto ${contadorProductos}`);
+    
     const productoHTML = `
         <tr class="producto-item" id="producto-${contadorProductos}">
             <td>
@@ -731,7 +773,7 @@ function agregarProducto() {
                     <option value="" disabled selected>Seleccionar producto...</option>
                 </select>
                 <div class="invalid-feedback">Seleccione un producto</div>
-                <small class="text-muted stock-info" id="stock-info-${contadorProductos}"></small>
+                <small class="text-muted stock-info" id="stock-info-${contadorProductos}" style="display: none;"></small>
             </td>
             <td>
                 <input type="number" class="form-control cantidad" name="cantidades[]" min="0.0001" step="0.0001" value="1" required 
@@ -760,11 +802,12 @@ function agregarProducto() {
             </td>
             <td>
                 <button type="button" class="btn btn-danger btn-sm" onclick="eliminarProducto(${contadorProductos})" title="Eliminar producto">
-                    <i class="fas fa-trash"></i>Quitar
+                    <i class="fas fa-trash me-1"></i>Quitar
                 </button>
             </td>
         </tr>
     `;
+    
     document.getElementById('productos-container').insertAdjacentHTML('beforeend', productoHTML);
     
     // Inicializar el select con productos
@@ -772,8 +815,10 @@ function agregarProducto() {
     
     // Si hay productos en caché, usarlos
     if (productosEnCache.length > 0) {
+        console.log(`📦 Usando caché para nuevo select (${productosEnCache.length} productos)`);
         actualizarSelectConProductos(nuevoSelect, productosEnCache);
     } else {
+        console.log('🔄 Cargando productos iniciales...');
         // Cargar todos los productos
         aplicarFiltroCategoria();
     }
@@ -788,12 +833,15 @@ function agregarProducto() {
 }
 
 function eliminarProducto(id) {
+    console.log(`🗑️ Eliminando producto ${id}`);
     const fila = document.getElementById(`producto-${id}`);
     if (fila) {
         fila.remove();
         productos = productos.filter(p => p.id !== id);
         actualizarTotales();
         actualizarMensajeProductos();
+        
+        mostrarAlerta('info', '🗑️ Producto eliminado', 'El producto ha sido removido de la compra');
     }
 }
 
@@ -804,6 +852,9 @@ async function actualizarInfoProducto(id) {
     const stockInfo = document.getElementById(`stock-info-${id}`);
     const precioInput = fila.querySelector('.precio');
     const costoInput = fila.querySelector('.costo');
+    const cantidadInput = fila.querySelector('.cantidad');
+    
+    console.log(`🔄 Actualizando info para producto ${id}: ${select.value}`);
     
     if (select.value) {
         try {
@@ -816,39 +867,51 @@ async function actualizarInfoProducto(id) {
             
             const existenciasActual = data.existencias;
             const precioSugerido = data.precio_venta || 0;
+            const unidad = data.unidad_medida || 'unidades';
+            
+            console.log(`📊 Stock actual: ${existenciasActual} ${unidad}, Precio sugerido: ${precioSugerido}`);
             
             // Mostrar información de stock
             let stockClass = 'stock-good';
-            let stockText = `Stock actual: ${existenciasActual} ${data.unidad_medida || 'unidades'}`;
+            let stockIcon = '✅';
+            let stockText = `Stock actual: ${existenciasActual} ${unidad}`;
             
-            if (existenciasActual <= 5) {
+            if (existenciasActual === 0) {
+                stockClass = 'stock-danger';
+                stockIcon = '⚠️';
+                stockText = `Sin stock: ${existenciasActual} ${unidad}`;
+            } else if (existenciasActual <= 5) {
                 stockClass = 'stock-low';
-                stockText = `Stock bajo: ${existenciasActual} ${data.unidad_medida || 'unidades'}`;
+                stockIcon = '⚠️';
+                stockText = `Stock muy bajo: ${existenciasActual} ${unidad}`;
             } else if (existenciasActual <= 15) {
                 stockClass = 'stock-medium';
-                stockText = `Stock medio: ${existenciasActual} ${data.unidad_medida || 'unidades'}`;
+                stockIcon = '📊';
+                stockText = `Stock moderado: ${existenciasActual} ${unidad}`;
             }
             
-            stockInfo.innerHTML = `<span class="${stockClass}">${stockText}</span>`;
+            stockInfo.innerHTML = `<span class="${stockClass}">${stockIcon} ${stockText}</span>`;
             stockInfo.style.display = 'block';
             
             // Auto-completar precio unitario si está vacío
             if (precioSugerido > 0 && (!precioInput.value || precioInput.value == '0')) {
                 precioInput.value = precioSugerido.toFixed(2);
+                console.log(`💰 Precio auto-completado: ${precioSugerido.toFixed(2)}`);
             }
             
             // Sugerir costo basado en precio (80% del precio sugerido)
             if (precioSugerido > 0 && (!costoInput.value || costoInput.value == '0')) {
                 const costoSugerido = (precioSugerido * 0.8).toFixed(2);
                 costoInput.value = costoSugerido;
+                console.log(`💵 Costo sugerido: ${costoSugerido}`);
                 
                 // Recalcular subtotal
                 calcularSubtotal(id);
             }
             
         } catch (error) {
-            console.error('Error en actualización tiempo real:', error);
-            stockInfo.innerHTML = `<span class="text-danger">Error al verificar existencias</span>`;
+            console.error('❌ Error en actualización tiempo real:', error);
+            stockInfo.innerHTML = `<span class="stock-danger">❌ Error al verificar existencias</span>`;
             stockInfo.style.display = 'block';
         }
     } else {
@@ -866,7 +929,13 @@ function actualizarPrecio(id) {
     if (precioValue > 0 && precioValue < costo) {
         mostrarAlerta('warning', '⚠️ Advertencia', 'El precio de venta es menor al costo. Esto generará pérdidas.');
     }
+    
+    console.log(`💰 Precio actualizado para producto ${id}: ${precioValue}`);
 }
+
+// ============================================
+// FUNCIONES DE CÁLCULO
+// ============================================
 
 function calcularSubtotal(id) {
     const fila = document.getElementById(`producto-${id}`);
@@ -878,6 +947,8 @@ function calcularSubtotal(id) {
     
     fila.querySelector('.subtotal').value = subtotal.toFixed(2);
     actualizarTotales();
+    
+    console.log(`🧮 Subtotal producto ${id}: ${cantidad} x ${costo} = ${subtotal.toFixed(2)}`);
 }
 
 function actualizarTotales() {
@@ -885,7 +956,7 @@ function actualizarTotales() {
     let totalCompra = 0;
     let totalProductos = 0;
 
-    subtotales.forEach(subtotal => {
+    subtotales.forEach((subtotal, index) => {
         const valor = parseFloat(subtotal.value) || 0;
         if (valor > 0) {
             totalCompra += valor;
@@ -896,6 +967,8 @@ function actualizarTotales() {
     document.getElementById('total-compra').textContent = `C$ ${totalCompra.toFixed(2)}`;
     document.getElementById('subtotal').textContent = `C$ ${totalCompra.toFixed(2)}`;
     document.getElementById('total-productos').textContent = totalProductos;
+    
+    console.log(`💰 Total compra: C$ ${totalCompra.toFixed(2)}, Productos: ${totalProductos}`);
 }
 
 function actualizarMensajeProductos() {
@@ -908,6 +981,41 @@ function actualizarMensajeProductos() {
         mensaje.style.display = 'none';
     }
 }
+
+// ============================================
+// FUNCIONES DE API
+// ============================================
+
+// VERIFICACIÓN DE EXISTENCIAS EN TIEMPO REAL
+async function obtenerExistenciasActuales(idProducto) {
+    try {
+        console.log(`🔍 Verificando existencias para producto ${idProducto}...`);
+        const url = `/admin/compras/verificar-existencias/${idProducto}`;
+        
+        const response = await fetch(url);
+        
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`Error HTTP ${response.status}: ${errorText}`);
+        }
+        
+        const data = await response.json();
+        
+        if (data.error) {
+            throw new Error(data.error);
+        }
+        
+        console.log(`✅ Existencias obtenidas: ${data.existencias} unidades`);
+        return data;
+    } catch (error) {
+        console.error('❌ Error obteniendo existencias en tiempo real:', error);
+        return { existencias: 0, error: error.message };
+    }
+}
+
+// ============================================
+// FUNCIONES DE UTILIDAD
+// ============================================
 
 function mostrarAlerta(tipo, titulo, mensaje) {
     const alertasExistentes = document.querySelectorAll('.alert-flotante');
@@ -928,33 +1036,13 @@ function mostrarAlerta(tipo, titulo, mensaje) {
     }, 5000);
 }
 
-// VERIFICACIÓN DE EXISTENCIAS EN TIEMPO REAL
-async function obtenerExistenciasActuales(idProducto) {
-    try {
-        const url = `/admin/compras/verificar-existencias/${idProducto}`;
-        
-        const response = await fetch(url);
-        
-        if (!response.ok) {
-            const errorText = await response.text();
-            throw new Error(`Error HTTP ${response.status}: ${errorText}`);
-        }
-        
-        const data = await response.json();
-        
-        if (data.error) {
-            throw new Error(data.error);
-        }
-        
-        return data;
-    } catch (error) {
-        console.error('Error obteniendo existencias en tiempo real:', error);
-        return { existencias: 0, error: error.message };
-    }
-}
+// ============================================
+// VALIDACIÓN Y ENVÍO DE FORMULARIO
+// ============================================
 
 // VALIDACIÓN BÁSICA PARA COMPRAS
 function validarCompraBasica() {
+    console.log('🔍 Validando formulario...');
     let valido = true;
     
     const camposRequeridos = [
@@ -970,6 +1058,7 @@ function validarCompraBasica() {
             elemento.classList.add("is-invalid");
             mostrarAlerta('warning', '⚠️ Campo requerido', `${campo.nombre} es obligatorio`);
             valido = false;
+            console.log(`❌ Campo requerido vacío: ${campo.nombre}`);
         } else {
             elemento.classList.remove("is-invalid");
         }
@@ -977,6 +1066,8 @@ function validarCompraBasica() {
 
     // Validar productos
     const filas = document.querySelectorAll(".producto-item");
+    console.log(`📦 Productos en tabla: ${filas.length}`);
+    
     if (filas.length === 0) {
         mostrarAlerta('danger', '❌ Error!', 'Debe agregar al menos un producto a la compra.');
         return false;
@@ -984,7 +1075,7 @@ function validarCompraBasica() {
     
     // Validar que haya al menos un producto con cantidad > 0 y costo > 0
     let hayProductosValidos = false;
-    filas.forEach(fila => {
+    filas.forEach((fila, index) => {
         const select = fila.querySelector(".producto-select");
         const cantidad = fila.querySelector(".cantidad");
         const costo = fila.querySelector(".costo");
@@ -1000,7 +1091,14 @@ function validarCompraBasica() {
             cantidad.classList.remove("is-invalid");
             costo.classList.remove("is-invalid");
             precio.classList.remove("is-invalid");
+            console.log(`✅ Producto ${index + 1}: válido`);
         } else {
+            console.log(`❌ Producto ${index + 1}: inválido`, {
+                select: select.value,
+                cantidad: cantidadVal,
+                costo: costoVal,
+                precio: precioVal
+            });
             if (!select.value) select.classList.add("is-invalid");
             if (cantidadVal <= 0) cantidad.classList.add("is-invalid");
             if (costoVal <= 0) costo.classList.add("is-invalid");
@@ -1029,6 +1127,8 @@ function validarCompraBasica() {
         if (primerError) {
             primerError.scrollIntoView({ behavior: 'smooth', block: 'center' });
         }
+    } else {
+        console.log('✅ Validación exitosa');
     }
     
     return valido;
@@ -1036,6 +1136,7 @@ function validarCompraBasica() {
 
 // PROCESAR COMPRA
 function procesarCompra() {
+    console.log('🚀 Procesando compra...');
     const formData = new FormData();
 
     // Agregar campos EXACTAMENTE como los espera el backend
@@ -1048,11 +1149,20 @@ function procesarCompra() {
     formData.append('observacion', document.getElementById('observacion').value);
     formData.append('id_usuario_creacion', document.getElementById('id_usuario_creacion').value);
     
+    console.log('📋 Datos generales:', {
+        tipo_movimiento: document.getElementById('id_tipo_movimiento').value,
+        fecha: document.getElementById('fecha').value,
+        proveedor: document.getElementById('id_proveedor').value,
+        tipo_compra: document.getElementById('tipo_compra').value,
+        bodega: document.getElementById('id_bodega').value
+    });
+    
     // Si es crédito, agregar fecha de vencimiento
     if (document.getElementById('tipo_compra').value === 'CREDITO') {
         const fechaVencimiento = document.getElementById('fecha_vencimiento').value;
         if (fechaVencimiento) {
             formData.append('fecha_vencimiento', fechaVencimiento);
+            console.log('📅 Fecha vencimiento crédito:', fechaVencimiento);
         }
     }
     
@@ -1060,22 +1170,36 @@ function procesarCompra() {
     const productoElements = document.querySelectorAll('.producto-item');
     let productosValidos = 0;
     
-    productoElements.forEach((item) => {
+    console.log(`📦 Procesando ${productoElements.length} productos...`);
+    
+    productoElements.forEach((item, index) => {
         const select = item.querySelector('.producto-select');
         const cantidad = item.querySelector('.cantidad');
         const costo = item.querySelector('.costo');
         const precio = item.querySelector('.precio');
         
-        if (select.value && cantidad.value && costo.value && precio.value && 
-            parseFloat(cantidad.value) > 0 && parseFloat(costo.value) > 0) {
+        const productoId = select.value;
+        const cantidadVal = parseFloat(cantidad.value);
+        const costoVal = parseFloat(costo.value);
+        const precioVal = parseFloat(precio.value);
+        
+        if (productoId && cantidadVal > 0 && costoVal > 0 && precioVal > 0) {
             
             // AGREGAR SOLO LOS CAMPOS QUE EL BACKEND ESPERA
-            formData.append('productos[]', select.value);
-            formData.append('cantidades[]', parseFloat(cantidad.value).toFixed(4));
-            formData.append('costos_unitarios[]', parseFloat(costo.value).toFixed(2));
-            formData.append('precios_unitarios[]', parseFloat(precio.value).toFixed(2));
+            formData.append('productos[]', productoId);
+            formData.append('cantidades[]', cantidadVal.toFixed(4));
+            formData.append('costos_unitarios[]', costoVal.toFixed(2));
+            formData.append('precios_unitarios[]', precioVal.toFixed(2));
             
             productosValidos++;
+            
+            console.log(`✅ Producto ${index + 1}:`, {
+                id: productoId,
+                cantidad: cantidadVal.toFixed(4),
+                costo: costoVal.toFixed(2),
+                precio: precioVal.toFixed(2),
+                subtotal: (cantidadVal * costoVal).toFixed(2)
+            });
         }
     });
 
@@ -1100,13 +1224,18 @@ function procesarCompra() {
     submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> Procesando...';
     submitBtn.disabled = true;
 
+    console.log('📤 Enviando datos al servidor...');
+    
     // ENVIAR A LA RUTA CORRECTA
     fetch("/admin/compras/compras-entradas/crear", {
         method: 'POST',
         body: formData
     })
     .then(response => {
+        console.log('📥 Respuesta del servidor:', response.status, response.statusText);
+        
         if (response.redirected) {
+            console.log('🔄 Redireccionando a:', response.url);
             window.location.href = response.url;
             return null;
         }
@@ -1118,6 +1247,8 @@ function procesarCompra() {
         
         try {
             const resultado = JSON.parse(text);
+            console.log('📊 Resultado JSON:', resultado);
+            
             if (resultado.error) {
                 throw new Error(resultado.error);
             }
@@ -1130,6 +1261,7 @@ function procesarCompra() {
             
         } catch (e) {
             // Si no es JSON, puede ser HTML de error
+            console.error('❌ Error parsing response:', e);
             if (text.includes('error') || text.includes('Error')) {
                 throw new Error('Error del servidor al procesar la compra');
             }
@@ -1150,15 +1282,20 @@ function procesarCompra() {
 // ENVIAR FORMULARIO CON VALIDACIÓN
 document.getElementById('formCompra').addEventListener('submit', async function(e) {
     e.preventDefault();
+    console.log('📝 Enviando formulario...');
     
     // Validación síncrona primero
     if (!validarCompraBasica()) {
+        console.log('❌ Validación fallida');
         return;
     }
 
     // Confirmación final
     if (confirm('¿Está seguro de que desea registrar esta compra?')) {
+        console.log('✅ Confirmación aceptada');
         procesarCompra();
+    } else {
+        console.log('❌ Confirmación cancelada');
     }
 });
 </script>

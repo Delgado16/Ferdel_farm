@@ -2769,15 +2769,26 @@ def admin_crear_compra():
 @admin_required
 def obtener_productos_por_categoria_compra(id_categoria):
     """
-    Endpoint para obtener productos filtrados por categoría - COMPRAS (EXISTENCIAS BASADAS EN MOVIMIENTOS)
+    Obtiene productos filtrados por categoría usando inventario_bodega
+    RUTA FUNCIONANDO: ✅
     """
     try:
         id_empresa = session.get('id_empresa', 1)
         
-        print(f"🔍 [COMPRAS] Filtrando productos - Categoría: {id_categoria}")
-        
         with get_db_cursor(True) as cursor:
-            if id_categoria == 0:  # Todas las categorías
+            # Obtener bodega de la empresa
+            cursor.execute("""
+                SELECT ID_Bodega FROM bodegas 
+                WHERE ID_Empresa = %s AND Estado = 1 LIMIT 1
+            """, (id_empresa,))
+            bodega_result = cursor.fetchone()
+            
+            if not bodega_result:
+                return jsonify({'error': 'No se encontró bodega para la empresa'}), 404
+            
+            id_bodega = bodega_result['ID_Bodega']
+            
+            if id_categoria == 0:
                 cursor.execute("""
                     SELECT 
                         p.ID_Producto, 
@@ -2787,23 +2798,17 @@ def obtener_productos_por_categoria_compra(id_categoria):
                         p.ID_Categoria,
                         c.Descripcion as Categoria,
                         um.Descripcion as Unidad_Medida,
-                        um.Abreviatura  as Simbolo_Medida,
-                        -- Calcular existencias basadas SOLO en Movimientos_Inventario (entradas)
-                        COALESCE((
-                            SELECT SUM(dmi.Cantidad) 
-                            FROM Detalle_Movimientos_Inventario dmi
-                            INNER JOIN Movimientos_Inventario mi ON dmi.ID_Movimiento = mi.ID_Movimiento
-                            WHERE dmi.ID_Producto = p.ID_Producto
-                            AND mi.ID_TipoMovimiento = 1  -- Solo entradas/compras
-                            AND mi.Estado = 1  -- Completados
-                        ), 0) as Existencias
+                        um.Abreviatura as Simbolo_Medida,
+                        COALESCE(ib.Existencias, 0) as Existencias
                     FROM productos p
                     LEFT JOIN categorias_producto c ON p.ID_Categoria = c.ID_Categoria
                     LEFT JOIN unidades_medida um ON p.Unidad_Medida = um.ID_Unidad
+                    LEFT JOIN inventario_bodega ib ON p.ID_Producto = ib.ID_Producto 
+                        AND ib.ID_Bodega = %s
                     WHERE p.Estado = 'activo'
                     AND (p.ID_Empresa = %s OR p.ID_Empresa IS NULL)
                     ORDER BY c.Descripcion, p.Descripcion
-                """, (id_empresa,))
+                """, (id_bodega, id_empresa))
             else:
                 cursor.execute("""
                     SELECT 
@@ -2814,112 +2819,100 @@ def obtener_productos_por_categoria_compra(id_categoria):
                         p.ID_Categoria,
                         c.Descripcion as Categoria,
                         um.Descripcion as Unidad_Medida,
-                        um.Abreviatura  as Simbolo_Medida,
-                        -- Calcular existencias basadas SOLO en Movimientos_Inventario (entradas)
-                        COALESCE((
-                            SELECT SUM(dmi.Cantidad) 
-                            FROM Detalle_Movimientos_Inventario dmi
-                            INNER JOIN Movimientos_Inventario mi ON dmi.ID_Movimiento = mi.ID_Movimiento
-                            WHERE dmi.ID_Producto = p.ID_Producto
-                            AND mi.ID_TipoMovimiento = 1  -- Solo entradas/compras
-                            AND mi.Estado = 1  -- Completados
-                        ), 0) as Existencias
+                        um.Abreviatura as Simbolo_Medida,
+                        COALESCE(ib.Existencias, 0) as Existencias
                     FROM productos p
                     LEFT JOIN categorias_producto c ON p.ID_Categoria = c.ID_Categoria
                     LEFT JOIN unidades_medida um ON p.Unidad_Medida = um.ID_Unidad
+                    LEFT JOIN inventario_bodega ib ON p.ID_Producto = ib.ID_Producto 
+                        AND ib.ID_Bodega = %s
                     WHERE p.Estado = 'activo'
                     AND p.ID_Categoria = %s 
                     AND (p.ID_Empresa = %s OR p.ID_Empresa IS NULL)
                     ORDER BY p.Descripcion
-                """, (id_categoria, id_empresa))
+                """, (id_bodega, id_categoria, id_empresa))
             
             productos = cursor.fetchall()
-            print(f"✅ [COMPRAS] Productos encontrados: {len(productos)} para categoría {id_categoria}")
-            
-            productos_list = []
-            for producto in productos:
-                productos_list.append({
-                    'id': producto['ID_Producto'],
-                    'codigo': producto['COD_Producto'],
-                    'descripcion': producto['Descripcion'],
-                    'existencias': float(producto['Existencias']),
-                    'precio_venta': float(producto['Precio_Venta']),
-                    'id_categoria': producto['ID_Categoria'],
-                    'categoria': producto['Categoria'],
-                    'unidad_medida': producto['Unidad_Medida'],
-                    'simbolo_medida': producto['Simbolo_Medida']
-                })
+            productos_list = [{
+                'id': p['ID_Producto'],
+                'codigo': p['COD_Producto'],
+                'descripcion': p['Descripcion'],
+                'existencias': float(p['Existencias']),
+                'precio_venta': float(p['Precio_Venta']),
+                'id_categoria': p['ID_Categoria'],
+                'categoria': p['Categoria'],
+                'unidad_medida': p['Unidad_Medida'],
+                'simbolo_medida': p['Simbolo_Medida']
+            } for p in productos]
             
             return jsonify(productos_list)
             
     except Exception as e:
-        print(f"❌ [COMPRAS] Error al obtener productos por categoría: {str(e)}")
-        import traceback
-        print(f"❌ [COMPRAS] Traceback: {traceback.format_exc()}")
+        print(f"❌ Error al obtener productos: {str(e)}")
         return jsonify({'error': str(e)}), 500
 
 @app.route('/admin/compras/verificar-existencias/<int:id_producto>')
 @admin_required
 def verificar_existencias_producto(id_producto):
     """
-    Endpoint para verificar existencias actuales - COMPRAS (EXISTENCIAS BASADAS EN MOVIMIENTOS)
+    Verifica existencias de un producto usando inventario_bodega
+    RUTA FUNCIONANDO: ✅
     """
     try:
         id_empresa = session.get('id_empresa', 1)
         
-        print(f"🔍 [COMPRAS-EXISTENCIAS] Verificando producto: {id_producto}")
-        
         with get_db_cursor(True) as cursor:
+            # Obtener bodega de la empresa
+            cursor.execute("""
+                SELECT ID_Bodega FROM bodegas 
+                WHERE ID_Empresa = %s AND Estado = 1 LIMIT 1
+            """, (id_empresa,))
+            bodega_result = cursor.fetchone()
+            
+            if not bodega_result:
+                return jsonify({'error': 'No se encontró bodega'}), 404
+            
+            id_bodega = bodega_result['ID_Bodega']
+            
             cursor.execute("""
                 SELECT 
                     p.ID_Producto,
                     p.Descripcion,
                     COALESCE(p.Precio_Venta, 0) as Precio_Venta,
                     um.Descripcion as Unidad_Medida,
-                    -- Calcular existencias basadas SOLO en Movimientos_Inventario (entradas)
-                    COALESCE((
-                        SELECT SUM(dmi.Cantidad) 
-                        FROM Detalle_Movimientos_Inventario dmi
-                        INNER JOIN Movimientos_Inventario mi ON dmi.ID_Movimiento = mi.ID_Movimiento
-                        WHERE dmi.ID_Producto = p.ID_Producto
-                        AND mi.ID_TipoMovimiento = 1  -- Solo entradas/compras
-                        AND mi.Estado = 1  -- Completados
-                    ), 0) as Existencias
+                    COALESCE(ib.Existencias, 0) as Existencias
                 FROM productos p
                 LEFT JOIN unidades_medida um ON p.Unidad_Medida = um.ID_Unidad
+                LEFT JOIN inventario_bodega ib ON p.ID_Producto = ib.ID_Producto 
+                    AND ib.ID_Bodega = %s
                 WHERE p.ID_Producto = %s 
                 AND (p.ID_Empresa = %s OR p.ID_Empresa IS NULL)
                 AND p.Estado = 'activo'
-            """, (id_producto, id_empresa))
+            """, (id_bodega, id_producto, id_empresa))
             
             producto = cursor.fetchone()
             
             if producto:
-                existencias = float(producto['Existencias'])
-                precio = float(producto['Precio_Venta'])
-                
-                print(f"✅ [COMPRAS-EXISTENCIAS] Producto {id_producto}: {existencias} unidades")
-                
                 return jsonify({
                     'id_producto': producto['ID_Producto'],
                     'descripcion': producto['Descripcion'],
-                    'existencias': existencias,
-                    'precio_venta': precio,
+                    'existencias': float(producto['Existencias']),
+                    'precio_venta': float(producto['Precio_Venta']),
                     'unidad_medida': producto['Unidad_Medida']
                 })
             else:
-                print(f"❌ [COMPRAS-EXISTENCIAS] Producto {id_producto} no encontrado")
                 return jsonify({'error': 'Producto no encontrado'}), 404
                 
     except Exception as e:
-        print(f"❌ [COMPRAS-EXISTENCIAS] Error al verificar existencias: {str(e)}")
+        print(f"❌ Error al verificar existencias: {str(e)}")
         return jsonify({'error': str(e)}), 500
 
 @app.route('/admin/compras/categorias-productos')
 @admin_required
 def obtener_categorias_productos_compra():
     """
-    Endpoint para obtener todas las categorías - COMPRAS
+    Obtiene todas las categorías de productos
+    RUTA FUNCIONANDO: ✅
     """
     try:
         with get_db_cursor(True) as cursor:
@@ -2930,18 +2923,40 @@ def obtener_categorias_productos_compra():
             """)
             categorias = cursor.fetchall()
             
-            categorias_list = []
-            for categoria in categorias:
-                categorias_list.append({
-                    'id': categoria['ID_Categoria'],
-                    'descripcion': categoria['Descripcion']
-                })
+            categorias_list = [{
+                'id': c['ID_Categoria'],
+                'descripcion': c['Descripcion']
+            } for c in categorias]
             
             return jsonify(categorias_list)
             
     except Exception as e:
-        print(f"❌ [COMPRAS] Error al obtener categorías: {str(e)}")
+        print(f"❌ Error al obtener categorías: {str(e)}")
         return jsonify({'error': str(e)}), 500
+
+def obtener_id_bodega_empresa(id_empresa=None):
+    """
+    Obtiene el ID de la bodega principal de una empresa
+    FUNCIÓN AUXILIAR: ✅
+    """
+    if id_empresa is None:
+        id_empresa = session.get('id_empresa', 1)
+    
+    try:
+        with get_db_cursor(True) as cursor:
+            cursor.execute("""
+                SELECT ID_Bodega 
+                FROM bodegas 
+                WHERE ID_Empresa = %s 
+                AND Estado = 1
+                LIMIT 1
+            """, (id_empresa,))
+            
+            result = cursor.fetchone()
+            return result['ID_Bodega'] if result else None
+    except Exception as e:
+        print(f"❌ Error al obtener bodega: {str(e)}")
+        return None
 
 @app.route('/admin/compras/compras-entradas/editar/<int:id_movimiento>', methods=['GET', 'POST'])
 @admin_required
@@ -5679,7 +5694,7 @@ def admin_nueva_salida_form():
             # Solo mostrar tipos de salida (Letra = 'S')
             cursor.execute("""
                 SELECT * FROM catalogo_movimientos 
-                WHERE Letra = 'S' OR ID_TipoMovimiento = %s
+                WHERE Letra = 'S' OR Letra = 'E/S' OR ID_TipoMovimiento = %s
                 ORDER BY Descripcion
             """, (TIPO_AJUSTE,))  # Ajuste también puede ser salida
             
