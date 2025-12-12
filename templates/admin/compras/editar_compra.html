@@ -150,9 +150,10 @@
         gap: 1rem;
     }
 
+    /* CORREGIDO: Reducir de 6 a 4 columnas al eliminar Lote y Fecha_Vencimiento */
     .product-grid {
         display: grid;
-        grid-template-columns: 2fr 1fr 1fr 1fr 1fr 1fr;
+        grid-template-columns: 2fr 1fr 1fr 1fr 1fr;
         gap: 1rem;
         align-items: end;
     }
@@ -252,8 +253,9 @@
             padding: 0 0.5rem;
         }
 
+        /* CORREGIDO: Ajustar para 4 columnas */
         .product-grid {
-            grid-template-columns: 2fr 1fr 1fr 1fr;
+            grid-template-columns: 2fr 1fr 1fr;
         }
     }
 
@@ -270,6 +272,7 @@
             padding: 1rem;
         }
 
+        /* CORREGIDO: Ajustar para 2 columnas en móviles */
         .product-grid {
             grid-template-columns: 1fr 1fr;
         }
@@ -439,7 +442,7 @@
                             <div class="product-card-header">
                                 <h6 class="product-card-title">Producto #{{ loop.index }}</h6>
                                 <button type="button" class="btn btn-danger btn-sm" onclick="eliminarProducto({{ loop.index }})">
-                                    <i class="fas fa-times"></i>
+                                    <i class="fas fa-times"></i>Quitar
                                 </button>
                             </div>
                             <div class="product-grid">
@@ -514,20 +517,6 @@
                                                value="{{ "%.2f"|format(detalle.Precio_Unitario or detalle.Costo_Unitario) }}" step="0.01" min="0" required 
                                                onchange="actualizarPrecio({{ loop.index }})">
                                     </div>
-                                </div>
-                                
-                                <!-- Lote -->
-                                <div>
-                                    <label class="form-label">Lote</label>
-                                    <input type="text" class="form-control form-control-sm lote" name="lotes[]"
-                                           value="{{ detalle.Lote or '' }}" placeholder="Opcional">
-                                </div>
-                                
-                                <!-- Vencimiento -->
-                                <div>
-                                    <label class="form-label">Vencimiento</label>
-                                    <input type="date" class="form-control form-control-sm fecha-vencimiento" name="fechas_vencimiento[]"
-                                           value="{% if detalle.Fecha_Vencimiento %}{{ detalle.Fecha_Vencimiento.strftime('%Y-%m-%d') }}{% endif %}">
                                 </div>
                                 
                                 <!-- Subtotal -->
@@ -728,19 +717,6 @@ function agregarProducto() {
                     </div>
                 </div>
                 
-                <!-- Lote -->
-                <div>
-                    <label class="form-label">Lote</label>
-                    <input type="text" class="form-control form-control-sm lote" name="lotes[]"
-                           placeholder="Opcional">
-                </div>
-                
-                <!-- Vencimiento -->
-                <div>
-                    <label class="form-label">Vencimiento</label>
-                    <input type="date" class="form-control form-control-sm fecha-vencimiento" name="fechas_vencimiento[]">
-                </div>
-                
                 <!-- Subtotal -->
                 <div>
                     <label class="form-label">Subtotal</label>
@@ -781,8 +757,6 @@ function duplicarUltimoProducto() {
     const cantidad = ultimoProducto.querySelector('.cantidad');
     const costo = ultimoProducto.querySelector('.costo');
     const precio = ultimoProducto.querySelector('.precio');
-    const lote = ultimoProducto.querySelector('.lote');
-    const fechaVencimiento = ultimoProducto.querySelector('.fecha-vencimiento');
     
     // Primero agregamos un nuevo producto
     agregarProducto();
@@ -795,15 +769,11 @@ function duplicarUltimoProducto() {
             const nuevaCantidad = nuevoProducto.querySelector('.cantidad');
             const nuevoCosto = nuevoProducto.querySelector('.costo');
             const nuevoPrecio = nuevoProducto.querySelector('.precio');
-            const nuevoLote = nuevoProducto.querySelector('.lote');
-            const nuevaFechaVencimiento = nuevoProducto.querySelector('.fecha-vencimiento');
             
             if (nuevoSelect) nuevoSelect.value = select.value;
             if (nuevaCantidad) nuevaCantidad.value = cantidad.value;
             if (nuevoCosto) nuevoCosto.value = costo.value;
             if (nuevoPrecio) nuevoPrecio.value = precio.value;
-            if (nuevoLote) nuevoLote.value = lote.value;
-            if (nuevaFechaVencimiento) nuevaFechaVencimiento.value = fechaVencimiento.value;
             
             // Actualizar información del producto
             actualizarInfoProducto(contadorProductos);

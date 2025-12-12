@@ -2601,6 +2601,9 @@ def admin_crear_compra():
         
         elif request.method == 'POST':
             # Obtener datos del formulario
+
+            id_usuario_creacion = current_user.id
+
             id_tipo_movimiento = request.form.get('id_tipo_movimiento')
             n_factura_externa = request.form.get('n_factura_externa')
             fecha = request.form.get('fecha')
@@ -2608,7 +2611,7 @@ def admin_crear_compra():
             tipo_compra = request.form.get('tipo_compra', 'CONTADO')
             observacion = request.form.get('observacion')
             id_bodega = request.form.get('id_bodega')
-            id_usuario_creacion = request.form.get('id_usuario_creacion')
+            id_usuario_creacion
             fecha_vencimiento = request.form.get('fecha_vencimiento')
             
             # Obtener productos del formulario - SIN LOTE Y FECHA_VENCIMIENTO
@@ -2978,7 +2981,7 @@ def admin_editar_compra(id_movimiento):
                         mi.ID_Bodega,
                         mi.ID_Usuario_Creacion,
                         cm.Descripcion as Tipo_Movimiento_Desc,
-                        (SELECT SUM(Subtotal) FROM Detalle_Movimientos_Inventario 
+                        (SELECT SUM(Subtotal) FROM detalle_movimientos_inventario 
                          WHERE ID_Movimiento = mi.ID_Movimiento) as Total_Compra,
                         mi.Estado
                     FROM Movimientos_Inventario mi
@@ -2992,7 +2995,7 @@ def admin_editar_compra(id_movimiento):
                     flash('Compra no encontrada o ha sido anulada', 'error')
                     return redirect(url_for('admin_compras_entradas'))
                 
-                # Obtener detalles del movimiento
+                # Obtener detalles del movimiento - CORREGIDO: Sin Lote y Fecha_Vencimiento
                 cursor.execute("""
                     SELECT 
                         dmi.ID_Detalle_Movimiento,
@@ -3001,7 +3004,7 @@ def admin_editar_compra(id_movimiento):
                         p.Descripcion as Producto_Desc,
                         COALESCE((
                             SELECT SUM(dmi2.Cantidad) 
-                            FROM Detalle_Movimientos_Inventario dmi2
+                            FROM detalle_movimientos_inventario dmi2
                             INNER JOIN Movimientos_Inventario mi2 ON dmi2.ID_Movimiento = mi2.ID_Movimiento
                             WHERE dmi2.ID_Producto = p.ID_Producto
                             AND mi2.ID_TipoMovimiento = 1  -- Solo compras
@@ -3010,10 +3013,8 @@ def admin_editar_compra(id_movimiento):
                         dmi.Cantidad,
                         dmi.Costo_Unitario,
                         dmi.Precio_Unitario,
-                        dmi.Subtotal,
-                        dmi.Lote,
-                        dmi.Fecha_Vencimiento
-                    FROM Detalle_Movimientos_Inventario dmi
+                        dmi.Subtotal
+                    FROM detalle_movimientos_inventario dmi
                     INNER JOIN Productos p ON dmi.ID_Producto = p.ID_Producto
                     WHERE dmi.ID_Movimiento = %s
                 """, (id_movimiento,))
@@ -3079,6 +3080,8 @@ def admin_editar_compra(id_movimiento):
                                     cuenta_por_pagar=cuenta_por_pagar)
         
         elif request.method == 'POST':
+            id_usuario_modificacion = current_user.id
+            
             # Obtener datos del formulario
             id_tipo_movimiento = request.form.get('id_tipo_movimiento')
             n_factura_externa = request.form.get('n_factura_externa')
@@ -3087,17 +3090,14 @@ def admin_editar_compra(id_movimiento):
             tipo_compra = request.form.get('tipo_compra', 'CONTADO')
             observacion = request.form.get('observacion')
             id_bodega = request.form.get('id_bodega')
-            id_usuario_modificacion = request.form.get('id_usuario_modificacion')
             fecha_vencimiento = request.form.get('fecha_vencimiento')
             
-            # Obtener productos del formulario
+            # Obtener productos del formulario - CORREGIDO: Sin lotes y fechas de vencimiento
             productos = []
             producto_ids = request.form.getlist('productos[]')
             cantidades = request.form.getlist('cantidades[]')
             costos_unitarios = request.form.getlist('costos_unitarios[]')
             precios_unitarios = request.form.getlist('precios_unitarios[]')
-            lotes = request.form.getlist('lotes[]')
-            fechas_vencimiento = request.form.getlist('fechas_vencimiento[]')
             
             print(f"[EDIT] Datos recibidos - Productos: {len(producto_ids)}, IDs: {producto_ids}")
             
@@ -3111,7 +3111,7 @@ def admin_editar_compra(id_movimiento):
                 flash('Debe agregar al menos un producto', 'error')
                 return redirect(url_for('admin_editar_compra', id_movimiento=id_movimiento))
             
-            # Construir lista de productos
+            # Construir lista de productos - CORREGIDO: Sin lotes y fechas de vencimiento
             for i in range(len(producto_ids)):
                 if producto_ids[i] and cantidades[i] and costos_unitarios[i]:
                     cantidad = round(float(cantidades[i]), 2)
@@ -3122,9 +3122,7 @@ def admin_editar_compra(id_movimiento):
                         'id_producto': producto_ids[i],
                         'cantidad': cantidad,
                         'costo_unitario': costo_unitario,
-                        'precio_unitario': precio_unitario,
-                        'lote': lotes[i] if i < len(lotes) and lotes[i] != '' else None,
-                        'fecha_vencimiento': fechas_vencimiento[i] if i < len(fechas_vencimiento) and fechas_vencimiento[i] != '' else None
+                        'precio_unitario': precio_unitario
                     })
             
             # Validar usuario
@@ -3161,7 +3159,7 @@ def admin_editar_compra(id_movimiento):
                 # 2. Reversar existencias de productos anteriores
                 cursor.execute("""
                     SELECT dmi.ID_Producto, dmi.Cantidad 
-                    FROM Detalle_Movimientos_Inventario dmi
+                    FROM detalle_movimientos_inventario dmi
                     WHERE dmi.ID_Movimiento = %s
                 """, (id_movimiento,))
                 
@@ -3176,7 +3174,7 @@ def admin_editar_compra(id_movimiento):
                     print(f"[EDIT] Reversado producto {detalle['ID_Producto']} en bodega {bodega_anterior}: -{detalle['Cantidad']} unidades")
                 
                 # 3. Eliminar detalles anteriores
-                cursor.execute("DELETE FROM Detalle_Movimientos_Inventario WHERE ID_Movimiento = %s", (id_movimiento,))
+                cursor.execute("DELETE FROM detalle_movimientos_inventario WHERE ID_Movimiento = %s", (id_movimiento,))
                 print(f"[EDIT] Detalles anteriores eliminados")
                 
                 # 4. Actualizar movimiento principal
@@ -3213,12 +3211,12 @@ def admin_editar_compra(id_movimiento):
                     subtotal = round(cantidad * costo_unitario, 2)
                     total_compra += subtotal
                     
-                    # Insertar detalle
+                    # Insertar detalle - CORREGIDO: Sin Lote y Fecha_Vencimiento
                     cursor.execute("""
-                        INSERT INTO Detalle_Movimientos_Inventario (
+                        INSERT INTO detalle_movimientos_inventario (
                             ID_Movimiento, ID_Producto, Cantidad, Costo_Unitario, 
-                            Precio_Unitario, Subtotal, Lote, Fecha_Vencimiento, ID_Usuario_Creacion
-                        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                            Precio_Unitario, Subtotal, ID_Usuario_Creacion
+                        ) VALUES (%s, %s, %s, %s, %s, %s, %s)
                     """, (
                         id_movimiento,
                         producto['id_producto'],
@@ -3226,8 +3224,6 @@ def admin_editar_compra(id_movimiento):
                         costo_unitario,
                         producto['precio_unitario'],
                         subtotal,
-                        producto['lote'],
-                        producto['fecha_vencimiento'],
                         id_usuario
                     ))
                     
@@ -3319,7 +3315,6 @@ def admin_editar_compra(id_movimiento):
                     # Si antes era crédito y ahora es contado, eliminar la cuenta
                     cursor.execute("DELETE FROM Cuentas_Por_Pagar WHERE ID_Movimiento = %s", (id_movimiento,))
                     print(f"[EDIT] Cuenta por pagar eliminada (cambio a contado)")
-                
                 
                 flash('Compra actualizada exitosamente', 'success')
                 print(f"[EDIT] Compra {id_movimiento} actualizada exitosamente")
@@ -3435,9 +3430,9 @@ def admin_detalle_compra_completo(id_movimiento):
                     u_mod.NombreUsuario as Usuario_Modificacion,
                     mi.Fecha_Modificacion,
                     mi.Estado,
-                    (SELECT SUM(Subtotal) FROM Detalle_Movimientos_Inventario 
+                    (SELECT SUM(Subtotal) FROM detalle_movimientos_inventario 
                      WHERE ID_Movimiento = mi.ID_Movimiento) as Total_Compra,
-                    (SELECT COUNT(*) FROM Detalle_Movimientos_Inventario 
+                    (SELECT COUNT(*) FROM detalle_movimientos_inventario 
                      WHERE ID_Movimiento = mi.ID_Movimiento) as Total_Productos
                 FROM Movimientos_Inventario mi
                 LEFT JOIN Proveedores p ON mi.ID_Proveedor = p.ID_Proveedor
@@ -3453,7 +3448,7 @@ def admin_detalle_compra_completo(id_movimiento):
                 flash('Compra no encontrada', 'error')
                 return redirect(url_for('admin_compras_entradas'))
             
-            # DETALLES CORREGIDOS - Obtener existencias desde inventario_bodega
+            # DETALLES CORREGIDOS - SIN LOTE Y FECHA_VENCIMIENTO
             cursor.execute("""
                 SELECT 
                     dmi.ID_Detalle_Movimiento,
@@ -3465,10 +3460,9 @@ def admin_detalle_compra_completo(id_movimiento):
                     dmi.Costo_Unitario,
                     dmi.Precio_Unitario,
                     dmi.Subtotal,
-                    dmi.Lote,
-                    dmi.Fecha_Vencimiento,
-                    um.Descripcion as Unidad_Medida
-                FROM Detalle_Movimientos_Inventario dmi
+                    um.Descripcion as Unidad_Medida,
+                    um.Abreviatura as Simbolo_Medida
+                FROM detalle_movimientos_inventario dmi
                 INNER JOIN Productos p ON dmi.ID_Producto = p.ID_Producto
                 LEFT JOIN Unidades_Medida um ON p.Unidad_Medida = um.ID_Unidad
                 LEFT JOIN inventario_bodega ib ON dmi.ID_Producto = ib.ID_Producto 
@@ -3479,7 +3473,7 @@ def admin_detalle_compra_completo(id_movimiento):
             
             detalles = cursor.fetchall()
             
-            # CUENTAS POR PAGAR CORREGIDA - SIN CAMPO ESTADO
+            # CUENTAS POR PAGAR CORREGIDA
             cursor.execute("""
                 SELECT 
                     ID_Cuenta,
@@ -3839,8 +3833,8 @@ def admin_ventas_salidas():
 def admin_crear_venta():
     try:
         # Obtener ID de empresa y usuario desde la sesión
-        id_empresa = session.get('id_empresa', 1)
-        id_usuario = session.get('user_id', 1)
+        id_empresa = session.get('id_empresa',1)
+        id_usuario = current_user.id
         
         if not id_empresa:
             flash('No se pudo determinar la empresa', 'error')
@@ -6041,19 +6035,18 @@ def admin_procesar_salida():
         return redirect(url_for('admin_nueva_salida_form'))
 
 # API para obtener productos con stock por bodega (para salidas)
-@app.route('/api/productos/stock-bodega')
+@app.route('/api/productos/stock')
 @admin_required
-def api_productos_stock_bodega():
-    """API para obtener productos con stock disponible en una bodega específica"""
+def api_productos_stock():
+    """API flexible para obtener productos con stock (con o sin bodega)"""
     try:
         bodega_id = request.args.get('bodega')
-        
-        if not bodega_id:
-            return jsonify({'error': 'Se requiere ID de bodega'}), 400
+        search = request.args.get('search', '')
+        limit = int(request.args.get('limit', 100))
         
         with get_db_cursor(True) as cursor:
-            # Obtener productos activos con stock en la bodega específica
-            cursor.execute("""
+            # Consulta base flexible
+            query = """
                 SELECT 
                     p.ID_Producto, 
                     p.COD_Producto, 
@@ -6063,40 +6056,73 @@ def api_productos_stock_bodega():
                     p.Precio_Venta, 
                     p.Stock_Minimo,
                     cp.Descripcion as Categoria_Descripcion,
-                    COALESCE(ib.Existencias, 0) as Stock_Bodega,
-                    COALESCE(SUM(ib_total.Existencias), 0) as Existencias_Totales
+                    COALESCE(SUM(CASE WHEN %s = 0 OR ib.ID_Bodega = %s THEN ib.Existencias ELSE 0 END), 0) as Stock_Relevante,
+                    COALESCE(SUM(ib.Existencias), 0) as Stock_Total,
+                    GROUP_CONCAT(DISTINCT CONCAT(b.Nombre, ':', ib.Existencias) SEPARATOR ';') as Stock_por_Bodega
                 FROM productos p
                 LEFT JOIN unidades_medida um ON p.Unidad_Medida = um.ID_Unidad
                 LEFT JOIN categorias_producto cp ON p.ID_Categoria = cp.ID_Categoria
-                LEFT JOIN inventario_bodega ib ON p.ID_Producto = ib.ID_Producto 
-                    AND ib.ID_Bodega = %s
-                LEFT JOIN inventario_bodega ib_total ON p.ID_Producto = ib_total.ID_Producto
+                LEFT JOIN inventario_bodega ib ON p.ID_Producto = ib.ID_Producto
+                LEFT JOIN bodegas b ON ib.ID_Bodega = b.ID_Bodega
                 WHERE p.Estado = 'activo'
-                    AND COALESCE(ib.Existencias, 0) > 0
-                GROUP BY p.ID_Producto, p.COD_Producto, p.Descripcion, 
-                         p.Unidad_Medida, p.Precio_Venta, p.Stock_Minimo,
-                         um.Descripcion, cp.Descripcion, ib.Existencias
-                ORDER BY p.Descripcion
-                LIMIT 100
-            """, (bodega_id,))
+            """
             
+            params = [bodega_id or 0, bodega_id or 0]
+            
+            # Agregar búsqueda si existe
+            if search:
+                query += " AND (p.Descripcion LIKE %s OR p.COD_Producto LIKE %s)"
+                params.extend([f"%{search}%", f"%{search}%"])
+            
+            query += """
+                GROUP BY p.ID_Producto, p.COD_Producto, p.Descripcion, 
+                         p.Unidad_Medida, um.Descripcion, p.Precio_Venta, 
+                         p.Stock_Minimo, cp.Descripcion
+                HAVING Stock_Relevante > 0
+                ORDER BY p.Descripcion
+                LIMIT %s
+            """
+            params.append(limit)
+            
+            cursor.execute(query, params)
             productos = cursor.fetchall()
             
-            # Convertir a lista de diccionarios y formatear números
+            # Procesar stock por bodega
             productos_list = []
             for producto in productos:
                 producto_dict = dict(producto)
+                
+                # Parsear stock por bodega
+                stock_por_bodega = {}
+                if producto_dict['Stock_por_Bodega']:
+                    for item in producto_dict['Stock_por_Bodega'].split(';'):
+                        if ':' in item:
+                            bodega_nombre, cantidad = item.split(':', 1)
+                            if bodega_nombre and cantidad:
+                                stock_por_bodega[bodega_nombre.strip()] = float(cantidad)
+                
+                producto_dict['Stock_por_Bodega'] = stock_por_bodega
+                producto_dict['Stock_Relevante'] = float(producto_dict['Stock_Relevante'])
+                producto_dict['Stock_Total'] = float(producto_dict['Stock_Total'])
                 producto_dict['Precio_Venta'] = float(producto_dict['Precio_Venta'] or 0)
-                producto_dict['Stock_Bodega'] = float(producto_dict['Stock_Bodega'] or 0)
-                producto_dict['Existencias_Totales'] = float(producto_dict['Existencias_Totales'] or 0)
                 producto_dict['Stock_Minimo'] = float(producto_dict['Stock_Minimo'] or 0)
+                
                 productos_list.append(producto_dict)
             
-            return jsonify(productos_list)
+            return jsonify({
+                'success': True,
+                'productos': productos_list,
+                'total': len(productos_list),
+                'filtro_bodega': bool(bodega_id)
+            })
             
     except Exception as e:
-        print(f"Error en API productos stock bodega: {e}")
-        return jsonify({'error': str(e)}), 500
+        print(f"Error en API productos stock: {e}")
+        return jsonify({
+            'success': False,
+            'error': str(e),
+            'productos': []
+        }), 500
 
 # 6. NUEVA TRANSFERENCIA (Traslado)
 @app.route('/admin/movimientos/transferencia/nueva')

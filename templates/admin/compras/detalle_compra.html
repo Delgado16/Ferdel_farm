@@ -714,10 +714,9 @@
                                     <th class="border-0 text-center font-weight-semibold text-dark">Cantidad</th>
                                     <th class="border-0 text-center font-weight-semibold text-dark">Unidad</th>
                                     <th class="border-0 text-right font-weight-semibold text-dark">Costo Unitario</th>
+                                    <th class="border-0 text-right font-weight-semibold text-dark">Precio Unitario</th>
                                     <th class="border-0 text-right font-weight-semibold text-dark">Subtotal</th>
                                     <th class="border-0 text-center font-weight-semibold text-dark">Existencia Actual</th>
-                                    <th class="border-0 font-weight-semibold text-dark">Lote</th>
-                                    <th class="border-0 font-weight-semibold text-dark">Vencimiento</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -731,14 +730,17 @@
                                     </td>
                                     <td class="text-center">
                                         <span class="badge badge-info badge-pill p-2 font-weight-semibold">
-                                            {{ "%.4f"|format(detalle.Cantidad) if detalle.Cantidad else '0.0000' }}
+                                            {{ "%.4f"|format(detalle.Cantidad) if detalle.Cantidad else '0.00' }}
                                         </span>
                                     </td>
                                     <td class="text-center text-muted font-weight-normal">
-                                        {{ detalle.Unidad_Medida or 'N/A' }}
+                                        {{ detalle.Simbolo_Medida or detalle.Unidad_Medida or 'N/A' }}
                                     </td>
                                     <td class="text-right font-weight-semibold text-dark">
                                         C${{ "%.4f"|format(detalle.Costo_Unitario or 0) }}
+                                    </td>
+                                    <td class="text-right font-weight-semibold text-primary">
+                                        C${{ "%.4f"|format(detalle.Precio_Unitario or detalle.Costo_Unitario or 0) }}
                                     </td>
                                     <td class="text-right font-weight-semibold text-success">
                                         C${{ "%.4f"|format(detalle.Subtotal or 0) }}
@@ -759,31 +761,15 @@
                                             {% endif %}
                                         {% else %}
                                             <span class="existencia-badge">
-                                                0.0000
+                                                0.00
                                                 <i class="fas fa-times ml-1"></i>
                                             </span>
-                                        {% endif %}
-                                    </td>
-                                    <td>
-                                        {% if detalle.Lote %}
-                                        <span class="badge badge-secondary font-weight-normal">{{ detalle.Lote }}</span>
-                                        {% else %}
-                                        <span class="text-muted">N/A</span>
-                                        {% endif %}
-                                    </td>
-                                    <td>
-                                        {% if detalle.Fecha_Vencimiento %}
-                                            <span class="badge badge-light border font-weight-normal text-dark">
-                                                {{ detalle.Fecha_Vencimiento.strftime('%d/%m/%Y') }}
-                                            </span>
-                                        {% else %}
-                                            <span class="text-muted">N/A</span>
                                         {% endif %}
                                     </td>
                                 </tr>
                                 {% else %}
                                 <tr>
-                                    <td colspan="10" class="text-center text-muted py-4">
+                                    <td colspan="9" class="text-center text-muted py-4">
                                         <i class="fas fa-inbox fa-2x mb-2"></i>
                                         <br>
                                         <span class="font-weight-semibold">No se encontraron productos en esta compra</span>
@@ -797,8 +783,9 @@
                                     <td class="text-center text-primary">{{ "%.4f"|format(total_cantidad) }}</td>
                                     <td></td>
                                     <td></td>
+                                    <td></td>
                                     <td class="text-right text-success">C${{ "{:,.4f}".format(movimiento.Total_Compra or 0) }}</td>
-                                    <td colspan="3"></td>
+                                    <td></td>
                                 </tr>
                             </tfoot>
                         </table>

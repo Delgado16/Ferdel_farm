@@ -211,7 +211,7 @@
                         </li>
                         <li class="list-group-item d-flex justify-content-between">
                             <span>Total Unidades:</span>
-                            <strong id="resumen-unidades">0.000</strong>
+                            <strong id="resumen-unidades">0.00</strong>
                         </li>
                         <li class="list-group-item d-flex justify-content-between">
                             <span>Total Costo:</span>
@@ -233,6 +233,8 @@
 let productosSalida = [];
 let contadorProductos = 0;
 let productosDisponibles = [];
+let bodegaSeleccionada = null;
+let searchTimeout;
 
 // Configurar campos según tipo de movimiento
 function configurarCamposPorTipoSalida() {
@@ -261,44 +263,36 @@ function configurarCamposPorTipoSalida() {
     habilitarBotonGuardar();
 }
 
-// Cargar productos de la bodega seleccionada usando API
-function cargarProductosBodega() {
-    const bodegaId = document.getElementById('select-bodega').value;
+// Cargar productos de manera inteligente (con o sin bodega)
+function cargarProductosDisponibles() {
+    const buscarInput = document.getElementById('buscar-producto-bodega');
     const lista = document.getElementById('lista-productos-bodega');
     const alerta = document.getElementById('alerta-bodega');
-    const buscarInput = document.getElementById('buscar-producto-bodega');
-    const buscarBtn = buscarInput.nextElementSibling;
+    const contador = document.getElementById('contador-productos');
     
-    if (!bodegaId) {
-        lista.innerHTML = `
-            <div class="text-center text-muted p-3">
-                <i class="fas fa-warehouse fa-2x mb-2"></i><br>
-                Seleccione una bodega primero
-            </div>
-        `;
-        alerta.innerHTML = '<i class="fas fa-info-circle me-1"></i> Seleccione una bodega para ver los productos';
-        alerta.style.display = 'block';
-        
-        // Deshabilitar búsqueda
-        buscarInput.disabled = true;
-        buscarBtn.disabled = true;
-        buscarInput.value = '';
-        buscarInput.placeholder = 'Seleccione una bodega primero';
-        
-        productosDisponibles = [];
-        return;
+    bodegaSeleccionada = document.getElementById('select-bodega').value;
+    const terminoBusqueda = buscarInput.value.trim();
+    
+    // Construir URL
+    let url = `/api/productos/stock?limit=150`;
+    if (bodegaSeleccionada) {
+        url += `&bodega=${bodegaSeleccionada}`;
+    }
+    if (terminoBusqueda) {
+        url += `&search=${encodeURIComponent(terminoBusqueda)}`;
     }
     
-    alerta.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> Cargando productos...';
+    // Mostrar loading
+    alerta.innerHTML = `
+        <div class="d-flex align-items-center">
+            <i class="fas fa-spinner fa-spin me-2"></i>
+            <span>Cargando productos...</span>
+        </div>
+    `;
+    alerta.style.display = 'block';
     lista.innerHTML = '';
     
-    // Habilitar búsqueda
-    buscarInput.disabled = false;
-    buscarBtn.disabled = false;
-    buscarInput.placeholder = 'Buscar producto...';
-    
-    // Llamar a la API
-    fetch(`/api/productos/stock-bodega?bodega=${bodegaId}`)
+    fetch(url)
         .then(response => {
             if (!response.ok) {
                 throw new Error('Error en la respuesta del servidor');
@@ -306,94 +300,159 @@ function cargarProductosBodega() {
             return response.json();
         })
         .then(data => {
-            if (data.error) {
-                throw new Error(data.error);
+            if (!data.success) {
+                throw new Error(data.error || 'Error desconocido');
             }
             
-            productosDisponibles = data;
+            productosDisponibles = data.productos;
+            
+            // Actualizar contador
+            if (contador) {
+                contador.textContent = productosDisponibles.length;
+            }
             
             if (productosDisponibles.length === 0) {
+                let mensaje = 'No se encontraron productos';
+                if (terminoBusqueda) {
+                    mensaje += ` que coincidan con "${terminoBusqueda}"`;
+                }
+                if (bodegaSeleccionada) {
+                    mensaje += ' en esta bodega';
+                }
+                
                 lista.innerHTML = `
-                    <div class="alert alert-warning">
-                        <i class="fas fa-exclamation-triangle me-1"></i>
-                        No hay productos con stock disponible en esta bodega
+                    <div class="alert alert-warning m-0">
+                        <i class="fas fa-search me-2"></i>
+                        ${mensaje}
                     </div>
                 `;
                 alerta.style.display = 'none';
             } else {
                 alerta.style.display = 'none';
-                mostrarProductosDisponibles(productosDisponibles);
+                mostrarProductosEnLista();
             }
+            
+            // Actualizar información del filtro
+            actualizarInfoFiltro();
         })
         .catch(error => {
-            console.error('Error al cargar productos:', error);
+            console.error('Error:', error);
             lista.innerHTML = `
-                <div class="alert alert-danger">
-                    <i class="fas fa-exclamation-circle me-1"></i>
+                <div class="alert alert-danger m-0">
+                    <i class="fas fa-exclamation-circle me-2"></i>
                     Error al cargar productos: ${error.message}
                 </div>
             `;
             alerta.style.display = 'none';
-            productosDisponibles = [];
+            
+            // Resetear contador
+            if (contador) {
+                contador.textContent = '0';
+            }
         });
 }
 
-// Mostrar productos disponibles
-function mostrarProductosDisponibles(productos) {
+// Mostrar productos en la lista con información contextual
+function mostrarProductosEnLista() {
     const lista = document.getElementById('lista-productos-bodega');
+    const bodegaSelect = document.getElementById('select-bodega');
+    const bodegaNombre = bodegaSelect.options[bodegaSelect.selectedIndex]?.text || '';
+    
     lista.innerHTML = '';
     
-    if (productos.length === 0) {
-        lista.innerHTML = `
-            <div class="alert alert-warning">
-                No se encontraron productos
-            </div>
-        `;
-        return;
-    }
-    
-    productos.forEach(producto => {
-        const item = document.createElement('a');
-        item.className = 'list-group-item list-group-item-action';
-        item.href = '#';
-        item.onclick = () => seleccionarProductoSalida(producto);
+    productosDisponibles.forEach(producto => {
+        const item = document.createElement('div');
+        item.className = 'list-group-item list-group-item-action producto-item';
+        item.dataset.id = producto.ID_Producto;
+        
+        // Calcular stock a mostrar
+        const stockMostrar = bodegaSeleccionada ? 
+            producto.Stock_Relevante : 
+            producto.Stock_Total;
+        
+        // Determinar color del badge según stock
+        let badgeClass = 'bg-secondary';
+        if (stockMostrar > 0) {
+            badgeClass = stockMostrar > (producto.Stock_Minimo || 0) ? 'bg-success' : 'bg-warning';
+        }
+        
+        // Construir información de stock
+        let stockInfo = '';
+        if (bodegaSeleccionada) {
+            stockInfo = `<small class="text-muted d-block">Stock en ${bodegaNombre}</small>`;
+        } else if (Object.keys(producto.Stock_por_Bodega || {}).length > 0) {
+            const bodegasConStock = Object.keys(producto.Stock_por_Bodega);
+            stockInfo = `<small class="text-muted d-block">Disponible en ${bodegasConStock.length} bodega(s)</small>`;
+        }
         
         item.innerHTML = `
-            <div class="d-flex w-100 justify-content-between align-items-start">
-                <div class="flex-grow-1">
-                    <h6 class="mb-1">${producto.Descripcion}</h6>
-                    <p class="mb-1">
-                        <small class="text-muted">Código: ${producto.COD_Producto || 'N/A'}</small><br>
-                        <small class="text-muted">Categoría: ${producto.Categoria_Descripcion || 'Sin categoría'}</small>
-                    </p>
+            <div class="d-flex justify-content-between align-items-start">
+                <div class="flex-grow-1 me-3">
+                    <h6 class="mb-1 text-primary">${producto.Descripcion}</h6>
+                    <div class="small text-muted mb-1">
+                        <span class="me-2"><i class="fas fa-barcode me-1"></i>${producto.COD_Producto || 'Sin código'}</span>
+                        <span><i class="fas fa-tag me-1"></i>${producto.Categoria_Descripcion || 'Sin categoría'}</span>
+                    </div>
+                    ${stockInfo}
                 </div>
-                <div class="text-end ms-2">
-                    <span class="badge bg-success mb-1">${producto.Stock_Bodega.toFixed(2)} disp.</span><br>
-                    <small class="text-primary">C$${producto.Precio_Venta.toFixed(2)}</small>
+                <div class="text-end">
+                    <div class="mb-1">
+                        <span class="badge ${badgeClass}">
+                            ${stockMostrar.toFixed(2)} ${bodegaSeleccionada ? 'disp.' : 'total'}
+                        </span>
+                    </div>
+                    <div class="text-primary fw-bold">C$${producto.Precio_Venta.toFixed(2)}</div>
+                    <small class="text-muted">${producto.Unidad_Descripcion || 'Unidad'}</small>
                 </div>
             </div>
-            <small class="text-muted d-block mt-1">
-                <i class="fas fa-balance-scale me-1"></i>${producto.Unidad_Descripcion || 'Unidad'}
-            </small>
         `;
+        
+        // Agregar evento click
+        item.addEventListener('click', (e) => {
+            if (!e.target.closest('.btn')) {
+                seleccionarProductoParaSalida(producto);
+            }
+        });
         lista.appendChild(item);
     });
 }
 
-// Filtrar productos por búsqueda
-function filtrarProductos() {
-    const termino = document.getElementById('buscar-producto-bodega').value.toLowerCase();
-    if (!termino || !productosDisponibles.length) {
-        mostrarProductosDisponibles(productosDisponibles);
-        return;
-    }
+// Actualizar información del filtro aplicado
+function actualizarInfoFiltro() {
+    const alertaTexto = document.getElementById('alerta-texto');
+    const bodegaSelect = document.getElementById('select-bodega');
     
-    const productosFiltrados = productosDisponibles.filter(p => 
-        p.Descripcion.toLowerCase().includes(termino) ||
-        (p.COD_Producto && p.COD_Producto.toLowerCase().includes(termino)) ||
-        (p.Categoria_Descripcion && p.Categoria_Descripcion.toLowerCase().includes(termino))
-    );
-    mostrarProductosDisponibles(productosFiltrados);
+    if (!alertaTexto) return;
+    
+    if (bodegaSeleccionada) {
+        const bodegaNombre = bodegaSelect.options[bodegaSelect.selectedIndex].text;
+        alertaTexto.innerHTML = `
+            <i class="fas fa-warehouse me-1"></i>
+            Mostrando productos con stock en: <strong>${bodegaNombre}</strong>
+            <button class="btn btn-sm btn-outline-secondary ms-2" onclick="limpiarFiltroBodega()">
+                <i class="fas fa-times me-1"></i>Ver todos
+            </button>
+        `;
+    } else {
+        alertaTexto.innerHTML = `
+            <i class="fas fa-boxes me-1"></i>
+            Mostrando todos los productos con stock en cualquier bodega.
+            <small class="d-block mt-1">Seleccione una bodega para ver disponibilidad específica.</small>
+        `;
+    }
+}
+
+// Limpiar filtro de bodega
+function limpiarFiltroBodega() {
+    document.getElementById('select-bodega').value = '';
+    bodegaSeleccionada = null;
+    cargarProductosDisponibles();
+    habilitarBotonGuardar();
+}
+
+// Filtrar productos por búsqueda (función alternativa para compatibilidad)
+function filtrarProductos() {
+    cargarProductosDisponibles();
 }
 
 // Agregar producto a salida
@@ -403,8 +462,21 @@ function agregarProductoSalida(producto = null) {
     
     const fila = document.createElement('tr');
     fila.id = `producto-salida-${index}`;
+    fila.dataset.productoId = producto ? producto.ID_Producto : '';
     
     if (producto) {
+        // Calcular stock disponible para esta bodega
+        const stockDisponible = bodegaSeleccionada ? 
+            producto.Stock_Relevante : 
+            producto.Stock_Total;
+        
+        // Precio de venta por defecto
+        const precioVenta = producto.Precio_Venta || 0;
+        
+        // Sugerir costo (60% del precio de venta para ventas)
+        const tipoMovimiento = document.getElementById('tipo-movimiento').value;
+        const costoCalculado = tipoMovimiento === '2' ? (precioVenta * 0.6).toFixed(2) : '0.00';
+        
         fila.innerHTML = `
             <td>
                 <input type="hidden" name="productos[${index}][id_producto]" 
@@ -415,60 +487,56 @@ function agregarProductoSalida(producto = null) {
                 </div>
             </td>
             <td class="text-center">
-                <span class="badge bg-success">${producto.Stock_Bodega.toFixed(2)}</span>
+                <span class="badge bg-success stock-disponible">${stockDisponible.toFixed(2)}</span>
             </td>
             <td>
-                <input type="number" step="0.001" min="0.001" max="${producto.Stock_Bodega}"
+                <input type="number" step="0.001" min="0.001" max="${stockDisponible}"
                        name="productos[${index}][cantidad]" 
                        class="form-control form-control-sm cantidad" 
-                       value="1" onchange="validarCantidad(${index})" oninput="validarCantidad(${index})" required>
-                <small class="text-danger d-block" style="font-size: 0.7em;" id="error-${index}"></small>
+                       value="1" 
+                       onchange="validarCantidad(${index})" 
+                       oninput="validarCantidad(${index})" 
+                       required>
+                <small class="text-danger d-block error-cantidad" style="font-size: 0.7em;"></small>
             </td>
             <td>
                 <input type="number" step="0.01" min="0" 
                        name="productos[${index}][costo_unitario]" 
                        class="form-control form-control-sm costo" 
-                       value="0.00"
-                       onchange="calcularSubtotalSalida(${index})" oninput="calcularSubtotalSalida(${index})" required>
+                       value="${costoCalculado}"
+                       onchange="calcularSubtotalSalida(${index})" 
+                       oninput="calcularSubtotalSalida(${index})" 
+                       required>
             </td>
             <td>
                 <input type="number" step="0.01" min="0" 
                        name="productos[${index}][precio_unitario]" 
                        class="form-control form-control-sm precio" 
-                       value="${producto.Precio_Venta.toFixed(2)}"
-                       onchange="calcularSubtotalSalida(${index})" oninput="calcularSubtotalSalida(${index})">
+                       value="${precioVenta.toFixed(2)}"
+                       onchange="calcularSubtotalSalida(${index})" 
+                       oninput="calcularSubtotalSalida(${index})">
             </td>
             <td>
                 <input type="text" class="form-control form-control-sm subtotal" 
                        value="C$0.00" readonly>
             </td>
             <td class="text-center">
-                <button type="button" class="btn btn-danger btn-sm" 
-                        onclick="eliminarProductoSalida(${index})" title="Eliminar">
-                    <i class="fas fa-trash"></i> Quitar
+                <button type="button" class="btn btn-danger btn-sm btn-eliminar" 
+                        onclick="eliminarProductoSalida(${index})" 
+                        title="Eliminar">
+                    <i class="fas fa-trash"></i>
                 </button>
             </td>
         `;
     } else {
-        // Opción para agregar producto manualmente (sin selección de lista)
+        // Opción para agregar producto manualmente
         fila.innerHTML = `
-            <td>
-                <div class="alert alert-warning p-1 m-0">
-                    <small>Seleccione producto de la lista</small>
+            <td colspan="7">
+                <div class="alert alert-warning p-2 m-0 text-center">
+                    <i class="fas fa-exclamation-triangle me-1"></i>
+                    <small>Seleccione un producto de la lista</small>
                 </div>
                 <input type="hidden" name="productos[${index}][id_producto]" class="id-producto">
-            </td>
-            <td class="text-center">
-                <span class="badge bg-secondary">-</span>
-            </td>
-            <td colspan="4" class="text-center">
-                <small class="text-muted">Agregue productos desde la lista</small>
-            </td>
-            <td class="text-center">
-                <button type="button" class="btn btn-danger btn-sm" 
-                        onclick="eliminarProductoSalida(${index})" title="Eliminar">
-                    <i class="fas fa-trash"></i> Quitar
-                </button>
             </td>
         `;
     }
@@ -481,13 +549,6 @@ function agregarProductoSalida(producto = null) {
     
     if (producto) {
         calcularSubtotalSalida(index);
-        // Si es venta, sugerir costo (60% del precio de venta)
-        const tipoMovimiento = document.getElementById('tipo-movimiento').value;
-        if (tipoMovimiento === '2') {
-            const costoCalculado = (producto.Precio_Venta * 0.6).toFixed(2);
-            fila.querySelector('.costo').value = costoCalculado;
-            calcularSubtotalSalida(index);
-        }
     }
     
     actualizarResumenSalida();
@@ -500,26 +561,35 @@ function validarCantidad(index) {
     if (!fila) return;
     
     const cantidadInput = fila.querySelector('.cantidad');
-    const errorElement = fila.querySelector(`#error-${index}`);
-    const stockBadge = fila.querySelector('.badge');
+    const errorElement = fila.querySelector('.error-cantidad');
+    const stockBadge = fila.querySelector('.stock-disponible');
     
+    if (!cantidadInput || !errorElement || !stockBadge) return;
+    
+    // Obtener stock máximo
     let maxStock = 0;
-    if (stockBadge && stockBadge.textContent !== '-') {
-        maxStock = parseFloat(stockBadge.textContent) || 0;
+    const stockText = stockBadge.textContent.trim();
+    const match = stockText.match(/[\d.]+/);
+    if (match) {
+        maxStock = parseFloat(match[0]) || 0;
     }
     
     const cantidad = parseFloat(cantidadInput.value) || 0;
     
-    if (errorElement) {
-        if (maxStock > 0 && cantidad > maxStock) {
-            cantidadInput.value = maxStock;
-            errorElement.textContent = `Máx: ${maxStock.toFixed(2)}`;
-            errorElement.classList.remove('d-none');
-            errorElement.classList.add('d-block');
-        } else {
-            errorElement.classList.remove('d-block');
-            errorElement.classList.add('d-none');
-        }
+    // Validar
+    if (cantidad <= 0) {
+        cantidadInput.value = 1;
+        errorElement.textContent = 'Mínimo: 0.001';
+        errorElement.classList.remove('d-none');
+        errorElement.classList.add('d-block');
+    } else if (maxStock > 0 && cantidad > maxStock) {
+        cantidadInput.value = maxStock;
+        errorElement.textContent = `Máximo: ${maxStock.toFixed(2)}`;
+        errorElement.classList.remove('d-none');
+        errorElement.classList.add('d-block');
+    } else {
+        errorElement.classList.remove('d-block');
+        errorElement.classList.add('d-none');
     }
     
     calcularSubtotalSalida(index);
@@ -562,6 +632,43 @@ function eliminarProductoSalida(index) {
     habilitarBotonGuardar();
 }
 
+// Actualizar stock de productos ya agregados cuando cambia la bodega
+function actualizarStockProductosAgregados() {
+    if (!bodegaSeleccionada || productosDisponibles.length === 0) return;
+    
+    document.querySelectorAll('#productos-tbody tr').forEach(fila => {
+        const idProducto = fila.dataset.productoId;
+        if (!idProducto) return;
+        
+        // Buscar el producto en la lista de disponibles
+        const producto = productosDisponibles.find(p => p.ID_Producto == idProducto);
+        if (!producto) return;
+        
+        const stockBadge = fila.querySelector('.stock-disponible');
+        const cantidadInput = fila.querySelector('.cantidad');
+        
+        if (stockBadge && cantidadInput) {
+            const stockDisponible = bodegaSeleccionada ? 
+                producto.Stock_Relevante : 
+                producto.Stock_Total;
+            
+            // Actualizar badge
+            stockBadge.textContent = stockDisponible.toFixed(2);
+            stockBadge.className = 'badge ' + (stockDisponible > 0 ? 'bg-success' : 'bg-danger');
+            
+            // Actualizar máximo del input
+            cantidadInput.max = stockDisponible;
+            
+            // Si la cantidad actual excede el nuevo stock, ajustar
+            const cantidadActual = parseFloat(cantidadInput.value) || 0;
+            if (cantidadActual > stockDisponible) {
+                cantidadInput.value = stockDisponible;
+                validarCantidad(Array.from(fila.parentNode.children).indexOf(fila));
+            }
+        }
+    });
+}
+
 // Actualizar resumen de salida
 function actualizarResumenSalida() {
     let totalCosto = 0;
@@ -573,8 +680,9 @@ function actualizarResumenSalida() {
         const cantidadInput = fila.querySelector('.cantidad');
         const costoInput = fila.querySelector('.costo');
         const precioInput = fila.querySelector('.precio');
+        const idProductoInput = fila.querySelector('.id-producto');
         
-        if (!cantidadInput || !costoInput) return;
+        if (!cantidadInput || !costoInput || !idProductoInput || !idProductoInput.value) return;
         
         const cantidad = parseFloat(cantidadInput.value) || 0;
         const costo = parseFloat(costoInput.value) || 0;
@@ -588,6 +696,7 @@ function actualizarResumenSalida() {
         }
     });
     
+    // Actualizar UI
     document.getElementById('resumen-cantidad').textContent = cantidadProductos;
     document.getElementById('resumen-unidades').textContent = unidades.toFixed(3);
     document.getElementById('resumen-costo').textContent = `C$${totalCosto.toFixed(2)}`;
@@ -639,56 +748,96 @@ function habilitarBotonGuardar() {
         if (tipoMovimiento === '2') {
             const clienteSeleccionado = document.getElementById('select-cliente').value;
             const tipoPagoSeleccionado = document.getElementById('select-tipo-pago').value;
-            habilitar = todosValidos && clienteSeleccionado && tipoPagoSeleccionado;
+            const facturaExistente = document.querySelector('select[name="id_factura_venta"]').value;
+            
+            // Para ventas, necesita cliente o factura existente
+            habilitar = todosValidos && (clienteSeleccionado || facturaExistente) && tipoPagoSeleccionado;
         } else {
             habilitar = todosValidos;
         }
     }
     
     btnGuardar.disabled = !habilitar;
+    
+    // Cambiar estilo del botón
+    if (!btnGuardar.disabled) {
+        btnGuardar.classList.remove('btn-secondary');
+        btnGuardar.classList.add('btn-danger');
+    } else {
+        btnGuardar.classList.remove('btn-danger');
+        btnGuardar.classList.add('btn-secondary');
+    }
 }
 
-// Seleccionar producto para salida
-function seleccionarProductoSalida(producto) {
+// Seleccionar producto para salida (desde la lista)
+function seleccionarProductoParaSalida(producto) {
     // Verificar si ya existe en la tabla
     const existente = Array.from(document.querySelectorAll('.id-producto'))
         .find(input => input.value == producto.ID_Producto);
     
     if (existente) {
-        alert('Este producto ya está en la lista');
+        // Encontrar la fila y resaltarla
+        const filaExistente = existente.closest('tr');
+        if (filaExistente) {
+            filaExistente.classList.add('table-warning');
+            setTimeout(() => filaExistente.classList.remove('table-warning'), 1000);
+            
+            // Hacer scroll a la fila
+            filaExistente.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+        
+        // Mostrar alerta suave
+        const alerta = document.createElement('div');
+        alerta.className = 'alert alert-warning alert-dismissible fade show position-fixed top-0 end-0 m-3';
+        alerta.style.zIndex = '1050';
+        alerta.innerHTML = `
+            <i class="fas fa-exclamation-triangle me-2"></i>
+            Este producto ya está en la lista
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        `;
+        document.body.appendChild(alerta);
+        setTimeout(() => alerta.remove(), 3000);
         return;
     }
     
+    // Agregar el producto
     agregarProductoSalida(producto);
+    
+    // Resaltar la fila nueva
+    const nuevaFila = document.querySelector(`#productos-tbody tr:last-child`);
+    if (nuevaFila) {
+        nuevaFila.classList.add('table-success');
+        setTimeout(() => nuevaFila.classList.remove('table-success'), 1000);
+    }
 }
 
 // Validar formulario antes de enviar
-document.getElementById('formSalida').addEventListener('submit', function(e) {
-    e.preventDefault();
-    
+function validarFormularioSalida() {
     const bodegaId = document.getElementById('select-bodega').value;
     if (!bodegaId) {
-        alert('Debe seleccionar una bodega');
+        mostrarAlerta('Debe seleccionar una bodega', 'error');
         return false;
     }
     
     const tipoMovimiento = document.getElementById('tipo-movimiento').value;
     if (!tipoMovimiento) {
-        alert('Debe seleccionar un tipo de movimiento');
+        mostrarAlerta('Debe seleccionar un tipo de movimiento', 'error');
         return false;
     }
     
     // Validaciones específicas para ventas
     if (tipoMovimiento === '2') {
         const clienteId = document.getElementById('select-cliente').value;
-        if (!clienteId) {
-            alert('Para ventas debe seleccionar un cliente');
+        const facturaExistente = document.querySelector('select[name="id_factura_venta"]').value;
+        
+        if (!clienteId && !facturaExistente) {
+            mostrarAlerta('Para ventas debe seleccionar un cliente o una factura existente', 'error');
             return false;
         }
         
         const tipoPago = document.getElementById('select-tipo-pago').value;
         if (!tipoPago) {
-            alert('Debe seleccionar un tipo de pago');
+            mostrarAlerta('Debe seleccionar un tipo de pago', 'error');
             return false;
         }
     }
@@ -696,7 +845,7 @@ document.getElementById('formSalida').addEventListener('submit', function(e) {
     const productosData = JSON.parse(document.getElementById('productos-json').value || '[]');
     
     if (productosData.length === 0) {
-        alert('Debe agregar al menos un producto');
+        mostrarAlerta('Debe agregar al menos un producto', 'error');
         return false;
     }
     
@@ -707,7 +856,7 @@ document.getElementById('formSalida').addEventListener('submit', function(e) {
     document.querySelectorAll('#productos-tbody tr').forEach(fila => {
         const idProductoInput = fila.querySelector('.id-producto');
         const cantidadInput = fila.querySelector('.cantidad');
-        const stockBadge = fila.querySelector('.badge');
+        const stockBadge = fila.querySelector('.stock-disponible');
         
         if (!idProductoInput || !idProductoInput.value || !cantidadInput) return;
         
@@ -716,47 +865,46 @@ document.getElementById('formSalida').addEventListener('submit', function(e) {
         
         let stockDisponible = 0;
         if (stockBadge && stockBadge.textContent !== '-') {
-            stockDisponible = parseFloat(stockBadge.textContent) || 0;
+            const match = stockBadge.textContent.match(/[\d.]+/);
+            if (match) {
+                stockDisponible = parseFloat(match[0]) || 0;
+            }
         }
         
         if (cantidad > stockDisponible) {
             stockValido = false;
-            mensajeError += `- ${productoNombre}: Solicitado ${cantidad.toFixed(2)}, Disponible ${stockDisponible.toFixed(2)}\n`;
+            mensajeError += `• ${productoNombre}: Solicitado ${cantidad.toFixed(2)}, Disponible ${stockDisponible.toFixed(2)}<br>`;
         }
     });
     
     if (!stockValido) {
-        alert(`Stock insuficiente:\n${mensajeError}`);
+        mostrarAlerta(`<strong>Stock insuficiente:</strong><br>${mensajeError}`, 'error', true);
         return false;
     }
     
-    // Confirmar según tipo de movimiento
-    const tipoMovimientoTexto = document.querySelector('#tipo-movimiento option:checked').textContent;
-    let mensajeConfirmacion = '';
+    return true;
+}
+
+// Mostrar alerta personalizada
+function mostrarAlerta(mensaje, tipo = 'info', html = false) {
+    const alerta = document.createElement('div');
+    alerta.className = `alert alert-${tipo} alert-dismissible fade show position-fixed top-0 start-50 translate-middle-x mt-3`;
+    alerta.style.zIndex = '1050';
+    alerta.style.maxWidth = '500px';
     
-    if (tipoMovimiento === '2') {
-        const tipoPago = document.getElementById('select-tipo-pago').value;
-        const cliente = document.querySelector('#select-cliente option:checked').textContent;
-        
-        mensajeConfirmacion = `¿Está seguro de guardar esta VENTA?\n\n`;
-        mensajeConfirmacion += `Cliente: ${cliente}\n`;
-        mensajeConfirmacion += `Tipo de pago: ${tipoPago}\n`;
-        mensajeConfirmacion += `Productos: ${productosData.length}\n`;
-        mensajeConfirmacion += `Total: ${document.getElementById('total-salida').textContent}\n\n`;
-        mensajeConfirmacion += `Esta acción:\n`;
-        mensajeConfirmacion += `1. Descontará productos del inventario\n`;
-        mensajeConfirmacion += `2. Creará una factura\n`;
-        mensajeConfirmacion += tipoPago === 'CREDITO' ? '3. Creará una cuenta por cobrar' : '3. Marcará como pagado';
+    if (html) {
+        alerta.innerHTML = `
+            ${mensaje}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        `;
     } else {
-        mensajeConfirmacion = `¿Está seguro de guardar esta ${tipoMovimientoTexto.toUpperCase()}?\n\n`;
-        mensajeConfirmacion += `Productos: ${productosData.length}\n`;
-        mensajeConfirmacion += `Total: ${document.getElementById('total-salida').textContent}`;
+        alerta.textContent = mensaje;
+        alerta.innerHTML += '<button type="button" class="btn-close" data-bs-dismiss="alert"></button>';
     }
     
-    if (confirm(mensajeConfirmacion)) {
-        this.submit();
-    }
-});
+    document.body.appendChild(alerta);
+    setTimeout(() => alerta.remove(), 5000);
+}
 
 // Event listeners
 document.addEventListener('DOMContentLoaded', function() {
@@ -772,30 +920,107 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Configurar cambios en bodega
     document.getElementById('select-bodega').addEventListener('change', function() {
-        cargarProductosBodega();
+        bodegaSeleccionada = this.value;
+        cargarProductosDisponibles();
+        actualizarStockProductosAgregados();
         habilitarBotonGuardar();
     });
     
     // Configurar cambios en cliente y tipo pago
     document.getElementById('select-cliente').addEventListener('change', habilitarBotonGuardar);
     document.getElementById('select-tipo-pago').addEventListener('change', habilitarBotonGuardar);
+    document.querySelector('select[name="id_factura_venta"]').addEventListener('change', habilitarBotonGuardar);
     
     // Configurar búsqueda por Enter
     document.getElementById('buscar-producto-bodega').addEventListener('keypress', function(e) {
         if (e.key === 'Enter') {
             e.preventDefault();
-            filtrarProductos();
+            cargarProductosDisponibles();
+        }
+    });
+    
+    // Búsqueda en tiempo real (con debounce)
+    document.getElementById('buscar-producto-bodega').addEventListener('input', function() {
+        clearTimeout(searchTimeout);
+        searchTimeout = setTimeout(cargarProductosDisponibles, 500);
+    });
+    
+    // Botón de búsqueda
+    const buscarBtn = document.querySelector('#buscar-producto-bodega + button');
+    if (buscarBtn) {
+        buscarBtn.addEventListener('click', cargarProductosDisponibles);
+    }
+    
+    // Botón de agregar producto
+    document.querySelector('button[onclick*="agregarProductoSalida"]').addEventListener('click', function(e) {
+        e.preventDefault();
+        agregarProductoSalida();
+    });
+    
+    // Interceptar envío del formulario
+    document.getElementById('formSalida').addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        if (!validarFormularioSalida()) {
+            return false;
+        }
+        
+        // Confirmar según tipo de movimiento
+        const tipoMovimiento = document.getElementById('tipo-movimiento').value;
+        const tipoMovimientoTexto = document.querySelector('#tipo-movimiento option:checked').textContent;
+        const productosData = JSON.parse(document.getElementById('productos-json').value || '[]');
+        
+        let mensajeConfirmacion = '';
+        
+        if (tipoMovimiento === '2') {
+            const tipoPago = document.getElementById('select-tipo-pago').value;
+            const clienteSelect = document.getElementById('select-cliente');
+            const cliente = clienteSelect.options[clienteSelect.selectedIndex]?.text || 'Cliente';
+            const facturaExistente = document.querySelector('select[name="id_factura_venta"]').value;
+            
+            mensajeConfirmacion = `¿Está seguro de guardar esta VENTA?\n\n`;
+            if (facturaExistente) {
+                mensajeConfirmacion += `Factura existente: #${facturaExistente}\n`;
+            } else {
+                mensajeConfirmacion += `Cliente: ${cliente}\n`;
+                mensajeConfirmacion += `Tipo de pago: ${tipoPago}\n`;
+            }
+            mensajeConfirmacion += `Productos: ${productosData.length}\n`;
+            mensajeConfirmacion += `Total: ${document.getElementById('total-salida').textContent}\n\n`;
+            mensajeConfirmacion += `Esta acción:\n`;
+            mensajeConfirmacion += `1. Descontará productos del inventario\n`;
+            mensajeConfirmacion += `2. ${facturaExistente ? 'Actualizará' : 'Creará'} una factura\n`;
+            if (tipoPago === 'CREDITO' && !facturaExistente) {
+                mensajeConfirmacion += '3. Creará una cuenta por cobrar';
+            }
+        } else {
+            mensajeConfirmacion = `¿Está seguro de guardar esta ${tipoMovimientoTexto.toUpperCase()}?\n\n`;
+            mensajeConfirmacion += `Bodega: ${document.querySelector('#select-bodega option:checked').text}\n`;
+            mensajeConfirmacion += `Productos: ${productosData.length}\n`;
+            mensajeConfirmacion += `Total: ${document.getElementById('total-salida').textContent}`;
+        }
+        
+        if (confirm(mensajeConfirmacion)) {
+            this.submit();
         }
     });
     
     // Inicializar
     configurarCamposPorTipoSalida();
+    cargarProductosDisponibles();
     
     // Configurar tooltips
     const tooltipTriggerList = [].slice.call(document.querySelectorAll('[title]'));
     tooltipTriggerList.map(function (tooltipTriggerEl) {
         return new bootstrap.Tooltip(tooltipTriggerEl);
     });
+    
+    // Configurar auto-habilitación de búsqueda
+    document.getElementById('buscar-producto-bodega').disabled = false;
+    const buscarButton = document.querySelector('#buscar-producto-bodega + button');
+    if (buscarButton) {
+        buscarButton.disabled = false;
+    }
 });
 </script>
 
