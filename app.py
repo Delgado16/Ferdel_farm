@@ -6035,18 +6035,19 @@ def admin_procesar_salida():
         return redirect(url_for('admin_nueva_salida_form'))
 
 # API para obtener productos con stock por bodega (para salidas)
-@app.route('/api/productos/stock')
+@app.route('/api/productos/stock-bodega')
 @admin_required
-def api_productos_stock():
-    """API flexible para obtener productos con stock (con o sin bodega)"""
+def api_productos_stock_bodega():
+    """API para obtener productos con stock disponible en una bodega específica"""
     try:
         bodega_id = request.args.get('bodega')
-        search = request.args.get('search', '')
-        limit = int(request.args.get('limit', 100))
+        
+        if not bodega_id:
+            return jsonify({'error': 'Se requiere ID de bodega'}), 400
         
         with get_db_cursor(True) as cursor:
-            # Consulta base flexible
-            query = """
+            # Obtener productos activos con stock en la bodega específica
+            cursor.execute("""
                 SELECT 
                     p.ID_Producto, 
                     p.COD_Producto, 
@@ -6056,73 +6057,40 @@ def api_productos_stock():
                     p.Precio_Venta, 
                     p.Stock_Minimo,
                     cp.Descripcion as Categoria_Descripcion,
-                    COALESCE(SUM(CASE WHEN %s = 0 OR ib.ID_Bodega = %s THEN ib.Existencias ELSE 0 END), 0) as Stock_Relevante,
-                    COALESCE(SUM(ib.Existencias), 0) as Stock_Total,
-                    GROUP_CONCAT(DISTINCT CONCAT(b.Nombre, ':', ib.Existencias) SEPARATOR ';') as Stock_por_Bodega
+                    COALESCE(ib.Existencias, 0) as Stock_Bodega,
+                    COALESCE(SUM(ib_total.Existencias), 0) as Existencias_Totales
                 FROM productos p
                 LEFT JOIN unidades_medida um ON p.Unidad_Medida = um.ID_Unidad
                 LEFT JOIN categorias_producto cp ON p.ID_Categoria = cp.ID_Categoria
-                LEFT JOIN inventario_bodega ib ON p.ID_Producto = ib.ID_Producto
-                LEFT JOIN bodegas b ON ib.ID_Bodega = b.ID_Bodega
+                LEFT JOIN inventario_bodega ib ON p.ID_Producto = ib.ID_Producto 
+                    AND ib.ID_Bodega = %s
+                LEFT JOIN inventario_bodega ib_total ON p.ID_Producto = ib_total.ID_Producto
                 WHERE p.Estado = 'activo'
-            """
-            
-            params = [bodega_id or 0, bodega_id or 0]
-            
-            # Agregar búsqueda si existe
-            if search:
-                query += " AND (p.Descripcion LIKE %s OR p.COD_Producto LIKE %s)"
-                params.extend([f"%{search}%", f"%{search}%"])
-            
-            query += """
+                    AND COALESCE(ib.Existencias, 0) > 0
                 GROUP BY p.ID_Producto, p.COD_Producto, p.Descripcion, 
-                         p.Unidad_Medida, um.Descripcion, p.Precio_Venta, 
-                         p.Stock_Minimo, cp.Descripcion
-                HAVING Stock_Relevante > 0
+                         p.Unidad_Medida, p.Precio_Venta, p.Stock_Minimo,
+                         um.Descripcion, cp.Descripcion, ib.Existencias
                 ORDER BY p.Descripcion
-                LIMIT %s
-            """
-            params.append(limit)
+                LIMIT 100
+            """, (bodega_id,))
             
-            cursor.execute(query, params)
             productos = cursor.fetchall()
             
-            # Procesar stock por bodega
+            # Convertir a lista de diccionarios y formatear números
             productos_list = []
             for producto in productos:
                 producto_dict = dict(producto)
-                
-                # Parsear stock por bodega
-                stock_por_bodega = {}
-                if producto_dict['Stock_por_Bodega']:
-                    for item in producto_dict['Stock_por_Bodega'].split(';'):
-                        if ':' in item:
-                            bodega_nombre, cantidad = item.split(':', 1)
-                            if bodega_nombre and cantidad:
-                                stock_por_bodega[bodega_nombre.strip()] = float(cantidad)
-                
-                producto_dict['Stock_por_Bodega'] = stock_por_bodega
-                producto_dict['Stock_Relevante'] = float(producto_dict['Stock_Relevante'])
-                producto_dict['Stock_Total'] = float(producto_dict['Stock_Total'])
                 producto_dict['Precio_Venta'] = float(producto_dict['Precio_Venta'] or 0)
+                producto_dict['Stock_Bodega'] = float(producto_dict['Stock_Bodega'] or 0)
+                producto_dict['Existencias_Totales'] = float(producto_dict['Existencias_Totales'] or 0)
                 producto_dict['Stock_Minimo'] = float(producto_dict['Stock_Minimo'] or 0)
-                
                 productos_list.append(producto_dict)
             
-            return jsonify({
-                'success': True,
-                'productos': productos_list,
-                'total': len(productos_list),
-                'filtro_bodega': bool(bodega_id)
-            })
+            return jsonify(productos_list)
             
     except Exception as e:
-        print(f"Error en API productos stock: {e}")
-        return jsonify({
-            'success': False,
-            'error': str(e),
-            'productos': []
-        }), 500
+        print(f"Error en API productos stock bodega: {e}")
+        return jsonify({'error': str(e)}), 500
 
 # 6. NUEVA TRANSFERENCIA (Traslado)
 @app.route('/admin/movimientos/transferencia/nueva')
