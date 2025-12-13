@@ -1,455 +1,1275 @@
 {% extends "layout.html" %}
 
-{% block title %}Editar Venta #{{ factura.ID_Factura }}{% endblock %}
+{% block title %}Editar Venta #{{ factura.ID_Factura }} - Sistema Inventarios{% endblock %}
 
 {% block content %}
-<div class="container-fluid">
-    <div class="row">
-        <div class="col-12">
-            <div class="page-header">
-                <h1>Editar Venta #{{ factura.ID_Factura }}</h1>
-                <nav aria-label="breadcrumb">
-                    <ol class="breadcrumb">
-                        <li class="breadcrumb-item"><a href="{{ url_for('admin_dashboard') }}">Dashboard</a></li>
-                        <li class="breadcrumb-item"><a href="{{ url_for('admin_ventas_salidas') }}">Ventas</a></li>
-                        <li class="breadcrumb-item"><a href="{{ url_for('admin_detalles_venta', id_factura=factura.ID_Factura) }}">Detalles #{{ factura.ID_Factura }}</a></li>
-                        <li class="breadcrumb-item active">Editar</li>
-                    </ol>
-                </nav>
+<style>
+    :root {
+        --primary-color: #2c5aa0;
+        --secondary-color: #6c757d;
+        --success-color: #198754;
+        --warning-color: #ffc107;
+        --danger-color: #dc3545;
+        --light-bg: #f8f9fa;
+        --border-color: #dee2e6;
+    }
+
+    .venta-container {
+        max-width: 1400px;
+        margin: 2rem auto;
+        padding: 0 1rem;
+    }
+
+    .card {
+        border: none;
+        border-radius: 10px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        margin-bottom: 1.5rem;
+        background: #fff;
+    }
+
+    .card-header {
+        background: linear-gradient(135deg, #28a745, #20c997);
+        color: white;
+        border-radius: 10px 10px 0 0 !important;
+        padding: 1.25rem 1.5rem;
+        border-bottom: none;
+    }
+
+    .card-header h2 {
+        margin: 0;
+        font-weight: 600;
+        font-size: 1.5rem;
+    }
+
+    .card-body {
+        padding: 2rem;
+    }
+
+    .section-title {
+        color: var(--primary-color);
+        font-weight: 600;
+        margin-bottom: 1rem;
+        padding-bottom: 0.75rem;
+        border-bottom: 2px solid var(--light-bg);
+        font-size: 1.2rem;
+    }
+
+    .form-label {
+        font-weight: 600;
+        margin-bottom: 0.5rem;
+        color: #495057;
+        font-size: 0.9rem;
+    }
+
+    .form-control,
+    .form-select {
+        border-radius: 6px;
+        border: 1px solid var(--border-color);
+        padding: 0.65rem;
+        font-size: 0.9rem;
+        transition: all 0.2s ease;
+        height: auto;
+    }
+
+    .form-control:focus,
+    .form-select:focus {
+        border-color: var(--primary-color);
+        box-shadow: 0 0 0 0.2rem rgba(44, 90, 160, 0.25);
+    }
+
+    .btn-primary {
+        background: linear-gradient(135deg, #28a745, #20c997);
+        border: none;
+        border-radius: 6px;
+        padding: 0.65rem 1.5rem;
+        font-weight: 600;
+        transition: all 0.2s ease;
+    }
+
+    .btn-primary:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(40, 167, 69, 0.3);
+    }
+
+    .btn-success {
+        background: linear-gradient(135deg, var(--success-color), #146c43);
+        border: none;
+    }
+
+    .btn-warning {
+        background: linear-gradient(135deg, var(--warning-color), #e0a800);
+        border: none;
+        color: #000;
+    }
+
+    .btn-danger {
+        background: linear-gradient(135deg, var(--danger-color), #b02a37);
+        border: none;
+        color: white;
+    }
+
+    .btn-sm {
+        padding: 0.35rem 0.75rem;
+        font-size: 0.85rem;
+    }
+
+    .product-card {
+        background: #fff;
+        border: 1px solid #e9ecef;
+        border-radius: 8px;
+        padding: 1rem;
+        margin-bottom: 1rem;
+        transition: all 0.2s ease;
+    }
+
+    .product-card:hover {
+        border-color: var(--primary-color);
+        box-shadow: 0 2px 8px rgba(44, 90, 160, 0.1);
+    }
+
+    .product-card-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1rem;
+        padding-bottom: 0.5rem;
+        border-bottom: 1px solid #f1f3f4;
+    }
+
+    .product-card-title {
+        font-weight: 600;
+        color: var(--primary-color);
+        margin: 0;
+        font-size: 1rem;
+    }
+
+    .product-grid {
+        display: grid;
+        grid-template-columns: 2fr 1fr 1fr 1fr;
+        gap: 1rem;
+        align-items: end;
+    }
+
+    .total-summary {
+        background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+        border-radius: 8px;
+        padding: 1.5rem;
+        margin-top: 2rem;
+        border: 1px solid var(--border-color);
+    }
+
+    .total-row {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 0.75rem;
+        font-size: 1rem;
+    }
+
+    .grand-total {
+        font-weight: 700;
+        font-size: 1.3rem;
+        border-top: 2px solid var(--border-color);
+        padding-top: 1rem;
+        margin-top: 1rem;
+        color: var(--primary-color);
+    }
+
+    .required-field::after {
+        content: " *";
+        color: var(--danger-color);
+    }
+
+    .form-section {
+        background: #fafbfc;
+        border-radius: 8px;
+        padding: 1.25rem;
+        margin-bottom: 1.5rem;
+        border: 1px solid var(--border-color);
+    }
+
+    .quick-actions {
+        display: flex;
+        gap: 0.5rem;
+        margin-bottom: 1rem;
+        flex-wrap: wrap;
+    }
+
+    .input-group-sm .form-control,
+    .input-group-sm .form-select {
+        padding: 0.4rem 0.5rem;
+        font-size: 0.85rem;
+    }
+
+    .input-group-sm .input-group-text {
+        padding: 0.4rem 0.75rem;
+        font-size: 0.85rem;
+    }
+
+    .compact-row {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        gap: 1rem;
+        margin-bottom: 1rem;
+    }
+
+    .info-badge {
+        background: #e3f2fd;
+        border: 1px solid #bbdefb;
+        border-radius: 4px;
+        padding: 0.25rem 0.5rem;
+        font-size: 0.8rem;
+        color: var(--primary-color);
+        display: inline-block;
+    }
+
+    .form-control-sm {
+        padding: 0.4rem 0.5rem;
+        font-size: 0.85rem;
+        height: calc(1.5em + 0.8rem + 2px);
+    }
+
+    /* Estilo para C$ */
+    .input-group-text {
+        background-color: #e9ecef;
+        border: 1px solid #ced4da;
+        font-weight: 600;
+        color: #495057;
+    }
+
+    /* Stock indicators */
+    .stock-danger {
+        color: var(--danger-color);
+        font-weight: 700;
+        background-color: rgba(220, 53, 69, 0.1);
+        padding: 2px 6px;
+        border-radius: 4px;
+        display: inline-block;
+    }
+
+    .stock-low {
+        color: var(--danger-color);
+        font-weight: 600;
+    }
+
+    .stock-medium {
+        color: var(--warning-color);
+        font-weight: 600;
+    }
+
+    .stock-good {
+        color: var(--success-color);
+        font-weight: 600;
+    }
+
+    /* Alertas flotantes */
+    .alert-flotante {
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        z-index: 1100;
+        min-width: 300px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    }
+
+    .filter-section {
+        background: linear-gradient(135deg, #e3f2fd, #bbdefb);
+        border-radius: 8px;
+        padding: 1rem;
+        margin-bottom: 1rem;
+        border: 1px solid #90caf9;
+    }
+
+    .bodega-info {
+        background: linear-gradient(135deg, #e8f5e8, #c8e6c9);
+        border: 1px solid #a5d6a7;
+        border-radius: 6px;
+        padding: 1rem;
+        margin-bottom: 1rem;
+    }
+
+    .credito-info {
+        background: linear-gradient(135deg, #fff3cd, #ffeaa7);
+        border: 1px solid #ffecb5;
+        border-radius: 6px;
+        padding: 1rem;
+        margin-top: 1rem;
+        display: none;
+    }
+
+    .invalid-feedback {
+        display: none;
+        color: var(--danger-color);
+        font-size: 0.8rem;
+        margin-top: 0.25rem;
+        font-weight: 500;
+    }
+
+    .is-invalid ~ .invalid-feedback {
+        display: block;
+    }
+
+    .is-invalid {
+        border-color: var(--danger-color);
+        box-shadow: 0 0 0 0.2rem rgba(220, 53, 69, 0.25);
+    }
+
+    /* Modal de confirmación */
+    .confirm-modal {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.5);
+        z-index: 9999;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .confirm-modal.show {
+        display: flex;
+    }
+
+    .confirm-modal-content {
+        background-color: white;
+        border-radius: 10px;
+        width: 90%;
+        max-width: 500px;
+        box-shadow: 0 5px 20px rgba(0, 0, 0, 0.2);
+        animation: modalFadeIn 0.3s ease;
+    }
+
+    @keyframes modalFadeIn {
+        from {
+            opacity: 0;
+            transform: translateY(-20px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    .confirm-modal-header {
+        background: linear-gradient(135deg, #28a745, #20c997);
+        color: white;
+        padding: 1.25rem 1.5rem;
+        border-radius: 10px 10px 0 0;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
+
+    .confirm-modal-header h4 {
+        margin: 0;
+        font-weight: 600;
+        font-size: 1.25rem;
+    }
+
+    .confirm-modal-body {
+        padding: 1.5rem;
+        max-height: 60vh;
+        overflow-y: auto;
+    }
+
+    .confirm-modal-footer {
+        padding: 1rem 1.5rem;
+        border-top: 1px solid var(--border-color);
+        display: flex;
+        justify-content: flex-end;
+        gap: 0.75rem;
+    }
+
+    .confirm-summary {
+        background-color: #f8f9fa;
+        border-radius: 8px;
+        padding: 1rem;
+        margin: 1rem 0;
+        border: 1px solid var(--border-color);
+    }
+
+    .confirm-summary-item {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 0.5rem;
+        font-size: 0.95rem;
+    }
+
+    .confirm-summary-item:last-child {
+        margin-bottom: 0;
+    }
+
+    .confirm-summary-total {
+        border-top: 2px solid var(--border-color);
+        padding-top: 0.75rem;
+        margin-top: 0.75rem;
+        font-weight: 700;
+        color: var(--primary-color);
+    }
+
+    .confirm-product-list {
+        max-height: 200px;
+        overflow-y: auto;
+        margin: 1rem 0;
+        border: 1px solid var(--border-color);
+        border-radius: 6px;
+    }
+
+    .confirm-product-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 0.75rem 1rem;
+        border-bottom: 1px solid #e9ecef;
+    }
+
+    .confirm-product-item:last-child {
+        border-bottom: none;
+    }
+
+    .confirm-product-name {
+        flex: 1;
+        font-weight: 500;
+    }
+
+    .confirm-product-details {
+        display: flex;
+        gap: 1rem;
+        font-size: 0.9rem;
+        color: #6c757d;
+    }
+
+    .modal-icon {
+        font-size: 2.5rem;
+        color: #28a745;
+        margin-bottom: 1rem;
+        text-align: center;
+    }
+
+    /* Responsive */
+    @media (max-width: 1200px) {
+        .venta-container {
+            max-width: 100%;
+            margin: 1rem auto;
+            padding: 0 0.5rem;
+        }
+
+        .product-grid {
+            grid-template-columns: 2fr 1fr 1fr;
+        }
+    }
+
+    @media (max-width: 768px) {
+        .venta-container {
+            margin: 0.5rem auto;
+        }
+
+        .card-body {
+            padding: 1rem;
+        }
+
+        .form-section {
+            padding: 1rem;
+        }
+
+        .product-grid {
+            grid-template-columns: 1fr 1fr;
+        }
+
+        .total-summary {
+            padding: 1rem;
+        }
+
+        .confirm-modal-content {
+            width: 95%;
+            margin: 1rem;
+        }
+
+        .confirm-modal-body {
+            max-height: 70vh;
+        }
+    }
+
+    @media (max-width: 576px) {
+        .card-header h2 {
+            font-size: 1.25rem;
+        }
+
+        .section-title {
+            font-size: 1.1rem;
+        }
+
+        .product-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .quick-actions {
+            flex-direction: column;
+        }
+
+        .quick-actions .btn {
+            width: 100%;
+            margin-bottom: 0.5rem;
+        }
+
+        .d-flex.gap-3 {
+            flex-direction: column;
+        }
+
+        .d-flex.gap-3 .btn {
+            width: 100%;
+            margin-bottom: 0.5rem;
+        }
+
+        .confirm-modal-footer {
+            flex-direction: column;
+        }
+
+        .confirm-modal-footer .btn {
+            width: 100%;
+            margin-bottom: 0.5rem;
+        }
+    }
+</style>
+
+<!-- Modal de Confirmación -->
+<div class="confirm-modal" id="confirmModal">
+    <div class="confirm-modal-content">
+        <div class="confirm-modal-header">
+            <h4><i class="fas fa-check-circle me-2"></i>Confirmar Actualización de Venta</h4>
+            <button type="button" class="btn-close btn-close-white" id="closeConfirmModal"></button>
+        </div>
+        <div class="confirm-modal-body">
+            <div class="modal-icon">
+                <i class="fas fa-edit"></i>
             </div>
+            <h5 class="text-center mb-3">¿Está seguro de actualizar esta venta?</h5>
+            <p class="text-center text-muted mb-4">Revise los cambios antes de continuar:</p>
+            
+            <!-- Resumen de la venta -->
+            <div class="confirm-summary">
+                <div class="confirm-summary-item">
+                    <span>N° Venta:</span>
+                    <strong>#{{ factura.ID_Factura }}</strong>
+                </div>
+                <div class="confirm-summary-item">
+                    <span>Cliente:</span>
+                    <strong id="confirm-cliente"></strong>
+                </div>
+                <div class="confirm-summary-item">
+                    <span>Tipo de Venta:</span>
+                    <strong id="confirm-tipo-venta"></strong>
+                </div>
+                <div class="confirm-summary-item">
+                    <span>Bodega:</span>
+                    <strong>{{ bodega_venta.Nombre }}</strong>
+                </div>
+                <div class="confirm-summary-item">
+                    <span>Total Productos:</span>
+                    <strong id="confirm-total-productos"></strong>
+                </div>
+                <div class="confirm-summary-item confirm-summary-total">
+                    <span>TOTAL ACTUALIZADO:</span>
+                    <strong id="confirm-total-cobrar"></strong>
+                </div>
+            </div>
+
+            <!-- Lista de productos -->
+            <h6 class="mb-2">Productos incluidos:</h6>
+            <div class="confirm-product-list" id="confirm-product-list">
+                <!-- Los productos se agregarán aquí dinámicamente -->
+            </div>
+
+            <div class="alert alert-warning mt-3 mb-0">
+                <i class="fas fa-exclamation-triangle me-2"></i>
+                <small>Esta acción actualizará la venta existente y ajustará el inventario según los cambios realizados.</small>
+            </div>
+        </div>
+        <div class="confirm-modal-footer">
+            <button type="button" class="btn btn-secondary" id="cancelConfirm">
+                <i class="fas fa-times me-1"></i> Cancelar
+            </button>
+            <button type="button" class="btn btn-primary" id="confirmProceed">
+                <i class="fas fa-check me-1"></i> Sí, Actualizar Venta
+            </button>
         </div>
     </div>
+</div>
 
-    <form id="formEditarVenta" method="POST">
-        <div class="row">
-            <div class="col-lg-8">
-                <!-- Información de la Venta -->
-                <div class="card">
-                    <div class="card-header bg-warning text-dark">
-                        <h5 class="card-title mb-0">
-                            <i class="fas fa-edit"></i>
-                            Información de la Venta
-                        </h5>
+<div class="venta-container">
+    <div class="card">
+        <div class="card-header">
+            <h2><i class="fas fa-edit me-2"></i>Editar Venta #{{ factura.ID_Factura }}</h2>
+        </div>
+        <div class="card-body">
+            <!-- Información de Bodega -->
+            {% if bodega_venta %}
+            <div class="bodega-info">
+                <div class="d-flex align-items-center">
+                    <i class="fas fa-warehouse fa-2x text-success me-3"></i>
+                    <div>
+                        <h5 class="mb-1">Bodega: {{ bodega_venta.Nombre }}</h5>
+                        <p class="mb-0">Todos los productos se venderán desde esta bodega</p>
                     </div>
-                    <div class="card-body">
-                        <div class="row">
-                            <div class="col-md-6">
-                                <div class="mb-3">
-                                    <label for="id_cliente" class="form-label">Cliente *</label>
-                                    <select class="form-select" id="id_cliente" name="id_cliente" required>
-                                        <option value="">Seleccionar cliente...</option>
-                                        {% for cliente in clientes %}
-                                        <option value="{{ cliente.ID_Cliente }}" 
-                                                {% if factura.IDCliente == cliente.ID_Cliente %}selected{% endif %}>
-                                            {{ cliente.Nombre }} - {{ cliente.RUC_CEDULA or 'Sin RUC' }}
-                                        </option>
-                                        {% endfor %}
-                                    </select>
-                                </div>
-                            </div>
-                            <div class="col-md-6">
-                                <div class="mb-3">
-                                    <label for="tipo_venta" class="form-label">Tipo de Venta *</label>
-                                    <select class="form-select" id="tipo_venta" name="tipo_venta" required>
-                                        <option value="contado" {% if factura.Credito_Contado == 0 %}selected{% endif %}>CONTADO</option>
-                                        <option value="credito" {% if factura.Credito_Contado == 1 %}selected{% endif %}>CRÉDITO</option>
-                                    </select>
-                                </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <form id="formEditarVenta" method="POST" novalidate>
+                <!-- Información General de la Venta -->
+                <div class="form-section">
+                    <h4 class="section-title"><i class="fas fa-info-circle me-2"></i>Información General</h4>
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label for="id_cliente" class="form-label required-field">Cliente</label>
+                            <select class="form-select form-select-sm" id="id_cliente" name="id_cliente" required>
+                                <option value="">Seleccionar...</option>
+                                {% for cliente in clientes %}
+                                <option value="{{ cliente.ID_Cliente }}" 
+                                        {% if factura.IDCliente == cliente.ID_Cliente %}selected{% endif %}>
+                                    {{ cliente.Nombre }} - {{ cliente.RUC_CEDULA or 'Sin RUC' }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                            <div class="invalid-feedback">Seleccione un cliente</div>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label for="tipo_venta" class="form-label required-field">Tipo de Venta</label>
+                            <select class="form-select form-select-sm" id="tipo_venta" name="tipo_venta" required>
+                                <option value="contado" {% if factura.Credito_Contado == 0 %}selected{% endif %}>CONTADO</option>
+                                <option value="credito" {% if factura.Credito_Contado == 1 %}selected{% endif %}>CRÉDITO</option>
+                            </select>
+                            <div class="invalid-feedback">Seleccione el tipo de venta</div>
+                        </div>
+
+                        <!-- Filtro por Categoría de Producto -->
+                        <div class="col-md-8">
+                            <label for="filtro_categoria" class="form-label">Filtrar Productos por Categoría</label>
+                            <select class="form-select form-select-sm" id="filtro_categoria" name="filtro_categoria">
+                                <option value="0">Todas las categorías</option>
+                                {% for categoria in categorias %}
+                                <option value="{{ categoria.ID_Categoria }}">{{ categoria.Descripcion }}</option>
+                                {% endfor %}
+                            </select>
+                            <small class="text-muted">Filtre los productos por categoría para facilitar la búsqueda</small>
+                        </div>
+
+                        <div class="col-md-4">
+                            <label class="form-label">&nbsp;</label>
+                            <div class="d-flex gap-2 mt-2">
+                                <button type="button" class="btn btn-outline-primary btn-sm" id="btn-aplicar-filtro">
+                                    <i class="fas fa-filter me-1"></i>Aplicar Filtro
+                                </button>
+                                <button type="button" class="btn btn-outline-secondary btn-sm" id="btn-limpiar-filtro">
+                                    <i class="fas fa-times me-1"></i>Limpiar
+                                </button>
                             </div>
                         </div>
-                        
-                        <div class="mb-3">
-                            <label for="observacion" class="form-label">Observación</label>
-                            <textarea class="form-control" id="observacion" name="observacion" rows="2" 
+
+                        <!-- Campo de fecha de vencimiento (solo para crédito) -->
+                        <div class="col-12" id="fecha_vencimiento_group" 
+                             style="display: {% if factura.Credito_Contado == 1 and cuenta_por_cobrar %}block{% else %}none{% endif %};">
+                            <label for="fecha_vencimiento" class="form-label required-field">Fecha de Vencimiento (Crédito)</label>
+                            <input type="date" class="form-control form-control-sm" id="fecha_vencimiento" name="fecha_vencimiento"
+                                   value="{% if cuenta_por_cobrar and cuenta_por_cobrar.Fecha_Vencimiento %}{{ cuenta_por_cobrar.Fecha_Vencimiento.strftime('%Y-%m-%d') }}{% endif %}">
+                            <div class="credito-info">
+                                <small><i class="fas fa-info-circle me-1"></i>Cuenta por cobrar existente. Actualice la fecha si es necesario.</small>
+                            </div>
+                        </div>
+
+                        <div class="col-12">
+                            <label for="observacion" class="form-label">Observaciones</label>
+                            <textarea class="form-control form-control-sm" id="observacion" name="observacion" rows="2" 
                                       placeholder="Observaciones sobre la venta...">{{ factura.Observacion or '' }}</textarea>
                         </div>
-
-                        <!-- Información de la Bodega -->
-                        <div class="alert alert-info">
-                            <small>
-                                <i class="fas fa-warehouse"></i>
-                                <strong>Bodega:</strong> {{ bodega_venta.Nombre }}
-                                - Los productos se descuentan de esta bodega.
-                            </small>
-                        </div>
                     </div>
                 </div>
 
-                <!-- Productos -->
-                <div class="card mt-4">
-                    <div class="card-header bg-primary text-white">
-                        <h5 class="card-title mb-0">
-                            <i class="fas fa-boxes"></i>
-                            Productos de la Venta
-                        </h5>
-                    </div>
-                    <div class="card-body">
-                        <!-- Filtros para Productos -->
-                        <div class="row mb-3">
-                            <div class="col-md-6">
-                                <label for="filtro_categoria" class="form-label">Filtrar por Categoría</label>
-                                <select class="form-select" id="filtro_categoria">
-                                    <option value="">Todas las categorías</option>
-                                    {% for categoria in categorias %}
-                                    <option value="{{ categoria.ID_Categoria }}">{{ categoria.Descripcion }}</option>
-                                    {% endfor %}
-                                </select>
-                            </div>
-                            <div class="col-md-6">
-                                <label for="buscar_producto" class="form-label">Buscar Producto</label>
-                                <input type="text" class="form-control" id="buscar_producto" 
-                                       placeholder="Código o descripción...">
-                            </div>
+                <!-- Información del filtro aplicado -->
+                <div class="filter-section" id="filtro-info" style="display: none;">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <i class="fas fa-filter me-2 text-primary"></i>
+                            <strong>Filtro aplicado:</strong> 
+                            <span id="filtro-actual">Todas las categorías</span>
                         </div>
+                        <button type="button" class="btn btn-sm btn-outline-secondary" id="btn-quitar-filtro">
+                            <i class="fas fa-times me-1"></i>Quitar filtro
+                        </button>
+                    </div>
+                </div>
 
-                        <!-- Lista de Productos Disponibles -->
-                        <div class="mb-4">
-                            <h6>Productos Disponibles en Bodega</h6>
-                            <div id="lista-productos" class="row" style="max-height: 300px; overflow-y: auto;">
-                                {% for producto in productos %}
-                                <div class="col-md-6 mb-2 producto-item" 
-                                     data-categoria="{{ producto.ID_Categoria }}"
-                                     data-nombre="{{ producto.Descripcion.lower() }}"
-                                     data-codigo="{{ producto.COD_Producto.lower() }}">
-                                    <div class="card product-card">
-                                        <div class="card-body py-2">
-                                            <div class="d-flex justify-content-between align-items-center">
-                                                <div>
-                                                    <small class="fw-bold">{{ producto.Descripcion }}</small><br>
-                                                    <small class="text-muted">Cód: {{ producto.COD_Producto }}</small><br>
-                                                    <small class="text-muted">Cat: {{ producto.Categoria }}</small><br>
-                                                    <small class="text-success">Stock: {{ "%.2f"|format(producto.Existencias) }}</small>
-                                                </div>
-                                                <div class="text-end">
-                                                    <small class="text-primary">C$ {{ "%.2f"|format(producto.Precio_Venta) }}</small><br>
-                                                    <button type="button" class="btn btn-sm btn-outline-primary mt-1" 
-                                                            onclick="agregarProducto({{ producto.ID_Producto }}, '{{ producto.Descripcion|replace("'", "\\'") }}', '{{ producto.COD_Producto }}', {{ producto.Precio_Venta }}, {{ producto.Existencias }})">
-                                                        <i class="fas fa-plus"></i>
-                                                    </button>
-                                                </div>
-                                            </div>
-                                        </div>
+                <!-- Productos - Versión Compacta -->
+                <div class="form-section">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h4 class="section-title mb-0"><i class="fas fa-boxes me-2"></i>Productos</h4>
+                        <div class="quick-actions">
+                            <button type="button" class="btn btn-primary btn-sm" id="btn-buscar-producto">
+                                <i class="fas fa-search me-1"></i>Buscar
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Mensaje cuando no hay productos -->
+                    <div id="no-products-message" class="text-center py-5" style="display: {% if productos_actuales %}none{% else %}block{% endif %};">
+                        <i class="fas fa-box-open fa-3x text-muted mb-3"></i>
+                        <h5 class="text-muted">No hay productos agregados</h5>
+                        <p class="text-muted mb-3">Agregue productos para continuar</p>
+                    </div>
+                    
+                    <!-- Contenedor de productos seleccionados -->
+                    <div id="productos-container" class="mt-3">
+                        {% for producto in productos_actuales %}
+                        <div class="product-card" id="producto-card-{{ producto.ID_Producto }}" data-producto-id="{{ producto.ID_Producto }}">
+                            <div class="product-card-header">
+                                <h6 class="product-card-title">Producto #{{ loop.index }}</h6>
+                                <button type="button" class="btn btn-danger btn-sm" onclick="eliminarProducto('{{ producto.ID_Producto }}')">
+                                    <i class="fas fa-times"></i>
+                                </button>
+                            </div>
+                            <div class="product-grid">
+                                <!-- Producto -->
+                                <div>
+                                    <label class="form-label required-field">Producto</label>
+                                    <div class="form-control form-control-sm" style="background: #f8f9fa;">
+                                        {{ producto.Producto }}<br>
+                                        <small class="text-muted">Cód: {{ producto.COD_Producto }}</small>
+                                    </div>
+                                    <input type="hidden" name="producto_id[]" value="{{ producto.ID_Producto }}">
+                                </div>
+                                
+                                <!-- Cantidad -->
+                                <div>
+                                    <label class="form-label required-field">Cantidad</label>
+                                    <div class="input-group input-group-sm">
+                                        <input type="number" class="form-control cantidad" name="cantidad[]" 
+                                               value="{{ "%.2f"|format(producto.Cantidad) }}" min="0.01" step="0.01" required 
+                                               onchange="calcularSubtotal('{{ producto.ID_Producto }}')"
+                                               data-producto-id="{{ producto.ID_Producto }}">
+                                        <span class="input-group-text">und</span>
+                                    </div>
+                                    <div class="invalid-feedback">Ingrese una cantidad válida</div>
+                                </div>
+                                
+                                <!-- Precio -->
+                                <div>
+                                    <label class="form-label required-field">Precio</label>
+                                    <div class="input-group input-group-sm">
+                                        <span class="input-group-text">C$</span>
+                                        <input type="number" class="form-control precio" name="precio[]" 
+                                               value="{{ "%.2f"|format(producto.Precio_Unitario) }}" step="0.01" min="0" required 
+                                               onchange="calcularSubtotal('{{ producto.ID_Producto }}')"
+                                               data-producto-id="{{ producto.ID_Producto }}">
+                                    </div>
+                                    <div class="invalid-feedback">Ingrese un precio válido</div>
+                                </div>
+                                
+                                <!-- Subtotal -->
+                                <div>
+                                    <label class="form-label">Subtotal</label>
+                                    <div class="input-group input-group-sm">
+                                        <span class="input-group-text">C$</span>
+                                        <input type="text" class="form-control subtotal" 
+                                               value="{{ "%.2f"|format(producto.Subtotal) }}" readonly style="background: #f8f9fa;"
+                                               data-producto-id="{{ producto.ID_Producto }}">
                                     </div>
                                 </div>
-                                {% endfor %}
                             </div>
                         </div>
-
-                        <!-- Productos Seleccionados -->
-                        <h6>Productos en la Venta</h6>
-                        <div class="table-responsive">
-                            <table class="table table-bordered" id="tabla-productos">
-                                <thead class="table-light">
-                                    <tr>
-                                        <th width="5%">#</th>
-                                        <th width="35%">Producto</th>
-                                        <th width="15%">Cantidad</th>
-                                        <th width="20%">Precio Unit.</th>
-                                        <th width="20%">Subtotal</th>
-                                        <th width="5%">Acción</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="productos-seleccionados">
-                                    {% for producto in productos_actuales %}
-                                    <tr data-producto-id="{{ producto.ID_Producto }}">
-                                        <td>{{ loop.index }}</td>
-                                        <td>
-                                            {{ producto.Producto }}<br>
-                                            <small class="text-muted">Cód: {{ producto.COD_Producto }}</small>
-                                        </td>
-                                        <td>
-                                            <input type="number" class="form-control form-control-sm cantidad" 
-                                                   name="cantidad[]" value="{{ "%.2f"|format(producto.Cantidad) }}" 
-                                                   min="0.01" step="0.01" required 
-                                                   onchange="calcularSubtotal(this)">
-                                        </td>
-                                        <td>
-                                            <input type="number" class="form-control form-control-sm precio" 
-                                                   name="precio[]" value="{{ "%.2f"|format(producto.Precio_Unitario) }}" 
-                                                   min="0.01" step="0.01" required 
-                                                   onchange="calcularSubtotal(this)">
-                                        </td>
-                                        <td>
-                                            <span class="subtotal">C$ {{ "%.2f"|format(producto.Subtotal) }}</span>
-                                            <input type="hidden" name="producto_id[]" value="{{ producto.ID_Producto }}">
-                                        </td>
-                                        <td>
-                                            <button type="button" class="btn btn-sm btn-outline-danger" 
-                                                    onclick="eliminarProducto(this)">
-                                                <i class="fas fa-trash"></i>
-                                            </button>
-                                        </td>
-                                    </tr>
-                                    {% endfor %}
-                                </tbody>
-                                <tfoot class="table-secondary">
-                                    <tr>
-                                        <th colspan="4" class="text-end">TOTAL VENTA:</th>
-                                        <th id="total-venta">
-                                            {% if total_venta_actual is defined %}
-                                            C$ {{ "%.2f"|format(total_venta_actual) }}
-                                            {% else %}
-                                            C$ 0.00
-                                            {% endif %}
-                                        </th>
-                                        <th></th>
-                                    </tr>
-                                </tfoot>
-                            </table>
-                        </div>
-
-                        {% if not productos_actuales %}
-                        <div class="alert alert-warning text-center">
-                            <i class="fas fa-exclamation-triangle"></i>
-                            No hay productos agregados a la venta. Agregue al menos un producto.
-                        </div>
-                        {% endif %}
-                    </div>
-                </div>
-            </div>
-
-            <div class="col-lg-4">
-                <!-- Resumen y Acciones -->
-                <div class="card">
-                    <div class="card-header bg-success text-white">
-                        <h5 class="card-title mb-0">
-                            <i class="fas fa-calculator"></i>
-                            Resumen
-                        </h5>
-                    </div>
-                    <div class="card-body">
-                        <div class="mb-3">
-                            <strong>Total Productos:</strong>
-                            <span id="total-productos" class="float-end">{{ productos_actuales|length }}</span>
-                        </div>
-                        <div class="mb-3">
-                            <strong>Total Venta:</strong>
-                            <span id="resumen-total" class="float-end">
-                                {% if total_venta_actual is defined %}
-                                C$ {{ "%.2f"|format(total_venta_actual) }}
-                                {% else %}
-                                C$ 0.00
-                                {% endif %}
-                            </span>
-                        </div>
-                        <hr>
-                        <div class="alert alert-info">
-                            <small>
-                                <i class="fas fa-info-circle"></i>
-                                <strong>Nota:</strong> Al guardar los cambios, el inventario se actualizará automáticamente.
-                            </small>
-                        </div>
+                        {% endfor %}
                     </div>
                 </div>
 
-                <!-- Acciones -->
-                <div class="card mt-4">
-                    <div class="card-header bg-secondary text-white">
-                        <h5 class="card-title mb-0">
-                            <i class="fas fa-cog"></i>
-                            Acciones
-                        </h5>
+                <!-- Resumen de Totales -->
+                <div class="total-summary">
+                    <div class="total-row">
+                        <span>Total Productos:</span>
+                        <span id="total-productos" class="fw-bold">{{ productos_actuales|length }}</span>
                     </div>
-                    <div class="card-body">
-                        <div class="d-grid gap-2">
-                            <button type="submit" class="btn btn-warning">
-                                <i class="fas fa-save"></i> Guardar Cambios
-                            </button>
-                            <a href="{{ url_for('admin_detalles_venta', id_factura=factura.ID_Factura) }}" 
-                               class="btn btn-outline-secondary">
-                                <i class="fas fa-times"></i> Cancelar
-                            </a>
-                        </div>
+                    <div class="total-row">
+                        <span>Subtotal:</span>
+                        <span id="subtotal" class="fw-bold">
+                            {% if total_venta_actual is defined %}
+                            C$ {{ "%.2f"|format(total_venta_actual) }}
+                            {% else %}
+                            C$ 0.00
+                            {% endif %}
+                        </span>
+                    </div>
+                    <div class="total-row grand-total">
+                        <span>TOTAL VENTA:</span>
+                        <span id="total-venta" class="fw-bold">
+                            {% if total_venta_actual is defined %}
+                            C$ {{ "%.2f"|format(total_venta_actual) }}
+                            {% else %}
+                            C$ 0.00
+                            {% endif %}
+                        </span>
                     </div>
                 </div>
 
-                <!-- Información de la Empresa -->
-                <div class="card mt-4">
-                    <div class="card-header bg-light">
-                        <h6 class="card-title mb-0">
-                            <i class="fas fa-building"></i>
-                            Información Empresarial
-                        </h6>
-                    </div>
-                    <div class="card-body">
-                        <small>
-                            <strong>{{ empresa.Nombre_Empresa or 'Empresa' }}</strong><br>
-                            RUC: {{ empresa.RUC or 'N/A' }}<br>
-                            Tel: {{ empresa.Telefono or 'N/A' }}<br>
-                            Dir: {{ empresa.Direccion or 'N/A' }}
-                        </small>
-                    </div>
+                <!-- Botones de Acción -->
+                <div class="d-flex justify-content-end gap-3 mt-4">
+                    <a href="{{ url_for('admin_detalles_venta', id_factura=factura.ID_Factura) }}" class="btn btn-secondary">
+                        <i class="fas fa-times me-1"></i> Cancelar
+                    </a>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save me-1"></i> Actualizar Venta
+                    </button>
                 </div>
-            </div>
+            </form>
         </div>
-    </form>
+    </div>
 </div>
-{% endblock %}
 
-{% block scripts %}
 <script>
-// Variables globales
+// Variables globales (MANTENIDAS desde Editar_venta original)
 let productosAgregados = new Set([{% for p in productos_actuales %}{{ p.ID_Producto }},{% endfor %}]);
+let contadorProductos = {{ productos_actuales|length }};
 
-// Filtros de productos
-document.getElementById('filtro_categoria').addEventListener('change', filtrarProductos);
-document.getElementById('buscar_producto').addEventListener('input', filtrarProductos);
+// ============================================
+// INICIALIZACIÓN
+// ============================================
 
-function filtrarProductos() {
-    const categoria = document.getElementById('filtro_categoria').value;
-    const busqueda = document.getElementById('buscar_producto').value.toLowerCase();
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('🔄 Inicializando formulario de edición de venta...');
     
-    document.querySelectorAll('.producto-item').forEach(item => {
-        const itemCategoria = item.getAttribute('data-categoria');
-        const itemNombre = item.getAttribute('data-nombre');
-        const itemCodigo = item.getAttribute('data-codigo');
-        
-        const coincideCategoria = !categoria || itemCategoria === categoria;
-        const coincideBusqueda = !busqueda || itemNombre.includes(busqueda) || itemCodigo.includes(busqueda);
-        
-        item.style.display = (coincideCategoria && coincideBusqueda) ? 'block' : 'none';
+    // Eventos para el modal de confirmación (ORIGINAL)
+    document.getElementById('closeConfirmModal').addEventListener('click', cerrarModalConfirmacion);
+    document.getElementById('cancelConfirm').addEventListener('click', cerrarModalConfirmacion);
+    document.getElementById('confirmProceed').addEventListener('click', confirmarActualizacion);
+    
+    // Eventos para filtros (DEL DISEÑO NUEVO)
+    document.getElementById('btn-aplicar-filtro').addEventListener('click', aplicarFiltroCategoria);
+    document.getElementById('btn-limpiar-filtro').addEventListener('click', limpiarFiltro);
+    document.getElementById('btn-quitar-filtro').addEventListener('click', limpiarFiltro);
+    
+    // Controlar visibilidad de fecha de vencimiento para crédito (DEL DISEÑO NUEVO)
+    document.getElementById('tipo_venta').addEventListener('change', function() {
+        const fechaVencimientoGroup = document.getElementById('fecha_vencimiento_group');
+        if (this.value === 'credito') {
+            fechaVencimientoGroup.style.display = 'block';
+            // Establecer fecha de vencimiento por defecto (30 días) si está vacía
+            const fechaInput = document.getElementById('fecha_vencimiento');
+            if (!fechaInput.value) {
+                const fechaVencimiento = new Date();
+                fechaVencimiento.setDate(fechaVencimiento.getDate() + 30);
+                fechaInput.value = fechaVencimiento.toISOString().split('T')[0];
+            }
+        } else {
+            fechaVencimientoGroup.style.display = 'none';
+        }
     });
+
+    // Validar cliente cuando se selecciona crédito (DEL DISEÑO NUEVO)
+    document.getElementById('id_cliente').addEventListener('change', function() {
+        if (document.getElementById('tipo_venta').value === 'credito' && !this.value) {
+            mostrarAlerta('warning', '⚠️ Advertencia', 'Para ventas a crédito debe seleccionar un cliente');
+        }
+    });
+
+    // Inicializar cálculos (ORIGINAL)
+    actualizarResumen();
+    
+    console.log('✅ Formulario inicializado correctamente');
+});
+
+// ============================================
+// FUNCIONES DEL MODAL DE CONFIRMACIÓN (ORIGINAL)
+// ============================================
+
+function mostrarModalConfirmacion() {
+    console.log('📋 Preparando modal de confirmación para edición...');
+    
+    // Obtener datos del formulario
+    const clienteSelect = document.getElementById('id_cliente');
+    const cliente = clienteSelect.options[clienteSelect.selectedIndex]?.text || 'Cliente no seleccionado';
+    const tipoVenta = document.getElementById('tipo_venta').value === 'credito' ? 'CRÉDITO' : 'CONTADO';
+    const totalProductos = document.getElementById('total-productos').textContent;
+    const totalCobrar = document.getElementById('total-venta').textContent;
+    
+    // Actualizar información en el modal
+    document.getElementById('confirm-cliente').textContent = cliente;
+    document.getElementById('confirm-tipo-venta').textContent = tipoVenta;
+    document.getElementById('confirm-total-productos').textContent = totalProductos;
+    document.getElementById('confirm-total-cobrar').textContent = totalCobrar;
+    
+    // Obtener y mostrar productos
+    const productList = document.getElementById('confirm-product-list');
+    productList.innerHTML = '';
+    
+    const productosCards = document.querySelectorAll('#productos-container .product-card');
+    let productosValidos = 0;
+    
+    productosCards.forEach((tarjeta, index) => {
+        const cantidadInput = tarjeta.querySelector('.cantidad');
+        const precioInput = tarjeta.querySelector('.precio');
+        const subtotalInput = tarjeta.querySelector('.subtotal');
+        
+        if (cantidadInput && precioInput && subtotalInput) {
+            productosValidos++;
+            
+            const productoNombre = tarjeta.querySelector('.product-card-title')?.textContent || 'Producto no identificado';
+            const productoDiv = document.createElement('div');
+            productoDiv.className = 'confirm-product-item';
+            
+            productoDiv.innerHTML = `
+                <div class="confirm-product-name">${productoNombre}</div>
+                <div class="confirm-product-details">
+                    <span>${cantidadInput.value} und</span>
+                    <span>C$ ${precioInput.value}</span>
+                    <span class="fw-bold">C$ ${subtotalInput.value}</span>
+                </div>
+            `;
+            
+            productList.appendChild(productoDiv);
+        }
+    });
+    
+    // Mostrar mensaje si no hay productos válidos
+    if (productosValidos === 0) {
+        const mensajeDiv = document.createElement('div');
+        mensajeDiv.className = 'confirm-product-item text-center text-muted';
+        mensajeDiv.textContent = 'No hay productos válidos para mostrar';
+        productList.appendChild(mensajeDiv);
+    }
+    
+    // Mostrar el modal
+    document.getElementById('confirmModal').classList.add('show');
+    document.body.style.overflow = 'hidden';
+    
+    console.log('✅ Modal de confirmación para edición mostrado');
 }
 
-// Agregar producto a la tabla
-function agregarProducto(id, nombre, codigo, precio, stock) {
+function cerrarModalConfirmacion() {
+    document.getElementById('confirmModal').classList.remove('show');
+    document.body.style.overflow = 'auto';
+    console.log('❌ Modal de confirmación cerrado');
+}
+
+function confirmarActualizacion() {
+    console.log('✅ Confirmación aceptada, procediendo con el envío del formulario...');
+    cerrarModalConfirmacion();
+    
+    // Enviar el formulario normalmente
+    const form = document.getElementById('formEditarVenta');
+    const submitBtn = form.querySelector('button[type="submit"]');
+    
+    // Mostrar loading en el botón
+    const originalText = submitBtn.innerHTML;
+    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> Actualizando...';
+    submitBtn.disabled = true;
+    
+    // Enviar formulario
+    form.submit();
+}
+
+// ============================================
+// FUNCIONES DE FILTRADO (DEL DISEÑO NUEVO - ADAPTADAS)
+// ============================================
+
+function aplicarFiltroCategoria() {
+    const categoriaSelect = document.getElementById('filtro_categoria');
+    const idCategoria = categoriaSelect.value;
+    const nombreCategoria = categoriaSelect.options[categoriaSelect.selectedIndex].text;
+    
+    console.log('[VENTAS] Aplicando filtro - Categoria:', idCategoria);
+    
+    try {
+        // Mostrar información del filtro
+        const filtroInfo = document.getElementById('filtro-info');
+        const filtroActual = document.getElementById('filtro-actual');
+        
+        if (idCategoria === '0') {
+            filtroInfo.style.display = 'none';
+            filtroActual.textContent = 'Todas las categorías';
+            mostrarAlerta('info', 'ℹ️ Filtro limpiado', 'Mostrando todos los productos disponibles.');
+        } else {
+            filtroInfo.style.display = 'block';
+            filtroActual.textContent = nombreCategoria;
+            mostrarAlerta('success', '✅ Filtro aplicado', `Mostrando productos de: ${nombreCategoria}`);
+        }
+        
+    } catch (error) {
+        console.error('[VENTAS] Error aplicando filtro:', error);
+        mostrarAlerta('danger', '❌ Error', `No se pudo aplicar el filtro: ${error.message}`);
+    }
+}
+
+function limpiarFiltro() {
+    console.log('[VENTAS] Limpiando filtro');
+    document.getElementById('filtro_categoria').value = '0';
+    document.getElementById('filtro-info').style.display = 'none';
+    
+    mostrarAlerta('info', 'ℹ️ Filtro limpiado', 'Mostrando todos los productos disponibles.');
+}
+
+// ============================================
+// FUNCIONES DE GESTIÓN DE PRODUCTOS (ORIGINALES)
+// ============================================
+
+function agregarProductoExistente(id, nombre, codigo, precio, stock) {
     if (productosAgregados.has(id)) {
-        alert('Este producto ya está en la venta');
+        mostrarAlerta('warning', '⚠️ Producto duplicado', 'Este producto ya está en la venta');
         return;
     }
     
-    const tabla = document.getElementById('productos-seleccionados');
-    const fila = document.createElement('tr');
-    fila.setAttribute('data-producto-id', id);
-    
-    const numeroFila = tabla.children.length + 1;
-    
-    fila.innerHTML = `
-        <td>${numeroFila}</td>
-        <td>
-            ${nombre}<br>
-            <small class="text-muted">Cód: ${codigo}</small>
-        </td>
-        <td>
-            <input type="number" class="form-control form-control-sm cantidad" 
-                   name="cantidad[]" value="1" min="0.01" max="${stock}" 
-                   step="0.01" required onchange="calcularSubtotal(this)">
-        </td>
-        <td>
-            <input type="number" class="form-control form-control-sm precio" 
-                   name="precio[]" value="${precio.toFixed(2)}" min="0.01" 
-                   step="0.01" required onchange="calcularSubtotal(this)">
-        </td>
-        <td>
-            <span class="subtotal">C$ ${precio.toFixed(2)}</span>
-            <input type="hidden" name="producto_id[]" value="${id}">
-        </td>
-        <td>
-            <button type="button" class="btn btn-sm btn-outline-danger" 
-                    onclick="eliminarProducto(this)">
-                <i class="fas fa-trash"></i>
-            </button>
-        </td>
+    contadorProductos++;
+    const productoHTML = `
+        <div class="product-card" id="producto-card-${id}" data-producto-id="${id}">
+            <div class="product-card-header">
+                <h6 class="product-card-title">Producto #${contadorProductos}</h6>
+                <button type="button" class="btn btn-danger btn-sm" onclick="eliminarProducto('${id}')">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="product-grid">
+                <!-- Producto -->
+                <div>
+                    <label class="form-label required-field">Producto</label>
+                    <div class="form-control form-control-sm" style="background: #f8f9fa;">
+                        ${nombre}<br>
+                        <small class="text-muted">Cód: ${codigo}</small>
+                    </div>
+                    <input type="hidden" name="producto_id[]" value="${id}">
+                </div>
+                
+                <!-- Cantidad -->
+                <div>
+                    <label class="form-label required-field">Cantidad</label>
+                    <div class="input-group input-group-sm">
+                        <input type="number" class="form-control cantidad" name="cantidad[]" 
+                               value="1" min="0.01" max="${stock}" step="0.01" required 
+                               onchange="calcularSubtotal('${id}')"
+                               data-producto-id="${id}">
+                        <span class="input-group-text">und</span>
+                    </div>
+                    <div class="invalid-feedback">Ingrese una cantidad válida</div>
+                </div>
+                
+                <!-- Precio -->
+                <div>
+                    <label class="form-label required-field">Precio</label>
+                    <div class="input-group input-group-sm">
+                        <span class="input-group-text">C$</span>
+                        <input type="number" class="form-control precio" name="precio[]" 
+                               value="${precio.toFixed(2)}" step="0.01" min="0" required 
+                               onchange="calcularSubtotal('${id}')"
+                               data-producto-id="${id}">
+                    </div>
+                    <div class="invalid-feedback">Ingrese un precio válido</div>
+                </div>
+                
+                <!-- Subtotal -->
+                <div>
+                    <label class="form-label">Subtotal</label>
+                    <div class="input-group input-group-sm">
+                        <span class="input-group-text">C$</span>
+                        <input type="text" class="form-control subtotal" value="${precio.toFixed(2)}" 
+                               readonly style="background: #f8f9fa;"
+                               data-producto-id="${id}">
+                    </div>
+                </div>
+            </div>
+        </div>
     `;
     
-    tabla.appendChild(fila);
+    document.getElementById('productos-container').insertAdjacentHTML('beforeend', productoHTML);
     productosAgregados.add(id);
+    actualizarMensajeProductos();
     actualizarResumen();
-}
-
-// Eliminar producto de la tabla
-function eliminarProducto(boton) {
-    const fila = boton.closest('tr');
-    const productoId = fila.getAttribute('data-producto-id');
     
-    productosAgregados.delete(parseInt(productoId));
-    fila.remove();
-    actualizarNumeracion();
-    actualizarResumen();
+    console.log(`➕ Producto agregado: ${nombre}`);
 }
 
-// Calcular subtotal
-function calcularSubtotal(input) {
-    const fila = input.closest('tr');
-    const cantidad = parseFloat(fila.querySelector('.cantidad').value) || 0;
-    const precio = parseFloat(fila.querySelector('.precio').value) || 0;
+function eliminarProducto(id) {
+    const tarjeta = document.getElementById(`producto-card-${id}`);
+    if (tarjeta) {
+        // Verificar que quede al menos un producto
+        const totalProductos = document.querySelectorAll('#productos-container .product-card').length;
+        if (totalProductos <= 1) {
+            mostrarAlerta('warning', '⚠️ Advertencia', 'Debe haber al menos un producto en la venta');
+            return;
+        }
+        
+        tarjeta.remove();
+        productosAgregados.delete(parseInt(id));
+        actualizarMensajeProductos();
+        actualizarResumen();
+        
+        mostrarAlerta('info', '🗑️ Producto eliminado', 'El producto ha sido removido de la venta');
+        console.log(`➖ Producto eliminado: ${id}`);
+    }
+}
+
+function calcularSubtotal(productoId) {
+    const tarjeta = document.getElementById(`producto-card-${productoId}`);
+    if (!tarjeta) return;
+    
+    const cantidadInput = tarjeta.querySelector('.cantidad[data-producto-id="' + productoId + '"]');
+    const precioInput = tarjeta.querySelector('.precio[data-producto-id="' + productoId + '"]');
+    const subtotalInput = tarjeta.querySelector('.subtotal[data-producto-id="' + productoId + '"]');
+    
+    if (!cantidadInput || !precioInput || !subtotalInput) return;
+    
+    const cantidad = parseFloat(cantidadInput.value) || 0;
+    const precio = parseFloat(precioInput.value) || 0;
     const subtotal = cantidad * precio;
     
-    fila.querySelector('.subtotal').textContent = `C$ ${subtotal.toFixed(2)}`;
+    subtotalInput.value = subtotal.toFixed(2);
+    
+    // Validar stock (funcionalidad original)
+    const productoItem = document.querySelector(`.producto-item[data-producto-id="${productoId}"]`);
+    if (productoItem) {
+        const stockDisponible = parseFloat(productoItem.getAttribute('data-stock')) || 0;
+        if (cantidad > stockDisponible) {
+            cantidadInput.classList.add('is-invalid');
+            mostrarAlerta('warning', '⚠️ Stock insuficiente', 'La cantidad supera el stock disponible');
+        } else {
+            cantidadInput.classList.remove('is-invalid');
+        }
+    }
+    
     actualizarResumen();
 }
 
-// Actualizar numeración de filas
-function actualizarNumeracion() {
-    const filas = document.querySelectorAll('#productos-seleccionados tr');
-    filas.forEach((fila, index) => {
-        fila.cells[0].textContent = index + 1;
-    });
-}
+// ============================================
+// FUNCIONES DE CÁLCULO (ORIGINALES)
+// ============================================
 
-// Actualizar resumen
 function actualizarResumen() {
     let totalVenta = 0;
     let totalProductos = 0;
     
-    document.querySelectorAll('#productos-seleccionados tr').forEach(fila => {
-        const subtotal = parseFloat(fila.querySelector('.subtotal').textContent.replace('C$ ', '')) || 0;
-        totalVenta += subtotal;
-        totalProductos++;
-    });
-    
-    document.getElementById('total-productos').textContent = totalProductos;
-    document.getElementById('resumen-total').textContent = `C$ ${totalVenta.toFixed(2)}`;
-    document.getElementById('total-venta').textContent = `C$ ${totalVenta.toFixed(2)}`;
-}
-
-// Validación del formulario
-document.getElementById('formEditarVenta').addEventListener('submit', function(e) {
-    if (productosAgregados.size === 0) {
-        e.preventDefault();
-        alert('Debe agregar al menos un producto a la venta');
-        return;
-    }
-    
-    // Validar stock
-    let stockValido = true;
-    document.querySelectorAll('#productos-seleccionados tr').forEach(fila => {
-        const productoId = fila.getAttribute('data-producto-id');
-        const cantidad = parseFloat(fila.querySelector('.cantidad').value) || 0;
-        const stockMax = parseFloat(fila.querySelector('.cantidad').max) || 0;
-        
-        if (cantidad > stockMax) {
-            stockValido = false;
-            alert(`La cantidad supera el stock disponible para uno de los productos`);
+    document.querySelectorAll('#productos-container .product-card').forEach(tarjeta => {
+        const subtotalInput = tarjeta.querySelector('.subtotal');
+        if (subtotalInput) {
+            const valor = parseFloat(subtotalInput.value) || 0;
+            if (valor > 0) {
+                totalVenta += valor;
+                totalProductos++;
+            }
         }
     });
+
+    document.getElementById('total-venta').textContent = `C$ ${totalVenta.toFixed(2)}`;
+    document.getElementById('subtotal').textContent = `C$ ${totalVenta.toFixed(2)}`;
+    document.getElementById('total-productos').textContent = totalProductos;
     
-    if (!stockValido) {
-        e.preventDefault();
+    console.log(`💰 Total venta: C$ ${totalVenta.toFixed(2)}, Productos: ${totalProductos}`);
+}
+
+function actualizarMensajeProductos() {
+    const tarjetas = document.querySelectorAll('#productos-container .product-card').length;
+    const mensaje = document.getElementById('no-products-message');
+    const container = document.getElementById('productos-container');
+    
+    if (mensaje) {
+        mensaje.style.display = tarjetas === 0 ? 'block' : 'none';
     }
+    if (container) {
+        container.style.display = tarjetas === 0 ? 'none' : 'block';
+    }
+}
+
+// ============================================
+// FUNCIONES DE UTILIDAD (ORIGINALES)
+// ============================================
+
+function mostrarAlerta(tipo, titulo, mensaje) {
+    const alertasExistentes = document.querySelectorAll('.alert-flotante');
+    alertasExistentes.forEach(alerta => alerta.remove());
+    
+    const alerta = document.createElement('div');
+    alerta.className = `alert alert-${tipo} alert-dismissible fade show alert-flotante`;
+    alerta.innerHTML = `
+        <strong>${titulo}</strong> ${mensaje}
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    `;
+    document.body.appendChild(alerta);
+    
+    setTimeout(() => {
+        if (alerta.parentNode) {
+            alerta.remove();
+        }
+    }, 5000);
+}
+
+// ============================================
+// VALIDACIÓN DEL FORMULARIO (ORIGINAL)
+// ============================================
+
+document.getElementById('formEditarVenta').addEventListener('submit', function(e) {
+    e.preventDefault(); // Prevenir envío normal
+    
+    // Validar formulario
+    if (!validarVenta()) {
+        return;
+    }
+
+    // Mostrar modal de confirmación
+    mostrarModalConfirmacion();
 });
 
-// Inicializar
-document.addEventListener('DOMContentLoaded', function() {
-    actualizarResumen();
-});
+function validarVenta() {
+    let valido = true;
+
+    // Validar campos principales
+    const camposRequeridos = [
+        { id: 'id_cliente', nombre: 'Cliente' },
+        { id: 'tipo_venta', nombre: 'Tipo de venta' }
+    ];
+    
+    camposRequeridos.forEach(campo => {
+        const elemento = document.getElementById(campo.id);
+        if (!elemento.value || elemento.value.trim() === '') {
+            elemento.classList.add('is-invalid');
+            mostrarAlerta('warning', '⚠️ Campo requerido', `${campo.nombre} es obligatorio`);
+            valido = false;
+        } else {
+            elemento.classList.remove('is-invalid');
+        }
+    });
+
+    // Validar productos
+    const productos = document.querySelectorAll('#productos-container .product-card');
+    if (productos.length === 0) {
+        mostrarAlerta('danger', '❌ Error', 'Debe agregar al menos un producto');
+        return false;
+    }
+
+    // Validar cada producto
+    let productosValidos = false;
+    productos.forEach(producto => {
+        const cantidadInput = producto.querySelector('.cantidad');
+        const precioInput = producto.querySelector('.precio');
+        
+        if (cantidadInput && cantidadInput.value && precioInput && precioInput.value) {
+            if (parseFloat(cantidadInput.value) > 0 && parseFloat(precioInput.value) >= 0) {
+                productosValidos = true;
+                cantidadInput.classList.remove('is-invalid');
+                precioInput.classList.remove('is-invalid');
+            } else {
+                if (parseFloat(cantidadInput.value) <= 0) cantidadInput.classList.add('is-invalid');
+                if (parseFloat(precioInput.value) < 0) precioInput.classList.add('is-invalid');
+                valido = false;
+            }
+        } else {
+            if (!cantidadInput.value) cantidadInput.classList.add('is-invalid');
+            if (!precioInput.value) precioInput.classList.add('is-invalid');
+            valido = false;
+        }
+    });
+
+    if (!productosValidos) {
+        mostrarAlerta('danger', '❌ Error', 'Complete todos los campos de productos correctamente');
+        return false;
+    }
+
+    return valido;
+}
 </script>
-
-<style>
-.product-card {
-    transition: all 0.3s ease;
-    cursor: pointer;
-}
-
-.product-card:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-}
-
-#lista-productos {
-    border: 1px solid #dee2e6;
-    border-radius: 0.375rem;
-    padding: 10px;
-}
-</style>
 {% endblock %}

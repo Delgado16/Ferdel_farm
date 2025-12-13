@@ -2758,7 +2758,7 @@ def admin_crear_compra():
                         id_usuario
                     ))
                 
-                flash('Compra creada exitosamente', 'success')
+                flash(f'Compra creada exitosamente', 'success')
                 return redirect(url_for('admin_compras_entradas'))            
     except Exception as e:
         print(f"Error completo al crear compra: {str(e)}")
@@ -4708,7 +4708,7 @@ def admin_editar_venta(id_factura):
                 FROM productos p
                 LEFT JOIN categorias_producto c ON p.ID_Categoria = c.ID_Categoria
                 LEFT JOIN inventario_bodega ib ON p.ID_Producto = ib.ID_Producto AND ib.ID_Bodega = %s
-                WHERE p.Estado = 1 
+                WHERE p.Estado = 'activo' 
                 AND (p.ID_Empresa = %s OR p.ID_Empresa IS NULL)
                 ORDER BY c.Descripcion, p.Descripcion
             """, (id_bodega_original, id_empresa))

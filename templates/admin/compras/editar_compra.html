@@ -245,6 +245,140 @@
         padding: 0.5rem;
     }
 
+    /* Modal de confirmación */
+    .confirm-modal {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.5);
+        z-index: 9999;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .confirm-modal.show {
+        display: flex;
+    }
+
+    .confirm-modal-content {
+        background-color: white;
+        border-radius: 10px;
+        width: 90%;
+        max-width: 500px;
+        box-shadow: 0 5px 20px rgba(0, 0, 0, 0.2);
+        animation: modalFadeIn 0.3s ease;
+    }
+
+    @keyframes modalFadeIn {
+        from {
+            opacity: 0;
+            transform: translateY(-20px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    .confirm-modal-header {
+        background: linear-gradient(135deg, var(--primary-color), #1e3a6d);
+        color: white;
+        padding: 1.25rem 1.5rem;
+        border-radius: 10px 10px 0 0;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
+
+    .confirm-modal-header h4 {
+        margin: 0;
+        font-weight: 600;
+        font-size: 1.25rem;
+    }
+
+    .confirm-modal-body {
+        padding: 1.5rem;
+        max-height: 60vh;
+        overflow-y: auto;
+    }
+
+    .confirm-modal-footer {
+        padding: 1rem 1.5rem;
+        border-top: 1px solid var(--border-color);
+        display: flex;
+        justify-content: flex-end;
+        gap: 0.75rem;
+    }
+
+    .confirm-summary {
+        background-color: #f8f9fa;
+        border-radius: 8px;
+        padding: 1rem;
+        margin: 1rem 0;
+        border: 1px solid var(--border-color);
+    }
+
+    .confirm-summary-item {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 0.5rem;
+        font-size: 0.95rem;
+    }
+
+    .confirm-summary-item:last-child {
+        margin-bottom: 0;
+    }
+
+    .confirm-summary-total {
+        border-top: 2px solid var(--border-color);
+        padding-top: 0.75rem;
+        margin-top: 0.75rem;
+        font-weight: 700;
+        color: var(--primary-color);
+    }
+
+    .confirm-product-list {
+        max-height: 200px;
+        overflow-y: auto;
+        margin: 1rem 0;
+        border: 1px solid var(--border-color);
+        border-radius: 6px;
+    }
+
+    .confirm-product-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 0.75rem 1rem;
+        border-bottom: 1px solid #e9ecef;
+    }
+
+    .confirm-product-item:last-child {
+        border-bottom: none;
+    }
+
+    .confirm-product-name {
+        flex: 1;
+        font-weight: 500;
+    }
+
+    .confirm-product-details {
+        display: flex;
+        gap: 1rem;
+        font-size: 0.9rem;
+        color: #6c757d;
+    }
+
+    .modal-icon {
+        font-size: 2.5rem;
+        color: var(--primary-color);
+        margin-bottom: 1rem;
+        text-align: center;
+    }
+
     /* Responsive */
     @media (max-width: 1200px) {
         .compra-container {
@@ -280,6 +414,15 @@
         .total-summary {
             padding: 1rem;
         }
+
+        .confirm-modal-content {
+            width: 95%;
+            margin: 1rem;
+        }
+
+        .confirm-modal-body {
+            max-height: 70vh;
+        }
     }
 
     @media (max-width: 576px) {
@@ -312,8 +455,86 @@
             width: 100%;
             margin-bottom: 0.5rem;
         }
+
+        .confirm-modal-footer {
+            flex-direction: column;
+        }
+
+        .confirm-modal-footer .btn {
+            width: 100%;
+            margin-bottom: 0.5rem;
+        }
     }
 </style>
+
+<!-- Modal de Confirmación -->
+<div class="confirm-modal" id="confirmModal">
+    <div class="confirm-modal-content">
+        <div class="confirm-modal-header">
+            <h4><i class="fas fa-check-circle me-2"></i>Confirmar Actualización de Compra</h4>
+            <button type="button" class="btn-close btn-close-white" id="closeConfirmModal"></button>
+        </div>
+        <div class="confirm-modal-body">
+            <div class="modal-icon">
+                <i class="fas fa-edit"></i>
+            </div>
+            <h5 class="text-center mb-3">¿Está seguro de actualizar esta compra?</h5>
+            <p class="text-center text-muted mb-4">Revise los cambios antes de continuar:</p>
+            
+            <!-- Resumen de la compra -->
+            <div class="confirm-summary">
+                <div class="confirm-summary-item">
+                    <span>N° Compra:</span>
+                    <strong>#{{ movimiento.ID_Movimiento }}</strong>
+                </div>
+                <div class="confirm-summary-item">
+                    <span>Fecha Actualizada:</span>
+                    <strong id="confirm-fecha"></strong>
+                </div>
+                <div class="confirm-summary-item">
+                    <span>Bodega Destino:</span>
+                    <strong id="confirm-bodega"></strong>
+                </div>
+                <div class="confirm-summary-item">
+                    <span>Tipo de Compra:</span>
+                    <strong id="confirm-tipo-compra"></strong>
+                </div>
+                <div class="confirm-summary-item">
+                    <span>Proveedor:</span>
+                    <strong id="confirm-proveedor"></strong>
+                </div>
+                <div class="confirm-summary-item">
+                    <span>Total Productos:</span>
+                    <strong id="confirm-total-productos"></strong>
+                </div>
+                <div class="confirm-summary-item confirm-summary-total">
+                    <span>TOTAL ACTUALIZADO:</span>
+                    <strong id="confirm-total-pagar"></strong>
+                </div>
+            </div>
+
+            <!-- Lista de productos -->
+            <h6 class="mb-2">Productos incluidos:</h6>
+            <div class="confirm-product-list" id="confirm-product-list">
+                <!-- Los productos se agregarán aquí dinámicamente -->
+            </div>
+
+            <div class="alert alert-warning mt-3 mb-0">
+                <i class="fas fa-exclamation-triangle me-2"></i>
+                <small>Esta acción actualizará la compra existente y ajustará el inventario según los cambios realizados.</small>
+            </div>
+        </div>
+        <div class="confirm-modal-footer">
+            <button type="button" class="btn btn-secondary" id="cancelConfirm">
+                <i class="fas fa-times me-1"></i> Cancelar
+            </button>
+            <button type="button" class="btn btn-primary" id="confirmProceed">
+                <i class="fas fa-check me-1"></i> Sí, Actualizar Compra
+            </button>
+        </div>
+    </div>
+</div>
+
 <div class="compra-container">
     <div class="card">
         <div class="card-header">
@@ -592,6 +813,11 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
     
+    // Eventos para el modal de confirmación
+    document.getElementById('closeConfirmModal').addEventListener('click', cerrarModalConfirmacion);
+    document.getElementById('cancelConfirm').addEventListener('click', cerrarModalConfirmacion);
+    document.getElementById('confirmProceed').addEventListener('click', confirmarActualizacion);
+    
     // Precargar información de productos existentes
     precargarProductosExistentes();
     actualizarMensajeProductos();
@@ -599,6 +825,103 @@ document.addEventListener('DOMContentLoaded', function() {
     
     console.log('✅ Formulario inicializado correctamente');
 });
+
+// ============================================
+// FUNCIONES DEL MODAL DE CONFIRMACIÓN
+// ============================================
+
+function mostrarModalConfirmacion() {
+    console.log('📋 Preparando modal de confirmación para edición...');
+    
+    // Obtener datos del formulario
+    const fecha = document.getElementById('fecha').value;
+    const bodegaSelect = document.getElementById('id_bodega');
+    const bodega = bodegaSelect.options[bodegaSelect.selectedIndex]?.text || 'No seleccionada';
+    const tipoCompra = document.getElementById('tipo_compra').value;
+    const proveedorSelect = document.getElementById('id_proveedor');
+    const proveedor = proveedorSelect.options[proveedorSelect.selectedIndex]?.text || 'No seleccionado';
+    const totalProductos = document.getElementById('total-productos').textContent;
+    const totalPagar = document.getElementById('total-compra').textContent;
+    
+    // Actualizar información en el modal
+    document.getElementById('confirm-fecha').textContent = fecha ? new Date(fecha).toLocaleDateString('es-ES') : 'No definida';
+    document.getElementById('confirm-bodega').textContent = bodega;
+    document.getElementById('confirm-tipo-compra').textContent = tipoCompra;
+    document.getElementById('confirm-proveedor').textContent = proveedor;
+    document.getElementById('confirm-total-productos').textContent = totalProductos;
+    document.getElementById('confirm-total-pagar').textContent = totalPagar;
+    
+    // Obtener y mostrar productos
+    const productList = document.getElementById('confirm-product-list');
+    productList.innerHTML = '';
+    
+    const productosCards = document.querySelectorAll('.product-card');
+    let productosValidos = 0;
+    
+    productosCards.forEach((tarjeta, index) => {
+        const select = tarjeta.querySelector('.producto-select');
+        const cantidad = tarjeta.querySelector('.cantidad');
+        const costo = tarjeta.querySelector('.costo');
+        const precio = tarjeta.querySelector('.precio');
+        const subtotal = tarjeta.querySelector('.subtotal');
+        
+        if (select.value && parseFloat(cantidad.value) > 0 && parseFloat(costo.value) > 0) {
+            productosValidos++;
+            
+            const productoNombre = select.options[select.selectedIndex]?.text || 'Producto no identificado';
+            const productoDiv = document.createElement('div');
+            productoDiv.className = 'confirm-product-item';
+            
+            productoDiv.innerHTML = `
+                <div class="confirm-product-name">${productoNombre.split(' - ')[0]}</div>
+                <div class="confirm-product-details">
+                    <span>${cantidad.value} ${tarjeta.querySelector('.input-group-text')?.textContent || 'und'}</span>
+                    <span>C$ ${costo.value}</span>
+                    <span class="fw-bold">C$ ${subtotal.value}</span>
+                </div>
+            `;
+            
+            productList.appendChild(productoDiv);
+        }
+    });
+    
+    // Mostrar mensaje si no hay productos válidos
+    if (productosValidos === 0) {
+        const mensajeDiv = document.createElement('div');
+        mensajeDiv.className = 'confirm-product-item text-center text-muted';
+        mensajeDiv.textContent = 'No hay productos válidos para mostrar';
+        productList.appendChild(mensajeDiv);
+    }
+    
+    // Mostrar el modal
+    document.getElementById('confirmModal').classList.add('show');
+    document.body.style.overflow = 'hidden'; // Prevenir scroll del fondo
+    
+    console.log('✅ Modal de confirmación para edición mostrado');
+}
+
+function cerrarModalConfirmacion() {
+    document.getElementById('confirmModal').classList.remove('show');
+    document.body.style.overflow = 'auto'; // Restaurar scroll
+    console.log('❌ Modal de confirmación cerrado');
+}
+
+function confirmarActualizacion() {
+    console.log('✅ Confirmación aceptada, procediendo con el envío del formulario...');
+    cerrarModalConfirmacion();
+    
+    // Enviar el formulario normalmente
+    const form = document.getElementById('formEditarCompra');
+    const submitBtn = form.querySelector('button[type="submit"]');
+    
+    // Mostrar loading en el botón
+    const originalText = submitBtn.innerHTML;
+    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> Actualizando...';
+    submitBtn.disabled = true;
+    
+    // Enviar formulario
+    form.submit();
+}
 
 // ========== PRECARGA DE DATOS ==========
 
@@ -659,7 +982,7 @@ function agregarProducto() {
             <div class="product-card-header">
                 <h6 class="product-card-title">Producto #${contadorProductos}</h6>
                 <button type="button" class="btn btn-danger btn-sm" onclick="eliminarProducto(${contadorProductos})">
-                    <i class="fas fa-times"></i>
+                    <i class="fas fa-times"></i>Quitar
                 </button>
             </div>
             <div class="product-grid">
@@ -1003,17 +1326,15 @@ function mostrarAlerta(tipo, titulo, mensaje) {
 // ========== VALIDACIÓN DEL FORMULARIO ==========
 
 document.getElementById('formEditarCompra').addEventListener('submit', function(e) {
+    e.preventDefault(); // Prevenir envío normal
+    
+    // Primero validar
     if (!validarCompra()) {
-        e.preventDefault();
         return;
     }
 
-    // Mostrar loading
-    const submitBtn = this.querySelector('button[type="submit"]');
-    if (submitBtn) {
-        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> Actualizando...';
-        submitBtn.disabled = true;
-    }
+    // Mostrar modal de confirmación
+    mostrarModalConfirmacion();
 });
 
 function validarCompra() {
