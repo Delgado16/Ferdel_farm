@@ -4733,7 +4733,7 @@ def admin_editar_venta(id_factura):
             """, (id_factura,))
             productos_actuales = cursor.fetchall()
             
-            # Calcular total venta actual - IMPORTANTE: ESTA LÍNEA FALTABA
+            # Calcular total venta actual
             total_venta_actual = sum(producto.get('Subtotal', 0) for producto in productos_actuales)
             
             # Obtener datos de la empresa
@@ -4748,13 +4748,14 @@ def admin_editar_venta(id_factura):
             id_cliente = request.form.get('id_cliente')
             tipo_venta = request.form.get('tipo_venta')
             observacion = request.form.get('observacion', '')
+            fecha_vencimiento = request.form.get('fecha_vencimiento', '')
             
             # Obtener productos del formulario
             productos_ids = request.form.getlist('producto_id[]')
             cantidades = request.form.getlist('cantidad[]')
             precios = request.form.getlist('precio[]')
             
-            print(f"Datos recibidos - Cliente: {id_cliente}, Tipo: {tipo_venta}")
+            print(f"Datos recibidos - Cliente: {id_cliente}, Tipo: {tipo_venta}, Fecha Venc: {fecha_vencimiento}")
             print(f"Productos recibidos: {len(productos_ids)}")
             
             # Validaciones básicas
@@ -4802,19 +4803,12 @@ def admin_editar_venta(id_factura):
                         id_producto = producto['ID_Producto']
                         cantidad = producto['Cantidad']
                         
-                        # Revertir inventario en bodega
+                        # Revertir inventario SOLO en bodega
                         cursor.execute("""
                             UPDATE inventario_bodega 
                             SET Existencias = Existencias + %s
                             WHERE ID_Bodega = %s AND ID_Producto = %s
                         """, (cantidad, id_bodega_original, id_producto))
-                        
-                        # Revertir existencias generales
-                        cursor.execute("""
-                            UPDATE productos 
-                            SET Existencias = Existencias + %s
-                            WHERE ID_Producto = %s
-                        """, (cantidad, id_producto))
                     
                     print(f"🔄 Inventario revertido para {len(productos_originales)} productos")
                     
@@ -4853,7 +4847,7 @@ def admin_editar_venta(id_factura):
                         total_venta += total_linea
                         productos_procesados += 1
                         
-                        # Verificar stock disponible
+                        # Verificar stock disponible en inventario_bodega
                         cursor.execute("""
                             SELECT COALESCE(Existencias, 0) as Stock 
                             FROM inventario_bodega 
@@ -4874,18 +4868,12 @@ def admin_editar_venta(id_factura):
                             VALUES (%s, %s, %s, %s, %s)
                         """, (id_factura, id_producto, cantidad, precio, total_linea))
                         
-                        # Actualizar inventario
+                        # Actualizar inventario SOLO en bodega
                         cursor.execute("""
                             UPDATE inventario_bodega 
                             SET Existencias = Existencias - %s
                             WHERE ID_Bodega = %s AND ID_Producto = %s
                         """, (cantidad, id_bodega_original, id_producto))
-                        
-                        cursor.execute("""
-                            UPDATE productos 
-                            SET Existencias = Existencias - %s
-                            WHERE ID_Producto = %s
-                        """, (cantidad, id_producto))
                     
                     print(f"📦 {productos_procesados} productos procesados")
                     print(f"💰 Total venta actualizado: C${total_venta:,.2f}")
@@ -4920,12 +4908,14 @@ def admin_editar_venta(id_factura):
                                 UPDATE Cuentas_Por_Cobrar 
                                 SET Monto_Movimiento = %s,
                                     Saldo_Pendiente = %s,
-                                    Observacion = %s
+                                    Observacion = %s,
+                                    Fecha_Vencimiento = %s
                                 WHERE ID_Factura = %s
                             """, (
                                 total_venta,
                                 total_venta,
                                 observacion or 'Venta a crédito actualizada',
+                                fecha_vencimiento if fecha_vencimiento else None,
                                 id_factura
                             ))
                             print("💳 Cuenta por cobrar actualizada")
@@ -4937,12 +4927,13 @@ def admin_editar_venta(id_factura):
                                     Fecha_Vencimiento, Tipo_Movimiento, Monto_Movimiento,
                                     ID_Empresa, Saldo_Pendiente, ID_Factura, ID_Usuario_Creacion
                                 )
-                                VALUES (CURDATE(), %s, %s, %s, DATE_ADD(CURDATE(), INTERVAL 30 DAY), 
+                                VALUES (CURDATE(), %s, %s, %s, %s, 
                                         1, %s, %s, %s, %s, %s)
                             """, (
                                 id_cliente,
                                 f'FAC-{id_factura:05d}',
                                 observacion or 'Venta a crédito',
+                                fecha_vencimiento if fecha_vencimiento else None,
                                 total_venta,
                                 id_empresa,
                                 total_venta,
@@ -4984,7 +4975,7 @@ def admin_editar_venta(id_factura):
                             productos_actuales=productos_actuales,
                             categorias=categorias,
                             empresa=empresa_data,
-                            total_venta_actual=total_venta_actual)  # ← VARIABLE AGREGADA
+                            total_venta_actual=total_venta_actual)
             
     except Exception as e:
         error_msg = f'Error al editar venta: {str(e)}'
