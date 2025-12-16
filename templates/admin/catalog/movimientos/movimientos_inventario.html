@@ -4,20 +4,19 @@
 <div class="container-fluid">
     <div class="d-sm-flex align-items-center justify-content-between mb-4">
         <h1 class="h3 mb-0 text-gray-800">Movimientos de Inventario</h1>
-        <button type="button" class="btn btn-primary" data-toggle="modal" data-target="#crearMovimientoModal">
+        <!-- BOTÓN CORREGIDO PARA BOOTSTRAP 5 -->
+        <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#crearMovimientoModal">
             <i class="fas fa-plus-circle"></i> Nuevo Movimiento
         </button>
     </div>
 
-    <!-- Mensajes Flash -->
+    <!-- Mensajes Flash CORREGIDOS -->
     {% with messages = get_flashed_messages(with_categories=true) %}
         {% if messages %}
             {% for category, message in messages %}
                 <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
                     {{ message }}
-                    <button type="button" class="close" data-dismiss="alert" aria-label="Close">
-                        <span aria-hidden="true">&times;</span>
-                    </button>
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                 </div>
             {% endfor %}
         {% endif %}
@@ -69,15 +68,14 @@
     </div>
 </div>
 
-<!-- Modal para Crear Movimiento -->
-<div class="modal fade" id="crearMovimientoModal" tabindex="-1" role="dialog" aria-labelledby="crearMovimientoModalLabel" aria-hidden="true">
-    <div class="modal-dialog" role="document">
+<!-- Modal para Crear Movimiento CORREGIDO -->
+<div class="modal fade" id="crearMovimientoModal" tabindex="-1" aria-labelledby="crearMovimientoModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
         <div class="modal-content">
             <div class="modal-header">
                 <h5 class="modal-title" id="crearMovimientoModalLabel">Crear Nuevo Movimiento</h5>
-                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-                    <span aria-hidden="true">&times;</span>
-                </button>
+                <!-- BOTÓN CERRAR CORREGIDO -->
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <form id="formCrearMovimiento" method="POST" action="{{ url_for('admin_crear_movimiento') }}">
                 <div class="modal-body">
@@ -100,7 +98,8 @@
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancelar</button>
+                    <!-- BOTÓN CANCELAR CORREGIDO -->
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
                     <button type="submit" class="btn btn-primary">Guardar Movimiento</button>
                 </div>
             </form>
@@ -111,19 +110,27 @@
 
 {% block scripts %}
 <script>
-    // Limpiar el formulario de crear cuando se cierra el modal
-    $('#crearMovimientoModal').on('hidden.bs.modal', function () {
-        $(this).find('form')[0].reset();
-    });
-
-    // Validación básica del formulario de creación
-    document.getElementById('formCrearMovimiento').addEventListener('submit', function(e) {
-        var descripcion = document.getElementById('descripcion').value.trim();
-        var letra = document.getElementById('letra').value.trim();
+    // Script corregido para Bootstrap 5
+    document.addEventListener('DOMContentLoaded', function() {
+        var crearModal = document.getElementById('crearMovimientoModal');
         
-        if (!descripcion || !letra) {
-            e.preventDefault();
-            alert('Por favor, complete todos los campos obligatorios.');
+        if (crearModal) {
+            // Limpiar formulario al cerrar modal
+            crearModal.addEventListener('hidden.bs.modal', function () {
+                this.querySelector('form').reset();
+            });
+            
+            // Validación del formulario
+            var formCrear = document.getElementById('formCrearMovimiento');
+            formCrear.addEventListener('submit', function(e) {
+                var descripcion = document.getElementById('descripcion').value.trim();
+                var letra = document.getElementById('letra').value.trim();
+                
+                if (!descripcion || !letra) {
+                    e.preventDefault();
+                    alert('Por favor, complete todos los campos obligatorios.');
+                }
+            });
         }
     });
 </script>

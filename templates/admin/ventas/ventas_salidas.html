@@ -194,7 +194,7 @@
                     </thead>
                     <tbody>
                         {% for venta in ventas %}
-                        <tr class="{% if venta.Estado_Movimiento == 0 %}table-inactive{% endif %}">
+                        <tr class="{% if venta.Estado_Formateado == 'ANULADA' %}table-inactive{% endif %}">
                             <td class="ps-4" data-label="Fecha">
                                 <div class="date-cell">
                                     <div class="fw-medium">{{ venta.Fecha.strftime('%d/%m/%Y') if venta.Fecha else 'N/A' }}</div>
@@ -247,9 +247,16 @@
                                 </div>
                             </td>
                             <td class="text-center" data-label="Estado">
-                                <span class="badge badge-pill {% if venta.Estado_Movimiento == 1 %}bg-success bg-opacity-10 text-success{% else %}bg-danger bg-opacity-10 text-danger{% endif %} 
-                                      border border-{% if venta.Estado_Movimiento == 1 %}success{% else %}danger{% endif %} border-opacity-25 py-2 px-3">
-                                    <i class="fas fa-{% if venta.Estado_Movimiento == 1 %}check-circle{% else %}ban{% endif %} me-1"></i>
+                                <span class="badge badge-pill 
+                                    {% if venta.Estado_Formateado == 'ACTIVA' %}bg-success bg-opacity-10 text-success
+                                    {% elif venta.Estado_Formateado == 'ANULADA' %}bg-danger bg-opacity-10 text-danger
+                                    {% else %}bg-secondary bg-opacity-10 text-secondary{% endif %} 
+                                    border border-{% if venta.Estado_Formateado == 'ACTIVA' %}success
+                                    {% elif venta.Estado_Formateado == 'ANULADA' %}danger
+                                    {% else %}secondary{% endif %} border-opacity-25 py-2 px-3">
+                                    <i class="fas fa-{% if venta.Estado_Formateado == 'ACTIVA' %}check-circle
+                                    {% elif venta.Estado_Formateado == 'ANULADA' %}ban
+                                    {% else %}clock{% endif %} me-1"></i>
                                     {{ venta.Estado_Formateado or 'PENDIENTE' }}
                                 </span>
                             </td>
@@ -263,7 +270,7 @@
                                             <span class="ms-1">Ver</span>
                                         </a>
                                         
-                                        {% if venta.Estado_Movimiento == 1 %}
+                                        {% if venta.Estado_Formateado == 'ACTIVA' %}
                                         <a href="{{ url_for('admin_editar_venta', id_factura=venta.ID_Factura) }}" 
                                            class="btn btn-outline-primary btn-action-mobile" title="Editar">
                                             <i class="fas fa-edit"></i>
@@ -290,7 +297,7 @@
                                             <span class="d-none d-xl-inline ms-1">Ver</span>
                                         </a>
                                         
-                                        {% if venta.Estado_Movimiento == 1 %}
+                                        {% if venta.Estado_Formateado == 'ACTIVA' %}
                                         <a href="{{ url_for('admin_editar_venta', id_factura=venta.ID_Factura) }}" 
                                            class="btn btn-outline-primary btn-action" title="Editar">
                                             <i class="fas fa-edit"></i>
@@ -333,10 +340,16 @@
                             <td colspan="5" class="text-end fw-bold d-none d-md-table-cell">Totales:</td>
                             <td colspan="2" class="text-end fw-bold d-md-none">Totales:</td>
                             <td class="text-center fw-bold text-primary">
-                                {{ ventas|sum(attribute='Total_Productos') or 0 }}
+                                {% set total_productos = [] %}
+                                {% for venta in ventas %}
+                                    {% if venta.Total_Productos %}
+                                        {% set _ = total_productos.append(venta.Total_Productos) %}
+                                    {% endif %}
+                                {% endfor %}
+                                {{ total_productos|sum|default(0) }}
                             </td>
                             <td class="text-end fw-bold text-success fs-5">
-                                C${{ "{:,.2f}".format(monto_total) }}
+                                C${{ "{:,.2f}".format(monto_total|default(0)) }}
                             </td>
                             <td colspan="2"></td>
                         </tr>
@@ -468,22 +481,28 @@
                         <label for="id_usuario_anulacion" class="form-label fw-bold">
                             <i class="fas fa-user me-2"></i>Usuario que anula *
                         </label>
-                        <select class="form-select" id="id_usuario_anulacion" name="id_usuario_anulacion" required>
-                            <option value="">Seleccione un usuario</option>
-                            {% for usuario in usuarios %}
-                            <option value="{{ usuario.ID_Usuario }}" {{ 'selected' if usuario.ID_Usuario == session.get('user_id') }}>
-                                {{ usuario.NombreUsuario }}
-                            </option>
-                            {% endfor %}
-                        </select>
+                        <input type="hidden" name="id_usuario_anulacion" id="id_usuario_anulacion" 
+                               value="{{ session.get('user_id') }}">
+                        <div class="form-control bg-light">
+                            <div class="d-flex align-items-center">
+                                <div class="avatar-xs bg-primary bg-opacity-10 rounded-circle d-flex align-items-center justify-content-center me-2">
+                                    <i class="fas fa-user text-primary fs-7"></i>
+                                </div>
+                                <div>
+                                    <div class="fw-semibold">Usuario Actual</div>
+                                    <small class="text-muted">ID: {{ session.get('user_id') }}</small>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                     
                     <div class="mb-3">
                         <label for="motivoAnulacion" class="form-label fw-bold">
-                            <i class="fas fa-comment-dots me-2"></i>Motivo de anulación
+                            <i class="fas fa-comment-dots me-2"></i>Motivo de anulación *
                         </label>
                         <textarea class="form-control" id="motivoAnulacion" name="motivo_anulacion" 
-                                  rows="3" placeholder="Describa el motivo de la anulación..."></textarea>
+                                  rows="3" placeholder="Describa el motivo de la anulación..." required></textarea>
+                        <div class="form-text">Este motivo será registrado en la bitácora del sistema.</div>
                     </div>
                     
                     <div class="alert alert-info bg-info bg-opacity-10 border-info">
@@ -987,5 +1006,194 @@
 .border-opacity-25 {
     border-color: rgba(var(--bs-border-color-rgb), 0.25) !important;
 }
+
+/* Colores específicos para estados */
+.badge-pill.bg-success {
+    background: linear-gradient(135deg, #11998e, #38ef7d) !important;
+}
+
+.badge-pill.bg-danger {
+    background: linear-gradient(135deg, #ff416c, #ff4b2b) !important;
+}
+
+.badge-pill.bg-warning {
+    background: linear-gradient(135deg, #f7971e, #ffd200) !important;
+}
 </style>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function anularVenta(idFactura, button) {
+    // Obtener datos de la fila
+    const row = button.closest('tr');
+    const clienteElement = row.querySelector('td[data-label="Cliente"] .fw-semibold');
+    const rucElement = row.querySelector('td[data-label="Cliente"] small');
+    const totalElement = row.querySelector('td[data-label="Total"]');
+    
+    const cliente = clienteElement ? clienteElement.textContent.trim() : 'N/A';
+    const ruc = rucElement ? rucElement.textContent.trim() : 'N/A';
+    const total = totalElement ? totalElement.textContent.trim() : 'C$0.00';
+    
+    // Actualizar modal con los datos de la venta
+    document.getElementById('anularFacturaNumero').textContent = idFactura;
+    document.getElementById('anularCliente').textContent = cliente;
+    document.getElementById('anularRUC').textContent = ruc;
+    document.getElementById('anularTotal').textContent = total;
+    
+    // Configurar formulario para anular
+    const form = document.getElementById('formAnularVenta');
+    form.action = `{{ url_for('admin_anular_venta') }}?id_factura=${idFactura}`;
+    
+    // Limpiar el motivo de anulación anterior
+    document.getElementById('motivoAnulacion').value = '';
+    
+    // Mostrar modal
+    const modal = new bootstrap.Modal(document.getElementById('confirmarAnularModal'));
+    modal.show();
+}
+
+// Filtros de búsqueda
+document.getElementById('searchInput').addEventListener('keyup', function() {
+    const filter = this.value.toLowerCase();
+    const rows = document.querySelectorAll('#dataTable tbody tr');
+    
+    rows.forEach(row => {
+        const text = row.textContent.toLowerCase();
+        row.style.display = text.includes(filter) ? '' : 'none';
+    });
+});
+
+// Filtros por estado
+document.getElementById('estadoFilter').addEventListener('change', function() {
+    const filterValue = this.value;
+    const rows = document.querySelectorAll('#dataTable tbody tr');
+    
+    rows.forEach(row => {
+        if (row.querySelector('td[data-label="Estado"] .badge')) {
+            const estado = row.querySelector('td[data-label="Estado"] .badge').textContent.trim();
+            const shouldShow = !filterValue || estado === filterValue;
+            row.style.display = shouldShow ? '' : 'none';
+        }
+    });
+});
+
+// Filtros por tipo de venta
+document.getElementById('tipoVentaFilter').addEventListener('change', function() {
+    const filterValue = this.value;
+    const rows = document.querySelectorAll('#dataTable tbody tr');
+    
+    rows.forEach(row => {
+        if (row.querySelector('td[data-label="Tipo"] .badge')) {
+            const tipo = row.querySelector('td[data-label="Tipo"] .badge').textContent.trim();
+            const shouldShow = !filterValue || tipo === filterValue;
+            row.style.display = shouldShow ? '' : 'none';
+        }
+    });
+});
+
+// Limpiar todos los filtros
+function clearFilters() {
+    document.getElementById('searchInput').value = '';
+    document.getElementById('estadoFilter').value = '';
+    document.getElementById('tipoVentaFilter').value = '';
+    
+    const rows = document.querySelectorAll('#dataTable tbody tr');
+    rows.forEach(row => {
+        row.style.display = '';
+    });
+}
+
+// Exportar a Excel
+function exportToExcel() {
+    // Crear tabla HTML para exportar
+    let tableHTML = '<table border="1"><thead><tr>';
+    const headers = document.querySelectorAll('#dataTable thead th');
+    headers.forEach(header => {
+        tableHTML += `<th>${header.textContent.trim()}</th>`;
+    });
+    tableHTML += '</tr></thead><tbody>';
+    
+    const rows = document.querySelectorAll('#dataTable tbody tr:not(.table-inactive)');
+    rows.forEach(row => {
+        tableHTML += '<tr>';
+        const cells = row.querySelectorAll('td');
+        cells.forEach(cell => {
+            // Eliminar iconos y elementos innecesarios para Excel
+            const cellText = cell.textContent.trim();
+            tableHTML += `<td>${cellText}</td>`;
+        });
+        tableHTML += '</tr>';
+    });
+    tableHTML += '</tbody></table>';
+    
+    // Crear blob y descargar
+    const blob = new Blob([tableHTML], { type: 'application/vnd.ms-excel' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'ventas_' + new Date().toISOString().slice(0,10) + '.xls';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+}
+
+// Imprimir tabla
+function printTable() {
+    const originalContent = document.body.innerHTML;
+    const printContent = document.getElementById('dataTable').parentNode.innerHTML;
+    
+    document.body.innerHTML = `
+        <html>
+            <head>
+                <title>Reporte de Ventas</title>
+                <style>
+                    body { font-family: Arial, sans-serif; }
+                    table { width: 100%; border-collapse: collapse; }
+                    th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+                    th { background-color: #f2f2f2; }
+                    .badge { border: 1px solid #ddd; padding: 2px 6px; border-radius: 4px; font-size: 12px; }
+                    .text-success { color: #28a745; }
+                    .text-danger { color: #dc3545; }
+                    .text-warning { color: #ffc107; }
+                    @media print {
+                        @page { margin: 0.5in; }
+                        body { margin: 0; }
+                    }
+                </style>
+            </head>
+            <body>
+                <h2>Reporte de Ventas</h2>
+                <p>Generado: ${new Date().toLocaleDateString()}</p>
+                ${printContent}
+                <script>
+                    window.onafterprint = function() {
+                        document.body.innerHTML = originalContent;
+                        window.location.reload();
+                    };
+                    window.print();
+                <\/script>
+            </body>
+        </html>
+    `;
+}
+
+// Validación del formulario de anulación
+document.getElementById('formAnularVenta').addEventListener('submit', function(e) {
+    const motivo = document.getElementById('motivoAnulacion').value.trim();
+    if (!motivo) {
+        e.preventDefault();
+        alert('Por favor, ingrese el motivo de la anulación.');
+        document.getElementById('motivoAnulacion').focus();
+    }
+});
+
+// Inicializar filtros al cargar la página
+document.addEventListener('DOMContentLoaded', function() {
+    // Configurar placeholder dinámico para búsqueda
+    const searchInput = document.getElementById('searchInput');
+    searchInput.placeholder = 'Buscar por cliente, factura, vendedor...';
+});
+</script>
 {% endblock %}

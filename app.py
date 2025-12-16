@@ -2524,7 +2524,11 @@ def admin_compras_entradas():
                     cm.Letra,
                     u.NombreUsuario as Usuario_Creacion,
                     mi.Fecha_Creacion,
-                    mi.Estado,
+                    CASE 
+                        WHEN mi.Estado = 'Activa' THEN 'Activa'
+                        WHEN mi.Estado = 'Anulada' THEN 'Anulada'
+                        ELSE mi.Estado 
+                    END as Estado,
                     COALESCE(detalle.Total_Productos, 0) as Total_Productos,
                     COALESCE(detalle.Total_Compra, 0) as Total_Compra
                 FROM Movimientos_Inventario mi
@@ -3336,72 +3340,258 @@ def admin_editar_compra(id_movimiento):
 @admin_required
 @bitacora_decorator("COMPRAS-ENTRADAS-ANULAR")
 def admin_anular_compra(id_movimiento):
+    """Anular una compra existente - VERSIÓN CORREGIDA"""
     try:
         # Obtener datos del formulario
         id_usuario_anulacion = request.form.get('id_usuario_anulacion')
-        motivo_anulacion = request.form.get('motivo_anulacion', '')
+        motivo_anulacion = request.form.get('motivo_anulacion', '').strip()
         
-        # Validaciones
-        with get_db_cursor() as cursor:
-            # Verificar que existe y está activo
+        # Validaciones básicas
+        if not id_usuario_anulacion:
+            flash('Error: No se especificó el usuario que realiza la anulación', 'error')
+            return redirect(url_for('admin_compras_entradas'))
+        
+        # Validar que el ID de usuario sea numérico
+        try:
+            id_usuario = int(id_usuario_anulacion)
+        except ValueError:
+            flash('Error: ID de usuario inválido', 'error')
+            return redirect(url_for('admin_compras_entradas'))
+        
+        # Si el motivo viene vacío, crear uno por defecto
+        if not motivo_anulacion:
+            motivo_anulacion = f"Anulado por usuario ID {id_usuario_anulacion}"
+        
+        print(f"[ANULACIÓN] Iniciando anulación de compra {id_movimiento}")
+        print(f"[ANULACIÓN] Usuario: {id_usuario}, Motivo: {motivo_anulacion}")
+        
+        # USAR TRANSACCIÓN CON COMMIT
+        with get_db_cursor(commit=True) as cursor:
+            # 1. Verificar que existe y está activa (Estado = 1)
             cursor.execute("""
-                SELECT Estado, Tipo_Compra FROM Movimientos_Inventario 
-                WHERE ID_Movimiento = %s
+                SELECT 
+                    mi.ID_Movimiento,
+                    mi.Estado,
+                    mi.Tipo_Compra,
+                    mi.ID_Bodega,
+                    mi.ID_Proveedor,
+                    mi.Observacion,
+                    (SELECT SUM(Subtotal) 
+                     FROM detalle_movimientos_inventario 
+                     WHERE ID_Movimiento = mi.ID_Movimiento) as Total_Compra
+                FROM Movimientos_Inventario mi
+                WHERE mi.ID_Movimiento = %s
             """, (id_movimiento,))
             
             movimiento = cursor.fetchone()
             if not movimiento:
-                flash('Movimiento no encontrado', 'error')
+                flash('Error: Compra no encontrada', 'error')
                 return redirect(url_for('admin_compras_entradas'))
             
             if movimiento['Estado'] != 1:
-                flash('El movimiento ya está anulado', 'error')
+                flash('Error: La compra ya está anulada', 'error')
                 return redirect(url_for('admin_compras_entradas'))
             
-            # Reversar existencias
+            id_bodega = movimiento['ID_Bodega']
+            total_compra = movimiento['Total_Compra'] or 0
+            tipo_compra = movimiento['Tipo_Compra']
+            id_proveedor = movimiento['ID_Proveedor']
+            
+            print(f"[ANULACIÓN] Datos movimiento - Bodega: {id_bodega}, Total: {total_compra}, Tipo: {tipo_compra}")
+            
+            # 2. Obtener detalles de productos para reversar
             cursor.execute("""
-                SELECT ID_Producto, Cantidad FROM Detalle_Movimientos_Inventario 
-                WHERE ID_Movimiento = %s
+                SELECT 
+                    dmi.ID_Producto, 
+                    dmi.Cantidad, 
+                    p.Descripcion,
+                    p.COD_Producto
+                FROM detalle_movimientos_inventario dmi
+                INNER JOIN Productos p ON dmi.ID_Producto = p.ID_Producto
+                WHERE dmi.ID_Movimiento = %s
             """, (id_movimiento,))
             
             detalles = cursor.fetchall()
-            for detalle in detalles:
-                cursor.execute("""
-                    UPDATE Productos 
-                    SET Existencias = Existencias - %s 
-                    WHERE ID_Producto = %s AND Existencias >= %s
-                """, (detalle['Cantidad'], detalle['ID_Producto'], detalle['Cantidad']))
-                
-                # Verificar si la actualización fue exitosa
-                if cursor.rowcount == 0:
-                    flash(f'No hay suficientes existencias para reversar el producto ID: {detalle["ID_Producto"]}', 'error')
-                    return redirect(url_for('admin_compras_entradas'))
+            print(f"[ANULACIÓN] Productos a reversar: {len(detalles)}")
             
-            # Anular movimiento
+            if not detalles:
+                flash('Error: No se encontraron productos en esta compra', 'error')
+                return redirect(url_for('admin_compras_entradas'))
+            
+            # 3. Reversar existencias de productos
+            productos_reversados = []
+            productos_no_encontrados = []
+            
+            for detalle in detalles:
+                producto_id = detalle['ID_Producto']
+                cantidad = detalle['Cantidad']
+                
+                print(f"[ANULACIÓN] Procesando producto {producto_id} ({detalle['COD_Producto']}) - {cantidad} unidades")
+                
+                # Verificar si el producto existe en la bodega
+                cursor.execute("""
+                    SELECT Existencias, ID_Producto 
+                    FROM Inventario_Bodega 
+                    WHERE ID_Bodega = %s AND ID_Producto = %s
+                """, (id_bodega, producto_id))
+                
+                inventario = cursor.fetchone()
+                
+                if inventario:
+                    # Verificar que hay suficientes existencias para reversar
+                    existencias_actuales = inventario['Existencias'] or 0
+                    
+                    if existencias_actuales >= cantidad:
+                        # Disminuir existencias
+                        cursor.execute("""
+                            UPDATE Inventario_Bodega 
+                            SET Existencias = Existencias - %s 
+                            WHERE ID_Bodega = %s AND ID_Producto = %s
+                        """, (cantidad, id_bodega, producto_id))
+                        
+                        productos_reversados.append({
+                            'id': producto_id,
+                            'codigo': detalle['COD_Producto'],
+                            'descripcion': detalle['Descripcion'],
+                            'cantidad': cantidad,
+                            'existencias_previas': existencias_actuales,
+                            'existencias_nuevas': existencias_actuales - cantidad
+                        })
+                        print(f"[ANULACIÓN] ✓ Producto {producto_id} reversado exitosamente")
+                    else:
+                        productos_no_encontrados.append({
+                            'id': producto_id,
+                            'codigo': detalle['COD_Producto'],
+                            'descripcion': detalle['Descripcion'],
+                            'cantidad': cantidad,
+                            'existencias_actuales': existencias_actuales,
+                            'mensaje': f'Existencias insuficientes ({existencias_actuales} < {cantidad})'
+                        })
+                        print(f"[ANULACIÓN] ✗ Existencias insuficientes para producto {producto_id}")
+                else:
+                    # Producto no existe en inventario de bodega
+                    productos_no_encontrados.append({
+                        'id': producto_id,
+                        'codigo': detalle['COD_Producto'],
+                        'descripcion': detalle['Descripcion'],
+                        'cantidad': cantidad,
+                        'mensaje': 'Producto no encontrado en inventario de bodega'
+                    })
+                    print(f"[ANULACIÓN] ✗ Producto {producto_id} no encontrado en bodega {id_bodega}")
+            
+            # 4. Si hay productos sin reversar, detener la anulación
+            if productos_no_encontrados and len(productos_no_encontrados) > 0:
+                error_msg = "No se puede anular la compra. Problemas con productos:<br>"
+                for prod in productos_no_encontrados:
+                    error_msg += f"- {prod['codigo']} ({prod['descripcion']}): {prod['mensaje']}<br>"
+                
+                flash(error_msg, 'error')
+                return redirect(url_for('admin_compras_entradas'))
+            
+            # 5. Marcar movimiento como anulado (Estado = 0)
+            nueva_observacion = f"{movimiento['Observacion'] or ''} | ANULADO: {motivo_anulacion} (Usuario: {id_usuario}, Fecha: {datetime.now().strftime('%d/%m/%Y %H:%M')})"
+            
             cursor.execute("""
                 UPDATE Movimientos_Inventario 
-                SET Estado = 0, 
+                SET Estado = 0,  -- 0 = Anulado, 1 = Activo
                     ID_Usuario_Modificacion = %s,
                     Fecha_Modificacion = NOW(),
-                    Observacion = CONCAT(COALESCE(Observacion, ''), ' ANULADO: ', %s)
+                    Observacion = %s
                 WHERE ID_Movimiento = %s
-            """, (id_usuario_anulacion, motivo_anulacion, id_movimiento))
+            """, (id_usuario, nueva_observacion[:500], id_movimiento))
             
-            # Anular cuenta por pagar si existe
-            cursor.execute("""
-                UPDATE Cuentas_Por_Pagar 
-                SET Estado = 0 
-                WHERE ID_Movimiento = %s AND Estado = 1
-            """, (id_movimiento,))
+            print(f"[ANULACIÓN] Movimiento {id_movimiento} marcado como anulado (Estado = 0)")
             
-            flash('Compra anulada exitosamente', 'success')
+            # 6. Si es compra a crédito, actualizar cuenta por pagar
+            if tipo_compra == 'CREDITO' and id_proveedor:
+                cursor.execute("""
+                    UPDATE Cuentas_Por_Pagar 
+                    SET Estado = 'ANULADA',
+                        Saldo_Pendiente = 0,
+                        Observacion = CONCAT(COALESCE(Observacion, ''), 
+                                          ' | CUENTA ANULADA por anulación de compra #', %s)
+                    WHERE ID_Movimiento = %s 
+                    AND Estado = 'PENDIENTE'
+                """, (id_movimiento, id_movimiento))
+                
+                print(f"[ANULACIÓN] Cuenta por pagar actualizada para compra a crédito")
+            
+            # 7. Registrar en bitácora de sistema
+            try:
+                cursor.execute("""
+                    INSERT INTO Bitacora_Sistema 
+                    (Accion, Tabla_Afectada, ID_Registro_Afectado, Detalles, ID_Usuario, Fecha)
+                    VALUES (%s, %s, %s, %s, %s, NOW())
+                """, (
+                    'ANULACION_COMPRA',
+                    'Movimientos_Inventario',
+                    id_movimiento,
+                    f"Compra #{id_movimiento} anulada. Motivo: {motivo_anulacion[:200]}. "
+                    f"Total: C${total_compra:.2f}. Productos reversados: {len(productos_reversados)}",
+                    id_usuario
+                ))
+                print("[ANULACIÓN] Registrado en bitácora")
+            except Exception as bitacora_error:
+                print(f"[ADVERTENCIA] Error al registrar en bitácora: {bitacora_error}")
+                # No fallar si la bitácora falla, solo continuar
+            
+            # Mensaje de éxito detallado
+            mensaje_exito = f"""
+            ✅ Compra #{id_movimiento} anulada exitosamente.<br>
+            • Total reversado: C${total_compra:.2f}<br>
+            • Productos afectados: {len(productos_reversados)}<br>
+            • Tipo de compra: {tipo_compra}<br>
+            • Anulado por: Usuario ID {id_usuario}
+            """
+            
+            flash(mensaje_exito, 'success')
+            print(f"[ANULACIÓN] Proceso completado exitosamente para compra {id_movimiento}")
+            
             return redirect(url_for('admin_compras_entradas'))
             
     except Exception as e:
-        print(f"Error al anular compra: {str(e)}")
-        flash(f'Error al anular compra: {str(e)}', 'error')
+        print(f"[ERROR CRÍTICO] Al anular compra {id_movimiento}: {str(e)}")
+        print(f"Traceback: {traceback.format_exc()}")
+        
+        flash(f'❌ Error crítico al anular compra: {str(e)}', 'error')
         return redirect(url_for('admin_compras_entradas'))
 
+@app.route('/debug/compra-data/<int:id_movimiento>')
+@admin_required
+def debug_compra_data(id_movimiento):
+    """Endpoint para depurar datos de compra"""
+    try:
+        with get_db_cursor(True) as cursor:
+            cursor.execute("""
+                SELECT 
+                    mi.ID_Movimiento,
+                    mi.N_Factura_Externa,
+                    p.Nombre as Proveedor,
+                    (SELECT SUM(Subtotal) FROM detalle_movimientos_inventario 
+                     WHERE ID_Movimiento = mi.ID_Movimiento) as Total_Compra
+                FROM Movimientos_Inventario mi
+                LEFT JOIN Proveedores p ON mi.ID_Proveedor = p.ID_Proveedor
+                WHERE mi.ID_Movimiento = %s
+            """, (id_movimiento,))
+            
+            compra = cursor.fetchone()
+            
+            if compra:
+                return jsonify({
+                    'success': True,
+                    'data': {
+                        'id': compra['ID_Movimiento'],
+                        'factura': compra['N_Factura_Externa'],
+                        'proveedor': compra['Proveedor'],
+                        'total': compra['Total_Compra']
+                    }
+                })
+            else:
+                return jsonify({'success': False, 'error': 'Compra no encontrada'})
+                
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+    
 @app.route('/admin/compras/compras-entradas/detalle-completo/<int:id_movimiento>', methods=['GET'])
 @admin_required
 @bitacora_decorator("COMPRAS-ENTRADAS-DETALLE-COMPLETO")
@@ -3770,6 +3960,7 @@ def admin_ventas_salidas():
                     u.NombreUsuario as Usuario_Creacion,
                     mi.ID_Movimiento,
                     mi.Tipo_Compra,
+                    -- CORRECCIÓN: Usar el valor real del ENUM
                     mi.Estado as Estado_Movimiento,
                     b.Nombre as Bodega,
                     cm.Descripcion as Tipo_Movimiento,
@@ -3782,17 +3973,19 @@ def admin_ventas_salidas():
                         WHEN f.Credito_Contado = 0 THEN 'CONTADO'
                         ELSE 'CONTADO'
                     END as Tipo_Venta_Formateado,
+                    -- CORRECCIÓN: Formatear el estado correctamente según el ENUM
                     CASE 
-                        WHEN mi.Estado = 1 THEN 'ACTIVA'
-                        WHEN mi.Estado = 0 THEN 'ANULADA'
-                        ELSE 'PENDIENTE'
+                        WHEN mi.Estado = 'Activa' THEN 'ACTIVA'
+                        WHEN mi.Estado = 'Anulada' THEN 'ANULADA'
+                        ELSE UPPER(mi.Estado)
                     END as Estado_Formateado,
                     (SELECT COUNT(*) FROM Cuentas_Por_Cobrar cpc 
                      WHERE cpc.ID_Factura = f.ID_Factura AND cpc.Saldo_Pendiente > 0) as Tiene_Credito_Pendiente
                 FROM Facturacion f
                 LEFT JOIN Clientes c ON f.IDCliente = c.ID_Cliente
                 LEFT JOIN usuarios u ON f.ID_Usuario_Creacion = u.ID_Usuario
-                LEFT JOIN Movimientos_Inventario mi ON f.ID_Factura = mi.ID_Factura_Venta
+                -- IMPORTANTE: Cambiado a INNER JOIN para solo mostrar ventas con movimiento de inventario
+                INNER JOIN Movimientos_Inventario mi ON f.ID_Factura = mi.ID_Factura_Venta
                 LEFT JOIN bodegas b ON mi.ID_Bodega = b.ID_Bodega
                 LEFT JOIN catalogo_movimientos cm ON mi.ID_TipoMovimiento = cm.ID_TipoMovimiento
                 ORDER BY f.Fecha DESC, f.ID_Factura DESC
@@ -3803,7 +3996,8 @@ def admin_ventas_salidas():
             total_ventas = len(ventas)
             ventas_contado = sum(1 for v in ventas if v.get('Credito_Contado') == 0)
             ventas_credito = sum(1 for v in ventas if v.get('Credito_Contado') == 1)
-            ventas_activas = sum(1 for v in ventas if v.get('Estado_Movimiento') == 1)
+            # CORRECCIÓN: Comparar con string 'Activa' (valor del ENUM)
+            ventas_activas = sum(1 for v in ventas if v.get('Estado_Movimiento') == 'Activa')
             
             # Manejar valores None en Total_Venta
             monto_total = 0
@@ -5423,9 +5617,9 @@ def admin_nueva_entrada_form():
             # Solo mostrar tipos de entrada (Letra = 'E')
             cursor.execute("""
                 SELECT * FROM catalogo_movimientos 
-                WHERE Letra = 'E' OR ID_TipoMovimiento = %s
+                WHERE Letra = 'E'
                 ORDER BY Descripcion
-            """, (TIPO_AJUSTE,))  # Ajuste también puede ser entrada
+            """)  # Ajuste también puede ser entrada
             
             tipos_movimiento = cursor.fetchall()
             
@@ -5679,9 +5873,9 @@ def admin_nueva_salida_form():
             # Solo mostrar tipos de salida (Letra = 'S')
             cursor.execute("""
                 SELECT * FROM catalogo_movimientos 
-                WHERE Letra = 'S' OR Letra = 'E/S' OR ID_TipoMovimiento = %s
+                WHERE Letra = 'S'
                 ORDER BY Descripcion
-            """, (TIPO_AJUSTE,))  # Ajuste también puede ser salida
+            """)  # Ajuste también puede ser salida
             
             tipos_movimiento = cursor.fetchall()
             
