@@ -4,7 +4,7 @@
 
 {% block content %}
 <div class="container-fluid px-lg-4 px-md-3 px-2">
-    <!-- Header Mejorado -->
+    <!-- Header -->
     <div class="d-flex flex-column flex-md-row align-items-center justify-content-between mb-4 pt-3">
         <div class="mb-3 mb-md-0">
             <h1 class="h2 fw-bold text-gradient-primary mb-2">Gestión de Compras</h1>
@@ -19,97 +19,85 @@
         </a>
     </div>
 
-    <!-- Estadísticas Modernas -->
+    <!-- Estadísticas -->
     <div class="row mb-4 g-3">
+        {% set stats = [
+        {
+        'title': 'Total Compras',
+        'value': total_compras,
+        'desc': 'Registros totales',
+        'icon': 'shopping-bag',
+        'class': 'gradient-primary'
+        },
+        {
+        'title': 'Compras Contado',
+        'value': contado_activas,
+        'desc': 'Transacciones inmediatas activas',
+        'icon': 'money-bill-wave',
+        'class': 'gradient-success'
+        },
+        {
+        'title': 'Compras Crédito',
+        'value': credito_activas,
+        'desc': 'Financiamientos activos',
+        'icon': 'credit-card',
+        'class': 'gradient-warning'
+        },
+        {
+        'title': 'Monto Total',
+        'value': "C${:,.2f}".format(total_invertido or 0),
+        'desc': 'Capital invertido (solo activas)',
+        'icon': 'chart-line',
+        'class': 'gradient-info'
+        }
+        ] %}
+
+        {% for stat in stats %}
         <div class="col-xl-3 col-md-6">
-            <div class="card card-statistic gradient-primary shadow-sm border-0 rounded-3 h-100">
+            <div class="card card-statistic {{ stat.class }} shadow-sm border-0 rounded-3 h-100">
                 <div class="card-body p-4">
                     <div class="d-flex justify-content-between align-items-center">
                         <div>
-                            <h6 class="text-white-80 mb-1">Total Compras</h6>
-                            <h2 class="fw-bold text-black mb-0">{{ entradas|length }}</h2>
-                            <p class="text-white-60 mb-0 small">Registros totales</p>
+                            <h6 class="text-white-80 mb-1">{{ stat.title }}</h6>
+                            <h2 class="fw-bold text-black mb-0">{{ stat.value }}</h2>
+                            <p class="text-white-60 mb-0 small">{{ stat.desc }}</p>
                         </div>
                         <div class="statistic-icon">
-                            <i class="fas fa-shopping-bag fa-2x text-white-60"></i>
+                            <i class="fas fa-{{ stat.icon }} fa-2x text-white-60"></i>
                         </div>
                     </div>
                 </div>
             </div>
         </div>
-        <div class="col-xl-3 col-md-6">
-            <div class="card card-statistic gradient-success shadow-sm border-0 rounded-3 h-100">
-                <div class="card-body p-4">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <div>
-                            <h6 class="text-white-80 mb-1">Compras Contado</h6>
-                            <h2 class="fw-bold text-black mb-0">{{ entradas|selectattr('Tipo_Compra', 'equalto', 'CONTADO')|list|length }}</h2>
-                            <p class="text-white-60 mb-0 small">Transacciones inmediatas</p>
-                        </div>
-                        <div class="statistic-icon">
-                            <i class="fas fa-money-bill-wave fa-2x text-white-60"></i>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <div class="col-xl-3 col-md-6">
-            <div class="card card-statistic gradient-warning shadow-sm border-0 rounded-3 h-100">
-                <div class="card-body p-4">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <div>
-                            <h6 class="text-white-80 mb-1">Compras Crédito</h6>
-                            <h2 class="fw-bold text-black mb-0">{{ entradas|selectattr('Tipo_Compra', 'equalto', 'CREDITO')|list|length }}</h2>
-                            <p class="text-white-60 mb-0 small">Financiamientos activos</p>
-                        </div>
-                        <div class="statistic-icon">
-                            <i class="fas fa-credit-card fa-2x text-white-60"></i>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <div class="col-xl-3 col-md-6">
-            <div class="card card-statistic gradient-info shadow-sm border-0 rounded-3 h-100">
-                <div class="card-body p-4">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <div>
-                            <h6 class="text-white-80 mb-1">Monto Total</h6>
-                            <h2 class="fw-bold text-black mb-0">C${{ "{:,.2f}".format(entradas|sum(attribute='Total_Compra') or 0) }}</h2>
-                            <p class="text-white-60 mb-0 small">Capital invertido</p>
-                        </div>
-                        <div class="statistic-icon">
-                            <i class="fas fa-chart-line fa-2x text-white-60"></i>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
+        {% endfor %}
     </div>
 
-    <!-- Mensajes Flash Mejorados -->
+    <!-- Mensajes Flash PERSISTENTES -->
     {% with messages = get_flashed_messages(with_categories=true) %}
-        {% if messages %}
-            {% for category, message in messages %}
-                <div class="alert alert-dismissible fade show alert-{{ 'danger' if category == 'error' else 'success' }} 
-                    shadow-sm border-0 mb-4" role="alert">
-                    <div class="d-flex align-items-center">
-                        <div class="alert-icon me-3">
-                            <i class="fas fa-{{ 'exclamation-triangle' if category == 'error' else 'check-circle' }} fa-lg"></i>
-                        </div>
-                        <div class="flex-grow-1">
-                            {{ message }}
-                        </div>
-                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                    </div>
+    {% if messages %}
+    <div id="flash-messages-container">
+        {% for category, message in messages %}
+        <div class="alert alert-dismissible fade show alert-{{ 'danger' if category == 'error' else 'success' }} 
+                    shadow-sm border-0 mb-4 flash-message" 
+             role="alert"
+             data-category="{{ category }}"
+             data-message="{{ message }}">
+            <div class="d-flex align-items-center">
+                <div class="alert-icon me-3">
+                    <i class="fas fa-{{ 'exclamation-triangle' if category == 'error' else 'check-circle' }} fa-lg"></i>
                 </div>
-            {% endfor %}
-        {% endif %}
+                <div class="flex-grow-1">{{ message }}</div>
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
     {% endwith %}
 
-    <!-- Card Principal Moderna -->
+    <!-- Card Principal -->
     <div class="card shadow-lg border-0 rounded-3 overflow-hidden mb-4">
-        <!-- Header con búsqueda -->
+        <!-- Header -->
         <div class="card-header bg-white border-0 pt-4 pb-3 px-4">
             <div class="d-flex flex-column flex-lg-row justify-content-between align-items-lg-center">
                 <div class="mb-3 mb-lg-0">
@@ -119,38 +107,38 @@
                     </h5>
                     <p class="text-muted small mb-0">Gestión completa de transacciones de entrada</p>
                 </div>
-                
+
                 <div class="d-flex flex-wrap gap-2">
-                    <!-- Barra de búsqueda -->
+                    <!-- Búsqueda -->
                     <div class="search-box">
                         <div class="input-group input-group-sm">
                             <span class="input-group-text bg-light border-0">
                                 <i class="fas fa-search text-muted"></i>
                             </span>
-                            <input type="text" class="form-control border-0 bg-light" 
-                                   id="searchInput" placeholder="Buscar compras...">
+                            <input type="text" class="form-control border-0 bg-light" id="searchInput"
+                                placeholder="Buscar compras...">
                         </div>
                     </div>
-                    
-                    <!-- Botón de exportación -->
+
+                    <!-- Exportación -->
                     <div class="dropdown">
-                        <button class="btn btn-outline-secondary btn-sm dropdown-toggle" type="button" 
-                                data-bs-toggle="dropdown" aria-expanded="false">
+                        <button class="btn btn-outline-secondary btn-sm dropdown-toggle" type="button"
+                            data-bs-toggle="dropdown" aria-expanded="false">
                             <i class="fas fa-download me-1"></i> Exportar
                         </button>
                         <ul class="dropdown-menu dropdown-menu-end shadow">
                             <li><a class="dropdown-item" href="#" id="exportExcel">
-                                <i class="fas fa-file-excel text-success me-2"></i> Excel
-                            </a></li>
+                                    <i class="fas fa-file-excel text-success me-2"></i> Excel
+                                </a></li>
                             <li><a class="dropdown-item" href="#" id="printTableBtn">
-                                <i class="fas fa-print text-info me-2"></i> Imprimir
-                            </a></li>
+                                    <i class="fas fa-print text-info me-2"></i> Imprimir
+                                </a></li>
                         </ul>
                     </div>
                 </div>
             </div>
-            
-            <!-- Filtros en línea -->
+
+            <!-- Filtros -->
             <div class="row g-2 mt-3">
                 <div class="col-md-4">
                     <select class="form-select form-select-sm" id="estadoFilter">
@@ -175,7 +163,7 @@
         </div>
 
         <div class="card-body p-0">
-            <!-- Tabla Responsive Mejorada -->
+            <!-- Tabla -->
             <div class="table-responsive-lg">
                 <table class="table table-hover align-middle mb-0" id="dataTable">
                     <thead class="table-light">
@@ -201,23 +189,26 @@
                             </td>
                             <td data-label="Fecha">
                                 <div class="date-cell">
-                                    <div class="fw-medium">{{ entrada.Fecha.strftime('%d/%m/%Y') if entrada.Fecha else 'N/A' }}</div>
-                                    <small class="text-muted">{{ entrada.Fecha_Creacion.strftime('%H:%M') if entrada.Fecha_Creacion else '' }}</small>
+                                    <div class="fw-medium">{{ entrada.Fecha.strftime('%d/%m/%Y') if entrada.Fecha else
+                                        'N/A' }}</div>
+                                    <small class="text-muted">{{ entrada.Fecha_Creacion.strftime('%H:%M') if
+                                        entrada.Fecha_Creacion else '' }}</small>
                                 </div>
                             </td>
                             <td data-label="Factura">
                                 {% if entrada.N_Factura_Externa %}
-                                    <span class="badge bg-light text-dark border border-secondary py-2">
-                                        <i class="fas fa-file-invoice me-1"></i>
-                                        {{ entrada.N_Factura_Externa }}
-                                    </span>
+                                <span class="badge bg-light text-dark border border-secondary py-2">
+                                    <i class="fas fa-file-invoice me-1"></i>
+                                    {{ entrada.N_Factura_Externa }}
+                                </span>
                                 {% else %}
-                                    <span class="text-muted">Sin factura</span>
+                                <span class="text-muted">Sin factura</span>
                                 {% endif %}
                             </td>
                             <td data-label="Proveedor">
                                 <div class="d-flex align-items-center">
-                                    <div class="avatar-sm bg-warning bg-opacity-10 rounded-circle d-flex align-items-center justify-content-center me-3">
+                                    <div
+                                        class="avatar-sm bg-warning bg-opacity-10 rounded-circle d-flex align-items-center justify-content-center me-3">
                                         <i class="fas fa-truck text-warning fs-6"></i>
                                     </div>
                                     <div>
@@ -227,20 +218,25 @@
                                 </div>
                             </td>
                             <td class="text-center" data-label="Tipo">
-                                <span class="badge badge-pill {% if entrada.Tipo_Compra == 'CONTADO' %}bg-success bg-opacity-10 text-success{% else %}bg-warning bg-opacity-10 text-warning{% endif %} 
-                                      border border-{% if entrada.Tipo_Compra == 'CONTADO' %}success{% else %}warning{% endif %} border-opacity-25 py-2 px-3">
-                                    <i class="fas fa-{% if entrada.Tipo_Compra == 'CONTADO' %}money-bill-wave{% else %}credit-card{% endif %} me-1"></i>
+                                {% set tipo_badge_class = 'bg-success bg-opacity-10 text-success border-success' if
+                                entrada.Tipo_Compra == 'CONTADO' else 'bg-warning bg-opacity-10 text-warning
+                                border-warning' %}
+                                <span class="badge badge-pill {{ tipo_badge_class }} border-opacity-25 py-2 px-3">
+                                    <i
+                                        class="fas fa-{{ 'money-bill-wave' if entrada.Tipo_Compra == 'CONTADO' else 'credit-card' }} me-1"></i>
                                     {{ entrada.Tipo_Compra or 'CONTADO' }}
                                 </span>
                             </td>
                             <td class="d-none d-lg-table-cell" data-label="Bodega">
-                                <span class="badge bg-secondary bg-opacity-10 text-dark border border-secondary border-opacity-25 py-2">
+                                <span
+                                    class="badge bg-secondary bg-opacity-10 text-dark border border-secondary border-opacity-25 py-2">
                                     {{ entrada.Bodega or 'N/A' }}
                                 </span>
                             </td>
                             <td class="text-center" data-label="Productos">
                                 <div class="product-count">
-                                    <span class="badge bg-info bg-opacity-10 text-info border border-info border-opacity-25 py-2 px-3">
+                                    <span
+                                        class="badge bg-info bg-opacity-10 text-info border border-info border-opacity-25 py-2 px-3">
                                         <i class="fas fa-boxes me-1"></i>
                                         {{ entrada.Total_Productos or 0 }}
                                     </span>
@@ -251,88 +247,80 @@
                             </td>
                             <td class="d-none d-xl-table-cell" data-label="Usuario">
                                 <div class="d-flex align-items-center">
-                                    <div class="avatar-xs bg-light rounded-circle d-flex align-items-center justify-content-center me-2">
+                                    <div
+                                        class="avatar-xs bg-light rounded-circle d-flex align-items-center justify-content-center me-2">
                                         <i class="fas fa-user-tie text-muted fs-7"></i>
                                     </div>
                                     <span class="text-muted">{{ entrada.Usuario_Creacion or 'Sistema' }}</span>
                                 </div>
                             </td>
                             <td class="text-center" data-label="Estado">
-                                <span class="badge badge-pill {% if entrada.Estado == 'Activa' %}bg-success bg-opacity-10 text-success{% else %}bg-danger bg-opacity-10 text-danger{% endif %} 
-                                      border border-{% if entrada.Estado == 'Activa' %}success{% else %}danger{% endif %} border-opacity-25 py-2 px-3">
-                                    <i class="fas fa-{% if entrada.Estado == 'Activa' %}check-circle{% else %}ban{% endif %} me-1"></i>
+                                {% set estado_badge_class = 'bg-success bg-opacity-10 text-success border-success' if
+                                entrada.Estado == 'Activa' else 'bg-danger bg-opacity-10 text-danger border-danger' %}
+                                <span class="badge badge-pill {{ estado_badge_class }} border-opacity-25 py-2 px-3">
+                                    <i
+                                        class="fas fa-{{ 'check-circle' if entrada.Estado == 'Activa' else 'ban' }} me-1"></i>
                                     {{ entrada.Estado or 'Activa' }}
                                 </span>
                             </td>
                             <td class="text-end pe-4" data-label="Acciones">
-                                <div class="actions-container">
-                                    <!-- Botones verticales para móviles -->
-                                    <div class="btn-group-vertical btn-group-sm d-lg-none" role="group">
-                                        <a href="{{ url_for('admin_detalle_compra_completo', id_movimiento=entrada.ID_Movimiento) }}" 
-                                           class="btn btn-outline-info btn-action-mobile" title="Ver detalles">
-                                            <i class="fas fa-eye"></i>
-                                            <span class="ms-1">Ver</span>
-                                        </a>
-                                        
-                                        {% if entrada.Estado == 'Activa' %}
-                                        <a href="{{ url_for('admin_editar_compra', id_movimiento=entrada.ID_Movimiento) }}" 
-                                           class="btn btn-outline-primary btn-action-mobile" title="Editar">
-                                            <i class="fas fa-edit"></i>
-                                            <span class="ms-1">Editar</span>
-                                        </a>
-                                        
-                                        <!-- BOTÓN DE ANULAR PARA MÓVILES -->
-                                        <button type="button" class="btn btn-outline-danger btn-action-mobile btn-anular-compra" 
-                                                data-bs-toggle="modal" data-bs-target="#anularCompraModal"
-                                                data-id="{{ entrada.ID_Movimiento }}"
-                                                data-total="C${{ '{:,.2f}'.format(entrada.Total_Compra or 0) }}"
-                                                data-proveedor="{{ entrada.Proveedor or 'Proveedor General' }}"
-                                                data-factura="{{ entrada.N_Factura_Externa or 'Sin factura' }}"
-                                                title="Anular compra">
-                                            <i class="fas fa-ban"></i>
-                                            <span class="ms-1">Anular</span>
-                                        </button>
-                                        {% else %}
-                                        <button class="btn btn-outline-secondary btn-action-mobile" disabled title="Compra anulada">
-                                            <i class="fas fa-lock"></i>
-                                            <span class="ms-1">Bloqueado</span>
-                                        </button>
-                                        {% endif %}
-                                    </div>
-                                    
-                                    <!-- Botones horizontales para desktop -->
-                                    <div class="btn-group btn-group-sm d-none d-lg-flex" role="group">
-                                        <a href="{{ url_for('admin_detalle_compra_completo', id_movimiento=entrada.ID_Movimiento) }}" 
-                                           class="btn btn-outline-info btn-action" title="Ver detalles">
-                                            <i class="fas fa-eye"></i>
-                                            <span class="d-none d-xl-inline ms-1">Ver</span>
-                                        </a>
-                                        
-                                        {% if entrada.Estado == 'Activa' %}
-                                        <a href="{{ url_for('admin_editar_compra', id_movimiento=entrada.ID_Movimiento) }}" 
-                                           class="btn btn-outline-primary btn-action" title="Editar">
-                                            <i class="fas fa-edit"></i>
-                                            <span class="d-none d-xl-inline ms-1">Editar</span>
-                                        </a>
-                                        
-                                        <!-- BOTÓN DE ANULAR PARA DESKTOP -->
-                                        <button type="button" class="btn btn-outline-danger btn-action btn-anular-compra" 
-                                                data-bs-toggle="modal" data-bs-target="#anularCompraModal"
-                                                data-id="{{ entrada.ID_Movimiento }}"
-                                                data-total="C${{ '{:,.2f}'.format(entrada.Total_Compra or 0) }}"
-                                                data-proveedor="{{ entrada.Proveedor or 'Proveedor General' }}"
-                                                data-factura="{{ entrada.N_Factura_Externa or 'Sin factura' }}"
-                                                title="Anular compra">
-                                            <i class="fas fa-ban"></i>
-                                            <span class="d-none d-xl-inline ms-1">Anular</span>
-                                        </button>
-                                        {% else %}
-                                        <button class="btn btn-outline-secondary btn-action" disabled title="Compra anulada">
-                                            <i class="fas fa-lock"></i>
-                                            <span class="d-none d-xl-inline ms-1">Bloqueado</span>
-                                        </button>
-                                        {% endif %}
-                                    </div>
+                                <!-- Botones móviles -->
+                                <div class="btn-group-vertical btn-group-sm d-lg-none">
+                                    <a href="{{ url_for('admin_detalle_compra_completo', id_movimiento=entrada.ID_Movimiento) }}"
+                                        class="btn btn-outline-info btn-action-mobile">
+                                        <i class="fas fa-eye"></i>
+                                        <span class="ms-1">Ver</span>
+                                    </a>
+
+                                    {% if entrada.Estado == 'Activa' %}
+                                    <a href="{{ url_for('admin_editar_compra', id_movimiento=entrada.ID_Movimiento) }}"
+                                        class="btn btn-outline-primary btn-action-mobile">
+                                        <i class="fas fa-edit"></i>
+                                        <span class="ms-1">Editar</span>
+                                    </a>
+
+                                    <button type="button"
+                                        class="btn btn-outline-danger btn-action-mobile btn-anular-compra"
+                                        data-bs-toggle="modal" data-bs-target="#anularCompraModal"
+                                        data-id="{{ entrada.ID_Movimiento }}">
+                                        <i class="fas fa-ban"></i>
+                                        <span class="ms-1">Anular</span>
+                                    </button>
+                                    {% else %}
+                                    <button class="btn btn-outline-secondary btn-action-mobile" disabled>
+                                        <i class="fas fa-lock"></i>
+                                        <span class="ms-1">Bloqueado</span>
+                                    </button>
+                                    {% endif %}
+                                </div>
+
+                                <!-- Botones desktop -->
+                                <div class="btn-group btn-group-sm d-none d-lg-flex">
+                                    <a href="{{ url_for('admin_detalle_compra_completo', id_movimiento=entrada.ID_Movimiento) }}"
+                                        class="btn btn-outline-info btn-action">
+                                        <i class="fas fa-eye"></i>
+                                        <span class="d-none d-xl-inline ms-1">Ver</span>
+                                    </a>
+
+                                    {% if entrada.Estado == 'Activa' %}
+                                    <a href="{{ url_for('admin_editar_compra', id_movimiento=entrada.ID_Movimiento) }}"
+                                        class="btn btn-outline-primary btn-action">
+                                        <i class="fas fa-edit"></i>
+                                        <span class="d-none d-xl-inline ms-1">Editar</span>
+                                    </a>
+
+                                    <button type="button" class="btn btn-outline-danger btn-action btn-anular-compra"
+                                        data-bs-toggle="modal" data-bs-target="#anularCompraModal"
+                                        data-id="{{ entrada.ID_Movimiento }}">
+                                        <i class="fas fa-ban"></i>
+                                        <span class="d-none d-xl-inline ms-1">Anular</span>
+                                    </button>
+                                    {% else %}
+                                    <button class="btn btn-outline-secondary btn-action" disabled>
+                                        <i class="fas fa-lock"></i>
+                                        <span class="d-none d-xl-inline ms-1">Bloqueado</span>
+                                    </button>
+                                    {% endif %}
                                 </div>
                             </td>
                         </tr>
@@ -355,13 +343,13 @@
                     </tbody>
                     <tfoot class="table-light">
                         <tr>
-                            <td colspan="6" class="text-end fw-bold d-none d-md-table-cell">Totales:</td>
-                            <td colspan="2" class="text-end fw-bold d-md-none">Totales:</td>
+                            <td colspan="6" class="text-end fw-bold d-none d-md-table-cell">Totales (solo activas):</td>
+                            <td colspan="2" class="text-end fw-bold d-md-none">Totales (activas):</td>
                             <td class="text-center fw-bold text-primary">
-                                {{ entradas|sum(attribute='Total_Productos') or 0 }}
+                                {{ total_productos_activos or 0 }}
                             </td>
                             <td class="text-end fw-bold text-success fs-5">
-                                C${{ "{:,.2f}".format(entradas|sum(attribute='Total_Compra') or 0) }}
+                                C${{ "{:,.2f}".format(total_invertido or 0) }}
                             </td>
                             <td colspan="3"></td>
                         </tr>
@@ -369,30 +357,13 @@
                 </table>
             </div>
 
-            <!-- Paginación Mejorada -->
+            <!-- Paginación -->
             {% if entradas and entradas|length > 0 %}
             <div class="card-footer bg-white border-0 px-4 py-3">
                 <div class="d-flex flex-column flex-md-row justify-content-between align-items-center">
-                    <div class="mb-2 mb-md-0">
-                        <p class="text-muted small mb-0">
-                            Mostrando <strong>{{ entradas|length }}</strong> compra(s)
-                        </p>
+                    <div class="text-muted mb-2 mb-md-0">
+                        <small>Mostrando {{ entradas|length }} compra(s) - {{ contado_activas + credito_activas }} activas</small>
                     </div>
-                    <nav aria-label="Page navigation">
-                        <ul class="pagination pagination-sm mb-0">
-                            <li class="page-item disabled">
-                                <a class="page-link" href="#" tabindex="-1">
-                                    <i class="fas fa-chevron-left"></i>
-                                </a>
-                            </li>
-                            <li class="page-item active"><a class="page-link" href="#">1</a></li>
-                            <li class="page-item">
-                                <a class="page-link" href="#">
-                                    <i class="fas fa-chevron-right"></i>
-                                </a>
-                            </li>
-                        </ul>
-                    </nav>
                 </div>
             </div>
             {% endif %}
@@ -400,8 +371,9 @@
     </div>
 </div>
 
-<!-- Modal de Anulación de Compra -->
-<div class="modal fade" id="anularCompraModal" tabindex="-1" aria-labelledby="anularCompraModalLabel" aria-hidden="true">
+<!-- Modal Anulación -->
+<div class="modal fade" id="anularCompraModal" tabindex="-1" aria-labelledby="anularCompraModalLabel"
+    aria-hidden="true">
     <div class="modal-dialog modal-lg">
         <div class="modal-content border-0 shadow-lg">
             <div class="modal-header bg-danger text-white">
@@ -409,1052 +381,642 @@
                     <i class="fas fa-exclamation-triangle me-2"></i>
                     Confirmar Anulación de Compra
                 </h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
+                    aria-label="Close"></button>
             </div>
-            <form id="formAnularCompra" method="POST" action="">
-                <div class="modal-body">
-                    <div class="alert alert-warning border-warning">
-                        <div class="d-flex">
-                            <div class="flex-shrink-0">
-                                <i class="fas fa-exclamation-circle fa-2x text-warning"></i>
-                            </div>
-                            <div class="flex-grow-1 ms-3">
-                                <h6 class="alert-heading fw-bold mb-1">¡Atención! Esta acción es irreversible</h6>
-                                <p class="mb-0 small">Al anular esta compra, se reversarán las existencias de productos en inventario y se cancelarán las cuentas por pagar asociadas.</p>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <!-- Detalles de la compra -->
-                    <div class="card border-0 bg-light mb-4">
-                        <div class="card-body">
-                            <h6 class="fw-bold text-dark mb-3">
-                                <i class="fas fa-info-circle me-2 text-primary"></i>
-                                Detalles de la Compra
-                            </h6>
-                            <div class="row">
-                                <div class="col-md-6 mb-3">
-                                    <label class="form-label small text-muted">ID de Compra</label>
-                                    <div class="form-control-plaintext fw-bold" id="modalCompraId"></div>
-                                </div>
-                                <div class="col-md-6 mb-3">
-                                    <label class="form-label small text-muted">Proveedor</label>
-                                    <div class="form-control-plaintext fw-bold" id="modalProveedor"></div>
-                                </div>
-                                <div class="col-md-6 mb-3">
-                                    <label class="form-label small text-muted">No. Factura</label>
-                                    <div class="form-control-plaintext" id="modalFactura"></div>
-                                </div>
-                                <div class="col-md-6 mb-3">
-                                    <label class="form-label small text-muted">Total</label>
-                                    <div class="form-control-plaintext fw-bold text-danger" id="modalTotal"></div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <!-- Campos del formulario -->
-                    <div class="mb-4">
-                        <label for="motivoAnulacion" class="form-label fw-semibold">
-                            <i class="fas fa-comment-dots me-2 text-primary"></i>
-                            Motivo de Anulación <span class="text-danger">*</span>
-                        </label>
-                        <textarea class="form-control" id="motivoAnulacion" name="motivo_anulacion" 
-                                  rows="4" placeholder="Describa el motivo de la anulación..." 
-                                  required minlength="10" maxlength="500"></textarea>
-                        <div class="form-text small">
-                            Mínimo 10 caracteres. Este motivo quedará registrado en el historial.
-                        </div>
-                    </div>
-                    
-                    <!-- Campo oculto para ID usuario -->
-                    <input type="hidden" name="id_usuario_anulacion" value="{{ current_user.id }}">
-                    
-                    <!-- Confirmación final -->
-                    <div class="form-check mb-0">
-                        <input class="form-check-input" type="checkbox" id="confirmarAnulacion" required>
-                        <label class="form-check-label text-danger fw-semibold" for="confirmarAnulacion">
-                            <i class="fas fa-check-circle me-2"></i>
-                            Confirmo que comprendo las consecuencias de anular esta compra y asumo la responsabilidad.
-                        </label>
-                    </div>
+
+            <!-- Loading State -->
+            <div id="modalLoading" class="modal-body text-center py-5">
+                <div class="spinner-border text-danger mb-3" style="width: 3rem; height: 3rem;" role="status">
+                    <span class="visually-hidden">Cargando...</span>
                 </div>
-                <div class="modal-footer border-top">
-                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
-                        <i class="fas fa-times me-2"></i> Cancelar
-                    </button>
-                    <button type="submit" class="btn btn-danger" id="btnConfirmarAnulacion">
-                        <i class="fas fa-ban me-2"></i> Sí, Anular Compra
-                    </button>
+                <h6 class="text-muted">Cargando información detallada de la compra...</h6>
+                <p class="text-muted small mt-2">Por favor espere un momento</p>
+            </div>
+
+            <!-- Error State -->
+            <div id="modalError" class="modal-body text-center py-5" style="display: none;">
+                <div class="mb-3">
+                    <i class="fas fa-times-circle fa-3x text-danger"></i>
                 </div>
-            </form>
+                <h6 class="text-danger" id="errorTitle">Error al cargar la compra</h6>
+                <p class="text-muted small mt-2" id="errorMessage">Ha ocurrido un error</p>
+                <button type="button" class="btn btn-secondary mt-3" data-bs-dismiss="modal">
+                    <i class="fas fa-times me-2"></i>Cerrar
+                </button>
+            </div>
+
+            <!-- Content Container -->
+            <div id="modalContent" style="display: none;">
+                <form id="formAnularCompra" method="POST" action="">
+                    <div class="modal-body">
+                        <!-- Alerta de advertencia -->
+                        <div class="alert alert-warning border-warning mb-4">
+                            <div class="d-flex">
+                                <div class="flex-shrink-0">
+                                    <i class="fas fa-exclamation-circle fa-2x text-warning"></i>
+                                </div>
+                                <div class="flex-grow-1 ms-3">
+                                    <h6 class="alert-heading fw-bold mb-1">
+                                        ¿Está seguro de anular la compra <span id="modalCompraId"
+                                            class="text-danger fw-bold">#</span>?
+                                    </h6>
+                                    <p class="mb-0 small">Esta acción es irreversible y reversará las existencias en
+                                        inventario.</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Detalles de la compra -->
+                        <div class="card border-0 bg-light mb-4">
+                            <div class="card-body">
+                                <h6 class="fw-bold text-dark mb-3">
+                                    <i class="fas fa-info-circle me-2 text-primary"></i>
+                                    Detalles de la Compra
+                                    <span id="compraStatusBadge" class="badge bg-success ms-2">Activa</span>
+                                    <span id="stockStatusBadge" class="badge bg-success ms-1">Stock OK</span>
+                                </h6>
+
+                                <div class="row mb-3" id="compraBasicDetails">
+                                    <!-- Se llenará con JavaScript -->
+                                </div>
+
+                                <!-- Tabla de productos -->
+                                <div class="mt-4">
+                                    <h6 class="fw-bold text-dark mb-2">
+                                        <i class="fas fa-boxes me-2 text-primary"></i>
+                                        Productos <small class="text-muted" id="totalProductos">(0 productos)</small>
+                                    </h6>
+
+                                    <div class="table-responsive" style="max-height: 300px; overflow-y: auto;">
+                                        <table class="table table-sm table-hover mb-0" id="productosTable">
+                                            <thead class="table-light sticky-top">
+                                                <tr>
+                                                    <th>#</th>
+                                                    <th>Código</th>
+                                                    <th>Descripción</th>
+                                                    <th class="text-center">Cantidad</th>
+                                                    <th class="text-center">Stock Actual</th>
+                                                    <th class="text-end">Costo Unitario</th>
+                                                    <th class="text-end">Subtotal</th>
+                                                    <th class="text-center">Estado</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody id="productosTableBody">
+                                                <!-- Se llenará con JavaScript -->
+                                            </tbody>
+                                            <tfoot class="table-light">
+                                                <tr>
+                                                    <td colspan="3" class="text-end fw-bold">Totales:</td>
+                                                    <td class="text-center fw-bold" id="totalCantidad">0</td>
+                                                    <td colspan="2"></td>
+                                                    <td class="text-end fw-bold text-success" id="totalCompraModal">
+                                                        C$0.00</td>
+                                                    <td></td>
+                                                </tr>
+                                            </tfoot>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Alerta de stock insuficiente -->
+                        <div id="stockWarning" class="alert alert-danger border-danger mb-4" style="display: none;">
+                            <div class="d-flex">
+                                <div class="flex-shrink-0">
+                                    <i class="fas fa-exclamation-triangle fa-2x text-danger"></i>
+                                </div>
+                                <div class="flex-grow-1 ms-3">
+                                    <h6 class="alert-heading fw-bold mb-1">¡Stock Insuficiente!</h6>
+                                    <p class="mb-2">No hay suficiente stock para anular esta compra. Los siguientes
+                                        productos no tienen existencias suficientes:</p>
+                                    <ul class="mb-0 small" id="productosSinStockList">
+                                        <!-- Lista de productos sin stock -->
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Campo de motivo -->
+                        <div class="mb-3">
+                            <label for="motivoAnulacion" class="form-label fw-semibold">
+                                <i class="fas fa-comment-dots me-2 text-primary"></i>
+                                Motivo de Anulación <span class="text-danger">*</span>
+                            </label>
+                            <textarea class="form-control" id="motivoAnulacion" name="motivo_anulacion" rows="3"
+                                placeholder="Ingrese el motivo de la anulación..." required></textarea>
+                            <small class="form-text text-muted">Explique brevemente la razón de esta anulación</small>
+                        </div>
+
+                        <!-- Checkbox de confirmación -->
+                        <div class="form-check mb-3">
+                            <input class="form-check-input" type="checkbox" id="confirmarAnulacion" required>
+                            <label class="form-check-label fw-semibold" for="confirmarAnulacion">
+                                Confirmo que deseo anular esta compra y entiendo que esta acción no se puede deshacer
+                            </label>
+                        </div>
+
+                        <!-- Campo oculto para ID de usuario -->
+                        <input type="hidden" name="id_usuario_anulacion" value="{{ current_user.id }}">
+                    </div>
+
+                    <div class="modal-footer border-0 bg-light">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                            <i class="fas fa-times me-2"></i>Cancelar
+                        </button>
+                        <button type="submit" class="btn btn-danger" id="btnConfirmarAnulacion" disabled>
+                            <i class="fas fa-ban me-2"></i>Cargando...
+                        </button>
+                    </div>
+                </form>
+            </div>
         </div>
     </div>
 </div>
 
-{% endblock %}
-
-{% block styles %}
 <style>
-/* Variables CSS */
-:root {
-    --primary-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    --success-gradient: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
-    --warning-gradient: linear-gradient(135deg, #f7971e 0%, #ffd200 100%);
-    --info-gradient: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
-}
-
-/* Clases de gradientes */
-.gradient-primary { background: var(--primary-gradient) !important; }
-.gradient-success { background: var(--success-gradient) !important; }
-.gradient-warning { background: var(--warning-gradient) !important; }
-.gradient-info { background: var(--info-gradient) !important; }
-
-/* Estilos generales mejorados */
-.text-gradient-primary {
-    background: var(--primary-gradient);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-}
-
-/* Tarjetas de estadísticas */
-.card-statistic {
-    transition: transform 0.3s ease, box-shadow 0.3s ease;
-    border: none !important;
-}
-
-.card-statistic:hover {
-    transform: translateY(-5px);
-    box-shadow: 0 10px 20px rgba(0,0,0,0.1) !important;
-}
-
-/* Tabla mejorada */
-.table {
-    --bs-table-bg: transparent;
-    margin-bottom: 0;
-}
-
-.table thead th {
-    border-bottom: 2px solid #e9ecef;
-    font-weight: 600;
-    text-transform: uppercase;
-    font-size: 0.8rem;
-    letter-spacing: 0.5px;
-    color: #6c757d;
-    padding: 1rem 1.5rem;
-}
-
-.table tbody td {
-    padding: 1rem 1.5rem;
-    vertical-align: middle;
-    border-bottom: 1px solid #f1f3f5;
-}
-
-.table tbody tr:last-child td {
-    border-bottom: none;
-}
-
-.table-hover tbody tr:hover {
-    background-color: rgba(102, 126, 234, 0.04);
-}
-
-/* Estado inactivo */
-.table-inactive {
-    opacity: 0.6;
-}
-
-.table-inactive:hover {
-    opacity: 0.8;
-}
-
-/* Badges mejorados */
-.badge {
-    font-weight: 500;
-    letter-spacing: 0.3px;
-}
-
-/* Avatar */
-.avatar-xs {
-    width: 24px;
-    height: 24px;
-}
-
-.avatar-sm {
-    width: 36px;
-    height: 36px;
-}
-
-/* Celdas de fecha */
-.date-cell {
-    line-height: 1.2;
-}
-
-/* Search box */
-.search-box .input-group {
-    border-radius: 8px;
-    overflow: hidden;
-    background: #f8f9fa;
-}
-
-.search-box .form-control {
-    background: transparent;
-    border: none;
-    min-width: 250px;
-}
-
-.search-box .form-control:focus {
-    box-shadow: none;
-}
-
-/* Empty state */
-.empty-state {
-    padding: 3rem 1rem;
-}
-
-.empty-state-icon {
-    opacity: 0.3;
-}
-
-/* MEJORAS ESPECÍFICAS PARA ACCIONES EN MÓVILES */
-.actions-container {
-    min-width: 120px;
-}
-
-/* Botones horizontales para desktop */
-.btn-group .btn-action {
-    border-radius: 6px;
-    padding: 0.375rem 0.75rem;
-    transition: all 0.2s ease;
-    border-width: 1px;
-    min-width: 40px;
-}
-
-.btn-group .btn-action:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-}
-
-.btn-group .btn-action:not(:last-child) {
-    margin-right: 0.25rem;
-}
-
-/* Botones verticales para móviles */
-.btn-group-vertical.btn-group-sm {
-    width: 100%;
-}
-
-.btn-action-mobile {
-    width: 100%;
-    text-align: left;
-    padding: 0.5rem 0.75rem;
-    margin-bottom: 0.25rem;
-    border-radius: 6px;
-    display: flex;
-    align-items: center;
-    justify-content: flex-start;
-    font-size: 0.875rem;
-}
-
-.btn-action-mobile:last-child {
-    margin-bottom: 0;
-}
-
-.btn-action-mobile i {
-    min-width: 20px;
-    text-align: center;
-}
-
-.btn-action-mobile span {
-    margin-left: 0.5rem;
-    white-space: nowrap;
-}
-
-/* Responsive Design - Correcciones para móviles */
-@media (max-width: 768px) {
-    .card-header {
-        padding: 1rem !important;
+    /* Estilos del modal */
+    .table-inactive {
+        opacity: 0.6;
+        background-color: #f8f9fa;
     }
-    
-    .table-responsive {
-        margin: 0 -1rem;
-        padding: 0 1rem;
-    }
-    
-    .table thead {
-        display: none;
-    }
-    
-    .table tbody tr {
-        display: block;
-        margin-bottom: 1rem;
-        border: 1px solid #e9ecef;
-        border-radius: 12px;
-        padding: 1rem;
-        background: white;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-    }
-    
-    .table tbody td {
-        display: flex;
-        justify-content: space-between;
-        align-items: flex-start;
-        border: none;
-        padding: 0.75rem 0;
-        flex-wrap: wrap;
-    }
-    
-    .table tbody td:before {
-        content: attr(data-label);
-        font-weight: 600;
-        color: #6c757d;
-        font-size: 0.85rem;
-        margin-right: 1rem;
-        min-width: 120px;
-        flex-shrink: 0;
-    }
-    
-    .table tbody td:last-child {
-        border-top: 2px solid #f8f9fa;
-        margin-top: 0.75rem;
-        padding-top: 1rem;
-    }
-    
-    .table tbody td:last-child:before {
-        display: none;
-    }
-    
-    /* Mejoras específicas para cada celda en móviles */
-    .table tbody td[data-label="ID"] {
-        font-size: 1.1rem;
-        justify-content: space-between;
-    }
-    
-    .table tbody td[data-label="Fecha"] .date-cell {
-        flex-direction: column;
-        align-items: flex-end;
-        text-align: right;
-    }
-    
-    .table tbody td[data-label="Proveedor"] {
-        align-items: center;
-    }
-    
-    .table tbody td[data-label="Total"] {
-        justify-content: space-between;
-        align-items: center;
-        font-size: 1.1rem;
-    }
-    
-    .table tbody td[data-label="Estado"],
-    .table tbody td[data-label="Tipo"],
-    .table tbody td[data-label="Productos"],
-    .table tbody td[data-label="Factura"] {
-        justify-content: space-between;
-        align-items: center;
-    }
-    
-    /* Asegurar que los badges se vean bien en móviles */
-    .badge, .badge-pill {
-        font-size: 0.75rem;
-        padding: 0.35rem 0.75rem;
-    }
-    
-    /* Botones de acción en móviles */
-    .btn-group-vertical {
-        gap: 0.25rem;
-        width: 100%;
-    }
-    
-    .btn-action-mobile {
-        justify-content: center;
-        text-align: center;
-        padding: 0.5rem;
-    }
-    
-    .btn-action-mobile i {
-        margin-right: 0.5rem;
-    }
-    
-    .d-none.d-lg-flex {
-        display: none !important;
-    }
-    
-    .d-lg-none {
-        display: flex !important;
-        width: 100%;
-    }
-    
-    .actions-container {
-        width: 100%;
-    }
-}
 
-@media (max-width: 576px) {
-    .table tbody td {
-        flex-direction: column;
-        align-items: stretch;
+    .stock-ok {
+        color: #28a745;
+        font-weight: bold;
     }
-    
-    .table tbody td:before {
-        margin-bottom: 0.25rem;
-        width: 100%;
+
+    .stock-low {
+        color: #dc3545;
+        font-weight: bold;
     }
-    
-    .table tbody td[data-label="Fecha"] .date-cell {
-        align-items: flex-start;
-        text-align: left;
+
+    .sticky-top {
+        position: sticky;
+        top: 0;
+        z-index: 10;
     }
-    
-    .table tbody td[data-label="Proveedor"] .avatar-sm {
-        width: 32px;
-        height: 32px;
+
+    /* Animaciones */
+    .modal.fade .modal-dialog {
+        transition: transform 0.3s ease-out;
     }
-    
-    .card-statistic .card-body {
-        padding: 1rem !important;
+
+    /* Transiciones suaves para mensajes flash */
+    .flash-message {
+        transition: opacity 0.5s ease, transform 0.5s ease;
+        opacity: 0;
+        transform: translateY(-20px);
     }
-    
-    .statistic-icon {
-        font-size: 1.5rem !important;
+
+    .flash-message.show {
+        opacity: 1;
+        transform: translateY(0);
     }
-    
-    .modal-dialog {
-        margin: 0.5rem;
+
+    /* Estilo para asegurar que el contenedor tenga margen */
+    #flash-messages-container {
+        margin-bottom: 1.5rem;
+        min-height: 60px;
     }
-    
-    /* Botones más compactos en móviles muy pequeños */
-    .btn-action-mobile {
-        font-size: 0.8rem;
-        padding: 0.4rem 0.5rem;
-    }
-    
-    .btn-action-mobile i {
-        font-size: 0.9rem;
-        margin-right: 0.25rem;
-    }
-    
-    .btn-action-mobile span {
-        font-size: 0.8rem;
-    }
-}
-
-/* Para tablets */
-@media (max-width: 992px) and (min-width: 769px) {
-    .btn-action span {
-        display: none !important;
-    }
-    
-    .btn-group .btn-action {
-        min-width: 36px;
-        padding: 0.375rem;
-        justify-content: center;
-    }
-    
-    .btn-group .btn-action i {
-        margin-right: 0;
-    }
-}
-
-/* Asegurar que en desktop se vea correctamente */
-@media (min-width: 769px) {
-    .btn-group-vertical {
-        display: none !important;
-    }
-    
-    .btn-group {
-        display: flex !important;
-    }
-}
-
-/* Scrollbar personalizada */
-.table-responsive::-webkit-scrollbar {
-    height: 6px;
-}
-
-.table-responsive::-webkit-scrollbar-track {
-    background: #f1f1f1;
-    border-radius: 10px;
-}
-
-.table-responsive::-webkit-scrollbar-thumb {
-    background: #c1c1c1;
-    border-radius: 10px;
-}
-
-.table-responsive::-webkit-scrollbar-thumb:hover {
-    background: #a8a8a8;
-}
-
-/* Transiciones suaves */
-.card, .btn, .badge, .table tr {
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-/* Sombreado mejorado */
-.shadow-lg {
-    box-shadow: 0 10px 40px rgba(0,0,0,0.08) !important;
-}
-
-/* Bordes redondeados */
-.rounded-3 {
-    border-radius: 12px !important;
-}
-
-/* Hover lift effect */
-.hover-lift {
-    transition: transform 0.2s ease;
-}
-
-.hover-lift:hover {
-    transform: translateY(-2px);
-}
-
-/* Alertas mejoradas */
-.alert-icon {
-    min-width: 24px;
-}
-
-/* Filtros responsive */
-@media (max-width: 768px) {
-    .search-box .form-control {
-        min-width: auto;
-    }
-}
-
-/* Mejoras para paginación en móviles */
-@media (max-width: 768px) {
-    .pagination {
-        flex-wrap: wrap;
-        justify-content: center;
-    }
-    
-    .page-item {
-        margin-bottom: 0.25rem;
-    }
-}
-
-/* Mejoras para estadísticas en móviles */
-@media (max-width: 768px) {
-    .statistic-icon {
-        font-size: 1.75rem !important;
-    }
-    
-    .card-statistic .card-body {
-        padding: 1.25rem !important;
-    }
-}
-
-/* Mejoras visuales generales */
-.bg-opacity-10 {
-    background-color: rgba(var(--bs-primary-rgb), 0.1) !important;
-}
-
-.text-white-80 {
-    color: rgba(255, 255, 255, 0.8) !important;
-}
-
-.text-white-60 {
-    color: rgba(255, 255, 255, 0.6) !important;
-}
-
-.border-opacity-25 {
-    border-color: rgba(var(--bs-border-color-rgb), 0.25) !important;
-}
-
-/* Color específico para proveedores */
-.bg-warning.bg-opacity-10 {
-    background-color: rgba(255, 193, 7, 0.1) !important;
-}
-
-/* Ajustes para badges de estados */
-.bg-success.bg-opacity-10 {
-    background-color: rgba(25, 135, 84, 0.1) !important;
-}
-
-.bg-danger.bg-opacity-10 {
-    background-color: rgba(220, 53, 69, 0.1) !important;
-}
-
-.bg-info.bg-opacity-10 {
-    background-color: rgba(13, 202, 240, 0.1) !important;
-}
-
-.bg-secondary.bg-opacity-10 {
-    background-color: rgba(108, 117, 125, 0.1) !important;
-}
-
-/* Estilos específicos para anulación */
-.btn-anular-compra {
-    border-color: #dc3545;
-    color: #dc3545;
-}
-
-.btn-anular-compra:hover {
-    background-color: rgba(220, 53, 69, 0.1);
-    border-color: #dc3545;
-    color: #dc3545;
-}
-
-/* Estilos para el modal de anulación */
-.modal-content {
-    border-radius: 12px;
-    overflow: hidden;
-}
-
-.modal-header.bg-danger {
-    background: linear-gradient(135deg, #dc3545 0%, #c82333 100%) !important;
-}
-
-/* Estilos para textarea de motivo */
-#motivoAnulacion {
-    border: 2px solid #e9ecef;
-    border-radius: 8px;
-    resize: vertical;
-    min-height: 100px;
-}
-
-#motivoAnulacion:focus {
-    border-color: #dc3545;
-    box-shadow: 0 0 0 0.25rem rgba(220, 53, 69, 0.25);
-}
-
-/* Estilos para checkbox de confirmación */
-.form-check-input:checked {
-    background-color: #dc3545;
-    border-color: #dc3545;
-}
-
-/* Toast notifications */
-.toast {
-    border-radius: 8px;
-    margin-bottom: 0.5rem;
-}
-
-/* Spinner para botón de confirmación */
-.btn-danger:disabled {
-    opacity: 0.8;
-}
-
-/* Responsive para modal */
-@media (max-width: 768px) {
-    .modal-dialog {
-        margin: 0.5rem;
-    }
-    
-    .modal-body {
-        padding: 1rem;
-    }
-    
-    .btn-action-mobile {
-        padding: 0.375rem 0.5rem;
-    }
-}
 </style>
-{% endblock %}
-
-{% block scripts %}
-<!-- Bootstrap 5 JS -->
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
 
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-    console.log('Inicializando gestión de compras');
-    
-    // ============================================
-    // FILTROS DE TABLA
-    // ============================================
-    function filterTable() {
-        const estadoFilter = document.getElementById('estadoFilter');
-        const tipoFilter = document.getElementById('tipoCompraFilter');
-        const searchInput = document.getElementById('searchInput');
-        
-        if (!estadoFilter || !tipoFilter || !searchInput) return;
-        
-        const estadoValue = estadoFilter.value.toLowerCase();
-        const tipoValue = tipoFilter.value.toLowerCase();
-        const searchValue = searchInput.value.toLowerCase();
-        
-        const rows = document.querySelectorAll('#dataTable tbody tr:not(:last-child)');
-        let visibleCount = 0;
-        
-        rows.forEach(row => {
-            if (row.querySelector('td[data-label="ID"]')) {
-                const estado = row.querySelector('td[data-label="Estado"] .badge')?.textContent.toLowerCase() || '';
-                const tipo = row.querySelector('td[data-label="Tipo"] .badge')?.textContent.toLowerCase() || '';
-                const proveedor = row.querySelector('td[data-label="Proveedor"] .fw-semibold')?.textContent.toLowerCase() || '';
-                const factura = row.querySelector('td[data-label="Factura"]')?.textContent.toLowerCase() || '';
-                const total = row.querySelector('td[data-label="Total"]')?.textContent.toLowerCase() || '';
-                
-                const estadoMatch = !estadoValue || estado.includes(estadoValue);
-                const tipoMatch = !tipoValue || tipo.includes(tipoValue);
-                const searchMatch = !searchValue || 
-                    proveedor.includes(searchValue) || 
-                    factura.includes(searchValue) ||
-                    total.includes(searchValue);
-                
-                const isVisible = estadoMatch && tipoMatch && searchMatch;
-                row.style.display = isVisible ? '' : 'none';
-                
-                if (isVisible) visibleCount++;
+    document.addEventListener('DOMContentLoaded', function () {
+        // Variables globales
+        let currentCompraId = null;
+        let compraData = null;
+
+        // Función segura para establecer texto
+        function safeSetText(elementId, text) {
+            const element = document.getElementById(elementId);
+            if (element) {
+                element.textContent = text;
             }
-        });
-        
-        // Mostrar mensaje si no hay resultados
-        const emptyRow = document.querySelector('#dataTable tbody tr:last-child');
-        const hasEmptyState = emptyRow && emptyRow.querySelector('.empty-state');
-        
-        if (visibleCount === 0 && rows.length > 0 && !hasEmptyState) {
-            const tbody = document.querySelector('#dataTable tbody');
-            const newRow = document.createElement('tr');
-            newRow.innerHTML = `
-                <td colspan="12" class="text-center py-5">
-                    <div class="empty-state">
-                        <div class="empty-state-icon mb-3">
-                            <i class="fas fa-search fa-3x text-muted opacity-50"></i>
-                        </div>
-                        <h5 class="text-muted mb-2">No se encontraron resultados</h5>
-                        <p class="text-muted small mb-4">Intente con otros criterios de búsqueda</p>
-                        <button class="btn btn-outline-primary" id="clearFiltersManual">
-                            <i class="fas fa-times me-2"></i> Limpiar filtros
-                        </button>
-                    </div>
-                </td>
-            `;
-            tbody.appendChild(newRow);
+        }
+
+        // Función segura para mostrar/ocultar elementos
+        function safeDisplay(elementId, displayStyle) {
+            const element = document.getElementById(elementId);
+            if (element) {
+                element.style.display = displayStyle;
+            }
+        }
+
+        // Función para limpiar y validar la unidad
+        function limpiarUnidad(unidad) {
+            if (!unidad) return '';
             
-            const clearFiltersManualBtn = document.getElementById('clearFiltersManual');
-            if (clearFiltersManualBtn) {
-                clearFiltersManualBtn.addEventListener('click', function() {
-                    if (estadoFilter) estadoFilter.value = '';
-                    if (tipoFilter) tipoFilter.value = '';
-                    if (searchInput) searchInput.value = '';
-                    filterTable();
+            unidad = unidad.toString().trim();
+            
+            // Lista de valores inválidos comunes
+            const valoresInvalidos = ['7', '0', 'null', 'undefined', 'nan'];
+            
+            if (valoresInvalidos.includes(unidad.toLowerCase())) {
+                return '';
+            }
+            
+            // Si es un número, probablemente es un error
+            if (!isNaN(unidad) && unidad !== '') {
+                console.warn(`Unidad numérica inválida: ${unidad}`);
+                return '';
+            }
+            
+            return unidad;
+        }
+
+        // Referencias al modal
+        const anularModal = document.getElementById('anularCompraModal');
+
+        // Evento cuando se abre el modal
+        if (anularModal) {
+            anularModal.addEventListener('show.bs.modal', async function (e) {
+                const btn = e.relatedTarget;
+                currentCompraId = btn.dataset.id;
+
+                // Mostrar loading
+                showModalLoading();
+
+                try {
+                    // Obtener datos detallados de la compra
+                    const response = await fetch(`/admin/compras/compras-entradas/anular/${currentCompraId}?completa=1`);
+
+                    if (!response.ok) {
+                        throw new Error(`Error HTTP: ${response.status}`);
+                    }
+
+                    const data = await response.json();
+
+                    if (!data.success) {
+                        throw new Error(data.error || 'Error al cargar datos de la compra');
+                    }
+
+                    compraData = data.compra;
+
+                    // Validar que se cargaron los productos
+                    if (!compraData.productos) {
+                        throw new Error('No se pudieron cargar los productos de la compra');
+                    }
+
+                    // Mostrar contenido con datos
+                    showModalContent();
+                    loadDetailedCompraData(compraData);
+
+                } catch (error) {
+                    console.error('Error al cargar datos detallados:', error);
+                    showModalError(error.message || 'Error desconocido al cargar la información');
+                }
+            });
+
+            // Cuando se cierra el modal
+            anularModal.addEventListener('hidden.bs.modal', function () {
+                resetModal();
+                currentCompraId = null;
+                compraData = null;
+            });
+        }
+
+        // Función para mostrar loading
+        function showModalLoading() {
+            safeDisplay('modalLoading', 'block');
+            safeDisplay('modalContent', 'none');
+            safeDisplay('modalError', 'none');
+            
+            const btn = document.getElementById('btnConfirmarAnulacion');
+            if (btn) {
+                btn.disabled = true;
+            }
+        }
+
+        // Función para mostrar contenido
+        function showModalContent() {
+            safeDisplay('modalLoading', 'none');
+            safeDisplay('modalContent', 'block');
+            safeDisplay('modalError', 'none');
+        }
+
+        // Función para mostrar error
+        function showModalError(errorMessage) {
+            safeDisplay('modalLoading', 'none');
+            safeDisplay('modalContent', 'none');
+            safeDisplay('modalError', 'block');
+            safeSetText('errorTitle', 'Error al cargar la compra');
+            safeSetText('errorMessage', errorMessage || 'Ha ocurrido un error');
+        }
+
+        // Función para cargar datos detallados
+        function loadDetailedCompraData(compra) {
+            // Validación crítica
+            if (!compra.productos || !Array.isArray(compra.productos)) {
+                showModalError('Error: No se pudieron cargar los productos de la compra');
+                return;
+            }
+
+            // 1. Actualizar ID
+            safeSetText('modalCompraId', `#${compra.id}`);
+
+            // 2. Actualizar estado del stock
+            const stockBadge = document.getElementById('stockStatusBadge');
+            if (stockBadge) {
+                if (compra.stock_suficiente === true) {
+                    stockBadge.className = 'badge bg-success ms-1';
+                    stockBadge.textContent = 'Stock OK';
+                    safeDisplay('stockWarning', 'none');
+                } else {
+                    stockBadge.className = 'badge bg-danger ms-1';
+                    stockBadge.textContent = 'Stock Insuficiente';
+                    showStockWarning(compra.productos);
+                }
+            }
+
+            // 3. Actualizar detalles básicos
+            const detailsContainer = document.getElementById('compraBasicDetails');
+            if (detailsContainer) {
+                const detailsHtml = `
+                <div class="col-md-6 mb-3">
+                    <label class="form-label small text-muted">Proveedor</label>
+                    <div class="form-control-plaintext fw-bold">
+                        <i class="fas fa-truck text-warning me-2"></i>
+                        ${compra.proveedor || 'N/A'}
+                    </div>
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label class="form-label small text-muted">Factura</label>
+                    <div class="form-control-plaintext">
+                        <i class="fas fa-file-invoice text-primary me-2"></i>
+                        ${compra.factura || 'Sin factura'}
+                    </div>
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label class="form-label small text-muted">Fecha</label>
+                    <div class="form-control-plaintext">
+                        <i class="fas fa-calendar text-info me-2"></i>
+                        ${compra.fecha || 'N/A'}
+                    </div>
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label class="form-label small text-muted">Tipo de Compra</label>
+                    <div class="form-control-plaintext">
+                        <span class="badge ${compra.tipo_compra === 'CONTADO' ? 'bg-success' : 'bg-warning'}">
+                            <i class="fas fa-${compra.tipo_compra === 'CONTADO' ? 'money-bill-wave' : 'credit-card'} me-1"></i>
+                            ${compra.tipo_compra || 'CONTADO'}
+                        </span>
+                    </div>
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label class="form-label small text-muted">Bodega</label>
+                    <div class="form-control-plaintext">
+                        <i class="fas fa-warehouse text-secondary me-2"></i>
+                        ${compra.bodega || 'N/A'}
+                    </div>
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label class="form-label small text-muted">Total</label>
+                    <div class="form-control-plaintext fw-bold text-success">
+                        <i class="fas fa-dollar-sign me-2"></i>
+                        ${compra.total_formateado || 'C$0.00'}
+                    </div>
+                </div>
+            `;
+                detailsContainer.innerHTML = detailsHtml;
+            }
+
+            // 4. Actualizar contador de productos
+            const totalProductos = compra.total_productos || compra.productos.length || 0;
+            safeSetText('totalProductos', `(${totalProductos} productos)`);
+            safeSetText('totalCantidad', (compra.total_cantidad || 0).toFixed(2));
+            safeSetText('totalCompraModal', compra.total_formateado || 'C$0.00');
+
+            // 5. Llenar tabla de productos (CORREGIDO para manejar el "7")
+            const productosTableBody = document.getElementById('productosTableBody');
+            if (productosTableBody) {
+                productosTableBody.innerHTML = '';
+
+                compra.productos.forEach((producto, index) => {
+                    const cantidad = parseFloat(producto.cantidad) || 0;
+                    const stockActual = parseFloat(producto.stock_actual) || 0;
+                    const costoUnitario = parseFloat(producto.costo_unitario) || 0;
+                    const subtotal = parseFloat(producto.subtotal) || 0;
+                    const suficiente = producto.suficiente_stock === true;
+                    
+                    // Limpiar la unidad para evitar el "7"
+                    const unidad = limpiarUnidad(producto.unidad);
+
+                    const stockStatusText = suficiente ? '✓ OK' : '✗ Insuficiente';
+                    const stockClass = suficiente ? 'text-success' : 'text-danger';
+
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                    <td class="fw-bold">${index + 1}</td>
+                    <td><span class="badge bg-light text-dark">${producto.codigo || 'N/A'}</span></td>
+                    <td>${producto.descripcion || 'Producto sin descripción'}</td>
+                    <td class="text-center fw-semibold">
+                        ${cantidad.toFixed(2)}
+                        ${unidad ? `<span class="text-muted small ms-1">${unidad}</span>` : ''}
+                    </td>
+                    <td class="text-center ${stockClass}">${stockActual.toFixed(2)}</td>
+                    <td class="text-end">C$${costoUnitario.toFixed(2)}</td>
+                    <td class="text-end fw-semibold">C$${subtotal.toFixed(2)}</td>
+                    <td class="text-center ${stockClass}">${stockStatusText}</td>
+                `;
+
+                    productosTableBody.appendChild(row);
                 });
             }
-        } else if (hasEmptyState && visibleCount > 0) {
-            emptyRow.remove();
-        }
-    }
-    
-    // Event listeners para filtros
-    const estadoFilter = document.getElementById('estadoFilter');
-    const tipoCompraFilter = document.getElementById('tipoCompraFilter');
-    const searchInput = document.getElementById('searchInput');
-    
-    if (estadoFilter) estadoFilter.addEventListener('change', filterTable);
-    if (tipoCompraFilter) tipoCompraFilter.addEventListener('change', filterTable);
-    if (searchInput) searchInput.addEventListener('input', filterTable);
-    
-    // Botón limpiar filtros
-    const clearFiltersBtn = document.getElementById('clearFiltersBtn');
-    if (clearFiltersBtn) {
-        clearFiltersBtn.addEventListener('click', function() {
-            if (estadoFilter) estadoFilter.value = '';
-            if (tipoCompraFilter) tipoCompraFilter.value = '';
-            if (searchInput) searchInput.value = '';
-            filterTable();
-        });
-    }
-    
-    // ============================================
-    // FUNCIONALIDAD DE ANULACIÓN DE COMPRAS
-    // ============================================
-    
-    // Configurar modal de anulación
-    const anularCompraModal = document.getElementById('anularCompraModal');
-    
-    if (anularCompraModal) {
-        anularCompraModal.addEventListener('show.bs.modal', function(event) {
-            const button = event.relatedTarget;
-            const compraId = button.getAttribute('data-id');
-            const total = button.getAttribute('data-total');
-            const proveedor = button.getAttribute('data-proveedor');
-            const factura = button.getAttribute('data-factura');
-            
-            // Actualizar información en el modal
-            document.getElementById('modalCompraId').textContent = `#${compraId}`;
-            document.getElementById('modalProveedor').textContent = proveedor;
-            document.getElementById('modalFactura').textContent = factura;
-            document.getElementById('modalTotal').textContent = total;
-            
-            // Configurar acción del formulario
+
+            // 6. Configurar formulario
             const form = document.getElementById('formAnularCompra');
-            form.action = `/admin/compras/compras-entradas/anular/${compraId}`;
-            
-            // Limpiar formulario
-            document.getElementById('motivoAnulacion').value = '';
-            document.getElementById('confirmarAnulacion').checked = false;
-            
-            // Habilitar botón de confirmación
-            const btnConfirmar = document.getElementById('btnConfirmarAnulacion');
-            if (btnConfirmar) {
-                btnConfirmar.disabled = false;
-                btnConfirmar.innerHTML = `
-                    <i class="fas fa-ban me-2"></i> Sí, Anular Compra
-                `;
+            if (form && compra.id) {
+                form.action = `/admin/compras/compras-entradas/anular/${compra.id}`;
             }
+
+            // 7. Habilitar/deshabilitar botón según stock
+            const btn = document.getElementById('btnConfirmarAnulacion');
+            if (btn) {
+                if (compra.stock_suficiente === true) {
+                    btn.disabled = false;
+                    btn.innerHTML = `<i class="fas fa-ban me-2"></i> Sí, Anular Compra`;
+                    btn.classList.remove('btn-warning');
+                    btn.classList.add('btn-danger');
+                } else {
+                    btn.disabled = true;
+                    btn.innerHTML = `<i class="fas fa-ban me-2"></i> Stock Insuficiente`;
+                    btn.classList.remove('btn-danger');
+                    btn.classList.add('btn-warning');
+                }
+            }
+
+            // 8. Limpiar formulario
+            const motivoInput = document.getElementById('motivoAnulacion');
+            const confirmCheckbox = document.getElementById('confirmarAnulacion');
             
-            console.log(`Configurando anulación para compra #${compraId}`);
-        });
-        
+            if (motivoInput) motivoInput.value = '';
+            if (confirmCheckbox) confirmCheckbox.checked = false;
+        }
+
+        // Función para mostrar advertencia de stock
+        function showStockWarning(productos) {
+            const warningDiv = document.getElementById('stockWarning');
+            const listElement = document.getElementById('productosSinStockList');
+
+            if (!warningDiv || !listElement) return;
+
+            listElement.innerHTML = '';
+
+            if (!productos || !Array.isArray(productos) || productos.length === 0) {
+                safeDisplay('stockWarning', 'none');
+                return;
+            }
+
+            const productosSinStock = productos.filter(p => p.suficiente_stock === false);
+
+            if (productosSinStock.length === 0) {
+                safeDisplay('stockWarning', 'none');
+                return;
+            }
+
+            // Mostrar productos sin stock
+            productosSinStock.forEach(producto => {
+                const cantidad = parseFloat(producto.cantidad) || 0;
+                const stockActual = parseFloat(producto.stock_actual) || 0;
+                const faltan = cantidad - stockActual;
+
+                const li = document.createElement('li');
+                li.innerHTML = `
+                <strong>${producto.codigo || 'N/A'} - ${producto.descripcion || 'Sin descripción'}</strong><br>
+                <small class="text-muted">
+                    Stock actual: ${stockActual.toFixed(2)} | 
+                    Se requiere: ${cantidad.toFixed(2)} | 
+                    Faltan: ${faltan.toFixed(2)}
+                </small>
+            `;
+                listElement.appendChild(li);
+            });
+
+            safeDisplay('stockWarning', 'block');
+        }
+
+        // Función para resetear modal
+        function resetModal() {
+            safeDisplay('modalLoading', 'block');
+            safeDisplay('modalContent', 'none');
+            safeDisplay('modalError', 'none');
+            
+            const compraBasicDetails = document.getElementById('compraBasicDetails');
+            if (compraBasicDetails) compraBasicDetails.innerHTML = '';
+            
+            const productosTableBody = document.getElementById('productosTableBody');
+            if (productosTableBody) productosTableBody.innerHTML = '';
+            
+            safeDisplay('stockWarning', 'none');
+            
+            const form = document.getElementById('formAnularCompra');
+            if (form) form.reset();
+            
+            safeSetText('modalCompraId', '#');
+
+            const btn = document.getElementById('btnConfirmarAnulacion');
+            if (btn) {
+                btn.disabled = true;
+                btn.innerHTML = `<i class="fas fa-ban me-2"></i> Cargando...`;
+                btn.classList.remove('btn-warning');
+                btn.classList.add('btn-danger');
+            }
+        }
+
         // Validación del formulario
-        const formAnularCompra = document.getElementById('formAnularCompra');
-        const btnConfirmarAnulacion = document.getElementById('btnConfirmarAnulacion');
-        
-        if (formAnularCompra && btnConfirmarAnulacion) {
-            formAnularCompra.addEventListener('submit', function(e) {
-                const motivo = document.getElementById('motivoAnulacion').value.trim();
-                const confirmado = document.getElementById('confirmarAnulacion').checked;
-                
-                if (!confirmado) {
+        const form = document.getElementById('formAnularCompra');
+        if (form) {
+            form.addEventListener('submit', function (e) {
+                // Si no hay stock suficiente, prevenir envío
+                if (compraData && compraData.stock_suficiente === false) {
                     e.preventDefault();
-                    showToast('Debe confirmar la anulación marcando la casilla de verificación.', 'warning');
+                    alert('No se puede anular la compra debido a stock insuficiente.');
                     return;
                 }
-                
-                if (motivo.length < 10) {
+
+                // Validar checkbox
+                const confirmCheckbox = document.getElementById('confirmarAnulacion');
+                if (!confirmCheckbox || !confirmCheckbox.checked) {
                     e.preventDefault();
-                    showToast('El motivo debe tener al menos 10 caracteres.', 'warning');
+                    alert('Debe confirmar la anulación marcando la casilla de verificación.');
                     return;
                 }
-                
+
+                // Validar motivo
+                const motivoInput = document.getElementById('motivoAnulacion');
+                const motivo = motivoInput ? motivoInput.value.trim() : '';
+                if (!motivo || motivo.length < 5) {
+                    e.preventDefault();
+                    alert('Debe ingresar un motivo de al menos 5 caracteres.');
+                    return;
+                }
+
+                // Confirmación final
+                if (!confirm(`¿Está seguro de anular la compra #${currentCompraId}? Esta acción no se puede deshacer.`)) {
+                    e.preventDefault();
+                    return;
+                }
+
                 // Deshabilitar botón para evitar doble envío
-                btnConfirmarAnulacion.disabled = true;
-                btnConfirmarAnulacion.innerHTML = `
-                    <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
-                    Anulando...
-                `;
+                const btn = document.getElementById('btnConfirmarAnulacion');
+                if (btn) {
+                    btn.disabled = true;
+                    btn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i> Procesando...';
+                }
             });
         }
-    }
-    
-    // Función para mostrar toasts (notificaciones)
-    function showToast(message, type = 'info') {
-        const toastContainer = document.getElementById('toastContainer');
-        
-        // Crear contenedor si no existe
-        if (!toastContainer) {
-            const container = document.createElement('div');
-            container.id = 'toastContainer';
-            container.className = 'toast-container position-fixed top-0 end-0 p-3';
-            container.style.zIndex = '1060';
-            document.body.appendChild(container);
+
+        // Búsqueda en tiempo real
+        const searchInput = document.getElementById('searchInput');
+        if (searchInput) {
+            searchInput.addEventListener('input', function () {
+                const filter = this.value.toLowerCase();
+                const rows = document.querySelectorAll('#dataTable tbody tr');
+
+                rows.forEach(row => {
+                    const text = row.textContent.toLowerCase();
+                    row.style.display = text.includes(filter) ? '' : 'none';
+                });
+            });
         }
+
+        // Filtros
+        const estadoFilter = document.getElementById('estadoFilter');
+        const tipoCompraFilter = document.getElementById('tipoCompraFilter');
+        const clearFiltersBtn = document.getElementById('clearFiltersBtn');
+
+        function applyFilters() {
+            const estadoValue = estadoFilter.value;
+            const tipoValue = tipoCompraFilter.value;
+            const rows = document.querySelectorAll('#dataTable tbody tr');
+
+            rows.forEach(row => {
+                const estadoCell = row.querySelector('[data-label="Estado"]');
+                const tipoCell = row.querySelector('[data-label="Tipo"]');
+
+                if (!estadoCell || !tipoCell) return;
+
+                const showEstado = !estadoValue || estadoCell.textContent.includes(estadoValue);
+                const showTipo = !tipoValue || tipoCell.textContent.includes(tipoValue);
+
+                row.style.display = showEstado && showTipo ? '' : 'none';
+            });
+        }
+
+        if (estadoFilter) estadoFilter.addEventListener('change', applyFilters);
+        if (tipoCompraFilter) tipoCompraFilter.addEventListener('change', applyFilters);
         
-        const toastId = 'toast-' + Date.now();
-        const toastHtml = `
-            <div id="${toastId}" class="toast align-items-center text-bg-${type} border-0" role="alert" aria-live="assertive" aria-atomic="true">
-                <div class="d-flex">
-                    <div class="toast-body">
-                        <i class="fas fa-${type === 'success' ? 'check-circle' : type === 'warning' ? 'exclamation-triangle' : 'info-circle'} me-2"></i>
-                        ${message}
-                    </div>
-                    <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
-                </div>
-            </div>
-        `;
-        
-        document.getElementById('toastContainer').insertAdjacentHTML('beforeend', toastHtml);
-        
-        const toastElement = document.getElementById(toastId);
-        const toast = new bootstrap.Toast(toastElement, {
-            autohide: true,
-            delay: 5000
-        });
-        toast.show();
-        
-        // Remover toast después de ocultarse
-        toastElement.addEventListener('hidden.bs.toast', function() {
-            this.remove();
-        });
-    }
-    
-    // Escuchar clicks en botones de anulación
-    document.querySelectorAll('.btn-anular-compra').forEach(button => {
-        button.addEventListener('click', function() {
-            const compraId = this.getAttribute('data-id');
-            console.log(`Iniciando proceso de anulación para compra #${compraId}`);
-        });
+        if (clearFiltersBtn) {
+            clearFiltersBtn.addEventListener('click', function () {
+                if (estadoFilter) estadoFilter.value = '';
+                if (tipoCompraFilter) tipoCompraFilter.value = '';
+                if (searchInput) searchInput.value = '';
+                applyFilters();
+                if (searchInput) searchInput.dispatchEvent(new Event('input'));
+            });
+        }
     });
-    
-    // ============================================
-    // EXPORTACIÓN E IMPRESIÓN
-    // ============================================
-    
-    // Exportar a Excel
-    const exportExcelBtn = document.getElementById('exportExcel');
-    if (exportExcelBtn) {
-        exportExcelBtn.addEventListener('click', function(e) {
-            e.preventDefault();
-            
-            // Crear hoja de cálculo
-            let csvContent = "ID,Fecha,Factura,Proveedor,Tipo,Bodega,Productos,Total,Estado,Usuario\n";
-            
-            document.querySelectorAll('#dataTable tbody tr:not(:last-child)').forEach(row => {
-                if (row.style.display !== 'none') {
-                    const id = row.querySelector('td[data-label="ID"]')?.textContent.trim() || '';
-                    const fecha = row.querySelector('td[data-label="Fecha"] .fw-medium')?.textContent.trim() || '';
-                    const factura = row.querySelector('td[data-label="Factura"]')?.textContent.trim() || '';
-                    const proveedor = row.querySelector('td[data-label="Proveedor"] .fw-semibold')?.textContent.trim() || '';
-                    const tipo = row.querySelector('td[data-label="Tipo"] .badge')?.textContent.trim() || '';
-                    const bodega = row.querySelector('td[data-label="Bodega"]')?.textContent.trim() || '';
-                    const productos = row.querySelector('td[data-label="Productos"] .badge')?.textContent.trim() || '';
-                    const total = row.querySelector('td[data-label="Total"]')?.textContent.trim().replace('C$', '') || '';
-                    const estado = row.querySelector('td[data-label="Estado"] .badge')?.textContent.trim() || '';
-                    const usuario = row.querySelector('td[data-label="Usuario"] .text-muted')?.textContent.trim() || '';
-                    
-                    csvContent += `"${id}","${fecha}","${factura}","${proveedor}","${tipo}","${bodega}","${productos}","${total}","${estado}","${usuario}"\n`;
-                }
-            });
-            
-            // Crear y descargar archivo
-            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-            const link = document.createElement("a");
-            const url = URL.createObjectURL(blob);
-            link.setAttribute("href", url);
-            link.setAttribute("download", `compras_${new Date().toISOString().slice(0,10)}.csv`);
-            link.style.visibility = 'hidden';
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            
-            showToast('Exportación iniciada. El archivo se descargará automáticamente.', 'success');
-        });
-    }
-    
-    // Imprimir tabla
-    const printTableBtn = document.getElementById('printTableBtn');
-    if (printTableBtn) {
-        printTableBtn.addEventListener('click', function(e) {
-            e.preventDefault();
-            
-            // Crear una versión impresora de la tabla
-            const printWindow = window.open('', '_blank');
-            printWindow.document.write(`
-                <!DOCTYPE html>
-                <html>
-                <head>
-                    <title>Reporte de Compras</title>
-                    <style>
-                        body { font-family: Arial, sans-serif; margin: 20px; }
-                        h1 { color: #333; text-align: center; }
-                        h2 { color: #666; text-align: center; margin-bottom: 30px; }
-                        table { width: 100%; border-collapse: collapse; margin: 20px 0; }
-                        th { background-color: #f5f5f5; padding: 10px; text-align: left; border-bottom: 2px solid #ddd; }
-                        td { padding: 8px; border-bottom: 1px solid #ddd; }
-                        .text-right { text-align: right; }
-                        .text-center { text-align: center; }
-                        .total-row { font-weight: bold; background-color: #f9f9f9; }
-                        .header-info { margin-bottom: 30px; }
-                        .header-info div { margin-bottom: 5px; }
-                        .print-date { text-align: right; margin-bottom: 20px; color: #666; }
-                        @media print {
-                            @page { margin: 0.5in; }
-                            .no-print { display: none !important; }
-                        }
-                    </style>
-                </head>
-                <body>
-                    <div class="print-date">${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString()}</div>
-                    <h1>Reporte de Compras</h1>
-                    <h2>Sistema de Gestión de Inventario</h2>
-                    
-                    <div class="header-info">
-                        <div><strong>Total de Compras:</strong> ${document.querySelectorAll('#dataTable tbody tr:not(:last-child)').length}</div>
-                        <div><strong>Fecha de Generación:</strong> ${new Date().toLocaleDateString()}</div>
-                    </div>
-                    
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>ID</th>
-                                <th>Fecha</th>
-                                <th>Factura</th>
-                                <th>Proveedor</th>
-                                <th>Tipo</th>
-                                <th>Bodega</th>
-                                <th class="text-center">Productos</th>
-                                <th class="text-right">Total</th>
-                                <th>Estado</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-            `);
-            
-            // Agregar filas de datos
-            let totalGeneral = 0;
-            let productosGeneral = 0;
-            
-            document.querySelectorAll('#dataTable tbody tr:not(:last-child)').forEach(row => {
-                if (row.style.display !== 'none') {
-                    const id = row.querySelector('td[data-label="ID"]')?.textContent.trim() || '';
-                    const fecha = row.querySelector('td[data-label="Fecha"] .fw-medium')?.textContent.trim() || '';
-                    const factura = row.querySelector('td[data-label="Factura"]')?.textContent.trim() || 'Sin factura';
-                    const proveedor = row.querySelector('td[data-label="Proveedor"] .fw-semibold')?.textContent.trim() || '';
-                    const tipo = row.querySelector('td[data-label="Tipo"] .badge')?.textContent.trim() || '';
-                    const bodega = row.querySelector('td[data-label="Bodega"]')?.textContent.trim() || '';
-                    const productos = row.querySelector('td[data-label="Productos"] .badge')?.textContent.trim() || '0';
-                    const total = row.querySelector('td[data-label="Total"]')?.textContent.trim() || 'C$0.00';
-                    const estado = row.querySelector('td[data-label="Estado"] .badge')?.textContent.trim() || '';
-                    
-                    const totalNum = parseFloat(total.replace('C$', '').replace(',', '')) || 0;
-                    const productosNum = parseInt(productos) || 0;
-                    
-                    totalGeneral += totalNum;
-                    productosGeneral += productosNum;
-                    
-                    printWindow.document.write(`
-                        <tr>
-                            <td>${id}</td>
-                            <td>${fecha}</td>
-                            <td>${factura}</td>
-                            <td>${proveedor}</td>
-                            <td>${tipo}</td>
-                            <td>${bodega}</td>
-                            <td class="text-center">${productos}</td>
-                            <td class="text-right">${total}</td>
-                            <td>${estado}</td>
-                        </tr>
-                    `);
-                }
-            });
-            
-            // Agregar totales
-            printWindow.document.write(`
-                        </tbody>
-                        <tfoot>
-                            <tr class="total-row">
-                                <td colspan="6"><strong>TOTALES:</strong></td>
-                                <td class="text-center"><strong>${productosGeneral}</strong></td>
-                                <td class="text-right"><strong>C$${totalGeneral.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",")}</strong></td>
-                                <td></td>
-                            </tr>
-                        </tfoot>
-                    </table>
-                    
-                    <div style="margin-top: 50px; font-size: 12px; color: #666; border-top: 1px solid #ddd; padding-top: 10px;">
-                        <div>Reporte generado automáticamente por el Sistema de Gestión de Inventario</div>
-                        <div>Usuario: {{ current_user.username or 'Sistema' }}</div>
-                    </div>
-                    
-                    <script>
-                        window.onload = function() {
-                            window.print();
-                            setTimeout(function() {
-                                window.close();
-                            }, 1000);
-                        };
-                    <\/script>
-                </body>
-                </html>
-            `);
-            
-            printWindow.document.close();
-        });
-    }
-    
-    console.log('Configuración completada');
-});
 </script>
 {% endblock %}
