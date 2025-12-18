@@ -32,21 +32,21 @@
         {
         'title': 'Compras Contado',
         'value': contado_activas,
-        'desc': 'Transacciones inmediatas activas',
+        'desc': 'Transacciones pagadas',
         'icon': 'money-bill-wave',
         'class': 'gradient-success'
         },
         {
         'title': 'Compras Crédito',
         'value': credito_activas,
-        'desc': 'Financiamientos activos',
+        'desc': 'Deudas pendientes',
         'icon': 'credit-card',
         'class': 'gradient-warning'
         },
         {
-        'title': 'Monto Total',
-        'value': "C${:,.2f}".format(total_invertido or 0),
-        'desc': 'Capital invertido (solo activas)',
+        'title': 'Capital Invertido',
+        'value': "C${:,.2f}".format(capital_contado or 0),
+        'desc': 'Solo compras al contado',
         'icon': 'chart-line',
         'class': 'gradient-info'
         }
@@ -70,6 +70,72 @@
             </div>
         </div>
         {% endfor %}
+    </div>
+
+    <!-- Panel de resumen financiero -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-white border-0">
+                    <h6 class="fw-bold mb-0">
+                        <i class="fas fa-chart-pie me-2 text-primary"></i>
+                        Resumen Financiero de Compras
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="row g-4">
+                        <!-- Valor total del inventario -->
+                        <div class="col-md-4">
+                            <div class="border-start border-4 border-primary ps-3 py-2">
+                                <small class="text-muted d-block">Valor Total del Inventario</small>
+                                <h4 class="fw-bold mb-0">C${{ "{:,.2f}".format(capital_total or 0) }}</h4>
+                                <small class="text-muted">Contado + Crédito (todas las compras activas)</small>
+                            </div>
+                        </div>
+                        
+                        <!-- Capital realmente invertido -->
+                        <div class="col-md-4">
+                            <div class="border-start border-4 border-success ps-3 py-2">
+                                <small class="text-muted d-block">Capital Realmente Invertido</small>
+                                <h4 class="fw-bold mb-0 text-success">C${{ "{:,.2f}".format(capital_contado or 0) }}</h4>
+                                <small class="text-muted">Dinero efectivo desembolsado</small>
+                            </div>
+                        </div>
+                        
+                        <!-- Deudas pendientes -->
+                        <div class="col-md-4">
+                            <div class="border-start border-4 border-warning ps-3 py-2">
+                                <small class="text-muted d-block">Deudas Pendientes</small>
+                                <h4 class="fw-bold mb-0 text-warning">C${{ "{:,.2f}".format(capital_credito or 0) }}</h4>
+                                <small class="text-muted">Por pagar a proveedores</small>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Porcentajes -->
+                    <div class="row mt-4">
+                        <div class="col-12">
+                            <div class="progress" style="height: 25px;">
+                                {% if capital_total > 0 %}
+                                {% set porcentaje_contado = (capital_contado / capital_total * 100)|round(1) %}
+                                {% set porcentaje_credito = (capital_credito / capital_total * 100)|round(1) %}
+                                <div class="progress-bar bg-success" role="progressbar" 
+                                     style="width: {{ porcentaje_contado }}%">
+                                    {{ porcentaje_contado }}% Contado
+                                </div>
+                                <div class="progress-bar bg-warning" role="progressbar" 
+                                     style="width: {{ porcentaje_credito }}%">
+                                    {{ porcentaje_credito }}% Crédito
+                                </div>
+                                {% else %}
+                                <div class="progress-bar bg-secondary w-100">Sin datos</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 
     <!-- Mensajes Flash PERSISTENTES -->
@@ -343,15 +409,21 @@
                     </tbody>
                     <tfoot class="table-light">
                         <tr>
-                            <td colspan="6" class="text-end fw-bold d-none d-md-table-cell">Totales (solo activas):</td>
-                            <td colspan="2" class="text-end fw-bold d-md-none">Totales (activas):</td>
+                            <td colspan="6" class="text-end fw-bold d-none d-md-table-cell">
+                                <small>Resumen de las {{ entradas|length }} compras mostradas:</small>
+                            </td>
+                            <td colspan="2" class="text-end fw-bold d-md-none">
+                                <small>Resumen:</small>
+                            </td>
                             <td class="text-center fw-bold text-primary">
-                                {{ total_productos_activos or 0 }}
+                                <small>{{ total_productos_activos or 0 }}</small>
                             </td>
-                            <td class="text-end fw-bold text-success fs-5">
-                                C${{ "{:,.2f}".format(total_invertido or 0) }}
+                            <td class="text-end fw-bold text-success">
+                                <small>C${{ "{:,.2f}".format(total_invertido or 0) }}</small>
                             </td>
-                            <td colspan="3"></td>
+                            <td colspan="3" class="text-end">
+                                <small class="text-muted">{{ contado_activas }} contado / {{ credito_activas }} crédito</small>
+                            </td>
                         </tr>
                     </tfoot>
                 </table>
@@ -362,7 +434,21 @@
             <div class="card-footer bg-white border-0 px-4 py-3">
                 <div class="d-flex flex-column flex-md-row justify-content-between align-items-center">
                     <div class="text-muted mb-2 mb-md-0">
-                        <small>Mostrando {{ entradas|length }} compra(s) - {{ contado_activas + credito_activas }} activas</small>
+                        <small>
+                            Mostrando {{ entradas|length }} compra(s) - 
+                            {{ contado_activas + credito_activas }} activas - 
+                            Total valor: C${{ "{:,.2f}".format(total_invertido or 0) }}
+                        </small>
+                    </div>
+                    <div class="text-muted">
+                        <small>
+                            Sistema total: 
+                            <span class="fw-bold">C${{ "{:,.2f}".format(capital_total or 0) }}</span>
+                            | Contado: 
+                            <span class="fw-bold text-success">C${{ "{:,.2f}".format(capital_contado or 0) }}</span>
+                            | Crédito: 
+                            <span class="fw-bold text-warning">C${{ "{:,.2f}".format(capital_credito or 0) }}</span>
+                        </small>
                     </div>
                 </div>
             </div>
@@ -558,27 +644,77 @@
         z-index: 10;
     }
 
-    /* Animaciones */
-    .modal.fade .modal-dialog {
-        transition: transform 0.3s ease-out;
+    /* Estilos para tarjetas de estadísticas */
+    .card-statistic {
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+    }
+    
+    .card-statistic:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 10px 20px rgba(0,0,0,0.1) !important;
+    }
+    
+    .gradient-primary {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    }
+    
+    .gradient-success {
+        background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+    }
+    
+    .gradient-warning {
+        background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+    }
+    
+    .gradient-info {
+        background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
     }
 
-    /* Transiciones suaves para mensajes flash */
+    /* Mejoras para la tabla */
+    .table-hover tbody tr:hover {
+        background-color: rgba(0, 123, 255, 0.05);
+        transition: background-color 0.2s ease;
+    }
+
+    /* Animaciones para mensajes flash */
     .flash-message {
-        transition: opacity 0.5s ease, transform 0.5s ease;
-        opacity: 0;
-        transform: translateY(-20px);
+        animation: slideInDown 0.5s ease forwards;
+    }
+    
+    @keyframes slideInDown {
+        from {
+            opacity: 0;
+            transform: translateY(-20px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
     }
 
-    .flash-message.show {
-        opacity: 1;
-        transform: translateY(0);
+    /* Estilos para badges */
+    .badge {
+        transition: all 0.2s ease;
+    }
+    
+    .badge:hover {
+        transform: scale(1.05);
     }
 
-    /* Estilo para asegurar que el contenedor tenga margen */
-    #flash-messages-container {
-        margin-bottom: 1.5rem;
-        min-height: 60px;
+    /* Responsive mejorado */
+    @media (max-width: 768px) {
+        .btn-action-mobile {
+            width: 100%;
+            margin-bottom: 5px;
+        }
+        
+        .date-cell {
+            min-width: 80px;
+        }
+        
+        .progress {
+            height: 20px !important;
+        }
     }
 </style>
 
@@ -788,7 +924,7 @@
             safeSetText('totalCantidad', (compra.total_cantidad || 0).toFixed(2));
             safeSetText('totalCompraModal', compra.total_formateado || 'C$0.00');
 
-            // 5. Llenar tabla de productos (CORREGIDO para manejar el "7")
+            // 5. Llenar tabla de productos
             const productosTableBody = document.getElementById('productosTableBody');
             if (productosTableBody) {
                 productosTableBody.innerHTML = '';
@@ -1017,6 +1153,76 @@
                 if (searchInput) searchInput.dispatchEvent(new Event('input'));
             });
         }
+
+        // Exportar a Excel
+        const exportExcel = document.getElementById('exportExcel');
+        if (exportExcel) {
+            exportExcel.addEventListener('click', function (e) {
+                e.preventDefault();
+                
+                // Crear tabla para exportación
+                let tableHTML = '<table border="1">';
+                
+                // Encabezados
+                tableHTML += '<tr>';
+                document.querySelectorAll('#dataTable thead th').forEach(th => {
+                    if (th.textContent.trim()) {
+                        tableHTML += `<th>${th.textContent}</th>`;
+                    }
+                });
+                tableHTML += '</tr>';
+                
+                // Datos
+                document.querySelectorAll('#dataTable tbody tr').forEach(row => {
+                    if (row.style.display !== 'none') {
+                        tableHTML += '<tr>';
+                        row.querySelectorAll('td').forEach(td => {
+                            tableHTML += `<td>${td.textContent.trim()}</td>`;
+                        });
+                        tableHTML += '</tr>';
+                    }
+                });
+                
+                tableHTML += '</table>';
+                
+                // Crear archivo Excel
+                const blob = new Blob([tableHTML], {type: 'application/vnd.ms-excel'});
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `compras_${new Date().toISOString().split('T')[0]}.xls`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+            });
+        }
+
+        // Imprimir
+        const printTableBtn = document.getElementById('printTableBtn');
+        if (printTableBtn) {
+            printTableBtn.addEventListener('click', function (e) {
+                e.preventDefault();
+                window.print();
+            });
+        }
+
+        // Animación para mensajes flash
+        setTimeout(() => {
+            document.querySelectorAll('.flash-message').forEach(msg => {
+                msg.classList.add('show');
+            });
+        }, 100);
+
+        // Auto-ocultar mensajes flash después de 5 segundos
+        setTimeout(() => {
+            document.querySelectorAll('.flash-message').forEach(msg => {
+                const closeBtn = msg.querySelector('.btn-close');
+                if (closeBtn) {
+                    closeBtn.click();
+                }
+            });
+        }, 5000);
     });
 </script>
 {% endblock %}

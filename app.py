@@ -2512,6 +2512,7 @@ def admin_desactivar_producto(id_producto):
 def admin_compras_entradas():
     try:
         with get_db_cursor() as cursor:
+            # Consulta 1: Obtener las entradas para la tabla
             cursor.execute("""
                 SELECT 
                     mi.ID_Movimiento,
@@ -2551,18 +2552,67 @@ def admin_compras_entradas():
             """)
             entradas = cursor.fetchall()
             
-            # Inicializar contadores
+            # **CONSULTA 2: Capital Invertido TOTAL (Contado + Crédito)**
+            cursor.execute("""
+                SELECT 
+                    COALESCE(SUM(dmi.Subtotal), 0) as Capital_Total
+                FROM Movimientos_Inventario mi
+                INNER JOIN catalogo_movimientos cm ON mi.ID_TipoMovimiento = cm.ID_TipoMovimiento
+                INNER JOIN Detalle_Movimientos_Inventario dmi ON mi.ID_Movimiento = dmi.ID_Movimiento
+                WHERE mi.Estado = 'Activa'
+                    AND (cm.Adicion = 'ENTRADA' OR cm.Letra = 'E')
+                    AND (cm.Descripcion LIKE '%compra%' OR cm.Descripcion LIKE '%COMPRA%')
+            """)
+            resultado_total = cursor.fetchone()
+            capital_total = resultado_total['Capital_Total'] if resultado_total else 0.0
+            
+            # **CONSULTA 3: Capital Invertido SOLO AL CONTADO**
+            cursor.execute("""
+                SELECT 
+                    COALESCE(SUM(dmi.Subtotal), 0) as Capital_Contado
+                FROM Movimientos_Inventario mi
+                INNER JOIN catalogo_movimientos cm ON mi.ID_TipoMovimiento = cm.ID_TipoMovimiento
+                INNER JOIN Detalle_Movimientos_Inventario dmi ON mi.ID_Movimiento = dmi.ID_Movimiento
+                WHERE mi.Estado = 'Activa'
+                    AND mi.Tipo_Compra = 'CONTADO'
+                    AND (cm.Adicion = 'ENTRADA' OR cm.Letra = 'E')
+                    AND (cm.Descripcion LIKE '%compra%' OR cm.Descripcion LIKE '%COMPRA%')
+            """)
+            resultado_contado = cursor.fetchone()
+            capital_contado = resultado_contado['Capital_Contado'] if resultado_contado else 0.0
+            
+            # **CONSULTA 4: Capital en CRÉDITO (deudas pendientes)**
+            cursor.execute("""
+                SELECT 
+                    COALESCE(SUM(dmi.Subtotal), 0) as Capital_Credito
+                FROM Movimientos_Inventario mi
+                INNER JOIN catalogo_movimientos cm ON mi.ID_TipoMovimiento = cm.ID_TipoMovimiento
+                INNER JOIN Detalle_Movimientos_Inventario dmi ON mi.ID_Movimiento = dmi.ID_Movimiento
+                WHERE mi.Estado = 'Activa'
+                    AND mi.Tipo_Compra = 'CREDITO'
+                    AND (cm.Adicion = 'ENTRADA' OR cm.Letra = 'E')
+                    AND (cm.Descripcion LIKE '%compra%' OR cm.Descripcion LIKE '%COMPRA%')
+            """)
+            resultado_credito = cursor.fetchone()
+            capital_credito = resultado_credito['Capital_Credito'] if resultado_credito else 0.0
+            
+            # **VALIDACIÓN**: Asegurar que Total = Contado + Crédito
+            diferencia = abs(capital_total - (capital_contado + capital_credito))
+            if diferencia > 0.01:  # Tolerancia de 1 centavo
+                print(f"ADVERTENCIA: Discrepancia en cálculos. Total: {capital_total}, Contado: {capital_contado}, Crédito: {capital_credito}")
+            
+            # Inicializar contadores para las entradas mostradas
             total_compras = len(entradas)
-            total_invertido = 0.0
+            total_invertido_lista = 0.0  # Solo las 15 mostradas
             total_productos_activos = 0
             contado_activas = 0
             credito_activas = 0
             
-            # Calcular estadísticas en una sola pasada
+            # Calcular estadísticas solo para las entradas mostradas
             for entrada in entradas:
                 if entrada['Estado'] == 'Activa':
-                    total_invertido += float(entrada['Total_Compra'])
-                    total_productos_activos += int(entrada['Total_Productos'])
+                    total_invertido_lista += float(entrada['Total_Compra'] or 0)
+                    total_productos_activos += int(entrada['Total_Productos'] or 0)
                     
                     if entrada['Tipo_Compra'] == 'CONTADO':
                         contado_activas += 1
@@ -2571,7 +2621,10 @@ def admin_compras_entradas():
             
             return render_template('admin/compras/compras_entradas.html', 
                                  entradas=entradas,
-                                 total_invertido=total_invertido,
+                                 total_invertido=total_invertido_lista,
+                                 capital_total=capital_total,           # Total (Contado + Crédito)
+                                 capital_contado=capital_contado,       # Solo contado
+                                 capital_credito=capital_credito,       # Solo crédito
                                  total_productos_activos=total_productos_activos,
                                  contado_activas=contado_activas,
                                  credito_activas=credito_activas,
@@ -3652,7 +3705,7 @@ def admin_anular_compra(id_movimiento):
                 cursor.execute("""
                     SELECT ID_TipoMovimiento 
                     FROM catalogo_movimientos 
-                    WHERE Adicion = 'SALIDA' OR Letra = 'S'
+                    WHERE Descripcion = 'Anulacion Compra' OR ID_TipoMovimiento = 9
                     LIMIT 1
                 """)
                 
