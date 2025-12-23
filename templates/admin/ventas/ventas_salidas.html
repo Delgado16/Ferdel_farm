@@ -1,156 +1,90 @@
 {% extends "layout.html" %}
-
 {% block title %}Gestión de Ventas - Salidas{% endblock %}
-
 {% block content %}
 <div class="container-fluid px-lg-4 px-md-3 px-2">
-    <!-- Header Mejorado -->
+    <!-- Header -->
     <div class="d-flex flex-column flex-md-row align-items-center justify-content-between mb-4 pt-3">
         <div class="mb-3 mb-md-0">
             <h1 class="h2 fw-bold text-gradient-primary mb-2">Gestión de Ventas</h1>
-            <p class="text-muted mb-0 d-flex align-items-center">
-                <i class="fas fa-chart-line me-2 text-primary"></i>
-                Control de salidas e inventario en tiempo real
-            </p>
+            <p class="text-muted mb-0"><i class="fas fa-chart-line me-2 text-primary"></i>Control de salidas e inventario</p>
         </div>
         <a href="{{ url_for('admin_crear_venta') }}" class="btn btn-primary btn-lg shadow-lg hover-lift">
-            <i class="fas fa-plus-circle me-2"></i>
-            Nueva Venta
+            <i class="fas fa-plus-circle me-2"></i>Nueva Venta
         </a>
     </div>
 
-    <!-- Estadísticas Modernas -->
+    <!-- Estadísticas -->
     <div class="row mb-4 g-3">
+        {% macro stat_card(color, title, value, subtitle, icon) %}
         <div class="col-xl-3 col-md-6">
-            <div class="card card-statistic gradient-primary shadow-sm border-0 rounded-3 h-100">
+            <div class="card card-statistic gradient-{{ color }} shadow-sm border-0 rounded-3 h-100">
                 <div class="card-body p-4">
                     <div class="d-flex justify-content-between align-items-center">
                         <div>
-                            <h6 class="text-white-80 mb-1">Total Ventas</h6>
-                            <h2 class="fw-bold text-black mb-0">{{ total_ventas }}</h2>
-                            <p class="text-white-60 mb-0 small">Registros totales</p>
+                            <h6 class="text-white-80 mb-1">{{ title }}</h6>
+                            <h2 class="fw-bold text-black mb-0">{{ value }}</h2>
+                            <p class="text-white-60 mb-0 small">{{ subtitle }}</p>
                         </div>
                         <div class="statistic-icon">
-                            <i class="fas fa-shopping-cart fa-2x text-white-60"></i>
+                            <i class="fas fa-{{ icon }} fa-2x text-white-60"></i>
                         </div>
                     </div>
                 </div>
             </div>
         </div>
-        <div class="col-xl-3 col-md-6">
-            <div class="card card-statistic gradient-success shadow-sm border-0 rounded-3 h-100">
-                <div class="card-body p-4">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <div>
-                            <h6 class="text-white-80 mb-1">Ventas Contado</h6>
-                            <h2 class="fw-bold text-black mb-0">{{ ventas_contado }}</h2>
-                            <p class="text-white-60 mb-0 small">Transacciones inmediatas</p>
-                        </div>
-                        <div class="statistic-icon">
-                            <i class="fas fa-money-bill-wave fa-2x text-white-60"></i>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <div class="col-xl-3 col-md-6">
-            <div class="card card-statistic gradient-warning shadow-sm border-0 rounded-3 h-100">
-                <div class="card-body p-4">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <div>
-                            <h6 class="text-white-80 mb-1">Ventas Crédito</h6>
-                            <h2 class="fw-bold text-black mb-0">{{ ventas_credito }}</h2>
-                            <p class="text-black-60 mb-0 small">Financiamientos activos</p>
-                        </div>
-                        <div class="statistic-icon">
-                            <i class="fas fa-credit-card fa-2x text-white-60"></i>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <div class="col-xl-3 col-md-6">
-            <div class="card card-statistic gradient-info shadow-sm border-0 rounded-3 h-100">
-                <div class="card-body p-4">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <div>
-                            <h6 class="text-white-80 mb-1">Monto Total</h6>
-                            <h2 class="fw-bold text-black mb-0">C${{ "{:,.2f}".format(monto_total) }}</h2>
-                            <p class="text-white-60 mb-0 small">Capital transado</p>
-                        </div>
-                        <div class="statistic-icon">
-                            <i class="fas fa-chart-bar fa-2x text-white-60"></i>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
+        {% endmacro %}
+        
+        {{ stat_card('primary', 'Total Ventas', total_ventas, 'Registros totales', 'shopping-cart') }}
+        {{ stat_card('success', 'Ventas Contado', ventas_contado, 'Transacciones inmediatas', 'money-bill-wave') }}
+        {{ stat_card('warning', 'Ventas Crédito', ventas_credito, 'Financiamientos activos', 'credit-card') }}
+        {{ stat_card('info', 'Monto Total', 'C$' ~ "{:,.2f}".format(monto_total), 'Capital transado', 'chart-bar') }}
     </div>
 
-    <!-- Mensajes Flash Mejorados -->
+    <!-- Mensajes Flash -->
     {% with messages = get_flashed_messages(with_categories=true) %}
         {% if messages %}
             {% for category, message in messages %}
-                <div class="alert alert-dismissible fade show alert-{{ 'danger' if category == 'error' else 'success' }} 
-                    shadow-sm border-0 mb-4" role="alert">
-                    <div class="d-flex align-items-center">
-                        <div class="alert-icon me-3">
-                            <i class="fas fa-{{ 'exclamation-triangle' if category == 'error' else 'check-circle' }} fa-lg"></i>
-                        </div>
-                        <div class="flex-grow-1">
-                            {{ message }}
-                        </div>
-                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            <div class="alert alert-dismissible fade show alert-{{ 'danger' if category == 'error' else 'success' }} shadow-sm border-0 mb-4">
+                <div class="d-flex align-items-center">
+                    <div class="alert-icon me-3">
+                        <i class="fas fa-{{ 'exclamation-triangle' if category == 'error' else 'check-circle' }} fa-lg"></i>
                     </div>
+                    <div class="flex-grow-1">{{ message|safe }}</div>
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
                 </div>
+            </div>
             {% endfor %}
         {% endif %}
     {% endwith %}
 
-    <!-- Card Principal Moderna -->
+    <!-- Tabla de Ventas -->
     <div class="card shadow-lg border-0 rounded-3 overflow-hidden mb-4">
-        <!-- Header con búsqueda -->
         <div class="card-header bg-white border-0 pt-4 pb-3 px-4">
             <div class="d-flex flex-column flex-lg-row justify-content-between align-items-lg-center">
                 <div class="mb-3 mb-lg-0">
-                    <h5 class="card-title fw-bold mb-1 text-dark">
-                        <i class="fas fa-receipt me-2 text-primary"></i>
-                        Registro de Ventas
-                    </h5>
-                    <p class="text-muted small mb-0">Gestión completa de transacciones comerciales</p>
+                    <h5 class="card-title fw-bold mb-1 text-dark"><i class="fas fa-receipt me-2 text-primary"></i>Registro de Ventas</h5>
+                    <p class="text-muted small mb-0">Gestión completa de transacciones</p>
                 </div>
-                
                 <div class="d-flex flex-wrap gap-2">
-                    <!-- Barra de búsqueda -->
                     <div class="search-box">
                         <div class="input-group input-group-sm">
-                            <span class="input-group-text bg-light border-0">
-                                <i class="fas fa-search text-muted"></i>
-                            </span>
-                            <input type="text" class="form-control border-0 bg-light" 
-                                   id="searchInput" placeholder="Buscar ventas...">
+                            <span class="input-group-text bg-light border-0"><i class="fas fa-search text-muted"></i></span>
+                            <input type="text" class="form-control border-0 bg-light" id="searchInput" placeholder="Buscar...">
                         </div>
                     </div>
-                    
-                    <!-- Botón de exportación -->
                     <div class="dropdown">
-                        <button class="btn btn-outline-secondary btn-sm dropdown-toggle" type="button" 
-                                data-bs-toggle="dropdown" aria-expanded="false">
+                        <button class="btn btn-outline-secondary btn-sm dropdown-toggle" type="button" data-bs-toggle="dropdown">
                             <i class="fas fa-download me-1"></i> Exportar
                         </button>
-                        <ul class="dropdown-menu dropdown-menu-end shadow">
-                            <li><a class="dropdown-item" href="#" onclick="exportToExcel()">
-                                <i class="fas fa-file-excel text-success me-2"></i> Excel
-                            </a></li>
-                            <li><a class="dropdown-item" href="#" onclick="printTable()">
-                                <i class="fas fa-print text-info me-2"></i> Imprimir
-                            </a></li>
+                        <ul class="dropdown-menu shadow">
+                            <li><a class="dropdown-item" href="#" id="exportExcel"><i class="fas fa-file-excel text-success me-2"></i>Excel</a></li>
+                            <li><a class="dropdown-item" href="#" id="printTableBtn"><i class="fas fa-print text-info me-2"></i>Imprimir</a></li>
                         </ul>
                     </div>
                 </div>
             </div>
             
-            <!-- Filtros en línea -->
+            <!-- Filtros -->
             <div class="row g-2 mt-3">
                 <div class="col-md-4">
                     <select class="form-select form-select-sm" id="estadoFilter">
@@ -167,15 +101,14 @@
                     </select>
                 </div>
                 <div class="col-md-4">
-                    <button class="btn btn-sm btn-outline-secondary w-100" onclick="clearFilters()">
-                        <i class="fas fa-filter-circle-xmark me-1"></i> Limpiar filtros
+                    <button class="btn btn-sm btn-outline-secondary w-100" id="clearFiltersBtn">
+                        <i class="fas fa-filter-circle-xmark me-1"></i> Limpiar
                     </button>
                 </div>
             </div>
         </div>
 
         <div class="card-body p-0">
-            <!-- Tabla Responsive Mejorada -->
             <div class="table-responsive-lg">
                 <table class="table table-hover align-middle mb-0" id="dataTable">
                     <thead class="table-light">
@@ -194,7 +127,7 @@
                     </thead>
                     <tbody>
                         {% for venta in ventas %}
-                        <tr class="{% if venta.Estado_Formateado == 'ANULADA' %}table-inactive{% endif %}">
+                        <tr class="{{ 'table-inactive' if venta.Estado_Formateado == 'ANULADA' }}">
                             <td class="ps-4" data-label="Fecha">
                                 <div class="date-cell">
                                     <div class="fw-medium">{{ venta.Fecha.strftime('%d/%m/%Y') if venta.Fecha else 'N/A' }}</div>
@@ -216,24 +149,18 @@
                                 <code class="text-muted">{{ venta.RUC_Cliente or 'N/A' }}</code>
                             </td>
                             <td class="text-center" data-label="Tipo">
-                                <span class="badge badge-pill {% if venta.Tipo_Venta_Formateado == 'CONTADO' %}bg-success bg-opacity-10 text-success{% else %}bg-warning bg-opacity-10 text-warning{% endif %} 
-                                      border border-{% if venta.Tipo_Venta_Formateado == 'CONTADO' %}success{% else %}warning{% endif %} border-opacity-25 py-2 px-3">
-                                    <i class="fas fa-{% if venta.Tipo_Venta_Formateado == 'CONTADO' %}money-bill-wave{% else %}credit-card{% endif %} me-1"></i>
-                                    {{ venta.Tipo_Venta_Formateado or 'CONTADO' }}
+                                {% set tipo = venta.Tipo_Venta_Formateado or 'CONTADO' %}
+                                <span class="badge badge-pill {{ 'bg-success bg-opacity-10 text-success border border-success border-opacity-25' if tipo == 'CONTADO' else 'bg-warning bg-opacity-10 text-warning border border-warning border-opacity-25' }} py-2 px-3">
+                                    <i class="fas fa-{{ 'money-bill-wave' if tipo == 'CONTADO' else 'credit-card' }} me-1"></i>{{ tipo }}
                                 </span>
                             </td>
                             <td class="d-none d-lg-table-cell" data-label="Bodega">
-                                <span class="badge bg-secondary bg-opacity-10 text-dark border border-secondary border-opacity-25 py-2">
-                                    {{ venta.Bodega or 'N/A' }}
-                                </span>
+                                <span class="badge bg-secondary bg-opacity-10 text-dark border border-secondary border-opacity-25 py-2">{{ venta.Bodega or 'N/A' }}</span>
                             </td>
                             <td class="text-center" data-label="Productos">
-                                <div class="product-count">
-                                    <span class="badge bg-info bg-opacity-10 text-info border border-info border-opacity-25 py-2 px-3">
-                                        <i class="fas fa-boxes me-1"></i>
-                                        {{ venta.Total_Productos or 0 }}
-                                    </span>
-                                </div>
+                                <span class="badge bg-info bg-opacity-10 text-info border border-info border-opacity-25 py-2 px-3">
+                                    <i class="fas fa-boxes me-1"></i>{{ venta.Total_Productos or 0 }}
+                                </span>
                             </td>
                             <td class="text-end fw-bold text-success" data-label="Total">
                                 C${{ "{:,.2f}".format(venta.Total_Venta or 0) }}
@@ -247,74 +174,61 @@
                                 </div>
                             </td>
                             <td class="text-center" data-label="Estado">
-                                <span class="badge badge-pill 
-                                    {% if venta.Estado_Formateado == 'ACTIVA' %}bg-success bg-opacity-10 text-success
-                                    {% elif venta.Estado_Formateado == 'ANULADA' %}bg-danger bg-opacity-10 text-danger
-                                    {% else %}bg-secondary bg-opacity-10 text-secondary{% endif %} 
-                                    border border-{% if venta.Estado_Formateado == 'ACTIVA' %}success
-                                    {% elif venta.Estado_Formateado == 'ANULADA' %}danger
-                                    {% else %}secondary{% endif %} border-opacity-25 py-2 px-3">
-                                    <i class="fas fa-{% if venta.Estado_Formateado == 'ACTIVA' %}check-circle
-                                    {% elif venta.Estado_Formateado == 'ANULADA' %}ban
-                                    {% else %}clock{% endif %} me-1"></i>
-                                    {{ venta.Estado_Formateado or 'PENDIENTE' }}
+                                {% set estado = venta.Estado_Formateado or 'PENDIENTE' %}
+                                <span class="badge badge-pill py-2 px-3
+                                    {% if estado == 'ACTIVA' %}bg-success bg-opacity-10 text-success border border-success border-opacity-25
+                                    {% elif estado == 'ANULADA' %}bg-danger bg-opacity-10 text-danger border border-danger border-opacity-25
+                                    {% else %}bg-secondary bg-opacity-10 text-secondary border border-secondary border-opacity-25{% endif %}">
+                                    <i class="fas fa-{{ 'check-circle' if estado == 'ACTIVA' else 'ban' if estado == 'ANULADA' else 'clock' }} me-1"></i>{{ estado }}
                                 </span>
                             </td>
                             <td class="text-end pe-4" data-label="Acciones">
-                                <div class="actions-container">
-                                    <!-- Botones verticales para móviles -->
-                                    <div class="btn-group-vertical btn-group-sm d-lg-none" role="group">
-                                        <a href="{{ url_for('admin_detalles_venta', id_factura=venta.ID_Factura) }}" 
-                                           class="btn btn-outline-info btn-action-mobile" title="Ver detalles">
-                                            <i class="fas fa-eye"></i>
-                                            <span class="ms-1">Ver</span>
-                                        </a>
-                                        
-                                        {% if venta.Estado_Formateado == 'ACTIVA' %}
-                                        <a href="{{ url_for('admin_editar_venta', id_factura=venta.ID_Factura) }}" 
-                                           class="btn btn-outline-primary btn-action-mobile" title="Editar">
-                                            <i class="fas fa-edit"></i>
-                                            <span class="ms-1">Editar</span>
-                                        </a>
-                                        <button class="btn btn-outline-danger btn-action-mobile" title="Anular" 
-                                                onclick="anularVenta({{ venta.ID_Factura }}, this)">
-                                            <i class="fas fa-ban"></i>
-                                            <span class="ms-1">Anular</span>
-                                        </button>
-                                        {% else %}
-                                        <button class="btn btn-outline-secondary btn-action-mobile" disabled title="Venta anulada">
-                                            <i class="fas fa-lock"></i>
-                                            <span class="ms-1">Bloqueado</span>
-                                        </button>
-                                        {% endif %}
-                                    </div>
-                                    
-                                    <!-- Botones horizontales para desktop -->
-                                    <div class="btn-group btn-group-sm d-none d-lg-flex" role="group">
-                                        <a href="{{ url_for('admin_detalles_venta', id_factura=venta.ID_Factura) }}" 
-                                           class="btn btn-outline-info btn-action" title="Ver detalles">
-                                            <i class="fas fa-eye"></i>
-                                            <span class="d-none d-xl-inline ms-1">Ver</span>
-                                        </a>
-                                        
-                                        {% if venta.Estado_Formateado == 'ACTIVA' %}
-                                        <a href="{{ url_for('admin_editar_venta', id_factura=venta.ID_Factura) }}" 
-                                           class="btn btn-outline-primary btn-action" title="Editar">
-                                            <i class="fas fa-edit"></i>
-                                            <span class="d-none d-xl-inline ms-1">Editar</span>
-                                        </a>
-                                        <button class="btn btn-outline-danger btn-action" title="Anular" 
-                                                onclick="anularVenta({{ venta.ID_Factura }}, this)">
-                                            <i class="fas fa-ban"></i>
-                                            <span class="d-none d-xl-inline ms-1">Anular</span>
-                                        </button>
-                                        {% else %}
-                                        <button class="btn btn-outline-secondary btn-action" disabled title="Venta anulada">
-                                            <i class="fas fa-lock"></i>
-                                            <span class="d-none d-xl-inline ms-1">Bloqueado</span>
-                                        </button>
-                                        {% endif %}
-                                    </div>
+                                <div class="btn-group btn-group-sm d-none d-lg-flex" role="group">
+                                    <a href="{{ url_for('admin_generar_ticket', id_factura=venta.ID_Factura) }}" 
+                                       class="btn btn-outline-info btn-action" 
+                                       title="Ver ticket" 
+                                       target="_blank">
+                                        <i class="fas fa-receipt"></i>
+                                        <span class="d-none d-xl-inline ms-1">Ticket</span>
+                                    </a>
+                                    {% if venta.Estado_Formateado == 'ACTIVA' %}
+                                    <button type="button" 
+                                            class="btn btn-outline-danger btn-action btn-anular-venta" 
+                                            data-bs-toggle="modal" 
+                                            data-bs-target="#anularVentaModal" 
+                                            data-id="{{ venta.ID_Factura }}">
+                                        <i class="fas fa-ban"></i>
+                                        <span class="d-none d-xl-inline ms-1">Anular</span>
+                                    </button>
+                                    {% else %}
+                                    <button class="btn btn-outline-secondary btn-action" disabled title="Anulada">
+                                        <i class="fas fa-lock"></i>
+                                        <span class="d-none d-xl-inline ms-1">Bloqueado</span>
+                                    </button>
+                                    {% endif %}
+                                </div>
+                                <div class="btn-group-vertical btn-group-sm d-lg-none" role="group">
+                                    <a href="{{ url_for('admin_generar_ticket', id_factura=venta.ID_Factura) }}" 
+                                       class="btn btn-outline-info btn-action-mobile"
+                                       target="_blank">
+                                        <i class="fas fa-receipt"></i>
+                                        <span class="ms-1">Ticket</span>
+                                    </a>
+                                    {% if venta.Estado_Formateado == 'ACTIVA' %}
+                                    <button type="button" 
+                                            class="btn btn-outline-danger btn-action-mobile btn-anular-venta" 
+                                            data-bs-toggle="modal" 
+                                            data-bs-target="#anularVentaModal" 
+                                            data-id="{{ venta.ID_Factura }}">
+                                        <i class="fas fa-ban"></i>
+                                        <span class="ms-1">Anular</span>
+                                    </button>
+                                    {% else %}
+                                    <button class="btn btn-outline-secondary btn-action-mobile" disabled>
+                                        <i class="fas fa-lock"></i>
+                                        <span class="ms-1">Bloqueado</span>
+                                    </button>
+                                    {% endif %}
                                 </div>
                             </td>
                         </tr>
@@ -322,208 +236,229 @@
                         <tr>
                             <td colspan="10" class="text-center py-5">
                                 <div class="empty-state">
-                                    <div class="empty-state-icon mb-3">
-                                        <i class="fas fa-inbox fa-3x text-muted opacity-50"></i>
-                                    </div>
+                                    <i class="fas fa-inbox fa-3x text-muted opacity-50 mb-3"></i>
                                     <h5 class="text-muted mb-2">No hay ventas registradas</h5>
                                     <p class="text-muted small mb-4">Comience creando su primera venta</p>
                                     <a href="{{ url_for('admin_crear_venta') }}" class="btn btn-primary">
-                                        <i class="fas fa-plus me-2"></i> Crear Venta
+                                        <i class="fas fa-plus me-2"></i>Crear Venta
                                     </a>
                                 </div>
                             </td>
                         </tr>
                         {% endfor %}
                     </tbody>
-                    <tfoot class="table-light">
-                        <tr>
-                            <td colspan="5" class="text-end fw-bold d-none d-md-table-cell">Totales:</td>
-                            <td colspan="2" class="text-end fw-bold d-md-none">Totales:</td>
-                            <td class="text-center fw-bold text-primary">
-                                {% set total_productos = [] %}
-                                {% for venta in ventas %}
-                                    {% if venta.Total_Productos %}
-                                        {% set _ = total_productos.append(venta.Total_Productos) %}
-                                    {% endif %}
-                                {% endfor %}
-                                {{ total_productos|sum|default(0) }}
-                            </td>
-                            <td class="text-end fw-bold text-success fs-5">
-                                C${{ "{:,.2f}".format(monto_total|default(0)) }}
-                            </td>
-                            <td colspan="2"></td>
-                        </tr>
-                    </tfoot>
                 </table>
             </div>
-
-            <!-- Paginación Mejorada -->
-            {% if ventas and ventas|length > 0 %}
-            <div class="card-footer bg-white border-0 px-4 py-3">
-                <div class="d-flex flex-column flex-md-row justify-content-between align-items-center">
-                    <div class="mb-2 mb-md-0">
-                        <p class="text-muted small mb-0">
-                            Mostrando <strong>{{ ventas|length }}</strong> de <strong>{{ total_ventas }}</strong> ventas
-                        </p>
-                    </div>
-                    <nav aria-label="Page navigation">
-                        <ul class="pagination pagination-sm mb-0">
-                            <li class="page-item disabled">
-                                <a class="page-link" href="#" tabindex="-1">
-                                    <i class="fas fa-chevron-left"></i>
-                                </a>
-                            </li>
-                            <li class="page-item active"><a class="page-link" href="#">1</a></li>
-                            <li class="page-item">
-                                <a class="page-link" href="#">
-                                    <i class="fas fa-chevron-right"></i>
-                                </a>
-                            </li>
-                        </ul>
-                    </nav>
-                </div>
-            </div>
-            {% endif %}
         </div>
     </div>
 </div>
 
-<!-- Modal de Anulación Moderno -->
-<div class="modal fade" id="confirmarAnularModal" tabindex="-1" aria-labelledby="confirmarAnularModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-lg modal-dialog-centered">
+<!-- Modal Anulación -->
+<div class="modal fade" id="anularVentaModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
         <div class="modal-content border-0 shadow-lg">
-            <div class="modal-header bg-gradient-warning text-white">
-                <h5 class="modal-title" id="confirmarAnularModalLabel">
-                    <i class="fas fa-exclamation-triangle me-2"></i>
-                    Confirmar Anulación de Venta
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title">
+                    <i class="fas fa-exclamation-triangle me-2"></i>Confirmar Anulación
                 </h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             
             <form id="formAnularVenta" method="POST" action="">
-                <div class="modal-body p-4">
-                    <div class="alert alert-warning border-warning bg-warning bg-opacity-10">
-                        <div class="d-flex">
-                            <div class="flex-shrink-0">
-                                <i class="fas fa-info-circle fa-lg text-warning"></i>
+                {% if csrf_token %}
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                {% endif %}
+                <input type="hidden" id="idFactura" name="id_factura" value="">
+                
+                <div class="modal-body p-0">
+                    <!-- Indicador de carga -->
+                    <div id="loadingIndicator">
+                        <div class="text-center py-5">
+                            <div class="spinner-border text-danger" role="status" style="width: 3rem; height: 3rem;">
+                                <span class="visually-hidden">Cargando...</span>
                             </div>
-                            <div class="flex-grow-1 ms-3">
-                                <h6 class="alert-heading mb-2">¡Acción importante!</h6>
-                                Está a punto de anular una venta. Esta acción no se puede deshacer.
-                            </div>
+                            <p class="text-muted mt-3">Cargando datos de la venta...</p>
                         </div>
                     </div>
-                    
-                    <div class="row mb-4">
-                        <div class="col-lg-6 mb-3 mb-lg-0">
-                            <div class="card border">
-                                <div class="card-body">
-                                    <h6 class="card-title text-dark mb-3">
-                                        <i class="fas fa-file-invoice me-2"></i>
-                                        Información de la Venta
+
+                    <!-- Contenido principal (inicialmente oculto) -->
+                    <div id="modalContent" class="d-none p-4">
+                        <div class="alert alert-warning border-warning mb-4">
+                            <div class="d-flex">
+                                <div class="flex-shrink-0">
+                                    <i class="fas fa-exclamation-circle fa-2x text-warning mt-1"></i>
+                                </div>
+                                <div class="flex-grow-1 ms-3">
+                                    <h6 class="alert-heading fw-bold mb-1">
+                                        ¿Anular venta <span id="modalVentaId" class="text-danger">#</span>?
                                     </h6>
-                                    <div class="row g-2">
-                                        <div class="col-6">
-                                            <small class="text-muted">N° Factura:</small>
-                                            <div class="fw-bold text-primary" id="anularFacturaNumero">-</div>
+                                    <p class="mb-0 small">Esta acción es irreversible y reversará las existencias al inventario.</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="card border-0 bg-light mb-4">
+                            <div class="card-body">
+                                <h6 class="fw-bold text-dark mb-3">
+                                    <i class="fas fa-info-circle me-2 text-primary"></i>Detalles de la Venta
+                                    <span id="ventaStatusBadge" class="badge bg-success ms-2">Activa</span>
+                                    <span id="tipoVentaBadge" class="badge bg-success ms-1">CONTADO</span>
+                                </h6>
+                                
+                                <div class="row mb-3">
+                                    <div class="col-md-6">
+                                        <small class="text-muted d-block">Fecha y Hora:</small>
+                                        <span class="fw-semibold" id="ventaFecha">--/--/-- --:--</span><br>
+                                        
+                                        <small class="text-muted d-block mt-2">Cliente:</small>
+                                        <span class="fw-semibold" id="ventaCliente">Cargando...</span><br>
+                                        
+                                        <small class="text-muted d-block mt-2">RUC/Cédula:</small>
+                                        <span class="fw-semibold" id="ventaRUC">Cargando...</span><br>
+                                        
+                                        <small class="text-muted d-block mt-2">Vendedor:</small>
+                                        <span class="fw-semibold" id="ventaVendedor">Cargando...</span>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <small class="text-muted d-block">Bodega:</small>
+                                        <span class="fw-semibold" id="ventaBodega">Cargando...</span><br>
+                                        
+                                        <small class="text-muted d-block mt-2">Total Productos:</small>
+                                        <span class="fw-bold text-primary" id="ventaTotalProductos">0</span><br>
+                                        
+                                        <small class="text-muted d-block mt-2">Total Unidades:</small>
+                                        <span class="fw-bold text-info" id="ventaTotalUnidades">0</span><br>
+                                        
+                                        <small class="text-muted d-block mt-2">Total Venta:</small>
+                                        <span class="fw-bold text-success" id="ventaTotal">C$0.00</span>
+                                    </div>
+                                </div>
+                                
+                                <!-- Información de crédito -->
+                                <div id="creditoInfo" class="mb-3 p-3 bg-warning bg-opacity-10 rounded d-none">
+                                    <h6 class="fw-bold text-warning mb-2">
+                                        <i class="fas fa-credit-card me-2"></i>Información de Crédito
+                                    </h6>
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <small class="text-muted d-block">Estado de Cuenta:</small>
+                                            <span id="estadoCuenta" class="badge bg-warning">Pendiente</span>
                                         </div>
-                                        <div class="col-6">
-                                            <small class="text-muted">Cliente:</small>
-                                            <div id="anularCliente">-</div>
+                                        <div class="col-md-6">
+                                            <small class="text-muted d-block">Saldo Pendiente:</small>
+                                            <span id="saldoPendiente" class="fw-bold text-danger">C$0.00</span>
                                         </div>
-                                        <div class="col-6">
-                                            <small class="text-muted">RUC/Cédula:</small>
-                                            <div id="anularRUC">-</div>
-                                        </div>
-                                        <div class="col-6">
-                                            <small class="text-muted">Total:</small>
-                                            <div class="fw-bold text-success" id="anularTotal">-</div>
-                                        </div>
+                                    </div>
+                                    <div class="mt-2">
+                                        <small class="text-muted">
+                                            <i class="fas fa-info-circle me-1"></i>
+                                            Al anular, esta cuenta por cobrar también será cancelada automáticamente.
+                                        </small>
+                                    </div>
+                                </div>
+
+                                <!-- Observación -->
+                                <div id="observacionContainer" class="mb-3">
+                                    <small class="text-muted d-block">Observación de la venta:</small>
+                                    <div class="p-2 bg-white rounded border">
+                                        <span id="ventaObservacion" class="text-muted small">Sin observaciones</span>
+                                    </div>
+                                </div>
+
+                                <!-- Productos vendidos -->
+                                <div class="mt-4">
+                                    <h6 class="fw-bold text-dark mb-2">
+                                        <i class="fas fa-boxes me-2 text-primary"></i>Productos Vendidos 
+                                        <small class="text-muted" id="totalProductosCount">(0 productos)</small>
+                                    </h6>
+                                    <div class="table-responsive" style="max-height: 250px;">
+                                        <table class="table table-sm table-hover mb-0">
+                                            <thead class="table-light sticky-top">
+                                                <tr>
+                                                    <th>#</th>
+                                                    <th>Código</th>
+                                                    <th>Descripción</th>
+                                                    <th class="text-center">Cantidad</th>
+                                                    <th class="text-center">Unidad</th>
+                                                    <th class="text-end">Precio Unit.</th>
+                                                    <th class="text-end">Subtotal</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody id="productosTableBody">
+                                                <tr>
+                                                    <td colspan="7" class="text-center text-muted py-4">
+                                                        <i class="fas fa-spinner fa-spin me-2"></i>
+                                                        Cargando productos...
+                                                    </td>
+                                                </tr>
+                                            </tbody>
+                                            <tfoot class="table-light">
+                                                <tr>
+                                                    <td colspan="3" class="text-end fw-bold">Totales:</td>
+                                                    <td class="text-center fw-bold" id="totalCantidad">0</td>
+                                                    <td></td>
+                                                    <td></td>
+                                                    <td class="text-end fw-bold text-success" id="totalVentaModal">C$0.00</td>
+                                                </tr>
+                                            </tfoot>
+                                        </table>
                                     </div>
                                 </div>
                             </div>
                         </div>
-                        <div class="col-lg-6">
-                            <div class="card border">
-                                <div class="card-body">
-                                    <h6 class="card-title text-dark mb-3">
-                                        <i class="fas fa-exclamation-circle me-2"></i>
-                                        Consecuencias
-                                    </h6>
-                                    <ul class="list-unstyled mb-0">
-                                        <li class="mb-2">
-                                            <i class="fas fa-arrow-left text-danger me-2"></i>
-                                            <small>Las existencias serán reversadas</small>
-                                        </li>
-                                        <li class="mb-2">
-                                            <i class="fas fa-ban text-danger me-2"></i>
-                                            <small>La venta se marcará como "Anulada"</small>
-                                        </li>
-                                        <li class="mb-2">
-                                            <i class="fas fa-file-invoice-dollar text-danger me-2"></i>
-                                            <small>Cuentas por cobrar serán canceladas</small>
-                                        </li>
-                                        <li class="mb-2">
-                                            <i class="fas fa-history text-danger me-2"></i>
-                                            <small>Se registrará en la bitácora del sistema</small>
-                                        </li>
-                                        <li>
-                                            <i class="fas fa-warning text-danger me-2"></i>
-                                            <small>Esta acción es irreversible</small>
+
+                        <div class="alert alert-danger border-danger mb-4">
+                            <div class="d-flex">
+                                <div class="flex-shrink-0">
+                                    <i class="fas fa-exclamation-triangle fa-2x text-danger mt-1"></i>
+                                </div>
+                                <div class="flex-grow-1 ms-3">
+                                    <h6 class="alert-heading fw-bold mb-1">Consecuencias de la anulación:</h6>
+                                    <ul class="mb-0 small">
+                                        <li>Todas las existencias serán <strong>reversadas al inventario</strong></li>
+                                        <li>La venta se marcará como <strong class="text-danger">"ANULADA"</strong></li>
+                                        <li>Se creará un movimiento de inventario de anulación</li>
+                                        <li>Si es crédito, la cuenta por cobrar será <strong>cancelada</strong></li>
+                                        <li class="fw-bold text-danger mt-2">
+                                            <i class="fas fa-skull-crossbones me-1"></i>
+                                            Esta acción NO se puede deshacer
                                         </li>
                                     </ul>
                                 </div>
                             </div>
                         </div>
-                    </div>
-                    
-                    <div class="mb-4">
-                        <label for="id_usuario_anulacion" class="form-label fw-bold">
-                            <i class="fas fa-user me-2"></i>Usuario que anula *
-                        </label>
-                        <input type="hidden" name="id_usuario_anulacion" id="id_usuario_anulacion" 
-                               value="{{ session.get('user_id') }}">
-                        <div class="form-control bg-light">
-                            <div class="d-flex align-items-center">
-                                <div class="avatar-xs bg-primary bg-opacity-10 rounded-circle d-flex align-items-center justify-content-center me-2">
-                                    <i class="fas fa-user text-primary fs-7"></i>
-                                </div>
-                                <div>
-                                    <div class="fw-semibold">Usuario Actual</div>
-                                    <small class="text-muted">ID: {{ session.get('user_id') }}</small>
-                                </div>
+
+                        <div class="mb-3">
+                            <label for="motivoAnulacion" class="form-label fw-semibold">
+                                <i class="fas fa-comment-dots me-2 text-primary"></i>Motivo de Anulación 
+                                <span class="text-danger">*</span>
+                                <span class="text-muted small">(Obligatorio para auditoría)</span>
+                            </label>
+                            <textarea class="form-control" id="motivoAnulacion" name="motivo_anulacion" 
+                                      rows="3" 
+                                      placeholder="Ej: Error en el precio, cliente canceló pedido, producto defectuoso, error en cantidad..." 
+                                      required 
+                                      maxlength="500"></textarea>
+                            <div id="charCounter" class="form-text text-end">
+                                <span id="charCount">0</span>/500 caracteres
                             </div>
                         </div>
-                    </div>
-                    
-                    <div class="mb-3">
-                        <label for="motivoAnulacion" class="form-label fw-bold">
-                            <i class="fas fa-comment-dots me-2"></i>Motivo de anulación *
-                        </label>
-                        <textarea class="form-control" id="motivoAnulacion" name="motivo_anulacion" 
-                                  rows="3" placeholder="Describa el motivo de la anulación..." required></textarea>
-                        <div class="form-text">Este motivo será registrado en la bitácora del sistema.</div>
-                    </div>
-                    
-                    <div class="alert alert-info bg-info bg-opacity-10 border-info">
-                        <div class="d-flex">
-                            <div class="flex-shrink-0">
-                                <i class="fas fa-info-circle text-info"></i>
-                            </div>
-                            <div class="flex-grow-1 ms-3">
-                                <small class="d-block mb-1">
-                                    <strong>Nota:</strong> Esta acción será registrada en el sistema con su usuario y fecha/hora.
-                                </small>
-                            </div>
+
+                        <div class="form-check mb-3">
+                            <input class="form-check-input" type="checkbox" id="confirmarAnulacion" required>
+                            <label class="form-check-label fw-semibold" for="confirmarAnulacion">
+                                <i class="fas fa-shield-alt me-2 text-primary"></i>
+                                Confirmo que he verificado los datos y deseo anular esta venta irreversiblemente
+                            </label>
                         </div>
                     </div>
                 </div>
-                
-                <div class="modal-footer border-0 bg-light">
-                    <button type="button" class="btn btn-light" data-bs-dismiss="modal">
+
+                <div class="modal-footer border-0 bg-light p-3">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
                         <i class="fas fa-times me-2"></i>Cancelar
                     </button>
-                    <button type="submit" class="btn btn-warning">
+                    <button type="submit" class="btn btn-danger" id="btnConfirmarAnulacion" disabled>
                         <i class="fas fa-ban me-2"></i>Confirmar Anulación
                     </button>
                 </div>
@@ -531,11 +466,9 @@
         </div>
     </div>
 </div>
-{% endblock %}
 
-{% block styles %}
+<!-- Estilos CSS -->
 <style>
-/* Variables CSS */
 :root {
     --primary-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     --success-gradient: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
@@ -543,657 +476,719 @@
     --info-gradient: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
 }
 
-/* Clases de gradientes */
 .gradient-primary { background: var(--primary-gradient) !important; }
 .gradient-success { background: var(--success-gradient) !important; }
 .gradient-warning { background: var(--warning-gradient) !important; }
 .gradient-info { background: var(--info-gradient) !important; }
 
-/* Estilos generales mejorados */
-.text-gradient-primary {
-    background: var(--primary-gradient);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
+.text-gradient-primary { 
+    background: var(--primary-gradient); 
+    -webkit-background-clip: text; 
+    -webkit-text-fill-color: transparent; 
     background-clip: text;
 }
 
-/* Tarjetas de estadísticas */
-.card-statistic {
-    transition: transform 0.3s ease, box-shadow 0.3s ease;
-    border: none !important;
+.card-statistic { 
+    transition: transform 0.3s ease, box-shadow 0.3s ease; 
+    border: none !important; 
+    color: white !important;
 }
 
-.card-statistic:hover {
-    transform: translateY(-5px);
-    box-shadow: 0 10px 20px rgba(0,0,0,0.1) !important;
+.card-statistic:hover { 
+    transform: translateY(-5px); 
+    box-shadow: 0 10px 20px rgba(0,0,0,0.1) !important; 
 }
 
-/* Tabla mejorada */
-.table {
-    --bs-table-bg: transparent;
-    margin-bottom: 0;
+.card-statistic h2,
+.card-statistic h6,
+.card-statistic p {
+    color: white !important;
 }
 
-.table thead th {
-    border-bottom: 2px solid #e9ecef;
-    font-weight: 600;
+.card-statistic .text-white-80 { opacity: 0.8; }
+.card-statistic .text-white-60 { opacity: 0.6; }
+
+.table thead th { 
+    border-bottom: 2px solid #e9ecef; 
+    font-weight: 600; 
+    font-size: 0.8rem; 
+    letter-spacing: 0.5px; 
     text-transform: uppercase;
-    font-size: 0.8rem;
-    letter-spacing: 0.5px;
-    color: #6c757d;
-    padding: 1rem 1.5rem;
+    background-color: #f8f9fa;
 }
 
-.table tbody td {
-    padding: 1rem 1.5rem;
+.table tbody td { 
+    border-bottom: 1px solid #f1f3f5; 
     vertical-align: middle;
-    border-bottom: 1px solid #f1f3f5;
 }
 
-.table tbody tr:last-child td {
-    border-bottom: none;
+.table-hover tbody tr:hover { 
+    background-color: rgba(102, 126, 234, 0.04); 
 }
 
-.table-hover tbody tr:hover {
-    background-color: rgba(102, 126, 234, 0.04);
+.table-inactive { 
+    opacity: 0.6; 
+    background-color: #f8f9fa;
 }
 
-/* Badges mejorados */
-.badge {
-    font-weight: 500;
-    letter-spacing: 0.3px;
+.table-inactive:hover { 
+    opacity: 0.8; 
+    background-color: #f1f3f5;
 }
 
-/* Avatar */
-.avatar-xs {
-    width: 24px;
-    height: 24px;
+.avatar-xs { 
+    width: 24px; 
+    height: 24px; 
 }
 
-.avatar-sm {
-    width: 36px;
-    height: 36px;
+.avatar-sm { 
+    width: 36px; 
+    height: 36px; 
 }
 
-/* Estado inactivo */
-.table-inactive {
-    opacity: 0.6;
+.search-box .input-group { 
+    border-radius: 8px; 
+    overflow: hidden; 
+    background: #f8f9fa; 
+    border: 1px solid #dee2e6;
 }
 
-.table-inactive:hover {
-    opacity: 0.8;
-}
-
-/* Celdas de fecha */
-.date-cell {
-    line-height: 1.2;
-}
-
-/* Search box */
-.search-box .input-group {
-    border-radius: 8px;
-    overflow: hidden;
-    background: #f8f9fa;
-}
-
-.search-box .form-control {
-    background: transparent;
-    border: none;
-    min-width: 250px;
+.search-box .form-control { 
+    background: transparent; 
+    border: none; 
+    min-width: 250px; 
+    box-shadow: none !important;
 }
 
 .search-box .form-control:focus {
-    box-shadow: none;
+    background: transparent;
 }
 
-/* Empty state */
-.empty-state {
-    padding: 3rem 1rem;
+.hover-lift { 
+    transition: transform 0.2s ease, box-shadow 0.2s ease; 
 }
 
-.empty-state-icon {
-    opacity: 0.3;
+.hover-lift:hover { 
+    transform: translateY(-2px); 
+    box-shadow: 0 5px 15px rgba(0,0,0,0.1) !important;
 }
 
-/* MEJORAS ESPECÍFICAS PARA ACCIONES EN MÓVILES */
-.actions-container {
-    min-width: 120px;
-}
-
-/* Botones horizontales para desktop */
-.btn-group .btn-action {
-    border-radius: 6px;
-    padding: 0.375rem 0.75rem;
+.btn-action, .btn-action-mobile {
     transition: all 0.2s ease;
-    border-width: 1px;
-    min-width: 40px;
 }
 
-.btn-group .btn-action:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+.btn-action:hover, .btn-action-mobile:hover {
+    transform: translateY(-1px);
 }
 
-.btn-group .btn-action:not(:last-child) {
-    margin-right: 0.25rem;
+.empty-state {
+    padding: 2rem;
 }
 
-/* Botones verticales para móviles */
-.btn-group-vertical.btn-group-sm {
-    width: 100%;
+.empty-state i {
+    opacity: 0.5;
 }
 
-.btn-action-mobile {
-    width: 100%;
-    text-align: left;
+.modal-content {
+    border-radius: 12px;
+    overflow: hidden;
+}
+
+.modal-header {
+    border-bottom: none;
+    padding: 1.25rem 1.5rem;
+}
+
+.modal-body {
+    padding: 0;
+}
+
+.modal-footer {
+    border-top: 1px solid #e9ecef;
+}
+
+#productosTable tbody tr:last-child {
+    border-bottom: none;
+}
+
+#productosTable tbody td {
     padding: 0.5rem 0.75rem;
-    margin-bottom: 0.25rem;
-    border-radius: 6px;
-    display: flex;
-    align-items: center;
-    justify-content: flex-start;
-    font-size: 0.875rem;
 }
 
-.btn-action-mobile:last-child {
-    margin-bottom: 0;
+.sticky-top {
+    position: sticky;
+    top: 0;
+    z-index: 10;
 }
 
-.btn-action-mobile i {
-    min-width: 20px;
-    text-align: center;
-}
-
-.btn-action-mobile span {
-    margin-left: 0.5rem;
-    white-space: nowrap;
-}
-
-/* Responsive Design - Correcciones para móviles */
+/* Responsive */
 @media (max-width: 768px) {
-    .card-header {
-        padding: 1rem !important;
-    }
-    
-    .table-responsive {
-        margin: 0 -1rem;
-        padding: 0 1rem;
-    }
-    
-    .table thead {
-        display: none;
-    }
-    
-    .table tbody tr {
-        display: block;
-        margin-bottom: 1rem;
-        border: 1px solid #e9ecef;
-        border-radius: 12px;
-        padding: 1rem;
+    .table tbody tr { 
+        display: block; 
+        margin-bottom: 1rem; 
+        border: 1px solid #e9ecef; 
+        border-radius: 12px; 
+        padding: 1rem; 
         background: white;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.05);
     }
     
-    .table tbody td {
-        display: flex;
-        justify-content: space-between;
-        align-items: flex-start;
-        border: none;
-        padding: 0.75rem 0;
-        flex-wrap: wrap;
+    .table tbody td { 
+        display: flex; 
+        justify-content: space-between; 
+        padding: 0.75rem 0; 
+        border-bottom: 1px solid #f8f9fa;
     }
     
-    .table tbody td:before {
-        content: attr(data-label);
-        font-weight: 600;
-        color: #6c757d;
-        font-size: 0.85rem;
+    .table tbody td:before { 
+        content: attr(data-label); 
+        font-weight: 600; 
+        color: #6c757d; 
+        min-width: 120px; 
         margin-right: 1rem;
-        min-width: 120px;
-        flex-shrink: 0;
     }
     
-    .table tbody td:last-child {
-        border-top: 2px solid #f8f9fa;
-        margin-top: 0.75rem;
-        padding-top: 1rem;
-    }
-    
-    .table tbody td:last-child:before {
-        display: none;
-    }
-    
-    /* Mejoras específicas para cada celda en móviles */
-    .table tbody td[data-label="Fecha"] .date-cell {
-        flex-direction: column;
-        align-items: flex-end;
-        text-align: right;
-    }
-    
-    .table tbody td[data-label="Cliente"] {
-        align-items: center;
-    }
-    
-    .table tbody td[data-label="Total"] {
-        justify-content: space-between;
-        align-items: center;
-        font-size: 1.1rem;
-    }
-    
-    .table tbody td[data-label="Estado"],
-    .table tbody td[data-label="Tipo"],
-    .table tbody td[data-label="Productos"] {
-        justify-content: space-between;
-        align-items: center;
-    }
-    
-    /* Asegurar que los badges se vean bien en móviles */
-    .badge, .badge-pill {
-        font-size: 0.75rem;
-        padding: 0.35rem 0.75rem;
-    }
-    
-    /* Botones de acción en móviles */
-    .btn-group-vertical {
-        gap: 0.25rem;
-        width: 100%;
-    }
-    
-    .btn-action-mobile {
+    .table tbody td:last-child { 
+        border-top: 2px solid #f8f9fa; 
+        margin-top: 0.75rem; 
+        padding-top: 1rem; 
         justify-content: center;
-        text-align: center;
-        padding: 0.5rem;
     }
     
-    .btn-action-mobile i {
-        margin-right: 0.5rem;
+    .table tbody td:last-child:before { 
+        display: none; 
     }
     
-    .d-none.d-lg-flex {
-        display: none !important;
+    .btn-group-vertical { 
+        width: 100%; 
     }
     
-    .d-lg-none {
-        display: flex !important;
-        width: 100%;
-    }
-    
-    .actions-container {
-        width: 100%;
-    }
-}
-
-@media (max-width: 576px) {
-    .table tbody td {
-        flex-direction: column;
-        align-items: stretch;
-    }
-    
-    .table tbody td:before {
+    .btn-action-mobile { 
+        width: 100%; 
+        text-align: left; 
+        padding: 0.5rem 0.75rem; 
+        border-radius: 6px !important;
         margin-bottom: 0.25rem;
-        width: 100%;
     }
     
-    .table tbody td[data-label="Fecha"] .date-cell {
-        align-items: flex-start;
-        text-align: left;
-    }
-    
-    .table tbody td[data-label="Cliente"] .avatar-sm {
-        width: 32px;
-        height: 32px;
-    }
-    
-    .card-statistic .card-body {
-        padding: 1rem !important;
-    }
-    
-    .statistic-icon {
-        font-size: 1.5rem !important;
+    .d-lg-none { 
+        display: flex !important; 
+        width: 100%; 
     }
     
     .modal-dialog {
         margin: 0.5rem;
     }
     
-    /* Botones más compactos en móviles muy pequeños */
-    .btn-action-mobile {
-        font-size: 0.8rem;
-        padding: 0.4rem 0.5rem;
-    }
-    
-    .btn-action-mobile i {
-        font-size: 0.9rem;
-        margin-right: 0.25rem;
-    }
-    
-    .btn-action-mobile span {
-        font-size: 0.8rem;
-    }
-}
-
-/* Para tablets */
-@media (max-width: 992px) and (min-width: 769px) {
-    .btn-action span {
-        display: none !important;
-    }
-    
-    .btn-group .btn-action {
-        min-width: 36px;
-        padding: 0.375rem;
-        justify-content: center;
-    }
-    
-    .btn-group .btn-action i {
-        margin-right: 0;
-    }
-}
-
-/* Asegurar que en desktop se vea correctamente */
-@media (min-width: 769px) {
-    .btn-group-vertical {
-        display: none !important;
-    }
-    
-    .btn-group {
-        display: flex !important;
-    }
-}
-
-/* Scrollbar personalizada */
-.table-responsive::-webkit-scrollbar {
-    height: 6px;
-}
-
-.table-responsive::-webkit-scrollbar-track {
-    background: #f1f1f1;
-    border-radius: 10px;
-}
-
-.table-responsive::-webkit-scrollbar-thumb {
-    background: #c1c1c1;
-    border-radius: 10px;
-}
-
-.table-responsive::-webkit-scrollbar-thumb:hover {
-    background: #a8a8a8;
-}
-
-/* Transiciones suaves */
-.card, .btn, .badge, .table tr {
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-/* Sombreado mejorado */
-.shadow-lg {
-    box-shadow: 0 10px 40px rgba(0,0,0,0.08) !important;
-}
-
-/* Bordes redondeados */
-.rounded-3 {
-    border-radius: 12px !important;
-}
-
-/* Hover lift effect */
-.hover-lift {
-    transition: transform 0.2s ease;
-}
-
-.hover-lift:hover {
-    transform: translateY(-2px);
-}
-
-/* Alertas mejoradas */
-.alert-icon {
-    min-width: 24px;
-}
-
-/* Filtros responsive */
-@media (max-width: 768px) {
-    .search-box .form-control {
-        min-width: auto;
-    }
-}
-
-/* Mejoras para el modal en móviles */
-@media (max-width: 576px) {
     .modal-content {
-        margin: 0.5rem;
-        border-radius: 12px;
-    }
-    
-    .modal-body {
-        padding: 1rem !important;
+        border-radius: 8px;
     }
 }
 
-/* Mejoras para paginación en móviles */
-@media (max-width: 768px) {
-    .pagination {
-        flex-wrap: wrap;
-        justify-content: center;
-    }
-    
-    .page-item {
-        margin-bottom: 0.25rem;
-    }
-}
-
-/* Mejoras para estadísticas en móviles */
-@media (max-width: 768px) {
-    .statistic-icon {
-        font-size: 1.75rem !important;
-    }
-    
-    .card-statistic .card-body {
-        padding: 1.25rem !important;
-    }
-}
-
-/* Mejoras visuales generales */
-.bg-opacity-10 {
-    opacity: 0.1;
-}
-
-.text-white-80 {
-    color: rgba(255, 255, 255, 0.8) !important;
-}
-
-.text-white-60 {
-    color: rgba(255, 255, 255, 0.6) !important;
-}
-
-.border-opacity-25 {
-    border-color: rgba(var(--bs-border-color-rgb), 0.25) !important;
-}
-
-/* Colores específicos para estados */
-.badge-pill.bg-success {
-    background: linear-gradient(135deg, #11998e, #38ef7d) !important;
-}
-
-.badge-pill.bg-danger {
-    background: linear-gradient(135deg, #ff416c, #ff4b2b) !important;
-}
-
-.badge-pill.bg-warning {
-    background: linear-gradient(135deg, #f7971e, #ffd200) !important;
+@media (min-width: 769px) { 
+    .btn-group-vertical { 
+        display: none !important; 
+    } 
 }
 </style>
-{% endblock %}
 
-{% block scripts %}
+<!-- JavaScript -->
 <script>
-function anularVenta(idFactura, button) {
-    // Obtener datos de la fila
-    const row = button.closest('tr');
-    const clienteElement = row.querySelector('td[data-label="Cliente"] .fw-semibold');
-    const rucElement = row.querySelector('td[data-label="Cliente"] small');
-    const totalElement = row.querySelector('td[data-label="Total"]');
-    
-    const cliente = clienteElement ? clienteElement.textContent.trim() : 'N/A';
-    const ruc = rucElement ? rucElement.textContent.trim() : 'N/A';
-    const total = totalElement ? totalElement.textContent.trim() : 'C$0.00';
-    
-    // Actualizar modal con los datos de la venta
-    document.getElementById('anularFacturaNumero').textContent = idFactura;
-    document.getElementById('anularCliente').textContent = cliente;
-    document.getElementById('anularRUC').textContent = ruc;
-    document.getElementById('anularTotal').textContent = total;
-    
-    // Configurar formulario para anular
-    const form = document.getElementById('formAnularVenta');
-    form.action = `{{ url_for('admin_anular_venta') }}?id_factura=${idFactura}`;
-    
-    // Limpiar el motivo de anulación anterior
-    document.getElementById('motivoAnulacion').value = '';
-    
-    // Mostrar modal
-    const modal = new bootstrap.Modal(document.getElementById('confirmarAnularModal'));
-    modal.show();
-}
-
-// Filtros de búsqueda
-document.getElementById('searchInput').addEventListener('keyup', function() {
-    const filter = this.value.toLowerCase();
-    const rows = document.querySelectorAll('#dataTable tbody tr');
-    
-    rows.forEach(row => {
-        const text = row.textContent.toLowerCase();
-        row.style.display = text.includes(filter) ? '' : 'none';
-    });
-});
-
-// Filtros por estado
-document.getElementById('estadoFilter').addEventListener('change', function() {
-    const filterValue = this.value;
-    const rows = document.querySelectorAll('#dataTable tbody tr');
-    
-    rows.forEach(row => {
-        if (row.querySelector('td[data-label="Estado"] .badge')) {
-            const estado = row.querySelector('td[data-label="Estado"] .badge').textContent.trim();
-            const shouldShow = !filterValue || estado === filterValue;
-            row.style.display = shouldShow ? '' : 'none';
-        }
-    });
-});
-
-// Filtros por tipo de venta
-document.getElementById('tipoVentaFilter').addEventListener('change', function() {
-    const filterValue = this.value;
-    const rows = document.querySelectorAll('#dataTable tbody tr');
-    
-    rows.forEach(row => {
-        if (row.querySelector('td[data-label="Tipo"] .badge')) {
-            const tipo = row.querySelector('td[data-label="Tipo"] .badge').textContent.trim();
-            const shouldShow = !filterValue || tipo === filterValue;
-            row.style.display = shouldShow ? '' : 'none';
-        }
-    });
-});
-
-// Limpiar todos los filtros
-function clearFilters() {
-    document.getElementById('searchInput').value = '';
-    document.getElementById('estadoFilter').value = '';
-    document.getElementById('tipoVentaFilter').value = '';
-    
-    const rows = document.querySelectorAll('#dataTable tbody tr');
-    rows.forEach(row => {
-        row.style.display = '';
-    });
-}
-
-// Exportar a Excel
-function exportToExcel() {
-    // Crear tabla HTML para exportar
-    let tableHTML = '<table border="1"><thead><tr>';
-    const headers = document.querySelectorAll('#dataTable thead th');
-    headers.forEach(header => {
-        tableHTML += `<th>${header.textContent.trim()}</th>`;
-    });
-    tableHTML += '</tr></thead><tbody>';
-    
-    const rows = document.querySelectorAll('#dataTable tbody tr:not(.table-inactive)');
-    rows.forEach(row => {
-        tableHTML += '<tr>';
-        const cells = row.querySelectorAll('td');
-        cells.forEach(cell => {
-            // Eliminar iconos y elementos innecesarios para Excel
-            const cellText = cell.textContent.trim();
-            tableHTML += `<td>${cellText}</td>`;
-        });
-        tableHTML += '</tr>';
-    });
-    tableHTML += '</tbody></table>';
-    
-    // Crear blob y descargar
-    const blob = new Blob([tableHTML], { type: 'application/vnd.ms-excel' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'ventas_' + new Date().toISOString().slice(0,10) + '.xls';
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-}
-
-// Imprimir tabla
-function printTable() {
-    const originalContent = document.body.innerHTML;
-    const printContent = document.getElementById('dataTable').parentNode.innerHTML;
-    
-    document.body.innerHTML = `
-        <html>
-            <head>
-                <title>Reporte de Ventas</title>
-                <style>
-                    body { font-family: Arial, sans-serif; }
-                    table { width: 100%; border-collapse: collapse; }
-                    th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-                    th { background-color: #f2f2f2; }
-                    .badge { border: 1px solid #ddd; padding: 2px 6px; border-radius: 4px; font-size: 12px; }
-                    .text-success { color: #28a745; }
-                    .text-danger { color: #dc3545; }
-                    .text-warning { color: #ffc107; }
-                    @media print {
-                        @page { margin: 0.5in; }
-                        body { margin: 0; }
-                    }
-                </style>
-            </head>
-            <body>
-                <h2>Reporte de Ventas</h2>
-                <p>Generado: ${new Date().toLocaleDateString()}</p>
-                ${printContent}
-                <script>
-                    window.onafterprint = function() {
-                        document.body.innerHTML = originalContent;
-                        window.location.reload();
-                    };
-                    window.print();
-                <\/script>
-            </body>
-        </html>
-    `;
-}
-
-// Validación del formulario de anulación
-document.getElementById('formAnularVenta').addEventListener('submit', function(e) {
-    const motivo = document.getElementById('motivoAnulacion').value.trim();
-    if (!motivo) {
-        e.preventDefault();
-        alert('Por favor, ingrese el motivo de la anulación.');
-        document.getElementById('motivoAnulacion').focus();
-    }
-});
-
-// Inicializar filtros al cargar la página
 document.addEventListener('DOMContentLoaded', function() {
-    // Configurar placeholder dinámico para búsqueda
-    const searchInput = document.getElementById('searchInput');
-    searchInput.placeholder = 'Buscar por cliente, factura, vendedor...';
+    // ==================== VARIABLES GLOBALES ====================
+    let currentVentaId = null;
+    const modal = document.getElementById('anularVentaModal');
+    
+    // ==================== FUNCIONES AUXILIARES ====================
+    
+    // Función para formatear números
+    function formatNumber(num, decimals = 2) {
+        return parseFloat(num || 0).toLocaleString('es-NI', {
+            minimumFractionDigits: decimals,
+            maximumFractionDigits: decimals
+        });
+    }
+    
+    // Función para formatear moneda
+    function formatCurrency(amount) {
+        return `C$${formatNumber(amount)}`;
+    }
+    
+    // Función para obtener clase CSS según estado
+    function getBadgeClassForEstado(estado) {
+        switch(estado) {
+            case 'Activa': return 'badge bg-success';
+            case 'Anulada': return 'badge bg-danger';
+            case 'Pagada': return 'badge bg-success';
+            case 'Pendiente': return 'badge bg-warning';
+            default: return 'badge bg-secondary';
+        }
+    }
+    
+    // ==================== MODAL DE ANULACIÓN ====================
+    
+    // Evento al abrir modal
+    modal?.addEventListener('show.bs.modal', async function(e) {
+        const button = e.relatedTarget;
+        const idFactura = button.getAttribute('data-id');
+        currentVentaId = idFactura;
+        
+        console.log(`🔄 Iniciando carga de datos para venta #${idFactura}...`);
+        
+        // Configurar estado inicial del modal
+        resetModalState();
+        
+        // Mostrar loading, ocultar contenido
+        document.getElementById('loadingIndicator').classList.remove('d-none');
+        document.getElementById('modalContent').classList.add('d-none');
+        
+        // Actualizar formulario
+        const form = document.getElementById('formAnularVenta');
+        form.action = `/admin/ventas/anular/${idFactura}`;
+        document.getElementById('idFactura').value = idFactura;
+        document.getElementById('modalVentaId').textContent = idFactura;
+        
+        // Deshabilitar controles
+        setFormControlsEnabled(false);
+        
+        try {
+            // Obtener datos de la venta desde el endpoint
+            const response = await fetch(`/admin/ventas/anular/${idFactura}`, {
+                method: 'GET',
+                headers: {
+                    'Accept': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'Cache-Control': 'no-cache'
+                }
+            });
+            
+            if (!response.ok) {
+                const errorText = await response.text();
+                console.error('Error en respuesta:', response.status, errorText);
+                throw new Error(`Error ${response.status}: No se pudieron cargar los datos`);
+            }
+            
+            const data = await response.json();
+            
+            if (!data.success) {
+                throw new Error(data.error || 'Error en los datos recibidos del servidor');
+            }
+            
+            const venta = data.venta;
+            console.log(`✅ Datos recibidos para venta #${venta.id_factura}`, venta);
+            
+            // Validar que la venta esté activa
+            if (venta.estado !== 'Activa') {
+                throw new Error(`Esta venta ya está ${venta.estado.toLowerCase()}. No se puede anular.`);
+            }
+            
+            // Actualizar todos los campos del modal
+            updateModalFields(venta);
+            
+            // Mostrar contenido, ocultar loading
+            document.getElementById('loadingIndicator').classList.add('d-none');
+            document.getElementById('modalContent').classList.remove('d-none');
+            
+            // Habilitar controles
+            setFormControlsEnabled(true);
+            
+            // Validar formulario inicialmente
+            validateForm();
+            
+        } catch (error) {
+            console.error('❌ Error cargando datos:', error);
+            showErrorInModal(error.message);
+        }
+    });
+    
+    // Evento al cerrar modal
+    modal?.addEventListener('hidden.bs.modal', function() {
+        currentVentaId = null;
+        resetModalState();
+    });
+    
+    // Función para resetear estado del modal
+    function resetModalState() {
+        // Resetear loading indicator
+        document.getElementById('loadingIndicator').innerHTML = `
+            <div class="text-center py-5">
+                <div class="spinner-border text-danger" role="status" style="width: 3rem; height: 3rem;">
+                    <span class="visually-hidden">Cargando...</span>
+                </div>
+                <p class="text-muted mt-3">Cargando datos de la venta...</p>
+            </div>
+        `;
+        
+        // Ocultar contenido, mostrar loading
+        document.getElementById('loadingIndicator').classList.remove('d-none');
+        document.getElementById('modalContent').classList.add('d-none');
+        
+        // Resetear formulario
+        const form = document.getElementById('formAnularVenta');
+        form.reset();
+        document.getElementById('idFactura').value = '';
+        
+        // Resetear contador de caracteres
+        document.getElementById('charCount').textContent = '0';
+        document.getElementById('charCounter').className = 'form-text text-end text-muted';
+        
+        // Deshabilitar botón de confirmación
+        document.getElementById('btnConfirmarAnulacion').disabled = true;
+        
+        // Resetear campos visuales
+        document.getElementById('modalVentaId').textContent = '#';
+        document.getElementById('ventaFecha').textContent = '--/--/-- --:--';
+        document.getElementById('ventaCliente').textContent = 'Cargando...';
+        document.getElementById('ventaRUC').textContent = 'Cargando...';
+        document.getElementById('ventaVendedor').textContent = 'Cargando...';
+        document.getElementById('ventaBodega').textContent = 'Cargando...';
+        document.getElementById('ventaTotalProductos').textContent = '0';
+        document.getElementById('ventaTotalUnidades').textContent = '0';
+        document.getElementById('ventaTotal').textContent = 'C$0.00';
+        
+        document.getElementById('ventaStatusBadge').textContent = 'Activa';
+        document.getElementById('ventaStatusBadge').className = 'badge bg-success ms-2';
+        document.getElementById('tipoVentaBadge').textContent = 'CONTADO';
+        document.getElementById('tipoVentaBadge').className = 'badge bg-success ms-1';
+        
+        document.getElementById('productosTableBody').innerHTML = `
+            <tr>
+                <td colspan="7" class="text-center text-muted py-4">
+                    <i class="fas fa-spinner fa-spin me-2"></i>
+                    Cargando productos...
+                </td>
+            </tr>`;
+        
+        document.getElementById('totalCantidad').textContent = '0';
+        document.getElementById('totalVentaModal').textContent = 'C$0.00';
+        document.getElementById('totalProductosCount').textContent = '(0 productos)';
+        
+        // Ocultar secciones opcionales
+        document.getElementById('creditoInfo').classList.add('d-none');
+    }
+    
+    // Función para actualizar campos del modal
+    function updateModalFields(venta) {
+        // Información básica
+        document.getElementById('ventaFecha').textContent = venta.fecha || '--/--/-- --:--';
+        document.getElementById('ventaCliente').textContent = venta.cliente || 'Consumidor Final';
+        document.getElementById('ventaRUC').textContent = venta.cliente_ruc || 'N/A';
+        document.getElementById('ventaVendedor').textContent = venta.vendedor || 'Sistema';
+        document.getElementById('ventaBodega').textContent = venta.bodega || 'No especificada';
+        document.getElementById('ventaTotalProductos').textContent = venta.total_productos || 0;
+        document.getElementById('ventaTotalUnidades').textContent = formatNumber(venta.total_cantidad || 0);
+        document.getElementById('ventaTotal').textContent = venta.total_venta_formateado || formatCurrency(0);
+        
+        // Badges
+        const estadoBadge = document.getElementById('ventaStatusBadge');
+        estadoBadge.textContent = venta.estado || 'Activa';
+        estadoBadge.className = getBadgeClassForEstado(venta.estado) + ' ms-2';
+        
+        const tipoBadge = document.getElementById('tipoVentaBadge');
+        tipoBadge.textContent = venta.tipo_venta || 'CONTADO';
+        if (venta.tipo_venta === 'CONTADO') {
+            tipoBadge.className = 'badge bg-success ms-1';
+        } else if (venta.tipo_venta === 'CRÉDITO') {
+            tipoBadge.className = 'badge bg-warning ms-1';
+        } else {
+            tipoBadge.className = 'badge bg-secondary ms-1';
+        }
+        
+        // Información de crédito
+        const creditoInfo = document.getElementById('creditoInfo');
+        if (venta.tipo_venta === 'CRÉDITO' && venta.tiene_cuenta_cobrar) {
+            creditoInfo.classList.remove('d-none');
+            
+            const estadoCuenta = venta.estado_cuenta || 'Pendiente';
+            const estadoCuentaElem = document.getElementById('estadoCuenta');
+            estadoCuentaElem.textContent = estadoCuenta;
+            estadoCuentaElem.className = getBadgeClassForEstado(estadoCuenta);
+            
+            document.getElementById('saldoPendiente').textContent = formatCurrency(venta.saldo_pendiente || 0);
+        } else {
+            creditoInfo.classList.add('d-none');
+        }
+        
+        // Observación
+        const observacionElem = document.getElementById('ventaObservacion');
+        if (venta.observacion && venta.observacion.trim() !== '') {
+            observacionElem.textContent = venta.observacion;
+            observacionElem.className = 'text-dark small';
+        } else {
+            observacionElem.textContent = 'Sin observaciones';
+            observacionElem.className = 'text-muted small';
+        }
+        
+        // Productos
+        const tbody = document.getElementById('productosTableBody');
+        if (venta.productos && venta.productos.length > 0) {
+            tbody.innerHTML = venta.productos.map((p, i) => `
+                <tr>
+                    <td>${i + 1}</td>
+                    <td><code class="text-primary">${p.codigo}</code></td>
+                    <td>${p.descripcion}</td>
+                    <td class="text-center">${formatNumber(p.cantidad)}</td>
+                    <td class="text-center">
+                        <span class="badge bg-light text-dark border">${p.unidad_medida}</span>
+                    </td>
+                    <td class="text-end">${formatCurrency(p.precio_unitario)}</td>
+                    <td class="text-end fw-semibold">${formatCurrency(p.subtotal)}</td>
+                </tr>
+            `).join('');
+        } else {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="7" class="text-center text-muted py-4">
+                        <i class="fas fa-box-open fa-2x opacity-50 mb-2 d-block"></i>
+                        No hay productos registrados
+                    </td>
+                </tr>`;
+        }
+        
+        // Totales
+        document.getElementById('totalCantidad').textContent = formatNumber(venta.total_cantidad || 0);
+        document.getElementById('totalVentaModal').textContent = venta.total_venta_formateado || formatCurrency(0);
+        document.getElementById('totalProductosCount').textContent = 
+            `(${venta.total_productos || 0} producto${venta.total_productos !== 1 ? 's' : ''})`;
+    }
+    
+    // Función para mostrar error en el modal
+    function showErrorInModal(message) {
+        document.getElementById('loadingIndicator').innerHTML = `
+            <div class="text-center py-5">
+                <i class="fas fa-exclamation-triangle fa-3x text-danger mb-3"></i>
+                <h6 class="text-danger fw-bold mb-2">Error al cargar los datos</h6>
+                <p class="text-muted mb-4">${message}</p>
+                <div class="mt-3">
+                    <button class="btn btn-sm btn-outline-danger me-2" data-bs-dismiss="modal">
+                        <i class="fas fa-times me-1"></i>Cerrar
+                    </button>
+                    <button class="btn btn-sm btn-danger" onclick="window.location.reload()">
+                        <i class="fas fa-redo me-1"></i>Recargar página
+                    </button>
+                </div>
+            </div>
+        `;
+    }
+    
+    // Función para habilitar/deshabilitar controles del formulario
+    function setFormControlsEnabled(enabled) {
+        document.getElementById('motivoAnulacion').disabled = !enabled;
+        document.getElementById('confirmarAnulacion').disabled = !enabled;
+        document.getElementById('btnConfirmarAnulacion').disabled = !enabled;
+    }
+    
+    // ==================== VALIDACIÓN DEL FORMULARIO ====================
+    
+    const motivoTextarea = document.getElementById('motivoAnulacion');
+    const confirmCheckbox = document.getElementById('confirmarAnulacion');
+    const btnConfirmar = document.getElementById('btnConfirmarAnulacion');
+    const charCount = document.getElementById('charCount');
+    
+    // Función para validar el formulario
+    function validateForm() {
+        const motivo = motivoTextarea.value.trim();
+        const confirmado = confirmCheckbox.checked;
+        const motivoValido = motivo.length >= 1 && motivo.length <= 500;
+        
+        btnConfirmar.disabled = !(motivoValido && confirmado);
+        
+        // Actualizar contador
+        charCount.textContent = motivo.length;
+        
+        // Cambiar color según longitud
+        const counter = document.getElementById('charCounter');
+        if (motivo.length === 0) {
+            counter.className = 'form-text text-end text-muted';
+        } else if (motivo.length > 500) {
+            counter.className = 'form-text text-end text-danger';
+        } else if (motivo.length < 10) {
+            counter.className = 'form-text text-end text-warning';
+        } else {
+            counter.className = 'form-text text-end text-success';
+        }
+        
+        return motivoValido && confirmado;
+    }
+    
+    // Event listeners para validación en tiempo real
+    motivoTextarea?.addEventListener('input', validateForm);
+    confirmCheckbox?.addEventListener('change', validateForm);
+    
+    // ==================== ENVÍO DEL FORMULARIO ====================
+    
+    document.getElementById('formAnularVenta')?.addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        if (!validateForm()) {
+            showAlert('warning', 'Validación requerida', 
+                'Por favor complete todos los campos correctamente antes de continuar.');
+            return;
+        }
+        
+        const motivo = motivoTextarea.value.trim();
+        
+        // Confirmación final con SweetAlert
+        Swal.fire({
+            title: '¿Está completamente seguro?',
+            html: `<div class="text-start">
+                <p class="mb-3">Está a punto de <strong class="text-danger">ANULAR</strong> la venta <strong>#${currentVentaId}</strong>.</p>
+                <div class="alert alert-danger small mb-3">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    <strong>Esta acción es IRREVERSIBLE</strong>
+                </div>
+                <p class="small text-muted mb-0"><strong>Motivo:</strong> ${motivo.substring(0, 100)}${motivo.length > 100 ? '...' : ''}</p>
+            </div>`,
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#dc3545',
+            cancelButtonColor: '#6c757d',
+            confirmButtonText: '<i class="fas fa-ban me-2"></i>Sí, anular venta',
+            cancelButtonText: '<i class="fas fa-times me-2"></i>Cancelar',
+            reverseButtons: true,
+            backdrop: true,
+            allowOutsideClick: false,
+            allowEscapeKey: false,
+            showLoaderOnConfirm: true,
+            preConfirm: () => {
+                return new Promise((resolve) => {
+                    // Deshabilitar botón y mostrar loading
+                    const submitBtn = document.getElementById('btnConfirmarAnulacion');
+                    const originalText = submitBtn.innerHTML;
+                    submitBtn.disabled = true;
+                    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Procesando...';
+                    
+                    // Enviar formulario de forma tradicional
+                    setTimeout(() => {
+                        document.getElementById('formAnularVenta').submit();
+                        resolve();
+                    }, 500);
+                });
+            }
+        }).then((result) => {
+            if (result.dismiss === Swal.DismissReason.cancel) {
+                // Usuario canceló
+                console.log('Anulación cancelada por el usuario');
+            }
+        });
+    });
+    
+    // ==================== FILTROS DE TABLA ====================
+    
+    function aplicarFiltros() {
+        const search = document.getElementById('searchInput').value.toLowerCase();
+        const estado = document.getElementById('estadoFilter').value;
+        const tipo = document.getElementById('tipoVentaFilter').value;
+        
+        let visibleCount = 0;
+        
+        document.querySelectorAll('#dataTable tbody tr').forEach(row => {
+            const text = row.textContent.toLowerCase();
+            const estadoCell = row.querySelector('[data-label="Estado"] .badge');
+            const tipoCell = row.querySelector('[data-label="Tipo"] .badge');
+            
+            const estadoText = estadoCell?.textContent || '';
+            const tipoText = tipoCell?.textContent || '';
+            
+            const mostrar = 
+                (!search || text.includes(search)) &&
+                (!estado || estadoText.includes(estado.toUpperCase()) || estadoText.includes(estado.toLowerCase())) &&
+                (!tipo || tipoText.includes(tipo.toUpperCase()) || tipoText.includes(tipo.toLowerCase()));
+            
+            row.style.display = mostrar ? '' : 'none';
+            if (mostrar) visibleCount++;
+        });
+        
+        // Opcional: Mostrar contador de resultados
+        console.log(`Mostrando ${visibleCount} de ${document.querySelectorAll('#dataTable tbody tr').length} ventas`);
+    }
+    
+    // Aplicar filtros en tiempo real
+    ['searchInput', 'estadoFilter', 'tipoVentaFilter'].forEach(id => {
+        document.getElementById(id)?.addEventListener('input', aplicarFiltros);
+        document.getElementById(id)?.addEventListener('change', aplicarFiltros);
+    });
+    
+    // Limpiar filtros
+    document.getElementById('clearFiltersBtn')?.addEventListener('click', () => {
+        document.getElementById('searchInput').value = '';
+        document.getElementById('estadoFilter').value = '';
+        document.getElementById('tipoVentaFilter').value = '';
+        aplicarFiltros();
+    });
+    
+    // ==================== EXPORTACIÓN ====================
+    
+    document.getElementById('exportExcel')?.addEventListener('click', function(e) {
+        e.preventDefault();
+        
+        const table = document.getElementById('dataTable');
+        const html = table.outerHTML;
+        const blob = new Blob([`<html><head><meta charset="UTF-8"></head><body>${html}</body></html>`], {
+            type: 'application/vnd.ms-excel'
+        });
+        
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `ventas_${new Date().toISOString().slice(0,10)}.xls`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        
+        showAlert('success', 'Exportación iniciada', 'El archivo se descargará automáticamente.');
+    });
+    
+    document.getElementById('printTableBtn')?.addEventListener('click', function(e) {
+        e.preventDefault();
+        
+        const originalContents = document.body.innerHTML;
+        const printContents = document.getElementById('dataTable').outerHTML;
+        
+        document.body.innerHTML = `
+            <html>
+                <head>
+                    <title>Reporte de Ventas</title>
+                    <style>
+                        body { font-family: Arial, sans-serif; margin: 20px; }
+                        table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+                        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+                        th { background-color: #f2f2f2; font-weight: bold; }
+                        .text-end { text-align: right; }
+                        .text-center { text-align: center; }
+                        .badge { padding: 2px 6px; border-radius: 3px; font-size: 12px; }
+                    </style>
+                </head>
+                <body>
+                    <h2>Reporte de Ventas</h2>
+                    <p>Generado: ${new Date().toLocaleString()}</p>
+                    ${printContents}
+                </body>
+            </html>
+        `;
+        
+        window.print();
+        document.body.innerHTML = originalContents;
+        window.location.reload();
+    });
+    
+    // ==================== FUNCIONES AUXILIARES ====================
+    
+    function showAlert(icon, title, text) {
+        Swal.fire({
+            icon: icon,
+            title: title,
+            text: text,
+            toast: true,
+            position: 'top-end',
+            showConfirmButton: false,
+            timer: 3000,
+            timerProgressBar: true
+        });
+    }
+    
+    // Aplicar filtros iniciales
+    aplicarFiltros();
 });
 </script>
 {% endblock %}

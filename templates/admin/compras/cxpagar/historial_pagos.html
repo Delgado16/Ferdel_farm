@@ -6,175 +6,145 @@
 <div class="container-fluid">
     <!-- Header -->
     <div class="d-sm-flex align-items-center justify-content-between mb-4">
-        <h1 class="h3 mb-0 text-gray-800">
-            <i class="fas fa-history text-primary"></i> Historial de Pagos
-        </h1>
-        <div>
-            <a href="{{ url_for('registrar_pago_cuenta', id_cuenta=cuenta.ID_Cuenta) }}" 
-               class="d-none d-sm-inline-block btn btn-success shadow-sm {{ 'disabled' if cuenta.Saldo_Pendiente <= 0 }}"
-               {{ 'disabled' if cuenta.Saldo_Pendiente <= 0 }}>
-                <i class="fas fa-money-bill-wave fa-sm text-white-50"></i> Registrar Pago
-            </a>
-            <a href="{{ url_for('admin_cuentas_por_pagar') }}" class="d-none d-sm-inline-block btn btn-secondary shadow-sm ml-2">
-                <i class="fas fa-arrow-left fa-sm text-white-50"></i> Volver
-            </a>
-        </div>
-    </div>
-
-    <!-- Información de la Cuenta -->
-    <div class="row mb-4">
-        <div class="col-lg-12">
-            <div class="card shadow mb-4">
-                <div class="card-header py-3">
-                    <h6 class="m-0 font-weight-bold text-primary">
-                        <i class="fas fa-info-circle mr-2"></i>Información de la Cuenta
-                    </h6>
-                </div>
-                <div class="card-body">
-                    <div class="row">
-                        <div class="col-md-3">
-                            <strong>ID Cuenta:</strong><br>
-                            <span class="h5 text-primary">#{{ cuenta.ID_Cuenta }}</span>
-                        </div>
-                        <div class="col-md-3">
-                            <strong>Proveedor:</strong><br>
-                            {{ cuenta.Proveedor or 'N/A' }}
-                        </div>
-                        <div class="col-md-3">
-                            <strong>Documento:</strong><br>
-                            {{ cuenta.Num_Documento or 'N/A' }}
-                        </div>
-                        <div class="col-md-3">
-                            <strong>Estado:</strong><br>
-                            {% if cuenta.Saldo_Pendiente > 0 %}
-                                <span class="badge badge-warning text-dark">PENDIENTE</span>
-                            {% else %}
-                                <span class="badge badge-success">PAGADA</span>
-                            {% endif %}
-                        </div>
-                    </div>
-                    <div class="row mt-3">
-                        <div class="col-md-3">
-                            <strong>Fecha Emisión:</strong><br>
-                            {{ cuenta.Fecha.strftime('%d/%m/%Y') if cuenta.Fecha else 'N/A' }}
-                        </div>
-                        <div class="col-md-3">
-                            <strong>Fecha Vencimiento:</strong><br>
-                            <span class="{{ 'text-danger' if cuenta.dias_vencimiento and cuenta.dias_vencimiento < 0 else 'text-dark' }}">
-                                {{ cuenta.Fecha_Vencimiento.strftime('%d/%m/%Y') if cuenta.Fecha_Vencimiento else 'N/A' }}
-                            </span>
-                            {% if cuenta.dias_vencimiento %}
-                                <br><small class="{{ 'text-danger' if cuenta.dias_vencimiento < 0 else 'text-warning' if cuenta.dias_vencimiento <= 3 else 'text-success' }}">
-                                    {% if cuenta.dias_vencimiento < 0 %}
-                                        Vencido hace {{ -cuenta.dias_vencimiento }} días
-                                    {% elif cuenta.dias_vencimiento == 0 %}
-                                        Vence hoy
-                                    {% else %}
-                                        En {{ cuenta.dias_vencimiento }} días
-                                    {% endif %}
-                                </small>
-                            {% endif %}
-                        </div>
-                        <div class="col-md-3">
-                            <strong>Monto Total:</strong><br>
-                            <span class="h5 text-dark">C${{ "{:,.2f}".format(cuenta.Monto_Movimiento) }}</span>
-                        </div>
-                        <div class="col-md-3">
-                            <strong>Saldo Pendiente:</strong><br>
-                            <span class="h5 {{ 'text-danger' if cuenta.Saldo_Pendiente > 0 else 'text-success' }}">
-                                C${{ "{:,.2f}".format(cuenta.Saldo_Pendiente) }}
-                            </span>
-                        </div>
-                    </div>
-                    {% if cuenta.Observacion %}
-                    <div class="row mt-3">
-                        <div class="col-12">
-                            <strong>Observación:</strong><br>
-                            {{ cuenta.Observacion }}
-                        </div>
-                    </div>
-                    {% endif %}
-                </div>
+        <div class="d-flex align-items-center">
+            <div class="icon-circle bg-info text-white mr-3">
+                <i class="fas fa-history"></i>
+            </div>
+            <div>
+                <h1 class="h3 mb-0 text-gray-800 font-weight-bold">Historial de Pagos</h1>
+                <p class="mb-0">
+                    <span class="text-muted">Cuenta #{{ cuenta.ID_Cuenta }}</span> | 
+                    <span class="text-dark font-weight-medium">{{ cuenta.Proveedor or 'N/A' }}</span>
+                </p>
             </div>
         </div>
+        <div class="mt-3 mt-sm-0">
+            <a href="{{ url_for('admin_cuentas_por_pagar') }}" class="btn btn-secondary">
+                <i class="fas fa-arrow-left mr-2"></i> Volver
+            </a>
+        </div>
     </div>
 
-    <!-- Resumen de Pagos -->
+    <!-- Cards de Resumen -->
     <div class="row mb-4">
+        <!-- Total de la Cuenta -->
         <div class="col-xl-3 col-md-6 mb-4">
             <div class="card border-left-primary shadow h-100 py-2">
                 <div class="card-body">
                     <div class="row no-gutters align-items-center">
                         <div class="col mr-2">
-                            <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">
-                                Total Pagado
+                            <div class="text-xs font-weight-bold text-primary text-uppercase mb-2">
+                                Monto Total
                             </div>
-                            <div class="h5 mb-0 font-weight-bold text-gray-800">
-                                C${{ "{:,.2f}".format(total_pagado) }}
+                            <div class="h4 mb-0 font-weight-bold text-gray-800">
+                                C${{ "{:,.2f}".format(total_cuenta) }}
+                            </div>
+                            <div class="mt-2">
+                                <small class="text-muted">
+                                    <i class="fas fa-file-invoice mr-1"></i>Valor original
+                                </small>
                             </div>
                         </div>
                         <div class="col-auto">
-                            <i class="fas fa-money-bill-wave fa-2x text-gray-300"></i>
+                            <i class="fas fa-file-invoice-dollar fa-2x text-primary"></i>
                         </div>
                     </div>
                 </div>
             </div>
         </div>
 
+        <!-- Total Pagado -->
         <div class="col-xl-3 col-md-6 mb-4">
             <div class="card border-left-success shadow h-100 py-2">
                 <div class="card-body">
                     <div class="row no-gutters align-items-center">
                         <div class="col mr-2">
-                            <div class="text-xs font-weight-bold text-success text-uppercase mb-1">
-                                Porcentaje Pagado
+                            <div class="text-xs font-weight-bold text-success text-uppercase mb-2">
+                                Total Pagado
                             </div>
-                            <div class="h5 mb-0 font-weight-bold text-gray-800">
-                                {{ "%.1f"|format(porcentaje_pagado) }}%
+                            <div class="h4 mb-0 font-weight-bold text-gray-800">
+                                C${{ "{:,.2f}".format(total_pagado) }}
+                            </div>
+                            <div class="mt-2">
+                                <small class="text-muted">
+                                    <i class="fas fa-check-circle mr-1"></i>{{ pagos|length }} pago(s)
+                                </small>
                             </div>
                         </div>
                         <div class="col-auto">
-                            <i class="fas fa-percentage fa-2x text-gray-300"></i>
+                            <i class="fas fa-money-bill-wave fa-2x text-success"></i>
                         </div>
                     </div>
                 </div>
             </div>
         </div>
 
-        <div class="col-xl-3 col-md-6 mb-4">
-            <div class="card border-left-info shadow h-100 py-2">
-                <div class="card-body">
-                    <div class="row no-gutters align-items-center">
-                        <div class="col mr-2">
-                            <div class="text-xs font-weight-bold text-info text-uppercase mb-1">
-                                Total de Pagos
-                            </div>
-                            <div class="h5 mb-0 font-weight-bold text-gray-800">
-                                {{ pagos|length }}
-                            </div>
-                        </div>
-                        <div class="col-auto">
-                            <i class="fas fa-list fa-2x text-gray-300"></i>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
+        <!-- Saldo Pendiente -->
         <div class="col-xl-3 col-md-6 mb-4">
             <div class="card border-left-warning shadow h-100 py-2">
                 <div class="card-body">
                     <div class="row no-gutters align-items-center">
                         <div class="col mr-2">
-                            <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">
-                                Saldo Restante
+                            <div class="text-xs font-weight-bold text-warning text-uppercase mb-2">
+                                Saldo Pendiente
                             </div>
-                            <div class="h5 mb-0 font-weight-bold text-gray-800">
-                                C${{ "{:,.2f}".format(cuenta.Saldo_Pendiente) }}
+                            <div class="h4 mb-0 font-weight-bold text-gray-800">
+                                C${{ "{:,.2f}".format(cuenta.Saldo_Pendiente) if cuenta.Saldo_Pendiente else '0.00' }}
+                            </div>
+                            <div class="mt-2">
+                                {% set porcentaje = (total_pagado / total_cuenta * 100) if total_cuenta > 0 else 0 %}
+                                <div class="progress" style="height: 6px;">
+                                    <div class="progress-bar bg-success" role="progressbar" 
+                                         style="width: {{ porcentaje }}%"></div>
+                                </div>
+                                <small class="text-muted">{{ "%.1f"|format(porcentaje) }}% pagado</small>
                             </div>
                         </div>
                         <div class="col-auto">
-                            <i class="fas fa-clock fa-2x text-gray-300"></i>
+                            <i class="fas fa-clock fa-2x text-warning"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Estado -->
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-info shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-info text-uppercase mb-2">
+                                Estado Actual
+                            </div>
+                            <div class="h4 mb-0 font-weight-bold text-gray-800">
+                                {% if cuenta.Estado == 'Pagada' %}
+                                    <span class="text-success">PAGADA</span>
+                                {% elif cuenta.Estado == 'Pendiente' %}
+                                    <span class="text-warning">PENDIENTE</span>
+                                {% else %}
+                                    <span class="text-secondary">{{ cuenta.Estado }}</span>
+                                {% endif %}
+                            </div>
+                            <div class="mt-2">
+                                <small class="text-muted">
+                                    <i class="fas fa-calendar-alt mr-1"></i>
+                                    {% if cuenta.Fecha_Vencimiento %}
+                                        Vence: {{ cuenta.Fecha_Vencimiento.strftime('%d/%m/%Y') }}
+                                    {% else %}
+                                        Sin fecha de vencimiento
+                                    {% endif %}
+                                </small>
+                            </div>
+                        </div>
+                        <div class="col-auto">
+                            {% if cuenta.Estado == 'Pagada' %}
+                                <i class="fas fa-check-circle fa-2x text-success"></i>
+                            {% elif cuenta.Estado == 'Pendiente' %}
+                                <i class="fas fa-clock fa-2x text-warning"></i>
+                            {% else %}
+                                <i class="fas fa-ban fa-2x text-secondary"></i>
+                            {% endif %}
                         </div>
                     </div>
                 </div>
@@ -182,25 +152,122 @@
         </div>
     </div>
 
-    <!-- Barra de Progreso -->
+    <!-- Información Detallada de la Cuenta -->
     <div class="row mb-4">
-        <div class="col-lg-12">
-            <div class="card shadow">
-                <div class="card-body">
-                    <h6 class="font-weight-bold text-primary mb-3">Progreso de Pago</h6>
-                    <div class="progress mb-2" style="height: 25px;">
-                        <div class="progress-bar bg-success" role="progressbar" 
-                             style="width: {{ porcentaje_pagado }}%" 
-                             aria-valuenow="{{ porcentaje_pagado }}" 
-                             aria-valuemin="0" 
-                             aria-valuemax="100">
-                            {{ "%.1f"|format(porcentaje_pagado) }}%
+        <div class="col-lg-8">
+            <div class="card shadow mb-4">
+                <div class="card-header py-3 bg-white border-bottom-0">
+                    <h5 class="m-0 font-weight-bold text-primary">
+                        <i class="fas fa-info-circle mr-2"></i>Información de la Cuenta
+                    </h5>
+                </div>
+                <div class="card-body pt-0">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="info-card mb-3">
+                                <div class="info-label font-weight-bold text-dark mb-1">
+                                    <i class="fas fa-user-tie mr-2 text-primary"></i>Proveedor
+                                </div>
+                                <div class="info-value">{{ cuenta.Proveedor or 'N/A' }}</div>
+                            </div>
+                            
+                            <div class="info-card mb-3">
+                                <div class="info-label font-weight-bold text-dark mb-1">
+                                    <i class="fas fa-file-alt mr-2 text-primary"></i>Documento
+                                </div>
+                                <div class="info-value text-primary font-weight-medium">{{ cuenta.Num_Documento or 'N/A' }}</div>
+                            </div>
+                            
+                            <div class="info-card mb-3">
+                                <div class="info-label font-weight-bold text-dark mb-1">
+                                    <i class="fas fa-calendar-plus mr-2 text-primary"></i>Fecha Emisión
+                                </div>
+                                <div class="info-value">{{ cuenta.Fecha.strftime('%d/%m/%Y') if cuenta.Fecha else 'N/A' }}</div>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <div class="info-card mb-3">
+                                <div class="info-label font-weight-bold text-dark mb-1">
+                                    <i class="fas fa-calendar-times mr-2 text-primary"></i>Fecha Vencimiento
+                                </div>
+                                <div class="info-value {{ 'text-danger' if cuenta.dias_vencimiento and cuenta.dias_vencimiento < 0 else 'text-dark' }}">
+                                    {{ cuenta.Fecha_Vencimiento.strftime('%d/%m/%Y') if cuenta.Fecha_Vencimiento else 'N/A' }}
+                                    {% if cuenta.dias_vencimiento %}
+                                        <small class="d-block mt-1 {{ 'text-danger' if cuenta.dias_vencimiento < 0 else 'text-warning' if cuenta.dias_vencimiento <= 7 else 'text-success' }}">
+                                            {% if cuenta.dias_vencimiento < 0 %}
+                                                <i class="fas fa-exclamation-circle mr-1"></i>Vencido hace {{ -cuenta.dias_vencimiento }} días
+                                            {% elif cuenta.dias_vencimiento == 0 %}
+                                                <i class="fas fa-exclamation-triangle mr-1"></i>Vence hoy
+                                            {% elif cuenta.dias_vencimiento <= 7 %}
+                                                <i class="fas fa-clock mr-1"></i>Vence en {{ cuenta.dias_vencimiento }} días
+                                            {% else %}
+                                                <i class="fas fa-check-circle mr-1"></i>{{ cuenta.dias_vencimiento }} días restantes
+                                            {% endif %}
+                                        </small>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            
+                            {% if cuenta.Observacion %}
+                            <div class="info-card mb-3">
+                                <div class="info-label font-weight-bold text-dark mb-1">
+                                    <i class="fas fa-sticky-note mr-2 text-primary"></i>Observación
+                                </div>
+                                <div class="info-value small">{{ cuenta.Observacion }}</div>
+                            </div>
+                            {% endif %}
                         </div>
                     </div>
-                    <div class="d-flex justify-content-between small text-muted">
-                        <span>C$0.00</span>
-                        <span>C${{ "{:,.2f}".format(total_pagado) }} pagado de C${{ "{:,.2f}".format(cuenta.Monto_Movimiento) }}</span>
-                        <span>C${{ "{:,.2f}".format(cuenta.Monto_Movimiento) }}</span>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-lg-4">
+            <div class="card shadow h-100">
+                <div class="card-header py-3 bg-white border-bottom-0">
+                    <h5 class="m-0 font-weight-bold text-primary">
+                        <i class="fas fa-chart-pie mr-2"></i>Resumen Financiero
+                    </h5>
+                </div>
+                <div class="card-body pt-0">
+                    <div class="summary-list">
+                        <div class="summary-item mb-3">
+                            <div class="summary-label text-dark font-weight-bold mb-1">Monto Original</div>
+                            <div class="summary-value h5 font-weight-bold text-gray-800">
+                                C${{ "{:,.2f}".format(total_cuenta) }}
+                            </div>
+                        </div>
+                        
+                        <div class="summary-item mb-3">
+                            <div class="summary-label text-dark font-weight-bold mb-1">Pagado Acumulado</div>
+                            <div class="summary-value h5 font-weight-bold text-success">
+                                C${{ "{:,.2f}".format(total_pagado) }}
+                            </div>
+                        </div>
+                        
+                        <div class="summary-item mb-4">
+                            <div class="summary-label text-dark font-weight-bold mb-1">Saldo Restante</div>
+                            <div class="summary-value h4 font-weight-bold {{ 'text-danger' if cuenta.Saldo_Pendiente and cuenta.Saldo_Pendiente > 0 else 'text-success' }}">
+                                C${{ "{:,.2f}".format(cuenta.Saldo_Pendiente) if cuenta.Saldo_Pendiente else '0.00' }}
+                            </div>
+                        </div>
+                        
+                        <div class="progress-chart">
+                            <div class="d-flex justify-content-between mb-1">
+                                <span class="text-dark font-weight-bold">Progreso de Pago</span>
+                                <span class="text-dark font-weight-bold">{{ "%.1f"|format(porcentaje) }}%</span>
+                            </div>
+                            <div class="progress" style="height: 12px;">
+                                <div class="progress-bar bg-success" role="progressbar" 
+                                     style="width: {{ porcentaje }}%"></div>
+                            </div>
+                            <div class="d-flex justify-content-between mt-2">
+                                <small class="text-muted">0%</small>
+                                <small class="text-muted">50%</small>
+                                <small class="text-muted">100%</small>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -208,80 +275,98 @@
     </div>
 
     <!-- Historial de Pagos -->
-    <div class="row">
-        <div class="col-lg-12">
-            <div class="card shadow mb-4">
-                <div class="card-header py-3 d-flex justify-content-between align-items-center">
-                    <h6 class="m-0 font-weight-bold text-primary">
-                        <i class="fas fa-receipt mr-2"></i>Historial de Pagos Registrados
-                    </h6>
-                    <span class="badge badge-primary badge-pill">{{ pagos|length }} pagos</span>
-                </div>
-                <div class="card-body">
-                    {% if pagos %}
-                    <div class="table-responsive">
-                        <table class="table table-bordered table-hover" id="dataTable" width="100%" cellspacing="0">
-                            <thead class="thead-dark">
-                                <tr>
-                                    <th>ID Pago</th>
-                                    <th>Fecha</th>
-                                    <th>Monto</th>
-                                    <th>Método de Pago</th>
-                                    <th>Detalles</th>
-                                    <th>Comentarios</th>
-                                    <th>Usuario</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for pago in pagos %}
-                                <tr>
-                                    <td><strong>#{{ pago.ID_Pago }}</strong></td>
-                                    <td>
-                                        <span class="text-muted small">
-                                            {{ pago.Fecha.strftime('%d/%m/%Y %H:%M') if pago.Fecha else 'N/A' }}
-                                        </span>
-                                    </td>
-                                    <td class="text-right font-weight-bold text-success">
-                                        ${{ "{:,.2f}".format(pago.Monto) }}
-                                    </td>
-                                    <td>
-                                        <span class="badge badge-info">{{ pago.Metodo_Pago or 'N/A' }}</span>
-                                    </td>
-                                    <td>
-                                        <small>{{ pago.Detalles_Metodo or 'Sin detalles' }}</small>
-                                    </td>
-                                    <td>
-                                        <small>{{ pago.Comentarios or 'Sin comentarios' }}</small>
-                                    </td>
-                                    <td>
-                                        <small class="text-muted">{{ pago.Usuario_Pago or 'Sistema' }}</small>
-                                    </td>
-                                </tr>
-                                {% endfor %}
-                            </tbody>
-                            <tfoot>
-                                <tr class="table-success">
-                                    <th colspan="2" class="text-right">TOTAL PAGADO:</th>
-                                    <th class="text-right">C${{ "{:,.2f}".format(total_pagado) }}</th>
-                                    <th colspan="4"></th>
-                                </tr>
-                            </tfoot>
-                        </table>
-                    </div>
-                    {% else %}
-                    <div class="text-center py-4">
-                        <i class="fas fa-receipt fa-3x text-gray-300 mb-3"></i>
-                        <h5 class="text-gray-500">No se han registrado pagos</h5>
-                        <p class="text-muted">Esta cuenta no tiene pagos registrados aún.</p>
-                        <a href="{{ url_for('registrar_pago_cuenta', id_cuenta=cuenta.ID_Cuenta) }}" 
-                           class="btn btn-primary {{ 'disabled' if cuenta.Saldo_Pendiente <= 0 }}"
-                           {{ 'disabled' if cuenta.Saldo_Pendiente <= 0 }}>
-                            <i class="fas fa-money-bill-wave mr-2"></i>Registrar Primer Pago
-                        </a>
-                    </div>
-                    {% endif %}
+    <div class="card shadow">
+        <div class="card-header py-3 d-flex flex-column flex-md-row justify-content-between align-items-md-center bg-white">
+            <h5 class="m-0 font-weight-bold text-primary mb-2 mb-md-0">
+                <i class="fas fa-receipt mr-2"></i>Historial de Pagos Registrados
+            </h5>
+            <div class="d-flex align-items-center">
+                <span class="badge badge-pill badge-primary mr-2">{{ pagos|length }} pago(s)</span>
+                <span class="text-muted small">Ordenado por fecha</span>
+            </div>
+        </div>
+        <div class="card-body">
+            {% if pagos %}
+            <div class="table-responsive">
+                <table class="table table-bordered table-hover" id="dataTable" width="100%" cellspacing="0">
+                    <thead class="thead-dark">
+                        <tr>
+                            <th class="text-center">ID</th>
+                            <th class="text-center">Fecha</th>
+                            <th class="text-center">Hora</th>
+                            <th class="text-center">Monto</th>
+                            <th>Método</th>
+                            <th>Detalles</th>
+                            <th>Usuario</th>
+                            <th>Comentarios</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for pago in pagos %}
+                        <tr>
+                            <td class="text-center font-weight-bold text-primary">#{{ pago.ID_Pago }}</td>
+                            <td class="text-center">
+                                <span class="text-dark font-weight-medium">
+                                    {{ pago.Fecha_Pago.strftime('%d/%m/%Y') if pago.Fecha_Pago else 'N/A' }}
+                                </span>
+                            </td>
+                            <td class="text-center">
+                                <span class="text-muted">
+                                    {{ pago.Hora_Pago.strftime('%H:%M') if pago.Hora_Pago else 'N/A' }}
+                                </span>
+                            </td>
+                            <td class="text-center font-weight-bold text-success">
+                                C${{ "{:,.2f}".format(pago.Monto) if pago.Monto else '0.00' }}
+                            </td>
+                            <td>
+                                <div class="d-flex align-items-center">
+                                    <i class="fas fa-{{ 
+                                        'money-bill-wave' if 'Efectivo' in (pago.Metodo_Pago or '') else 
+                                        'credit-card' if 'Tarjeta' in (pago.Metodo_Pago or '') else 
+                                        'exchange-alt' if 'Transferencia' in (pago.Metodo_Pago or '') else 
+                                        'file-invoice-dollar' if 'Cheque' in (pago.Metodo_Pago or '') else 
+                                        'hand-holding-usd' if 'Crédito' in (pago.Metodo_Pago or '') else 
+                                        'wallet' 
+                                    }} text-info mr-2"></i>
+                                    <span class="text-dark">{{ pago.Metodo_Pago or 'N/A' }}</span>
+                                </div>
+                            </td>
+                            <td>
+                                <span class="text-muted">{{ pago.Detalles_Metodo or '-' }}</span>
+                            </td>
+                            <td>
+                                <span class="text-dark font-weight-medium">{{ pago.Usuario_Registro or 'N/A' }}</span>
+                            </td>
+                            <td>
+                                <small class="text-muted">{{ pago.Comentarios or 'Sin comentarios' }}</small>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                    <tfoot class="table-light">
+                        <tr>
+                            <th colspan="3" class="text-right font-weight-bold text-dark">TOTAL PAGADO:</th>
+                            <th class="text-center font-weight-bold text-success">
+                                C${{ "{:,.2f}".format(total_pagado) }}
+                            </th>
+                            <th colspan="4"></th>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+            {% else %}
+            <div class="text-center py-5">
+                <div class="mb-4">
+                    <i class="fas fa-inbox fa-4x text-muted mb-3"></i>
+                    <h4 class="text-muted font-weight-bold mb-3">No hay pagos registrados</h4>
+                    <p class="text-muted mb-4">No se han realizado pagos para esta cuenta.</p>
+                    <a href="{{ url_for('registrar_pago_cuenta', id_cuenta=cuenta.ID_Cuenta) }}" 
+                       class="btn btn-primary">
+                        <i class="fas fa-plus mr-2"></i>Registrar Primer Pago
+                    </a>
                 </div>
             </div>
+            {% endif %}
         </div>
     </div>
 </div>
@@ -289,23 +374,197 @@
 
 {% block styles %}
 <style>
-.progress-bar {
-    font-weight: bold;
-    font-size: 0.9em;
+/* Mejoras de legibilidad */
+.text-gray-800 {
+    color: #2d3748 !important;
 }
-.badge-pill {
-    border-radius: 15px;
+
+.text-dark {
+    color: #1a202c !important;
 }
-.table-hover tbody tr:hover {
-    background-color: rgba(0, 0, 0, 0.075);
+
+.font-weight-medium {
+    font-weight: 500 !important;
+}
+
+/* Cards de información */
+.info-card {
+    padding: 0.75rem 0;
+    border-bottom: 1px solid #e2e8f0;
+}
+
+.info-card:last-child {
+    border-bottom: none;
+}
+
+.info-label {
+    font-size: 0.875rem;
+    color: #4a5568;
+}
+
+.info-value {
+    font-size: 1rem;
+    color: #2d3748;
+}
+
+/* Summary items */
+.summary-item {
+    padding: 0.75rem 0;
+}
+
+.summary-label {
+    font-size: 0.875rem;
+}
+
+.summary-value {
+    font-size: 1.25rem;
+}
+
+/* Progress chart */
+.progress-chart {
+    background: #f8f9fc;
+    padding: 1rem;
+    border-radius: 0.5rem;
+    border: 1px solid #e3e6f0;
+}
+
+/* Table improvements */
+.table thead th {
+    font-weight: 700;
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    background-color: #4e73df;
+    color: white;
+    border-color: #4e73df;
+    padding: 0.75rem 0.5rem;
+}
+
+.table tbody td {
+    padding: 0.75rem 0.5rem;
+    vertical-align: middle;
+    font-size: 0.9rem;
+}
+
+.table tbody tr:hover {
+    background-color: #f8f9fc;
+}
+
+.table tfoot th {
+    font-weight: 700;
+    background-color: #f8f9fc;
+}
+
+/* Icon improvements */
+.fa-2x {
+    font-size: 1.5rem !important;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .h4 {
+        font-size: 1.25rem;
+    }
+    
+    .h5 {
+        font-size: 1.1rem;
+    }
+    
+    .table {
+        font-size: 0.85rem;
+    }
+    
+    .table thead {
+        display: none;
+    }
+    
+    .table, .table tbody, .table tr, .table td {
+        display: block;
+        width: 100%;
+    }
+    
+    .table tr {
+        margin-bottom: 1rem;
+        border: 1px solid #e3e6f0;
+        border-radius: 0.5rem;
+        padding: 0.75rem;
+        background: white;
+    }
+    
+    .table td {
+        text-align: right;
+        padding: 0.5rem;
+        position: relative;
+        padding-left: 50%;
+        border-bottom: 1px solid #f8f9fc;
+    }
+    
+    .table td:last-child {
+        border-bottom: 0;
+    }
+    
+    .table td::before {
+        content: attr(data-label);
+        position: absolute;
+        left: 0.75rem;
+        width: 45%;
+        padding-right: 0.5rem;
+        text-align: left;
+        font-weight: bold;
+        color: #4e73df;
+        font-size: 0.8rem;
+    }
+    
+    /* Añadir data-labels a las celdas */
+    .table td[data-label] {
+        text-align: left;
+        padding-left: 0.75rem;
+        padding-right: 0.75rem;
+    }
+}
+
+@media (max-width: 576px) {
+    .icon-circle {
+        width: 40px;
+        height: 40px;
+        font-size: 1rem;
+    }
+    
+    .card-body {
+        padding: 1rem;
+    }
+    
+    .info-label, .summary-label {
+        font-size: 0.8rem;
+    }
+    
+    .info-value, .summary-value {
+        font-size: 0.95rem;
+    }
+}
+
+/* Print styles */
+@media print {
+    .btn, .card-header, .progress-chart {
+        display: none !important;
+    }
+    
+    .table {
+        border: 1px solid #000;
+    }
+    
+    .table th, .table td {
+        border: 1px solid #000;
+        color: #000 !important;
+    }
 }
 </style>
 {% endblock %}
 
 {% block scripts %}
 <script>
-// Inicializar DataTable
 $(document).ready(function() {
+    // Inicializar DataTable
     $('#dataTable').DataTable({
         "language": {
             "url": "//cdn.datatables.net/plug-ins/1.10.20/i18n/Spanish.json"
@@ -313,14 +572,39 @@ $(document).ready(function() {
         "order": [[1, "desc"]], // Ordenar por fecha descendente
         "pageLength": 10,
         "responsive": true,
-        "dom": '<"top"lf>rt<"bottom"ip><"clear">',
+        "dom": '<"top"<"d-flex justify-content-between align-items-center"lf>>rt<"bottom"<"d-flex justify-content-between align-items-center"ip>><"clear">',
         "columnDefs": [
             {
-                "targets": [0, 1, 2, 6],
+                "targets": [0, 1, 2, 3],
                 "className": "text-center"
             }
-        ]
+        ],
+        "initComplete": function() {
+            // Añadir data-labels para responsividad móvil
+            $('#dataTable tbody tr').each(function() {
+                var $row = $(this);
+                $row.find('td').each(function(i) {
+                    var $cell = $(this);
+                    var headerText = $('#dataTable thead th').eq(i).text();
+                    $cell.attr('data-label', headerText);
+                });
+            });
+        },
+        "drawCallback": function() {
+            // Reaplicar data-labels después de cada redibujado
+            $('#dataTable tbody tr').each(function() {
+                var $row = $(this);
+                $row.find('td').each(function(i) {
+                    var $cell = $(this);
+                    var headerText = $('#dataTable thead th').eq(i).text();
+                    $cell.attr('data-label', headerText);
+                });
+            });
+        }
     });
+    
+    // Tooltips
+    $('[data-toggle="tooltip"]').tooltip();
 });
 </script>
 {% endblock %}
