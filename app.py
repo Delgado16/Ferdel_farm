@@ -5486,7 +5486,9 @@ def admin_anular_venta(id_factura):
                         cpc.ID_Movimiento as id_cuenta_cobrar,
                         cpc.Estado as estado_cuenta,
                         cpc.Saldo_Pendiente,
-                        DATE_FORMAT(f.Fecha, '%%d/%%m/%%Y %%H:%%i') as fecha_formateada
+                        DATE_FORMAT(f.Fecha, '%%d/%%m/%%Y') as fecha_corta,
+                        DATE_FORMAT(f.Fecha, '%%d/%%m/%%Y %%H:%%i') as fecha_completa,
+                        DATE_FORMAT(f.Fecha, '%%H:%%i') as hora
                     FROM facturacion f
                     LEFT JOIN clientes c ON f.IDCliente = c.ID_Cliente
                     LEFT JOIN usuarios u ON f.ID_Usuario_Creacion = u.ID_Usuario
@@ -5534,7 +5536,9 @@ def admin_anular_venta(id_factura):
                 # 4. FORMATEAR DATOS PARA EL FRONTEND
                 datos_venta = {
                     'id_factura': venta['ID_Factura'],
-                    'fecha': venta['fecha_formateada'],
+                    'fecha': venta['fecha_completa'],  # Formato: dd/mm/yyyy HH:MM
+                    'fecha_corta': venta['fecha_corta'],  # Formato: dd/mm/yyyy
+                    'hora': venta['hora'],  # Formato: HH:MM
                     'fecha_raw': venta['Fecha'].isoformat() if venta['Fecha'] else None,
                     'estado': venta['Estado'],
                     'tipo_venta': 'CONTADO' if venta['Credito_Contado'] == 0 else 'CRÉDITO',
@@ -5570,7 +5574,7 @@ def admin_anular_venta(id_factura):
                     'venta': datos_venta,
                     'usuario_actual': {
                         'id': id_usuario,
-                        'nombre': current_user.id
+                        'nombre': current_user.NombreUsuario if current_user else 'Sistema'
                     }
                 })
                 
