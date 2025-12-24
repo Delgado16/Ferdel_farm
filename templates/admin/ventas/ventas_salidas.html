@@ -122,7 +122,7 @@
                             <th class="text-end">Total</th>
                             <th class="d-none d-xl-table-cell">Vendedor</th>
                             <th class="text-center">Estado</th>
-                            <th class="text-end pe-4">Acciones</th>
+                            <th class="text-end pe-2 pe-md-4">Acciones</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -182,10 +182,11 @@
                                     <i class="fas fa-{{ 'check-circle' if estado == 'ACTIVA' else 'ban' if estado == 'ANULADA' else 'clock' }} me-1"></i>{{ estado }}
                                 </span>
                             </td>
-                            <td class="text-end pe-4" data-label="Acciones">
-                                <div class="btn-group btn-group-sm d-none d-lg-flex" role="group">
+                            <td class="text-end pe-2 pe-md-4" data-label="Acciones">
+                                <!-- Versión Desktop -->
+                                <div class="btn-group btn-group-sm d-none d-lg-flex flex-nowrap" role="group">
                                     <a href="{{ url_for('admin_generar_ticket', id_factura=venta.ID_Factura) }}" 
-                                       class="btn btn-outline-info btn-action" 
+                                       class="btn btn-outline-info btn-action px-3" 
                                        title="Ver ticket" 
                                        target="_blank">
                                         <i class="fas fa-receipt"></i>
@@ -193,7 +194,7 @@
                                     </a>
                                     {% if venta.Estado_Formateado == 'ACTIVA' %}
                                     <button type="button" 
-                                            class="btn btn-outline-danger btn-action btn-anular-venta" 
+                                            class="btn btn-outline-danger btn-action px-3 btn-anular-venta" 
                                             data-bs-toggle="modal" 
                                             data-bs-target="#anularVentaModal" 
                                             data-id="{{ venta.ID_Factura }}">
@@ -201,22 +202,24 @@
                                         <span class="d-none d-xl-inline ms-1">Anular</span>
                                     </button>
                                     {% else %}
-                                    <button class="btn btn-outline-secondary btn-action" disabled title="Anulada">
+                                    <button class="btn btn-outline-secondary btn-action px-3" disabled title="Anulada">
                                         <i class="fas fa-lock"></i>
                                         <span class="d-none d-xl-inline ms-1">Bloqueado</span>
                                     </button>
                                     {% endif %}
                                 </div>
-                                <div class="btn-group-vertical btn-group-sm d-lg-none" role="group">
+                                
+                                <!-- Versión Móvil Mejorada -->
+                                <div class="d-flex d-lg-none gap-2" role="group">
                                     <a href="{{ url_for('admin_generar_ticket', id_factura=venta.ID_Factura) }}" 
-                                       class="btn btn-outline-info btn-action-mobile"
+                                       class="btn btn-outline-info btn-action-mobile flex-fill"
                                        target="_blank">
                                         <i class="fas fa-receipt"></i>
                                         <span class="ms-1">Ticket</span>
                                     </a>
                                     {% if venta.Estado_Formateado == 'ACTIVA' %}
                                     <button type="button" 
-                                            class="btn btn-outline-danger btn-action-mobile btn-anular-venta" 
+                                            class="btn btn-outline-danger btn-action-mobile flex-fill btn-anular-venta" 
                                             data-bs-toggle="modal" 
                                             data-bs-target="#anularVentaModal" 
                                             data-id="{{ venta.ID_Factura }}">
@@ -224,7 +227,7 @@
                                         <span class="ms-1">Anular</span>
                                     </button>
                                     {% else %}
-                                    <button class="btn btn-outline-secondary btn-action-mobile" disabled>
+                                    <button class="btn btn-outline-secondary btn-action-mobile flex-fill" disabled>
                                         <i class="fas fa-lock"></i>
                                         <span class="ms-1">Bloqueado</span>
                                     </button>
@@ -253,7 +256,7 @@
     </div>
 </div>
 
-<!-- Modal Anulación de Venta - Diseño IDÉNTICO al de compras -->
+<!-- Modal Anulación de Venta -->
 <div class="modal fade" id="anularVentaModal" tabindex="-1" aria-labelledby="anularVentaModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-lg">
         <div class="modal-content border-0 shadow-lg">
@@ -576,73 +579,233 @@
     z-index: 10;
 }
 
-/* Responsive */
+/* Container mejorado para móviles */
+.container-fluid {
+    padding-left: max(1rem, env(safe-area-inset-left));
+    padding-right: max(1rem, env(safe-area-inset-right));
+}
+
+/* Mejoras específicas para touch devices */
+.touch-device .btn,
+.touch-device .btn-action,
+.touch-device .btn-action-mobile {
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.touch-device .table-hover tbody tr {
+    cursor: pointer;
+}
+
+.touch-device .form-control:focus,
+.touch-device .form-select:focus {
+    border-color: #667eea;
+    box-shadow: 0 0 0 0.25rem rgba(102, 126, 234, 0.25);
+}
+
+/* Prevenir desbordamientos en móviles */
 @media (max-width: 768px) {
-    .table tbody tr { 
-        display: block; 
-        margin-bottom: 1rem; 
-        border: 1px solid #e9ecef; 
-        border-radius: 12px; 
-        padding: 1rem; 
-        background: white;
+    * {
+        max-width: 100vw;
+        overflow-wrap: break-word;
     }
     
-    .table tbody td { 
-        display: flex; 
-        justify-content: space-between; 
-        padding: 0.75rem 0; 
-        border-bottom: 1px solid #f8f9fa;
+    .modal-open {
+        overflow: hidden;
+        position: fixed;
+        width: 100%;
+    }
+}
+
+/* Responsive Table - Mejorado */
+@media (max-width: 768px) {
+    .table-responsive-lg {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        margin: 0 -1rem;
+        padding: 0 1rem;
     }
     
-    .table tbody td:before { 
-        content: attr(data-label); 
-        font-weight: 600; 
-        color: #6c757d; 
-        min-width: 120px; 
-        margin-right: 1rem;
+    .table {
+        min-width: 700px;
     }
     
-    .table tbody td:last-child { 
-        border-top: 2px solid #f8f9fa; 
-        margin-top: 0.75rem; 
-        padding-top: 1rem; 
-        justify-content: center;
+    /* Ocultar columnas menos importantes en móvil */
+    .table thead th.d-none,
+    .table tbody td.d-none {
+        display: none !important;
     }
     
-    .table tbody td:last-child:before { 
-        display: none; 
+    /* Mejora en visualización de celdas */
+    .table tbody td {
+        padding: 0.75rem 0.5rem;
+        font-size: 0.875rem;
     }
     
-    .btn-group-vertical { 
-        width: 100%; 
+    /* Estado más compacto en móvil */
+    .badge {
+        padding: 0.25rem 0.5rem;
+        font-size: 0.75rem;
     }
     
-    .btn-action-mobile { 
-        width: 100%; 
-        text-align: left; 
-        padding: 0.5rem 0.75rem; 
-        border-radius: 6px !important;
-        margin-bottom: 0.25rem;
+    /* Ajuste en botones de acción móviles */
+    .btn-action-mobile {
+        font-size: 0.75rem;
+        padding: 0.375rem 0.5rem;
+        min-height: 44px;
     }
     
-    .d-lg-none { 
-        display: flex !important; 
-        width: 100%; 
+    .btn-action-mobile .ms-1 {
+        margin-left: 0.25rem !important;
     }
     
+    /* Header responsive mejorado */
+    .d-flex.flex-column.flex-md-row {
+        padding-top: 0.5rem !important;
+    }
+    
+    h1.h2 {
+        font-size: 1.5rem;
+        margin-bottom: 0.5rem !important;
+    }
+    
+    .btn-lg {
+        padding: 0.5rem 1rem;
+        font-size: 0.875rem;
+        min-height: 44px;
+    }
+    
+    /* Estadísticas en grid vertical en móvil */
+    .row.g-3 {
+        gap: 0.75rem !important;
+    }
+    
+    .col-xl-3.col-md-6 {
+        width: 100% !important;
+    }
+    
+    .card-statistic .card-body {
+        padding: 1rem !important;
+    }
+    
+    /* Filtros en columna única */
+    .row.g-2.mt-3 .col-md-4 {
+        width: 100%;
+        margin-bottom: 0.5rem;
+    }
+    
+    /* Search box más compacta */
+    .search-box .form-control {
+        min-width: unset;
+        width: 100%;
+    }
+    
+    /* Mejorar legibilidad en móviles */
+    body {
+        -webkit-text-size-adjust: 100%;
+        text-size-adjust: 100%;
+    }
+    
+    .fw-bold, .fw-semibold {
+        font-weight: 600 !important;
+    }
+    
+    .text-muted {
+        opacity: 0.8;
+    }
+}
+
+/* Para tablets */
+@media (max-width: 992px) and (min-width: 769px) {
+    .table tbody td {
+        font-size: 0.9rem;
+        padding: 0.5rem;
+    }
+    
+    /* Ocultar columnas menos críticas en tablet */
+    .d-xl-table-cell {
+        display: none !important;
+    }
+    
+    /* Ajustes para botones en tablet */
+    .btn-action {
+        padding: 0.25rem 0.5rem;
+        font-size: 0.8rem;
+    }
+}
+
+/* Modal Responsive */
+@media (max-width: 768px) {
     .modal-dialog {
         margin: 0.5rem;
+        max-width: calc(100vw - 1rem);
+    }
+    
+    .modal-dialog.modal-lg {
+        max-height: 85vh;
     }
     
     .modal-content {
         border-radius: 8px;
+        max-height: 90vh;
+        overflow-y: auto;
+    }
+    
+    .modal-body {
+        padding: 1rem !important;
+    }
+    
+    /* Tabla de productos en modal móvil */
+    #productosTable {
+        font-size: 0.75rem;
+    }
+    
+    #productosTable th,
+    #productosTable td {
+        padding: 0.25rem 0.375rem;
+    }
+    
+    /* Grid responsive en detalles */
+    #ventaBasicDetails .col-md-6 {
+        margin-bottom: 0.5rem !important;
+    }
+    
+    /* Textarea más compacta */
+    #motivoAnulacion {
+        font-size: 0.875rem;
+        min-height: 80px;
+    }
+    
+    /* Botones del footer */
+    .modal-footer {
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        padding: 0.75rem !important;
+    }
+    
+    .modal-footer .btn {
+        flex: 1;
+        min-width: 120px;
+        font-size: 0.875rem;
+        padding: 0.5rem;
+        min-height: 44px;
+    }
+    
+    .modal-header {
+        padding: 1rem !important;
+    }
+    
+    .modal-title {
+        font-size: 1rem;
     }
 }
 
-@media (min-width: 769px) { 
-    .btn-group-vertical { 
-        display: none !important; 
-    } 
+/* Para tablets medianas */
+@media (max-width: 992px) and (min-width: 769px) {
+    .modal-dialog.modal-lg {
+        max-width: 90%;
+        margin: 1rem auto;
+    }
 }
 </style>
 
@@ -652,6 +815,110 @@ document.addEventListener('DOMContentLoaded', function () {
     // ==================== VARIABLES GLOBALES ====================
     let currentVentaId = null;
     let ventaData = null;
+
+    // ==================== MEJORAS PARA TOUCH DEVICES ====================
+    
+    // Inicializar mejoras para dispositivos táctiles
+    function inicializarMejorasTouch() {
+        // Detectar dispositivos táctiles
+        if ('ontouchstart' in window || navigator.maxTouchPoints) {
+            document.body.classList.add('touch-device');
+            
+            // Mejorar feedback táctil en botones
+            document.querySelectorAll('.btn, .btn-action, .btn-action-mobile').forEach(btn => {
+                btn.style.minHeight = '44px';
+                btn.style.minWidth = '44px';
+            });
+            
+            // Aumentar área táctil en elementos pequeños
+            document.querySelectorAll('.form-check-input, .btn-close').forEach(el => {
+                el.style.minHeight = '44px';
+                el.style.minWidth = '44px';
+                el.style.padding = '12px';
+            });
+        }
+        
+        // Prevenir zoom en inputs (solo móviles)
+        if ('ontouchstart' in window) {
+            document.querySelectorAll('input, select, textarea').forEach(input => {
+                input.addEventListener('focus', function() {
+                    this.style.fontSize = '16px'; // Prevenir zoom en iOS
+                });
+                
+                input.addEventListener('blur', function() {
+                    this.style.fontSize = '';
+                });
+            });
+        }
+        
+        // Scroll suave para móviles
+        if ('ontouchstart' in window) {
+            document.querySelectorAll('.table-responsive-lg').forEach(container => {
+                container.style.webkitOverflowScrolling = 'touch';
+            });
+        }
+    }
+    
+    // Optimizar modal para teclado virtual
+    function optimizarModalParaTecladoVirtual() {
+        const modal = document.getElementById('anularVentaModal');
+        if (modal && 'ontouchstart' in window) {
+            modal.addEventListener('shown.bs.modal', function() {
+                const textarea = document.getElementById('motivoAnulacion');
+                if (textarea) {
+                    setTimeout(() => {
+                        textarea.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    }, 300);
+                }
+            });
+        }
+    }
+    
+    // Detectar orientación y ajustar
+    function ajustarPorOrientacion() {
+        const esVertical = window.innerHeight > window.innerWidth;
+        
+        if (esVertical && window.innerWidth < 768) {
+            // Optimizar para vertical en móviles
+            document.querySelectorAll('.modal-dialog').forEach(dialog => {
+                dialog.style.maxHeight = '80vh';
+            });
+        }
+    }
+    
+    // Optimizar modal para móviles
+    function optimizarModalMovil() {
+        const modal = document.getElementById('anularVentaModal');
+        
+        if (!modal) return;
+        
+        modal.addEventListener('show.bs.modal', function() {
+            if (window.innerWidth < 768) {
+                // Ajustar altura máxima
+                const dialog = this.querySelector('.modal-dialog');
+                if (dialog) dialog.style.maxHeight = '85vh';
+                
+                // Forzar redibujado para evitar problemas de renderizado
+                setTimeout(() => {
+                    const content = this.querySelector('.modal-content');
+                    if (content) content.style.transform = 'translateZ(0)';
+                }, 10);
+            }
+        });
+        
+        // Ajustar scroll cuando se abre el modal
+        modal.addEventListener('shown.bs.modal', function() {
+            if (window.innerWidth < 768) {
+                // Enfocar el primer campo si es posible
+                const textarea = this.querySelector('#motivoAnulacion');
+                if (textarea && !document.querySelector('.modal-backdrop')) {
+                    setTimeout(() => {
+                        textarea.focus();
+                    }, 500);
+                }
+            }
+        });
+    }
 
     // ==================== FUNCIONES AUXILIARES ====================
     
@@ -835,10 +1102,10 @@ document.addEventListener('DOMContentLoaded', function () {
             }
         }
 
-        // 4. Actualizar detalles básicos en formato grid IDÉNTICO al de compras
+        // 4. Actualizar detalles básicos en formato grid
         const detailsContainer = document.getElementById('ventaBasicDetails');
         if (detailsContainer) {
-            // Extraer fecha y hora - USAR LOS CAMPOS CORRECTOS DEL BACKEND
+            // Extraer fecha y hora
             let fechaMostrar = venta.fecha_corta || '--/--/--';
             let horaMostrar = venta.hora || '--:--';
             
@@ -1121,7 +1388,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
             const motivo = motivoTextarea ? motivoTextarea.value.trim() : '';
             
-            // Confirmación final IDÉNTICA a la de compras
+            // Confirmación final
             if (!confirm(`¿Está seguro de anular la venta #${currentVentaId}? Esta acción no se puede deshacer.`)) {
                 return;
             }
@@ -1251,8 +1518,29 @@ document.addEventListener('DOMContentLoaded', function () {
     
     // ==================== INICIALIZACIÓN ====================
     
+    // Inicializar mejoras para touch
+    inicializarMejorasTouch();
+    optimizarModalParaTecladoVirtual();
+    optimizarModalMovil();
+    
+    // Escuchar cambios de orientación
+    window.addEventListener('orientationchange', ajustarPorOrientacion);
+    window.addEventListener('resize', ajustarPorOrientacion);
+    
+    // Ajustar inicial
+    ajustarPorOrientacion();
+    
     // Aplicar filtros iniciales
     aplicarFiltros();
+    
+    // Ajustar tabla al cargar en móviles
+    if (window.innerWidth < 768) {
+        setTimeout(() => {
+            document.querySelectorAll('.table-responsive-lg').forEach(el => {
+                el.scrollLeft = 0;
+            });
+        }, 100);
+    }
     
     // Auto-ocultar mensajes flash después de 5 segundos
     setTimeout(() => {
