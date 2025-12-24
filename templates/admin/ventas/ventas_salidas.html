@@ -253,89 +253,80 @@
     </div>
 </div>
 
-<!-- Modal Anulación -->
-<div class="modal fade" id="anularVentaModal" tabindex="-1" aria-hidden="true">
+<!-- Modal Anulación de Venta - Diseño IDÉNTICO al de compras -->
+<div class="modal fade" id="anularVentaModal" tabindex="-1" aria-labelledby="anularVentaModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-lg">
         <div class="modal-content border-0 shadow-lg">
             <div class="modal-header bg-danger text-white">
-                <h5 class="modal-title">
-                    <i class="fas fa-exclamation-triangle me-2"></i>Confirmar Anulación
+                <h5 class="modal-title" id="anularVentaModalLabel">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    Confirmar Anulación de Venta
                 </h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
-            
-            <form id="formAnularVenta" method="POST" action="">
-                {% if csrf_token %}
-                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                {% endif %}
-                <input type="hidden" id="idFactura" name="id_factura" value="">
-                
-                <div class="modal-body p-0">
-                    <!-- Indicador de carga -->
-                    <div id="loadingIndicator">
-                        <div class="text-center py-5">
-                            <div class="spinner-border text-danger" role="status" style="width: 3rem; height: 3rem;">
-                                <span class="visually-hidden">Cargando...</span>
-                            </div>
-                            <p class="text-muted mt-3">Cargando datos de la venta...</p>
-                        </div>
-                    </div>
 
-                    <!-- Contenido principal (inicialmente oculto) -->
-                    <div id="modalContent" class="d-none p-4">
+            <!-- Loading State -->
+            <div id="modalLoading" class="modal-body text-center py-5">
+                <div class="spinner-border text-danger mb-3" style="width: 3rem; height: 3rem;" role="status">
+                    <span class="visually-hidden">Cargando...</span>
+                </div>
+                <h6 class="text-muted">Cargando información detallada de la venta...</h6>
+                <p class="text-muted small mt-2">Por favor espere un momento</p>
+            </div>
+
+            <!-- Error State -->
+            <div id="modalError" class="modal-body text-center py-5" style="display: none;">
+                <div class="mb-3">
+                    <i class="fas fa-times-circle fa-3x text-danger"></i>
+                </div>
+                <h6 class="text-danger" id="errorTitle">Error al cargar la venta</h6>
+                <p class="text-muted small mt-2" id="errorMessage">Ha ocurrido un error</p>
+                <button type="button" class="btn btn-secondary mt-3" data-bs-dismiss="modal">
+                    <i class="fas fa-times me-2"></i>Cerrar
+                </button>
+            </div>
+
+            <!-- Content Container -->
+            <div id="modalContent" style="display: none;">
+                <form id="formAnularVenta" method="POST" action="">
+                    {% if csrf_token %}
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    {% endif %}
+                    <input type="hidden" id="idFactura" name="id_factura" value="">
+                    
+                    <div class="modal-body">
+                        <!-- Alerta de advertencia -->
                         <div class="alert alert-warning border-warning mb-4">
                             <div class="d-flex">
                                 <div class="flex-shrink-0">
-                                    <i class="fas fa-exclamation-circle fa-2x text-warning mt-1"></i>
+                                    <i class="fas fa-exclamation-circle fa-2x text-warning"></i>
                                 </div>
                                 <div class="flex-grow-1 ms-3">
                                     <h6 class="alert-heading fw-bold mb-1">
-                                        ¿Anular venta <span id="modalVentaId" class="text-danger">#</span>?
+                                        ¿Está seguro de anular la venta <span id="modalVentaId" class="text-danger fw-bold">#</span>?
                                     </h6>
-                                    <p class="mb-0 small">Esta acción es irreversible y reversará las existencias al inventario.</p>
+                                    <p class="mb-0 small">Esta acción es irreversible y reversará las existencias en inventario.</p>
                                 </div>
                             </div>
                         </div>
 
+                        <!-- Detalles de la venta -->
                         <div class="card border-0 bg-light mb-4">
                             <div class="card-body">
                                 <h6 class="fw-bold text-dark mb-3">
-                                    <i class="fas fa-info-circle me-2 text-primary"></i>Detalles de la Venta
+                                    <i class="fas fa-info-circle me-2 text-primary"></i>
+                                    Detalles de la Venta
                                     <span id="ventaStatusBadge" class="badge bg-success ms-2">Activa</span>
                                     <span id="tipoVentaBadge" class="badge bg-success ms-1">CONTADO</span>
                                 </h6>
-                                
-                                <div class="row mb-3">
-                                    <div class="col-md-6">
-                                        <small class="text-muted d-block">Fecha y Hora:</small>
-                                        <span class="fw-semibold" id="ventaFecha">--/--/-- --:--</span><br>
-                                        
-                                        <small class="text-muted d-block mt-2">Cliente:</small>
-                                        <span class="fw-semibold" id="ventaCliente">Cargando...</span><br>
-                                        
-                                        <small class="text-muted d-block mt-2">RUC/Cédula:</small>
-                                        <span class="fw-semibold" id="ventaRUC">Cargando...</span><br>
-                                        
-                                        <small class="text-muted d-block mt-2">Vendedor:</small>
-                                        <span class="fw-semibold" id="ventaVendedor">Cargando...</span>
-                                    </div>
-                                    <div class="col-md-6">
-                                        <small class="text-muted d-block">Bodega:</small>
-                                        <span class="fw-semibold" id="ventaBodega">Cargando...</span><br>
-                                        
-                                        <small class="text-muted d-block mt-2">Total Productos:</small>
-                                        <span class="fw-bold text-primary" id="ventaTotalProductos">0</span><br>
-                                        
-                                        <small class="text-muted d-block mt-2">Total Unidades:</small>
-                                        <span class="fw-bold text-info" id="ventaTotalUnidades">0</span><br>
-                                        
-                                        <small class="text-muted d-block mt-2">Total Venta:</small>
-                                        <span class="fw-bold text-success" id="ventaTotal">C$0.00</span>
-                                    </div>
+
+                                <!-- Detalles básicos en formato de grid similar a compras -->
+                                <div class="row mb-3" id="ventaBasicDetails">
+                                    <!-- Se llenará con JavaScript -->
                                 </div>
-                                
+
                                 <!-- Información de crédito -->
-                                <div id="creditoInfo" class="mb-3 p-3 bg-warning bg-opacity-10 rounded d-none">
+                                <div id="creditoInfo" class="mb-3 p-3 bg-warning bg-opacity-10 rounded" style="display: none;">
                                     <h6 class="fw-bold text-warning mb-2">
                                         <i class="fas fa-credit-card me-2"></i>Información de Crédito
                                     </h6>
@@ -357,22 +348,15 @@
                                     </div>
                                 </div>
 
-                                <!-- Observación -->
-                                <div id="observacionContainer" class="mb-3">
-                                    <small class="text-muted d-block">Observación de la venta:</small>
-                                    <div class="p-2 bg-white rounded border">
-                                        <span id="ventaObservacion" class="text-muted small">Sin observaciones</span>
-                                    </div>
-                                </div>
-
-                                <!-- Productos vendidos -->
+                                <!-- Tabla de productos -->
                                 <div class="mt-4">
                                     <h6 class="fw-bold text-dark mb-2">
-                                        <i class="fas fa-boxes me-2 text-primary"></i>Productos Vendidos 
-                                        <small class="text-muted" id="totalProductosCount">(0 productos)</small>
+                                        <i class="fas fa-boxes me-2 text-primary"></i>
+                                        Productos Vendidos <small class="text-muted" id="totalProductosCount">(0 productos)</small>
                                     </h6>
-                                    <div class="table-responsive" style="max-height: 250px;">
-                                        <table class="table table-sm table-hover mb-0">
+
+                                    <div class="table-responsive" style="max-height: 300px; overflow-y: auto;">
+                                        <table class="table table-sm table-hover mb-0" id="productosTable">
                                             <thead class="table-light sticky-top">
                                                 <tr>
                                                     <th>#</th>
@@ -380,17 +364,12 @@
                                                     <th>Descripción</th>
                                                     <th class="text-center">Cantidad</th>
                                                     <th class="text-center">Unidad</th>
-                                                    <th class="text-end">Precio Unit.</th>
+                                                    <th class="text-end">Precio Unitario</th>
                                                     <th class="text-end">Subtotal</th>
                                                 </tr>
                                             </thead>
                                             <tbody id="productosTableBody">
-                                                <tr>
-                                                    <td colspan="7" class="text-center text-muted py-4">
-                                                        <i class="fas fa-spinner fa-spin me-2"></i>
-                                                        Cargando productos...
-                                                    </td>
-                                                </tr>
+                                                <!-- Se llenará con JavaScript -->
                                             </tbody>
                                             <tfoot class="table-light">
                                                 <tr>
@@ -407,62 +386,38 @@
                             </div>
                         </div>
 
-                        <div class="alert alert-danger border-danger mb-4">
-                            <div class="d-flex">
-                                <div class="flex-shrink-0">
-                                    <i class="fas fa-exclamation-triangle fa-2x text-danger mt-1"></i>
-                                </div>
-                                <div class="flex-grow-1 ms-3">
-                                    <h6 class="alert-heading fw-bold mb-1">Consecuencias de la anulación:</h6>
-                                    <ul class="mb-0 small">
-                                        <li>Todas las existencias serán <strong>reversadas al inventario</strong></li>
-                                        <li>La venta se marcará como <strong class="text-danger">"ANULADA"</strong></li>
-                                        <li>Se creará un movimiento de inventario de anulación</li>
-                                        <li>Si es crédito, la cuenta por cobrar será <strong>cancelada</strong></li>
-                                        <li class="fw-bold text-danger mt-2">
-                                            <i class="fas fa-skull-crossbones me-1"></i>
-                                            Esta acción NO se puede deshacer
-                                        </li>
-                                    </ul>
-                                </div>
-                            </div>
-                        </div>
-
+                        <!-- Campo de motivo -->
                         <div class="mb-3">
                             <label for="motivoAnulacion" class="form-label fw-semibold">
-                                <i class="fas fa-comment-dots me-2 text-primary"></i>Motivo de Anulación 
-                                <span class="text-danger">*</span>
-                                <span class="text-muted small">(Obligatorio para auditoría)</span>
+                                <i class="fas fa-comment-dots me-2 text-primary"></i>
+                                Motivo de Anulación <span class="text-danger">*</span>
                             </label>
-                            <textarea class="form-control" id="motivoAnulacion" name="motivo_anulacion" 
-                                      rows="3" 
-                                      placeholder="Ej: Error en el precio, cliente canceló pedido, producto defectuoso, error en cantidad..." 
-                                      required 
-                                      maxlength="500"></textarea>
+                            <textarea class="form-control" id="motivoAnulacion" name="motivo_anulacion" rows="3"
+                                placeholder="Ingrese el motivo de la anulación..." required maxlength="500"></textarea>
                             <div id="charCounter" class="form-text text-end">
                                 <span id="charCount">0</span>/500 caracteres
                             </div>
                         </div>
 
+                        <!-- Checkbox de confirmación -->
                         <div class="form-check mb-3">
                             <input class="form-check-input" type="checkbox" id="confirmarAnulacion" required>
                             <label class="form-check-label fw-semibold" for="confirmarAnulacion">
-                                <i class="fas fa-shield-alt me-2 text-primary"></i>
-                                Confirmo que he verificado los datos y deseo anular esta venta irreversiblemente
+                                Confirmo que deseo anular esta venta y entiendo que esta acción no se puede deshacer
                             </label>
                         </div>
                     </div>
-                </div>
 
-                <div class="modal-footer border-0 bg-light p-3">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
-                        <i class="fas fa-times me-2"></i>Cancelar
-                    </button>
-                    <button type="submit" class="btn btn-danger" id="btnConfirmarAnulacion" disabled>
-                        <i class="fas fa-ban me-2"></i>Confirmar Anulación
-                    </button>
-                </div>
-            </form>
+                    <div class="modal-footer border-0 bg-light">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                            <i class="fas fa-times me-2"></i>Cancelar
+                        </button>
+                        <button type="submit" class="btn btn-danger" id="btnConfirmarAnulacion" disabled>
+                            <i class="fas fa-ban me-2"></i>Cargando...
+                        </button>
+                    </div>
+                </form>
+            </div>
         </div>
     </div>
 </div>
@@ -693,13 +648,29 @@
 
 <!-- JavaScript -->
 <script>
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', function () {
     // ==================== VARIABLES GLOBALES ====================
     let currentVentaId = null;
-    const modal = document.getElementById('anularVentaModal');
-    
+    let ventaData = null;
+
     // ==================== FUNCIONES AUXILIARES ====================
     
+    // Función segura para establecer texto
+    function safeSetText(elementId, text) {
+        const element = document.getElementById(elementId);
+        if (element) {
+            element.textContent = text;
+        }
+    }
+
+    // Función segura para mostrar/ocultar elementos
+    function safeDisplay(elementId, displayStyle) {
+        const element = document.getElementById(elementId);
+        if (element) {
+            element.style.display = displayStyle;
+        }
+    }
+
     // Función para formatear números
     function formatNumber(num, decimals = 2) {
         return parseFloat(num || 0).toLocaleString('es-NI', {
@@ -707,12 +678,12 @@ document.addEventListener('DOMContentLoaded', function() {
             maximumFractionDigits: decimals
         });
     }
-    
+
     // Función para formatear moneda
     function formatCurrency(amount) {
         return `C$${formatNumber(amount)}`;
     }
-    
+
     // Función para obtener clase CSS según estado
     function getBadgeClassForEstado(estado) {
         switch(estado) {
@@ -723,355 +694,449 @@ document.addEventListener('DOMContentLoaded', function() {
             default: return 'badge bg-secondary';
         }
     }
-    
-    // ==================== MODAL DE ANULACIÓN ====================
-    
-    // Evento al abrir modal
-    modal?.addEventListener('show.bs.modal', async function(e) {
-        const button = e.relatedTarget;
-        const idFactura = button.getAttribute('data-id');
-        currentVentaId = idFactura;
+
+    // Función para limpiar y validar la unidad
+    function limpiarUnidad(unidad) {
+        if (!unidad) return '';
         
-        console.log(`🔄 Iniciando carga de datos para venta #${idFactura}...`);
+        unidad = unidad.toString().trim();
         
-        // Configurar estado inicial del modal
-        resetModalState();
+        // Lista de valores inválidos comunes
+        const valoresInvalidos = ['7', '0', 'null', 'undefined', 'nan'];
         
-        // Mostrar loading, ocultar contenido
-        document.getElementById('loadingIndicator').classList.remove('d-none');
-        document.getElementById('modalContent').classList.add('d-none');
-        
-        // Actualizar formulario
-        const form = document.getElementById('formAnularVenta');
-        form.action = `/admin/ventas/anular/${idFactura}`;
-        document.getElementById('idFactura').value = idFactura;
-        document.getElementById('modalVentaId').textContent = idFactura;
-        
-        // Deshabilitar controles
-        setFormControlsEnabled(false);
-        
-        try {
-            // Obtener datos de la venta desde el endpoint
-            const response = await fetch(`/admin/ventas/anular/${idFactura}`, {
-                method: 'GET',
-                headers: {
-                    'Accept': 'application/json',
-                    'X-Requested-With': 'XMLHttpRequest',
-                    'Cache-Control': 'no-cache'
-                }
-            });
-            
-            if (!response.ok) {
-                const errorText = await response.text();
-                console.error('Error en respuesta:', response.status, errorText);
-                throw new Error(`Error ${response.status}: No se pudieron cargar los datos`);
-            }
-            
-            const data = await response.json();
-            
-            if (!data.success) {
-                throw new Error(data.error || 'Error en los datos recibidos del servidor');
-            }
-            
-            const venta = data.venta;
-            console.log(`✅ Datos recibidos para venta #${venta.id_factura}`, venta);
-            
-            // Validar que la venta esté activa
-            if (venta.estado !== 'Activa') {
-                throw new Error(`Esta venta ya está ${venta.estado.toLowerCase()}. No se puede anular.`);
-            }
-            
-            // Actualizar todos los campos del modal
-            updateModalFields(venta);
-            
-            // Mostrar contenido, ocultar loading
-            document.getElementById('loadingIndicator').classList.add('d-none');
-            document.getElementById('modalContent').classList.remove('d-none');
-            
-            // Habilitar controles
-            setFormControlsEnabled(true);
-            
-            // Validar formulario inicialmente
-            validateForm();
-            
-        } catch (error) {
-            console.error('❌ Error cargando datos:', error);
-            showErrorInModal(error.message);
+        if (valoresInvalidos.includes(unidad.toLowerCase())) {
+            return '';
         }
-    });
-    
-    // Evento al cerrar modal
-    modal?.addEventListener('hidden.bs.modal', function() {
-        currentVentaId = null;
-        resetModalState();
-    });
-    
-    // Función para resetear estado del modal
-    function resetModalState() {
-        // Resetear loading indicator
-        document.getElementById('loadingIndicator').innerHTML = `
-            <div class="text-center py-5">
-                <div class="spinner-border text-danger" role="status" style="width: 3rem; height: 3rem;">
-                    <span class="visually-hidden">Cargando...</span>
-                </div>
-                <p class="text-muted mt-3">Cargando datos de la venta...</p>
-            </div>
-        `;
         
-        // Ocultar contenido, mostrar loading
-        document.getElementById('loadingIndicator').classList.remove('d-none');
-        document.getElementById('modalContent').classList.add('d-none');
+        // Si es un número, probablemente es un error
+        if (!isNaN(unidad) && unidad !== '') {
+            console.warn(`Unidad numérica inválida: ${unidad}`);
+            return '';
+        }
+        
+        return unidad;
+    }
+
+    // ==================== MANEJO DEL MODAL ====================
+    
+    // Referencias al modal
+    const anularModal = document.getElementById('anularVentaModal');
+
+    // Evento cuando se abre el modal
+    if (anularModal) {
+        anularModal.addEventListener('show.bs.modal', async function (e) {
+            const btn = e.relatedTarget;
+            currentVentaId = btn.dataset.id;
+
+            // Mostrar loading
+            showModalLoading();
+
+            try {
+                // Obtener datos detallados de la venta
+                const response = await fetch(`/admin/ventas/anular/${currentVentaId}`);
+
+                if (!response.ok) {
+                    throw new Error(`Error HTTP: ${response.status}`);
+                }
+
+                const data = await response.json();
+
+                if (!data.success) {
+                    throw new Error(data.error || 'Error al cargar datos de la venta');
+                }
+
+                ventaData = data.venta;
+
+                // Validar que se cargaron los productos
+                if (!ventaData.productos) {
+                    throw new Error('No se pudieron cargar los productos de la venta');
+                }
+
+                // Validar que la venta esté activa
+                if (ventaData.estado !== 'Activa') {
+                    throw new Error(`Esta venta ya está ${ventaData.estado.toLowerCase()}. No se puede anular.`);
+                }
+
+                // Mostrar contenido con datos
+                showModalContent();
+                loadDetailedVentaData(ventaData);
+
+            } catch (error) {
+                console.error('Error al cargar datos detallados:', error);
+                showModalError(error.message || 'Error desconocido al cargar la información');
+            }
+        });
+
+        // Cuando se cierra el modal
+        anularModal.addEventListener('hidden.bs.modal', function () {
+            resetModal();
+            currentVentaId = null;
+            ventaData = null;
+        });
+    }
+
+    // ==================== FUNCIONES DEL MODAL ====================
+    
+    // Función para mostrar loading
+    function showModalLoading() {
+        safeDisplay('modalLoading', 'block');
+        safeDisplay('modalContent', 'none');
+        safeDisplay('modalError', 'none');
+        
+        const btn = document.getElementById('btnConfirmarAnulacion');
+        if (btn) {
+            btn.disabled = true;
+            btn.innerHTML = `<i class="fas fa-ban me-2"></i> Cargando...`;
+        }
+    }
+
+    // Función para mostrar contenido
+    function showModalContent() {
+        safeDisplay('modalLoading', 'none');
+        safeDisplay('modalContent', 'block');
+        safeDisplay('modalError', 'none');
+    }
+
+    // Función para mostrar error
+    function showModalError(errorMessage) {
+        safeDisplay('modalLoading', 'none');
+        safeDisplay('modalContent', 'none');
+        safeDisplay('modalError', 'block');
+        safeSetText('errorTitle', 'Error al cargar la venta');
+        safeSetText('errorMessage', errorMessage || 'Ha ocurrido un error');
+    }
+
+    // Función para cargar datos detallados de la venta
+    function loadDetailedVentaData(venta) {
+        // Validación crítica
+        if (!venta.productos || !Array.isArray(venta.productos)) {
+            showModalError('Error: No se pudieron cargar los productos de la venta');
+            return;
+        }
+
+        // 1. Actualizar ID
+        safeSetText('modalVentaId', `#${venta.id_factura}`);
+
+        // 2. Actualizar estado
+        const estadoBadge = document.getElementById('ventaStatusBadge');
+        if (estadoBadge) {
+            estadoBadge.textContent = venta.estado || 'Activa';
+            estadoBadge.className = getBadgeClassForEstado(venta.estado) + ' ms-2';
+        }
+
+        // 3. Actualizar tipo de venta
+        const tipoBadge = document.getElementById('tipoVentaBadge');
+        if (tipoBadge) {
+            tipoBadge.textContent = venta.tipo_venta || 'CONTADO';
+            if (venta.tipo_venta === 'CONTADO') {
+                tipoBadge.className = 'badge bg-success ms-1';
+            } else if (venta.tipo_venta === 'CRÉDITO') {
+                tipoBadge.className = 'badge bg-warning ms-1';
+            }
+        }
+
+        // 4. Actualizar detalles básicos en formato grid IDÉNTICO al de compras
+        const detailsContainer = document.getElementById('ventaBasicDetails');
+        if (detailsContainer) {
+            // Extraer fecha y hora - USAR LOS CAMPOS CORRECTOS DEL BACKEND
+            let fechaMostrar = venta.fecha_corta || '--/--/--';
+            let horaMostrar = venta.hora || '--:--';
+            
+            // Si no tenemos hora, intentar extraerla de fecha_completa
+            if (!venta.hora && venta.fecha) {
+                const fechaParts = venta.fecha.split(' ');
+                if (fechaParts.length > 1) {
+                    horaMostrar = fechaParts[1] || '--:--';
+                }
+            }
+            
+            const detailsHtml = `
+                <div class="col-md-6 mb-3">
+                    <label class="form-label small text-muted">Cliente</label>
+                    <div class="form-control-plaintext fw-bold">
+                        <i class="fas fa-user text-primary me-2"></i>
+                        ${venta.cliente || 'Consumidor Final'}
+                    </div>
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label class="form-label small text-muted">RUC/Cédula</label>
+                    <div class="form-control-plaintext">
+                        <i class="fas fa-id-card text-secondary me-2"></i>
+                        ${venta.cliente_ruc || 'N/A'}
+                    </div>
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label class="form-label small text-muted">Fecha</label>
+                    <div class="form-control-plaintext">
+                        <i class="fas fa-calendar text-info me-2"></i>
+                        ${fechaMostrar}
+                    </div>
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label class="form-label small text-muted">Hora</label>
+                    <div class="form-control-plaintext">
+                        <i class="fas fa-clock text-info me-2"></i>
+                        ${horaMostrar}
+                    </div>
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label class="form-label small text-muted">Vendedor</label>
+                    <div class="form-control-plaintext">
+                        <i class="fas fa-user-tie text-success me-2"></i>
+                        ${venta.vendedor || 'Sistema'}
+                    </div>
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label class="form-label small text-muted">Bodega</label>
+                    <div class="form-control-plaintext">
+                        <i class="fas fa-warehouse text-warning me-2"></i>
+                        ${venta.bodega || 'No especificada'}
+                    </div>
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label class="form-label small text-muted">Total Productos</label>
+                    <div class="form-control-plaintext fw-bold text-primary">
+                        <i class="fas fa-boxes me-2"></i>
+                        ${venta.total_productos || 0}
+                    </div>
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label class="form-label small text-muted">Total Venta</label>
+                    <div class="form-control-plaintext fw-bold text-success">
+                        <i class="fas fa-dollar-sign me-2"></i>
+                        ${venta.total_venta_formateado || 'C$0.00'}
+                    </div>
+                </div>
+            `;
+            detailsContainer.innerHTML = detailsHtml;
+        }
+
+        // 5. Actualizar información de crédito si aplica
+        const creditoInfo = document.getElementById('creditoInfo');
+        if (venta.tipo_venta === 'CRÉDITO' && venta.tiene_cuenta_cobrar) {
+            safeDisplay('creditoInfo', 'block');
+            safeSetText('estadoCuenta', venta.estado_cuenta || 'Pendiente');
+            
+            const estadoCuentaElem = document.getElementById('estadoCuenta');
+            if (estadoCuentaElem) {
+                estadoCuentaElem.className = getBadgeClassForEstado(venta.estado_cuenta);
+            }
+            
+            safeSetText('saldoPendiente', formatCurrency(venta.saldo_pendiente || 0));
+        } else {
+            safeDisplay('creditoInfo', 'none');
+        }
+
+        // 6. Actualizar contador de productos
+        const totalProductos = venta.total_productos || venta.productos.length || 0;
+        safeSetText('totalProductosCount', `(${totalProductos} productos)`);
+        safeSetText('totalCantidad', formatNumber(venta.total_cantidad || 0));
+        safeSetText('totalVentaModal', venta.total_venta_formateado || formatCurrency(0));
+
+        // 7. Llenar tabla de productos
+        const productosTableBody = document.getElementById('productosTableBody');
+        if (productosTableBody) {
+            productosTableBody.innerHTML = '';
+
+            venta.productos.forEach((producto, index) => {
+                const cantidad = parseFloat(producto.cantidad) || 0;
+                const precioUnitario = parseFloat(producto.precio_unitario) || 0;
+                const subtotal = parseFloat(producto.subtotal) || 0;
+                
+                // Limpiar la unidad para evitar el "7"
+                const unidad = limpiarUnidad(producto.unidad_medida);
+
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td class="fw-bold">${index + 1}</td>
+                    <td><span class="badge bg-light text-dark">${producto.codigo || 'N/A'}</span></td>
+                    <td>${producto.descripcion || 'Producto sin descripción'}</td>
+                    <td class="text-center fw-semibold">
+                        ${cantidad.toFixed(2)}
+                        ${unidad ? `<span class="text-muted small ms-1">${unidad}</span>` : ''}
+                    </td>
+                    <td class="text-center">${unidad || '-'}</td>
+                    <td class="text-end">${formatCurrency(precioUnitario)}</td>
+                    <td class="text-end fw-semibold">${formatCurrency(subtotal)}</td>
+                `;
+
+                productosTableBody.appendChild(row);
+            });
+        }
+
+        // 8. Configurar formulario
+        const form = document.getElementById('formAnularVenta');
+        if (form && venta.id_factura) {
+            form.action = `/admin/ventas/anular/${venta.id_factura}`;
+            document.getElementById('idFactura').value = venta.id_factura;
+        }
+
+        // 9. Habilitar/deshabilitar botón según validaciones
+        const btn = document.getElementById('btnConfirmarAnulacion');
+        if (btn) {
+            btn.disabled = true;
+            btn.innerHTML = `<i class="fas fa-ban me-2"></i> Confirmar Anulación`;
+            btn.classList.remove('btn-warning');
+            btn.classList.add('btn-danger');
+        }
+
+        // 10. Limpiar formulario
+        const motivoInput = document.getElementById('motivoAnulacion');
+        const confirmCheckbox = document.getElementById('confirmarAnulacion');
+        
+        if (motivoInput) motivoInput.value = '';
+        if (confirmCheckbox) confirmCheckbox.checked = false;
+        
+        // Resetear contador de caracteres
+        safeSetText('charCount', '0');
+        const charCounter = document.getElementById('charCounter');
+        if (charCounter) {
+            charCounter.className = 'form-text text-end text-muted';
+        }
+        
+        // Inicializar validación del formulario
+        setTimeout(() => {
+            validateForm();
+        }, 100);
+    }
+
+    // Función para resetear modal
+    function resetModal() {
+        safeDisplay('modalLoading', 'block');
+        safeDisplay('modalContent', 'none');
+        safeDisplay('modalError', 'none');
+        
+        // Resetear detalles básicos
+        const detailsContainer = document.getElementById('ventaBasicDetails');
+        if (detailsContainer) detailsContainer.innerHTML = '';
+        
+        // Resetear tabla de productos
+        const productosTableBody = document.getElementById('productosTableBody');
+        if (productosTableBody) productosTableBody.innerHTML = '';
+        
+        // Resetear contador de caracteres
+        safeSetText('charCount', '0');
+        const charCounter = document.getElementById('charCounter');
+        if (charCounter) {
+            charCounter.className = 'form-text text-end text-muted';
+        }
         
         // Resetear formulario
         const form = document.getElementById('formAnularVenta');
-        form.reset();
-        document.getElementById('idFactura').value = '';
+        if (form) form.reset();
         
-        // Resetear contador de caracteres
-        document.getElementById('charCount').textContent = '0';
-        document.getElementById('charCounter').className = 'form-text text-end text-muted';
+        // Resetear ID
+        safeSetText('modalVentaId', '#');
         
-        // Deshabilitar botón de confirmación
-        document.getElementById('btnConfirmarAnulacion').disabled = true;
-        
-        // Resetear campos visuales
-        document.getElementById('modalVentaId').textContent = '#';
-        document.getElementById('ventaFecha').textContent = '--/--/-- --:--';
-        document.getElementById('ventaCliente').textContent = 'Cargando...';
-        document.getElementById('ventaRUC').textContent = 'Cargando...';
-        document.getElementById('ventaVendedor').textContent = 'Cargando...';
-        document.getElementById('ventaBodega').textContent = 'Cargando...';
-        document.getElementById('ventaTotalProductos').textContent = '0';
-        document.getElementById('ventaTotalUnidades').textContent = '0';
-        document.getElementById('ventaTotal').textContent = 'C$0.00';
-        
-        document.getElementById('ventaStatusBadge').textContent = 'Activa';
-        document.getElementById('ventaStatusBadge').className = 'badge bg-success ms-2';
-        document.getElementById('tipoVentaBadge').textContent = 'CONTADO';
-        document.getElementById('tipoVentaBadge').className = 'badge bg-success ms-1';
-        
-        document.getElementById('productosTableBody').innerHTML = `
-            <tr>
-                <td colspan="7" class="text-center text-muted py-4">
-                    <i class="fas fa-spinner fa-spin me-2"></i>
-                    Cargando productos...
-                </td>
-            </tr>`;
-        
-        document.getElementById('totalCantidad').textContent = '0';
-        document.getElementById('totalVentaModal').textContent = 'C$0.00';
-        document.getElementById('totalProductosCount').textContent = '(0 productos)';
-        
-        // Ocultar secciones opcionales
-        document.getElementById('creditoInfo').classList.add('d-none');
-    }
-    
-    // Función para actualizar campos del modal
-    function updateModalFields(venta) {
-        // Información básica
-        document.getElementById('ventaFecha').textContent = venta.fecha || '--/--/-- --:--';
-        document.getElementById('ventaCliente').textContent = venta.cliente || 'Consumidor Final';
-        document.getElementById('ventaRUC').textContent = venta.cliente_ruc || 'N/A';
-        document.getElementById('ventaVendedor').textContent = venta.vendedor || 'Sistema';
-        document.getElementById('ventaBodega').textContent = venta.bodega || 'No especificada';
-        document.getElementById('ventaTotalProductos').textContent = venta.total_productos || 0;
-        document.getElementById('ventaTotalUnidades').textContent = formatNumber(venta.total_cantidad || 0);
-        document.getElementById('ventaTotal').textContent = venta.total_venta_formateado || formatCurrency(0);
-        
-        // Badges
-        const estadoBadge = document.getElementById('ventaStatusBadge');
-        estadoBadge.textContent = venta.estado || 'Activa';
-        estadoBadge.className = getBadgeClassForEstado(venta.estado) + ' ms-2';
-        
-        const tipoBadge = document.getElementById('tipoVentaBadge');
-        tipoBadge.textContent = venta.tipo_venta || 'CONTADO';
-        if (venta.tipo_venta === 'CONTADO') {
-            tipoBadge.className = 'badge bg-success ms-1';
-        } else if (venta.tipo_venta === 'CRÉDITO') {
-            tipoBadge.className = 'badge bg-warning ms-1';
-        } else {
-            tipoBadge.className = 'badge bg-secondary ms-1';
+        // Resetear botón
+        const btn = document.getElementById('btnConfirmarAnulacion');
+        if (btn) {
+            btn.disabled = true;
+            btn.innerHTML = `<i class="fas fa-ban me-2"></i> Cargando...`;
+            btn.classList.remove('btn-warning');
+            btn.classList.add('btn-danger');
         }
-        
-        // Información de crédito
-        const creditoInfo = document.getElementById('creditoInfo');
-        if (venta.tipo_venta === 'CRÉDITO' && venta.tiene_cuenta_cobrar) {
-            creditoInfo.classList.remove('d-none');
-            
-            const estadoCuenta = venta.estado_cuenta || 'Pendiente';
-            const estadoCuentaElem = document.getElementById('estadoCuenta');
-            estadoCuentaElem.textContent = estadoCuenta;
-            estadoCuentaElem.className = getBadgeClassForEstado(estadoCuenta);
-            
-            document.getElementById('saldoPendiente').textContent = formatCurrency(venta.saldo_pendiente || 0);
-        } else {
-            creditoInfo.classList.add('d-none');
-        }
-        
-        // Observación
-        const observacionElem = document.getElementById('ventaObservacion');
-        if (venta.observacion && venta.observacion.trim() !== '') {
-            observacionElem.textContent = venta.observacion;
-            observacionElem.className = 'text-dark small';
-        } else {
-            observacionElem.textContent = 'Sin observaciones';
-            observacionElem.className = 'text-muted small';
-        }
-        
-        // Productos
-        const tbody = document.getElementById('productosTableBody');
-        if (venta.productos && venta.productos.length > 0) {
-            tbody.innerHTML = venta.productos.map((p, i) => `
-                <tr>
-                    <td>${i + 1}</td>
-                    <td><code class="text-primary">${p.codigo}</code></td>
-                    <td>${p.descripcion}</td>
-                    <td class="text-center">${formatNumber(p.cantidad)}</td>
-                    <td class="text-center">
-                        <span class="badge bg-light text-dark border">${p.unidad_medida}</span>
-                    </td>
-                    <td class="text-end">${formatCurrency(p.precio_unitario)}</td>
-                    <td class="text-end fw-semibold">${formatCurrency(p.subtotal)}</td>
-                </tr>
-            `).join('');
-        } else {
-            tbody.innerHTML = `
-                <tr>
-                    <td colspan="7" class="text-center text-muted py-4">
-                        <i class="fas fa-box-open fa-2x opacity-50 mb-2 d-block"></i>
-                        No hay productos registrados
-                    </td>
-                </tr>`;
-        }
-        
-        // Totales
-        document.getElementById('totalCantidad').textContent = formatNumber(venta.total_cantidad || 0);
-        document.getElementById('totalVentaModal').textContent = venta.total_venta_formateado || formatCurrency(0);
-        document.getElementById('totalProductosCount').textContent = 
-            `(${venta.total_productos || 0} producto${venta.total_productos !== 1 ? 's' : ''})`;
     }
-    
-    // Función para mostrar error en el modal
-    function showErrorInModal(message) {
-        document.getElementById('loadingIndicator').innerHTML = `
-            <div class="text-center py-5">
-                <i class="fas fa-exclamation-triangle fa-3x text-danger mb-3"></i>
-                <h6 class="text-danger fw-bold mb-2">Error al cargar los datos</h6>
-                <p class="text-muted mb-4">${message}</p>
-                <div class="mt-3">
-                    <button class="btn btn-sm btn-outline-danger me-2" data-bs-dismiss="modal">
-                        <i class="fas fa-times me-1"></i>Cerrar
-                    </button>
-                    <button class="btn btn-sm btn-danger" onclick="window.location.reload()">
-                        <i class="fas fa-redo me-1"></i>Recargar página
-                    </button>
-                </div>
-            </div>
-        `;
-    }
-    
-    // Función para habilitar/deshabilitar controles del formulario
-    function setFormControlsEnabled(enabled) {
-        document.getElementById('motivoAnulacion').disabled = !enabled;
-        document.getElementById('confirmarAnulacion').disabled = !enabled;
-        document.getElementById('btnConfirmarAnulacion').disabled = !enabled;
-    }
-    
+
     // ==================== VALIDACIÓN DEL FORMULARIO ====================
     
     const motivoTextarea = document.getElementById('motivoAnulacion');
     const confirmCheckbox = document.getElementById('confirmarAnulacion');
     const btnConfirmar = document.getElementById('btnConfirmarAnulacion');
     const charCount = document.getElementById('charCount');
-    
+
     // Función para validar el formulario
     function validateForm() {
-        const motivo = motivoTextarea.value.trim();
-        const confirmado = confirmCheckbox.checked;
+        const motivo = motivoTextarea ? motivoTextarea.value.trim() : '';
+        const confirmado = confirmCheckbox ? confirmCheckbox.checked : false;
         const motivoValido = motivo.length >= 1 && motivo.length <= 500;
         
-        btnConfirmar.disabled = !(motivoValido && confirmado);
+        const isValid = motivoValido && confirmado;
+        
+        if (btnConfirmar) {
+            btnConfirmar.disabled = !isValid;
+            btnConfirmar.innerHTML = isValid ? 
+                `<i class="fas fa-ban me-2"></i> Confirmar Anulación` : 
+                `<i class="fas fa-ban me-2"></i> Confirmar Anulación`;
+        }
         
         // Actualizar contador
-        charCount.textContent = motivo.length;
+        if (charCount) {
+            charCount.textContent = motivo.length;
+        }
         
         // Cambiar color según longitud
         const counter = document.getElementById('charCounter');
-        if (motivo.length === 0) {
-            counter.className = 'form-text text-end text-muted';
-        } else if (motivo.length > 500) {
-            counter.className = 'form-text text-end text-danger';
-        } else if (motivo.length < 10) {
-            counter.className = 'form-text text-end text-warning';
-        } else {
-            counter.className = 'form-text text-end text-success';
+        if (counter) {
+            if (motivo.length === 0) {
+                counter.className = 'form-text text-end text-muted';
+            } else if (motivo.length > 500) {
+                counter.className = 'form-text text-end text-danger';
+            } else if (motivo.length < 10) {
+                counter.className = 'form-text text-end text-warning';
+            } else {
+                counter.className = 'form-text text-end text-success';
+            }
         }
         
-        return motivoValido && confirmado;
+        return isValid;
+    }
+
+    // Event listeners para validación en tiempo real
+    if (motivoTextarea) {
+        motivoTextarea.addEventListener('input', validateForm);
     }
     
-    // Event listeners para validación en tiempo real
-    motivoTextarea?.addEventListener('input', validateForm);
-    confirmCheckbox?.addEventListener('change', validateForm);
-    
+    if (confirmCheckbox) {
+        confirmCheckbox.addEventListener('change', validateForm);
+    }
+
     // ==================== ENVÍO DEL FORMULARIO ====================
     
-    document.getElementById('formAnularVenta')?.addEventListener('submit', function(e) {
-        e.preventDefault();
-        
-        if (!validateForm()) {
-            showAlert('warning', 'Validación requerida', 
-                'Por favor complete todos los campos correctamente antes de continuar.');
-            return;
-        }
-        
-        const motivo = motivoTextarea.value.trim();
-        
-        // Confirmación final con SweetAlert
-        Swal.fire({
-            title: '¿Está completamente seguro?',
-            html: `<div class="text-start">
-                <p class="mb-3">Está a punto de <strong class="text-danger">ANULAR</strong> la venta <strong>#${currentVentaId}</strong>.</p>
-                <div class="alert alert-danger small mb-3">
-                    <i class="fas fa-exclamation-triangle me-2"></i>
-                    <strong>Esta acción es IRREVERSIBLE</strong>
-                </div>
-                <p class="small text-muted mb-0"><strong>Motivo:</strong> ${motivo.substring(0, 100)}${motivo.length > 100 ? '...' : ''}</p>
-            </div>`,
-            icon: 'warning',
-            showCancelButton: true,
-            confirmButtonColor: '#dc3545',
-            cancelButtonColor: '#6c757d',
-            confirmButtonText: '<i class="fas fa-ban me-2"></i>Sí, anular venta',
-            cancelButtonText: '<i class="fas fa-times me-2"></i>Cancelar',
-            reverseButtons: true,
-            backdrop: true,
-            allowOutsideClick: false,
-            allowEscapeKey: false,
-            showLoaderOnConfirm: true,
-            preConfirm: () => {
-                return new Promise((resolve) => {
-                    // Deshabilitar botón y mostrar loading
-                    const submitBtn = document.getElementById('btnConfirmarAnulacion');
-                    const originalText = submitBtn.innerHTML;
-                    submitBtn.disabled = true;
-                    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Procesando...';
-                    
-                    // Enviar formulario de forma tradicional
-                    setTimeout(() => {
-                        document.getElementById('formAnularVenta').submit();
-                        resolve();
-                    }, 500);
-                });
+    const form = document.getElementById('formAnularVenta');
+    if (form) {
+        form.addEventListener('submit', function (e) {
+            e.preventDefault();
+            
+            if (!validateForm()) {
+                // Mostrar alerta simple de Bootstrap
+                const alertDiv = document.createElement('div');
+                alertDiv.className = 'alert alert-warning alert-dismissible fade show position-fixed top-0 end-0 m-3';
+                alertDiv.style.zIndex = '9999';
+                alertDiv.innerHTML = `
+                    <strong><i class="fas fa-exclamation-triangle me-2"></i>Validación requerida</strong>
+                    <p class="mb-0 small">Por favor complete todos los campos correctamente antes de continuar.</p>
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                `;
+                document.body.appendChild(alertDiv);
+                
+                // Auto-eliminar después de 5 segundos
+                setTimeout(() => {
+                    if (alertDiv.parentNode) {
+                        alertDiv.remove();
+                    }
+                }, 5000);
+                return;
             }
-        }).then((result) => {
-            if (result.dismiss === Swal.DismissReason.cancel) {
-                // Usuario canceló
-                console.log('Anulación cancelada por el usuario');
+
+            const motivo = motivoTextarea ? motivoTextarea.value.trim() : '';
+            
+            // Confirmación final IDÉNTICA a la de compras
+            if (!confirm(`¿Está seguro de anular la venta #${currentVentaId}? Esta acción no se puede deshacer.`)) {
+                return;
             }
+
+            // Deshabilitar botón para evitar doble envío
+            if (btnConfirmar) {
+                btnConfirmar.disabled = true;
+                btnConfirmar.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i> Procesando...';
+            }
+
+            // Enviar formulario
+            form.submit();
         });
-    });
-    
+    }
+
     // ==================== FILTROS DE TABLA ====================
     
     function aplicarFiltros() {
@@ -1097,9 +1162,6 @@ document.addEventListener('DOMContentLoaded', function() {
             row.style.display = mostrar ? '' : 'none';
             if (mostrar) visibleCount++;
         });
-        
-        // Opcional: Mostrar contador de resultados
-        console.log(`Mostrando ${visibleCount} de ${document.querySelectorAll('#dataTable tbody tr').length} ventas`);
     }
     
     // Aplicar filtros en tiempo real
@@ -1136,7 +1198,22 @@ document.addEventListener('DOMContentLoaded', function() {
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
         
-        showAlert('success', 'Exportación iniciada', 'El archivo se descargará automáticamente.');
+        // Mostrar notificación simple
+        const toast = document.createElement('div');
+        toast.className = 'alert alert-success alert-dismissible fade show position-fixed top-0 end-0 m-3';
+        toast.style.zIndex = '9999';
+        toast.innerHTML = `
+            <strong><i class="fas fa-check-circle me-2"></i>Exportación iniciada</strong>
+            <p class="mb-0 small">El archivo se descargará automáticamente.</p>
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        `;
+        document.body.appendChild(toast);
+        
+        setTimeout(() => {
+            if (toast.parentNode) {
+                toast.remove();
+            }
+        }, 5000);
     });
     
     document.getElementById('printTableBtn')?.addEventListener('click', function(e) {
@@ -1172,23 +1249,20 @@ document.addEventListener('DOMContentLoaded', function() {
         window.location.reload();
     });
     
-    // ==================== FUNCIONES AUXILIARES ====================
-    
-    function showAlert(icon, title, text) {
-        Swal.fire({
-            icon: icon,
-            title: title,
-            text: text,
-            toast: true,
-            position: 'top-end',
-            showConfirmButton: false,
-            timer: 3000,
-            timerProgressBar: true
-        });
-    }
+    // ==================== INICIALIZACIÓN ====================
     
     // Aplicar filtros iniciales
     aplicarFiltros();
+    
+    // Auto-ocultar mensajes flash después de 5 segundos
+    setTimeout(() => {
+        document.querySelectorAll('.alert').forEach(alert => {
+            const closeBtn = alert.querySelector('.btn-close');
+            if (closeBtn) {
+                closeBtn.click();
+            }
+        });
+    }, 5000);
 });
 </script>
 {% endblock %}

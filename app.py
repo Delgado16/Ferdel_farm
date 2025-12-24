@@ -5471,10 +5471,12 @@ def admin_anular_venta(id_factura):
         try:
             with get_db_cursor(True) as cursor:
                 # 1. OBTENER DATOS PRINCIPALES DE LA FACTURA
+                # NOTA: Usar Fecha_Creacion en lugar de Fecha para obtener hora también
                 cursor.execute("""
                     SELECT 
                         f.ID_Factura,
                         f.Fecha,
+                        f.Fecha_Creacion,
                         f.Estado,
                         f.Credito_Contado,
                         f.Observacion,
@@ -5487,8 +5489,9 @@ def admin_anular_venta(id_factura):
                         cpc.Estado as estado_cuenta,
                         cpc.Saldo_Pendiente,
                         DATE_FORMAT(f.Fecha, '%%d/%%m/%%Y') as fecha_corta,
-                        DATE_FORMAT(f.Fecha, '%%d/%%m/%%Y %%H:%%i') as fecha_completa,
-                        DATE_FORMAT(f.Fecha, '%%H:%%i') as hora
+                        DATE_FORMAT(f.Fecha_Creacion, '%%d/%%m/%%Y') as fecha_creacion_corta,
+                        DATE_FORMAT(f.Fecha_Creacion, '%%d/%%m/%%Y %%H:%%i') as fecha_completa,
+                        DATE_FORMAT(f.Fecha_Creacion, '%%H:%%i') as hora
                     FROM facturacion f
                     LEFT JOIN clientes c ON f.IDCliente = c.ID_Cliente
                     LEFT JOIN usuarios u ON f.ID_Usuario_Creacion = u.ID_Usuario
@@ -5537,9 +5540,10 @@ def admin_anular_venta(id_factura):
                 datos_venta = {
                     'id_factura': venta['ID_Factura'],
                     'fecha': venta['fecha_completa'],  # Formato: dd/mm/yyyy HH:MM
-                    'fecha_corta': venta['fecha_corta'],  # Formato: dd/mm/yyyy
-                    'hora': venta['hora'],  # Formato: HH:MM
+                    'fecha_corta': venta['fecha_corta'],  # Formato: dd/mm/yyyy (del campo Fecha)
+                    'hora': venta['hora'],  # Formato: HH:MM (extraída de Fecha_Creacion)
                     'fecha_raw': venta['Fecha'].isoformat() if venta['Fecha'] else None,
+                    'fecha_creacion_raw': venta['Fecha_Creacion'].isoformat() if venta['Fecha_Creacion'] else None,
                     'estado': venta['Estado'],
                     'tipo_venta': 'CONTADO' if venta['Credito_Contado'] == 0 else 'CRÉDITO',
                     'tipo_venta_raw': venta['Credito_Contado'],
@@ -5574,7 +5578,7 @@ def admin_anular_venta(id_factura):
                     'venta': datos_venta,
                     'usuario_actual': {
                         'id': id_usuario,
-                        'nombre': current_user.NombreUsuario if current_user else 'Sistema'
+                        'nombre': current_user.NombreUsuario if hasattr(current_user, 'NombreUsuario') else 'Usuario'
                     }
                 })
                 
@@ -5610,6 +5614,7 @@ def admin_anular_venta(id_factura):
                     SELECT 
                         f.ID_Factura,
                         f.Fecha,
+                        f.Fecha_Creacion,
                         f.Estado,
                         f.Credito_Contado,
                         f.Observacion,
@@ -5892,7 +5897,6 @@ def admin_anular_venta(id_factura):
             
             flash(error_msg, 'error')
             return redirect(url_for('admin_ventas_salidas'))
-
 
 #CUENTAS POR COBRAR
 @app.route('/admin/ventas/cxcobrar/cuentas-por-cobrar')
