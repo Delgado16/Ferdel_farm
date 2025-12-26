@@ -192,6 +192,12 @@
                                         <i class="fas fa-receipt"></i>
                                         <span class="d-none d-xl-inline ms-1">Ticket</span>
                                     </a>
+                                    <a href="{{ url_for('admin_detalles_venta', id_factura=venta.ID_Factura) }}" 
+                                       class="btn btn-outline-primary btn-action px-3" 
+                                       title="Ver detalles">
+                                        <i class="fas fa-eye"></i>
+                                        <span class="d-none d-xl-inline ms-1">Detalles</span>
+                                    </a>
                                     {% if venta.Estado_Formateado == 'ACTIVA' %}
                                     <button type="button" 
                                             class="btn btn-outline-danger btn-action px-3 btn-anular-venta" 
@@ -1105,17 +1111,9 @@ document.addEventListener('DOMContentLoaded', function () {
         // 4. Actualizar detalles básicos en formato grid
         const detailsContainer = document.getElementById('ventaBasicDetails');
         if (detailsContainer) {
-            // Extraer fecha y hora
-            let fechaMostrar = venta.fecha_corta || '--/--/--';
-            let horaMostrar = venta.hora || '--:--';
-            
-            // Si no tenemos hora, intentar extraerla de fecha_completa
-            if (!venta.hora && venta.fecha) {
-                const fechaParts = venta.fecha.split(' ');
-                if (fechaParts.length > 1) {
-                    horaMostrar = fechaParts[1] || '--:--';
-                }
-            }
+            // Obtener fecha y hora formateadas
+            const fechaMostrar = venta.fecha_corta || '--/--/--';
+            const horaMostrar = venta.hora || '--:--';
             
             const detailsHtml = `
                 <div class="col-md-6 mb-3">

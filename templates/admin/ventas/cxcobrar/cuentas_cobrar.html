@@ -4,31 +4,81 @@
 
 {% block content %}
 <div class="container-fluid">
-    <h1 class="h3 mb-4 text-gray-800">Cuentas por Cobrar</h1>
+    <!-- Título -->
+    <h1 class="h3 mb-4 text-dark">
+        <i class="fas fa-file-invoice-dollar mr-2 text-primary"></i>Cuentas por Cobrar
+    </h1>
 
-    <!-- Resumen -->
+    <!-- Resumen General - SIMPLIFICADO -->
     <div class="row mb-4">
-        <div class="col-xl-3 col-md-6 mb-4">
-            <div class="card border-left-primary shadow h-100 py-2">
+        <div class="col-md-6 col-lg-3 mb-3">
+            <div class="card border-left-primary shadow-sm">
                 <div class="card-body">
-                    <div class="row no-gutters align-items-center">
-                        <div class="col mr-2">
-                            <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">
-                                Total Pendiente</div>
-                            <div class="h5 mb-0 font-weight-bold text-gray-800">C${{ "%.2f"|format(total_pendiente) }}</div>
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <div class="text-xs text-muted text-uppercase mb-1">
+                                Monto Total
+                            </div>
+                            <div class="h4 mb-0 text-dark">C${{ "%.2f"|format(total_pendiente) }}</div>
+                        </div>
+                        <div class="text-primary">
+                            <i class="fas fa-dollar-sign fa-2x"></i>
                         </div>
                     </div>
                 </div>
             </div>
         </div>
-        <div class="col-xl-3 col-md-6 mb-4">
-            <div class="card border-left-success shadow h-100 py-2">
+        
+        <div class="col-md-6 col-lg-3 mb-3">
+            <div class="card border-left-warning shadow-sm">
                 <div class="card-body">
-                    <div class="row no-gutters align-items-center">
-                        <div class="col mr-2">
-                            <div class="text-xs font-weight-bold text-success text-uppercase mb-1">
-                                Saldo por Cobrar</div>
-                            <div class="h5 mb-0 font-weight-bold text-gray-800">C${{ "%.2f"|format(total_saldo) }}</div>
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <div class="text-xs text-muted text-uppercase mb-1">
+                                Saldo Pendiente
+                            </div>
+                            <div class="h4 mb-0 text-dark">C${{ "%.2f"|format(total_saldo) }}</div>
+                        </div>
+                        <div class="text-warning">
+                            <i class="fas fa-clock fa-2x"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-6 col-lg-3 mb-3">
+            <div class="card border-left-danger shadow-sm">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <div class="text-xs text-muted text-uppercase mb-1">
+                                Cuentas Vencidas
+                            </div>
+                            <div class="h4 mb-0 text-dark">
+                                {{ cuentas|selectattr('Estado', 'equalto', 'Vencido')|list|length }}
+                            </div>
+                        </div>
+                        <div class="text-danger">
+                            <i class="fas fa-exclamation-triangle fa-2x"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-6 col-lg-3 mb-3">
+            <div class="card border-left-success shadow-sm">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <div class="text-xs text-muted text-uppercase mb-1">
+                                Total Registros
+                            </div>
+                            <div class="h4 mb-0 text-dark">{{ cuentas|length }}</div>
+                        </div>
+                        <div class="text-success">
+                            <i class="fas fa-list fa-2x"></i>
                         </div>
                     </div>
                 </div>
@@ -36,77 +86,159 @@
         </div>
     </div>
 
-    <!-- Tabla de Cuentas -->
-    <div class="card shadow mb-4">
-        <div class="card-header py-3">
-            <h6 class="m-0 font-weight-bold text-primary">Lista de Cuentas por Cobrar</h6>
+    <!-- Tabla Principal - SIMPLIFICADA -->
+    <div class="card shadow-sm">
+        <div class="card-header bg-white py-3 border-bottom">
+            <div class="d-flex justify-content-between align-items-center">
+                <h6 class="m-0 text-dark">
+                    <i class="fas fa-table mr-2 text-primary"></i>Lista de Cuentas por Cobrar
+                </h6>
+                <div class="d-flex align-items-center">
+                    <input type="text" class="form-control form-control-sm border mr-3" 
+                           style="width: 250px;" placeholder="Buscar cliente..." 
+                           id="searchInput">
+                    <span class="badge bg-light text-dark border">{{ cuentas|length }} registros</span>
+                </div>
+            </div>
         </div>
-        <div class="card-body">
+        
+        <div class="card-body p-0">
             <div class="table-responsive">
-                <table class="table table-bordered" width="100%" cellspacing="0">
-                    <thead>
+                <table class="table table-hover mb-0" width="100%" cellspacing="0" id="dataTable">
+                    <thead class="bg-light">
                         <tr>
-                            <th>ID</th>
-                            <th>Fecha</th>
-                            <th>Cliente</th>
-                            <th>RUC/Cédula</th>
-                            <th>Documento</th>
-                            <th>Factura</th>
-                            <th>Monto Total</th>
-                            <th>Saldo Pendiente</th>
-                            <th>Vencimiento</th>
-                            <th>Estado</th>
-                            <th>Acciones</th>
+                            <th class="py-3 text-dark border-bottom">ID</th>
+                            <th class="py-3 text-dark border-bottom">Cliente</th>
+                            <th class="py-3 text-dark border-bottom">Contacto</th>
+                            <th class="py-3 text-dark border-bottom">Factura</th>
+                            <th class="py-3 text-dark border-bottom text-right">Monto</th>
+                            <th class="py-3 text-dark border-bottom text-right">Saldo</th>
+                            <th class="py-3 text-dark border-bottom">Vencimiento</th>
+                            <th class="py-3 text-dark border-bottom">Estado</th>
+                            <th class="py-3 text-dark border-bottom text-center">Acciones</th>
                         </tr>
                     </thead>
                     <tbody>
                         {% for cuenta in cuentas %}
                         <tr>
-                            <td>{{ cuenta.ID_Movimiento }}</td>
-                            <td>{{ cuenta.Fecha.strftime('%d/%m/%Y') if cuenta.Fecha else '' }}</td>
-                            <td>{{ cuenta.NombreCliente }}</td>
-                            <td>{{ cuenta.CedulaCliente or 'N/A' }}</td>
-                            <td>{{ cuenta.Num_Documento }}</td>
-                            <td>
+                            <!-- ID -->
+                            <td class="align-middle border-bottom">
+                                <span class="text-dark font-weight-bold">#{{ cuenta.ID_Movimiento }}</span>
+                            </td>
+                            
+                            <!-- Cliente -->
+                            <td class="align-middle border-bottom">
+                                <div class="font-weight-bold text-dark mb-1">{{ cuenta.NombreCliente or 'N/A' }}</div>
+                                <small class="text-muted">
+                                    {{ cuenta.Fecha.strftime('%d/%m/%Y') if cuenta.Fecha else 'Sin fecha' }}
+                                </small>
+                                {% if cuenta.Observacion %}
+                                <div class="mt-1">
+                                    <small class="text-muted">
+                                        <i class="fas fa-comment fa-xs mr-1"></i>{{ cuenta.Observacion|truncate(30) }}
+                                    </small>
+                                </div>
+                                {% endif %}
+                            </td>
+                            
+                            <!-- Contacto -->
+                            <td class="align-middle border-bottom">
+                                {% if cuenta.TelefonoCliente %}
+                                    <span class="text-dark">
+                                        <i class="fas fa-phone fa-sm mr-1 text-primary"></i>{{ cuenta.TelefonoCliente }}
+                                    </span>
+                                {% else %}
+                                    <span class="text-muted">Sin contacto</span>
+                                {% endif %}
+                            </td>
+                            
+                            <!-- Factura -->
+                            <td class="align-middle border-bottom">
                                 {% if cuenta.NumeroFactura %}
-                                    <span class="badge badge-info">{{ cuenta.NumeroFactura }}</span>
-                                {% else %}
-                                    <span class="text-muted">N/A</span>
-                                {% endif %}
-                            </td>
-                            <td class="text-right">C${{ "%.2f"|format(cuenta.Monto_Movimiento) }}</td>
-                            <td class="text-right">
-                                <strong class="{% if cuenta.Saldo_Pendiente > 0 %}text-danger{% else %}text-success{% endif %}">
-                                    C${{ "%.2f"|format(cuenta.Saldo_Pendiente) }}
-                                </strong>
-                            </td>
-                            <td>
-                                {% if cuenta.Fecha_Vencimiento %}
-                                    {{ cuenta.Fecha_Vencimiento.strftime('%d/%m/%Y') }}
-                                    {% if cuenta.Estado == 'Vencido' %}
-                                    <span class="badge badge-danger">{{ cuenta.DiasVencido }} días</span>
+                                    <div class="mb-1">
+                                        <span class="badge bg-info text-white py-1 px-2">
+                                            {{ cuenta.NumeroFactura }}
+                                        </span>
+                                    </div>
+                                    {% if cuenta.Nombre_Empresa %}
+                                    <small class="text-muted d-block">
+                                        {{ cuenta.Nombre_Empresa|truncate(20) }}
+                                    </small>
                                     {% endif %}
-                                {% endif %}
-                            </td>
-                            <td>
-                                {% if cuenta.Estado == 'Pagado' %}
-                                    <span class="badge badge-success">Pagado</span>
-                                {% elif cuenta.Estado == 'Vencido' %}
-                                    <span class="badge badge-danger">Vencido</span>
                                 {% else %}
-                                    <span class="badge badge-warning">Pendiente</span>
+                                    <span class="text-muted">Sin factura</span>
                                 {% endif %}
                             </td>
-                            <td>
-                                <div class="btn-group">
+                            
+                            <!-- Monto -->
+                            <td class="align-middle text-right border-bottom">
+                                <span class="font-weight-bold text-dark">
+                                    C${{ "%.2f"|format(cuenta.Monto_Movimiento) }}
+                                </span>
+                            </td>
+                            
+                            <!-- Saldo -->
+                            <td class="align-middle text-right border-bottom">
+                                <div class="mb-1">
+                                    <span class="font-weight-bold {% if cuenta.Saldo_Pendiente > 0 %}text-danger{% else %}text-success{% endif %}">
+                                        C${{ "%.2f"|format(cuenta.Saldo_Pendiente) }}
+                                    </span>
+                                </div>
+                                {% if cuenta.Saldo_Pendiente < cuenta.Monto_Movimiento and cuenta.Saldo_Pendiente > 0 %}
+                                <small class="text-muted">
+                                    Abonado: C${{ "%.2f"|format(cuenta.Monto_Movimiento - cuenta.Saldo_Pendiente) }}
+                                </small>
+                                {% endif %}
+                            </td>
+                            
+                            <!-- Vencimiento -->
+                            <td class="align-middle border-bottom">
+                                {% if cuenta.Fecha_Vencimiento %}
+                                    <div class="mb-1 text-dark">
+                                        {{ cuenta.Fecha_Vencimiento.strftime('%d/%m/%Y') }}
+                                    </div>
+                                    {% if cuenta.Estado == 'Vencido' %}
+                                        <span class="badge bg-danger text-white py-1 px-2">
+                                            Vencido: {{ cuenta.DiasVencido }} días
+                                        </span>
+                                    {% elif cuenta.DiasRestantes is not none and cuenta.DiasRestantes >= 0 %}
+                                        <span class="badge bg-info text-white py-1 px-2">
+                                            {{ cuenta.DiasRestantes }} días restantes
+                                        </span>
+                                    {% endif %}
+                                {% else %}
+                                    <span class="text-muted">Sin fecha</span>
+                                {% endif %}
+                            </td>
+                            
+                            <!-- Estado -->
+                            <td class="align-middle border-bottom">
+                                {% if cuenta.Estado == 'Pagado' %}
+                                    <span class="badge bg-success text-white py-1 px-3">
+                                        Pagado
+                                    </span>
+                                {% elif cuenta.Estado == 'Vencido' %}
+                                    <span class="badge bg-danger text-white py-1 px-3">
+                                        Vencido
+                                    </span>
+                                {% else %}
+                                    <span class="badge bg-warning text-white py-1 px-3">
+                                        Pendiente
+                                    </span>
+                                {% endif %}
+                            </td>
+                            
+                            <!-- Acciones -->
+                            <td class="align-middle text-center border-bottom">
+                                <div class="btn-group btn-group-sm" role="group">
                                     <a href="{{ url_for('admin_detalle_cuentacobrar', id_movimiento=cuenta.ID_Movimiento) }}" 
-                                       class="btn btn-info btn-sm" title="Ver Detalle">
-                                        <i class="fas fa-eye"></i>Detalle
+                                       class="btn btn-outline-primary" title="Ver Detalle">
+                                        <i class="fas fa-eye"></i>Detalles
                                     </a>
                                     {% if cuenta.Saldo_Pendiente > 0 %}
                                     <a href="{{ url_for('admin_registrar_pago', id_movimiento=cuenta.ID_Movimiento) }}" 
-                                       class="btn btn-success btn-sm" title="Registrar Pago">
-                                        <i class="fas fa-money-bill-wave"></i>Registrar pago
+                                       class="btn btn-outline-success" title="Registrar Pago">
+                                        <i class="fas fa-money-bill-wave"></i>Pagos
                                     </a>
                                     {% endif %}
                                 </div>
@@ -114,13 +246,60 @@
                         </tr>
                         {% else %}
                         <tr>
-                            <td colspan="11" class="text-center">No hay cuentas por cobrar</td>
+                            <td colspan="9" class="text-center py-5 border-bottom">
+                                <div class="py-4">
+                                    <i class="fas fa-check-circle fa-3x text-success mb-3"></i>
+                                    <h5 class="text-muted">¡Excelente!</h5>
+                                    <p class="text-muted">No hay cuentas por cobrar pendientes</p>
+                                </div>
+                            </td>
                         </tr>
                         {% endfor %}
                     </tbody>
                 </table>
             </div>
         </div>
+        
+        <div class="card-footer bg-white py-3">
+            <div class="row">
+                <div class="col-md-8">
+                    <small class="text-muted">
+                        <i class="fas fa-info-circle mr-1 text-primary"></i>
+                        Mostrando {{ cuentas|length }} registro(s)
+                    </small>
+                </div>
+                <div class="col-md-4 text-right">
+                    <small class="text-muted">
+                        Actualizado: {{ hoy.strftime('%d/%m/%Y %H:%M') }}
+                    </small>
+                </div>
+            </div>
+        </div>
     </div>
 </div>
+
+<!-- Script para búsqueda simple -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const searchInput = document.getElementById('searchInput');
+    const tableRows = document.querySelectorAll('#dataTable tbody tr');
+    
+    searchInput.addEventListener('keyup', function() {
+        const searchTerm = this.value.toLowerCase().trim();
+        
+        tableRows.forEach(row => {
+            if (row.cells.length > 1) {
+                const clienteCell = row.cells[1]; // Columna de Cliente
+                const clienteText = clienteCell.textContent.toLowerCase();
+                
+                if (clienteText.includes(searchTerm)) {
+                    row.style.display = '';
+                } else {
+                    row.style.display = 'none';
+                }
+            }
+        });
+    });
+});
+</script>
 {% endblock %}
