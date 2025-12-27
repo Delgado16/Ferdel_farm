@@ -1,269 +1,312 @@
-document.addEventListener('DOMContentLoaded', function () {
+document.addEventListener('DOMContentLoaded', function() {
+    // ========== ELEMENTOS PRINCIPALES ==========
     const sidebar = document.getElementById('mainSidebar');
-    const sidebarToggle = document.getElementById('sidebarToggle');
-    const sidebarOverlay = document.getElementById('sidebarOverlay');
-    const sidebarCollapse = document.getElementById('sidebarCollapse');
+    const toggleBtn = document.getElementById('sidebarToggle');
+    const overlay = document.getElementById('sidebarOverlay');
     const mainContent = document.getElementById('mainContent');
-
-    // Función para inicializar la fecha actual
-    function initializeCurrentDate() {
-        const dateElement = document.getElementById('current-date');
-        if (dateElement && !dateElement.textContent.trim()) {
-            const now = new Date();
-            const options = { day: '2-digit', month: '2-digit', year: 'numeric' };
-            dateElement.textContent = now.toLocaleDateString('es-ES', options);
-        }
+    
+    // ========== FUNCIONES BÁSICAS ==========
+    
+    // 1. Verificar si es móvil
+    function isMobile() {
+        return window.innerWidth < 992;
     }
-
-    // Inicializar fecha actual
-    initializeCurrentDate();
-
-    // Manejar el toggle del sidebar en móviles
-    if (sidebarToggle) {
-        sidebarToggle.addEventListener('click', function () {
-            sidebar.classList.toggle('show');
-            if (sidebarOverlay) {
-                sidebarOverlay.classList.toggle('show');
-            }
-            // Prevenir scroll del body cuando el sidebar está abierto en móvil
-            document.body.style.overflow = sidebar.classList.contains('show') ? 'hidden' : '';
-        });
-    }
-
-    // Manejar colapso/expansión del sidebar en desktop
-    if (sidebarCollapse) {
-        sidebarCollapse.addEventListener('click', function () {
-            sidebar.classList.toggle('collapsed');
-            if (mainContent) {
-                mainContent.classList.toggle('expanded');
-            }
-        });
-    }
-
-    // Cerrar sidebar al hacer clic en el overlay
-    if (sidebarOverlay) {
-        sidebarOverlay.addEventListener('click', function () {
-            sidebar.classList.remove('show');
-            this.classList.remove('show');
-            document.body.style.overflow = '';
-        });
-    }
-
-    // Manejar submenús
-    const submenuToggleButtons = document.querySelectorAll('.submenu-toggle-btn');
-
-    submenuToggleButtons.forEach(button => {
-        button.addEventListener('click', function (e) {
-            e.preventDefault();
-            e.stopPropagation();
-
-            const targetId = this.getAttribute('href');
-            if (!targetId) return;
-
-            const targetSubmenu = document.querySelector(targetId);
-            if (!targetSubmenu) return;
-
-            const parent = this.closest('.has-submenu');
-            if (!parent) return;
-
-            // Alternar el submenú actual
-            const isActive = parent.classList.contains('active');
-            
-            // Cerrar todos los submenús primero (opcional)
-            // document.querySelectorAll('.submenu.show').forEach(menu => menu.classList.remove('show'));
-            // document.querySelectorAll('.has-submenu.active').forEach(menu => menu.classList.remove('active'));
-            
-            // Alternar estado
-            parent.classList.toggle('active');
-            targetSubmenu.classList.toggle('show');
-
-            // Rotar ícono del toggle
-            const toggleIcon = this.querySelector('.submenu-toggle');
-            if (toggleIcon) {
-                toggleIcon.style.transform = parent.classList.contains('active') ? 'rotate(90deg)' : '';
-            }
-        });
-    });
-
-    // Inicializar submenús según la página actual
-    function initializeActiveSubmenus() {
-        const currentPath = window.location.pathname;
+    
+    // 2. Abrir/cerrar sidebar en móvil
+    function toggleMobileSidebar() {
+        const isOpening = !sidebar.classList.contains('show');
         
-        // Para el menú de Catálogos
-        if (currentPath.includes('/admin/usuarios') || 
-            currentPath.includes('/admin/empresas') || 
-            currentPath.includes('/admin/clientes') ||
-            currentPath.includes('/admin/proveedores') ||
-            currentPath.includes('/admin/unidades_medidas') ||
-            currentPath.includes('/admin/categorias') ||
-            currentPath.includes('/admin/metodos_pago') ||
-            currentPath.includes('/admin/movimientos_inventario')) {
-            
-            const catalogosSubmenu = document.querySelector('#catalogos-submenu');
-            if (catalogosSubmenu) {
-                const catalogosMenu = catalogosSubmenu.closest('.has-submenu');
-                catalogosSubmenu.classList.add('show');
-                catalogosMenu.classList.add('active');
-                
-                // Rotar ícono
-                const toggleIcon = catalogosMenu.querySelector('.submenu-toggle');
-                if (toggleIcon) {
-                    toggleIcon.style.transform = 'rotate(90deg)';
-                }
-            }
-        }
-
-        // Para el menú de Productos
-        if (currentPath.includes('/admin/productos') || 
-            currentPath.includes('/admin/tipo_productos') ||
-            currentPath.includes('/admin/familias')) {
-            
-            const productosSubmenu = document.querySelector('#productos-submenu');
-            if (productosSubmenu) {
-                const productosMenu = productosSubmenu.closest('.has-submenu');
-                productosSubmenu.classList.add('show');
-                productosMenu.classList.add('active');
-                
-                // Rotar ícono
-                const toggleIcon = productosMenu.querySelector('.submenu-toggle');
-                if (toggleIcon) {
-                    toggleIcon.style.transform = 'rotate(90deg)';
-                }
-            }
-        }
-
-        // Para el menú de Bodega
-        if (currentPath.includes('/admin/bodega') || 
-            currentPath.includes('/admin/inventario') ||
-            currentPath.includes('/admin/movimientos')) {
-            
-            const bodegaSubmenu = document.querySelector('#bodega-submenu');
-            if (bodegaSubmenu) {
-                const bodegaMenu = bodegaSubmenu.closest('.has-submenu');
-                bodegaSubmenu.classList.add('show');
-                bodegaMenu.classList.add('active');
-                
-                // Rotar ícono
-                const toggleIcon = bodegaMenu.querySelector('.submenu-toggle');
-                if (toggleIcon) {
-                    toggleIcon.style.transform = 'rotate(90deg)';
-                }
-            }
+        sidebar.classList.toggle('show');
+        overlay.classList.toggle('show');
+        
+        // Prevenir scroll del body cuando sidebar está abierto
+        if (isOpening) {
+            document.body.style.overflow = 'hidden';
+        } else {
+            document.body.style.overflow = '';
         }
     }
-
-    // Inicializar submenús activos
-    initializeActiveSubmenus();
-
-    // Mejoras para formularios: validación y feedback
-    const forms = document.querySelectorAll('form');
-    forms.forEach(form => {
-        form.addEventListener('submit', function (e) {
-            // Solo aplicar validación si el formulario no tiene novalidate
-            if (form.hasAttribute('novalidate')) {
-                return;
+    
+    // 3. Colapsar/expandir sidebar en desktop
+    function toggleDesktopSidebar() {
+        sidebar.classList.toggle('collapsed');
+        mainContent.classList.toggle('expanded');
+        
+        // Guardar preferencia
+        const isCollapsed = sidebar.classList.contains('collapsed');
+        localStorage.setItem('sidebarCollapsed', isCollapsed);
+        
+        // Cerrar todos los submenús cuando se colapsa
+        if (isCollapsed) {
+            closeAllSubmenus();
+        }
+    }
+    
+    // 4. Cerrar todos los submenús
+    function closeAllSubmenus() {
+        const openSubmenus = document.querySelectorAll('.submenu.show');
+        const activeParents = document.querySelectorAll('.has-submenu.active');
+        
+        openSubmenus.forEach(menu => menu.classList.remove('show'));
+        activeParents.forEach(parent => {
+            parent.classList.remove('active');
+            const icon = parent.querySelector('.submenu-toggle');
+            if (icon) icon.style.transform = '';
+        });
+    }
+    
+    // ========== EVENT LISTENERS PRINCIPALES ==========
+    
+    // 1. Botón hamburguesa
+    if (toggleBtn) {
+        toggleBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            
+            if (isMobile()) {
+                toggleMobileSidebar();
+            } else {
+                toggleDesktopSidebar();
             }
-
-            // Validación básica de campos requeridos
-            const requiredFields = form.querySelectorAll('[required]');
-            let isValid = true;
-
-            requiredFields.forEach(field => {
-                if (!field.value.trim()) {
-                    isValid = false;
-                    field.classList.add('is-invalid');
-
-                    // Crear mensaje de error si no existe
-                    const feedbackDiv = field.parentNode.querySelector('.invalid-feedback');
-                    if (!feedbackDiv) {
-                        const errorDiv = document.createElement('div');
-                        errorDiv.className = 'invalid-feedback';
-                        errorDiv.textContent = field.dataset.errorMessage || 'Este campo es obligatorio';
-                        field.parentNode.appendChild(errorDiv);
-                    } else {
-                        feedbackDiv.style.display = 'block';
-                    }
-                } else {
-                    field.classList.remove('is-invalid');
-                    const feedbackDiv = field.parentNode.querySelector('.invalid-feedback');
-                    if (feedbackDiv) {
-                        feedbackDiv.style.display = 'none';
-                    }
-                }
-            });
-
-            if (!isValid) {
+        });
+    }
+    
+    // 2. Overlay para cerrar en móvil
+    if (overlay) {
+        overlay.addEventListener('click', function() {
+            if (isMobile() && sidebar.classList.contains('show')) {
+                toggleMobileSidebar();
+            }
+        });
+    }
+    
+    // ========== MANEJO DE SUBMENÚS ==========
+    
+    function setupSubmenus() {
+        const toggleButtons = document.querySelectorAll('.submenu-toggle-btn');
+        
+        toggleButtons.forEach(button => {
+            button.addEventListener('click', function(e) {
                 e.preventDefault();
                 e.stopPropagation();
                 
-                // Enfocar el primer campo inválido
-                const firstInvalidField = form.querySelector('.is-invalid');
-                if (firstInvalidField) {
-                    firstInvalidField.focus();
+                const targetId = this.getAttribute('href');
+                if (!targetId || targetId === '#') return;
+                
+                const submenu = document.querySelector(targetId);
+                const parent = this.closest('.has-submenu');
+                if (!submenu || !parent) return;
+                
+                // En móvil: si el sidebar está cerrado, abrirlo primero
+                if (isMobile() && !sidebar.classList.contains('show')) {
+                    toggleMobileSidebar();
+                    setTimeout(() => toggleSubmenu(parent, submenu, this), 300);
+                    return;
                 }
-            }
+                
+                toggleSubmenu(parent, submenu, this);
+            });
         });
-
-        // Limpiar errores al escribir
-        const inputs = form.querySelectorAll('input, textarea, select');
-        inputs.forEach(input => {
-            input.addEventListener('input', function () {
-                if (this.classList.contains('is-invalid')) {
-                    this.classList.remove('is-invalid');
-                    const feedbackDiv = this.parentNode.querySelector('.invalid-feedback');
-                    if (feedbackDiv) {
-                        feedbackDiv.style.display = 'none';
+        
+        function toggleSubmenu(parent, submenu, button) {
+            const isOpening = !parent.classList.contains('active');
+            
+            // En desktop: si estamos abriendo un submenú y el sidebar está colapsado, expandirlo
+            if (!isMobile() && isOpening && sidebar.classList.contains('collapsed')) {
+                sidebar.classList.remove('collapsed');
+                mainContent.classList.remove('expanded');
+                localStorage.setItem('sidebarCollapsed', false);
+            }
+            
+            // Alternar estado
+            parent.classList.toggle('active');
+            submenu.classList.toggle('show');
+            
+            // Rotar ícono
+            const icon = button.querySelector('.submenu-toggle');
+            if (icon) {
+                icon.style.transform = parent.classList.contains('active') ? 'rotate(90deg)' : '';
+            }
+            
+            // En desktop: cerrar otros submenús del mismo nivel
+            if (!isMobile() && isOpening) {
+                const allParents = parent.parentNode.querySelectorAll('.has-submenu');
+                allParents.forEach(otherParent => {
+                    if (otherParent !== parent && otherParent.classList.contains('active')) {
+                        otherParent.classList.remove('active');
+                        const otherSubmenu = otherParent.querySelector('.submenu');
+                        if (otherSubmenu) otherSubmenu.classList.remove('show');
+                        
+                        const otherIcon = otherParent.querySelector('.submenu-toggle');
+                        if (otherIcon) otherIcon.style.transform = '';
                     }
+                });
+            }
+        }
+    }
+    
+    // ========== MANEJO DE ENLACES DE NAVEGACIÓN ==========
+    // ¡ESTA ES LA PARTE MÁS IMPORTANTE QUE CORRIGE EL PROBLEMA!
+    
+    function setupNavLinks() {
+        // Solo aplicar a enlaces dentro del sidebar
+        const navLinks = sidebar.querySelectorAll('.nav-link');
+        
+        navLinks.forEach(link => {
+            link.addEventListener('click', function(e) {
+                // Si es un botón de toggle de submenú, ya lo manejamos arriba
+                if (this.classList.contains('submenu-toggle-btn')) {
+                    return;
+                }
+                
+                const href = this.getAttribute('href');
+                
+                // Si el enlace es javascript:void(0) o está vacío, no hacer nada
+                if (!href || href === 'javascript:void(0)' || href === '#') {
+                    e.preventDefault();
+                    return;
+                }
+                
+                // En móvil, cerrar sidebar después de un pequeño delay
+                if (isMobile() && sidebar.classList.contains('show')) {
+                    // Pequeño delay para mejor UX
+                    setTimeout(() => {
+                        toggleMobileSidebar();
+                    }, 200);
+                }
+                
+                // En desktop, si el sidebar está colapsado, expandirlo al hacer clic
+                if (!isMobile() && sidebar.classList.contains('collapsed') && 
+                    href && href !== 'javascript:void(0)') {
+                    sidebar.classList.remove('collapsed');
+                    mainContent.classList.remove('expanded');
+                    localStorage.setItem('sidebarCollapsed', false);
                 }
             });
         });
-    });
-
-    // Auto-ocultar mensajes de alerta después de 5 segundos
-    const alerts = document.querySelectorAll('.alert');
-    alerts.forEach(alert => {
-        setTimeout(() => {
-            if (alert && alert.parentNode) {
-                const bsAlert = new bootstrap.Alert(alert);
-                bsAlert.close();
-            }
-        }, 5000);
-    });
-
-    // Cerrar alertas al hacer clic en cualquier lugar
-    document.addEventListener('click', function(e) {
-        if (e.target.closest('.alert')) {
-            const closeButton = e.target.closest('.alert').querySelector('.btn-close');
-            if (closeButton) {
-                const bsAlert = new bootstrap.Alert(e.target.closest('.alert'));
-                bsAlert.close();
+    }
+    
+    // ========== INICIALIZACIÓN ==========
+    
+    function initialize() {
+        // 1. Fecha actual
+        const dateElement = document.getElementById('current-date');
+        if (dateElement && !dateElement.textContent.trim()) {
+            dateElement.textContent = new Date().toLocaleDateString('es-ES');
+        }
+        
+        // 2. Cargar estado del sidebar en desktop
+        if (!isMobile()) {
+            const savedState = localStorage.getItem('sidebarCollapsed');
+            if (savedState === 'true') {
+                sidebar.classList.add('collapsed');
+                mainContent.classList.add('expanded');
             }
         }
-    });
-
-    // Manejar el cierre del sidebar al hacer clic fuera de él en móvil
-    document.addEventListener('click', function(e) {
-        if (window.innerWidth < 768 && sidebar && sidebar.classList.contains('show')) {
-            if (!sidebar.contains(e.target) && 
-                !sidebarToggle.contains(e.target) && 
-                sidebarOverlay && 
-                sidebarOverlay.classList.contains('show')) {
-                
-                sidebar.classList.remove('show');
-                sidebarOverlay.classList.remove('show');
-                document.body.style.overflow = '';
+        
+        // 3. Submenús activos según URL actual
+        activateCurrentMenu();
+        
+        // 4. Configurar submenús y enlaces
+        setupSubmenus();
+        setupNavLinks();
+        
+        // 5. Auto-cerrar alertas
+        setupAutoCloseAlerts();
+        
+        // 6. Manejar redimensionamiento
+        window.addEventListener('resize', handleResize);
+        
+        // 7. Cerrar sidebar con ESC en móvil
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape' && isMobile() && sidebar.classList.contains('show')) {
+                toggleMobileSidebar();
+            }
+        });
+    }
+    
+    // Activar menú actual según URL
+    function activateCurrentMenu() {
+        const path = window.location.pathname;
+        
+        // Mapeo de rutas a submenús
+        const menuMap = {
+            '/admin/usuarios': '#catalogos-submenu',
+            '/admin/empresas': '#catalogos-submenu',
+            '/admin/clientes': '#catalogos-submenu',
+            '/admin/proveedores': '#catalogos-submenu',
+            '/admin/unidades_medidas': '#catalogos-submenu',
+            '/admin/categorias': '#catalogos-submenu',
+            '/admin/metodos_pago': '#catalogos-submenu',
+            '/admin/movimientos_inventario': '#catalogos-submenu',
+            '/admin/productos': '#productos-submenu',
+            '/admin/bodega': '#bodega-submenu',
+            '/admin/historial_movimientos': '#bodega-submenu',
+            '/admin/ventas_salidas': '#ventas-submenu',
+            '/admin/cuentascobrar': '#ventas-submenu',
+            '/admin/compras_entradas': '#compras-submenu',
+            '/admin/cuentas_por_pagar': '#compras-submenu',
+            '/admin/bitacora': '#herramientas-submenu'
+        };
+        
+        // Buscar coincidencia
+        for (const [route, submenuId] of Object.entries(menuMap)) {
+            if (path.includes(route)) {
+                const submenu = document.querySelector(submenuId);
+                if (submenu) {
+                    const parent = submenu.closest('.has-submenu');
+                    submenu.classList.add('show');
+                    if (parent) parent.classList.add('active');
+                    
+                    const icon = parent?.querySelector('.submenu-toggle');
+                    if (icon) icon.style.transform = 'rotate(90deg)';
+                }
+                break;
             }
         }
-    });
-
-    // Manejar tecla ESC para cerrar sidebar en móvil
-    document.addEventListener('keydown', function(e) {
-        if (e.key === 'Escape' && sidebar && sidebar.classList.contains('show')) {
-            sidebar.classList.remove('show');
-            if (sidebarOverlay) {
-                sidebarOverlay.classList.remove('show');
-            }
+    }
+    
+    // Manejar cambio de tamaño
+    function handleResize() {
+        if (isMobile()) {
+            // En móvil: resetear sidebar
+            sidebar.classList.remove('collapsed', 'show');
+            mainContent.classList.remove('expanded');
+            overlay.classList.remove('show');
             document.body.style.overflow = '';
+        } else {
+            // En desktop: cargar estado guardado
+            const savedState = localStorage.getItem('sidebarCollapsed');
+            if (savedState === 'true') {
+                sidebar.classList.add('collapsed');
+                mainContent.classList.add('expanded');
+            } else {
+                sidebar.classList.remove('collapsed');
+                mainContent.classList.remove('expanded');
+            }
         }
-    });
+    }
+    
+    // Auto-cerrar alertas
+    function setupAutoCloseAlerts() {
+        const alerts = document.querySelectorAll('.alert');
+        alerts.forEach(alert => {
+            setTimeout(() => {
+                if (alert && alert.parentNode) {
+                    try {
+                        const bsAlert = bootstrap.Alert.getOrCreateInstance(alert);
+                        bsAlert.close();
+                    } catch (e) {
+                        // Fallback
+                        alert.style.opacity = '0';
+                        setTimeout(() => {
+                            if (alert.parentNode) alert.parentNode.removeChild(alert);
+                        }, 300);
+                    }
+                }
+            }, 5000);
+        });
+    }
+    
+    // ========== EJECUTAR INICIALIZACIÓN ==========
+    initialize();
 });

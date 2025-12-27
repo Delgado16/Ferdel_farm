@@ -46,7 +46,7 @@
     <div class="alert alert-warning alert-dismissible fade show">
         <i class="fas fa-exclamation-triangle"></i>
         <strong>Advertencia:</strong> Existe una diferencia de ${{ "%.2f"|format(diferencia) }} entre los cálculos. 
-        <br><small>Saldo en sistema: ${{ "%.2f"|format(cuenta.Saldo_Pendiente) }} | Saldo teórico: ${{ "%.2f"|format(saldo_teorico) }}</small>
+        <br><small>Saldo en sistema: ${{ "%.2f"|format(saldo_pendiente_formateado) }} | Saldo teórico: ${{ "%.2f"|format(saldo_teorico) }}</small>
         <button type="button" class="close" data-dismiss="alert">
             <span>&times;</span>
         </button>
@@ -97,13 +97,13 @@
                             <table class="table table-sm table-borderless">
                                 <tr>
                                     <th class="text-muted">Fecha Emisión:</th>
-                                    <td>{{ cuenta.Fecha.strftime('%d/%m/%Y') }}</td>
+                                    <td>{{ cuenta.Fecha_Formateada }}</td>
                                 </tr>
                                 <tr>
                                     <th class="text-muted">Fecha Vencimiento:</th>
                                     <td>
-                                        {% if cuenta.Fecha_Vencimiento %}
-                                            {{ cuenta.Fecha_Vencimiento.strftime('%d/%m/%Y') }}
+                                        {% if cuenta.Fecha_Vencimiento_Formateada and cuenta.Fecha_Vencimiento_Formateada != 'None' %}
+                                            {{ cuenta.Fecha_Vencimiento_Formateada }}
                                             {% if cuenta.Estado == 'Vencido' %}
                                             <i class="fas fa-exclamation-triangle text-danger ml-1" title="Vencido"></i>
                                             {% endif %}
@@ -285,13 +285,13 @@
                     <i class="fas fa-money-bill-wave mr-1"></i>Registrar Pago
                 </a>
                 {% if cuenta.NumeroFactura != 'N/A' %}
-                <a href="#" class="btn btn-info">
+                <button type="button" class="btn btn-info" onclick="imprimirComprobante()">
                     <i class="fas fa-print mr-1"></i>Imprimir Comprobante
-                </a>
+                </button>
                 {% endif %}
-                <a href="#" class="btn btn-warning">
+                <button type="button" class="btn btn-warning" onclick="enviarRecordatorio()">
                     <i class="fas fa-envelope mr-1"></i>Enviar Recordatorio
-                </a>
+                </button>
             </div>
         </div>
     </div>
@@ -302,6 +302,7 @@
 {% block scripts %}
 <script>
 $(document).ready(function() {
+    // Inicializar DataTable
     $('#dataTable').DataTable({
         "order": [[ 1, "desc" ]],  // Ordenar por fecha (columna 1)
         "language": {
@@ -309,8 +310,99 @@ $(document).ready(function() {
         },
         "pageLength": 10,
         "columnDefs": [
-            { "orderable": false, "targets": [0, 4, 5, 6] }  // Deshabilitar orden en columna # y detalles
+            { "orderable": false, "targets": [0, 4, 5, 6] }  // Deshabilitar orden en columnas específicas
         ]
+    });
+    
+    // Funciones de acción
+    window.imprimirComprobante = function() {
+        Swal.fire({
+            title: 'Imprimir Comprobante',
+            text: '¿Desea imprimir el comprobante de esta cuenta?',
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonText: 'Sí, imprimir',
+            cancelButtonText: 'Cancelar'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                // Redirigir a la URL de impresión
+                window.open('{{ url_for("admin_imprimir_comprobante", id_movimiento=cuenta.ID_Movimiento) }}', '_blank');
+            }
+        });
+    };
+    
+    window.enviarRecordatorio = function() {
+        Swal.fire({
+            title: 'Enviar Recordatorio',
+            html: `
+                <div class="form-group">
+                    <label for="correo">Correo del cliente:</label>
+                    <input type="email" id="correo" class="form-control" 
+                           value="{{ cuenta.CedulaCliente }}@ejemplo.com" placeholder="Correo electrónico">
+                </div>
+                <div class="form-group">
+                    <label for="mensaje">Mensaje personalizado:</label>
+                    <textarea id="mensaje" class="form-control" rows="3" 
+                              placeholder="Escriba un mensaje personalizado...">Recordatorio de pago pendiente por ${{ "%.2f"|format(saldo_pendiente_formateado) }}</textarea>
+                </div>
+            `,
+            showCancelButton: true,
+            confirmButtonText: 'Enviar',
+            cancelButtonText: 'Cancelar',
+            showLoaderOnConfirm: true,
+            preConfirm: () => {
+                const correo = document.getElementById('correo').value;
+                const mensaje = document.getElementById('mensaje').value;
+                
+                if (!correo) {
+                    Swal.showValidationMessage('Por favor ingrese un correo electrónico');
+                    return false;
+                }
+                
+                // Aquí iría la llamada AJAX para enviar el recordatorio
+                return fetch('/admin/enviar-recordatorio', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        id_movimiento: {{ cuenta.ID_Movimiento }},
+                        correo: correo,
+                        mensaje: mensaje
+                    })
+                })
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(response.statusText);
+                    }
+                    return response.json();
+                })
+                .catch(error => {
+                    Swal.showValidationMessage(`Error: ${error}`);
+                });
+            }
+        }).then((result) => {
+            if (result.isConfirmed) {
+                Swal.fire(
+                    'Enviado!',
+                    'El recordatorio ha sido enviado exitosamente.',
+                    'success'
+                );
+            }
+        });
+    };
+    
+    // Confirmación para registrar pago si la cuenta está cancelada
+    $('.btn-success.disabled').click(function(e) {
+        if ($(this).hasClass('disabled')) {
+            e.preventDefault();
+            Swal.fire({
+                title: 'Cuenta Cancelada',
+                text: 'Esta cuenta ya se encuentra completamente cancelada. No puede registrar más pagos.',
+                icon: 'info',
+                confirmButtonText: 'Entendido'
+            });
+        }
     });
 });
 </script>
@@ -339,8 +431,13 @@ $(document).ready(function() {
     border: none;
 }
 
-.btn-success:hover {
+.btn-success:hover:not(.disabled) {
     background: linear-gradient(45deg, #17a673, #0e6b4e);
+}
+
+.btn-success.disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
 }
 
 .border-right {
@@ -352,5 +449,29 @@ $(document).ready(function() {
 .badge-warning { background-color: #f6c23e; }
 .badge-danger { background-color: #e74a3b; }
 .badge-info { background-color: #36b9cc; }
+
+/* Responsive */
+@media (max-width: 768px) {
+    .btn-group {
+        flex-direction: column;
+        width: 100%;
+    }
+    
+    .btn-group .btn {
+        margin-bottom: 5px;
+        width: 100%;
+    }
+    
+    .border-right {
+        border-right: none !important;
+        border-bottom: 1px solid #e3e6f0 !important;
+        padding-bottom: 15px;
+        margin-bottom: 15px;
+    }
+    
+    .col-4 {
+        margin-bottom: 15px;
+    }
+}
 </style>
 {% endblock %}
