@@ -29,7 +29,7 @@
                             <i class="fas fa-file-invoice"></i>
                             Factura #{{ factura.ID_Factura }}
                         </h5>
-                        <span class="badge {% if factura.Estado_Factura == 1 %}bg-success{% else %}bg-danger{% endif %}">
+                        <span class="badge {% if factura.Estado_Factura == 'Activa' %}bg-success{% else %}bg-danger{% endif %}">
                             {{ factura.Estado_Factura_Formateado }}
                         </span>
                     </div>
@@ -40,61 +40,7 @@
                             <table class="table table-borderless">
                                 <tr>
                                     <th width="40%">Fecha:</th>
-                                    <td>
-                                        {% if factura.Fecha_Original %}
-                                            {% if factura.Fecha_Original is string %}
-                                                {# Si es string, verificar si tiene el formato literal #}
-                                                {% set fecha_str = factura.Fecha_Original %}
-                                                
-                                                {# Caso 1: Ya tiene el formato literal %d/%m/%Y %H:%i #}
-                                                {% if '%d/%m/%Y %H:%i' in fecha_str %}
-                                                    {# Extraer solo la parte de la fecha si hay espacio #}
-                                                    {% if ' ' in fecha_str %}
-                                                        {{ fecha_str.split(' ')[0] }}
-                                                    {% else %}
-                                                        {{ fecha_str }}
-                                                    {% endif %}
-                                                
-                                                {# Caso 2: Tiene formato YYYY-MM-DD HH:MM:SS o similar #}
-                                                {% elif '-' in fecha_str and ':' in fecha_str %}
-                                                    {% set parts = fecha_str.split(' ') %}
-                                                    {% if parts|length >= 1 %}
-                                                        {% set date_part = parts[0] %}
-                                                        {% set date_parts = date_part.split('-') %}
-                                                        {% if date_parts|length == 3 %}
-                                                            {{ date_parts[2] }}/{{ date_parts[1] }}/{{ date_parts[0] }}
-                                                            {% if parts|length >= 2 %}
-                                                                {% set time_part = parts[1].split(':')[0:2]|join(':') %}
-                                                                {{ ' ' + time_part }}
-                                                            {% endif %}
-                                                        {% else %}
-                                                            {{ fecha_str }}
-                                                        {% endif %}
-                                                    {% else %}
-                                                        {{ fecha_str }}
-                                                    {% endif %}
-                                                
-                                                {# Caso 3: Solo fecha YYYY-MM-DD #}
-                                                {% elif '-' in fecha_str %}
-                                                    {% set date_parts = fecha_str.split('-') %}
-                                                    {% if date_parts|length == 3 %}
-                                                        {{ date_parts[2] }}/{{ date_parts[1] }}/{{ date_parts[0] }}
-                                                    {% else %}
-                                                        {{ fecha_str }}
-                                                    {% endif %}
-                                                
-                                                {# Caso 4: Cualquier otro formato #}
-                                                {% else %}
-                                                    {{ fecha_str }}
-                                                {% endif %}
-                                            {% else %}
-                                                {# Si es datetime object, formatear correctamente #}
-                                                {{ factura.Fecha_Original.strftime('%d/%m/%Y') }}
-                                            {% endif %}
-                                        {% else %}
-                                            N/A
-                                        {% endif %}
-                                    </td>
+                                    <td>{{ factura.Fecha_Formateada or 'N/A' }}</td>
                                 </tr>
                                 <tr>
                                     <th>Cliente:</th>
@@ -107,7 +53,7 @@
                                 <tr>
                                     <th>Tipo de Venta:</th>
                                     <td>
-                                        <span class="badge {% if factura.Credito_Contado == 1 %}bg-warning{% else %}bg-success{% endif %}">
+                                        <span class="badge {% if factura.Tipo_Venta_Numerico == 1 %}bg-warning{% else %}bg-success{% endif %}">
                                             {{ factura.Tipo_Venta_Formateado }}
                                         </span>
                                     </td>
@@ -120,7 +66,7 @@
                                     <th width="40%">Movimiento:</th>
                                     <td>
                                         {% if factura.ID_Movimiento and factura.ID_Movimiento > 0 %}
-                                        <span class="badge {% if factura.Estado_Movimiento == 1 %}bg-success{% else %}bg-danger{% endif %}">
+                                        <span class="badge {% if factura.Estado_Movimiento == 'Activa' %}bg-success{% else %}bg-danger{% endif %}">
                                             {{ factura.Estado_Movimiento_Formateado }}
                                         </span>
                                         {% else %}
@@ -134,19 +80,11 @@
                                 </tr>
                                 <tr>
                                     <th>Usuario:</th>
-                                    <td>
-                                        {% if factura.Usuario_Nombre %}
-                                            {{ factura.Usuario_Nombre }}
-                                        {% elif factura.Usuario_Creacion %}
-                                            {{ factura.Usuario_Creacion }}
-                                        {% else %}
-                                            N/A
-                                        {% endif %}
-                                    </td>
+                                    <td>{{ factura.Usuario_Creacion or 'N/A' }}</td>
                                 </tr>
                                 <tr>
-                                    <th>Tipo Compra:</th>
-                                    <td>{{ factura.Tipo_Compra or 'CONTADO' }}</td>
+                                    <th>Tipo Movimiento:</th>
+                                    <td>{{ factura.Tipo_Movimiento or 'VENTA' }}</td>
                                 </tr>
                                 <tr>
                                     <th>Observación:</th>
@@ -226,32 +164,24 @@
                         </a>
 
                         <!-- Botón Editar (solo si es venta del día y está ACTIVA) -->
-                        {% if factura.Estado_Factura == 1 %}
+                        {% if factura.Estado_Factura == 'Activa' %}
                             {% set fecha_factura = None %}
                             
-                            {# Determinar la fecha de la factura #}
-                            {% if factura.Fecha_Original %}
+                            {# Usar la fecha ya formateada directamente #}
+                            {% if factura.Fecha_Formateada %}
+                                {% set fecha_factura = factura.Fecha_Formateada %}
+                            {% elif factura.Fecha_Original %}
+                                {# Si necesitamos extraer la fecha del objeto datetime #}
                                 {% if factura.Fecha_Original is string %}
-                                    {# Si es string, intentar extraer fecha #}
-                                    {% set fecha_str = factura.Fecha_Original %}
-                                    {# Limpiar formato literal si existe #}
-                                    {% if '%d/%m/%Y %H:%i' in fecha_str %}
-                                        {% set fecha_limpia = fecha_str.replace('%d/%m/%Y', '')|trim %}
-                                        {% if fecha_limpia %}
-                                            {% set fecha_factura = fecha_limpia.split(' ')[0] if ' ' in fecha_limpia else fecha_limpia %}
-                                        {% endif %}
-                                    {% else %}
-                                        {% set fecha_factura = fecha_str.split(' ')[0] if ' ' in fecha_str else fecha_str %}
-                                    {% endif %}
+                                    {% set fecha_factura = factura.Fecha_Original.split(' ')[0] if ' ' in factura.Fecha_Original else factura.Fecha_Original %}
                                 {% else %}
-                                    {# Si es datetime, convertir a string de fecha #}
-                                    {% set fecha_factura = factura.Fecha_Original.strftime('%Y-%m-%d') %}
+                                    {% set fecha_factura = factura.Fecha_Original.strftime('%d/%m/%Y') %}
                                 {% endif %}
                             {% endif %}
                             
                             {# Comparar con la fecha actual #}
                             {% if fecha_factura %}
-                                {% set fecha_hoy = hoy.strftime('%Y-%m-%d') %}
+                                {% set fecha_hoy = hoy.strftime('%d/%m/%Y') %}
                                 {% if fecha_factura == fecha_hoy %}
                                 <a href="{{ url_for('admin_editar_venta', id_factura=factura.ID_Factura) }}" 
                                    class="btn btn-outline-warning btn-sm">
@@ -262,7 +192,7 @@
                         {% endif %}
 
                         <!-- Botón Anular (solo si está ACTIVA) -->
-                        {% if factura.Estado_Factura == 1 %}
+                        {% if factura.Estado_Factura == 'Activa' %}
                         <button type="button" 
                                 class="btn btn-outline-danger btn-sm" 
                                 onclick="anularVenta({{ factura.ID_Factura }})">
@@ -271,7 +201,7 @@
                         {% endif %}
 
                         <!-- Información de Crédito -->
-                        {% if tiene_credito_pendiente and factura.Credito_Contado == 1 %}
+                        {% if tiene_credito_pendiente and factura.Tipo_Venta_Numerico == 1 %}
                         <div class="alert alert-warning mt-3">
                             <small>
                                 <i class="fas fa-exclamation-triangle"></i>
@@ -283,8 +213,7 @@
                                 <br>
                                 <strong>Vencimiento:</strong> 
                                 {% if credito_info.Fecha_Vencimiento_Max is string %}
-                                    {# Limpiar formato literal si existe #}
-                                    {{ credito_info.Fecha_Vencimiento_Max.replace('%d/%m/%Y', '') }}
+                                    {{ credito_info.Fecha_Vencimiento_Max }}
                                 {% else %}
                                     {{ credito_info.Fecha_Vencimiento_Max.strftime('%d/%m/%Y') if credito_info.Fecha_Vencimiento_Max else 'N/A' }}
                                 {% endif %}
@@ -332,7 +261,7 @@
                     <small>
                         <p><strong>Factura #:</strong> {{ factura.ID_Factura }}</p>
                         <p><strong>Estado Factura:</strong> 
-                            <span class="badge {% if factura.Estado_Factura == 1 %}bg-success{% else %}bg-danger{% endif %} badge-sm">
+                            <span class="badge {% if factura.Estado_Factura == 'Activa' %}bg-success{% else %}bg-danger{% endif %} badge-sm">
                                 {{ factura.Estado_Factura_Formateado }}
                             </span>
                         </p>
@@ -340,7 +269,7 @@
                         <p><strong>Movimiento #:</strong> {{ factura.ID_Movimiento if factura.ID_Movimiento and factura.ID_Movimiento > 0 else 'N/A' }}</p>
                         <p><strong>Estado Mov.:</strong> 
                             {% if factura.ID_Movimiento and factura.ID_Movimiento > 0 %}
-                            <span class="badge {% if factura.Estado_Movimiento == 1 %}bg-success{% else %}bg-danger{% endif %} badge-sm">
+                            <span class="badge {% if factura.Estado_Movimiento == 'Activa' %}bg-success{% else %}bg-danger{% endif %} badge-sm">
                                 {{ factura.Estado_Movimiento_Formateado }}
                             </span>
                             {% else %}
@@ -374,14 +303,7 @@
                             <tbody>
                                 {% for pago in pagos %}
                                 <tr>
-                                    <td>
-                                        {% if pago.Fecha_Pago is string %}
-                                            {# Limpiar formato literal si existe #}
-                                            {{ pago.Fecha_Pago.replace('%d/%m/%Y', '') }}
-                                        {% else %}
-                                            {{ pago.Fecha_Pago.strftime('%d/%m/%Y') if pago.Fecha_Pago else 'N/A' }}
-                                        {% endif %}
-                                    </td>
+                                    <td>{{ pago.Fecha_Pago or 'N/A' }}</td>
                                     <td>C$ {{ "%.2f"|format(pago.Monto_Pago) if pago.Monto_Pago else '0.00' }}</td>
                                     <td>{{ pago.Forma_Pago or 'N/A' }}</td>
                                 </tr>

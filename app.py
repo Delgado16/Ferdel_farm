@@ -2641,10 +2641,7 @@ def admin_crear_compra():
         if request.method == 'GET':
             id_empresa = session.get('id_empresa', 1)
             
-            with get_db_cursor(True) as cursor:
-                cursor.execute("SELECT * FROM catalogo_movimientos WHERE ID_TipoMovimiento = 1")
-                tipos_movimiento = cursor.fetchall()
-                
+            with get_db_cursor(True) as cursor:  
                 cursor.execute("SELECT ID_Proveedor, Nombre FROM Proveedores WHERE Estado = 'ACTIVO' ORDER BY Nombre")
                 proveedores = cursor.fetchall()
                 
@@ -2675,7 +2672,6 @@ def admin_crear_compra():
                 productos = cursor.fetchall()
                 
                 return render_template('admin/compras/crear_compra.html',
-                                    tipos_movimiento=tipos_movimiento,
                                     proveedores=proveedores,
                                     bodegas=bodegas,
                                     productos=productos,
@@ -2686,7 +2682,7 @@ def admin_crear_compra():
 
             id_usuario_creacion = current_user.id
 
-            id_tipo_movimiento = request.form.get('id_tipo_movimiento')
+            id_tipo_movimiento = 1
             n_factura_externa = request.form.get('n_factura_externa')
             fecha = request.form.get('fecha')
             id_proveedor = request.form.get('id_proveedor')
@@ -5043,12 +5039,12 @@ def admin_detalles_venta(id_factura):
         id_empresa = session.get('id_empresa', 1)
         
         with get_db_cursor(True) as cursor:
-            # 1. Obtener información general de la factura con joins optimizados
+            # 1. Obtener información general de la factura - VERSIÓN CORREGIDA
             cursor.execute("""
                 SELECT 
                     f.ID_Factura,
-                    DATE_FORMAT(f.Fecha, '%%d/%%m/%%Y') as Fecha_Formateada, 
-                    f.Fecha as Fecha_Original,  # Esto es un objeto datetime de Python
+                    DATE_FORMAT(f.Fecha, '%d/%m/%Y') as Fecha_Formateada, 
+                    f.Fecha as Fecha_Original,
                     f.Observacion,
                     f.ID_Usuario_Creacion,
                     f.Credito_Contado,
@@ -5060,70 +5056,56 @@ def admin_detalles_venta(id_factura):
                     c.Direccion as Direccion_Cliente,
                     c.Telefono as Telefono_Cliente,
                     u.NombreUsuario as Usuario_Creacion,
-                    COALESCE(
-                        (SELECT ID_Movimiento 
-                         FROM movimientos_inventario 
-                         WHERE ID_Factura_Venta = f.ID_Factura 
-                         LIMIT 1),
-                        0
-                    ) as ID_Movimiento,
-                    COALESCE(
-                        (SELECT Tipo_Compra 
-                         FROM movimientos_inventario 
-                         WHERE ID_Factura_Venta = f.ID_Factura 
-                         LIMIT 1),
-                        'CONTADO'
-                    ) as Tipo_Compra,
-                    COALESCE(
-                        (SELECT Estado 
-                         FROM movimientos_inventario 
-                         WHERE ID_Factura_Venta = f.ID_Factura 
-                         LIMIT 1),
-                        1
-                    ) as Estado_Movimiento,
-                    COALESCE(
-                        (SELECT b.Nombre 
-                         FROM movimientos_inventario mi
-                         LEFT JOIN bodegas b ON mi.ID_Bodega = b.ID_Bodega
-                         WHERE mi.ID_Factura_Venta = f.ID_Factura 
-                         LIMIT 1),
-                        'BODEGA PRINCIPAL'
-                    ) as Bodega,
+                    mi.ID_Movimiento,
+                    mi.Estado as Estado_Movimiento,
+                    mi.ID_Bodega,
+                    COALESCE(b.Nombre, 'BODEGA PRINCIPAL') as Bodega,
                     e.Nombre_Empresa,
                     e.RUC as RUC_Empresa,
                     e.Direccion as Direccion_Empresa,
                     e.Telefono as Telefono_Empresa,
-                    -- Formatear tipo de venta
+                    -- Formatear tipo de venta (CORRECTO - usa facturacion.Credito_Contado)
                     CASE 
                         WHEN f.Credito_Contado = 1 THEN 'CRÉDITO'
                         ELSE 'CONTADO'
                     END as Tipo_Venta_Formateado,
-                    -- Formatear estado de factura
+                    -- Campo adicional para compatibilidad
+                    f.Credito_Contado as Tipo_Venta_Numerico,
+                    -- Estado de factura (varias versiones para compatibilidad)
+                    f.Estado as Estado_Factura,  -- 'Activa'/'Anulada'
+                    UPPER(f.Estado) as Estado_Factura_Formateado,  -- 'ACTIVA'/'ANULADA'
                     CASE 
-                        WHEN f.Estado = 1 THEN 'ACTIVA'
-                        ELSE 'ANULADA'
-                    END as Estado_Factura_Formateado,
-                    -- Formatear estado del movimiento
+                        WHEN f.Estado = 'Activa' THEN 1
+                        ELSE 0
+                    END as Estado_Factura_Numerico,
+                    -- Estado del movimiento (varias versiones para compatibilidad)
+                    COALESCE(mi.Estado, 'NO APLICA') as Estado_Movimiento_Formateado,  -- 'Activa'/'Anulada'/'NO APLICA'
                     CASE 
-                        WHEN COALESCE(
-                            (SELECT Estado 
-                             FROM movimientos_inventario 
-                             WHERE ID_Factura_Venta = f.ID_Factura 
-                             LIMIT 1),
-                            1
-                        ) = 1 THEN 'ACTIVO'
-                        ELSE 'ANULADO'
-                    END as Estado_Movimiento_Formateado,
-                    -- Calcular total de la factura (por si acaso)
+                        WHEN mi.Estado = 'Activa' THEN 'ACTIVO'
+                        WHEN mi.Estado = 'Anulada' THEN 'ANULADO'
+                        ELSE 'NO APLICA'
+                    END as Estado_Movimiento_Mayusculas,
+                    CASE 
+                        WHEN mi.Estado = 'Activa' THEN 1
+                        WHEN mi.Estado = 'Anulada' THEN 0
+                        ELSE -1
+                    END as Estado_Movimiento_Numerico,
+                    -- Calcular total de la factura
                     (SELECT COALESCE(SUM(Total), 0) 
                      FROM detalle_facturacion 
-                     WHERE ID_Factura = f.ID_Factura) as Total_Factura
+                     WHERE ID_Factura = f.ID_Factura) as Total_Factura,
+                    -- Obtener tipo de movimiento si existe
+                    cm.Descripcion as Tipo_Movimiento
                 FROM facturacion f
                 LEFT JOIN Clientes c ON f.IDCliente = c.ID_Cliente
                 LEFT JOIN usuarios u ON f.ID_Usuario_Creacion = u.ID_Usuario
                 LEFT JOIN empresa e ON f.ID_Empresa = e.ID_Empresa
+                LEFT JOIN movimientos_inventario mi ON mi.ID_Factura_Venta = f.ID_Factura
+                LEFT JOIN bodegas b ON mi.ID_Bodega = b.ID_Bodega
+                LEFT JOIN catalogo_movimientos cm ON mi.ID_TipoMovimiento = cm.ID_TipoMovimiento
                 WHERE f.ID_Factura = %s 
                   AND f.ID_Empresa = %s
+                LIMIT 1
             """, (id_factura, id_empresa))
             
             factura = cursor.fetchone()
@@ -5132,7 +5114,7 @@ def admin_detalles_venta(id_factura):
                 flash('Factura no encontrada o no pertenece a su empresa', 'error')
                 return redirect(url_for('admin_ventas_salidas'))
             
-            # 2. Obtener detalles de los productos vendidos (versión corregida)
+            # 2. Obtener detalles de los productos vendidos - VERSIÓN CORREGIDA
             cursor.execute("""
                 SELECT 
                     df.ID_Detalle,
@@ -5143,37 +5125,34 @@ def admin_detalles_venta(id_factura):
                     df.Costo as Precio_Unitario,
                     df.Total as Subtotal,
                     cat.Descripcion as Categoria,
-                    -- Verificar si existe unidad de medida
                     COALESCE(
                         (SELECT Descripcion 
                          FROM unidades_medida um 
                          WHERE um.ID_Unidad = p.Unidad_Medida),
                         'UNIDAD'
                     ) as Unidad_Medida,
-                    -- Obtener existencia actual en la bodega principal
+                    -- Obtener existencia actual en la bodega de la venta
                     COALESCE(
                         (SELECT Existencias 
                          FROM inventario_bodega ib
-                         LEFT JOIN movimientos_inventario mi ON mi.ID_Factura_Venta = %s
                          WHERE ib.ID_Producto = p.ID_Producto 
-                           AND ib.ID_Bodega = COALESCE(mi.ID_Bodega, 1)
-                         LIMIT 1),
+                           AND ib.ID_Bodega = %s),
                         0
                     ) as Existencia_Actual,
-                    -- Obtener detalles del movimiento específico
+                    -- Obtener cantidad del movimiento (si existe)
                     COALESCE(
-                        (SELECT Cantidad 
+                        (SELECT dmi.Cantidad 
                          FROM detalle_movimientos_inventario dmi
                          WHERE dmi.ID_Producto = p.ID_Producto
                            AND dmi.ID_Movimiento = %s),
-                        0
+                        df.Cantidad
                     ) as Cantidad_Movimiento
                 FROM detalle_facturacion df
                 INNER JOIN productos p ON df.ID_Producto = p.ID_Producto
                 LEFT JOIN categorias_producto cat ON p.ID_Categoria = cat.ID_Categoria
                 WHERE df.ID_Factura = %s
                 ORDER BY df.ID_Detalle
-            """, (id_factura, factura['ID_Movimiento'], id_factura))
+            """, (factura['ID_Bodega'] or 1, factura['ID_Movimiento'], id_factura))
             
             detalles = cursor.fetchall()
             
@@ -5181,7 +5160,7 @@ def admin_detalles_venta(id_factura):
             total_productos = len(detalles)
             total_venta = sum(float(detalle.get('Subtotal', 0)) for detalle in detalles)
             
-            # 4. Verificar si tiene crédito pendiente (versión mejorada)
+            # 4. Verificar si tiene crédito pendiente
             cursor.execute("""
                 SELECT 
                     COUNT(*) as Tiene_Credito_Pendiente,
@@ -5217,27 +5196,35 @@ def admin_detalles_venta(id_factura):
                 """, (id_factura,))
                 pagos = cursor.fetchall()
             
-            # 6. Obtener datos del movimiento de inventario (si existe)
+            # 6. Obtener datos del movimiento de inventario (si existe) - VERSIÓN CORREGIDA
             movimiento_info = None
-            if factura['ID_Movimiento'] and factura['ID_Movimiento'] > 0:
+            if factura['ID_Movimiento']:
                 cursor.execute("""
                     SELECT 
-                        ID_Movimiento,
-                        Fecha,
-                        Observacion,
-                        ID_Usuario_Creacion,
-                        Estado,
-                        Tipo_Compra,
-                        DATE_FORMAT(Fecha, '%%d/%%m/%%Y %%H:%%i') as Fecha_Completa
-                    FROM movimientos_inventario
-                    WHERE ID_Movimiento = %s
+                        mi.ID_Movimiento,
+                        DATE_FORMAT(mi.Fecha, '%d/%m/%Y') as Fecha_Formateada,
+                        mi.Fecha,
+                        mi.Observacion,
+                        mi.ID_Usuario_Creacion,
+                        mi.Estado,
+                        mi.ID_Bodega,
+                        DATE_FORMAT(mi.Fecha, '%d/%m/%Y %H:%i') as Fecha_Completa,
+                        cm.Descripcion as Tipo_Movimiento,
+                        b.Nombre as Nombre_Bodega,
+                        u.NombreUsuario as Usuario_Creacion
+                    FROM movimientos_inventario mi
+                    LEFT JOIN catalogo_movimientos cm ON mi.ID_TipoMovimiento = cm.ID_TipoMovimiento
+                    LEFT JOIN bodegas b ON mi.ID_Bodega = b.ID_Bodega
+                    LEFT JOIN usuarios u ON mi.ID_Usuario_Creacion = u.ID_Usuario
+                    WHERE mi.ID_Movimiento = %s
                 """, (factura['ID_Movimiento'],))
                 movimiento_info = cursor.fetchone()
             
-            # DEBUG: Imprime la fecha para verificar
-            print(f"DEBUG - Factura Fecha_Original: {factura['Fecha_Original']}")
-            print(f"DEBUG - Factura Fecha_Formateada: {factura['Fecha_Formateada']}")
-            print(f"DEBUG - Tipo de Fecha_Original: {type(factura['Fecha_Original'])}")
+            # DEBUG: Imprimir información para verificar
+            print(f"DEBUG - Factura ID: {factura['ID_Factura']}")
+            print(f"DEBUG - Fecha Formateada: {factura['Fecha_Formateada']}")
+            print(f"DEBUG - Tipo Venta Formateado: {factura['Tipo_Venta_Formateado']}")
+            print(f"DEBUG - Estado Factura: {factura['Estado_Factura']}")
             
             return render_template('admin/ventas/detalle_venta.html',
                                  factura=factura,
