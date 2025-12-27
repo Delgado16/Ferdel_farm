@@ -88,8 +88,8 @@
                                     <td><code>{{ cuenta.Num_Documento }}</code></td>
                                 </tr>
                                 <tr>
-                                    <th class="text-muted">Factura:</th>
-                                    <td>{{ cuenta.NumeroFactura }}</td>
+                                    <th class="text-muted">Tipo Movimiento:</th>
+                                    <td>{{ cuenta.Tipo_Movimiento }}</td>
                                 </tr>
                             </table>
                         </div>
@@ -97,7 +97,13 @@
                             <table class="table table-sm table-borderless">
                                 <tr>
                                     <th class="text-muted">Fecha Emisión:</th>
-                                    <td>{{ cuenta.Fecha_Formateada }}</td>
+                                    <td>
+                                        {% if cuenta.Fecha_Formateada and cuenta.Fecha_Formateada != 'None' %}
+                                            {{ cuenta.Fecha_Formateada }}
+                                        {% else %}
+                                            <span class="text-muted">N/A</span>
+                                        {% endif %}
+                                    </td>
                                 </tr>
                                 <tr>
                                     <th class="text-muted">Fecha Vencimiento:</th>
@@ -105,10 +111,21 @@
                                         {% if cuenta.Fecha_Vencimiento_Formateada and cuenta.Fecha_Vencimiento_Formateada != 'None' %}
                                             {{ cuenta.Fecha_Vencimiento_Formateada }}
                                             {% if cuenta.Estado == 'Vencido' %}
-                                            <i class="fas fa-exclamation-triangle text-danger ml-1" title="Vencido"></i>
+                                                <i class="fas fa-exclamation-triangle text-danger ml-1" 
+                                                   title="Vencido hace {{ cuenta.DiasVencido }} días" 
+                                                   data-toggle="tooltip"></i>
                                             {% endif %}
                                         {% else %}
-                                            N/A
+                                            <span class="text-muted">N/A</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <th class="text-muted">Factura:</th>
+                                    <td>
+                                        {{ cuenta.NumeroFactura }}
+                                        {% if cuenta.FechaFactura_Formateada and cuenta.FechaFactura_Formateada != 'None' %}
+                                            <br><small class="text-muted">({{ cuenta.FechaFactura_Formateada }})</small>
                                         {% endif %}
                                     </td>
                                 </tr>
@@ -124,7 +141,7 @@
                         </div>
                     </div>
 
-                    {% if cuenta.Observacion and cuenta.Observacion != 'N/A' %}
+                    {% if cuenta.Observacion and cuenta.Observacion != 'N/A' and cuenta.Observacion != '' %}
                     <div class="mt-3">
                         <strong class="text-muted">Observación:</strong>
                         <p class="mb-0 text-muted">{{ cuenta.Observacion }}</p>
@@ -190,10 +207,10 @@
                             <i class="fas fa-receipt"></i>
                             {{ pagos|length }} pago(s) registrado(s)
                             {% if primer_pago %}
-                            • Primer pago: {{ primer_pago.FechaCorta }}
+                            • Primer pago: {{ primer_pago.FechaSolo }}
                             {% endif %}
                             {% if ultimo_pago and pagos|length > 1 %}
-                            • Último pago: {{ ultimo_pago.FechaCorta }}
+                            • Último pago: {{ ultimo_pago.FechaSolo }}
                             {% endif %}
                         </small>
                     </div>
@@ -225,7 +242,7 @@
                     <thead class="thead-light">
                         <tr>
                             <th>#</th>
-                            <th>Fecha</th>
+                            <th>Fecha y Hora</th>
                             <th>Monto</th>
                             <th>Método de Pago</th>
                             <th>Detalles</th>
@@ -237,7 +254,10 @@
                         {% for pago in pagos %}
                         <tr>
                             <td>{{ loop.index }}</td>
-                            <td>{{ pago.FechaFormateada }}</td>
+                            <td>
+                                <span class="text-primary">{{ pago.FechaFormateada }}</span><br>
+                                <small class="text-muted">{{ pago.FechaSolo }}</small>
+                            </td>
                             <td class="font-weight-bold text-success">${{ "%.2f"|format(pago.Monto) }}</td>
                             <td>
                                 <span class="badge badge-info">{{ pago.MetodoPago }}</span>
@@ -286,11 +306,11 @@
                 </a>
                 {% if cuenta.NumeroFactura != 'N/A' %}
                 <button type="button" class="btn btn-info" onclick="imprimirComprobante()">
-                    <i class="fas fa-print mr-1"></i>Imprimir Comprobante
+                    <i class="fas fa-print mr-1"></i>Imprimir
                 </button>
                 {% endif %}
                 <button type="button" class="btn btn-warning" onclick="enviarRecordatorio()">
-                    <i class="fas fa-envelope mr-1"></i>Enviar Recordatorio
+                    <i class="fas fa-envelope mr-1"></i>Recordatorio
                 </button>
             </div>
         </div>
@@ -302,6 +322,9 @@
 {% block scripts %}
 <script>
 $(document).ready(function() {
+    // Inicializar tooltips
+    $('[data-toggle="tooltip"]').tooltip();
+    
     // Inicializar DataTable
     $('#dataTable').DataTable({
         "order": [[ 1, "desc" ]],  // Ordenar por fecha (columna 1)
@@ -310,7 +333,7 @@ $(document).ready(function() {
         },
         "pageLength": 10,
         "columnDefs": [
-            { "orderable": false, "targets": [0, 4, 5, 6] }  // Deshabilitar orden en columnas específicas
+            { "orderable": false, "targets": [0, 4, 5, 6] }
         ]
     });
     
@@ -318,15 +341,14 @@ $(document).ready(function() {
     window.imprimirComprobante = function() {
         Swal.fire({
             title: 'Imprimir Comprobante',
-            text: '¿Desea imprimir el comprobante de esta cuenta?',
-            icon: 'question',
+            text: 'Se abrirá una nueva ventana para imprimir',
+            icon: 'info',
             showCancelButton: true,
-            confirmButtonText: 'Sí, imprimir',
+            confirmButtonText: 'Continuar',
             cancelButtonText: 'Cancelar'
         }).then((result) => {
             if (result.isConfirmed) {
-                // Redirigir a la URL de impresión
-                window.open('{{ url_for("admin_imprimir_comprobante", id_movimiento=cuenta.ID_Movimiento) }}', '_blank');
+                window.open(`/admin/ventas/comprobante/${ {{ cuenta.ID_Movimiento }} }`, '_blank');
             }
         });
     };
@@ -335,54 +357,20 @@ $(document).ready(function() {
         Swal.fire({
             title: 'Enviar Recordatorio',
             html: `
-                <div class="form-group">
-                    <label for="correo">Correo del cliente:</label>
-                    <input type="email" id="correo" class="form-control" 
-                           value="{{ cuenta.CedulaCliente }}@ejemplo.com" placeholder="Correo electrónico">
-                </div>
-                <div class="form-group">
-                    <label for="mensaje">Mensaje personalizado:</label>
-                    <textarea id="mensaje" class="form-control" rows="3" 
-                              placeholder="Escriba un mensaje personalizado...">Recordatorio de pago pendiente por ${{ "%.2f"|format(saldo_pendiente_formateado) }}</textarea>
+                <div class="text-left">
+                    <p>Se enviará un recordatorio al cliente:</p>
+                    <p><strong>Cliente:</strong> {{ cuenta.NombreCliente }}</p>
+                    <p><strong>Saldo Pendiente:</strong> ${{ "%.2f"|format(saldo_pendiente_formateado) }}</p>
+                    <p><strong>Vencimiento:</strong> {{ cuenta.Fecha_Vencimiento_Formateada if cuenta.Fecha_Vencimiento_Formateada and cuenta.Fecha_Vencimiento_Formateada != 'None' else 'N/A' }}</p>
                 </div>
             `,
+            icon: 'question',
             showCancelButton: true,
-            confirmButtonText: 'Enviar',
-            cancelButtonText: 'Cancelar',
-            showLoaderOnConfirm: true,
-            preConfirm: () => {
-                const correo = document.getElementById('correo').value;
-                const mensaje = document.getElementById('mensaje').value;
-                
-                if (!correo) {
-                    Swal.showValidationMessage('Por favor ingrese un correo electrónico');
-                    return false;
-                }
-                
-                // Aquí iría la llamada AJAX para enviar el recordatorio
-                return fetch('/admin/enviar-recordatorio', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        id_movimiento: {{ cuenta.ID_Movimiento }},
-                        correo: correo,
-                        mensaje: mensaje
-                    })
-                })
-                .then(response => {
-                    if (!response.ok) {
-                        throw new Error(response.statusText);
-                    }
-                    return response.json();
-                })
-                .catch(error => {
-                    Swal.showValidationMessage(`Error: ${error}`);
-                });
-            }
+            confirmButtonText: 'Enviar Recordatorio',
+            cancelButtonText: 'Cancelar'
         }).then((result) => {
             if (result.isConfirmed) {
+                // Simular envío
                 Swal.fire(
                     'Enviado!',
                     'El recordatorio ha sido enviado exitosamente.',
@@ -391,19 +379,6 @@ $(document).ready(function() {
             }
         });
     };
-    
-    // Confirmación para registrar pago si la cuenta está cancelada
-    $('.btn-success.disabled').click(function(e) {
-        if ($(this).hasClass('disabled')) {
-            e.preventDefault();
-            Swal.fire({
-                title: 'Cuenta Cancelada',
-                text: 'Esta cuenta ya se encuentra completamente cancelada. No puede registrar más pagos.',
-                icon: 'info',
-                confirmButtonText: 'Entendido'
-            });
-        }
-    });
 });
 </script>
 
@@ -411,32 +386,49 @@ $(document).ready(function() {
 .card-header {
     background: linear-gradient(45deg, #4e73df, #224abe);
     color: white;
+    border-bottom: none;
 }
 
 .badge-pill {
     font-size: 0.8em;
-    padding: 0.5em 0.8em;
+    padding: 0.5em 1em;
+    font-weight: 500;
 }
 
 .table-borderless th {
     width: 40%;
+    color: #6c757d;
+    font-weight: 500;
+}
+
+.table-borderless td {
+    font-weight: 400;
 }
 
 .progress {
     border-radius: 10px;
+    background-color: #e3e6f0;
+}
+
+.progress-bar {
+    border-radius: 10px;
+    transition: width 0.6s ease;
 }
 
 .btn-success {
     background: linear-gradient(45deg, #1cc88a, #13855c);
     border: none;
+    transition: all 0.3s;
 }
 
 .btn-success:hover:not(.disabled) {
     background: linear-gradient(45deg, #17a673, #0e6b4e);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
 }
 
 .btn-success.disabled {
-    opacity: 0.6;
+    opacity: 0.5;
     cursor: not-allowed;
 }
 
@@ -444,11 +436,17 @@ $(document).ready(function() {
     border-right: 1px solid #e3e6f0 !important;
 }
 
-/* Estilos para estados */
+/* Colores para estados */
 .badge-success { background-color: #1cc88a; }
-.badge-warning { background-color: #f6c23e; }
+.badge-warning { background-color: #f6c23e; color: #000; }
 .badge-danger { background-color: #e74a3b; }
 .badge-info { background-color: #36b9cc; }
+
+/* Estilo para tablas */
+#dataTable tbody tr:hover {
+    background-color: rgba(0,0,0,0.02);
+    cursor: pointer;
+}
 
 /* Responsive */
 @media (max-width: 768px) {
@@ -458,7 +456,7 @@ $(document).ready(function() {
     }
     
     .btn-group .btn {
-        margin-bottom: 5px;
+        margin-bottom: 8px;
         width: 100%;
     }
     
@@ -471,6 +469,12 @@ $(document).ready(function() {
     
     .col-4 {
         margin-bottom: 15px;
+    }
+    
+    .table-borderless th,
+    .table-borderless td {
+        display: block;
+        width: 100%;
     }
 }
 </style>

@@ -6015,7 +6015,7 @@ def admin_registrar_pago(id_movimiento):
 def admin_detalle_cuentacobrar(id_movimiento):
     try:
         with get_db_cursor(True) as cursor:
-            # DATOS PRINCIPALES CON FORMATO DE FECHAS
+            # DATOS PRINCIPALES CON FORMATO DE FECHAS EXACTO dd/mm/YYYY
             cursor.execute("""
                 SELECT 
                     c.ID_Movimiento,
@@ -6053,9 +6053,11 @@ def admin_detalle_cuentacobrar(id_movimiento):
                         THEN DATEDIFF(CURDATE(), c.Fecha_Vencimiento)
                         ELSE 0
                     END as DiasVencido,
-                    # Campos originales para referencias
+                    # Campos adicionales para validación
                     c.Fecha as Fecha_Original,
-                    c.Fecha_Vencimiento as Fecha_Vencimiento_Original
+                    c.Fecha_Vencimiento as Fecha_Vencimiento_Original,
+                    c.Observacion,
+                    c.Tipo_Movimiento
                 FROM Cuentas_Por_Cobrar c
                 LEFT JOIN clientes cl ON c.ID_Cliente = cl.ID_Cliente
                 LEFT JOIN empresa e ON c.ID_Empresa = e.ID_Empresa
@@ -6070,7 +6072,7 @@ def admin_detalle_cuentacobrar(id_movimiento):
                 flash("❌ Error: Cuenta por cobrar no encontrada", "error")
                 return redirect(url_for('admin_cuentascobrar'))
             
-            # HISTORIAL DE PAGOS
+            # HISTORIAL DE PAGOS CON FORMATO dd/mm/YYYY HH:MI
             cursor.execute("""
                 SELECT 
                     p.ID_Pago,
@@ -6082,6 +6084,7 @@ def admin_detalle_cuentacobrar(id_movimiento):
                     p.ID_Usuario_Creacion,
                     DATE_FORMAT(p.Fecha, '%%d/%%m/%%Y %%H:%%i') as FechaFormateada,
                     DATE_FORMAT(p.Fecha, '%%Y-%%m-%%d') as FechaCorta,
+                    DATE_FORMAT(p.Fecha, '%%d/%%m/%%Y') as FechaSolo,
                     p.Fecha as Fecha_Original,
                     COALESCE(mp.Nombre, 'Método no disponible') as MetodoPago,
                     COALESCE(u.NombreUsuario, 'Usuario no disponible') as UsuarioRegistro
@@ -6094,31 +6097,27 @@ def admin_detalle_cuentacobrar(id_movimiento):
             
             pagos = cursor.fetchall()
             
-            # CÁLCULOS SEGUROS CON DECIMAL
-            from decimal import Decimal
+            # CÁLCULOS FINANCIEROS
             
-            # Convertir a Decimal de forma segura
             monto_movimiento = Decimal(str(cuenta['Monto_Movimiento']))
             saldo_pendiente = Decimal(str(cuenta['Saldo_Pendiente']))
             
-            # Calcular total pagado
             total_pagado = sum(Decimal(str(pago['Monto'])) for pago in pagos) if pagos else Decimal('0')
             
-            # Validar consistencia de datos
+            # Validar consistencia
             saldo_teorico = monto_movimiento - total_pagado
             diferencia = abs(saldo_pendiente - saldo_teorico)
-            
-            # Si hay diferencia significativa
             tiene_inconsistencia = diferencia > Decimal('0.01')
             
-            # ESTADÍSTICAS ADICIONALES
+            # Calcular estadísticas
             total_abonado = monto_movimiento - saldo_pendiente
             porcentaje_pagado = (total_abonado / monto_movimiento * 100) if monto_movimiento > 0 else 0
             
+            # Obtener primer y último pago
             primer_pago = pagos[-1] if pagos and len(pagos) > 0 else None
             ultimo_pago = pagos[0] if pagos and len(pagos) > 0 else None
             
-            # INFORMACIÓN PARA LA PLANTILLA
+            # Preparar datos para template
             datos_template = {
                 'cuenta': cuenta,
                 'pagos': pagos,
@@ -6126,7 +6125,7 @@ def admin_detalle_cuentacobrar(id_movimiento):
                 'total_abonado': float(total_abonado),
                 'porcentaje_pagado': round(float(porcentaje_pagado), 2),
                 'tiene_inconsistencia': tiene_inconsistencia,
-                'diferencia': float(diferencia) if tiene_inconsistencia else 0,
+                'diferencia': float(diferencia),
                 'primer_pago': primer_pago,
                 'ultimo_pago': ultimo_pago,
                 'monto_movimiento_formateado': float(monto_movimiento),
