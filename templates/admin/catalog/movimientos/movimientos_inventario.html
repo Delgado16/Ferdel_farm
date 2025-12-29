@@ -1,16 +1,25 @@
 {% extends "layout.html" %}
 
+{% block title %}Movimientos de Inventario - FerDel{% endblock %}
+
 {% block content %}
-<div class="container-fluid">
-    <div class="d-sm-flex align-items-center justify-content-between mb-4">
-        <h1 class="h3 mb-0 text-gray-800">Movimientos de Inventario</h1>
-        <!-- BOTÓN CORREGIDO PARA BOOTSTRAP 5 -->
-        <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#crearMovimientoModal">
-            <i class="fas fa-plus-circle"></i> Nuevo Movimiento
-        </button>
+<div class="container-fluid py-4">
+    <!-- Encabezado con botón de volver -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1>
+            <i class="fas fa-exchange-alt"></i> Movimientos de Inventario
+        </h1>
+        <a href="{{ url_for('admin_dashboard') }}" class="btn btn-outline-secondary">
+            <i class="fas fa-arrow-left"></i> Volver al Dashboard
+        </a>
     </div>
 
-    <!-- Mensajes Flash CORREGIDOS -->
+    <!-- Botón crear movimiento -->
+    <button class="btn btn-primary mb-3" data-bs-toggle="modal" data-bs-target="#crearMovimientoModal">
+        <i class="fas fa-plus-circle"></i> Nuevo Movimiento
+    </button>
+
+    <!-- Mensajes flash -->
     {% with messages = get_flashed_messages(with_categories=true) %}
         {% if messages %}
             {% for category, message in messages %}
@@ -22,42 +31,61 @@
         {% endif %}
     {% endwith %}
 
-    <!-- Tabla de Movimientos -->
-    <div class="card shadow mb-4">
-        <div class="card-header py-3">
-            <h6 class="m-0 font-weight-bold text-primary">Lista de Movimientos</h6>
-        </div>
+    <!-- Tabla de movimientos -->
+    {% if movimientos %}
+    <div class="card shadow-sm">
         <div class="card-body">
             <div class="table-responsive">
-                <table class="table table-bordered" id="dataTable" width="100%" cellspacing="0">
-                    <thead>
+                <table class="table table-striped table-hover">
+                    <thead class="table-dark">
                         <tr>
                             <th>ID</th>
                             <th>Descripción</th>
-                            <th>Adición</th>
-                            <th>Letra</th>
-                            <th>Acciones</th>
+                            <th class="text-center">Adición</th>
+                            <th class="text-center">Letra</th>
+                            <th class="text-center">Tipo</th>
+                            <th class="text-center">Acciones</th>
                         </tr>
                     </thead>
                     <tbody>
                         {% for movimiento in movimientos %}
                         <tr>
-                            <td>{{ movimiento.ID_TipoMovimiento }}</td>
+                            <td class="fw-bold">#{{ movimiento.ID_TipoMovimiento }}</td>
                             <td>{{ movimiento.Descripcion }}</td>
-                            <td>{{ movimiento.Adicion or '' }}</td>
-                            <td>{{ movimiento.Letra }}</td>
-                            <td>
-                                <a href="{{ url_for('admin_editar_movimiento', id=movimiento.ID_TipoMovimiento) }}" 
-                                   class="btn btn-warning btn-sm">
-                                    <i class="fas fa-edit"></i> Editar
-                                </a>
-                                <form action="{{ url_for('admin_eliminar_movimiento', id=movimiento.ID_TipoMovimiento) }}" 
-                                      method="POST" style="display: inline;">
-                                    <button type="submit" class="btn btn-danger btn-sm" 
-                                            onclick="return confirm('¿Estás seguro de eliminar este movimiento?')">
-                                        <i class="fas fa-trash"></i> Eliminar
-                                    </button>
-                                </form>
+                            <td class="text-center">
+                                {% if movimiento.Adicion %}
+                                    <span class="badge bg-info">{{ movimiento.Adicion }}</span>
+                                {% else %}
+                                    <span class="text-muted">-</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-center">
+                                <span class="badge bg-secondary">{{ movimiento.Letra }}</span>
+                            </td>
+                            <td class="text-center">
+                                {% if movimiento.Adicion == 'ENTRADA' %}
+                                    <span class="badge bg-success">Entrada</span>
+                                {% elif movimiento.Adicion == 'SALIDA' %}
+                                    <span class="badge bg-danger">Salida</span>
+                                {% else %}
+                                    <span class="badge bg-warning">Ajuste</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-center">
+                                <div class="btn-group btn-group-sm" role="group">
+                                    <a href="{{ url_for('admin_editar_movimiento', id=movimiento.ID_TipoMovimiento) }}" 
+                                       class="btn btn-outline-primary" title="Editar">
+                                        <i class="fas fa-edit"></i> Editar
+                                    </a>
+                                    
+                                    <form action="{{ url_for('admin_eliminar_movimiento', id=movimiento.ID_TipoMovimiento) }}" 
+                                          method="POST" class="d-inline-block ms-1"
+                                          onsubmit="return confirm('¿Estás seguro de eliminar este movimiento?')">
+                                        <button type="submit" class="btn btn-outline-danger" title="Eliminar">
+                                            <i class="fas fa-trash"></i> Eliminar
+                                        </button>
+                                    </form>
+                                </div>
                             </td>
                         </tr>
                         {% endfor %}
@@ -66,41 +94,62 @@
             </div>
         </div>
     </div>
+    {% else %}
+    <div class="alert alert-warning">
+        <i class="fas fa-exclamation-triangle"></i> No se encontraron movimientos de inventario en el sistema.
+    </div>
+    {% endif %}
 </div>
 
-<!-- Modal para Crear Movimiento CORREGIDO -->
+<!-- Modal para crear movimiento -->
 <div class="modal fade" id="crearMovimientoModal" tabindex="-1" aria-labelledby="crearMovimientoModalLabel" aria-hidden="true">
     <div class="modal-dialog">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title" id="crearMovimientoModalLabel">Crear Nuevo Movimiento</h5>
-                <!-- BOTÓN CERRAR CORREGIDO -->
+                <h5 class="modal-title" id="crearMovimientoModalLabel">
+                    <i class="fas fa-plus-circle"></i> Crear Nuevo Movimiento
+                </h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
-            <form id="formCrearMovimiento" method="POST" action="{{ url_for('admin_crear_movimiento') }}">
+            <form method="POST" action="{{ url_for('admin_crear_movimiento') }}" id="crearMovimientoForm" novalidate>
                 <div class="modal-body">
-                    <div class="form-group">
-                        <label for="descripcion" class="col-form-label">Descripción *</label>
-                        <input type="text" class="form-control" id="descripcion" name="descripcion" required 
+                    <!-- Descripción -->
+                    <div class="mb-3">
+                        <label for="descripcion" class="form-label">Descripción <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="descripcion" name="descripcion" 
+                               required minlength="2" maxlength="255"
                                placeholder="Ingrese la descripción del movimiento">
-                        <small class="form-text text-muted">Este campo es obligatorio</small>
+                        <div class="form-text">Ejemplo: Compra, Venta, Ajuste de Inventario, etc.</div>
                     </div>
-                    <div class="form-group">
-                        <label for="adicion" class="col-form-label">Adición</label>
-                        <input type="text" class="form-control" id="adicion" name="adicion" 
-                               placeholder="Ingrese la adición (opcional)">
+                    
+                    <!-- Adición -->
+                    <div class="mb-3">
+                        <label for="adicion" class="form-label">Adición</label>
+                        <select class="form-select" id="adicion" name="adicion">
+                            <option value="">Seleccione un tipo...</option>
+                            <option value="ENTRADA">ENTRADA</option>
+                            <option value="SALIDA">SALIDA</option>
+                            <option value="AJUSTE">AJUSTE</option>
+                        </select>
+                        <div class="form-text">Opcional. Define si es una entrada, salida o ajuste.</div>
                     </div>
-                    <div class="form-group">
-                        <label for="letra" class="col-form-label">Letra *</label>
-                        <input type="text" class="form-control" id="letra" name="letra" required 
-                               maxlength="10" placeholder="Ej: A, B, C">
-                        <small class="form-text text-muted">Máximo 10 caracteres</small>
+
+                    <!-- Letra -->
+                    <div class="mb-3">
+                        <label for="letra" class="form-label">Letra <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="letra" name="letra" 
+                               required maxlength="10"
+                               placeholder="Ej: A, B, C">
+                        <div class="form-text">Máximo 10 caracteres</div>
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <!-- BOTÓN CANCELAR CORREGIDO -->
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="submit" class="btn btn-primary">Guardar Movimiento</button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="fas fa-times"></i> Cancelar
+                    </button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-check"></i> Guardar Movimiento
+                    </button>
                 </div>
             </form>
         </div>
@@ -110,28 +159,37 @@
 
 {% block scripts %}
 <script>
-    // Script corregido para Bootstrap 5
-    document.addEventListener('DOMContentLoaded', function() {
-        var crearModal = document.getElementById('crearMovimientoModal');
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('crearMovimientoForm');
+    
+    // Validación del formulario completo
+    if (form) {
+        form.addEventListener('submit', function(event) {
+            if (!form.checkValidity()) {
+                event.preventDefault();
+                event.stopPropagation();
+            }
+            form.classList.add('was-validated');
+        });
+    }
+    
+    // Limpiar formulario al cerrar modal
+    const modal = document.getElementById('crearMovimientoModal');
+    if (modal) {
+        modal.addEventListener('hidden.bs.modal', function () {
+            if (form) {
+                form.reset();
+                form.classList.remove('was-validated');
+                // Restablecer el select a la primera opción
+                document.getElementById('adicion').selectedIndex = 0;
+            }
+        });
         
-        if (crearModal) {
-            // Limpiar formulario al cerrar modal
-            crearModal.addEventListener('hidden.bs.modal', function () {
-                this.querySelector('form').reset();
-            });
-            
-            // Validación del formulario
-            var formCrear = document.getElementById('formCrearMovimiento');
-            formCrear.addEventListener('submit', function(e) {
-                var descripcion = document.getElementById('descripcion').value.trim();
-                var letra = document.getElementById('letra').value.trim();
-                
-                if (!descripcion || !letra) {
-                    e.preventDefault();
-                    alert('Por favor, complete todos los campos obligatorios.');
-                }
-            });
-        }
-    });
+        // Auto-focus en el campo descripción cuando se abre el modal
+        modal.addEventListener('shown.bs.modal', function () {
+            document.getElementById('descripcion').focus();
+        });
+    }
+});
 </script>
 {% endblock %}

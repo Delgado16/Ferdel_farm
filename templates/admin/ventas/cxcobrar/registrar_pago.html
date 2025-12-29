@@ -30,9 +30,9 @@
                             </p>
                         </div>
                         <div class="col-md-6">
-                            <p><strong>Monto Total:</strong> <span class="font-weight-bold">${{ "%.2f"|format(cuenta.Monto_Movimiento) }}</span></p>
+                            <p><strong>Monto Total:</strong> <span class="font-weight-bold">C${{ "%.2f"|format(cuenta.Monto_Movimiento) }}</span></p>
                             <p><strong>Saldo Pendiente:</strong> 
-                                <span class="text-danger font-weight-bold" style="font-size: 1.2rem;">${{ "%.2f"|format(cuenta.Saldo_Pendiente) }}</span>
+                                <span class="text-danger font-weight-bold" style="font-size: 1.2rem;">C${{ "%.2f"|format(cuenta.Saldo_Pendiente) }}</span>
                             </p>
                             <p><strong>Fecha Vencimiento:</strong> 
                                 {% if cuenta.Fecha_Vencimiento %}
@@ -59,8 +59,8 @@
                                 </div>
                             </div>
                             <div class="d-flex justify-content-between mt-1">
-                                <small>Pagado: ${{ "%.2f"|format(cuenta.Monto_Movimiento - cuenta.Saldo_Pendiente) }}</small>
-                                <small>Total: ${{ "%.2f"|format(cuenta.Monto_Movimiento) }}</small>
+                                <small>Pagado: C${{ "%.2f"|format(cuenta.Monto_Movimiento - cuenta.Saldo_Pendiente) }}</small>
+                                <small>Total: C${{ "%.2f"|format(cuenta.Monto_Movimiento) }}</small>
                             </div>
                         </div>
                     </div>
@@ -92,7 +92,7 @@
                                    required placeholder="0.00" style="font-size: 1.2rem;"
                                    value="{{ "%.2f"|format(cuenta.Saldo_Pendiente) if cuenta.Saldo_Pendiente > 0 else '' }}">
                             <small class="form-text text-muted">
-                                Saldo disponible: <span class="font-weight-bold text-danger">${{ "%.2f"|format(cuenta.Saldo_Pendiente) }}</span>
+                                Saldo disponible: <span class="font-weight-bold text-danger">C${{ "%.2f"|format(cuenta.Saldo_Pendiente) }}</span>
                             </small>
                         </div>
 
@@ -162,16 +162,16 @@
                         <table class="table table-sm table-borderless">
                             <tr>
                                 <td>Monto Original:</td>
-                                <td class="text-right font-weight-bold">${{ "%.2f"|format(cuenta.Monto_Movimiento) }}</td>
+                                <td class="text-right font-weight-bold">C${{ "%.2f"|format(cuenta.Monto_Movimiento) }}</td>
                             </tr>
                             <tr>
                                 <td>Saldo Pendiente:</td>
-                                <td class="text-right font-weight-bold text-danger">${{ "%.2f"|format(cuenta.Saldo_Pendiente) }}</td>
+                                <td class="text-right font-weight-bold text-danger">C${{ "%.2f"|format(cuenta.Saldo_Pendiente) }}</td>
                             </tr>
                             <tr>
                                 <td>Pagado:</td>
                                 <td class="text-right font-weight-bold text-success">
-                                    ${{ "%.2f"|format(cuenta.Monto_Movimiento - cuenta.Saldo_Pendiente) }}
+                                    C${{ "%.2f"|format(cuenta.Monto_Movimiento - cuenta.Saldo_Pendiente) }}
                                 </td>
                             </tr>
                         </table>
@@ -181,7 +181,7 @@
                     <div class="border-top pt-3 mt-3">
                         <h6 class="font-weight-bold">Después del Pago:</h6>
                         <div id="simulacionSaldo" class="mt-2 p-2 bg-light rounded">
-                            <p class="mb-1">Nuevo saldo: <span id="nuevoSaldo" class="font-weight-bold">${{ "%.2f"|format(cuenta.Saldo_Pendiente) }}</span></p>
+                            <p class="mb-1">Nuevo saldo: <span id="nuevoSaldo" class="font-weight-bold">C${{ "%.2f"|format(cuenta.Saldo_Pendiente) }}</span></p>
                             <p class="mb-0">Estado: <span id="nuevoEstado" class="badge badge-warning">Pendiente</span></p>
                         </div>
                     </div>
@@ -249,7 +249,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         
         // Actualizar display del nuevo saldo
-        nuevoSaldoSpan.textContent = '$' + nuevoSaldo.toFixed(2);
+        nuevoSaldoSpan.textContent = 'C$' + nuevoSaldo.toFixed(2);
         
         // Actualizar estado
         if (nuevoSaldo === 0) {
@@ -305,7 +305,7 @@ document.addEventListener('DOMContentLoaded', function() {
         
         if (monto > saldoMaximo) {
             e.preventDefault();
-            alert('❌ El monto no puede ser mayor al saldo pendiente ($' + saldoMaximo.toFixed(2) + ')');
+            alert('❌ El monto no puede ser mayor al saldo pendiente (C$' + saldoMaximo.toFixed(2) + ')');
             montoInput.focus();
             return false;
         }
@@ -322,9 +322,9 @@ document.addEventListener('DOMContentLoaded', function() {
         const estadoFinal = nuevoSaldo === 0 ? 'CANCELADO' : 'PENDIENTE';
         
         const confirmMessage = `¿Está seguro de registrar este pago?\n\n` +
-                              `Monto del pago: $${monto.toFixed(2)}\n` +
-                              `Saldo anterior: $${saldoMaximo.toFixed(2)}\n` +
-                              `Nuevo saldo: $${nuevoSaldo.toFixed(2)}\n` +
+                              `Monto del pago: C$${monto.toFixed(2)}\n` +
+                              `Saldo anterior: C$${saldoMaximo.toFixed(2)}\n` +
+                              `Nuevo saldo: C$${nuevoSaldo.toFixed(2)}\n` +
                               `Estado final: ${estadoFinal}`;
         
         if (!confirm(confirmMessage)) {

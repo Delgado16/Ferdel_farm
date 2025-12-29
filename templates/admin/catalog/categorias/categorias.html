@@ -1,49 +1,72 @@
 {% extends "layout.html" %}
 
+{% block title %}Gestión de Categorías - FerDel{% endblock %}
+
 {% block content %}
-<div class="container-fluid">
-    <div class="d-sm-flex align-items-center justify-content-between mb-4">
-        <h1 class="h3 mb-0 text-gray-800">Gestión de Categorías de Productos</h1>
-        <button type="button" class="btn btn-primary" data-toggle="modal" data-target="#crearCategoriaModal">
-            <i class="fas fa-plus fa-sm"></i> Nueva Categoría
-        </button>
+<div class="container-fluid py-4">
+    <!-- Encabezado con botón de volver -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1>
+            <i class="fas fa-tags"></i> Gestión de Categorías de Productos
+        </h1>
+        <a href="{{ url_for('admin_dashboard') }}" class="btn btn-outline-secondary">
+            <i class="fas fa-arrow-left"></i> Volver al Dashboard
+        </a>
     </div>
 
+    <!-- Botón crear categoría -->
+    <button class="btn btn-primary mb-3" data-bs-toggle="modal" data-bs-target="#crearCategoriaModal">
+        <i class="fas fa-plus"></i> Nueva Categoría
+    </button>
+
+    <!-- Mensajes flash -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
     <!-- Tabla de categorías -->
-    <div class="card shadow mb-4">
-        <div class="card-header py-3">
-            <h6 class="m-0 font-weight-bold text-primary">Lista de Categorías</h6>
-        </div>
+    {% if categorias %}
+    <div class="card shadow-sm">
         <div class="card-body">
             <div class="table-responsive">
-                <table class="table table-bordered" id="dataTable" width="100%" cellspacing="0">
-                    <thead>
+                <table class="table table-striped table-hover">
+                    <thead class="table-dark">
                         <tr>
                             <th>ID</th>
                             <th>Descripción</th>
-                            <th>Acciones</th>
+                            <th class="text-center">Acciones</th>
                         </tr>
                     </thead>
                     <tbody>
                         {% for categoria in categorias %}
                         <tr>
-                            <td>{{ categoria.ID_Categoria }}</td>
+                            <td class="fw-bold">#{{ categoria.ID_Categoria }}</td>
                             <td>{{ categoria.Descripcion }}</td>
-                            <td>
-                                <button type="button" class="btn btn-warning btn-sm" 
-                                        data-toggle="modal" 
-                                        data-target="#editarCategoriaModal"
-                                        data-id="{{ categoria.ID_Categoria }}"
-                                        data-descripcion="{{ categoria.Descripcion }}">
-                                    <i class="fas fa-edit"></i> Editar
-                                </button>
-                                <form action="{{ url_for('admin_categorias_eliminar', id=categoria.ID_Categoria) }}" 
-                                      method="POST" class="d-inline">
-                                    <button type="submit" class="btn btn-danger btn-sm" 
-                                            onclick="return confirm('¿Estás seguro de eliminar esta categoría?')">
-                                        <i class="fas fa-trash"></i> Eliminar
+                            <td class="text-center">
+                                <div class="btn-group btn-group-sm" role="group">
+                                    <button type="button" class="btn btn-outline-primary" 
+                                            data-bs-toggle="modal" 
+                                            data-bs-target="#editarCategoriaModal"
+                                            data-id="{{ categoria.ID_Categoria }}"
+                                            data-descripcion="{{ categoria.Descripcion }}">
+                                        <i class="fas fa-edit"></i> Editar
                                     </button>
-                                </form>
+                                    
+                                    <form action="{{ url_for('admin_categorias_eliminar', id=categoria.ID_Categoria) }}" 
+                                          method="POST" class="d-inline-block ms-1">
+                                        <button type="submit" class="btn btn-outline-danger" 
+                                                onclick="return confirm('¿Estás seguro de eliminar esta categoría?')">
+                                            <i class="fas fa-trash"></i> Eliminar
+                                        </button>
+                                    </form>
+                                </div>
                             </td>
                         </tr>
                         {% endfor %}
@@ -52,56 +75,75 @@
             </div>
         </div>
     </div>
+    {% else %}
+    <div class="alert alert-warning">
+        <i class="fas fa-exclamation-triangle"></i> No se encontraron categorías en el sistema.
+    </div>
+    {% endif %}
 </div>
 
-<!-- Modal para Crear Categoría -->
-<div class="modal fade" id="crearCategoriaModal" tabindex="-1" role="dialog" aria-labelledby="crearCategoriaModalLabel" aria-hidden="true">
-    <div class="modal-dialog" role="document">
+<!-- Modal para crear categoría -->
+<div class="modal fade" id="crearCategoriaModal" tabindex="-1" aria-labelledby="crearCategoriaModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title" id="crearCategoriaModalLabel">Crear Nueva Categoría</h5>
-                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-                    <span aria-hidden="true">&times;</span>
-                </button>
+                <h5 class="modal-title" id="crearCategoriaModalLabel">
+                    <i class="fas fa-plus"></i> Crear Nueva Categoría
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
-            <form action="{{ url_for('admin_categorias_crear') }}" method="POST">
+            <form method="POST" action="{{ url_for('admin_categorias_crear') }}" id="crearCategoriaForm" novalidate>
                 <div class="modal-body">
-                    <div class="form-group">
-                        <label for="descripcion">Descripción:</label>
+                    <!-- Descripción -->
+                    <div class="mb-3">
+                        <label for="descripcion" class="form-label">Descripción <span class="text-danger">*</span></label>
                         <input type="text" class="form-control" id="descripcion" name="descripcion" 
-                               placeholder="Ingrese la descripción de la categoría" required>
+                               required minlength="2" maxlength="100"
+                               placeholder="Ingrese la descripción de la categoría">
+                        <div class="form-text">Mínimo 2 caracteres, máximo 100</div>
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancelar</button>
-                    <button type="submit" class="btn btn-primary">Guardar Categoría</button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="fas fa-times"></i> Cancelar
+                    </button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-check"></i> Guardar Categoría
+                    </button>
                 </div>
             </form>
         </div>
     </div>
 </div>
 
-<!-- Modal para Editar Categoría -->
-<div class="modal fade" id="editarCategoriaModal" tabindex="-1" role="dialog" aria-labelledby="editarCategoriaModalLabel" aria-hidden="true">
-    <div class="modal-dialog" role="document">
+<!-- Modal para editar categoría -->
+<div class="modal fade" id="editarCategoriaModal" tabindex="-1" aria-labelledby="editarCategoriaModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title" id="editarCategoriaModalLabel">Editar Categoría</h5>
-                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-                    <span aria-hidden="true">&times;</span>
-                </button>
+                <h5 class="modal-title" id="editarCategoriaModalLabel">
+                    <i class="fas fa-edit"></i> Editar Categoría
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
-            <form id="formEditarCategoria" method="POST">
+            <form id="formEditarCategoria" method="POST" novalidate>
                 <div class="modal-body">
-                    <div class="form-group">
-                        <label for="descripcion_editar">Descripción:</label>
+                    <!-- Descripción -->
+                    <div class="mb-3">
+                        <label for="descripcion_editar" class="form-label">Descripción <span class="text-danger">*</span></label>
                         <input type="text" class="form-control" id="descripcion_editar" name="descripcion" 
-                               placeholder="Ingrese la descripción de la categoría" required>
+                               required minlength="2" maxlength="100"
+                               placeholder="Ingrese la descripción de la categoría">
+                        <div class="form-text">Mínimo 2 caracteres, máximo 100</div>
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancelar</button>
-                    <button type="submit" class="btn btn-primary">Actualizar Categoría</button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="fas fa-times"></i> Cancelar
+                    </button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-check"></i> Actualizar Categoría
+                    </button>
                 </div>
             </form>
         </div>
@@ -111,22 +153,71 @@
 
 {% block scripts %}
 <script>
+document.addEventListener('DOMContentLoaded', function() {
     // Script para manejar el modal de edición
-    $('#editarCategoriaModal').on('show.bs.modal', function (event) {
-        var button = $(event.relatedTarget); // Botón que activó el modal
-        var id = button.data('id');
-        var descripcion = button.data('descripcion');
+    const editarModal = document.getElementById('editarCategoriaModal');
+    if (editarModal) {
+        editarModal.addEventListener('show.bs.modal', function (event) {
+            var button = event.relatedTarget;
+            var id = button.getAttribute('data-id');
+            var descripcion = button.getAttribute('data-descripcion');
+            
+            var descripcionInput = document.getElementById('descripcion_editar');
+            if (descripcionInput) {
+                descripcionInput.value = descripcion;
+            }
+            
+            var form = document.getElementById('formEditarCategoria');
+            if (form) {
+                form.action = '/admin/catalog/categorias/editar/' + id;
+            }
+        });
         
-        var modal = $(this);
-        modal.find('#descripcion_editar').val(descripcion);
-        
-        // Actualizar el action del formulario con el ID correcto
-        modal.find('#formEditarCategoria').attr('action', '/admin/catalog/categorias/editar/' + id);
-    });
+        // Limpiar formulario cuando se cierra
+        editarModal.addEventListener('hidden.bs.modal', function () {
+            var form = document.getElementById('formEditarCategoria');
+            if (form) {
+                form.reset();
+            }
+        });
+    }
 
     // Limpiar el modal de crear cuando se cierre
-    $('#crearCategoriaModal').on('hidden.bs.modal', function () {
-        $(this).find('form')[0].reset();
+    const crearModal = document.getElementById('crearCategoriaModal');
+    if (crearModal) {
+        crearModal.addEventListener('hidden.bs.modal', function () {
+            var form = document.getElementById('crearCategoriaForm');
+            if (form) {
+                form.reset();
+            }
+        });
+    }
+
+    // Validación de formularios
+    const forms = document.querySelectorAll('form[novalidate]');
+    forms.forEach(form => {
+        form.addEventListener('submit', function(event) {
+            if (!form.checkValidity()) {
+                event.preventDefault();
+                event.stopPropagation();
+            }
+            form.classList.add('was-validated');
+        });
     });
+    
+    // Auto-focus en el campo descripción cuando se abre el modal de crear
+    if (crearModal) {
+        crearModal.addEventListener('shown.bs.modal', function () {
+            document.getElementById('descripcion').focus();
+        });
+    }
+    
+    // Auto-focus en el campo descripción cuando se abre el modal de editar
+    if (editarModal) {
+        editarModal.addEventListener('shown.bs.modal', function () {
+            document.getElementById('descripcion_editar').focus();
+        });
+    }
+});
 </script>
 {% endblock %}

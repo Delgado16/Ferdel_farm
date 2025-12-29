@@ -1,119 +1,82 @@
 {% extends "layout.html" %}
 
-{% block title %}Cuentas por Pagar{% endblock %}
+{% block title %}Cuentas por Pagar - FerDel{% endblock %}
 
 {% block content %}
-<div class="container-fluid">
-    <!-- Header -->
-    <div class="d-sm-flex align-items-center justify-content-between mb-4">
-        <div class="d-flex align-items-center">
-            <div class="icon-circle bg-primary text-white mr-3">
-                <i class="fas fa-file-invoice-dollar"></i>
-            </div>
-            <div>
-                <h1 class="h3 mb-0 text-gray-800">Cuentas por Pagar</h1>
-                <p class="text-muted mb-0">Gestión de obligaciones financieras con proveedores</p>
-            </div>
-        </div>
-        <div class="d-flex flex-wrap mt-3 mt-sm-0">
-            <a href="{{ url_for('admin_cuentas_por_pagar') }}" class="btn btn-outline-primary mr-2 mb-2 mb-sm-0">
-                <i class="fas fa-sync-alt mr-1"></i> <span class="d-none d-md-inline">Actualizar</span>
-            </a>
-            <button class="btn btn-primary mb-2 mb-sm-0" onclick="exportarExcel()">
-                <i class="fas fa-file-export mr-1"></i> <span class="d-none d-md-inline">Exportar</span>
-            </button>
-        </div>
+<div class="container-fluid py-4">
+    <!-- Encabezado con botón de volver -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1>
+            <i class="fas fa-file-invoice-dollar"></i> Cuentas por Pagar
+        </h1>
+        <a href="{{ url_for('admin_dashboard') }}" class="btn btn-outline-secondary">
+            <i class="fas fa-arrow-left"></i> Volver al Dashboard
+        </a>
     </div>
 
-    <!-- Stats Cards -->
+    <!-- Resumen General -->
     <div class="row mb-4">
-        <!-- Total Pendiente -->
-        <div class="col-12 col-sm-6 col-xl-3 mb-4">
-            <div class="card stats-card shadow h-100">
+        <div class="col-xl-3 col-md-6 mb-3">
+            <div class="card">
                 <div class="card-body">
-                    <div class="d-flex flex-column flex-sm-row align-items-center align-items-sm-start text-center text-sm-left">
-                        <div class="flex-grow-1">
-                            <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">
-                                Total Pendiente
-                            </div>
-                            <div class="h4 mb-0 font-weight-bold text-gray-800">
-                                C${{ "{:,.2f}".format(total_pendiente) if total_pendiente else '0.00' }}
-                            </div>
-                            <div class="mt-2 text-xs text-muted">
-                                <i class="fas fa-calendar-alt mr-1"></i> Actualizado hoy
-                            </div>
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-muted mb-1">Total Pendiente</h6>
+                            <h2 class="fw-bold text-dark mb-0">C${{ "{:,.2f}".format(total_pendiente) if total_pendiente else '0.00' }}</h2>
                         </div>
-                        <div class="icon-circle bg-primary-light text-primary mt-2 mt-sm-0 ml-sm-3">
-                            <i class="fas fa-clock"></i>
+                        <div class="text-primary">
+                            <i class="fas fa-dollar-sign fa-2x"></i>
                         </div>
                     </div>
                 </div>
             </div>
         </div>
-
-        <!-- Cuentas Vencidas -->
-        <div class="col-12 col-sm-6 col-xl-3 mb-4">
-            <div class="card stats-card shadow h-100">
+        
+        <div class="col-xl-3 col-md-6 mb-3">
+            <div class="card">
                 <div class="card-body">
-                    <div class="d-flex flex-column flex-sm-row align-items-center align-items-sm-start text-center text-sm-left">
-                        <div class="flex-grow-1">
-                            <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">
-                                Cuentas Vencidas
-                            </div>
-                            <div class="h4 mb-0 font-weight-bold text-gray-800">{{ cuentas_vencidas or 0 }}</div>
-                            <div class="mt-2 text-xs text-muted">
-                                <i class="fas fa-exclamation-triangle mr-1"></i> Requieren atención
-                            </div>
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-muted mb-1">Cuentas Vencidas</h6>
+                            <h2 class="fw-bold text-dark mb-0">{{ cuentas_vencidas or 0 }}</h2>
                         </div>
-                        <div class="icon-circle bg-warning-light text-warning mt-2 mt-sm-0 ml-sm-3">
-                            <i class="fas fa-exclamation-triangle"></i>
+                        <div class="text-warning">
+                            <i class="fas fa-clock fa-2x"></i>
                         </div>
                     </div>
                 </div>
             </div>
         </div>
-
-        <!-- Cuentas Pagadas -->
-        <div class="col-12 col-sm-6 col-xl-3 mb-4">
-            <div class="card stats-card shadow h-100">
+        
+        <div class="col-xl-3 col-md-6 mb-3">
+            <div class="card">
                 <div class="card-body">
-                    <div class="d-flex flex-column flex-sm-row align-items-center align-items-sm-start text-center text-sm-left">
-                        <div class="flex-grow-1">
-                            <div class="text-xs font-weight-bold text-success text-uppercase mb-1">
-                                Cuentas Pagadas
-                            </div>
-                            <div class="h4 mb-0 font-weight-bold text-gray-800">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-muted mb-1">Cuentas Pagadas</h6>
+                            <h2 class="fw-bold text-dark mb-0">
                                 {% set cuentas_pagadas = cuentas|selectattr('Estado', 'equalto', 'Pagada')|list %}
                                 {{ cuentas_pagadas|length or 0 }}
-                            </div>
-                            <div class="mt-2 text-xs text-muted">
-                                <i class="fas fa-check-circle mr-1"></i> Completadas
-                            </div>
+                            </h2>
                         </div>
-                        <div class="icon-circle bg-success-light text-success mt-2 mt-sm-0 ml-sm-3">
-                            <i class="fas fa-check-circle"></i>
+                        <div class="text-danger">
+                            <i class="fas fa-exclamation-triangle fa-2x"></i>
                         </div>
                     </div>
                 </div>
             </div>
         </div>
-
-        <!-- Total Cuentas -->
-        <div class="col-12 col-sm-6 col-xl-3 mb-4">
-            <div class="card stats-card shadow h-100">
+        
+        <div class="col-xl-3 col-md-6 mb-3">
+            <div class="card">
                 <div class="card-body">
-                    <div class="d-flex flex-column flex-sm-row align-items-center align-items-sm-start text-center text-sm-left">
-                        <div class="flex-grow-1">
-                            <div class="text-xs font-weight-bold text-info text-uppercase mb-1">
-                                Total Cuentas
-                            </div>
-                            <div class="h4 mb-0 font-weight-bold text-gray-800">{{ total_cuentas or 0 }}</div>
-                            <div class="mt-2 text-xs text-muted">
-                                <i class="fas fa-list-alt mr-1"></i> Todas las cuentas
-                            </div>
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-muted mb-1">Total Registros</h6>
+                            <h2 class="fw-bold text-dark mb-0">{{ total_cuentas or 0 }}</h2>
                         </div>
-                        <div class="icon-circle bg-info-light text-info mt-2 mt-sm-0 ml-sm-3">
-                            <i class="fas fa-list-alt"></i>
+                        <div class="text-success">
+                            <i class="fas fa-list fa-2x"></i>
                         </div>
                     </div>
                 </div>
@@ -121,219 +84,176 @@
         </div>
     </div>
 
-    <!-- Alert Messages -->
-    {% with messages = get_flashed_messages(with_categories=true) %}
-        {% if messages %}
-            {% for category, message in messages %}
-                <div class="alert alert-{{ 'danger' if category == 'error' else 'success' }} alert-dismissible fade show shadow-sm mb-4" role="alert">
-                    <div class="d-flex align-items-center">
-                        <i class="fas fa-{{ 'exclamation-triangle' if category == 'error' else 'check-circle' }} mr-2"></i>
-                        <span>{{ message }}</span>
+    <!-- Tabla Principal -->
+    <div class="card shadow-sm">
+        <div class="card-header bg-white">
+            <div class="d-flex justify-content-between align-items-center">
+                <h5 class="card-title fw-bold mb-0">
+                    <i class="fas fa-table me-2 text-primary"></i>Lista de Cuentas por Pagar
+                </h5>
+                <div class="d-flex align-items-center">
+                    <div class="input-group input-group-sm" style="width: 250px;">
+                        <input type="text" class="form-control" placeholder="Buscar proveedor..." id="searchInput">
+                        <button class="btn btn-outline-secondary" type="button" id="clearSearch">
+                            <i class="fas fa-times"></i>
+                        </button>
                     </div>
-                    <button type="button" class="close" data-dismiss="alert" aria-label="Close">
-                        <span aria-hidden="true">&times;</span>
+                    <button onclick="exportarExcel()" class="btn btn-primary btn-sm ms-2">
+                        <i class="fas fa-file-export"></i> Exportar
                     </button>
-                </div>
-            {% endfor %}
-        {% endif %}
-    {% endwith %}
-
-    <!-- Filters -->
-    <div class="card shadow-sm mb-4">
-        <div class="card-body py-3">
-            <div class="row g-3">
-                <div class="col-12 col-md-4">
-                    <label class="small font-weight-bold text-uppercase text-muted mb-1 d-block">Estado</label>
-                    <select class="form-control form-control-sm w-100" id="filterEstado">
-                        <option value="Todas" {% if filtro_estado == 'Todas' %}selected{% endif %}>Todas las cuentas</option>
-                        <option value="Pendiente" {% if filtro_estado == 'Pendiente' %}selected{% endif %}>Pendientes</option>
-                        <option value="Pagada" {% if filtro_estado == 'Pagada' %}selected{% endif %}>Pagadas</option>
-                        <option value="Anulada" {% if filtro_estado == 'Anulada' %}selected{% endif %}>Anuladas</option>
-                    </select>
-                </div>
-                <div class="col-12 col-md-4">
-                    <label class="small font-weight-bold text-uppercase text-muted mb-1 d-block">Proveedor</label>
-                    <select class="form-control form-control-sm w-100" id="filterProveedor">
-                        <option value="">Todos los proveedores</option>
-                        {% for proveedor in proveedores %}
-                            {% if proveedor.Proveedor %}
-                                <option value="{{ proveedor.Proveedor }}">{{ proveedor.Proveedor }}</option>
-                            {% endif %}
-                        {% endfor %}
-                    </select>
-                </div>
-                <div class="col-12 col-md-4">
-                    <label class="small font-weight-bold text-uppercase text-muted mb-1 d-block">Buscar</label>
-                    <div class="input-group input-group-sm">
-                        <input type="text" class="form-control" placeholder="Buscar proveedor, documento..." id="searchInput">
-                        <div class="input-group-append">
-                            <button class="btn btn-outline-secondary" type="button" id="clearSearch">
-                                <i class="fas fa-times"></i>
-                            </button>
-                        </div>
-                    </div>
+                    <span class="badge bg-primary ms-2">{{ total_cuentas or 0 }} registros</span>
                 </div>
             </div>
         </div>
-    </div>
-
-    <!-- Cuentas Table -->
-    <div class="card shadow mb-4">
-        <div class="card-header py-3 d-flex flex-column flex-md-row justify-content-between align-items-md-center">
-            <h6 class="m-0 font-weight-bold text-primary mb-2 mb-md-0">
-                <i class="fas fa-list-alt mr-2"></i>Lista de Cuentas por Pagar
-            </h6>
-            <div class="d-flex flex-wrap justify-content-center justify-content-md-start">
-                <span class="badge badge-pill badge-light border text-dark mr-2 mb-1">
-                    <i class="fas fa-info-circle mr-1"></i> {{ total_cuentas }} registros
-                </span>
-                <span class="badge badge-pill badge-warning text-dark mb-1">
-                    <i class="fas fa-clock mr-1"></i> 
-                    {% set cuentas_pendientes = cuentas|selectattr('Estado', 'equalto', 'Pendiente')|list %}
-                    {{ cuentas_pendientes|length or 0 }} pendientes
-                </span>
-            </div>
-        </div>
+        
         <div class="card-body p-0">
             <div class="table-responsive">
-                <table class="table table-hover mb-0" id="dataTable" width="100%" cellspacing="0">
-                    <thead class="thead-light">
+                <table class="table table-striped table-hover mb-0" id="dataTable">
+                    <thead class="table-dark">
                         <tr>
-                            <th class="pl-3 pl-md-4">ID</th>
-                            <th class="d-none d-md-table-cell">Fecha</th>
+                            <th>ID</th>
                             <th>Proveedor</th>
+                            <th>Contacto</th>
                             <th>Documento</th>
+                            <th class="text-end">Monto</th>
+                            <th class="text-end">Saldo</th>
                             <th>Vencimiento</th>
-                            <th class="text-right pr-3 pr-md-4">Monto</th>
-                            <th class="text-right pr-3 pr-md-4">Saldo</th>
                             <th class="text-center">Estado</th>
-                            <th class="text-center px-3">Acciones</th>
+                            <th class="text-center">Acciones</th>
                         </tr>
                     </thead>
                     <tbody>
                         {% for cuenta in cuentas %}
                         {% set dias_vencimiento = cuenta.dias_vencimiento %}
-                        <tr class="cuenta-row 
-                            {% if cuenta.Estado == 'Anulada' %}table-secondary
-                            {% elif cuenta.Estado == 'Pagada' %}table-success-light
-                            {% elif dias_vencimiento and dias_vencimiento < 0 %}table-warning-light
-                            {% elif dias_vencimiento and dias_vencimiento <= 3 %}table-info-light
-                            {% endif %}">
-                            <td class="pl-3 pl-md-4" data-label="ID">
-                                <div class="font-weight-bold text-primary">#{{ cuenta.ID_Cuenta }}</div>
-                                <small class="text-muted d-block d-md-none">
-                                    {% if cuenta.Fecha %}
-                                        {{ cuenta.Fecha.strftime('%d/%m/%Y') }}
-                                    {% else %}
-                                        Sin fecha
-                                    {% endif %}
+                        <tr>
+                            <!-- ID -->
+                            <td class="fw-bold text-primary">#{{ cuenta.ID_Cuenta }}</td>
+                            
+                            <!-- Proveedor -->
+                            <td>
+                                <div class="fw-bold mb-1">{{ cuenta.Proveedor or 'N/A' }}</div>
+                                <small class="text-muted">
+                                    {{ cuenta.Fecha.strftime('%d/%m/%Y') if cuenta.Fecha else 'Sin fecha' }}
                                 </small>
-                            </td>
-                            <td class="d-none d-md-table-cell" data-label="Fecha">
-                                <span class="text-muted">
-                                    {% if cuenta.Fecha %}
-                                        {{ cuenta.Fecha.strftime('%d/%m/%Y') }}
-                                    {% else %}
-                                        Sin fecha
-                                    {% endif %}
-                                </span>
-                            </td>
-                            <td data-label="Proveedor">
-                                <div class="font-weight-bold">{{ cuenta.Proveedor or 'N/A' }}</div>
-                                <small class="text-muted d-block">ID: {{ cuenta.ID_Proveedor or 'N/A' }}</small>
-                            </td>
-                            <td data-label="Documento">
-                                <div class="d-flex flex-column">
-                                    <code class="text-dark">{{ cuenta.Num_Documento or 'N/A' }}</code>
-                                    {% if cuenta.Observacion %}
-                                    <small class="text-muted observacion-truncate" title="{{ cuenta.Observacion }}">
-                                        {{ cuenta.Observacion[:30] }}{{ '...' if cuenta.Observacion|length > 30 else '' }}
+                                {% if cuenta.Observacion %}
+                                <div class="mt-1">
+                                    <small class="text-muted">
+                                        <i class="fas fa-comment fa-xs me-1"></i>{{ cuenta.Observacion|truncate(30) }}
                                     </small>
-                                    {% endif %}
                                 </div>
+                                {% endif %}
                             </td>
-                            <td data-label="Vencimiento">
-                                <div class="d-flex flex-column">
-                                    <span class="{{ 'text-danger font-weight-bold' if dias_vencimiento and dias_vencimiento < 0 else 'text-dark' }}">
-                                        {% if cuenta.Fecha_Vencimiento %}
-                                            {{ cuenta.Fecha_Vencimiento.strftime('%d/%m/%Y') }}
-                                        {% else %}
-                                            Sin fecha
-                                        {% endif %}
+                            
+                            <!-- Contacto -->
+                            <td>
+                                {% if cuenta.ID_Proveedor %}
+                                    <span>
+                                        <i class="fas fa-id-card fa-sm me-1 text-primary"></i>ID: {{ cuenta.ID_Proveedor }}
                                     </span>
-                                    {% if dias_vencimiento is not none %}
-                                        <small class="{{ 'text-danger' if dias_vencimiento < 0 else 'text-warning' if dias_vencimiento <= 3 else 'text-success' }}">
-                                            {% if dias_vencimiento < 0 %}
-                                                <i class="fas fa-exclamation-circle mr-1"></i>Vencido hace {{ -dias_vencimiento }} días
-                                            {% elif dias_vencimiento == 0 %}
-                                                <i class="fas fa-clock mr-1"></i>Vence hoy
-                                            {% else %}
-                                                <i class="fas fa-calendar-check mr-1"></i>En {{ dias_vencimiento }} días
-                                            {% endif %}
-                                        </small>
-                                    {% endif %}
-                                </div>
+                                {% else %}
+                                    <span class="text-muted">Sin ID</span>
+                                {% endif %}
                             </td>
-                            <td class="text-right pr-3 pr-md-4 font-weight-bold text-dark" data-label="Monto">
-                                C${{ "{:,.2f}".format(cuenta.Monto_Movimiento) if cuenta.Monto_Movimiento else '0.00' }}
-                            </td>
-                            <td class="text-right pr-3 pr-md-4" data-label="Saldo">
-                                <span class="font-weight-bold {{ 'text-danger' if cuenta.Saldo_Pendiente and cuenta.Saldo_Pendiente > 0 else 'text-success' }}">
-                                    C${{ "{:,.2f}".format(cuenta.Saldo_Pendiente) if cuenta.Saldo_Pendiente else '0.00' }}
-                                </span>
-                            </td>
-                            <td class="text-center" data-label="Estado">
-                                {% if cuenta.Estado == 'Pendiente' %}
-                                    <div class="status-badge status-pending">
-                                        <i class="fas fa-clock mr-1"></i>PENDIENTE
-                                    </div>
-                                {% elif cuenta.Estado == 'Pagada' %}
-                                    <div class="status-badge status-paid">
-                                        <i class="fas fa-check-circle mr-1"></i>PAGADA
-                                    </div>
-                                {% elif cuenta.Estado == 'Anulada' %}
-                                    <div class="status-badge status-cancelled">
-                                        <i class="fas fa-ban mr-1"></i>ANULADA
+                            
+                            <!-- Documento -->
+                            <td>
+                                {% if cuenta.Num_Documento %}
+                                    <div class="mb-1">
+                                        <span class="badge bg-info">
+                                            {{ cuenta.Num_Documento }}
+                                        </span>
                                     </div>
                                 {% else %}
-                                    <span class="badge badge-secondary">{{ cuenta.Estado }}</span>
+                                    <span class="text-muted">Sin documento</span>
                                 {% endif %}
-                                
-                                {% if cuenta.Estado == 'Pendiente' and dias_vencimiento and dias_vencimiento < 0 %}
-                                <small class="d-block text-danger font-weight-bold mt-1">
-                                    <i class="fas fa-exclamation-triangle mr-1"></i>VENCIDA
+                            </td>
+                            
+                            <!-- Monto -->
+                            <td class="text-end fw-bold">
+                                C${{ "{:,.2f}".format(cuenta.Monto_Movimiento) if cuenta.Monto_Movimiento else '0.00' }}
+                            </td>
+                            
+                            <!-- Saldo -->
+                            <td class="text-end">
+                                <div class="mb-1">
+                                    <span class="fw-bold {% if cuenta.Saldo_Pendiente and cuenta.Saldo_Pendiente > 0 %}text-danger{% else %}text-success{% endif %}">
+                                        C${{ "{:,.2f}".format(cuenta.Saldo_Pendiente) if cuenta.Saldo_Pendiente else '0.00' }}
+                                    </span>
+                                </div>
+                                {% if cuenta.Saldo_Pendiente < cuenta.Monto_Movimiento and cuenta.Saldo_Pendiente > 0 %}
+                                <small class="text-muted">
+                                    Pagado: C${{ "{:,.2f}".format(cuenta.Monto_Movimiento - cuenta.Saldo_Pendiente) }}
                                 </small>
                                 {% endif %}
                             </td>
-                            <td class="px-3" data-label="Acciones">
-                                <div class="btn-group-vertical btn-group-sm w-100" role="group">
-                                    <!-- Botón de Registrar Pago (solo para pendientes) -->
+                            
+                            <!-- Vencimiento -->
+                            <td>
+                                {% if cuenta.Fecha_Vencimiento %}
+                                    <div class="mb-1">
+                                        {{ cuenta.Fecha_Vencimiento.strftime('%d/%m/%Y') }}
+                                    </div>
+                                    {% if dias_vencimiento is not none and dias_vencimiento < 0 %}
+                                        <span class="badge bg-danger">
+                                            Vencido: {{ -dias_vencimiento }} días
+                                        </span>
+                                    {% elif dias_vencimiento is not none and dias_vencimiento >= 0 %}
+                                        <span class="badge bg-info">
+                                            {{ dias_vencimiento }} días restantes
+                                        </span>
+                                    {% endif %}
+                                {% else %}
+                                    <span class="text-muted">Sin fecha</span>
+                                {% endif %}
+                            </td>
+                            
+                            <!-- Estado -->
+                            <td class="text-center">
+                                {% if cuenta.Estado == 'Pagada' %}
+                                    <span class="badge bg-success">
+                                        Pagada
+                                    </span>
+                                {% elif cuenta.Estado == 'Anulada' %}
+                                    <span class="badge bg-secondary">
+                                        Anulada
+                                    </span>
+                                {% elif dias_vencimiento is not none and dias_vencimiento < 0 %}
+                                    <span class="badge bg-danger">
+                                        Vencida
+                                    </span>
+                                {% else %}
+                                    <span class="badge bg-warning">
+                                        Pendiente
+                                    </span>
+                                {% endif %}
+                            </td>
+                            
+                            <!-- Acciones -->
+                            <td class="text-center">
+                                <div class="btn-group btn-group-sm" role="group">
                                     {% if cuenta.Estado == 'Pendiente' %}
                                     <a href="{{ url_for('registrar_pago_cuenta', id_cuenta=cuenta.ID_Cuenta) }}" 
-                                       class="btn btn-success btn-sm mb-1 d-flex align-items-center justify-content-center"
-                                       title="Registrar pago">
-                                        <i class="fas fa-money-bill-wave mr-1"></i>
-                                        <span class="btn-text">Pagar</span>
+                                       class="btn btn-outline-success" title="Registrar pago">
+                                        <i class="fas fa-money-bill-wave"></i>
+                                        <span class="ms-1">Pagar</span>
                                     </a>
                                     {% endif %}
                                     
-                                    <!-- Botón de Historial de Pagos -->
                                     <a href="{{ url_for('historial_pagos_cuenta', id_cuenta=cuenta.ID_Cuenta) }}" 
-                                       class="btn btn-info btn-sm mb-1 d-flex align-items-center justify-content-center"
-                                       title="Ver historial de pagos">
-                                        <i class="fas fa-history mr-1"></i>
-                                        <span class="btn-text">Historial</span>
+                                       class="btn btn-outline-primary" title="Ver historial de pagos">
+                                        <i class="fas fa-eye"></i>
+                                        <span class="ms-1">Historial</span>
                                     </a>
                                     
-                                    <!-- Botón de Anular (solo para pendientes) -->
                                     {% if cuenta.Estado == 'Pendiente' %}
-                                    <button class="btn btn-danger btn-sm anular-cuenta d-flex align-items-center justify-content-center" 
+                                    <button class="btn btn-outline-danger anular-cuenta" 
+                                            data-bs-toggle="modal" data-bs-target="#anularCuentaModal"
                                             data-id="{{ cuenta.ID_Cuenta }}"
                                             data-proveedor="{{ cuenta.Proveedor or 'N/A' }}"
                                             data-monto="{{ cuenta.Saldo_Pendiente or 0 }}"
                                             title="Anular cuenta">
-                                        <i class="fas fa-ban mr-1"></i>
-                                        <span class="btn-text">Anular</span>
+                                        <i class="fas fa-ban"></i>
+                                        <span class="ms-1">Anular</span>
                                     </button>
                                     {% endif %}
                                 </div>
@@ -342,762 +262,122 @@
                         {% else %}
                         <tr>
                             <td colspan="9" class="text-center py-5">
-                                <div class="text-muted">
-                                    <i class="fas fa-inbox fa-2x mb-3"></i>
-                                    <h5>No hay cuentas por pagar</h5>
-                                    <p class="mb-0">No se encontraron cuentas con el filtro seleccionado</p>
-                                </div>
+                                <i class="fas fa-check-circle fa-3x text-success mb-3"></i>
+                                <h5 class="text-muted">¡Excelente!</h5>
+                                <p class="text-muted">No hay cuentas por pagar pendientes</p>
                             </td>
                         </tr>
                         {% endfor %}
                     </tbody>
                     <tfoot class="table-light">
                         <tr>
-                            <th colspan="5" class="text-right pl-3 pl-md-4">TOTALES:</th>
-                            <th class="text-right pr-3 pr-md-4">C${{ "{:,.2f}".format(total_monto) if total_monto else '0.00' }}</th>
-                            <th class="text-right pr-3 pr-md-4">C${{ "{:,.2f}".format(total_saldo) if total_saldo else '0.00' }}</th>
-                            <th colspan="2"></th>
+                            <td colspan="4" class="text-end fw-bold">TOTALES:</td>
+                            <td class="text-end fw-bold">C${{ "{:,.2f}".format(total_monto) if total_monto else '0.00' }}</td>
+                            <td class="text-end fw-bold">C${{ "{:,.2f}".format(total_saldo) if total_saldo else '0.00' }}</td>
+                            <td colspan="3"></td>
                         </tr>
                     </tfoot>
                 </table>
+            </div>
+        </div>
+        
+        <div class="card-footer bg-white">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <small class="text-muted">
+                        <i class="fas fa-info-circle me-1 text-primary"></i>
+                        Mostrando {{ total_cuentas or 0 }} registro(s)
+                    </small>
+                </div>
+                <div>
+                    <small class="text-muted">
+                        Actualizado: {{ hoy.strftime('%d/%m/%Y %H:%M') if hoy else 'N/A' }}
+                    </small>
+                </div>
             </div>
         </div>
     </div>
 </div>
 
 <!-- Modal de Confirmación para Anulación -->
-<div class="modal fade" id="modalAnular" tabindex="-1" role="dialog" aria-labelledby="modalAnularLabel" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered" role="document">
+<div class="modal fade" id="anularCuentaModal" tabindex="-1" aria-labelledby="anularCuentaModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
         <div class="modal-content">
-            <div class="modal-header bg-danger text-white">
-                <h5 class="modal-title" id="modalAnularLabel">
-                    <i class="fas fa-exclamation-triangle mr-2"></i>Confirmar Anulación
+            <div class="modal-header">
+                <h5 class="modal-title" id="anularCuentaModalLabel">
+                    <i class="fas fa-exclamation-triangle me-2 text-danger"></i>Confirmar Anulación
                 </h5>
-                <button type="button" class="close text-white" data-dismiss="modal" aria-label="Close">
-                    <span aria-hidden="true">&times;</span>
-                </button>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
                 <p class="mb-3">¿Está seguro de que desea anular esta cuenta por pagar?</p>
-                <div class="alert alert-warning">
-                    <i class="fas fa-info-circle mr-2"></i>
+                <div class="alert alert-warning mb-3">
+                    <i class="fas fa-info-circle me-2"></i>
                     <strong>Esta acción no se puede deshacer.</strong> La cuenta será marcada como "Anulada" y ya no estará disponible para pagos.
                 </div>
-                <div class="info-anulacion">
+                <div class="mb-3">
                     <p><strong>Proveedor:</strong> <span id="anular-proveedor"></span></p>
                     <p><strong>Saldo Pendiente:</strong> C$<span id="anular-saldo"></span></p>
-                    <div class="form-group mt-3">
-                        <label for="motivoAnulacion" class="font-weight-bold">Motivo de anulación:</label>
-                        <textarea class="form-control" id="motivoAnulacion" rows="3" placeholder="Ingrese el motivo de la anulación..."></textarea>
-                    </div>
+                </div>
+                <div class="mb-3">
+                    <label for="motivoAnulacion" class="form-label fw-bold">Motivo de anulación:</label>
+                    <textarea class="form-control" id="motivoAnulacion" rows="3" placeholder="Ingrese el motivo de la anulación..."></textarea>
                 </div>
             </div>
-            <div class="modal-footer d-flex flex-column flex-sm-row">
-                <button type="button" class="btn btn-secondary mb-2 mb-sm-0 w-100 w-sm-auto" data-dismiss="modal">
-                    <i class="fas fa-times mr-1"></i> Cancelar
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="fas fa-times me-2"></i> Cancelar
                 </button>
-                <button type="button" class="btn btn-danger w-100 w-sm-auto" id="confirmarAnulacion">
-                    <i class="fas fa-ban mr-1"></i> Anular Cuenta
+                <button type="button" class="btn btn-danger" id="confirmarAnulacion">
+                    <i class="fas fa-ban me-2"></i> Anular Cuenta
                 </button>
             </div>
         </div>
     </div>
 </div>
-{% endblock %}
 
-{% block styles %}
-<style>
-/* Icon circles - Responsivos */
-.icon-circle {
-    width: 40px;
-    height: 40px;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 1rem;
-    flex-shrink: 0;
-}
-
-@media (min-width: 768px) {
-    .icon-circle {
-        width: 50px;
-        height: 50px;
-        font-size: 1.2rem;
-    }
-}
-
-.icon-circle.bg-primary-light {
-    background-color: rgba(78, 115, 223, 0.1);
-}
-
-.icon-circle.bg-warning-light {
-    background-color: rgba(246, 194, 62, 0.1);
-}
-
-.icon-circle.bg-success-light {
-    background-color: rgba(28, 200, 138, 0.1);
-}
-
-.icon-circle.bg-info-light {
-    background-color: rgba(54, 185, 204, 0.1);
-}
-
-/* Stats cards - Mejor responsividad */
-.stats-card {
-    border-left: 4px solid;
-    border-left-color: #4e73df;
-    transition: transform 0.3s, box-shadow 0.3s;
-    min-height: 120px;
-}
-
-.stats-card:hover {
-    transform: translateY(-3px);
-    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15) !important;
-}
-
-.stats-card:nth-child(2) {
-    border-left-color: #f6c23e;
-}
-
-.stats-card:nth-child(3) {
-    border-left-color: #1cc88a;
-}
-
-.stats-card:nth-child(4) {
-    border-left-color: #36b9cc;
-}
-
-.stats-card .h4 {
-    font-size: 1.25rem;
-}
-
-@media (min-width: 768px) {
-    .stats-card .h4 {
-        font-size: 1.5rem;
-    }
-}
-
-/* Status badges */
-.status-badge {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    padding: 0.25rem 0.5rem;
-    border-radius: 50px;
-    font-size: 0.7rem;
-    font-weight: 600;
-    letter-spacing: 0.5px;
-    white-space: nowrap;
-}
-
-@media (min-width: 768px) {
-    .status-badge {
-        padding: 0.35rem 0.75rem;
-        font-size: 0.75rem;
-    }
-}
-
-.status-pending {
-    background-color: rgba(255, 193, 7, 0.15);
-    color: #856404;
-    border: 1px solid rgba(255, 193, 7, 0.3);
-}
-
-.status-paid {
-    background-color: rgba(40, 167, 69, 0.15);
-    color: #155724;
-    border: 1px solid rgba(40, 167, 69, 0.3);
-}
-
-.status-cancelled {
-    background-color: rgba(108, 117, 125, 0.15);
-    color: #383d41;
-    border: 1px solid rgba(108, 117, 125, 0.3);
-}
-
-/* Table improvements - Responsividad completa */
-.table thead th {
-    border-bottom: 2px solid #e3e6f0;
-    font-weight: 700;
-    text-transform: uppercase;
-    font-size: 0.75rem;
-    letter-spacing: 0.5px;
-    color: #6e707e;
-    padding: 0.75rem 0.5rem;
-    white-space: nowrap;
-}
-
-.table tbody td {
-    padding: 0.75rem 0.5rem;
-    vertical-align: middle;
-}
-
-.cuenta-row {
-    transition: all 0.2s;
-}
-
-.cuenta-row:hover {
-    background-color: #f8f9fc;
-    transform: translateY(-1px);
-    box-shadow: inset 0 0 0 1px #e3e6f0;
-}
-
-.table-success-light {
-    background-color: rgba(28, 200, 138, 0.05);
-}
-
-.table-warning-light {
-    background-color: rgba(255, 193, 7, 0.05);
-}
-
-.table-info-light {
-    background-color: rgba(54, 185, 204, 0.05);
-}
-
-.observacion-truncate {
-    display: inline-block;
-    max-width: 200px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    cursor: help;
-}
-
-/* Botones - Mejor responsividad */
-.btn-group-vertical {
-    width: 100%;
-    min-width: 100px;
-}
-
-.btn-group-vertical .btn {
-    text-align: center;
-    justify-content: center;
-    padding: 0.4rem 0.5rem;
-    font-size: 0.8rem;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    min-height: 36px;
-}
-
-.btn-group-vertical .btn .btn-text {
-    display: inline-block;
-    max-width: 80px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-@media (min-width: 768px) {
-    .btn-group-vertical .btn {
-        padding: 0.25rem 0.5rem;
-        font-size: 0.75rem;
-        min-height: 32px;
-    }
-    
-    .btn-group-vertical .btn .btn-text {
-        max-width: 70px;
-    }
-}
-
-@media (min-width: 992px) {
-    .btn-group-vertical .btn .btn-text {
-        max-width: none;
-    }
-}
-
-.btn-sm {
-    padding: 0.35rem 0.65rem;
-    font-size: 0.85rem;
-}
-
-/* Card improvements */
-.card {
-    border: none;
-    box-shadow: 0 0.15rem 1.75rem 0 rgba(58, 59, 69, 0.1);
-    border-radius: 0.5rem;
-    overflow: hidden;
-}
-
-.card-header {
-    background-color: #f8f9fc;
-    border-bottom: 1px solid #e3e6f0;
-    padding: 0.75rem 1.25rem;
-}
-
-/* Alert improvements */
-.alert {
-    border: none;
-    border-radius: 0.5rem;
-    box-shadow: 0 0.15rem 0.5rem 0 rgba(58, 59, 69, 0.1);
-}
-
-/* Responsive adjustments optimizados */
-@media (max-width: 767.98px) {
-    /* Header responsive */
-    .d-sm-flex.align-items-center {
-        flex-direction: column;
-        align-items: flex-start !important;
-    }
-    
-    .d-sm-flex .d-flex {
-        margin-bottom: 1rem;
-        width: 100%;
-    }
-    
-    /* Table responsive mejorada */
-    .table-responsive {
-        font-size: 0.85rem;
-        border: 0;
-        margin: 0 -0.75rem;
-        width: calc(100% + 1.5rem);
-    }
-    
-    .table thead {
-        display: none;
-    }
-    
-    .table, .table tbody, .table tr, .table td {
-        display: block;
-        width: 100%;
-    }
-    
-    .table tr {
-        margin-bottom: 1rem;
-        border: 1px solid #e3e6f0;
-        border-radius: 0.5rem;
-        padding: 0.75rem;
-        background: white;
-        box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
-        position: relative;
-    }
-    
-    .table td {
-        text-align: left;
-        padding: 0.5rem 0.5rem 0.5rem 50%;
-        border-bottom: 1px solid #f8f9fc;
-        display: flex;
-        flex-direction: column;
-        justify-content: center;
-        min-height: 44px;
-        position: relative;
-    }
-    
-    .table td:last-child {
-        border-bottom: 0;
-        padding-left: 0.5rem;
-        text-align: center;
-    }
-    
-    .table td[data-label="Acciones"] {
-        padding-left: 0.5rem !important;
-    }
-    
-    .table td::before {
-        content: attr(data-label);
-        position: absolute;
-        left: 0.5rem;
-        width: 45%;
-        padding-right: 0.5rem;
-        text-align: left;
-        font-weight: bold;
-        color: #4e73df;
-        font-size: 0.8rem;
-        display: flex;
-        align-items: center;
-        height: 100%;
-    }
-    
-    .table td[data-label="Acciones"]::before {
-        display: none;
-    }
-    
-    /* Columnas específicas para móvil */
-    .table td.pl-3 {
-        padding-left: 0.5rem !important;
-    }
-    
-    .table td.pl-3::before {
-        display: none;
-    }
-    
-    .table td.text-right {
-        text-align: left !important;
-    }
-    
-    /* Botones en móvil */
-    .btn-group-vertical {
-        flex-direction: row !important;
-        flex-wrap: wrap;
-        gap: 0.25rem;
-        justify-content: center;
-    }
-    
-    .btn-group-vertical .btn {
-        flex: 1;
-        min-width: 90px;
-        max-width: 120px;
-        margin-bottom: 0.25rem;
-        padding: 0.5rem 0.25rem;
-    }
-    
-    .btn-group-vertical .btn .btn-text {
-        max-width: 60px;
-    }
-    
-    /* Filtros en móvil */
-    .card-body .row > div {
-        margin-bottom: 0.75rem;
-    }
-    
-    .card-body .row > div:last-child {
-        margin-bottom: 0;
-    }
-    
-    /* Inputs en móvil */
-    .form-control, .form-control-sm, select {
-        font-size: 16px !important;
-        min-height: 38px;
-    }
-    
-    /* Modal en móvil */
-    .modal-dialog {
-        margin: 0.5rem;
-        max-width: calc(100% - 1rem);
-    }
-    
-    .modal-content {
-        border-radius: 0.5rem;
-    }
-    
-    /* Stats en móvil */
-    .stats-card .h4 {
-        font-size: 1.5rem;
-    }
-    
-    /* Tamaños de texto */
-    .h3 {
-        font-size: 1.5rem;
-        line-height: 1.2;
-    }
-    
-    .h6 {
-        font-size: 1rem;
-    }
-    
-    /* Padding del contenedor principal */
-    .container-fluid {
-        padding-left: 0.75rem;
-        padding-right: 0.75rem;
-    }
-}
-
-@media (max-width: 575.98px) {
-    /* Ajustes extra para móviles pequeños */
-    .container-fluid {
-        padding-left: 0.5rem;
-        padding-right: 0.5rem;
-    }
-    
-    .card-body {
-        padding: 0.75rem;
-    }
-    
-    .btn {
-        padding: 0.5rem 0.75rem;
-        font-size: 0.875rem;
-        min-height: 44px;
-    }
-    
-    .btn-sm {
-        min-height: 36px;
-        padding: 0.4rem 0.6rem;
-    }
-    
-    .btn-group-vertical .btn {
-        min-width: 85px;
-        font-size: 0.75rem;
-        padding: 0.45rem 0.25rem;
-    }
-    
-    .stats-card {
-        min-height: 110px;
-    }
-    
-    .stats-card .h4 {
-        font-size: 1.3rem;
-    }
-    
-    .icon-circle {
-        width: 36px;
-        height: 36px;
-        font-size: 0.9rem;
-    }
-    
-    .table td {
-        padding: 0.4rem 0.4rem 0.4rem 45%;
-        min-height: 40px;
-    }
-    
-    .table td::before {
-        width: 40%;
-        font-size: 0.75rem;
-    }
-}
-
-/* Ajustes para tabletas */
-@media (min-width: 768px) and (max-width: 991.98px) {
-    .btn-group-vertical {
-        min-width: 100px;
-    }
-    
-    .btn-group-vertical .btn .btn-text {
-        max-width: 65px;
-    }
-    
-    .table td {
-        padding: 0.5rem 0.25rem;
-    }
-    
-    .table th {
-        padding: 0.5rem 0.25rem;
-    }
-    
-    .observacion-truncate {
-        max-width: 150px;
-    }
-}
-
-/* Ajustes para escritorio grande */
-@media (min-width: 1200px) {
-    .btn-group-vertical .btn .btn-text {
-        max-width: none;
-    }
-    
-    .observacion-truncate {
-        max-width: 250px;
-    }
-}
-
-/* Mejoras de accesibilidad táctil */
-@media (hover: none) and (pointer: coarse) {
-    .btn, .form-control, select, .table td {
-        min-height: 44px;
-    }
-    
-    .btn-sm {
-        min-height: 36px;
-    }
-    
-    .btn-group-vertical .btn {
-        min-height: 44px;
-    }
-    
-    /* Aumentar área de toque para checkboxes/radios */
-    .form-check-input {
-        width: 24px;
-        height: 24px;
-    }
-    
-    .form-check-label {
-        padding-left: 8px;
-        line-height: 24px;
-    }
-}
-
-/* Print styles */
-@media print {
-    .btn, .card-header, .alert, .stats-card, .btn-group-vertical,
-    .d-flex.justify-content-between, .modal, .badge,
-    .table td[data-label="Acciones"], .table th:last-child,
-    .d-sm-flex .d-flex:last-child, #filterEstado, #filterProveedor,
-    #searchInput, .input-group-append, .close {
-        display: none !important;
-    }
-    
-    .table {
-        border: 1px solid #000;
-        font-size: 10pt;
-        width: 100% !important;
-    }
-    
-    .table th, .table td {
-        border: 1px solid #000;
-        padding: 3px 5px;
-    }
-    
-    .table-responsive {
-        overflow: visible !important;
-    }
-    
-    .table td::before {
-        display: none !important;
-    }
-    
-    .table td {
-        display: table-cell !important;
-        text-align: left !important;
-        padding-left: 5px !important;
-        padding-right: 5px !important;
-    }
-    
-    .table thead {
-        display: table-header-group !important;
-    }
-    
-    .container-fluid {
-        padding: 0 !important;
-    }
-    
-    .card {
-        box-shadow: none !important;
-        border: 1px solid #000 !important;
-    }
-    
-    .card-body {
-        padding: 5px !important;
-    }
-    
-    .h3 {
-        font-size: 14pt !important;
-        margin-bottom: 10px !important;
-    }
-}
-</style>
-{% endblock %}
-
-{% block scripts %}
 <script>
-$(document).ready(function() {
-    // Inicializar DataTable con responsividad mejorada
-    var table = $('#dataTable').DataTable({
-        "language": {
-            "url": "//cdn.datatables.net/plug-ins/1.10.20/i18n/Spanish.json"
-        },
-        "order": [[4, "asc"]],
-        "pageLength": 25,
-        "responsive": true,
-        "dom": '<"top"<"d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-3"lf>>rt<"bottom"<"d-flex flex-column flex-md-row justify-content-between align-items-center mt-3 mt-md-0"ip>><"clear">',
-        "columnDefs": [
-            {
-                "targets": [0, 5, 6],
-                "className": "text-center",
-                "responsivePriority": 2
-            },
-            {
-                "targets": [8],
-                "className": "text-center",
-                "orderable": false,
-                "searchable": false,
-                "responsivePriority": 1
-            },
-            {
-                "targets": [7],
-                "className": "text-center",
-                "orderable": false,
-                "responsivePriority": 3
-            },
-            {
-                "targets": [1],
-                "visible": false,
-                "responsivePriority": 5
-            },
-            {
-                "targets": [2, 3, 4],
-                "responsivePriority": 4
-            }
-        ],
-        "initComplete": function() {
-            // Añadir labels para responsividad móvil
-            updateTableLabels();
-            
-            // Ajustar tabla al cambiar tamaño de ventana
-            $(window).on('resize', function() {
-                table.columns.adjust();
-                updateTableLabels();
-            });
-        },
-        "drawCallback": function() {
-            updateTableLabels();
-            
-            // Ajustar comportamiento para móvil
-            if ($(window).width() < 768) {
-                // Convertir tooltips a data attributes
-                $('[title]').each(function() {
-                    var title = $(this).attr('title');
-                    $(this).attr('data-original-title', title)
-                           .attr('data-toggle', 'tooltip')
-                           .removeAttr('title');
-                });
+document.addEventListener('DOMContentLoaded', function() {
+    const searchInput = document.getElementById('searchInput');
+    const clearSearch = document.getElementById('clearSearch');
+    const tableRows = document.querySelectorAll('#dataTable tbody tr');
+    
+    // Función para filtrar
+    function filterTable() {
+        const searchTerm = searchInput.value.toLowerCase().trim();
+        
+        tableRows.forEach(row => {
+            if (row.cells.length > 1) {
+                const proveedorCell = row.cells[1];
+                const proveedorText = proveedorCell.textContent.toLowerCase();
                 
-                // Inicializar tooltips
-                $('[data-toggle="tooltip"]').tooltip({
-                    trigger: 'hover focus'
-                });
+                if (proveedorText.includes(searchTerm)) {
+                    row.style.display = '';
+                } else {
+                    row.style.display = 'none';
+                }
             }
-        },
-        "pagingType": "simple_numbers",
-        "lengthMenu": [[10, 25, 50, -1], [10, 25, 50, "Todos"]]
-    });
-    
-    function updateTableLabels() {
-        if ($(window).width() < 768) {
-            $('#dataTable tbody tr').each(function() {
-                var $row = $(this);
-                $row.find('td').each(function(i) {
-                    var $cell = $(this);
-                    var headerText = $('#dataTable thead th').eq(i).text();
-                    $cell.attr('data-label', headerText);
-                });
-            });
-        } else {
-            // Remover data-labels en escritorio
-            $('#dataTable tbody tr td').removeAttr('data-label');
-        }
-    }
-    
-    // Filtro por estado - Redirigir a la ruta con parámetro
-    $('#filterEstado').on('change', function() {
-        var estado = $(this).val();
-        var url = "{{ url_for('admin_cuentas_por_pagar') }}";
-        if (estado && estado !== 'Todas') {
-            url += '?estado=' + estado;
-        }
-        window.location.href = url;
-    });
-    
-    // Filtro por proveedor en DataTable
-    $('#filterProveedor').on('change', function() {
-        var value = $(this).val();
-        if (value) {
-            table.column(2).search(value, true, false).draw();
-        } else {
-            table.column(2).search('').draw();
-        }
-    });
-    
-    // Filtro de búsqueda general
-    $('#searchInput').on('keyup', function() {
-        table.search(this.value).draw();
-    });
-    
-    // Limpiar búsqueda
-    $('#clearSearch').on('click', function() {
-        $('#searchInput').val('');
-        table.search('').draw();
-        $('#filterProveedor').val('');
-        table.column(2).search('').draw();
-    });
-    
-    // Tooltips para escritorio
-    if ($(window).width() >= 768) {
-        $('[title]').tooltip({
-            trigger: 'hover',
-            container: 'body'
         });
     }
     
+    // Evento de búsqueda
+    searchInput.addEventListener('keyup', filterTable);
+    
+    // Limpiar búsqueda
+    clearSearch.addEventListener('click', function() {
+        searchInput.value = '';
+        tableRows.forEach(row => {
+            row.style.display = '';
+        });
+    });
+    
+    // Manejar tecla Enter
+    searchInput.addEventListener('keypress', function(e) {
+        if (e.which === 13) {
+            filterTable();
+        }
+    });
+
     // Modal de anulación
     var cuentaIdAnular = null;
     
@@ -1108,9 +388,8 @@ $(document).ready(function() {
         
         $('#anular-proveedor').text(proveedor);
         $('#anular-saldo').text(saldo);
-        $('#modalAnular').modal('show');
     });
-    
+
     // Confirmar anulación
     $('#confirmarAnulacion').on('click', function() {
         var motivo = $('#motivoAnulacion').val().trim();
@@ -1120,12 +399,12 @@ $(document).ready(function() {
             $('#motivoAnulacion').focus();
             return;
         }
-        
+
         // Mostrar loading
         var $btn = $(this);
         var originalHtml = $btn.html();
-        $btn.html('<span class="spinner-border spinner-border-sm mr-2"></span>Anulando...').prop('disabled', true);
-        
+        $btn.html('<span class="spinner-border spinner-border-sm me-2"></span>Anulando...').prop('disabled', true);
+
         // Enviar solicitud de anulación
         $.ajax({
             url: '/admin/compras/cuentas-por-pagar/anular/' + cuentaIdAnular,
@@ -1136,7 +415,7 @@ $(document).ready(function() {
             }),
             success: function(response) {
                 if (response.success) {
-                    $('#modalAnular').modal('hide');
+                    $('#anularCuentaModal').modal('hide');
                     location.reload();
                 } else {
                     alert('Error: ' + response.message);
@@ -1153,41 +432,28 @@ $(document).ready(function() {
             }
         });
     });
-    
+
     // Reset modal al cerrar
-    $('#modalAnular').on('hidden.bs.modal', function() {
+    $('#anularCuentaModal').on('hidden.bs.modal', function() {
         $('#motivoAnulacion').val('');
-        $('#confirmarAnulacion').html('<i class="fas fa-ban mr-1"></i> Anular Cuenta').prop('disabled', false);
+        $('#confirmarAnulacion').html('<i class="fas fa-ban me-2"></i> Anular Cuenta').prop('disabled', false);
         cuentaIdAnular = null;
-    });
-    
-    // Manejar tecla Enter en búsqueda
-    $('#searchInput').on('keypress', function(e) {
-        if (e.which === 13) {
-            table.search(this.value).draw();
-        }
     });
 });
 
 function exportarExcel() {
-    // Implementar exportación a Excel
-    $('#dataTable').table2excel({
-        filename: 'cuentas_por_pagar_' + new Date().toISOString().split('T')[0] + '.xls',
-        exclude: '.no-export'
-    });
+    // Implementar exportación a Excel simple
+    var table = document.getElementById('dataTable');
+    var html = table.outerHTML;
+    var blob = new Blob([html], {type: 'application/vnd.ms-excel'});
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = 'cuentas_por_pagar_' + new Date().toISOString().split('T')[0] + '.xls';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
 }
-
-function recargarTabla() {
-    location.reload();
-}
-
-// Manejar cambios de orientación en móviles
-window.addEventListener('orientationchange', function() {
-    setTimeout(function() {
-        if ($.fn.DataTable.isDataTable('#dataTable')) {
-            $('#dataTable').DataTable().columns.adjust().responsive.recalc();
-        }
-    }, 300);
-});
 </script>
 {% endblock %}

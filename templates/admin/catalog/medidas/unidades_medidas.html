@@ -1,98 +1,167 @@
 {% extends "layout.html" %}
 
+{% block title %}Unidades de Medida - FerDel{% endblock %}
+
 {% block content %}
-<div class="container-fluid">
+<div class="container-fluid py-4">
+    <!-- Encabezado con botón de volver -->
     <div class="d-flex justify-content-between align-items-center mb-4">
-        <h1>Unidades de Medida</h1>
-        <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#crearUnidadModal">
-            <i class="fas fa-plus"></i> Nueva Unidad
-        </button>
+        <h1>
+            <i class="fas fa-ruler"></i> Unidades de Medida
+        </h1>
+        <a href="{{ url_for('admin_dashboard') }}" class="btn btn-outline-secondary">
+            <i class="fas fa-arrow-left"></i> Volver al Dashboard
+        </a>
     </div>
 
+    <!-- Botón crear unidad -->
+    <button class="btn btn-primary mb-3" data-bs-toggle="modal" data-bs-target="#crearUnidadModal">
+        <i class="fas fa-plus"></i> Nueva Unidad
+    </button>
+
+    <!-- Mensajes flash -->
     {% with messages = get_flashed_messages(with_categories=true) %}
         {% if messages %}
             {% for category, message in messages %}
-                <div class="alert alert-{{ category }} alert-dismissible fade show">
+                <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
                     {{ message }}
-                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                 </div>
             {% endfor %}
         {% endif %}
     {% endwith %}
 
-    <div class="card">
+    <!-- Tabla de unidades -->
+    {% if unidades %}
+    <div class="card shadow-sm">
         <div class="card-body">
-            {% if unidades %}
             <div class="table-responsive">
                 <table class="table table-striped table-hover">
-                    <thead>
+                    <thead class="table-dark">
                         <tr>
                             <th>ID</th>
                             <th>Descripción</th>
                             <th>Abreviatura</th>
-                            <th>Acciones</th>
+                            <th class="text-center">Acciones</th>
                         </tr>
                     </thead>
                     <tbody>
                         {% for unidad in unidades %}
                         <tr>
-                            <td>{{ unidad.ID_Unidad }}</td>
+                            <td class="fw-bold">#{{ unidad.ID_Unidad }}</td>
                             <td>{{ unidad.Descripcion }}</td>
-                            <td>{{ unidad.Abreviatura or '-' }}</td>
                             <td>
-                                <a href="{{ url_for('admin_editar_unidad_medida', id=unidad.ID_Unidad) }}" 
-                                   class="btn btn-sm btn-warning">
-                                    <i class="fas fa-edit"></i> Editar
-                                </a>
-                                <form action="#" 
-                                      method="POST" class="d-inline" 
-                                      onsubmit="return confirm('¿Está seguro de eliminar esta unidad de medida?');">
-                                    <button type="submit" class="btn btn-sm btn-danger">
-                                        <i class="fas fa-trash"></i> Eliminar
-                                    </button>
-                                </form>
+                                {% if unidad.Abreviatura %}
+                                    <span class="badge bg-info">{{ unidad.Abreviatura }}</span>
+                                {% else %}
+                                    <span class="text-muted">-</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-center">
+                                <div class="btn-group btn-group-sm" role="group">
+                                    <a href="{{ url_for('admin_editar_unidad_medida', id=unidad.ID_Unidad) }}" 
+                                       class="btn btn-outline-primary" title="Editar">
+                                        <i class="fas fa-edit"></i> Editar
+                                    </a>
+                                    
+                                    <form action="#" 
+                                          method="POST" class="d-inline-block ms-1"
+                                          onsubmit="return confirm('¿Está seguro de eliminar esta unidad de medida?');">
+                                        <button type="submit" class="btn btn-outline-danger" title="Eliminar">
+                                            <i class="fas fa-trash"></i> Eliminar
+                                        </button>
+                                    </form>
+                                </div>
                             </td>
                         </tr>
                         {% endfor %}
                     </tbody>
                 </table>
             </div>
-            {% else %}
-            <div class="text-center py-4">
-                <p class="text-muted">No hay unidades de medida registradas.</p>
-            </div>
-            {% endif %}
         </div>
     </div>
+    {% else %}
+    <div class="alert alert-warning">
+        <i class="fas fa-exclamation-triangle"></i> No se encontraron unidades de medida en el sistema.
+    </div>
+    {% endif %}
 </div>
 
-<!-- Modal para Crear Unidad -->
+<!-- Modal para crear unidad -->
 <div class="modal fade" id="crearUnidadModal" tabindex="-1" aria-labelledby="crearUnidadModalLabel" aria-hidden="true">
     <div class="modal-dialog">
         <div class="modal-content">
-            <form method="POST" action="{{ url_for('admin_unidades_medidas') }}">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="crearUnidadModalLabel">Nueva Unidad de Medida</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
+            <div class="modal-header">
+                <h5 class="modal-title" id="crearUnidadModalLabel">
+                    <i class="fas fa-plus"></i> Nueva Unidad de Medida
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form method="POST" action="{{ url_for('admin_unidades_medidas') }}" id="crearUnidadForm" novalidate>
                 <div class="modal-body">
+                    <!-- Descripción -->
                     <div class="mb-3">
-                        <label for="descripcion" class="form-label">Descripción *</label>
+                        <label for="descripcion" class="form-label">Descripción <span class="text-danger">*</span></label>
                         <input type="text" class="form-control" id="descripcion" name="descripcion" 
-                               required maxlength="255" placeholder="Ingrese la descripción de la unidad">
+                               required minlength="2" maxlength="255"
+                               placeholder="Ingrese la descripción de la unidad">
+                        <div class="form-text">Mínimo 2 caracteres, máximo 255</div>
                     </div>
+                    
+                    <!-- Abreviatura -->
                     <div class="mb-3">
                         <label for="abreviatura" class="form-label">Abreviatura</label>
                         <input type="text" class="form-control" id="abreviatura" name="abreviatura" 
-                               maxlength="50" placeholder="Ingrese la abreviatura (opcional)">
+                               maxlength="50"
+                               placeholder="Ingrese la abreviatura (opcional)">
+                        <div class="form-text">Máximo 50 caracteres</div>
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="submit" class="btn btn-primary">Guardar</button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="fas fa-times"></i> Cancelar
+                    </button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-check"></i> Guardar
+                    </button>
                 </div>
             </form>
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('crearUnidadForm');
+    
+    // Validación del formulario completo
+    if (form) {
+        form.addEventListener('submit', function(event) {
+            if (!form.checkValidity()) {
+                event.preventDefault();
+                event.stopPropagation();
+            }
+            form.classList.add('was-validated');
+        });
+    }
+    
+    // Limpiar formulario al cerrar modal
+    const modal = document.getElementById('crearUnidadModal');
+    if (modal) {
+        modal.addEventListener('hidden.bs.modal', function () {
+            if (form) {
+                form.reset();
+                form.classList.remove('was-validated');
+            }
+        });
+        
+        // Auto-focus en el campo descripción cuando se abre el modal
+        modal.addEventListener('shown.bs.modal', function () {
+            document.getElementById('descripcion').focus();
+        });
+    }
+});
+</script>
 {% endblock %}

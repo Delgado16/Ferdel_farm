@@ -1,16 +1,25 @@
 {% extends 'layout.html' %}
 
+{% block title %}Métodos de Pago - FerDel{% endblock %}
+
 {% block content %}
-<div class="container-fluid">
-    <!-- Page Heading -->
-    <div class="d-sm-flex align-items-center justify-content-between mb-4">
-        <h1 class="h3 mb-0 text-gray-800">Métodos de Pago</h1>
-        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#crearMetodoPagoModal">
-            <i class="fas fa-plus"></i> Nuevo Método de Pago
-        </button>
+<div class="container-fluid py-4">
+    <!-- Encabezado con botón de volver -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1>
+            <i class="fas fa-credit-card"></i> Métodos de Pago
+        </h1>
+        <a href="{{ url_for('admin_dashboard') }}" class="btn btn-outline-secondary">
+            <i class="fas fa-arrow-left"></i> Volver al Dashboard
+        </a>
     </div>
 
-    <!-- Alert Messages -->
+    <!-- Botón crear método de pago -->
+    <button class="btn btn-primary mb-3" data-bs-toggle="modal" data-bs-target="#crearMetodoPagoModal">
+        <i class="fas fa-plus"></i> Nuevo Método de Pago
+    </button>
+
+    <!-- Mensajes flash -->
     {% with messages = get_flashed_messages(with_categories=true) %}
         {% if messages %}
             {% for category, message in messages %}
@@ -22,44 +31,45 @@
         {% endif %}
     {% endwith %}
 
-    <!-- DataTales Example -->
-    <div class="card shadow mb-4">
-        <div class="card-header py-3">
-            <h6 class="m-0 font-weight-bold text-primary">Lista de Métodos de Pago</h6>
-        </div>
+    <!-- Tabla de métodos de pago -->
+    {% if metodos %}
+    <div class="card shadow-sm">
         <div class="card-body">
             <div class="table-responsive">
-                <table class="table table-bordered" id="dataTable" width="100%" cellspacing="0">
-                    <thead>
+                <table class="table table-striped table-hover">
+                    <thead class="table-dark">
                         <tr>
                             <th>ID</th>
                             <th>Nombre</th>
-                            <th>Acciones</th>
+                            <th class="text-center">Acciones</th>
                         </tr>
                     </thead>
                     <tbody>
                         {% for metodo in metodos %}
                         <tr>
-                            <td>{{ metodo.ID_MetodoPago }}</td>
-                            <td>{{ metodo.Nombre }}</td>
+                            <td class="fw-bold">#{{ metodo.ID_MetodoPago }}</td>
                             <td>
-                                <a href="{{ url_for('admin_metodos_pago_editar', id=metodo.ID_MetodoPago) }}" 
-                                   class="btn btn-warning btn-sm">
-                                    <i class="fas fa-edit"></i> Editar
-                                </a>
-                                
-                                <form action="{{ url_for('admin_metodos_pago_eliminar', id=metodo.ID_MetodoPago) }}" 
-                                      method="POST" style="display: inline;" 
-                                      onsubmit="return confirm('¿Estás seguro de que deseas eliminar este método de pago?');">
-                                    <button type="submit" class="btn btn-danger btn-sm">
-                                        <i class="fas fa-trash"></i> Eliminar
-                                    </button>
-                                </form>
+                                {{ metodo.Nombre }}
+                                {% if metodo.Nombre|lower in ['efectivo', 'cash'] %}
+                                <span class="badge bg-success ms-2">Principal</span>
+                                {% endif %}
                             </td>
-                        </tr>
-                        {% else %}
-                        <tr>
-                            <td colspan="3" class="text-center">No hay métodos de pago registrados</td>
+                            <td class="text-center">
+                                <div class="btn-group btn-group-sm" role="group">
+                                    <a href="{{ url_for('admin_metodos_pago_editar', id=metodo.ID_MetodoPago) }}" 
+                                       class="btn btn-outline-primary" title="Editar">
+                                        <i class="fas fa-edit"></i> Editar
+                                    </a>
+                                    
+                                    <form action="{{ url_for('admin_metodos_pago_eliminar', id=metodo.ID_MetodoPago) }}" 
+                                          method="POST" class="d-inline-block ms-1"
+                                          onsubmit="return confirm('¿Estás seguro de que deseas eliminar este método de pago?');">
+                                        <button type="submit" class="btn btn-outline-danger" title="Eliminar">
+                                            <i class="fas fa-trash"></i> Eliminar
+                                        </button>
+                                    </form>
+                                </div>
+                            </td>
                         </tr>
                         {% endfor %}
                     </tbody>
@@ -67,30 +77,43 @@
             </div>
         </div>
     </div>
+    {% else %}
+    <div class="alert alert-warning">
+        <i class="fas fa-exclamation-triangle"></i> No se encontraron métodos de pago en el sistema.
+    </div>
+    {% endif %}
 </div>
 
-<!-- Modal para Crear Método de Pago -->
+<!-- Modal para crear método de pago -->
 <div class="modal fade" id="crearMetodoPagoModal" tabindex="-1" aria-labelledby="crearMetodoPagoModalLabel" aria-hidden="true">
     <div class="modal-dialog">
         <div class="modal-content">
-            <form method="POST" action="{{ url_for('admin_metodos_pago_crear') }}">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="crearMetodoPagoModalLabel">Nuevo Método de Pago</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
+            <div class="modal-header">
+                <h5 class="modal-title" id="crearMetodoPagoModalLabel">
+                    <i class="fas fa-plus"></i> Nuevo Método de Pago
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form method="POST" action="{{ url_for('admin_metodos_pago_crear') }}" id="crearMetodoPagoForm" novalidate>
                 <div class="modal-body">
+                    <!-- Nombre -->
                     <div class="mb-3">
-                        <label for="nombre" class="form-label">Nombre del Método de Pago *</label>
+                        <label for="nombre" class="form-label">Nombre del Método de Pago <span class="text-danger">*</span></label>
                         <input type="text" class="form-control" id="nombre" name="nombre" 
-                               required maxlength="255" placeholder="Ingrese el nombre del método de pago">
+                               required minlength="2" maxlength="255"
+                               placeholder="Ingrese el nombre del método de pago">
                         <div class="form-text">
-                            Ejemplo: Tarjeta de Crédito, Transferencia Bancaria, Efectivo, etc.
+                            Ejemplo: Tarjeta de Crédito, Transferencia Bancaria, Efectivo, etc. Mínimo 2 caracteres.
                         </div>
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="submit" class="btn btn-primary">Guardar</button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="fas fa-times"></i> Cancelar
+                    </button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-check"></i> Guardar
+                    </button>
                 </div>
             </form>
         </div>
@@ -100,13 +123,35 @@
 
 {% block scripts %}
 <script>
-    $(document).ready(function() {
-        $('#dataTable').DataTable({
-            "language": {
-                "url": "//cdn.datatables.net/plug-ins/1.10.20/i18n/Spanish.json"
-            },
-            "order": [[0, "desc"]]
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('crearMetodoPagoForm');
+    
+    // Validación del formulario completo
+    if (form) {
+        form.addEventListener('submit', function(event) {
+            if (!form.checkValidity()) {
+                event.preventDefault();
+                event.stopPropagation();
+            }
+            form.classList.add('was-validated');
         });
-    });
+    }
+    
+    // Limpiar formulario al cerrar modal
+    const modal = document.getElementById('crearMetodoPagoModal');
+    if (modal) {
+        modal.addEventListener('hidden.bs.modal', function () {
+            if (form) {
+                form.reset();
+                form.classList.remove('was-validated');
+            }
+        });
+        
+        // Auto-focus en el campo nombre cuando se abre el modal
+        modal.addEventListener('shown.bs.modal', function () {
+            document.getElementById('nombre').focus();
+        });
+    }
+});
 </script>
 {% endblock %}

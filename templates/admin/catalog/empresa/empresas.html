@@ -1,201 +1,172 @@
 {% extends "layout.html" %}
 
-{% block title %}Gestión de Empresas{% endblock %}
+{% block title %}Gestión de Empresas - FerDel{% endblock %}
 
 {% block head %}
 <!-- Bootstrap CSS -->
 <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
 <!-- Bootstrap Icons -->
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.8.1/font/bootstrap-icons.css">
-<style>
-    .table-responsive {
-        overflow-x: auto;
-    }
-    .action-buttons {
-        white-space: nowrap;
-    }
-    .empty-state {
-        padding: 3rem 1rem;
-        text-align: center;
-        color: #6c757d;
-    }
-    .status-active {
-        color: #198754;
-        font-weight: 500;
-    }
-    .status-inactive {
-        color: #dc3545;
-        font-weight: 500;
-    }
-</style>
 {% endblock %}
 
 {% block content %}
-<div class="container mt-4">
+<div class="container-fluid py-4">
+    <!-- Encabezado con botón de volver -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1>
+            <i class="bi bi-building"></i> Gestión de Empresas
+        </h1>
+        <a href="{{ url_for('admin_dashboard') }}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left"></i> Volver al Dashboard
+        </a>
+    </div>
+
+    <!-- Botón crear empresa -->
+    <button class="btn btn-primary mb-3" data-bs-toggle="modal" data-bs-target="#crearEmpresaModal">
+        <i class="bi bi-plus-circle"></i> Agregar Nueva Empresa
+    </button>
+
     <!-- Mensajes flash -->
     {% with messages = get_flashed_messages(with_categories=true) %}
         {% if messages %}
             {% for category, message in messages %}
-                <div class="alert alert-{{ category }} alert-dismissible fade show">
+                <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
                     {{ message }}
-                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                 </div>
             {% endfor %}
         {% endif %}
     {% endwith %}
 
+    <!-- Tabla de empresas -->
+    {% if empresas %}
     <div class="card shadow">
-        <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
-            <h3 class="card-title mb-0">
-                <i class="bi bi-building"></i> Lista de Empresas
-            </h3>
-            <button type="button" class="btn btn-light btn-sm" data-bs-toggle="modal" data-bs-target="#nuevaEmpresaModal">
-                <i class="bi bi-plus-circle"></i> Agregar Empresa
-            </button>
-        </div>
-
         <div class="card-body">
-            <!-- Información de resultados -->
-            {% if empresas %}
-            <div class="alert alert-info d-flex align-items-center">
-                <i class="bi bi-info-circle me-2"></i>
-                <div>
-                    <strong>{{ empresas|length }}</strong> empresa(s) encontrada(s)
-                </div>
-            </div>
-            {% endif %}
-
-            <!-- Tabla de empresas -->
             <div class="table-responsive">
-                <table class="table table-hover table-bordered">
-                    <thead class="table-light">
+                <table class="table table-striped table-hover">
+                    <thead class="table-dark">
                         <tr>
+                            <th>ID</th>
                             <th>Nombre</th>
-                            <th>Teléfono</th>
                             <th>RUC</th>
+                            <th>Teléfono</th>
                             <th>Dirección</th>
                             <th>Estado</th>
                             <th>Acciones</th>
                         </tr>
                     </thead>
                     <tbody>
-                        {% if empresas %}
-                            {% for empresa in empresas %}
-                            <tr>
-                                <td>
-                                    <strong>{{ empresa.Nombre_Empresa }}</strong>
-                                </td>
-                                <td>
-                                    {% if empresa.Telefono %}
+                        {% for empresa in empresas %}
+                        <tr>
+                            <td><strong>#{{ empresa.ID_Empresa }}</strong></td>
+                            <td>{{ empresa.Nombre_Empresa }}</td>
+                            <td>{{ empresa.RUC or '-' }}</td>
+                            <td>
+                                {% if empresa.Telefono %}
                                     <a href="tel:{{ empresa.Telefono }}" class="text-decoration-none">
-                                        <i class="bi bi-telephone"></i> {{ empresa.Telefono }}
+                                        {{ empresa.Telefono }}
                                     </a>
-                                    {% else %}
+                                {% else %}
                                     <span class="text-muted">-</span>
-                                    {% endif %}
-                                </td>
-                                <td>{{ empresa.RUC or '-' }}</td>
-                                <td>
-                                    {% if empresa.Direccion %}
-                                    {{ empresa.Direccion }}
-                                    {% else %}
-                                    <span class="text-muted">-</span>
-                                    {% endif %}
-                                </td>
-                                <td>
-                                    {% if empresa.Estado == 'Activo' %}
-                                    <span class="status-active">
-                                        <i class="bi bi-check-circle-fill"></i> Activo
-                                    </span>
-                                    {% else %}
-                                    <span class="status-inactive">
-                                        <i class="bi bi-x-circle-fill"></i> Inactivo
-                                    </span>
-                                    {% endif %}
-                                </td>
-                                <td class="action-buttons">
-                                    <div class="btn-group btn-group-sm">
-                                        <!-- Botón de Ver Detalles - Puedes crear un endpoint específico si lo necesitas -->
-                                        <a href="{{ url_for('editar_empresa', id=empresa.ID_Empresa) }}" 
-                                           class="btn btn-outline-primary" title="Ver detalles">
-                                            <i class="bi bi-eye-fill"></i>
-                                        </a>
-                                        <!-- Botón de Editar -->
-                                        <a href="{{ url_for('editar_empresa', id=empresa.ID_Empresa) }}" 
-                                           class="btn btn-outline-secondary" title="Editar">
-                                            <i class="bi bi-pencil-fill"></i>
-                                        </a>
-                                    </div>
-                                </td>
-                            </tr>
-                            {% endfor %}
-                        {% else %}
-                            <tr>
-                                <td colspan="6" class="text-center">
-                                    <div class="empty-state">
-                                        <i class="bi bi-building display-1 text-muted"></i>
-                                        <h4 class="mt-3">No se encontraron empresas</h4>
-                                        <p class="text-muted">
-                                            No hay empresas registradas. ¡Agrega la primera!
-                                        </p>
-                                        <button type="button" class="btn btn-primary mt-2" data-bs-toggle="modal" data-bs-target="#nuevaEmpresaModal">
-                                            <i class="bi bi-plus-circle"></i> Agregar Primera Empresa
-                                        </button>
-                                    </div>
-                                </td>
-                            </tr>
-                        {% endif %}
+                                {% endif %}
+                            </td>
+                            <td>{{ empresa.Direccion or '-' }}</td>
+                            <td>
+                                <span class="badge bg-{% if empresa.Estado == 'Activo' %}success{% else %}danger{% endif %}">
+                                    {{ empresa.Estado }}
+                                </span>
+                            </td>
+                            <td>
+                                <div class="btn-group btn-group-sm" role="group">
+                                    <a href="{{ url_for('editar_empresa', id=empresa.ID_Empresa) }}" 
+                                       class="btn btn-outline-primary" title="Editar empresa">
+                                        <i class="bi bi-pencil"></i> Editar
+                                    </a>
+                                    
+                                    <a href="#" 
+                                       class="btn btn-outline-secondary" title="Ver detalles">
+                                        <i class="bi bi-eye"></i> Detalles
+                                    </a>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
                     </tbody>
                 </table>
             </div>
         </div>
     </div>
+    {% else %}
+    <div class="alert alert-warning">
+        <i class="bi bi-exclamation-triangle"></i> No se encontraron empresas en el sistema.
+    </div>
+    {% endif %}
 </div>
 
-<!-- Modal para nueva empresa -->
-<div class="modal fade" id="nuevaEmpresaModal" tabindex="-1" aria-hidden="true">
+<!-- Modal para crear empresa -->
+<div class="modal fade" id="crearEmpresaModal" tabindex="-1" aria-labelledby="crearEmpresaModalLabel" aria-hidden="true">
     <div class="modal-dialog">
         <div class="modal-content">
-            <form method="post" action="{{ url_for('crear_empresa') }}">
-                <div class="modal-header">
-                    <h5 class="modal-title">Nueva Empresa</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
+            <div class="modal-header">
+                <h5 class="modal-title" id="crearEmpresaModalLabel">
+                    <i class="bi bi-plus-circle"></i> Agregar Nueva Empresa
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form method="POST" action="{{ url_for('crear_empresa') }}" id="crearEmpresaForm" novalidate>
                 <div class="modal-body">
+                    <!-- Nombre de Empresa -->
                     <div class="mb-3">
-                        <label for="nombre_empresa" class="form-label">Nombre de la Empresa *</label>
-                        <input type="text" class="form-control" id="nombre_empresa" name="nombre_empresa" required 
+                        <label for="nombre_empresa" class="form-label">Nombre de la Empresa <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="nombre_empresa" name="nombre_empresa" 
+                               required minlength="2" maxlength="100"
                                placeholder="Ingrese el nombre de la empresa">
-                        <div class="form-text">El nombre es obligatorio</div>
+                        <div class="form-text">Mínimo 2 caracteres</div>
                     </div>
+                    
+                    <!-- RUC -->
                     <div class="mb-3">
                         <label for="ruc" class="form-label">RUC</label>
                         <input type="text" class="form-control" id="ruc" name="ruc" 
+                               maxlength="13" pattern="\d*"
                                placeholder="Ej: 1234567890123">
-                        <div class="form-text">Número de RUC de la empresa</div>
+                        <div class="form-text">Ingrese solo números (máximo 13 dígitos)</div>
                     </div>
+
+                    <!-- Teléfono -->
                     <div class="mb-3">
                         <label for="telefono" class="form-label">Teléfono</label>
                         <input type="tel" class="form-control" id="telefono" name="telefono" 
+                               maxlength="20"
                                placeholder="Ej: 0991234567">
+                        <div class="form-text">Número de contacto principal</div>
                     </div>
+                    
+                    <!-- Dirección -->
                     <div class="mb-3">
                         <label for="direccion" class="form-label">Dirección</label>
-                        <textarea class="form-control" id="direccion" name="direccion" rows="2" 
-                                  placeholder="Ingrese la dirección de la empresa"></textarea>
+                        <textarea class="form-control" id="direccion" name="direccion" rows="3" 
+                                  maxlength="200"
+                                  placeholder="Ingrese la dirección completa de la empresa"></textarea>
+                        <div class="form-text">Máximo 200 caracteres</div>
                     </div>
+                    
+                    <!-- Estado -->
                     <div class="mb-3">
-                        <label for="estado" class="form-label">Estado</label>
-                        <select class="form-select" id="estado" name="estado">
-                            <option value="Activo" selected>Activo</option>
+                        <label for="estado" class="form-label">Estado <span class="text-danger">*</span></label>
+                        <select class="form-select" id="estado" name="estado" required>
+                            <option value="" selected disabled>Seleccione un estado...</option>
+                            <option value="Activo">Activo</option>
                             <option value="Inactivo">Inactivo</option>
                         </select>
-                        <div class="form-text">Estado inicial de la empresa</div>
+                        <div class="form-text">Estado inicial de la empresa en el sistema</div>
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="submit" class="btn btn-primary">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="bi bi-x-circle"></i> Cancelar
+                    </button>
+                    <button type="submit" class="btn btn-primary" id="submitBtn">
                         <i class="bi bi-check-circle"></i> Guardar Empresa
                     </button>
                 </div>
@@ -210,60 +181,69 @@
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // Validación del formulario de nueva empresa
-    const form = document.querySelector('#nuevaEmpresaModal form');
-    if (form) {
-        form.addEventListener('submit', function(e) {
-            const nombre = document.getElementById('nombre_empresa').value.trim();
-            if (!nombre) {
-                e.preventDefault();
-                alert('El nombre de la empresa es obligatorio');
-                document.getElementById('nombre_empresa').focus();
-                return false;
-            }
-            
-            // Validación opcional: formato de teléfono (solo números)
-            const telefono = document.getElementById('telefono').value.trim();
-            if (telefono && !/^[\d\s\-+()]+$/.test(telefono)) {
-                e.preventDefault();
-                alert('Por favor ingrese un número de teléfono válido (solo números y caracteres especiales comunes)');
-                document.getElementById('telefono').focus();
-                return false;
-            }
-            
-            // Validación opcional: formato de RUC (solo números)
-            const ruc = document.getElementById('ruc').value.trim();
-            if (ruc && !/^\d+$/.test(ruc)) {
-                e.preventDefault();
-                alert('El RUC debe contener solo números');
-                document.getElementById('ruc').focus();
-                return false;
-            }
-            
+    const form = document.getElementById('crearEmpresaForm');
+    const rucInput = document.getElementById('ruc');
+    const telefonoInput = document.getElementById('telefono');
+    
+    // Validación de RUC (solo números)
+    function validateRUC() {
+        if (rucInput.value && !/^\d+$/.test(rucInput.value)) {
+            rucInput.setCustomValidity('El RUC debe contener solo números');
+            rucInput.classList.add('is-invalid');
+            return false;
+        } else {
+            rucInput.setCustomValidity('');
+            rucInput.classList.remove('is-invalid');
             return true;
-        });
+        }
     }
-
-    // Limpiar formulario cuando se cierra el modal
-    const modal = document.getElementById('nuevaEmpresaModal');
-    if (modal) {
-        modal.addEventListener('hidden.bs.modal', function() {
-            const form = this.querySelector('form');
-            if (form) {
-                form.reset();
-                // Restablecer el estado a Activo por defecto
-                document.getElementById('estado').value = 'Activo';
-            }
-        });
+    
+    // Validación de Teléfono (formato básico)
+    function validateTelefono() {
+        if (telefonoInput.value && !/^[\d\s\-+()]+$/.test(telefonoInput.value)) {
+            telefonoInput.setCustomValidity('Ingrese un número de teléfono válido');
+            telefonoInput.classList.add('is-invalid');
+            return false;
+        } else {
+            telefonoInput.setCustomValidity('');
+            telefonoInput.classList.remove('is-invalid');
+            return true;
+        }
+    }
+    
+    // Event listeners para validación en tiempo real
+    rucInput.addEventListener('input', validateRUC);
+    telefonoInput.addEventListener('input', validateTelefono);
+    
+    // Validación del formulario completo
+    form.addEventListener('submit', function(event) {
+        const isRUCValid = validateRUC();
+        const isTelefonoValid = validateTelefono();
         
-        // Auto-focus en el campo nombre cuando se abre el modal
-        modal.addEventListener('shown.bs.modal', function() {
-            const nombreInput = document.getElementById('nombre_empresa');
-            if (nombreInput) {
-                nombreInput.focus();
-            }
-        });
-    }
+        if (!isRUCValid || !isTelefonoValid || !form.checkValidity()) {
+            event.preventDefault();
+            event.stopPropagation();
+        }
+        form.classList.add('was-validated');
+    });
+    
+    // Limpiar formulario al cerrar modal
+    document.getElementById('crearEmpresaModal').addEventListener('hidden.bs.modal', function () {
+        form.reset();
+        form.classList.remove('was-validated');
+        rucInput.setCustomValidity('');
+        rucInput.classList.remove('is-invalid');
+        telefonoInput.setCustomValidity('');
+        telefonoInput.classList.remove('is-invalid');
+        // Restablecer el estado a placeholder
+        const estadoSelect = document.getElementById('estado');
+        estadoSelect.selectedIndex = 0;
+    });
+    
+    // Auto-focus en el campo nombre cuando se abre el modal
+    document.getElementById('crearEmpresaModal').addEventListener('shown.bs.modal', function () {
+        document.getElementById('nombre_empresa').focus();
+    });
 });
 </script>
 {% endblock %}

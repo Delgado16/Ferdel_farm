@@ -3998,12 +3998,21 @@ def admin_cuentas_por_pagar():
             total_pendiente = sum(cuenta['Saldo_Pendiente'] for cuenta in cuentas_pendientes if cuenta['Saldo_Pendiente'])
             cuentas_vencidas = sum(1 for cuenta in cuentas_pendientes if cuenta['dias_vencimiento'] and cuenta['dias_vencimiento'] < 0)
             
+            # Calcular totales de la tabla actual
+            total_monto = sum(cuenta['Monto_Movimiento'] for cuenta in cuentas if cuenta['Monto_Movimiento'])
+            total_saldo = sum(cuenta['Saldo_Pendiente'] for cuenta in cuentas if cuenta['Saldo_Pendiente'])
+            
+            hoy = datetime.now()
+            
             return render_template('admin/compras/cxpagar/cuentas_por_pagar.html', 
                                  cuentas=cuentas,
                                  total_pendiente=total_pendiente,
                                  cuentas_vencidas=cuentas_vencidas,
                                  filtro_estado=filtro_estado,
-                                 total_cuentas=len(cuentas))
+                                 total_cuentas=len(cuentas),
+                                 total_monto=total_monto,
+                                 total_saldo=total_saldo,
+                                 hoy=hoy)
     except Exception as e:
         print(f"Error al cargar cuentas por pagar: {str(e)}")
         flash(f'Error al cargar cuentas por pagar: {str(e)}', 'error')
@@ -5816,7 +5825,6 @@ def admin_registrar_pago(id_movimiento):
     if request.method == 'POST':
         try:
             # Convertir el monto del formulario a Decimal
-            from decimal import Decimal
             monto_pago_str = request.form['monto']
             monto_pago = Decimal(monto_pago_str)
             
@@ -6015,15 +6023,15 @@ def admin_registrar_pago(id_movimiento):
 def admin_detalle_cuentacobrar(id_movimiento):
     try:
         with get_db_cursor(True) as cursor:
-            # DATOS PRINCIPALES CON FORMATO DE FECHAS EXACTO dd/mm/YYYY
+            # CONSULTA PRINCIPAL - TRAER FECHAS SIN FORMATEAR
             cursor.execute("""
                 SELECT 
                     c.ID_Movimiento,
-                    DATE_FORMAT(c.Fecha, '%%d/%%m/%%Y') as Fecha_Formateada,
+                    c.Fecha,  -- Fecha sin formatear
                     c.ID_Cliente,
                     c.Num_Documento,
                     c.Observacion,
-                    DATE_FORMAT(c.Fecha_Vencimiento, '%%d/%%m/%%Y') as Fecha_Vencimiento_Formateada,
+                    c.Fecha_Vencimiento,  -- Fecha sin formatear
                     c.Tipo_Movimiento,
                     c.Monto_Movimiento,
                     c.ID_Empresa,
@@ -6039,25 +6047,22 @@ def admin_detalle_cuentacobrar(id_movimiento):
                         WHEN f.ID_Factura IS NOT NULL THEN CONCAT('FAC-', LPAD(f.ID_Factura, 5, '0'))
                         ELSE 'N/A'
                     END as NumeroFactura,
-                    DATE_FORMAT(f.Fecha, '%%d/%%m/%%Y') as FechaFactura_Formateada,
+                    f.Fecha as Fecha_Factura,  -- Fecha sin formatear
                     COALESCE(u.NombreUsuario, 'N/A') as UsuarioCreacion,
+                    -- Estado de la cuenta
                     CASE 
                         WHEN COALESCE(c.Saldo_Pendiente, 0) = 0 THEN 'Cancelado'
                         WHEN c.Fecha_Vencimiento < CURDATE() AND COALESCE(c.Saldo_Pendiente, 0) > 0 THEN 'Vencido'
                         ELSE 'Pendiente'
                     END as Estado,
+                    -- Días vencidos
                     CASE 
                         WHEN c.Fecha_Vencimiento IS NOT NULL 
                              AND c.Fecha_Vencimiento < CURDATE() 
                              AND COALESCE(c.Saldo_Pendiente, 0) > 0 
                         THEN DATEDIFF(CURDATE(), c.Fecha_Vencimiento)
                         ELSE 0
-                    END as DiasVencido,
-                    # Campos adicionales para validación
-                    c.Fecha as Fecha_Original,
-                    c.Fecha_Vencimiento as Fecha_Vencimiento_Original,
-                    c.Observacion,
-                    c.Tipo_Movimiento
+                    END as DiasVencido
                 FROM Cuentas_Por_Cobrar c
                 LEFT JOIN clientes cl ON c.ID_Cliente = cl.ID_Cliente
                 LEFT JOIN empresa e ON c.ID_Empresa = e.ID_Empresa
@@ -6066,13 +6071,92 @@ def admin_detalle_cuentacobrar(id_movimiento):
                 WHERE c.ID_Movimiento = %s
             """, (id_movimiento,))
             
-            cuenta = cursor.fetchone()
+            cuenta_raw = cursor.fetchone()
             
-            if not cuenta:
+            if not cuenta_raw:
                 flash("❌ Error: Cuenta por cobrar no encontrada", "error")
                 return redirect(url_for('admin_cuentascobrar'))
             
-            # HISTORIAL DE PAGOS CON FORMATO dd/mm/YYYY HH:MI
+            # FUNCIÓN PARA FORMATEAR FECHAS EN PYTHON (MÁS CONFIABLE)
+            def formatear_fecha(fecha_input):
+                if fecha_input is None:
+                    return 'No especificada'
+                
+                try:
+                    # Si es datetime de MySQL
+                    if hasattr(fecha_input, 'strftime'):
+                        return fecha_input.strftime('%d/%m/%Y')
+                    
+                    # Si es string
+                    if isinstance(fecha_input, str):
+                        # Intentar diferentes formatos
+                        formatos = ['%Y-%m-%d', '%Y-%m-%d %H:%M:%S', '%d/%m/%Y', '%m/%d/%Y']
+                        for formato in formatos:
+                            try:
+                                dt = datetime.strptime(fecha_input, formato)
+                                return dt.strftime('%d/%m/%Y')
+                            except ValueError:
+                                continue
+                    
+                    # Si no se pudo formatear, devolver como string
+                    return str(fecha_input)
+                except Exception as e:
+                    print(f"Error formateando fecha {fecha_input}: {e}")
+                    return 'Formato inválido'
+            
+            # FUNCIÓN PARA FORMATEAR FECHAS EN FORMATO ISO (YYYY-MM-DD) PARA FORMULARIOS
+            def formatear_fecha_iso(fecha_input):
+                if fecha_input is None:
+                    return ''
+                
+                try:
+                    # Si es datetime de MySQL
+                    if hasattr(fecha_input, 'strftime'):
+                        return fecha_input.strftime('%Y-%m-%d')
+                    
+                    # Si es string
+                    if isinstance(fecha_input, str):
+                        # Intentar diferentes formatos
+                        formatos = ['%Y-%m-%d', '%Y-%m-%d %H:%M:%S', '%d/%m/%Y', '%m/%d/%Y']
+                        for formato in formatos:
+                            try:
+                                dt = datetime.strptime(fecha_input, formato)
+                                return dt.strftime('%Y-%m-%d')
+                            except ValueError:
+                                continue
+                    
+                    # Si no se pudo formatear, devolver vacío
+                    return ''
+                except Exception as e:
+                    print(f"Error formateando fecha ISO {fecha_input}: {e}")
+                    return ''
+            
+            # CONVERTIR A DICCIONARIO Y AGREGAR FECHAS FORMATEADAS
+            cuenta = dict(cuenta_raw)
+            
+            # Agregar campos formateados para display
+            cuenta['Fecha_Formateada'] = formatear_fecha(cuenta['Fecha'])
+            cuenta['Fecha_Vencimiento_Formateada'] = formatear_fecha(cuenta['Fecha_Vencimiento'])
+            cuenta['FechaFactura_Formateada'] = formatear_fecha(cuenta['Fecha_Factura'])
+            
+            # Agregar campos ISO para formularios HTML (type="date")
+            cuenta['Fecha_ISO'] = formatear_fecha_iso(cuenta['Fecha'])
+            cuenta['Fecha_Vencimiento_ISO'] = formatear_fecha_iso(cuenta['Fecha_Vencimiento'])
+            cuenta['FechaFactura_ISO'] = formatear_fecha_iso(cuenta['Fecha_Factura'])
+            
+            # DEBUG: Verificar datos
+            print("=" * 60)
+            print("DEBUG - INFORMACIÓN DE FECHAS:")
+            print(f"ID Movimiento: {cuenta['ID_Movimiento']}")
+            print(f"Fecha Original (DB): {cuenta['Fecha']} - Tipo: {type(cuenta['Fecha'])}")
+            print(f"Fecha Formateada: {cuenta['Fecha_Formateada']}")
+            print(f"Fecha Vencimiento Original: {cuenta['Fecha_Vencimiento']}")
+            print(f"Fecha Vencimiento Formateada: {cuenta['Fecha_Vencimiento_Formateada']}")
+            print(f"Fecha Factura Original: {cuenta['Fecha_Factura']}")
+            print(f"Fecha Factura Formateada: {cuenta['FechaFactura_Formateada']}")
+            print("=" * 60)
+            
+            # HISTORIAL DE PAGOS
             cursor.execute("""
                 SELECT 
                     p.ID_Pago,
@@ -6082,10 +6166,7 @@ def admin_detalle_cuentacobrar(id_movimiento):
                     p.Comentarios,
                     p.Detalles_Metodo,
                     p.ID_Usuario_Creacion,
-                    DATE_FORMAT(p.Fecha, '%%d/%%m/%%Y %%H:%%i') as FechaFormateada,
-                    DATE_FORMAT(p.Fecha, '%%Y-%%m-%%d') as FechaCorta,
-                    DATE_FORMAT(p.Fecha, '%%d/%%m/%%Y') as FechaSolo,
-                    p.Fecha as Fecha_Original,
+                    p.Fecha,  -- Fecha sin formatear
                     COALESCE(mp.Nombre, 'Método no disponible') as MetodoPago,
                     COALESCE(u.NombreUsuario, 'Usuario no disponible') as UsuarioRegistro
                 FROM Pagos_CuentasCobrar p
@@ -6095,12 +6176,31 @@ def admin_detalle_cuentacobrar(id_movimiento):
                 ORDER BY p.Fecha DESC
             """, (id_movimiento,))
             
-            pagos = cursor.fetchall()
+            pagos_raw = cursor.fetchall()
+            
+            # FORMATEAR FECHAS DE PAGOS
+            pagos = []
+            for pago in pagos_raw:
+                pago_dict = dict(pago)
+                fecha_pago = pago_dict['Fecha']
+                
+                # Formatear fecha completa
+                if fecha_pago:
+                    if hasattr(fecha_pago, 'strftime'):
+                        pago_dict['FechaFormateada'] = fecha_pago.strftime('%d/%m/%Y %H:%M')
+                        pago_dict['FechaSolo'] = fecha_pago.strftime('%d/%m/%Y')
+                    else:
+                        pago_dict['FechaFormateada'] = formatear_fecha(fecha_pago) + ' 00:00'
+                        pago_dict['FechaSolo'] = formatear_fecha(fecha_pago)
+                else:
+                    pago_dict['FechaFormateada'] = 'Fecha no disponible'
+                    pago_dict['FechaSolo'] = 'N/A'
+                
+                pagos.append(pago_dict)
             
             # CÁLCULOS FINANCIEROS
-            
-            monto_movimiento = Decimal(str(cuenta['Monto_Movimiento']))
-            saldo_pendiente = Decimal(str(cuenta['Saldo_Pendiente']))
+            monto_movimiento = Decimal(str(cuenta['Monto_Movimiento'])) if cuenta['Monto_Movimiento'] else Decimal('0')
+            saldo_pendiente = Decimal(str(cuenta['Saldo_Pendiente'])) if cuenta['Saldo_Pendiente'] else Decimal('0')
             
             total_pagado = sum(Decimal(str(pago['Monto'])) for pago in pagos) if pagos else Decimal('0')
             
@@ -6136,7 +6236,8 @@ def admin_detalle_cuentacobrar(id_movimiento):
             return render_template('admin/ventas/cxcobrar/detalle_cuenta.html', **datos_template)
                                  
     except Exception as e:
-        flash(f"❌ Error al cargar detalle de cuenta: {str(e)}", "error")
+        flash(f" Error al cargar detalle de cuenta: {str(e)}", "error")
+        traceback.print_exc()
         return redirect(url_for('admin_cuentascobrar'))
 
 # =============================================
