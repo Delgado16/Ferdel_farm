@@ -1,0 +1,233 @@
+{% extends "layout.html" %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-header">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">
+                            <i class="fas fa-history me-2"></i>Historial de Caja
+                        </h5>
+                        <a href="{{ url_for('admin_caja') }}" class="btn btn-sm btn-primary">
+                            <i class="fas fa-arrow-left me-1"></i> Volver a Caja
+                        </a>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <!-- Selector de fecha -->
+                    <form method="GET" class="row g-3 mb-4">
+                        <div class="col-md-4">
+                            <label for="fecha" class="form-label">Seleccionar Fecha</label>
+                            <input type="date" 
+                                   class="form-control" 
+                                   id="fecha" 
+                                   name="fecha" 
+                                   value="{{ fecha }}"
+                                   max="{{ datetime.now().strftime('%Y-%m-%d') if datetime else '' }}">
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">&nbsp;</label>
+                            <button type="submit" class="btn btn-primary w-100">
+                                <i class="fas fa-search me-1"></i> Buscar
+                            </button>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">&nbsp;</label>
+                            <a href="{{ url_for('admin_caja_historial') }}" class="btn btn-secondary w-100">
+                                <i class="fas fa-calendar-day me-1"></i> Hoy
+                            </a>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Otras fechas disponibles</label>
+                            <div class="d-flex flex-wrap gap-2">
+                                {% for fecha_item in fechas_disponibles %}
+                                {% if fecha_item.fecha %}
+                                <a href="{{ url_for('admin_caja_historial', fecha=fecha_item.fecha.strftime('%Y-%m-%d') if fecha_item.fecha is string else fecha_item.fecha) }}" 
+                                   class="btn btn-sm btn-outline-secondary">
+                                    {{ (fecha_item.fecha.strftime('%d/%m') if fecha_item.fecha is not string else fecha_item.fecha.split('-')[2] + '/' + fecha_item.fecha.split('-')[1]) }}
+                                </a>
+                                {% endif %}
+                                {% endfor %}
+                            </div>
+                        </div>
+                    </form>
+                    
+                    <!-- Resumen del día -->
+                    <div class="row mb-4">
+                        <div class="col-md-3">
+                            <div class="card text-white bg-info">
+                                <div class="card-body">
+                                    <h6 class="card-title">Fecha</h6>
+                                    <h4 class="card-text">{{ fecha_formateada }}</h4>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card text-white bg-success">
+                                <div class="card-body">
+                                    <h6 class="card-title">Total Entradas</h6>
+                                    <h4 class="card-text">C${{ "%.2f"|format(total_entradas) }}</h4>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card text-white bg-danger">
+                                <div class="card-body">
+                                    <h6 class="card-title">Total Salidas</h6>
+                                    <h4 class="card-text">C${{ "%.2f"|format(total_salidas) }}</h4>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card text-white bg-primary">
+                                <div class="card-body">
+                                    <h6 class="card-title">Saldo del Día</h6>
+                                    <h4 class="card-text">C${{ "%.2f"|format(saldo_dia) }}</h4>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Contador de movimientos -->
+                    <div class="alert alert-info d-flex justify-content-between align-items-center">
+                        <span>
+                            <i class="fas fa-exchange-alt me-2"></i>
+                            <strong>{{ total_movimientos }}</strong> movimiento{{ 's' if total_movimientos != 1 else '' }} registrado{{ 's' if total_movimientos != 1 else '' }}
+                        </span>
+                        <div>
+                            <span class="badge bg-success me-3">
+                                <i class="fas fa-arrow-down me-1"></i>{{ "%.2f"|format(total_entradas) }}
+                            </span>
+                            <span class="badge bg-danger">
+                                <i class="fas fa-arrow-up me-1"></i>{{ "%.2f"|format(total_salidas) }}
+                            </span>
+                        </div>
+                    </div>
+                    
+                    <!-- Tabla de movimientos -->
+                    <div class="table-responsive">
+                        <table class="table table-hover table-striped">
+                            <thead class="table-dark">
+                                <tr>
+                                    <th>Hora</th>
+                                    <th>Tipo</th>
+                                    <th>Descripción</th>
+                                    <th>Referencia</th>
+                                    <th class="text-end">Monto</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for mov in movimientos %}
+                                <tr>
+                                    <td>
+                                        <i class="fas fa-clock me-2 text-muted"></i>
+                                        {{ mov.Fecha | format_hora | lower }}
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-{{ 'success' if mov.Tipo_Movimiento == 'ENTRADA' else 'danger' }}">
+                                            {% if mov.Tipo_Movimiento == 'ENTRADA' %}
+                                            <i class="fas fa-arrow-down me-1"></i>
+                                            {% else %}
+                                            <i class="fas fa-arrow-up me-1"></i>
+                                            {% endif %}
+                                            {{ mov.Tipo_Movimiento }}
+                                        </span>
+                                    </td>
+                                    <td>{{ mov.Descripcion }}</td>
+                                    <td>
+                                        {% if mov.Referencia_Documento %}
+                                        <span class="badge bg-secondary">
+                                            <i class="fas fa-file-alt me-1"></i>
+                                            {{ mov.Referencia_Documento }}
+                                        </span>
+                                        {% else %}
+                                        <span class="text-muted">-</span>
+                                        {% endif %}
+                                    </td>
+                                    <td class="text-end {{ 'text-success fw-bold' if mov.Tipo_Movimiento == 'ENTRADA' else 'text-danger fw-bold' }}">
+                                        {% if mov.Tipo_Movimiento == 'ENTRADA' %}
+                                        <i class="fas fa-plus-circle me-1"></i>
+                                        {% else %}
+                                        <i class="fas fa-minus-circle me-1"></i>
+                                        {% endif %}
+                                        C${{ "%.2f"|format(mov.Monto) }}
+                                    </td>
+                                </tr>
+                                {% else %}
+                                <tr>
+                                    <td colspan="5" class="text-center text-muted py-5">
+                                        <div class="py-4">
+                                            <i class="fas fa-inbox fa-3x mb-3"></i>
+                                            <h5>No hay movimientos registrados</h5>
+                                            <p class="mb-0">No se encontraron movimientos para la fecha {{ fecha_formateada }}</p>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                            <tfoot class="table-active">
+                                <tr>
+                                    <td colspan="3"></td>
+                                    <td class="text-end fw-bold">TOTALES:</td>
+                                    <td class="text-end fw-bold">
+                                        <div class="d-flex justify-content-end gap-3">
+                                            <span class="text-success">
+                                                <i class="fas fa-arrow-down me-1"></i>
+                                                C${{ "%.2f"|format(total_entradas) }}
+                                            </span>
+                                            <span class="text-danger">
+                                                <i class="fas fa-arrow-up me-1"></i>
+                                                C${{ "%.2f"|format(total_salidas) }}
+                                            </span>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                    
+                    <!-- Botones de acción -->
+                    <div class="d-flex justify-content-between mt-4">
+                        <div>
+                            <button onclick="window.print()" class="btn btn-outline-primary">
+                                <i class="fas fa-print me-1"></i> Imprimir Reporte
+                            </button>
+                        </div>
+                        <div>
+                            <a href="{{ url_for('admin_caja') }}" class="btn btn-primary">
+                                <i class="fas fa-cash-register me-1"></i> Ir a Caja Principal
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Estilos para impresión -->
+<style>
+    @media print {
+        .card-header, .form-control, button, a, .alert, .btn {
+            display: none !important;
+        }
+        
+        .card {
+            border: none !important;
+        }
+        
+        .table th {
+            background-color: #f8f9fa !important;
+            color: #000 !important;
+        }
+        
+        .badge {
+            border: 1px solid #000 !important;
+            color: #000 !important;
+            background-color: transparent !important;
+        }
+    }
+</style>
+{% endblock %}

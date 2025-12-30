@@ -665,6 +665,44 @@ def admin_caja():
         # Obtener fecha actual (solo fecha, sin hora)
         fecha_actual = datetime.now().date()
         
+        # Verificar estado de caja
+        cursor.execute("""
+            SELECT 
+                CASE 
+                    WHEN EXISTS (
+                        SELECT 1 FROM caja_movimientos 
+                        WHERE Tipo_Movimiento = 'ENTRADA' 
+                        AND Descripcion LIKE '%%Apertura%%'
+                        AND DATE(Fecha) = %s
+                    ) THEN 'ABIERTA'
+                    ELSE 'CERRADA'
+                END as estado,
+                CASE 
+                    WHEN EXISTS (
+                        SELECT 1 FROM caja_movimientos 
+                        WHERE Tipo_Movimiento = 'SALIDA' 
+                        AND Descripcion LIKE '%%Cierre%%'
+                        AND DATE(Fecha) = %s
+                    ) THEN TRUE
+                    ELSE FALSE
+                END as cerrada_hoy
+        """, (fecha_actual, fecha_actual))
+        estado_caja = cursor.fetchone()
+        
+        # Obtener hora de apertura si está abierta
+        hora_apertura = None
+        if estado_caja['estado'] == 'ABIERTA':
+            cursor.execute("""
+                SELECT DATE_FORMAT(CAST(Fecha AS DATETIME), '%%h:%%i %p') as hora_apertura
+                FROM caja_movimientos 
+                WHERE Tipo_Movimiento = 'ENTRADA' 
+                AND Descripcion LIKE '%%Apertura%%'
+                AND DATE(Fecha) = %s
+                LIMIT 1
+            """, (fecha_actual,))
+            apertura = cursor.fetchone()
+            hora_apertura = apertura['hora_apertura'] if apertura else None
+        
         # Calcular total de entradas del día
         cursor.execute("""
             SELECT COALESCE(SUM(Monto), 0) as total_entradas
@@ -701,11 +739,15 @@ def admin_caja():
         cursor.execute("""
             SELECT 
                 ID_Movimiento,
-                DATE_FORMAT(Fecha, '%%H:%%i') as Hora,
+                DATE_FORMAT(CAST(Fecha AS DATETIME), '%%h:%%i %p') as Hora,
                 Tipo_Movimiento,
                 Descripcion,
                 Monto,
-                Referencia_Documento
+                Referencia_Documento,
+                CASE Tipo_Movimiento
+                    WHEN 'ENTRADA' THEN 'success'
+                    WHEN 'SALIDA' THEN 'danger'
+                END as clase_color
             FROM caja_movimientos
             WHERE DATE(Fecha) = %s
             ORDER BY Fecha ASC
@@ -719,10 +761,311 @@ def admin_caja():
             'total_entradas': total_entradas,
             'total_salidas': total_salidas,
             'saldo_actual': saldo_actual,
-            'movimientos': movimientos
+            'movimientos': movimientos,
+            'estado': estado_caja['estado'],
+            'cerrada_hoy': estado_caja['cerrada_hoy'],
+            'hora_apertura': hora_apertura
         }
     
     return render_template('admin/caja/caja.html', caja=datos_caja)
+
+@app.template_filter('format_hora')
+def format_hora_filter(value):
+    """Filtro para formatear datetime a hora en formato 12h AM/PM"""
+    if not value:
+        return ''
+    
+    if isinstance(value, str):
+        try:
+            # Intentar diferentes formatos
+            for fmt in ['%Y-%m-%d %H:%M:%S', '%Y-%m-%d %H:%M:%S.%f']:
+                try:
+                    value = datetime.strptime(value, fmt)
+                    break
+                except ValueError:
+                    continue
+        except:
+            return value
+    return value.strftime('%I:%M %p').lstrip('0')
+
+@app.route('/admin/caja/historial')
+@admin_required
+@bitacora_decorator("HISTORIAL_CAJA")
+def admin_caja_historial():
+    """Muestra historial de movimientos por fecha"""
+    fecha_str = request.args.get('fecha')
+    
+    try:
+        if fecha_str:
+            fecha = datetime.strptime(fecha_str, '%Y-%m-%d').date()
+        else:
+            fecha = datetime.now().date()
+        
+        with get_db_cursor(True) as cursor:
+            # Obtener movimientos del día seleccionado
+            cursor.execute("""
+                SELECT 
+                    ID_Movimiento,
+                    Fecha,
+                    Tipo_Movimiento,
+                    Descripcion,
+                    Monto,
+                    Referencia_Documento
+                FROM caja_movimientos
+                WHERE DATE(Fecha) = %s
+                ORDER BY Fecha ASC
+            """, (fecha,))
+            movimientos = cursor.fetchall()
+            
+            # Calcular resumen
+            cursor.execute("""
+                SELECT 
+                    COALESCE(SUM(CASE WHEN Tipo_Movimiento = 'ENTRADA' THEN Monto ELSE 0 END), 0) as total_entradas,
+                    COALESCE(SUM(CASE WHEN Tipo_Movimiento = 'SALIDA' THEN Monto ELSE 0 END), 0) as total_salidas,
+                    COUNT(*) as total_movimientos
+                FROM caja_movimientos
+                WHERE DATE(Fecha) = %s
+            """, (fecha,))
+            resumen = cursor.fetchone()
+            
+            # Calcular saldo del día
+            total_entradas = resumen['total_entradas'] or 0
+            total_salidas = resumen['total_salidas'] or 0
+            saldo_dia = total_entradas - total_salidas
+            
+            # Obtener lista de fechas con movimientos (para el selector)
+            cursor.execute("""
+                SELECT DISTINCT DATE(Fecha) as fecha
+                FROM caja_movimientos
+                ORDER BY fecha DESC
+                LIMIT 30
+            """)
+            fechas_disponibles = cursor.fetchall()
+        
+        return render_template('admin/caja/historial.html',
+                             fecha=fecha.strftime('%Y-%m-%d'),
+                             fecha_formateada=fecha.strftime('%d/%m/%Y'),
+                             movimientos=movimientos,
+                             total_entradas=total_entradas,
+                             total_salidas=total_salidas,
+                             total_movimientos=resumen['total_movimientos'] or 0,
+                             saldo_dia=saldo_dia,
+                             fechas_disponibles=fechas_disponibles)
+            
+    except ValueError:
+        flash('Fecha inválida. Por favor use el formato YYYY-MM-DD', 'error')
+        return redirect(url_for('admin_caja_historial'))
+    except Exception as e:
+        flash(f'Error al obtener historial: {str(e)}', 'error')
+        return redirect(url_for('admin_caja'))
+    
+@app.route('/admin/caja/cerrar', methods=['POST'])
+@admin_required
+@bitacora_decorator("CIERRE_CAJA")
+def admin_caja_cerrar():
+    try:
+        data = request.form
+        observaciones = data.get('observaciones', '')
+        monto_cierre_fisico = float(data.get('monto_cierre_fisico', 0))
+        
+        fecha_actual = datetime.now().date()
+        
+        with get_db_cursor(True) as cursor:
+            # Verificar si ya existe un cierre hoy
+            cursor.execute("""
+                SELECT COUNT(*) as count 
+                FROM caja_movimientos 
+                WHERE Tipo_Movimiento = 'SALIDA' 
+                AND Descripcion LIKE '%%Cierre%%'
+                AND DATE(Fecha) = %s
+            """, (fecha_actual,))
+            result = cursor.fetchone()
+            
+            if result['count'] > 0:
+                flash('La caja ya fue cerrada hoy', 'error')
+                return redirect(url_for('admin_caja'))
+            
+            # Verificar si hay apertura hoy
+            cursor.execute("""
+                SELECT COUNT(*) as count 
+                FROM caja_movimientos 
+                WHERE Tipo_Movimiento = 'ENTRADA' 
+                AND Descripcion LIKE '%%Apertura%%'
+                AND DATE(Fecha) = %s
+            """, (fecha_actual,))
+            apertura_result = cursor.fetchone()
+            
+            if apertura_result['count'] == 0:
+                flash('No hay caja aperturada hoy', 'error')
+                return redirect(url_for('admin_caja'))
+            
+            # Calcular saldo actual del día
+            cursor.execute("""
+                SELECT 
+                    COALESCE(SUM(CASE WHEN Tipo_Movimiento = 'ENTRADA' THEN Monto ELSE 0 END), 0) as total_entradas,
+                    COALESCE(SUM(CASE WHEN Tipo_Movimiento = 'SALIDA' THEN Monto ELSE 0 END), 0) as total_salidas,
+                    COALESCE(SUM(CASE WHEN Tipo_Movimiento = 'ENTRADA' THEN Monto ELSE 0 END), 0) -
+                    COALESCE(SUM(CASE WHEN Tipo_Movimiento = 'SALIDA' THEN Monto ELSE 0 END), 0) as saldo_actual
+                FROM caja_movimientos
+                WHERE DATE(Fecha) = %s
+            """, (fecha_actual,))
+            saldo_result = cursor.fetchone()
+            saldo_actual = saldo_result['saldo_actual'] if saldo_result else 0
+            total_entradas = saldo_result['total_entradas'] or 0
+            total_salidas = saldo_result['total_salidas'] or 0
+            
+            # Calcular diferencia (si se proporcionó monto físico)
+            diferencia = 0
+            if monto_cierre_fisico > 0:
+                diferencia = monto_cierre_fisico - saldo_actual
+                
+                # Si hay diferencia significativa, agregar a la descripción
+                if abs(diferencia) > 0.01:  # Tolerancia de 1 centavo
+                    observaciones += f" - Diferencia: ${diferencia:+.2f}"
+            
+            # Registrar movimiento de cierre
+            descripcion_cierre = f"Cierre de caja"
+            if observaciones:
+                descripcion_cierre += f" - {observaciones}"
+            
+            cursor.execute("""
+                INSERT INTO caja_movimientos 
+                (Fecha, Tipo_Movimiento, Descripcion, Monto, ID_Usuario, Referencia_Documento)
+                VALUES (NOW(), 'SALIDA', %s, %s, %s, 'CIERRE')
+            """, (descripcion_cierre, saldo_actual, session.get('user_id')))
+            
+            # Mensaje detallado
+            mensaje = f'Caja cerrada correctamente. '
+            mensaje += f'Entradas: ${total_entradas:.2f} | '
+            mensaje += f'Salidas: ${total_salidas:.2f} | '
+            mensaje += f'Saldo: ${saldo_actual:.2f}'
+            
+            if monto_cierre_fisico > 0:
+                mensaje += f' | Efectivo físico: ${monto_cierre_fisico:.2f}'
+                if abs(diferencia) > 0.01:
+                    tipo_diferencia = "SOBRANTE" if diferencia > 0 else "FALTANTE"
+                    mensaje += f' | {tipo_diferencia}: ${abs(diferencia):.2f}'
+            
+            flash(mensaje, 'success')
+            return redirect(url_for('admin_caja'))
+            
+    except Exception as e:
+        flash(f'Error al cerrar caja: {str(e)}', 'error')
+        return redirect(url_for('admin_caja'))
+    
+@app.route('/admin/caja/movimiento', methods=['POST'])
+@admin_required
+@bitacora_decorator("AGREGAR_MOVIMIENTO_CAJA")
+def admin_caja_movimiento():
+    try:
+        data = request.form
+        tipo_movimiento = data.get('tipo_movimiento')
+        descripcion = data.get('descripcion')
+        monto = float(data.get('monto', 0))
+        referencia = data.get('referencia', '')
+        
+        # Validaciones
+        if tipo_movimiento not in ['ENTRADA', 'SALIDA']:
+            flash('Tipo de movimiento inválido', 'error')
+            return redirect(url_for('admin_caja'))
+        
+        if monto <= 0:
+            flash('El monto debe ser mayor a 0', 'error')
+            return redirect(url_for('admin_caja'))
+        
+        if not descripcion or descripcion.strip() == '':
+            flash('La descripción es requerida', 'error')
+            return redirect(url_for('admin_caja'))
+        
+        # Verificar si hay caja aperturada hoy
+        fecha_actual = datetime.now().date()
+        with get_db_cursor(True) as cursor:
+            cursor.execute("""
+                SELECT COUNT(*) as count 
+                FROM caja_movimientos 
+                WHERE Tipo_Movimiento = 'ENTRADA' 
+                AND Descripcion LIKE '%%Apertura%%'
+                AND DATE(Fecha) = %s
+            """, (fecha_actual,))
+            result = cursor.fetchone()
+            
+            if result['count'] == 0 and tipo_movimiento == 'SALIDA':
+                flash('No se puede registrar salida sin apertura de caja', 'error')
+                return redirect(url_for('admin_caja'))
+            
+            # Para salidas, verificar que haya saldo suficiente
+            if tipo_movimiento == 'SALIDA':
+                cursor.execute("""
+                    SELECT 
+                        COALESCE(SUM(CASE WHEN Tipo_Movimiento = 'ENTRADA' THEN Monto ELSE 0 END), 0) -
+                        COALESCE(SUM(CASE WHEN Tipo_Movimiento = 'SALIDA' THEN Monto ELSE 0 END), 0) as saldo_actual
+                    FROM caja_movimientos
+                    WHERE DATE(Fecha) = %s
+                """, (fecha_actual,))
+                saldo_result = cursor.fetchone()
+                saldo_actual = saldo_result['saldo_actual'] if saldo_result else 0
+                
+                if monto > saldo_actual:
+                    flash(f'Saldo insuficiente. Saldo actual: ${saldo_actual:.2f}', 'error')
+                    return redirect(url_for('admin_caja'))
+            
+            # Insertar el movimiento
+            cursor.execute("""
+                INSERT INTO caja_movimientos 
+                (Fecha, Tipo_Movimiento, Descripcion, Monto, ID_Usuario, Referencia_Documento)
+                VALUES (NOW(), %s, %s, %s, %s, %s)
+            """, (tipo_movimiento, descripcion, monto, session.get('user_id'), referencia))
+            
+            tipo_texto = "entrada" if tipo_movimiento == 'ENTRADA' else "salida"
+            flash(f'Movimiento de {tipo_texto} por ${monto:.2f} registrado correctamente', 'success')
+            return redirect(url_for('admin_caja'))
+            
+    except Exception as e:
+        flash(f'Error al registrar movimiento: {str(e)}', 'error')
+        return redirect(url_for('admin_caja'))
+    
+@app.route('/admin/caja/aperturar', methods=['POST'])
+@admin_required
+@bitacora_decorator("APERTURAR_CAJA")
+def admin_caja_aperturar():
+    try:
+        data = request.form
+        monto_inicial = float(data.get('monto_inicial', 0))
+        descripcion = data.get('descripcion', 'Apertura de caja')
+        
+        if monto_inicial <= 0:
+            flash('El monto inicial debe ser mayor a 0', 'error')
+            return redirect(url_for('admin_caja'))
+        
+        with get_db_cursor(True) as cursor:
+            # Verificar si ya existe una apertura hoy
+            fecha_actual = datetime.now().date()
+            cursor.execute("""
+                SELECT COUNT(*) as count 
+                FROM caja_movimientos 
+                WHERE Tipo_Movimiento = 'ENTRADA' 
+                AND Descripcion LIKE '%%Apertura%%'
+                AND DATE(Fecha) = %s
+            """, (fecha_actual,))
+            result = cursor.fetchone()
+            
+            if result['count'] > 0:
+                flash('La caja ya fue aperturada hoy', 'error')
+                return redirect(url_for('admin_caja'))
+            
+            # Insertar movimiento de apertura
+            cursor.execute("""
+                INSERT INTO caja_movimientos 
+                (Fecha, Tipo_Movimiento, Descripcion, Monto, ID_Usuario, Referencia_Documento)
+                VALUES (NOW(), 'ENTRADA', %s, %s, %s, 'APERTURA')
+            """, (descripcion, monto_inicial, session.get('user_id')))
+            
+            flash(f'Caja aperturada correctamente con ${monto_inicial:.2f}', 'success')
+            return redirect(url_for('admin_caja'))
+            
+    except Exception as e:
+        flash(f'Error al aperturar caja: {str(e)}', 'error')
+        return redirect(url_for('admin_caja'))
 
 ## MODULOS DEL ADMINISTRADOR
 # CATALOGOS USUARIOS
