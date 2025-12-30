@@ -239,10 +239,10 @@
             margin-left: 0;
         }
 
-        /* Overlay */
+        /* Overlay - POSICIÓN CORREGIDA */
         .overlay {
             position: fixed;
-            top: 56px;
+            top: 0; /* Cambiado de 56px a 0 para cubrir toda la pantalla */
             left: 0;
             right: 0;
             bottom: 0;
@@ -250,11 +250,12 @@
             z-index: 1015;
             display: none;
             transition: opacity 0.3s ease;
+            opacity: 0;
         }
 
         .overlay.show {
             display: block;
-            animation: fadeIn 0.3s ease;
+            opacity: 1;
         }
 
         /* Dropdown Menu */
@@ -272,6 +273,7 @@
                 left: -100%;
                 width: 80%;
                 max-width: 300px;
+                transition: left 0.3s ease;
             }
 
             .sidebar.show {
@@ -281,6 +283,7 @@
             .main-content {
                 margin-left: 0;
                 width: 100%;
+                transition: margin-left 0.3s ease;
             }
 
             .navbar-toggler {
@@ -302,6 +305,11 @@
                 margin: 0 0.25rem;
                 width: calc(100% - 0.5rem);
             }
+
+            /* Evitar scroll en body cuando el overlay está activo */
+            body.sidebar-open {
+                overflow: hidden;
+            }
         }
 
         @media (min-width: 768px) {
@@ -316,7 +324,7 @@
             }
         }
 
-        /* Mejoras para formularios */
+        /* Resto de tus estilos... */
         .form-container {
             background: white;
             border-radius: 10px;
@@ -350,7 +358,6 @@
             min-width: 100px;
         }
 
-        /* Mejoras para las tarjetas del dashboard */
         .dashboard-card {
             transition: transform 0.2s, box-shadow 0.2s;
             border: none;
@@ -368,7 +375,6 @@
             opacity: 0.8;
         }
 
-        /* Mejoras para tablas */
         .table-container {
             background: white;
             border-radius: 10px;
@@ -387,7 +393,6 @@
             background-color: rgba(106, 17, 203, 0.05);
         }
 
-        /* Utilidades personalizadas */
         .cursor-pointer {
             cursor: pointer;
         }
@@ -400,12 +405,10 @@
             -webkit-box-orient: vertical;
         }
 
-        /* Animaciones */
         @keyframes fadeIn {
             from {
                 opacity: 0;
             }
-
             to {
                 opacity: 1;
             }
@@ -415,7 +418,6 @@
             animation: fadeIn 0.3s ease-in;
         }
 
-        /* Mejoras para mensajes de alerta */
         .alert {
             border: none;
             border-radius: 8px;
@@ -423,7 +425,6 @@
             z-index: 1035;
         }
 
-        /* Scrollbar personalizado para sidebar */
         .sidebar::-webkit-scrollbar {
             width: 5px;
         }
@@ -441,7 +442,6 @@
             background: rgba(255, 255, 255, 0.5);
         }
 
-        /* Estilos para el usuario dropdown */
         .user-avatar {
             width: 32px;
             height: 32px;
@@ -459,7 +459,7 @@
 
 <body>
     {% if current_user.is_authenticated %}
-    <!-- Overlay para móvil (colocado al inicio) -->
+    <!-- Overlay para móvil -->
     <div class="overlay" id="mainOverlay"></div>
 
     <!-- Navbar para usuarios autenticados -->
@@ -471,8 +471,7 @@
             </button>
             <!-- Logo y nombre -->
             <a class="navbar-brand mx-2" href="{{ url_for('dashboard') }}">
-                <i class="bi bi-building"></i>
-                <span class="ms-1 d-none d-md-inline">FerDel Sistema</span>
+                <i class="bi bi-building"></i>FerDel Sistema
             </a>
 
             <!-- Dropdown de usuario -->
@@ -811,7 +810,7 @@
             function closeMobileSidebar() {
                 sidebar.classList.remove('show');
                 overlay.classList.remove('show');
-                document.body.style.overflow = 'auto';
+                document.body.classList.remove('sidebar-open');
                 isMobileSidebarOpen = false;
             }
 
@@ -819,7 +818,7 @@
             function openMobileSidebar() {
                 sidebar.classList.add('show');
                 overlay.classList.add('show');
-                document.body.style.overflow = 'hidden';
+                document.body.classList.add('sidebar-open');
                 isMobileSidebarOpen = true;
             }
 
@@ -838,8 +837,10 @@
             // Cerrar sidebar al hacer clic en overlay
             if (overlay) {
                 overlay.addEventListener('click', function () {
-                    closeMobileSidebar();
-
+                    if (isMobile()) {
+                        closeMobileSidebar();
+                    }
+                    
                     // Cerrar dropdown del usuario si está abierto
                     if (userDropdown) {
                         const dropdown = bootstrap.Dropdown.getInstance(userDropdown);
@@ -853,9 +854,12 @@
             // Cerrar sidebar al hacer clic en un enlace (en móviles)
             const sidebarLinks = sidebar.querySelectorAll('.nav-link:not(.submenu-toggle-btn)');
             sidebarLinks.forEach(link => {
-                link.addEventListener('click', function () {
-                    if (isMobile()) {
-                        closeMobileSidebar();
+                link.addEventListener('click', function (e) {
+                    // Solo cerrar si es un enlace válido (no #)
+                    if (this.getAttribute('href') && this.getAttribute('href') !== '#') {
+                        if (isMobile()) {
+                            closeMobileSidebar();
+                        }
                     }
                 });
             });
@@ -866,7 +870,7 @@
 
                 userDropdown.addEventListener('show.bs.dropdown', function () {
                     // En móviles, asegurarse de que el sidebar esté cerrado
-                    if (isMobile()) {
+                    if (isMobile() && isMobileSidebarOpen) {
                         closeMobileSidebar();
                     }
                 });
@@ -927,6 +931,11 @@
                     sidebar.classList.remove('collapsed');
                     mainContent.classList.remove('expanded');
                     isSidebarCollapsed = false;
+                    
+                    // Si cambiamos de móvil a escritorio, cerrar sidebar móvil
+                    if (isMobileSidebarOpen) {
+                        closeMobileSidebar();
+                    }
                 }
             }
 
@@ -935,6 +944,18 @@
 
             // Ejecutar una vez al cargar
             handleResize();
+            
+            // Cerrar sidebar al hacer clic fuera en móviles
+            document.addEventListener('click', function (e) {
+                if (isMobile() && isMobileSidebarOpen) {
+                    // Si el clic no fue en el sidebar ni en el toggle
+                    if (!sidebar.contains(e.target) && 
+                        !mobileSidebarToggle.contains(e.target) && 
+                        e.target !== mobileSidebarToggle) {
+                        closeMobileSidebar();
+                    }
+                }
+            });
         });
     </script>
     {% block extra_js %}{% endblock %}
