@@ -5,257 +5,360 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Ticket de Venta #{{ ticket.id_factura }}</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
+        /* ===== ESTILOS PARA IMPRESIÓN ===== */
         @media print {
-            @page { 
-                margin: 0; 
-                size: 80mm auto; 
+            @page {
+                margin: 0;
+                size: 80mm auto;
             }
-            body { 
-                margin: 0; 
-                font-family: 'Courier New', monospace, Arial, sans-serif; 
-                font-size: 12px; 
-                background: white;
-                color: black;
+            body {
+                margin: 0;
+                padding: 0;
+                font-family: 'Courier New', monospace, Arial, sans-serif;
+                font-size: 10px !important;
+                line-height: 1.2;
+                color: #000;
+                background: #fff;
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
             }
-            .no-print { 
-                display: none !important; 
+            .no-print,
+            .btn-group,
+            .container.mt-4 {
+                display: none !important;
             }
-            .container { 
-                max-width: 100% !important;
-                padding: 0 5px;
+            .ticket-container {
+                width: 80mm !important;
+                max-width: 80mm !important;
+                margin: 0 auto !important;
+                padding: 5px !important;
+                border: none !important;
+                box-shadow: none !important;
+                page-break-inside: avoid;
             }
         }
-        
-        body { 
-            font-family: 'Courier New', monospace, Arial, sans-serif; 
-            font-size: 12px; 
+
+        /* ===== ESTILOS GENERALES ===== */
+        body {
+            font-family: 'Courier New', monospace, Arial, sans-serif;
+            font-size: 10px;
             margin: 0;
             padding: 10px;
             background: #f8f9fa;
         }
-        
+
         .ticket-container {
-            max-width: 80mm;
+            width: 80mm;
             margin: 0 auto;
             background: white;
-            padding: 15px;
+            padding: 10px;
             border: 1px solid #ddd;
-            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+            box-shadow: 0 0 5px rgba(0,0,0,0.1);
         }
-        
+
+        /* ===== UTILIDADES ===== */
         .text-center { text-align: center; }
         .text-right { text-align: right; }
+        .text-left { text-align: left; }
         .bold { font-weight: bold; }
-        .divider { 
-            border-top: 1px dashed #000; 
-            margin: 8px 0; 
-            padding-top: 8px;
-        }
-        .double-divider { 
-            border-top: 2px solid #000; 
-            margin: 10px 0; 
-        }
         
-        table { 
-            width: 100%; 
-            border-collapse: collapse; 
+        .divider {
+            border-top: 1px dashed #000;
             margin: 5px 0;
+            padding-top: 5px;
         }
         
-        th, td { 
-            padding: 3px 2px; 
-            vertical-align: top;
+        .double-divider {
+            border-top: 2px solid #000;
+            margin: 8px 0;
         }
-        
-        .item-desc { 
-            font-size: 11px; 
-            line-height: 1.2;
-        }
-        
-        .small { 
-            font-size: 10px; 
-            line-height: 1.2;
-        }
-        
-        .x-small { 
-            font-size: 9px; 
-            line-height: 1.1;
-        }
-        
-        .total-row {
-            border-top: 1px solid #000;
-            border-bottom: 2px solid #000;
-        }
-        
-        .credito-alert {
-            background: #fff3cd;
-            border: 1px solid #ffeaa7;
-            padding: 5px;
-            margin: 5px 0;
-            border-radius: 3px;
+
+        /* ===== LOGO Y ENCABEZADO ===== */
+        .logo-container {
+            text-align: center;
+            margin-bottom: 5px;
         }
         
         .logo {
             max-width: 100%;
             height: auto;
-            max-height: 50px;
-            margin-bottom: 5px;
+            max-height: 40px;
+            margin-bottom: 3px;
         }
         
-        /* Estilo de respaldo si la imagen no carga */
-        .logo-placeholder {
-            display: none;
-        }
-        
-        .logo:error + .logo-placeholder {
-            display: block;
+        .logo-text {
             font-weight: bold;
-            font-size: 16px;
-            padding: 10px;
+            font-size: 14px;
+            text-transform: uppercase;
+            margin-top: 5px;
+        }
+
+        /* ===== TABLAS ===== */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 0;
+            font-size: 9px;
+        }
+        
+        th, td {
+            padding: 2px 1px;
+            vertical-align: top;
+            line-height: 1.1;
+        }
+        
+        .table-header {
+            border-bottom: 1px dashed #000;
+        }
+        
+        /* ===== TAMAÑOS DE TEXTO ===== */
+        .size-9 { font-size: 9px; }
+        .size-10 { font-size: 10px; }
+        .size-11 { font-size: 11px; }
+        .size-12 { font-size: 12px; }
+        .size-13 { font-size: 13px; }
+        .size-14 { font-size: 14px; }
+
+        /* ===== DETALLES DE PRODUCTOS ===== */
+        .product-desc {
+            font-size: 9px;
+            line-height: 1.1;
+            word-break: break-word;
+        }
+        
+        .product-code {
+            font-size: 8px;
+            color: #666;
+        }
+
+        /* ===== TOTALES ===== */
+        .total-row {
+            border-top: 1px solid #000;
+            border-bottom: 2px solid #000;
+            font-weight: bold;
+        }
+        
+        .subtotal-row {
+            border-top: 1px dashed #000;
+        }
+
+        /* ===== CRÉDITO ===== */
+        .credito-alert {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            padding: 4px;
+            margin: 4px 0;
+            border-radius: 2px;
+            font-size: 9px;
+        }
+
+        /* ===== CONTROLES NO IMPRIMIBLES ===== */
+        .print-controls {
+            margin-top: 20px;
+            text-align: center;
+        }
+        
+        .btn-sm {
+            padding: 4px 8px;
+            font-size: 12px;
+            margin: 2px;
         }
     </style>
 </head>
 <body>
+    <!-- CONTENEDOR PRINCIPAL DEL TICKET -->
     <div class="ticket-container">
-        <!-- Encabezado de la Empresa -->
-        <div class="text-center">
-            <!-- Opción 1: Usar url_for (Recomendado) -->
-            <img src="{{ url_for('static', filename='ferdel.png') }}" alt="Logo {{ ticket.empresa.nombre }}" class="logo">
-            
-            <!-- Respaldo si la imagen no carga -->
-            <div class="logo-placeholder">
+        <!-- ENCABEZADO DE LA EMPRESA -->
+        <div class="logo-container">
+            <img src="{{ url_for('static', filename='ferdel.png') }}" 
+                 alt="Logo {{ ticket.empresa.nombre }}" 
+                 class="logo"
+                 onerror="this.style.display='none'; document.getElementById('logo-text').style.display='block';">
+            <div id="logo-text" class="logo-text" style="display: none;">
                 {{ ticket.empresa.nombre }}
             </div>
-            
-            <div class="bold" style="font-size: 14px; text-transform: uppercase;">{{ ticket.empresa.nombre }}</div>
-            <div class="small">RUC: {{ ticket.empresa.ruc }}</div>
-            <div class="small">{{ ticket.empresa.direccion }}</div>
-            <div class="small">Tel: {{ ticket.empresa.telefono }}</div>
+            <div class="size-10 bold">{{ ticket.empresa.nombre }}</div>
+            <div class="size-9">RUC: {{ ticket.empresa.ruc }}</div>
+            <div class="size-9">{{ ticket.empresa.direccion }}</div>
+            <div class="size-9">Tel: {{ ticket.empresa.telefono }}</div>
             <div class="double-divider"></div>
         </div>
-        
-        <!-- El resto de tu código se mantiene igual -->
-        <!-- Información de la Factura -->
+
+        <!-- INFORMACIÓN DE LA FACTURA -->
         <div class="text-center">
-            <div class="bold" style="font-size: 13px;">FACTURA #{{ ticket.id_factura }}</div>
-            <div class="small">Emisión Factura: {{ ticket.hora_emision.strftime('%d/%m/%Y %H:%M:%S') }}</div>
-            <div class="small">Atendido por: {{ ticket.usuario }}</div>
+            <div class="size-13 bold">FACTURA #{{ ticket.id_factura }}</div>
+            <div class="size-9">Emisión: {{ ticket.hora_emision.strftime('%d/%m/%Y %H:%M:%S') }}</div>
+            <div class="size-9">Atendido por: {{ ticket.usuario }}</div>
             {% if ticket.movimiento and ticket.movimiento.Bodega %}
-            <div class="x-small">Bodega: {{ ticket.movimiento.Bodega }}</div>
+            <div class="size-9">Bodega: {{ ticket.movimiento.Bodega }}</div>
             {% endif %}
             <div class="divider"></div>
         </div>
-        
-        <!-- Datos del Cliente -->
-        <div>
-            <div class="small"><strong>Cliente:</strong> {{ ticket.cliente }}</div>
-            <div class="small"><strong>RUC/Cédula:</strong> {{ ticket.ruc_cliente }}</div>
-            <div class="small"><strong>Tipo Venta:</strong> {{ ticket.tipo_venta }}</div>
+
+        <!-- DATOS DEL CLIENTE -->
+        <div class="size-9">
+            <div><strong>Cliente:</strong> {{ ticket.cliente }}</div>
+            <div><strong>RUC/Cédula:</strong> {{ ticket.ruc_cliente }}</div>
+            <div><strong>Tipo Venta:</strong> {{ ticket.tipo_venta }}</div>
             {% if ticket.observacion %}
-            <div class="x-small"><strong>Observaciones:</strong> {{ ticket.observacion }}</div>
+            <div><strong>Observaciones:</strong> {{ ticket.observacion }}</div>
             {% endif %}
         </div>
         <div class="divider"></div>
-        
-        <!-- Detalles de Productos -->
+
+        <!-- DETALLES DE PRODUCTOS -->
         <table>
             <thead>
-                <tr class="small">
-                    <th style="text-align: left">Descripción</th>
-                    <th style="text-align: right">Cant</th>
-                    <th style="text-align: right">P.Unit</th>
-                    <th style="text-align: right">Total</th>
+                <tr class="size-9 bold table-header">
+                    <th class="text-left" style="width: 40%">Descripción</th>
+                    <th class="text-right" style="width: 15%">Cant</th>
+                    <th class="text-right" style="width: 20%">P.Unit</th>
+                    <th class="text-right" style="width: 25%">Total</th>
                 </tr>
-                <tr><td colspan="4" style="border-bottom: 1px dashed #000; padding: 2px 0;"></td></tr>
             </thead>
             <tbody>
                 {% for item in ticket.detalles %}
                 <tr>
-                    <td style="text-align: left" class="item-desc">
-                        <div>{{ item.Producto[:25] }}{% if item.Producto|length > 25 %}...{% endif %}</div>
+                    <td class="text-left">
+                        <div class="product-desc">
+                            {{ item.Producto[:30] }}{% if item.Producto|length > 30 %}...{% endif %}
+                        </div>
                         {% if item.COD_Producto and item.COD_Producto != 'N/A' %}
-                        <div class="x-small">Cod: {{ item.COD_Producto }}</div>
+                        <div class="product-code">Cod: {{ item.COD_Producto }}</div>
                         {% endif %}
                     </td>
-                    <td style="text-align: right; white-space: nowrap;" class="small">
-                        {{ "%.2f"|format(item.Cantidad) }}
-                    </td>
-                    <td style="text-align: right; white-space: nowrap;" class="small">
-                        C${{ "%.2f"|format(item.Precio) }}
-                    </td>
-                    <td style="text-align: right; white-space: nowrap;" class="small">
-                        C${{ "%.2f"|format(item.Subtotal) }}
-                    </td>
+                    <td class="text-right">{{ "%.2f"|format(item.Cantidad) }}</td>
+                    <td class="text-right">C${{ "%.2f"|format(item.Precio) }}</td>
+                    <td class="text-right">C${{ "%.2f"|format(item.Subtotal) }}</td>
                 </tr>
                 {% endfor %}
             </tbody>
         </table>
-        
+
         <div class="double-divider"></div>
-        
-        <!-- Totales -->
-        <table>
-            <tr class="total-row bold">
-                <td style="text-align: left">TOTAL:</td>
+
+        <!-- TOTALES -->
+        <table class="size-10">
+            {% if ticket.descuento and ticket.descuento > 0 %}
+            <tr class="subtotal-row">
+                <td class="text-left">Subtotal:</td>
                 <td colspan="2"></td>
-                <td style="text-align: right; font-size: 13px;">C${{ "%.2f"|format(ticket.total) }}</td>
+                <td class="text-right">C${{ "%.2f"|format(ticket.subtotal_sin_descuento) }}</td>
+            </tr>
+            <tr>
+                <td class="text-left">Descuento:</td>
+                <td colspan="2"></td>
+                <td class="text-right">-C${{ "%.2f"|format(ticket.descuento) }}</td>
+            </tr>
+            {% endif %}
+            <tr class="total-row">
+                <td class="text-left size-11">TOTAL:</td>
+                <td colspan="2"></td>
+                <td class="text-right size-12 bold">C${{ "%.2f"|format(ticket.total) }}</td>
             </tr>
         </table>
-        
-        <!-- Información de Crédito si aplica -->
+
+        <!-- INFORMACIÓN DE CRÉDITO -->
         {% if ticket.tiene_credito and ticket.cuenta_cobrar %}
-        <div class="credito-alert x-small">
-            <div class="bold text-center">*** VENTA A CRÉDITO ***</div>
+        <div class="credito-alert text-center">
+            <div class="bold">*** VENTA A CRÉDITO ***</div>
             <div>Saldo Pendiente: C${{ "%.2f"|format(ticket.cuenta_cobrar.Saldo_Pendiente) }}</div>
             {% if ticket.cuenta_cobrar.Fecha_Vencimiento %}
             <div>Vence: {{ ticket.cuenta_cobrar.Fecha_Vencimiento.strftime('%d/%m/%Y') }}</div>
             {% endif %}
         </div>
         {% endif %}
-        
+
         <div class="divider"></div>
-        
-        <!-- Pie del Ticket -->
-        <div class="text-center x-small">
+
+        <!-- PIE DEL TICKET -->
+        <div class="text-center size-9">
             <div class="bold">¡Gracias por su compra!</div>
             <div>Vuelva pronto</div>
             <div style="margin-top: 10px;">
                 <div>--- Original ---</div>
             </div>
+            {% if ticket.empresa.correo %}
+            <div class="size-8" style="margin-top: 5px;">
+                Email: {{ ticket.empresa.correo }}
+            </div>
+            {% endif %}
         </div>
     </div>
 
-    <!-- Botones de Control -->
-    <div class="no-print container mt-4">
-        <div class="row justify-content-center">
-            <div class="col-auto">
-                <div class="btn-group" role="group">
-                    <button onclick="window.print()" class="btn btn-primary btn-sm">
-                        <i class="fas fa-print"></i> Imprimir Ticket
-                    </button>
-                    <button onclick="window.history.back()" class="btn btn-secondary btn-sm">
-                        <i class="fas fa-times"></i> Cerrar
-                    </button>
-                    <a href="{{ url_for('admin_ventas_salidas') }}" class="btn btn-success btn-sm">
-                        <i class="fas fa-list"></i> Volver a Ventas
-                    </a>
-                </div>
-            </div>
+    <!-- BOTONES DE CONTROL (NO SE IMPRIMEN) -->
+    <div class="no-print print-controls">
+        <div class="btn-group" role="group">
+            <button onclick="imprimirTicket()" class="btn btn-primary btn-sm">
+                <i class="fas fa-print"></i> Imprimir Ticket
+            </button>
+            <button onclick="window.history.back()" class="btn btn-secondary btn-sm">
+                <i class="fas fa-times"></i> Cerrar
+            </button>
+            <a href="{{ url_for('admin_ventas_salidas') }}" class="btn btn-success btn-sm">
+                <i class="fas fa-list"></i> Volver a Ventas
+            </a>
         </div>
+        <p class="size-10 mt-2">
+            <em>Nota: Los botones no aparecerán en la impresión</em>
+        </p>
     </div>
 
     <script>
+        // Función para imprimir el ticket
+        function imprimirTicket() {
+            window.print();
+        }
+
+        // Ajustar automáticamente el ancho para impresión
+        function ajustarParaImpresion() {
+            if (window.matchMedia) {
+                var mediaQueryList = window.matchMedia('print');
+                mediaQueryList.addListener(function(mql) {
+                    if (mql.matches) {
+                        // Antes de imprimir
+                        document.body.style.fontSize = '10px';
+                        document.body.style.lineHeight = '1.2';
+                    } else {
+                        // Después de imprimir
+                        document.body.style.fontSize = '';
+                        document.body.style.lineHeight = '';
+                    }
+                });
+            }
+        }
+
         // Verificar si la imagen carga correctamente
         document.addEventListener('DOMContentLoaded', function() {
+            ajustarParaImpresion();
+            
             var logo = document.querySelector('.logo');
             if (logo) {
+                // Verificar si la imagen ya está cargada
+                if (logo.complete && logo.naturalHeight === 0) {
+                    document.getElementById('logo-text').style.display = 'block';
+                }
+                
                 logo.onerror = function() {
-                    console.log('Logo no encontrado en: ' + this.src);
-                    // Si no carga, probar con ruta absoluta
-                    this.src = '/static/ferdel.png';
+                    document.getElementById('logo-text').style.display = 'block';
                 };
+            }
+            
+            // Configurar para imprimir automáticamente si hay un parámetro
+            var urlParams = new URLSearchParams(window.location.search);
+            if (urlParams.has('autoPrint')) {
+                setTimeout(function() {
+                    window.print();
+                }, 500);
+            }
+        });
+
+        // Permitir Ctrl+P
+        document.addEventListener('keydown', function(e) {
+            if ((e.ctrlKey || e.metaKey) && e.key === 'p') {
+                e.preventDefault();
+                imprimirTicket();
             }
         });
     </script>

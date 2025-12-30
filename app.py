@@ -657,118 +657,6 @@ def jefe_galera_dashboard():
     return render_template('jefe_galera/dashboard.html')
 
 ## CAJA DE MOVIMIENTO
-@app.route('/admin/caja')
-@admin_required
-@bitacora_decorator("CAJA")
-def admin_caja():
-    with get_db_cursor(True) as cursor:
-        # Obtener fecha actual (solo fecha, sin hora)
-        fecha_actual = datetime.now().date()
-        
-        # Verificar estado de caja
-        cursor.execute("""
-            SELECT 
-                CASE 
-                    WHEN EXISTS (
-                        SELECT 1 FROM caja_movimientos 
-                        WHERE Tipo_Movimiento = 'ENTRADA' 
-                        AND Descripcion LIKE '%%Apertura%%'
-                        AND DATE(Fecha) = %s
-                    ) THEN 'ABIERTA'
-                    ELSE 'CERRADA'
-                END as estado,
-                CASE 
-                    WHEN EXISTS (
-                        SELECT 1 FROM caja_movimientos 
-                        WHERE Tipo_Movimiento = 'SALIDA' 
-                        AND Descripcion LIKE '%%Cierre%%'
-                        AND DATE(Fecha) = %s
-                    ) THEN TRUE
-                    ELSE FALSE
-                END as cerrada_hoy
-        """, (fecha_actual, fecha_actual))
-        estado_caja = cursor.fetchone()
-        
-        # Obtener hora de apertura si está abierta
-        hora_apertura = None
-        if estado_caja['estado'] == 'ABIERTA':
-            cursor.execute("""
-                SELECT DATE_FORMAT(CAST(Fecha AS DATETIME), '%%h:%%i %p') as hora_apertura
-                FROM caja_movimientos 
-                WHERE Tipo_Movimiento = 'ENTRADA' 
-                AND Descripcion LIKE '%%Apertura%%'
-                AND DATE(Fecha) = %s
-                LIMIT 1
-            """, (fecha_actual,))
-            apertura = cursor.fetchone()
-            hora_apertura = apertura['hora_apertura'] if apertura else None
-        
-        # Calcular total de entradas del día
-        cursor.execute("""
-            SELECT COALESCE(SUM(Monto), 0) as total_entradas
-            FROM caja_movimientos
-            WHERE Tipo_Movimiento = 'ENTRADA'
-            AND DATE(Fecha) = %s
-        """, (fecha_actual,))
-        total_entradas = cursor.fetchone()['total_entradas']
-        
-        # Calcular total de salidas del día
-        cursor.execute("""
-            SELECT COALESCE(SUM(Monto), 0) as total_salidas
-            FROM caja_movimientos
-            WHERE Tipo_Movimiento = 'SALIDA'
-            AND DATE(Fecha) = %s
-        """, (fecha_actual,))
-        total_salidas = cursor.fetchone()['total_salidas']
-        
-        # Obtener saldo anterior (hasta el día anterior)
-        cursor.execute("""
-            SELECT 
-                COALESCE(SUM(CASE WHEN Tipo_Movimiento = 'ENTRADA' THEN Monto ELSE 0 END), 0) -
-                COALESCE(SUM(CASE WHEN Tipo_Movimiento = 'SALIDA' THEN Monto ELSE 0 END), 0) as saldo_anterior
-            FROM caja_movimientos
-            WHERE DATE(Fecha) < %s
-        """, (fecha_actual,))
-        saldo_anterior_result = cursor.fetchone()
-        saldo_anterior = saldo_anterior_result['saldo_anterior'] if saldo_anterior_result else 0
-        
-        # Calcular saldo actual del día
-        saldo_actual = saldo_anterior + total_entradas - total_salidas
-        
-        # Obtener detalles de movimientos del día
-        cursor.execute("""
-            SELECT 
-                ID_Movimiento,
-                DATE_FORMAT(CAST(Fecha AS DATETIME), '%%h:%%i %p') as Hora,
-                Tipo_Movimiento,
-                Descripcion,
-                Monto,
-                Referencia_Documento,
-                CASE Tipo_Movimiento
-                    WHEN 'ENTRADA' THEN 'success'
-                    WHEN 'SALIDA' THEN 'danger'
-                END as clase_color
-            FROM caja_movimientos
-            WHERE DATE(Fecha) = %s
-            ORDER BY Fecha ASC
-        """, (fecha_actual,))
-        movimientos = cursor.fetchall()
-        
-        # Preparar datos para el template
-        datos_caja = {
-            'fecha': fecha_actual.strftime('%d/%m/%Y'),
-            'saldo_anterior': saldo_anterior,
-            'total_entradas': total_entradas,
-            'total_salidas': total_salidas,
-            'saldo_actual': saldo_actual,
-            'movimientos': movimientos,
-            'estado': estado_caja['estado'],
-            'cerrada_hoy': estado_caja['cerrada_hoy'],
-            'hora_apertura': hora_apertura
-        }
-    
-    return render_template('admin/caja/caja.html', caja=datos_caja)
-
 @app.template_filter('format_hora')
 def format_hora_filter(value):
     """Filtro para formatear datetime a hora en formato 12h AM/PM"""
@@ -787,6 +675,144 @@ def format_hora_filter(value):
         except:
             return value
     return value.strftime('%I:%M %p').lstrip('0')
+
+@app.route('/admin/caja')
+@admin_required
+@bitacora_decorator("CAJA")
+def admin_caja():
+    with get_db_cursor(True) as cursor:
+        # Obtener fecha actual (solo fecha, sin hora)
+        fecha_actual = datetime.now().date()
+        
+        # Verificar estado de caja
+        cursor.execute("""
+            SELECT 
+                CASE 
+                    WHEN EXISTS (
+                        SELECT 1 FROM caja_movimientos 
+                        WHERE Tipo_Movimiento = 'ENTRADA' 
+                        AND (Descripcion LIKE '%%Apertura%%' OR Descripcion LIKE '%%APERTURA%%')
+                        AND DATE(Fecha) = %s
+                    ) THEN 'ABIERTA'
+                    ELSE 'CERRADA'
+                END as estado,
+                CASE 
+                    WHEN EXISTS (
+                        SELECT 1 FROM caja_movimientos 
+                        WHERE Tipo_Movimiento = 'SALIDA' 
+                        AND (Descripcion LIKE '%%Cierre%%' OR Descripcion LIKE '%%CIERRE%%')
+                        AND DATE(Fecha) = %s
+                    ) THEN TRUE
+                    ELSE FALSE
+                END as cerrada_hoy
+        """, (fecha_actual, fecha_actual))
+        estado_caja = cursor.fetchone()
+        
+        # Obtener hora de apertura si está abierta
+        hora_apertura = None
+        if estado_caja['estado'] == 'ABIERTA':
+            cursor.execute("""
+                SELECT Fecha
+                FROM caja_movimientos 
+                WHERE Tipo_Movimiento = 'ENTRADA' 
+                AND (Descripcion LIKE '%%Apertura%%' OR Descripcion LIKE '%%APERTURA%%')
+                AND DATE(Fecha) = %s
+                ORDER BY Fecha ASC
+                LIMIT 1
+            """, (fecha_actual,))
+            apertura = cursor.fetchone()
+            hora_apertura = apertura['Fecha'] if apertura else None
+        
+        # Calcular total de entradas del día (excluyendo apertura)
+        cursor.execute("""
+            SELECT COALESCE(SUM(Monto), 0) as total_entradas
+            FROM caja_movimientos
+            WHERE Tipo_Movimiento = 'ENTRADA'
+            AND DATE(Fecha) = %s
+            AND NOT (Descripcion LIKE '%%Apertura%%' OR Descripcion LIKE '%%APERTURA%%')
+        """, (fecha_actual,))
+        total_entradas = cursor.fetchone()['total_entradas']
+        
+        # Calcular total de salidas del día (excluyendo cierre)
+        cursor.execute("""
+            SELECT COALESCE(SUM(Monto), 0) as total_salidas
+            FROM caja_movimientos
+            WHERE Tipo_Movimiento = 'SALIDA'
+            AND DATE(Fecha) = %s
+            AND NOT (Descripcion LIKE '%%Cierre%%' OR Descripcion LIKE '%%CIERRE%%')
+        """, (fecha_actual,))
+        total_salidas = cursor.fetchone()['total_salidas']
+        
+        # Calcular monto de apertura (si existe)
+        monto_apertura = 0
+        cursor.execute("""
+            SELECT COALESCE(SUM(Monto), 0) as monto_apertura
+            FROM caja_movimientos
+            WHERE Tipo_Movimiento = 'ENTRADA'
+            AND DATE(Fecha) = %s
+            AND (Descripcion LIKE '%%Apertura%%' OR Descripcion LIKE '%%APERTURA%%')
+        """, (fecha_actual,))
+        monto_apertura = cursor.fetchone()['monto_apertura']
+        
+        # Calcular monto de cierre (si existe)
+        monto_cierre = 0
+        cursor.execute("""
+            SELECT COALESCE(SUM(Monto), 0) as monto_cierre
+            FROM caja_movimientos
+            WHERE Tipo_Movimiento = 'SALIDA'
+            AND DATE(Fecha) = %s
+            AND (Descripcion LIKE '%%Cierre%%' OR Descripcion LIKE '%%CIERRE%%')
+        """, (fecha_actual,))
+        monto_cierre = cursor.fetchone()['monto_cierre']
+        
+        # Obtener saldo del día anterior
+        fecha_anterior = fecha_actual - timedelta(days=1)
+        cursor.execute("""
+            SELECT 
+                COALESCE(SUM(CASE WHEN Tipo_Movimiento = 'ENTRADA' THEN Monto ELSE 0 END), 0) -
+                COALESCE(SUM(CASE WHEN Tipo_Movimiento = 'SALIDA' THEN Monto ELSE 0 END), 0) as saldo_anterior
+            FROM caja_movimientos
+            WHERE DATE(Fecha) = %s
+        """, (fecha_anterior,))
+        saldo_anterior_result = cursor.fetchone()
+        saldo_anterior = saldo_anterior_result['saldo_anterior'] if saldo_anterior_result else 0
+        
+        # Calcular saldo actual del día
+        saldo_actual = saldo_anterior + monto_apertura + total_entradas - total_salidas
+        
+        # Obtener detalles de movimientos del día
+        cursor.execute("""
+            SELECT 
+                ID_Movimiento,
+                Fecha,
+                Tipo_Movimiento,
+                Descripcion,
+                Monto,
+                Referencia_Documento
+            FROM caja_movimientos
+            WHERE DATE(Fecha) = %s
+            ORDER BY Fecha ASC
+        """, (fecha_actual,))
+        movimientos = cursor.fetchall()
+        
+        # Preparar datos para el template
+        datos_caja = {
+            'fecha': fecha_actual.strftime('%d/%m/%Y'),
+            'fecha_sql': fecha_actual.strftime('%Y-%m-%d'),
+            'saldo_anterior': saldo_anterior,
+            'monto_apertura': monto_apertura,
+            'total_entradas': total_entradas,
+            'total_salidas': total_salidas,
+            'monto_cierre': monto_cierre,
+            'saldo_actual': saldo_actual,
+            'movimientos': movimientos,
+            'estado': estado_caja['estado'],
+            'cerrada_hoy': estado_caja['cerrada_hoy'],
+            'hora_apertura': hora_apertura,
+            'hora_actual': datetime.now().strftime('%H:%M')
+        }
+    
+    return render_template('admin/caja/caja.html', caja=datos_caja)
 
 @app.route('/admin/caja/historial')
 @admin_required
