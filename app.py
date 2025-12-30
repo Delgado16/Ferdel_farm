@@ -656,6 +656,74 @@ def vendedor_dashboard():
 def jefe_galera_dashboard():
     return render_template('jefe_galera/dashboard.html')
 
+## CAJA DE MOVIMIENTO
+@app.route('/admin/caja')
+@admin_required
+@bitacora_decorator("CAJA")
+def admin_caja():
+    with get_db_cursor(True) as cursor:
+        # Obtener fecha actual (solo fecha, sin hora)
+        fecha_actual = datetime.now().date()
+        
+        # Calcular total de entradas del día
+        cursor.execute("""
+            SELECT COALESCE(SUM(Monto), 0) as total_entradas
+            FROM caja_movimientos
+            WHERE Tipo_Movimiento = 'ENTRADA'
+            AND DATE(Fecha) = %s
+        """, (fecha_actual,))
+        total_entradas = cursor.fetchone()['total_entradas']
+        
+        # Calcular total de salidas del día
+        cursor.execute("""
+            SELECT COALESCE(SUM(Monto), 0) as total_salidas
+            FROM caja_movimientos
+            WHERE Tipo_Movimiento = 'SALIDA'
+            AND DATE(Fecha) = %s
+        """, (fecha_actual,))
+        total_salidas = cursor.fetchone()['total_salidas']
+        
+        # Obtener saldo anterior (hasta el día anterior)
+        cursor.execute("""
+            SELECT 
+                COALESCE(SUM(CASE WHEN Tipo_Movimiento = 'ENTRADA' THEN Monto ELSE 0 END), 0) -
+                COALESCE(SUM(CASE WHEN Tipo_Movimiento = 'SALIDA' THEN Monto ELSE 0 END), 0) as saldo_anterior
+            FROM caja_movimientos
+            WHERE DATE(Fecha) < %s
+        """, (fecha_actual,))
+        saldo_anterior_result = cursor.fetchone()
+        saldo_anterior = saldo_anterior_result['saldo_anterior'] if saldo_anterior_result else 0
+        
+        # Calcular saldo actual del día
+        saldo_actual = saldo_anterior + total_entradas - total_salidas
+        
+        # Obtener detalles de movimientos del día
+        cursor.execute("""
+            SELECT 
+                ID_Movimiento,
+                DATE_FORMAT(Fecha, '%%H:%%i') as Hora,
+                Tipo_Movimiento,
+                Descripcion,
+                Monto,
+                Referencia_Documento
+            FROM caja_movimientos
+            WHERE DATE(Fecha) = %s
+            ORDER BY Fecha ASC
+        """, (fecha_actual,))
+        movimientos = cursor.fetchall()
+        
+        # Preparar datos para el template
+        datos_caja = {
+            'fecha': fecha_actual.strftime('%d/%m/%Y'),
+            'saldo_anterior': saldo_anterior,
+            'total_entradas': total_entradas,
+            'total_salidas': total_salidas,
+            'saldo_actual': saldo_actual,
+            'movimientos': movimientos
+        }
+    
+    return render_template('admin/caja/caja.html', caja=datos_caja)
+
 ## MODULOS DEL ADMINISTRADOR
 # CATALOGOS USUARIOS
 @app.route('/admin/usuarios')

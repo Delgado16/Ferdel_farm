@@ -1,0 +1,425 @@
+{% extends "layout.html" %}
+
+{% block title %}Balance de Caja - {{ caja.fecha }}{% endblock %}
+{% block content %}
+<style>
+    /* Estilos específicos para la página de caja */
+    .balance-container {
+        background: white;
+        border-radius: 10px;
+        box-shadow: 0 0 20px rgba(0,0,0,0.1);
+        padding: 30px;
+        margin-top: 20px;
+    }
+    
+    .balance-header {
+        background: linear-gradient(135deg, #0066cc 0%, #004d99 100%);
+        color: white;
+        padding: 25px;
+        border-radius: 8px;
+        margin-bottom: 30px;
+        text-align: center;
+    }
+    
+    .balance-header h1 {
+        margin: 0 0 10px 0;
+        font-size: 2.2rem;
+        font-weight: 600;
+    }
+    
+    .balance-header h2 {
+        margin: 0;
+        font-size: 1.5rem;
+        font-weight: 400;
+        opacity: 0.9;
+    }
+    
+    .balance-summary {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 25px;
+        margin-bottom: 40px;
+    }
+    
+    .balance-card {
+        background: white;
+        border: 1px solid #e0e0e0;
+        border-radius: 8px;
+        padding: 25px;
+        transition: transform 0.3s, box-shadow 0.3s;
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .balance-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+    }
+    
+    .balance-card h3 {
+        margin-top: 0;
+        color: #555;
+        font-size: 1.1em;
+        font-weight: 600;
+        margin-bottom: 15px;
+    }
+    
+    .balance-card .amount {
+        font-size: 2.2em;
+        font-weight: 700;
+        margin: 15px 0;
+        font-family: 'Courier New', monospace;
+    }
+    
+    .balance-card p {
+        color: #777;
+        font-size: 0.95em;
+        margin: 10px 0 0 0;
+        padding-top: 10px;
+        border-top: 1px solid #eee;
+    }
+    
+    .entrada { 
+        color: #28a745; 
+        background-color: rgba(40, 167, 69, 0.1);
+        padding: 5px 15px;
+        border-radius: 4px;
+        display: inline-block;
+    }
+    
+    .salida { 
+        color: #dc3545; 
+        background-color: rgba(220, 53, 69, 0.1);
+        padding: 5px 15px;
+        border-radius: 4px;
+        display: inline-block;
+    }
+    
+    .saldo { 
+        color: #007bff; 
+        background-color: rgba(0, 123, 255, 0.1);
+        padding: 5px 15px;
+        border-radius: 4px;
+        display: inline-block;
+    }
+    
+    .saldo-anterior {
+        color: #6c757d;
+        background-color: rgba(108, 117, 125, 0.1);
+        padding: 5px 15px;
+        border-radius: 4px;
+        display: inline-block;
+    }
+    
+    .section-title {
+        font-size: 1.3em;
+        font-weight: 600;
+        color: #333;
+        margin: 0 0 20px 0;
+        padding-bottom: 10px;
+        border-bottom: 2px solid #007bff;
+    }
+    
+    .movimientos-table-container {
+        overflow-x: auto;
+        border-radius: 8px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+    }
+    
+    .movimientos-table {
+        width: 100%;
+        background: white;
+        border-collapse: collapse;
+        min-width: 800px;
+    }
+    
+    .movimientos-table thead {
+        background: linear-gradient(135deg, #0066cc 0%, #004d99 100%);
+    }
+    
+    .movimientos-table th {
+        color: white;
+        padding: 15px 12px;
+        text-align: left;
+        font-weight: 600;
+        font-size: 0.95em;
+    }
+    
+    .movimientos-table th:first-child {
+        border-radius: 8px 0 0 0;
+    }
+    
+    .movimientos-table th:last-child {
+        border-radius: 0 8px 0 0;
+    }
+    
+    .movimientos-table td {
+        padding: 15px 12px;
+        border-bottom: 1px solid #eef2f7;
+        vertical-align: middle;
+    }
+    
+    .movimientos-table tr:last-child td {
+        border-bottom: none;
+    }
+    
+    .movimientos-table tbody tr:hover {
+        background-color: #f8f9fa;
+    }
+    
+    .badge {
+        padding: 6px 12px;
+        border-radius: 20px;
+        font-size: 0.85em;
+        font-weight: 600;
+        letter-spacing: 0.3px;
+        text-transform: uppercase;
+    }
+    
+    .badge-entrada {
+        background-color: #d4edda;
+        color: #155724;
+        border: 1px solid #c3e6cb;
+    }
+    
+    .badge-salida {
+        background-color: #f8d7da;
+        color: #721c24;
+        border: 1px solid #f5c6cb;
+    }
+    
+    .no-data {
+        text-align: center;
+        padding: 40px 20px;
+        color: #6c757d;
+        font-style: italic;
+    }
+    
+    .no-data i {
+        font-size: 2em;
+        margin-bottom: 15px;
+        opacity: 0.5;
+    }
+    
+    .resumen-container {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        background: #f8f9fa;
+        padding: 15px 20px;
+        border-radius: 8px;
+        margin-bottom: 20px;
+        flex-wrap: wrap;
+        gap: 15px;
+    }
+    
+    .resumen-item {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+    
+    .resumen-label {
+        font-weight: 600;
+        color: #495057;
+    }
+    
+    .resumen-value {
+        font-weight: 700;
+        font-size: 1.1em;
+    }
+    
+    .icon {
+        font-size: 1.2em;
+        margin-right: 5px;
+    }
+    
+    @media (max-width: 768px) {
+        .balance-container {
+            padding: 15px;
+        }
+        
+        .balance-header {
+            padding: 20px 15px;
+        }
+        
+        .balance-header h1 {
+            font-size: 1.8rem;
+        }
+        
+        .balance-header h2 {
+            font-size: 1.2rem;
+        }
+        
+        .balance-card {
+            padding: 20px;
+        }
+        
+        .balance-card .amount {
+            font-size: 1.8em;
+        }
+        
+        .resumen-container {
+            flex-direction: column;
+            align-items: flex-start;
+        }
+    }
+</style>
+<div class="container-fluid">
+    <div class="balance-container">
+        <!-- Encabezado -->
+        <div class="balance-header">
+            <h1><i class="fas fa-cash-register icon"></i> Balance de Caja del Día</h1>
+            <h2><i class="far fa-calendar-alt icon"></i> {{ caja.fecha }}</h2>
+        </div>
+        
+        <!-- Resumen Rápido -->
+        <div class="resumen-container">
+            <div class="resumen-item">
+                <span class="resumen-label">Saldo Final:</span>
+                <span class="resumen-value saldo">C${{ "{:,.2f}".format(caja.saldo_actual) }}</span>
+            </div>
+            <div class="resumen-item">
+                <span class="resumen-label">Entradas:</span>
+                <span class="resumen-value entrada">+C${{ "{:,.2f}".format(caja.total_entradas) }}</span>
+            </div>
+            <div class="resumen-item">
+                <span class="resumen-label">Salidas:</span>
+                <span class="resumen-value salida">-C${{ "{:,.2f}".format(caja.total_salidas) }}</span>
+            </div>
+            <div class="resumen-item">
+                <span class="resumen-label">Total Movimientos:</span>
+                <span class="resumen-value">{{ caja.movimientos|length }}</span>
+            </div>
+        </div>
+        
+        <!-- Tarjetas de Balance -->
+        <div class="balance-summary">
+            <div class="balance-card">
+                <h3><i class="fas fa-history icon"></i> Saldo Anterior</h3>
+                <div class="amount saldo-anterior">C${{ "{:,.2f}".format(caja.saldo_anterior) }}</div>
+                <p>Saldo acumulado hasta el día anterior</p>
+            </div>
+            
+            <div class="balance-card">
+                <h3><i class="fas fa-arrow-down icon"></i> Total Entradas Hoy</h3>
+                <div class="amount entrada">+C${{ "{:,.2f}".format(caja.total_entradas) }}</div>
+                <p>Ingresos registrados durante el día</p>
+            </div>
+            
+            <div class="balance-card">
+                <h3><i class="fas fa-arrow-up icon"></i> Total Salidas Hoy</h3>
+                <div class="amount salida">-C${{ "{:,.2f}".format(caja.total_salidas) }}</div>
+                <p>Egresos realizados durante el día</p>
+            </div>
+            
+            <div class="balance-card">
+                <h3><i class="fas fa-balance-scale icon"></i> Saldo Actual</h3>
+                <div class="amount saldo">C${{ "{:,.2f}".format(caja.saldo_actual) }}</div>
+                <p>Saldo al cierre del día de hoy</p>
+            </div>
+        </div>
+        
+        <!-- Detalle de Movimientos -->
+        <h3 class="section-title"><i class="fas fa-list icon"></i> Movimientos del Día</h3>
+        
+        <div class="movimientos-table-container">
+            <table class="movimientos-table">
+                <thead>
+                    <tr>
+                        <th><i class="far fa-clock icon"></i> Hora</th>
+                        <th><i class="fas fa-exchange-alt icon"></i> Tipo</th>
+                        <th><i class="far fa-file-alt icon"></i> Descripción</th>
+                        <th><i class="fas fa-hashtag icon"></i> Referencia</th>
+                        <th><i class="fas fa-money-bill-wave icon"></i> Monto</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% if caja.movimientos %}
+                        {% for mov in caja.movimientos %}
+                        <tr>
+                            <td style="font-family: 'Courier New', monospace; font-weight: 600;">
+                                {{ mov.Hora }}
+                            </td>
+                            <td>
+                                <span class="badge {% if mov.Tipo_Movimiento == 'ENTRADA' %}badge-entrada{% else %}badge-salida{% endif %}">
+                                    {% if mov.Tipo_Movimiento == 'ENTRADA' %}
+                                        <i class="fas fa-arrow-down"></i>
+                                    {% else %}
+                                        <i class="fas fa-arrow-up"></i>
+                                    {% endif %}
+                                    {{ mov.Tipo_Movimiento }}
+                                </span>
+                            </td>
+                            <td>{{ mov.Descripcion }}</td>
+                            <td>
+                                {% if mov.Referencia_Documento %}
+                                    <span class="badge bg-light text-dark">
+                                        {{ mov.Referencia_Documento }}
+                                    </span>
+                                {% else %}
+                                    <span class="text-muted">Sin referencia</span>
+                                {% endif %}
+                            </td>
+                            <td style="font-weight: 700; font-family: 'Courier New', monospace;" 
+                                class="{% if mov.Tipo_Movimiento == 'ENTRADA' %}entrada{% else %}salida{% endif %}">
+                                {% if mov.Tipo_Movimiento == 'ENTRADA' %}+{% else %}-{% endif %}
+                                C${{ "{:,.2f}".format(mov.Monto) }}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                        
+                        <!-- Fila de totales -->
+                        <tr style="background-color: #f8f9fa; font-weight: 700;">
+                            <td colspan="3" style="text-align: right; color: #495057;">
+                                <i class="fas fa-calculator icon"></i> Totales del Día:
+                            </td>
+                            <td></td>
+                            <td style="font-family: 'Courier New', monospace;">
+                                <span style="color: #28a745;">+C${{ "{:,.2f}".format(caja.total_entradas) }}</span>
+                                <span style="color: #dc3545;"> -C${{ "{:,.2f}".format(caja.total_salidas) }}</span>
+                                <br>
+                                <span style="color: #007bff;">= C${{ "{:,.2f}".format(caja.total_entradas - caja.total_salidas) }}</span>
+                            </td>
+                        </tr>
+                    {% else %}
+                        <tr>
+                            <td colspan="5" class="no-data">
+                                <i class="far fa-folder-open"></i>
+                                <h4>No hay movimientos registrados hoy</h4>
+                                <p>No se han registrado movimientos de caja para la fecha {{ caja.fecha }}</p>
+                            </td>
+                        </tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+        
+        <!-- Información Adicional -->
+        <div style="margin-top: 30px; padding: 15px; background: #f8f9fa; border-radius: 8px; font-size: 0.9em; color: #6c757d;">
+            <p style="margin: 0;">
+                <i class="fas fa-info-circle icon"></i> 
+                <strong>Información:</strong> Este reporte muestra el balance de caja solo para el día {{ caja.fecha }}. 
+                Los movimientos están ordenados cronológicamente y el saldo actual incluye el acumulado de días anteriores.
+            </p>
+        </div>
+    </div>
+</div>
+
+<!-- Scripts para iconos de Font Awesome (si no están incluidos en el layout) -->
+<script>
+    // Si necesitas agregar funcionalidad JavaScript adicional
+    document.addEventListener('DOMContentLoaded', function() {
+        console.log('Página de balance de caja cargada');
+        
+        // Puedes agregar funcionalidades adicionales aquí
+        // Por ejemplo, para expandir detalles de movimientos
+        const movimientosRows = document.querySelectorAll('.movimientos-table tbody tr:not(:last-child)');
+        movimientosRows.forEach(row => {
+            row.addEventListener('click', function() {
+                this.classList.toggle('selected');
+            });
+        });
+    });
+</script>
+{% endblock %}
