@@ -778,7 +778,7 @@ def admin_caja():
         saldo_anterior = saldo_anterior_result['saldo_anterior'] if saldo_anterior_result else 0
         
         # Calcular saldo actual del día
-        saldo_actual = saldo_anterior + monto_apertura + total_entradas - total_salidas
+        saldo_actual = monto_apertura + total_entradas - total_salidas
         
         # Obtener detalles de movimientos del día
         cursor.execute("""
