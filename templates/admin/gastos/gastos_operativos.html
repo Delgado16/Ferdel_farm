@@ -1,0 +1,899 @@
+{% extends "layout.html" %}
+
+{% block title %}Gastos Operativos - Administración{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="h3 mb-0 text-gray-800">
+            <i class="fas fa-money-bill-wave mr-2"></i>Gastos Operativos
+        </h1>
+        <div>
+            <button class="btn btn-success" onclick="exportarExcel()">
+                <i class="fas fa-file-excel mr-2"></i>Exportar Excel
+            </button>
+            <button class="btn btn-primary" data-toggle="modal" data-target="#ayudaModal">
+                <i class="fas fa-question-circle mr-2"></i>Ayuda
+            </button>
+        </div>
+    </div>
+
+    <!-- Filtros -->
+    <div class="card shadow mb-4">
+        <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
+            <h6 class="m-0 font-weight-bold text-primary">
+                <i class="fas fa-filter mr-2"></i>Filtros de Búsqueda
+            </h6>
+            <div class="dropdown no-arrow">
+                <a class="dropdown-toggle" href="#" role="button" id="dropdownMenuLink" 
+                   data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                    <i class="fas fa-ellipsis-v fa-sm fa-fw text-gray-400"></i>
+                </a>
+                <div class="dropdown-menu dropdown-menu-right shadow animated--fade-in" 
+                     aria-labelledby="dropdownMenuLink">
+                    <div class="dropdown-header">Acciones rápidas:</div>
+                    <a class="dropdown-item" href="#" onclick="filtrarHoy()">
+                        <i class="fas fa-calendar-day mr-2"></i>Ver hoy
+                    </a>
+                    <a class="dropdown-item" href="#" onclick="filtrarSemana()">
+                        <i class="fas fa-calendar-week mr-2"></i>Esta semana
+                    </a>
+                    <a class="dropdown-item" href="#" onclick="filtrarMes()">
+                        <i class="fas fa-calendar-alt mr-2"></i>Este mes
+                    </a>
+                    <div class="dropdown-divider"></div>
+                    <a class="dropdown-item" href="#" onclick="limpiarFiltros()">
+                        <i class="fas fa-broom mr-2"></i>Limpiar filtros
+                    </a>
+                </div>
+            </div>
+        </div>
+        <div class="card-body">
+            <form id="formFiltros" method="GET" action="{{ url_for('admin_gastos_operativos') }}" class="row g-3">
+                <div class="col-md-2">
+                    <label for="periodo" class="form-label font-weight-bold">Periodo</label>
+                    <select class="form-control selectpicker" id="periodo" name="periodo" data-live-search="true">
+                        <option value="mensual" {% if periodo == 'mensual' %}selected{% endif %}>Mensual</option>
+                        <option value="semanal" {% if periodo == 'semanal' %}selected{% endif %}>Semanal</option>
+                    </select>
+                </div>
+                
+                <div class="col-md-3">
+                    <label for="fecha_inicio" class="form-label font-weight-bold">
+                        <i class="fas fa-calendar-start mr-1"></i>Fecha Inicio
+                    </label>
+                    <div class="input-group">
+                        <div class="input-group-prepend">
+                            <span class="input-group-text"><i class="fas fa-calendar-alt"></i></span>
+                        </div>
+                        <input type="date" class="form-control" id="fecha_inicio" name="fecha_inicio" 
+                               value="{{ fecha_inicio }}" required>
+                    </div>
+                    <small class="form-text text-muted">Fecha inicial del período</small>
+                </div>
+                
+                <div class="col-md-3">
+                    <label for="fecha_fin" class="form-label font-weight-bold">
+                        <i class="fas fa-calendar-end mr-1"></i>Fecha Fin
+                    </label>
+                    <div class="input-group">
+                        <div class="input-group-prepend">
+                            <span class="input-group-text"><i class="fas fa-calendar-alt"></i></span>
+                        </div>
+                        <input type="date" class="form-control" id="fecha_fin" name="fecha_fin" 
+                               value="{{ fecha_fin }}" required>
+                    </div>
+                    <small class="form-text text-muted">Fecha final del período</small>
+                </div>
+                
+                <div class="col-md-4">
+                    <label for="categoria_id" class="form-label font-weight-bold">
+                        <i class="fas fa-tags mr-1"></i>Categoría
+                    </label>
+                    <select class="form-control selectpicker" id="categoria_id" name="categoria_id" 
+                            data-live-search="true" data-size="5">
+                        <option value="" data-icon="fas fa-list">Todas las categorías</option>
+                        {% for categoria in categorias %}
+                        <option value="{{ categoria.ID_Categoria }}" 
+                                {% if categoria_id == categoria.ID_Categoria|string %}selected{% endif %}
+                                data-icon="fas fa-tag">
+                            {{ categoria.Descripcion }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                    <small class="form-text text-muted">Filtrar por categoría de producto</small>
+                </div>
+                
+                <div class="col-12 mt-4">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <button type="submit" class="btn btn-primary btn-lg">
+                                <i class="fas fa-search mr-2"></i>Buscar Gastos
+                            </button>
+                            <button type="button" class="btn btn-outline-secondary btn-lg" onclick="limpiarFiltros()">
+                                <i class="fas fa-redo mr-2"></i>Restablecer
+                            </button>
+                        </div>
+                        <div>
+                            <span class="badge badge-info p-2">
+                                <i class="fas fa-info-circle mr-1"></i>
+                                Mostrando datos del {{ fecha_inicio }} al {{ fecha_fin }}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Resumen General -->
+    <div class="row mb-4">
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-primary shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">
+                                Total en Compras
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">
+                                ${{ "{:,.2f}".format(total_general) }}
+                            </div>
+                            <div class="mt-2 mb-0 text-muted text-xs">
+                                <span class="text-success mr-2">
+                                    <i class="fas fa-cart-arrow-down"></i> {{ periodo|title }}
+                                </span>
+                            </div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-shopping-cart fa-2x text-primary"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-success shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-success text-uppercase mb-1">
+                                Facturas Procesadas
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">
+                                {% if resumen_gastos and resumen_gastos[0] %}
+                                    {{ resumen_gastos[0].cantidad }}
+                                {% else %}
+                                    0
+                                {% endif %}
+                            </div>
+                            <div class="mt-2 mb-0 text-muted text-xs">
+                                <span class="text-info mr-2">
+                                    <i class="fas fa-file-invoice-dollar"></i> Activas
+                                </span>
+                            </div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-file-invoice fa-2x text-success"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-info shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-info text-uppercase mb-1">
+                                Items Comprados
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">
+                                {% if resumen_gastos and resumen_gastos[1] %}
+                                    {{ "{:,.0f}".format(resumen_gastos[1].total) }}
+                                {% else %}
+                                    0
+                                {% endif %}
+                            </div>
+                            <div class="mt-2 mb-0 text-muted text-xs">
+                                <span class="text-warning mr-2">
+                                    <i class="fas fa-box-open"></i> En inventario
+                                </span>
+                            </div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-boxes fa-2x text-info"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-warning shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">
+                                Categorías con Gastos
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">
+                                {{ gastos_por_categoria|length }}
+                            </div>
+                            <div class="mt-2 mb-0 text-muted text-xs">
+                                <span class="text-danger mr-2">
+                                    <i class="fas fa-chart-pie"></i> Top {{ gastos_por_categoria|length }}
+                                </span>
+                            </div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-chart-bar fa-2x text-warning"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Detalle de Gastos y Gráficos -->
+    <div class="row">
+        <!-- Tabla Principal de Gastos -->
+        <div class="col-xl-8 col-lg-7">
+            <div class="card shadow mb-4">
+                <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
+                    <h6 class="m-0 font-weight-bold text-primary">
+                        <i class="fas fa-table mr-2"></i>Detalle de Gastos por {{ periodo|title }}
+                    </h6>
+                    <div class="dropdown no-arrow">
+                        <a class="dropdown-toggle" href="#" role="button" id="dropdownMenuLink" 
+                           data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                            <i class="fas fa-ellipsis-v fa-sm fa-fw text-gray-400"></i>
+                        </a>
+                        <div class="dropdown-menu dropdown-menu-right shadow animated--fade-in" 
+                             aria-labelledby="dropdownMenuLink">
+                            <div class="dropdown-header">Opciones de tabla:</div>
+                            <a class="dropdown-item" href="#" onclick="imprimirTabla()">
+                                <i class="fas fa-print mr-2"></i>Imprimir
+                            </a>
+                            <a class="dropdown-item" href="#" onclick="copiarTabla()">
+                                <i class="fas fa-copy mr-2"></i>Copiar datos
+                            </a>
+                            <div class="dropdown-divider"></div>
+                            <a class="dropdown-item" href="#" onclick="exportarPDF()">
+                                <i class="fas fa-file-pdf mr-2"></i>Exportar PDF
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-bordered table-hover" id="dataTable" width="100%" cellspacing="0">
+                            <thead class="thead-dark">
+                                <tr>
+                                    <th class="text-center">Periodo</th>
+                                    <th>Categoría</th>
+                                    <th class="text-center">Tipo</th>
+                                    <th class="text-right">Total</th>
+                                    <th class="text-center">Movimientos</th>
+                                    <th class="text-center">Items</th>
+                                    <th class="text-center">Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% if gastos_compras %}
+                                    {% for gasto in gastos_compras %}
+                                    <tr class="{% if loop.index <= 3 %}table-success{% elif loop.index >= loop.length - 2 %}table-warning{% endif %}">
+                                        <td class="text-center font-weight-bold">
+                                            <span class="badge badge-primary">{{ gasto.periodo }}</span>
+                                        </td>
+                                        <td>
+                                            <i class="fas fa-tag mr-2 text-muted"></i>
+                                            {{ gasto.categoria }}
+                                        </td>
+                                        <td class="text-center">
+                                            <span class="badge badge-info">{{ gasto.tipo_gasto }}</span>
+                                        </td>
+                                        <td class="text-right font-weight-bold text-primary">
+                                            ${{ "{:,.2f}".format(gasto.total) }}
+                                        </td>
+                                        <td class="text-center">
+                                            <span class="badge badge-secondary">{{ gasto.cantidad_movimientos }}</span>
+                                        </td>
+                                        <td class="text-center">
+                                            <span class="badge badge-light">{{ "{:,.0f}".format(gasto.cantidad_items) }}</span>
+                                        </td>
+                                        <td class="text-center">
+                                            <button class="btn btn-sm btn-outline-primary" 
+                                                    onclick="verDetallePeriodo('{{ gasto.periodo }}', '{{ gasto.categoria }}')"
+                                                    title="Ver detalle">
+                                                <i class="fas fa-eye"></i>
+                                            </button>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                {% else %}
+                                    <tr>
+                                        <td colspan="7" class="text-center py-4">
+                                            <div class="text-muted">
+                                                <i class="fas fa-search fa-2x mb-3"></i>
+                                                <h5>No se encontraron gastos</h5>
+                                                <p>No hay registros de gastos para los filtros seleccionados</p>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                {% endif %}
+                            </tbody>
+                            <tfoot class="bg-light font-weight-bold">
+                                <tr>
+                                    <td colspan="3" class="text-right">TOTALES:</td>
+                                    <td class="text-right text-primary">
+                                        ${{ "{:,.2f}".format(total_compras) }}
+                                    </td>
+                                    <td class="text-center">
+                                        {% set total_mov_g = gastos_compras|sum(attribute='cantidad_movimientos') %}
+                                        <span class="badge badge-dark">{{ total_mov_g }}</span>
+                                    </td>
+                                    <td class="text-center">
+                                        {% set total_items = gastos_compras|sum(attribute='cantidad_items') %}
+                                        <span class="badge badge-light">{{ "{:,.0f}".format(total_items) }}</span>
+                                    </td>
+                                    <td></td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                    
+                    <!-- Paginación -->
+                    {% if gastos_compras|length > 10 %}
+                    <div class="row mt-3">
+                        <div class="col-md-6">
+                            <p class="text-muted">
+                                Mostrando {{ gastos_compras|length }} registros
+                            </p>
+                        </div>
+                        <div class="col-md-6">
+                            <nav aria-label="Page navigation">
+                                <ul class="pagination justify-content-end">
+                                    <li class="page-item disabled">
+                                        <a class="page-link" href="#" tabindex="-1">Anterior</a>
+                                    </li>
+                                    <li class="page-item active"><a class="page-link" href="#">1</a></li>
+                                    <li class="page-item"><a class="page-link" href="#">2</a></li>
+                                    <li class="page-item"><a class="page-link" href="#">3</a></li>
+                                    <li class="page-item">
+                                        <a class="page-link" href="#">Siguiente</a>
+                                    </li>
+                                </ul>
+                            </nav>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <!-- Últimas Compras -->
+            <div class="card shadow mb-4">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">
+                        <i class="fas fa-history mr-2"></i>Últimas Compras Registradas
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-sm table-striped">
+                            <thead>
+                                <tr>
+                                    <th># Factura</th>
+                                    <th>Fecha</th>
+                                    <th>Proveedor</th>
+                                    <th class="text-right">Total</th>
+                                    <th class="text-center">Items</th>
+                                    <th class="text-center">Estado</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% if ultimas_compras %}
+                                    {% for compra in ultimas_compras %}
+                                    <tr>
+                                        <td>
+                                            <a href="#" class="text-primary font-weight-bold">
+                                                {{ compra.N_Factura_Externa or 'N/A' }}
+                                            </a>
+                                        </td>
+                                        <td>{{ compra.fecha }}</td>
+                                        <td>{{ compra.proveedor or 'No especificado' }}</td>
+                                        <td class="text-right font-weight-bold">
+                                            ${{ "{:,.2f}".format(compra.total) }}
+                                        </td>
+                                        <td class="text-center">
+                                            <span class="badge badge-info">{{ compra.items }}</span>
+                                        </td>
+                                        <td class="text-center">
+                                            <span class="badge badge-success">Activa</span>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                {% else %}
+                                    <tr>
+                                        <td colspan="6" class="text-center text-muted">
+                                            No hay compras recientes
+                                        </td>
+                                    </tr>
+                                {% endif %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Sidebar con Gráficos y Estadísticas -->
+        <div class="col-xl-4 col-lg-5">
+            <!-- Gráfico de Categorías -->
+            <div class="card shadow mb-4">
+                <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
+                    <h6 class="m-0 font-weight-bold text-primary">
+                        <i class="fas fa-chart-pie mr-2"></i>Distribución por Categoría
+                    </h6>
+                    <div class="dropdown no-arrow">
+                        <a class="dropdown-toggle" href="#" role="button" data-toggle="dropdown">
+                            <i class="fas fa-ellipsis-v fa-sm fa-fw text-gray-400"></i>
+                        </a>
+                        <div class="dropdown-menu dropdown-menu-right shadow animated--fade-in">
+                            <a class="dropdown-item" href="#" onclick="cambiarTipoGrafico()">
+                                <i class="fas fa-exchange-alt mr-2"></i>Cambiar a Barras
+                            </a>
+                            <a class="dropdown-item" href="#" onclick="descargarGrafico()">
+                                <i class="fas fa-download mr-2"></i>Descargar Gráfico
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="chart-pie pt-4 pb-2">
+                        <canvas id="categoriasChart"></canvas>
+                    </div>
+                    <hr>
+                    <div class="mt-4 small">
+                        {% for cat in gastos_por_categoria %}
+                        <div class="mb-2">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <span>
+                                    <i class="fas fa-circle" style="color: {{ ['#4e73df', '#1cc88a', '#36b9cc', '#f6c23e', '#e74a3b', '#858796', '#5a5c69', '#dddfeb', '#6f42c1', '#20c9a6'][loop.index0] }}"></i>
+                                    <span class="font-weight-bold ml-1">{{ cat.categoria[:20] }}{% if cat.categoria|length > 20 %}...{% endif %}</span>
+                                </span>
+                                <div class="text-right">
+                                    <div class="font-weight-bold">${{ "{:,.2f}".format(cat.total) }}</div>
+                                    <div class="text-muted">{{ cat.porcentaje }}%</div>
+                                </div>
+                            </div>
+                            <div class="progress mt-1" style="height: 5px;">
+                                <div class="progress-bar" role="progressbar" 
+                                     style="width: {{ cat.porcentaje }}%; background-color: {{ ['#4e73df', '#1cc88a', '#36b9cc', '#f6c23e', '#e74a3b', '#858796', '#5a5c69', '#dddfeb', '#6f42c1', '#20c9a6'][loop.index0] }}">
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Top Proveedores -->
+            <div class="card shadow">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">
+                        <i class="fas fa-truck-loading mr-2"></i>Top 5 Proveedores
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-sm table-borderless">
+                            <tbody>
+                                {% for prov in top_proveedores[:5] %}
+                                <tr>
+                                    <td width="50">
+                                        <div class="avatar-circle bg-primary text-white d-flex align-items-center justify-content-center" 
+                                             style="width: 35px; height: 35px; border-radius: 50%;">
+                                            {{ loop.index }}
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <div class="font-weight-bold">{{ prov.proveedor[:20] }}{% if prov.proveedor|length > 20 %}...{% endif %}</div>
+                                        <div class="small text-muted">{{ prov.facturas }} factura(s)</div>
+                                    </td>
+                                    <td class="text-right font-weight-bold text-success">
+                                        ${{ "{:,.2f}".format(prov.total) }}
+                                    </td>
+                                </tr>
+                                {% if not loop.last %}<tr><td colspan="3"><hr class="my-1"></td></tr>{% endif %}
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% if top_proveedores|length == 0 %}
+                    <div class="text-center text-muted py-3">
+                        <i class="fas fa-users fa-2x mb-2"></i>
+                        <p>No hay datos de proveedores</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de Ayuda -->
+<div class="modal fade" id="ayudaModal" tabindex="-1" role="dialog" aria-labelledby="ayudaModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg" role="document">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title" id="ayudaModalLabel">
+                    <i class="fas fa-question-circle mr-2"></i>Ayuda - Gastos Operativos
+                </h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <h5>¿Cómo usar este módulo?</h5>
+                <p>Este módulo te permite analizar los gastos operativos de tu negocio, específicamente las compras de inventario.</p>
+                
+                <div class="row mt-4">
+                    <div class="col-md-6">
+                        <h6><i class="fas fa-filter text-primary mr-2"></i>Filtros disponibles:</h6>
+                        <ul>
+                            <li><strong>Periodo:</strong> Agrupa datos por mes o semana</li>
+                            <li><strong>Fechas:</strong> Define el rango de análisis</li>
+                            <li><strong>Categoría:</strong> Filtra por categoría de producto</li>
+                        </ul>
+                    </div>
+                    <div class="col-md-6">
+                        <h6><i class="fas fa-chart-line text-success mr-2"></i>Información mostrada:</h6>
+                        <ul>
+                            <li>Total de compras por período</li>
+                            <li>Distribución por categorías</li>
+                            <li>Top proveedores</li>
+                            <li>Últimas compras registradas</li>
+                        </ul>
+                    </div>
+                </div>
+                
+                <div class="alert alert-info mt-4">
+                    <h6><i class="fas fa-lightbulb mr-2"></i>Consejos:</h6>
+                    <ul class="mb-0">
+                        <li>Usa el botón "Exportar Excel" para análisis más detallados</li>
+                        <li>Haz clic en el ícono de ojo para ver detalles específicos</li>
+                        <li>Los datos se actualizan automáticamente al cambiar filtros</li>
+                    </ul>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Cerrar</button>
+                <button type="button" class="btn btn-primary" onclick="window.open('/manual/gastos', '_blank')">
+                    <i class="fas fa-book mr-2"></i>Ver Manual Completo
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap-select@1.13.14/dist/js/bootstrap-select.min.js"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-select@1.13.14/dist/css/bootstrap-select.min.css">
+
+<script>
+// Configurar gráfico de categorías
+function initCategoriasChart() {
+    const ctx = document.getElementById('categoriasChart').getContext('2d');
+    const categorias = [
+        {% for cat in gastos_por_categoria %}
+        "{{ cat.categoria }}",
+        {% endfor %}
+    ];
+    const totales = [
+        {% for cat in gastos_por_categoria %}
+        {{ cat.total }},
+        {% endfor %}
+    ];
+    const porcentajes = [
+        {% for cat in gastos_por_categoria %}
+        {{ cat.porcentaje }},
+        {% endfor %}
+    ];
+    
+    // Colores para el gráfico
+    const colores = [
+        '#4e73df', '#1cc88a', '#36b9cc', '#f6c23e', '#e74a3b',
+        '#858796', '#5a5c69', '#dddfeb', '#6f42c1', '#20c9a6'
+    ];
+
+    new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: categorias,
+            datasets: [{
+                data: totales,
+                backgroundColor: colores.slice(0, categorias.length),
+                hoverBackgroundColor: colores.slice(0, categorias.length),
+                hoverBorderColor: "rgba(234, 236, 244, 1)",
+                borderWidth: 2,
+                hoverBorderWidth: 3
+            }],
+        },
+        options: {
+            maintainAspectRatio: false,
+            cutoutPercentage: 65,
+            legend: {
+                display: false
+            },
+            tooltips: {
+                backgroundColor: "rgb(255,255,255)",
+                bodyFontColor: "#858796",
+                borderColor: '#dddfeb',
+                borderWidth: 1,
+                xPadding: 15,
+                yPadding: 15,
+                displayColors: true,
+                caretPadding: 10,
+                callbacks: {
+                    label: function(tooltipItem, data) {
+                        const label = data.labels[tooltipItem.index] || '';
+                        const value = data.datasets[0].data[tooltipItem.index];
+                        const porcentaje = porcentajes[tooltipItem.index];
+                        return `${label}: $${value.toLocaleString('es-ES', {minimumFractionDigits: 2})} (${porcentaje}%)`;
+                    }
+                }
+            },
+            animation: {
+                animateScale: true,
+                animateRotate: true
+            }
+        },
+    });
+}
+
+// Funciones de filtros rápidos
+function filtrarHoy() {
+    const hoy = new Date().toISOString().split('T')[0];
+    document.getElementById('fecha_inicio').value = hoy;
+    document.getElementById('fecha_fin').value = hoy;
+    document.getElementById('formFiltros').submit();
+}
+
+function filtrarSemana() {
+    const hoy = new Date();
+    const hace7Dias = new Date();
+    hace7Dias.setDate(hoy.getDate() - 7);
+    
+    document.getElementById('fecha_inicio').value = hace7Dias.toISOString().split('T')[0];
+    document.getElementById('fecha_fin').value = hoy.toISOString().split('T')[0];
+    document.getElementById('formFiltros').submit();
+}
+
+function filtrarMes() {
+    const hoy = new Date();
+    const inicioMes = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
+    
+    document.getElementById('fecha_inicio').value = inicioMes.toISOString().split('T')[0];
+    document.getElementById('fecha_fin').value = hoy.toISOString().split('T')[0];
+    document.getElementById('formFiltros').submit();
+}
+
+function limpiarFiltros() {
+    const hoy = new Date().toISOString().split('T')[0];
+    const hace30Dias = new Date();
+    hace30Dias.setDate(hace30Dias.getDate() - 30);
+    const fechaHace30Dias = hace30Dias.toISOString().split('T')[0];
+    
+    document.getElementById('periodo').value = 'mensual';
+    document.getElementById('fecha_inicio').value = fechaHace30Dias;
+    document.getElementById('fecha_fin').value = hoy;
+    document.getElementById('categoria_id').value = '';
+    
+    // Actualizar selectpicker
+    $('.selectpicker').selectpicker('refresh');
+    
+    document.getElementById('formFiltros').submit();
+}
+
+// Funciones de exportación
+function exportarExcel() {
+    const params = new URLSearchParams({
+        periodo: document.getElementById('periodo').value,
+        fecha_inicio: document.getElementById('fecha_inicio').value,
+        fecha_fin: document.getElementById('fecha_fin').value,
+        categoria_id: document.getElementById('categoria_id').value,
+        exportar: 'excel'
+    });
+    
+    // Mostrar mensaje de espera
+    Swal.fire({
+        title: 'Exportando datos...',
+        text: 'Por favor espera mientras se genera el archivo Excel',
+        allowOutsideClick: false,
+        didOpen: () => {
+            Swal.showLoading();
+        }
+    });
+    
+    // Redirigir para descargar
+    setTimeout(() => {
+        window.location.href = `/admin/gastos-operativos/exportar?${params.toString()}`;
+        Swal.close();
+    }, 1000);
+}
+
+function exportarPDF() {
+    Swal.fire({
+        icon: 'info',
+        title: 'Función en desarrollo',
+        text: 'La exportación a PDF estará disponible próximamente',
+        confirmButtonText: 'Entendido'
+    });
+}
+
+function imprimirTabla() {
+    window.print();
+}
+
+function copiarTabla() {
+    // Implementación básica para copiar datos
+    let texto = "Periodo\tCategoría\tTipo\tTotal\tMovimientos\tItems\n";
+    
+    {% for gasto in gastos_compras %}
+    texto += "{{ gasto.periodo }}\t{{ gasto.categoria }}\t{{ gasto.tipo_gasto }}\t${{ gasto.total }}\t{{ gasto.cantidad_movimientos }}\t{{ gasto.cantidad_items }}\n";
+    {% endfor %}
+    
+    navigator.clipboard.writeText(texto).then(() => {
+        Swal.fire({
+            icon: 'success',
+            title: '¡Copiado!',
+            text: 'Los datos de la tabla han sido copiados al portapapeles',
+            timer: 2000,
+            showConfirmButton: false
+        });
+    });
+}
+
+function verDetallePeriodo(periodo, categoria) {
+    Swal.fire({
+        title: `Detalle: ${periodo}`,
+        html: `<p><strong>Categoría:</strong> ${categoria}</p>
+               <p>Esta función mostrará el detalle completo de los gastos para este período y categoría.</p>`,
+        icon: 'info',
+        confirmButtonText: 'Ver detalle completo',
+        showCancelButton: true,
+        cancelButtonText: 'Cerrar'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            // Aquí podrías redirigir a una página de detalle
+            console.log('Redirigir a detalle:', periodo, categoria);
+        }
+    });
+}
+
+// Cambiar tipo de gráfico
+function cambiarTipoGrafico() {
+    Swal.fire({
+        icon: 'info',
+        title: 'Próximamente',
+        text: 'La función para cambiar el tipo de gráfico estará disponible en la próxima actualización',
+        confirmButtonText: 'Entendido'
+    });
+}
+
+function descargarGrafico() {
+    const canvas = document.getElementById('categoriasChart');
+    const enlace = document.createElement('a');
+    enlace.download = 'grafico-gastos.png';
+    enlace.href = canvas.toDataURL('image/png');
+    enlace.click();
+}
+
+// Inicialización cuando el documento esté listo
+document.addEventListener('DOMContentLoaded', function() {
+    // Inicializar gráfico
+    initCategoriasChart();
+    
+    // Inicializar selectpicker
+    $('.selectpicker').selectpicker();
+    
+    // Configurar validación de fechas
+    const fechaFinInput = document.getElementById('fecha_fin');
+    const fechaInicioInput = document.getElementById('fecha_inicio');
+    
+    if (fechaFinInput && fechaInicioInput) {
+        const hoy = new Date().toISOString().split('T')[0];
+        fechaFinInput.max = hoy;
+        
+        // Establecer máximo para fecha inicio basado en fecha fin
+        fechaInicioInput.max = fechaFinInput.value || fechaFinInput.max;
+        
+        fechaFinInput.addEventListener('change', function() {
+            fechaInicioInput.max = this.value;
+        });
+        
+        fechaInicioInput.addEventListener('change', function() {
+            if (this.value > fechaFinInput.value) {
+                fechaFinInput.value = this.value;
+            }
+        });
+    }
+    
+    // Mostrar notificación si hay errores
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                {% if category == 'error' %}
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error',
+                    text: '{{ message }}',
+                    confirmButtonText: 'Entendido'
+                });
+                {% endif %}
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+});
+</script>
+
+<style>
+.avatar-circle {
+    font-weight: bold;
+    font-size: 14px;
+}
+
+.table-hover tbody tr:hover {
+    background-color: rgba(0, 123, 255, 0.1);
+    cursor: pointer;
+}
+
+.badge {
+    font-size: 0.85em;
+    padding: 0.35em 0.65em;
+}
+
+.progress {
+    border-radius: 10px;
+}
+
+.card {
+    border-radius: 10px;
+    border: none;
+}
+
+.card-header {
+    border-top-left-radius: 10px !important;
+    border-top-right-radius: 10px !important;
+}
+
+.selectpicker {
+    border: 1px solid #d1d3e2;
+    border-radius: 0.35rem;
+}
+
+.selectpicker:focus {
+    border-color: #bac8f3;
+    box-shadow: 0 0 0 0.2rem rgba(78, 115, 223, 0.25);
+}
+
+@media print {
+    .no-print {
+        display: none !important;
+    }
+    
+    .card {
+        border: 1px solid #000 !important;
+    }
+    
+    table {
+        font-size: 12px !important;
+    }
+}
+</style>
+{% endblock %}

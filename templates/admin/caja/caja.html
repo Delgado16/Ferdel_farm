@@ -877,7 +877,7 @@
                                         </tr>
                                         <tr class="table-primary">
                                             <td><strong>Saldo Actual:</strong></td>
-                                            <td class="text-end fw-bold">C${{ "%.2f"|format(caja.saldo_actual) }}</td>
+                                            <td class="text-end fw-bold">C${{ "%.2f"|format(caja.saldo_actual|float) }}</td>
                                         </tr>
                                     </table>
                                 </div>
@@ -898,7 +898,7 @@
                                            name="monto_cierre_fisico" 
                                            step="0.01" 
                                            min="0" 
-                                           value="{{ "%.2f"|format(caja.saldo_actual) }}"
+                                           value="{{ "%.2f"|format(caja.saldo_actual|float) }}"
                                            placeholder="0.00">
                                 </div>
                                 <div class="form-text">Monto físico contado en caja</div>
@@ -994,7 +994,7 @@ document.addEventListener('DOMContentLoaded', function() {
         function updateSaldoInfo() {
             const tipo = tipoSelect.value;
             const monto = parseFloat(montoInput.value) || 0;
-            const saldoActual = {{ caja.saldo_actual }};
+            const saldoActual = {{ caja.saldo_actual | float }};
             
             if (tipo === 'SALIDA' && monto > 0) {
                 if (monto > saldoActual) {
@@ -1025,7 +1025,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const textoDiferencia = document.getElementById('textoDiferencia');
     
     if (montoCierreInput) {
-        const saldoActual = {{ caja.saldo_actual }};
+        const saldoActual = {{ caja.saldo_actual | float }};
         
         montoCierreInput.addEventListener('input', function() {
             const montoFisico = parseFloat(this.value) || 0;
