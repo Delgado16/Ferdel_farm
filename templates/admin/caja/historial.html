@@ -1,6 +1,65 @@
 {% extends "layout.html" %}
 
 {% block content %}
+<style>
+    @media print {
+        .no-print, .card-header, .form-control, button, a, .alert, .btn {
+            display: none !important;
+        }
+        
+        .card {
+            border: none !important;
+            box-shadow: none !important;
+        }
+        
+        .table th {
+            background-color: #f8f9fa !important;
+            color: #000 !important;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+        }
+        
+        .badge {
+            border: 1px solid #000 !important;
+            color: #000 !important;
+            background-color: transparent !important;
+        }
+        
+        body {
+            background-color: white !important;
+        }
+        
+        .container-fluid {
+            padding: 0 !important;
+            margin: 0 !important;
+        }
+        
+        h5, h4, h6 {
+            color: black !important;
+        }
+        
+        .table-secondary td {
+            background-color: #f8f9fa !important;
+        }
+    }
+    
+    .fecha-badge {
+        font-size: 0.85rem;
+        padding: 3px 8px;
+        border-radius: 4px;
+        background-color: #e9ecef;
+        color: #495057;
+        text-decoration: none;
+        transition: all 0.2s;
+        border: 1px solid #dee2e6;
+    }
+    
+    .fecha-badge:hover {
+        background-color: #dee2e6;
+        transform: translateY(-1px);
+    }
+</style>
+
 <div class="container-fluid">
     <div class="row mb-4">
         <div class="col-md-12">
@@ -17,7 +76,7 @@
                 </div>
                 <div class="card-body">
                     <!-- Selector de fecha -->
-                    <form method="GET" class="row g-3 mb-4">
+                    <form method="GET" class="row g-3 mb-4 no-print">
                         <div class="col-md-4">
                             <label for="fecha" class="form-label">Seleccionar Fecha</label>
                             <input type="date" 
@@ -25,7 +84,7 @@
                                    id="fecha" 
                                    name="fecha" 
                                    value="{{ fecha }}"
-                                   max="{{ datetime.now().strftime('%Y-%m-%d') if datetime else '' }}">
+                                   max="{{ fecha_maxima }}">
                         </div>
                         <div class="col-md-2">
                             <label class="form-label">&nbsp;</label>
@@ -43,12 +102,17 @@
                             <label class="form-label">Otras fechas disponibles</label>
                             <div class="d-flex flex-wrap gap-2">
                                 {% for fecha_item in fechas_disponibles %}
-                                {% if fecha_item.fecha %}
-                                <a href="{{ url_for('admin_caja_historial', fecha=fecha_item.fecha.strftime('%Y-%m-%d') if fecha_item.fecha is string else fecha_item.fecha) }}" 
-                                   class="btn btn-sm btn-outline-secondary">
-                                    {{ (fecha_item.fecha.strftime('%d/%m') if fecha_item.fecha is not string else fecha_item.fecha.split('-')[2] + '/' + fecha_item.fecha.split('-')[1]) }}
-                                </a>
-                                {% endif %}
+                                    {% if fecha_item.fecha %}
+                                        {% set fecha_obj = fecha_item.fecha|string %}
+                                        <a href="{{ url_for('admin_caja_historial', fecha=fecha_obj) }}" 
+                                           class="fecha-badge {% if fecha == fecha_obj %}active{% endif %}">
+                                            {% if '-' in fecha_obj %}
+                                                {{ fecha_obj[-5:].replace('-', '/') }}
+                                            {% else %}
+                                                {{ fecha_obj }}
+                                            {% endif %}
+                                        </a>
+                                    {% endif %}
                                 {% endfor %}
                             </div>
                         </div>
@@ -68,7 +132,7 @@
                             <div class="card text-white bg-success">
                                 <div class="card-body">
                                     <h6 class="card-title">Total Entradas</h6>
-                                    <h4 class="card-text">C${{ "%.2f"|format(total_entradas) }}</h4>
+                                    <h4 class="card-text">C$ {{ "{:,.2f}".format(entradas|default(0)|float) }}</h4>
                                 </div>
                             </div>
                         </div>
@@ -76,7 +140,7 @@
                             <div class="card text-white bg-danger">
                                 <div class="card-body">
                                     <h6 class="card-title">Total Salidas</h6>
-                                    <h4 class="card-text">C${{ "%.2f"|format(total_salidas) }}</h4>
+                                    <h4 class="card-text">C$ {{ "{:,.2f}".format(salidas|default(0)|float) }}</h4>
                                 </div>
                             </div>
                         </div>
@@ -84,24 +148,27 @@
                             <div class="card text-white bg-primary">
                                 <div class="card-body">
                                     <h6 class="card-title">Saldo del Día</h6>
-                                    <h4 class="card-text">C${{ "%.2f"|format(saldo_dia) }}</h4>
+                                    <h4 class="card-text">C$ {{ "{:,.2f}".format(saldo_dia|default(0)|float) }}</h4>
                                 </div>
                             </div>
                         </div>
                     </div>
                     
                     <!-- Contador de movimientos -->
-                    <div class="alert alert-info d-flex justify-content-between align-items-center">
+                    <div class="alert alert-info d-flex justify-content-between align-items-center no-print">
                         <span>
                             <i class="fas fa-exchange-alt me-2"></i>
-                            <strong>{{ total_movimientos }}</strong> movimiento{{ 's' if total_movimientos != 1 else '' }} registrado{{ 's' if total_movimientos != 1 else '' }}
+                            <strong>{{ total|default(0) }}</strong> movimiento{{ 's' if total|default(0) != 1 else '' }} activo{{ 's' if total|default(0) != 1 else '' }}
+                            {% if total_anulados|default(0) > 0 %}
+                                y <strong>{{ total_anulados|default(0) }}</strong> anulado{{ 's' if total_anulados|default(0) != 1 else '' }}
+                            {% endif %}
                         </span>
                         <div>
                             <span class="badge bg-success me-3">
-                                <i class="fas fa-arrow-down me-1"></i>{{ "%.2f"|format(total_entradas) }}
+                                <i class="fas fa-arrow-down me-1"></i>C$ {{ "{:,.2f}".format(entradas|default(0)|float) }}
                             </span>
                             <span class="badge bg-danger">
-                                <i class="fas fa-arrow-up me-1"></i>{{ "%.2f"|format(total_salidas) }}
+                                <i class="fas fa-arrow-up me-1"></i>C$ {{ "{:,.2f}".format(salidas|default(0)|float) }}
                             </span>
                         </div>
                     </div>
@@ -115,49 +182,76 @@
                                     <th>Tipo</th>
                                     <th>Descripción</th>
                                     <th>Referencia</th>
+                                    <th>Estado</th>
                                     <th class="text-end">Monto</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                {% for mov in movimientos %}
-                                <tr>
-                                    <td>
-                                        <i class="fas fa-clock me-2 text-muted"></i>
-                                        {{ mov.Fecha | format_hora | lower }}
-                                    </td>
-                                    <td>
-                                        <span class="badge bg-{{ 'success' if mov.Tipo_Movimiento == 'ENTRADA' else 'danger' }}">
-                                            {% if mov.Tipo_Movimiento == 'ENTRADA' %}
-                                            <i class="fas fa-arrow-down me-1"></i>
-                                            {% else %}
-                                            <i class="fas fa-arrow-up me-1"></i>
+                                {% if movimientos and movimientos|length > 0 %}
+                                    {% for mov in movimientos %}
+                                    <tr class="{% if mov.Estado == 'ANULADO' %}table-secondary{% endif %}">
+                                        <td>
+                                            <i class="fas fa-clock me-2 text-muted"></i>
+                                            {{ mov.Fecha|format_hora if mov.Fecha else '' }}
+                                        </td>
+                                        <td>
+                                            <span class="badge bg-{{ 'success' if mov.Tipo_Movimiento == 'ENTRADA' else 'danger' }}">
+                                                {% if mov.Tipo_Movimiento == 'ENTRADA' %}
+                                                <i class="fas fa-arrow-down me-1"></i>
+                                                {% else %}
+                                                <i class="fas fa-arrow-up me-1"></i>
+                                                {% endif %}
+                                                {{ mov.Tipo_Movimiento }}
+                                            </span>
+                                        </td>
+                                        <td>{{ mov.Descripcion if mov.Descripcion else '' }}
+                                            {% if mov.ID_Factura %}
+                                                <br><small class="text-info">Factura #{{ mov.ID_Factura }}</small>
                                             {% endif %}
-                                            {{ mov.Tipo_Movimiento }}
-                                        </span>
-                                    </td>
-                                    <td>{{ mov.Descripcion }}</td>
-                                    <td>
-                                        {% if mov.Referencia_Documento %}
-                                        <span class="badge bg-secondary">
-                                            <i class="fas fa-file-alt me-1"></i>
-                                            {{ mov.Referencia_Documento }}
-                                        </span>
-                                        {% else %}
-                                        <span class="text-muted">-</span>
-                                        {% endif %}
-                                    </td>
-                                    <td class="text-end {{ 'text-success fw-bold' if mov.Tipo_Movimiento == 'ENTRADA' else 'text-danger fw-bold' }}">
-                                        {% if mov.Tipo_Movimiento == 'ENTRADA' %}
-                                        <i class="fas fa-plus-circle me-1"></i>
-                                        {% else %}
-                                        <i class="fas fa-minus-circle me-1"></i>
-                                        {% endif %}
-                                        C${{ "%.2f"|format(mov.Monto) }}
-                                    </td>
-                                </tr>
+                                            {% if mov.ID_Pagos_cxc %}
+                                                <br><small class="text-info">Pago CxC #{{ mov.ID_Pagos_cxc }}</small>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            {% if mov.Referencia_Documento %}
+                                            <span class="badge bg-secondary">
+                                                <i class="fas fa-file-alt me-1"></i>
+                                                {{ mov.Referencia_Documento[:15] }}{% if mov.Referencia_Documento|length > 15 %}...{% endif %}
+                                            </span>
+                                            {% else %}
+                                            <span class="text-muted">-</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            {% if mov.Estado == 'ANULADO' %}
+                                            <span class="badge bg-danger">
+                                                <i class="fas fa-ban me-1"></i>
+                                                ANULADO
+                                            </span>
+                                            {% else %}
+                                            <span class="badge bg-success">
+                                                <i class="fas fa-check me-1"></i>
+                                                ACTIVO
+                                            </span>
+                                            {% endif %}
+                                        </td>
+                                        <td class="text-end {{ 'text-success fw-bold' if mov.Tipo_Movimiento == 'ENTRADA' and mov.Estado != 'ANULADO' else 'text-danger fw-bold' if mov.Estado != 'ANULADO' else 'text-muted fw-bold' }}">
+                                            {% if mov.Estado != 'ANULADO' %}
+                                                {% if mov.Tipo_Movimiento == 'ENTRADA' %}
+                                                <i class="fas fa-plus-circle me-1"></i>
+                                                {% else %}
+                                                <i class="fas fa-minus-circle me-1"></i>
+                                                {% endif %}
+                                            {% else %}
+                                            <i class="fas fa-ban me-1 text-danger"></i>
+                                            {% endif %}
+                                            C$ {{ "{:,.2f}".format(mov.Monto|default(0)|float) }}
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
                                 {% else %}
                                 <tr>
-                                    <td colspan="5" class="text-center text-muted py-5">
+                                    <td colspan="6" class="text-center text-muted py-5">
                                         <div class="py-4">
                                             <i class="fas fa-inbox fa-3x mb-3"></i>
                                             <h5>No hay movimientos registrados</h5>
@@ -165,21 +259,27 @@
                                         </div>
                                     </td>
                                 </tr>
-                                {% endfor %}
+                                {% endif %}
                             </tbody>
                             <tfoot class="table-active">
                                 <tr>
-                                    <td colspan="3"></td>
-                                    <td class="text-end fw-bold">TOTALES:</td>
+                                    <td colspan="4"></td>
+                                    <td class="text-end fw-bold">TOTALES ACTIVOS:</td>
                                     <td class="text-end fw-bold">
                                         <div class="d-flex justify-content-end gap-3">
                                             <span class="text-success">
                                                 <i class="fas fa-arrow-down me-1"></i>
-                                                C${{ "%.2f"|format(total_entradas) }}
+                                                C$ {{ "{:,.2f}".format(entradas|default(0)|float) }}
                                             </span>
                                             <span class="text-danger">
                                                 <i class="fas fa-arrow-up me-1"></i>
-                                                C${{ "%.2f"|format(total_salidas) }}
+                                                C$ {{ "{:,.2f}".format(salidas|default(0)|float) }}
+                                            </span>
+                                        </div>
+                                        <div class="d-flex justify-content-end mt-2">
+                                            <span class="text-primary">
+                                                <i class="fas fa-balance-scale me-1"></i>
+                                                Saldo: C$ {{ "{:,.2f}".format(saldo_dia|default(0)|float) }}
                                             </span>
                                         </div>
                                     </td>
@@ -188,8 +288,26 @@
                         </table>
                     </div>
                     
+                    <!-- Información adicional -->
+                    <div class="alert alert-light mt-3 no-print">
+                        <i class="fas fa-info-circle me-2"></i>
+                        <small>
+                            <strong>Estado de caja:</strong> 
+                            {% if estado == 'ABIERTA' %}
+                                <span class="badge bg-success">ABIERTA</span>
+                            {% elif estado == 'CERRADA' %}
+                                <span class="badge bg-secondary">CERRADA</span>
+                            {% else %}
+                                <span class="badge bg-warning">NO APERTURADA</span>
+                            {% endif %}
+                            • 
+                            <strong>Movimientos totales:</strong> {{ (total|default(0)) + (total_anulados|default(0)) }} 
+                            ({{ total|default(0) }} activos, {{ total_anulados|default(0) }} anulados)
+                        </small>
+                    </div>
+                    
                     <!-- Botones de acción -->
-                    <div class="d-flex justify-content-between mt-4">
+                    <div class="d-flex justify-content-between mt-4 no-print">
                         <div>
                             <button onclick="window.print()" class="btn btn-outline-primary">
                                 <i class="fas fa-print me-1"></i> Imprimir Reporte
@@ -207,27 +325,31 @@
     </div>
 </div>
 
-<!-- Estilos para impresión -->
-<style>
-    @media print {
-        .card-header, .form-control, button, a, .alert, .btn {
-            display: none !important;
-        }
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Establecer fecha máxima como hoy
+    const hoy = new Date();
+    const fechaMax = hoy.toISOString().split('T')[0];
+    const fechaInput = document.getElementById('fecha');
+    
+    if (fechaInput) {
+        fechaInput.max = fechaMax;
         
-        .card {
-            border: none !important;
-        }
-        
-        .table th {
-            background-color: #f8f9fa !important;
-            color: #000 !important;
-        }
-        
-        .badge {
-            border: 1px solid #000 !important;
-            color: #000 !important;
-            background-color: transparent !important;
+        // Si no hay valor, establecer hoy
+        if (!fechaInput.value) {
+            fechaInput.value = fechaMax;
         }
     }
-</style>
+    
+    // Mejorar visualización de los badges de fecha
+    const fechaBadges = document.querySelectorAll('.fecha-badge');
+    fechaBadges.forEach(badge => {
+        if (badge.classList.contains('active')) {
+            badge.style.backgroundColor = '#0d6efd';
+            badge.style.color = 'white';
+            badge.style.borderColor = '#0d6efd';
+        }
+    });
+});
+</script>
 {% endblock %}

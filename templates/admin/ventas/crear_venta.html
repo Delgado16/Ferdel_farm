@@ -305,7 +305,7 @@
         font-weight: 500;
     }
 
-    .is-invalid ~ .invalid-feedback {
+    .is-invalid~.invalid-feedback {
         display: block;
     }
 
@@ -346,6 +346,7 @@
             opacity: 0;
             transform: translateY(-20px);
         }
+
         to {
             opacity: 1;
             transform: translateY(0);
@@ -547,7 +548,7 @@
             </div>
             <h5 class="text-center mb-3">¿Está seguro de registrar esta venta?</h5>
             <p class="text-center text-muted mb-4">Revise los detalles antes de continuar:</p>
-            
+
             <!-- Resumen de la venta -->
             <div class="confirm-summary">
                 <div class="confirm-summary-item">
@@ -584,7 +585,8 @@
 
             <div class="alert alert-warning mt-3 mb-0">
                 <i class="fas fa-exclamation-triangle me-2"></i>
-                <small>Una vez confirmada, la venta se registrará en el sistema y el inventario se actualizará automáticamente.</small>
+                <small>Una vez confirmada, la venta se registrará en el sistema y el inventario se actualizará
+                    automáticamente.</small>
             </div>
         </div>
         <div class="confirm-modal-footer">
@@ -604,17 +606,6 @@
             <h2><i class="fas fa-cash-register me-2"></i>Registrar Nueva Venta</h2>
         </div>
         <div class="card-body">
-            <!-- Mostrar mensajes flash -->
-            {% with messages = get_flashed_messages(with_categories=true) %}
-                {% if messages %}
-                    {% for category, message in messages %}
-                        <div class="alert alert-{{ 'danger' if category == 'error' else 'success' }} alert-dismissible fade show">
-                            {{ message }}
-                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                        </div>
-                    {% endfor %}
-                {% endif %}
-            {% endwith %}
 
             <!-- Información de Bodega -->
             {% if bodega_principal %}
@@ -639,7 +630,8 @@
                             <select class="form-select form-select-sm" id="id_cliente" name="id_cliente">
                                 <option value="" selected>Seleccionar...</option>
                                 {% for cliente in clientes %}
-                                <option value="{{ cliente.ID_Cliente }}">{{ cliente.Nombre }} - {{ cliente.RUC_CEDULA }}</option>
+                                <option value="{{ cliente.ID_Cliente }}">{{ cliente.Nombre }} - {{ cliente.RUC_CEDULA }}
+                                </option>
                                 {% endfor %}
                             </select>
                         </div>
@@ -654,7 +646,8 @@
                         </div>
 
                         <!-- Campo bodega OCULTO con valor fijo -->
-                        <input type="hidden" id="id_bodega" name="id_bodega" value="{{ bodega_principal.ID_Bodega if bodega_principal else 1 }}">
+                        <input type="hidden" id="id_bodega" name="id_bodega"
+                            value="{{ bodega_principal.ID_Bodega if bodega_principal else 1 }}">
 
                         <!-- Filtro por Categoría de Producto -->
                         <div class="col-md-8">
@@ -665,7 +658,8 @@
                                 <option value="{{ categoria.ID_Categoria }}">{{ categoria.Descripcion }}</option>
                                 {% endfor %}
                             </select>
-                            <small class="text-muted">Filtre los productos por categoría para facilitar la búsqueda</small>
+                            <small class="text-muted">Filtre los productos por categoría para facilitar la
+                                búsqueda</small>
                         </div>
 
                         <div class="col-md-4">
@@ -682,16 +676,20 @@
 
                         <!-- Campo de fecha de vencimiento (solo para crédito) -->
                         <div class="col-12" id="fecha_vencimiento_group" style="display: none;">
-                            <label for="fecha_vencimiento" class="form-label required-field">Fecha de Vencimiento (Crédito)</label>
-                            <input type="date" class="form-control form-control-sm" id="fecha_vencimiento" name="fecha_vencimiento">
+                            <label for="fecha_vencimiento" class="form-label required-field">Fecha de Vencimiento
+                                (Crédito)</label>
+                            <input type="date" class="form-control form-control-sm" id="fecha_vencimiento"
+                                name="fecha_vencimiento">
                             <div class="credito-info">
-                                <small><i class="fas fa-info-circle me-1"></i>Se generará automáticamente una cuenta por cobrar para esta venta a crédito.</small>
+                                <small><i class="fas fa-info-circle me-1"></i>Se generará automáticamente una cuenta por
+                                    cobrar para esta venta a crédito.</small>
                             </div>
                         </div>
 
                         <div class="col-12">
                             <label for="observacion" class="form-label">Observaciones</label>
-                            <textarea class="form-control form-control-sm" id="observacion" name="observacion" rows="2" placeholder="Observaciones adicionales sobre la venta..."></textarea>
+                            <textarea class="form-control form-control-sm" id="observacion" name="observacion" rows="2"
+                                placeholder="Observaciones adicionales sobre la venta..."></textarea>
                         </div>
                     </div>
                 </div>
@@ -706,13 +704,13 @@
                             </button>
                         </div>
                     </div>
-                    
+
                     <!-- Información del filtro aplicado -->
                     <div class="filter-section" id="filtro-info" style="display: none;">
                         <div class="d-flex justify-content-between align-items-center">
                             <div>
                                 <i class="fas fa-filter me-2 text-primary"></i>
-                                <strong>Filtro aplicado:</strong> 
+                                <strong>Filtro aplicado:</strong>
                                 <span id="filtro-actual">Todas las categorías</span>
                             </div>
                             <button type="button" class="btn btn-sm btn-outline-secondary" id="btn-quitar-filtro">
@@ -720,7 +718,7 @@
                             </button>
                         </div>
                     </div>
-                    
+
                     <!-- Mensaje cuando no hay productos -->
                     <div id="no-products-message" class="text-center py-5" style="display: none;">
                         <i class="fas fa-box-open fa-3x text-muted mb-3"></i>
@@ -730,7 +728,7 @@
                             <i class="fas fa-plus me-1"></i>Agregar Primer Producto
                         </button>
                     </div>
-                    
+
                     <!-- Contenedor de productos en tarjetas -->
                     <div id="productos-container" class="mt-3">
                         <!-- Los productos se agregarán aquí dinámicamente -->
@@ -768,124 +766,124 @@
 </div>
 
 <script>
-// Variables globales
-let productos = [];
-let contadorProductos = 0;
-let filtroCategoriaActual = 0;
-let productosEnCache = [];
-let productosBase = [];
+    // Variables globales
+    let productos = [];
+    let contadorProductos = 0;
+    let filtroCategoriaActual = 0;
+    let productosEnCache = [];
+    let productosBase = [];
 
-// ============================================
-// FUNCIONES DE INICIALIZACIÓN
-// ============================================
+    // ============================================
+    // FUNCIONES DE INICIALIZACIÓN
+    // ============================================
 
-// Inicialización cuando el DOM está listo
-document.addEventListener('DOMContentLoaded', function() {
-    console.log('🔄 Inicializando formulario de venta...');
-    
-    // Cargar todos los productos inicialmente
-    cargarProductosBase();
-    
-    // Asignar eventos
-    document.getElementById('btn-agregar-producto').addEventListener('click', agregarProducto);
-    document.getElementById('btn-agregar-primer-producto').addEventListener('click', agregarProducto);
-    document.getElementById('btn-aplicar-filtro').addEventListener('click', aplicarFiltroCategoria);
-    document.getElementById('btn-limpiar-filtro').addEventListener('click', limpiarFiltro);
-    document.getElementById('btn-quitar-filtro').addEventListener('click', limpiarFiltro);
-    
-    // Controlar visibilidad de fecha de vencimiento para crédito
-    document.getElementById('tipo_venta').addEventListener('change', function() {
-        const fechaVencimientoGroup = document.getElementById('fecha_vencimiento_group');
-        if (this.value === 'credito') {
-            fechaVencimientoGroup.style.display = 'block';
-            // Establecer fecha de vencimiento por defecto (30 días)
-            const fechaVencimiento = new Date();
-            fechaVencimiento.setDate(fechaVencimiento.getDate() + 30);
-            document.getElementById('fecha_vencimiento').value = fechaVencimiento.toISOString().split('T')[0];
-            
-            // Validar que haya cliente seleccionado
-            const cliente = document.getElementById('id_cliente').value;
-            if (!cliente) {
+    // Inicialización cuando el DOM está listo
+    document.addEventListener('DOMContentLoaded', function () {
+        console.log('🔄 Inicializando formulario de venta...');
+
+        // Cargar todos los productos inicialmente
+        cargarProductosBase();
+
+        // Asignar eventos
+        document.getElementById('btn-agregar-producto').addEventListener('click', agregarProducto);
+        document.getElementById('btn-agregar-primer-producto').addEventListener('click', agregarProducto);
+        document.getElementById('btn-aplicar-filtro').addEventListener('click', aplicarFiltroCategoria);
+        document.getElementById('btn-limpiar-filtro').addEventListener('click', limpiarFiltro);
+        document.getElementById('btn-quitar-filtro').addEventListener('click', limpiarFiltro);
+
+        // Controlar visibilidad de fecha de vencimiento para crédito
+        document.getElementById('tipo_venta').addEventListener('change', function () {
+            const fechaVencimientoGroup = document.getElementById('fecha_vencimiento_group');
+            if (this.value === 'credito') {
+                fechaVencimientoGroup.style.display = 'block';
+                // Establecer fecha de vencimiento por defecto (30 días)
+                const fechaVencimiento = new Date();
+                fechaVencimiento.setDate(fechaVencimiento.getDate() + 30);
+                document.getElementById('fecha_vencimiento').value = fechaVencimiento.toISOString().split('T')[0];
+
+                // Validar que haya cliente seleccionado
+                const cliente = document.getElementById('id_cliente').value;
+                if (!cliente) {
+                    mostrarAlerta('warning', '⚠️ Advertencia', 'Para ventas a crédito debe seleccionar un cliente');
+                }
+            } else {
+                fechaVencimientoGroup.style.display = 'none';
+                document.getElementById('fecha_vencimiento').value = '';
+                document.getElementById('id_cliente').classList.remove('is-invalid');
+            }
+        });
+
+        // Validar cliente cuando se selecciona crédito
+        document.getElementById('id_cliente').addEventListener('change', function () {
+            if (document.getElementById('tipo_venta').value === 'credito' && !this.value) {
                 mostrarAlerta('warning', '⚠️ Advertencia', 'Para ventas a crédito debe seleccionar un cliente');
             }
+        });
+
+        // Eventos para el modal de confirmación
+        document.getElementById('closeConfirmModal').addEventListener('click', cerrarModalConfirmacion);
+        document.getElementById('cancelConfirm').addEventListener('click', cerrarModalConfirmacion);
+        document.getElementById('confirmProceed').addEventListener('click', confirmarVenta);
+
+        // Agregar primera fila de producto
+        agregarProducto();
+
+        console.log('✅ Formulario inicializado correctamente');
+    });
+
+    // ============================================
+    // FUNCIONES DEL MODAL DE CONFIRMACIÓN
+    // ============================================
+
+    function mostrarModalConfirmacion() {
+        console.log('📋 Preparando modal de confirmación...');
+
+        // Obtener datos del formulario
+        const clienteSelect = document.getElementById('id_cliente');
+        const cliente = clienteSelect.options[clienteSelect.selectedIndex]?.text || 'Cliente no seleccionado';
+        const tipoVenta = document.getElementById('tipo_venta').value === 'credito' ? 'CRÉDITO' : 'CONTADO';
+        const totalProductos = document.getElementById('total-productos').textContent;
+        const totalCobrar = document.getElementById('total-venta').textContent;
+        const fechaVencimiento = document.getElementById('fecha_vencimiento').value;
+
+        // Actualizar información en el modal
+        document.getElementById('confirm-cliente').textContent = cliente;
+        document.getElementById('confirm-tipo-venta').textContent = tipoVenta;
+        document.getElementById('confirm-total-productos').textContent = totalProductos;
+        document.getElementById('confirm-total-cobrar').textContent = totalCobrar;
+
+        // Mostrar/ocultar fecha de vencimiento
+        const fechaVencimientoContainer = document.getElementById('confirm-fecha-vencimiento-container');
+        const fechaVencimientoElement = document.getElementById('confirm-fecha-vencimiento');
+
+        if (tipoVenta === 'CRÉDITO' && fechaVencimiento) {
+            fechaVencimientoContainer.style.display = 'flex';
+            fechaVencimientoElement.textContent = new Date(fechaVencimiento).toLocaleDateString('es-ES');
         } else {
-            fechaVencimientoGroup.style.display = 'none';
-            document.getElementById('fecha_vencimiento').value = '';
-            document.getElementById('id_cliente').classList.remove('is-invalid');
+            fechaVencimientoContainer.style.display = 'none';
         }
-    });
 
-    // Validar cliente cuando se selecciona crédito
-    document.getElementById('id_cliente').addEventListener('change', function() {
-        if (document.getElementById('tipo_venta').value === 'credito' && !this.value) {
-            mostrarAlerta('warning', '⚠️ Advertencia', 'Para ventas a crédito debe seleccionar un cliente');
-        }
-    });
+        // Obtener y mostrar productos
+        const productList = document.getElementById('confirm-product-list');
+        productList.innerHTML = '';
 
-    // Eventos para el modal de confirmación
-    document.getElementById('closeConfirmModal').addEventListener('click', cerrarModalConfirmacion);
-    document.getElementById('cancelConfirm').addEventListener('click', cerrarModalConfirmacion);
-    document.getElementById('confirmProceed').addEventListener('click', confirmarVenta);
+        const productosCards = document.querySelectorAll('.product-card');
+        let productosValidos = 0;
 
-    // Agregar primera fila de producto
-    agregarProducto();
-    
-    console.log('✅ Formulario inicializado correctamente');
-});
+        productosCards.forEach((tarjeta, index) => {
+            const select = tarjeta.querySelector('.producto-select');
+            const cantidad = tarjeta.querySelector('.cantidad');
+            const precio = tarjeta.querySelector('.precio');
+            const subtotal = tarjeta.querySelector('.subtotal');
 
-// ============================================
-// FUNCIONES DEL MODAL DE CONFIRMACIÓN
-// ============================================
+            if (select.value && parseFloat(cantidad.value) > 0 && parseFloat(precio.value) > 0) {
+                productosValidos++;
 
-function mostrarModalConfirmacion() {
-    console.log('📋 Preparando modal de confirmación...');
-    
-    // Obtener datos del formulario
-    const clienteSelect = document.getElementById('id_cliente');
-    const cliente = clienteSelect.options[clienteSelect.selectedIndex]?.text || 'Cliente no seleccionado';
-    const tipoVenta = document.getElementById('tipo_venta').value === 'credito' ? 'CRÉDITO' : 'CONTADO';
-    const totalProductos = document.getElementById('total-productos').textContent;
-    const totalCobrar = document.getElementById('total-venta').textContent;
-    const fechaVencimiento = document.getElementById('fecha_vencimiento').value;
-    
-    // Actualizar información en el modal
-    document.getElementById('confirm-cliente').textContent = cliente;
-    document.getElementById('confirm-tipo-venta').textContent = tipoVenta;
-    document.getElementById('confirm-total-productos').textContent = totalProductos;
-    document.getElementById('confirm-total-cobrar').textContent = totalCobrar;
-    
-    // Mostrar/ocultar fecha de vencimiento
-    const fechaVencimientoContainer = document.getElementById('confirm-fecha-vencimiento-container');
-    const fechaVencimientoElement = document.getElementById('confirm-fecha-vencimiento');
-    
-    if (tipoVenta === 'CRÉDITO' && fechaVencimiento) {
-        fechaVencimientoContainer.style.display = 'flex';
-        fechaVencimientoElement.textContent = new Date(fechaVencimiento).toLocaleDateString('es-ES');
-    } else {
-        fechaVencimientoContainer.style.display = 'none';
-    }
-    
-    // Obtener y mostrar productos
-    const productList = document.getElementById('confirm-product-list');
-    productList.innerHTML = '';
-    
-    const productosCards = document.querySelectorAll('.product-card');
-    let productosValidos = 0;
-    
-    productosCards.forEach((tarjeta, index) => {
-        const select = tarjeta.querySelector('.producto-select');
-        const cantidad = tarjeta.querySelector('.cantidad');
-        const precio = tarjeta.querySelector('.precio');
-        const subtotal = tarjeta.querySelector('.subtotal');
-        
-        if (select.value && parseFloat(cantidad.value) > 0 && parseFloat(precio.value) > 0) {
-            productosValidos++;
-            
-            const productoNombre = select.options[select.selectedIndex]?.text || 'Producto no identificado';
-            const productoDiv = document.createElement('div');
-            productoDiv.className = 'confirm-product-item';
-            
-            productoDiv.innerHTML = `
+                const productoNombre = select.options[select.selectedIndex]?.text || 'Producto no identificado';
+                const productoDiv = document.createElement('div');
+                productoDiv.className = 'confirm-product-item';
+
+                productoDiv.innerHTML = `
                 <div class="confirm-product-name">${productoNombre.split(' - ')[0]}</div>
                 <div class="confirm-product-details">
                     <span>${cantidad.value} und</span>
@@ -893,272 +891,272 @@ function mostrarModalConfirmacion() {
                     <span class="fw-bold">C$ ${subtotal.value}</span>
                 </div>
             `;
-            
-            productList.appendChild(productoDiv);
-        }
-    });
-    
-    // Mostrar mensaje si no hay productos válidos
-    if (productosValidos === 0) {
-        const mensajeDiv = document.createElement('div');
-        mensajeDiv.className = 'confirm-product-item text-center text-muted';
-        mensajeDiv.textContent = 'No hay productos válidos para mostrar';
-        productList.appendChild(mensajeDiv);
-    }
-    
-    // Mostrar el modal
-    document.getElementById('confirmModal').classList.add('show');
-    document.body.style.overflow = 'hidden';
-    
-    console.log('✅ Modal de confirmación mostrado');
-}
 
-function cerrarModalConfirmacion() {
-    document.getElementById('confirmModal').classList.remove('show');
-    document.body.style.overflow = 'auto';
-    console.log('❌ Modal de confirmación cerrado');
-}
+                productList.appendChild(productoDiv);
+            }
+        });
 
-function confirmarVenta() {
-    console.log('✅ Confirmación aceptada, procesando venta...');
-    cerrarModalConfirmacion();
-    
-    // Validar fecha de vencimiento si es crédito
-    if (!validarFechaVencimiento()) {
-        return;
-    }
-    
-    // Procesar la venta
-    procesarVenta();
-}
-
-// ============================================
-// FUNCIONES DE PRODUCTOS BASE
-// ============================================
-
-async function cargarProductosBase() {
-    try {
-        console.log('[VENTAS] Cargando productos base...');
-        
-        const response = await fetch('/admin/ventas/todos-productos');
-        
-        if (!response.ok) {
-            throw new Error(`Error HTTP: ${response.status}`);
-        }
-        
-        const productosData = await response.json();
-        
-        if (productosData.error) {
-            throw new Error(productosData.error);
+        // Mostrar mensaje si no hay productos válidos
+        if (productosValidos === 0) {
+            const mensajeDiv = document.createElement('div');
+            mensajeDiv.className = 'confirm-product-item text-center text-muted';
+            mensajeDiv.textContent = 'No hay productos válidos para mostrar';
+            productList.appendChild(mensajeDiv);
         }
 
-        productosBase = productosData;
-        console.log(`[VENTAS] Productos base cargados: ${productosBase.length} productos`);
-        
-    } catch (error) {
-        console.error('[VENTAS] Error cargando productos base:', error);
-        mostrarAlerta('danger', '❌ Error', 'No se pudieron cargar los productos');
+        // Mostrar el modal
+        document.getElementById('confirmModal').classList.add('show');
+        document.body.style.overflow = 'hidden';
+
+        console.log('✅ Modal de confirmación mostrado');
     }
-}
 
-// ============================================
-// FUNCIONES DE FILTRADO DE PRODUCTOS
-// ============================================
+    function cerrarModalConfirmacion() {
+        document.getElementById('confirmModal').classList.remove('show');
+        document.body.style.overflow = 'auto';
+        console.log('❌ Modal de confirmación cerrado');
+    }
 
-async function aplicarFiltroCategoria() {
-    const categoriaSelect = document.getElementById('filtro_categoria');
-    const idCategoria = categoriaSelect.value;
-    const nombreCategoria = categoriaSelect.options[categoriaSelect.selectedIndex].text;
-    
-    console.log('[VENTAS] Aplicando filtro - Categoria:', idCategoria);
-    
-    try {
-        // Mostrar loading
-        const btnFiltro = document.getElementById('btn-aplicar-filtro');
-        const originalText = btnFiltro.innerHTML;
-        btnFiltro.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> Cargando...';
-        btnFiltro.disabled = true;
+    function confirmarVenta() {
+        console.log('✅ Confirmación aceptada, procesando venta...');
+        cerrarModalConfirmacion();
 
-        // Determinar qué productos mostrar
-        let productosAMostrar;
-        
-        if (idCategoria == 0) {
-            // Mostrar todos los productos
-            productosAMostrar = productosBase;
-            productosEnCache = [];
-        } else {
-            // Cargar productos filtrados por categoría
-            const response = await fetch(`/admin/ventas/productos-por-categoria/${idCategoria}`);
-            
+        // Validar fecha de vencimiento si es crédito
+        if (!validarFechaVencimiento()) {
+            return;
+        }
+
+        // Procesar la venta
+        procesarVenta();
+    }
+
+    // ============================================
+    // FUNCIONES DE PRODUCTOS BASE
+    // ============================================
+
+    async function cargarProductosBase() {
+        try {
+            console.log('[VENTAS] Cargando productos base...');
+
+            const response = await fetch('/admin/ventas/todos-productos');
+
             if (!response.ok) {
                 throw new Error(`Error HTTP: ${response.status}`);
             }
-            
-            const productosRecibidos = await response.json();
-            
-            if (productosRecibidos.error) {
-                throw new Error(productosRecibidos.error);
+
+            const productosData = await response.json();
+
+            if (productosData.error) {
+                throw new Error(productosData.error);
             }
-            
-            productosAMostrar = productosRecibidos;
-            productosEnCache = productosRecibidos;
+
+            productosBase = productosData;
+            console.log(`[VENTAS] Productos base cargados: ${productosBase.length} productos`);
+
+        } catch (error) {
+            console.error('[VENTAS] Error cargando productos base:', error);
+            mostrarAlerta('danger', '❌ Error', 'No se pudieron cargar los productos');
         }
-        
-        filtroCategoriaActual = idCategoria;
-        
-        // ACTUALIZAR TODOS LOS SELECTS
-        const selectsProductos = document.querySelectorAll('.producto-select');
-        console.log('[VENTAS] Procesando selects. Total:', selectsProductos.length);
-        
-        let selectsActualizados = 0;
-        let selectsMantenidos = 0;
-        
-        selectsProductos.forEach((select, index) => {
-            const tieneProducto = select.value && select.value !== "";
-            
-            if (!tieneProducto) {
-                // Select vacío - actualizar con productos filtrados
-                console.log(`[VENTAS] Actualizando select vacío ${index + 1}`);
-                actualizarOpcionesSelect(select, productosAMostrar);
-                selectsActualizados++;
+    }
+
+    // ============================================
+    // FUNCIONES DE FILTRADO DE PRODUCTOS
+    // ============================================
+
+    async function aplicarFiltroCategoria() {
+        const categoriaSelect = document.getElementById('filtro_categoria');
+        const idCategoria = categoriaSelect.value;
+        const nombreCategoria = categoriaSelect.options[categoriaSelect.selectedIndex].text;
+
+        console.log('[VENTAS] Aplicando filtro - Categoria:', idCategoria);
+
+        try {
+            // Mostrar loading
+            const btnFiltro = document.getElementById('btn-aplicar-filtro');
+            const originalText = btnFiltro.innerHTML;
+            btnFiltro.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> Cargando...';
+            btnFiltro.disabled = true;
+
+            // Determinar qué productos mostrar
+            let productosAMostrar;
+
+            if (idCategoria == 0) {
+                // Mostrar todos los productos
+                productosAMostrar = productosBase;
+                productosEnCache = [];
             } else {
-                // Select con producto seleccionado - VERIFICAR SI ESTÁ DISPONIBLE CON EL FILTRO
-                const productoId = select.value;
-                const productoEncontrado = productosAMostrar.find(p => 
-                    (p.ID_Producto || p.id) == productoId
-                );
-                
-                if (productoEncontrado) {
-                    // El producto sigue disponible - MANTENER selección
-                    console.log(`[VENTAS] Manteniendo select ${index + 1} con producto ${productoId}`);
-                    selectsMantenidos++;
-                } else {
-                    // El producto ya no está disponible con este filtro
-                    console.log(`[VENTAS] Producto ${productoId} no disponible con filtro, limpiando select ${index + 1}`);
-                    
-                    // Limpiar el select
-                    select.value = "";
-                    actualizarOpcionesSelect(select, productosAMostrar);
-                    
-                    // Limpiar campos relacionados
-                    const tarjeta = select.closest('.product-card');
-                    if (tarjeta) {
-                        tarjeta.querySelector('.precio').value = '0';
-                        tarjeta.querySelector('.cantidad').value = '1';
-                        tarjeta.querySelector('.subtotal').value = '0.00';
-                    }
-                    
-                    selectsActualizados++;
+                // Cargar productos filtrados por categoría
+                const response = await fetch(`/admin/ventas/productos-por-categoria/${idCategoria}`);
+
+                if (!response.ok) {
+                    throw new Error(`Error HTTP: ${response.status}`);
                 }
+
+                const productosRecibidos = await response.json();
+
+                if (productosRecibidos.error) {
+                    throw new Error(productosRecibidos.error);
+                }
+
+                productosAMostrar = productosRecibidos;
+                productosEnCache = productosRecibidos;
             }
+
+            filtroCategoriaActual = idCategoria;
+
+            // ACTUALIZAR TODOS LOS SELECTS
+            const selectsProductos = document.querySelectorAll('.producto-select');
+            console.log('[VENTAS] Procesando selects. Total:', selectsProductos.length);
+
+            let selectsActualizados = 0;
+            let selectsMantenidos = 0;
+
+            selectsProductos.forEach((select, index) => {
+                const tieneProducto = select.value && select.value !== "";
+
+                if (!tieneProducto) {
+                    // Select vacío - actualizar con productos filtrados
+                    console.log(`[VENTAS] Actualizando select vacío ${index + 1}`);
+                    actualizarOpcionesSelect(select, productosAMostrar);
+                    selectsActualizados++;
+                } else {
+                    // Select con producto seleccionado - VERIFICAR SI ESTÁ DISPONIBLE CON EL FILTRO
+                    const productoId = select.value;
+                    const productoEncontrado = productosAMostrar.find(p =>
+                        (p.ID_Producto || p.id) == productoId
+                    );
+
+                    if (productoEncontrado) {
+                        // El producto sigue disponible - MANTENER selección
+                        console.log(`[VENTAS] Manteniendo select ${index + 1} con producto ${productoId}`);
+                        selectsMantenidos++;
+                    } else {
+                        // El producto ya no está disponible con este filtro
+                        console.log(`[VENTAS] Producto ${productoId} no disponible con filtro, limpiando select ${index + 1}`);
+
+                        // Limpiar el select
+                        select.value = "";
+                        actualizarOpcionesSelect(select, productosAMostrar);
+
+                        // Limpiar campos relacionados
+                        const tarjeta = select.closest('.product-card');
+                        if (tarjeta) {
+                            tarjeta.querySelector('.precio').value = '0';
+                            tarjeta.querySelector('.cantidad').value = '1';
+                            tarjeta.querySelector('.subtotal').value = '0.00';
+                        }
+
+                        selectsActualizados++;
+                    }
+                }
+            });
+
+            console.log(`[VENTAS] Resultado: Actualizados=${selectsActualizados}, Mantenidos=${selectsMantenidos}`);
+
+            // Mostrar información del filtro
+            const filtroInfo = document.getElementById('filtro-info');
+            const filtroActual = document.getElementById('filtro-actual');
+
+            if (idCategoria === '0') {
+                filtroInfo.style.display = 'none';
+                filtroActual.textContent = 'Todas las categorías';
+            } else {
+                filtroInfo.style.display = 'block';
+                filtroActual.textContent = nombreCategoria;
+            }
+
+            // Mostrar mensaje informativo
+            let mensaje = `Filtro aplicado: ${nombreCategoria}`;
+            if (selectsMantenidos > 0) {
+                mensaje += `. Se mantuvieron ${selectsMantenidos} productos seleccionados.`;
+            }
+            if (selectsActualizados > 0) {
+                mensaje += ` ${selectsActualizados} selects actualizados.`;
+            }
+
+            mostrarAlerta('success', '✅ Filtro aplicado', mensaje);
+
+        } catch (error) {
+            console.error('[VENTAS] Error aplicando filtro:', error);
+            mostrarAlerta('danger', '❌ Error', `No se pudieron cargar los productos: ${error.message}`);
+        } finally {
+            // Restaurar botón
+            const btnFiltro = document.getElementById('btn-aplicar-filtro');
+            btnFiltro.innerHTML = '<i class="fas fa-filter me-1"></i>Aplicar Filtro';
+            btnFiltro.disabled = false;
+        }
+    }
+
+    function actualizarOpcionesSelect(select, productos) {
+        // Guardar valor actual
+        const valorActual = select.value;
+
+        // Limpiar TODAS las opciones
+        select.innerHTML = '';
+
+        // Agregar opción por defecto
+        const opcionDefault = document.createElement('option');
+        opcionDefault.value = "";
+        opcionDefault.disabled = true;
+        opcionDefault.selected = true;
+        opcionDefault.textContent = "Seleccionar producto...";
+        select.appendChild(opcionDefault);
+
+        // Agregar nuevos productos como opciones
+        productos.forEach(producto => {
+            const option = document.createElement('option');
+            const productoId = producto.ID_Producto || producto.id;
+            option.value = productoId;
+            option.textContent = `${producto.Descripcion || producto.descripcion} (${producto.COD_Producto || producto.codigo}) - Stock: ${producto.Existencias || producto.existencias}`;
+            option.dataset.codigo = producto.COD_Producto || producto.codigo;
+            option.dataset.existencia = producto.Existencias || producto.existencias;
+            option.dataset.precio = producto.Precio_Venta || producto.precio_venta || 0;
+            option.dataset.categoria = producto.ID_Categoria || producto.id_categoria;
+
+            select.appendChild(option);
         });
-        
-        console.log(`[VENTAS] Resultado: Actualizados=${selectsActualizados}, Mantenidos=${selectsMantenidos}`);
-        
-        // Mostrar información del filtro
-        const filtroInfo = document.getElementById('filtro-info');
-        const filtroActual = document.getElementById('filtro-actual');
-        
-        if (idCategoria === '0') {
-            filtroInfo.style.display = 'none';
-            filtroActual.textContent = 'Todas las categorías';
-        } else {
-            filtroInfo.style.display = 'block';
-            filtroActual.textContent = nombreCategoria;
-        }
-        
-        // Mostrar mensaje informativo
-        let mensaje = `Filtro aplicado: ${nombreCategoria}`;
-        if (selectsMantenidos > 0) {
-            mensaje += `. Se mantuvieron ${selectsMantenidos} productos seleccionados.`;
-        }
-        if (selectsActualizados > 0) {
-            mensaje += ` ${selectsActualizados} selects actualizados.`;
-        }
-        
-        mostrarAlerta('success', '✅ Filtro aplicado', mensaje);
-        
-    } catch (error) {
-        console.error('[VENTAS] Error aplicando filtro:', error);
-        mostrarAlerta('danger', '❌ Error', `No se pudieron cargar los productos: ${error.message}`);
-    } finally {
-        // Restaurar botón
-        const btnFiltro = document.getElementById('btn-aplicar-filtro');
-        btnFiltro.innerHTML = '<i class="fas fa-filter me-1"></i>Aplicar Filtro';
-        btnFiltro.disabled = false;
-    }
-}
 
-function actualizarOpcionesSelect(select, productos) {
-    // Guardar valor actual
-    const valorActual = select.value;
-    
-    // Limpiar TODAS las opciones
-    select.innerHTML = '';
-    
-    // Agregar opción por defecto
-    const opcionDefault = document.createElement('option');
-    opcionDefault.value = "";
-    opcionDefault.disabled = true;
-    opcionDefault.selected = true;
-    opcionDefault.textContent = "Seleccionar producto...";
-    select.appendChild(opcionDefault);
-    
-    // Agregar nuevos productos como opciones
-    productos.forEach(producto => {
-        const option = document.createElement('option');
-        const productoId = producto.ID_Producto || producto.id;
-        option.value = productoId;
-        option.textContent = `${producto.Descripcion || producto.descripcion} (${producto.COD_Producto || producto.codigo}) - Stock: ${producto.Existencias || producto.existencias}`;
-        option.dataset.codigo = producto.COD_Producto || producto.codigo;
-        option.dataset.existencia = producto.Existencias || producto.existencias;
-        option.dataset.precio = producto.Precio_Venta || producto.precio_venta || 0;
-        option.dataset.categoria = producto.ID_Categoria || producto.id_categoria;
-        
-        select.appendChild(option);
-    });
-    
-    // Intentar restaurar la selección anterior si existe
-    if (valorActual && valorActual !== "") {
-        // Verificar si el valor anterior todavía está en las opciones
-        const opcionExiste = Array.from(select.options).some(option => 
-            option.value == valorActual
-        );
-        
-        if (opcionExiste) {
-            select.value = valorActual;
-            console.log(`[SELECT] Selección restaurada: ${valorActual}`);
+        // Intentar restaurar la selección anterior si existe
+        if (valorActual && valorActual !== "") {
+            // Verificar si el valor anterior todavía está en las opciones
+            const opcionExiste = Array.from(select.options).some(option =>
+                option.value == valorActual
+            );
+
+            if (opcionExiste) {
+                select.value = valorActual;
+                console.log(`[SELECT] Selección restaurada: ${valorActual}`);
+            }
         }
     }
-}
 
-function limpiarFiltro() {
-    console.log('[VENTAS] Limpiando filtro');
-    document.getElementById('filtro_categoria').value = '0';
-    document.getElementById('filtro-info').style.display = 'none';
-    filtroCategoriaActual = 0;
-    productosEnCache = [];
-    
-    // Actualizar TODOS los selects con productos base
-    const selectsProductos = document.querySelectorAll('.producto-select');
-    console.log('[VENTAS] Actualizando todos los selects con productos base');
-    
-    selectsProductos.forEach((select, index) => {
-        actualizarOpcionesSelect(select, productosBase);
-    });
-    
-    mostrarAlerta('info', 'ℹ️ Filtro limpiado', 'Mostrando todos los productos disponibles.');
-}
+    function limpiarFiltro() {
+        console.log('[VENTAS] Limpiando filtro');
+        document.getElementById('filtro_categoria').value = '0';
+        document.getElementById('filtro-info').style.display = 'none';
+        filtroCategoriaActual = 0;
+        productosEnCache = [];
 
-// ============================================
-// FUNCIONES DE GESTIÓN DE PRODUCTOS
-// ============================================
+        // Actualizar TODOS los selects con productos base
+        const selectsProductos = document.querySelectorAll('.producto-select');
+        console.log('[VENTAS] Actualizando todos los selects con productos base');
 
-function agregarProducto() {
-    contadorProductos++;
-    console.log(` Agregando producto ${contadorProductos}`);
-    
-    const productoHTML = `
+        selectsProductos.forEach((select, index) => {
+            actualizarOpcionesSelect(select, productosBase);
+        });
+
+        mostrarAlerta('info', 'ℹ️ Filtro limpiado', 'Mostrando todos los productos disponibles.');
+    }
+
+    // ============================================
+    // FUNCIONES DE GESTIÓN DE PRODUCTOS
+    // ============================================
+
+    function agregarProducto() {
+        contadorProductos++;
+        console.log(` Agregando producto ${contadorProductos}`);
+
+        const productoHTML = `
         <div class="product-card" id="producto-card-${contadorProductos}">
             <div class="product-card-header">
                 <h6 class="product-card-title">Producto #${contadorProductos}</h6>
@@ -1217,591 +1215,591 @@ function agregarProducto() {
             <small class="text-muted stock-info" id="stock-info-${contadorProductos}" style="display: none; margin-top: 0.5rem;"></small>
         </div>
     `;
-    
-    document.getElementById('productos-container').insertAdjacentHTML('beforeend', productoHTML);
-    
-    // Inicializar el select con productos
-    const nuevoSelect = document.getElementById(`producto-card-${contadorProductos}`).querySelector('.producto-select');
-    
-    // Cargar productos en el select
-    cargarProductosEnSelect(nuevoSelect);
-    
-    actualizarTotales();
-    actualizarMensajeProductos();
-    
-    // Desplazarse a la nueva tarjeta en móviles
-    if (window.innerWidth <= 768) {
-        document.getElementById(`producto-card-${contadorProductos}`).scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-    }
-}
 
-async function cargarProductosEnSelect(select) {
-    try {
-        let productosAMostrar;
-        
-        if (filtroCategoriaActual !== 0 && productosEnCache.length > 0) {
-            // Usar productos filtrados en caché
-            productosAMostrar = productosEnCache;
-        } else if (filtroCategoriaActual !== 0) {
-            // Cargar productos filtrados
-            const response = await fetch(`/admin/ventas/productos-por-categoria/${filtroCategoriaActual}`);
-            
-            if (!response.ok) {
-                throw new Error(`Error HTTP: ${response.status}`);
-            }
-            
-            productosAMostrar = await response.json();
-            productosEnCache = productosAMostrar;
-        } else {
-            // Mostrar todos los productos
-            productosAMostrar = productosBase;
-        }
-        
-        // Actualizar el select
-        actualizarOpcionesSelect(select, productosAMostrar);
-        
-    } catch (error) {
-        console.error('Error cargando productos:', error);
-        select.innerHTML = '<option value="" disabled selected>Error cargando productos</option>';
-    }
-}
+        document.getElementById('productos-container').insertAdjacentHTML('beforeend', productoHTML);
 
-function eliminarProducto(id) {
-    console.log(`🗑️ Eliminando producto ${id}`);
-    const tarjeta = document.getElementById(`producto-card-${id}`);
-    if (tarjeta) {
-        // Verificar que quede al menos un producto
-        const totalProductos = document.querySelectorAll('.product-card').length;
-        if (totalProductos <= 1) {
-            mostrarAlerta('warning', '⚠️ Advertencia', 'Debe haber al menos un producto en la venta');
-            return;
-        }
-        
-        tarjeta.remove();
-        productos = productos.filter(p => p.id !== id);
+        // Inicializar el select con productos
+        const nuevoSelect = document.getElementById(`producto-card-${contadorProductos}`).querySelector('.producto-select');
+
+        // Cargar productos en el select
+        cargarProductosEnSelect(nuevoSelect);
+
         actualizarTotales();
         actualizarMensajeProductos();
-        
-        mostrarAlerta('info', '🗑️ Producto eliminado', 'El producto ha sido removido de la venta');
-    }
-}
 
-async function actualizarInfoProducto(id) {
-    const tarjeta = document.getElementById(`producto-card-${id}`);
-    if (!tarjeta) return;
-    
-    const select = tarjeta.querySelector('.producto-select');
-    const productoInfo = document.getElementById(`producto-info-${id}`);
-    const stockInfo = document.getElementById(`stock-info-${id}`);
-    const precioInput = tarjeta.querySelector('.precio');
-    const cantidadInput = tarjeta.querySelector('.cantidad');
-    
-    console.log(`🔄 Actualizando info para producto ${id}: ${select.value}`);
-    
-    if (select.value && select.selectedOptions[0].dataset) {
-        const dataset = select.selectedOptions[0].dataset;
-        
+        // Desplazarse a la nueva tarjeta en móviles
+        if (window.innerWidth <= 768) {
+            document.getElementById(`producto-card-${contadorProductos}`).scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+    }
+
+    async function cargarProductosEnSelect(select) {
         try {
-            // Actualizar información del producto
-            if (productoInfo) {
-                productoInfo.innerHTML = `<span class="text-primary">${dataset.codigo}</span>`;
-                productoInfo.style.display = 'block';
+            let productosAMostrar;
+
+            if (filtroCategoriaActual !== 0 && productosEnCache.length > 0) {
+                // Usar productos filtrados en caché
+                productosAMostrar = productosEnCache;
+            } else if (filtroCategoriaActual !== 0) {
+                // Cargar productos filtrados
+                const response = await fetch(`/admin/ventas/productos-por-categoria/${filtroCategoriaActual}`);
+
+                if (!response.ok) {
+                    throw new Error(`Error HTTP: ${response.status}`);
+                }
+
+                productosAMostrar = await response.json();
+                productosEnCache = productosAMostrar;
+            } else {
+                // Mostrar todos los productos
+                productosAMostrar = productosBase;
             }
-            
-            // Verificar stock actual
-            const stockActual = await obtenerStockActual(select.value);
-            const precioSugerido = parseFloat(dataset.precio) || 0;
-            
-            // Mostrar información de stock
-            let stockClass = 'stock-good';
-            let stockIcon = '✅';
-            let stockText = `Stock disponible: ${stockActual} unidades`;
-            
-            if (stockActual <= 5) {
-                stockClass = 'stock-low';
-                stockIcon = '⚠️';
-                stockText = `Stock bajo: ${stockActual} unidades`;
-            } else if (stockActual <= 15) {
-                stockClass = 'stock-medium';
-                stockIcon = '📊';
-                stockText = `Stock medio: ${stockActual} unidades`;
-            }
-            
-            if (stockInfo) {
-                stockInfo.innerHTML = `<span class="${stockClass}">${stockIcon} ${stockText}</span>`;
-                stockInfo.style.display = 'block';
-            }
-            
-            // Auto-completar precio unitario si está vacío
-            if (precioSugerido > 0 && (!precioInput.value || precioInput.value == '0')) {
-                precioInput.value = precioSugerido.toFixed(2);
-                calcularSubtotal(id);
-            }
-            
-            // VALIDACIÓN EN TIEMPO REAL: cantidad vs stock
-            const cantidadActual = parseFloat(cantidadInput.value) || 0;
-            validarCantidadVsStock(cantidadInput, cantidadActual, stockActual, stockInfo);
-            
+
+            // Actualizar el select
+            actualizarOpcionesSelect(select, productosAMostrar);
+
         } catch (error) {
-            console.error('❌ Error en actualización tiempo real:', error);
-            if (stockInfo) {
-                stockInfo.innerHTML = `<span class="stock-danger">❌ Error al verificar stock</span>`;
-                stockInfo.style.display = 'block';
+            console.error('Error cargando productos:', error);
+            select.innerHTML = '<option value="" disabled selected>Error cargando productos</option>';
+        }
+    }
+
+    function eliminarProducto(id) {
+        console.log(`🗑️ Eliminando producto ${id}`);
+        const tarjeta = document.getElementById(`producto-card-${id}`);
+        if (tarjeta) {
+            // Verificar que quede al menos un producto
+            const totalProductos = document.querySelectorAll('.product-card').length;
+            if (totalProductos <= 1) {
+                mostrarAlerta('warning', '⚠️ Advertencia', 'Debe haber al menos un producto en la venta');
+                return;
             }
-        }
-    } else {
-        if (productoInfo) productoInfo.style.display = 'none';
-        if (stockInfo) stockInfo.style.display = 'none';
-    }
-}
 
-async function validarStockEnTiempoReal(id) {
-    const tarjeta = document.getElementById(`producto-card-${id}`);
-    if (!tarjeta) return;
-    
-    const select = tarjeta.querySelector('.producto-select');
-    const cantidadInput = tarjeta.querySelector('.cantidad');
-    const stockInfo = document.getElementById(`stock-info-${id}`);
-    
-    if (select.value && cantidadInput.value) {
-        try {
-            const stockActual = await obtenerStockActual(select.value);
-            const cantidadRequerida = parseFloat(cantidadInput.value) || 0;
-            
-            validarCantidadVsStock(cantidadInput, cantidadRequerida, stockActual, stockInfo);
-        } catch (error) {
-            console.error('❌ Error en validación tiempo real:', error);
+            tarjeta.remove();
+            productos = productos.filter(p => p.id !== id);
+            actualizarTotales();
+            actualizarMensajeProductos();
+
+            mostrarAlerta('info', '🗑️ Producto eliminado', 'El producto ha sido removido de la venta');
         }
     }
-}
 
-function validarCantidadVsStock(cantidadInput, cantidadRequerida, stockActual, stockInfo) {
-    if (cantidadRequerida > stockActual) {
-        cantidadInput.classList.add('is-invalid');
-        if (stockInfo) {
-            const currentContent = stockInfo.innerHTML.split('<br>')[0];
-            stockInfo.innerHTML = currentContent + `<br><small class="text-danger">⚠️ Cantidad excede stock disponible</small>`;
-        }
-    } else {
-        cantidadInput.classList.remove('is-invalid');
-        if (stockInfo) {
-            const currentContent = stockInfo.innerHTML.split('<br>')[0];
-            stockInfo.innerHTML = currentContent;
-        }
-    }
-}
+    async function actualizarInfoProducto(id) {
+        const tarjeta = document.getElementById(`producto-card-${id}`);
+        if (!tarjeta) return;
 
-// ============================================
-// FUNCIONES DE CÁLCULO
-// ============================================
+        const select = tarjeta.querySelector('.producto-select');
+        const productoInfo = document.getElementById(`producto-info-${id}`);
+        const stockInfo = document.getElementById(`stock-info-${id}`);
+        const precioInput = tarjeta.querySelector('.precio');
+        const cantidadInput = tarjeta.querySelector('.cantidad');
 
-function calcularSubtotal(id) {
-    const tarjeta = document.getElementById(`producto-card-${id}`);
-    if (!tarjeta) return;
-    
-    const cantidad = parseFloat(tarjeta.querySelector('.cantidad').value) || 0;
-    const precio = parseFloat(tarjeta.querySelector('.precio').value) || 0;
-    const subtotal = cantidad * precio;
-    
-    const subtotalInput = tarjeta.querySelector('.subtotal');
-    if (subtotalInput) {
-        subtotalInput.value = subtotal.toFixed(2);
-    }
-    
-    actualizarTotales();
-    
-    console.log(`🧮 Subtotal producto ${id}: ${cantidad} x ${precio} = ${subtotal.toFixed(2)}`);
-}
+        console.log(`🔄 Actualizando info para producto ${id}: ${select.value}`);
 
-function actualizarTotales() {
-    let totalVenta = 0;
-    let totalProductos = 0;
+        if (select.value && select.selectedOptions[0].dataset) {
+            const dataset = select.selectedOptions[0].dataset;
 
-    document.querySelectorAll('.product-card').forEach(producto => {
-        const subtotalInput = producto.querySelector('.subtotal');
-        if (subtotalInput) {
-            const valor = parseFloat(subtotalInput.value) || 0;
-            if (valor > 0) {
-                totalVenta += valor;
-                totalProductos++;
-            }
-        }
-    });
-
-    document.getElementById('total-venta').textContent = `C$ ${totalVenta.toFixed(2)}`;
-    document.getElementById('subtotal').textContent = `C$ ${totalVenta.toFixed(2)}`;
-    document.getElementById('total-productos').textContent = totalProductos;
-    
-    console.log(`💰 Total venta: C$ ${totalVenta.toFixed(2)}, Productos: ${totalProductos}`);
-}
-
-function actualizarMensajeProductos() {
-    const tarjetas = document.querySelectorAll('.product-card').length;
-    const mensaje = document.getElementById('no-products-message');
-    const container = document.getElementById('productos-container');
-    
-    if (mensaje) {
-        mensaje.style.display = tarjetas === 0 ? 'block' : 'none';
-    }
-    if (container) {
-        container.style.display = tarjetas === 0 ? 'none' : 'block';
-    }
-}
-
-// ============================================
-// FUNCIONES DE API
-// ============================================
-
-async function obtenerStockActual(idProducto) {
-    try {
-        const url = `/admin/ventas/verificar-stock/${idProducto}`;
-        
-        const response = await fetch(url);
-        
-        if (!response.ok) {
-            throw new Error('Error al verificar stock');
-        }
-        
-        const data = await response.json();
-        
-        if (data.error) {
-            throw new Error(data.error);
-        }
-        
-        console.log(`[STOCK] Stock en tiempo real: ${data.existencias} unidades`);
-        return data.existencias;
-    } catch (error) {
-        console.error('❌ Error obteniendo stock en tiempo real:', error);
-        return 0;
-    }
-}
-
-async function verificarStockProductos() {
-    const productosConProblemas = [];
-    const tarjetas = document.querySelectorAll(".product-card");
-    
-    for (const tarjeta of tarjetas) {
-        const select = tarjeta.querySelector(".producto-select");
-        const cantidadInput = tarjeta.querySelector(".cantidad");
-        
-        if (select.value && cantidadInput.value) {
-            const idProducto = select.value;
-            const cantidadRequerida = parseFloat(cantidadInput.value);
-            
             try {
-                const stockActual = await obtenerStockActual(idProducto);
-                
-                if (stockActual < cantidadRequerida) {
-                    const descripcion = select.options[select.selectedIndex].text;
+                // Actualizar información del producto
+                if (productoInfo) {
+                    productoInfo.innerHTML = `<span class="text-primary">${dataset.codigo}</span>`;
+                    productoInfo.style.display = 'block';
+                }
+
+                // Verificar stock actual
+                const stockActual = await obtenerStockActual(select.value);
+                const precioSugerido = parseFloat(dataset.precio) || 0;
+
+                // Mostrar información de stock
+                let stockClass = 'stock-good';
+                let stockIcon = '✅';
+                let stockText = `Stock disponible: ${stockActual} unidades`;
+
+                if (stockActual <= 5) {
+                    stockClass = 'stock-low';
+                    stockIcon = '⚠️';
+                    stockText = `Stock bajo: ${stockActual} unidades`;
+                } else if (stockActual <= 15) {
+                    stockClass = 'stock-medium';
+                    stockIcon = '📊';
+                    stockText = `Stock medio: ${stockActual} unidades`;
+                }
+
+                if (stockInfo) {
+                    stockInfo.innerHTML = `<span class="${stockClass}">${stockIcon} ${stockText}</span>`;
+                    stockInfo.style.display = 'block';
+                }
+
+                // Auto-completar precio unitario si está vacío
+                if (precioSugerido > 0 && (!precioInput.value || precioInput.value == '0')) {
+                    precioInput.value = precioSugerido.toFixed(2);
+                    calcularSubtotal(id);
+                }
+
+                // VALIDACIÓN EN TIEMPO REAL: cantidad vs stock
+                const cantidadActual = parseFloat(cantidadInput.value) || 0;
+                validarCantidadVsStock(cantidadInput, cantidadActual, stockActual, stockInfo);
+
+            } catch (error) {
+                console.error('❌ Error en actualización tiempo real:', error);
+                if (stockInfo) {
+                    stockInfo.innerHTML = `<span class="stock-danger">❌ Error al verificar stock</span>`;
+                    stockInfo.style.display = 'block';
+                }
+            }
+        } else {
+            if (productoInfo) productoInfo.style.display = 'none';
+            if (stockInfo) stockInfo.style.display = 'none';
+        }
+    }
+
+    async function validarStockEnTiempoReal(id) {
+        const tarjeta = document.getElementById(`producto-card-${id}`);
+        if (!tarjeta) return;
+
+        const select = tarjeta.querySelector('.producto-select');
+        const cantidadInput = tarjeta.querySelector('.cantidad');
+        const stockInfo = document.getElementById(`stock-info-${id}`);
+
+        if (select.value && cantidadInput.value) {
+            try {
+                const stockActual = await obtenerStockActual(select.value);
+                const cantidadRequerida = parseFloat(cantidadInput.value) || 0;
+
+                validarCantidadVsStock(cantidadInput, cantidadRequerida, stockActual, stockInfo);
+            } catch (error) {
+                console.error('❌ Error en validación tiempo real:', error);
+            }
+        }
+    }
+
+    function validarCantidadVsStock(cantidadInput, cantidadRequerida, stockActual, stockInfo) {
+        if (cantidadRequerida > stockActual) {
+            cantidadInput.classList.add('is-invalid');
+            if (stockInfo) {
+                const currentContent = stockInfo.innerHTML.split('<br>')[0];
+                stockInfo.innerHTML = currentContent + `<br><small class="text-danger">⚠️ Cantidad excede stock disponible</small>`;
+            }
+        } else {
+            cantidadInput.classList.remove('is-invalid');
+            if (stockInfo) {
+                const currentContent = stockInfo.innerHTML.split('<br>')[0];
+                stockInfo.innerHTML = currentContent;
+            }
+        }
+    }
+
+    // ============================================
+    // FUNCIONES DE CÁLCULO
+    // ============================================
+
+    function calcularSubtotal(id) {
+        const tarjeta = document.getElementById(`producto-card-${id}`);
+        if (!tarjeta) return;
+
+        const cantidad = parseFloat(tarjeta.querySelector('.cantidad').value) || 0;
+        const precio = parseFloat(tarjeta.querySelector('.precio').value) || 0;
+        const subtotal = cantidad * precio;
+
+        const subtotalInput = tarjeta.querySelector('.subtotal');
+        if (subtotalInput) {
+            subtotalInput.value = subtotal.toFixed(2);
+        }
+
+        actualizarTotales();
+
+        console.log(`🧮 Subtotal producto ${id}: ${cantidad} x ${precio} = ${subtotal.toFixed(2)}`);
+    }
+
+    function actualizarTotales() {
+        let totalVenta = 0;
+        let totalProductos = 0;
+
+        document.querySelectorAll('.product-card').forEach(producto => {
+            const subtotalInput = producto.querySelector('.subtotal');
+            if (subtotalInput) {
+                const valor = parseFloat(subtotalInput.value) || 0;
+                if (valor > 0) {
+                    totalVenta += valor;
+                    totalProductos++;
+                }
+            }
+        });
+
+        document.getElementById('total-venta').textContent = `C$ ${totalVenta.toFixed(2)}`;
+        document.getElementById('subtotal').textContent = `C$ ${totalVenta.toFixed(2)}`;
+        document.getElementById('total-productos').textContent = totalProductos;
+
+        console.log(`💰 Total venta: C$ ${totalVenta.toFixed(2)}, Productos: ${totalProductos}`);
+    }
+
+    function actualizarMensajeProductos() {
+        const tarjetas = document.querySelectorAll('.product-card').length;
+        const mensaje = document.getElementById('no-products-message');
+        const container = document.getElementById('productos-container');
+
+        if (mensaje) {
+            mensaje.style.display = tarjetas === 0 ? 'block' : 'none';
+        }
+        if (container) {
+            container.style.display = tarjetas === 0 ? 'none' : 'block';
+        }
+    }
+
+    // ============================================
+    // FUNCIONES DE API
+    // ============================================
+
+    async function obtenerStockActual(idProducto) {
+        try {
+            const url = `/admin/ventas/verificar-stock/${idProducto}`;
+
+            const response = await fetch(url);
+
+            if (!response.ok) {
+                throw new Error('Error al verificar stock');
+            }
+
+            const data = await response.json();
+
+            if (data.error) {
+                throw new Error(data.error);
+            }
+
+            console.log(`[STOCK] Stock en tiempo real: ${data.existencias} unidades`);
+            return data.existencias;
+        } catch (error) {
+            console.error('❌ Error obteniendo stock en tiempo real:', error);
+            return 0;
+        }
+    }
+
+    async function verificarStockProductos() {
+        const productosConProblemas = [];
+        const tarjetas = document.querySelectorAll(".product-card");
+
+        for (const tarjeta of tarjetas) {
+            const select = tarjeta.querySelector(".producto-select");
+            const cantidadInput = tarjeta.querySelector(".cantidad");
+
+            if (select.value && cantidadInput.value) {
+                const idProducto = select.value;
+                const cantidadRequerida = parseFloat(cantidadInput.value);
+
+                try {
+                    const stockActual = await obtenerStockActual(idProducto);
+
+                    if (stockActual < cantidadRequerida) {
+                        const descripcion = select.options[select.selectedIndex].text;
+                        productosConProblemas.push({
+                            descripcion: descripcion,
+                            stockActual: stockActual,
+                            cantidadRequerida: cantidadRequerida
+                        });
+                    }
+                } catch (error) {
+                    console.error('❌ Error verificando stock final:', error);
                     productosConProblemas.push({
-                        descripcion: descripcion,
-                        stockActual: stockActual,
-                        cantidadRequerida: cantidadRequerida
+                        descripcion: select.options[select.selectedIndex].text,
+                        stockActual: 0,
+                        cantidadRequerida: cantidadRequerida,
+                        error: true
                     });
                 }
-            } catch (error) {
-                console.error('❌ Error verificando stock final:', error);
-                productosConProblemas.push({
-                    descripcion: select.options[select.selectedIndex].text,
-                    stockActual: 0,
-                    cantidadRequerida: cantidadRequerida,
-                    error: true
-                });
             }
         }
+
+        return productosConProblemas;
     }
-    
-    return productosConProblemas;
-}
 
-// ============================================
-// FUNCIONES DE UTILIDAD
-// ============================================
+    // ============================================
+    // FUNCIONES DE UTILIDAD
+    // ============================================
 
-function mostrarAlerta(tipo, titulo, mensaje) {
-    const alertasExistentes = document.querySelectorAll('.alert-flotante');
-    alertasExistentes.forEach(alerta => alerta.remove());
-    
-    const alerta = document.createElement('div');
-    alerta.className = `alert alert-${tipo} alert-dismissible fade show alert-flotante`;
-    alerta.innerHTML = `
+    function mostrarAlerta(tipo, titulo, mensaje) {
+        const alertasExistentes = document.querySelectorAll('.alert-flotante');
+        alertasExistentes.forEach(alerta => alerta.remove());
+
+        const alerta = document.createElement('div');
+        alerta.className = `alert alert-${tipo} alert-dismissible fade show alert-flotante`;
+        alerta.innerHTML = `
         <strong>${titulo}</strong> ${mensaje}
         <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
     `;
-    document.body.appendChild(alerta);
-    
-    setTimeout(() => {
-        if (alerta.parentNode) {
-            alerta.remove();
-        }
-    }, 5000);
-}
+        document.body.appendChild(alerta);
 
-function validarFechaVencimiento() {
-    const tipoVenta = document.getElementById('tipo_venta').value;
-    
-    if (tipoVenta === 'credito') {
-        const fechaVencimiento = document.getElementById('fecha_vencimiento').value;
-        const hoy = new Date().toISOString().split('T')[0];
-        
-        if (!fechaVencimiento) {
-            mostrarAlerta('warning', '⚠️ Fecha requerida', 'Para ventas a crédito debe especificar una fecha de vencimiento');
-            document.getElementById('fecha_vencimiento').focus();
-            return false;
-        }
-        
-        if (fechaVencimiento <= hoy) {
-            mostrarAlerta('warning', '⚠️ Fecha inválida', 'La fecha de vencimiento debe ser posterior a hoy');
-            document.getElementById('fecha_vencimiento').focus();
-            return false;
-        }
+        setTimeout(() => {
+            if (alerta.parentNode) {
+                alerta.remove();
+            }
+        }, 5000);
     }
-    return true;
-}
 
-// ============================================
-// VALIDACIÓN Y ENVÍO DE FORMULARIO
-// ============================================
+    function validarFechaVencimiento() {
+        const tipoVenta = document.getElementById('tipo_venta').value;
 
-function validarVentaBasica() {
-    console.log('🔍 Validando formulario...');
-    let valido = true;
-    
-    const camposRequeridos = [
-        { id: 'tipo_venta', nombre: 'Tipo de venta' }
-    ];
-    
-    camposRequeridos.forEach(campo => {
-        const elemento = document.getElementById(campo.id);
-        if (!elemento.value) {
-            elemento.classList.add("is-invalid");
-            mostrarAlerta('warning', '⚠️ Campo requerido', `${campo.nombre} es obligatorio`);
+        if (tipoVenta === 'credito') {
+            const fechaVencimiento = document.getElementById('fecha_vencimiento').value;
+            const hoy = new Date().toISOString().split('T')[0];
+
+            if (!fechaVencimiento) {
+                mostrarAlerta('warning', '⚠️ Fecha requerida', 'Para ventas a crédito debe especificar una fecha de vencimiento');
+                document.getElementById('fecha_vencimiento').focus();
+                return false;
+            }
+
+            if (fechaVencimiento <= hoy) {
+                mostrarAlerta('warning', '⚠️ Fecha inválida', 'La fecha de vencimiento debe ser posterior a hoy');
+                document.getElementById('fecha_vencimiento').focus();
+                return false;
+            }
+        }
+        return true;
+    }
+
+    // ============================================
+    // VALIDACIÓN Y ENVÍO DE FORMULARIO
+    // ============================================
+
+    function validarVentaBasica() {
+        console.log('🔍 Validando formulario...');
+        let valido = true;
+
+        const camposRequeridos = [
+            { id: 'tipo_venta', nombre: 'Tipo de venta' }
+        ];
+
+        camposRequeridos.forEach(campo => {
+            const elemento = document.getElementById(campo.id);
+            if (!elemento.value) {
+                elemento.classList.add("is-invalid");
+                mostrarAlerta('warning', '⚠️ Campo requerido', `${campo.nombre} es obligatorio`);
+                valido = false;
+                console.log(`❌ Campo requerido vacío: ${campo.nombre}`);
+            } else {
+                elemento.classList.remove("is-invalid");
+            }
+        });
+
+        // Validar productos
+        const tarjetas = document.querySelectorAll(".product-card");
+        console.log(`📦 Productos en tarjetas: ${tarjetas.length}`);
+
+        if (tarjetas.length === 0) {
+            mostrarAlerta('danger', '❌ Error!', 'Debe agregar al menos un producto a la venta.');
+            return false;
+        }
+
+        // Validar que haya al menos un producto con cantidad > 0
+        let hayProductosValidos = false;
+        tarjetas.forEach((tarjeta, index) => {
+            const select = tarjeta.querySelector(".producto-select");
+            const cantidad = tarjeta.querySelector(".cantidad");
+            const precio = tarjeta.querySelector(".precio");
+
+            const cantidadVal = parseFloat(cantidad.value) || 0;
+            const precioVal = parseFloat(precio.value) || 0;
+
+            if (select.value && cantidadVal > 0 && precioVal > 0) {
+                hayProductosValidos = true;
+                select.classList.remove("is-invalid");
+                cantidad.classList.remove("is-invalid");
+                precio.classList.remove("is-invalid");
+                console.log(`✅ Producto ${index + 1}: válido`);
+            } else {
+                console.log(`❌ Producto ${index + 1}: inválido`, {
+                    select: select.value,
+                    cantidad: cantidadVal,
+                    precio: precioVal
+                });
+                if (!select.value) select.classList.add("is-invalid");
+                if (cantidadVal <= 0) cantidad.classList.add("is-invalid");
+                if (precioVal <= 0) precio.classList.add("is-invalid");
+            }
+        });
+
+        if (!hayProductosValidos) {
+            mostrarAlerta('danger', '❌ Error!', 'Debe agregar al menos un producto con cantidad y precio válidos.');
             valido = false;
-            console.log(`❌ Campo requerido vacío: ${campo.nombre}`);
+        }
+
+        // Validación específica para crédito
+        const tipoVenta = document.getElementById('tipo_venta').value;
+        const idCliente = document.getElementById('id_cliente').value;
+
+        if (tipoVenta === 'credito' && !idCliente) {
+            mostrarAlerta('warning', '⚠️ Cliente requerido', 'Para ventas a crédito debe seleccionar un cliente');
+            document.getElementById('id_cliente').classList.add('is-invalid');
+            valido = false;
+        }
+
+        if (!valido) {
+            const primerError = document.querySelector(".is-invalid");
+            if (primerError) {
+                primerError.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
         } else {
-            elemento.classList.remove("is-invalid");
+            console.log('✅ Validación exitosa');
         }
+
+        return valido;
+    }
+
+    // ENVIAR FORMULARIO CON VALIDACIÓN
+    document.getElementById('formVenta').addEventListener('submit', async function (e) {
+        e.preventDefault();
+        console.log('📝 Enviando formulario...');
+
+        // Validación síncrona primero
+        if (!validarVentaBasica()) {
+            console.log('❌ Validación fallida');
+            return;
+        }
+
+        console.log('✅ Validación básica exitosa, verificando stock...');
+
+        // Luego validación asíncrona de stock EN TIEMPO REAL
+        const esStockValido = await validarStockVenta();
+        if (!esStockValido) {
+            console.log('❌ Validación de stock fallida');
+            return;
+        }
+
+        console.log('✅ Validación de stock exitosa, mostrando confirmación...');
+
+        // Mostrar modal de confirmación
+        mostrarModalConfirmacion();
     });
 
-    // Validar productos
-    const tarjetas = document.querySelectorAll(".product-card");
-    console.log(`📦 Productos en tarjetas: ${tarjetas.length}`);
-    
-    if (tarjetas.length === 0) {
-        mostrarAlerta('danger', '❌ Error!', 'Debe agregar al menos un producto a la venta.');
-        return false;
-    }
-    
-    // Validar que haya al menos un producto con cantidad > 0
-    let hayProductosValidos = false;
-    tarjetas.forEach((tarjeta, index) => {
-        const select = tarjeta.querySelector(".producto-select");
-        const cantidad = tarjeta.querySelector(".cantidad");
-        const precio = tarjeta.querySelector(".precio");
-        
-        const cantidadVal = parseFloat(cantidad.value) || 0;
-        const precioVal = parseFloat(precio.value) || 0;
-        
-        if (select.value && cantidadVal > 0 && precioVal > 0) {
-            hayProductosValidos = true;
-            select.classList.remove("is-invalid");
-            cantidad.classList.remove("is-invalid");
-            precio.classList.remove("is-invalid");
-            console.log(`✅ Producto ${index + 1}: válido`);
-        } else {
-            console.log(`❌ Producto ${index + 1}: inválido`, {
-                select: select.value,
-                cantidad: cantidadVal,
-                precio: precioVal
-            });
-            if (!select.value) select.classList.add("is-invalid");
-            if (cantidadVal <= 0) cantidad.classList.add("is-invalid");
-            if (precioVal <= 0) precio.classList.add("is-invalid");
+    async function validarStockVenta() {
+        const productosConProblemas = await verificarStockProductos();
+
+        if (productosConProblemas.length > 0) {
+            const productosError = productosConProblemas.map(p =>
+                `${p.descripcion} (Stock: ${p.stockActual}, Requerido: ${p.cantidadRequerida})`
+            ).join(', ');
+
+            mostrarAlerta('danger', '❌ Stock Insuficiente!',
+                `Los siguientes productos no tienen suficiente stock: ${productosError}`);
+            return false;
         }
-    });
-    
-    if (!hayProductosValidos) {
-        mostrarAlerta('danger', '❌ Error!', 'Debe agregar al menos un producto con cantidad y precio válidos.');
-        valido = false;
+
+        return true;
     }
-    
-    // Validación específica para crédito
-    const tipoVenta = document.getElementById('tipo_venta').value;
-    const idCliente = document.getElementById('id_cliente').value;
-    
-    if (tipoVenta === 'credito' && !idCliente) {
-        mostrarAlerta('warning', '⚠️ Cliente requerido', 'Para ventas a crédito debe seleccionar un cliente');
-        document.getElementById('id_cliente').classList.add('is-invalid');
-        valido = false;
-    }
-    
-    if (!valido) {
-        const primerError = document.querySelector(".is-invalid");
-        if (primerError) {
-            primerError.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+    function procesarVenta() {
+        const formData = new FormData();
+
+        // Agregar campos EXACTAMENTE como los espera el backend
+        formData.append('id_cliente', document.getElementById('id_cliente').value);
+        formData.append('tipo_venta', document.getElementById('tipo_venta').value);
+        formData.append('observacion', document.getElementById('observacion').value);
+
+        // Agregar fecha de vencimiento si es crédito
+        if (document.getElementById('tipo_venta').value === 'credito') {
+            const fechaVencimiento = document.getElementById('fecha_vencimiento').value;
+            if (fechaVencimiento) {
+                formData.append('fecha_vencimiento', fechaVencimiento);
+            }
         }
-    } else {
-        console.log('✅ Validación exitosa');
-    }
-    
-    return valido;
-}
 
-// ENVIAR FORMULARIO CON VALIDACIÓN
-document.getElementById('formVenta').addEventListener('submit', async function(e) {
-    e.preventDefault();
-    console.log('📝 Enviando formulario...');
-    
-    // Validación síncrona primero
-    if (!validarVentaBasica()) {
-        console.log('❌ Validación fallida');
-        return;
-    }
+        // Campos de productos - CORREGIR los nombres exactos que espera el backend
+        const productoElements = document.querySelectorAll('.product-card');
+        let productosValidos = 0;
 
-    console.log('✅ Validación básica exitosa, verificando stock...');
-    
-    // Luego validación asíncrona de stock EN TIEMPO REAL
-    const esStockValido = await validarStockVenta();
-    if (!esStockValido) {
-        console.log('❌ Validación de stock fallida');
-        return;
-    }
+        productoElements.forEach((item) => {
+            const select = item.querySelector('.producto-select');
+            const cantidad = item.querySelector('.cantidad');
+            const precio = item.querySelector('.precio');
 
-    console.log('✅ Validación de stock exitosa, mostrando confirmación...');
-    
-    // Mostrar modal de confirmación
-    mostrarModalConfirmacion();
-});
+            if (select.value && cantidad.value && precio.value && parseFloat(cantidad.value) > 0) {
+                formData.append('producto_id[]', select.value);
+                formData.append('cantidad[]', parseFloat(cantidad.value).toFixed(2));
+                formData.append('precio[]', parseFloat(precio.value).toFixed(2));
 
-async function validarStockVenta() {
-    const productosConProblemas = await verificarStockProductos();
-    
-    if (productosConProblemas.length > 0) {
-        const productosError = productosConProblemas.map(p => 
-            `${p.descripcion} (Stock: ${p.stockActual}, Requerido: ${p.cantidadRequerida})`
-        ).join(', ');
-        
-        mostrarAlerta('danger', '❌ Stock Insuficiente!', 
-            `Los siguientes productos no tienen suficiente stock: ${productosError}`);
-        return false;
-    }
-    
-    return true;
-}
+                productosValidos++;
 
-function procesarVenta() {
-    const formData = new FormData();
+                console.log(`Producto ${productosValidos}: ID=${select.value}, Cantidad=${cantidad.value}, Precio=${precio.value}`);
+            }
+        });
 
-    // Agregar campos EXACTAMENTE como los espera el backend
-    formData.append('id_cliente', document.getElementById('id_cliente').value);
-    formData.append('tipo_venta', document.getElementById('tipo_venta').value);
-    formData.append('observacion', document.getElementById('observacion').value);
-    
-    // Agregar fecha de vencimiento si es crédito
-    if (document.getElementById('tipo_venta').value === 'credito') {
-        const fechaVencimiento = document.getElementById('fecha_vencimiento').value;
-        if (fechaVencimiento) {
-            formData.append('fecha_vencimiento', fechaVencimiento);
+        // Validaciones críticas
+        if (productosValidos === 0) {
+            mostrarAlerta('danger', '❌ Error!', 'Debe agregar al menos un producto válido');
+            return;
         }
-    }
-    
-    // Campos de productos - CORREGIR los nombres exactos que espera el backend
-    const productoElements = document.querySelectorAll('.product-card');
-    let productosValidos = 0;
-    
-    productoElements.forEach((item) => {
-        const select = item.querySelector('.producto-select');
-        const cantidad = item.querySelector('.cantidad');
-        const precio = item.querySelector('.precio');
-        
-        if (select.value && cantidad.value && precio.value && parseFloat(cantidad.value) > 0) {
-            formData.append('producto_id[]', select.value);
-            formData.append('cantidad[]', parseFloat(cantidad.value).toFixed(2));
-            formData.append('precio[]', parseFloat(precio.value).toFixed(2));
-            
-            productosValidos++;
-            
-            console.log(`Producto ${productosValidos}: ID=${select.value}, Cantidad=${cantidad.value}, Precio=${precio.value}`);
+
+        const tipoVenta = document.getElementById('tipo_venta').value;
+        const idCliente = document.getElementById('id_cliente').value;
+
+        if (tipoVenta === 'credito' && !idCliente) {
+            mostrarAlerta('danger', '❌ Error!', 'Para ventas a crédito debe seleccionar un cliente');
+            document.getElementById('id_cliente').focus();
+            return;
         }
-    });
 
-    // Validaciones críticas
-    if (productosValidos === 0) {
-        mostrarAlerta('danger', '❌ Error!', 'Debe agregar al menos un producto válido');
-        return;
-    }
+        // Mostrar loading
+        const submitBtn = document.querySelector('#formVenta button[type="submit"]');
+        const originalText = submitBtn.innerHTML;
+        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> Procesando...';
+        submitBtn.disabled = true;
 
-    const tipoVenta = document.getElementById('tipo_venta').value;
-    const idCliente = document.getElementById('id_cliente').value;
-    
-    if (tipoVenta === 'credito' && !idCliente) {
-        mostrarAlerta('danger', '❌ Error!', 'Para ventas a crédito debe seleccionar un cliente');
-        document.getElementById('id_cliente').focus();
-        return;
-    }
+        console.log('📨 Enviando datos de venta al servidor...');
 
-    // Mostrar loading
-    const submitBtn = document.querySelector('#formVenta button[type="submit"]');
-    const originalText = submitBtn.innerHTML;
-    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> Procesando...';
-    submitBtn.disabled = true;
+        // Enviar datos al endpoint CORRECTO
+        fetch("{{ url_for('admin_crear_venta') }}", {
+            method: 'POST',
+            body: formData
+        })
+            .then(response => {
+                console.log('📨 Response status:', response.status);
 
-    console.log('📨 Enviando datos de venta al servidor...');
-
-    // Enviar datos al endpoint CORRECTO
-    fetch("{{ url_for('admin_crear_venta') }}", {
-        method: 'POST',
-        body: formData
-    })
-    .then(response => {
-        console.log('📨 Response status:', response.status);
-        
-        if (!response.ok) {
-            throw new Error(`Error HTTP: ${response.status}`);
-        }
-        
-        return response.json();
-    })
-    .then(resultado => {
-        console.log('📊 Resultado del servidor:', resultado);
-        
-        if (resultado.success) {
-            // Mostrar mensaje de éxito
-            mostrarAlerta('success', '✅ Venta Exitosa!', `La venta #${resultado.venta_id || 'N/A'} ha sido registrada correctamente.`);
-            
-            // Limpiar formulario
-            document.getElementById('formVenta').reset();
-            document.getElementById('productos-container').innerHTML = '';
-            document.getElementById('fecha_vencimiento_group').style.display = 'none';
-            document.getElementById('fecha_vencimiento').value = '';
-            
-            // Agregar una nueva fila de producto
-            agregarProducto();
-            
-            // Actualizar totales
-            actualizarTotales();
-            
-            // Redirigir o recargar después de 2 segundos
-            setTimeout(() => {
-                if (resultado.redirect_url) {
-                    window.location.href = resultado.redirect_url;
-                } else {
-                    location.reload();
+                if (!response.ok) {
+                    throw new Error(`Error HTTP: ${response.status}`);
                 }
-            }, 2000);
-            
-        } else {
-            throw new Error(resultado.error || 'Error desconocido del servidor');
-        }
-    })
-    .catch(error => {
-        console.error('❌ Error completo:', error);
-        mostrarAlerta('danger', '❌ Error!', error.message || 'Error al procesar la venta');
-    })
-    .finally(() => {
-        submitBtn.innerHTML = originalText;
-        submitBtn.disabled = false;
-    });
-}
+
+                return response.json();
+            })
+            .then(resultado => {
+                console.log('📊 Resultado del servidor:', resultado);
+
+                if (resultado.success) {
+                    // Mostrar mensaje de éxito
+                    mostrarAlerta('success', '✅ Venta Exitosa!', `La venta #${resultado.venta_id || 'N/A'} ha sido registrada correctamente.`);
+
+                    // Limpiar formulario
+                    document.getElementById('formVenta').reset();
+                    document.getElementById('productos-container').innerHTML = '';
+                    document.getElementById('fecha_vencimiento_group').style.display = 'none';
+                    document.getElementById('fecha_vencimiento').value = '';
+
+                    // Agregar una nueva fila de producto
+                    agregarProducto();
+
+                    // Actualizar totales
+                    actualizarTotales();
+
+                    // Redirigir o recargar después de 2 segundos
+                    setTimeout(() => {
+                        if (resultado.redirect_url) {
+                            window.location.href = resultado.redirect_url;
+                        } else {
+                            location.reload();
+                        }
+                    }, 2000);
+
+                } else {
+                    throw new Error(resultado.error || 'Error desconocido del servidor');
+                }
+            })
+            .catch(error => {
+                console.error('❌ Error completo:', error);
+                mostrarAlerta('danger', '❌ Error!', error.message || 'Error al procesar la venta');
+            })
+            .finally(() => {
+                submitBtn.innerHTML = originalText;
+                submitBtn.disabled = false;
+            });
+    }
 </script>
 {% endblock %}
