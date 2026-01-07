@@ -5298,10 +5298,16 @@ def admin_crear_venta():
                 print(f"🧾 Factura creada: #{id_factura}")
                 
                 total_venta = 0
+                total_cajillas_huevos = 0  # Contador de cajillas de huevos
+                
+                # CONSTANTES
+                ID_SEPARADOR = 11          # ID_Producto del separador
+                ID_CATEGORIA_HUEVOS = 1    # ID_Categoria para Huevos (AJUSTA ESTE NÚMERO)
+                ID_BODEGA_EMPAQUE = 1      # Bodega de donde se descuentan
                 
                 # 2. Procesar productos y crear detalles de facturación
                 for i in range(len(productos_ids)):
-                    id_producto = productos_ids[i]
+                    id_producto = int(productos_ids[i])
                     cantidad = float(cantidades[i]) if cantidades[i] else 0
                     precio = float(precios[i]) if precios[i] else 0
                     
@@ -5311,14 +5317,23 @@ def admin_crear_venta():
                     total_linea = cantidad * precio
                     total_venta += total_linea
                     
-                    # Obtener datos del producto para validación
-                    cursor.execute("SELECT COD_Producto, Descripcion FROM productos WHERE ID_Producto = %s", (id_producto,))
+                    # Obtener datos del producto INCLUYENDO LA CATEGORÍA
+                    cursor.execute("""
+                        SELECT p.ID_Producto, p.COD_Producto, p.Descripcion, p.ID_Categoria,
+                               c.Descripcion as Nombre_Categoria
+                        FROM productos p
+                        LEFT JOIN categorias_producto c ON p.ID_Categoria = c.ID_Categoria
+                        WHERE p.ID_Producto = %s
+                    """, (id_producto,))
+                    
                     producto_data = cursor.fetchone()
                     
                     if not producto_data:
                         raise Exception(f"Producto con ID {id_producto} no encontrado")
                     
-                    # Verificar stock disponible en la BODEGA PRINCIPAL
+                    print(f"  Producto: {producto_data['Descripcion']} (Categoría: {producto_data['Nombre_Categoria']})")
+                    
+                    # Verificar stock disponible
                     cursor.execute("""
                         SELECT COALESCE(Existencias, 0) as Stock 
                         FROM inventario_bodega 
@@ -5339,18 +5354,94 @@ def admin_crear_venta():
                         VALUES (%s, %s, %s, %s, %s)
                     """, (id_factura, id_producto, cantidad, precio, total_linea))
                     
-                    # Actualizar inventario en la BODEGA PRINCIPAL
+                    # Actualizar inventario del producto
                     cursor.execute("""
                         UPDATE inventario_bodega 
                         SET Existencias = Existencias - %s
                         WHERE ID_Bodega = %s AND ID_Producto = %s
                     """, (cantidad, id_bodega_principal, id_producto))
                     
-                    print(f" Producto {id_producto}: {cantidad} x C${precio} = C${total_linea}")
+                    print(f"  {cantidad} x C${precio} = C${total_linea}")
+                    
+                    # ✅ DETECTAR SI ES PRODUCTO DE HUEVOS POR CATEGORÍA
+                    if producto_data['ID_Categoria'] == ID_CATEGORIA_HUEVOS:
+                        total_cajillas_huevos += cantidad
+                        print(f"  🥚 ¡Producto de huevos! Total cajillas: {total_cajillas_huevos}")
                 
-                print(f"Total venta: C${total_venta:,.2f}")
+                print(f"📊 RESUMEN:")
+                print(f"  Total venta: C${total_venta:,.2f}")
+                print(f"  Total cajillas de huevos: {total_cajillas_huevos}")
                 
-                # 3. Registrar movimiento de inventario (VENTA)
+                # 3. CALCULAR SEPARADORES NECESARIOS CON LA NUEVA LÓGICA
+                separadores_totales = 0
+                if total_cajillas_huevos > 0:
+                    # FÓRMULA: cajillas + (cajillas // 10) para las bases extra
+                    # Pero para múltiplos exactos de 10, necesitamos cajillas + (cajillas // 10)
+                    
+                    separadores_entre_cajillas = total_cajillas_huevos  # 1 por cajilla
+                    separadores_base_extra = total_cajillas_huevos // 10  # 1 base por cada 10 cajillas
+                    
+                    separadores_totales = separadores_entre_cajillas + separadores_base_extra
+                    
+                    print(f"🔢 CÁLCULO DE SEPARADORES:")
+                    print(f"  Cajillas: {total_cajillas_huevos}")
+                    print(f"  Separadores entre cajillas: {separadores_entre_cajillas}")
+                    print(f"  Separadores base extra: {separadores_base_extra}")
+                    print(f"  TOTAL separadores necesarios: {separadores_totales}")
+                    
+                    # Ejemplos para verificación:
+                    if total_cajillas_huevos == 10:
+                        print(f"  ✅ Verificación: 10 cajillas = 10 + 1 = 11 separadores ✓")
+                    elif total_cajillas_huevos == 20:
+                        print(f"  ✅ Verificación: 20 cajillas = 20 + 2 = 22 separadores ✓")
+                    elif total_cajillas_huevos == 50:
+                        print(f"  ✅ Verificación: 50 cajillas = 50 + 5 = 55 separadores ✓")
+                    elif total_cajillas_huevos == 80:
+                        print(f"  ✅ Verificación: 80 cajillas = 80 + 8 = 88 separadores ✓")
+                
+                # 4. DESCONTAR SEPARADORES SI HAY PRODUCTOS DE HUEVOS
+                if separadores_totales > 0:
+                    print(f"🔧 Descontando {separadores_totales} separadores...")
+                    
+                    # Verificar stock de separadores
+                    cursor.execute("""
+                        SELECT COALESCE(Existencias, 0) as Stock 
+                        FROM inventario_bodega 
+                        WHERE ID_Bodega = %s AND ID_Producto = %s
+                    """, (ID_BODEGA_EMPAQUE, ID_SEPARADOR))
+                    
+                    stock_separadores = cursor.fetchone()
+                    stock_actual_separadores = stock_separadores['Stock'] if stock_separadores else 0
+                    
+                    print(f"  Stock actual separadores: {stock_actual_separadores}")
+                    
+                    if stock_actual_separadores >= separadores_totales:
+                        # Restar separadores del inventario
+                        cursor.execute("""
+                            UPDATE inventario_bodega 
+                            SET Existencias = Existencias - %s
+                            WHERE ID_Bodega = %s AND ID_Producto = %s
+                        """, (separadores_totales, ID_BODEGA_EMPAQUE, ID_SEPARADOR))
+                        
+                        # Registrar separador en detalle de factura (costo 0)
+                        cursor.execute("""
+                            INSERT INTO Detalle_Facturacion (
+                                ID_Factura, ID_Producto, Cantidad, Costo, Total
+                            )
+                            VALUES (%s, %s, %s, 0, 0)
+                        """, (id_factura, ID_SEPARADOR, separadores_totales))
+                        
+                        print(f"  ✅ {separadores_totales} separadores descontados")
+                    else:
+                        warning_msg = f'Stock insuficiente de separadores. Necesarios: {separadores_totales}, Disponibles: {stock_actual_separadores}'
+                        print(f"  ⚠️ {warning_msg}")
+                        cursor.execute("""
+                            UPDATE Facturacion 
+                            SET Observacion = CONCAT(COALESCE(Observacion, ''), ' | [ADVERTENCIA: ', %s, ']')
+                            WHERE ID_Factura = %s
+                        """, (warning_msg, id_factura))
+                
+                # 5. Registrar movimiento de inventario (VENTA)
                 cursor.execute("""
                     INSERT INTO Movimientos_Inventario (
                         ID_TipoMovimiento, ID_Bodega, Fecha, Tipo_Compra,
@@ -5373,26 +5464,17 @@ def admin_crear_venta():
                 id_movimiento = cursor.fetchone()['id_movimiento']
                 print(f"📋 Movimiento de inventario creado: #{id_movimiento}")
                 
-                # 4. Insertar detalles del movimiento de inventario (CORREGIDA)
+                # 6. Insertar detalles del movimiento de inventario
                 for i in range(len(productos_ids)):
-                    id_producto = productos_ids[i]
+                    id_producto = int(productos_ids[i])
                     cantidad = float(cantidades[i]) if cantidades[i] else 0
                     precio = float(precios[i]) if precios[i] else 0
                     
                     if cantidad <= 0 or precio <= 0:
                         continue
                     
-                    # Obtener información adicional del producto
-                    cursor.execute("""
-                        SELECT COD_Producto, Descripcion 
-                        FROM productos 
-                        WHERE ID_Producto = %s
-                    """, (id_producto,))
-                    producto_info = cursor.fetchone()
-                    
                     subtotal = cantidad * precio
                     
-                    # CORRECCIÓN: Insertar detalle del movimiento de inventario con la nueva estructura
                     cursor.execute("""
                         INSERT INTO detalle_movimientos_inventario (
                             ID_Movimiento, ID_Producto, Cantidad, 
@@ -5404,14 +5486,30 @@ def admin_crear_venta():
                         id_movimiento,
                         id_producto,
                         cantidad,
-                        precio,  # Costo_Unitario
-                        precio,  # Precio_Unitario
+                        precio,
+                        precio,
                         subtotal,
                         id_usuario
                     ))
-                    print(f"  Detalle movimiento creado para producto: {producto_info['COD_Producto']}")
                 
-                # 5. Si es crédito, crear cuenta por cobrar
+                # 7. Insertar detalle del movimiento para el separador
+                if separadores_totales > 0:
+                    cursor.execute("""
+                        INSERT INTO detalle_movimientos_inventario (
+                            ID_Movimiento, ID_Producto, Cantidad, 
+                            Costo_Unitario, Precio_Unitario, Subtotal,
+                            ID_Usuario_Creacion
+                        )
+                        VALUES (%s, %s, %s, 0, 0, 0, %s)
+                    """, (
+                        id_movimiento,
+                        ID_SEPARADOR,
+                        separadores_totales,
+                        id_usuario
+                    ))
+                    print(f"  📝 Separador registrado en movimiento de inventario")
+                
+                # 8. Si es crédito, crear cuenta por cobrar
                 if tipo_venta == 'credito':
                     cursor.execute("""
                         INSERT INTO Cuentas_Por_Cobrar (
@@ -5433,9 +5531,8 @@ def admin_crear_venta():
                     ))
                     print(f"💳 Cuenta por cobrar creada para factura #{id_factura}")
                 
-                # 6. Si es CONTADO, registrar entrada en caja
+                # 9. Si es CONTADO, registrar entrada en caja
                 if tipo_venta == 'contado':
-                    # Obtener datos del cliente para la descripción
                     cursor.execute("SELECT Nombre FROM clientes WHERE ID_Cliente = %s", (id_cliente,))
                     cliente_data = cursor.fetchone()
                     nombre_cliente = cliente_data['Nombre'] if cliente_data else f'Cliente ID: {id_cliente}'
@@ -5453,18 +5550,20 @@ def admin_crear_venta():
                         id_usuario,
                         f'FAC-{id_factura:05d}'
                     ))
-                    print(f"💰 Entrada en caja registrada: C${total_venta:,.2f} por venta al contado")
+                    print(f"💰 Entrada en caja registrada: C${total_venta:,.2f}")
                 
                 success_msg = f'✅ Venta creada exitosamente! Factura # {id_factura} - Total: C${total_venta:,.2f}'
+                
                 print(f"🎯 {success_msg}")
                 flash(success_msg, 'success')
                 
-                # Retornar JSON en lugar de redirección para manejar mejor el frontend
                 return jsonify({
                     'success': True,
                     'message': success_msg,
                     'id_factura': id_factura,
                     'total_venta': total_venta,
+                    'cajillas_huevos': total_cajillas_huevos,
+                    'separadores': separadores_totales,
                     'redirect_url': url_for('admin_generar_ticket', id_factura=id_factura)
                 })
         
@@ -5483,14 +5582,12 @@ def admin_crear_venta():
         import traceback
         print(f"Traceback: {traceback.format_exc()}")
         
-        # Si es POST, retornar error en JSON
         if request.method == 'POST':
             return jsonify({
                 'success': False,
                 'error': error_msg
             }), 500
         
-        # Si es GET, mostrar error normal
         flash(error_msg, 'error')
         return render_template('admin/ventas/crear_venta.html',
                             clientes=clientes if 'clientes' in locals() else [],
@@ -5499,6 +5596,7 @@ def admin_crear_venta():
                             categorias=categorias if 'categorias' in locals() else [],
                             empresa=empresa_data if 'empresa_data' in locals() else None,
                             id_tipo_movimiento=id_tipo_movimiento if 'id_tipo_movimiento' in locals() else None)
+
       
 # RUTAS AUXILIARES SIMPLIFICADAS - UNA SOLA BODEGA
 @app.route('/admin/ventas/productos-por-categoria/<int:id_categoria>')
