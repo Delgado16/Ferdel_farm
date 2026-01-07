@@ -839,15 +839,15 @@ def admin_caja_movimiento():
         tipo = request.form.get('tipo_movimiento')
         descripcion = request.form.get('descripcion', '').strip()
         monto = float(request.form.get('monto', 0))
-        referencia = request.form.get('referencia_documento', '').strip()  # <- CAPTURAR REFERENCIA
+        referencia = request.form.get('referencia_documento', '').strip()
         
         # Validaciones básicas
         if tipo not in ['ENTRADA', 'SALIDA']:
-            flash('❌ Tipo de movimiento inválido', 'error')
+            flash(' Tipo de movimiento inválido', 'error')
             return redirect(url_for('admin_caja'))
         
         if monto <= 0:
-            flash('❌ El monto debe ser mayor a 0', 'error')
+            flash(' El monto debe ser mayor a 0', 'error')
             return redirect(url_for('admin_caja'))
         
         if not descripcion:
@@ -871,16 +871,21 @@ def admin_caja_movimiento():
                     flash(' No hay caja aperturada para realizar salidas', 'error')
                     return redirect(url_for('admin_caja'))
             
-            # Registrar el movimiento (AHORA INCLUYENDO Referencia_Documento)
+            # IMPORTANTE: La consulta SQL debe tener 6 columnas especificadas
+            # y 6 parámetros en VALUES
             cursor.execute("""
                 INSERT INTO caja_movimientos 
                 (Fecha, Tipo_Movimiento, Descripcion, Monto, ID_Usuario, 
-                 Referencia_Documento, Estado)  <!-- Incluido aquí -->
-                VALUES (NOW(), %s, %s, %s, %s, %s, 'ACTIVO')  <!-- Añadido %s -->
-            """, (tipo, descripcion, monto, current_user.id, referencia))  <!-- Añadido referencia
+                 Referencia_Documento, Estado)
+                VALUES (NOW(), %s, %s, %s, %s, %s, 'ACTIVO')
+            """, (tipo, descripcion, monto, current_user.id, referencia))
+            
+            # Obtener el ID del movimiento recién insertado
+            cursor.execute("SELECT LAST_INSERT_ID()")
+            movimiento_id = cursor.fetchone()[0]
             
             tipo_texto = "Entrada" if tipo == 'ENTRADA' else "Salida"
-            flash(f'✅ {tipo_texto} de ${monto:.2f} registrada correctamente', 'success')
+            flash(f'✅ {tipo_texto} de ${monto:.2f} registrada correctamente (ID: {movimiento_id})', 'success')
             return redirect(url_for('admin_caja'))
             
     except ValueError:
@@ -2125,12 +2130,12 @@ def eliminar_unidad_medida(id):
     return redirect(url_for('admin_unidades_medidas'))
 
 # CATALOGO CATEGORIAS
-@app.route('/admin/catalog/categorias/categorias', methods=['GET'])
+@app.route('/admin/catalog/categorias', methods=['GET'])
 @admin_required
 @bitacora_decorator("CATEGORIAS")
 def admin_categorias():
     try:
-        with get_db_cursor(commit=True) as cursor:
+        with get_db_cursor() as cursor: 
             cursor.execute("""
                 SELECT ID_Categoria, Descripcion 
                 FROM categorias_producto 
@@ -2142,7 +2147,7 @@ def admin_categorias():
     except Exception as e:
         flash(f"Error al cargar categorías: {str(e)}", "danger")
         return redirect(url_for('admin_dashboard'))
-
+    
 @app.route('/admin/catalog/categorias/crear', methods=['POST'])
 @admin_required
 @bitacora_decorator("CATEGORIAS_CREAR")
@@ -2166,29 +2171,36 @@ def admin_categorias_crear():
     
     return redirect(url_for('admin_categorias'))
 
-@app.route('/admin/catalog/categorias/editar/<int:id>', methods=['POST'])
+@app.route('/admin/catalog/categorias/editar/<int:id>', methods=['GET', 'POST', 'PUT', 'DELETE'])
 @admin_required
-@bitacora_decorator("CATEGORIAS_EDITAR")
 def admin_categorias_editar(id):
-    try:
-        descripcion = request.form.get('descripcion')
-        
-        if not descripcion:
-            flash("La descripción es requerida", "danger")
-            return redirect(url_for('admin_categorias'))
-        
-        with get_db_cursor(commit=True) as cursor:
-            cursor.execute("""
-                UPDATE categorias_producto 
-                SET Descripcion = %s 
-                WHERE ID_Categoria = %s
-            """, (descripcion, id))
-            
-        flash("Categoría actualizada exitosamente", "success")
-    except Exception as e:
-        flash(f"Error al actualizar categoría: {str(e)}", "danger")
+    print(f"DEBUG - Método: {request.method}, ID: {id}")
     
-    return redirect(url_for('admin_categorias'))
+    if request.method == 'POST':
+        try:
+            descripcion = request.form.get('descripcion')
+            print(f"DEBUG - Descripción recibida: {descripcion}")
+            
+            if not descripcion:
+                flash("La descripción es requerida", "danger")
+                return redirect(url_for('admin_categorias'))
+            
+            with get_db_cursor(commit=True) as cursor:
+                cursor.execute("""
+                    UPDATE categorias_producto 
+                    SET Descripcion = %s 
+                    WHERE ID_Categoria = %s
+                """, (descripcion, id))
+                
+            flash("Categoría actualizada exitosamente", "success")
+        except Exception as e:
+            print(f"DEBUG - Error: {str(e)}")
+            flash(f"Error al actualizar categoría: {str(e)}", "danger")
+        
+        return redirect(url_for('admin_categorias'))
+    else:
+        # Para cualquier otro método (GET, etc.)
+        return redirect(url_for('admin_categorias'))
 
 @app.route('/admin/catalog/categorias/eliminar/<int:id>', methods=['POST'])
 @admin_required

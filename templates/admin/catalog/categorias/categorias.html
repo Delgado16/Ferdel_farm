@@ -61,8 +61,11 @@
                                     
                                     <form action="{{ url_for('admin_categorias_eliminar', id=categoria.ID_Categoria) }}" 
                                           method="POST" class="d-inline-block ms-1">
+                                        {% if csrf_token %}
+                                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                        {% endif %}
                                         <button type="submit" class="btn btn-outline-danger" 
-                                                onclick="return confirm('¿Estás seguro de eliminar esta categoría?')">
+                                                onclick="return confirm('¿Estás seguro de eliminar esta categoría? Esta acción no se puede deshacer.')">
                                             <i class="fas fa-trash"></i> Eliminar
                                         </button>
                                     </form>
@@ -93,6 +96,9 @@
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <form method="POST" action="{{ url_for('admin_categorias_crear') }}" id="crearCategoriaForm" novalidate>
+                {% if csrf_token %}
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                {% endif %}
                 <div class="modal-body">
                     <!-- Descripción -->
                     <div class="mb-3">
@@ -101,6 +107,9 @@
                                required minlength="2" maxlength="100"
                                placeholder="Ingrese la descripción de la categoría">
                         <div class="form-text">Mínimo 2 caracteres, máximo 100</div>
+                        <div class="invalid-feedback">
+                            Por favor ingrese una descripción válida (2-100 caracteres).
+                        </div>
                     </div>
                 </div>
                 <div class="modal-footer">
@@ -123,11 +132,22 @@
             <div class="modal-header">
                 <h5 class="modal-title" id="editarCategoriaModalLabel">
                     <i class="fas fa-edit"></i> Editar Categoría
+                    <span class="badge bg-secondary ms-2" id="categoriaIdBadge">ID: </span>
                 </h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <form id="formEditarCategoria" method="POST" novalidate>
+                {% if csrf_token %}
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                {% endif %}
+                <input type="hidden" id="categoriaId" name="categoria_id">
                 <div class="modal-body">
+                    <!-- ID (solo lectura) -->
+                    <div class="mb-3">
+                        <label class="form-label">ID de Categoría</label>
+                        <input type="text" class="form-control" id="idCategoriaDisplay" readonly>
+                    </div>
+                    
                     <!-- Descripción -->
                     <div class="mb-3">
                         <label for="descripcion_editar" class="form-label">Descripción <span class="text-danger">*</span></label>
@@ -135,6 +155,9 @@
                                required minlength="2" maxlength="100"
                                placeholder="Ingrese la descripción de la categoría">
                         <div class="form-text">Mínimo 2 caracteres, máximo 100</div>
+                        <div class="invalid-feedback">
+                            Por favor ingrese una descripción válida (2-100 caracteres).
+                        </div>
                     </div>
                 </div>
                 <div class="modal-footer">
@@ -162,11 +185,26 @@ document.addEventListener('DOMContentLoaded', function() {
             var id = button.getAttribute('data-id');
             var descripcion = button.getAttribute('data-descripcion');
             
+            // Actualizar los campos del formulario
             var descripcionInput = document.getElementById('descripcion_editar');
+            var idDisplay = document.getElementById('idCategoriaDisplay');
+            var idBadge = document.getElementById('categoriaIdBadge');
+            var categoriaIdHidden = document.getElementById('categoriaId');
+            
             if (descripcionInput) {
                 descripcionInput.value = descripcion;
             }
+            if (idDisplay) {
+                idDisplay.value = id;
+            }
+            if (idBadge) {
+                idBadge.textContent = 'ID: ' + id;
+            }
+            if (categoriaIdHidden) {
+                categoriaIdHidden.value = id;
+            }
             
+            // Actualizar la acción del formulario
             var form = document.getElementById('formEditarCategoria');
             if (form) {
                 form.action = '/admin/catalog/categorias/editar/' + id;
@@ -178,6 +216,14 @@ document.addEventListener('DOMContentLoaded', function() {
             var form = document.getElementById('formEditarCategoria');
             if (form) {
                 form.reset();
+                form.classList.remove('was-validated');
+                // Opcional: restablecer la acción
+                // form.action = '#';
+            }
+            // Limpiar el badge
+            var idBadge = document.getElementById('categoriaIdBadge');
+            if (idBadge) {
+                idBadge.textContent = 'ID: ';
             }
         });
     }
@@ -189,11 +235,12 @@ document.addEventListener('DOMContentLoaded', function() {
             var form = document.getElementById('crearCategoriaForm');
             if (form) {
                 form.reset();
+                form.classList.remove('was-validated');
             }
         });
     }
 
-    // Validación de formularios
+    // Validación de formularios con Bootstrap
     const forms = document.querySelectorAll('form[novalidate]');
     forms.forEach(form => {
         form.addEventListener('submit', function(event) {
@@ -218,6 +265,85 @@ document.addEventListener('DOMContentLoaded', function() {
             document.getElementById('descripcion_editar').focus();
         });
     }
+    
+    // Confirmación mejorada para eliminación
+    const deleteForms = document.querySelectorAll('form[action*="eliminar"]');
+    deleteForms.forEach(form => {
+        form.addEventListener('submit', function(event) {
+            if (!confirm('¿Estás seguro de eliminar esta categoría?\n\nEsta acción no se puede deshacer.')) {
+                event.preventDefault();
+            }
+        });
+    });
+    
+    // Cerrar automáticamente las alertas después de 5 segundos
+    setTimeout(function() {
+        var alerts = document.querySelectorAll('.alert:not(.alert-permanent)');
+        alerts.forEach(function(alert) {
+            var bsAlert = bootstrap.Alert.getOrCreateInstance(alert);
+            setTimeout(function() {
+                bsAlert.close();
+            }, 5000);
+        });
+    }, 3000);
+    
+    // Prevenir envío doble de formularios
+    forms.forEach(form => {
+        form.addEventListener('submit', function() {
+            const submitButton = this.querySelector('button[type="submit"]');
+            if (submitButton) {
+                submitButton.disabled = true;
+                submitButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Procesando...';
+                
+                // Rehabilitar después de 5 segundos por si hay error
+                setTimeout(() => {
+                    submitButton.disabled = false;
+                    if (form.id === 'crearCategoriaForm') {
+                        submitButton.innerHTML = '<i class="fas fa-check"></i> Guardar Categoría';
+                    } else if (form.id === 'formEditarCategoria') {
+                        submitButton.innerHTML = '<i class="fas fa-check"></i> Actualizar Categoría';
+                    }
+                }, 5000);
+            }
+        });
+    });
 });
 </script>
+
+<style>
+/* Estilos adicionales para mejor visualización */
+.modal-content {
+    border-radius: 10px;
+}
+
+.modal-header {
+    background-color: #f8f9fa;
+    border-bottom: 1px solid #dee2e6;
+}
+
+.btn-group {
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.table th {
+    background-color: #343a40;
+    color: white;
+}
+
+/* Estilo para el campo ID en modo lectura */
+input[readonly] {
+    background-color: #e9ecef;
+    cursor: not-allowed;
+}
+
+/* Animación para los modales */
+.modal.fade .modal-dialog {
+    transform: translate(0, -50px);
+    transition: transform 0.3s ease-out;
+}
+
+.modal.show .modal-dialog {
+    transform: translate(0, 0);
+}
+</style>
 {% endblock %}
