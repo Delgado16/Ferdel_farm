@@ -6184,6 +6184,7 @@ def admin_detalles_venta(id_factura):
         print(f"Error detallado: {traceback.format_exc()}")
         return redirect(url_for('admin_ventas_salidas'))
 
+
 @app.route('/admin/ventas/anular/<int:id_factura>', methods=['GET', 'POST'])
 @admin_required
 @bitacora_decorator("ANULAR_VENTA")
@@ -6276,11 +6277,15 @@ def admin_anular_venta(id_factura):
                         cm.Es_Ajuste,
                         cm.Movimiento_Origen,
                         cm.Comentario_Ajuste,
-                        DATE_FORMAT(cm.Fecha_Anulacion, '%d/%m/%Y %H:%i') as fecha_anulacion_caja
+                        DATE_FORMAT(cm.Fecha_Anulacion, '%d/%m/%Y %H:%i') as fecha_anulacion_caja,
+                        ua.NombreUsuario as usuario_anula
                     FROM caja_movimientos cm
+                    LEFT JOIN usuarios ua ON cm.ID_Usuario_Anula = ua.ID_Usuario
                     WHERE cm.ID_Factura = %s
-                    ORDER BY cm.Fecha DESC
-                    LIMIT 5
+                    ORDER BY 
+                        CASE WHEN cm.Estado = 'ACTIVO' THEN 0 ELSE 1 END,
+                        cm.Fecha DESC
+                    LIMIT 10
                 """, (id_factura,))
                 
                 movimientos_caja = cursor.fetchall()
@@ -6342,7 +6347,8 @@ def admin_anular_venta(id_factura):
                             'estado': m['estado_caja'],
                             'es_ajuste': bool(m['Es_Ajuste']),
                             'movimiento_origen': m['Movimiento_Origen'],
-                            'fecha_anulacion': m['fecha_anulacion_caja']
+                            'fecha_anulacion': m['fecha_anulacion_caja'],
+                            'usuario_anula': m['usuario_anula']
                         }
                         for m in movimientos_caja
                     ],
@@ -6427,7 +6433,7 @@ def admin_anular_venta(id_factura):
                         mi.ID_Movimiento as id_movimiento_original,
                         mi.ID_Bodega as id_bodega_original,
                         (SELECT SUM(Total) FROM detalle_facturacion WHERE ID_Factura = f.ID_Factura) as total_factura,
-                        (SELECT COUNT(*) FROM caja_movimientos WHERE ID_Factura = f.ID_Factura) as movimientos_caja,
+                        (SELECT COUNT(*) FROM caja_movimientos WHERE ID_Factura = f.ID_Factura AND Estado = 'ACTIVO') as movimientos_caja_activos,
                         DATEDIFF(CURDATE(), DATE(f.Fecha_Creacion)) as dias_pasados
                     FROM facturacion f
                     LEFT JOIN clientes c ON f.IDCliente = c.ID_Cliente
@@ -6447,18 +6453,16 @@ def admin_anular_venta(id_factura):
                     flash(f'Esta venta ya está {venta["Estado"].lower()}', 'warning')
                     return redirect(url_for('admin_ventas_salidas'))
                 
-                # Verificar si ya hay movimientos de caja para esta factura
-                if venta['movimientos_caja'] > 0:
-                    print(f"💰 Esta factura ya tiene {venta['movimientos_caja']} movimiento(s) en caja registrados")
-                    # Forzar la reversión si ya hay movimientos en caja
+                # Forzar reversión de efectivo si hay movimientos de caja activos
+                if venta['movimientos_caja_activos'] > 0:
+                    print(f"💰 Esta factura tiene {venta['movimientos_caja_activos']} movimiento(s) de caja ACTIVO(s)")
                     hay_que_revertir_efectivo = True
                 
                 # Validar cuenta por cobrar si es crédito
                 if venta['Credito_Contado'] == 1 and venta['id_cuenta_cobrar']:
                     if venta['estado_cuenta'] == 'Pagada':
-                        # Si la cuenta fue pagada, puede haber movimientos en caja
                         hay_que_revertir_efectivo = True
-                        print("⚠️  Cuenta por cobrar pagada - se revisará reversión de efectivo")
+                        print("⚠️  Cuenta por cobrar pagada - se requiere reversión de efectivo")
                     elif venta['estado_cuenta'] == 'Anulada':
                         flash('La cuenta por cobrar ya está anulada', 'warning')
                         return redirect(url_for('admin_ventas_salidas'))
@@ -6467,7 +6471,7 @@ def admin_anular_venta(id_factura):
                 print(f"💰 Total factura: C${float(venta['total_factura'] or 0):,.2f}")
                 print(f"📅 Días desde creación: {venta['dias_pasados']} días")
                 print(f"💳 Tipo: {'CRÉDITO' if venta['Credito_Contado'] == 1 else 'CONTADO'}")
-                print(f"🏦 Revertir efectivo: {'SÍ' if hay_que_revertir_efectivo else 'NO'}")
+                print(f"🏦 Cambiar estado de caja: {'SÍ' if hay_que_revertir_efectivo else 'NO'}")
                 
                 # 2. OBTENER LOS PRODUCTOS VENDIDOS
                 cursor.execute("""
@@ -6536,154 +6540,86 @@ def admin_anular_venta(id_factura):
                 
                 print(f"📊 Tipo de movimiento de anulación: {tipo_entrada['Descripcion']}")
                 
-                # ============ MANEJO DE REVERSIÓN EN CAJA ============
-                movimientos_caja_creados = 0
+                # ============ CAMBIAR ESTADO DE MOVIMIENTOS DE CAJA ============
+                movimientos_caja_anulados = 0
                 monto_total_revertido = 0
-                id_movimiento_caja = None
-                id_movimiento_caja_reversion = None
+                id_movimiento_caja_principal = None
                 
                 if hay_que_revertir_efectivo and total_venta > 0:
-                    print(f"💰 Procesando reversión en caja por C${total_venta:,.2f}")
+                    print(f"💰 Cambiando estado de movimientos de caja para factura #{id_factura}")
                     
                     # Para facturas muy antiguas (> 30 días), mostrar advertencia
                     if venta['dias_pasados'] > 30:
                         print(f"⚠️  ADVERTENCIA: Se está anulando una factura de hace {venta['dias_pasados']} días")
                     
-                    # VERIFICAR SI YA HAY MOVIMIENTOS DE CAJA ACTIVOS PARA ESTA FACTURA
+                    # 1. BUSCAR TODOS LOS MOVIMIENTOS DE CAJA ACTIVOS PARA ESTA FACTURA
                     cursor.execute("""
-                        SELECT ID_Movimiento, Monto, Tipo_Movimiento, Estado 
+                        SELECT ID_Movimiento, Monto, Tipo_Movimiento, Estado, Descripcion, Es_Ajuste
                         FROM caja_movimientos 
                         WHERE ID_Factura = %s 
-                        AND Tipo_Movimiento = 'ENTRADA'
-                        AND Estado = 'ACTIVO'
-                        ORDER BY Fecha DESC 
-                        LIMIT 1
+                        AND Estado = 'ACTIVO'  -- Solo cambiar los que están activos
+                        ORDER BY Fecha DESC
                     """, (id_factura,))
                     
-                    movimiento_entrada_original = cursor.fetchone()
+                    movimientos_existentes = cursor.fetchall()
                     
-                    if movimiento_entrada_original:
-                        print(f"📋 Movimiento de entrada original encontrado: #{movimiento_entrada_original['ID_Movimiento']}")
+                    if movimientos_existentes:
+                        print(f"📋 Se encontraron {len(movimientos_existentes)} movimiento(s) de caja ACTIVO(s)")
                         
-                        # Crear salida que cancela la entrada original
-                        descripcion_caja = f"REVERSIÓN VENTA #{id_factura} - Anulación - Cliente: {venta['cliente_nombre']} - Método original: {metodo_pago_original}"
-                        if comentario_reversion:
-                            descripcion_caja += f" - {comentario_reversion}"
+                        for movimiento in movimientos_existentes:
+                            print(f"  🔍 Movimiento #{movimiento['ID_Movimiento']}: {movimiento['Tipo_Movimiento']} - C${float(movimiento['Monto']):,.2f} - {movimiento['Descripcion'][:50]}...")
+                            
+                            # CAMBIAR EL ESTADO DEL MOVIMIENTO A ANULADO
+                            cursor.execute("""
+                                UPDATE caja_movimientos 
+                                SET Estado = 'ANULADO',
+                                    Fecha_Anulacion = NOW(),
+                                    ID_Usuario_Anula = %s,
+                                    Comentario_Ajuste = CASE 
+                                        WHEN Comentario_Ajuste IS NULL OR TRIM(Comentario_Ajuste) = ''
+                                        THEN CONCAT('ANULADO POR ANULACIÓN DE VENTA #%s: ', %s)
+                                        ELSE CONCAT(Comentario_Ajuste, ' | ANULADO POR ANULACIÓN DE VENTA #%s: ', %s)
+                                    END
+                                WHERE ID_Movimiento = %s
+                                AND Estado = 'ACTIVO'
+                            """, (
+                                id_usuario,
+                                id_factura,
+                                motivo_anulacion,
+                                id_factura,
+                                motivo_anulacion,
+                                movimiento['ID_Movimiento']
+                            ))
+                            
+                            if cursor.rowcount > 0:
+                                movimientos_caja_anulados += 1
+                                monto_total_revertido += float(movimiento['Monto'])
+                                print(f"  ✅ Movimiento #{movimiento['ID_Movimiento']} CAMBIADO a ANULADO")
+                                
+                                # Guardar el ID del movimiento principal (ENTRADA original)
+                                if movimiento['Tipo_Movimiento'] == 'ENTRADA' and not movimiento['Es_Ajuste']:
+                                    id_movimiento_caja_principal = movimiento['ID_Movimiento']
+                            else:
+                                print(f"  ⚠️  Movimiento #{movimiento['ID_Movimiento']} ya estaba anulado o no se pudo actualizar")
+                    
+                    # 2. SI NO HABÍA MOVIMIENTOS, PERO ES UNA VENTA CON MOVIMIENTOS DE CAJA ESPERADOS
+                    elif venta['movimientos_caja_activos'] > 0:
+                        print(f"⚠️  Se esperaban {venta['movimientos_caja_activos']} movimiento(s) de caja, pero no se encontraron ACTIVOS")
                         
+                        # Buscar movimientos ya anulados para verificar
                         cursor.execute("""
-                            INSERT INTO caja_movimientos (
-                                Fecha,
-                                Tipo_Movimiento,
-                                Descripcion,
-                                Monto,
-                                ID_Factura,
-                                ID_Usuario,
-                                Referencia_Documento,
-                                Movimiento_Origen,
-                                Es_Ajuste
-                            )
-                            VALUES (
-                                NOW(),
-                                'SALIDA',
-                                %s,
-                                %s,
-                                %s,
-                                %s,
-                                CONCAT('REV-', %s),
-                                %s,
-                                1
-                            )
-                        """, (
-                            descripcion_caja,
-                            movimiento_entrada_original['Monto'],
-                            id_factura,
-                            id_usuario,
-                            movimiento_entrada_original['ID_Movimiento'],
-                            movimiento_entrada_original['ID_Movimiento']
-                        ))
-                        
-                        id_movimiento_caja_reversion = cursor.lastrowid
-                        
-                        # Actualizar el movimiento original para marcarlo como anulado
-                        cursor.execute("""
-                            UPDATE caja_movimientos 
-                            SET Estado = 'ANULADO',
-                                Fecha_Anulacion = NOW(),
-                                ID_Usuario_Anula = %s,
-                                Comentario_Ajuste = %s
-                            WHERE ID_Movimiento = %s
-                            AND Estado = 'ACTIVO'
-                        """, (
-                            id_usuario,
-                            f"Anulado por reversión de venta #{id_factura}. {comentario_reversion or motivo_anulacion}",
-                            movimiento_entrada_original['ID_Movimiento']
-                        ))
-                        
-                        movimientos_caja_creados += 2  # Contamos ambos movimientos
-                        monto_total_revertido = float(movimiento_entrada_original['Monto'])
-                        id_movimiento_caja = movimiento_entrada_original['ID_Movimiento']
-                        
-                        print(f"🏧 Movimiento de reversión en caja creado: #{id_movimiento_caja_reversion}")
-                        print(f"✅ Movimiento original #{movimiento_entrada_original['ID_Movimiento']} marcado como ANULADO")
-                        
-                    else:
-                        # No hay movimiento original ACTIVO, verificar si hay movimientos ya anulados
-                        cursor.execute("""
-                            SELECT COUNT(*) as count 
+                            SELECT COUNT(*) as anulados 
                             FROM caja_movimientos 
                             WHERE ID_Factura = %s 
                             AND Estado = 'ANULADO'
                         """, (id_factura,))
                         
-                        movimientos_anulados = cursor.fetchone()['count']
-                        
-                        if movimientos_anulados > 0:
-                            print(f"ℹ️  Ya existen {movimientos_anulados} movimientos de caja anulados para esta factura")
-                        
-                        # Crear salida por el total de la venta como ajuste
-                        descripcion_caja = f"AJUSTE ANULACIÓN VENTA #{id_factura} - Cliente: {venta['cliente_nombre']} - Motivo: {motivo_anulacion} - Método original: {metodo_pago_original}"
-                        if comentario_reversion:
-                            descripcion_caja += f" - {comentario_reversion}"
-                        
-                        cursor.execute("""
-                            INSERT INTO caja_movimientos (
-                                Fecha,
-                                Tipo_Movimiento,
-                                Descripcion,
-                                Monto,
-                                ID_Factura,
-                                ID_Usuario,
-                                Referencia_Documento,
-                                Es_Ajuste,
-                                Comentario_Ajuste
-                            )
-                            VALUES (
-                                NOW(),
-                                'SALIDA',
-                                %s,
-                                %s,
-                                %s,
-                                %s,
-                                %s,
-                                1,
-                                %s
-                            )
-                        """, (
-                            descripcion_caja,
-                            total_venta,
-                            id_factura,
-                            id_usuario,
-                            f"AJUSTE-ANUL-{id_factura}",
-                            f"Ajuste por anulación de venta #{id_factura}. {comentario_reversion or motivo_anulacion}"
-                        ))
-                        
-                        id_movimiento_caja = cursor.lastrowid
-                        movimientos_caja_creados += 1
-                        monto_total_revertido = total_venta
-                        
-                        print(f"🏧 Movimiento de ajuste por anulación en caja creado: #{id_movimiento_caja}")
+                        movimientos_ya_anulados = cursor.fetchone()['anulados']
+                        if movimientos_ya_anulados > 0:
+                            print(f"ℹ️  Ya existen {movimientos_ya_anulados} movimiento(s) de caja ANULADO(s) para esta factura")
                     
-                    print(f"✅ Reversión en caja registrada: C${monto_total_revertido:,.2f}")
+                    print(f"✅ Movimientos de caja actualizados: {movimientos_caja_anulados} anulado(s)")
+                    print(f"💰 Monto total revertido: C${monto_total_revertido:,.2f}")
                 
                 # 5. CREAR MOVIMIENTO DE ANULACIÓN (ENTRADA DE INVENTARIO)
                 observacion_movimiento = f'Anulación venta #{id_factura} - Cliente: {venta["cliente_nombre"]} - Motivo: {motivo_anulacion}'
@@ -6870,17 +6806,31 @@ def admin_anular_venta(id_factura):
                     except Exception as e:
                         print(f"❌ Error al anular cuenta por cobrar #{venta['id_cuenta_cobrar']}: {e}")
                 
-                # 10. VERIFICAR QUE TODO SE HAYA REGISTRADO CORRECTAMENTE
+                # 10. VERIFICACIÓN FINAL DEL ESTADO DE CAJA_MOVIMIENTOS
                 cursor.execute("""
-                    SELECT COUNT(*) as count 
-                    FROM detalle_movimientos_inventario 
-                    WHERE ID_Movimiento = %s
-                """, (id_movimiento_nuevo,))
+                    SELECT 
+                        COUNT(*) as total_movimientos,
+                        SUM(CASE WHEN Estado = 'ACTIVO' THEN 1 ELSE 0 END) as activos,
+                        SUM(CASE WHEN Estado = 'ANULADO' THEN 1 ELSE 0 END) as anulados,
+                        SUM(CASE WHEN Tipo_Movimiento = 'ENTRADA' THEN Monto ELSE 0 END) as total_entradas,
+                        SUM(CASE WHEN Tipo_Movimiento = 'SALIDA' THEN Monto ELSE 0 END) as total_salidas
+                    FROM caja_movimientos 
+                    WHERE ID_Factura = %s
+                """, (id_factura,))
+
+                estado_caja = cursor.fetchone()
+                print(f"📊 Estado final de caja_movimientos para factura #{id_factura}:")
+                print(f"   Total movimientos: {estado_caja['total_movimientos']}")
+                print(f"   Activos: {estado_caja['activos']} (debe ser 0 después de la anulación)")
+                print(f"   Anulados: {estado_caja['anulados']}")
+                print(f"   Total entradas: C${float(estado_caja['total_entradas'] or 0):,.2f}")
+                print(f"   Total salidas: C${float(estado_caja['total_salidas'] or 0):,.2f}")
                 
-                detalle_count = cursor.fetchone()['count']
-                
-                if detalle_count != len(productos_vendidos):
-                    flash(f'⚠️  Advertencia: Se crearon {detalle_count} registros de detalle pero se esperaban {len(productos_vendidos)}', 'warning')
+                # Validación: Después de anular, NO debe haber movimientos ACTIVOS
+                if estado_caja['activos'] > 0:
+                    print(f"⚠️  ADVERTENCIA: Todavía hay {estado_caja['activos']} movimiento(s) ACTIVO(s). Deberían estar todos ANULADOS.")
+                else:
+                    print(f"✅ CORRECTO: Todos los movimientos de caja están ANULADOS")
                 
                 # 11. MENSAJE DE CONFIRMACIÓN
                 mensaje = f'VENTA ANULADA EXITOSAMENTE\n'
@@ -6890,12 +6840,12 @@ def admin_anular_venta(id_factura):
                 mensaje += f'Productos devueltos: {len(productos_devueltos)}\n'
                 mensaje += f'Movimiento de anulación: #{id_movimiento_nuevo}\n'
                 
-                if hay_que_revertir_efectivo and monto_total_revertido > 0:
-                    mensaje += f'Reversión en caja: C${monto_total_revertido:,.2f}\n'
-                    if id_movimiento_caja:
-                        mensaje += f'Movimiento caja: #{id_movimiento_caja}\n'
-                    if id_movimiento_caja_reversion:
-                        mensaje += f'Movimiento de reversión: #{id_movimiento_caja_reversion}\n'
+                if hay_que_revertir_efectivo:
+                    mensaje += f'Movimientos de caja anulados: {movimientos_caja_anulados}\n'
+                    if monto_total_revertido > 0:
+                        mensaje += f'Monto revertido en caja: C${monto_total_revertido:,.2f}\n'
+                    if id_movimiento_caja_principal:
+                        mensaje += f'Movimiento principal anulado: #{id_movimiento_caja_principal}\n'
                     if venta['dias_pasados'] > 0:
                         mensaje += f'Factura de hace {venta["dias_pasados"]} día(s)\n'
                 
@@ -6909,9 +6859,9 @@ def admin_anular_venta(id_factura):
                 print(f"🎯 Venta #{id_factura} anulada exitosamente")
                 print(f"📋 Movimiento de anulación: #{id_movimiento_nuevo}")
                 print(f"📦 Productos devueltos: {len(productos_devueltos)}")
-                print(f"💰 Total: C${total_devolucion:,.2f}")
-                if movimientos_caja_creados > 0:
-                    print(f"🏧 Movimientos en caja creados: {movimientos_caja_creados} (C${monto_total_revertido:,.2f})")
+                print(f"💰 Total devuelto: C${total_devolucion:,.2f}")
+                if movimientos_caja_anulados > 0:
+                    print(f"🏧 Movimientos de caja anulados: {movimientos_caja_anulados} (C${monto_total_revertido:,.2f})")
                 
                 return redirect(url_for('admin_ventas_salidas'))
                 
