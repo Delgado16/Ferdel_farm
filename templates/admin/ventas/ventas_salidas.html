@@ -75,7 +75,7 @@
                     <div class="d-flex justify-content-between align-items-center">
                         <div>
                             <h6 class="text-muted mb-1">Monto Total</h6>
-                            <h2 class="fw-bold text-dark mb-0">C${{ "{:,.2f}".format(monto_total) }}</h2>
+                            <h2 class="fw-bold text-dark mb-0">C$ {{ "{:,.2f}".format(monto_total) }}</h2>
                         </div>
                         <div class="text-info">
                             <i class="fas fa-chart-bar fa-2x"></i>
@@ -104,43 +104,31 @@
                         <input type="text" class="form-control border-0 bg-light" id="searchInput"
                             placeholder="Buscar...">
                     </div>
-                    <div class="dropdown">
-                        <button class="btn btn-outline-secondary btn-sm dropdown-toggle" type="button"
-                            data-bs-toggle="dropdown">
-                            <i class="fas fa-download"></i>
-                        </button>
-                        <ul class="dropdown-menu dropdown-menu-end">
-                            <li><a class="dropdown-item" href="#" id="exportExcel">
-                                    <i class="fas fa-file-excel text-success me-2"></i>Excel
-                                </a></li>
-                            <li><a class="dropdown-item" href="#" id="printTableBtn">
-                                    <i class="fas fa-print text-info me-2"></i>Imprimir
-                                </a></li>
-                        </ul>
-                    </div>
                 </div>
             </div>
 
             <!-- Filtros -->
             <div class="row g-2">
                 <div class="col-md-4">
-                    <select class="form-select form-select-sm" id="estadoFilter">
-                        <option value="">Todos los estados</option>
-                        <option value="ACTIVA">Activa</option>
-                        <option value="ANULADA">Anulada</option>
-                    </select>
+                    <form id="filtrosForm" method="GET" class="d-flex gap-2">
+                        <select class="form-select form-select-sm" id="estadoFilter" name="estado" onchange="this.form.submit()">
+                            <option value="">Todos los estados</option>
+                            <option value="ACTIVAS" {% if estado_filtro == 'ACTIVAS' %}selected{% endif %}>Activas</option>
+                            <option value="ANULADAS" {% if estado_filtro == 'ANULADAS' %}selected{% endif %}>Anuladas</option>
+                        </select>
+                    </form>
                 </div>
                 <div class="col-md-4">
-                    <select class="form-select form-select-sm" id="tipoVentaFilter">
+                    <select class="form-select form-select-sm" id="tipoVentaFilter" name="tipo" onchange="aplicarFiltroTipo(this.value)">
                         <option value="">Todos los tipos</option>
-                        <option value="CONTADO">Contado</option>
-                        <option value="CRÉDITO">Crédito</option>
+                        <option value="CONTADO" {% if tipo_filtro == 'CONTADO' %}selected{% endif %}>Contado</option>
+                        <option value="CREDITO" {% if tipo_filtro == 'CREDITO' %}selected{% endif %}>Crédito</option>
                     </select>
                 </div>
                 <div class="col-md-4">
-                    <button class="btn btn-outline-secondary btn-sm w-100" id="clearFiltersBtn">
-                        <i class="fas fa-filter-circle-xmark me-1"></i> Limpiar
-                    </button>
+                    <a href="{{ url_for('admin_ventas_salidas') }}" class="btn btn-outline-secondary btn-sm w-100" id="clearFiltersBtn">
+                        <i class="fas fa-filter-circle-xmark me-1"></i> Limpiar Filtros
+                    </a>
                 </div>
             </div>
         </div>
@@ -195,7 +183,7 @@
                                 </span>
                             </td>
                             <td class="text-end fw-bold text-success">
-                                C${{ "{:,.2f}".format(venta.Total_Venta or 0) }}
+                                C$ {{ "{:,.2f}".format(venta.Total_Venta or 0) }}
                             </td>
                             <td>
                                 {{ venta.Usuario_Creacion or 'Sistema' }}
@@ -342,7 +330,7 @@
                                         </div>
                                         <div class="col-md-6">
                                             <small class="text-white d-block">Saldo Pendiente:</small>
-                                            <span id="saldoPendiente" class="fw-bold text-white">C$0.00</span>
+                                            <span id="saldoPendiente" class="fw-bold text-white">C$ 0.00</span>
                                         </div>
                                     </div>
                                     <div class="mt-2">
@@ -384,7 +372,7 @@
                                                     <td></td>
                                                     <td></td>
                                                     <td class="text-end fw-bold text-success" id="totalVentaModal">
-                                                        C$0.00</td>
+                                                        C$ 0.00</td>
                                                 </tr>
                                             </tfoot>
                                         </table>
@@ -435,6 +423,61 @@
         let currentVentaId = null;
         let ventaData = null;
 
+        // ==================== FUNCIONES DE FILTRADO ====================
+
+        function aplicarFiltroTipo(tipo) {
+            // Obtener parámetros actuales de la URL
+            const urlParams = new URLSearchParams(window.location.search);
+            
+            // Actualizar o eliminar el parámetro de tipo
+            if (tipo) {
+                urlParams.set('tipo', tipo);
+            } else {
+                urlParams.delete('tipo');
+            }
+            
+            // Mantener el filtro de estado si existe
+            const estadoFilter = document.getElementById('estadoFilter');
+            if (estadoFilter && estadoFilter.value) {
+                urlParams.set('estado', estadoFilter.value);
+            }
+            
+            // Redirigir con los nuevos parámetros
+            window.location.href = `${window.location.pathname}?${urlParams.toString()}`;
+        }
+
+        function aplicarBusquedaLocal() {
+            const search = document.getElementById('searchInput').value.toLowerCase();
+            
+            let visibleCount = 0;
+
+            document.querySelectorAll('#dataTable tbody tr').forEach(row => {
+                const text = row.textContent.toLowerCase();
+                const mostrar = !search || text.includes(search);
+                
+                row.style.display = mostrar ? '' : 'none';
+                if (mostrar) visibleCount++;
+            });
+            
+            // Mostrar mensaje si no hay resultados
+            const noResultsRow = document.querySelector('#dataTable tbody tr[data-empty="true"]');
+            if (visibleCount === 0 && !noResultsRow) {
+                const tbody = document.querySelector('#dataTable tbody');
+                const noResults = document.createElement('tr');
+                noResults.setAttribute('data-empty', 'true');
+                noResults.innerHTML = `
+                    <td colspan="10" class="text-center py-5">
+                        <i class="fas fa-search fa-3x text-muted mb-3"></i>
+                        <h5 class="text-muted mb-2">No se encontraron resultados</h5>
+                        <p class="text-muted small">Intente con otros términos de búsqueda</p>
+                    </td>
+                `;
+                tbody.appendChild(noResults);
+            } else if (noResultsRow && visibleCount > 0) {
+                noResultsRow.remove();
+            }
+        }
+
         // ==================== FUNCIONES AUXILIARES ====================
 
         function safeSetText(elementId, text) {
@@ -459,7 +502,7 @@
         }
 
         function formatCurrency(amount) {
-            return `C$${formatNumber(amount)}`;
+            return `C$ ${formatNumber(amount)}`;
         }
 
         function getBadgeClassForEstado(estado) {
@@ -644,7 +687,7 @@
                     <label class="form-label small text-muted">Total Venta</label>
                     <div class="form-control-plaintext fw-bold text-success">
                         <i class="fas fa-dollar-sign me-2"></i>
-                        ${venta.total_venta_formateado || 'C$0.00'}
+                        ${venta.total_venta_formateado || 'C$ 0.00'}
                     </div>
                 </div>
             `;
@@ -840,98 +883,10 @@
             });
         }
 
-        // ==================== FILTROS DE TABLA ====================
+        // ==================== EVENTOS DE FILTROS ====================
 
-        function aplicarFiltros() {
-            const search = document.getElementById('searchInput').value.toLowerCase();
-            const estado = document.getElementById('estadoFilter').value;
-            const tipo = document.getElementById('tipoVentaFilter').value;
-
-            let visibleCount = 0;
-
-            document.querySelectorAll('#dataTable tbody tr').forEach(row => {
-                const text = row.textContent.toLowerCase();
-                const estadoCell = row.querySelector('[data-label="Estado"] .badge');
-                const tipoCell = row.querySelector('[data-label="Tipo"] .badge');
-
-                const estadoText = estadoCell?.textContent || '';
-                const tipoText = tipoCell?.textContent || '';
-
-                const mostrar =
-                    (!search || text.includes(search)) &&
-                    (!estado || estadoText.includes(estado.toUpperCase()) || estadoText.includes(estado.toLowerCase())) &&
-                    (!tipo || tipoText.includes(tipo.toUpperCase()) || tipoText.includes(tipo.toLowerCase()));
-
-                row.style.display = mostrar ? '' : 'none';
-                if (mostrar) visibleCount++;
-            });
-        }
-
-        ['searchInput', 'estadoFilter', 'tipoVentaFilter'].forEach(id => {
-            document.getElementById(id)?.addEventListener('input', aplicarFiltros);
-            document.getElementById(id)?.addEventListener('change', aplicarFiltros);
-        });
-
-        document.getElementById('clearFiltersBtn')?.addEventListener('click', () => {
-            document.getElementById('searchInput').value = '';
-            document.getElementById('estadoFilter').value = '';
-            document.getElementById('tipoVentaFilter').value = '';
-            aplicarFiltros();
-        });
-
-        // ==================== EXPORTACIÓN ====================
-
-        document.getElementById('exportExcel')?.addEventListener('click', function (e) {
-            e.preventDefault();
-
-            const table = document.getElementById('dataTable');
-            const html = table.outerHTML;
-            const blob = new Blob([`<html><head><meta charset="UTF-8"></head><body>${html}</body></html>`], {
-                type: 'application/vnd.ms-excel'
-            });
-
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `ventas_${new Date().toISOString().slice(0, 10)}.xls`;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
-        });
-
-        document.getElementById('printTableBtn')?.addEventListener('click', function (e) {
-            e.preventDefault();
-
-            const originalContents = document.body.innerHTML;
-            const printContents = document.getElementById('dataTable').outerHTML;
-
-            document.body.innerHTML = `
-            <html>
-                <head>
-                    <title>Reporte de Ventas</title>
-                    <style>
-                        body { font-family: Arial, sans-serif; margin: 20px; }
-                        table { width: 100%; border-collapse: collapse; margin: 20px 0; }
-                        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-                        th { background-color: #f2f2f2; font-weight: bold; }
-                        .text-end { text-align: right; }
-                        .text-center { text-align: center; }
-                        .badge { padding: 2px 6px; border-radius: 3px; font-size: 12px; }
-                    </style>
-                </head>
-                <body>
-                    <h2>Reporte de Ventas</h2>
-                    <p>Generado: ${new Date().toLocaleString()}</p>
-                    ${printContents}
-                </body>
-            </html>
-        `;
-
-            window.print();
-            document.body.innerHTML = originalContents;
-            window.location.reload();
-        });
+        // Búsqueda local
+        document.getElementById('searchInput')?.addEventListener('input', aplicarBusquedaLocal);
 
         // Auto-ocultar mensajes flash después de 5 segundos
         setTimeout(() => {

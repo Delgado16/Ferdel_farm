@@ -11,7 +11,7 @@ from markupsafe import Markup
 import mysql.connector
 import functools
 from functools import wraps
-from datetime import datetime, time
+from datetime import datetime, time, date
 import time
 import threading
 import traceback
@@ -5025,23 +5025,38 @@ def admin_gastos_operativos():
         app.logger.error(f"Error en gastos operativos: {str(e)}")
         flash(f'Error al cargar los gastos operativos: {str(e)}', 'error')
         return redirect(url_for('admin_dashboard'))
-        
+
 #MODULO VENTAS
 @app.route('/admin/ventas/ventas-salidas', methods=['GET'])
 @admin_required
 @bitacora_decorator("VENTAS-SALIDAS")
 def admin_ventas_salidas():
+    fecha_str = request.args.get('fecha')
+    estado_filtro = request.args.get('estado', 'todas').upper()
+    tipo_filtro = request.args.get('tipo', '').upper()  # Nuevo filtro para tipo de venta
+    
     try:
-        # Obtener parámetro de filtro si existe
-        estado_filtro = request.args.get('estado', 'todas').upper()
-        
+        fecha = datetime.strptime(fecha_str, '%Y-%m-%d').date() if fecha_str else datetime.now().date()
+
         with get_db_cursor(True) as cursor:
-            # Construir la condición WHERE según el filtro
-            where_condition = ""
+            # Construir condiciones WHERE dinámicamente
+            where_conditions = []
+            params = []
+            
             if estado_filtro == 'ACTIVAS':
-                where_condition = "WHERE f.Estado = 'Activa'"
+                where_conditions.append("f.Estado = 'Activa'")
             elif estado_filtro == 'ANULADAS':
-                where_condition = "WHERE f.Estado = 'Anulada'"
+                where_conditions.append("f.Estado = 'Anulada'")
+            
+            # Agregar filtro por tipo de venta (Contado/Crédito)
+            if tipo_filtro == 'CONTADO':
+                where_conditions.append("f.Credito_Contado = 0")
+            elif tipo_filtro == 'CREDITO':
+                where_conditions.append("f.Credito_Contado = 1")
+            
+            where_clause = ""
+            if where_conditions:
+                where_clause = "WHERE " + " AND ".join(where_conditions)
             
             # Usar subconsulta para obtener solo el movimiento más reciente de cada venta
             cursor.execute(f"""
@@ -5051,7 +5066,7 @@ def admin_ventas_salidas():
                     f.Observacion,
                     f.ID_Usuario_Creacion,
                     f.Credito_Contado,
-                    f.Estado as Estado_Factura,  -- ¡Importante: usar el estado de factura!
+                    f.Estado as Estado_Factura, 
                     c.ID_Cliente,
                     c.Nombre as Cliente,
                     c.RUC_CEDULA as RUC_Cliente,
@@ -5102,11 +5117,13 @@ def admin_ventas_salidas():
                 ) mi ON f.ID_Factura = mi.ID_Factura_Venta
                 LEFT JOIN bodegas b ON mi.ID_Bodega = b.ID_Bodega
                 LEFT JOIN catalogo_movimientos cm ON mi.ID_TipoMovimiento = cm.ID_TipoMovimiento
-                {where_condition}
+                {where_clause}
                 ORDER BY f.Fecha DESC, f.ID_Factura DESC
-            """)
+                LIMIT 100  -- Aumenté el límite para mostrar más resultados
+            """, tuple(params))
             ventas = cursor.fetchall()
             
+            # Resto del código se mantiene igual...
             # Obtener estadísticas por estado para mostrar en los filtros (usando factura)
             cursor.execute("""
                 SELECT 
@@ -5145,6 +5162,7 @@ def admin_ventas_salidas():
                                  ventas_anuladas=ventas_anuladas,
                                  monto_total=monto_total,
                                  estado_filtro=estado_filtro,
+                                 tipo_filtro=tipo_filtro, 
                                  estadisticas_estado=estadisticas_estado)
     except Exception as e:
         flash(f'Error al cargar ventas: {str(e)}', 'error')
@@ -5597,7 +5615,6 @@ def admin_crear_venta():
                             empresa=empresa_data if 'empresa_data' in locals() else None,
                             id_tipo_movimiento=id_tipo_movimiento if 'id_tipo_movimiento' in locals() else None)
 
-      
 # RUTAS AUXILIARES SIMPLIFICADAS - UNA SOLA BODEGA
 @app.route('/admin/ventas/productos-por-categoria/<int:id_categoria>')
 @admin_required
@@ -8160,9 +8177,14 @@ def admin_nueva_transferencia_form():
             """)
             bodegas = cursor.fetchall()
             
+            # Importar datetime y obtener fecha actual
+            from datetime import datetime
+            fecha_actual = datetime.now().strftime('%Y-%m-%d')
+            
             return render_template('admin/movimientos/nueva_transferencia.html',
                                  tipos_movimiento=tipos_movimiento,
-                                 bodegas=bodegas)
+                                 bodegas=bodegas,
+                                 fecha_actual=fecha_actual)
     except Exception as e:
         flash(f"Error al cargar formulario: {str(e)}", 'error')
         return redirect(url_for('admin_historial_movimientos'))

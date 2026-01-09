@@ -774,6 +774,22 @@
     let productosBase = [];
 
     // ============================================
+    // FUNCIONES DE UTILIDAD
+    // ============================================
+    
+    function formatearMoneda(valor) {
+        return `C$ ${parseFloat(valor || 0).toLocaleString('es-NI', {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2
+        })}`;
+    }
+
+    function extraerNumeroDeMoneda(textoMoneda) {
+        if (!textoMoneda) return 0;
+        return parseFloat(textoMoneda.toString().replace(/[^0-9.-]+/g, "")) || 0;
+    }
+
+    // ============================================
     // FUNCIONES DE INICIALIZACIÓN
     // ============================================
 
@@ -887,8 +903,8 @@
                 <div class="confirm-product-name">${productoNombre.split(' - ')[0]}</div>
                 <div class="confirm-product-details">
                     <span>${cantidad.value} und</span>
-                    <span>C$ ${precio.value}</span>
-                    <span class="fw-bold">C$ ${subtotal.value}</span>
+                    <span>${formatearMoneda(precio.value)}</span>
+                    <span class="fw-bold">${formatearMoneda(extraerNumeroDeMoneda(subtotal.value))}</span>
                 </div>
             `;
 
@@ -1044,6 +1060,7 @@
                             tarjeta.querySelector('.precio').value = '0';
                             tarjeta.querySelector('.cantidad').value = '1';
                             tarjeta.querySelector('.subtotal').value = '0.00';
+                            calcularSubtotal(parseInt(tarjeta.id.split('-')[2]));
                         }
 
                         selectsActualizados++;
@@ -1403,12 +1420,12 @@
 
         const subtotalInput = tarjeta.querySelector('.subtotal');
         if (subtotalInput) {
-            subtotalInput.value = subtotal.toFixed(2);
+            subtotalInput.value = formatearMoneda(subtotal);
         }
 
         actualizarTotales();
 
-        console.log(`🧮 Subtotal producto ${id}: ${cantidad} x ${precio} = ${subtotal.toFixed(2)}`);
+        console.log(`🧮 Subtotal producto ${id}: ${cantidad} x ${precio} = ${formatearMoneda(subtotal)}`);
     }
 
     function actualizarTotales() {
@@ -1418,7 +1435,7 @@
         document.querySelectorAll('.product-card').forEach(producto => {
             const subtotalInput = producto.querySelector('.subtotal');
             if (subtotalInput) {
-                const valor = parseFloat(subtotalInput.value) || 0;
+                const valor = extraerNumeroDeMoneda(subtotalInput.value);
                 if (valor > 0) {
                     totalVenta += valor;
                     totalProductos++;
@@ -1426,11 +1443,11 @@
             }
         });
 
-        document.getElementById('total-venta').textContent = `C$ ${totalVenta.toFixed(2)}`;
-        document.getElementById('subtotal').textContent = `C$ ${totalVenta.toFixed(2)}`;
+        document.getElementById('total-venta').textContent = formatearMoneda(totalVenta);
+        document.getElementById('subtotal').textContent = formatearMoneda(totalVenta);
         document.getElementById('total-productos').textContent = totalProductos;
 
-        console.log(`💰 Total venta: C$ ${totalVenta.toFixed(2)}, Productos: ${totalProductos}`);
+        console.log(`💰 Total venta: ${formatearMoneda(totalVenta)}, Productos: ${totalProductos}`);
     }
 
     function actualizarMensajeProductos() {

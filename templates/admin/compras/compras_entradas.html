@@ -45,10 +45,11 @@
         },
         {
         'title': 'Capital Invertido',
-        'value': "C${:,.2f}".format(capital_contado or 0),
+        'value': capital_contado or 0,
         'desc': 'Solo compras al contado',
         'icon': 'chart-line',
-        'color': 'primary'
+        'color': 'primary',
+        'is_money': true
         }
         ] %}
 
@@ -59,7 +60,15 @@
                     <div class="d-flex justify-content-between align-items-center">
                         <div>
                             <h6 class="text-muted mb-1">{{ stat.title }}</h6>
-                            <h2 class="fw-bold text-dark mb-0">{{ stat.value }}</h2>
+                            <h2 class="fw-bold text-dark mb-0">
+                                {% if stat.is_money %}
+                                <span class="money-value" data-value="{{ stat.value }}">
+                                    C$ {{ "{:,.2f}".format(stat.value) }}
+                                </span>
+                                {% else %}
+                                {{ stat.value }}
+                                {% endif %}
+                            </h2>
                             <p class="text-muted mb-0 small">{{ stat.desc }}</p>
                         </div>
                         <div class="text-{{ stat.color }}">
@@ -86,7 +95,11 @@
                 <div class="col-md-4">
                     <div class="border-start border-4 border-primary ps-3 py-2">
                         <small class="text-muted d-block">Valor Total del Inventario</small>
-                        <h4 class="fw-bold mb-0">C${{ "{:,.2f}".format(capital_total or 0) }}</h4>
+                        <h4 class="fw-bold mb-0">
+                            <span class="money-value" data-value="{{ capital_total or 0 }}">
+                                C$ {{ "{:,.2f}".format(capital_total or 0) }}
+                            </span>
+                        </h4>
                         <small class="text-muted">Contado + Crédito (todas las compras activas)</small>
                     </div>
                 </div>
@@ -95,7 +108,11 @@
                 <div class="col-md-4">
                     <div class="border-start border-4 border-success ps-3 py-2">
                         <small class="text-muted d-block">Capital Realmente Invertido</small>
-                        <h4 class="fw-bold mb-0 text-success">C${{ "{:,.2f}".format(capital_contado or 0) }}</h4>
+                        <h4 class="fw-bold mb-0 text-success">
+                            <span class="money-value" data-value="{{ capital_contado or 0 }}">
+                                C$ {{ "{:,.2f}".format(capital_contado or 0) }}
+                            </span>
+                        </h4>
                         <small class="text-muted">Dinero efectivo desembolsado</small>
                     </div>
                 </div>
@@ -104,7 +121,11 @@
                 <div class="col-md-4">
                     <div class="border-start border-4 border-warning ps-3 py-2">
                         <small class="text-muted d-block">Deudas Pendientes</small>
-                        <h4 class="fw-bold mb-0 text-warning">C${{ "{:,.2f}".format(capital_credito or 0) }}</h4>
+                        <h4 class="fw-bold mb-0 text-warning">
+                            <span class="money-value" data-value="{{ capital_credito or 0 }}">
+                                C$ {{ "{:,.2f}".format(capital_credito or 0) }}
+                            </span>
+                        </h4>
                         <small class="text-muted">Por pagar a proveedores</small>
                     </div>
                 </div>
@@ -133,29 +154,6 @@
             </div>
         </div>
     </div>
-
-    <!-- Mensajes Flash -->
-    {% with messages = get_flashed_messages(with_categories=true) %}
-    {% if messages %}
-    <div id="flash-messages-container">
-        {% for category, message in messages %}
-        <div class="alert alert-dismissible fade show alert-{{ 'danger' if category == 'error' else 'success' }} 
-                    shadow-sm border-0 mb-4 flash-message" 
-             role="alert"
-             data-category="{{ category }}"
-             data-message="{{ message }}">
-            <div class="d-flex align-items-center">
-                <div class="alert-icon me-3">
-                    <i class="fas fa-{{ 'exclamation-triangle' if category == 'error' else 'check-circle' }} fa-lg"></i>
-                </div>
-                <div class="flex-grow-1">{{ message }}</div>
-                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-            </div>
-        </div>
-        {% endfor %}
-    </div>
-    {% endif %}
-    {% endwith %}
 
     <!-- Card Principal -->
     <div class="card shadow-sm mb-4">
@@ -286,8 +284,8 @@
                                     {{ entrada.Total_Productos or 0 }}
                                 </span>
                             </td>
-                            <td class="text-end fw-bold text-success">
-                                C${{ "{:,.2f}".format(entrada.Total_Compra or 0) }}
+                            <td class="text-end fw-bold text-success money-value" data-value="{{ entrada.Total_Compra or 0 }}">
+                                C$ {{ "{:,.2f}".format(entrada.Total_Compra or 0) }}
                             </td>
                             <td>
                                 {{ entrada.Usuario_Creacion or 'Sistema' }}
@@ -352,8 +350,8 @@
                             <td class="text-center fw-bold text-primary">
                                 <small>{{ total_productos_activos or 0 }}</small>
                             </td>
-                            <td class="text-end fw-bold text-success">
-                                <small>C${{ "{:,.2f}".format(total_invertido or 0) }}</small>
+                            <td class="text-end fw-bold text-success money-value" data-value="{{ total_invertido or 0 }}">
+                                <small>C$ {{ "{:,.2f}".format(total_invertido or 0) }}</small>
                             </td>
                             <td colspan="3" class="text-end">
                                 <small class="text-muted">{{ contado_activas }} contado / {{ credito_activas }} crédito</small>
@@ -371,17 +369,17 @@
                         <small>
                             Mostrando {{ entradas|length }} compra(s) - 
                             {{ contado_activas + credito_activas }} activas - 
-                            Total valor: C${{ "{:,.2f}".format(total_invertido or 0) }}
+                            Total valor: <span class="money-value" data-value="{{ total_invertido or 0 }}">C$ {{ "{:,.2f}".format(total_invertido or 0) }}</span>
                         </small>
                     </div>
                     <div class="text-muted">
                         <small>
                             Sistema total: 
-                            <span class="fw-bold">C${{ "{:,.2f}".format(capital_total or 0) }}</span>
+                            <span class="fw-bold money-value" data-value="{{ capital_total or 0 }}">C$ {{ "{:,.2f}".format(capital_total or 0) }}</span>
                             | Contado: 
-                            <span class="fw-bold text-success">C${{ "{:,.2f}".format(capital_contado or 0) }}</span>
+                            <span class="fw-bold text-success money-value" data-value="{{ capital_contado or 0 }}">C$ {{ "{:,.2f}".format(capital_contado or 0) }}</span>
                             | Crédito: 
-                            <span class="fw-bold text-warning">C${{ "{:,.2f}".format(capital_credito or 0) }}</span>
+                            <span class="fw-bold text-warning money-value" data-value="{{ capital_credito or 0 }}">C$ {{ "{:,.2f}".format(capital_credito or 0) }}</span>
                         </small>
                     </div>
                 </div>
@@ -564,10 +562,74 @@
     .table-responsive {
         overflow-x: auto;
     }
+    
+    /* Clase para valores monetarios */
+    .money-value {
+        font-variant-numeric: tabular-nums;
+    }
 </style>
 
 <script>
+    // ============================================
+    // FUNCIONES DE UTILIDAD PARA FORMATEO DE MONEDA
+    // ============================================
+    
+    // Función para formatear números como moneda con formato C$ 2,000.00
+    function formatearMoneda(valor) {
+        // Aceptar números, strings o valores null/undefined
+        const num = parseFloat(valor) || 0;
+        return `C$ ${num.toLocaleString('es-NI', {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2
+        })}`;
+    }
+
+    // Función para extraer número de un texto formateado como moneda
+    function extraerNumeroDeMoneda(textoMoneda) {
+        if (!textoMoneda) return 0;
+        // Eliminar todo excepto números, punto decimal y signo negativo
+        const textoLimpio = textoMoneda.toString().replace(/[^\d.-]/g, '');
+        return parseFloat(textoLimpio) || 0;
+    }
+
+    // Función para formatear todos los valores monetarios en la página
+    function formatearTodosLosValoresMonetarios() {
+        // 1. Formatear elementos con clase .money-value que tengan data-value
+        document.querySelectorAll('.money-value[data-value]').forEach(element => {
+            const valor = element.getAttribute('data-value');
+            if (valor !== null) {
+                element.textContent = formatearMoneda(valor);
+            }
+        });
+        
+        // 2. Formatear cualquier elemento con clase .moneda (por si acaso)
+        document.querySelectorAll('.moneda').forEach(element => {
+            const textoOriginal = element.textContent.trim();
+            const numero = extraerNumeroDeMoneda(textoOriginal);
+            if (numero !== 0 || textoOriginal.includes('C$')) {
+                element.textContent = formatearMoneda(numero);
+            }
+        });
+        
+        // 3. Formatear elementos con atributo data-money
+        document.querySelectorAll('[data-money]').forEach(element => {
+            const valor = element.getAttribute('data-money');
+            if (valor !== null) {
+                element.textContent = formatearMoneda(valor);
+            }
+        });
+    }
+
+    // ============================================
+    // FUNCIONES PRINCIPALES
+    // ============================================
+
     document.addEventListener('DOMContentLoaded', function () {
+        // Aplicar formato de moneda inmediatamente al cargar la página
+        formatearTodosLosValoresMonetarios();
+        
+        console.log('✅ Formato de moneda aplicado: C$ 2,000.00');
+        
         // Variables globales
         let currentCompraId = null;
         let compraData = null;
@@ -717,6 +779,9 @@
             // 3. Actualizar detalles básicos
             const detailsContainer = document.getElementById('compraBasicDetails');
             if (detailsContainer) {
+                // Formatear el total de la compra
+                const totalFormateado = formatearMoneda(compra.total_compra || 0);
+                
                 const detailsHtml = `
                 <div class="col-md-6 mb-3">
                     <label class="form-label small text-muted">Proveedor</label>
@@ -759,7 +824,7 @@
                     <label class="form-label small text-muted">Total</label>
                     <div class="form-control-plaintext fw-bold text-success">
                         <i class="fas fa-dollar-sign me-2"></i>
-                        ${compra.total_formateado || 'C$0.00'}
+                        ${totalFormateado}
                     </div>
                 </div>
             `;
@@ -770,7 +835,10 @@
             const totalProductos = compra.total_productos || compra.productos.length || 0;
             safeSetText('totalProductos', `(${totalProductos} productos)`);
             safeSetText('totalCantidad', (compra.total_cantidad || 0).toFixed(2));
-            safeSetText('totalCompraModal', compra.total_formateado || 'C$0.00');
+            
+            // Formatear el total de la compra
+            const totalCompraFormateado = formatearMoneda(compra.total_compra || 0);
+            safeSetText('totalCompraModal', totalCompraFormateado);
 
             // 5. Llenar tabla de productos
             const productosTableBody = document.getElementById('productosTableBody');
@@ -800,8 +868,8 @@
                         ${unidad ? `<span class="text-muted small ms-1">${unidad}</span>` : ''}
                     </td>
                     <td class="text-center ${stockClass}">${stockActual.toFixed(2)}</td>
-                    <td class="text-end">C$${costoUnitario.toFixed(2)}</td>
-                    <td class="text-end fw-semibold">C$${subtotal.toFixed(2)}</td>
+                    <td class="text-end">${formatearMoneda(costoUnitario)}</td>
+                    <td class="text-end fw-semibold">${formatearMoneda(subtotal)}</td>
                     <td class="text-center ${stockClass}">${stockStatusText}</td>
                 `;
 
