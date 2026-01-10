@@ -819,7 +819,7 @@ def admin_caja_aperturar():
                 VALUES (NOW(), 'ENTRADA', %s, %s, %s, 'ACTIVO')
             """, (f"Apertura de caja", monto, current_user.id))
             
-            flash(f'✅ Caja aperturada con ${monto:.2f}', 'success')
+            flash(f'✅ Caja aperturada con C${monto:.2f}', 'success')
             return redirect(url_for('admin_caja'))
             
     except ValueError:
