@@ -1,0 +1,1158 @@
+<!-- templates/admin/inventario_dashboard.html -->
+{% extends "admin/base_admin.html" %}
+
+{% block title %}Dashboard de Inventario{% endblock %}
+
+{% block styles %}
+<style>
+/* Estilos personalizados para el dashboard */
+.progress {
+    height: 20px;
+    margin-bottom: 5px;
+}
+.progress-bar-striped {
+    background-image: linear-gradient(45deg, rgba(255,255,255,.15) 25%, transparent 25%, transparent 50%, rgba(255,255,255,.15) 50%, rgba(255,255,255,.15) 75%, transparent 75%, transparent);
+    background-size: 1rem 1rem;
+}
+.badge-estado {
+    font-size: 0.8em;
+    padding: 4px 8px;
+}
+.table-hover tbody tr:hover {
+    background-color: rgba(0,123,255,.1);
+}
+.card-header {
+    font-weight: 600;
+}
+.dataTables_wrapper {
+    padding: 0;
+}
+.dataTables_filter input {
+    border: 1px solid #dee2e6 !important;
+    border-radius: 4px !important;
+    padding: 6px 12px !important;
+}
+.select2-container--default .select2-selection--single {
+    border: 1px solid #dee2e6 !important;
+    border-radius: 4px !important;
+    height: 38px !important;
+}
+.stats-card {
+    transition: all 0.3s ease;
+}
+.stats-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 4px 15px rgba(0,0,0,.1);
+}
+.alert-stock {
+    border-left: 4px solid;
+}
+.bg-critical {
+    background-color: #dc3545;
+}
+.bg-warning-light {
+    background-color: #ffc107;
+}
+.bg-success-light {
+    background-color: #28a745;
+}
+.bg-info-light {
+    background-color: #17a2b8;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- HEADER CON BOTONES DE ACCIÓN -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="h3 mb-0 text-gray-800">
+            <i class="fas fa-boxes mr-2"></i>Dashboard de Inventario
+        </h1>
+        <div class="btn-group">
+            <button type="button" class="btn btn-primary btn-sm" data-toggle="modal" data-target="#exportModal">
+                <i class="fas fa-file-export mr-1"></i> Exportar
+            </button>
+            <button type="button" class="btn btn-info btn-sm" onclick="location.reload()">
+                <i class="fas fa-sync-alt mr-1"></i> Actualizar
+            </button>
+            <button type="button" class="btn btn-success btn-sm" onclick="window.print()">
+                <i class="fas fa-print mr-1"></i> Imprimir
+            </button>
+        </div>
+    </div>
+
+    <!-- ALERTAS CRÍTICAS -->
+    {% if estadisticas.Productos_Sin_Existencia > 0 or estadisticas.Productos_Bajos > 0 %}
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="alert alert-warning alert-dismissible fade show" role="alert">
+                <h5 class="alert-heading"><i class="fas fa-exclamation-triangle mr-2"></i>Alertas de Inventario</h5>
+                <hr>
+                <div class="row">
+                    {% if estadisticas.Productos_Sin_Existencia > 0 %}
+                    <div class="col-md-6">
+                        <div class="alert alert-danger alert-stock mb-2">
+                            <i class="fas fa-times-circle mr-2"></i>
+                            <strong>{{ estadisticas.Productos_Sin_Existencia }}</strong> productos sin existencia
+                        </div>
+                    </div>
+                    {% endif %}
+                    {% if estadisticas.Productos_Bajos > 0 %}
+                    <div class="col-md-6">
+                        <div class="alert alert-warning alert-stock mb-2">
+                            <i class="fas fa-exclamation-circle mr-2"></i>
+                            <strong>{{ estadisticas.Productos_Bajos }}</strong> productos bajo stock mínimo
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+                <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- ESTADÍSTICAS RÁPIDAS -->
+    <div class="row">
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card stats-card border-left-primary shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">
+                                Total Productos
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">
+                                {{ estadisticas.Total_Productos }}
+                            </div>
+                            <div class="mt-2 mb-0 text-muted text-xs">
+                                <span class="text-success mr-2">
+                                    <i class="fas fa-check-circle"></i> {{ estadisticas.Productos_Suficientes }} suficientes
+                                </span>
+                            </div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-box fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card stats-card border-left-warning shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">
+                                Productos Bajos
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">
+                                {{ estadisticas.Productos_Bajos }}
+                            </div>
+                            <div class="mt-2 mb-0 text-muted text-xs">
+                                <span class="text-danger mr-2">
+                                    <i class="fas fa-times-circle"></i> {{ estadisticas.Productos_Sin_Existencia }} sin stock
+                                </span>
+                            </div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-exclamation-triangle fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card stats-card border-left-info shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-info text-uppercase mb-1">
+                                Bodegas Activas
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">
+                                {{ estadisticas.Total_Bodegas }}
+                            </div>
+                            <div class="mt-2 mb-0 text-muted text-xs">
+                                <i class="fas fa-cubes mr-1"></i>
+                                {{ estadisticas.Total_Existencias_Global|round|int }} unidades
+                            </div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-warehouse fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card stats-card border-left-success shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-success text-uppercase mb-1">
+                                Valor Inventario
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">
+                                ${{ "{:,.2f}".format(valor_inventario.Valor_Venta_Total or 0) }}
+                            </div>
+                            <div class="mt-2 mb-0 text-muted text-xs">
+                                <i class="fas fa-dollar-sign mr-1"></i>
+                                Costo: ${{ "{:,.2f}".format(valor_inventario.Valor_Costo_Total or 0) }}
+                            </div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-dollar-sign fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- RESUMEN POR CATEGORÍAS Y UNIDADES -->
+    <div class="row">
+        <div class="col-lg-6 mb-4">
+            <div class="card shadow">
+                <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
+                    <h6 class="m-0 font-weight-bold text-primary">
+                        <i class="fas fa-tags mr-2"></i>Resumen por Categoría
+                    </h6>
+                    <div class="dropdown no-arrow">
+                        <a class="dropdown-toggle" href="#" role="button" id="dropdownMenuLink" 
+                           data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                            <i class="fas fa-ellipsis-v fa-sm fa-fw text-gray-400"></i>
+                        </a>
+                        <div class="dropdown-menu dropdown-menu-right shadow animated--fade-in" 
+                             aria-labelledby="dropdownMenuLink">
+                            <a class="dropdown-item" href="#" onclick="exportTableToCSV('#tablaCategorias', 'categorias.csv')">
+                                <i class="fas fa-file-csv mr-2"></i>Exportar CSV
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-sm table-hover" id="tablaCategorias">
+                            <thead class="thead-light">
+                                <tr>
+                                    <th>Categoría</th>
+                                    <th>Productos</th>
+                                    <th>Con Stock</th>
+                                    <th>Bajos</th>
+                                    <th>Sin Stock</th>
+                                    <th class="text-right">Valor Total</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for categoria in resumen_categorias %}
+                                <tr>
+                                    <td>
+                                        <strong>{{ categoria.Categoria }}</strong>
+                                    </td>
+                                    <td>{{ categoria.Total_Productos }}</td>
+                                    <td>
+                                        <span class="badge badge-pill badge-success">
+                                            {{ categoria.Productos_Con_Stock }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <span class="badge badge-pill badge-warning">
+                                            {{ categoria.Productos_Bajos }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <span class="badge badge-pill badge-danger">
+                                            {{ categoria.Productos_Sin_Stock }}
+                                        </span>
+                                    </td>
+                                    <td class="text-right font-weight-bold">
+                                        ${{ "{:,.2f}".format(categoria.Valor_Total or 0) }}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                            <tfoot class="thead-light">
+                                <tr>
+                                    <th>TOTAL</th>
+                                    <th>{{ estadisticas.Total_Productos }}</th>
+                                    <th>{{ estadisticas.Productos_Suficientes }}</th>
+                                    <th>{{ estadisticas.Productos_Bajos }}</th>
+                                    <th>{{ estadisticas.Productos_Sin_Existencia }}</th>
+                                    <th class="text-right">${{ "{:,.2f}".format(valor_inventario.Valor_Venta_Total or 0) }}</th>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-6 mb-4">
+            <div class="card shadow">
+                <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
+                    <h6 class="m-0 font-weight-bold text-info">
+                        <i class="fas fa-weight mr-2"></i>Distribución por Unidad de Medida
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-sm table-hover">
+                            <thead class="thead-light">
+                                <tr>
+                                    <th>Unidad</th>
+                                    <th>Descripción</th>
+                                    <th>Productos</th>
+                                    <th>Total Existencias</th>
+                                    <th class="text-right">Valor Total</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for unidad in distribucion_unidades %}
+                                <tr>
+                                    <td><strong class="text-info">{{ unidad.Abreviatura }}</strong></td>
+                                    <td>{{ unidad.Unidad_Medida }}</td>
+                                    <td>{{ unidad.Cantidad_Productos }}</td>
+                                    <td>{{ unidad.Total_Existencias|round(2) }}</td>
+                                    <td class="text-right font-weight-bold">
+                                        ${{ "{:,.2f}".format(unidad.Valor_Total or 0) }}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- PRODUCTOS BAJOS EN INVENTARIO -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card shadow">
+                <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
+                    <h6 class="m-0 font-weight-bold text-warning">
+                        <i class="fas fa-exclamation-triangle mr-2"></i>
+                        Productos Bajo Stock Mínimo ({{ productos_bajos|length }})
+                    </h6>
+                    <div class="dropdown no-arrow">
+                        <a class="dropdown-toggle" href="#" role="button" id="dropdownMenuLink2" 
+                           data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                            <i class="fas fa-ellipsis-v fa-sm fa-fw text-gray-400"></i>
+                        </a>
+                        <div class="dropdown-menu dropdown-menu-right shadow animated--fade-in" 
+                             aria-labelledby="dropdownMenuLink2">
+                            <a class="dropdown-item" href="#" onclick="exportTableToCSV('#tablaProductosBajos', 'productos_bajos.csv')">
+                                <i class="fas fa-file-csv mr-2"></i>Exportar CSV
+                            </a>
+                            <a class="dropdown-item" href="#" onclick="generarReporteBajos()">
+                                <i class="fas fa-file-pdf mr-2"></i>Generar Reporte PDF
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body">
+                    {% if productos_bajos %}
+                    <div class="table-responsive">
+                        <table class="table table-hover table-sm" id="tablaProductosBajos">
+                            <thead class="thead-light">
+                                <tr>
+                                    <th>Código</th>
+                                    <th>Descripción</th>
+                                    <th>Categoría</th>
+                                    <th>Stock Mínimo</th>
+                                    <th>Stock Actual</th>
+                                    <th>Diferencia</th>
+                                    <th>% Stock</th>
+                                    <th>Unidad</th>
+                                    <th class="text-right">Precio</th>
+                                    <th>Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for producto in productos_bajos %}
+                                <tr class="{% if producto.Porcentaje_Stock < 25 %}table-danger
+                                           {% elif producto.Porcentaje_Stock < 50 %}table-warning
+                                           {% else %}table-light{% endif %}">
+                                    <td>
+                                        <strong>{{ producto.COD_Producto }}</strong>
+                                    </td>
+                                    <td>{{ producto.Descripcion }}</td>
+                                    <td>
+                                        <span class="badge badge-secondary">
+                                            {{ producto.Categoria }}
+                                        </span>
+                                    </td>
+                                    <td class="font-weight-bold">{{ producto.Stock_Minimo }}</td>
+                                    <td class="font-weight-bold">{{ producto.Stock_Actual|round(2) }}</td>
+                                    <td>
+                                        <span class="badge {% if producto.Diferencia > 10 %}badge-danger
+                                                         {% elif producto.Diferencia > 5 %}badge-warning
+                                                         {% else %}badge-info{% endif %}">
+                                            {{ producto.Diferencia|round(2) }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <div class="progress" style="height: 20px;">
+                                            <div class="progress-bar {% if producto.Porcentaje_Stock < 25 %}bg-danger
+                                                                 {% elif producto.Porcentaje_Stock < 50 %}bg-warning
+                                                                 {% else %}bg-info{% endif %} 
+                                                                 progress-bar-striped" 
+                                                 style="width: {{ producto.Porcentaje_Stock }}%"
+                                                 role="progressbar" 
+                                                 aria-valuenow="{{ producto.Porcentaje_Stock }}" 
+                                                 aria-valuemin="0" 
+                                                 aria-valuemax="100">
+                                                <span class="font-weight-bold" style="font-size: 0.8rem;">
+                                                    {{ producto.Porcentaje_Stock|round(1) }}%
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td>{{ producto.Unidad_Medida }}</td>
+                                    <td class="text-right font-weight-bold">
+                                        ${{ "{:,.2f}".format(producto.Precio_Venta or 0) }}
+                                    </td>
+                                    <td>
+                                        <button class="btn btn-sm btn-outline-primary" 
+                                                title="Ver detalle"
+                                                onclick="verDetalleProducto({{ producto.ID_Producto }})">
+                                            <i class="fas fa-eye"></i>
+                                        </button>
+                                        <button class="btn btn-sm btn-outline-success" 
+                                                title="Generar orden de compra"
+                                                onclick="generarOrdenCompra({{ producto.ID_Producto }})">
+                                            <i class="fas fa-shopping-cart"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="alert alert-success text-center">
+                        <i class="fas fa-check-circle fa-2x mb-3"></i>
+                        <h5>¡Excelente! No hay productos bajo stock mínimo</h5>
+                        <p class="mb-0">Todos los productos tienen suficiente inventario.</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- RESÚMEN POR BODEGA -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card shadow">
+                <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
+                    <h6 class="m-0 font-weight-bold text-primary">
+                        <i class="fas fa-warehouse mr-2"></i>Resumen por Bodega
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-sm table-bordered table-hover" id="tablaBodegas">
+                            <thead class="thead-light">
+                                <tr>
+                                    <th>Bodega</th>
+                                    <th>Ubicación</th>
+                                    <th>Productos Diferentes</th>
+                                    <th>Con Existencia</th>
+                                    <th>% Disponibilidad</th>
+                                    <th>Total Unidades</th>
+                                    <th class="text-right">Valor Total</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for bodega in resumen_bodegas %}
+                                <tr>
+                                    <td>
+                                        <strong class="text-primary">{{ bodega.Bodega }}</strong>
+                                    </td>
+                                    <td>{{ bodega.Ubicacion or 'N/A' }}</td>
+                                    <td>{{ bodega.Productos_Diferentes }}</td>
+                                    <td>{{ bodega.Productos_Con_Existencia }}</td>
+                                    <td>
+                                        <div class="d-flex align-items-center">
+                                            <div class="progress flex-grow-1 mr-2" style="height: 15px;">
+                                                <div class="progress-bar {% if bodega.Porcentaje_Disponibilidad > 75 %}bg-success
+                                                                     {% elif bodega.Porcentaje_Disponibilidad > 50 %}bg-info
+                                                                     {% else %}bg-warning{% endif %}" 
+                                                     style="width: {{ bodega.Porcentaje_Disponibilidad or 0 }}%">
+                                                </div>
+                                            </div>
+                                            <span class="font-weight-bold">
+                                                {{ bodega.Porcentaje_Disponibilidad|default(0)|round(1) }}%
+                                            </span>
+                                        </div>
+                                    </td>
+                                    <td class="font-weight-bold">{{ bodega.Total_Existencias|round(2) }}</td>
+                                    <td class="text-right font-weight-bold">
+                                        ${{ "{:,.2f}".format(bodega.Valor_Total or 0) }}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- TOP 10 PRODUCTOS Y PRODUCTOS SIN EXISTENCIA -->
+    <div class="row mb-4">
+        <div class="col-lg-6 mb-4">
+            <div class="card shadow">
+                <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
+                    <h6 class="m-0 font-weight-bold text-success">
+                        <i class="fas fa-boxes mr-2"></i>Top 10 Productos con Más Existencias
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-sm table-hover">
+                            <thead class="thead-light">
+                                <tr>
+                                    <th>#</th>
+                                    <th>Código</th>
+                                    <th>Descripción</th>
+                                    <th>Existencias</th>
+                                    <th>Categoría</th>
+                                    <th class="text-right">Valor</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for producto in top_productos %}
+                                <tr>
+                                    <td class="text-center">
+                                        <span class="badge badge-primary">{{ loop.index }}</span>
+                                    </td>
+                                    <td>{{ producto.COD_Producto }}</td>
+                                    <td>{{ producto.Descripcion }}</td>
+                                    <td>
+                                        <span class="badge badge-success font-weight-bold">
+                                            {{ producto.Total_Existencias|round(2) }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <span class="badge badge-secondary">
+                                            {{ producto.Categoria }}
+                                        </span>
+                                    </td>
+                                    <td class="text-right font-weight-bold">
+                                        ${{ "{:,.2f}".format(producto.Valor_Total or 0) }}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-6 mb-4">
+            <div class="card shadow border-danger">
+                <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between bg-danger text-white">
+                    <h6 class="m-0 font-weight-bold">
+                        <i class="fas fa-times-circle mr-2"></i>
+                        Productos Sin Existencia ({{ productos_sin_existencia|length }})
+                    </h6>
+                </div>
+                <div class="card-body">
+                    {% if productos_sin_existencia %}
+                    <div class="table-responsive">
+                        <table class="table table-sm table-hover">
+                            <thead class="thead-light">
+                                <tr>
+                                    <th>Código</th>
+                                    <th>Descripción</th>
+                                    <th>Categoría</th>
+                                    <th>Stock Mínimo</th>
+                                    <th>Precio</th>
+                                    <th>Días sin Entrada</th>
+                                    <th>Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for producto in productos_sin_existencia %}
+                                <tr class="{% if producto.Dias_Sin_Entrada > 30 %}table-danger
+                                           {% elif producto.Dias_Sin_Entrada > 15 %}table-warning
+                                           {% else %}table-light{% endif %}">
+                                    <td>
+                                        <strong>{{ producto.COD_Producto }}</strong>
+                                    </td>
+                                    <td>{{ producto.Descripcion }}</td>
+                                    <td>
+                                        <span class="badge badge-secondary">
+                                            {{ producto.Categoria }}
+                                        </span>
+                                    </td>
+                                    <td class="font-weight-bold">{{ producto.Stock_Minimo }}</td>
+                                    <td class="font-weight-bold">
+                                        ${{ "{:,.2f}".format(producto.Precio_Venta or 0) }}
+                                    </td>
+                                    <td>
+                                        {% if producto.Dias_Sin_Entrada and producto.Dias_Sin_Entrada != 999 %}
+                                            <span class="badge {% if producto.Dias_Sin_Entrada > 30 %}badge-danger
+                                                              {% elif producto.Dias_Sin_Entrada > 15 %}badge-warning
+                                                              {% else %}badge-info{% endif %}">
+                                                {{ producto.Dias_Sin_Entrada }} días
+                                            </span>
+                                        {% else %}
+                                            <span class="badge badge-secondary">Sin movimientos</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <button class="btn btn-sm btn-outline-danger" 
+                                                title="Solicitar compra urgente"
+                                                onclick="solicitarCompraUrgente({{ producto.ID_Producto }})">
+                                            <i class="fas fa-exclamation"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="alert alert-success text-center">
+                        <i class="fas fa-check-circle fa-2x mb-3"></i>
+                        <h5>¡Excelente! No hay productos sin existencia</h5>
+                        <p class="mb-0">Todos los productos tienen inventario disponible.</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MOVIMIENTOS RECIENTES -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card shadow">
+                <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
+                    <h6 class="m-0 font-weight-bold text-info">
+                        <i class="fas fa-exchange-alt mr-2"></i>Movimientos Recientes (Últimos 30 días)
+                    </h6>
+                    <div class="dropdown no-arrow">
+                        <a class="dropdown-toggle" href="#" role="button" id="dropdownMenuLink3" 
+                           data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                            <i class="fas fa-ellipsis-v fa-sm fa-fw text-gray-400"></i>
+                        </a>
+                        <div class="dropdown-menu dropdown-menu-right shadow animated--fade-in" 
+                             aria-labelledby="dropdownMenuLink3">
+                            <a class="dropdown-item" href="{{ url_for('admin_movimientos_inventario') }}">
+                                <i class="fas fa-list mr-2"></i>Ver todos los movimientos
+                            </a>
+                            <a class="dropdown-item" href="#" onclick="exportTableToCSV('#tablaMovimientos', 'movimientos.csv')">
+                                <i class="fas fa-file-csv mr-2"></i>Exportar CSV
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-sm table-hover" id="tablaMovimientos">
+                            <thead class="thead-light">
+                                <tr>
+                                    <th>Fecha</th>
+                                    <th>Movimiento</th>
+                                    <th>Tipo</th>
+                                    <th>Documento</th>
+                                    <th>Bodega</th>
+                                    <th>Destino</th>
+                                    <th>Productos</th>
+                                    <th>Cantidad</th>
+                                    <th class="text-right">Valor</th>
+                                    <th>Usuario</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for movimiento in movimientos_recientes %}
+                                <tr>
+                                    <td>{{ movimiento.Fecha_Formateada }}</td>
+                                    <td>
+                                        <span class="badge {% if movimiento.Adicion == 'ENTRADA' %}badge-success
+                                                           {% elif movimiento.Adicion == 'SALIDA' %}badge-danger
+                                                           {% else %}badge-info{% endif %}">
+                                            {{ movimiento.Letra }}
+                                        </span>
+                                    </td>
+                                    <td>{{ movimiento.Tipo_Movimiento }}</td>
+                                    <td>
+                                        {% if movimiento.N_Factura_Externa %}
+                                            <span class="badge badge-light">
+                                                {{ movimiento.N_Factura_Externa }}
+                                            </span>
+                                        {% else %}
+                                            N/A
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ movimiento.Bodega }}</td>
+                                    <td>
+                                        {% if movimiento.Bodega_Destino %}
+                                            {{ movimiento.Bodega_Destino }}
+                                        {% else %}
+                                            N/A
+                                        {% endif %}
+                                    </td>
+                                    <td class="text-center">{{ movimiento.Cantidad_Productos }}</td>
+                                    <td class="font-weight-bold">{{ movimiento.Total_Cantidad|round(2) }}</td>
+                                    <td class="text-right font-weight-bold">
+                                        ${{ "{:,.2f}".format(movimiento.Valor_Total or 0) }}
+                                    </td>
+                                    <td>
+                                        <small>{{ movimiento.Usuario_Creacion }}</small>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- EXISTENCIAS DETALLADAS -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card shadow">
+                <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
+                    <h6 class="m-0 font-weight-bold text-dark">
+                        <i class="fas fa-list-alt mr-2"></i>Existencias Detalladas por Producto y Bodega
+                    </h6>
+                    <div class="form-inline">
+                        <input type="text" id="buscarExistencias" class="form-control form-control-sm mr-2" 
+                               placeholder="Buscar producto...">
+                        <select id="filtroCategoria" class="form-control form-control-sm mr-2">
+                            <option value="">Todas las categorías</option>
+                            {% for categoria in resumen_categorias %}
+                            <option value="{{ categoria.Categoria }}">{{ categoria.Categoria }}</option>
+                            {% endfor %}
+                        </select>
+                        <select id="filtroEstado" class="form-control form-control-sm">
+                            <option value="">Todos los estados</option>
+                            <option value="Suficiente">Suficiente</option>
+                            <option value="Bajo Stock">Bajo Stock</option>
+                            <option value="Sin Existencia">Sin Existencia</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-sm table-bordered table-hover" id="tablaExistencias">
+                            <thead class="thead-dark">
+                                <tr>
+                                    <th>Código</th>
+                                    <th>Descripción</th>
+                                    <th>Categoría</th>
+                                    <th>Unidad</th>
+                                    {% for bodega in resumen_bodegas %}
+                                    <th class="text-center" style="min-width: 100px;">{{ bodega.Bodega[:15] }}{% if bodega.Bodega|length > 15 %}...{% endif %}</th>
+                                    {% endfor %}
+                                    <th>Total</th>
+                                    <th>Stock Mínimo</th>
+                                    <th>Estado</th>
+                                    <th class="text-right">Valor Total</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% set productos_agrupados = {} %}
+                                {% for item in existencias_detalladas %}
+                                    {% if item.ID_Producto not in productos_agrupados %}
+                                        {% set _ = productos_agrupados.update({
+                                            item.ID_Producto: {
+                                                'info': item, 
+                                                'bodegas': {},
+                                                'total': 0,
+                                                'valor_total': 0
+                                            }
+                                        }) %}
+                                    {% endif %}
+                                    {% set _ = productos_agrupados[item.ID_Producto].bodegas.update({
+                                        item.ID_Bodega: {
+                                            'existencias': item.Existencias,
+                                            'valor': item.Valor_Bodega
+                                        }
+                                    }) %}
+                                    {% set _ = productos_agrupados[item.ID_Producto].update({
+                                        'total': productos_agrupados[item.ID_Producto].total + item.Existencias,
+                                        'valor_total': productos_agrupados[item.ID_Producto].valor_total + (item.Valor_Bodega or 0)
+                                    }) %}
+                                {% endfor %}
+                                
+                                {% for producto_id, data in productos_agrupados.items() %}
+                                {% set producto = data.info %}
+                                {% set total_existencias = data.total %}
+                                {% set valor_total_producto = data.valor_total %}
+                                {% set porcentaje_stock = (total_existencias / producto.Stock_Minimo * 100) if producto.Stock_Minimo > 0 else 100 %}
+                                {% set estado_stock = 'Sin Existencia' if total_existencias == 0 else ('Bajo Stock' if total_existencias < producto.Stock_Minimo else 'Suficiente') %}
+                                
+                                <tr class="fila-producto" 
+                                    data-categoria="{{ producto.Categoria }}"
+                                    data-estado="{{ estado_stock }}">
+                                    <td>
+                                        <strong>{{ producto.COD_Producto }}</strong>
+                                    </td>
+                                    <td>{{ producto.Descripcion }}</td>
+                                    <td>
+                                        <span class="badge badge-secondary">
+                                            {{ producto.Categoria }}
+                                        </span>
+                                    </td>
+                                    <td>{{ producto.Unidad_Medida }}</td>
+                                    
+                                    {% for bodega in resumen_bodegas %}
+                                        <td class="text-center">
+                                            {% set existencia_bodega = data.bodegas.get(bodega.ID_Bodega, {'existencias': 0}) %}
+                                            {% if existencia_bodega.existencias > 0 %}
+                                                <span class="badge badge-info">
+                                                    {{ existencia_bodega.existencias }}
+                                                </span>
+                                            {% else %}
+                                                <span class="text-muted">-</span>
+                                            {% endif %}
+                                        </td>
+                                    {% endfor %}
+                                    
+                                    <td class="font-weight-bold">{{ total_existencias|round(2) }}</td>
+                                    <td class="font-weight-bold">{{ producto.Stock_Minimo }}</td>
+                                    <td>
+                                        {% if estado_stock == 'Sin Existencia' %}
+                                            <span class="badge badge-danger">Sin Existencia</span>
+                                        {% elif estado_stock == 'Bajo Stock' %}
+                                            <span class="badge badge-warning">
+                                                Bajo Stock ({{ porcentaje_stock|round(1) }}%)
+                                            </span>
+                                        {% else %}
+                                            <span class="badge badge-success">Suficiente</span>
+                                        {% endif %}
+                                    </td>
+                                    <td class="text-right font-weight-bold">
+                                        ${{ "{:,.2f}".format(valor_total_producto or 0) }}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL DE EXPORTACIÓN -->
+<div class="modal fade" id="exportModal" tabindex="-1" role="dialog" aria-labelledby="exportModalLabel" aria-hidden="true">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="exportModalLabel">
+                    <i class="fas fa-file-export mr-2"></i>Exportar Reportes
+                </h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="list-group">
+                    <a href="#" class="list-group-item list-group-item-action" onclick="exportarReporte('productos_bajos')">
+                        <div class="d-flex w-100 justify-content-between">
+                            <h6 class="mb-1">Productos Bajo Stock</h6>
+                            <small class="text-muted">CSV</small>
+                        </div>
+                        <p class="mb-1">Exportar lista de productos bajo stock mínimo</p>
+                    </a>
+                    <a href="#" class="list-group-item list-group-item-action" onclick="exportarReporte('productos_sin_existencia')">
+                        <div class="d-flex w-100 justify-content-between">
+                            <h6 class="mb-1">Productos Sin Existencia</h6>
+                            <small class="text-muted">CSV</small>
+                        </div>
+                        <p class="mb-1">Exportar productos con existencia cero</p>
+                    </a>
+                    <a href="#" class="list-group-item list-group-item-action" onclick="exportarReporte('inventario_completo')">
+                        <div class="d-flex w-100 justify-content-between">
+                            <h6 class="mb-1">Inventario Completo</h6>
+                            <small class="text-muted">CSV</small>
+                        </div>
+                        <p class="mb-1">Exportar todo el inventario con existencias</p>
+                    </a>
+                    <a href="#" class="list-group-item list-group-item-action" onclick="exportarReporte('movimientos')">
+                        <div class="d-flex w-100 justify-content-between">
+                            <h6 class="mb-1">Movimientos Recientes</h6>
+                            <small class="text-muted">CSV</small>
+                        </div>
+                        <p class="mb-1">Exportar últimos movimientos de inventario</p>
+                    </a>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" onclick="exportarTodo()">Exportar Todo</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.datatables.net/1.10.25/js/jquery.dataTables.min.js"></script>
+<script src="https://cdn.datatables.net/1.10.25/js/dataTables.bootstrap4.min.js"></script>
+<script src="https://cdn.datatables.net/buttons/1.7.1/js/dataTables.buttons.min.js"></script>
+<script src="https://cdn.datatables.net/buttons/1.7.1/js/buttons.bootstrap4.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.1.3/jszip.min.js"></script>
+<script src="https://cdn.datatables.net/buttons/1.7.1/js/buttons.html5.min.js"></script>
+<script src="https://cdn.datatables.net/buttons/1.7.1/js/buttons.print.min.js"></script>
+
+<script>
+$(document).ready(function() {
+    // Inicializar DataTables con opciones
+    $('#tablaProductosBajos').DataTable({
+        "pageLength": 10,
+        "order": [[6, 'asc']],
+        "language": {
+            "url": "//cdn.datatables.net/plug-ins/1.10.25/i18n/Spanish.json"
+        },
+        "dom": '<"row"<"col-sm-12 col-md-6"l><"col-sm-12 col-md-6"f>>tip',
+        "buttons": [
+            {
+                extend: 'excel',
+                text: '<i class="fas fa-file-excel"></i> Excel',
+                className: 'btn btn-success btn-sm'
+            },
+            {
+                extend: 'pdf',
+                text: '<i class="fas fa-file-pdf"></i> PDF',
+                className: 'btn btn-danger btn-sm'
+            }
+        ]
+    });
+    
+    $('#tablaMovimientos').DataTable({
+        "pageLength": 10,
+        "order": [[0, 'desc']],
+        "language": {
+            "url": "//cdn.datatables.net/plug-ins/1.10.25/i18n/Spanish.json"
+        }
+    });
+    
+    $('#tablaExistencias').DataTable({
+        "pageLength": 25,
+        "scrollX": true,
+        "language": {
+            "url": "//cdn.datatables.net/plug-ins/1.10.25/i18n/Spanish.json"
+        }
+    });
+    
+    // Filtro de búsqueda rápida
+    $('#buscarExistencias').on('keyup', function() {
+        var value = $(this).val().toLowerCase();
+        $('#tablaExistencias tbody tr.fila-producto').filter(function() {
+            $(this).toggle($(this).text().toLowerCase().indexOf(value) > -1)
+        });
+    });
+    
+    // Filtro por categoría
+    $('#filtroCategoria').on('change', function() {
+        var categoria = $(this).val();
+        $('#tablaExistencias tbody tr.fila-producto').each(function() {
+            var cat = $(this).data('categoria');
+            if (!categoria || cat === categoria) {
+                $(this).show();
+            } else {
+                $(this).hide();
+            }
+        });
+    });
+    
+    // Filtro por estado
+    $('#filtroEstado').on('change', function() {
+        var estado = $(this).val();
+        $('#tablaExistencias tbody tr.fila-producto').each(function() {
+            var est = $(this).data('estado');
+            if (!estado || est === estado) {
+                $(this).show();
+            } else {
+                $(this).hide();
+            }
+        });
+    });
+    
+    // Tooltips
+    $('[title]').tooltip();
+    
+    // Actualizar cada 5 minutos
+    setInterval(function() {
+        var now = new Date();
+        console.log('Dashboard actualizado a las ' + now.toLocaleTimeString());
+    }, 300000); // 5 minutos
+});
+
+// Funciones de exportación
+function exportTableToCSV(tableId, filename) {
+    var table = document.querySelector(tableId);
+    var rows = table.querySelectorAll('tr');
+    var csv = [];
+    
+    for (var i = 0; i < rows.length; i++) {
+        var row = [], cols = rows[i].querySelectorAll('td, th');
+        
+        for (var j = 0; j < cols.length; j++) {
+            // Eliminar contenido de badges y progres bars
+            var text = cols[j].innerText.replace(/\n/g, ' ').trim();
+            row.push('"' + text + '"');
+        }
+        
+        csv.push(row.join(','));
+    }
+    
+    // Descargar archivo
+    var csvContent = csv.join('\n');
+    var blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    var link = document.createElement("a");
+    
+    if (navigator.msSaveBlob) { // IE 10+
+        navigator.msSaveBlob(blob, filename);
+    } else {
+        link = document.createElement("a");
+        if (link.download !== undefined) {
+            var url = URL.createObjectURL(blob);
+            link.setAttribute("href", url);
+            link.setAttribute("download", filename);
+            link.style.visibility = 'hidden';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+    }
+}
+
+function exportarReporte(tipo) {
+    var filename = '';
+    var tableId = '';
+    
+    switch(tipo) {
+        case 'productos_bajos':
+            filename = 'productos_bajo_stock_' + new Date().toISOString().slice(0,10) + '.csv';
+            tableId = '#tablaProductosBajos';
+            break;
+        case 'productos_sin_existencia':
+            // Extraer datos específicos para productos sin existencia
+            var csvContent = "Código,Descripción,Categoría,Stock Mínimo,Precio,Días sin Entrada\n";
+            {% for producto in productos_sin_existencia %}
+            csvContent += '"{{ producto.COD_Producto }}","{{ producto.Descripcion }}","{{ producto.Categoria }}",{{ producto.Stock_Minimo }},{{ producto.Precio_Venta }},{{ producto.Dias_Sin_Entrada }}\n';
+            {% endfor %}
+            
+            var blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            var link = document.createElement("a");
+            var url = URL.createObjectURL(blob);
+            link.setAttribute("href", url);
+            link.setAttribute("download", 'productos_sin_existencia_' + new Date().toISOString().slice(0,10) + '.csv');
+            link.click();
+            return;
+            
+        case 'inventario_completo':
+            filename = 'inventario_completo_' + new Date().toISOString().slice(0,10) + '.csv';
+            tableId = '#tablaExistencias';
+            break;
+        case 'movimientos':
+            filename = 'movimientos_' + new Date().toISOString().slice(0,10) + '.csv';
+            tableId = '#tablaMovimientos';
+            break;
+    }
+    
+    if (tableId) {
+        exportTableToCSV(tableId, filename);
+    }
+    
+    $('#exportModal').modal('hide');
+}
+
+function exportarTodo() {
+    // Exportar múltiples archivos
+    exportarReporte('productos_bajos');
+    setTimeout(() => exportarReporte('productos_sin_existencia'), 500);
+    setTimeout(() => exportarReporte('inventario_completo'), 1000);
+    setTimeout(() => exportarReporte('movimientos'), 1500);
+    
+    $('#exportModal').modal('hide');
+    
+    // Mostrar notificación
+    mostrarNotificacion('success', 'Exportación iniciada', 'Los archivos se están descargando...');
+}
+
+function verDetalleProducto(idProducto) {
+    // Redirigir a página de detalle del producto
+    window.location.href = '/admin/productos/detalle/' + idProducto;
+}
+
+function generarOrdenCompra(idProducto) {
+    // Generar orden de compra para el producto
+    mostrarNotificacion('info', 'Orden de compra', 'Generando orden de compra para el producto...');
+    // Aquí iría la lógica para generar la orden de compra
+}
+
+function solicitarCompraUrgente(idProducto) {
+    // Solicitar compra urgente
+    if (confirm('¿Está seguro de solicitar compra urgente para este producto?')) {
+        mostrarNotificacion('warning', 'Solicitud enviada', 'Se ha enviado la solicitud de compra urgente.');
+        // Aquí iría la lógica para enviar la solicitud
+    }
+}
+
+function generarReporteBajos() {
+    // Generar reporte PDF de productos bajos
+    mostrarNotificacion('info', 'Generando reporte', 'El reporte PDF se está generando...');
+    // Aquí iría la lógica para generar PDF
+}
+
+function mostrarNotificacion(tipo, titulo, mensaje) {
+    // Mostrar notificación Bootstrap
+    var alertClass = 'alert-' + tipo;
+    var iconClass = tipo === 'success' ? 'fa-check-circle' : 
+                    tipo === 'warning' ? 'fa-exclamation-triangle' : 
+                    tipo === 'danger' ? 'fa-times-circle' : 'fa-info-circle';
+    
+    var html = `
+        <div class="alert ${alertClass} alert-dismissible fade show" role="alert" style="position: fixed; top: 20px; right: 20px; z-index: 9999; min-width: 300px;">
+            <h5><i class="fas ${iconClass} mr-2"></i>${titulo}</h5>
+            <p class="mb-0">${mensaje}</p>
+            <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                <span aria-hidden="true">&times;</span>
+            </button>
+        </div>
+    `;
+    
+    $('body').append(html);
+    
+    // Auto-eliminar después de 5 segundos
+    setTimeout(function() {
+        $('.alert').alert('close');
+    }, 5000);
+}
+
+// Actualizar hora y fecha en tiempo real
+function actualizarReloj() {
+    var ahora = new Date();
+    var fecha = ahora.toLocaleDateString('es-ES', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+    var hora = ahora.toLocaleTimeString('es-ES');
+    
+    $('#reloj').text(fecha + ' - ' + hora);
+}
+
+setInterval(actualizarReloj, 1000);
+actualizarReloj();
+</script>
+{% endblock %}
