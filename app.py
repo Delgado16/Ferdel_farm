@@ -819,7 +819,7 @@ def admin_caja_aperturar():
                 VALUES (NOW(), 'ENTRADA', %s, %s, %s, 'ACTIVO')
             """, (f"Apertura de caja", monto, current_user.id))
             
-            flash(f'✅ Caja aperturada con C${monto:.2f}', 'success')
+            flash(f'✅ Caja aperturada con ${monto:.2f}', 'success')
             return redirect(url_for('admin_caja'))
             
     except ValueError:
@@ -7371,6 +7371,10 @@ def admin_detalle_cuentacobrar(id_movimiento):
         traceback.print_exc()
         return redirect(url_for('admin_cuentascobrar'))
 
+## PEDIDOS DE VENTA
+    
+
+
 # INVENTARIO - MOVIMIENTOS DE INVENTARIO
 @app.route('/admin/inventario')
 @admin_required
@@ -7378,333 +7382,393 @@ def admin_detalle_cuentacobrar(id_movimiento):
 def admin_inventario_dashboard():
     try:
         with get_db_cursor(True) as cursor:
-            # 1. PRODUCTOS BAJOS EN INVENTARIO - CORREGIDO
+            id_empresa = 1  # Temporalmente fijo, después usa tu función
+            
+            # 1. RESUMEN ESTADÍSTICO - CORREGIDO
+            cursor.execute("""
+                SELECT 
+                    -- Totales (usando subconsultas para evitar problemas con GROUP BY)
+                    (SELECT COUNT(*) FROM productos 
+                     WHERE Estado = 'activo' AND ID_Empresa = %s) as Total_Productos,
+                    
+                    (SELECT COUNT(*) 
+                     FROM productos p
+                     LEFT JOIN (
+                         SELECT ID_Producto, SUM(Existencias) as Existencias
+                         FROM inventario_bodega
+                         GROUP BY ID_Producto
+                     ) ib ON p.ID_Producto = ib.ID_Producto
+                     WHERE p.Estado = 'activo' 
+                     AND p.ID_Empresa = %s
+                     AND COALESCE(ib.Existencias, 0) >= p.Stock_Minimo) as Productos_Optimos,
+                    
+                    (SELECT COUNT(*) 
+                     FROM productos p
+                     LEFT JOIN (
+                         SELECT ID_Producto, SUM(Existencias) as Existencias
+                         FROM inventario_bodega
+                         GROUP BY ID_Producto
+                     ) ib ON p.ID_Producto = ib.ID_Producto
+                     WHERE p.Estado = 'activo' 
+                     AND p.ID_Empresa = %s
+                     AND COALESCE(ib.Existencias, 0) < p.Stock_Minimo 
+                     AND COALESCE(ib.Existencias, 0) > 0) as Productos_Bajos,
+                    
+                    (SELECT COUNT(*) 
+                     FROM productos p
+                     LEFT JOIN (
+                         SELECT ID_Producto, SUM(Existencias) as Existencias
+                         FROM inventario_bodega
+                         GROUP BY ID_Producto
+                     ) ib ON p.ID_Producto = ib.ID_Producto
+                     WHERE p.Estado = 'activo' 
+                     AND p.ID_Empresa = %s
+                     AND COALESCE(ib.Existencias, 0) = 0) as Productos_Sin_Stock,
+                    
+                    (SELECT COUNT(*) 
+                     FROM productos p
+                     LEFT JOIN (
+                         SELECT ID_Producto, SUM(Existencias) as Existencias
+                         FROM inventario_bodega
+                         GROUP BY ID_Producto
+                     ) ib ON p.ID_Producto = ib.ID_Producto
+                     WHERE p.Estado = 'activo' 
+                     AND p.ID_Empresa = %s
+                     AND COALESCE(ib.Existencias, 0) > p.Stock_Minimo * 1.5) as Productos_Exceso,
+                    
+                    -- Existencias y Valores (esta sí necesita GROUP BY pero con cuidado)
+                    COALESCE((
+                        SELECT SUM(ib2.Existencias)
+                        FROM inventario_bodega ib2
+                        JOIN productos p2 ON ib2.ID_Producto = p2.ID_Producto
+                        WHERE p2.Estado = 'activo' AND p2.ID_Empresa = %s
+                    ), 0) as Total_Existencias,
+                    
+                    COALESCE((
+                        SELECT SUM(ib2.Existencias * p2.Precio_Venta)
+                        FROM inventario_bodega ib2
+                        JOIN productos p2 ON ib2.ID_Producto = p2.ID_Producto
+                        WHERE p2.Estado = 'activo' AND p2.ID_Empresa = %s
+                    ), 0) as Valor_Total_Inventario,
+                    
+                    COALESCE((
+                        SELECT AVG(p2.Stock_Minimo)
+                        FROM productos p2
+                        WHERE p2.Estado = 'activo' AND p2.ID_Empresa = %s
+                    ), 0) as Promedio_Stock_Minimo,
+                    
+                    -- Bodegas
+                    (SELECT COUNT(*) FROM bodegas 
+                     WHERE Estado = 'activa' AND ID_Empresa = %s) as Total_Bodegas
+                    
+            """, (id_empresa, id_empresa, id_empresa, id_empresa, id_empresa, 
+                  id_empresa, id_empresa, id_empresa, id_empresa))
+            estadisticas = cursor.fetchone()
+            
+            # 2. PRODUCTOS POR NIVEL DE STOCK - CORREGIDO
             cursor.execute("""
                 SELECT 
                     p.ID_Producto,
                     p.COD_Producto,
                     p.Descripcion,
                     p.Stock_Minimo,
-                    COALESCE(SUM(ib.Existencias), 0) as Stock_Actual,
-                    um.Abreviatura as Unidad_Medida,
-                    um.Descripcion as Descripcion_Unidad,
+                    COALESCE(ib.Existencias, 0) as Stock_Actual,
                     cp.Descripcion as Categoria,
+                    um.Abreviatura as Unidad_Medida,
                     p.Precio_Venta,
-                    (p.Stock_Minimo - COALESCE(SUM(ib.Existencias), 0)) as Diferencia,
+                    ROUND(COALESCE(ib.Existencias * p.Precio_Venta, 0), 2) as Valor_Inventario,
+                    
+                    -- Cálculo de niveles
+                    CASE 
+                        WHEN COALESCE(ib.Existencias, 0) = 0 THEN 'SIN_STOCK'
+                        WHEN COALESCE(ib.Existencias, 0) < p.Stock_Minimo * 0.3 THEN 'CRITICO'
+                        WHEN COALESCE(ib.Existencias, 0) < p.Stock_Minimo THEN 'BAJO'
+                        WHEN COALESCE(ib.Existencias, 0) < p.Stock_Minimo * 1.5 THEN 'OPTIMO'
+                        ELSE 'EXCESO'
+                    END as Nivel_Stock,
+                    
+                    -- Porcentaje
                     CASE 
                         WHEN p.Stock_Minimo > 0 
-                        THEN ROUND((COALESCE(SUM(ib.Existencias), 0) / p.Stock_Minimo * 100), 2)
-                        ELSE 0 
+                        THEN ROUND((COALESCE(ib.Existencias, 0) / p.Stock_Minimo * 100), 2)
+                        ELSE 100 
                     END as Porcentaje_Stock
+                    
                 FROM productos p
-                LEFT JOIN inventario_bodega ib ON p.ID_Producto = ib.ID_Producto
-                LEFT JOIN unidades_medida um ON p.Unidad_Medida = um.ID_Unidad
+                LEFT JOIN (
+                    SELECT ID_Producto, SUM(Existencias) as Existencias
+                    FROM inventario_bodega
+                    GROUP BY ID_Producto
+                ) ib ON p.ID_Producto = ib.ID_Producto
                 LEFT JOIN categorias_producto cp ON p.ID_Categoria = cp.ID_Categoria
+                LEFT JOIN unidades_medida um ON p.Unidad_Medida = um.ID_Unidad
                 WHERE p.Estado = 'activo'
-                GROUP BY p.ID_Producto, p.COD_Producto, p.Descripcion, p.Stock_Minimo, 
-                         um.Abreviatura, um.Descripcion, cp.Descripcion, p.Precio_Venta
-                HAVING COALESCE(SUM(ib.Existencias), 0) < p.Stock_Minimo 
-                    OR (COALESCE(SUM(ib.Existencias), 0) = 0 AND p.Stock_Minimo > 0)
-                ORDER BY Porcentaje_Stock ASC
-            """)
-            productos_bajos = cursor.fetchall()
+                AND p.ID_Empresa = %s
+                ORDER BY 
+                    CASE 
+                        WHEN COALESCE(ib.Existencias, 0) = 0 THEN 1
+                        WHEN COALESCE(ib.Existencias, 0) < p.Stock_Minimo * 0.3 THEN 2
+                        WHEN COALESCE(ib.Existencias, 0) < p.Stock_Minimo THEN 3
+                        WHEN COALESCE(ib.Existencias, 0) < p.Stock_Minimo * 1.5 THEN 4
+                        ELSE 5
+                    END,
+                    Porcentaje_Stock ASC
+                LIMIT 50
+            """, (id_empresa,))
+            productos_nivel = cursor.fetchall()
             
-            # 2. EXISTENCIAS POR BODEGA - CORREGIDO
+            # 3. DISTRIBUCIÓN POR CATEGORÍAS - CORREGIDO
+            cursor.execute("""
+                SELECT 
+                    cp.Descripcion as Categoria,
+                    COUNT(DISTINCT p.ID_Producto) as Total_Productos,
+                    ROUND(AVG(p.Stock_Minimo), 2) as Promedio_Stock_Minimo,
+                    SUM(CASE WHEN COALESCE(ib.Existencias, 0) < p.Stock_Minimo THEN 1 ELSE 0 END) as Productos_Bajos,
+                    SUM(CASE WHEN COALESCE(ib.Existencias, 0) = 0 THEN 1 ELSE 0 END) as Productos_Sin_Stock,
+                    ROUND(SUM(COALESCE(ib.Existencias, 0)), 2) as Total_Existencias,
+                    ROUND(SUM(COALESCE(ib.Existencias * p.Precio_Venta, 0)), 2) as Valor_Total,
+                    ROUND(AVG(CASE 
+                        WHEN p.Stock_Minimo > 0 
+                        THEN COALESCE(ib.Existencias, 0) / p.Stock_Minimo * 100 
+                        ELSE 100 
+                    END), 2) as Porcentaje_Promedio
+                FROM categorias_producto cp
+                LEFT JOIN productos p ON cp.ID_Categoria = p.ID_Categoria
+                LEFT JOIN (
+                    SELECT ID_Producto, SUM(Existencias) as Existencias
+                    FROM inventario_bodega
+                    GROUP BY ID_Producto
+                ) ib ON p.ID_Producto = ib.ID_Producto
+                WHERE p.Estado = 'activo'
+                AND p.ID_Empresa = %s
+                GROUP BY cp.ID_Categoria, cp.Descripcion
+                HAVING COUNT(DISTINCT p.ID_Producto) > 0
+                ORDER BY Valor_Total DESC
+            """, (id_empresa,))
+            distribucion_categorias = cursor.fetchall()
+            
+            # 4. INVENTARIO POR BODEGA - CORREGIDO
             cursor.execute("""
                 SELECT 
                     b.ID_Bodega,
                     b.Nombre as Bodega,
                     b.Ubicacion,
                     COUNT(DISTINCT ib.ID_Producto) as Productos_Diferentes,
-                    COUNT(DISTINCT CASE WHEN ib.Existencias > 0 THEN ib.ID_Producto END) as Productos_Con_Existencia,
-                    COALESCE(SUM(ib.Existencias), 0) as Total_Existencias,
-                    COALESCE(SUM(ib.Existencias * p.Precio_Venta), 0) as Valor_Total,
-                    CASE 
-                        WHEN COUNT(DISTINCT ib.ID_Producto) > 0 
-                        THEN ROUND(
-                            COUNT(DISTINCT CASE WHEN ib.Existencias > 0 THEN ib.ID_Producto END) * 100.0 / 
-                            COUNT(DISTINCT ib.ID_Producto), 2
-                        )
-                        ELSE 0 
-                    END as Porcentaje_Disponibilidad
+                    SUM(ib.Existencias) as Total_Existencias,
+                    COUNT(CASE WHEN p.Stock_Minimo > 0 AND ib.Existencias < p.Stock_Minimo THEN 1 END) as Productos_Bajos_Stock,
+                    ROUND(SUM(ib.Existencias * p.Precio_Venta), 2) as Valor_Total,
+                    ROUND(AVG(CASE 
+                        WHEN p.Stock_Minimo > 0 
+                        THEN (ib.Existencias / p.Stock_Minimo * 100)
+                        ELSE 100 
+                    END), 2) as Porcentaje_Stock_Promedio
                 FROM bodegas b
                 LEFT JOIN inventario_bodega ib ON b.ID_Bodega = ib.ID_Bodega
                 LEFT JOIN productos p ON ib.ID_Producto = p.ID_Producto
                 WHERE b.Estado = 'activa'
+                AND b.ID_Empresa = %s
                 GROUP BY b.ID_Bodega, b.Nombre, b.Ubicacion
-                ORDER BY Total_Existencias DESC
-            """)
-            resumen_bodegas = cursor.fetchall()
+                ORDER BY Valor_Total DESC
+            """, (id_empresa,))
+            inventario_bodegas = cursor.fetchall()
             
-            # 3. TOP 10 PRODUCTOS CON MÁS EXISTENCIAS - CORREGIDO
+            # 5. MOVIMIENTOS RECIENTES - CORREGIDO
             cursor.execute("""
                 SELECT 
-                    p.ID_Producto,
-                    p.COD_Producto,
-                    p.Descripcion,
-                    COALESCE(SUM(ib.Existencias), 0) as Total_Existencias,
-                    GROUP_CONCAT(DISTINCT b.Nombre ORDER BY ib.Existencias DESC SEPARATOR ', ') as Bodegas,
-                    cp.Descripcion as Categoria,
-                    um.Abreviatura as Unidad_Medida,
-                    ROUND(COALESCE(SUM(ib.Existencias * p.Precio_Venta), 0), 2) as Valor_Total,
-                    COUNT(DISTINCT CASE WHEN ib.Existencias > 0 THEN ib.ID_Bodega END) as Bodegas_Con_Existencia
-                FROM productos p
-                LEFT JOIN inventario_bodega ib ON p.ID_Producto = ib.ID_Producto
-                LEFT JOIN bodegas b ON ib.ID_Bodega = b.ID_Bodega
-                LEFT JOIN categorias_producto cp ON p.ID_Categoria = cp.ID_Categoria
-                LEFT JOIN unidades_medida um ON p.Unidad_Medida = um.ID_Unidad
-                WHERE p.Estado = 'activo'
-                GROUP BY p.ID_Producto, p.COD_Producto, p.Descripcion, 
-                         cp.Descripcion, um.Abreviatura
-                HAVING COALESCE(SUM(ib.Existencias), 0) > 0
-                ORDER BY COALESCE(SUM(ib.Existencias), 0) DESC
-                LIMIT 10
-            """)
-            top_productos = cursor.fetchall()
-            
-            # 4. PRODUCTOS SIN EXISTENCIA - CORREGIDO
-            cursor.execute("""
-                SELECT 
-                    p.ID_Producto,
-                    p.COD_Producto,
-                    p.Descripcion,
-                    p.Stock_Minimo,
-                    cp.Descripcion as Categoria,
-                    um.Abreviatura as Unidad_Medida,
-                    um.Descripcion as Descripcion_Unidad,
-                    p.Precio_Venta,
-                    COALESCE((
-                        SELECT DATEDIFF(CURDATE(), MAX(mi.Fecha))
-                        FROM movimientos_inventario mi
-                        JOIN detalle_movimientos_inventario dmi ON mi.ID_Movimiento = dmi.ID_Movimiento
-                        WHERE dmi.ID_Producto = p.ID_Producto
-                        AND mi.ID_TipoMovimiento IN (
-                            SELECT ID_TipoMovimiento FROM catalogo_movimientos 
-                            WHERE Adicion = 'ENTRADA'
-                        )
-                    ), 999) as Dias_Sin_Entrada
-                FROM productos p
-                LEFT JOIN inventario_bodega ib ON p.ID_Producto = ib.ID_Producto
-                LEFT JOIN categorias_producto cp ON p.ID_Categoria = cp.ID_Categoria
-                LEFT JOIN unidades_medida um ON p.Unidad_Medida = um.ID_Unidad
-                WHERE p.Estado = 'activo'
-                GROUP BY p.ID_Producto, p.COD_Producto, p.Descripcion, p.Stock_Minimo, 
-                         cp.Descripcion, um.Abreviatura, um.Descripcion, p.Precio_Venta
-                HAVING COALESCE(SUM(ib.Existencias), 0) = 0
-                ORDER BY cp.Descripcion, p.Descripcion
-            """)
-            productos_sin_existencia = cursor.fetchall()
-            
-            # 5. RESÚMEN POR CATEGORÍA - SIMPLIFICADO Y CORREGIDO
-            cursor.execute("""
-                SELECT 
-                    cp.ID_Categoria,
-                    cp.Descripcion as Categoria,
-                    COUNT(DISTINCT p.ID_Producto) as Total_Productos,
-                    COALESCE(SUM(CASE WHEN prod_stock.Existencias_Totales > 0 THEN 1 ELSE 0 END), 0) as Productos_Con_Stock,
-                    COALESCE(SUM(CASE WHEN prod_stock.Existencias_Totales < p.Stock_Minimo 
-                          AND prod_stock.Existencias_Totales > 0 THEN 1 ELSE 0 END), 0) as Productos_Bajos,
-                    COALESCE(SUM(CASE WHEN prod_stock.Existencias_Totales = 0 THEN 1 ELSE 0 END), 0) as Productos_Sin_Stock,
-                    ROUND(COALESCE(SUM(prod_stock.Valor_Total), 0), 2) as Valor_Total,
-                    ROUND(COALESCE(AVG(p.Precio_Venta), 0), 2) as Precio_Promedio
-                FROM categorias_producto cp
-                LEFT JOIN productos p ON cp.ID_Categoria = p.ID_Categoria
-                LEFT JOIN (
-                    SELECT 
-                        ib.ID_Producto,
-                        SUM(ib.Existencias) as Existencias_Totales,
-                        SUM(ib.Existencias * p2.Precio_Venta) as Valor_Total
-                    FROM inventario_bodega ib
-                    INNER JOIN productos p2 ON ib.ID_Producto = p2.ID_Producto
-                    WHERE p2.Estado = 'activo'
-                    GROUP BY ib.ID_Producto
-                ) prod_stock ON p.ID_Producto = prod_stock.ID_Producto
-                WHERE p.Estado = 'activo'
-                GROUP BY cp.ID_Categoria, cp.Descripcion
-                ORDER BY COALESCE(SUM(prod_stock.Valor_Total), 0) DESC
-            """)
-            resumen_categorias = cursor.fetchall()
-            
-            # 6. MOVIMIENTOS RECIENTES - YA CORRECTO
-            cursor.execute("""
-                SELECT 
-                    mi.ID_Movimiento,
-                    DATE_FORMAT(mi.Fecha, '%%d/%%m/%%Y') as Fecha_Formateada,
-                    mi.Fecha,
+                    DATE(mi.Fecha) as Fecha,
                     cm.Descripcion as Tipo_Movimiento,
-                    cm.Letra,
-                    cm.Adicion,
-                    mi.N_Factura_Externa,
-                    b.Nombre as Bodega,
-                    bd.Nombre as Bodega_Destino,
-                    COUNT(dmi.ID_Producto) as Cantidad_Productos,
+                    cm.Adicion as Direccion,
+                    COUNT(DISTINCT mi.ID_Movimiento) as Cantidad_Movimientos,
                     SUM(dmi.Cantidad) as Total_Cantidad,
                     SUM(dmi.Subtotal) as Valor_Total,
-                    u.NombreUsuario as Usuario_Creacion
+                    COUNT(DISTINCT dmi.ID_Producto) as Productos_Diferentes
                 FROM movimientos_inventario mi
                 INNER JOIN catalogo_movimientos cm ON mi.ID_TipoMovimiento = cm.ID_TipoMovimiento
-                LEFT JOIN bodegas b ON mi.ID_Bodega = b.ID_Bodega
-                LEFT JOIN bodegas bd ON mi.ID_Bodega_Destino = bd.ID_Bodega
-                LEFT JOIN detalle_movimientos_inventario dmi ON mi.ID_Movimiento = dmi.ID_Movimiento
-                LEFT JOIN usuarios u ON mi.ID_Usuario_Creacion = u.ID_Usuario
+                INNER JOIN detalle_movimientos_inventario dmi ON mi.ID_Movimiento = dmi.ID_Movimiento
                 WHERE mi.Estado = 'Activa'
-                    AND mi.Fecha >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
-                GROUP BY mi.ID_Movimiento, mi.Fecha, cm.Descripcion, cm.Letra, cm.Adicion,
-                         mi.N_Factura_Externa, b.Nombre, bd.Nombre, u.NombreUsuario
-                ORDER BY mi.Fecha DESC, mi.ID_Movimiento DESC
-                LIMIT 50
-            """)
-            movimientos_recientes = cursor.fetchall()
+                AND mi.Fecha >= DATE_SUB(CURDATE(), INTERVAL 15 DAY)
+                AND mi.ID_Empresa = %s
+                GROUP BY DATE(mi.Fecha), cm.Descripcion, cm.Adicion
+                ORDER BY Fecha DESC, Valor_Total DESC
+                LIMIT 20
+            """, (id_empresa,))
+            movimientos_diarios = cursor.fetchall()
             
-            # 7. ESTADÍSTICAS AVANZADAS - CORREGIDO
-            cursor.execute("""
-                SELECT 
-                    (SELECT COUNT(*) FROM productos WHERE Estado = 'activo') as Total_Productos,
-                    COALESCE((
-                        SELECT COUNT(DISTINCT p.ID_Producto) 
-                        FROM productos p 
-                        LEFT JOIN inventario_bodega ib ON p.ID_Producto = ib.ID_Producto 
-                        WHERE p.Estado = 'activo' 
-                        GROUP BY p.ID_Producto 
-                        HAVING COALESCE(SUM(ib.Existencias), 0) > p.Stock_Minimo
-                    ), 0) as Productos_Suficientes,
-                    COALESCE((
-                        SELECT COUNT(DISTINCT p.ID_Producto) 
-                        FROM productos p 
-                        LEFT JOIN inventario_bodega ib ON p.ID_Producto = ib.ID_Producto 
-                        WHERE p.Estado = 'activo' 
-                        GROUP BY p.ID_Producto 
-                        HAVING COALESCE(SUM(ib.Existencias), 0) < p.Stock_Minimo 
-                        AND COALESCE(SUM(ib.Existencias), 0) > 0
-                    ), 0) as Productos_Bajos,
-                    COALESCE((
-                        SELECT COUNT(DISTINCT p.ID_Producto) 
-                        FROM productos p 
-                        LEFT JOIN inventario_bodega ib ON p.ID_Producto = ib.ID_Producto 
-                        WHERE p.Estado = 'activo' 
-                        GROUP BY p.ID_Producto 
-                        HAVING COALESCE(SUM(ib.Existencias), 0) = 0
-                    ), 0) as Productos_Sin_Existencia,
-                    (SELECT COUNT(*) FROM bodegas WHERE Estado = 'activa') as Total_Bodegas,
-                    COALESCE((SELECT SUM(Existencias) FROM inventario_bodega), 0) as Total_Existencias_Global,
-                    (SELECT COUNT(DISTINCT ID_Categoria) FROM productos WHERE Estado = 'activo') as Categorias_Activas,
-                    (SELECT COUNT(DISTINCT Unidad_Medida) FROM productos WHERE Estado = 'activo') as Unidades_Utilizadas
-            """)
-            estadisticas = cursor.fetchone()
-            
-            # 8. VALORACIÓN TOTAL DEL INVENTARIO - CORREGIDO
-            cursor.execute("""
-                SELECT 
-                    ROUND(COALESCE(SUM(ib.Existencias * p.Precio_Venta), 0), 2) as Valor_Venta_Total,
-                    ROUND(COALESCE(SUM(ib.Existencias * 
-                        COALESCE(
-                            (SELECT dmi.Costo_Unitario 
-                             FROM detalle_movimientos_inventario dmi
-                             INNER JOIN movimientos_inventario mi ON dmi.ID_Movimiento = mi.ID_Movimiento
-                             WHERE dmi.ID_Producto = p.ID_Producto 
-                             AND mi.ID_TipoMovimiento IN (
-                                 SELECT ID_TipoMovimiento FROM catalogo_movimientos 
-                                 WHERE Adicion = 'ENTRADA'
-                             )
-                             ORDER BY mi.Fecha DESC, dmi.Fecha_Creacion DESC
-                             LIMIT 1
-                            ), p.Precio_Venta * 0.7)
-                    ), 0), 2) as Valor_Costo_Total,
-                    ROUND(COALESCE(AVG(p.Precio_Venta), 0), 2) as Precio_Promedio_Producto,
-                    ROUND(COALESCE(MAX(p.Precio_Venta), 0), 2) as Precio_Maximo,
-                    ROUND(COALESCE(MIN(p.Precio_Venta), 0), 2) as Precio_Minimo
-                FROM inventario_bodega ib
-                INNER JOIN productos p ON ib.ID_Producto = p.ID_Producto
-                WHERE p.Estado = 'activo'
-            """)
-            valor_inventario = cursor.fetchone()
-            
-            # 9. EXISTENCIAS DETALLADAS - CORREGIDO
+            # 6. TOP 10 PRODUCTOS MÁS VALIOSOS - CORREGIDO
             cursor.execute("""
                 SELECT 
                     p.ID_Producto,
                     p.COD_Producto,
                     p.Descripcion,
-                    b.ID_Bodega,
-                    b.Nombre as Bodega,
-                    COALESCE(ib.Existencias, 0) as Existencias,
-                    p.Stock_Minimo,
-                    CASE 
-                        WHEN COALESCE(ib.Existencias, 0) = 0 THEN 'Sin Existencia'
-                        WHEN COALESCE(ib.Existencias, 0) < p.Stock_Minimo THEN 'Bajo Stock'
-                        ELSE 'Suficiente'
-                    END as Estado_Stock,
                     cp.Descripcion as Categoria,
-                    um.Abreviatura as Unidad_Medida,
-                    um.Descripcion as Descripcion_Unidad,
+                    ROUND(COALESCE(ib.Existencias, 0), 2) as Stock_Total,
                     p.Precio_Venta,
-                    ROUND(COALESCE(ib.Existencias, 0) * p.Precio_Venta, 2) as Valor_Bodega
+                    ROUND(COALESCE(ib.Existencias * p.Precio_Venta, 0), 2) as Valor_Total
                 FROM productos p
-                CROSS JOIN bodegas b
-                LEFT JOIN inventario_bodega ib ON p.ID_Producto = ib.ID_Producto 
-                    AND b.ID_Bodega = ib.ID_Bodega
+                LEFT JOIN (
+                    SELECT ID_Producto, SUM(Existencias) as Existencias
+                    FROM inventario_bodega
+                    GROUP BY ID_Producto
+                ) ib ON p.ID_Producto = ib.ID_Producto
                 LEFT JOIN categorias_producto cp ON p.ID_Categoria = cp.ID_Categoria
-                LEFT JOIN unidades_medida um ON p.Unidad_Medida = um.ID_Unidad
                 WHERE p.Estado = 'activo'
-                    AND b.Estado = 'activa'
-                ORDER BY cp.Descripcion, p.Descripcion, b.Nombre
-            """)
-            existencias_detalladas = cursor.fetchall()
+                AND p.ID_Empresa = %s
+                AND COALESCE(ib.Existencias, 0) > 0
+                ORDER BY Valor_Total DESC
+                LIMIT 10
+            """, (id_empresa,))
+            top_productos_valiosos = cursor.fetchall()
             
-            # 10. DISTRIBUCIÓN DE PRODUCTOS POR UNIDAD DE MEDIDA - CORREGIDO
+            # 7. ROTACIÓN DE INVENTARIO - SIMPLIFICADA
             cursor.execute("""
                 SELECT 
-                    um.ID_Unidad,
-                    um.Abreviatura,
-                    um.Descripcion as Unidad_Medida,
-                    COUNT(DISTINCT p.ID_Producto) as Cantidad_Productos,
-                    COALESCE(SUM(prod_stock.Existencias_Totales), 0) as Total_Existencias,
-                    ROUND(COALESCE(SUM(prod_stock.Valor_Total), 0), 2) as Valor_Total,
-                    COALESCE(SUM(CASE WHEN prod_stock.Existencias_Totales < p.Stock_Minimo 
-                          AND prod_stock.Existencias_Totales > 0 THEN 1 ELSE 0 END), 0) as Productos_Bajos,
-                    COALESCE(SUM(CASE WHEN prod_stock.Existencias_Totales = 0 THEN 1 ELSE 0 END), 0) as Productos_Sin_Stock
-                FROM unidades_medida um
-                LEFT JOIN productos p ON um.ID_Unidad = p.Unidad_Medida
+                    p.ID_Producto,
+                    p.COD_Producto,
+                    p.Descripcion,
+                    cp.Descripcion as Categoria,
+                    COALESCE(ib.Existencias, 0) as Stock_Actual,
+                    p.Stock_Minimo,
+                    COALESCE(ventas.Ventas_30_Dias, 0) as Ventas_30_Dias,
+                    COALESCE(entradas.Entradas_30_Dias, 0) as Entradas_30_Dias,
+                    CASE 
+                        WHEN COALESCE(ib.Existencias, 0) > 0
+                        THEN ROUND(COALESCE(ventas.Ventas_30_Dias, 0) / COALESCE(ib.Existencias, 1), 2)
+                        ELSE 0
+                    END as Ratio_Rotacion
+                FROM productos p
                 LEFT JOIN (
-                    SELECT 
-                        ib.ID_Producto,
-                        SUM(ib.Existencias) as Existencias_Totales,
-                        SUM(ib.Existencias * p2.Precio_Venta) as Valor_Total
-                    FROM inventario_bodega ib
-                    INNER JOIN productos p2 ON ib.ID_Producto = p2.ID_Producto
-                    WHERE p2.Estado = 'activo'
-                    GROUP BY ib.ID_Producto
-                ) prod_stock ON p.ID_Producto = prod_stock.ID_Producto
+                    SELECT ID_Producto, SUM(Existencias) as Existencias
+                    FROM inventario_bodega
+                    GROUP BY ID_Producto
+                ) ib ON p.ID_Producto = ib.ID_Producto
+                LEFT JOIN categorias_producto cp ON p.ID_Categoria = cp.ID_Categoria
+                LEFT JOIN (
+                    SELECT dmi.ID_Producto, SUM(dmi.Cantidad) as Ventas_30_Dias
+                    FROM detalle_movimientos_inventario dmi
+                    JOIN movimientos_inventario mi ON dmi.ID_Movimiento = mi.ID_Movimiento
+                    JOIN catalogo_movimientos cm ON mi.ID_TipoMovimiento = cm.ID_TipoMovimiento
+                    WHERE mi.Fecha >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
+                    AND cm.Adicion = 'SALIDA'
+                    AND mi.Estado = 'Activa'
+                    GROUP BY dmi.ID_Producto
+                ) ventas ON p.ID_Producto = ventas.ID_Producto
+                LEFT JOIN (
+                    SELECT dmi.ID_Producto, SUM(dmi.Cantidad) as Entradas_30_Dias
+                    FROM detalle_movimientos_inventario dmi
+                    JOIN movimientos_inventario mi ON dmi.ID_Movimiento = mi.ID_Movimiento
+                    JOIN catalogo_movimientos cm ON mi.ID_TipoMovimiento = cm.ID_TipoMovimiento
+                    WHERE mi.Fecha >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
+                    AND cm.Adicion = 'ENTRADA'
+                    AND mi.Estado = 'Activa'
+                    GROUP BY dmi.ID_Producto
+                ) entradas ON p.ID_Producto = entradas.ID_Producto
                 WHERE p.Estado = 'activo'
-                GROUP BY um.ID_Unidad, um.Abreviatura, um.Descripcion
-                HAVING COUNT(DISTINCT p.ID_Producto) > 0
-                ORDER BY COALESCE(SUM(prod_stock.Valor_Total), 0) DESC
-            """)
-            distribucion_unidades = cursor.fetchall()
+                AND p.ID_Empresa = %s
+                AND COALESCE(ventas.Ventas_30_Dias, 0) > 0
+                ORDER BY Ratio_Rotacion DESC
+                LIMIT 15
+            """, (id_empresa,))
+            rotacion_productos = cursor.fetchall()
             
-            # 11. CONSULTA DE PRUEBA PARA VERIFICAR LA ESTRUCTURA
-            cursor.execute("SHOW COLUMNS FROM productos LIKE 'Stock%'")
-            columnas_stock = cursor.fetchall()
-            print("Columnas de stock en productos:", columnas_stock)  # Para depuración
+            # 8. SUGERENCIAS DE REORDEN - CORREGIDO
+            cursor.execute("""
+                SELECT 
+                    p.ID_Producto,
+                    p.COD_Producto,
+                    p.Descripcion,
+                    cp.Descripcion as Categoria,
+                    um.Abreviatura as Unidad_Medida,
+                    p.Stock_Minimo,
+                    COALESCE(ib.Existencias, 0) as Stock_Actual,
+                    GREATEST(p.Stock_Minimo - COALESCE(ib.Existencias, 0), 0) as Cantidad_Requerida,
+                    p.Precio_Venta,
+                    ROUND(GREATEST(p.Stock_Minimo - COALESCE(ib.Existencias, 0), 0) * p.Precio_Venta, 2) as Valor_Reorden,
+                    COALESCE(ventas.Promedio_Venta_Diaria, 0) as Promedio_Venta_Diaria,
+                    CASE 
+                        WHEN COALESCE(ventas.Promedio_Venta_Diaria, 0) > 0
+                        THEN ROUND(COALESCE(ib.Existencias, 0) / ventas.Promedio_Venta_Diaria, 1)
+                        ELSE 999
+                    END as Dias_Stock_Restante,
+                    CASE 
+                        WHEN COALESCE(ib.Existencias, 0) = 0 THEN 'URGENTE'
+                        WHEN COALESCE(ib.Existencias, 0) < p.Stock_Minimo * 0.3 
+                             AND COALESCE(ventas.Promedio_Venta_Diaria, 0) > 0 THEN 'ALTA'
+                        WHEN COALESCE(ib.Existencias, 0) < p.Stock_Minimo * 0.6 THEN 'MEDIA'
+                        ELSE 'BAJA'
+                    END as Prioridad
+                    
+                FROM productos p
+                LEFT JOIN (
+                    SELECT ID_Producto, SUM(Existencias) as Existencias
+                    FROM inventario_bodega
+                    GROUP BY ID_Producto
+                ) ib ON p.ID_Producto = ib.ID_Producto
+                LEFT JOIN categorias_producto cp ON p.ID_Categoria = cp.ID_Categoria
+                LEFT JOIN unidades_medida um ON p.Unidad_Medida = um.ID_Unidad
+                LEFT JOIN (
+                    SELECT dmi.ID_Producto, AVG(dmi.Cantidad) as Promedio_Venta_Diaria
+                    FROM detalle_movimientos_inventario dmi
+                    JOIN movimientos_inventario mi ON dmi.ID_Movimiento = mi.ID_Movimiento
+                    JOIN catalogo_movimientos cm ON mi.ID_TipoMovimiento = cm.ID_TipoMovimiento
+                    WHERE mi.Fecha >= DATE_SUB(CURDATE(), INTERVAL 15 DAY)
+                    AND cm.Adicion = 'SALIDA'
+                    AND mi.Estado = 'Activa'
+                    GROUP BY dmi.ID_Producto
+                ) ventas ON p.ID_Producto = ventas.ID_Producto
+                WHERE p.Estado = 'activo'
+                AND p.ID_Empresa = %s
+                AND COALESCE(ib.Existencias, 0) < p.Stock_Minimo
+                ORDER BY 
+                    CASE Prioridad
+                        WHEN 'URGENTE' THEN 1
+                        WHEN 'ALTA' THEN 2
+                        WHEN 'MEDIA' THEN 3
+                        ELSE 4
+                    END,
+                    Dias_Stock_Restante ASC,
+                    Cantidad_Requerida DESC
+                LIMIT 20
+            """, (id_empresa,))
+            sugerencias_reorden = cursor.fetchall()
+            
+            # Preparar datos para gráficos
+            datos_graficos = {
+                'categorias': [cat['Categoria'] for cat in distribucion_categorias],
+                'valores_categorias': [float(cat['Valor_Total']) for cat in distribucion_categorias],
+                'productos_bajos': [
+                    estadisticas['Productos_Sin_Stock'],
+                    estadisticas['Productos_Bajos'],
+                    estadisticas['Productos_Optimos'],
+                    estadisticas['Productos_Exceso']
+                ],
+                'niveles_stock': ['Sin Stock', 'Bajo Stock', 'Óptimo', 'Exceso']
+            }
             
             return render_template(
-                'admin/inventario_dashboard.html',
-                productos_bajos=productos_bajos,
-                resumen_bodegas=resumen_bodegas,
-                top_productos=top_productos,
-                productos_sin_existencia=productos_sin_existencia,
-                resumen_categorias=resumen_categorias,
-                movimientos_recientes=movimientos_recientes,
+                'admin/movimientos/inventario_dashboard.html',
+                # Estadísticas generales
                 estadisticas=estadisticas,
-                valor_inventario=valor_inventario,
-                existencias_detalladas=existencias_detalladas,
-                distribucion_unidades=distribucion_unidades
+                
+                # Datos principales
+                productos_nivel=productos_nivel,
+                distribucion_categorias=distribucion_categorias,
+                inventario_bodegas=inventario_bodegas,
+                movimientos_diarios=movimientos_diarios,
+                top_productos_valiosos=top_productos_valiosos,
+                rotacion_productos=rotacion_productos,
+                sugerencias_reorden=sugerencias_reorden,
+                
+                # Datos para gráficos
+                datos_graficos=datos_graficos,
+                
+                # Fecha actual para el dashboard
+                fecha_actual=datetime.now().strftime('%d/%m/%Y %H:%M')
             )
             
     except Exception as e:
         import traceback
         error_details = traceback.format_exc()
-        print(f"Error detallado: {error_details}")  # Para depuración
+        print(f"ERROR DETALLADO:\n{error_details}")
         flash(f"Error al cargar dashboard de inventario: {str(e)}", 'error')
         return redirect(url_for('admin_dashboard'))
 
