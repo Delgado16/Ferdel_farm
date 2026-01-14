@@ -11,6 +11,9 @@
         box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
         padding: 30px;
         margin-top: 20px;
+        width: 100%;
+        max-width: 100%;
+        overflow-x: hidden;
     }
 
     .balance-header {
@@ -24,21 +27,23 @@
 
     .balance-header h1 {
         margin: 0 0 10px 0;
-        font-size: 2.2rem;
+        font-size: clamp(1.5rem, 4vw, 2.2rem);
         font-weight: 600;
+        line-height: 1.2;
+        word-wrap: break-word;
     }
 
     .balance-header h2 {
         margin: 0;
-        font-size: 1.5rem;
+        font-size: clamp(1rem, 2.5vw, 1.5rem);
         font-weight: 400;
         opacity: 0.9;
     }
 
     .balance-summary {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-        gap: 25px;
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        gap: 20px;
         margin-bottom: 40px;
     }
 
@@ -46,10 +51,14 @@
         background: white;
         border: 1px solid #e0e0e0;
         border-radius: 8px;
-        padding: 25px;
+        padding: 20px;
         transition: transform 0.3s, box-shadow 0.3s;
         position: relative;
         overflow: hidden;
+        min-height: 160px;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
     }
 
     .balance-card:hover {
@@ -60,21 +69,27 @@
     .balance-card h3 {
         margin-top: 0;
         color: #555;
-        font-size: 1.1em;
+        font-size: 1em;
         font-weight: 600;
         margin-bottom: 15px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
     }
 
     .balance-card .amount {
-        font-size: 2.2em;
+        font-size: clamp(1.5em, 4vw, 2.2em);
         font-weight: 700;
-        margin: 15px 0;
+        margin: 10px 0;
         font-family: 'Courier New', monospace;
+        word-break: break-word;
+        line-height: 1.2;
     }
 
     .balance-card p {
         color: #777;
-        font-size: 0.95em;
+        font-size: 0.9em;
         margin: 10px 0 0 0;
         padding-top: 10px;
         border-top: 1px solid #eee;
@@ -83,7 +98,7 @@
     .entrada {
         color: #28a745;
         background-color: rgba(40, 167, 69, 0.1);
-        padding: 5px 15px;
+        padding: 4px 12px;
         border-radius: 4px;
         display: inline-block;
     }
@@ -91,7 +106,7 @@
     .salida {
         color: #dc3545;
         background-color: rgba(220, 53, 69, 0.1);
-        padding: 5px 15px;
+        padding: 4px 12px;
         border-radius: 4px;
         display: inline-block;
     }
@@ -99,13 +114,13 @@
     .saldo {
         color: #007bff;
         background-color: rgba(0, 123, 255, 0.1);
-        padding: 5px 15px;
+        padding: 4px 12px;
         border-radius: 4px;
         display: inline-block;
     }
 
     .section-title {
-        font-size: 1.3em;
+        font-size: clamp(1.1em, 3vw, 1.3em);
         font-weight: 600;
         color: #333;
         margin: 0 0 20px 0;
@@ -117,13 +132,17 @@
         overflow-x: auto;
         border-radius: 8px;
         box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+        -webkit-overflow-scrolling: touch;
+        margin: 0 -15px;
+        padding: 0 15px;
+        width: calc(100% + 30px);
     }
 
     .movimientos-table {
         width: 100%;
         background: white;
         border-collapse: collapse;
-        min-width: 800px;
+        min-width: 1000px;
     }
 
     .movimientos-table thead {
@@ -132,10 +151,11 @@
 
     .movimientos-table th {
         color: white;
-        padding: 15px 12px;
+        padding: 12px 10px;
         text-align: left;
         font-weight: 600;
-        font-size: 0.95em;
+        font-size: 0.85em;
+        white-space: nowrap;
     }
 
     .movimientos-table th:first-child {
@@ -147,9 +167,10 @@
     }
 
     .movimientos-table td {
-        padding: 15px 12px;
+        padding: 12px 10px;
         border-bottom: 1px solid #eef2f7;
         vertical-align: middle;
+        font-size: 0.9em;
     }
 
     .movimientos-table tr:last-child td {
@@ -176,12 +197,16 @@
     }
 
     .badge {
-        padding: 6px 12px;
-        border-radius: 20px;
-        font-size: 0.85em;
+        padding: 4px 8px;
+        border-radius: 12px;
+        font-size: 0.75em;
         font-weight: 600;
         letter-spacing: 0.3px;
         text-transform: uppercase;
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        white-space: nowrap;
     }
 
     .badge-entrada {
@@ -204,7 +229,7 @@
 
     .no-data {
         text-align: center;
-        padding: 40px 20px;
+        padding: 30px 15px;
         color: #6c757d;
         font-style: italic;
     }
@@ -216,8 +241,9 @@
     }
 
     .icon {
-        font-size: 1.2em;
+        font-size: 1em;
         margin-right: 5px;
+        min-width: 16px;
     }
 
     /* Estilos para los botones de acción */
@@ -242,25 +268,30 @@
 
     .btn-group-action {
         display: flex;
-        gap: 15px;
+        gap: 12px;
         flex-wrap: wrap;
+        justify-content: center;
     }
 
     .btn-action {
-        padding: 12px 25px;
+        padding: 10px 20px;
         font-weight: 600;
         border-radius: 8px;
         transition: all 0.3s ease;
         display: flex;
         align-items: center;
         justify-content: center;
-        gap: 10px;
-        min-width: 200px;
+        gap: 8px;
+        min-width: 160px;
         text-align: center;
+        font-size: 0.9em;
+        flex: 1;
+        min-width: 0;
     }
 
     .btn-action i {
-        font-size: 1.2em;
+        font-size: 1.1em;
+        min-width: 20px;
     }
 
     .btn-success {
@@ -313,10 +344,12 @@
 
     .estado-caja {
         display: inline-block;
-        padding: 8px 20px;
+        padding: 6px 15px;
         border-radius: 50px;
         font-weight: 600;
-        font-size: 0.95em;
+        font-size: 0.85em;
+        white-space: nowrap;
+        text-align: center;
     }
 
     .estado-abierta {
@@ -336,22 +369,32 @@
         background: linear-gradient(135deg, #0066cc 0%, #004d99 100%);
         color: white;
         border-radius: 8px 8px 0 0;
+        padding: 20px;
+        flex-direction: column;
+        align-items: flex-start;
     }
 
     .modal-header .btn-close {
         filter: invert(1);
+        position: absolute;
+        right: 20px;
+        top: 20px;
+        margin: 0;
     }
 
     .modal-content {
         border-radius: 10px;
         border: none;
         box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+        max-height: 90vh;
+        overflow-y: auto;
     }
 
     .form-label {
         font-weight: 600;
         color: #495057;
         margin-bottom: 8px;
+        font-size: 0.95em;
     }
 
     .form-control:focus,
@@ -364,6 +407,7 @@
         background-color: #e9ecef;
         border: 1px solid #ced4da;
         font-weight: 600;
+        font-size: 0.9em;
     }
 
     .alert-info {
@@ -371,6 +415,8 @@
         color: #055160;
         border: 1px solid #b6e0fe;
         border-radius: 8px;
+        font-size: 0.9em;
+        padding: 12px 15px;
     }
 
     .alert-success {
@@ -378,6 +424,8 @@
         color: #0a3622;
         border: 1px solid #b8e0c8;
         border-radius: 8px;
+        font-size: 0.9em;
+        padding: 12px 15px;
     }
 
     .alert-danger {
@@ -385,6 +433,8 @@
         color: #58151c;
         border: 1px solid #f5c2c7;
         border-radius: 8px;
+        font-size: 0.9em;
+        padding: 12px 15px;
     }
 
     .alert-warning {
@@ -392,6 +442,8 @@
         color: #664d03;
         border: 1px solid #ffecb5;
         border-radius: 8px;
+        font-size: 0.9em;
+        padding: 12px 15px;
     }
 
     /* Animaciones */
@@ -413,14 +465,15 @@
 
     /* Botón de anulación pequeño */
     .btn-anular {
-        padding: 6px 12px;
-        font-size: 0.9em;
+        padding: 4px 8px;
+        font-size: 0.8em;
         font-weight: 600;
         border-radius: 4px;
         display: inline-flex;
         align-items: center;
-        gap: 5px;
+        gap: 4px;
         transition: all 0.2s;
+        white-space: nowrap;
     }
 
     .btn-anular:hover {
@@ -431,7 +484,7 @@
     .modal-resumen-container {
         background: #f8f9fa;
         border-radius: 8px;
-        padding: 15px;
+        padding: 12px;
         margin-bottom: 20px;
         border: 1px solid #e0e0e0;
     }
@@ -447,43 +500,342 @@
         padding: 10px;
         border-radius: 6px;
         border: 1px solid #dee2e6;
+        text-align: center;
     }
 
     .modal-resumen-label {
-        font-size: 0.9em;
+        font-size: 0.8em;
         font-weight: 600;
         margin-bottom: 5px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 4px;
     }
 
     .modal-resumen-value {
-        font-size: 1.1em;
+        font-size: 1em;
         font-weight: 700;
         font-family: 'Courier New', monospace;
     }
 
+    /* ESTILOS ESPECÍFICOS PARA EL CONTADOR DE DINERO EN MODAL - RESPONSIVO */
+    .modal-xl {
+        max-width: 95%;
+        margin: 10px auto;
+    }
+
+    .modal-body {
+        padding: 20px 15px;
+    }
+
+    .valor-badge {
+        background: linear-gradient(135deg, #6f42c1 0%, #4a1e8a 100%);
+        color: white;
+        padding: 6px 12px;
+        border-radius: 6px;
+        font-weight: 600;
+        font-family: 'Courier New', monospace;
+        min-width: 70px;
+        display: inline-block;
+        text-align: center;
+        font-size: 0.9em;
+    }
+
+    .verificacion-alert {
+        border-left: 4px solid #007bff;
+        background-color: #e8f4fd;
+        padding: 15px;
+        margin-bottom: 15px;
+        border-radius: 8px;
+    }
+
+    .verificacion-alert.coincide {
+        border-left-color: #28a745;
+        background-color: #d4edda;
+    }
+
+    .verificacion-alert.diferencia {
+        border-left-color: #dc3545;
+        background-color: #f8d7da;
+    }
+
+    .btn-verificar, .btn-limpiar {
+        width: 100%;
+        padding: 12px;
+        font-size: 1em;
+        margin-bottom: 10px;
+    }
+
+    .bg-coincide {
+        background-color: #d4edda !important;
+        border-color: #c3e6cb !important;
+        color: #155724 !important;
+    }
+
+    .bg-diferencia {
+        background-color: #f8d7da !important;
+        border-color: #f5c6cb !important;
+        color: #721c24 !important;
+    }
+
+    .total-positivo {
+        color: #28a745;
+        font-weight: 700;
+    }
+
+    .total-negativo {
+        color: #dc3545;
+        font-weight: 700;
+    }
+
+    .badge-coincide {
+        background-color: #28a745;
+        color: white;
+        padding: 8px 15px;
+        border-radius: 20px;
+        font-weight: 600;
+    }
+
+    .badge-diferencia {
+        background-color: #dc3545;
+        color: white;
+        padding: 8px 15px;
+        border-radius: 20px;
+        font-weight: 600;
+    }
+
+    .contador-section-title {
+        font-size: 1.1rem;
+        font-weight: 600;
+        color: #495057;
+        margin-bottom: 15px;
+        padding-bottom: 10px;
+        border-bottom: 2px solid #6f42c1;
+    }
+
+    .moneda-section {
+        background: white;
+        border-radius: 8px;
+        padding: 20px;
+        margin-bottom: 20px;
+        border: 1px solid #dee2e6;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+    }
+
+    /* Mejoras específicas para responsividad del contador */
+    .contador-dinero-container .denominacion-item {
+        padding: 10px 0;
+        border-bottom: 1px solid #eee;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+    }
+
+    .contador-dinero-container .denominacion-info {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
+    }
+
+    .contador-dinero-container .denominacion-controls {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        width: 100%;
+    }
+
+    .contador-dinero-container .input-group {
+        width: 150px;
+        min-width: 150px;
+    }
+
+    .contador-dinero-container .input-group input {
+        height: 40px;
+        font-size: 0.95em;
+    }
+
+    .contador-dinero-container .input-group-text {
+        font-size: 0.85em;
+        padding: 8px 12px;
+    }
+
+    .contador-dinero-container .subtotal {
+        font-weight: 600;
+        color: #28a745;
+        text-align: right;
+        font-family: 'Courier New', monospace;
+        min-width: 100px;
+        font-size: 1em;
+    }
+
+    /* Estilos específicos para pantallas pequeñas */
     @media (max-width: 768px) {
         .balance-container {
             padding: 15px;
+            margin-top: 10px;
+            border-radius: 8px;
         }
 
         .balance-header {
             padding: 20px 15px;
+            margin-bottom: 20px;
+            text-align: left;
         }
 
         .balance-header h1 {
-            font-size: 1.8rem;
+            font-size: 1.4rem;
+            margin-bottom: 8px;
         }
 
         .balance-header h2 {
-            font-size: 1.2rem;
+            font-size: 1rem;
+        }
+
+        .balance-summary {
+            grid-template-columns: 1fr;
+            gap: 15px;
         }
 
         .balance-card {
-            padding: 20px;
+            padding: 15px;
+            min-height: 140px;
         }
 
         .balance-card .amount {
-            font-size: 1.8em;
+            font-size: 1.6em;
+        }
+
+        .balance-card h3 {
+            font-size: 0.95em;
+        }
+
+        .btn-group-action {
+            gap: 10px;
+        }
+
+        .btn-action {
+            padding: 10px 15px;
+            font-size: 0.85em;
+            min-width: 140px;
+            flex: 1 0 calc(50% - 10px);
+            max-width: calc(50% - 10px);
+        }
+
+        .btn-action i {
+            font-size: 1em;
+        }
+
+        .modal-dialog {
+            margin: 10px;
+            max-width: calc(100% - 20px);
+        }
+
+        .modal-xl {
+            max-width: 100%;
+            margin: 0;
+        }
+
+        .modal-header {
+            padding: 15px;
+        }
+
+        .modal-header h3 {
+            font-size: 1.2rem;
+            padding-right: 30px;
+        }
+
+        .modal-header p {
+            font-size: 0.85rem;
+        }
+
+        .movimientos-table {
+            min-width: 800px;
+            font-size: 0.85em;
+        }
+
+        .movimientos-table th,
+        .movimientos-table td {
+            padding: 8px 6px;
+            font-size: 0.8em;
+        }
+
+        .modal-resumen-grid {
+            grid-template-columns: 1fr;
+            gap: 8px;
+        }
+
+        .contador-dinero-container .denominacion-item {
+            flex-direction: column;
+            align-items: stretch;
+            padding: 12px 0;
+        }
+
+        .contador-dinero-container .denominacion-info {
+            justify-content: space-between;
+            margin-bottom: 10px;
+        }
+
+        .contador-dinero-container .denominacion-controls {
+            flex-direction: column;
+            align-items: stretch;
+            gap: 10px;
+        }
+
+        .contador-dinero-container .input-group {
+            width: 100%;
+            min-width: 100%;
+        }
+
+        .contador-dinero-container .subtotal {
+            text-align: left;
+            padding-left: 10px;
+        }
+
+        .valor-badge {
+            min-width: 60px;
+            font-size: 0.8em;
+            padding: 5px 10px;
+        }
+
+        .moneda-section {
+            padding: 15px;
+        }
+
+        .resultados-conteo {
+            padding: 20px 15px;
+        }
+
+        .input-group-lg .form-control,
+        .input-group-lg .input-group-text {
+            padding: 10px 12px;
+            font-size: 1rem;
+        }
+
+        .modal-footer {
+            flex-direction: column;
+            gap: 10px;
+            padding: 15px;
+        }
+
+        .modal-footer .btn {
+            width: 100%;
+            margin: 0;
+        }
+    }
+
+    @media (max-width: 576px) {
+        .balance-header {
+            flex-direction: column;
+            text-align: center;
+            gap: 10px;
+        }
+
+        .estado-caja {
+            width: 100%;
+            margin-top: 10px;
         }
 
         .btn-group-action {
@@ -491,34 +843,255 @@
         }
 
         .btn-action {
+            flex: 1 0 100%;
+            max-width: 100%;
             width: 100%;
-            min-width: unset;
         }
 
         .modal-dialog {
-            margin: 10px;
+            margin: 5px;
+            max-width: calc(100% - 10px);
+        }
+
+        .modal-header h3 {
+            font-size: 1.1rem;
         }
 
         .movimientos-table {
-            min-width: 600px;
+            min-width: 700px;
         }
 
-        .modal-resumen-grid {
-            grid-template-columns: 1fr;
+        .badge {
+            padding: 3px 6px;
+            font-size: 0.7em;
         }
+
+        .btn-anular {
+            padding: 3px 6px;
+            font-size: 0.75em;
+        }
+
+        /* Ajustes específicos para el modal del contador en móviles */
+        .modal-xl .modal-content {
+            border-radius: 8px;
+        }
+
+        .modal-xl .modal-body {
+            padding: 15px 10px;
+        }
+
+        .row.g-4 {
+            gap: 15px !important;
+        }
+
+        .col-lg-8, .col-lg-4 {
+            padding: 0 !important;
+        }
+
+        .contador-dinero-container .denominacion-controls {
+            flex-direction: column;
+            align-items: stretch;
+        }
+
+        .contador-dinero-container .input-group {
+            order: 1;
+        }
+
+        .contador-dinero-container .subtotal {
+            order: 2;
+            text-align: left;
+            padding-left: 0;
+            margin-top: 5px;
+        }
+
+        .form-check.form-switch {
+            align-items: flex-start;
+        }
+
+        .form-check-label.fs-5 {
+            font-size: 1rem !important;
+            line-height: 1.3;
+        }
+
+        #dolares-container .row {
+            margin-left: -5px;
+            margin-right: -5px;
+        }
+
+        #dolares-container .col-md-8,
+        #dolares-container .col-md-4 {
+            padding-left: 5px;
+            padding-right: 5px;
+        }
+
+        .input-group {
+            flex-wrap: nowrap;
+        }
+
+        .input-group-text {
+            padding: 8px 10px;
+            font-size: 0.8em;
+        }
+
+        .form-control {
+            padding: 8px 10px;
+            font-size: 0.9em;
+        }
+
+        .d-grid.gap-3 {
+            gap: 10px !important;
+        }
+
+        .modal-footer .row {
+            flex-direction: column;
+            text-align: center;
+        }
+
+        .modal-footer .col-md-6 {
+            width: 100%;
+        }
+
+        .modal-footer .text-muted.small {
+            margin-bottom: 15px;
+            text-align: center;
+        }
+    }
+
+    @media (max-width: 375px) {
+        .balance-header h1 {
+            font-size: 1.2rem;
+        }
+
+        .balance-header h2 {
+            font-size: 0.9rem;
+        }
+
+        .balance-card {
+            padding: 12px;
+        }
+
+        .balance-card .amount {
+            font-size: 1.4em;
+        }
+
+        .btn-action {
+            padding: 8px 12px;
+            font-size: 0.8em;
+            min-width: 120px;
+        }
+
+        .valor-badge {
+            min-width: 50px;
+            font-size: 0.75em;
+            padding: 4px 8px;
+        }
+
+        .modal-header h3 {
+            font-size: 1rem;
+        }
+
+        .contador-section-title {
+            font-size: 0.95rem;
+        }
+
+        .input-group-lg .form-control,
+        .input-group-lg .input-group-text {
+            padding: 8px 10px;
+            font-size: 0.9rem;
+        }
+
+        .fs-3, .fs-4, .fs-5, .fs-6 {
+            font-size: calc(1rem + 0.3vw) !important;
+        }
+    }
+
+    /* Para tablets en modo horizontal */
+    @media (min-width: 768px) and (max-width: 1024px) {
+        .balance-summary {
+            grid-template-columns: repeat(2, 1fr);
+        }
+
+        .btn-action {
+            min-width: 180px;
+            flex: 1 0 calc(33.333% - 12px);
+            max-width: calc(33.333% - 12px);
+        }
+
+        .modal-xl {
+            max-width: 90%;
+        }
+
+        .contador-dinero-container .denominacion-item {
+            flex-direction: row;
+            align-items: center;
+        }
+
+        .contador-dinero-container .denominacion-controls {
+            flex-direction: row;
+        }
+    }
+
+    /* Para pantallas muy grandes */
+    @media (min-width: 1400px) {
+        .balance-container {
+            max-width: 1400px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .modal-xl {
+            max-width: 1300px;
+        }
+    }
+
+    /* Mejoras de accesibilidad y UX */
+    .btn-action:active {
+        transform: translateY(0);
+    }
+
+    .form-control:focus {
+        box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+    }
+
+    .input-group:focus-within {
+        z-index: 3;
+    }
+
+    /* Scroll suave para móviles */
+    .modal-dialog-scrollable .modal-body {
+        -webkit-overflow-scrolling: touch;
+    }
+
+    /* Evitar zoom en inputs en iOS */
+    @media screen and (max-width: 768px) {
+        input, select, textarea {
+            font-size: 16px !important;
+        }
+    }
+
+    /* Mejorar visualización de números en móviles */
+    .denominacion-input {
+        -webkit-appearance: none;
+        -moz-appearance: textfield;
+    }
+
+    .denominacion-input::-webkit-outer-spin-button,
+    .denominacion-input::-webkit-inner-spin-button {
+        -webkit-appearance: none;
+        margin: 0;
     }
 </style>
 
-<div class="container-fluid">
-    <div class="balance-container">
+<div class="container-fluid px-0">
+    <div class="balance-container mx-auto">
         <!-- Encabezado -->
         <div class="balance-header">
-            <div class="d-flex justify-content-between align-items-center flex-wrap">
-                <div>
+            <div class="d-flex flex-column flex-md-row justify-content-between align-items-center align-items-md-start gap-3">
+                <div class="text-center text-md-start">
                     <h1><i class="fas fa-cash-register icon"></i> Balance de Caja del Día</h1>
                     <h2><i class="far fa-calendar-alt icon"></i> {{ caja.fecha }}</h2>
                 </div>
-                <div>
+                <div class="d-flex justify-content-center">
                     <span
                         class="estado-caja {% if caja.estado == 'ABIERTA' %}estado-abierta{% else %}estado-cerrada{% endif %}">
                         <i class="fas fa-{% if caja.estado == 'ABIERTA' %}lock-open{% else %}lock{% endif %} me-1"></i>
@@ -548,8 +1121,14 @@
                 </button>
                 {% endif %}
 
+                <!-- Botón para contador de dinero -->
+                <button type="button" class="btn btn-action btn-info" data-bs-toggle="modal"
+                    data-bs-target="#modalContadorDinero">
+                    <i class="fas fa-money-bill-wave"></i> Contar Dinero
+                </button>
+
                 <a href="{{ url_for('admin_caja_historial') }}" class="btn btn-action btn-info">
-                    <i class="fas fa-history"></i> Ver Historial
+                    <i class="fas fa-history"></i> Historial
                 </a>
                 <a href="{{ url_for('admin_caja_reporte') }}" class="btn btn-action btn-info">
                     <i class="fas fa-chart-bar"></i> Reportes
@@ -588,194 +1167,195 @@
         </div>
 
         <!-- Detalle de Movimientos -->
-        <h3 class="section-title"><i class="fas fa-list icon"></i> Movimientos del Día</h3>
+        <div class="mt-4">
+            <h3 class="section-title"><i class="fas fa-list icon"></i> Movimientos del Día</h3>
+            <div class="movimientos-table-container">
+                <table class="movimientos-table">
+                    <thead>
+                        <tr>
+                            <th><i class="far fa-clock icon"></i> Hora</th>
+                            <th><i class="fas fa-exchange-alt icon"></i> Tipo</th>
+                            <th><i class="far fa-file-alt icon"></i> Descripción</th>
+                            <th><i class="fas fa-hashtag icon"></i> Referencia</th>
+                            <th><i class="fas fa-money-bill-wave icon"></i> Monto</th>
+                            <th><i class="fas fa-cogs icon"></i> Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% if caja.movimientos and caja.movimientos|length > 0 %}
+                        {% for mov in caja.movimientos %}
+                        <tr class="{% if mov.Estado == 'ANULADO' %}movimiento-anulado{% endif %}">
+                            <td style="font-family: 'Courier New', monospace; font-weight: 600;">
+                                {{ mov.Fecha|format_hora }}
+                            </td>
 
-        <div class="movimientos-table-container">
-            <table class="movimientos-table">
-                <thead>
-                    <tr>
-                        <th><i class="far fa-clock icon"></i> Hora</th>
-                        <th><i class="fas fa-exchange-alt icon"></i> Tipo / Estado</th>
-                        <th><i class="far fa-file-alt icon"></i> Descripción</th>
-                        <th><i class="fas fa-hashtag icon"></i> Referencia</th>
-                        <th><i class="fas fa-money-bill-wave icon"></i> Monto</th>
-                        <th><i class="fas fa-cogs icon"></i> Acciones</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% if caja.movimientos and caja.movimientos|length > 0 %}
-                    {% for mov in caja.movimientos %}
-                    <tr class="{% if mov.Estado == 'ANULADO' %}movimiento-anulado{% endif %}">
-                        <!-- CORRECCIÓN: Usamos mov.Fecha (datetime) con el filtro format_hora -->
-                        <td style="font-family: 'Courier New', monospace; font-weight: 600;">
-                            {{ mov.Fecha|format_hora }}
-                        </td>
-
-                        <td>
-                            {% if mov.Estado == 'ANULADO' %}
-                            <span class="badge badge-anulado">
-                                <i class="fas fa-ban"></i> ANULADO
-                            </span>
-                            {% else %}
-                            <span
-                                class="badge {% if mov.Tipo_Movimiento == 'ENTRADA' %}badge-entrada{% else %}badge-salida{% endif %}">
-                                {% if mov.Tipo_Movimiento == 'ENTRADA' %}
-                                <i class="fas fa-arrow-down"></i>
+                            <td>
+                                {% if mov.Estado == 'ANULADO' %}
+                                <span class="badge badge-anulado">
+                                    <i class="fas fa-ban"></i> ANULADO
+                                </span>
                                 {% else %}
-                                <i class="fas fa-arrow-up"></i>
+                                <span
+                                    class="badge {% if mov.Tipo_Movimiento == 'ENTRADA' %}badge-entrada{% else %}badge-salida{% endif %}">
+                                    {% if mov.Tipo_Movimiento == 'ENTRADA' %}
+                                    <i class="fas fa-arrow-down"></i>
+                                    {% else %}
+                                    <i class="fas fa-arrow-up"></i>
+                                    {% endif %}
+                                    {{ mov.Tipo_Movimiento }}
+                                </span>
                                 {% endif %}
-                                {{ mov.Tipo_Movimiento }}
-                            </span>
-                            {% endif %}
-                        </td>
+                            </td>
 
-                        <td>
-                            {{ mov.Descripcion }}
+                            <td>
+                                <div class="d-flex flex-column">
+                                    <span>{{ mov.Descripcion|truncate(50) }}</span>
+                                    {% if mov.Estado == 'ANULADO' %}
+                                    <small class="text-danger mt-1">
+                                        <i class="fas fa-info-circle"></i>
+                                        Movimiento anulado
+                                    </small>
+                                    {% endif %}
+                                </div>
+                            </td>
 
-                            {% if mov.Estado == 'ANULADO' %}
-                            <div class="text-danger small mt-1">
-                                <i class="fas fa-info-circle"></i>
-                                Movimiento anulado
-                            </div>
-                            {% endif %}
-                        </td>
+                            <td>
+                                {% if mov.Referencia_Documento and mov.Referencia_Documento not in ['APERTURA', 'CIERRE',
+                                'ANULACION'] %}
+                                <span class="badge bg-light text-dark">
+                                    {{ mov.Referencia_Documento|truncate(15) }}
+                                </span>
+                                {% else %}
+                                <span class="text-muted small">
+                                    {% if mov.Referencia_Documento == 'APERTURA' %}Apertura
+                                    {% elif mov.Referencia_Documento == 'CIERRE' %}Cierre
+                                    {% elif mov.Referencia_Documento == 'ANULACION' %}Anulación
+                                    {% else %}Sin referencia{% endif %}
+                                </span>
+                                {% endif %}
+                            </td>
 
-                        <td>
-                            {% if mov.Referencia_Documento and mov.Referencia_Documento not in ['APERTURA', 'CIERRE',
-                            'ANULACION'] %}
-                            <span class="badge bg-light text-dark">
-                                {{ mov.Referencia_Documento }}
-                            </span>
-                            {% else %}
-                            <span class="text-muted">
-                                {% if mov.Referencia_Documento == 'APERTURA' %}Apertura
-                                {% elif mov.Referencia_Documento == 'CIERRE' %}Cierre
-                                {% elif mov.Referencia_Documento == 'ANULACION' %}Anulación
-                                {% else %}Sin referencia{% endif %}
-                            </span>
-                            {% endif %}
-                        </td>
+                            <td style="font-weight: 700; font-family: 'Courier New', monospace;"
+                                class="{% if mov.Tipo_Movimiento == 'ENTRADA' and mov.Estado != 'ANULADO' %}text-success{% elif mov.Tipo_Movimiento == 'SALIDA' and mov.Estado != 'ANULADO' %}text-danger{% else %}text-muted{% endif %}">
+                                {% if mov.Estado != 'ANULADO' %}
+                                {% if mov.Tipo_Movimiento == 'ENTRADA' %}+{% else %}-{% endif %}
+                                {% endif %}
+                                C$ {{ "{:,.2f}".format(mov.Monto) }}
+                            </td>
 
-                        <td style="font-weight: 700; font-family: 'Courier New', monospace;"
-                            class="{% if mov.Tipo_Movimiento == 'ENTRADA' and mov.Estado != 'ANULADO' %}text-success{% elif mov.Tipo_Movimiento == 'SALIDA' and mov.Estado != 'ANULADO' %}text-danger{% else %}text-muted{% endif %}">
-                            {% if mov.Estado != 'ANULADO' %}
-                            {% if mov.Tipo_Movimiento == 'ENTRADA' %}+{% else %}-{% endif %}
-                            {% endif %}
-                            C$ {{ "{:,.2f}".format(mov.Monto) }}
-                        </td>
+                            <td>
+                                {% if mov.Estado == 'ACTIVO' and
+                                mov.Referencia_Documento and
+                                mov.Referencia_Documento not in ['APERTURA', 'CIERRE', 'ANULACION'] and
+                                caja.estado == 'ABIERTA' %}
+                                <button type="button" class="btn btn-anular btn-outline-danger btn-sm"
+                                    data-bs-toggle="modal" data-bs-target="#modalAnular{{ mov.ID_Movimiento }}"
+                                    title="Anular este movimiento">
+                                    <i class="fas fa-ban"></i> <span class="d-none d-md-inline">Anular</span>
+                                </button>
 
-                        <td>
-                            {% if mov.Estado == 'ACTIVO' and
-                            mov.Referencia_Documento and
-                            mov.Referencia_Documento not in ['APERTURA', 'CIERRE', 'ANULACION'] and
-                            caja.estado == 'ABIERTA' %}
-                            <button type="button" class="btn btn-anular btn-outline-danger btn-sm"
-                                data-bs-toggle="modal" data-bs-target="#modalAnular{{ mov.ID_Movimiento }}"
-                                title="Anular este movimiento">
-                                <i class="fas fa-ban"></i> Anular
-                            </button>
+                                <!-- Modal de anulación individual -->
+                                <div class="modal fade" id="modalAnular{{ mov.ID_Movimiento }}" tabindex="-1"
+                                    aria-hidden="true">
+                                    <div class="modal-dialog modal-dialog-centered">
+                                        <div class="modal-content">
+                                            <div class="modal-header bg-danger text-white">
+                                                <h5 class="modal-title">
+                                                    <i class="fas fa-ban me-2"></i> Anular Movimiento
+                                                </h5>
+                                                <button type="button" class="btn-close btn-close-white"
+                                                    data-bs-dismiss="modal" aria-label="Close"></button>
+                                            </div>
+                                            <form method="POST"
+                                                action="{{ url_for('admin_caja_anular', id_movimiento=mov.ID_Movimiento) }}">
+                                                <div class="modal-body">
+                                                    <div class="alert alert-danger">
+                                                        <i class="fas fa-exclamation-triangle me-2"></i>
+                                                        <strong>¡ADVERTENCIA!</strong> Esta acción no se puede deshacer.
+                                                    </div>
 
-                            <!-- Modal de anulación individual -->
-                            <div class="modal fade" id="modalAnular{{ mov.ID_Movimiento }}" tabindex="-1"
-                                aria-hidden="true">
-                                <div class="modal-dialog">
-                                    <div class="modal-content">
-                                        <div class="modal-header bg-danger text-white">
-                                            <h5 class="modal-title">
-                                                <i class="fas fa-ban me-2"></i> Anular Movimiento
-                                            </h5>
-                                            <button type="button" class="btn-close btn-close-white"
-                                                data-bs-dismiss="modal" aria-label="Close"></button>
-                                        </div>
-                                        <form method="POST"
-                                            action="{{ url_for('admin_caja_anular', id_movimiento=mov.ID_Movimiento) }}">
-                                            <div class="modal-body">
-                                                <div class="alert alert-danger">
-                                                    <i class="fas fa-exclamation-triangle me-2"></i>
-                                                    <strong>¡ADVERTENCIA!</strong> Esta acción no se puede deshacer.
-                                                </div>
+                                                    <div class="mb-3">
+                                                        <label class="form-label">Movimiento a anular:</label>
+                                                        <div class="alert alert-warning p-3">
+                                                            <strong>#{{ mov.ID_Movimiento }}</strong> - {{ mov.Descripcion
+                                                            }}
+                                                            <br>
+                                                            <strong>Hora:</strong> {{ mov.Fecha|format_hora }}
+                                                            <br>
+                                                            <strong>Monto:</strong> C$ {{ "{:,.2f}".format(mov.Monto) }}
+                                                            <br>
+                                                            <strong>Tipo:</strong> {{ mov.Tipo_Movimiento }}
+                                                        </div>
+                                                    </div>
 
-                                                <div class="mb-3">
-                                                    <label class="form-label">Movimiento a anular:</label>
-                                                    <div class="alert alert-warning p-3">
-                                                        <strong>#{{ mov.ID_Movimiento }}</strong> - {{ mov.Descripcion
-                                                        }}
-                                                        <br>
-                                                        <strong>Hora:</strong> {{ mov.Fecha|format_hora }}
-                                                        <br>
-                                                        <strong>Monto:</strong> C$ {{ "{:,.2f}".format(mov.Monto) }}
-                                                        <br>
-                                                        <strong>Tipo:</strong> {{ mov.Tipo_Movimiento }}
+                                                    <div class="mb-3">
+                                                        <label for="motivo{{ mov.ID_Movimiento }}" class="form-label">
+                                                            <i class="fas fa-comment-dots me-1"></i> Motivo de anulación
+                                                        </label>
+                                                        <textarea class="form-control" id="motivo{{ mov.ID_Movimiento }}"
+                                                            name="motivo" rows="3" required minlength="5"
+                                                            placeholder="Explique por qué necesita anular este movimiento..."></textarea>
+                                                        <div class="form-text">Mínimo 5 caracteres.</div>
                                                     </div>
                                                 </div>
-
-                                                <div class="mb-3">
-                                                    <label for="motivo{{ mov.ID_Movimiento }}" class="form-label">
-                                                        <i class="fas fa-comment-dots me-1"></i> Motivo de anulación
-                                                    </label>
-                                                    <textarea class="form-control" id="motivo{{ mov.ID_Movimiento }}"
-                                                        name="motivo" rows="4" required minlength="5"
-                                                        placeholder="Explique detalladamente por qué necesita anular este movimiento..."></textarea>
-                                                    <div class="form-text">Mínimo 5 caracteres.</div>
+                                                <div class="modal-footer">
+                                                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                                                        <i class="fas fa-times me-1"></i> Cancelar
+                                                    </button>
+                                                    <button type="submit" class="btn btn-danger">
+                                                        <i class="fas fa-ban me-1"></i> Confirmar Anulación
+                                                    </button>
                                                 </div>
-                                            </div>
-                                            <div class="modal-footer">
-                                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
-                                                    <i class="fas fa-times me-1"></i> Cancelar
-                                                </button>
-                                                <button type="submit" class="btn btn-danger">
-                                                    <i class="fas fa-ban me-1"></i> Confirmar Anulación
-                                                </button>
-                                            </div>
-                                        </form>
+                                            </form>
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
 
-                            {% elif mov.Estado == 'ANULADO' %}
-                            <span class="text-muted small">
-                                <i class="fas fa-ban"></i> Anulado
-                            </span>
-                            {% elif mov.Referencia_Documento in ['APERTURA', 'CIERRE'] %}
-                            <span class="text-muted small">
-                                <i class="fas fa-lock"></i> Bloqueado
-                            </span>
-                            {% endif %}
-                        </td>
-                    </tr>
-                    {% endfor %}
+                                {% elif mov.Estado == 'ANULADO' %}
+                                <span class="text-muted small">
+                                    <i class="fas fa-ban"></i> <span class="d-none d-md-inline">Anulado</span>
+                                </span>
+                                {% elif mov.Referencia_Documento in ['APERTURA', 'CIERRE'] %}
+                                <span class="text-muted small">
+                                    <i class="fas fa-lock"></i> <span class="d-none d-md-inline">Bloqueado</span>
+                                </span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
 
-                    <!-- Fila de totales -->
-                    <tr style="background-color: #f8f9fa; font-weight: 700;">
-                        <td colspan="3" style="text-align: right; color: #495057;">
-                            <i class="fas fa-calculator icon"></i> Totales del Día (movimientos activos):
-                        </td>
-                        <td></td>
-                        <td style="font-family: 'Courier New', monospace;">
-                            <span style="color: #28a745;">+C$ {{ "{:,.2f}".format(caja.entradas) }}</span>
-                            <span style="color: #dc3545;"> -C$ {{ "{:,.2f}".format(caja.salidas) }}</span>
-                            <br>
-                            <span style="color: #007bff;">= C$ {{ "{:,.2f}".format(caja.saldo_dia) }}</span>
-                        </td>
-                        <td></td>
-                    </tr>
-                    {% else %}
-                    <tr>
-                        <td colspan="6" class="no-data">
-                            <i class="far fa-folder-open"></i>
-                            <h4>No hay movimientos registrados hoy</h4>
-                            <p>No se han registrado movimientos de caja para {{ caja.fecha }}</p>
-                        </td>
-                    </tr>
-                    {% endif %}
-                </tbody>
-            </table>
+                        <!-- Fila de totales -->
+                        <tr style="background-color: #f8f9fa; font-weight: 700;">
+                            <td colspan="3" style="text-align: right; color: #495057;">
+                                <i class="fas fa-calculator icon"></i> Totales del Día:
+                            </td>
+                            <td></td>
+                            <td style="font-family: 'Courier New', monospace;">
+                                <div class="d-flex flex-column">
+                                    <span style="color: #28a745;">+C$ {{ "{:,.2f}".format(caja.entradas) }}</span>
+                                    <span style="color: #dc3545;"> -C$ {{ "{:,.2f}".format(caja.salidas) }}</span>
+                                    <span style="color: #007bff;">= C$ {{ "{:,.2f}".format(caja.saldo_dia) }}</span>
+                                </div>
+                            </td>
+                            <td></td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="6" class="no-data">
+                                <i class="far fa-folder-open fa-2x"></i>
+                                <h4>No hay movimientos registrados hoy</h4>
+                                <p>No se han registrado movimientos de caja para {{ caja.fecha }}</p>
+                            </td>
+                        </tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
         </div>
 
         <!-- Información Adicional -->
-        <div
-            style="margin-top: 30px; padding: 15px; background: #f8f9fa; border-radius: 8px; font-size: 0.9em; color: #6c757d;">
-            <p style="margin: 0;">
+        <div class="mt-4 p-3 bg-light rounded">
+            <p class="mb-0 small">
                 <i class="fas fa-info-circle icon"></i>
                 <strong>Información:</strong>
                 • Solo se pueden anular movimientos del día actual con caja abierta.
@@ -787,9 +1367,225 @@
     </div>
 </div>
 
+<!-- =========================================== -->
+<!-- MODAL CONTADOR DE DINERO - MEJORADO PARA RESPONSIVO -->
+<!-- =========================================== -->
+<div class="modal fade" id="modalContadorDinero" tabindex="-1" aria-labelledby="modalContadorDineroLabel"
+    aria-hidden="true" data-bs-backdrop="static">
+    <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content border-0">
+            
+            <!-- Encabezado del Modal -->
+            <div class="modal-header bg-primary text-white px-3 px-md-4 py-3">
+                <div class="d-flex align-items-center w-100">
+                    <div class="me-3 d-none d-md-block">
+                        <i class="fas fa-money-bill-wave fa-2x"></i>
+                    </div>
+                    <div class="me-3 d-md-none">
+                        <i class="fas fa-money-bill-wave fa-lg"></i>
+                    </div>
+                    <div class="flex-grow-1">
+                        <h3 class="modal-title mb-0 fs-5 fs-md-4" id="modalContadorDineroLabel">
+                            Contador de Dinero Físico
+                        </h3>
+                        <p class="mb-0 small opacity-75 d-none d-md-block">
+                            <i class="fas fa-calculator me-1"></i> Conteo físico para verificación contra saldo del sistema
+                        </p>
+                    </div>
+                    <button type="button" class="btn-close btn-close-white ms-2" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+            </div>
+
+            <!-- Cuerpo del Modal -->
+            <div class="modal-body p-3 p-md-4">
+                <div class="row g-3 g-md-4">
+                    <!-- Columna izquierda: Conteo de dinero -->
+                    <div class="col-lg-8">
+                        <!-- Córdobas Nicaragüenses -->
+                        <div class="moneda-section">
+                            <h4 class="contador-section-title mb-3 mb-md-4">
+                                <i class="fas fa-money-bill-wave me-2"></i>Córdobas Nicaragüenses (C$)
+                            </h4>
+                            
+                            <div class="row">
+                                <div class="col-12">
+                                    <h5 class="mb-2 mb-md-3">
+                                        <i class="fas fa-money-bill me-2"></i> Billetes en Córdobas
+                                    </h5>
+                                    <div id="billetes-container" class="contador-dinero-container">
+                                        <!-- Billetes en córdobas se generarán aquí dinámicamente -->
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="row mt-3 mt-md-4">
+                                <div class="col-12">
+                                    <div class="d-flex justify-content-between align-items-center border-top pt-3">
+                                        <h5 class="mb-0">Subtotal Córdobas:</h5>
+                                        <div class="fs-4 fw-bold text-primary" id="subtotal-cordobas">
+                                            C$ 0.00
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Dólares Americanos (Opcional) -->
+                        <div class="moneda-section mt-3 mt-md-4">
+                            <div class="form-check form-switch mb-3 d-flex align-items-center">
+                                <input class="form-check-input me-3" type="checkbox" id="incluirDolares">
+                                <label class="form-check-label fw-bold" for="incluirDolares">
+                                    <i class="fas fa-dollar-sign me-2"></i> Incluir conteo en Dólares (USD)
+                                </label>
+                            </div>
+                            
+                            <div id="dolares-container" class="d-none">
+                                <div class="row">
+                                    <div class="col-12">
+                                        <h5 class="mb-2 mb-md-3">
+                                            <i class="fas fa-money-bill-wave me-2"></i> Billetes en Dólares
+                                        </h5>
+                                        <div id="billetes-dolares-container" class="contador-dinero-container">
+                                            <!-- Billetes en dólares se generarán aquí dinámicamente -->
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="row mt-3 mt-md-4">
+                                    <div class="col-md-8 mb-3 mb-md-0">
+                                        <div class="mb-2">
+                                            <label class="form-label fw-bold">Tipo de cambio:</label>
+                                            <div class="input-group">
+                                                <span class="input-group-text">C$</span>
+                                                <input type="number" class="form-control" id="tipo-cambio" value="36.50" step="0.01" min="0.01">
+                                                <span class="input-group-text">por $1</span>
+                                            </div>
+                                            <small class="text-muted">Puedes ajustar el tipo de cambio actual</small>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="col-md-4">
+                                        <div class="d-flex justify-content-between align-items-center mb-2">
+                                            <h5 class="mb-0">Subtotal USD:</h5>
+                                            <div class="fs-5 fw-bold text-success" id="subtotal-dolares">
+                                                $ 0.00
+                                            </div>
+                                        </div>
+                                        <div class="text-muted small" id="dolares-en-cordobas">
+                                            Equivalente: C$ 0.00
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Columna derecha: Resultados y verificación -->
+                    <div class="col-lg-4">
+                        <div class="resultados-conteo p-3 p-md-4 border rounded h-100">
+                            <h4 class="border-bottom pb-2 pb-md-3 mb-3 mb-md-4">
+                                <i class="fas fa-calculator me-2"></i> Resultados del Conteo
+                            </h4>
+                            
+                            <div class="mb-3 mb-md-4">
+                                <label class="form-label fw-bold">Total en Córdobas:</label>
+                                <div class="input-group input-group-lg mb-2">
+                                    <span class="input-group-text">C$</span>
+                                    <input type="text" class="form-control text-success fw-bold" 
+                                           id="total-cordobas" value="0.00" readonly>
+                                </div>
+                            </div>
+                            
+                            <div class="mb-3 mb-md-4">
+                                <label class="form-label fw-bold">Total en Dólares:</label>
+                                <div class="input-group input-group-lg mb-2">
+                                    <span class="input-group-text">$</span>
+                                    <input type="text" class="form-control fw-bold" 
+                                           id="total-dolares" value="0.00" readonly>
+                                </div>
+                            </div>
+                            
+                            <div class="mb-3 mb-md-4">
+                                <label class="form-label fw-bold">Total General (en C$):</label>
+                                <div class="input-group input-group-lg">
+                                    <span class="input-group-text">C$</span>
+                                    <input type="text" class="form-control text-primary fw-bold" 
+                                           id="total-general" value="0.00" readonly>
+                                </div>
+                            </div>
+                            
+                            <hr class="my-3 my-md-4">
+                            
+                            <!-- Verificación contra saldo del sistema -->
+                            <div class="verificacion-saldo">
+                                <h5 class="mb-3">
+                                    <i class="fas fa-check-circle me-2"></i> Verificación con Sistema
+                                </h5>
+                                
+                                <div class="alert mb-3" id="alert-verificacion">
+                                    <div class="d-flex align-items-center">
+                                        <div class="me-3">
+                                            <i class="fas fa-cash-register"></i>
+                                        </div>
+                                        <div>
+                                            <small class="d-block">Saldo actual en sistema:</small>
+                                            <div class="fw-bold">C$ {{ "{:,.2f}".format(caja.saldo_dia) }}</div>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="d-flex justify-content-between align-items-center mb-3 p-3 border rounded bg-light">
+                                    <span class="fw-bold">Diferencia:</span>
+                                    <span id="diferencia" class="fw-bold">C$ 0.00</span>
+                                </div>
+                                
+                                <div class="mb-4 text-center">
+                                    <div id="estado-verificacion">
+                                        <span class="badge bg-secondary">Sin verificar</span>
+                                    </div>
+                                    <div id="detalle-verificacion" class="mt-2 small text-muted"></div>
+                                </div>
+                                
+                                <div class="d-grid gap-2">
+                                    <button class="btn btn-verificar" id="btn-verificar">
+                                        <i class="fas fa-check me-2"></i> Verificar con Saldo
+                                    </button>
+                                    <button class="btn btn-limpiar" id="btn-limpiar">
+                                        <i class="fas fa-redo me-2"></i> Limpiar Todo
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Pie del Modal -->
+            <div class="modal-footer px-3 px-md-4 py-3">
+                <div class="row w-100 align-items-center">
+                    <div class="col-md-6 mb-2 mb-md-0">
+                        <div class="text-muted small">
+                            <i class="fas fa-lightbulb me-1"></i>
+                            <strong>Consejo:</strong> Realiza este conteo al final del día.
+                        </div>
+                    </div>
+                    <div class="col-md-6 text-start text-md-end">
+                        <button type="button" class="btn btn-secondary me-2" data-bs-dismiss="modal">
+                            <i class="fas fa-times me-1"></i> Cancelar
+                        </button>
+                        <button type="button" class="btn btn-primary" id="btn-guardar-conteo">
+                            <i class="fas fa-save me-1"></i> Guardar
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Modal Apertura de Caja -->
 <div class="modal fade" id="modalApertura" tabindex="-1" aria-labelledby="modalAperturaLabel" aria-hidden="true">
-    <div class="modal-dialog">
+    <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
             <div class="modal-header bg-success text-white">
                 <h5 class="modal-title" id="modalAperturaLabel">
@@ -832,7 +1628,7 @@
 
 <!-- Modal Nuevo Movimiento -->
 <div class="modal fade" id="modalMovimiento" tabindex="-1" aria-labelledby="modalMovimientoLabel" aria-hidden="true">
-    <div class="modal-dialog">
+    <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
             <div class="modal-header bg-primary text-white">
                 <h5 class="modal-title" id="modalMovimientoLabel">
@@ -843,8 +1639,8 @@
             </div>
             <form method="POST" action="{{ url_for('admin_caja_movimiento') }}">
                 <div class="modal-body">
-                    <div class="row">
-                        <div class="col-md-6 mb-3">
+                    <div class="row g-2">
+                        <div class="col-12 col-md-6 mb-3">
                             <label for="tipo_movimiento" class="form-label">
                                 <i class="fas fa-arrow-up-down me-1"></i> Tipo de Movimiento
                             </label>
@@ -859,7 +1655,7 @@
                             </select>
                         </div>
 
-                        <div class="col-md-6 mb-3">
+                        <div class="col-12 col-md-6 mb-3">
                             <label for="monto" class="form-label">
                                 <i class="fas fa-money-bill me-1"></i> Monto
                             </label>
@@ -875,8 +1671,8 @@
                         <label for="descripcion" class="form-label">
                             <i class="fas fa-clipboard me-1"></i> Descripción
                         </label>
-                        <textarea class="form-control" id="descripcion" name="descripcion" rows="3" required
-                            placeholder="Ej: Venta al contado, Pago de servicios, Retiro para gastos..."></textarea>
+                        <textarea class="form-control" id="descripcion" name="descripcion" rows="2" required
+                            placeholder="Ej: Venta al contado, Pago de servicios..."></textarea>
                         <div class="form-text">Describe el motivo del movimiento</div>
                     </div>
 
@@ -894,7 +1690,7 @@
                         <i class="fas fa-times me-1"></i> Cancelar
                     </button>
                     <button type="submit" class="btn btn-primary">
-                        <i class="fas fa-save me-1"></i> Registrar Movimiento
+                        <i class="fas fa-save me-1"></i> Registrar
                     </button>
                 </div>
             </form>
@@ -904,7 +1700,7 @@
 
 <!-- Modal Cierre de Caja -->
 <div class="modal fade" id="modalCierre" tabindex="-1" aria-labelledby="modalCierreLabel" aria-hidden="true">
-    <div class="modal-dialog">
+    <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
             <div class="modal-header bg-warning text-dark">
                 <h5 class="modal-title" id="modalCierreLabel">
@@ -945,7 +1741,7 @@
                                 <div class="modal-resumen-label text-primary">
                                     <i class="fas fa-balance-scale me-1"></i> Saldo a Cerrar
                                 </div>
-                                <div class="modal-resumen-value text-primary" style="font-size: 1.4em;">
+                                <div class="modal-resumen-value text-primary">
                                     C$ {{ "{:,.2f}".format(caja.saldo_dia) }}
                                 </div>
                             </div>
@@ -956,8 +1752,8 @@
                         <label for="observaciones" class="form-label">
                             <i class="fas fa-sticky-note me-1"></i> Observaciones del Cierre
                         </label>
-                        <textarea class="form-control" id="observaciones" name="observaciones" rows="3"
-                            placeholder="Ej: Todo en orden, recibimos pagos en efectivo, hubo pequeño sobrante..."></textarea>
+                        <textarea class="form-control" id="observaciones" name="observaciones" rows="2"
+                            placeholder="Ej: Todo en orden, recibimos pagos en efectivo..."></textarea>
                         <div class="form-text">Describe cualquier detalle relevante sobre el cierre</div>
                     </div>
                 </div>
@@ -975,116 +1771,491 @@
 </div>
 
 <script>
-    document.addEventListener('DOMContentLoaded', function () {
-        console.log('Página de balance de caja cargada correctamente');
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('Página de balance de caja cargada correctamente');
 
-        // 1. Validar monto suficiente para salidas
-        const tipoSelect = document.getElementById('tipo_movimiento');
-        const montoInput = document.getElementById('monto');
+    // 1. Validar monto suficiente para salidas
+    const tipoSelect = document.getElementById('tipo_movimiento');
+    const montoInput = document.getElementById('monto');
 
-        if (tipoSelect && montoInput) {
-            function validarSaldo() {
-                const tipo = tipoSelect.value;
-                const monto = parseFloat(montoInput.value) || 0;
-                const saldoActual = parseFloat('{{ caja.saldo_dia|float }}') || 0;
+    if (tipoSelect && montoInput) {
+        function validarSaldo() {
+            const tipo = tipoSelect.value;
+            const monto = parseFloat(montoInput.value) || 0;
+            const saldoActual = parseFloat('{{ caja.saldo_dia|float }}') || 0;
 
-                if (tipo === 'SALIDA' && monto > saldoActual) {
-                    alert('❌ Saldo insuficiente. Saldo disponible: C$' + saldoActual.toFixed(2));
-                    return false;
-                }
-                return true;
+            if (tipo === 'SALIDA' && monto > saldoActual) {
+                alert('❌ Saldo insuficiente. Saldo disponible: C$' + saldoActual.toFixed(2));
+                return false;
             }
-
-            // Validar antes de enviar formulario de movimiento
-            const formMovimiento = document.querySelector('form[action*="admin_caja_movimiento"]');
-            if (formMovimiento) {
-                formMovimiento.addEventListener('submit', function (e) {
-                    if (!validarSaldo()) {
-                        e.preventDefault();
-                    }
-                });
-            }
+            return true;
         }
 
-        // 2. Auto-formatear montos con 2 decimales
-        const montoInputs = document.querySelectorAll('input[type="number"][step="0.01"]');
-        montoInputs.forEach(input => {
-            input.addEventListener('blur', function () {
-                if (this.value) {
-                    this.value = parseFloat(this.value).toFixed(2);
-                }
-            });
-
-            // Validar que sea positivo
-            input.addEventListener('input', function () {
-                if (parseFloat(this.value) < 0) {
-                    this.value = Math.abs(parseFloat(this.value));
-                }
-            });
-        });
-
-        // 3. Confirmación para anulaciones
-        const anularButtons = document.querySelectorAll('.btn-anular.btn-outline-danger');
-        anularButtons.forEach(button => {
-            button.addEventListener('click', function (e) {
-                if (!confirm('¿Está seguro de que desea anular este movimiento?\n\nEsta acción creará un movimiento de ajuste y no se puede deshacer.')) {
-                    e.preventDefault();
-                }
-            });
-        });
-
-        // 4. Efectos visuales
-        const balanceCards = document.querySelectorAll('.balance-card');
-        balanceCards.forEach(card => {
-            card.addEventListener('mouseenter', function () {
-                this.style.boxShadow = '0 10px 25px rgba(0,0,0,0.15)';
-            });
-
-            card.addEventListener('mouseleave', function () {
-                this.style.boxShadow = '0 10px 20px rgba(0,0,0,0.1)';
-            });
-        });
-
-        // 5. Auto-focus en modales
-        const modales = ['modalApertura', 'modalMovimiento', 'modalCierre'];
-        modales.forEach(modalId => {
-            const modal = document.getElementById(modalId);
-            if (modal) {
-                modal.addEventListener('shown.bs.modal', function () {
-                    const input = this.querySelector('input, select, textarea');
-                    if (input) input.focus();
-                });
-            }
-        });
-
-        // 6. Mostrar mensaje de confirmación de cierre
-        const formCierre = document.querySelector('form[action*="admin_caja_cerrar"]');
-        if (formCierre) {
-            formCierre.addEventListener('submit', function (e) {
-                const saldo = parseFloat('{{ caja.saldo_dia|float }}') || 0;
-                const confirmacion = confirm(' ¿Confirmar cierre de caja?\n\nSaldo a cerrar: C$' + saldo.toFixed(2) + '\n\nEsta acción registrará el cierre definitivo del día.');
-
-                if (!confirmacion) {
+        // Validar antes de enviar formulario de movimiento
+        const formMovimiento = document.querySelector('form[action*="admin_caja_movimiento"]');
+        if (formMovimiento) {
+            formMovimiento.addEventListener('submit', function (e) {
+                if (!validarSaldo()) {
                     e.preventDefault();
                 }
             });
         }
+    }
 
-        // 7. Actualizar saldo automáticamente
-        function actualizarSaldoDisponible() {
-            const saldoElement = document.querySelector('.balance-card .amount.saldo');
-            if (saldoElement) {
-                const saldo = parseFloat('{{ caja.saldo_dia|float }}') || 0;
-                console.log('Saldo actual de caja:', saldo.toFixed(2));
+    // 2. Auto-formatear montos con 2 decimales
+    const montoInputs = document.querySelectorAll('input[type="number"][step="0.01"]');
+    montoInputs.forEach(input => {
+        input.addEventListener('blur', function () {
+            if (this.value) {
+                this.value = parseFloat(this.value).toFixed(2);
             }
-        }
+        });
 
-        // Actualizar cada 30 segundos (opcional)
-        // setInterval(actualizarSaldoDisponible, 30000);
-        actualizarSaldoDisponible();
-
-        // 8. Mostrar hora actual en consola
-        console.log('Hora del servidor:', new Date().toLocaleTimeString());
+        // Validar que sea positivo
+        input.addEventListener('input', function () {
+            if (parseFloat(this.value) < 0) {
+                this.value = Math.abs(parseFloat(this.value));
+            }
+        });
     });
+
+    // 3. Confirmación para anulaciones
+    const anularButtons = document.querySelectorAll('.btn-anular.btn-outline-danger');
+    anularButtons.forEach(button => {
+        button.addEventListener('click', function (e) {
+            if (!confirm('¿Está seguro de que desea anular este movimiento?\n\nEsta acción creará un movimiento de ajuste y no se puede deshacer.')) {
+                e.preventDefault();
+            }
+        });
+    });
+
+    // 4. Efectos visuales
+    const balanceCards = document.querySelectorAll('.balance-card');
+    balanceCards.forEach(card => {
+        card.addEventListener('mouseenter', function () {
+            this.style.boxShadow = '0 10px 25px rgba(0,0,0,0.15)';
+        });
+
+        card.addEventListener('mouseleave', function () {
+            this.style.boxShadow = '0 10px 20px rgba(0,0,0,0.1)';
+        });
+    });
+
+    // 5. Auto-focus en modales
+    const modales = ['modalApertura', 'modalMovimiento', 'modalCierre'];
+    modales.forEach(modalId => {
+        const modal = document.getElementById(modalId);
+        if (modal) {
+            modal.addEventListener('shown.bs.modal', function () {
+                const input = this.querySelector('input, select, textarea');
+                if (input) input.focus();
+            });
+        }
+    });
+
+    // 6. Mostrar mensaje de confirmación de cierre
+    const formCierre = document.querySelector('form[action*="admin_caja_cerrar"]');
+    if (formCierre) {
+        formCierre.addEventListener('submit', function (e) {
+            const saldo = parseFloat('{{ caja.saldo_dia|float }}') || 0;
+            const confirmacion = confirm(' ¿Confirmar cierre de caja?\n\nSaldo a cerrar: C$' + saldo.toFixed(2) + '\n\nEsta acción registrará el cierre definitivo del día.');
+
+            if (!confirmacion) {
+                e.preventDefault();
+            }
+        });
+    }
+
+    // ============================================
+    // CÓDIGO PARA EL CONTADOR DE DINERO (EN MODAL)
+    // ============================================
+
+    // Denominaciones para Nicaragua (Córdobas) y Dólares
+    const denominaciones = {
+        cordobas: {
+            billetes: [
+                { valor: 1000, label: "Mil córdobas" },
+                { valor: 500, label: "Quinientos córdobas" },
+                { valor: 200, label: "Doscientos córdobas" },
+                { valor: 100, label: "Cien córdobas" },
+                { valor: 50, label: "Cincuenta córdobas" },
+                { valor: 20, label: "Veinte córdobas" },
+                { valor: 10, label: "Diez córdobas" }
+            ]
+        },
+        dolares: {
+            billetes: [
+                { valor: 100, label: "Cien dólares" },
+                { valor: 50, label: "Cincuenta dólares" },
+                { valor: 20, label: "Veinte dólares" },
+                { valor: 10, label: "Diez dólares" },
+                { valor: 5, label: "Cinco dólares" },
+                { valor: 1, label: "Un dólar" }
+            ]
+        }
+    };
+
+    // Función para generar inputs de denominaciones - MEJORADA PARA RESPONSIVO
+    function generarInputsDenominaciones(containerId, tipo, moneda) {
+        const container = document.getElementById(containerId);
+        if (!container) return;
+        
+        container.innerHTML = '';
+        
+        const lista = denominaciones[moneda][tipo];
+        const simbolo = moneda === 'cordobas' ? 'C$' : '$';
+        const esMobile = window.innerWidth < 768;
+        
+        lista.forEach(item => {
+            const div = document.createElement('div');
+            div.className = 'denominacion-item';
+            div.innerHTML = `
+                <div class="denominacion-info">
+                    <span class="valor-badge">${simbolo}${item.valor.toFixed(item.valor >= 1 ? 0 : 2)}</span>
+                    <span class="text-muted">${item.label}</span>
+                </div>
+                <div class="denominacion-controls">
+                    <div class="input-group input-group-sm">
+                        <input type="number" 
+                               class="form-control denominacion-input text-end" 
+                               data-valor="${item.valor}"
+                               data-moneda="${moneda}"
+                               data-tipo="${tipo}"
+                               min="0" 
+                               value="0"
+                               inputmode="numeric"
+                               pattern="[0-9]*">
+                        <span class="input-group-text">unid.</span>
+                    </div>
+                    <div class="subtotal">
+                        <span class="fw-bold d-none d-md-inline">${simbolo}</span>
+                        <span class="subtotal-valor fw-bold">0.00</span>
+                    </div>
+                </div>
+            `;
+            container.appendChild(div);
+        });
+    }
+
+    // Inicializar todos los contenedores cuando se abre el modal
+    const modalContador = document.getElementById('modalContadorDinero');
+    if (modalContador) {
+        modalContador.addEventListener('shown.bs.modal', function () {
+            generarInputsDenominaciones('billetes-container', 'billetes', 'cordobas');
+            generarInputsDenominaciones('billetes-dolares-container', 'billetes', 'dolares');
+            
+            // Re-inicializar event listeners
+            inicializarEventListenersContador();
+            calcularTotales();
+            
+            // Focus en primer input
+            const primerInput = document.querySelector('.denominacion-input');
+            if (primerInput) {
+                setTimeout(() => primerInput.focus(), 100);
+            }
+        });
+    }
+
+    // Toggle para dólares
+    const incluirDolaresCheckbox = document.getElementById('incluirDolares');
+    if (incluirDolaresCheckbox) {
+        incluirDolaresCheckbox.addEventListener('change', function() {
+            const dolaresContainer = document.getElementById('dolares-container');
+            if (this.checked) {
+                dolaresContainer.classList.remove('d-none');
+            } else {
+                dolaresContainer.classList.add('d-none');
+                // Resetear inputs de dólares
+                document.querySelectorAll('#dolares-container .denominacion-input').forEach(input => {
+                    input.value = 0;
+                    actualizarSubtotal(input);
+                });
+                calcularTotales();
+            }
+        });
+    }
+
+    // Actualizar subtotal cuando cambia un input
+    function actualizarSubtotal(input) {
+        const valor = parseFloat(input.dataset.valor);
+        const cantidad = parseInt(input.value) || 0;
+        const subtotal = valor * cantidad;
+        const subtotalElement = input.closest('.denominacion-item').querySelector('.subtotal-valor');
+        
+        if (subtotalElement) {
+            subtotalElement.textContent = subtotal.toFixed(2);
+        }
+    }
+
+    // Calcular todos los totales
+    function calcularTotales() {
+        let totalCordobas = 0;
+        let totalDolares = 0;
+        
+        // Sumar córdobas
+        document.querySelectorAll('.denominacion-input[data-moneda="cordobas"]').forEach(input => {
+            const valor = parseFloat(input.dataset.valor);
+            const cantidad = parseInt(input.value) || 0;
+            totalCordobas += valor * cantidad;
+        });
+        
+        // Sumar dólares
+        if (incluirDolaresCheckbox && incluirDolaresCheckbox.checked) {
+            document.querySelectorAll('.denominacion-input[data-moneda="dolares"]').forEach(input => {
+                const valor = parseFloat(input.dataset.valor);
+                const cantidad = parseInt(input.value) || 0;
+                totalDolares += valor * cantidad;
+            });
+        }
+        
+        // Actualizar subtotales
+        document.getElementById('subtotal-cordobas').textContent = `C$ ${totalCordobas.toFixed(2)}`;
+        document.getElementById('subtotal-dolares').textContent = `$ ${totalDolares.toFixed(2)}`;
+        
+        // Aplicar tipo de cambio
+        const tipoCambio = parseFloat(document.getElementById('tipo-cambio').value) || 36.50;
+        const dolaresEnCordobas = totalDolares * tipoCambio;
+        const totalGeneral = totalCordobas + dolaresEnCordobas;
+        
+        // Actualizar UI
+        document.getElementById('total-cordobas').value = totalCordobas.toFixed(2);
+        document.getElementById('total-dolares').value = totalDolares.toFixed(2);
+        document.getElementById('total-general').value = totalGeneral.toFixed(2);
+        document.getElementById('dolares-en-cordobas').textContent = `Equivalente: C$ ${dolaresEnCordobas.toFixed(2)}`;
+        
+        return {
+            totalCordobas,
+            totalDolares,
+            totalGeneral,
+            dolaresEnCordobas
+        };
+    }
+
+    // Verificar contra saldo del sistema
+    function verificarConSaldo() {
+        const resultados = calcularTotales();
+        const totalConteo = resultados.totalGeneral;
+        const saldoSistema = parseFloat('{{ caja.saldo_dia|float }}') || 0;
+        const diferencia = totalConteo - saldoSistema;
+        const diferenciaAbsoluta = Math.abs(diferencia);
+        
+        const diferenciaElement = document.getElementById('diferencia');
+        const estadoElement = document.getElementById('estado-verificacion');
+        const detalleElement = document.getElementById('detalle-verificacion');
+        const alertVerificacion = document.getElementById('alert-verificacion');
+        const totalGeneralInput = document.getElementById('total-general');
+        
+        diferenciaElement.textContent = `C$ ${diferencia.toFixed(2)}`;
+        diferenciaElement.className = `fw-bold ${diferencia >= 0 ? 'text-success' : 'text-danger'}`;
+        
+        // Limpiar clases anteriores
+        alertVerificacion.classList.remove('coincide', 'diferencia');
+        totalGeneralInput.classList.remove('bg-coincide', 'bg-diferencia');
+        
+        if (diferenciaAbsoluta < 0.01) { // Considerar igual si la diferencia es menor a 1 centavo
+            diferenciaElement.textContent = 'C$ 0.00';
+            diferenciaElement.className = 'fw-bold text-success';
+            estadoElement.innerHTML = '<span class="badge badge-coincide">¡COINCIDEN!</span>';
+            detalleElement.innerHTML = '<i class="fas fa-check-circle text-success me-1"></i> El conteo físico coincide exactamente con el saldo del sistema';
+            alertVerificacion.classList.add('coincide');
+            totalGeneralInput.classList.add('bg-coincide');
+        } else {
+            estadoElement.innerHTML = '<span class="badge badge-diferencia">NO COINCIDEN</span>';
+            detalleElement.innerHTML = `
+                <div>
+                    <i class="fas fa-exclamation-triangle text-warning me-1"></i>
+                    ${diferencia > 0 ? 'Sobrante' : 'Faltante'}: <strong>C$ ${diferenciaAbsoluta.toFixed(2)}</strong>
+                </div>
+                <div class="mt-1">
+                    <small>Conteo: C$ ${totalConteo.toFixed(2)} | Sistema: C$ ${saldoSistema.toFixed(2)}</small>
+                </div>
+            `;
+            alertVerificacion.classList.add('diferencia');
+            totalGeneralInput.classList.add('bg-diferencia');
+        }
+        
+        return diferencia;
+    }
+
+    // Limpiar todo el conteo
+    function limpiarConteo() {
+        document.querySelectorAll('.denominacion-input').forEach(input => {
+            input.value = 0;
+            actualizarSubtotal(input);
+        });
+        
+        // Resetear tipo de cambio si está muy alejado del valor típico
+        const tipoCambioInput = document.getElementById('tipo-cambio');
+        if (tipoCambioInput) {
+            const currentValue = parseFloat(tipoCambioInput.value);
+            if (currentValue < 30 || currentValue > 40) {
+                tipoCambioInput.value = '36.50';
+            }
+        }
+        
+        calcularTotales();
+        
+        // Resetear verificación
+        document.getElementById('estado-verificacion').innerHTML = '<span class="badge bg-secondary">Sin verificar</span>';
+        document.getElementById('detalle-verificacion').innerHTML = '';
+        document.getElementById('diferencia').textContent = 'C$ 0.00';
+        document.getElementById('diferencia').className = 'fw-bold';
+        
+        const alertVerificacion = document.getElementById('alert-verificacion');
+        alertVerificacion.classList.remove('coincide', 'diferencia');
+        
+        const totalGeneralInput = document.getElementById('total-general');
+        totalGeneralInput.classList.remove('bg-coincide', 'bg-diferencia');
+        totalGeneralInput.style.backgroundColor = '';
+        
+        // Mostrar mensaje de confirmación
+        mostrarToast('success', 'Conteo limpiado', 'Todos los campos han sido reiniciados a cero.');
+    }
+
+    // Función para mostrar toast de confirmación
+    function mostrarToast(tipo, titulo, mensaje) {
+        const iconos = {
+            success: 'fa-check-circle',
+            error: 'fa-exclamation-circle',
+            info: 'fa-info-circle',
+            warning: 'fa-exclamation-triangle'
+        };
+        
+        const colores = {
+            success: '#28a745',
+            error: '#dc3545',
+            info: '#17a2b8',
+            warning: '#ffc107'
+        };
+        
+        const toast = document.createElement('div');
+        toast.className = 'position-fixed top-0 end-0 p-3';
+        toast.style.zIndex = '9999';
+        toast.innerHTML = `
+            <div class="toast show" role="alert" aria-live="assertive" aria-atomic="true" data-bs-autohide="true" data-bs-delay="3000">
+                <div class="toast-header" style="background: ${colores[tipo]}; color: white;">
+                    <i class="fas ${iconos[tipo]} me-2"></i>
+                    <strong class="me-auto">${titulo}</strong>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="toast" aria-label="Close"></button>
+                </div>
+                <div class="toast-body">
+                    ${mensaje}
+                </div>
+            </div>
+        `;
+        document.body.appendChild(toast);
+        
+        setTimeout(() => {
+            toast.remove();
+        }, 3000);
+    }
+
+    // Guardar conteo
+    function guardarConteo() {
+        const resultados = calcularTotales();
+        const verificacion = verificarConSaldo();
+        
+        if (Math.abs(verificacion) > 0.01) {
+            const confirmacion = confirm(`⚠️ Hay una diferencia de C$ ${Math.abs(verificacion).toFixed(2)}.\n\n¿Deseas guardar el conteo de todas formas?`);
+            if (!confirmacion) {
+                return;
+            }
+        }
+        
+        // Aquí podrías enviar los datos al servidor
+        mostrarToast('success', 'Conteo guardado', 'El conteo físico ha sido guardado exitosamente.');
+        
+        // Cerrar modal después de 2 segundos
+        setTimeout(() => {
+            const modal = bootstrap.Modal.getInstance(modalContador);
+            if (modal) modal.hide();
+        }, 2000);
+    }
+
+    // Inicializar event listeners del contador
+    function inicializarEventListenersContador() {
+        // Event listeners para inputs
+        document.addEventListener('input', function(e) {
+            if (e.target.classList.contains('denominacion-input') || e.target.id === 'tipo-cambio') {
+                if (e.target.classList.contains('denominacion-input')) {
+                    actualizarSubtotal(e.target);
+                }
+                calcularTotales();
+            }
+        });
+
+        // Botones del contador
+        const btnVerificar = document.getElementById('btn-verificar');
+        const btnLimpiar = document.getElementById('btn-limpiar');
+        const btnGuardar = document.getElementById('btn-guardar-conteo');
+        
+        if (btnVerificar) {
+            btnVerificar.addEventListener('click', verificarConSaldo);
+        }
+        
+        if (btnLimpiar) {
+            btnLimpiar.addEventListener('click', limpiarConteo);
+        }
+        
+        if (btnGuardar) {
+            btnGuardar.addEventListener('click', guardarConteo);
+        }
+    }
+
+    // Permitir usar teclas rápidas dentro del modal
+    if (modalContador) {
+        modalContador.addEventListener('keydown', function(e) {
+            // Ctrl + L para limpiar
+            if (e.ctrlKey && e.key === 'l') {
+                e.preventDefault();
+                limpiarConteo();
+            }
+            
+            // Ctrl + V para verificar
+            if (e.ctrlKey && e.key === 'v') {
+                e.preventDefault();
+                verificarConSaldo();
+            }
+            
+            // Ctrl + D para toggle dólares
+            if (e.ctrlKey && e.key === 'd') {
+                e.preventDefault();
+                if (incluirDolaresCheckbox) {
+                    incluirDolaresCheckbox.checked = !incluirDolaresCheckbox.checked;
+                    const event = new Event('change');
+                    incluirDolaresCheckbox.dispatchEvent(event);
+                }
+            }
+            
+            // Ctrl + Enter para guardar
+            if (e.ctrlKey && e.key === 'Enter') {
+                e.preventDefault();
+                guardarConteo();
+            }
+            
+            // Esc para cancelar
+            if (e.key === 'Escape') {
+                const modal = bootstrap.Modal.getInstance(modalContador);
+                if (modal) modal.hide();
+            }
+        });
+    }
+
+    // Redibujar inputs al cambiar tamaño de ventana para responsividad
+    let resizeTimeout;
+    window.addEventListener('resize', function() {
+        clearTimeout(resizeTimeout);
+        resizeTimeout = setTimeout(function() {
+            if (modalContador && modalContador.classList.contains('show')) {
+                generarInputsDenominaciones('billetes-container', 'billetes', 'cordobas');
+                generarInputsDenominaciones('billetes-dolares-container', 'billetes', 'dolares');
+                inicializarEventListenersContador();
+                calcularTotales();
+            }
+        }, 250);
+    });
+
+    console.log('Sistema de balance de caja cargado - Responsivo');
+});
 </script>
 {% endblock %}
