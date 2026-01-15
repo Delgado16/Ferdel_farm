@@ -7,16 +7,16 @@
     <!-- Encabezado con botón de volver -->
     <div class="d-flex justify-content-between align-items-center mb-4">
         <h1>
-            <i class="fas fa-tags"></i> Gestión de Categorías de Productos
+            <i class="bi bi-tags"></i> Gestión de Categorías de Productos
         </h1>
         <a href="{{ url_for('admin_dashboard') }}" class="btn btn-outline-secondary">
-            <i class="fas fa-arrow-left"></i> Volver al Dashboard
+            <i class="bi bi-arrow-left"></i> Volver al Dashboard
         </a>
     </div>
 
     <!-- Botón crear categoría -->
     <button class="btn btn-primary mb-3" data-bs-toggle="modal" data-bs-target="#crearCategoriaModal">
-        <i class="fas fa-plus"></i> Nueva Categoría
+        <i class="bi bi-plus-lg"></i> Nueva Categoría
     </button>
 
     <!-- Mensajes flash -->
@@ -51,22 +51,22 @@
                             <td>{{ categoria.Descripcion }}</td>
                             <td class="text-center">
                                 <div class="btn-group btn-group-sm" role="group">
-                                    <button type="button" class="btn btn-outline-primary" 
-                                            data-bs-toggle="modal" 
-                                            data-bs-target="#editarCategoriaModal"
-                                            data-id="{{ categoria.ID_Categoria }}"
-                                            data-descripcion="{{ categoria.Descripcion }}">
-                                        <i class="fas fa-edit"></i> Editar
-                                    </button>
+                                    <!-- Botón Editar - Ahora redirige a página de edición -->
+                                    <a href="{{ url_for('admin_categorias_editar', id=categoria.ID_Categoria) }}" 
+                                       class="btn btn-outline-primary">
+                                        <i class="bi bi-pencil"></i> Editar
+                                    </a>
                                     
+                                    <!-- Botón Eliminar - Mantenemos el formulario POST -->
                                     <form action="{{ url_for('admin_categorias_eliminar', id=categoria.ID_Categoria) }}" 
                                           method="POST" class="d-inline-block ms-1">
                                         {% if csrf_token %}
                                         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                         {% endif %}
-                                        <button type="submit" class="btn btn-outline-danger" 
-                                                onclick="return confirm('¿Estás seguro de eliminar esta categoría? Esta acción no se puede deshacer.')">
-                                            <i class="fas fa-trash"></i> Eliminar
+                                        <button type="submit" class="btn btn-outline-danger btn-eliminar" 
+                                                data-id="{{ categoria.ID_Categoria }}"
+                                                data-descripcion="{{ categoria.Descripcion }}">
+                                            <i class="bi bi-trash"></i> Eliminar
                                         </button>
                                     </form>
                                 </div>
@@ -80,7 +80,7 @@
     </div>
     {% else %}
     <div class="alert alert-warning">
-        <i class="fas fa-exclamation-triangle"></i> No se encontraron categorías en el sistema.
+        <i class="bi bi-exclamation-triangle"></i> No se encontraron categorías en el sistema.
     </div>
     {% endif %}
 </div>
@@ -91,7 +91,7 @@
         <div class="modal-content">
             <div class="modal-header">
                 <h5 class="modal-title" id="crearCategoriaModalLabel">
-                    <i class="fas fa-plus"></i> Crear Nueva Categoría
+                    <i class="bi bi-plus-lg"></i> Crear Nueva Categoría
                 </h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
@@ -104,20 +104,20 @@
                     <div class="mb-3">
                         <label for="descripcion" class="form-label">Descripción <span class="text-danger">*</span></label>
                         <input type="text" class="form-control" id="descripcion" name="descripcion" 
-                               required minlength="2" maxlength="100"
+                               required minlength="2" maxlength="255"
                                placeholder="Ingrese la descripción de la categoría">
-                        <div class="form-text">Mínimo 2 caracteres, máximo 100</div>
+                        <div class="form-text">Mínimo 2 caracteres, máximo 255 (según la base de datos)</div>
                         <div class="invalid-feedback">
-                            Por favor ingrese una descripción válida (2-100 caracteres).
+                            Por favor ingrese una descripción válida (2-255 caracteres).
                         </div>
                     </div>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
-                        <i class="fas fa-times"></i> Cancelar
+                        <i class="bi bi-x-lg"></i> Cancelar
                     </button>
                     <button type="submit" class="btn btn-primary">
-                        <i class="fas fa-check"></i> Guardar Categoría
+                        <i class="bi bi-check-lg"></i> Guardar Categoría
                     </button>
                 </div>
             </form>
@@ -125,225 +125,467 @@
     </div>
 </div>
 
-<!-- Modal para editar categoría -->
-<div class="modal fade" id="editarCategoriaModal" tabindex="-1" aria-labelledby="editarCategoriaModalLabel" aria-hidden="true">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="editarCategoriaModalLabel">
-                    <i class="fas fa-edit"></i> Editar Categoría
-                    <span class="badge bg-secondary ms-2" id="categoriaIdBadge">ID: </span>
-                </h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <form id="formEditarCategoria" method="POST" novalidate>
-                {% if csrf_token %}
-                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                {% endif %}
-                <input type="hidden" id="categoriaId" name="categoria_id">
-                <div class="modal-body">
-                    <!-- ID (solo lectura) -->
-                    <div class="mb-3">
-                        <label class="form-label">ID de Categoría</label>
-                        <input type="text" class="form-control" id="idCategoriaDisplay" readonly>
-                    </div>
-                    
-                    <!-- Descripción -->
-                    <div class="mb-3">
-                        <label for="descripcion_editar" class="form-label">Descripción <span class="text-danger">*</span></label>
-                        <input type="text" class="form-control" id="descripcion_editar" name="descripcion" 
-                               required minlength="2" maxlength="100"
-                               placeholder="Ingrese la descripción de la categoría">
-                        <div class="form-text">Mínimo 2 caracteres, máximo 100</div>
-                        <div class="invalid-feedback">
-                            Por favor ingrese una descripción válida (2-100 caracteres).
-                        </div>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
-                        <i class="fas fa-times"></i> Cancelar
-                    </button>
-                    <button type="submit" class="btn btn-primary">
-                        <i class="fas fa-check"></i> Actualizar Categoría
-                    </button>
-                </div>
-            </form>
-        </div>
-    </div>
-</div>
 {% endblock %}
 
 {% block scripts %}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // Script para manejar el modal de edición
-    const editarModal = document.getElementById('editarCategoriaModal');
-    if (editarModal) {
-        editarModal.addEventListener('show.bs.modal', function (event) {
-            var button = event.relatedTarget;
-            var id = button.getAttribute('data-id');
-            var descripcion = button.getAttribute('data-descripcion');
-            
-            // Actualizar los campos del formulario
-            var descripcionInput = document.getElementById('descripcion_editar');
-            var idDisplay = document.getElementById('idCategoriaDisplay');
-            var idBadge = document.getElementById('categoriaIdBadge');
-            var categoriaIdHidden = document.getElementById('categoriaId');
-            
-            if (descripcionInput) {
-                descripcionInput.value = descripcion;
-            }
-            if (idDisplay) {
-                idDisplay.value = id;
-            }
-            if (idBadge) {
-                idBadge.textContent = 'ID: ' + id;
-            }
-            if (categoriaIdHidden) {
-                categoriaIdHidden.value = id;
-            }
-            
-            // Actualizar la acción del formulario
-            var form = document.getElementById('formEditarCategoria');
-            if (form) {
-                form.action = '/admin/catalog/categorias/editar/' + id;
-            }
-        });
-        
-        // Limpiar formulario cuando se cierra
-        editarModal.addEventListener('hidden.bs.modal', function () {
-            var form = document.getElementById('formEditarCategoria');
-            if (form) {
-                form.reset();
-                form.classList.remove('was-validated');
-                // Opcional: restablecer la acción
-                // form.action = '#';
-            }
-            // Limpiar el badge
-            var idBadge = document.getElementById('categoriaIdBadge');
-            if (idBadge) {
-                idBadge.textContent = 'ID: ';
-            }
-        });
-    }
-
+    // ============ MÓDULO DE CREACIÓN ============
+    
     // Limpiar el modal de crear cuando se cierre
     const crearModal = document.getElementById('crearCategoriaModal');
     if (crearModal) {
         crearModal.addEventListener('hidden.bs.modal', function () {
-            var form = document.getElementById('crearCategoriaForm');
+            const form = document.getElementById('crearCategoriaForm');
             if (form) {
                 form.reset();
                 form.classList.remove('was-validated');
             }
         });
-    }
-
-    // Validación de formularios con Bootstrap
-    const forms = document.querySelectorAll('form[novalidate]');
-    forms.forEach(form => {
-        form.addEventListener('submit', function(event) {
-            if (!form.checkValidity()) {
-                event.preventDefault();
-                event.stopPropagation();
-            }
-            form.classList.add('was-validated');
-        });
-    });
-    
-    // Auto-focus en el campo descripción cuando se abre el modal de crear
-    if (crearModal) {
+        
+        // Auto-focus en el campo descripción cuando se abre el modal
         crearModal.addEventListener('shown.bs.modal', function () {
             document.getElementById('descripcion').focus();
         });
     }
-    
-    // Auto-focus en el campo descripción cuando se abre el modal de editar
-    if (editarModal) {
-        editarModal.addEventListener('shown.bs.modal', function () {
-            document.getElementById('descripcion_editar').focus();
+
+    // Validación del formulario de creación
+    const crearForm = document.getElementById('crearCategoriaForm');
+    if (crearForm) {
+        crearForm.addEventListener('submit', function(event) {
+            if (!crearForm.checkValidity()) {
+                event.preventDefault();
+                event.stopPropagation();
+            }
+            crearForm.classList.add('was-validated');
+            
+            // Prevenir envío doble
+            const submitButton = this.querySelector('button[type="submit"]');
+            if (submitButton && crearForm.checkValidity()) {
+                submitButton.disabled = true;
+                submitButton.innerHTML = '<i class="bi bi-hourglass-split"></i> Guardando...';
+            }
         });
     }
     
+    // ============ MÓDULO DE ELIMINACIÓN ============
+    
     // Confirmación mejorada para eliminación
-    const deleteForms = document.querySelectorAll('form[action*="eliminar"]');
-    deleteForms.forEach(form => {
-        form.addEventListener('submit', function(event) {
-            if (!confirm('¿Estás seguro de eliminar esta categoría?\n\nEsta acción no se puede deshacer.')) {
-                event.preventDefault();
+    document.querySelectorAll('.btn-eliminar').forEach(button => {
+        button.addEventListener('click', function(event) {
+            event.preventDefault(); // Prevenir envío inmediato
+            
+            const id = this.getAttribute('data-id');
+            const descripcion = this.getAttribute('data-descripcion');
+            const form = this.closest('form');
+            
+            // Crear diálogo de confirmación personalizado
+            const confirmacion = confirm(
+                `⚠️ ¿Estás seguro de eliminar esta categoría?\n\n` +
+                `ID: ${id}\n` +
+                `Descripción: "${descripcion}"\n\n` +
+                `Esta acción no se puede deshacer.`
+            );
+            
+            if (confirmacion && form) {
+                // Prevenir envío doble
+                this.disabled = true;
+                this.innerHTML = '<i class="bi bi-hourglass-split"></i> Eliminando...';
+                
+                // Enviar formulario después de la confirmación
+                setTimeout(() => {
+                    form.submit();
+                }, 100);
             }
         });
     });
     
+    // ============ UTILIDADES ============
+    
     // Cerrar automáticamente las alertas después de 5 segundos
     setTimeout(function() {
-        var alerts = document.querySelectorAll('.alert:not(.alert-permanent)');
+        const alerts = document.querySelectorAll('.alert');
         alerts.forEach(function(alert) {
-            var bsAlert = bootstrap.Alert.getOrCreateInstance(alert);
+            const bsAlert = bootstrap.Alert.getOrCreateInstance(alert);
             setTimeout(function() {
                 bsAlert.close();
             }, 5000);
         });
     }, 3000);
-    
-    // Prevenir envío doble de formularios
-    forms.forEach(form => {
-        form.addEventListener('submit', function() {
-            const submitButton = this.querySelector('button[type="submit"]');
-            if (submitButton) {
-                submitButton.disabled = true;
-                submitButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Procesando...';
-                
-                // Rehabilitar después de 5 segundos por si hay error
-                setTimeout(() => {
-                    submitButton.disabled = false;
-                    if (form.id === 'crearCategoriaForm') {
-                        submitButton.innerHTML = '<i class="fas fa-check"></i> Guardar Categoría';
-                    } else if (form.id === 'formEditarCategoria') {
-                        submitButton.innerHTML = '<i class="fas fa-check"></i> Actualizar Categoría';
-                    }
-                }, 5000);
-            }
-        });
-    });
 });
 </script>
 
 <style>
-/* Estilos adicionales para mejor visualización */
+/* Estilos generales */
+.container-fluid {
+    max-width: 1400px;
+    margin: 0 auto;
+}
+
+/* Estilos para modales */
 .modal-content {
-    border-radius: 10px;
+    border-radius: 12px;
+    border: none;
+    box-shadow: 0 8px 30px rgba(0,0,0,0.25);
+    overflow: hidden;
 }
 
 .modal-header {
-    background-color: #f8f9fa;
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
     border-bottom: 1px solid #dee2e6;
 }
 
-.btn-group {
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+.modal-body {
+    padding: 1.5rem;
 }
 
-.table th {
-    background-color: #343a40;
+.modal-footer {
+    padding: 1rem 1.5rem;
+    border-top: 1px solid #e9ecef;
+    background-color: #f8f9fa;
+}
+
+/* Estilos para formularios */
+.form-label {
+    font-weight: 600;
+    color: #495057;
+    margin-bottom: 0.5rem;
+}
+
+.form-control {
+    border: 1px solid #ced4da;
+    border-radius: 6px;
+    padding: 0.75rem;
+    transition: all 0.2s;
+}
+
+.form-control:focus {
+    border-color: #0d6efd;
+    box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+}
+
+.form-text {
+    font-size: 0.85rem;
+    color: #6c757d;
+    margin-top: 0.25rem;
+}
+
+.invalid-feedback {
+    font-size: 0.875rem;
+}
+
+/* Estilos para botones */
+.btn {
+    border-radius: 6px;
+    padding: 0.5rem 1.25rem;
+    font-weight: 500;
+    transition: all 0.2s;
+    border-width: 1px;
+}
+
+.btn-primary {
+    background-color: #0d6efd;
+    border-color: #0d6efd;
+}
+
+.btn-primary:hover {
+    background-color: #0b5ed7;
+    border-color: #0a58ca;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(13, 110, 253, 0.25);
+}
+
+.btn-outline-primary {
+    color: #0d6efd;
+    border-color: #0d6efd;
+}
+
+.btn-outline-primary:hover {
+    background-color: #0d6efd;
+    border-color: #0d6efd;
+    color: white;
+    transform: translateY(-1px);
+}
+
+.btn-outline-danger {
+    color: #dc3545;
+    border-color: #dc3545;
+}
+
+.btn-outline-danger:hover {
+    background-color: #dc3545;
+    border-color: #dc3545;
+    color: white;
+    transform: translateY(-1px);
+}
+
+.btn-secondary {
+    background-color: #6c757d;
+    border-color: #6c757d;
+}
+
+.btn-secondary:hover {
+    background-color: #5c636a;
+    border-color: #565e64;
+    transform: translateY(-1px);
+}
+
+.btn-outline-secondary {
+    color: #6c757d;
+    border-color: #6c757d;
+}
+
+.btn-outline-secondary:hover {
+    background-color: #6c757d;
+    border-color: #6c757d;
     color: white;
 }
 
-/* Estilo para el campo ID en modo lectura */
-input[readonly] {
-    background-color: #e9ecef;
+/* Estilos para la tabla */
+.card {
+    border: none;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+}
+
+.card-body {
+    padding: 1.5rem;
+}
+
+.table {
+    margin-bottom: 0;
+}
+
+.table th {
+    background: linear-gradient(135deg, #4a6fa5 0%, #6d5baa 100%);
+    color: white;
+    border: none;
+    padding: 1rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    font-size: 0.875rem;
+    letter-spacing: 0.5px;
+}
+
+.table td {
+    padding: 1rem;
+    vertical-align: middle;
+    border-color: #f1f3f4;
+}
+
+.table-striped tbody tr:nth-of-type(odd) {
+    background-color: rgba(13, 110, 253, 0.03);
+}
+
+.table-hover tbody tr:hover {
+    background-color: rgba(13, 110, 253, 0.08);
+    transition: background-color 0.2s ease;
+}
+
+/* Estilos para grupos de botones */
+.btn-group {
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    border-radius: 6px;
+    overflow: hidden;
+}
+
+.btn-group .btn {
+    border-radius: 0;
+    border-width: 1px;
+    padding: 0.375rem 0.75rem;
+}
+
+.btn-group .btn:first-child {
+    border-top-left-radius: 6px;
+    border-bottom-left-radius: 6px;
+}
+
+.btn-group .btn:last-child {
+    border-top-right-radius: 6px;
+    border-bottom-right-radius: 6px;
+}
+
+/* Estilos para alertas */
+.alert {
+    border: none;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    padding: 1rem 1.25rem;
+    margin-bottom: 1rem;
+}
+
+.alert-success {
+    background-color: #d1e7dd;
+    color: #0f5132;
+    border-left: 4px solid #198754;
+}
+
+.alert-danger {
+    background-color: #f8d7da;
+    color: #842029;
+    border-left: 4px solid #dc3545;
+}
+
+.alert-warning {
+    background-color: #fff3cd;
+    color: #664d03;
+    border-left: 4px solid #ffc107;
+}
+
+.alert .btn-close {
+    padding: 0.75rem;
+}
+
+/* Animaciones */
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(-10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.modal.fade .modal-dialog {
+    animation: fadeIn 0.3s ease-out;
+}
+
+/* Efectos de hover en filas de tabla */
+.table-hover tbody tr:hover {
+    transform: translateX(2px);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+/* Responsive improvements */
+@media (max-width: 768px) {
+    .container-fluid {
+        padding: 1rem;
+    }
+    
+    .d-flex {
+        flex-direction: column;
+        align-items: flex-start !important;
+    }
+    
+    .d-flex h1 {
+        margin-bottom: 1rem;
+    }
+    
+    .btn-group {
+        flex-direction: column;
+        width: 100%;
+    }
+    
+    .btn-group .btn {
+        width: 100%;
+        margin: 0 !important;
+        border-radius: 6px !important;
+        margin-bottom: 0.5rem !important;
+    }
+    
+    .btn-group .btn:last-child {
+        margin-bottom: 0 !important;
+    }
+    
+    .btn-group .ms-1 {
+        margin-left: 0 !important;
+    }
+    
+    .table-responsive {
+        font-size: 0.875rem;
+        border: 1px solid #dee2e6;
+        border-radius: 8px;
+        overflow: hidden;
+    }
+    
+    .table th, .table td {
+        padding: 0.75rem;
+    }
+    
+    .modal-dialog {
+        margin: 0.5rem;
+    }
+}
+
+@media (max-width: 576px) {
+    .modal-body, .modal-footer {
+        padding: 1rem;
+    }
+    
+    .modal-header {
+        padding: 1rem;
+    }
+    
+    .modal-footer {
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+    
+    .modal-footer .btn {
+        width: 100%;
+    }
+}
+
+/* Scrollbar personalizado */
+.table-responsive::-webkit-scrollbar {
+    height: 8px;
+}
+
+.table-responsive::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 4px;
+}
+
+.table-responsive::-webkit-scrollbar-thumb {
+    background: linear-gradient(135deg, #4a6fa5 0%, #6d5baa 100%);
+    border-radius: 4px;
+}
+
+.table-responsive::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(135deg, #3d5c8c 0%, #5a4a8a 100%);
+}
+
+/* Estilos para el estado de carga */
+.bi-hourglass-split {
+    animation: spin 1s linear infinite;
+    display: inline-block;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* Transiciones suaves */
+.modal-backdrop {
+    transition: opacity 0.3s ease;
+}
+
+/* Mejoras en la accesibilidad */
+.btn:focus, .form-control:focus {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(13, 110, 253, 0.25);
+}
+
+/* Mejora visual para iconos en botones */
+.btn .bi {
+    margin-right: 0.375rem;
+    font-size: 0.9em;
+}
+
+/* Efecto de carga en botones */
+.btn[disabled] {
+    opacity: 0.7;
     cursor: not-allowed;
 }
 
-/* Animación para los modales */
-.modal.fade .modal-dialog {
-    transform: translate(0, -50px);
-    transition: transform 0.3s ease-out;
+/* Estilo para el encabezado de la página */
+h1 .bi {
+    color: #0d6efd;
+    margin-right: 0.5rem;
 }
 
-.modal.show .modal-dialog {
-    transform: translate(0, 0);
+/* Estilo para alerta de "sin datos" */
+.alert-warning .bi {
+    color: #ffc107;
+    margin-right: 0.5rem;
 }
 </style>
 {% endblock %}

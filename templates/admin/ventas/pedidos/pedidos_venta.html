@@ -1,0 +1,326 @@
+{% extends "layout.html" %}
+
+{% block title %}Pedidos de Venta - Administración{% endblock %}
+
+{% block head %}
+{{ super() }}
+<style>
+    .card-header {
+        background-color: #f8f9fa;
+        border-bottom: 1px solid #dee2e6;
+    }
+    .badge-estado {
+        font-size: 0.85em;
+        padding: 0.35em 0.65em;
+    }
+    .producto-item {
+        border-bottom: 1px solid #eee;
+        padding: 8px 0;
+    }
+    .producto-item:last-child {
+        border-bottom: none;
+    }
+    .table-hover tbody tr:hover {
+        background-color: rgba(0, 123, 255, 0.05);
+    }
+    .accordion-button:not(.collapsed) {
+        background-color: #e7f1ff;
+        color: #0c63e4;
+    }
+    .btn-action {
+        padding: 0.25rem 0.5rem;
+        font-size: 0.875rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1><i class="bi bi-cart-check"></i> Pedidos de Venta</h1>
+        <div>
+            <a href="{{ url_for('admin_dashboard') }}" class="btn btn-outline-secondary me-2">
+                <i class="bi bi-arrow-left"></i> Volver
+            </a>
+            <a href="{{ url_for('nuevo_pedido_venta') }}" class="btn btn-primary">
+                <i class="bi bi-plus-circle"></i> Nuevo Pedido
+            </a>
+        </div>
+    </div>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="alert alert-{{ category if category != 'error' else 'danger' }} alert-dismissible fade show" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    {% if pedidos %}
+        <!-- Filtros -->
+        <div class="card mb-4">
+            <div class="card-body">
+                <div class="row g-3">
+                    <div class="col-md-3">
+                        <label for="filtroEstado" class="form-label">Estado</label>
+                        <select class="form-select" id="filtroEstado">
+                            <option value="">Todos los estados</option>
+                            <option value="Pendiente">Pendiente</option>
+                            <option value="Aprobado">Aprobado</option>
+                            <option value="Entregado">Entregado</option>
+                            <option value="Cancelado">Cancelado</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label for="filtroFechaDesde" class="form-label">Fecha Desde</label>
+                        <input type="date" class="form-control" id="filtroFechaDesde">
+                    </div>
+                    <div class="col-md-3">
+                        <label for="filtroFechaHasta" class="form-label">Fecha Hasta</label>
+                        <input type="date" class="form-control" id="filtroFechaHasta">
+                    </div>
+                    <div class="col-md-3 d-flex align-items-end">
+                        <button class="btn btn-outline-primary w-100" id="btnFiltrar">
+                            <i class="bi bi-funnel"></i> Filtrar
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Lista de pedidos -->
+        <div class="accordion" id="pedidosAccordion">
+            {% for pedido in pedidos %}
+            <div class="accordion-item mb-3 pedido-item" 
+                 data-estado="{{ pedido.Estado }}"
+                 data-fecha="{{ pedido.Fecha }}">
+                <h2 class="accordion-header" id="heading{{ pedido.ID_Pedido }}">
+                    <button class="accordion-button collapsed" type="button" 
+                            data-bs-toggle="collapse" 
+                            data-bs-target="#collapse{{ pedido.ID_Pedido }}"
+                            aria-expanded="false" 
+                            aria-controls="collapse{{ pedido.ID_Pedido }}">
+                        <div class="d-flex justify-content-between w-100 me-3 align-items-center">
+                            <div class="d-flex align-items-center">
+                                <div class="me-4">
+                                    <strong>Pedido #{{ pedido.ID_Pedido }}</strong>
+                                    <span class="ms-2 text-muted">{{ pedido.Fecha.strftime('%d/%m/%Y') }}</span>
+                                </div>
+                                <div class="me-4">
+                                    <span class="badge 
+                                        {% if pedido.Estado == 'Pendiente' %}bg-warning text-dark
+                                        {% elif pedido.Estado == 'Aprobado' %}bg-primary
+                                        {% elif pedido.Estado == 'Entregado' %}bg-success
+                                        {% else %}bg-danger
+                                        {% endif %}">
+                                        {{ pedido.Estado }}
+                                    </span>
+                                </div>
+                                <div>
+                                    <small class="text-muted">
+                                        <i class="bi bi-person"></i> {{ pedido.Nombre_Cliente }}
+                                    </small>
+                                </div>
+                            </div>
+                            <div class="text-end">
+                                <div class="text-success fw-bold">${{ "%.2f"|format(pedido.Total) }}</div>
+                                <small class="text-muted">{{ pedido.Productos|length }} productos</small>
+                            </div>
+                        </div>
+                    </button>
+                </h2>
+                <div id="collapse{{ pedido.ID_Pedido }}" 
+                     class="accordion-collapse collapse" 
+                     aria-labelledby="heading{{ pedido.ID_Pedido }}"
+                     data-bs-parent="#pedidosAccordion">
+                    <div class="accordion-body">
+                        <!-- Información del cliente y entrega -->
+                        <div class="row mb-4">
+                            <div class="col-md-6">
+                                <h6 class="border-bottom pb-2">
+                                    <i class="bi bi-person-circle me-2"></i>Información del Cliente
+                                </h6>
+                                <table class="table table-sm table-borderless">
+                                    <tr>
+                                        <th style="width: 40%">Cliente:</th>
+                                        <td>{{ pedido.Nombre_Cliente }}</td>
+                                    </tr>
+                                    <tr>
+                                        <th>RUC/CI:</th>
+                                        <td>{{ pedido.RUC_CI or 'No especificado' }}</td>
+                                    </tr>
+                                    <tr>
+                                        <th>Dirección:</th>
+                                        <td>{{ pedido.Direccion or 'No especificada' }}</td>
+                                    </tr>
+                                    <tr>
+                                        <th>Teléfono:</th>
+                                        <td>{{ pedido.Telefono or 'No especificado' }}</td>
+                                    </tr>
+                                </table>
+                            </div>
+                            <div class="col-md-6">
+                                <h6 class="border-bottom pb-2">
+                                    <i class="bi bi-truck me-2"></i>Información de Entrega
+                                </h6>
+                                <table class="table table-sm table-borderless">
+                                    <tr>
+                                        <th style="width: 40%">Tipo de Entrega:</th>
+                                        <td>{{ pedido.Tipo_Entrega }}</td>
+                                    </tr>
+                                    <tr>
+                                        <th>Empresa:</th>
+                                        <td>{{ pedido.Nombre_Empresa or 'No especificada' }}</td>
+                                    </tr>
+                                    <tr>
+                                        <th>Usuario:</th>
+                                        <td>{{ pedido.Usuario_Completo }}</td>
+                                    </tr>
+                                    <tr>
+                                        <th>Fecha Creación:</th>
+                                        <td>{{ pedido.Fecha_Creacion.strftime('%d/%m/%Y %H:%M') }}</td>
+                                    </tr>
+                                    {% if pedido.Numero_Factura %}
+                                    <tr>
+                                        <th>Factura:</th>
+                                        <td class="text-success">{{ pedido.Numero_Factura }}</td>
+                                    </tr>
+                                    {% endif %}
+                                </table>
+                            </div>
+                        </div>
+
+                        <!-- Observación -->
+                        {% if pedido.Observacion %}
+                        <div class="alert alert-info mb-4">
+                            <h6 class="mb-2"><i class="bi bi-chat-text"></i> Observación:</h6>
+                            <p class="mb-0">{{ pedido.Observacion }}</p>
+                        </div>
+                        {% endif %}
+
+                        <!-- Productos del pedido -->
+                        <h6 class="border-bottom pb-2 mb-3">
+                            <i class="bi bi-box-seam me-2"></i>Productos Solicitados
+                        </h6>
+                        <div class="table-responsive">
+                            <table class="table table-hover table-sm">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Código</th>
+                                        <th>Producto</th>
+                                        <th class="text-end">Cantidad</th>
+                                        <th>Unidad</th>
+                                        <th class="text-end">Precio Unit.</th>
+                                        <th class="text-end">Subtotal</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for producto in pedido.Productos %}
+                                    <tr>
+                                        <td>{{ producto.Codigo_Producto }}</td>
+                                        <td>{{ producto.Nombre_Producto }}</td>
+                                        <td class="text-end">{{ "%.2f"|format(producto.Cantidad) }}</td>
+                                        <td>{{ producto.Unidad_Medida }}</td>
+                                        <td class="text-end">${{ "%.2f"|format(producto.Precio_Venta) }}</td>
+                                        <td class="text-end">
+                                            ${{ "%.2f"|format(producto.Cantidad * producto.Precio_Venta) }}
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                                <tfoot class="table-light">
+                                    <tr>
+                                        <td colspan="5" class="text-end"><strong>Total:</strong></td>
+                                        <td class="text-end"><strong>${{ "%.2f"|format(pedido.Total) }}</strong></td>
+                                    </tr>
+                                </tfoot>
+                            </table>
+                        </div>
+
+                        <!-- Botones de acción -->
+                        <div class="d-flex justify-content-between align-items-center mt-4">
+                            <div>
+                                <small class="text-muted">
+                                    ID: {{ pedido.ID_Pedido }} | 
+                                    Creado: {{ pedido.Fecha_Creacion.strftime('%d/%m/%Y %H:%M') }}
+                                </small>
+                            </div>
+                            <div class="d-flex gap-2">
+                                <a href="{{ url_for('ver_pedido_venta', id_pedido=pedido.ID_Pedido) }}" 
+                                   class="btn btn-sm btn-outline-primary">
+                                    <i class="bi bi-eye"></i> Ver Detalle
+                                </a>
+                                {% if pedido.Estado != 'Entregado' and not pedido.Numero_Factura %}
+                                <a href="#" class="btn btn-sm btn-outline-warning">
+                                    <i class="bi bi-pencil"></i> Editar
+                                </a>
+                                {% endif %}
+                                <button class="btn btn-sm btn-outline-info" onclick="window.print()">
+                                    <i class="bi bi-printer"></i> Imprimir
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    {% else %}
+        <div class="alert alert-info">
+            <i class="bi bi-info-circle"></i> No hay pedidos de venta registrados.
+            <a href="{{ url_for('nuevo_pedido_venta') }}" class="alert-link">Crear primer pedido</a>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Filtros
+        const filtroEstado = document.getElementById('filtroEstado');
+        const filtroFechaDesde = document.getElementById('filtroFechaDesde');
+        const filtroFechaHasta = document.getElementById('filtroFechaHasta');
+        const btnFiltrar = document.getElementById('btnFiltrar');
+        const pedidosItems = document.querySelectorAll('.pedido-item');
+        
+        btnFiltrar.addEventListener('click', function() {
+            const estadoSeleccionado = filtroEstado.value;
+            const fechaDesde = filtroFechaDesde.value;
+            const fechaHasta = filtroFechaHasta.value;
+            
+            pedidosItems.forEach(item => {
+                let mostrar = true;
+                const estado = item.getAttribute('data-estado');
+                const fecha = item.getAttribute('data-fecha');
+                
+                // Filtrar por estado
+                if (estadoSeleccionado && estado !== estadoSeleccionado) {
+                    mostrar = false;
+                }
+                
+                // Filtrar por fecha
+                if (fechaDesde && fecha < fechaDesde) {
+                    mostrar = false;
+                }
+                if (fechaHasta && fecha > fechaHasta) {
+                    mostrar = false;
+                }
+                
+                // Mostrar u ocultar
+                item.style.display = mostrar ? 'block' : 'none';
+            });
+        });
+        
+        // Auto-expandir el primer pedido
+        const firstPedido = document.querySelector('.accordion-button');
+        if (firstPedido) {
+            setTimeout(() => firstPedido.click(), 100);
+        }
+    });
+</script>
+{% endblock %}

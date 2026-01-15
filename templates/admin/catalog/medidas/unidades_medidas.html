@@ -64,9 +64,10 @@
                                         <i class="fas fa-edit"></i> Editar
                                     </a>
                                     
-                                    <form action="#" 
+                                    <!-- CORREGIDO: Formulario de eliminación -->
+                                    <form action="{{ url_for('eliminar_unidad_medida', id=unidad.ID_Unidad) }}" 
                                           method="POST" class="d-inline-block ms-1"
-                                          onsubmit="return confirm('¿Está seguro de eliminar esta unidad de medida?');">
+                                          onsubmit="return confirm('¿Está seguro de eliminar la unidad \\'{{ unidad.Descripcion }}\\'?\\n\\nEsta acción no se puede deshacer.');">
                                         <button type="submit" class="btn btn-outline-danger" title="Eliminar">
                                             <i class="fas fa-trash"></i> Eliminar
                                         </button>
@@ -97,7 +98,8 @@
                 </h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
-            <form method="POST" action="{{ url_for('admin_unidades_medidas') }}" id="crearUnidadForm" novalidate>
+            <!-- CORREGIDO: Apuntar a la función correcta -->
+            <form method="POST" action="{{ url_for('admin_crear_unidad_medida') }}" id="crearUnidadForm" novalidate>
                 <div class="modal-body">
                     <!-- Descripción -->
                     <div class="mb-3">
@@ -110,10 +112,10 @@
                     
                     <!-- Abreviatura -->
                     <div class="mb-3">
-                        <label for="abreviatura" class="form-label">Abreviatura</label>
+                        <label for="abreviatura" class="form-label">Abreviatura <span class="text-danger">*</span></label>
                         <input type="text" class="form-control" id="abreviatura" name="abreviatura" 
-                               maxlength="50"
-                               placeholder="Ingrese la abreviatura (opcional)">
+                               required maxlength="50"
+                               placeholder="Ingrese la abreviatura">
                         <div class="form-text">Máximo 50 caracteres</div>
                     </div>
                 </div>
