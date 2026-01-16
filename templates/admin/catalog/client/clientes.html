@@ -11,6 +11,12 @@
     .pagination {
         margin-top: 20px;
     }
+    .table-actions {
+        white-space: nowrap;
+    }
+    .badge-tipo {
+        font-size: 0.8em;
+    }
 </style>
 {% endblock %}
 
@@ -80,9 +86,9 @@
                             <th>Nombre</th>
                             <th>Identificación</th>
                             <th>Teléfono</th>
-                            <th>Dirección</th>
+                            <th>Tipo</th>
                             <th>Estado</th>
-                            <th>Acciones</th>
+                            <th class="text-center">Acciones</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -90,32 +96,52 @@
                         <tr>
                             <td><strong>#{{ cliente.ID_Cliente }}</strong></td>
                             <td>{{ cliente.Nombre }}</td>
-                            <td>{{ cliente.RUC_CEDULA or '-' }}</td>
+                            <td>
+                                {{ cliente.RUC_CEDULA or '-' }}
+                                {% if cliente.RUC_CEDula %}
+                                <small class="text-muted d-block">
+                                    {% if cliente.RUC_CEDULA|length == 10 %}
+                                        <span class="badge bg-info">Cédula</span>
+                                    {% elif cliente.RUC_CEDULA|length == 13 %}
+                                        <span class="badge bg-primary">RUC</span>
+                                    {% endif %}
+                                </small>
+                                {% endif %}
+                            </td>
                             <td>
                                 {% if cliente.Telefono %}
-                                    <a href="tel:{{ cliente.Telefono }}" class="text-decoration-none">
-                                        {{ cliente.Telefono }}
+                                    <a href="tel:{{ cliente.Telefono }}" class="text-decoration-none" title="Llamar">
+                                        <i class="bi bi-telephone"></i> {{ cliente.Telefono }}
                                     </a>
                                 {% else %}
                                     <span class="text-muted">-</span>
                                 {% endif %}
                             </td>
-                            <td>{{ cliente.Direccion or '-' }}</td>
+                            <td>
+                                <span class="badge {% if cliente.tipo_cliente == 'Especial' %}bg-warning text-dark{% else %}bg-secondary{% endif %} badge-tipo">
+                                    {{ cliente.tipo_cliente }}
+                                </span>
+                            </td>
                             <td>
                                 <span class="badge bg-{% if cliente.Estado == 'ACTIVO' %}success{% else %}danger{% endif %}">
                                     {{ cliente.Estado }}
                                 </span>
                             </td>
-                            <td>
+                            <td class="table-actions">
                                 <div class="btn-group btn-group-sm" role="group">
-                                    <a href="#"
-                                       class="btn btn-outline-primary" title="Ver detalles">
-                                        <i class="bi bi-eye"></i> Detalles
-                                    </a>
                                     <a href="{{ url_for('admin_editar_cliente', id=cliente.ID_Cliente) }}" 
-                                       class="btn btn-outline-secondary" title="Editar">
+                                       class="btn btn-outline-primary" title="Editar">
                                         <i class="bi bi-pencil"></i> Editar
                                     </a>
+                                    {% if cliente.Estado == 'ACTIVO' %}
+                                    <button type="button" 
+                                            class="btn btn-outline-danger eliminar-cliente-btn"
+                                            data-id="{{ cliente.ID_Cliente }}"
+                                            data-nombre="{{ cliente.Nombre }}"
+                                            title="Eliminar">
+                                        <i class="bi bi-trash"></i> Eliminar
+                                    </button>
+                                    {% endif %}
                                 </div>
                             </td>
                         </tr>
@@ -131,12 +157,12 @@
         {% if search %}
         No se encontraron clientes para "<strong>{{ search }}</strong>".
         {% else %}
-        No se encontraron clientes en el sistema.
+        No se encontraron clientes en el sistema. ¡Comienza agregando uno nuevo!
         {% endif %}
     </div>
     {% endif %}
 
-    <!-- Paginación -->
+    <!-- Paginación - ACTUALIZADO con total_pages -->
     {% if total > per_page %}
     <nav aria-label="Page navigation">
         <ul class="pagination justify-content-center">
@@ -148,14 +174,22 @@
             </li>
             {% endif %}
             
-            {% set total_pages = (total / per_page)|round(0, 'ceil')|int %}
-            {% for p in range(1, total_pages + 1) %}
-                {% if p >= page - 2 and p <= page + 2 %}
-                <li class="page-item {% if p == page %}active{% endif %}">
-                    <a class="page-link" href="{{ url_for('admin_clientes', page=p, q=search) }}">{{ p }}</a>
-                </li>
-                {% endif %}
+            {% set start_page = [1, page - 2]|max %}
+            {% set end_page = [total_pages, page + 2]|min %}
+            
+            {% if start_page > 1 %}
+            <li class="page-item disabled"><span class="page-link">...</span></li>
+            {% endif %}
+            
+            {% for p in range(start_page, end_page + 1) %}
+            <li class="page-item {% if p == page %}active{% endif %}">
+                <a class="page-link" href="{{ url_for('admin_clientes', page=p, q=search) }}">{{ p }}</a>
+            </li>
             {% endfor %}
+            
+            {% if end_page < total_pages %}
+            <li class="page-item disabled"><span class="page-link">...</span></li>
+            {% endif %}
             
             {% if page < total_pages %}
             <li class="page-item">
@@ -166,13 +200,17 @@
             {% endif %}
         </ul>
         <div class="text-center text-muted small mt-2">
-            Página {{ page }} de {{ total_pages }} - Total: {{ total }} cliente(s)
+            Página {{ page }} de {{ total_pages }} - Mostrando {{ clientes|length }} de {{ total }} cliente(s)
         </div>
     </nav>
+    {% elif total > 0 %}
+    <div class="text-center text-muted small mt-2">
+        Mostrando {{ clientes|length }} de {{ total }} cliente(s)
+    </div>
     {% endif %}
 </div>
 
-<!-- Modal para crear cliente -->
+<!-- Modal para crear cliente - ACTUALIZADO -->
 <div class="modal fade" id="crearClienteModal" tabindex="-1" aria-labelledby="crearClienteModalLabel" aria-hidden="true">
     <div class="modal-dialog">
         <div class="modal-content">
@@ -190,45 +228,54 @@
                         <input type="text" class="form-control" id="nombre" name="nombre" 
                                required minlength="2" maxlength="100"
                                placeholder="Ingrese el nombre completo del cliente">
-                        <div class="form-text">Mínimo 2 caracteres</div>
+                        <div class="invalid-feedback">Por favor ingrese el nombre del cliente (mínimo 2 caracteres).</div>
                     </div>
                     
                     <!-- RUC/Cédula -->
                     <div class="mb-3">
                         <label for="ruc_cedula" class="form-label">RUC/Cédula</label>
                         <input type="text" class="form-control" id="ruc_cedula" name="ruc_cedula" 
-                               maxlength="20"
-                               placeholder="Ej: 1234567890123">
-                        <div class="form-text">Opcional. Si se proporciona, debe ser único</div>
+                               maxlength="13" pattern="\d*"
+                               placeholder="Ej: 1234567890123 o 1234567890"
+                               oninput="this.value = this.value.replace(/[^0-9]/g, '')">
+                        <div class="form-text">
+                            Opcional. Solo números. Cédula: 10 dígitos | RUC: 13 dígitos
+                        </div>
+                        <div class="invalid-feedback" id="rucError">
+                            El RUC/Cédula debe tener 10 (cédula) o 13 (RUC) dígitos numéricos.
+                        </div>
                     </div>
 
                     <!-- Teléfono -->
                     <div class="mb-3">
-                        <label for="telefono" class="form-label">Teléfono</label>
+                        <label for="telefono" class="form-label">Teléfono <span class="text-danger">*</span></label>
                         <input type="tel" class="form-control" id="telefono" name="telefono" 
-                               maxlength="20"
-                               placeholder="Ej: 0991234567">
+                               required maxlength="20"
+                               placeholder="Ej: 0991234567"
+                               oninput="this.value = this.value.replace(/[^0-9+\-()\s]/g, '')">
                         <div class="form-text">Número de contacto principal</div>
+                        <div class="invalid-feedback">Por favor ingrese un número de teléfono válido.</div>
                     </div>
                     
                     <!-- Dirección -->
                     <div class="mb-3">
                         <label for="direccion" class="form-label">Dirección</label>
-                        <textarea class="form-control" id="direccion" name="direccion" rows="3" 
+                        <textarea class="form-control" id="direccion" name="direccion" rows="2" 
                                   maxlength="200"
                                   placeholder="Ingrese la dirección completa del cliente"></textarea>
                         <div class="form-text">Máximo 200 caracteres</div>
                     </div>
                     
-                    <!-- Estado -->
+                    <!-- Tipo de Cliente -->
                     <div class="mb-3">
-                        <label for="estado" class="form-label">Estado <span class="text-danger">*</span></label>
-                        <select class="form-select" id="estado" name="estado" required>
-                            <option value="" selected disabled>Seleccione un estado...</option>
-                            <option value="ACTIVO">Activo</option>
-                            <option value="INACTIVO">Inactivo</option>
+                        <label for="tipo_cliente" class="form-label">Tipo de Cliente <span class="text-danger">*</span></label>
+                        <select class="form-select" id="tipo_cliente" name="tipo_cliente" required>
+                            <option value="" disabled selected>Seleccione un tipo...</option>
+                            <option value="Comun">Cliente Común</option>
+                            <option value="Especial">Cliente Especial</option>
                         </select>
-                        <div class="form-text">Estado inicial del cliente en el sistema</div>
+                        <div class="form-text">Los clientes especiales pueden tener condiciones diferentes</div>
+                        <div class="invalid-feedback">Por favor seleccione el tipo de cliente.</div>
                     </div>
                 </div>
                 <div class="modal-footer">
@@ -243,6 +290,37 @@
         </div>
     </div>
 </div>
+
+<!-- Modal de confirmación para eliminar -->
+<div class="modal fade" id="eliminarClienteModal" tabindex="-1" aria-labelledby="eliminarClienteModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title" id="eliminarClienteModalLabel">
+                    <i class="bi bi-exclamation-triangle"></i> Confirmar Eliminación
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form method="POST" action="" id="eliminarClienteForm">
+                <div class="modal-body">
+                    <p>¿Está seguro que desea eliminar al cliente <strong id="clienteNombreEliminar"></strong>?</p>
+                    <p class="text-danger small">
+                        <i class="bi bi-info-circle"></i> Esta acción cambiará el estado del cliente a INACTIVO.
+                    </p>
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() if csrf_token else '' }}">
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="bi bi-x-circle"></i> Cancelar
+                    </button>
+                    <button type="submit" class="btn btn-danger">
+                        <i class="bi bi-trash"></i> Sí, Eliminar
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
 {% endblock %}
 
 {% block scripts %}
@@ -250,27 +328,23 @@
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    const form = document.getElementById('crearClienteForm');
+    const crearForm = document.getElementById('crearClienteForm');
     const telefonoInput = document.getElementById('telefono');
     const rucCedulaInput = document.getElementById('ruc_cedula');
+    const eliminarForm = document.getElementById('eliminarClienteForm');
+    let clienteAEliminar = null;
     
-    // Validación de Teléfono (formato básico)
-    function validateTelefono() {
-        if (telefonoInput.value && !/^[\d\s\-+()]+$/.test(telefonoInput.value)) {
-            telefonoInput.setCustomValidity('Ingrese un número de teléfono válido');
-            telefonoInput.classList.add('is-invalid');
-            return false;
-        } else {
-            telefonoInput.setCustomValidity('');
-            telefonoInput.classList.remove('is-invalid');
+    // Validación de RUC/Cédula
+    function validateRucCedula() {
+        if (!rucCedulaInput.value) {
+            rucCedulaInput.setCustomValidity('');
+            rucCedulaInput.classList.remove('is-invalid');
             return true;
         }
-    }
-    
-    // Validación de RUC/Cédula (solo letras y números)
-    function validateRucCedula() {
-        if (rucCedulaInput.value && !/^[a-zA-Z0-9]+$/.test(rucCedulaInput.value)) {
-            rucCedulaInput.setCustomValidity('Ingrese solo letras y números (sin espacios ni caracteres especiales)');
+        
+        const value = rucCedulaInput.value.replace(/\D/g, '');
+        if (value.length !== 10 && value.length !== 13) {
+            rucCedulaInput.setCustomValidity('Debe tener 10 (cédula) o 13 (RUC) dígitos');
             rucCedulaInput.classList.add('is-invalid');
             return false;
         } else {
@@ -280,33 +354,82 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
     
+    // Validación de Teléfono
+    function validateTelefono() {
+        if (!telefonoInput.value.trim()) {
+            telefonoInput.setCustomValidity('El teléfono es obligatorio');
+            telefonoInput.classList.add('is-invalid');
+            return false;
+        }
+        
+        const value = telefonoInput.value.trim();
+        if (value.length < 7) {
+            telefonoInput.setCustomValidity('El teléfono debe tener al menos 7 dígitos');
+            telefonoInput.classList.add('is-invalid');
+            return false;
+        } else {
+            telefonoInput.setCustomValidity('');
+            telefonoInput.classList.remove('is-invalid');
+            return true;
+        }
+    }
+    
     // Event listeners para validación en tiempo real
     telefonoInput.addEventListener('input', validateTelefono);
     rucCedulaInput.addEventListener('input', validateRucCedula);
     
-    // Validación del formulario completo
-    form.addEventListener('submit', function(event) {
+    // Validación del formulario de creación
+    crearForm.addEventListener('submit', function(event) {
         const isTelefonoValid = validateTelefono();
         const isRucCedulaValid = validateRucCedula();
         
-        if (!isTelefonoValid || !isRucCedulaValid || !form.checkValidity()) {
+        if (!isTelefonoValid || !isRucCedulaValid || !crearForm.checkValidity()) {
             event.preventDefault();
             event.stopPropagation();
         }
-        form.classList.add('was-validated');
+        crearForm.classList.add('was-validated');
     });
     
-    // Limpiar formulario al cerrar modal
+    // Manejo del botón de eliminar
+    document.querySelectorAll('.eliminar-cliente-btn').forEach(button => {
+        button.addEventListener('click', function() {
+            const clienteId = this.getAttribute('data-id');
+            const clienteNombre = this.getAttribute('data-nombre');
+            
+            clienteAEliminar = clienteId;
+            document.getElementById('clienteNombreEliminar').textContent = clienteNombre;
+            
+            // Actualizar el action del formulario
+            eliminarForm.action = `/admin/catalog/client/eliminar-cliente/${clienteId}`;
+            
+            const modal = new bootstrap.Modal(document.getElementById('eliminarClienteModal'));
+            modal.show();
+        });
+    });
+    
+    // Formulario de eliminación
+    if (eliminarForm) {
+        eliminarForm.addEventListener('submit', function(event) {
+            // Validación adicional si es necesario
+            if (!clienteAEliminar) {
+                event.preventDefault();
+                alert('Error: Cliente no especificado');
+            }
+        });
+    }
+    
+    // Limpiar formulario al cerrar modal de creación
     document.getElementById('crearClienteModal').addEventListener('hidden.bs.modal', function () {
-        form.reset();
-        form.classList.remove('was-validated');
+        crearForm.reset();
+        crearForm.classList.remove('was-validated');
         telefonoInput.setCustomValidity('');
         telefonoInput.classList.remove('is-invalid');
         rucCedulaInput.setCustomValidity('');
         rucCedulaInput.classList.remove('is-invalid');
-        // Restablecer el estado a placeholder
-        const estadoSelect = document.getElementById('estado');
-        estadoSelect.selectedIndex = 0;
+        
+        // Restablecer los select
+        const tipoClienteSelect = document.getElementById('tipo_cliente');
+        tipoClienteSelect.selectedIndex = 0;
     });
     
     // Auto-focus en el campo nombre cuando se abre el modal
@@ -318,7 +441,53 @@ document.addEventListener('DOMContentLoaded', function() {
     const searchInput = document.querySelector('input[name="q"]');
     if (searchInput) {
         searchInput.focus();
+        // Mover cursor al final
+        searchInput.selectionStart = searchInput.selectionEnd = searchInput.value.length;
     }
+    
+    // Mostrar mensajes flash de Flask
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                showToast('{{ category }}', '{{ message }}');
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
 });
+
+// Función para mostrar toasts de notificación
+function showToast(category, message) {
+    const toastContainer = document.createElement('div');
+    toastContainer.className = 'toast-container position-fixed bottom-0 end-0 p-3';
+    
+    const toastId = 'toast-' + Date.now();
+    const bgColor = category === 'success' ? 'bg-success' : 
+                    category === 'danger' ? 'bg-danger' : 
+                    category === 'warning' ? 'bg-warning' : 'bg-info';
+    
+    const toastHTML = `
+        <div id="${toastId}" class="toast" role="alert" aria-live="assertive" aria-atomic="true">
+            <div class="toast-header ${bgColor} text-white">
+                <strong class="me-auto">Notificación</strong>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="toast" aria-label="Close"></button>
+            </div>
+            <div class="toast-body">
+                ${message}
+            </div>
+        </div>
+    `;
+    
+    toastContainer.innerHTML = toastHTML;
+    document.body.appendChild(toastContainer);
+    
+    const toastEl = document.getElementById(toastId);
+    const toast = new bootstrap.Toast(toastEl, { delay: 5000 });
+    toast.show();
+    
+    // Remover del DOM después de que se oculte
+    toastEl.addEventListener('hidden.bs.toast', function () {
+        toastContainer.remove();
+    });
+}
 </script>
 {% endblock %}

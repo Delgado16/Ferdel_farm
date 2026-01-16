@@ -1581,6 +1581,7 @@ def admin_clientes():
     page = 1
     per_page = 20
     total = 0
+    total_pages = 1
     search_query = ""
     
     try:
@@ -1589,14 +1590,20 @@ def admin_clientes():
         id_empresa = session.get('id_empresa', 1)
         
         with get_db_cursor() as cursor:
+            # Validar página
+            if page < 1:
+                page = 1
+            
             offset = (page - 1) * per_page
             
-            # Consulta base
+            # Consulta base CORREGIDA con JOIN
             base_query = """
                 SELECT c.*, e.Nombre_Empresa
                 FROM Clientes c
                 INNER JOIN empresa e ON c.ID_Empresa = e.ID_Empresa
-                WHERE c.Estado = 'ACTIVO' AND c.ID_Empresa = %s
+                WHERE c.Estado = 'ACTIVO' 
+                AND c.ID_Empresa = %s
+                AND e.Estado = 'Activo'
             """
             params = [id_empresa]
             
@@ -1605,8 +1612,15 @@ def admin_clientes():
                 search_param = f"%{search_query}%"
                 params.extend([search_param, search_param, search_param])
             
-            # Contar total
-            count_query = "SELECT COUNT(*) as total FROM Clientes c WHERE c.Estado = 'ACTIVO' AND c.ID_Empresa = %s"
+            # Contar total CORREGIDO con mismo JOIN
+            count_query = """
+                SELECT COUNT(*) as total 
+                FROM Clientes c
+                INNER JOIN empresa e ON c.ID_Empresa = e.ID_Empresa
+                WHERE c.Estado = 'ACTIVO' 
+                AND c.ID_Empresa = %s
+                AND e.Estado = 'Activo'
+            """
             count_params = [id_empresa]
             
             if search_query:
@@ -1617,12 +1631,21 @@ def admin_clientes():
             total_result = cursor.fetchone()
             total = total_result['total'] if total_result else 0
             
-            # Obtener datos con paginación
-            data_query = base_query + " ORDER BY c.Nombre LIMIT %s OFFSET %s"
-            params.extend([per_page, offset])
+            # Calcular total de páginas
+            total_pages = (total + per_page - 1) // per_page if total > 0 else 1
             
-            cursor.execute(data_query, params)
-            clientes = cursor.fetchall()
+            # Validar que la página no exceda el total
+            if page > total_pages and total_pages > 0:
+                page = total_pages
+                offset = (page - 1) * per_page
+            
+            # Obtener datos con paginación
+            if total > 0:
+                data_query = base_query + " ORDER BY c.Nombre LIMIT %s OFFSET %s"
+                params.extend([per_page, offset])
+                
+                cursor.execute(data_query, params)
+                clientes = cursor.fetchall()
             
     except Exception as e:
         logging.error(f"Error en ruta /admin/catalog/client/clientes: {str(e)}", exc_info=True)
@@ -1634,6 +1657,7 @@ def admin_clientes():
                         page=page,
                         per_page=per_page,
                         total=total,
+                        total_pages=total_pages,
                         search=search_query)
 
 @app.route('/admin/catalog/client/crear-cliente', methods=['POST'])
@@ -1645,16 +1669,26 @@ def admin_crear_cliente():
         telefono = request.form.get("telefono", "").strip()
         direccion = request.form.get("direccion", "").strip()
         ruc_cedula = request.form.get("ruc_cedula", "").strip()
-        id_usuario = session.get('id_usuario',1)
+        tipo_cliente = request.form.get("tipo_cliente", "Comun").strip()
+        id_usuario = session.get('id_usuario', 1)
         id_empresa = session.get('id_empresa', 1)
 
+        # Validaciones
         if not nombre:
             flash("El nombre del cliente es obligatorio.", "danger")
+            return redirect(url_for("admin_clientes"))
+        
+        if not telefono:
+            flash("El teléfono del cliente es obligatorio.", "danger")
             return redirect(url_for("admin_clientes"))
         
         if not id_usuario:
             flash("Error de autenticación. Por favor, inicie sesión nuevamente.", "danger")
             return redirect(url_for("admin_clientes"))
+        
+        # Validar tipo de cliente
+        if tipo_cliente not in ['Comun', 'Especial']:
+            tipo_cliente = 'Comun'
         
         with get_db_cursor() as cursor:
             # Verificar que la empresa existe y está activa
@@ -1671,7 +1705,10 @@ def admin_crear_cliente():
             # Verificar si el RUC/Cédula ya existe (solo si se proporcionó)
             if ruc_cedula:
                 cursor.execute(
-                    "SELECT 1 FROM Clientes WHERE RUC_CEDULA = %s AND ID_Empresa = %s AND Estado = 'ACTIVO'", 
+                    """SELECT 1 FROM Clientes 
+                    WHERE RUC_CEDULA = %s 
+                    AND ID_Empresa = %s 
+                    AND Estado = 'ACTIVO'""", 
                     (ruc_cedula, id_empresa)
                 )
                 existe = cursor.fetchone()
@@ -1679,16 +1716,17 @@ def admin_crear_cliente():
                     flash("Ya existe un cliente con este RUC/Cédula", "danger")
                     return redirect(url_for("admin_clientes"))
 
-            # Insertar nuevo cliente
+            # Insertar nuevo cliente CON el campo tipo_cliente
             cursor.execute("""
-                INSERT INTO Clientes (Nombre, Telefono, Direccion, RUC_CEDULA, ID_Empresa, ID_Usuario_Creacion)
-                VALUES (%s, %s, %s, %s, %s, %s)
-            """, (nombre, telefono, direccion, ruc_cedula, id_empresa, id_usuario))
+                INSERT INTO Clientes 
+                (Nombre, Telefono, Direccion, RUC_CEDULA, ID_Empresa, ID_Usuario_Creacion, tipo_cliente)
+                VALUES (%s, %s, %s, %s, %s, %s, %s)
+            """, (nombre, telefono, direccion, ruc_cedula, id_empresa, id_usuario, tipo_cliente))
             
             flash("Cliente agregado correctamente.", "success")
             
     except Exception as e:
-        logging.error(f"Error al crear cliente: {str(e)}")
+        logging.error(f"Error al crear cliente: {str(e)}", exc_info=True)
         flash("Error al guardar el cliente", "danger")
     
     return redirect(url_for("admin_clientes"))
@@ -1706,7 +1744,10 @@ def admin_editar_cliente(id):
                 """SELECT c.* 
                 FROM Clientes c
                 INNER JOIN empresa e ON c.ID_Empresa = e.ID_Empresa
-                WHERE c.ID_Cliente = %s AND c.ID_Empresa = %s AND e.Estado = 'Activo'""",
+                WHERE c.ID_Cliente = %s 
+                AND c.ID_Empresa = %s 
+                AND e.Estado = 'ACTIVO'
+                """,
                 (id, id_empresa)
             )
             cliente = cursor.fetchone()
@@ -1726,16 +1767,46 @@ def admin_editar_cliente(id):
                 direccion = request.form.get("direccion", "").strip()
                 ruc_cedula = request.form.get("ruc_cedula", "").strip()
                 estado = request.form.get("estado", "ACTIVO").strip()
+                tipo_cliente = request.form.get("tipo_cliente", "Comun").strip()
 
                 if not nombre:
                     flash("El nombre del cliente es obligatorio.", "danger")
                     # Redirigir de vuelta al formulario de edición
                     return render_template("admin/catalog/client/editar_clientes.html", cliente=cliente)
+                
+                if not telefono:
+                    flash("El teléfono del cliente es obligatorio.", "danger")
+                    return render_template("admin/catalog/client/editar_clientes.html", cliente=cliente)
+                
+                # Validar estado
+                if estado not in ['ACTIVO', 'INACTIVO']:
+                    estado = 'ACTIVO'
+                
+                # Validar tipo de cliente
+                if tipo_cliente not in ['Comun', 'Especial']:
+                    tipo_cliente = 'Comun'
+                
+                # Validar y limpiar RUC/Cédula
+                if ruc_cedula:
+                    
+                    # Validar que solo contenga números
+                    if not ruc_cedula.isdigit():
+                        flash("El RUC/Cédula debe contener solo números", "danger")
+                        return render_template("admin/catalog/client/editar_clientes.html", cliente=cliente)
+                    
+                    # Validar longitud (Ecuador: cédula=10, ruc=13)
+                    if len(ruc_cedula) not in [10, 13]:
+                        flash("El RUC/Cédula debe tener 10 (cédula) o 13 (RUC) dígitos", "danger")
+                        return render_template("admin/catalog/client/editar_clientes.html", cliente=cliente)
 
                 # Verificar si el RUC/Cédula ya existe en otro cliente activo
                 if ruc_cedula and estado == 'ACTIVO':
                     cursor.execute(
-                        "SELECT 1 FROM Clientes WHERE RUC_CEDULA = %s AND ID_Cliente != %s AND ID_Empresa = %s AND Estado = 'ACTIVO'",
+                        """SELECT 1 FROM Clientes 
+                        WHERE RUC_CEDULA = %s 
+                        AND ID_Cliente != %s 
+                        AND ID_Empresa = %s 
+                        AND Estado = 'ACTIVO'""",
                         (ruc_cedula, id, id_empresa)
                     )
                     ruc_existente = cursor.fetchone()
@@ -1743,12 +1814,18 @@ def admin_editar_cliente(id):
                         flash("Ya existe otro cliente activo con este RUC/Cédula", "danger")
                         return render_template("admin/catalog/client/editar_clientes.html", cliente=cliente)
 
-                # Actualizar cliente
+                # Actualizar cliente CON el campo tipo_cliente
                 cursor.execute("""
                     UPDATE Clientes 
-                    SET Nombre = %s, Telefono = %s, Direccion = %s, RUC_CEDULA = %s, Estado = %s
-                    WHERE ID_Cliente = %s AND ID_Empresa = %s
-                """, (nombre, telefono, direccion, ruc_cedula, estado, id, id_empresa))
+                    SET Nombre = %s, 
+                        Telefono = %s, 
+                        Direccion = %s, 
+                        RUC_CEDULA = %s, 
+                        Estado = %s,
+                        tipo_cliente = %s
+                    WHERE ID_Cliente = %s 
+                    AND ID_Empresa = %s
+                """, (nombre, telefono, direccion, ruc_cedula, estado, tipo_cliente, id, id_empresa))
                 
                 # Registrar en bitácora
                 accion = "actualizado" if estado == 'ACTIVO' else "desactivado"
@@ -1757,7 +1834,7 @@ def admin_editar_cliente(id):
                 return redirect(url_for("admin_clientes"))
                 
     except Exception as e:
-        logging.error(f"Error en edición de cliente: {str(e)}")
+        logging.error(f"Error en edición de cliente: {str(e)}", exc_info=True)
         flash("Error al procesar la solicitud", "danger")
         return redirect(url_for("admin_clientes"))
     
