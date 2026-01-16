@@ -2234,7 +2234,7 @@ def admin_crear_unidad_medida():
         try:
             with get_db_cursor(commit=True) as cursor:
                 cursor.execute("""
-                    INSERT INTO Unidades_Medida (Nombre_Unidad, Abreviatura)
+                    INSERT INTO Unidades_Medida (Descripcion, Abreviatura)
                     VALUES (%s, %s)
                 """, (descripcion, abreviatura))
                 
@@ -5407,13 +5407,17 @@ def admin_ventas_salidas():
         flash(f'Error al cargar ventas: {str(e)}', 'error')
         return redirect(url_for('admin_dashboard'))
 
+
 @app.route('/admin/ventas/crear', methods=['GET', 'POST'])
 @admin_required
 @bitacora_decorator("CREAR_VENTA")
 def admin_crear_venta():
+    """
+    Crear nueva venta con filtrado por visibilidad de cliente
+    """
     try:
         # Obtener ID de empresa y usuario desde la sesión
-        id_empresa = session.get('id_empresa',1)
+        id_empresa = session.get('id_empresa', 1)
         id_usuario = current_user.id
         
         if not id_empresa:
@@ -5440,9 +5444,9 @@ def admin_crear_venta():
             
             id_tipo_movimiento = tipo_movimiento['ID_TipoMovimiento']
             
-            # Obtener datos para el formulario
+            # Obtener datos para el formulario - INCLUYENDO tipo_cliente
             cursor.execute("""
-                SELECT ID_Cliente, Nombre, RUC_CEDULA 
+                SELECT ID_Cliente, Nombre, RUC_CEDULA, tipo_cliente 
                 FROM clientes 
                 WHERE Estado = 'ACTIVO' AND (ID_Empresa = %s OR ID_Empresa IS NULL)
                 ORDER BY Nombre
@@ -5466,7 +5470,7 @@ def admin_crear_venta():
             """)
             categorias = cursor.fetchall()
             
-            # Obtener productos SOLO de la bodega principal
+            # Obtener productos INICIALMENTE sin filtrar (se filtrarán con JavaScript)
             cursor.execute("""
                 SELECT 
                     p.ID_Producto, 
@@ -5490,9 +5494,9 @@ def admin_crear_venta():
             cursor.execute("SELECT Nombre_Empresa, RUC, Direccion, Telefono FROM empresa WHERE ID_Empresa = %s", (id_empresa,))
             empresa_data = cursor.fetchone()
 
-        # Si es POST, procesar el formulario
+        # Si es POST, procesar el formulario CON VALIDACIÓN DE VISIBILIDAD
         if request.method == 'POST':
-            print("📨 Iniciando procesamiento de venta...")
+            print("📨 Iniciando procesamiento de venta con validación de visibilidad...")
             
             # Obtener datos del formulario
             id_cliente = request.form.get('id_cliente','').strip()
@@ -5534,6 +5538,75 @@ def admin_crear_venta():
 
             # Usar otro contexto para la transacción de la venta
             with get_db_cursor(True) as cursor:
+                # ✅ NUEVO: VALIDACIÓN DE VISIBILIDAD DE PRODUCTOS
+                print("🔍 Validando visibilidad de productos para el cliente...")
+                
+                # Obtener tipo de cliente
+                cursor.execute("""
+                    SELECT tipo_cliente 
+                    FROM clientes 
+                    WHERE ID_Cliente = %s
+                """, (id_cliente,))
+                
+                cliente_data = cursor.fetchone()
+                if not cliente_data:
+                    raise Exception("Cliente no encontrado")
+                
+                tipo_cliente = cliente_data['tipo_cliente']
+                print(f"👤 Tipo de cliente: {tipo_cliente}")
+                
+                # Validar cada producto contra la visibilidad del cliente
+                productos_invalidos = []
+                for i, producto_id in enumerate(productos_ids):
+                    cantidad = float(cantidades[i]) if cantidades[i] else 0
+                    if cantidad <= 0:
+                        continue
+                    
+                    cursor.execute("""
+                        SELECT 
+                            COUNT(*) as valido,
+                            p.Descripcion,
+                            c.Descripcion as categoria_nombre
+                        FROM productos p
+                        INNER JOIN categorias_producto c ON p.ID_Categoria = c.ID_Categoria
+                        INNER JOIN config_visibilidad_categorias cfg ON c.ID_Categoria = cfg.ID_Categoria
+                        WHERE p.ID_Producto = %s
+                          AND cfg.tipo_cliente = %s
+                          AND cfg.visible = 1
+                          AND p.Estado = 'activo'
+                    """, (producto_id, tipo_cliente))
+                    
+                    resultado = cursor.fetchone()
+                    if not resultado or resultado['valido'] == 0:
+                        productos_invalidos.append({
+                            'id': producto_id,
+                            'nombre': resultado['Descripcion'] if resultado else f"ID:{producto_id}",
+                            'categoria': resultado['categoria_nombre'] if resultado else 'Desconocida'
+                        })
+                
+                # Si hay productos no visibles, mostrar error
+                if productos_invalidos:
+                    productos_error = ", ".join([f"{p['nombre']} ({p['categoria']})" for p in productos_invalidos])
+                    error_msg = f"Los siguientes productos no están disponibles para este cliente ({tipo_cliente}): {productos_error}"
+                    print(f"❌ {error_msg}")
+                    
+                    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                        return jsonify({
+                            'success': False,
+                            'error': error_msg
+                        }), 400
+                    else:
+                        flash(error_msg, 'error')
+                        return render_template('admin/ventas/crear_venta.html',
+                                            clientes=clientes,
+                                            bodega_principal=bodega_principal,
+                                            productos=productos,
+                                            categorias=categorias,
+                                            empresa=empresa_data,
+                                            id_tipo_movimiento=id_tipo_movimiento)
+                
+                print("✅ Validación de visibilidad completada - Todos los productos son visibles para el cliente")
+                
                 # 1. Crear factura
                 cursor.execute("""
                     INSERT INTO Facturacion (
@@ -5629,15 +5702,11 @@ def admin_crear_venta():
                 print(f"  Total venta: C${total_venta:,.2f}")
                 print(f"  Total cajillas de huevos: {total_cajillas_huevos}")
                 
-                # 3. CALCULAR SEPARADORES NECESARIOS CON LA NUEVA LÓGICA
+                # 3. CALCULAR SEPARADORES NECESARIOS
                 separadores_totales = 0
                 if total_cajillas_huevos > 0:
-                    # FÓRMULA: cajillas + (cajillas // 10) para las bases extra
-                    # Pero para múltiplos exactos de 10, necesitamos cajillas + (cajillas // 10)
-                    
-                    separadores_entre_cajillas = total_cajillas_huevos  # 1 por cajilla
-                    separadores_base_extra = total_cajillas_huevos // 10  # 1 base por cada 10 cajillas
-                    
+                    separadores_entre_cajillas = total_cajillas_huevos
+                    separadores_base_extra = total_cajillas_huevos // 10
                     separadores_totales = separadores_entre_cajillas + separadores_base_extra
                     
                     print(f"🔢 CÁLCULO DE SEPARADORES:")
@@ -5645,16 +5714,6 @@ def admin_crear_venta():
                     print(f"  Separadores entre cajillas: {separadores_entre_cajillas}")
                     print(f"  Separadores base extra: {separadores_base_extra}")
                     print(f"  TOTAL separadores necesarios: {separadores_totales}")
-                    
-                    # Ejemplos para verificación:
-                    if total_cajillas_huevos == 10:
-                        print(f"  ✅ Verificación: 10 cajillas = 10 + 1 = 11 separadores ✓")
-                    elif total_cajillas_huevos == 20:
-                        print(f"  ✅ Verificación: 20 cajillas = 20 + 2 = 22 separadores ✓")
-                    elif total_cajillas_huevos == 50:
-                        print(f"  ✅ Verificación: 50 cajillas = 50 + 5 = 55 separadores ✓")
-                    elif total_cajillas_huevos == 80:
-                        print(f"  ✅ Verificación: 80 cajillas = 80 + 8 = 88 separadores ✓")
                 
                 # 4. DESCONTAR SEPARADORES SI HAY PRODUCTOS DE HUEVOS
                 if separadores_totales > 0:
@@ -5834,7 +5893,7 @@ def admin_crear_venta():
                             id_tipo_movimiento=id_tipo_movimiento)
             
     except Exception as e:
-        error_msg = f' Error al procesar venta: {str(e)}'
+        error_msg = f'❌ Error al procesar venta: {str(e)}'
         print(f"{error_msg}")
         import traceback
         print(f"Traceback: {traceback.format_exc()}")
@@ -5853,6 +5912,88 @@ def admin_crear_venta():
                             categorias=categorias if 'categorias' in locals() else [],
                             empresa=empresa_data if 'empresa_data' in locals() else None,
                             id_tipo_movimiento=id_tipo_movimiento if 'id_tipo_movimiento' in locals() else None)
+
+
+@app.route('/api/ventas/productos/cliente/<int:cliente_id>', methods=['GET'])
+@admin_required
+def api_productos_por_cliente(cliente_id):
+    """API para obtener productos visibles para un cliente específico"""
+    
+    try:
+        id_empresa = session.get('id_empresa', 1)
+        id_bodega = session.get('id_bodega_principal', 1)  # Ajusta según tu sistema
+        
+        with get_db_cursor() as cursor:
+            # 1. Obtener tipo de cliente
+            cursor.execute("""
+                SELECT tipo_cliente 
+                FROM clientes 
+                WHERE ID_Cliente = %s AND Estado = 'ACTIVO'
+            """, (cliente_id,))
+            
+            cliente = cursor.fetchone()
+            if not cliente:
+                return jsonify({'success': False, 'error': 'Cliente no encontrado'}), 404
+            
+            tipo_cliente = cliente['tipo_cliente']
+            
+            # 2. Obtener productos visibles para ese tipo de cliente
+            cursor.execute("""
+                SELECT 
+                    p.ID_Producto, 
+                    p.COD_Producto, 
+                    p.Descripcion, 
+                    COALESCE(ib.Existencias, 0) as Existencias,
+                    COALESCE(p.Precio_Venta, 0) as Precio_Venta, 
+                    p.ID_Categoria,
+                    c.Descripcion as Categoria,
+                    um.Descripcion as Unidad_Medida
+                FROM productos p
+                INNER JOIN categorias_producto c ON p.ID_Categoria = c.ID_Categoria
+                INNER JOIN config_visibilidad_categorias cfg 
+                    ON c.ID_Categoria = cfg.ID_Categoria
+                LEFT JOIN inventario_bodega ib ON p.ID_Producto = ib.ID_Producto 
+                    AND ib.ID_Bodega = %s
+                LEFT JOIN unidades_medida um ON p.Unidad_Medida = um.ID_Unidad
+                WHERE cfg.tipo_cliente = %s
+                  AND cfg.visible = 1
+                  AND p.Estado = 1 
+                  AND (p.ID_Empresa = %s OR p.ID_Empresa IS NULL)
+                  AND COALESCE(ib.Existencias, 0) > 0
+                ORDER BY c.Descripcion, p.Descripcion
+            """, (id_bodega, tipo_cliente, id_empresa))
+            
+            productos = cursor.fetchall()
+            
+            # Contar productos por categoría
+            cursor.execute("""
+                SELECT c.Descripcion as categoria, COUNT(p.ID_Producto) as cantidad
+                FROM productos p
+                INNER JOIN categorias_producto c ON p.ID_Categoria = c.ID_Categoria
+                INNER JOIN config_visibilidad_categorias cfg 
+                    ON c.ID_Categoria = cfg.ID_Categoria
+                LEFT JOIN inventario_bodega ib ON p.ID_Producto = ib.ID_Producto 
+                    AND ib.ID_Bodega = %s
+                WHERE cfg.tipo_cliente = %s
+                  AND cfg.visible = 1
+                  AND p.Estado = 1 
+                  AND (p.ID_Empresa = %s OR p.ID_Empresa IS NULL)
+                  AND COALESCE(ib.Existencias, 0) > 0
+                GROUP BY c.ID_Categoria, c.Descripcion
+            """, (id_bodega, tipo_cliente, id_empresa))
+            
+            categorias_count = cursor.fetchall()
+            
+            return jsonify({
+                'success': True,
+                'tipo_cliente': tipo_cliente,
+                'productos': productos,
+                'categorias': categorias_count,
+                'total': len(productos)
+            })
+            
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 # RUTAS AUXILIARES SIMPLIFICADAS - UNA SOLA BODEGA
 @app.route('/admin/ventas/productos-por-categoria/<int:id_categoria>')
@@ -6046,7 +6187,67 @@ def obtener_bodega_principal():
     except Exception as e:
         print(f"❌ [BODEGA] Error al obtener bodega principal: {str(e)}")
         return jsonify({'error': str(e)}), 500
-    
+
+@app.route('/admin/ventas/todos-productos')
+@admin_required
+def obtener_todos_productos_venta():
+    """
+    Endpoint para obtener TODOS los productos activos con stock
+    """
+    try:
+        id_empresa = session.get('id_empresa', 1)
+        
+        # Obtener la bodega principal
+        with get_db_cursor(True) as cursor:
+            cursor.execute("SELECT ID_Bodega FROM bodegas WHERE Estado = 1 ORDER BY ID_Bodega LIMIT 1")
+            bodega_result = cursor.fetchone()
+            id_bodega = bodega_result['ID_Bodega'] if bodega_result else 1
+        
+        print(f"🔍 [VENTAS] Cargando TODOS los productos - Bodega: {id_bodega}")
+        
+        with get_db_cursor(True) as cursor:
+            cursor.execute("""
+                SELECT 
+                    p.ID_Producto, 
+                    p.COD_Producto, 
+                    p.Descripcion, 
+                    COALESCE(ib.Existencias, 0) as Existencias,
+                    COALESCE(p.Precio_Venta, 0) as Precio_Venta, 
+                    p.ID_Categoria,
+                    c.Descripcion as Categoria
+                FROM productos p
+                LEFT JOIN categorias_producto c ON p.ID_Categoria = c.ID_Categoria
+                LEFT JOIN inventario_bodega ib ON p.ID_Producto = ib.ID_Producto AND ib.ID_Bodega = %s
+                WHERE p.Estado = 1 
+                AND (p.ID_Empresa = %s OR p.ID_Empresa IS NULL)
+                AND COALESCE(ib.Existencias, 0) > 0
+                ORDER BY c.Descripcion, p.Descripcion
+            """, (id_bodega, id_empresa))
+            
+            productos = cursor.fetchall()
+            print(f"✅ [VENTAS] Total productos encontrados: {len(productos)}")
+            
+            productos_list = []
+            for producto in productos:
+                productos_list.append({
+                    'ID_Producto': producto['ID_Producto'],
+                    'COD_Producto': producto['COD_Producto'],
+                    'Descripcion': producto['Descripcion'],
+                    'Existencias': float(producto['Existencias']),
+                    'Precio_Venta': float(producto['Precio_Venta']),
+                    'ID_Categoria': producto['ID_Categoria'],
+                    'Categoria': producto['Categoria']
+                })
+            
+            return jsonify(productos_list)
+            
+    except Exception as e:
+        print(f"❌ [VENTAS] Error al obtener todos los productos: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
+
+
 @app.route('/admin/ventas/ticket/<int:id_factura>')
 @admin_required
 def admin_generar_ticket(id_factura):
@@ -6169,65 +6370,7 @@ def admin_generar_ticket(id_factura):
         print(f"Error detallado: {traceback.format_exc()}")
         return redirect(url_for('admin_ventas_salidas'))
 
-@app.route('/admin/ventas/todos-productos')
-@admin_required
-def obtener_todos_productos_venta():
-    """
-    Endpoint para obtener TODOS los productos activos con stock
-    """
-    try:
-        id_empresa = session.get('id_empresa', 1)
-        
-        # Obtener la bodega principal
-        with get_db_cursor(True) as cursor:
-            cursor.execute("SELECT ID_Bodega FROM bodegas WHERE Estado = 1 ORDER BY ID_Bodega LIMIT 1")
-            bodega_result = cursor.fetchone()
-            id_bodega = bodega_result['ID_Bodega'] if bodega_result else 1
-        
-        print(f"🔍 [VENTAS] Cargando TODOS los productos - Bodega: {id_bodega}")
-        
-        with get_db_cursor(True) as cursor:
-            cursor.execute("""
-                SELECT 
-                    p.ID_Producto, 
-                    p.COD_Producto, 
-                    p.Descripcion, 
-                    COALESCE(ib.Existencias, 0) as Existencias,
-                    COALESCE(p.Precio_Venta, 0) as Precio_Venta, 
-                    p.ID_Categoria,
-                    c.Descripcion as Categoria
-                FROM productos p
-                LEFT JOIN categorias_producto c ON p.ID_Categoria = c.ID_Categoria
-                LEFT JOIN inventario_bodega ib ON p.ID_Producto = ib.ID_Producto AND ib.ID_Bodega = %s
-                WHERE p.Estado = 1 
-                AND (p.ID_Empresa = %s OR p.ID_Empresa IS NULL)
-                AND COALESCE(ib.Existencias, 0) > 0
-                ORDER BY c.Descripcion, p.Descripcion
-            """, (id_bodega, id_empresa))
-            
-            productos = cursor.fetchall()
-            print(f"✅ [VENTAS] Total productos encontrados: {len(productos)}")
-            
-            productos_list = []
-            for producto in productos:
-                productos_list.append({
-                    'ID_Producto': producto['ID_Producto'],
-                    'COD_Producto': producto['COD_Producto'],
-                    'Descripcion': producto['Descripcion'],
-                    'Existencias': float(producto['Existencias']),
-                    'Precio_Venta': float(producto['Precio_Venta']),
-                    'ID_Categoria': producto['ID_Categoria'],
-                    'Categoria': producto['Categoria']
-                })
-            
-            return jsonify(productos_list)
-            
-    except Exception as e:
-        print(f"❌ [VENTAS] Error al obtener todos los productos: {str(e)}")
-        import traceback
-        traceback.print_exc()
-        return jsonify({'error': str(e)}), 500
-    
+
 @app.route('/admin/ventas/detalles/<int:id_factura>', methods=['GET'])
 @admin_required
 @bitacora_decorator("DETALLES_VENTA")

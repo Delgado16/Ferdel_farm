@@ -449,6 +449,17 @@
         text-align: center;
     }
 
+    /* Estilo para el badge de tipo de cliente */
+    .info-tipo-cliente {
+        margin-top: 0.5rem;
+        font-size: 0.85rem;
+    }
+
+    .info-tipo-cliente .badge {
+        font-size: 0.8rem;
+        padding: 0.25rem 0.5rem;
+    }
+
     /* Responsive */
     @media (max-width: 1200px) {
         .venta-container {
@@ -630,10 +641,15 @@
                             <select class="form-select form-select-sm" id="id_cliente" name="id_cliente">
                                 <option value="" selected>Seleccionar...</option>
                                 {% for cliente in clientes %}
-                                <option value="{{ cliente.ID_Cliente }}">{{ cliente.Nombre }} - {{ cliente.RUC_CEDULA }}
+                                <option value="{{ cliente.ID_Cliente }}" 
+                                        data-tipo="{{ cliente.tipo_cliente }}">
+                                    {{ cliente.Nombre }} - {{ cliente.RUC_CEDULA }}
+                                    ({{ cliente.tipo_cliente }})
                                 </option>
                                 {% endfor %}
                             </select>
+                            <!-- Aquí se mostrará el tipo de cliente -->
+                            <div id="info-tipo-cliente" class="info-tipo-cliente"></div>
                         </div>
 
                         <div class="col-md-6">
@@ -766,12 +782,16 @@
 </div>
 
 <script>
-    // Variables globales
+    // ============================================
+    // VARIABLES GLOBALES
+    // ============================================
     let productos = [];
     let contadorProductos = 0;
     let filtroCategoriaActual = 0;
     let productosEnCache = [];
     let productosBase = [];
+    let productosFiltradosPorCliente = [];
+    let tipoClienteActual = '';
 
     // ============================================
     // FUNCIONES DE UTILIDAD
@@ -800,7 +820,37 @@
         // Cargar todos los productos inicialmente
         cargarProductosBase();
 
-        // Asignar eventos
+        // ============================================
+        // EVENTOS PARA FILTRADO POR CLIENTE
+        // ============================================
+        
+        // Cuando cambia el cliente
+        document.getElementById('id_cliente').addEventListener('change', async function() {
+            const clienteId = this.value;
+            const optionSeleccionada = this.options[this.selectedIndex];
+            tipoClienteActual = optionSeleccionada.getAttribute('data-tipo') || 'Comun';
+            
+            console.log(`[CLIENTE] Cliente seleccionado: ID=${clienteId}, Tipo=${tipoClienteActual}`);
+            
+            if (clienteId) {
+                // Mostrar info del tipo de cliente
+                mostrarInfoTipoCliente(tipoClienteActual);
+                
+                // Cargar productos filtrados para este cliente
+                await cargarProductosPorCliente(clienteId, tipoClienteActual);
+                
+                // Aplicar filtro de categoría si hay uno activo
+                if (filtroCategoriaActual !== 0) {
+                    aplicarFiltroCategoria();
+                }
+            } else {
+                // Si no hay cliente, mostrar todos los productos
+                resetearProductosACliente();
+                tipoClienteActual = '';
+            }
+        });
+
+        // Asignar otros eventos
         document.getElementById('btn-agregar-producto').addEventListener('click', agregarProducto);
         document.getElementById('btn-agregar-primer-producto').addEventListener('click', agregarProducto);
         document.getElementById('btn-aplicar-filtro').addEventListener('click', aplicarFiltroCategoria);
@@ -848,102 +898,184 @@
     });
 
     // ============================================
-    // FUNCIONES DEL MODAL DE CONFIRMACIÓN
+    // FUNCIONES DE FILTRADO POR CLIENTE
     // ============================================
 
-    function mostrarModalConfirmacion() {
-        console.log('📋 Preparando modal de confirmación...');
+    function mostrarInfoTipoCliente(tipo) {
+        const infoDiv = document.getElementById('info-tipo-cliente');
+        if (!infoDiv) return;
+        
+        const badgeClass = tipo === 'Especial' ? 'badge-success' : 'badge-primary';
+        infoDiv.innerHTML = `
+            <span class="badge ${badgeClass}">
+                <i class="fas fa-${tipo === 'Especial' ? 'crown' : 'users'} me-1"></i>
+                ${tipo}
+            </span>
+            <small class="text-muted ms-2">Solo verá productos autorizados</small>
+        `;
+    }
 
-        // Obtener datos del formulario
-        const clienteSelect = document.getElementById('id_cliente');
-        const cliente = clienteSelect.options[clienteSelect.selectedIndex]?.text || 'Cliente no seleccionado';
-        const tipoVenta = document.getElementById('tipo_venta').value === 'credito' ? 'CRÉDITO' : 'CONTADO';
-        const totalProductos = document.getElementById('total-productos').textContent;
-        const totalCobrar = document.getElementById('total-venta').textContent;
-        const fechaVencimiento = document.getElementById('fecha_vencimiento').value;
-
-        // Actualizar información en el modal
-        document.getElementById('confirm-cliente').textContent = cliente;
-        document.getElementById('confirm-tipo-venta').textContent = tipoVenta;
-        document.getElementById('confirm-total-productos').textContent = totalProductos;
-        document.getElementById('confirm-total-cobrar').textContent = totalCobrar;
-
-        // Mostrar/ocultar fecha de vencimiento
-        const fechaVencimientoContainer = document.getElementById('confirm-fecha-vencimiento-container');
-        const fechaVencimientoElement = document.getElementById('confirm-fecha-vencimiento');
-
-        if (tipoVenta === 'CRÉDITO' && fechaVencimiento) {
-            fechaVencimientoContainer.style.display = 'flex';
-            fechaVencimientoElement.textContent = new Date(fechaVencimiento).toLocaleDateString('es-ES');
-        } else {
-            fechaVencimientoContainer.style.display = 'none';
+    async function cargarProductosPorCliente(clienteId, tipoCliente) {
+        try {
+            console.log(`[CLIENTE] Cargando productos para cliente ${clienteId} (${tipoCliente})...`);
+            
+            // Mostrar loading
+            const btnFiltro = document.getElementById('btn-aplicar-filtro');
+            const originalText = btnFiltro.innerHTML;
+            btnFiltro.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> Cargando...';
+            btnFiltro.disabled = true;
+            
+            // Llamar a la API para obtener productos filtrados
+            const response = await fetch(`/api/ventas/productos/cliente/${clienteId}`);
+            
+            if (!response.ok) {
+                throw new Error(`Error HTTP: ${response.status}`);
+            }
+            
+            const data = await response.json();
+            
+            if (!data.success) {
+                throw new Error(data.error || 'Error al cargar productos');
+            }
+            
+            // Guardar productos filtrados
+            productosFiltradosPorCliente = data.productos;
+            
+            console.log(`[CLIENTE] Productos cargados: ${productosFiltradosPorCliente.length} productos disponibles`);
+            
+            // Actualizar todos los selects de productos
+            actualizarTodosLosSelectsProductos();
+            
+            // Mostrar mensaje informativo
+            mostrarAlerta('info', 'ℹ️ Productos filtrados', 
+                `Mostrando ${data.total} productos disponibles para clientes ${tipoCliente} en ${data.categorias.length} categorías`);
+            
+        } catch (error) {
+            console.error('[CLIENTE] Error cargando productos por cliente:', error);
+            mostrarAlerta('danger', '❌ Error', 
+                `No se pudieron cargar los productos: ${error.message}`);
+            
+            // En caso de error, usar todos los productos como fallback
+            productosFiltradosPorCliente = [];
+        } finally {
+            // Restaurar botón
+            const btnFiltro = document.getElementById('btn-aplicar-filtro');
+            btnFiltro.innerHTML = '<i class="fas fa-filter me-1"></i>Aplicar Filtro';
+            btnFiltro.disabled = false;
         }
+    }
 
-        // Obtener y mostrar productos
-        const productList = document.getElementById('confirm-product-list');
-        productList.innerHTML = '';
-
-        const productosCards = document.querySelectorAll('.product-card');
-        let productosValidos = 0;
-
-        productosCards.forEach((tarjeta, index) => {
-            const select = tarjeta.querySelector('.producto-select');
-            const cantidad = tarjeta.querySelector('.cantidad');
-            const precio = tarjeta.querySelector('.precio');
-            const subtotal = tarjeta.querySelector('.subtotal');
-
-            if (select.value && parseFloat(cantidad.value) > 0 && parseFloat(precio.value) > 0) {
-                productosValidos++;
-
-                const productoNombre = select.options[select.selectedIndex]?.text || 'Producto no identificado';
-                const productoDiv = document.createElement('div');
-                productoDiv.className = 'confirm-product-item';
-
-                productoDiv.innerHTML = `
-                <div class="confirm-product-name">${productoNombre.split(' - ')[0]}</div>
-                <div class="confirm-product-details">
-                    <span>${cantidad.value} und</span>
-                    <span>${formatearMoneda(precio.value)}</span>
-                    <span class="fw-bold">${formatearMoneda(extraerNumeroDeMoneda(subtotal.value))}</span>
-                </div>
-            `;
-
-                productList.appendChild(productoDiv);
+    function actualizarTodosLosSelectsProductos() {
+        const selectsProductos = document.querySelectorAll('.producto-select');
+        console.log(`[CLIENTE] Actualizando ${selectsProductos.length} selects de productos`);
+        
+        selectsProductos.forEach((select, index) => {
+            const tieneProducto = select.value && select.value !== "";
+            
+            if (!tieneProducto) {
+                // Select vacío - actualizar con productos filtrados
+                actualizarSelectConProductosFiltrados(select);
+            } else {
+                // Select con producto seleccionado - verificar si sigue disponible
+                verificarProductoSeleccionado(select);
             }
         });
-
-        // Mostrar mensaje si no hay productos válidos
-        if (productosValidos === 0) {
-            const mensajeDiv = document.createElement('div');
-            mensajeDiv.className = 'confirm-product-item text-center text-muted';
-            mensajeDiv.textContent = 'No hay productos válidos para mostrar';
-            productList.appendChild(mensajeDiv);
-        }
-
-        // Mostrar el modal
-        document.getElementById('confirmModal').classList.add('show');
-        document.body.style.overflow = 'hidden';
-
-        console.log('✅ Modal de confirmación mostrado');
     }
 
-    function cerrarModalConfirmacion() {
-        document.getElementById('confirmModal').classList.remove('show');
-        document.body.style.overflow = 'auto';
-        console.log('❌ Modal de confirmación cerrado');
+    function actualizarSelectConProductosFiltrados(select) {
+        // Limpiar select
+        select.innerHTML = '<option value="" disabled selected>Cargando productos...</option>';
+        
+        let productosAMostrar;
+        
+        if (productosFiltradosPorCliente.length > 0) {
+            // Usar productos filtrados por cliente
+            productosAMostrar = productosFiltradosPorCliente;
+        } else {
+            // No hay productos filtrados, usar todos
+            productosAMostrar = productosBase;
+        }
+        
+        // Agregar productos al select
+        const opcionDefault = document.createElement('option');
+        opcionDefault.value = "";
+        opcionDefault.disabled = true;
+        opcionDefault.selected = true;
+        opcionDefault.textContent = "Seleccionar producto...";
+        select.appendChild(opcionDefault);
+        
+        productosAMostrar.forEach(producto => {
+            const option = document.createElement('option');
+            const productoId = producto.ID_Producto || producto.id;
+            option.value = productoId;
+            option.textContent = `${producto.Descripcion || producto.descripcion} (${producto.COD_Producto || producto.codigo || 'Sin código'}) - Stock: ${producto.Existencias || producto.existencias}`;
+            option.dataset.codigo = producto.COD_Producto || producto.codigo || '';
+            option.dataset.existencia = producto.Existencias || producto.existencias;
+            option.dataset.precio = producto.Precio_Venta || producto.precio_venta || 0;
+            option.dataset.categoria = producto.ID_Categoria || producto.id_categoria;
+            
+            select.appendChild(option);
+        });
     }
 
-    function confirmarVenta() {
-        console.log('✅ Confirmación aceptada, procesando venta...');
-        cerrarModalConfirmacion();
-
-        // Validar fecha de vencimiento si es crédito
-        if (!validarFechaVencimiento()) {
-            return;
+    function verificarProductoSeleccionado(select) {
+        const productoId = select.value;
+        const productosDisponibles = productosFiltradosPorCliente.length > 0 ? 
+            productosFiltradosPorCliente : productosBase;
+        
+        // Verificar si el producto seleccionado está en la lista disponible
+        const productoValido = productosDisponibles.some(p => 
+            (p.ID_Producto || p.id) == productoId
+        );
+        
+        if (!productoValido) {
+            // Producto no disponible para este cliente
+            const tarjeta = select.closest('.product-card');
+            
+            // Limpiar select
+            select.value = "";
+            actualizarSelectConProductosFiltrados(select);
+            
+            // Limpiar campos relacionados
+            if (tarjeta) {
+                tarjeta.querySelector('.precio').value = '0';
+                tarjeta.querySelector('.cantidad').value = '1';
+                tarjeta.querySelector('.subtotal').value = '0.00';
+                
+                // Actualizar subtotal
+                const id = parseInt(tarjeta.id.split('-')[2]);
+                calcularSubtotal(id);
+                
+                // Mostrar mensaje de advertencia
+                const productoInfo = tarjeta.querySelector(`#producto-info-${id}`);
+                if (productoInfo) {
+                    productoInfo.innerHTML = `<span class="text-danger">⚠️ Producto no disponible para este cliente</span>`;
+                }
+                
+                const stockInfo = tarjeta.querySelector(`#stock-info-${id}`);
+                if (stockInfo) {
+                    stockInfo.innerHTML = '';
+                }
+            }
         }
+    }
 
-        // Procesar la venta
-        procesarVenta();
+    function resetearProductosACliente() {
+        productosFiltradosPorCliente = [];
+        
+        // Ocultar info del tipo de cliente
+        const infoDiv = document.getElementById('info-tipo-cliente');
+        if (infoDiv) {
+            infoDiv.innerHTML = '';
+        }
+        
+        // Actualizar todos los selects con todos los productos
+        const selectsProductos = document.querySelectorAll('.producto-select');
+        selectsProductos.forEach(select => {
+            actualizarSelectConProductosFiltrados(select);
+        });
+        
+        mostrarAlerta('info', 'ℹ️ Filtro removido', 'Mostrando todos los productos disponibles');
     }
 
     // ============================================
@@ -960,13 +1092,8 @@
                 throw new Error(`Error HTTP: ${response.status}`);
             }
 
-            const productosData = await response.json();
+            productosBase = await response.json();
 
-            if (productosData.error) {
-                throw new Error(productosData.error);
-            }
-
-            productosBase = productosData;
             console.log(`[VENTAS] Productos base cargados: ${productosBase.length} productos`);
 
         } catch (error) {
@@ -976,7 +1103,7 @@
     }
 
     // ============================================
-    // FUNCIONES DE FILTRADO DE PRODUCTOS
+    // FUNCIONES DE FILTRADO DE PRODUCTOS (ACTUALIZADAS)
     // ============================================
 
     async function aplicarFiltroCategoria() {
@@ -997,25 +1124,24 @@
             let productosAMostrar;
 
             if (idCategoria == 0) {
-                // Mostrar todos los productos
-                productosAMostrar = productosBase;
+                // Mostrar todos los productos disponibles para el cliente
+                if (productosFiltradosPorCliente.length > 0) {
+                    productosAMostrar = productosFiltradosPorCliente;
+                } else {
+                    productosAMostrar = productosBase;
+                }
                 productosEnCache = [];
             } else {
-                // Cargar productos filtrados por categoría
-                const response = await fetch(`/admin/ventas/productos-por-categoria/${idCategoria}`);
-
-                if (!response.ok) {
-                    throw new Error(`Error HTTP: ${response.status}`);
-                }
-
-                const productosRecibidos = await response.json();
-
-                if (productosRecibidos.error) {
-                    throw new Error(productosRecibidos.error);
-                }
-
-                productosAMostrar = productosRecibidos;
-                productosEnCache = productosRecibidos;
+                // Filtrar por categoría considerando el cliente
+                let productosBaseParaFiltrar = productosFiltradosPorCliente.length > 0 
+                    ? productosFiltradosPorCliente 
+                    : productosBase;
+                
+                productosAMostrar = productosBaseParaFiltrar.filter(p => 
+                    (p.ID_Categoria || p.id_categoria) == idCategoria
+                );
+                
+                productosEnCache = productosAMostrar;
             }
 
             filtroCategoriaActual = idCategoria;
@@ -1033,7 +1159,7 @@
                 if (!tieneProducto) {
                     // Select vacío - actualizar con productos filtrados
                     console.log(`[VENTAS] Actualizando select vacío ${index + 1}`);
-                    actualizarOpcionesSelect(select, productosAMostrar);
+                    actualizarSelectConProductosFiltrados(select);
                     selectsActualizados++;
                 } else {
                     // Select con producto seleccionado - VERIFICAR SI ESTÁ DISPONIBLE CON EL FILTRO
@@ -1052,7 +1178,7 @@
 
                         // Limpiar el select
                         select.value = "";
-                        actualizarOpcionesSelect(select, productosAMostrar);
+                        actualizarSelectConProductosFiltrados(select);
 
                         // Limpiar campos relacionados
                         const tarjeta = select.closest('.product-card');
@@ -1104,49 +1230,6 @@
         }
     }
 
-    function actualizarOpcionesSelect(select, productos) {
-        // Guardar valor actual
-        const valorActual = select.value;
-
-        // Limpiar TODAS las opciones
-        select.innerHTML = '';
-
-        // Agregar opción por defecto
-        const opcionDefault = document.createElement('option');
-        opcionDefault.value = "";
-        opcionDefault.disabled = true;
-        opcionDefault.selected = true;
-        opcionDefault.textContent = "Seleccionar producto...";
-        select.appendChild(opcionDefault);
-
-        // Agregar nuevos productos como opciones
-        productos.forEach(producto => {
-            const option = document.createElement('option');
-            const productoId = producto.ID_Producto || producto.id;
-            option.value = productoId;
-            option.textContent = `${producto.Descripcion || producto.descripcion} (${producto.COD_Producto || producto.codigo}) - Stock: ${producto.Existencias || producto.existencias}`;
-            option.dataset.codigo = producto.COD_Producto || producto.codigo;
-            option.dataset.existencia = producto.Existencias || producto.existencias;
-            option.dataset.precio = producto.Precio_Venta || producto.precio_venta || 0;
-            option.dataset.categoria = producto.ID_Categoria || producto.id_categoria;
-
-            select.appendChild(option);
-        });
-
-        // Intentar restaurar la selección anterior si existe
-        if (valorActual && valorActual !== "") {
-            // Verificar si el valor anterior todavía está en las opciones
-            const opcionExiste = Array.from(select.options).some(option =>
-                option.value == valorActual
-            );
-
-            if (opcionExiste) {
-                select.value = valorActual;
-                console.log(`[SELECT] Selección restaurada: ${valorActual}`);
-            }
-        }
-    }
-
     function limpiarFiltro() {
         console.log('[VENTAS] Limpiando filtro');
         document.getElementById('filtro_categoria').value = '0';
@@ -1154,24 +1237,24 @@
         filtroCategoriaActual = 0;
         productosEnCache = [];
 
-        // Actualizar TODOS los selects con productos base
+        // Actualizar TODOS los selects con productos base o filtrados por cliente
         const selectsProductos = document.querySelectorAll('.producto-select');
-        console.log('[VENTAS] Actualizando todos los selects con productos base');
+        console.log('[VENTAS] Actualizando todos los selects');
 
         selectsProductos.forEach((select, index) => {
-            actualizarOpcionesSelect(select, productosBase);
+            actualizarSelectConProductosFiltrados(select);
         });
 
         mostrarAlerta('info', 'ℹ️ Filtro limpiado', 'Mostrando todos los productos disponibles.');
     }
 
     // ============================================
-    // FUNCIONES DE GESTIÓN DE PRODUCTOS
+    // FUNCIONES DE GESTIÓN DE PRODUCTOS (ACTUALIZADAS)
     // ============================================
 
     function agregarProducto() {
         contadorProductos++;
-        console.log(` Agregando producto ${contadorProductos}`);
+        console.log(`🆕 Agregando producto ${contadorProductos}`);
 
         const productoHTML = `
         <div class="product-card" id="producto-card-${contadorProductos}">
@@ -1238,8 +1321,8 @@
         // Inicializar el select con productos
         const nuevoSelect = document.getElementById(`producto-card-${contadorProductos}`).querySelector('.producto-select');
 
-        // Cargar productos en el select
-        cargarProductosEnSelect(nuevoSelect);
+        // Cargar productos en el select (considerando cliente y filtros)
+        cargarProductosEnSelectCliente(nuevoSelect);
 
         actualizarTotales();
         actualizarMensajeProductos();
@@ -1250,31 +1333,27 @@
         }
     }
 
-    async function cargarProductosEnSelect(select) {
+    // FUNCIÓN ACTUALIZADA PARA CARGAR PRODUCTOS CONSIDERANDO CLIENTE
+    function cargarProductosEnSelectCliente(select) {
         try {
             let productosAMostrar;
-
-            if (filtroCategoriaActual !== 0 && productosEnCache.length > 0) {
-                // Usar productos filtrados en caché
+            
+            // 1. Primero verificar si hay productos filtrados por cliente
+            if (productosFiltradosPorCliente.length > 0) {
+                productosAMostrar = productosFiltradosPorCliente;
+            } 
+            // 2. Si no, verificar si hay filtro de categoría
+            else if (filtroCategoriaActual !== 0 && productosEnCache.length > 0) {
                 productosAMostrar = productosEnCache;
-            } else if (filtroCategoriaActual !== 0) {
-                // Cargar productos filtrados
-                const response = await fetch(`/admin/ventas/productos-por-categoria/${filtroCategoriaActual}`);
-
-                if (!response.ok) {
-                    throw new Error(`Error HTTP: ${response.status}`);
-                }
-
-                productosAMostrar = await response.json();
-                productosEnCache = productosAMostrar;
-            } else {
-                // Mostrar todos los productos
+            }
+            // 3. Si no hay nada, usar todos los productos
+            else {
                 productosAMostrar = productosBase;
             }
-
+            
             // Actualizar el select
-            actualizarOpcionesSelect(select, productosAMostrar);
-
+            actualizarSelectConProductosFiltrados(select);
+            
         } catch (error) {
             console.error('Error cargando productos:', error);
             select.innerHTML = '<option value="" disabled selected>Error cargando productos</option>';
@@ -1575,6 +1654,105 @@
     }
 
     // ============================================
+    // FUNCIONES DEL MODAL DE CONFIRMACIÓN
+    // ============================================
+
+    function mostrarModalConfirmacion() {
+        console.log('📋 Preparando modal de confirmación...');
+
+        // Obtener datos del formulario
+        const clienteSelect = document.getElementById('id_cliente');
+        const cliente = clienteSelect.options[clienteSelect.selectedIndex]?.text || 'Cliente no seleccionado';
+        const tipoVenta = document.getElementById('tipo_venta').value === 'credito' ? 'CRÉDITO' : 'CONTADO';
+        const totalProductos = document.getElementById('total-productos').textContent;
+        const totalCobrar = document.getElementById('total-venta').textContent;
+        const fechaVencimiento = document.getElementById('fecha_vencimiento').value;
+
+        // Actualizar información en el modal
+        document.getElementById('confirm-cliente').textContent = cliente;
+        document.getElementById('confirm-tipo-venta').textContent = tipoVenta;
+        document.getElementById('confirm-total-productos').textContent = totalProductos;
+        document.getElementById('confirm-total-cobrar').textContent = totalCobrar;
+
+        // Mostrar/ocultar fecha de vencimiento
+        const fechaVencimientoContainer = document.getElementById('confirm-fecha-vencimiento-container');
+        const fechaVencimientoElement = document.getElementById('confirm-fecha-vencimiento');
+
+        if (tipoVenta === 'CRÉDITO' && fechaVencimiento) {
+            fechaVencimientoContainer.style.display = 'flex';
+            fechaVencimientoElement.textContent = new Date(fechaVencimiento).toLocaleDateString('es-ES');
+        } else {
+            fechaVencimientoContainer.style.display = 'none';
+        }
+
+        // Obtener y mostrar productos
+        const productList = document.getElementById('confirm-product-list');
+        productList.innerHTML = '';
+
+        const productosCards = document.querySelectorAll('.product-card');
+        let productosValidos = 0;
+
+        productosCards.forEach((tarjeta, index) => {
+            const select = tarjeta.querySelector('.producto-select');
+            const cantidad = tarjeta.querySelector('.cantidad');
+            const precio = tarjeta.querySelector('.precio');
+            const subtotal = tarjeta.querySelector('.subtotal');
+
+            if (select.value && parseFloat(cantidad.value) > 0 && parseFloat(precio.value) > 0) {
+                productosValidos++;
+
+                const productoNombre = select.options[select.selectedIndex]?.text || 'Producto no identificado';
+                const productoDiv = document.createElement('div');
+                productoDiv.className = 'confirm-product-item';
+
+                productoDiv.innerHTML = `
+                <div class="confirm-product-name">${productoNombre.split(' - ')[0]}</div>
+                <div class="confirm-product-details">
+                    <span>${cantidad.value} und</span>
+                    <span>${formatearMoneda(precio.value)}</span>
+                    <span class="fw-bold">${formatearMoneda(extraerNumeroDeMoneda(subtotal.value))}</span>
+                </div>
+            `;
+
+                productList.appendChild(productoDiv);
+            }
+        });
+
+        // Mostrar mensaje si no hay productos válidos
+        if (productosValidos === 0) {
+            const mensajeDiv = document.createElement('div');
+            mensajeDiv.className = 'confirm-product-item text-center text-muted';
+            mensajeDiv.textContent = 'No hay productos válidos para mostrar';
+            productList.appendChild(mensajeDiv);
+        }
+
+        // Mostrar el modal
+        document.getElementById('confirmModal').classList.add('show');
+        document.body.style.overflow = 'hidden';
+
+        console.log('✅ Modal de confirmación mostrado');
+    }
+
+    function cerrarModalConfirmacion() {
+        document.getElementById('confirmModal').classList.remove('show');
+        document.body.style.overflow = 'auto';
+        console.log('❌ Modal de confirmación cerrado');
+    }
+
+    function confirmarVenta() {
+        console.log('✅ Confirmación aceptada, procesando venta...');
+        cerrarModalConfirmacion();
+
+        // Validar fecha de vencimiento si es crédito
+        if (!validarFechaVencimiento()) {
+            return;
+        }
+
+        // Procesar la venta
+        procesarVenta();
+    }
+
+    // ============================================
     // VALIDACIÓN Y ENVÍO DE FORMULARIO
     // ============================================
 
@@ -1789,6 +1967,12 @@
                     document.getElementById('productos-container').innerHTML = '';
                     document.getElementById('fecha_vencimiento_group').style.display = 'none';
                     document.getElementById('fecha_vencimiento').value = '';
+
+                    // Resetear variables
+                    productosFiltradosPorCliente = [];
+                    tipoClienteActual = '';
+                    const infoDiv = document.getElementById('info-tipo-cliente');
+                    if (infoDiv) infoDiv.innerHTML = '';
 
                     // Agregar una nueva fila de producto
                     agregarProducto();
