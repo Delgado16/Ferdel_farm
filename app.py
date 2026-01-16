@@ -1465,6 +1465,117 @@ def exportar_bitacora():
         flash(f"Error al exportar bitácora: {e}", "danger")
         return redirect(url_for('admin_bitacora'))
 
+#CONFIGURACION EMPRESA
+@app.route('/admin/config/visibilidad', methods=['GET', 'POST'])
+@admin_required
+def config_visibilidad():
+    """Configurar visibilidad de categorías"""
+    
+    if request.method == 'POST':
+        try:
+            with get_db_cursor(commit=True) as cursor:
+                # Procesar TODAS las categorías
+                cursor.execute("SELECT ID_Categoria FROM categorias_producto")
+                todas_categorias = cursor.fetchall()
+                
+                for cat in todas_categorias:
+                    categoria_id = cat['ID_Categoria']
+                    
+                    # Para clientes Comunes
+                    key_comun = f"cat_{categoria_id}_Comun"
+                    visible_comun = 1 if key_comun in request.form else 0
+                    
+                    cursor.execute("""
+                        INSERT INTO config_visibilidad_categorias 
+                        (tipo_cliente, ID_Categoria, visible) 
+                        VALUES ('Comun', %s, %s)
+                        ON DUPLICATE KEY UPDATE visible = %s
+                    """, (categoria_id, visible_comun, visible_comun))
+                    
+                    # Para clientes Especiales
+                    key_especial = f"cat_{categoria_id}_Especial"
+                    visible_especial = 1 if key_especial in request.form else 0
+                    
+                    cursor.execute("""
+                        INSERT INTO config_visibilidad_categorias 
+                        (tipo_cliente, ID_Categoria, visible) 
+                        VALUES ('Especial', %s, %s)
+                        ON DUPLICATE KEY UPDATE visible = %s
+                    """, (categoria_id, visible_especial, visible_especial))
+                
+                flash('✅ Configuración guardada exitosamente', 'success')
+                return redirect(url_for('config_visibilidad'))
+                
+        except Exception as e:
+            flash(f'❌ Error: {str(e)}', 'danger')
+    
+    # GET: Mostrar formulario
+    with get_db_cursor() as cursor:
+        # Consulta CORREGIDA - sin productos_activos
+        cursor.execute("""
+            SELECT 
+                c.ID_Categoria,
+                c.Descripcion as nombre,
+                COALESCE(cfg_comun.visible, 0) as comun_visible,
+                COALESCE(cfg_especial.visible, 0) as especial_visible
+            FROM categorias_producto c
+            LEFT JOIN config_visibilidad_categorias cfg_comun 
+                ON c.ID_Categoria = cfg_comun.ID_Categoria 
+                AND cfg_comun.tipo_cliente = 'Comun'
+            LEFT JOIN config_visibilidad_categorias cfg_especial 
+                ON c.ID_Categoria = cfg_especial.ID_Categoria 
+                AND cfg_especial.tipo_cliente = 'Especial'
+            ORDER BY c.Descripcion
+        """)
+        categorias = cursor.fetchall()
+    
+    return render_template('admin/config/visibilidad.html', categorias=categorias)
+
+
+# RUTA PARA VENTAS - Obtener productos según cliente
+@app.route('/api/productos-por-cliente/<int:cliente_id>')
+@login_required
+def productos_por_cliente(cliente_id):
+    """Obtener productos visibles para un cliente específico"""
+    
+    empresa_id = session.get('empresa_id')
+    
+    with get_db_cursor() as cursor:
+        # 1. Obtener tipo de cliente
+        cursor.execute("""
+            SELECT tipo_cliente 
+            FROM clientes 
+            WHERE ID_Cliente = %s AND Estado = 'ACTIVO'
+        """, (cliente_id,))
+        
+        cliente = cursor.fetchone()
+        if not cliente:
+            return jsonify({'error': 'Cliente no encontrado'}), 404
+        
+        tipo_cliente = cliente['tipo_cliente']
+        
+        # 2. Obtener productos visibles para ese tipo
+        cursor.execute("""
+            SELECT p.*, c.Descripcion as categoria
+            FROM productos p
+            INNER JOIN categorias_producto cat ON p.ID_Categoria = cat.ID_Categoria
+            INNER JOIN config_visibilidad_categorias cfg 
+                ON cat.ID_Categoria = cfg.ID_Categoria
+            WHERE cfg.tipo_cliente = %s
+              AND cfg.visible = 1
+              AND p.Estado = 'activo'
+              AND p.ID_Empresa = %s
+            ORDER BY p.Descripcion
+        """, (tipo_cliente, empresa_id))
+        
+        productos = cursor.fetchall()
+        
+        return jsonify({
+            'success': True,
+            'tipo_cliente': tipo_cliente,
+            'productos': productos
+        })
+
 #CATALOGO EMPRESA
 @app.route('/admin/catalog/empresa/empresas', methods=['GET'])
 @admin_required

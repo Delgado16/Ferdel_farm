@@ -1,0 +1,240 @@
+{% extends "layout.html" %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Encabezado -->
+    <div class="d-sm-flex align-items-center justify-content-between mb-4">
+        <h1 class="h3 mb-0 text-gray-800">
+            <i class="fas fa-eye mr-2"></i>Configurar Visibilidad
+        </h1>
+        <a href="{{ url_for('dashboard') }}" class="btn btn-sm btn-secondary">
+            <i class="fas fa-arrow-left mr-2"></i>Volver
+        </a>
+    </div>
+    
+    <!-- Mensajes Flash -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+            <div class="alert alert-{{ 'success' if category == 'success' else 'danger' }} alert-dismissible fade show">
+                {{ message }}
+                <button type="button" class="close" data-dismiss="alert">
+                    <span>&times;</span>
+                </button>
+            </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+    
+    <!-- Formulario Principal -->
+    <div class="card shadow mb-4">
+        <div class="card-header py-3 bg-primary">
+            <h6 class="m-0 font-weight-bold text-white">
+                <i class="fas fa-cog mr-2"></i>¿Qué categorías puede ver cada cliente?
+            </h6>
+        </div>
+        <div class="card-body">
+            {% if categorias %}
+            <form method="POST">
+                <div class="table-responsive">
+                    <table class="table table-bordered table-hover">
+                        <thead class="thead-light">
+                            <tr>
+                                <th style="width: 40%">Categoría</th>
+                                <th class="text-center" style="width: 30%">
+                                    <i class="fas fa-users text-primary mr-1"></i>Clientes Comunes
+                                    <br>
+                                    <small class="text-muted">Pueden ver</small>
+                                </th>
+                                <th class="text-center" style="width: 30%">
+                                    <i class="fas fa-crown text-success mr-1"></i>Clientes Especiales
+                                    <br>
+                                    <small class="text-muted">Pueden ver</small>
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for cat in categorias %}
+                            <tr>
+                                <td>
+                                    <strong>{{ cat.nombre }}</strong>
+                                    <br>
+                                    <small class="text-muted">ID: {{ cat.ID_Categoria }}</small>
+                                </td>
+                                
+                                <td class="text-center align-middle">
+                                    <div class="custom-control custom-switch">
+                                        <input type="checkbox" 
+                                               class="custom-control-input" 
+                                               id="comun_{{ cat.ID_Categoria }}"
+                                               name="cat_{{ cat.ID_Categoria }}_Comun"
+                                               {% if cat.comun_visible == 1 %}checked{% endif %}>
+                                        <label class="custom-control-label" for="comun_{{ cat.ID_Categoria }}">
+                                            {% if cat.comun_visible == 1 %}
+                                            <span class="text-success">
+                                                <i class="fas fa-check-circle"></i> Visible
+                                            </span>
+                                            {% else %}
+                                            <span class="text-danger">
+                                                <i class="fas fa-times-circle"></i> Oculto
+                                            </span>
+                                            {% endif %}
+                                        </label>
+                                    </div>
+                                </td>
+                                
+                                <td class="text-center align-middle">
+                                    <div class="custom-control custom-switch">
+                                        <input type="checkbox" 
+                                               class="custom-control-input" 
+                                               id="especial_{{ cat.ID_Categoria }}"
+                                               name="cat_{{ cat.ID_Categoria }}_Especial"
+                                               {% if cat.especial_visible == 1 %}checked{% endif %}>
+                                        <label class="custom-control-label" for="especial_{{ cat.ID_Categoria }}">
+                                            {% if cat.especial_visible == 1 %}
+                                            <span class="text-success">
+                                                <i class="fas fa-check-circle"></i> Visible
+                                            </span>
+                                            {% else %}
+                                            <span class="text-danger">
+                                                <i class="fas fa-times-circle"></i> Oculto
+                                            </span>
+                                            {% endif %}
+                                        </label>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                
+                <!-- Botones de acción -->
+                <div class="row mt-4">
+                    <div class="col-md-6">
+                        <div class="btn-group" role="group">
+                            <button type="button" class="btn btn-outline-primary" onclick="marcarTodos('Comun')">
+                                <i class="fas fa-check mr-1"></i> Todos Comunes
+                            </button>
+                            <button type="button" class="btn btn-outline-primary" onclick="desmarcarTodos('Comun')">
+                                <i class="fas fa-times mr-1"></i> Ninguno Común
+                            </button>
+                        </div>
+                    </div>
+                    <div class="col-md-6 text-right">
+                        <div class="btn-group" role="group">
+                            <button type="button" class="btn btn-outline-success" onclick="marcarTodos('Especial')">
+                                <i class="fas fa-check mr-1"></i> Todos Especiales
+                            </button>
+                            <button type="button" class="btn btn-outline-success" onclick="desmarcarTodos('Especial')">
+                                <i class="fas fa-times mr-1"></i> Ninguno Especial
+                            </button>
+                        </div>
+                        <button type="submit" class="btn btn-primary ml-3">
+                            <i class="fas fa-save mr-2"></i>Guardar Cambios
+                        </button>
+                    </div>
+                </div>
+            </form>
+            {% else %}
+            <div class="alert alert-warning text-center">
+                <i class="fas fa-exclamation-triangle mr-2"></i>
+                No hay categorías registradas en el sistema.
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    
+    <!-- Información -->
+    <div class="card border-info shadow">
+        <div class="card-header bg-info text-white">
+            <h6 class="m-0 font-weight-bold">
+                <i class="fas fa-question-circle mr-2"></i>Instrucciones
+            </h6>
+        </div>
+        <div class="card-body">
+            <p><strong>¿Para qué sirve esta configuración?</strong></p>
+            <p>Controla qué productos pueden ver los clientes al realizar una compra.</p>
+            
+            <div class="row mt-3">
+                <div class="col-md-6">
+                    <div class="card border-primary">
+                        <div class="card-body">
+                            <h6 class="card-title text-primary">
+                                <i class="fas fa-users mr-2"></i>Clientes Comunes
+                            </h6>
+                            <p class="card-text">Solo ven productos de categorías marcadas como "Visible".</p>
+                            <p class="card-text"><small>Por defecto: NO ven nada (seguro)</small></p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="card border-success">
+                        <div class="card-body">
+                            <h6 class="card-title text-success">
+                                <i class="fas fa-crown mr-2"></i>Clientes Especiales
+                            </h6>
+                            <p class="card-text">Ven productos de categorías marcadas como "Visible".</p>
+                            <p class="card-text"><small>Por defecto: SÍ ven todo (privilegiados)</small></p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <hr class="my-4">
+            
+            <p class="mb-0 text-muted">
+                <i class="fas fa-lightbulb mr-2"></i>
+                <strong>Consejo:</strong> Marque solo las categorías esenciales para clientes comunes, y más categorías para especiales.
+            </p>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Funciones para manejar checkboxes
+function marcarTodos(tipo) {
+    document.querySelectorAll(`input[name$="_${tipo}"]`).forEach(checkbox => {
+        checkbox.checked = true;
+    });
+    alert(`Todos los ${tipo.toLowerCase()} marcados como VISIBLES`);
+}
+
+function desmarcarTodos(tipo) {
+    document.querySelectorAll(`input[name$="_${tipo}"]`).forEach(checkbox => {
+        checkbox.checked = false;
+    });
+    alert(`Todos los ${tipo.toLowerCase()} marcados como OCULTOS`);
+}
+
+// Confirmar antes de guardar
+document.querySelector('form').addEventListener('submit', function(e) {
+    const btn = this.querySelector('button[type="submit"]');
+    const originalText = btn.innerHTML;
+    
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Guardando...';
+    btn.disabled = true;
+    
+    // Si el usuario cancela, restaurar botón
+    setTimeout(() => {
+        btn.innerHTML = originalText;
+        btn.disabled = false;
+    }, 5000);
+});
+</script>
+
+<style>
+.custom-switch {
+    padding-left: 2.5rem;
+}
+.custom-control-input:checked ~ .custom-control-label::before {
+    background-color: #28a745;
+    border-color: #28a745;
+}
+.table tbody tr:hover {
+    background-color: rgba(0, 0, 0, 0.02);
+}
+</style>
+{% endblock %}
