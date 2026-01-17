@@ -463,7 +463,7 @@ def login():
                     SELECT u.ID_Usuario, u.NombreUsuario, u.Contraseña, r.Nombre_Rol 
                     FROM Usuarios u 
                     JOIN Roles r ON u.ID_Rol = r.ID_Rol 
-                    WHERE u.NombreUsuario = %s AND UPPER(u.Estado) = 'ACTIVO'
+                    WHERE u.NombreUsuario = %s AND UPPER(u.Estado) = 'ACTIVO' AND r.Estado = 'Activo'
                 """, (username,))
                 
                 user_data = cursor.fetchone()
@@ -627,8 +627,8 @@ def dashboard():
         return render_template('admin/dashboard.html')
     elif current_user.rol == 'Vendedor':
         return render_template('vendedor/dashboard.html')
-    elif current_user.rol == 'Jefe bodega':
-        return render_template('jefe_bodega/dashboard.html')
+    elif current_user.rol == 'Bodega':
+        return render_template('Bodega/dashboard.html')
     else:
         abort(403)
 
@@ -652,10 +652,10 @@ def admin_dashboard():
 def vendedor_dashboard():
     return render_template('vendedor/dashboard.html')
 
-@app.route('/jefe_bodega/dashboard')
+@app.route('/Bodega/dashboard')
 @login_required
 def jefe_galera_dashboard():
-    return render_template('jefe_bodega/dashboard.html')
+    return render_template('Bodega/dashboard.html')
 
 ## CAJA DE MOVIMIENTO
 @app.template_filter('format_hora')
@@ -1215,6 +1215,138 @@ def admin_caja_reporte():
         return redirect(url_for('admin_caja'))
 
 ## MODULOS DEL ADMINISTRADOR
+# CATALOGOS ROLES
+@app.route('/admin/rol/roles')
+@admin_required
+@bitacora_decorator("ROLES")
+def admin_roles():
+    """Listar todos los roles con filtros"""
+    try:
+        search = request.args.get('search', '')
+        estado = request.args.get('estado', '')
+        
+        query = "SELECT * FROM Roles WHERE 1=1"
+        params = []
+        
+        if search:
+            query += " AND Nombre_Rol LIKE %s"
+            params.append(f"%{search}%")
+        
+        if estado:
+            query += " AND Estado = %s"
+            params.append(estado)
+        
+        query += " ORDER BY Estado DESC, ID_Rol"
+        
+        with get_db_cursor() as cursor:
+            cursor.execute(query, params)
+            roles = cursor.fetchall()
+            return render_template("admin/catalog/rol/roles.html", roles=roles)
+        
+    except Exception as e:
+        flash(f"Error al cargar roles: {e}", "danger")
+        return redirect(url_for('admin_dashboard'))
+
+@app.route('/admin/roles/crear', methods=['GET', 'POST'])
+@admin_required
+@bitacora_decorator("CREAR_ROL")
+def crear_rol():
+    """Crear un nuevo rol"""
+    if request.method == 'POST':
+        nombre_rol = request.form.get('nombre_rol')
+        estado = request.form.get('estado', 'Activo')
+        
+        if not nombre_rol:
+            flash("El nombre del rol es requerido", "warning")
+            return redirect(url_for('crear_rol'))
+        
+        try:
+            with get_db_cursor(commit=True) as cursor:
+                cursor.execute(
+                    "INSERT INTO Roles (Nombre_Rol, Estado) VALUES (%s, %s)",
+                    (nombre_rol, estado)
+                )
+                flash("Rol creado exitosamente", "success")
+                return redirect(url_for('admin_roles'))
+        except Exception as e:
+            flash(f"Error al crear rol: {e}", "danger")
+            return redirect(url_for('crear_rol'))
+    
+    return render_template('admin/catalog/crear_rol.html')
+
+@app.route('/admin/roles/editar/<int:id_rol>', methods=['GET', 'POST'])
+@admin_required
+@bitacora_decorator("EDITAR_ROL")
+def editar_rol(id_rol):
+    """Editar un rol existente"""
+    if request.method == 'POST':
+        nombre_rol = request.form.get('nombre_rol')
+        estado = request.form.get('estado')
+        
+        if not nombre_rol:
+            flash("El nombre del rol es requerido", "warning")
+            return redirect(url_for('editar_rol', id_rol=id_rol))
+        
+        try:
+            with get_db_cursor(commit=True) as cursor:
+                cursor.execute(
+                    "UPDATE Roles SET Nombre_Rol = %s, Estado = %s WHERE ID_Rol = %s",
+                    (nombre_rol, estado, id_rol)
+                )
+                flash("Rol actualizado exitosamente", "success")
+                return redirect(url_for('admin_roles'))
+        except Exception as e:
+            flash(f"Error al actualizar rol: {e}", "danger")
+            return redirect(url_for('editar_rol', id_rol=id_rol))
+    
+    try:
+        with get_db_cursor() as cursor:
+            cursor.execute("SELECT * FROM Roles WHERE ID_Rol = %s", (id_rol,))
+            rol = cursor.fetchone()
+            
+            if not rol:
+                flash("Rol no encontrado", "danger")
+                return redirect(url_for('admin_roles'))
+            
+            return render_template('admin/catalog/editar_rol.html', rol=rol)
+    except Exception as e:
+        flash(f"Error al cargar rol: {e}", "danger")
+        return redirect(url_for('admin_roles'))
+
+@app.route('/admin/roles/inactivar/<int:id_rol>')
+@admin_required
+@bitacora_decorator("INACTIVAR_ROL")
+def inactivar_rol(id_rol):
+    """Inactivar un rol (cambiar estado a Inactivo)"""
+    try:
+        with get_db_cursor(commit=True) as cursor:
+            cursor.execute(
+                "UPDATE Roles SET Estado = 'Inactivo' WHERE ID_Rol = %s",
+                (id_rol,)
+            )
+            flash("Rol inactivado exitosamente", "success")
+    except Exception as e:
+        flash(f"Error al inactivar rol: {e}", "danger")
+    
+    return redirect(url_for('admin_roles'))
+
+@app.route('/admin/roles/activar/<int:id_rol>')
+@admin_required
+@bitacora_decorator("ACTIVAR_ROL")
+def activar_rol(id_rol):
+    """Activar un rol (cambiar estado a Activo)"""
+    try:
+        with get_db_cursor(commit=True) as cursor:
+            cursor.execute(
+                "UPDATE Roles SET Estado = 'Activo' WHERE ID_Rol = %s",
+                (id_rol,)
+            )
+            flash("Rol activado exitosamente", "success")
+    except Exception as e:
+        flash(f"Error al activar rol: {e}", "danger")
+    
+    return redirect(url_for('admin_roles'))
+    
 # CATALOGOS USUARIOS
 @app.route('/admin/usuarios')
 @admin_required
@@ -1530,7 +1662,6 @@ def config_visibilidad():
         categorias = cursor.fetchall()
     
     return render_template('admin/config/visibilidad.html', categorias=categorias)
-
 
 # RUTA PARA VENTAS - Obtener productos según cliente
 @app.route('/api/productos-por-cliente/<int:cliente_id>')
@@ -5407,7 +5538,6 @@ def admin_ventas_salidas():
         flash(f'Error al cargar ventas: {str(e)}', 'error')
         return redirect(url_for('admin_dashboard'))
 
-
 @app.route('/admin/ventas/crear', methods=['GET', 'POST'])
 @admin_required
 @bitacora_decorator("CREAR_VENTA")
@@ -5913,7 +6043,6 @@ def admin_crear_venta():
                             empresa=empresa_data if 'empresa_data' in locals() else None,
                             id_tipo_movimiento=id_tipo_movimiento if 'id_tipo_movimiento' in locals() else None)
 
-
 @app.route('/api/ventas/productos/cliente/<int:cliente_id>', methods=['GET'])
 @admin_required
 def api_productos_por_cliente(cliente_id):
@@ -6247,7 +6376,6 @@ def obtener_todos_productos_venta():
         traceback.print_exc()
         return jsonify({'error': str(e)}), 500
 
-
 @app.route('/admin/ventas/ticket/<int:id_factura>')
 @admin_required
 def admin_generar_ticket(id_factura):
@@ -6457,43 +6585,45 @@ def admin_detalles_venta(id_factura):
             
             # 2. Obtener detalles de los productos vendidos - VERSIÓN CORREGIDA
             cursor.execute("""
-                SELECT 
-                    df.ID_Detalle,
-                    df.ID_Producto,
-                    p.COD_Producto,
-                    p.Descripcion as Producto,
-                    df.Cantidad,
-                    df.Costo as Precio_Unitario,
-                    df.Total as Subtotal,
-                    cat.Descripcion as Categoria,
-                    COALESCE(
-                        (SELECT Descripcion 
-                         FROM unidades_medida um 
-                         WHERE um.ID_Unidad = p.Unidad_Medida),
-                        'UNIDAD'
-                    ) as Unidad_Medida,
-                    -- Obtener existencia actual en la bodega de la venta
-                    COALESCE(
-                        (SELECT Existencias 
-                         FROM inventario_bodega ib
-                         WHERE ib.ID_Producto = p.ID_Producto 
-                           AND ib.ID_Bodega = %s),
-                        0
-                    ) as Existencia_Actual,
-                    -- Obtener cantidad del movimiento (si existe)
-                    COALESCE(
-                        (SELECT dmi.Cantidad 
-                         FROM detalle_movimientos_inventario dmi
-                         WHERE dmi.ID_Producto = p.ID_Producto
-                           AND dmi.ID_Movimiento = %s),
-                        df.Cantidad
-                    ) as Cantidad_Movimiento
-                FROM detalle_facturacion df
-                INNER JOIN productos p ON df.ID_Producto = p.ID_Producto
-                LEFT JOIN categorias_producto cat ON p.ID_Categoria = cat.ID_Categoria
-                WHERE df.ID_Factura = %s
-                ORDER BY df.ID_Detalle
-            """, (factura['ID_Bodega'] or 1, factura['ID_Movimiento'], id_factura))
+            SELECT 
+                df.ID_Detalle,
+                df.ID_Producto,
+                p.COD_Producto,
+                p.Descripcion as Producto,
+                df.Cantidad,
+                df.Costo as Precio_Unitario,
+                df.Total as Subtotal,
+                cat.Descripcion as Categoria,
+                COALESCE(
+                    (SELECT Descripcion 
+                     FROM unidades_medida um 
+                     WHERE um.ID_Unidad = p.Unidad_Medida
+                     LIMIT 1),  -- ← AÑADIR LIMIT 1
+                    'UNIDAD'
+                ) as Unidad_Medida,
+                -- CORRECCIÓN: Añadir LIMIT 1 en ambas subconsultas
+                COALESCE(
+                    (SELECT Existencias 
+                     FROM inventario_bodega ib
+                     WHERE ib.ID_Producto = p.ID_Producto 
+                       AND ib.ID_Bodega = %s
+                     LIMIT 1),  -- ← AÑADIR LIMIT 1
+                    0
+                ) as Existencia_Actual,
+                COALESCE(
+                    (SELECT dmi.Cantidad 
+                     FROM detalle_movimientos_inventario dmi
+                     WHERE dmi.ID_Producto = p.ID_Producto
+                       AND dmi.ID_Movimiento = %s
+                     LIMIT 1),  -- ← AÑADIR LIMIT 1
+                    df.Cantidad
+                ) as Cantidad_Movimiento
+            FROM detalle_facturacion df
+            INNER JOIN productos p ON df.ID_Producto = p.ID_Producto
+            LEFT JOIN categorias_producto cat ON p.ID_Categoria = cat.ID_Categoria
+            WHERE df.ID_Factura = %s
+            ORDER BY df.ID_Detalle
+        """, (factura['ID_Bodega'] or 1, factura['ID_Movimiento'], id_factura))
             
             detalles = cursor.fetchall()
             
