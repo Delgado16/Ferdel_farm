@@ -242,7 +242,8 @@
         /* Overlay - POSICIÓN CORREGIDA */
         .overlay {
             position: fixed;
-            top: 0; /* Cambiado de 56px a 0 para cubrir toda la pantalla */
+            top: 0;
+            /* Cambiado de 56px a 0 para cubrir toda la pantalla */
             left: 0;
             right: 0;
             bottom: 0;
@@ -409,6 +410,7 @@
             from {
                 opacity: 0;
             }
+
             to {
                 opacity: 1;
             }
@@ -491,9 +493,12 @@
                                 <small class="text-muted">Rol: {{ current_user.rol }}</small>
                             </div>
                         </li>
-                        <li><hr class="dropdown-divider"></li>
                         <li>
-                            <a class="dropdown-item d-flex align-items-center text-danger" href="{{ url_for('logout') }}">
+                            <hr class="dropdown-divider">
+                        </li>
+                        <li>
+                            <a class="dropdown-item d-flex align-items-center text-danger"
+                                href="{{ url_for('logout') }}">
                                 <i class="bi bi-box-arrow-right me-2"></i>Cerrar Sesión
                             </a>
                         </li>
@@ -529,7 +534,8 @@
                 </div>
 
                 <!-- Ventas con submenú -->
-                <div class="has-submenu {% if 'ventas' in request.endpoint or 'cuentascobrar' in request.endpoint %}active{% endif %}">
+                <div
+                    class="has-submenu {% if 'ventas' in request.endpoint or 'cuentascobrar' in request.endpoint %}active{% endif %}">
                     <a class="nav-link submenu-toggle-btn" href="#ventas-submenu">
                         <i class="bi bi-cart4 me-2"></i> <span>Ventas</span>
                         <i class="bi bi-chevron-right submenu-toggle ms-auto"></i>
@@ -561,7 +567,8 @@
                 </div>
 
                 <!-- Compras con submenú -->
-                <div class="has-submenu {% if 'compras' in request.endpoint or 'cuentas_pagar' in request.endpoint %}active{% endif %}">
+                <div
+                    class="has-submenu {% if 'compras' in request.endpoint or 'cuentas_pagar' in request.endpoint %}active{% endif %}">
                     <a class="nav-link submenu-toggle-btn" href="#compras-submenu">
                         <i class="bi bi-tags me-2"></i> <span>Compras</span>
                         <i class="bi bi-chevron-right submenu-toggle ms-auto"></i>
@@ -584,7 +591,8 @@
                 </div>
 
                 <!-- Catálogos con submenú -->
-                <div class="has-submenu {% if 'admin_usuarios' in request.endpoint or 'admin_empresas' in request.endpoint or 'admin_clientes' in request.endpoint or 'admin_proveedores' in request.endpoint or 'admin_unidades_medidas' in request.endpoint or 'admin_categorias' in request.endpoint or 'admin_metodos_pago' in request.endpoint or 'admin_movimientos_inventario' in request.endpoint %}active{% endif %}">
+                <div
+                    class="has-submenu {% if 'admin_usuarios' in request.endpoint or 'admin_empresas' in request.endpoint or 'admin_clientes' in request.endpoint or 'admin_proveedores' in request.endpoint or 'admin_unidades_medidas' in request.endpoint or 'admin_categorias' in request.endpoint or 'admin_metodos_pago' in request.endpoint or 'admin_movimientos_inventario' in request.endpoint %}active{% endif %}">
                     <a class="nav-link submenu-toggle-btn" href="#catalogos-submenu">
                         <i class="bi bi-collection me-2"></i> <span>Catálogos</span>
                         <i class="bi bi-chevron-right submenu-toggle ms-auto"></i>
@@ -592,7 +600,7 @@
                     <div class="submenu {% if 'admin_usuarios' in request.endpoint or 'admin_empresas' in request.endpoint or 'admin_clientes' in request.endpoint or 'admin_proveedores' in request.endpoint or 'admin_unidades_medidas' in request.endpoint or 'admin_categorias' in request.endpoint or 'admin_metodos_pago' in request.endpoint or 'admin_movimientos_inventario' in request.endpoint %}show{% endif %}"
                         id="catalogos-submenu">
                         <!-- Roles -->
-                         <a class="nav-link {% if request.endpoint == 'admin_roles' %}active{% endif %}"
+                        <a class="nav-link {% if request.endpoint == 'admin_roles' %}active{% endif %}"
                             href="{{ url_for('admin_roles') }}">
                             <i class="bi bi-shield-lock me-2"></i> Roles
                         </a>
@@ -647,7 +655,8 @@
                 </div>
 
                 <!-- Bodega e Inventario con submenú -->
-                <div class="has-submenu {% if 'admin_bodega' in request.endpoint or 'admin_historial_movimientos' in request.endpoint %}active{% endif %}">
+                <div
+                    class="has-submenu {% if 'admin_bodega' in request.endpoint or 'admin_historial_movimientos' in request.endpoint %}active{% endif %}">
                     <a class="nav-link submenu-toggle-btn" href="#bodega-submenu">
                         <i class="bi bi-house-door me-2"></i> <span>Bodega e Inventario</span>
                         <i class="bi bi-chevron-right submenu-toggle ms-auto"></i>
@@ -699,41 +708,25 @@
                 </a>
             </div>
 
-            {% elif current_user.rol == 'Jefe Bodega' %}
+            {% elif current_user.rol == 'Bodega' %}
             <div class="nav flex-column">
                 <a class="nav-link {% if request.endpoint == 'jefe_bodega_dashboard' %}active{% endif %}" href="#">
                     <i class="bi bi-speedometer2 me-2"></i> <span>Dashboard</span>
                 </a>
-
-                <a class="nav-link {% if request.endpoint in ['galeras_list', 'lotes_activos'] %}active{% endif %}"
-                    href="#">
-                    <i class="bi bi-house-door me-2"></i> <span>Galeras & Lotes</span>
+                <!-- Pedidos -->
+                <a class="nav-link {% if request.endpoint == 'jefe_bodega_pedidos' %}active{% endif %}" href="#">
+                    <i class="bi bi-cart-check me-2"></i> <span>Pedidos</span>
                 </a>
-
-                <a class="nav-link {% if request.endpoint == 'produccion_huevos' %}active{% endif %}" href="#">
-                    <i class="bi bi-egg me-2"></i> <span>Producción Huevos</span>
+                <!-- Ventas / facturacion -->
+                <a class="nav-link {% if request.endpoint == 'jefe_bodega_ventas' %}active{% endif %}"
+                    href="{{url_for('admin_crear_venta')}}">
+                    <i class="bi bi-receipt me-2"></i> <span>Ventas</span>
                 </a>
-
-                <a class="nav-link {% if request.endpoint == 'control_postura' %}active{% endif %}" href="#">
-                    <i class="bi bi-graph-up me-2"></i> <span>Curva de Postura</span>
+                <!-- Inventario -->
+                <a class="nav-link {% if request.endpoint == 'jefe_bodega_inventario' %}active{% endif %}" href="{{ url_for('admin_historial_movimientos') }}">
+                    <i class="bi bi-box me-2"></i> <span>Inventario</span>
                 </a>
-
-                <a class="nav-link {% if request.endpoint == 'control_alimentacion' %}active{% endif %}" href="#">
-                    <i class="bi bi-basket me-2"></i> <span>Alimentación</span>
-                </a>
-
-                <a class="nav-link {% if request.endpoint == 'salud_mortalidad' %}active{% endif %}" href="#">
-                    <i class="bi bi-heart-pulse me-2"></i> <span>Salud & Mortalidad</span>
-                </a>
-
-                <a class="nav-link {% if request.endpoint == 'historial_medico' %}active{% endif %}" href="#">
-                    <i class="bi bi-clipboard-pulse me-2"></i> <span>Historial Médico</span>
-                </a>
-
-                <a class="nav-link {% if request.endpoint == 'control_higiene' %}active{% endif %}" href="#">
-                    <i class="bi bi-droplet me-2"></i> <span>Higiene</span>
-                </a>
-
+                <!-- Reportes Avanzados -->
                 <a class="nav-link {% if request.endpoint == 'reportes_avanzados' %}active{% endif %}" href="#">
                     <i class="bi bi-bar-chart me-2"></i> <span>Reportes Avanzados</span>
                 </a>
@@ -750,7 +743,8 @@
         {% for category, message in messages %}
         <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
             <div class="d-flex align-items-center">
-                <i class="bi {% if category == 'success' %}bi-check-circle-fill{% elif category == 'danger' %}bi-exclamation-circle-fill{% elif category == 'warning' %}bi-exclamation-triangle-fill{% else %}bi-info-circle-fill{% endif %} me-2"></i>
+                <i
+                    class="bi {% if category == 'success' %}bi-check-circle-fill{% elif category == 'danger' %}bi-exclamation-circle-fill{% elif category == 'warning' %}bi-exclamation-triangle-fill{% else %}bi-info-circle-fill{% endif %} me-2"></i>
                 <div>{{ message }}</div>
             </div>
             <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
@@ -853,7 +847,7 @@
                     if (isMobile()) {
                         closeMobileSidebar();
                     }
-                    
+
                     // Cerrar dropdown del usuario si está abierto
                     if (userDropdown) {
                         const dropdown = bootstrap.Dropdown.getInstance(userDropdown);
@@ -944,7 +938,7 @@
                     sidebar.classList.remove('collapsed');
                     mainContent.classList.remove('expanded');
                     isSidebarCollapsed = false;
-                    
+
                     // Si cambiamos de móvil a escritorio, cerrar sidebar móvil
                     if (isMobileSidebarOpen) {
                         closeMobileSidebar();
@@ -957,13 +951,13 @@
 
             // Ejecutar una vez al cargar
             handleResize();
-            
+
             // Cerrar sidebar al hacer clic fuera en móviles
             document.addEventListener('click', function (e) {
                 if (isMobile() && isMobileSidebarOpen) {
                     // Si el clic no fue en el sidebar ni en el toggle
-                    if (!sidebar.contains(e.target) && 
-                        !mobileSidebarToggle.contains(e.target) && 
+                    if (!sidebar.contains(e.target) &&
+                        !mobileSidebarToggle.contains(e.target) &&
                         e.target !== mobileSidebarToggle) {
                         closeMobileSidebar();
                     }

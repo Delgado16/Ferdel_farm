@@ -425,6 +425,19 @@ def role_requerido(requested_role):
 def admin_required(f):
     return role_requerido('Administrador')(f)
 
+def bodega_required(f):
+    return role_requerido('Bodega')(f)
+
+def admin_or_bodega_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if not current_user.is_authenticated:
+            abort(401)  # No autenticado
+        if current_user.rol not in ['Administrador', 'Bodega']:
+            abort(403)  # No autorizado
+        return f(*args, **kwargs)
+    return decorated_function
+
 # Rutas de autenticaciones y autorizaciones
 @app.route('/login', methods=['GET', 'POST'])
 def login():
@@ -655,7 +668,7 @@ def vendedor_dashboard():
 @app.route('/Bodega/dashboard')
 @login_required
 def jefe_galera_dashboard():
-    return render_template('Bodega/dashboard.html')
+    return render_template('bodega/dashboard.html')
 
 ## CAJA DE MOVIMIENTO
 @app.template_filter('format_hora')
@@ -1216,136 +1229,19 @@ def admin_caja_reporte():
 
 ## MODULOS DEL ADMINISTRADOR
 # CATALOGOS ROLES
-@app.route('/admin/rol/roles')
+@app.route('/admin/roles')
 @admin_required
 @bitacora_decorator("ROLES")
 def admin_roles():
-    """Listar todos los roles con filtros"""
+    """Listar todos los roles"""
     try:
-        search = request.args.get('search', '')
-        estado = request.args.get('estado', '')
-        
-        query = "SELECT * FROM Roles WHERE 1=1"
-        params = []
-        
-        if search:
-            query += " AND Nombre_Rol LIKE %s"
-            params.append(f"%{search}%")
-        
-        if estado:
-            query += " AND Estado = %s"
-            params.append(estado)
-        
-        query += " ORDER BY Estado DESC, ID_Rol"
-        
         with get_db_cursor() as cursor:
-            cursor.execute(query, params)
+            cursor.execute("SELECT * FROM Roles ORDER BY Estado DESC, ID_Rol")
             roles = cursor.fetchall()
-            return render_template("admin/catalog/rol/roles.html", roles=roles)
-        
+            return render_template('admin/catalog/rol/roles.html', roles=roles)
     except Exception as e:
         flash(f"Error al cargar roles: {e}", "danger")
         return redirect(url_for('admin_dashboard'))
-
-@app.route('/admin/roles/crear', methods=['GET', 'POST'])
-@admin_required
-@bitacora_decorator("CREAR_ROL")
-def crear_rol():
-    """Crear un nuevo rol"""
-    if request.method == 'POST':
-        nombre_rol = request.form.get('nombre_rol')
-        estado = request.form.get('estado', 'Activo')
-        
-        if not nombre_rol:
-            flash("El nombre del rol es requerido", "warning")
-            return redirect(url_for('crear_rol'))
-        
-        try:
-            with get_db_cursor(commit=True) as cursor:
-                cursor.execute(
-                    "INSERT INTO Roles (Nombre_Rol, Estado) VALUES (%s, %s)",
-                    (nombre_rol, estado)
-                )
-                flash("Rol creado exitosamente", "success")
-                return redirect(url_for('admin_roles'))
-        except Exception as e:
-            flash(f"Error al crear rol: {e}", "danger")
-            return redirect(url_for('crear_rol'))
-    
-    return render_template('admin/catalog/crear_rol.html')
-
-@app.route('/admin/roles/editar/<int:id_rol>', methods=['GET', 'POST'])
-@admin_required
-@bitacora_decorator("EDITAR_ROL")
-def editar_rol(id_rol):
-    """Editar un rol existente"""
-    if request.method == 'POST':
-        nombre_rol = request.form.get('nombre_rol')
-        estado = request.form.get('estado')
-        
-        if not nombre_rol:
-            flash("El nombre del rol es requerido", "warning")
-            return redirect(url_for('editar_rol', id_rol=id_rol))
-        
-        try:
-            with get_db_cursor(commit=True) as cursor:
-                cursor.execute(
-                    "UPDATE Roles SET Nombre_Rol = %s, Estado = %s WHERE ID_Rol = %s",
-                    (nombre_rol, estado, id_rol)
-                )
-                flash("Rol actualizado exitosamente", "success")
-                return redirect(url_for('admin_roles'))
-        except Exception as e:
-            flash(f"Error al actualizar rol: {e}", "danger")
-            return redirect(url_for('editar_rol', id_rol=id_rol))
-    
-    try:
-        with get_db_cursor() as cursor:
-            cursor.execute("SELECT * FROM Roles WHERE ID_Rol = %s", (id_rol,))
-            rol = cursor.fetchone()
-            
-            if not rol:
-                flash("Rol no encontrado", "danger")
-                return redirect(url_for('admin_roles'))
-            
-            return render_template('admin/catalog/editar_rol.html', rol=rol)
-    except Exception as e:
-        flash(f"Error al cargar rol: {e}", "danger")
-        return redirect(url_for('admin_roles'))
-
-@app.route('/admin/roles/inactivar/<int:id_rol>')
-@admin_required
-@bitacora_decorator("INACTIVAR_ROL")
-def inactivar_rol(id_rol):
-    """Inactivar un rol (cambiar estado a Inactivo)"""
-    try:
-        with get_db_cursor(commit=True) as cursor:
-            cursor.execute(
-                "UPDATE Roles SET Estado = 'Inactivo' WHERE ID_Rol = %s",
-                (id_rol,)
-            )
-            flash("Rol inactivado exitosamente", "success")
-    except Exception as e:
-        flash(f"Error al inactivar rol: {e}", "danger")
-    
-    return redirect(url_for('admin_roles'))
-
-@app.route('/admin/roles/activar/<int:id_rol>')
-@admin_required
-@bitacora_decorator("ACTIVAR_ROL")
-def activar_rol(id_rol):
-    """Activar un rol (cambiar estado a Activo)"""
-    try:
-        with get_db_cursor(commit=True) as cursor:
-            cursor.execute(
-                "UPDATE Roles SET Estado = 'Activo' WHERE ID_Rol = %s",
-                (id_rol,)
-            )
-            flash("Rol activado exitosamente", "success")
-    except Exception as e:
-        flash(f"Error al activar rol: {e}", "danger")
-    
-    return redirect(url_for('admin_roles'))
     
 # CATALOGOS USUARIOS
 @app.route('/admin/usuarios')
@@ -2926,6 +2822,7 @@ def admin_editar_bodega(id):
 #CATALOGO PRODUCTOS - BODEGA
 @app.route('/admin/bodega/productos', methods=['GET'])
 @admin_required
+@bodega_required
 @bitacora_decorator("PRODUCTOS")
 def admin_productos():
     try:
@@ -5398,7 +5295,7 @@ def admin_gastos_operativos():
 
 #MODULO VENTAS
 @app.route('/admin/ventas/ventas-salidas', methods=['GET'])
-@admin_required
+@admin_or_bodega_required
 @bitacora_decorator("VENTAS-SALIDAS")
 def admin_ventas_salidas():
     fecha_str = request.args.get('fecha')
@@ -5539,7 +5436,7 @@ def admin_ventas_salidas():
         return redirect(url_for('admin_dashboard'))
 
 @app.route('/admin/ventas/crear', methods=['GET', 'POST'])
-@admin_required
+@admin_or_bodega_required
 @bitacora_decorator("CREAR_VENTA")
 def admin_crear_venta():
     """
@@ -6044,7 +5941,6 @@ def admin_crear_venta():
                             id_tipo_movimiento=id_tipo_movimiento if 'id_tipo_movimiento' in locals() else None)
 
 @app.route('/api/ventas/productos/cliente/<int:cliente_id>', methods=['GET'])
-@admin_required
 def api_productos_por_cliente(cliente_id):
     """API para obtener productos visibles para un cliente específico"""
     
@@ -6126,7 +6022,6 @@ def api_productos_por_cliente(cliente_id):
 
 # RUTAS AUXILIARES SIMPLIFICADAS - UNA SOLA BODEGA
 @app.route('/admin/ventas/productos-por-categoria/<int:id_categoria>')
-@admin_required
 def obtener_productos_por_categoria_venta(id_categoria):
     """
     Endpoint para obtener productos filtrados por categoría - UNA SOLA BODEGA
@@ -6205,7 +6100,6 @@ def obtener_productos_por_categoria_venta(id_categoria):
         return jsonify({'error': str(e)}), 500
 
 @app.route('/admin/ventas/verificar-stock/<int:id_producto>')
-@admin_required
 def verificar_stock_producto(id_producto):
     """
     Endpoint para verificar stock en tiempo real - UNA SOLA BODEGA
@@ -6257,7 +6151,6 @@ def verificar_stock_producto(id_producto):
         return jsonify({'error': str(e)}), 500
 
 @app.route('/admin/ventas/categorias-productos')
-@admin_required
 def obtener_categorias_productos_venta():
     """
     Endpoint para obtener todas las categorías
@@ -6285,7 +6178,6 @@ def obtener_categorias_productos_venta():
         return jsonify({'error': str(e)}), 500
 
 @app.route('/admin/ventas/bodega-principal')
-@admin_required
 def obtener_bodega_principal():
     """
     Endpoint para obtener la bodega principal
@@ -6318,7 +6210,6 @@ def obtener_bodega_principal():
         return jsonify({'error': str(e)}), 500
 
 @app.route('/admin/ventas/todos-productos')
-@admin_required
 def obtener_todos_productos_venta():
     """
     Endpoint para obtener TODOS los productos activos con stock
@@ -6377,7 +6268,6 @@ def obtener_todos_productos_venta():
         return jsonify({'error': str(e)}), 500
 
 @app.route('/admin/ventas/ticket/<int:id_factura>')
-@admin_required
 def admin_generar_ticket(id_factura):
     try:
         with get_db_cursor(True) as cursor:
@@ -6498,9 +6388,7 @@ def admin_generar_ticket(id_factura):
         print(f"Error detallado: {traceback.format_exc()}")
         return redirect(url_for('admin_ventas_salidas'))
 
-
 @app.route('/admin/ventas/detalles/<int:id_factura>', methods=['GET'])
-@admin_required
 @bitacora_decorator("DETALLES_VENTA")
 def admin_detalles_venta(id_factura):
     try:
@@ -6712,7 +6600,6 @@ def admin_detalles_venta(id_factura):
         flash(f'Error al cargar detalles de la venta: {str(e)}', 'error')
         print(f"Error detallado: {traceback.format_exc()}")
         return redirect(url_for('admin_ventas_salidas'))
-
 
 @app.route('/admin/ventas/anular/<int:id_factura>', methods=['GET', 'POST'])
 @admin_required
@@ -8581,7 +8468,7 @@ TIPO_TRASLADO = 6
 
 # 1. LISTADO MEJORADO CON FILTROS
 @app.route('/admin/movimientos/listado')
-@admin_required
+@admin_or_bodega_required
 @bitacora_decorator("HISTORIAL-MOVIMIENTOS")
 def admin_historial_movimientos():
     """Historial completo de movimientos con filtros"""
@@ -8680,7 +8567,7 @@ def admin_historial_movimientos():
 
 # 2. NUEVA ENTRADA (Compra/Producción)
 @app.route('/admin/movimientos/entrada/nueva')
-@admin_required
+@admin_or_bodega_required
 def admin_nueva_entrada_form():
 
     print(f"DEBUG - current_user: {current_user}")
@@ -8778,7 +8665,7 @@ def admin_nueva_entrada_form():
 
 # 3. PROCESAR ENTRADA
 @app.route('/admin/movimientos/entrada/procesar', methods=['POST'])
-@admin_required
+@admin_or_bodega_required
 @bitacora_decorator("PROCESAR-ENTRADA")
 def admin_procesar_entrada():
     """Procesar nueva entrada (compra/producción/ajuste positivo)"""
@@ -8942,7 +8829,7 @@ def obtener_existencias_producto(id_producto):
 
 # 4. NUEVA SALIDA (Venta/Consumo)
 @app.route('/admin/movimientos/salida/nueva')
-@admin_required
+@admin_or_bodega_required
 def admin_nueva_salida_form():
     """Mostrar formulario para nueva salida (venta/consumo)"""
     try:
@@ -9008,7 +8895,7 @@ def admin_nueva_salida_form():
 
 # 5. PROCESAR SALIDA
 @app.route('/admin/movimientos/salida/procesar', methods=['POST'])
-@admin_required
+@admin_or_bodega_required
 @bitacora_decorator("PROCESAR-SALIDA")
 def admin_procesar_salida():
     """Procesar nueva salida (venta/consumo/ajuste negativo)"""
@@ -9298,7 +9185,7 @@ def admin_procesar_salida():
 
 # API para obtener productos con stock por bodega (para salidas)
 @app.route('/api/productos/stock-bodega')
-@admin_required
+@admin_or_bodega_required
 def api_productos_stock_bodega():
     """API para obtener productos con stock disponible en una bodega específica"""
     try:
@@ -9356,7 +9243,7 @@ def api_productos_stock_bodega():
 
 # 6. NUEVA TRANSFERENCIA (Traslado)
 @app.route('/admin/movimientos/transferencia/nueva')
-@admin_required
+@admin_or_bodega_required
 def admin_nueva_transferencia_form():
     """Mostrar formulario para transferencia entre bodegas"""
     try:
@@ -9391,7 +9278,7 @@ def admin_nueva_transferencia_form():
 
 # 7. PROCESAR TRANSFERENCIA
 @app.route('/admin/movimientos/transferencia/procesar', methods=['POST'])
-@admin_required
+@admin_or_bodega_required
 @bitacora_decorator("PROCESAR-TRANSFERENCIA")
 def admin_procesar_transferencia():
     """Procesar transferencia entre bodegas"""
@@ -9524,7 +9411,7 @@ def admin_procesar_transferencia():
 
 # 8. DETALLE DE MOVIMIENTO
 @app.route('/admin/movimientos/detalle/<int:id_movimiento>')
-@admin_required
+@admin_or_bodega_required
 def admin_detalle_movimiento(id_movimiento):
     """Ver detalle completo de un movimiento"""
     try:
@@ -9604,7 +9491,7 @@ def admin_detalle_movimiento(id_movimiento):
 
 # 9. REPORTES PRINCIPAL
 @app.route('/admin/movimientos/reportes')
-@admin_required
+@admin_or_bodega_required
 def admin_reportes_movimientos():
     """Página principal de reportes"""
     try:
@@ -9700,7 +9587,7 @@ def admin_reportes_movimientos():
 
 # 10. REPORTE FILTRADO
 @app.route('/admin/movimientos/reporte/filtrar', methods=['POST'])
-@admin_required
+@admin_or_bodega_required
 def admin_reporte_filtrado():
     """Generar reporte con filtros"""
     try:
@@ -9770,7 +9657,7 @@ def admin_reporte_filtrado():
 
 # 11. ANULAR MOVIMIENTO
 @app.route('/admin/movimientos/anular/<int:id_movimiento>', methods=['POST'])
-@admin_required
+@admin_or_bodega_required
 @bitacora_decorator("ANULAR-MOVIMIENTO")
 def admin_anular_movimiento(id_movimiento):
     """Anular un movimiento y revertir inventario"""
@@ -9871,7 +9758,7 @@ def admin_anular_movimiento(id_movimiento):
 
 # 12. API PARA OBTENER STOCK
 @app.route('/api/inventario/stock/<int:id_producto>/<int:id_bodega>')
-@admin_required
+@admin_or_bodega_required
 def api_obtener_stock(id_producto, id_bodega):
     """Obtener stock de un producto en una bodega específica"""
     try:
@@ -9903,7 +9790,7 @@ def api_obtener_stock(id_producto, id_bodega):
 
 # 13. API PARA BUSCAR PRODUCTOS
 @app.route('/api/productos/buscar')
-@admin_required
+@admin_or_bodega_required
 def api_buscar_productos():
     """Buscar productos por código o descripción"""
     try:
@@ -9950,7 +9837,7 @@ def api_buscar_productos():
 
 # 14. IMPRIMIR MOVIMIENTO
 @app.route('/admin/movimientos/imprimir/<int:id_movimiento>')
-@admin_required
+@admin_or_bodega_required
 def admin_imprimir_movimiento(id_movimiento):
     """Generar PDF para impresión del movimiento"""
     try:
