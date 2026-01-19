@@ -665,10 +665,208 @@ def admin_dashboard():
 def vendedor_dashboard():
     return render_template('vendedor/dashboard.html')
 
-@app.route('/Bodega/dashboard')
-@login_required
-def jefe_galera_dashboard():
-    return render_template('bodega/dashboard.html')
+@app.route('/bodega/dashboard')
+@admin_or_bodega_required
+def bodega_dashboard():
+    try:
+        with get_db_cursor() as cursor:
+            # 1. Productos que han salido hoy (formato solicitado)
+            cursor.execute("""
+                SELECT 
+                    p.Descripcion AS Producto,
+                    um.Abreviatura AS Unidad,
+                    SUM(dmi.Cantidad) AS Cantidad_Salida,
+                    CONCAT(p.Descripcion, ' ', FORMAT(SUM(dmi.Cantidad), 2), ' ', um.Abreviatura) AS Detalle
+                FROM productos p
+                INNER JOIN detalle_movimientos_inventario dmi ON p.ID_Producto = dmi.ID_Producto
+                INNER JOIN movimientos_inventario mi ON dmi.ID_Movimiento = mi.ID_Movimiento
+                INNER JOIN catalogo_movimientos cm ON mi.ID_TipoMovimiento = cm.ID_TipoMovimiento
+                INNER JOIN unidades_medida um ON p.Unidad_Medida = um.ID_Unidad
+                WHERE mi.Estado = 'Activa'
+                    AND mi.Fecha = CURDATE()
+                    AND (cm.Letra = 'S')
+                GROUP BY p.ID_Producto, p.Descripcion, um.Abreviatura
+                HAVING SUM(dmi.Cantidad) > 0
+                ORDER BY SUM(dmi.Cantidad) DESC
+            """)
+            productos_salidas_hoy = cursor.fetchall()
+            
+            # 2. Kardex de hoy completo
+            cursor.execute("""
+                SELECT 
+                    DATE_FORMAT(mi.Fecha, '%%H:%%i:%%s') AS Hora,
+                    mi.ID_Movimiento,
+                    cm.Descripcion AS Tipo_Movimiento,
+                    p.Descripcion AS Producto,
+                    um.Abreviatura AS Unidad,
+                    dmi.Cantidad,
+                    CASE 
+                        WHEN cm.Letra = 'E' 
+                        THEN 'ENTRADA' 
+                        ELSE 'SALIDA' 
+                    END AS Tipo,
+                    b.Nombre AS Bodega,
+                    COALESCE(prov.Nombre, 'N/A') AS Proveedor_Cliente,
+                    mi.N_Factura_Externa AS Documento,
+                    mi.Observacion
+                FROM movimientos_inventario mi
+                INNER JOIN detalle_movimientos_inventario dmi ON mi.ID_Movimiento = dmi.ID_Movimiento
+                INNER JOIN productos p ON dmi.ID_Producto = p.ID_Producto
+                INNER JOIN catalogo_movimientos cm ON mi.ID_TipoMovimiento = cm.ID_TipoMovimiento
+                INNER JOIN unidades_medida um ON p.Unidad_Medida = um.ID_Unidad
+                INNER JOIN bodegas b ON mi.ID_Bodega = b.ID_Bodega
+                LEFT JOIN proveedores prov ON mi.ID_Proveedor = prov.ID_Proveedor
+                WHERE mi.Estado = 'Activa'
+                    AND mi.Fecha = CURDATE()
+                ORDER BY dmi.Fecha_Creacion DESC
+                LIMIT 100
+            """)
+            kardex_hoy = cursor.fetchall()
+            
+            # 3. Resumen de movimientos del día
+            cursor.execute("""
+                SELECT 
+                    COUNT(DISTINCT mi.ID_Movimiento) AS total_movimientos,
+                    COUNT(DISTINCT dmi.ID_Producto) AS total_productos_movidos,
+                    SUM(CASE 
+                        WHEN cm.Letra = 'E' 
+                        THEN dmi.Cantidad 
+                        ELSE 0 
+                    END) AS total_entradas,
+                    SUM(CASE 
+                        WHEN cm.Letra = 'S' 
+                        THEN dmi.Cantidad 
+                        ELSE 0 
+                    END) AS total_salidas
+                FROM movimientos_inventario mi
+                INNER JOIN detalle_movimientos_inventario dmi ON mi.ID_Movimiento = dmi.ID_Movimiento
+                INNER JOIN catalogo_movimientos cm ON mi.ID_TipoMovimiento = cm.ID_TipoMovimiento
+                WHERE mi.Estado = 'Activa'
+                    AND mi.Fecha = CURDATE()
+            """)
+            resumen_dia = cursor.fetchone()
+            
+            # 4. Productos con stock bajo (menor al mínimo)
+            cursor.execute("""
+                SELECT 
+                    p.Descripcion AS Producto,
+                    um.Abreviatura AS Unidad,
+                    ib.Existencias AS Stock_Actual,
+                    p.Stock_Minimo AS Stock_Minimo,
+                    CONCAT(FORMAT(ib.Existencias, 2), ' ', um.Abreviatura) AS Stock_Actual_Formateado,
+                    ROUND((ib.Existencias / p.Stock_Minimo) * 100, 2) AS Porcentaje_Stock
+                FROM productos p
+                INNER JOIN inventario_bodega ib ON p.ID_Producto = ib.ID_Producto
+                INNER JOIN unidades_medida um ON p.Unidad_Medida = um.ID_Unidad
+                WHERE p.Estado = 'activo'
+                    AND ib.Existencias <= p.Stock_Minimo
+                    AND ib.ID_Bodega = %s
+                ORDER BY Porcentaje_Stock ASC
+                LIMIT 10
+            """, (session.get('id_bodega', 1),))  # Asumiendo que tienes el ID de bodega en sesión
+            productos_stock_bajo = cursor.fetchall()
+            
+            # 5. Top 10 productos más vendidos hoy
+            cursor.execute("""
+                SELECT 
+                    p.Descripcion AS Producto,
+                    um.Abreviatura AS Unidad,
+                    SUM(dmi.Cantidad) AS Total_Salidas,
+                    ROUND(SUM(dmi.Subtotal), 2) AS Total_Vendido
+                FROM productos p
+                INNER JOIN detalle_movimientos_inventario dmi ON p.ID_Producto = dmi.ID_Producto
+                INNER JOIN movimientos_inventario mi ON dmi.ID_Movimiento = mi.ID_Movimiento
+                INNER JOIN catalogo_movimientos cm ON mi.ID_TipoMovimiento = cm.ID_TipoMovimiento
+                INNER JOIN unidades_medida um ON p.Unidad_Medida = um.ID_Unidad
+                WHERE mi.Estado = 'Activa'
+                    AND mi.Fecha = CURDATE()
+                    AND (cm.Letra = 'S')
+                GROUP BY p.ID_Producto, p.Descripcion, um.Abreviatura
+                HAVING SUM(dmi.Cantidad) > 0
+                ORDER BY SUM(dmi.Cantidad) DESC
+                LIMIT 10
+            """)
+            top_productos_hoy = cursor.fetchall()
+            
+            # 6. Movimientos por bodega (si tienes múltiples bodegas)
+            cursor.execute("""
+                SELECT 
+                    b.Nombre AS Bodega,
+                    COUNT(DISTINCT mi.ID_Movimiento) AS movimientos,
+                    SUM(CASE 
+                        WHEN cm.Letra = 'E' 
+                        THEN dmi.Cantidad 
+                        ELSE 0 
+                    END) AS entradas,
+                    SUM(CASE 
+                        WHEN cm.Letra = 'S' 
+                        THEN dmi.Cantidad 
+                        ELSE 0 
+                    END) AS salidas
+                FROM movimientos_inventario mi
+                INNER JOIN detalle_movimientos_inventario dmi ON mi.ID_Movimiento = dmi.ID_Movimiento
+                INNER JOIN catalogo_movimientos cm ON mi.ID_TipoMovimiento = cm.ID_TipoMovimiento
+                INNER JOIN bodegas b ON mi.ID_Bodega = b.ID_Bodega
+                WHERE mi.Estado = 'Activa'
+                    AND mi.Fecha = CURDATE()
+                GROUP BY b.ID_Bodega, b.Nombre
+                ORDER BY movimientos DESC
+            """)
+            movimientos_por_bodega = cursor.fetchall()
+            
+            # 7. Información de la bodega actual
+            if session.get('id_bodega'):
+                cursor.execute("""
+                    SELECT 
+                        b.Nombre,
+                        b.Ubicacion,
+                        COUNT(DISTINCT ib.ID_Producto) AS total_productos,
+                        SUM(ib.Existencias) AS total_existencias
+                    FROM bodegas b
+                    LEFT JOIN inventario_bodega ib ON b.ID_Bodega = ib.ID_Bodega
+                    WHERE b.ID_Bodega = %s
+                    GROUP BY b.ID_Bodega, b.Nombre, b.Ubicacion
+                """, (session.get('id_bodega'),))
+                info_bodega = cursor.fetchone()
+            else:
+                info_bodega = None
+            
+            # Formatear fecha actual para mostrar
+            fecha_hoy = datetime.now().strftime("%d/%m/%Y")
+            
+            # Pasar todas las variables a la plantilla
+            return render_template('bodega/dashboard.html',
+                                 productos_salidas_hoy=productos_salidas_hoy,
+                                 kardex_hoy=kardex_hoy,
+                                 resumen_dia=resumen_dia,
+                                 productos_stock_bajo=productos_stock_bajo,
+                                 top_productos_hoy=top_productos_hoy,
+                                 movimientos_por_bodega=movimientos_por_bodega,
+                                 info_bodega=info_bodega,
+                                 fecha_hoy=fecha_hoy)
+                             
+    except Exception as e:
+        flash(f'Error al cargar el dashboard: {str(e)}', 'error')
+        print(f"ERROR: {str(e)}")
+        traceback.print_exc()
+        # Pasar variables vacías para evitar errores en la plantilla
+        return render_template('bodega/dashboard.html',
+                             productos_salidas_hoy=[],
+                             kardex_hoy=[],
+                             resumen_dia={},
+                             productos_stock_bajo=[],
+                             top_productos_hoy=[],
+                             movimientos_por_bodega=[],
+                             info_bodega=None,
+                             fecha_hoy=datetime.now().strftime("%d/%m/%Y"))
+
+@app.template_filter('datetimeformat')
+def datetimeformat(value, format='%H:%M'):
+    if value is None:
+        return ""
+    if isinstance(value, str):
+        value = datetime.strptime(value, '%Y-%m-%d %H:%M:%S')
+    return value.strftime(format)
 
 ## CAJA DE MOVIMIENTO
 @app.template_filter('format_hora')
