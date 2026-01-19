@@ -9887,6 +9887,218 @@ def admin_imprimir_movimiento(id_movimiento):
         flash(f"Error al generar impresión: {str(e)}", 'error')
         return redirect(url_for('admin_detalle_movimiento', id_movimiento=id_movimiento))
 
+### REPORTES AVANZADOS
+@app.route('/bodega/movimientos/reportes/avanzados', methods=['GET', 'POST'])
+@admin_or_bodega_required
+def bodega_reportes_avanzados():
+    """Mostrar reportes avanzados de movimientos"""
+    try:
+        fecha_inicio = request.form.get('fecha_inicio') or datetime.now().strftime('%Y-%m-%d')
+        fecha_fin = request.form.get('fecha_fin') or datetime.now().strftime('%Y-%m-%d')
+        categoria_id = request.form.get('categoria_id')
+        tipo_reporte = request.form.get('tipo_reporte', 'resumen_diario')
+        
+        with get_db_cursor(True) as cursor:
+            # Consulta 1: Control de Productos (Existencia por Bodega)
+            cursor.execute("""
+                SELECT 
+                    p.ID_Producto,
+                    p.COD_Producto,
+                    p.Descripcion AS Producto,
+                    cp.Descripcion AS Categoria,
+                    um.Descripcion AS Unidad_Medida,
+                    b.Nombre AS Bodega,
+                    ib.Existencias AS Stock_Actual,
+                    p.Stock_Minimo,
+                    p.Precio_Venta,
+                    CASE 
+                        WHEN ib.Existencias <= p.Stock_Minimo THEN 'BAJO STOCK'
+                        WHEN ib.Existencias = 0 THEN 'AGOTADO'
+                        ELSE 'OK'
+                    END AS Estado_Stock
+                FROM inventario_bodega ib
+                INNER JOIN productos p ON ib.ID_Producto = p.ID_Producto
+                INNER JOIN bodegas b ON ib.ID_Bodega = b.ID_Bodega
+                LEFT JOIN categorias_producto cp ON p.ID_Categoria = cp.ID_Categoria
+                LEFT JOIN unidades_medida um ON p.Unidad_Medida = um.ID_Unidad
+                WHERE p.Estado = 'activo' AND b.Estado = 'activa'
+                ORDER BY b.Nombre, p.Descripcion
+            """)
+            inventario = cursor.fetchall()
+            
+            # Consulta 2: Producto Más Vendido
+            cursor.execute("""
+                SELECT 
+                    p.ID_Producto,
+                    p.COD_Producto,
+                    p.Descripcion AS Producto,
+                    cp.Descripcion AS Categoria,
+                    SUM(dmi.Cantidad) AS Total_Vendido,
+                    SUM(dmi.Subtotal) AS Total_Ingresos,
+                    COUNT(DISTINCT mi.ID_Movimiento) AS Total_Ventas
+                FROM detalle_movimientos_inventario dmi
+                INNER JOIN movimientos_inventario mi ON dmi.ID_Movimiento = mi.ID_Movimiento
+                INNER JOIN productos p ON dmi.ID_Producto = p.ID_Producto
+                INNER JOIN catalogo_movimientos cm ON mi.ID_TipoMovimiento = cm.ID_TipoMovimiento
+                LEFT JOIN categorias_producto cp ON p.ID_Categoria = cp.ID_Categoria
+                WHERE cm.Letra = 'S'
+                    AND mi.Estado = 'Activa'
+                    AND mi.Fecha BETWEEN %s AND %s
+                GROUP BY p.ID_Producto, p.COD_Producto, p.Descripcion, cp.Descripcion
+                ORDER BY Total_Vendido DESC
+                LIMIT 10
+            """, (fecha_inicio, fecha_fin))
+            mas_vendidos = cursor.fetchall()
+            
+            # Consulta 3: Productos Vendidos por Categoría (con filtro)
+            query_categorias = """
+                SELECT 
+                    cp.ID_Categoria,
+                    cp.Descripcion AS Categoria,
+                    mi.Fecha AS Fecha_Venta,
+                    mi.Tipo_Compra,
+                    COUNT(DISTINCT p.ID_Producto) AS Cantidad_Productos_Diferentes,
+                    SUM(dmi.Cantidad) AS Total_Unidades_Vendidas,
+                    SUM(dmi.Subtotal) AS Total_Ventas
+                FROM detalle_movimientos_inventario dmi
+                INNER JOIN movimientos_inventario mi ON dmi.ID_Movimiento = mi.ID_Movimiento
+                INNER JOIN productos p ON dmi.ID_Producto = p.ID_Producto
+                INNER JOIN categorias_producto cp ON p.ID_Categoria = cp.ID_Categoria
+                INNER JOIN catalogo_movimientos cm ON mi.ID_TipoMovimiento = cm.ID_TipoMovimiento
+                WHERE cm.Letra = 'S'
+                    AND mi.Estado = 'Activa'
+                    AND mi.Fecha BETWEEN %s AND %s
+            """
+            params_categorias = [fecha_inicio, fecha_fin]
+            
+            if categoria_id and categoria_id != 'todas':
+                query_categorias += " AND cp.ID_Categoria = %s"
+                params_categorias.append(categoria_id)
+            
+            query_categorias += """
+                GROUP BY cp.ID_Categoria, cp.Descripcion, mi.Fecha, mi.Tipo_Compra
+                ORDER BY mi.Fecha DESC, Total_Ventas DESC
+            """
+            
+            cursor.execute(query_categorias, tuple(params_categorias))
+            ventas_categorias = cursor.fetchall()
+            
+            # Consulta 4: Productos con Bajo Stock
+            cursor.execute("""
+                SELECT 
+                    p.ID_Producto,
+                    p.COD_Producto,
+                    p.Descripcion AS Producto,
+                    cp.Descripcion AS Categoria,
+                    b.Nombre AS Bodega,
+                    ib.Existencias AS Stock_Actual,
+                    p.Stock_Minimo AS Stock_Minimo,
+                    ROUND((ib.Existencias / p.Stock_Minimo) * 100, 2) AS Porcentaje_Stock,
+                    CASE 
+                        WHEN ib.Existencias = 0 THEN 'AGOTADO'
+                        WHEN ib.Existencias < p.Stock_Minimo THEN 'BAJO STOCK'
+                    END AS Alerta
+                FROM inventario_bodega ib
+                INNER JOIN productos p ON ib.ID_Producto = p.ID_Producto
+                INNER JOIN bodegas b ON ib.ID_Bodega = b.ID_Bodega
+                LEFT JOIN categorias_producto cp ON p.ID_Categoria = cp.ID_Categoria
+                WHERE p.Estado = 'activo' 
+                    AND b.Estado = 'activa'
+                    AND ib.Existencias <= p.Stock_Minimo
+                ORDER BY ib.Existencias ASC
+            """)
+            bajo_stock = cursor.fetchall()
+            
+            # Consulta 5: Productos No Vendidos en más de 4 Días - VERSIÓN CORREGIDA
+            cursor.execute("""
+                SELECT 
+                    p.ID_Producto,
+                    p.COD_Producto,
+                    p.Descripcion AS Producto,
+                    cp.Descripcion AS Categoria,
+                    MAX(mi.Fecha) AS Ultima_Venta,
+                    DATEDIFF(CURDATE(), MAX(mi.Fecha)) AS Dias_Sin_Venta,
+                    COALESCE(ib.Existencias, 0) AS Stock_Actual
+                FROM productos p
+                LEFT JOIN categorias_producto cp ON p.ID_Categoria = cp.ID_Categoria
+                LEFT JOIN inventario_bodega ib ON p.ID_Producto = ib.ID_Producto
+                LEFT JOIN (
+                    SELECT dmi.ID_Producto, mi.Fecha
+                    FROM detalle_movimientos_inventario dmi
+                    INNER JOIN movimientos_inventario mi ON dmi.ID_Movimiento = mi.ID_Movimiento
+                    INNER JOIN catalogo_movimientos cm ON mi.ID_TipoMovimiento = cm.ID_TipoMovimiento
+                    WHERE mi.Estado = 'Activa'
+                        AND cm.Letra = 'S'
+                ) mi ON p.ID_Producto = mi.ID_Producto
+                WHERE p.Estado = 'activo'
+                GROUP BY p.ID_Producto, p.COD_Producto, p.Descripcion, cp.Descripcion, ib.Existencias
+                HAVING Ultima_Venta IS NULL 
+                    OR DATEDIFF(CURDATE(), Ultima_Venta) > 4
+                ORDER BY Dias_Sin_Venta DESC
+            """)
+            sin_ventas = cursor.fetchall()
+            
+            # Consulta 6: Total Productos Vendidos a Contado y Crédito
+            cursor.execute("""
+                SELECT 
+                    mi.Fecha,
+                    p.COD_Producto,
+                    p.Descripcion AS Producto,
+                    cp.Descripcion AS Categoria,
+                    mi.Tipo_Compra,
+                    SUM(dmi.Cantidad) AS Cantidad_Vendida,
+                    SUM(dmi.Subtotal) AS Total_Venta,
+                    GROUP_CONCAT(
+                        CONCAT('Venta #', mi.ID_Movimiento, ': ', ROUND(dmi.Cantidad, 2), ' unidades')
+                        SEPARATOR '; '
+                    ) AS Detalle_Ventas
+                FROM detalle_movimientos_inventario dmi
+                INNER JOIN movimientos_inventario mi ON dmi.ID_Movimiento = mi.ID_Movimiento
+                INNER JOIN productos p ON dmi.ID_Producto = p.ID_Producto
+                INNER JOIN catalogo_movimientos cm ON mi.ID_TipoMovimiento = cm.ID_TipoMovimiento
+                LEFT JOIN categorias_producto cp ON p.ID_Categoria = cp.ID_Categoria
+                WHERE cm.Letra = 'S'
+                    AND mi.Estado = 'Activa'
+                    AND mi.Fecha BETWEEN %s AND %s
+                GROUP BY mi.Fecha, p.ID_Producto, p.COD_Producto, p.Descripcion, cp.Descripcion, mi.Tipo_Compra
+                ORDER BY mi.Fecha DESC, Producto, mi.Tipo_Compra
+            """, (fecha_inicio, fecha_fin))
+            ventas_contado_credito = cursor.fetchall()
+            
+            # Obtener categorías para el dropdown
+            cursor.execute("SELECT ID_Categoria, Descripcion FROM categorias_producto ORDER BY Descripcion")
+            categorias = cursor.fetchall()
+            
+            # Resumen estadístico CORREGIDO (sin FILTER)
+            cursor.execute("""
+                SELECT 
+                    COUNT(DISTINCT p.ID_Producto) as total_productos,
+                    SUM(CASE WHEN ib.Existencias <= p.Stock_Minimo THEN 1 ELSE 0 END) as productos_bajo_stock,
+                    SUM(CASE WHEN ib.Existencias = 0 THEN 1 ELSE 0 END) as productos_agotados
+                FROM productos p
+                LEFT JOIN inventario_bodega ib ON p.ID_Producto = ib.ID_Producto
+                WHERE p.Estado = 'activo'
+            """)
+            resumen = cursor.fetchone()
+            
+        return render_template('bodega/reportes_avanzados.html',
+                             inventario=inventario,
+                             mas_vendidos=mas_vendidos,
+                             ventas_categorias=ventas_categorias,
+                             bajo_stock=bajo_stock,
+                             sin_ventas=sin_ventas,
+                             ventas_contado_credito=ventas_contado_credito,
+                             categorias=categorias,
+                             resumen=resumen,
+                             fecha_inicio=fecha_inicio,
+                             fecha_fin=fecha_fin,
+                             categoria_seleccionada=categoria_id,
+                             tipo_reporte=tipo_reporte)
+            
+    except Exception as e:
+        flash(f"Error al cargar reportes: {str(e)}", 'error')
+        return redirect(url_for('admin_historial_movimientos'))
+
 #Iniciar Aplicación
 if __name__ == '__main__':
     
