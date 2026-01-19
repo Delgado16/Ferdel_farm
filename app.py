@@ -666,7 +666,7 @@ def vendedor_dashboard():
     return render_template('vendedor/dashboard.html')
 
 @app.route('/bodega/dashboard')
-@admin_or_bodega_required
+@login_required
 def bodega_dashboard():
     try:
         with get_db_cursor() as cursor:
@@ -684,7 +684,7 @@ def bodega_dashboard():
                 INNER JOIN unidades_medida um ON p.Unidad_Medida = um.ID_Unidad
                 WHERE mi.Estado = 'Activa'
                     AND mi.Fecha = CURDATE()
-                    AND (cm.Letra = 'S')
+                    AND (cm.Adicion = 'RESTA' OR cm.Letra = 'S')
                 GROUP BY p.ID_Producto, p.Descripcion, um.Abreviatura
                 HAVING SUM(dmi.Cantidad) > 0
                 ORDER BY SUM(dmi.Cantidad) DESC
@@ -701,7 +701,7 @@ def bodega_dashboard():
                     um.Abreviatura AS Unidad,
                     dmi.Cantidad,
                     CASE 
-                        WHEN cm.Letra = 'E' 
+                        WHEN cm.Adicion = 'SUMA' OR cm.Letra = 'E' 
                         THEN 'ENTRADA' 
                         ELSE 'SALIDA' 
                     END AS Tipo,
@@ -729,12 +729,12 @@ def bodega_dashboard():
                     COUNT(DISTINCT mi.ID_Movimiento) AS total_movimientos,
                     COUNT(DISTINCT dmi.ID_Producto) AS total_productos_movidos,
                     SUM(CASE 
-                        WHEN cm.Letra = 'E' 
+                        WHEN cm.Adicion = 'SUMA' OR cm.Letra = 'E' 
                         THEN dmi.Cantidad 
                         ELSE 0 
                     END) AS total_entradas,
                     SUM(CASE 
-                        WHEN cm.Letra = 'S' 
+                        WHEN cm.Adicion = 'RESTA' OR cm.Letra = 'S' 
                         THEN dmi.Cantidad 
                         ELSE 0 
                     END) AS total_salidas
@@ -763,7 +763,7 @@ def bodega_dashboard():
                     AND ib.ID_Bodega = %s
                 ORDER BY Porcentaje_Stock ASC
                 LIMIT 10
-            """, (session.get('id_bodega', 1),))  # Asumiendo que tienes el ID de bodega en sesión
+            """, (session.get('id_bodega', 1),))
             productos_stock_bajo = cursor.fetchall()
             
             # 5. Top 10 productos más vendidos hoy
@@ -780,7 +780,7 @@ def bodega_dashboard():
                 INNER JOIN unidades_medida um ON p.Unidad_Medida = um.ID_Unidad
                 WHERE mi.Estado = 'Activa'
                     AND mi.Fecha = CURDATE()
-                    AND (cm.Letra = 'S')
+                    AND (cm.Adicion = 'RESTA' OR cm.Letra = 'S')
                 GROUP BY p.ID_Producto, p.Descripcion, um.Abreviatura
                 HAVING SUM(dmi.Cantidad) > 0
                 ORDER BY SUM(dmi.Cantidad) DESC
@@ -788,18 +788,18 @@ def bodega_dashboard():
             """)
             top_productos_hoy = cursor.fetchall()
             
-            # 6. Movimientos por bodega (si tienes múltiples bodegas)
+            # 6. Movimientos por bodega
             cursor.execute("""
                 SELECT 
                     b.Nombre AS Bodega,
                     COUNT(DISTINCT mi.ID_Movimiento) AS movimientos,
                     SUM(CASE 
-                        WHEN cm.Letra = 'E' 
+                        WHEN cm.Adicion = 'SUMA' OR cm.Letra = 'E' 
                         THEN dmi.Cantidad 
                         ELSE 0 
                     END) AS entradas,
                     SUM(CASE 
-                        WHEN cm.Letra = 'S' 
+                        WHEN cm.Adicion = 'RESTA' OR cm.Letra = 'S' 
                         THEN dmi.Cantidad 
                         ELSE 0 
                     END) AS salidas
@@ -831,6 +831,62 @@ def bodega_dashboard():
             else:
                 info_bodega = None
             
+            # 8. Productos por categoría con stock - NUEVA CONSULTA
+            cursor.execute("""
+                SELECT 
+                    cp.Descripcion AS Categoria,
+                    p.Descripcion AS Producto,
+                    um.Abreviatura AS Unidad,
+                    p.COD_Producto AS Codigo,
+                    ib.Existencias AS Stock_Actual,
+                    p.Stock_Minimo AS Stock_Minimo,
+                    p.Precio_Venta AS Precio,
+                    ROUND((ib.Existencias * COALESCE(p.Precio_Venta, 0)), 2) AS Valor_Total,
+                    CASE 
+                        WHEN ib.Existencias <= p.Stock_Minimo THEN 'CRITICO'
+                        WHEN ib.Existencias <= (p.Stock_Minimo * 1.5) THEN 'BAJO'
+                        ELSE 'NORMAL'
+                    END AS Estado_Stock,
+                    b.Nombre AS Bodega
+                FROM productos p
+                INNER JOIN categorias_producto cp ON p.ID_Categoria = cp.ID_Categoria
+                INNER JOIN unidades_medida um ON p.Unidad_Medida = um.ID_Unidad
+                INNER JOIN inventario_bodega ib ON p.ID_Producto = ib.ID_Producto
+                INNER JOIN bodegas b ON ib.ID_Bodega = b.ID_Bodega
+                WHERE p.Estado = 'activo'
+                    AND b.ID_Bodega = %s
+                ORDER BY cp.Descripcion, p.Descripcion
+            """, (session.get('id_bodega', 1),))
+            productos_categorias = cursor.fetchall()
+            
+            # 9. Resumen por categoría para agrupar - NUEVA CONSULTA
+            cursor.execute("""
+                SELECT 
+                    cp.Descripcion AS Categoria,
+                    COUNT(p.ID_Producto) AS Total_Productos,
+                    SUM(ib.Existencias) AS Stock_Total,
+                    SUM(ib.Existencias * COALESCE(p.Precio_Venta, 0)) AS Valor_Total,
+                    COUNT(CASE WHEN ib.Existencias <= p.Stock_Minimo THEN 1 END) AS Productos_Criticos,
+                    COUNT(CASE WHEN ib.Existencias <= (p.Stock_Minimo * 1.5) AND ib.Existencias > p.Stock_Minimo THEN 1 END) AS Productos_Bajos
+                FROM productos p
+                INNER JOIN categorias_producto cp ON p.ID_Categoria = cp.ID_Categoria
+                INNER JOIN inventario_bodega ib ON p.ID_Producto = ib.ID_Producto
+                WHERE p.Estado = 'activo'
+                    AND ib.ID_Bodega = %s
+                GROUP BY cp.Descripcion
+                ORDER BY cp.Descripcion
+            """, (session.get('id_bodega', 1),))
+            resumen_categorias = cursor.fetchall()
+            
+            # 10. Información adicional del sistema
+            cursor.execute("""
+                SELECT 
+                    (SELECT COUNT(*) FROM productos WHERE Estado = 'activo') as total_productos_sistema,
+                    (SELECT COUNT(*) FROM bodegas WHERE Estado = 'activa') as total_bodegas_sistema,
+                    (SELECT COUNT(*) FROM movimientos_inventario WHERE Fecha = CURDATE()) as movimientos_hoy_sistema
+            """)
+            sistema_info = cursor.fetchone()
+            
             # Formatear fecha actual para mostrar
             fecha_hoy = datetime.now().strftime("%d/%m/%Y")
             
@@ -842,12 +898,16 @@ def bodega_dashboard():
                                  productos_stock_bajo=productos_stock_bajo,
                                  top_productos_hoy=top_productos_hoy,
                                  movimientos_por_bodega=movimientos_por_bodega,
+                                 productos_categorias=productos_categorias,
+                                 resumen_categorias=resumen_categorias,
                                  info_bodega=info_bodega,
-                                 fecha_hoy=fecha_hoy)
+                                 sistema_info=sistema_info,
+                                 fecha_hoy=fecha_hoy,
+                                 current_user=current_user)
                              
     except Exception as e:
         flash(f'Error al cargar el dashboard: {str(e)}', 'error')
-        print(f"ERROR: {str(e)}")
+        print(f"ERROR en bodega_dashboard: {str(e)}")
         traceback.print_exc()
         # Pasar variables vacías para evitar errores en la plantilla
         return render_template('bodega/dashboard.html',
@@ -857,8 +917,12 @@ def bodega_dashboard():
                              productos_stock_bajo=[],
                              top_productos_hoy=[],
                              movimientos_por_bodega=[],
+                             productos_categorias=[],
+                             resumen_categorias=[],
                              info_bodega=None,
-                             fecha_hoy=datetime.now().strftime("%d/%m/%Y"))
+                             sistema_info={},
+                             fecha_hoy=datetime.now().strftime("%d/%m/%Y"),
+                             current_user=current_user)
 
 @app.template_filter('datetimeformat')
 def datetimeformat(value, format='%H:%M'):

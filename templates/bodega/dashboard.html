@@ -18,6 +18,9 @@
                 <i class="fas fa-warehouse mr-1"></i>{{ info_bodega.Nombre }}
             </span>
             {% endif %}
+            <span class="badge badge-light ml-2">
+                <i class="fas fa-user mr-1"></i>{{ current_user.username if current_user.username else 'Usuario' }}
+            </span>
         </div>
     </div>
 
@@ -469,6 +472,256 @@
         </div>
     </div>
 
+    <!-- Tercera Fila: Inventario por Categoría -->
+    <div class="row">
+        <div class="col-12 mb-4">
+            <div class="card shadow">
+                <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
+                    <h6 class="m-0 font-weight-bold text-success">
+                        <i class="fas fa-list-alt mr-2"></i>Inventario por Categoría
+                    </h6>
+                    <div>
+                        <button class="btn btn-sm btn-outline-success" type="button" data-toggle="collapse" 
+                                data-target="#collapseResumenCategorias" aria-expanded="false" 
+                                aria-controls="collapseResumenCategorias">
+                            <i class="fas fa-chart-pie mr-1"></i>Ver Resumen
+                        </button>
+                        <button class="btn btn-sm btn-outline-primary ml-2" onclick="exportarInventario()">
+                            <i class="fas fa-file-excel mr-1"></i>Exportar
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Resumen Colapsable -->
+                <div class="collapse" id="collapseResumenCategorias">
+                    <div class="card-body bg-light border-bottom">
+                        <div class="row">
+                            {% if resumen_categorias %}
+                            {% for categoria in resumen_categorias %}
+                            <div class="col-md-3 col-sm-6 mb-3">
+                                <div class="card border-0 shadow-sm">
+                                    <div class="card-body p-3">
+                                        <h6 class="card-title text-truncate mb-1" title="{{ categoria.Categoria }}">
+                                            {{ categoria.Categoria[:20] }}{% if categoria.Categoria|length > 20 %}...{% endif %}
+                                        </h6>
+                                        <div class="d-flex justify-content-between align-items-center">
+                                            <div>
+                                                <small class="text-muted">Productos:</small>
+                                                <span class="badge badge-info ml-1">{{ categoria.Total_Productos }}</span>
+                                            </div>
+                                            <div>
+                                                <small class="text-muted">Stock:</small>
+                                                <span class="badge badge-secondary ml-1">{{ "{:,.0f}".format(categoria.Stock_Total|float) }}</span>
+                                            </div>
+                                        </div>
+                                        <div class="mt-2">
+                                            <small class="text-muted">Valor:</small>
+                                            <span class="font-weight-bold text-success">
+                                                ${{ "{:,.2f}".format(categoria.Valor_Total|float) }}
+                                            </span>
+                                        </div>
+                                        <div class="mt-1">
+                                            {% if categoria.Productos_Criticos > 0 %}
+                                            <span class="badge badge-danger mr-1">Críticos: {{ categoria.Productos_Criticos }}</span>
+                                            {% endif %}
+                                            {% if categoria.Productos_Bajos > 0 %}
+                                            <span class="badge badge-warning">Bajos: {{ categoria.Productos_Bajos }}</span>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                            {% else %}
+                            <div class="col-12 text-center text-muted py-3">
+                                <i class="fas fa-info-circle fa-2x mb-2"></i>
+                                <p class="mb-0">No hay datos de categorías</p>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tabla detallada de productos -->
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover table-sm" id="tablaInventario">
+                            <thead class="bg-light">
+                                <tr>
+                                    <th>Categoría</th>
+                                    <th>Código</th>
+                                    <th>Producto</th>
+                                    <th>Unidad</th>
+                                    <th>Stock Actual</th>
+                                    <th>Stock Mínimo</th>
+                                    <th>Estado</th>
+                                    <th>Precio Unit.</th>
+                                    <th>Valor Total</th>
+                                    <th>Bodega</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% if productos_categorias %}
+                                {% set current_category = [] %}
+                                {% for producto in productos_categorias %}
+                                {% if current_category.append(producto.Categoria) or True %}
+                                {% if loop.first or producto.Categoria != productos_categorias[loop.index0-1].Categoria %}
+                                <!-- Fila de categoría -->
+                                <tr class="table-secondary font-weight-bold">
+                                    <td colspan="10">
+                                        <i class="fas fa-folder mr-2"></i>{{ producto.Categoria }}
+                                        {% for cat_resumen in resumen_categorias %}
+                                            {% if cat_resumen.Categoria == producto.Categoria %}
+                                                <span class="badge badge-light ml-2">
+                                                    {{ cat_resumen.Total_Productos }}
+                                                </span>
+                                            {% endif %}
+                                        {% endfor %}
+                                    </td>
+                                </tr>
+                                {% endif %}
+                                <tr class="{% if producto.Estado_Stock == 'CRITICO' %}table-danger{% elif producto.Estado_Stock == 'BAJO' %}table-warning{% endif %}">
+                                    <td></td> <!-- Columna vacía para alineación -->
+                                    <td>
+                                        <small><code>{{ producto.Codigo|default('N/A') }}</code></small>
+                                    </td>
+                                    <td>
+                                        <div class="d-flex align-items-center">
+                                            <span>{{ producto.Producto[:40] }}{% if producto.Producto|length > 40 %}...{% endif %}</span>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <span class="badge badge-light">{{ producto.Unidad }}</span>
+                                    </td>
+                                    <td>
+                                        <div class="d-flex align-items-center">
+                                            <span class="font-weight-bold mr-2">
+                                                {{ "{:,.2f}".format(producto.Stock_Actual|float) }}
+                                            </span>
+                                            {% set porcentaje = (producto.Stock_Actual / producto.Stock_Minimo * 100) if producto.Stock_Minimo > 0 else 100 %}
+                                            <div class="progress flex-grow-1" style="height: 8px; width: 80px;">
+                                                <div class="progress-bar 
+                                                    {% if porcentaje < 50 %}bg-danger
+                                                    {% elif porcentaje < 100 %}bg-warning
+                                                    {% else %}bg-success{% endif %}" 
+                                                    role="progressbar" 
+                                                    style="width: {{ porcentaje if porcentaje <= 200 else 200 }}%">
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <span class="badge badge-light">{{ "{:,.2f}".format(producto.Stock_Minimo|float) }}</span>
+                                    </td>
+                                    <td>
+                                        {% if producto.Estado_Stock == 'CRITICO' %}
+                                        <span class="badge badge-danger">
+                                            <i class="fas fa-exclamation-circle mr-1"></i>Crítico
+                                        </span>
+                                        {% elif producto.Estado_Stock == 'BAJO' %}
+                                        <span class="badge badge-warning">
+                                            <i class="fas fa-exclamation-triangle mr-1"></i>Bajo
+                                        </span>
+                                        {% else %}
+                                        <span class="badge badge-success">
+                                            <i class="fas fa-check-circle mr-1"></i>Normal
+                                        </span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <small>${{ "{:,.2f}".format(producto.Precio|float) if producto.Precio else "0.00" }}</small>
+                                    </td>
+                                    <td>
+                                        <span class="font-weight-bold text-success">
+                                            ${{ "{:,.2f}".format(producto.Valor_Total|float) if producto.Valor_Total else "0.00" }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <small>{{ producto.Bodega[:15] }}{% if producto.Bodega|length > 15 %}...{% endif %}</small>
+                                    </td>
+                                </tr>
+                                {% endif %}
+                                {% endfor %}
+                                {% else %}
+                                <tr>
+                                    <td colspan="10" class="text-center text-muted py-4">
+                                        <i class="fas fa-box fa-2x mb-2"></i>
+                                        <p class="mb-0">No hay productos registrados en esta bodega</p>
+                                    </td>
+                                </tr>
+                                {% endif %}
+                            </tbody>
+                            <tfoot class="bg-light">
+                                <tr>
+                                    <th colspan="4" class="text-right">Totales:</th>
+                                    <th>
+                                        {% if productos_categorias %}
+                                        {{ "{:,.2f}".format(productos_categorias|sum(attribute='Stock_Actual')|float) }}
+                                        {% else %}
+                                        0.00
+                                        {% endif %}
+                                    </th>
+                                    <th></th>
+                                    <th></th>
+                                    <th></th>
+                                    <th class="text-success">
+                                        {% if productos_categorias %}
+                                        ${{ "{:,.2f}".format(productos_categorias|sum(attribute='Valor_Total')|float) }}
+                                        {% else %}
+                                        $0.00
+                                        {% endif %}
+                                    </th>
+                                    <th></th>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                    
+                    <!-- Paginación y búsqueda -->
+                    {% if productos_categorias %}
+                    <div class="row mt-3">
+                        <div class="col-md-6">
+                            <div class="form-inline">
+                                <label for="filasPorPagina" class="mr-2">Mostrar:</label>
+                                <select class="form-control form-control-sm mr-3" id="filasPorPagina">
+                                    <option value="10">10</option>
+                                    <option value="25">25</option>
+                                    <option value="50">50</option>
+                                    <option value="100">100</option>
+                                    <option value="-1">Todos</option>
+                                </select>
+                                <div class="input-group input-group-sm">
+                                    <div class="input-group-prepend">
+                                        <span class="input-group-text"><i class="fas fa-search"></i></span>
+                                    </div>
+                                    <input type="text" class="form-control" id="buscarProducto" 
+                                           placeholder="Buscar producto...">
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6 text-right">
+                            <div class="btn-group btn-group-sm">
+                                <button class="btn btn-outline-secondary" onclick="filtrarPorEstado('all')">
+                                    Todos
+                                </button>
+                                <button class="btn btn-outline-danger" onclick="filtrarPorEstado('CRITICO')">
+                                    <i class="fas fa-exclamation-circle mr-1"></i>Críticos
+                                </button>
+                                <button class="btn btn-outline-warning" onclick="filtrarPorEstado('BAJO')">
+                                    <i class="fas fa-exclamation-triangle mr-1"></i>Bajos
+                                </button>
+                                <button class="btn btn-outline-success" onclick="filtrarPorEstado('NORMAL')">
+                                    <i class="fas fa-check-circle mr-1"></i>Normales
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Botones de acción -->
     <div class="row mb-4">
         <div class="col-12">
@@ -514,6 +767,20 @@
     background-color: #e9ecef;
     margin-top: 3px;
 }
+.table-secondary > td {
+    background-color: #f8f9fa;
+    border-top: 2px solid #dee2e6;
+}
+.table-danger {
+    background-color: rgba(220, 53, 69, 0.05);
+}
+.table-warning {
+    background-color: rgba(255, 193, 7, 0.05);
+}
+.table-hover tbody tr:hover {
+    transform: scale(1.001);
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
 </style>
 
 <script>
@@ -527,10 +794,166 @@ setTimeout(function() {
     $('.alert').alert('close');
 }, 5000);
 
-// Función para formatear números
-function formatNumber(num) {
-    return num.toFixed(2).replace(/\d(?=(\d{3})+\.)/g, '$&,');
+// Función para exportar inventario
+function exportarInventario() {
+    // Crear tabla HTML para exportar
+    let tabla = document.getElementById('tablaInventario');
+    let html = tabla.outerHTML;
+    
+    // Crear archivo
+    let blob = new Blob([html], {type: 'application/vnd.ms-excel'});
+    let url = URL.createObjectURL(blob);
+    let a = document.createElement('a');
+    a.href = url;
+    a.download = 'inventario_' + new Date().toISOString().slice(0,10) + '.xls';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
 }
+
+function filtrarPorEstado(estado) {
+    let filas = document.querySelectorAll('#tablaInventario tbody tr');
+    filas.forEach(function(fila) {
+        if (fila.classList.contains('table-secondary')) {
+            // Mostrar filas de categoría
+            fila.style.display = '';
+        } else {
+            // Filtrar por estado
+            if (estado === 'all') {
+                fila.style.display = '';
+            } else {
+                let estadoFila = '';
+                if (fila.classList.contains('table-danger')) estadoFila = 'CRITICO';
+                else if (fila.classList.contains('table-warning')) estadoFila = 'BAJO';
+                else estadoFila = 'NORMAL';
+                
+                fila.style.display = estadoFila === estado ? '' : 'none';
+            }
+        }
+    });
+    
+    // Actualizar botones activos
+    document.querySelectorAll('.btn-group .btn').forEach(btn => {
+        btn.classList.remove('active');
+    });
+    event.target.classList.add('active');
+}
+
+// Búsqueda en tiempo real
+document.getElementById('buscarProducto')?.addEventListener('input', function(e) {
+    let searchTerm = e.target.value.toLowerCase();
+    let filas = document.querySelectorAll('#tablaInventario tbody tr');
+    let currentCategory = '';
+    let categoryRow = null;
+    
+    filas.forEach(function(fila) {
+        if (fila.classList.contains('table-secondary')) {
+            currentCategory = fila.textContent.toLowerCase();
+            categoryRow = fila;
+            fila.style.display = '';
+        } else {
+            let textoFila = fila.textContent.toLowerCase();
+            let mostrarFila = textoFila.includes(searchTerm) || 
+                             currentCategory.includes(searchTerm);
+            
+            fila.style.display = mostrarFila ? '' : 'none';
+            
+            // Mostrar/ocultar categoría según si tiene productos visibles
+            if (categoryRow && mostrarFila) {
+                categoryRow.style.display = '';
+            }
+        }
+    });
+});
+
+// Filtrar por número de filas
+document.getElementById('filasPorPagina')?.addEventListener('change', function(e) {
+    let filasPorPagina = parseInt(e.target.value);
+    let filas = document.querySelectorAll('#tablaInventario tbody tr:not(.table-secondary)');
+    
+    if (filasPorPagina === -1) {
+        filas.forEach(fila => fila.style.display = '');
+    } else {
+        let contador = 0;
+        let currentCategory = '';
+        let categoryRow = null;
+        
+        document.querySelectorAll('#tablaInventario tbody tr').forEach((fila, index) => {
+            if (fila.classList.contains('table-secondary')) {
+                currentCategory = fila.textContent;
+                categoryRow = fila;
+                fila.style.display = '';
+            } else {
+                if (contador < filasPorPagina) {
+                    fila.style.display = '';
+                    contador++;
+                } else {
+                    fila.style.display = 'none';
+                    // Ocultar categoría si todos sus productos están ocultos
+                    if (categoryRow) {
+                        let productosCategoria = Array.from(filas).filter(f => 
+                            f.textContent.includes(currentCategory));
+                        let todosOcultos = productosCategoria.every(f => f.style.display === 'none');
+                        if (todosOcultos) {
+                            categoryRow.style.display = 'none';
+                        }
+                    }
+                }
+            }
+        });
+    }
+});
+
+// Ordenar tabla
+function ordenarTabla(columna) {
+    let tabla = document.getElementById('tablaInventario');
+    let tbody = tabla.querySelector('tbody');
+    let filas = Array.from(tbody.querySelectorAll('tr:not(.table-secondary)'));
+    let categorias = Array.from(tbody.querySelectorAll('tr.table-secondary'));
+    
+    // Ordenar productos manteniendo categorías
+    filas.sort((a, b) => {
+        let valorA = a.children[columna].textContent;
+        let valorB = b.children[columna].textContent;
+        
+        // Para columnas numéricas
+        if ([4, 5, 7, 8].includes(columna)) {
+            valorA = parseFloat(valorA.replace(/[^0-9.-]+/g, ''));
+            valorB = parseFloat(valorB.replace(/[^0-9.-]+/g, ''));
+        }
+        
+        return valorA > valorB ? 1 : -1;
+    });
+    
+    // Reconstruir tabla manteniendo categorías
+    tbody.innerHTML = '';
+    let categoriaActual = '';
+    
+    filas.forEach(fila => {
+        let categoriaProducto = fila.dataset.categoria || '';
+        if (categoriaProducto !== categoriaActual) {
+            let categoriaRow = categorias.find(c => c.textContent.includes(categoriaProducto));
+            if (categoriaRow) {
+                tbody.appendChild(categoriaRow.cloneNode(true));
+            }
+            categoriaActual = categoriaProducto;
+        }
+        tbody.appendChild(fila);
+    });
+}
+
+// Hacer las cabeceras de tabla clickeables para ordenar
+document.addEventListener('DOMContentLoaded', function() {
+    let cabeceras = document.querySelectorAll('#tablaInventario thead th');
+    cabeceras.forEach((th, index) => {
+        if (index > 0 && index < cabeceras.length - 1) { // No ordenar primera y última
+            th.style.cursor = 'pointer';
+            th.title = "Click para ordenar";
+            th.addEventListener('click', () => ordenarTabla(index));
+        }
+    });
+});
 
 // Mostrar hora actual en consola para debug
 console.log("Dashboard cargado: " + new Date().toLocaleString());
