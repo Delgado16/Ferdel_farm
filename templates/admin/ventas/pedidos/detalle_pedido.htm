@@ -1,0 +1,520 @@
+{% extends "layout.html" %}
+
+{% block title %}Detalle de Pedido #{{ pedido.ID_Pedido }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <!-- Encabezado -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2><i class="fas fa-file-invoice me-2"></i>Pedido #{{ pedido.ID_Pedido }}</h2>
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{{ url_for('admin_dashboard') }}">Inicio</a></li>
+                    <li class="breadcrumb-item"><a href="{{ url_for('admin_pedidos_venta') }}">Pedidos de Venta</a></li>
+                    <li class="breadcrumb-item active" aria-current="page">Detalle Pedido #{{ pedido.ID_Pedido }}</li>
+                </ol>
+            </nav>
+        </div>
+        <div class="btn-group" role="group">
+            <a href="{{ url_for('admin_pedidos_venta') }}" class="btn btn-outline-secondary">
+                <i class="fas fa-arrow-left me-1"></i> Volver
+            </a>
+            <button class="btn btn-primary" onclick="window.print()">
+                <i class="fas fa-print me-1"></i> Imprimir
+            </button>
+            <button class="btn btn-success" onclick="generarFactura()">
+                <i class="fas fa-file-invoice-dollar me-1"></i> Facturar
+            </button>
+        </div>
+    </div>
+    
+    <!-- Alerta de estado -->
+    <div class="alert 
+        {% if pedido.Estado == 'Pendiente' %}alert-warning
+        {% elif pedido.Estado == 'Aprobado' %}alert-info
+        {% elif pedido.Estado == 'Entregado' %}alert-success
+        {% elif pedido.Estado == 'Cancelado' %}alert-danger
+        {% else %}alert-secondary{% endif %} mb-4">
+        <div class="d-flex justify-content-between align-items-center">
+            <div>
+                <h5 class="alert-heading">
+                    <i class="fas 
+                        {% if pedido.Estado == 'Pendiente' %}fa-clock
+                        {% elif pedido.Estado == 'Aprobado' %}fa-check-circle
+                        {% elif pedido.Estado == 'Entregado' %}fa-truck
+                        {% elif pedido.Estado == 'Cancelado' %}fa-times-circle
+                        {% endif %} me-2"></i>
+                    Estado: {{ pedido.Estado }}
+                </h5>
+                <p class="mb-0">
+                    Fecha del pedido: {{ pedido.Fecha.strftime('%d/%m/%Y') if pedido.Fecha else 'N/A' }}
+                    | Creado por: {{ pedido.Usuario_Creacion or 'Sistema' }}
+                </p>
+            </div>
+            <div>
+                <div class="btn-group" role="group">
+                    {% if pedido.Estado == 'Pendiente' %}
+                    <button type="button" class="btn btn-success" onclick="cambiarEstado('Aprobado')">
+                        <i class="fas fa-check me-1"></i> Aprobar
+                    </button>
+                    <button type="button" class="btn btn-danger" onclick="cambiarEstado('Cancelado')">
+                        <i class="fas fa-times me-1"></i> Cancelar
+                    </button>
+                    {% elif pedido.Estado == 'Aprobado' %}
+                    <button type="button" class="btn btn-primary" onclick="cambiarEstado('Entregado')">
+                        <i class="fas fa-truck me-1"></i> Marcar Entregado
+                    </button>
+                    <button type="button" class="btn btn-warning" onclick="cambiarEstado('Pendiente')">
+                        <i class="fas fa-undo me-1"></i> Revertir
+                    </button>
+                    {% elif pedido.Estado == 'Entregado' %}
+                    <button type="button" class="btn btn-secondary" disabled>
+                        <i class="fas fa-check-circle me-1"></i> Completado
+                    </button>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="row">
+        <!-- Información del Pedido -->
+        <div class="col-md-8">
+            <div class="card mb-4">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0"><i class="fas fa-info-circle me-2"></i>Información del Pedido</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <table class="table table-borderless">
+                                <tr>
+                                    <th width="40%" class="text-muted">Número:</th>
+                                    <td><strong>#{{ pedido.ID_Pedido }}</strong></td>
+                                </tr>
+                                <tr>
+                                    <th class="text-muted">Fecha:</th>
+                                    <td>{{ pedido.Fecha.strftime('%d/%m/%Y') if pedido.Fecha else 'N/A' }}</td>
+                                </tr>
+                                <tr>
+                                    <th class="text-muted">Tipo Entrega:</th>
+                                    <td>
+                                        <span class="badge 
+                                            {% if pedido.Tipo_Entrega == 'Entrega a domicilio' %}bg-primary
+                                            {% else %}bg-secondary{% endif %}">
+                                            <i class="fas 
+                                                {% if pedido.Tipo_Entrega == 'Entrega a domicilio' %}fa-truck
+                                                {% else %}fa-store{% endif %} me-1"></i>
+                                            {{ pedido.Tipo_Entrega }}
+                                        </span>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <th class="text-muted">Creación:</th>
+                                    <td>{{ pedido.Fecha_Creacion.strftime('%d/%m/%Y %H:%M:%S') if pedido.Fecha_Creacion else 'N/A' }}</td>
+                                </tr>
+                            </table>
+                        </div>
+                        <div class="col-md-6">
+                            <table class="table table-borderless">
+                                <tr>
+                                    <th width="40%" class="text-muted">Empresa:</th>
+                                    <td>{{ pedido.Nombre_Empresa or 'N/A' }}</td>
+                                </tr>
+                                <tr>
+                                    <th class="text-muted">Usuario:</th>
+                                    <td>{{ pedido.Usuario_Creacion or 'Sistema' }}</td>
+                                </tr>
+                                {% if pedido.Observacion %}
+                                <tr>
+                                    <th class="text-muted">Observación:</th>
+                                    <td>{{ pedido.Observacion }}</td>
+                                </tr>
+                                {% endif %}
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Detalle de Productos -->
+            <div class="card">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0"><i class="fas fa-boxes me-2"></i>Productos del Pedido</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>#</th>
+                                    <th>Código</th>
+                                    <th>Producto</th>
+                                    <th class="text-end">Precio Unit.</th>
+                                    <th class="text-end">Cantidad</th>
+                                    <th class="text-end">Subtotal</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for detalle in detalles %}
+                                <tr>
+                                    <td>{{ loop.index }}</td>
+                                    <td>
+                                        {% if detalle.Codigo_Producto %}
+                                        <span class="badge bg-dark">{{ detalle.Codigo_Producto }}</span>
+                                        {% else %}
+                                        <span class="badge bg-secondary">N/A</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <div><strong>{{ detalle.Nombre_Producto or 'Producto' }}</strong></div>
+                                        {% if detalle.Descripcion %}
+                                        <small class="text-muted">{{ detalle.Descripcion[:50] }}{% if detalle.Descripcion|length > 50 %}...{% endif %}</small>
+                                        {% endif %}
+                                    </td>
+                                    <td class="text-end">${{ "{:,.2f}".format(detalle.Precio_Unitario or 0) }}</td>
+                                    <td class="text-end">{{ "{:,.2f}".format(detalle.Cantidad or 0) }}</td>
+                                    <td class="text-end fw-bold text-success">${{ "{:,.2f}".format(detalle.Subtotal or 0) }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                            <tfoot class="table-active">
+                                <tr>
+                                    <td colspan="4" class="text-end fw-bold">TOTAL ITEMS:</td>
+                                    <td class="text-end fw-bold">{{ "{:,.2f}".format(totales.Total_Cantidad or 0) }}</td>
+                                    <td></td>
+                                </tr>
+                                <tr>
+                                    <td colspan="5" class="text-end fw-bold fs-5">TOTAL GENERAL:</td>
+                                    <td class="text-end fw-bold text-success fs-5">
+                                        ${{ "{:,.2f}".format(totales.Total_General or 0) }}
+                                    </td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Información del Cliente -->
+        <div class="col-md-4">
+            <div class="card mb-4">
+                <div class="card-header bg-info text-white">
+                    <h5 class="mb-0"><i class="fas fa-user me-2"></i>Información del Cliente</h5>
+                </div>
+                <div class="card-body">
+                    <div class="text-center mb-3">
+                        <div class="avatar-circle bg-primary mb-2 mx-auto">
+                            <i class="fas fa-user fa-2x text-white"></i>
+                        </div>
+                        <h5>{{ pedido.Nombre_Cliente or 'Cliente' }}</h5>
+                        <span class="badge 
+                            {% if pedido.Tipo_Cliente == 'Especial' %}bg-primary
+                            {% else %}bg-light text-dark{% endif %}">
+                            {{ pedido.Tipo_Cliente }} 
+                        </span>
+                    </div>
+                    
+                    <table class="table table-borderless">
+                        <tr>
+                            <th width="40%" class="text-muted">Documento:</th>
+                            <td>
+                                {% if pedido.Documento_Cliente %}
+                                <span class="badge bg-dark">{{ pedido.Documento_Cliente }}</span>
+                                {% else %}
+                                <span class="text-muted">No especificado</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        <tr>
+                            <th class="text-muted">Teléfono:</th>
+                            <td>
+                                {% if pedido.Telefono_Cliente %}
+                                <a href="tel:{{ pedido.Telefono_Cliente }}" class="text-decoration-none">
+                                    <i class="fas fa-phone-alt me-1"></i> {{ pedido.Telefono_Cliente }}
+                                </a>
+                                {% else %}
+                                <span class="text-muted">No especificado</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        <tr>
+                            <th class="text-muted">Dirección:</th>
+                            <td>
+                                {% if pedido.Direccion_Cliente %}
+                                <i class="fas fa-map-marker-alt me-1"></i> {{ pedido.Direccion_Cliente }}
+                                {% else %}
+                                <span class="text-muted">No especificada</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        <tr>
+                            <th class="text-muted">Email:</th>
+                            <td>
+                                {% if pedido.Email_Cliente %}
+                                <a href="mailto:{{ pedido.Email_Cliente }}" class="text-decoration-none">
+                                    <i class="fas fa-envelope me-1"></i> {{ pedido.Email_Cliente }}
+                                </a>
+                                {% else %}
+                                <span class="text-muted">No especificado</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        <tr>
+                            <th class="text-muted">Estado:</th>
+                            <td>
+                                <span class="badge 
+                                    {% if pedido.Estado_Cliente == 'ACTIVO' %}bg-success
+                                    {% else %}bg-danger{% endif %}">
+                                    {{ pedido.Estado_Cliente }}
+                                </span>
+                            </td>
+                        </tr>
+                    </table>
+                    
+                    <div class="d-grid gap-2">
+                        <a href="/admin/clientes/editar/{{ pedido.ID_Cliente }}" class="btn btn-outline-primary">
+                            <i class="fas fa-edit me-1"></i> Editar Cliente
+                        </a>
+                        <a href="/admin/ventas/nuevo-pedido?cliente={{ pedido.ID_Cliente }}" class="btn btn-outline-success">
+                            <i class="fas fa-plus me-1"></i> Nuevo Pedido
+                        </a>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Información de la Empresa -->
+            <div class="card">
+                <div class="card-header bg-secondary text-white">
+                    <h5 class="mb-0"><i class="fas fa-building me-2"></i>Información de la Empresa</h5>
+                </div>
+                <div class="card-body">
+                    <h6 class="fw-bold">{{ pedido.Nombre_Empresa or 'Empresa' }}</h6>
+                    <table class="table table-borderless">
+                        {% if pedido.Direccion_Empresa %}
+                        <tr>
+                            <td colspan="2">
+                                <i class="fas fa-map-marker-alt me-2 text-muted"></i>
+                                {{ pedido.Direccion_Empresa }}
+                            </td>
+                        </tr>
+                        {% endif %}
+                        {% if pedido.Telefono_Empresa %}
+                        <tr>
+                            <td colspan="2">
+                                <i class="fas fa-phone-alt me-2 text-muted"></i>
+                                {{ pedido.Telefono_Empresa }}
+                            </td>
+                        </tr>
+                        {% endif %}
+                        <tr>
+                            <td class="text-muted">Pedidos totales:</td>
+                            <td class="text-end">{{ totales.Total_Productos or 0 }}</td>
+                        </tr>
+                        <tr>
+                            <td class="text-muted">Total monto:</td>
+                            <td class="text-end fw-bold">${{ "{:,.2f}".format(totales.Total_General or 0) }}</td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para cambiar estado -->
+<div class="modal fade" id="modalEstado" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Cambiar Estado del Pedido #{{ pedido.ID_Pedido }}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label">Nuevo Estado:</label>
+                    <select id="selectNuevoEstado" class="form-select">
+                        <option value="Pendiente" {% if pedido.Estado == 'Pendiente' %}selected{% endif %}>Pendiente</option>
+                        <option value="Aprobado" {% if pedido.Estado == 'Aprobado' %}selected{% endif %}>Aprobado</option>
+                        <option value="Entregado" {% if pedido.Estado == 'Entregado' %}selected{% endif %}>Entregado</option>
+                        <option value="Cancelado" {% if pedido.Estado == 'Cancelado' %}selected{% endif %}>Cancelado</option>
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Observación (opcional):</label>
+                    <textarea id="observacionEstado" class="form-control" rows="3" 
+                              placeholder="Agregue una observación para el cambio de estado..."></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" onclick="confirmarCambioEstado()">Cambiar Estado</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let estadoActual = '{{ pedido.Estado }}';
+
+function cambiarEstado(nuevoEstado) {
+    if (nuevoEstado === estadoActual) {
+        showToast('warning', 'Estado igual', 'El pedido ya se encuentra en este estado.');
+        return;
+    }
+    
+    if (confirm(`¿Está seguro de cambiar el estado del pedido #{{ pedido.ID_Pedido }} de "${estadoActual}" a "${nuevoEstado}"?`)) {
+        realizarCambioEstado(nuevoEstado, '');
+    }
+}
+
+function abrirModalEstado() {
+    const modal = new bootstrap.Modal(document.getElementById('modalEstado'));
+    modal.show();
+}
+
+function confirmarCambioEstado() {
+    const nuevoEstado = document.getElementById('selectNuevoEstado').value;
+    const observacion = document.getElementById('observacionEstado').value;
+    
+    if (nuevoEstado === estadoActual) {
+        showToast('warning', 'Estado igual', 'El pedido ya se encuentra en este estado.');
+        return;
+    }
+    
+    realizarCambioEstado(nuevoEstado, observacion);
+}
+
+function realizarCambioEstado(nuevoEstado, observacion) {
+    fetch(`/admin/ventas/cambiar-estado/{{ pedido.ID_Pedido }}`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            estado: nuevoEstado,
+            observacion: observacion
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showToast('success', 'Estado actualizado', 'El estado del pedido ha sido actualizado correctamente.');
+            setTimeout(() => {
+                location.reload();
+            }, 1500);
+        } else {
+            showToast('error', 'Error', data.message || 'Error al cambiar el estado');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showToast('error', 'Error', 'Error al conectar con el servidor');
+    });
+}
+
+function generarFactura() {
+    if (estadoActual !== 'Aprobado' && estadoActual !== 'Entregado') {
+        showToast('warning', 'Pedido no aprobado', 'El pedido debe estar aprobado para generar una factura.');
+        return;
+    }
+    
+    if (confirm('¿Generar factura para este pedido?')) {
+        fetch(`/admin/ventas/generar-factura/{{ pedido.ID_Pedido }}`, {
+            method: 'POST'
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showToast('success', 'Factura generada', 'La factura ha sido generada correctamente.');
+                setTimeout(() => {
+                    window.open(`/admin/facturacion/factura/${data.factura_id}`, '_blank');
+                }, 1000);
+            } else {
+                showToast('error', 'Error', data.message || 'Error al generar la factura');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showToast('error', 'Error', 'Error al conectar con el servidor');
+        });
+    }
+}
+
+function showToast(type, title, message) {
+    // Implementación de toast (ajusta según tu sistema)
+    if (typeof Toast !== 'undefined') {
+        Toast.fire({
+            icon: type,
+            title: title,
+            text: message
+        });
+    } else {
+        alert(`${title}: ${message}`);
+    }
+}
+
+// Estilos para impresión
+@media print {
+    .breadcrumb, .btn, .card-header .float-end, .alert .btn-group {
+        display: none !important;
+    }
+    .card {
+        border: 1px solid #000 !important;
+        margin-bottom: 10px !important;
+    }
+    .card-header {
+        background-color: #f8f9fa !important;
+        color: #000 !important;
+        border-bottom: 2px solid #000 !important;
+    }
+    .container-fluid {
+        padding: 0 !important;
+    }
+    h2 {
+        margin-bottom: 10px !important;
+    }
+}
+</script>
+
+<style>
+.avatar-circle {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.table th {
+    font-weight: 600;
+    background-color: #f8f9fa;
+}
+.card-header {
+    font-weight: 600;
+}
+.badge {
+    font-size: 0.85em;
+    padding: 0.4em 0.8em;
+}
+@media print {
+    @page {
+        margin: 0.5cm;
+    }
+    body {
+        font-size: 12pt;
+    }
+    .table th, .table td {
+        padding: 4px !important;
+    }
+    h2 {
+        font-size: 18pt;
+    }
+    h5 {
+        font-size: 14pt;
+    }
+}
+</style>
+{% endblock %}

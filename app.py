@@ -641,7 +641,7 @@ def dashboard():
     elif current_user.rol == 'Vendedor':
         return render_template('vendedor/dashboard.html')
     elif current_user.rol == 'Bodega':
-        return render_template('Bodega/dashboard.html')
+        return redirect(url_for('bodega_dashboard'))
     else:
         abort(403)
 
@@ -3084,7 +3084,6 @@ def admin_editar_bodega(id):
 #CATALOGO PRODUCTOS - BODEGA
 @app.route('/admin/bodega/productos', methods=['GET'])
 @admin_required
-@bodega_required
 @bitacora_decorator("PRODUCTOS")
 def admin_productos():
     try:
@@ -8039,8 +8038,8 @@ def admin_detalle_cuentacobrar(id_movimiento):
 def admin_pedidos_venta():
     try:
         with get_db_cursor(True) as cursor:
-            # Consulta principal para obtener los pedidos con información extendida
-            query = """
+            # Consulta principal para obtener los pedidos con información relacionada
+            sql = """
             SELECT 
                 p.ID_Pedido,
                 p.Fecha,
@@ -8048,281 +8047,684 @@ def admin_pedidos_venta():
                 p.Tipo_Entrega,
                 p.Observacion,
                 p.Fecha_Creacion,
+                c.ID_Cliente,
                 c.Nombre as Nombre_Cliente,
-                c.Direccion,
-                c.Telefono,
-                c.RUC_CEDULA,
-                u.NombreUsuario as Nombre_Usuario,
+                c.Telefono as Telefono_Cliente,
+                c.Direccion as Direccion_Cliente,
+                c.RUC_CEDULA as Documento_Cliente,
+                c.tipo_cliente as Tipo_Cliente,
+                c.Estado as Estado_Cliente,
                 e.Nombre_Empresa,
+                u.NombreUsuario as Usuario_Creacion,
+                COUNT(dp.ID_Detalle_Pedido) as Total_Items,
+                SUM(dp.Subtotal) as Total_Pedido
             FROM pedidos p
             LEFT JOIN clientes c ON p.ID_Cliente = c.ID_Cliente
-            LEFT JOIN usuarios u ON p.ID_Usuario_Creacion = u.ID_Usuario
             LEFT JOIN empresa e ON p.ID_Empresa = e.ID_Empresa
+            LEFT JOIN usuarios u ON p.ID_Usuario_Creacion = u.ID_Usuario
+            LEFT JOIN detalle_pedidos dp ON p.ID_Pedido = dp.ID_Pedido
+            WHERE c.Estado = 'ACTIVO'  -- Solo clientes activos
+            GROUP BY p.ID_Pedido, p.Fecha, p.Estado, p.Tipo_Entrega, p.Observacion, 
+                     p.Fecha_Creacion, c.ID_Cliente, c.Nombre, c.Telefono, 
+                     c.Direccion, c.RUC_CEDULA, c.tipo_cliente, c.Estado,
+                     e.Nombre_Empresa, u.NombreUsuario
             ORDER BY p.Fecha DESC, p.ID_Pedido DESC
             """
             
-            cursor.execute(query)
+            cursor.execute(sql)
             pedidos = cursor.fetchall()
             
-            # Para cada pedido, obtener los detalles de productos
-            pedidos_con_detalles = []
-            for pedido in pedidos:
-                # Consulta para obtener los productos del pedido
-                detalle_query = """
-                SELECT 
-                    dp.ID_Detalle_Pedido,
-                    dp.Cantidad,
-                    dp.Fecha_Creacion,
-                    pr.Nombre as Nombre_Producto,
-                    pr.Codigo_Producto,
-                    pr.Precio_Venta,
-                    um.Nombre as Unidad_Medida
-                FROM detalle_pedidos dp
-                LEFT JOIN productos pr ON dp.ID_Producto = pr.ID_Producto
-                LEFT JOIN unidades_medida um ON pr.ID_Unidad_Medida = um.ID_Unidad_Medida
-                WHERE dp.ID_Pedido = %s
-                ORDER BY dp.ID_Detalle_Pedido
-                """
-                
-                cursor.execute(detalle_query, (pedido['ID_Pedido'],))
-                productos = cursor.fetchall()
-                
-                # Calcular total del pedido
-                total_pedido = sum(
-                    producto['Cantidad'] * producto['Precio_Venta'] 
-                    for producto in productos
-                )
-                
-                # Crear diccionario con toda la información del pedido
-                pedido_completo = dict(pedido)
-                pedido_completo['Productos'] = productos
-                pedido_completo['Total'] = total_pedido
-                pedido_completo['Usuario_Completo'] = f"{pedido['Nombre_Usuario']} {pedido['Apellido_Usuario']}" if pedido['Nombre_Usuario'] else "No asignado"
-                
-                pedidos_con_detalles.append(pedido_completo)
+            # Si necesitas también las opciones de filtro
+            estados = ['Pendiente', 'Aprobado', 'Entregado', 'Cancelado']
+            tipos_entrega = ['Retiro en local', 'Entrega a domicilio']
+            tipos_cliente = ['Comun', 'Especial']  # Para posibles filtros futuros
             
-            return render_template('admin/pedidos_venta.html', pedidos=pedidos_con_detalles)
+            return render_template('admin/ventas/pedidos/pedidos_venta.html', 
+                                 pedidos=pedidos,
+                                 estados=estados,
+                                 tipos_entrega=tipos_entrega,
+                                 tipos_cliente=tipos_cliente,
+                                 now=datetime.now())
             
     except Exception as e:
-        flash(f"Error al cargar pedidos de venta: {e}")
+        flash(f"Error al cargar pedidos de venta: {e}", "error")
         return redirect(url_for('admin_dashboard'))
 
 
-@app.route('/admin/ventas/pedidos-venta/nuevo', methods=['GET'])
+# Ruta para ver el detalle de un pedido específico
+@app.route('/admin/ventas/pedido/<int:id_pedido>')
 @admin_required
-@bitacora_decorator("NUEVO-PEDIDO-VENTA")
-def nuevo_pedido_venta():
-    """Vista para crear un nuevo pedido de venta"""
+def ver_pedido(id_pedido):
     try:
         with get_db_cursor(True) as cursor:
-            # Obtener clientes para el select
-            cursor.execute("""
-                SELECT ID_Cliente, Nombre, RUC_CI, Direccion, Telefono 
-                FROM clientes 
-                WHERE Estado = 'Activo' 
-                ORDER BY Nombre
-            """)
-            clientes = cursor.fetchall()
-            
-            # Obtener productos activos
-            cursor.execute("""
-                SELECT 
-                    p.ID_Producto, 
-                    p.Nombre, 
-                    p.Codigo_Producto,
-                    p.Precio_Venta,
-                    p.Stock_Actual,
-                    um.Nombre as Unidad_Medida,
-                    c.Nombre as Categoria
-                FROM productos p
-                LEFT JOIN unidades_medida um ON p.ID_Unidad_Medida = um.ID_Unidad_Medida
-                LEFT JOIN categorias_productos c ON p.ID_Categoria = c.ID_Categoria
-                WHERE p.Estado = 'Activo'
-                ORDER BY p.Nombre
-            """)
-            productos = cursor.fetchall()
-            
-            # Obtener empresas para el select
-            cursor.execute("SELECT ID_Empresa, Nombre_Empresa FROM empresa WHERE Estado = 'Activo'")
-            empresas = cursor.fetchall()
-            
-        return render_template('admin/nuevo_pedido_venta.html', 
-                             clientes=clientes, 
-                             productos=productos,
-                             empresas=empresas,
-                             fecha_hoy=date.today())
-        
-    except Exception as e:
-        flash(f"Error al cargar formulario: {e}", "error")
-        return redirect(url_for('admin_pedidos_venta'))
-
-
-@app.route('/admin/ventas/pedidos-venta/crear', methods=['POST'])
-@admin_required
-@bitacora_decorator("CREAR-PEDIDO-VENTA")
-def crear_pedido_venta():
-    """Procesar la creación de un nuevo pedido"""
-    try:
-        data = request.form
-        productos_data = request.form.getlist('productos[]')
-        cantidades = request.form.getlist('cantidades[]')
-        
-        # Validaciones básicas
-        if not data.get('ID_Cliente'):
-            flash("Debe seleccionar un cliente", "error")
-            return redirect(url_for('nuevo_pedido_venta'))
-        
-        if not productos_data or not cantidades:
-            flash("Debe agregar al menos un producto al pedido", "error")
-            return redirect(url_for('nuevo_pedido_venta'))
-        
-        # Verificar que todas las cantidades sean válidas
-        for cantidad in cantidades:
-            if not cantidad or float(cantidad) <= 0:
-                flash("Las cantidades deben ser mayores a 0", "error")
-                return redirect(url_for('nuevo_pedido_venta'))
-        
-        with get_db_cursor() as cursor:
-
-            # Obtener ID del usuario actual desde la sesión
-            id_usuario = current_user.id
-            
-            # Insertar el pedido principal
-            pedido_query = """
-            INSERT INTO pedidos (
-                Fecha, ID_Cliente, ID_Empresa, ID_Usuario_Creacion,
-                Estado, Observacion, Tipo_Entrega, Direccion_Entrega
-            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
-            """
-            
-            pedido_data = (
-                data.get('Fecha') or date.today().isoformat(),
-                data.get('ID_Cliente'),
-                data.get('ID_Empresa'),
-                id_usuario,
-                'Pendiente',
-                data.get('Observacion', '').strip(),
-                data.get('Tipo_Entrega', 'Retiro en local'),
-                data.get('Direccion_Entrega', '').strip()
-            )
-            
-            cursor.execute(pedido_query, pedido_data)
-            id_pedido = cursor.lastrowid
-            
-            # Insertar los productos del pedido
-            detalle_query = """
-            INSERT INTO detalle_pedidos (ID_Pedido, ID_Producto, Cantidad)
-            VALUES (%s, %s, %s)
-            """
-            
-            # Procesar cada producto
-            for i, id_producto in enumerate(productos_data):
-                if i < len(cantidades) and id_producto and cantidades[i]:
-                    cursor.execute(detalle_query, (id_pedido, id_producto, cantidades[i]))
-            
-            flash(f"¡Pedido #{id_pedido} creado exitosamente!", "success")
-            return redirect(url_for('ver_pedido_venta', id_pedido=id_pedido))
-            
-    except Exception as e:
-        flash(f"Error al crear el pedido: {str(e)}", "error")
-        return redirect(url_for('nuevo_pedido_venta'))
-
-
-@app.route('/admin/ventas/pedidos-venta/<int:id_pedido>')
-@admin_required
-@bitacora_decorator("VER-PEDIDO-VENTA")
-def ver_pedido_venta(id_pedido):
-    """Ver detalle de un pedido específico"""
-    try:
-        with get_db_cursor(True) as cursor:
-            # Obtener información del pedido
-            query = """
+            # Obtener información del pedido con datos actualizados del cliente
+            sql_pedido = """
             SELECT 
                 p.*,
+                c.ID_Cliente,
                 c.Nombre as Nombre_Cliente,
+                c.Telefono as Telefono_Cliente,
                 c.Direccion as Direccion_Cliente,
-                c.Telefono,
-                c.RUC_CI,
-                u.Nombre as Nombre_Usuario,
-                u.Apellido as Apellido_Usuario,
+                c.RUC_CEDULA as Documento_Cliente,
+                c.tipo_cliente as Tipo_Cliente,
+                c.Estado as Estado_Cliente,
+                c.Email as Email_Cliente,
                 e.Nombre_Empresa,
-                f.Numero_Factura
+                e.Direccion as Direccion_Empresa,
+                e.Telefono as Telefono_Empresa,
+                u.NombreUsuario as Usuario_Creacion
             FROM pedidos p
             LEFT JOIN clientes c ON p.ID_Cliente = c.ID_Cliente
-            LEFT JOIN usuarios u ON p.ID_Usuario_Creacion = u.ID_Usuario
             LEFT JOIN empresa e ON p.ID_Empresa = e.ID_Empresa
-            LEFT JOIN facturacion f ON p.ID_Factura = f.ID_Factura
+            LEFT JOIN usuarios u ON p.ID_Usuario_Creacion = u.ID_Usuario
             WHERE p.ID_Pedido = %s
+            AND c.Estado = 'ACTIVO'
             """
             
-            cursor.execute(query, (id_pedido,))
+            cursor.execute(sql_pedido, (id_pedido,))
             pedido = cursor.fetchone()
             
             if not pedido:
-                flash("Pedido no encontrado", "error")
+                flash("Pedido no encontrado o cliente inactivo", "error")
                 return redirect(url_for('admin_pedidos_venta'))
             
-            # Obtener productos del pedido
-            detalle_query = """
+            # Obtener detalle del pedido
+            sql_detalle = """
             SELECT 
                 dp.*,
-                pr.Nombre as Nombre_Producto,
+                pr.Nombre_Producto,
                 pr.Codigo_Producto,
-                pr.Precio_Venta,
-                um.Nombre as Unidad_Medida
+                pr.Descripcion,
+                pr.Unidad_Medida,
+                (dp.Precio_Unitario * dp.Cantidad) as Subtotal_Calculado
             FROM detalle_pedidos dp
             LEFT JOIN productos pr ON dp.ID_Producto = pr.ID_Producto
-            LEFT JOIN unidades_medida um ON pr.ID_Unidad_Medida = um.ID_Unidad_Medida
             WHERE dp.ID_Pedido = %s
             ORDER BY dp.ID_Detalle_Pedido
             """
             
-            cursor.execute(detalle_query, (id_pedido,))
-            productos = cursor.fetchall()
+            cursor.execute(sql_detalle, (id_pedido,))
+            detalles = cursor.fetchall()
             
-            # Calcular total
-            total = sum(producto['Cantidad'] * producto['Precio_Venta'] for producto in productos)
+            # Calcular totales
+            sql_total = """
+            SELECT 
+                SUM(Cantidad) as Total_Cantidad,
+                SUM(Subtotal) as Total_General,
+                COUNT(ID_Detalle_Pedido) as Total_Productos
+            FROM detalle_pedidos
+            WHERE ID_Pedido = %s
+            """
             
-            return render_template('admin/ver_pedido_venta.html', 
-                                 pedido=pedido, 
-                                 productos=productos,
-                                 total=total)
+            cursor.execute(sql_total, (id_pedido,))
+            totales = cursor.fetchone()
+            
+            return render_template('admin/ventas/pedidos/detalle_pedido.html',
+                                 pedido=pedido,
+                                 detalles=detalles,
+                                 totales=totales)
             
     except Exception as e:
-        flash(f"Error al cargar pedido: {e}", "error")
+        flash(f"Error al cargar el pedido: {e}", "error")
         return redirect(url_for('admin_pedidos_venta'))
 
 
-@app.route('/admin/ventas/pedidos-venta/<int:id_pedido>/cambiar-estado', methods=['POST'])
+# Ruta para filtrar pedidos mejorada
+@app.route('/admin/ventas/pedidos-venta/filtrar', methods=['POST'])
 @admin_required
-@bitacora_decorator("CAMBIAR-ESTADO-PEDIDO")
-def cambiar_estado_pedido(id_pedido):
-    """Cambiar el estado de un pedido"""
+def filtrar_pedidos():
     try:
-        nuevo_estado = request.form.get('estado')
+        estado = request.form.get('estado', 'todos')
+        fecha_inicio = request.form.get('fecha_inicio')
+        fecha_fin = request.form.get('fecha_fin')
+        tipo_entrega = request.form.get('tipo_entrega', 'todos')
+        tipo_cliente = request.form.get('tipo_cliente', 'todos')
+        documento_cliente = request.form.get('documento_cliente', '').strip()
+        nombre_cliente = request.form.get('nombre_cliente', '').strip()
         
-        if not nuevo_estado:
-            flash("Debe especificar un estado", "error")
-            return redirect(url_for('ver_pedido_venta', id_pedido=id_pedido))
+        condiciones = ["c.Estado = 'ACTIVO'"]  # Siempre filtrar por clientes activos
+        parametros = []
         
-        estados_validos = ['Pendiente', 'Aprobado', 'Entregado', 'Cancelado']
-        if nuevo_estado not in estados_validos:
-            flash("Estado no válido", "error")
-            return redirect(url_for('ver_pedido_venta', id_pedido=id_pedido))
+        if estado != 'todos':
+            condiciones.append("p.Estado = %s")
+            parametros.append(estado)
         
-        with get_db_cursor() as cursor:
-            cursor.execute("""
-                UPDATE pedidos SET Estado = %s WHERE ID_Pedido = %s
-            """, (nuevo_estado, id_pedido))
+        if fecha_inicio:
+            condiciones.append("p.Fecha >= %s")
+            parametros.append(fecha_inicio)
+        
+        if fecha_fin:
+            condiciones.append("p.Fecha <= %s")
+            parametros.append(fecha_fin)
+        
+        if tipo_entrega != 'todos':
+            condiciones.append("p.Tipo_Entrega = %s")
+            parametros.append(tipo_entrega)
+        
+        if tipo_cliente != 'todos':
+            condiciones.append("c.tipo_cliente = %s")
+            parametros.append(tipo_cliente)
+        
+        if documento_cliente:
+            condiciones.append("c.RUC_CEDULA LIKE %s")
+            parametros.append(f"%{documento_cliente}%")
+        
+        if nombre_cliente:
+            condiciones.append("c.Nombre LIKE %s")
+            parametros.append(f"%{nombre_cliente}%")
+        
+        with get_db_cursor(True) as cursor:
+            sql_base = """
+            SELECT 
+                p.ID_Pedido,
+                p.Fecha,
+                p.Estado,
+                p.Tipo_Entrega,
+                p.Observacion,
+                p.Fecha_Creacion,
+                c.ID_Cliente,
+                c.Nombre as Nombre_Cliente,
+                c.Telefono as Telefono_Cliente,
+                c.RUC_CEDULA as Documento_Cliente,
+                c.tipo_cliente as Tipo_Cliente,
+                e.Nombre_Empresa,
+                u.NombreUsuario as Usuario_Creacion,
+                COUNT(dp.ID_Detalle_Pedido) as Total_Items,
+                SUM(dp.Subtotal) as Total_Pedido
+            FROM pedidos p
+            LEFT JOIN clientes c ON p.ID_Cliente = c.ID_Cliente
+            LEFT JOIN empresa e ON p.ID_Empresa = e.ID_Empresa
+            LEFT JOIN usuarios u ON p.ID_Usuario_Creacion = u.ID_Usuario
+            LEFT JOIN detalle_pedidos dp ON p.ID_Pedido = dp.ID_Pedido
+            """
             
-            flash(f"Estado del pedido #{id_pedido} cambiado a {nuevo_estado}", "success")
-            return redirect(url_for('ver_pedido_venta', id_pedido=id_pedido))
+            if condiciones:
+                sql_base += " WHERE " + " AND ".join(condiciones)
+            
+            sql_base += """
+            GROUP BY p.ID_Pedido, p.Fecha, p.Estado, p.Tipo_Entrega, p.Observacion, 
+                     p.Fecha_Creacion, c.ID_Cliente, c.Nombre, c.Telefono, 
+                     c.RUC_CEDULA, c.tipo_cliente, e.Nombre_Empresa, u.Nombre
+            ORDER BY p.Fecha DESC, p.ID_Pedido DESC
+            """
+            
+            cursor.execute(sql_base, tuple(parametros))
+            pedidos = cursor.fetchall()
+            
+            estados = ['Pendiente', 'Aprobado', 'Entregado', 'Cancelado']
+            tipos_entrega = ['Retiro en local', 'Entrega a domicilio']
+            tipos_cliente = ['Comun', 'Especial']
+            
+            return render_template('admin/ventas/pedidos/pedidos_venta.html',
+                                 pedidos=pedidos,
+                                 estados=estados,
+                                 tipos_entrega=tipos_entrega,
+                                 tipos_cliente=tipos_cliente,
+                                 filtros_aplicados={
+                                     'estado': estado,
+                                     'fecha_inicio': fecha_inicio,
+                                     'fecha_fin': fecha_fin,
+                                     'tipo_entrega': tipo_entrega,
+                                     'tipo_cliente': tipo_cliente,
+                                     'documento_cliente': documento_cliente,
+                                     'nombre_cliente': nombre_cliente
+                                 },
+                                 now=datetime.now())
             
     except Exception as e:
-        flash(f"Error al cambiar estado: {e}", "error")
-        return redirect(url_for('ver_pedido_venta', id_pedido=id_pedido))
+        flash(f"Error al filtrar pedidos: {e}", "error")
+        return redirect(url_for('admin_pedidos_venta'))
 
 
+# Nueva ruta para cambiar estado de pedido
+@app.route('/admin/ventas/cambiar-estado/<int:id_pedido>', methods=['POST'])
+@admin_required
+@bitacora_decorator("CAMBIAR_ESTADO_PEDIDO")
+def cambiar_estado_pedido(id_pedido):
+    try:
+        data = request.get_json()
+        nuevo_estado = data.get('estado')
+        
+        if nuevo_estado not in ['Pendiente', 'Aprobado', 'Entregado', 'Cancelado']:
+            return jsonify({'success': False, 'message': 'Estado inválido'}), 400
+        
+        with get_db_cursor() as cursor:
+            # Verificar que el pedido existe
+            cursor.execute("SELECT Estado FROM pedidos WHERE ID_Pedido = %s", (id_pedido,))
+            pedido = cursor.fetchone()
+            
+            if not pedido:
+                return jsonify({'success': False, 'message': 'Pedido no encontrado'}), 404
+            
+            # Actualizar estado
+            sql = """
+            UPDATE pedidos 
+            SET Estado = %s,
+                Fecha_Creacion = CASE 
+                    WHEN %s = 'Entregado' THEN CURRENT_TIMESTAMP 
+                    ELSE Fecha_Creacion 
+                END
+            WHERE ID_Pedido = %s
+            """
+            
+            cursor.execute(sql, (nuevo_estado, nuevo_estado, id_pedido))
+            
+            
+            return jsonify({'success': True, 'message': 'Estado actualizado correctamente'})
+            
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+
+# Ruta para buscar clientes (para autocompletar)
+@app.route('/admin/ventas/buscar-clientes')
+@admin_required
+def buscar_clientes():
+    try:
+        termino = request.args.get('q', '')
+        
+        if not termino or len(termino) < 2:
+            return jsonify([])
+        
+        with get_db_cursor(True) as cursor:
+            sql = """
+            SELECT 
+                ID_Cliente,
+                Nombre,
+                RUC_CEDULA as Documento,
+                Telefono,
+                Direccion,
+                tipo_cliente as Tipo
+            FROM clientes 
+            WHERE Estado = 'ACTIVO'
+            AND (Nombre LIKE %s OR RUC_CEDULA LIKE %s OR Telefono LIKE %s)
+            ORDER BY Nombre
+            LIMIT 20
+            """
+            
+            termino_busqueda = f"%{termino}%"
+            cursor.execute(sql, (termino_busqueda, termino_busqueda, termino_busqueda))
+            clientes = cursor.fetchall()
+            
+            # Convertir a lista de diccionarios
+            resultados = []
+            for cliente in clientes:
+                resultados.append({
+                    'id': cliente['ID_Cliente'],
+                    'text': f"{cliente['Nombre']} - {cliente['Documento'] or 'Sin documento'}",
+                    'nombre': cliente['Nombre'],
+                    'documento': cliente['Documento'],
+                    'telefono': cliente['Telefono'],
+                    'direccion': cliente['Direccion'],
+                    'tipo': cliente['Tipo']
+                })
+            
+            return jsonify(resultados)
+            
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/admin/ventas/nuevo-pedido')
+@admin_required
+@bitacora_decorator("NUEVO_PEDIDO")
+def nuevo_pedido():
+    try:
+        cliente_id = request.args.get('cliente')
+        
+        with get_db_cursor(True) as cursor:
+            # Obtener clientes activos
+            sql_clientes = """
+            SELECT ID_Cliente, Nombre, Telefono, Direccion, RUC_CEDULA, tipo_cliente 
+            FROM clientes 
+            WHERE Estado = 'ACTIVO'
+            ORDER BY Nombre
+            """
+            cursor.execute(sql_clientes)
+            clientes = cursor.fetchall()
+            
+            # Obtener empresas
+            sql_empresas = "SELECT ID_Empresa, Nombre_Empresa FROM empresa ORDER BY Nombre_Empresa"
+            cursor.execute(sql_empresas)
+            empresas = cursor.fetchall()
+            
+            # Si se pasa un cliente específico, obtener sus datos
+            cliente_seleccionado = None
+            if cliente_id:
+                sql_cliente = """
+                SELECT ID_Cliente, Nombre, Telefono, Direccion, RUC_CEDULA, tipo_cliente 
+                FROM clientes 
+                WHERE ID_Cliente = %s AND Estado = 'ACTIVO'
+                """
+                cursor.execute(sql_cliente, (cliente_id,))
+                cliente_seleccionado = cursor.fetchone()
+            
+            return render_template('admin/ventas/pedidos/nuevo_pedido.html',
+                                 clientes=clientes,
+                                 empresas=empresas,
+                                 cliente_seleccionado=cliente_seleccionado,
+                                 now=datetime.now())
+            
+    except Exception as e:
+        flash(f"Error al cargar formulario de pedido: {e}", "error")
+        return redirect(url_for('admin_pedidos_venta'))
+
+
+@app.route('/admin/ventas/obtener-productos-categoria')
+@admin_required
+def obtener_productos_categoria():
+    try:
+        categoria_id = request.args.get('categoria_id')
+        tipo_cliente = request.args.get('tipo_cliente')
+        
+        if not categoria_id or not tipo_cliente:
+            return jsonify({'error': 'Parámetros incompletos'}), 400
+        
+        with get_db_cursor(True) as cursor:
+            # Verificar que la categoría es visible para este tipo de cliente
+            sql_visibilidad = """
+            SELECT visible FROM config_visibilidad_categorias 
+            WHERE ID_Categoria = %s AND tipo_cliente = %s
+            """
+            cursor.execute(sql_visibilidad, (categoria_id, tipo_cliente))
+            config = cursor.fetchone()
+            
+            if not config or not config['visible']:
+                return jsonify({'productos': []})
+            
+            # Obtener productos activos de esta categoría con unidad de medida
+            sql_productos = """
+            SELECT 
+                p.ID_Producto,
+                p.Descripcion as Nombre_Producto,
+                p.COD_Producto,
+                p.Precio_Venta,
+                p.Stock_Actual,
+                p.ID_Categoria,
+                p.Unidad_Medida,
+                u.Descripcion as Unidad_Descripcion,
+                u.Abreviatura as Unidad_Abreviatura,
+                c.Descripcion as Categoria_Descripcion
+            FROM productos p
+            LEFT JOIN unidades_medida u ON p.Unidad_Medida = u.ID_Unidad
+            LEFT JOIN categorias_producto c ON p.ID_Categoria = c.ID_Categoria
+            WHERE p.ID_Categoria = %s 
+            AND p.Estado = 'activo'
+            AND p.Stock_Actual > 0
+            ORDER BY p.Descripcion
+            """
+            
+            cursor.execute(sql_productos, (categoria_id,))
+            productos = cursor.fetchall()
+            
+            # Convertir a lista de diccionarios
+            productos_lista = []
+            for producto in productos:
+                productos_lista.append({
+                    'id': producto['ID_Producto'],
+                    'nombre': producto['Nombre_Producto'],
+                    'codigo': producto['COD_Producto'],
+                    'precio': float(producto['Precio_Venta']) if producto['Precio_Venta'] else 0,
+                    'stock': float(producto['Stock_Actual']) if producto['Stock_Actual'] else 0,
+                    'categoria_id': producto['ID_Categoria'],
+                    'unidad_medida': producto['Unidad_Medida'],
+                    'unidad_descripcion': producto['Unidad_Descripcion'] or 'Unidad',
+                    'unidad_abreviatura': producto['Unidad_Abreviatura'] or '',
+                    'categoria_descripcion': producto['Categoria_Descripcion'] or ''
+                })
+            
+            return jsonify({'productos': productos_lista})
+            
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/admin/ventas/obtener-categorias-visibles')
+@admin_required
+def obtener_categorias_visibles():
+    try:
+        tipo_cliente = request.args.get('tipo_cliente')
+        
+        if not tipo_cliente:
+            return jsonify({'error': 'Tipo de cliente no especificado'}), 400
+        
+        with get_db_cursor(True) as cursor:
+            # Obtener categorías visibles para el tipo de cliente
+            sql_categorias = """
+            SELECT 
+                cp.ID_Categoria,
+                cp.Descripcion as Nombre_Categoria
+            FROM categorias_producto cp
+            INNER JOIN config_visibilidad_categorias cv ON cp.ID_Categoria = cv.ID_Categoria
+            WHERE cv.tipo_cliente = %s 
+            AND cv.visible = 1
+            ORDER BY cp.Descripcion
+            """
+            
+            cursor.execute(sql_categorias, (tipo_cliente,))
+            categorias = cursor.fetchall()
+            
+            # Convertir a lista de diccionarios
+            categorias_lista = []
+            for categoria in categorias:
+                categorias_lista.append({
+                    'id': categoria['ID_Categoria'],
+                    'nombre': categoria['Nombre_Categoria']
+                })
+            
+            return jsonify({'categorias': categorias_lista})
+            
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/admin/ventas/crear-pedido', methods=['POST'])
+@admin_required
+@bitacora_decorator("CREAR_PEDIDO")
+def crear_pedido():
+    try:
+        data = request.get_json()
+        
+        # Validar datos requeridos
+        if not data.get('cliente_id'):
+            return jsonify({'success': False, 'message': 'Se requiere un cliente'}), 400
+        
+        if not data.get('empresa_id'):
+            return jsonify({'success': False, 'message': 'Se requiere una empresa'}), 400
+        
+        if not data.get('productos') or len(data['productos']) == 0:
+            return jsonify({'success': False, 'message': 'Se requiere al menos un producto'}), 400
+        
+        fecha = data.get('fecha')
+        tipo_entrega = data.get('tipo_entrega', 'Retiro en local')
+        observacion = data.get('observacion', '')
+        
+        with get_db_cursor() as cursor:
+            # Verificar que el cliente existe y está activo
+            sql_cliente = """
+            SELECT ID_Cliente, tipo_cliente FROM clientes 
+            WHERE ID_Cliente = %s AND Estado = 'ACTIVO'
+            """
+            cursor.execute(sql_cliente, (data['cliente_id'],))
+            cliente = cursor.fetchone()
+            
+            if not cliente:
+                return jsonify({'success': False, 'message': 'Cliente no encontrado o inactivo'}), 400
+            
+            # Verificar que la empresa existe
+            sql_empresa = "SELECT ID_Empresa FROM empresa WHERE ID_Empresa = %s"
+            cursor.execute(sql_empresa, (data['empresa_id'],))
+            empresa = cursor.fetchone()
+            
+            if not empresa:
+                return jsonify({'success': False, 'message': 'Empresa no encontrada'}), 400
+            
+            # Crear el pedido
+            sql_pedido = """
+            INSERT INTO pedidos (Fecha, ID_Cliente, ID_Empresa, ID_Usuario_Creacion, 
+                               Estado, Observacion, Tipo_Entrega)
+            VALUES (%s, %s, %s, %s, 'Pendiente', %s, %s)
+            """
+            
+            cursor.execute(sql_pedido, (
+                fecha,
+                data['cliente_id'],
+                data['empresa_id'],
+                session.get('user_id'),
+                observacion,
+                tipo_entrega
+            ))
+            
+            pedido_id = cursor.lastrowid
+            
+            # Agregar productos al detalle del pedido
+            for producto in data['productos']:
+                # Verificar stock disponible
+                sql_stock = """
+                SELECT Stock_Actual, Precio_Venta FROM productos 
+                WHERE ID_Producto = %s AND Estado = 'activo'
+                """
+                cursor.execute(sql_stock, (producto['id'],))
+                producto_info = cursor.fetchone()
+                
+                if not producto_info:
+                    return jsonify({
+                        'success': False, 
+                        'message': f"Producto ID {producto['id']} no encontrado o inactivo"
+                    }), 400
+                
+                if producto_info['Stock_Actual'] < producto['cantidad']:
+                    return jsonify({
+                        'success': False, 
+                        'message': f"Stock insuficiente para {producto['nombre']}. Disponible: {producto_info['Stock_Actual']}"
+                    }), 400
+                
+                # Usar precio del producto o el enviado
+                precio_unitario = producto.get('precio') or producto_info['Precio_Venta']
+                subtotal = precio_unitario * producto['cantidad']
+                
+                # Insertar detalle
+                sql_detalle = """
+                INSERT INTO detalle_pedidos (ID_Pedido, ID_Producto, Precio_Unitario, 
+                                           Cantidad, Subtotal)
+                VALUES (%s, %s, %s, %s, %s)
+                """
+                
+                cursor.execute(sql_detalle, (
+                    pedido_id,
+                    producto['id'],
+                    precio_unitario,
+                    producto['cantidad'],
+                    subtotal
+                ))
+                
+                # Actualizar stock (reducir)
+                sql_update_stock = """
+                UPDATE productos 
+                SET Stock_Actual = Stock_Actual - %s
+                WHERE ID_Producto = %s
+                """
+                cursor.execute(sql_update_stock, (producto['cantidad'], producto['id']))
+            
+            # Registrar en bitácora
+            cursor.execute("""
+                INSERT INTO bitacora (ID_Usuario, Accion, Descripcion, Fecha)
+                VALUES (%s, 'CREAR_PEDIDO', %s, NOW())
+            """, (session.get('user_id'), f'Pedido #{pedido_id} creado para cliente {data["cliente_id"]}'))
+            
+            return jsonify({
+                'success': True, 
+                'message': 'Pedido creado exitosamente',
+                'pedido_id': pedido_id
+            })
+            
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+
+# Ruta adicional para buscar productos por nombre o código
+@app.route('/admin/ventas/buscar-productos')
+@admin_required
+def buscar_productos():
+    try:
+        termino = request.args.get('q', '')
+        tipo_cliente = request.args.get('tipo_cliente', '')
+        
+        if not termino or len(termino) < 2:
+            return jsonify([])
+        
+        with get_db_cursor(True) as cursor:
+            # Si hay tipo_cliente, filtrar por categorías visibles
+            if tipo_cliente:
+                sql = """
+                SELECT 
+                    p.ID_Producto,
+                    p.Descripcion as Nombre_Producto,
+                    p.COD_Producto,
+                    p.Precio_Venta,
+                    p.Stock_Actual,
+                    p.Unidad_Medida,
+                    u.Descripcion as Unidad_Descripcion,
+                    u.Abreviatura as Unidad_Abreviatura,
+                    cp.Descripcion as Categoria_Descripcion
+                FROM productos p
+                LEFT JOIN unidades_medida u ON p.Unidad_Medida = u.ID_Unidad
+                LEFT JOIN categorias_producto cp ON p.ID_Categoria = cp.ID_Categoria
+                INNER JOIN config_visibilidad_categorias cv ON p.ID_Categoria = cv.ID_Categoria
+                WHERE (p.Descripcion LIKE %s OR p.COD_Producto LIKE %s)
+                AND p.Estado = 'activo'
+                AND p.Stock_Actual > 0
+                AND cv.tipo_cliente = %s
+                AND cv.visible = 1
+                ORDER BY p.Descripcion
+                LIMIT 20
+                """
+                termino_busqueda = f"%{termino}%"
+                cursor.execute(sql, (termino_busqueda, termino_busqueda, tipo_cliente))
+            else:
+                sql = """
+                SELECT 
+                    p.ID_Producto,
+                    p.Descripcion as Nombre_Producto,
+                    p.COD_Producto,
+                    p.Precio_Venta,
+                    p.Stock_Actual,
+                    p.Unidad_Medida,
+                    u.Descripcion as Unidad_Descripcion,
+                    u.Abreviatura as Unidad_Abreviatura,
+                    cp.Descripcion as Categoria_Descripcion
+                FROM productos p
+                LEFT JOIN unidades_medida u ON p.Unidad_Medida = u.ID_Unidad
+                LEFT JOIN categorias_producto cp ON p.ID_Categoria = cp.ID_Categoria
+                WHERE (p.Descripcion LIKE %s OR p.COD_Producto LIKE %s)
+                AND p.Estado = 'activo'
+                AND p.Stock_Actual > 0
+                ORDER BY p.Descripcion
+                LIMIT 20
+                """
+                termino_busqueda = f"%{termino}%"
+                cursor.execute(sql, (termino_busqueda, termino_busqueda))
+            
+            productos = cursor.fetchall()
+            
+            # Convertir a lista de diccionarios
+            resultados = []
+            for producto in productos:
+                resultados.append({
+                    'id': producto['ID_Producto'],
+                    'nombre': producto['Nombre_Producto'],
+                    'codigo': producto['COD_Producto'],
+                    'precio': float(producto['Precio_Venta']) if producto['Precio_Venta'] else 0,
+                    'stock': float(producto['Stock_Actual']) if producto['Stock_Actual'] else 0,
+                    'unidad_descripcion': producto['Unidad_Descripcion'] or 'Unidad',
+                    'unidad_abreviatura': producto['Unidad_Abreviatura'] or '',
+                    'categoria': producto['Categoria_Descripcion'] or ''
+                })
+            
+            return jsonify(resultados)
+            
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+# =============================================
 # INVENTARIO - MOVIMIENTOS DE INVENTARIO
 @app.route('/admin/inventario')
 @admin_required
@@ -10149,7 +10551,9 @@ def admin_imprimir_movimiento(id_movimiento):
         flash(f"Error al generar impresión: {str(e)}", 'error')
         return redirect(url_for('admin_detalle_movimiento', id_movimiento=id_movimiento))
 
-### REPORTES AVANZADOS
+
+## MODULO BODEGA
+# REPORTES AVANZADOS
 @app.route('/bodega/movimientos/reportes/avanzados', methods=['GET', 'POST'])
 @admin_or_bodega_required
 def bodega_reportes_avanzados():
@@ -10360,6 +10764,8 @@ def bodega_reportes_avanzados():
     except Exception as e:
         flash(f"Error al cargar reportes: {str(e)}", 'error')
         return redirect(url_for('admin_historial_movimientos'))
+
+#Pedidos
 
 #Iniciar Aplicación
 if __name__ == '__main__':

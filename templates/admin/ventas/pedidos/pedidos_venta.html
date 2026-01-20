@@ -1,326 +1,518 @@
 {% extends "layout.html" %}
 
-{% block title %}Pedidos de Venta - Administración{% endblock %}
-
-{% block head %}
-{{ super() }}
-<style>
-    .card-header {
-        background-color: #f8f9fa;
-        border-bottom: 1px solid #dee2e6;
-    }
-    .badge-estado {
-        font-size: 0.85em;
-        padding: 0.35em 0.65em;
-    }
-    .producto-item {
-        border-bottom: 1px solid #eee;
-        padding: 8px 0;
-    }
-    .producto-item:last-child {
-        border-bottom: none;
-    }
-    .table-hover tbody tr:hover {
-        background-color: rgba(0, 123, 255, 0.05);
-    }
-    .accordion-button:not(.collapsed) {
-        background-color: #e7f1ff;
-        color: #0c63e4;
-    }
-    .btn-action {
-        padding: 0.25rem 0.5rem;
-        font-size: 0.875rem;
-    }
-</style>
-{% endblock %}
+{% block title %}Pedidos de Venta{% endblock %}
 
 {% block content %}
-<div class="container-fluid py-4">
+<div class="container-fluid mt-4">
     <div class="d-flex justify-content-between align-items-center mb-4">
-        <h1><i class="bi bi-cart-check"></i> Pedidos de Venta</h1>
+        <h2><i class="fas fa-shopping-cart me-2"></i>Pedidos de Venta</h2>
         <div>
-            <a href="{{ url_for('admin_dashboard') }}" class="btn btn-outline-secondary me-2">
-                <i class="bi bi-arrow-left"></i> Volver
-            </a>
-            <a href="{{ url_for('nuevo_pedido_venta') }}" class="btn btn-primary">
-                <i class="bi bi-plus-circle"></i> Nuevo Pedido
+            <button class="btn btn-success" onclick="nuevoPedido()">
+                <i class="fas fa-plus me-1"></i> Nuevo Pedido
+            </button>
+            <a href="{{ url_for('admin_pedidos_venta') }}" class="btn btn-secondary">
+                <i class="fas fa-sync-alt me-1"></i> Refrescar
             </a>
         </div>
     </div>
-
-    {% with messages = get_flashed_messages(with_categories=true) %}
-        {% if messages %}
-            {% for category, message in messages %}
-                <div class="alert alert-{{ category if category != 'error' else 'danger' }} alert-dismissible fade show" role="alert">
-                    {{ message }}
-                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                </div>
-            {% endfor %}
-        {% endif %}
-    {% endwith %}
-
-    {% if pedidos %}
-        <!-- Filtros -->
-        <div class="card mb-4">
-            <div class="card-body">
+    
+    <!-- Filtros Avanzados -->
+    <div class="card mb-4">
+        <div class="card-header bg-light">
+            <h5 class="mb-0"><i class="fas fa-filter me-2"></i>Filtros de Búsqueda</h5>
+        </div>
+        <div class="card-body">
+            <form method="POST" action="{{ url_for('filtrar_pedidos') }}" id="formFiltros">
                 <div class="row g-3">
                     <div class="col-md-3">
-                        <label for="filtroEstado" class="form-label">Estado</label>
-                        <select class="form-select" id="filtroEstado">
-                            <option value="">Todos los estados</option>
-                            <option value="Pendiente">Pendiente</option>
-                            <option value="Aprobado">Aprobado</option>
-                            <option value="Entregado">Entregado</option>
-                            <option value="Cancelado">Cancelado</option>
+                        <label class="form-label fw-bold">Estado:</label>
+                        <select name="estado" class="form-select">
+                            <option value="todos">Todos los estados</option>
+                            {% for estado in estados %}
+                            <option value="{{ estado }}" 
+                                {% if filtros_aplicados and filtros_aplicados.estado == estado %}selected{% endif %}>
+                                {{ estado }}
+                            </option>
+                            {% endfor %}
                         </select>
                     </div>
                     <div class="col-md-3">
-                        <label for="filtroFechaDesde" class="form-label">Fecha Desde</label>
-                        <input type="date" class="form-control" id="filtroFechaDesde">
+                        <label class="form-label fw-bold">Tipo Cliente:</label>
+                        <select name="tipo_cliente" class="form-select">
+                            <option value="todos">Todos los tipos</option>
+                            {% for tipo in tipos_cliente %}
+                            <option value="{{ tipo }}" 
+                                {% if filtros_aplicados and filtros_aplicados.tipo_cliente == tipo %}selected{% endif %}>
+                                {{ tipo }}
+                            </option>
+                            {% endfor %}
+                        </select>
                     </div>
                     <div class="col-md-3">
-                        <label for="filtroFechaHasta" class="form-label">Fecha Hasta</label>
-                        <input type="date" class="form-control" id="filtroFechaHasta">
+                        <label class="form-label fw-bold">Tipo Entrega:</label>
+                        <select name="tipo_entrega" class="form-select">
+                            <option value="todos">Todos los tipos</option>
+                            {% for tipo in tipos_entrega %}
+                            <option value="{{ tipo }}" 
+                                {% if filtros_aplicados and filtros_aplicados.tipo_entrega == tipo %}selected{% endif %}>
+                                {{ tipo }}
+                            </option>
+                            {% endfor %}
+                        </select>
                     </div>
-                    <div class="col-md-3 d-flex align-items-end">
-                        <button class="btn btn-outline-primary w-100" id="btnFiltrar">
-                            <i class="bi bi-funnel"></i> Filtrar
+                    <div class="col-md-3">
+                        <label class="form-label fw-bold">Fecha Inicio:</label>
+                        <input type="date" name="fecha_inicio" class="form-control" 
+                               value="{{ filtros_aplicados.fecha_inicio if filtros_aplicados }}">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label fw-bold">Fecha Fin:</label>
+                        <input type="date" name="fecha_fin" class="form-control"
+                               value="{{ filtros_aplicados.fecha_fin if filtros_aplicados }}">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label fw-bold">Documento Cliente:</label>
+                        <input type="text" name="documento_cliente" class="form-control"
+                               placeholder="RUC/Cédula"
+                               value="{{ filtros_aplicados.documento_cliente if filtros_aplicados }}">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label fw-bold">Nombre Cliente:</label>
+                        <input type="text" name="nombre_cliente" class="form-control"
+                               placeholder="Nombre del cliente"
+                               value="{{ filtros_aplicados.nombre_cliente if filtros_aplicados }}">
+                    </div>
+                </div>
+                <div class="row mt-4">
+                    <div class="col-md-12">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-search me-1"></i> Buscar
+                        </button>
+                        <a href="{{ url_for('admin_pedidos_venta') }}" class="btn btn-outline-secondary">
+                            <i class="fas fa-times me-1"></i> Limpiar
+                        </a>
+                        <button type="button" class="btn btn-outline-success float-end" onclick="exportarExcel()">
+                            <i class="fas fa-file-excel me-1"></i> Exportar Excel
                         </button>
                     </div>
                 </div>
-            </div>
+            </form>
         </div>
-
-        <!-- Lista de pedidos -->
-        <div class="accordion" id="pedidosAccordion">
-            {% for pedido in pedidos %}
-            <div class="accordion-item mb-3 pedido-item" 
-                 data-estado="{{ pedido.Estado }}"
-                 data-fecha="{{ pedido.Fecha }}">
-                <h2 class="accordion-header" id="heading{{ pedido.ID_Pedido }}">
-                    <button class="accordion-button collapsed" type="button" 
-                            data-bs-toggle="collapse" 
-                            data-bs-target="#collapse{{ pedido.ID_Pedido }}"
-                            aria-expanded="false" 
-                            aria-controls="collapse{{ pedido.ID_Pedido }}">
-                        <div class="d-flex justify-content-between w-100 me-3 align-items-center">
-                            <div class="d-flex align-items-center">
-                                <div class="me-4">
-                                    <strong>Pedido #{{ pedido.ID_Pedido }}</strong>
-                                    <span class="ms-2 text-muted">{{ pedido.Fecha.strftime('%d/%m/%Y') }}</span>
-                                </div>
-                                <div class="me-4">
-                                    <span class="badge 
-                                        {% if pedido.Estado == 'Pendiente' %}bg-warning text-dark
-                                        {% elif pedido.Estado == 'Aprobado' %}bg-primary
-                                        {% elif pedido.Estado == 'Entregado' %}bg-success
-                                        {% else %}bg-danger
-                                        {% endif %}">
-                                        {{ pedido.Estado }}
-                                    </span>
-                                </div>
-                                <div>
-                                    <small class="text-muted">
-                                        <i class="bi bi-person"></i> {{ pedido.Nombre_Cliente }}
-                                    </small>
-                                </div>
-                            </div>
-                            <div class="text-end">
-                                <div class="text-success fw-bold">${{ "%.2f"|format(pedido.Total) }}</div>
-                                <small class="text-muted">{{ pedido.Productos|length }} productos</small>
-                            </div>
-                        </div>
-                    </button>
-                </h2>
-                <div id="collapse{{ pedido.ID_Pedido }}" 
-                     class="accordion-collapse collapse" 
-                     aria-labelledby="heading{{ pedido.ID_Pedido }}"
-                     data-bs-parent="#pedidosAccordion">
-                    <div class="accordion-body">
-                        <!-- Información del cliente y entrega -->
-                        <div class="row mb-4">
-                            <div class="col-md-6">
-                                <h6 class="border-bottom pb-2">
-                                    <i class="bi bi-person-circle me-2"></i>Información del Cliente
-                                </h6>
-                                <table class="table table-sm table-borderless">
-                                    <tr>
-                                        <th style="width: 40%">Cliente:</th>
-                                        <td>{{ pedido.Nombre_Cliente }}</td>
-                                    </tr>
-                                    <tr>
-                                        <th>RUC/CI:</th>
-                                        <td>{{ pedido.RUC_CI or 'No especificado' }}</td>
-                                    </tr>
-                                    <tr>
-                                        <th>Dirección:</th>
-                                        <td>{{ pedido.Direccion or 'No especificada' }}</td>
-                                    </tr>
-                                    <tr>
-                                        <th>Teléfono:</th>
-                                        <td>{{ pedido.Telefono or 'No especificado' }}</td>
-                                    </tr>
-                                </table>
-                            </div>
-                            <div class="col-md-6">
-                                <h6 class="border-bottom pb-2">
-                                    <i class="bi bi-truck me-2"></i>Información de Entrega
-                                </h6>
-                                <table class="table table-sm table-borderless">
-                                    <tr>
-                                        <th style="width: 40%">Tipo de Entrega:</th>
-                                        <td>{{ pedido.Tipo_Entrega }}</td>
-                                    </tr>
-                                    <tr>
-                                        <th>Empresa:</th>
-                                        <td>{{ pedido.Nombre_Empresa or 'No especificada' }}</td>
-                                    </tr>
-                                    <tr>
-                                        <th>Usuario:</th>
-                                        <td>{{ pedido.Usuario_Completo }}</td>
-                                    </tr>
-                                    <tr>
-                                        <th>Fecha Creación:</th>
-                                        <td>{{ pedido.Fecha_Creacion.strftime('%d/%m/%Y %H:%M') }}</td>
-                                    </tr>
-                                    {% if pedido.Numero_Factura %}
-                                    <tr>
-                                        <th>Factura:</th>
-                                        <td class="text-success">{{ pedido.Numero_Factura }}</td>
-                                    </tr>
-                                    {% endif %}
-                                </table>
-                            </div>
-                        </div>
-
-                        <!-- Observación -->
-                        {% if pedido.Observacion %}
-                        <div class="alert alert-info mb-4">
-                            <h6 class="mb-2"><i class="bi bi-chat-text"></i> Observación:</h6>
-                            <p class="mb-0">{{ pedido.Observacion }}</p>
-                        </div>
-                        {% endif %}
-
-                        <!-- Productos del pedido -->
-                        <h6 class="border-bottom pb-2 mb-3">
-                            <i class="bi bi-box-seam me-2"></i>Productos Solicitados
-                        </h6>
-                        <div class="table-responsive">
-                            <table class="table table-hover table-sm">
-                                <thead class="table-light">
-                                    <tr>
-                                        <th>Código</th>
-                                        <th>Producto</th>
-                                        <th class="text-end">Cantidad</th>
-                                        <th>Unidad</th>
-                                        <th class="text-end">Precio Unit.</th>
-                                        <th class="text-end">Subtotal</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {% for producto in pedido.Productos %}
-                                    <tr>
-                                        <td>{{ producto.Codigo_Producto }}</td>
-                                        <td>{{ producto.Nombre_Producto }}</td>
-                                        <td class="text-end">{{ "%.2f"|format(producto.Cantidad) }}</td>
-                                        <td>{{ producto.Unidad_Medida }}</td>
-                                        <td class="text-end">${{ "%.2f"|format(producto.Precio_Venta) }}</td>
-                                        <td class="text-end">
-                                            ${{ "%.2f"|format(producto.Cantidad * producto.Precio_Venta) }}
-                                        </td>
-                                    </tr>
-                                    {% endfor %}
-                                </tbody>
-                                <tfoot class="table-light">
-                                    <tr>
-                                        <td colspan="5" class="text-end"><strong>Total:</strong></td>
-                                        <td class="text-end"><strong>${{ "%.2f"|format(pedido.Total) }}</strong></td>
-                                    </tr>
-                                </tfoot>
-                            </table>
-                        </div>
-
-                        <!-- Botones de acción -->
-                        <div class="d-flex justify-content-between align-items-center mt-4">
-                            <div>
-                                <small class="text-muted">
-                                    ID: {{ pedido.ID_Pedido }} | 
-                                    Creado: {{ pedido.Fecha_Creacion.strftime('%d/%m/%Y %H:%M') }}
-                                </small>
-                            </div>
-                            <div class="d-flex gap-2">
-                                <a href="{{ url_for('ver_pedido_venta', id_pedido=pedido.ID_Pedido) }}" 
-                                   class="btn btn-sm btn-outline-primary">
-                                    <i class="bi bi-eye"></i> Ver Detalle
-                                </a>
-                                {% if pedido.Estado != 'Entregado' and not pedido.Numero_Factura %}
-                                <a href="#" class="btn btn-sm btn-outline-warning">
-                                    <i class="bi bi-pencil"></i> Editar
-                                </a>
-                                {% endif %}
-                                <button class="btn btn-sm btn-outline-info" onclick="window.print()">
-                                    <i class="bi bi-printer"></i> Imprimir
-                                </button>
-                            </div>
-                        </div>
-                    </div>
+    </div>
+    
+    <!-- Resumen Estadístico -->
+    {% if pedidos %}
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card text-white bg-primary">
+                <div class="card-body">
+                    <h6 class="card-title"><i class="fas fa-shopping-cart me-2"></i>Total Pedidos</h6>
+                    <h3 class="card-text">{{ pedidos|length }}</h3>
                 </div>
             </div>
-            {% endfor %}
         </div>
-    {% else %}
-        <div class="alert alert-info">
-            <i class="bi bi-info-circle"></i> No hay pedidos de venta registrados.
-            <a href="{{ url_for('nuevo_pedido_venta') }}" class="alert-link">Crear primer pedido</a>
+        <div class="col-md-3">
+            {% set total_ventas = pedidos|sum(attribute='Total_Pedido') or 0 %}
+            <div class="card text-white bg-success">
+                <div class="card-body">
+                    <h6 class="card-title"><i class="fas fa-dollar-sign me-2"></i>Total Ventas</h6>
+                    <h3 class="card-text">${{ "{:,.2f}".format(total_ventas) }}</h3>
+                </div>
+            </div>
         </div>
+        <div class="col-md-3">
+            {% set pendientes = pedidos|selectattr('Estado', 'equalto', 'Pendiente')|list %}
+            <div class="card text-white bg-warning">
+                <div class="card-body">
+                    <h6 class="card-title"><i class="fas fa-clock me-2"></i>Pendientes</h6>
+                    <h3 class="card-text">{{ pendientes|length }}</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            {% set entregados = pedidos|selectattr('Estado', 'equalto', 'Entregado')|list %}
+            <div class="card text-white bg-info">
+                <div class="card-body">
+                    <h6 class="card-title"><i class="fas fa-check-circle me-2"></i>Entregados</h6>
+                    <h3 class="card-text">{{ entregados|length }}</h3>
+                </div>
+            </div>
+        </div>
+    </div>
     {% endif %}
+    
+    <!-- Lista de Pedidos -->
+    <div class="card">
+        <div class="card-header bg-light d-flex justify-content-between align-items-center">
+            <h5 class="mb-0"><i class="fas fa-list me-2"></i>Listado de Pedidos</h5>
+            <div>
+                <span class="badge bg-dark">{{ pedidos|length }} registros</span>
+            </div>
+        </div>
+        <div class="card-body">
+            {% if pedidos %}
+            <div class="table-responsive">
+                <table class="table table-hover table-striped" id="tablaPedidos">
+                    <thead class="table-dark">
+                        <tr>
+                            <th width="80">ID</th>
+                            <th width="100">Fecha</th>
+                            <th>Cliente</th>
+                            <th width="120">Documento</th>
+                            <th width="100">Tipo</th>
+                            <th width="120">Estado</th>
+                            <th width="150">Entrega</th>
+                            <th width="120">Total</th>
+                            <th width="80">Items</th>
+                            <th width="120">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for pedido in pedidos %}
+                        <tr>
+                            <td><strong>#{{ pedido.ID_Pedido }}</strong></td>
+                            <td>
+                                {% if pedido.Fecha %}
+                                {{ pedido.Fecha.strftime('%d/%m/%Y') }}
+                                {% else %}
+                                N/A
+                                {% endif %}
+                            </td>
+                            <td>
+                                <div class="fw-bold">{{ pedido.Nombre_Cliente or 'Sin nombre' }}</div>
+                                <small class="text-muted">
+                                    <i class="fas fa-phone-alt"></i> {{ pedido.Telefono_Cliente or 'Sin teléfono' }}
+                                </small>
+                            </td>
+                            <td>
+                                {% if pedido.Documento_Cliente %}
+                                <span class="badge bg-secondary">{{ pedido.Documento_Cliente }}</span>
+                                {% else %}
+                                <span class="badge bg-light text-dark">Sin doc</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <span class="badge 
+                                    {% if pedido.Tipo_Cliente == 'Especial' %}bg-primary
+                                    {% else %}bg-light text-dark{% endif %}">
+                                    {{ pedido.Tipo_Cliente }}
+                                </span>
+                            </td>
+                            <td>
+                                <span class="badge 
+                                    {% if pedido.Estado == 'Pendiente' %}bg-warning text-dark
+                                    {% elif pedido.Estado == 'Aprobado' %}bg-info
+                                    {% elif pedido.Estado == 'Entregado' %}bg-success
+                                    {% elif pedido.Estado == 'Cancelado' %}bg-danger
+                                    {% else %}bg-secondary{% endif %} p-2">
+                                    <i class="fas 
+                                        {% if pedido.Estado == 'Pendiente' %}fa-clock
+                                        {% elif pedido.Estado == 'Aprobado' %}fa-check-circle
+                                        {% elif pedido.Estado == 'Entregado' %}fa-truck
+                                        {% elif pedido.Estado == 'Cancelado' %}fa-times-circle
+                                        {% endif %} me-1"></i>
+                                    {{ pedido.Estado }}
+                                </span>
+                            </td>
+                            <td>
+                                <span class="badge 
+                                    {% if pedido.Tipo_Entrega == 'Entrega a domicilio' %}bg-primary
+                                    {% else %}bg-light text-dark{% endif %} p-2">
+                                    <i class="fas 
+                                        {% if pedido.Tipo_Entrega == 'Entrega a domicilio' %}fa-truck
+                                        {% else %}fa-store{% endif %} me-1"></i>
+                                    {{ pedido.Tipo_Entrega }}
+                                </span>
+                            </td>
+                            <td class="fw-bold text-success">${{ "{:,.2f}".format(pedido.Total_Pedido or 0) }}</td>
+                            <td>
+                                <span class="badge bg-dark rounded-circle">{{ pedido.Total_Items or 0 }}</span>
+                            </td>
+                            <td>
+                                <div class="btn-group btn-group-sm" role="group">
+                                    <a href="{{ url_for('ver_pedido', id_pedido=pedido.ID_Pedido) }}" 
+                                       class="btn btn-outline-info" 
+                                       title="Ver detalle"
+                                       data-bs-toggle="tooltip">
+                                        <i class="fas fa-eye"></i>
+                                    </a>
+                                    <a href="/admin/ventas/editar-pedido/{{ pedido.ID_Pedido }}" 
+                                       class="btn btn-outline-primary"
+                                       title="Editar"
+                                       data-bs-toggle="tooltip">
+                                        <i class="fas fa-edit"></i>
+                                    </a>
+                                    {% if pedido.Estado == 'Pendiente' %}
+                                    <button type="button" class="btn btn-outline-success"
+                                            title="Aprobar pedido"
+                                            data-bs-toggle="tooltip"
+                                            onclick="cambiarEstado({{ pedido.ID_Pedido }}, 'Aprobado')">
+                                        <i class="fas fa-check"></i>
+                                    </button>
+                                    {% endif %}
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                    <tfoot>
+                        <tr class="table-active">
+                            <td colspan="7" class="text-end fw-bold">TOTAL GENERAL:</td>
+                            <td class="fw-bold text-primary fs-5">${{ "{:,.2f}".format(pedidos|sum(attribute='Total_Pedido') or 0) }}</td>
+                            <td class="text-center fw-bold">{{ pedidos|sum(attribute='Total_Items') or 0 }}</td>
+                            <td></td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+            {% else %}
+            <div class="text-center py-5">
+                <i class="fas fa-shopping-cart fa-4x text-muted mb-3"></i>
+                <h4 class="text-muted">No hay pedidos registrados</h4>
+                <p class="text-muted">
+                    {% if filtros_aplicados %}
+                    No se encontraron pedidos con los filtros aplicados
+                    {% else %}
+                    Comienza creando tu primer pedido
+                    {% endif %}
+                </p>
+                {% if filtros_aplicados %}
+                <a href="{{ url_for('admin_pedidos_venta') }}" class="btn btn-primary mt-2">
+                    <i class="fas fa-redo me-1"></i> Ver todos los pedidos
+                </a>
+                {% else %}
+                <button class="btn btn-success mt-2" onclick="nuevoPedido()">
+                    <i class="fas fa-plus me-1"></i> Crear primer pedido
+                </button>
+                {% endif %}
+            </div>
+            {% endif %}
+        </div>
+        {% if pedidos %}
+        <div class="card-footer bg-light">
+            <div class="row">
+                <div class="col-md-6">
+                    <small class="text-muted">
+                        <i class="fas fa-info-circle me-1"></i>
+                        Mostrando {{ pedidos|length }} pedido(s)
+                    </small>
+                </div>
+                <div class="col-md-6 text-end">
+                    <small class="text-muted">
+                        <i class="fas fa-clock me-1"></i>
+                        Última actualización: {{ now.strftime('%d/%m/%Y %H:%M:%S') if now else '' }}
+                    </small>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
 </div>
-{% endblock %}
 
-{% block scripts %}
-{{ super() }}
+<!-- Modal para cambiar estado -->
+<div class="modal fade" id="modalEstado" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Cambiar Estado del Pedido</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>Seleccione el nuevo estado para el pedido:</p>
+                <select id="selectEstado" class="form-select">
+                    <option value="Pendiente">Pendiente</option>
+                    <option value="Aprobado">Aprobado</option>
+                    <option value="Entregado">Entregado</option>
+                    <option value="Cancelado">Cancelado</option>
+                </select>
+                <div class="mt-3">
+                    <label>Observación (opcional):</label>
+                    <textarea id="observacionEstado" class="form-control" rows="2"></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" onclick="confirmarCambioEstado()">Cambiar Estado</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script>
-    document.addEventListener('DOMContentLoaded', function() {
-        // Filtros
-        const filtroEstado = document.getElementById('filtroEstado');
-        const filtroFechaDesde = document.getElementById('filtroFechaDesde');
-        const filtroFechaHasta = document.getElementById('filtroFechaHasta');
-        const btnFiltrar = document.getElementById('btnFiltrar');
-        const pedidosItems = document.querySelectorAll('.pedido-item');
-        
-        btnFiltrar.addEventListener('click', function() {
-            const estadoSeleccionado = filtroEstado.value;
-            const fechaDesde = filtroFechaDesde.value;
-            const fechaHasta = filtroFechaHasta.value;
-            
-            pedidosItems.forEach(item => {
-                let mostrar = true;
-                const estado = item.getAttribute('data-estado');
-                const fecha = item.getAttribute('data-fecha');
-                
-                // Filtrar por estado
-                if (estadoSeleccionado && estado !== estadoSeleccionado) {
-                    mostrar = false;
-                }
-                
-                // Filtrar por fecha
-                if (fechaDesde && fecha < fechaDesde) {
-                    mostrar = false;
-                }
-                if (fechaHasta && fecha > fechaHasta) {
-                    mostrar = false;
-                }
-                
-                // Mostrar u ocultar
-                item.style.display = mostrar ? 'block' : 'none';
-            });
-        });
-        
-        // Auto-expandir el primer pedido
-        const firstPedido = document.querySelector('.accordion-button');
-        if (firstPedido) {
-            setTimeout(() => firstPedido.click(), 100);
-        }
+// Variables globales
+let pedidoActual = null;
+let estadoActual = null;
+
+document.addEventListener('DOMContentLoaded', function() {
+    // Inicializar tooltips de Bootstrap
+    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+    var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl);
     });
+    
+    // Configurar fechas por defecto
+    const today = new Date().toISOString().split('T')[0];
+    const firstDay = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0];
+    
+    const fechaInicio = document.querySelector('input[name="fecha_inicio"]');
+    const fechaFin = document.querySelector('input[name="fecha_fin"]');
+    
+    if (fechaInicio && !fechaInicio.value) {
+        fechaInicio.value = firstDay;
+    }
+    if (fechaFin && !fechaFin.value) {
+        fechaFin.value = today;
+    }
+    
+    // Inicializar DataTables si existe la tabla
+    if (typeof $.fn.DataTable !== 'undefined' && document.getElementById('tablaPedidos')) {
+        $('#tablaPedidos').DataTable({
+            "language": {
+                "url": "//cdn.datatables.net/plug-ins/1.10.25/i18n/Spanish.json"
+            },
+            "order": [[1, 'desc']],
+            "pageLength": 25,
+            "responsive": true
+        });
+    }
+});
+
+function nuevoPedido() {
+    window.location.href = "/admin/ventas/nuevo-pedido";
+}
+
+function cambiarEstado(idPedido, nuevoEstado) {
+    pedidoActual = idPedido;
+    estadoActual = nuevoEstado;
+    
+    if (nuevoEstado) {
+        // Cambio directo
+        confirmarCambioEstadoDirecto(idPedido, nuevoEstado);
+    } else {
+        // Mostrar modal para selección
+        const modal = new bootstrap.Modal(document.getElementById('modalEstado'));
+        modal.show();
+    }
+}
+
+function confirmarCambioEstadoDirecto(idPedido, nuevoEstado) {
+    if (confirm(`¿Está seguro de cambiar el estado del pedido #${idPedido} a "${nuevoEstado}"?`)) {
+        realizarCambioEstado(idPedido, nuevoEstado, '');
+    }
+}
+
+function confirmarCambioEstado() {
+    const nuevoEstado = document.getElementById('selectEstado').value;
+    const observacion = document.getElementById('observacionEstado').value;
+    
+    if (pedidoActual) {
+        if (confirm(`¿Está seguro de cambiar el estado del pedido #${pedidoActual} a "${nuevoEstado}"?`)) {
+            realizarCambioEstado(pedidoActual, nuevoEstado, observacion);
+        }
+    }
+}
+
+function realizarCambioEstado(idPedido, nuevoEstado, observacion) {
+    fetch(`/admin/ventas/cambiar-estado/${idPedido}`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            estado: nuevoEstado,
+            observacion: observacion
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showToast('success', 'Estado actualizado', 'El estado del pedido ha sido actualizado correctamente.');
+            setTimeout(() => {
+                location.reload();
+            }, 1500);
+        } else {
+            showToast('error', 'Error', data.message || 'Error al cambiar el estado');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showToast('error', 'Error', 'Error al conectar con el servidor');
+    });
+}
+
+function exportarExcel() {
+    // Obtener los datos del formulario
+    const formData = new FormData(document.getElementById('formFiltros'));
+    const params = new URLSearchParams();
+    
+    for (let [key, value] of formData.entries()) {
+        if (value) params.append(key, value);
+    }
+    
+    window.open(`/admin/ventas/exportar-excel?${params.toString()}`, '_blank');
+}
+
+function showToast(type, title, message) {
+    // Si tienes una función de toast implementada, úsala
+    if (typeof Toast !== 'undefined') {
+        Toast.fire({
+            icon: type,
+            title: title,
+            text: message
+        });
+    } else {
+        // Toast simple de Bootstrap
+        const toastEl = document.createElement('div');
+        toastEl.className = `toast align-items-center text-white bg-${type} border-0`;
+        toastEl.setAttribute('role', 'alert');
+        toastEl.innerHTML = `
+            <div class="d-flex">
+                <div class="toast-body">
+                    <strong>${title}:</strong> ${message}
+                </div>
+                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+            </div>
+        `;
+        
+        document.body.appendChild(toastEl);
+        const toast = new bootstrap.Toast(toastEl);
+        toast.show();
+        
+        // Remover después de mostrar
+        toastEl.addEventListener('hidden.bs.toast', function () {
+            document.body.removeChild(toastEl);
+        });
+    }
+}
+
+// Función para imprimir pedido
+function imprimirPedido(idPedido) {
+    window.open(`/admin/ventas/pedido/${idPedido}/imprimir`, '_blank');
+}
 </script>
+
+<style>
+.table th {
+    background-color: #f8f9fa;
+    font-weight: 600;
+}
+.badge {
+    font-size: 0.85em;
+}
+.btn-group-sm > .btn {
+    padding: 0.25rem 0.5rem;
+}
+.card-header {
+    border-bottom: 2px solid rgba(0,0,0,.125);
+}
+.table-hover tbody tr:hover {
+    background-color: rgba(0,123,255,0.05);
+}
+#tablaPedidos tbody tr {
+    cursor: pointer;
+}
+#tablaPedidos tbody tr:hover td {
+    background-color: rgba(0,123,255,0.05);
+}
+</style>
 {% endblock %}
