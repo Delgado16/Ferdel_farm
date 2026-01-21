@@ -24,7 +24,7 @@
         <div class="card-body">
             <form method="POST" action="{{ url_for('filtrar_pedidos') }}" id="formFiltros">
                 <div class="row g-3">
-                    <div class="col-md-3">
+                    <div class="col-md-2">
                         <label class="form-label fw-bold">Estado:</label>
                         <select name="estado" class="form-select">
                             <option value="todos">Todos los estados</option>
@@ -36,7 +36,19 @@
                             {% endfor %}
                         </select>
                     </div>
-                    <div class="col-md-3">
+                    <div class="col-md-2">
+                        <label class="form-label fw-bold">Prioridad:</label>
+                        <select name="prioridad" class="form-select">
+                            <option value="todos">Todas las prioridades</option>
+                            {% for prioridad in prioridades %}
+                            <option value="{{ prioridad }}" 
+                                {% if filtros_aplicados and filtros_aplicados.prioridad == prioridad %}selected{% endif %}>
+                                {{ prioridad }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-2">
                         <label class="form-label fw-bold">Tipo Cliente:</label>
                         <select name="tipo_cliente" class="form-select">
                             <option value="todos">Todos los tipos</option>
@@ -48,7 +60,7 @@
                             {% endfor %}
                         </select>
                     </div>
-                    <div class="col-md-3">
+                    <div class="col-md-2">
                         <label class="form-label fw-bold">Tipo Entrega:</label>
                         <select name="tipo_entrega" class="form-select">
                             <option value="todos">Todos los tipos</option>
@@ -60,12 +72,12 @@
                             {% endfor %}
                         </select>
                     </div>
-                    <div class="col-md-3">
+                    <div class="col-md-2">
                         <label class="form-label fw-bold">Fecha Inicio:</label>
                         <input type="date" name="fecha_inicio" class="form-control" 
                                value="{{ filtros_aplicados.fecha_inicio if filtros_aplicados }}">
                     </div>
-                    <div class="col-md-3">
+                    <div class="col-md-2">
                         <label class="form-label fw-bold">Fecha Fin:</label>
                         <input type="date" name="fecha_fin" class="form-control"
                                value="{{ filtros_aplicados.fecha_fin if filtros_aplicados }}">
@@ -103,7 +115,7 @@
     <!-- Resumen Estadístico -->
     {% if pedidos %}
     <div class="row mb-4">
-        <div class="col-md-3">
+        <div class="col-md-2">
             <div class="card text-white bg-primary">
                 <div class="card-body">
                     <h6 class="card-title"><i class="fas fa-shopping-cart me-2"></i>Total Pedidos</h6>
@@ -111,7 +123,7 @@
                 </div>
             </div>
         </div>
-        <div class="col-md-3">
+        <div class="col-md-2">
             {% set total_ventas = pedidos|sum(attribute='Total_Pedido') or 0 %}
             <div class="card text-white bg-success">
                 <div class="card-body">
@@ -120,7 +132,7 @@
                 </div>
             </div>
         </div>
-        <div class="col-md-3">
+        <div class="col-md-2">
             {% set pendientes = pedidos|selectattr('Estado', 'equalto', 'Pendiente')|list %}
             <div class="card text-white bg-warning">
                 <div class="card-body">
@@ -129,11 +141,29 @@
                 </div>
             </div>
         </div>
-        <div class="col-md-3">
-            {% set entregados = pedidos|selectattr('Estado', 'equalto', 'Entregado')|list %}
+        <div class="col-md-2">
+            {% set urgentes = pedidos|selectattr('Prioridad', 'equalto', 'Urgente')|list %}
+            <div class="card text-white bg-danger">
+                <div class="card-body">
+                    <h6 class="card-title"><i class="fas fa-exclamation-triangle me-2"></i>Urgentes</h6>
+                    <h3 class="card-text">{{ urgentes|length }}</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-2">
+            {% set aprobados = pedidos|selectattr('Estado', 'equalto', 'Aprobado')|list %}
             <div class="card text-white bg-info">
                 <div class="card-body">
-                    <h6 class="card-title"><i class="fas fa-check-circle me-2"></i>Entregados</h6>
+                    <h6 class="card-title"><i class="fas fa-check-circle me-2"></i>Aprobados</h6>
+                    <h3 class="card-text">{{ aprobados|length }}</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-2">
+            {% set entregados = pedidos|selectattr('Estado', 'equalto', 'Entregado')|list %}
+            <div class="card text-white bg-secondary">
+                <div class="card-body">
+                    <h6 class="card-title"><i class="fas fa-truck me-2"></i>Entregados</h6>
                     <h3 class="card-text">{{ entregados|length }}</h3>
                 </div>
             </div>
@@ -160,6 +190,7 @@
                             <th>Cliente</th>
                             <th width="120">Documento</th>
                             <th width="100">Tipo</th>
+                            <th width="120">Prioridad</th>
                             <th width="120">Estado</th>
                             <th width="150">Entrega</th>
                             <th width="120">Total</th>
@@ -170,7 +201,14 @@
                     <tbody>
                         {% for pedido in pedidos %}
                         <tr>
-                            <td><strong>#{{ pedido.ID_Pedido }}</strong></td>
+                            <td>
+                                <strong>#{{ pedido.ID_Pedido }}</strong>
+                                {% if pedido.Prioridad == 'Urgente' %}
+                                <span class="badge bg-danger float-end" title="Urgente">
+                                    <i class="fas fa-exclamation"></i>
+                                </span>
+                                {% endif %}
+                            </td>
                             <td>
                                 {% if pedido.Fecha %}
                                 {{ pedido.Fecha.strftime('%d/%m/%Y') }}
@@ -196,6 +234,19 @@
                                     {% if pedido.Tipo_Cliente == 'Especial' %}bg-primary
                                     {% else %}bg-light text-dark{% endif %}">
                                     {{ pedido.Tipo_Cliente }}
+                                </span>
+                            </td>
+                            <td>
+                                <span class="badge 
+                                    {% if pedido.Prioridad == 'Urgente' %}bg-danger
+                                    {% elif pedido.Prioridad == 'Normal' %}bg-primary
+                                    {% elif pedido.Prioridad == 'Bajo' %}bg-secondary
+                                    {% else %}bg-light text-dark{% endif %} p-2">
+                                    <i class="fas 
+                                        {% if pedido.Prioridad == 'Urgente' %}fa-exclamation-triangle
+                                        {% elif pedido.Prioridad == 'Bajo' %}fa-angle-down
+                                        {% else %}fa-bars{% endif %} me-1"></i>
+                                    {{ pedido.Prioridad }}
                                 </span>
                             </td>
                             <td>
@@ -234,20 +285,22 @@
                                        class="btn btn-outline-info" 
                                        title="Ver detalle"
                                        data-bs-toggle="tooltip">
-                                        <i class="fas fa-eye"></i>
-                                    </a>
-                                    <a href="/admin/ventas/editar-pedido/{{ pedido.ID_Pedido }}" 
-                                       class="btn btn-outline-primary"
-                                       title="Editar"
-                                       data-bs-toggle="tooltip">
-                                        <i class="fas fa-edit"></i>
+                                        <i class="fas fa-eye"></i>Detalle
                                     </a>
                                     {% if pedido.Estado == 'Pendiente' %}
                                     <button type="button" class="btn btn-outline-success"
                                             title="Aprobar pedido"
                                             data-bs-toggle="tooltip"
                                             onclick="cambiarEstado({{ pedido.ID_Pedido }}, 'Aprobado')">
-                                        <i class="fas fa-check"></i>
+                                        <i class="fas fa-check"></i>Aprobar
+                                    </button>
+                                    {% endif %}
+                                    {% if pedido.Estado != 'Cancelado' %}
+                                    <button type="button" class="btn btn-outline-warning"
+                                            title="Cambiar estado"
+                                            data-bs-toggle="tooltip"
+                                            onclick="cambiarEstado({{ pedido.ID_Pedido }})">
+                                        <i class="fas fa-exchange-alt"></i>estado
                                     </button>
                                     {% endif %}
                                 </div>
@@ -257,7 +310,7 @@
                     </tbody>
                     <tfoot>
                         <tr class="table-active">
-                            <td colspan="7" class="text-end fw-bold">TOTAL GENERAL:</td>
+                            <td colspan="8" class="text-end fw-bold">TOTAL GENERAL:</td>
                             <td class="fw-bold text-primary fs-5">${{ "{:,.2f}".format(pedidos|sum(attribute='Total_Pedido') or 0) }}</td>
                             <td class="text-center fw-bold">{{ pedidos|sum(attribute='Total_Items') or 0 }}</td>
                             <td></td>
@@ -370,9 +423,12 @@ document.addEventListener('DOMContentLoaded', function() {
             "language": {
                 "url": "//cdn.datatables.net/plug-ins/1.10.25/i18n/Spanish.json"
             },
-            "order": [[1, 'desc']],
+            "order": [[0, 'desc']],
             "pageLength": 25,
-            "responsive": true
+            "responsive": true,
+            "columnDefs": [
+                { "orderable": false, "targets": [10] } // Columna de acciones no ordenable
+            ]
         });
     }
 });
@@ -383,7 +439,6 @@ function nuevoPedido() {
 
 function cambiarEstado(idPedido, nuevoEstado) {
     pedidoActual = idPedido;
-    estadoActual = nuevoEstado;
     
     if (nuevoEstado) {
         // Cambio directo
@@ -513,6 +568,22 @@ function imprimirPedido(idPedido) {
 }
 #tablaPedidos tbody tr:hover td {
     background-color: rgba(0,123,255,0.05);
+}
+
+/* Estilos para prioridad Urgente */
+.bg-danger {
+    background-color: #dc3545 !important;
+}
+
+/* Resaltar filas con prioridad Urgente */
+tr .bg-danger {
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0% { opacity: 1; }
+    50% { opacity: 0.7; }
+    100% { opacity: 1; }
 }
 </style>
 {% endblock %}

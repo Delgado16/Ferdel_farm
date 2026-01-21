@@ -8031,9 +8031,9 @@ def admin_detalle_cuentacobrar(id_movimiento):
         traceback.print_exc()
         return redirect(url_for('admin_cuentascobrar'))
 
-## PEDIDOS DE VENTA
+## PEDIDOS DE VENTA 
 @app.route('/admin/ventas/pedidos-venta')
-@admin_required
+@admin_or_bodega_required
 @bitacora_decorator("PEDIDOS-VENTA")
 def admin_pedidos_venta():
     try:
@@ -8047,6 +8047,7 @@ def admin_pedidos_venta():
                 p.Tipo_Entrega,
                 p.Observacion,
                 p.Fecha_Creacion,
+                p.Prioridad,
                 c.ID_Cliente,
                 c.Nombre as Nombre_Cliente,
                 c.Telefono as Telefono_Cliente,
@@ -8063,12 +8064,12 @@ def admin_pedidos_venta():
             LEFT JOIN empresa e ON p.ID_Empresa = e.ID_Empresa
             LEFT JOIN usuarios u ON p.ID_Usuario_Creacion = u.ID_Usuario
             LEFT JOIN detalle_pedidos dp ON p.ID_Pedido = dp.ID_Pedido
-            WHERE c.Estado = 'ACTIVO'  -- Solo clientes activos
+            WHERE c.Estado = 'ACTIVO'
             GROUP BY p.ID_Pedido, p.Fecha, p.Estado, p.Tipo_Entrega, p.Observacion, 
-                     p.Fecha_Creacion, c.ID_Cliente, c.Nombre, c.Telefono, 
-                     c.Direccion, c.RUC_CEDULA, c.tipo_cliente, c.Estado,
-                     e.Nombre_Empresa, u.NombreUsuario
-            ORDER BY p.Fecha DESC, p.ID_Pedido DESC
+                    p.Fecha_Creacion, p.Prioridad, c.ID_Cliente, c.Nombre, c.Telefono, 
+                    c.Direccion, c.RUC_CEDULA, c.tipo_cliente, c.Estado,
+                    e.Nombre_Empresa, u.NombreUsuario
+            ORDER BY p.ID_Pedido DESC  -- Solo por ID_Pedido descendente
             """
             
             cursor.execute(sql)
@@ -8078,18 +8079,19 @@ def admin_pedidos_venta():
             estados = ['Pendiente', 'Aprobado', 'Entregado', 'Cancelado']
             tipos_entrega = ['Retiro en local', 'Entrega a domicilio']
             tipos_cliente = ['Comun', 'Especial']  # Para posibles filtros futuros
+            prioridades = ['Urgente', 'Normal', 'Bajo']  # Nueva opción de filtro
             
             return render_template('admin/ventas/pedidos/pedidos_venta.html', 
                                  pedidos=pedidos,
                                  estados=estados,
                                  tipos_entrega=tipos_entrega,
                                  tipos_cliente=tipos_cliente,
+                                 prioridades=prioridades,  # Nueva variable
                                  now=datetime.now())
             
     except Exception as e:
         flash(f"Error al cargar pedidos de venta: {e}", "error")
         return redirect(url_for('admin_dashboard'))
-
 
 # Ruta para ver el detalle de un pedido específico
 @app.route('/admin/ventas/pedido/<int:id_pedido>')
@@ -8108,7 +8110,6 @@ def ver_pedido(id_pedido):
                 c.RUC_CEDULA as Documento_Cliente,
                 c.tipo_cliente as Tipo_Cliente,
                 c.Estado as Estado_Cliente,
-                c.Email as Email_Cliente,
                 e.Nombre_Empresa,
                 e.Direccion as Direccion_Empresa,
                 e.Telefono as Telefono_Empresa,
@@ -8132,9 +8133,8 @@ def ver_pedido(id_pedido):
             sql_detalle = """
             SELECT 
                 dp.*,
-                pr.Nombre_Producto,
-                pr.Codigo_Producto,
                 pr.Descripcion,
+                pr.COD_Producto,
                 pr.Unidad_Medida,
                 (dp.Precio_Unitario * dp.Cantidad) as Subtotal_Calculado
             FROM detalle_pedidos dp
@@ -8168,7 +8168,6 @@ def ver_pedido(id_pedido):
         flash(f"Error al cargar el pedido: {e}", "error")
         return redirect(url_for('admin_pedidos_venta'))
 
-
 # Ruta para filtrar pedidos mejorada
 @app.route('/admin/ventas/pedidos-venta/filtrar', methods=['POST'])
 @admin_required
@@ -8179,6 +8178,7 @@ def filtrar_pedidos():
         fecha_fin = request.form.get('fecha_fin')
         tipo_entrega = request.form.get('tipo_entrega', 'todos')
         tipo_cliente = request.form.get('tipo_cliente', 'todos')
+        prioridad = request.form.get('prioridad', 'todos')  # Nuevo filtro
         documento_cliente = request.form.get('documento_cliente', '').strip()
         nombre_cliente = request.form.get('nombre_cliente', '').strip()
         
@@ -8205,6 +8205,10 @@ def filtrar_pedidos():
             condiciones.append("c.tipo_cliente = %s")
             parametros.append(tipo_cliente)
         
+        if prioridad != 'todos':  # Nuevo filtro
+            condiciones.append("p.Prioridad = %s")
+            parametros.append(prioridad)
+        
         if documento_cliente:
             condiciones.append("c.RUC_CEDULA LIKE %s")
             parametros.append(f"%{documento_cliente}%")
@@ -8222,6 +8226,7 @@ def filtrar_pedidos():
                 p.Tipo_Entrega,
                 p.Observacion,
                 p.Fecha_Creacion,
+                p.Prioridad,  -- Nueva columna añadida
                 c.ID_Cliente,
                 c.Nombre as Nombre_Cliente,
                 c.Telefono as Telefono_Cliente,
@@ -8243,9 +8248,17 @@ def filtrar_pedidos():
             
             sql_base += """
             GROUP BY p.ID_Pedido, p.Fecha, p.Estado, p.Tipo_Entrega, p.Observacion, 
-                     p.Fecha_Creacion, c.ID_Cliente, c.Nombre, c.Telefono, 
+                     p.Fecha_Creacion, p.Prioridad, c.ID_Cliente, c.Nombre, c.Telefono, 
                      c.RUC_CEDULA, c.tipo_cliente, e.Nombre_Empresa, u.Nombre
-            ORDER BY p.Fecha DESC, p.ID_Pedido DESC
+            ORDER BY 
+                CASE p.Prioridad
+                    WHEN 'Urgente' THEN 1
+                    WHEN 'Normal' THEN 2
+                    WHEN 'Bajo' THEN 3
+                    ELSE 4
+                END,
+                p.Fecha DESC, 
+                p.ID_Pedido DESC
             """
             
             cursor.execute(sql_base, tuple(parametros))
@@ -8254,18 +8267,21 @@ def filtrar_pedidos():
             estados = ['Pendiente', 'Aprobado', 'Entregado', 'Cancelado']
             tipos_entrega = ['Retiro en local', 'Entrega a domicilio']
             tipos_cliente = ['Comun', 'Especial']
+            prioridades = ['Urgente', 'Normal', 'Bajo']  # Nueva opción de filtro
             
             return render_template('admin/ventas/pedidos/pedidos_venta.html',
                                  pedidos=pedidos,
                                  estados=estados,
                                  tipos_entrega=tipos_entrega,
                                  tipos_cliente=tipos_cliente,
+                                 prioridades=prioridades,  # Nueva variable
                                  filtros_aplicados={
                                      'estado': estado,
                                      'fecha_inicio': fecha_inicio,
                                      'fecha_fin': fecha_fin,
                                      'tipo_entrega': tipo_entrega,
                                      'tipo_cliente': tipo_cliente,
+                                     'prioridad': prioridad,  # Nuevo filtro
                                      'documento_cliente': documento_cliente,
                                      'nombre_cliente': nombre_cliente
                                  },
@@ -8274,7 +8290,6 @@ def filtrar_pedidos():
     except Exception as e:
         flash(f"Error al filtrar pedidos: {e}", "error")
         return redirect(url_for('admin_pedidos_venta'))
-
 
 # Nueva ruta para cambiar estado de pedido
 @app.route('/admin/ventas/cambiar-estado/<int:id_pedido>', methods=['POST'])
@@ -8314,7 +8329,6 @@ def cambiar_estado_pedido(id_pedido):
             
     except Exception as e:
         return jsonify({'success': False, 'message': str(e)}), 500
-
 
 # Ruta para buscar clientes (para autocompletar)
 @app.route('/admin/ventas/buscar-clientes')
@@ -8397,17 +8411,21 @@ def nuevo_pedido():
                 """
                 cursor.execute(sql_cliente, (cliente_id,))
                 cliente_seleccionado = cursor.fetchone()
+
+            
+            # Definir opciones de prioridad
+            prioridades = ['Urgente', 'Normal', 'Bajo']
             
             return render_template('admin/ventas/pedidos/nuevo_pedido.html',
                                  clientes=clientes,
                                  empresas=empresas,
                                  cliente_seleccionado=cliente_seleccionado,
-                                 now=datetime.now())
+                                 prioridades=prioridades,  # Nueva variable
+                                 now=datetime.now().date())
             
     except Exception as e:
         flash(f"Error al cargar formulario de pedido: {e}", "error")
         return redirect(url_for('admin_pedidos_venta'))
-
 
 @app.route('/admin/ventas/obtener-productos-categoria')
 @admin_required
@@ -8431,25 +8449,29 @@ def obtener_productos_categoria():
             if not config or not config['visible']:
                 return jsonify({'productos': []})
             
-            # Obtener productos activos de esta categoría con unidad de medida
+            # Obtener productos activos de esta categoría con stock de bodega
             sql_productos = """
             SELECT 
                 p.ID_Producto,
                 p.Descripcion as Nombre_Producto,
                 p.COD_Producto,
                 p.Precio_Venta,
-                p.Stock_Actual,
                 p.ID_Categoria,
                 p.Unidad_Medida,
                 u.Descripcion as Unidad_Descripcion,
                 u.Abreviatura as Unidad_Abreviatura,
-                c.Descripcion as Categoria_Descripcion
+                c.Descripcion as Categoria_Descripcion,
+                COALESCE(SUM(ib.Existencias), 0) as Stock_Total
             FROM productos p
             LEFT JOIN unidades_medida u ON p.Unidad_Medida = u.ID_Unidad
             LEFT JOIN categorias_producto c ON p.ID_Categoria = c.ID_Categoria
+            LEFT JOIN inventario_bodega ib ON p.ID_Producto = ib.ID_Producto
             WHERE p.ID_Categoria = %s 
             AND p.Estado = 'activo'
-            AND p.Stock_Actual > 0
+            GROUP BY p.ID_Producto, p.Descripcion, p.COD_Producto, p.Precio_Venta, 
+                     p.ID_Categoria, p.Unidad_Medida, u.Descripcion, u.Abreviatura, 
+                     c.Descripcion
+            HAVING Stock_Total > 0
             ORDER BY p.Descripcion
             """
             
@@ -8464,7 +8486,7 @@ def obtener_productos_categoria():
                     'nombre': producto['Nombre_Producto'],
                     'codigo': producto['COD_Producto'],
                     'precio': float(producto['Precio_Venta']) if producto['Precio_Venta'] else 0,
-                    'stock': float(producto['Stock_Actual']) if producto['Stock_Actual'] else 0,
+                    'stock': float(producto['Stock_Total']) if producto['Stock_Total'] else 0,
                     'categoria_id': producto['ID_Categoria'],
                     'unidad_medida': producto['Unidad_Medida'],
                     'unidad_descripcion': producto['Unidad_Descripcion'] or 'Unidad',
@@ -8476,7 +8498,6 @@ def obtener_productos_categoria():
             
     except Exception as e:
         return jsonify({'error': str(e)}), 500
-
 
 @app.route('/admin/ventas/obtener-categorias-visibles')
 @admin_required
@@ -8516,13 +8537,13 @@ def obtener_categorias_visibles():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-
 @app.route('/admin/ventas/crear-pedido', methods=['POST'])
 @admin_required
 @bitacora_decorator("CREAR_PEDIDO")
 def crear_pedido():
     try:
         data = request.get_json()
+        user = current_user.id
         
         # Validar datos requeridos
         if not data.get('cliente_id'):
@@ -8536,6 +8557,7 @@ def crear_pedido():
         
         fecha = data.get('fecha')
         tipo_entrega = data.get('tipo_entrega', 'Retiro en local')
+        prioridad = data.get('prioridad', 'Normal')  # Nueva columna
         observacion = data.get('observacion', '')
         
         with get_db_cursor() as cursor:
@@ -8561,29 +8583,46 @@ def crear_pedido():
             # Crear el pedido
             sql_pedido = """
             INSERT INTO pedidos (Fecha, ID_Cliente, ID_Empresa, ID_Usuario_Creacion, 
-                               Estado, Observacion, Tipo_Entrega)
-            VALUES (%s, %s, %s, %s, 'Pendiente', %s, %s)
+                               Estado, Observacion, Tipo_Entrega, Prioridad)
+            VALUES (%s, %s, %s, %s, 'Pendiente', %s, %s, %s)
             """
             
             cursor.execute(sql_pedido, (
                 fecha,
                 data['cliente_id'],
                 data['empresa_id'],
-                session.get('user_id'),
+                user,
                 observacion,
-                tipo_entrega
+                tipo_entrega,
+                prioridad  # Nuevo parámetro
             ))
             
             pedido_id = cursor.lastrowid
             
             # Agregar productos al detalle del pedido
             for producto in data['productos']:
-                # Verificar stock disponible
-                sql_stock = """
-                SELECT Stock_Actual, Precio_Venta FROM productos 
+                # Verificar stock total disponible en inventario_bodega
+                sql_stock_total = """
+                SELECT COALESCE(SUM(Existencias), 0) as Stock_Total
+                FROM inventario_bodega 
+                WHERE ID_Producto = %s
+                """
+                cursor.execute(sql_stock_total, (producto['id'],))
+                stock_total_result = cursor.fetchone()
+                stock_total = stock_total_result['Stock_Total'] if stock_total_result else 0
+                
+                if stock_total < producto['cantidad']:
+                    return jsonify({
+                        'success': False, 
+                        'message': f"Stock insuficiente para {producto['nombre']}. Disponible: {stock_total}"
+                    }), 400
+                
+                # Obtener precio del producto
+                sql_precio = """
+                SELECT Precio_Venta FROM productos 
                 WHERE ID_Producto = %s AND Estado = 'activo'
                 """
-                cursor.execute(sql_stock, (producto['id'],))
+                cursor.execute(sql_precio, (producto['id'],))
                 producto_info = cursor.fetchone()
                 
                 if not producto_info:
@@ -8592,17 +8631,11 @@ def crear_pedido():
                         'message': f"Producto ID {producto['id']} no encontrado o inactivo"
                     }), 400
                 
-                if producto_info['Stock_Actual'] < producto['cantidad']:
-                    return jsonify({
-                        'success': False, 
-                        'message': f"Stock insuficiente para {producto['nombre']}. Disponible: {producto_info['Stock_Actual']}"
-                    }), 400
-                
-                # Usar precio del producto o el enviado
+                # Calcular subtotal
                 precio_unitario = producto.get('precio') or producto_info['Precio_Venta']
                 subtotal = precio_unitario * producto['cantidad']
                 
-                # Insertar detalle
+                # Insertar detalle del pedido
                 sql_detalle = """
                 INSERT INTO detalle_pedidos (ID_Pedido, ID_Producto, Precio_Unitario, 
                                            Cantidad, Subtotal)
@@ -8617,19 +8650,54 @@ def crear_pedido():
                     subtotal
                 ))
                 
-                # Actualizar stock (reducir)
-                sql_update_stock = """
-                UPDATE productos 
-                SET Stock_Actual = Stock_Actual - %s
-                WHERE ID_Producto = %s
+                # Descontar stock de las bodegas (FIFO: First In, First Out)
+                cantidad_a_descontar = producto['cantidad']
+                
+                # Obtener bodegas con stock disponible para este producto
+                sql_bodegas_stock = """
+                SELECT ID_Bodega, Existencias 
+                FROM inventario_bodega 
+                WHERE ID_Producto = %s AND Existencias > 0
+                ORDER BY ID_Bodega
                 """
-                cursor.execute(sql_update_stock, (producto['cantidad'], producto['id']))
+                cursor.execute(sql_bodegas_stock, (producto['id'],))
+                bodegas_stock = cursor.fetchall()
+                
+                for bodega in bodegas_stock:
+                    if cantidad_a_descontar <= 0:
+                        break
+                    
+                    stock_disponible = bodega['Existencias']
+                    id_bodega = bodega['ID_Bodega']
+                    
+                    if stock_disponible >= cantidad_a_descontar:
+                        # Descontar todo de esta bodega
+                        sql_update = """
+                        UPDATE inventario_bodega 
+                        SET Existencias = Existencias - %s
+                        WHERE ID_Bodega = %s AND ID_Producto = %s
+                        """
+                        cursor.execute(sql_update, (cantidad_a_descontar, id_bodega, producto['id']))
+                        cantidad_a_descontar = 0
+                    else:
+                        # Descontar lo que haya disponible y continuar con la siguiente bodega
+                        sql_update = """
+                        UPDATE inventario_bodega 
+                        SET Existencias = Existencias - %s
+                        WHERE ID_Bodega = %s AND ID_Producto = %s
+                        """
+                        cursor.execute(sql_update, (stock_disponible, id_bodega, producto['id']))
+                        cantidad_a_descontar -= stock_disponible
+                
+                # Verificar que se descontó todo el stock necesario
+                if cantidad_a_descontar > 0:
+                    raise Exception(f"No se pudo descontar todo el stock para el producto {producto['id']}")
             
             # Registrar en bitácora
             cursor.execute("""
                 INSERT INTO bitacora (ID_Usuario, Accion, Descripcion, Fecha)
                 VALUES (%s, 'CREAR_PEDIDO', %s, NOW())
-            """, (session.get('user_id'), f'Pedido #{pedido_id} creado para cliente {data["cliente_id"]}'))
+            """, (session.get('user_id'), f'Pedido #{pedido_id} creado para cliente {data["cliente_id"]} con prioridad {prioridad}'))
             
             return jsonify({
                 'success': True, 
@@ -8639,7 +8707,6 @@ def crear_pedido():
             
     except Exception as e:
         return jsonify({'success': False, 'message': str(e)}), 500
-
 
 # Ruta adicional para buscar productos por nombre o código
 @app.route('/admin/ventas/buscar-productos')
@@ -8661,20 +8728,23 @@ def buscar_productos():
                     p.Descripcion as Nombre_Producto,
                     p.COD_Producto,
                     p.Precio_Venta,
-                    p.Stock_Actual,
                     p.Unidad_Medida,
                     u.Descripcion as Unidad_Descripcion,
                     u.Abreviatura as Unidad_Abreviatura,
-                    cp.Descripcion as Categoria_Descripcion
+                    cp.Descripcion as Categoria_Descripcion,
+                    COALESCE(SUM(ib.Existencias), 0) as Stock_Total
                 FROM productos p
                 LEFT JOIN unidades_medida u ON p.Unidad_Medida = u.ID_Unidad
                 LEFT JOIN categorias_producto cp ON p.ID_Categoria = cp.ID_Categoria
+                LEFT JOIN inventario_bodega ib ON p.ID_Producto = ib.ID_Producto
                 INNER JOIN config_visibilidad_categorias cv ON p.ID_Categoria = cv.ID_Categoria
                 WHERE (p.Descripcion LIKE %s OR p.COD_Producto LIKE %s)
                 AND p.Estado = 'activo'
-                AND p.Stock_Actual > 0
                 AND cv.tipo_cliente = %s
                 AND cv.visible = 1
+                GROUP BY p.ID_Producto, p.Descripcion, p.COD_Producto, p.Precio_Venta,
+                         p.Unidad_Medida, u.Descripcion, u.Abreviatura, cp.Descripcion
+                HAVING Stock_Total > 0
                 ORDER BY p.Descripcion
                 LIMIT 20
                 """
@@ -8687,17 +8757,20 @@ def buscar_productos():
                     p.Descripcion as Nombre_Producto,
                     p.COD_Producto,
                     p.Precio_Venta,
-                    p.Stock_Actual,
                     p.Unidad_Medida,
                     u.Descripcion as Unidad_Descripcion,
                     u.Abreviatura as Unidad_Abreviatura,
-                    cp.Descripcion as Categoria_Descripcion
+                    cp.Descripcion as Categoria_Descripcion,
+                    COALESCE(SUM(ib.Existencias), 0) as Stock_Total
                 FROM productos p
                 LEFT JOIN unidades_medida u ON p.Unidad_Medida = u.ID_Unidad
                 LEFT JOIN categorias_producto cp ON p.ID_Categoria = cp.ID_Categoria
+                LEFT JOIN inventario_bodega ib ON p.ID_Producto = ib.ID_Producto
                 WHERE (p.Descripcion LIKE %s OR p.COD_Producto LIKE %s)
                 AND p.Estado = 'activo'
-                AND p.Stock_Actual > 0
+                GROUP BY p.ID_Producto, p.Descripcion, p.COD_Producto, p.Precio_Venta,
+                         p.Unidad_Medida, u.Descripcion, u.Abreviatura, cp.Descripcion
+                HAVING Stock_Total > 0
                 ORDER BY p.Descripcion
                 LIMIT 20
                 """
@@ -8714,7 +8787,7 @@ def buscar_productos():
                     'nombre': producto['Nombre_Producto'],
                     'codigo': producto['COD_Producto'],
                     'precio': float(producto['Precio_Venta']) if producto['Precio_Venta'] else 0,
-                    'stock': float(producto['Stock_Actual']) if producto['Stock_Actual'] else 0,
+                    'stock': float(producto['Stock_Total']) if producto['Stock_Total'] else 0,
                     'unidad_descripcion': producto['Unidad_Descripcion'] or 'Unidad',
                     'unidad_abreviatura': producto['Unidad_Abreviatura'] or '',
                     'categoria': producto['Categoria_Descripcion'] or ''
@@ -8724,6 +8797,149 @@ def buscar_productos():
             
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+# Ruta para obtener stock detallado por bodega
+@app.route('/admin/ventas/obtener-stock-producto/<int:producto_id>')
+@admin_required
+def obtener_stock_producto(producto_id):
+    try:
+        with get_db_cursor(True) as cursor:
+            # Obtener stock por bodega
+            sql_stock = """
+            SELECT 
+                ib.ID_Bodega,
+                b.Nombre_Bodega,
+                ib.Existencias
+            FROM inventario_bodega ib
+            LEFT JOIN bodegas b ON ib.ID_Bodega = b.ID_Bodega
+            WHERE ib.ID_Producto = %s
+            AND ib.Existencias > 0
+            ORDER BY b.Nombre_Bodega
+            """
+            
+            cursor.execute(sql_stock, (producto_id,))
+            stock_bodegas = cursor.fetchall()
+            
+            # Calcular stock total
+            sql_total = """
+            SELECT COALESCE(SUM(Existencias), 0) as Stock_Total
+            FROM inventario_bodega 
+            WHERE ID_Producto = %s
+            """
+            cursor.execute(sql_total, (producto_id,))
+            stock_total_result = cursor.fetchone()
+            stock_total = stock_total_result['Stock_Total'] if stock_total_result else 0
+            
+            # Obtener información del producto
+            sql_producto = """
+            SELECT Descripcion, COD_Producto FROM productos 
+            WHERE ID_Producto = %s
+            """
+            cursor.execute(sql_producto, (producto_id,))
+            producto_info = cursor.fetchone()
+            
+            return jsonify({
+                'producto': producto_info['Descripcion'] if producto_info else 'Producto desconocido',
+                'codigo': producto_info['COD_Producto'] if producto_info else '',
+                'stock_total': float(stock_total),
+                'bodegas': stock_bodegas
+            })
+            
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+# Ruta para obtener bodegas de una empresa
+@app.route('/admin/ventas/obtener-bodegas-empresa/<int:empresa_id>')
+@admin_required
+def obtener_bodegas_empresa(empresa_id):
+    try:
+        with get_db_cursor(True) as cursor:
+            sql = """
+            SELECT ID_Bodega, Nombre_Bodega 
+            FROM bodegas 
+            WHERE ID_Empresa = %s AND Estado = 'ACTIVO'
+            ORDER BY Nombre_Bodega
+            """
+            cursor.execute(sql, (empresa_id,))
+            bodegas = cursor.fetchall()
+            
+            return jsonify({'bodegas': bodegas})
+            
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+# Ruta para cancelar pedido
+@app.route('/admin/ventas/cancelar-pedido/<int:pedido_id>', methods=['POST'])
+@admin_required
+@bitacora_decorator("CANCELAR_PEDIDO")
+def cancelar_pedido(pedido_id):
+    try:
+        with get_db_cursor() as cursor:
+            # Verificar que el pedido existe y está pendiente o aprobado
+            sql_verificar = """
+            SELECT Estado FROM pedidos 
+            WHERE ID_Pedido = %s AND Estado IN ('Pendiente', 'Aprobado')
+            """
+            cursor.execute(sql_verificar, (pedido_id,))
+            pedido = cursor.fetchone()
+            
+            if not pedido:
+                return jsonify({'success': False, 'message': 'Pedido no encontrado o no se puede cancelar'}), 400
+            
+            # Obtener productos del pedido para devolver al stock
+            sql_productos = """
+            SELECT dp.ID_Producto, dp.Cantidad 
+            FROM detalle_pedidos dp
+            WHERE dp.ID_Pedido = %s
+            """
+            cursor.execute(sql_productos, (pedido_id,))
+            productos = cursor.fetchall()
+            
+            # Devolver stock a las bodegas (se devuelve a la primera bodega disponible)
+            for producto in productos:
+                # Obtener bodegas de la empresa del pedido
+                sql_bodegas = """
+                SELECT b.ID_Bodega 
+                FROM pedidos p
+                JOIN bodegas b ON p.ID_Empresa = b.ID_Empresa
+                WHERE p.ID_Pedido = %s AND b.Estado = 'ACTIVO'
+                ORDER BY b.ID_Bodega
+                LIMIT 1
+                """
+                cursor.execute(sql_bodegas, (pedido_id,))
+                bodega = cursor.fetchone()
+                
+                if bodega:
+                    # Actualizar inventario_bodega
+                    sql_update = """
+                    INSERT INTO inventario_bodega (ID_Bodega, ID_Producto, Existencias)
+                    VALUES (%s, %s, %s)
+                    ON DUPLICATE KEY UPDATE Existencias = Existencias + VALUES(Existencias)
+                    """
+                    cursor.execute(sql_update, (bodega['ID_Bodega'], producto['ID_Producto'], producto['Cantidad']))
+            
+            # Actualizar estado del pedido
+            sql_actualizar = """
+            UPDATE pedidos 
+            SET Estado = 'Cancelado' 
+            WHERE ID_Pedido = %s
+            """
+            cursor.execute(sql_actualizar, (pedido_id,))
+            
+            # Registrar en bitácora
+            cursor.execute("""
+                INSERT INTO bitacora (ID_Usuario, Accion, Descripcion, Fecha)
+                VALUES (%s, 'CANCELAR_PEDIDO', %s, NOW())
+            """, (session.get('user_id'), f'Pedido #{pedido_id} cancelado'))
+            
+            return jsonify({
+                'success': True, 
+                'message': 'Pedido cancelado exitosamente'
+            })
+            
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
+    
 # =============================================
 # INVENTARIO - MOVIMIENTOS DE INVENTARIO
 @app.route('/admin/inventario')
