@@ -8100,6 +8100,7 @@ def ver_pedido(id_pedido):
     try:
         with get_db_cursor(True) as cursor:
             # Obtener información del pedido con datos actualizados del cliente
+            # NOTA: clientes NO tiene campo Email según la estructura proporcionada
             sql_pedido = """
             SELECT 
                 p.*,
@@ -8129,16 +8130,18 @@ def ver_pedido(id_pedido):
                 flash("Pedido no encontrado o cliente inactivo", "error")
                 return redirect(url_for('admin_pedidos_venta'))
             
-            # Obtener detalle del pedido
+            # Obtener detalle del pedido - CORREGIDO según estructura real
             sql_detalle = """
             SELECT 
                 dp.*,
-                pr.Descripcion,
                 pr.COD_Producto,
+                pr.Descripcion as Nombre_Producto,  -- Usamos Descripcion como nombre
                 pr.Unidad_Medida,
+                um.Descripcion as Unidad_Nombre,
                 (dp.Precio_Unitario * dp.Cantidad) as Subtotal_Calculado
             FROM detalle_pedidos dp
             LEFT JOIN productos pr ON dp.ID_Producto = pr.ID_Producto
+            LEFT JOIN unidades_medida um ON pr.Unidad_Medida = um.ID_Unidad
             WHERE dp.ID_Pedido = %s
             ORDER BY dp.ID_Detalle_Pedido
             """
@@ -8149,23 +8152,52 @@ def ver_pedido(id_pedido):
             # Calcular totales
             sql_total = """
             SELECT 
-                SUM(Cantidad) as Total_Cantidad,
-                SUM(Subtotal) as Total_General,
-                COUNT(ID_Detalle_Pedido) as Total_Productos
-            FROM detalle_pedidos
-            WHERE ID_Pedido = %s
+                COALESCE(SUM(dp.Cantidad), 0) as Total_Cantidad,
+                COALESCE(SUM(dp.Subtotal), 0) as Total_General,
+                COUNT(dp.ID_Detalle_Pedido) as Total_Productos
+            FROM detalle_pedidos dp
+            WHERE dp.ID_Pedido = %s
             """
             
             cursor.execute(sql_total, (id_pedido,))
             totales = cursor.fetchone()
             
+            # Convertir totales a objeto
+            class TotalesObj:
+                pass
+            
+            totales_obj = TotalesObj()
+            
+            if totales:
+                # Manejar diferentes tipos de retorno de cursor
+                if hasattr(totales, '_asdict'):  # Para namedtuple
+                    totals_dict = totales._asdict()
+                elif isinstance(totales, dict):  # Para diccionario
+                    totals_dict = totales
+                else:  # Para tupla (asumir orden de columnas)
+                    totals_dict = {
+                        'Total_Cantidad': totales[0] if len(totales) > 0 else 0,
+                        'Total_General': totales[1] if len(totales) > 1 else 0,
+                        'Total_Productos': totales[2] if len(totales) > 2 else 0
+                    }
+                
+                totales_obj.Total_Cantidad = totals_dict.get('Total_Cantidad', 0) or 0
+                totales_obj.Total_General = totals_dict.get('Total_General', 0) or 0
+                totales_obj.Total_Productos = totals_dict.get('Total_Productos', 0) or 0
+            else:
+                totales_obj.Total_Cantidad = 0
+                totales_obj.Total_General = 0
+                totales_obj.Total_Productos = 0
+            
             return render_template('admin/ventas/pedidos/detalle_pedido.html',
                                  pedido=pedido,
                                  detalles=detalles,
-                                 totales=totales)
+                                 totales=totales_obj)
             
     except Exception as e:
-        flash(f"Error al cargar el pedido: {e}", "error")
+        flash(f"Error al cargar el pedido: {str(e)}", "error")
+        import traceback
+        print(f"Error detallado: {traceback.format_exc()}")
         return redirect(url_for('admin_pedidos_venta'))
 
 # Ruta para filtrar pedidos mejorada

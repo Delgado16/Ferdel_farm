@@ -50,6 +50,11 @@
                 <p class="mb-0">
                     Fecha del pedido: {{ pedido.Fecha.strftime('%d/%m/%Y') if pedido.Fecha else 'N/A' }}
                     | Creado por: {{ pedido.Usuario_Creacion or 'Sistema' }}
+                    {% if pedido.Prioridad == 'Urgente' %}
+                    | <span class="badge bg-danger">URGENTE</span>
+                    {% elif pedido.Prioridad == 'Bajo' %}
+                    | <span class="badge bg-secondary">BAJA PRIORIDAD</span>
+                    {% endif %}
                 </p>
             </div>
             <div>
@@ -98,6 +103,17 @@
                                     <td>{{ pedido.Fecha.strftime('%d/%m/%Y') if pedido.Fecha else 'N/A' }}</td>
                                 </tr>
                                 <tr>
+                                    <th class="text-muted">Prioridad:</th>
+                                    <td>
+                                        <span class="badge 
+                                            {% if pedido.Prioridad == 'Urgente' %}bg-danger
+                                            {% elif pedido.Prioridad == 'Normal' %}bg-warning text-dark
+                                            {% else %}bg-secondary{% endif %}">
+                                            {{ pedido.Prioridad }}
+                                        </span>
+                                    </td>
+                                </tr>
+                                <tr>
                                     <th class="text-muted">Tipo Entrega:</th>
                                     <td>
                                         <span class="badge 
@@ -110,10 +126,6 @@
                                         </span>
                                     </td>
                                 </tr>
-                                <tr>
-                                    <th class="text-muted">Creación:</th>
-                                    <td>{{ pedido.Fecha_Creacion.strftime('%d/%m/%Y %H:%M:%S') if pedido.Fecha_Creacion else 'N/A' }}</td>
-                                </tr>
                             </table>
                         </div>
                         <div class="col-md-6">
@@ -125,6 +137,10 @@
                                 <tr>
                                     <th class="text-muted">Usuario:</th>
                                     <td>{{ pedido.Usuario_Creacion or 'Sistema' }}</td>
+                                </tr>
+                                <tr>
+                                    <th class="text-muted">Creación:</th>
+                                    <td>{{ pedido.Fecha_Creacion.strftime('%d/%m/%Y %H:%M:%S') if pedido.Fecha_Creacion else 'N/A' }}</td>
                                 </tr>
                                 {% if pedido.Observacion %}
                                 <tr>
@@ -161,16 +177,16 @@
                                 <tr>
                                     <td>{{ loop.index }}</td>
                                     <td>
-                                        {% if detalle.Codigo_Producto %}
-                                        <span class="badge bg-dark">{{ detalle.Codigo_Producto }}</span>
+                                        {% if detalle.COD_Producto %}
+                                        <span class="badge bg-dark">{{ detalle.COD_Producto }}</span>
                                         {% else %}
                                         <span class="badge bg-secondary">N/A</span>
                                         {% endif %}
                                     </td>
                                     <td>
-                                        <div><strong>{{ detalle.Nombre_Producto or 'Producto' }}</strong></div>
-                                        {% if detalle.Descripcion %}
-                                        <small class="text-muted">{{ detalle.Descripcion[:50] }}{% if detalle.Descripcion|length > 50 %}...{% endif %}</small>
+                                        <div><strong>{{ detalle.Nombre_Producto or detalle.Descripcion or 'Producto' }}</strong></div>
+                                        {% if detalle.Unidad_Nombre %}
+                                        <small class="text-muted">Unidad: {{ detalle.Unidad_Nombre }}</small>
                                         {% endif %}
                                     </td>
                                     <td class="text-end">${{ "{:,.2f}".format(detalle.Precio_Unitario or 0) }}</td>
@@ -183,6 +199,11 @@
                                 <tr>
                                     <td colspan="4" class="text-end fw-bold">TOTAL ITEMS:</td>
                                     <td class="text-end fw-bold">{{ "{:,.2f}".format(totales.Total_Cantidad or 0) }}</td>
+                                    <td></td>
+                                </tr>
+                                <tr>
+                                    <td colspan="4" class="text-end fw-bold">TOTAL PRODUCTOS:</td>
+                                    <td class="text-end fw-bold">{{ totales.Total_Productos or 0 }}</td>
                                     <td></td>
                                 </tr>
                                 <tr>
@@ -250,18 +271,7 @@
                                 {% endif %}
                             </td>
                         </tr>
-                        <tr>
-                            <th class="text-muted">Email:</th>
-                            <td>
-                                {% if pedido.Email_Cliente %}
-                                <a href="mailto:{{ pedido.Email_Cliente }}" class="text-decoration-none">
-                                    <i class="fas fa-envelope me-1"></i> {{ pedido.Email_Cliente }}
-                                </a>
-                                {% else %}
-                                <span class="text-muted">No especificado</span>
-                                {% endif %}
-                            </td>
-                        </tr>
+                        <!-- Email removido porque no existe en la tabla clientes -->
                         <tr>
                             <th class="text-muted">Estado:</th>
                             <td>
@@ -311,7 +321,7 @@
                         {% endif %}
                         <tr>
                             <td class="text-muted">Pedidos totales:</td>
-                            <td class="text-end">{{ totales.Total_Productos or 0 }}</td>
+                            <td class="text-end">{{ totales.Total_Productos or 0 }} items</td>
                         </tr>
                         <tr>
                             <td class="text-muted">Total monto:</td>
