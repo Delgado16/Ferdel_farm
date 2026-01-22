@@ -1,0 +1,239 @@
+{% extends "layout.html" %}
+
+{% block title %}Pedido #{{ pedido.ID_Pedido }}{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <!-- Encabezado -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2><i class="fas fa-file-invoice me-2"></i>Pedido #{{ pedido.ID_Pedido }}</h2>
+            <p class="text-muted mb-0">
+                Fecha: 
+                {% if pedido.Fecha %}
+                    {% if pedido.Fecha is string %}
+                        {{ pedido.Fecha }}
+                    {% else %}
+                        {{ pedido.Fecha.strftime('%d/%m/%Y') }}
+                    {% endif %}
+                {% else %}
+                    N/A
+                {% endif %}
+            </p>
+        </div>
+        <div>
+            <a href="{{ url_for('admin_pedidos_venta') }}" class="btn btn-outline-secondary">
+                <i class="fas fa-arrow-left me-1"></i> Volver
+            </a>
+        </div>
+    </div>
+    
+    <!-- Estado del pedido -->
+    <div class="alert 
+        {% if pedido.Estado == 'Pendiente' %}alert-warning
+        {% elif pedido.Estado == 'Aprobado' %}alert-info
+        {% elif pedido.Estado == 'Entregado' %}alert-success
+        {% elif pedido.Estado == 'Cancelado' %}alert-danger
+        {% else %}alert-secondary{% endif %} mb-4">
+        <div class="d-flex justify-content-between align-items-center">
+            <span>
+                <strong>Estado:</strong> {{ pedido.Estado }}
+                {% if pedido.Prioridad == 'Urgente' %}
+                | <span class="badge bg-danger">URGENTE</span>
+                {% endif %}
+            </span>
+            
+            {% if pedido.Estado == 'Pendiente' %}
+            <div>
+                <button type="button" class="btn btn-sm btn-success" onclick="cambiarEstado('Aprobado')">
+                    <i class="fas fa-check me-1"></i> Aprobar
+                </button>
+                <button type="button" class="btn btn-sm btn-danger" onclick="cambiarEstado('Cancelado')">
+                    <i class="fas fa-times me-1"></i> Cancelar
+                </button>
+            </div>
+            {% elif pedido.Estado == 'Aprobado' %}
+            <div>
+                <button type="button" class="btn btn-sm btn-primary" onclick="cambiarEstado('Entregado')">
+                    <i class="fas fa-truck me-1"></i> Entregar
+                </button>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    
+    <!-- Información principal -->
+    <div class="row">
+        <!-- Información del Cliente -->
+        <div class="col-md-4 mb-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="fas fa-user me-2"></i>Cliente</h5>
+                </div>
+                <div class="card-body">
+                    <h6>{{ pedido.Nombre_Cliente or 'Cliente' }}</h6>
+                    <table class="table table-sm table-borderless">
+                        {% if pedido.Documento_Cliente %}
+                        <tr>
+                            <td class="text-muted">Documento:</td>
+                            <td>{{ pedido.Documento_Cliente }}</td>
+                        </tr>
+                        {% endif %}
+                        {% if pedido.Telefono_Cliente %}
+                        <tr>
+                            <td class="text-muted">Teléfono:</td>
+                            <td>{{ pedido.Telefono_Cliente }}</td>
+                        </tr>
+                        {% endif %}
+                        {% if pedido.Direccion_Cliente %}
+                        <tr>
+                            <td class="text-muted">Dirección:</td>
+                            <td>{{ pedido.Direccion_Cliente }}</td>
+                        </tr>
+                        {% endif %}
+                        <tr>
+                            <td class="text-muted">Empresa:</td>
+                            <td>{{ pedido.Nombre_Empresa or 'N/A' }}</td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+            
+            <!-- Totales -->
+            <div class="card mt-3">
+                <div class="card-body">
+                    <h6>Resumen del Pedido</h6>
+                    <table class="table table-sm table-borderless">
+                        <tr>
+                            <td>Total Productos:</td>
+                            <td class="text-end">{{ totales.get('Total_Productos', 0) or 0 }} items</td>
+                        </tr>
+                        <tr>
+                            <td>Total Cantidad:</td>
+                            <td class="text-end">{{ "{:,.2f}".format(totales.get('Total_Cantidad', 0) or 0) }}</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Total General:</strong></td>
+                            <td class="text-end fw-bold">C${{ "{:,.2f}".format(totales.get('Total_General', 0) or 0) }}</td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Detalle de Productos -->
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="fas fa-boxes me-2"></i>Productos</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>#</th>
+                                    <th>Producto</th>
+                                    <th class="text-end">Precio</th>
+                                    <th class="text-end">Cantidad</th>
+                                    <th class="text-end">Subtotal</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for detalle in detalles %}
+                                <tr>
+                                    <td>{{ loop.index }}</td>
+                                    <td>
+                                        <div><strong>{{ detalle.Nombre_Producto or detalle.Descripcion or 'Producto' }}</strong></div>
+                                        {% if detalle.COD_Producto %}
+                                        <small class="text-muted">Código: {{ detalle.COD_Producto }}</small>
+                                        {% endif %}
+                                    </td>
+                                    <td class="text-end">C${{ "{:,.2f}".format(detalle.Precio_Unitario or 0) }}</td>
+                                    <td class="text-end">{{ "{:,.2f}".format(detalle.Cantidad or 0) }}</td>
+                                    <td class="text-end fw-bold">
+                                        C${{ "{:,.2f}".format(detalle.Subtotal or (detalle.Precio_Unitario * detalle.Cantidad if detalle.Precio_Unitario and detalle.Cantidad else 0)) }}
+                                    </td>
+                                </tr>
+                                {% else %}
+                                <tr>
+                                    <td colspan="5" class="text-center text-muted">
+                                        No hay productos
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <!-- Información adicional -->
+                    {% if pedido.Observacion or pedido.Tipo_Entrega %}
+                    <div class="mt-4">
+                        <h6>Información Adicional</h6>
+                        <table class="table table-sm table-borderless">
+                            {% if pedido.Tipo_Entrega %}
+                            <tr>
+                                <td class="text-muted" width="120">Entrega:</td>
+                                <td>{{ pedido.Tipo_Entrega or 'Retiro en local' }}</td>
+                            </tr>
+                            {% endif %}
+                            {% if pedido.Observacion %}
+                            <tr>
+                                <td class="text-muted">Observación:</td>
+                                <td>{{ pedido.Observacion }}</td>
+                            </tr>
+                            {% endif %}
+                        </table>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function cambiarEstado(nuevoEstado) {
+    if (confirm(`¿Cambiar estado del pedido a "${nuevoEstado}"?`)) {
+        fetch(`/admin/ventas/cambiar-estado/{{ pedido.ID_Pedido }}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                estado: nuevoEstado
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert('Estado actualizado');
+                location.reload();
+            } else {
+                alert('Error: ' + (data.message || 'No se pudo cambiar el estado'));
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Error al conectar con el servidor');
+        });
+    }
+}
+</script>
+
+<style>
+.card {
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+}
+.card-header {
+    background-color: #f8f9fa;
+    border-bottom: 1px solid #dee2e6;
+    padding: 0.75rem 1rem;
+}
+.table th {
+    font-weight: 600;
+    background-color: #f8f9fa;
+}
+</style>
+{% endblock %}

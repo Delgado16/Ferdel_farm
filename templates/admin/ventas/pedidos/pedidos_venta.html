@@ -7,15 +7,80 @@
     <div class="d-flex justify-content-between align-items-center mb-4">
         <h2><i class="fas fa-shopping-cart me-2"></i>Pedidos de Venta</h2>
         <div>
+            <!-- Mostrar botón de Nuevo Pedido solo si NO es rol bodega -->
+            {% if not current_user.rol == 'Bodega' %}
             <button class="btn btn-success" onclick="nuevoPedido()">
                 <i class="fas fa-plus me-1"></i> Nuevo Pedido
             </button>
+            {% endif %}
+
             <a href="{{ url_for('admin_pedidos_venta') }}" class="btn btn-secondary">
                 <i class="fas fa-sync-alt me-1"></i> Refrescar
             </a>
         </div>
     </div>
-    
+
+    <!-- Estadísticas para rol Bodega -->
+    {% if es_rol_bodega and stats %}
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card bg-light">
+                <div class="card-body">
+                    <h5 class="card-title">
+                        <i class="fas fa-chart-line me-2"></i>Estadísticas del Día ({{ stats.fecha_hoy }})
+                    </h5>
+                    <div class="row">
+                        <div class="col-md-3">
+                            <div class="d-flex align-items-center">
+                                <div class="bg-primary rounded-circle p-3 me-3">
+                                    <i class="fas fa-shopping-cart fa-2x text-white"></i>
+                                </div>
+                                <div>
+                                    <h3 class="mb-0">{{ stats.total_hoy }}</h3>
+                                    <p class="text-muted mb-0">Total Pedidos</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="d-flex align-items-center">
+                                <div class="bg-warning rounded-circle p-3 me-3">
+                                    <i class="fas fa-clock fa-2x text-white"></i>
+                                </div>
+                                <div>
+                                    <h3 class="mb-0">{{ stats.pendientes_hoy }}</h3>
+                                    <p class="text-muted mb-0">Pendientes</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="d-flex align-items-center">
+                                <div class="bg-success rounded-circle p-3 me-3">
+                                    <i class="fas fa-check-circle fa-2x text-white"></i>
+                                </div>
+                                <div>
+                                    <h3 class="mb-0">{{ stats.aprobados_hoy }}</h3>
+                                    <p class="text-muted mb-0">Aprobados</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="d-flex align-items-center">
+                                <div class="bg-danger rounded-circle p-3 me-3">
+                                    <i class="fas fa-exclamation-triangle fa-2x text-white"></i>
+                                </div>
+                                <div>
+                                    <h3 class="mb-0">{{ stats.urgentes_hoy }}</h3>
+                                    <p class="text-muted mb-0">Urgentes</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
     <!-- Filtros Avanzados -->
     <div class="card mb-4">
         <div class="card-header bg-light">
@@ -29,8 +94,8 @@
                         <select name="estado" class="form-select">
                             <option value="todos">Todos los estados</option>
                             {% for estado in estados %}
-                            <option value="{{ estado }}" 
-                                {% if filtros_aplicados and filtros_aplicados.estado == estado %}selected{% endif %}>
+                            <option value="{{ estado }}" {% if filtros_aplicados and filtros_aplicados.estado==estado
+                                %}selected{% endif %}>
                                 {{ estado }}
                             </option>
                             {% endfor %}
@@ -41,8 +106,8 @@
                         <select name="prioridad" class="form-select">
                             <option value="todos">Todas las prioridades</option>
                             {% for prioridad in prioridades %}
-                            <option value="{{ prioridad }}" 
-                                {% if filtros_aplicados and filtros_aplicados.prioridad == prioridad %}selected{% endif %}>
+                            <option value="{{ prioridad }}" {% if filtros_aplicados and
+                                filtros_aplicados.prioridad==prioridad %}selected{% endif %}>
                                 {{ prioridad }}
                             </option>
                             {% endfor %}
@@ -53,8 +118,8 @@
                         <select name="tipo_cliente" class="form-select">
                             <option value="todos">Todos los tipos</option>
                             {% for tipo in tipos_cliente %}
-                            <option value="{{ tipo }}" 
-                                {% if filtros_aplicados and filtros_aplicados.tipo_cliente == tipo %}selected{% endif %}>
+                            <option value="{{ tipo }}" {% if filtros_aplicados and filtros_aplicados.tipo_cliente==tipo
+                                %}selected{% endif %}>
                                 {{ tipo }}
                             </option>
                             {% endfor %}
@@ -65,8 +130,8 @@
                         <select name="tipo_entrega" class="form-select">
                             <option value="todos">Todos los tipos</option>
                             {% for tipo in tipos_entrega %}
-                            <option value="{{ tipo }}" 
-                                {% if filtros_aplicados and filtros_aplicados.tipo_entrega == tipo %}selected{% endif %}>
+                            <option value="{{ tipo }}" {% if filtros_aplicados and filtros_aplicados.tipo_entrega==tipo
+                                %}selected{% endif %}>
                                 {{ tipo }}
                             </option>
                             {% endfor %}
@@ -74,25 +139,23 @@
                     </div>
                     <div class="col-md-2">
                         <label class="form-label fw-bold">Fecha Inicio:</label>
-                        <input type="date" name="fecha_inicio" class="form-control" 
-                               value="{{ filtros_aplicados.fecha_inicio if filtros_aplicados }}">
+                        <input type="date" name="fecha_inicio" class="form-control"
+                            value="{{ filtros_aplicados.fecha_inicio if filtros_aplicados }}">
                     </div>
                     <div class="col-md-2">
                         <label class="form-label fw-bold">Fecha Fin:</label>
                         <input type="date" name="fecha_fin" class="form-control"
-                               value="{{ filtros_aplicados.fecha_fin if filtros_aplicados }}">
+                            value="{{ filtros_aplicados.fecha_fin if filtros_aplicados }}">
                     </div>
                     <div class="col-md-3">
                         <label class="form-label fw-bold">Documento Cliente:</label>
-                        <input type="text" name="documento_cliente" class="form-control"
-                               placeholder="RUC/Cédula"
-                               value="{{ filtros_aplicados.documento_cliente if filtros_aplicados }}">
+                        <input type="text" name="documento_cliente" class="form-control" placeholder="RUC/Cédula"
+                            value="{{ filtros_aplicados.documento_cliente if filtros_aplicados }}">
                     </div>
                     <div class="col-md-3">
                         <label class="form-label fw-bold">Nombre Cliente:</label>
-                        <input type="text" name="nombre_cliente" class="form-control"
-                               placeholder="Nombre del cliente"
-                               value="{{ filtros_aplicados.nombre_cliente if filtros_aplicados }}">
+                        <input type="text" name="nombre_cliente" class="form-control" placeholder="Nombre del cliente"
+                            value="{{ filtros_aplicados.nombre_cliente if filtros_aplicados }}">
                     </div>
                 </div>
                 <div class="row mt-4">
@@ -103,15 +166,12 @@
                         <a href="{{ url_for('admin_pedidos_venta') }}" class="btn btn-outline-secondary">
                             <i class="fas fa-times me-1"></i> Limpiar
                         </a>
-                        <button type="button" class="btn btn-outline-success float-end" onclick="exportarExcel()">
-                            <i class="fas fa-file-excel me-1"></i> Exportar Excel
-                        </button>
                     </div>
                 </div>
             </form>
         </div>
     </div>
-    
+
     <!-- Resumen Estadístico -->
     {% if pedidos %}
     <div class="row mb-4">
@@ -128,7 +188,7 @@
             <div class="card text-white bg-success">
                 <div class="card-body">
                     <h6 class="card-title"><i class="fas fa-dollar-sign me-2"></i>Total Ventas</h6>
-                    <h3 class="card-text">${{ "{:,.2f}".format(total_ventas) }}</h3>
+                    <h3 class="card-text">C${{ "{:,.2f}".format(total_ventas) }}</h3>
                 </div>
             </div>
         </div>
@@ -170,13 +230,16 @@
         </div>
     </div>
     {% endif %}
-    
+
     <!-- Lista de Pedidos -->
     <div class="card">
         <div class="card-header bg-light d-flex justify-content-between align-items-center">
             <h5 class="mb-0"><i class="fas fa-list me-2"></i>Listado de Pedidos</h5>
             <div>
                 <span class="badge bg-dark">{{ pedidos|length }} registros</span>
+                {% if es_rol_bodega %}
+                <span class="badge bg-info ms-2">Vista Bodega</span>
+                {% endif %}
             </div>
         </div>
         <div class="card-body">
@@ -195,7 +258,7 @@
                             <th width="150">Entrega</th>
                             <th width="120">Total</th>
                             <th width="80">Items</th>
-                            <th width="120">Acciones</th>
+                            <th width="150">Acciones</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -253,12 +316,14 @@
                                 <span class="badge 
                                     {% if pedido.Estado == 'Pendiente' %}bg-warning text-dark
                                     {% elif pedido.Estado == 'Aprobado' %}bg-info
+                                    {% elif pedido.Estado == 'En Proceso' %}bg-primary
                                     {% elif pedido.Estado == 'Entregado' %}bg-success
                                     {% elif pedido.Estado == 'Cancelado' %}bg-danger
                                     {% else %}bg-secondary{% endif %} p-2">
                                     <i class="fas 
                                         {% if pedido.Estado == 'Pendiente' %}fa-clock
                                         {% elif pedido.Estado == 'Aprobado' %}fa-check-circle
+                                        {% elif pedido.Estado == 'En Proceso' %}fa-cogs
                                         {% elif pedido.Estado == 'Entregado' %}fa-truck
                                         {% elif pedido.Estado == 'Cancelado' %}fa-times-circle
                                         {% endif %} me-1"></i>
@@ -281,27 +346,57 @@
                             </td>
                             <td>
                                 <div class="btn-group btn-group-sm" role="group">
-                                    <a href="{{ url_for('ver_pedido', id_pedido=pedido.ID_Pedido) }}" 
-                                       class="btn btn-outline-info" 
-                                       title="Ver detalle"
-                                       data-bs-toggle="tooltip">
+                                    <a href="{{ url_for('ver_pedido', id_pedido=pedido.ID_Pedido) }}"
+                                        class="btn btn-outline-info" title="Ver detalle" data-bs-toggle="tooltip">
                                         <i class="fas fa-eye"></i>Detalle
                                     </a>
+
+                                    {% if current_user.rol == 'Bodega' %}
+                                    <!-- Botones para rol Bodega -->
+                                    {% if pedido.Estado == 'Aprobado' %}
+                                    <button type="button" class="btn btn-outline-primary" title="Procesar como venta"
+                                        data-bs-toggle="tooltip" onclick="procesarComoVenta({{ pedido.ID_Pedido }})">
+                                        <i class="fas fa-cash-register"></i>Venta
+                                    </button>
+                                    {% endif %}
+
                                     {% if pedido.Estado == 'Pendiente' %}
-                                    <button type="button" class="btn btn-outline-success"
-                                            title="Aprobar pedido"
-                                            data-bs-toggle="tooltip"
-                                            onclick="cambiarEstado({{ pedido.ID_Pedido }}, 'Aprobado')">
+                                    <button type="button" class="btn btn-outline-success" title="Aprobar pedido"
+                                        data-bs-toggle="tooltip"
+                                        onclick="cambiarEstado({{ pedido.ID_Pedido }}, 'Aprobado')">
                                         <i class="fas fa-check"></i>Aprobar
                                     </button>
                                     {% endif %}
-                                    {% if pedido.Estado != 'Cancelado' %}
-                                    <button type="button" class="btn btn-outline-warning"
-                                            title="Cambiar estado"
-                                            data-bs-toggle="tooltip"
-                                            onclick="cambiarEstado({{ pedido.ID_Pedido }})">
-                                        <i class="fas fa-exchange-alt"></i>estado
+
+                                    {% if pedido.Estado == 'Aprobado' or pedido.Estado == 'En Proceso' %}
+                                    <button type="button" class="btn btn-outline-warning" title="Marcar en proceso"
+                                        data-bs-toggle="tooltip"
+                                        onclick="cambiarEstado({{ pedido.ID_Pedido }}, 'En Proceso')">
+                                        <i class="fas fa-cogs"></i>Proceso
                                     </button>
+                                    {% endif %}
+
+                                    {% if pedido.Estado != 'Cancelado' and pedido.Estado != 'Entregado' %}
+                                    <button type="button" class="btn btn-outline-danger" title="Cancelar pedido"
+                                        data-bs-toggle="tooltip" onclick="cancelarPedido({{ pedido.ID_Pedido }})">
+                                        <i class="fas fa-times"></i>Cancelar
+                                    </button>
+                                    {% endif %}
+                                    {% else %}
+                                    <!-- Botones para otros roles -->
+                                    {% if pedido.Estado == 'Pendiente' %}
+                                    <button type="button" class="btn btn-outline-success" title="Aprobar pedido"
+                                        data-bs-toggle="tooltip"
+                                        onclick="cambiarEstado({{ pedido.ID_Pedido }}, 'Aprobado')">
+                                        <i class="fas fa-check"></i>Aprobar
+                                    </button>
+                                    {% endif %}
+                                    {% if pedido.Estado != 'Cancelado' and pedido.Estado != 'Entregado' %}
+                                    <button type="button" class="btn btn-outline-warning" title="Cambiar estado"
+                                        data-bs-toggle="tooltip" onclick="cambiarEstado({{ pedido.ID_Pedido }})">
+                                        <i class="fas fa-exchange-alt"></i>Estado
+                                    </button>
+                                    {% endif %}
                                     {% endif %}
                                 </div>
                             </td>
@@ -311,7 +406,8 @@
                     <tfoot>
                         <tr class="table-active">
                             <td colspan="8" class="text-end fw-bold">TOTAL GENERAL:</td>
-                            <td class="fw-bold text-primary fs-5">${{ "{:,.2f}".format(pedidos|sum(attribute='Total_Pedido') or 0) }}</td>
+                            <td class="fw-bold text-primary fs-5">C${{
+                                "{:,.2f}".format(pedidos|sum(attribute='Total_Pedido') or 0) }}</td>
                             <td class="text-center fw-bold">{{ pedidos|sum(attribute='Total_Items') or 0 }}</td>
                             <td></td>
                         </tr>
@@ -334,9 +430,11 @@
                     <i class="fas fa-redo me-1"></i> Ver todos los pedidos
                 </a>
                 {% else %}
+                {% if not es_rol_bodega %}
                 <button class="btn btn-success mt-2" onclick="nuevoPedido()">
                     <i class="fas fa-plus me-1"></i> Crear primer pedido
                 </button>
+                {% endif %}
                 {% endif %}
             </div>
             {% endif %}
@@ -348,6 +446,9 @@
                     <small class="text-muted">
                         <i class="fas fa-info-circle me-1"></i>
                         Mostrando {{ pedidos|length }} pedido(s)
+                        {% if es_rol_bodega %}
+                        <span class="badge bg-info ms-2">Solo pedidos del día</span>
+                        {% endif %}
                     </small>
                 </div>
                 <div class="col-md-6 text-end">
@@ -375,6 +476,9 @@
                 <select id="selectEstado" class="form-select">
                     <option value="Pendiente">Pendiente</option>
                     <option value="Aprobado">Aprobado</option>
+                    {% if current_user.rol == 'Bodega' %}
+                    <option value="En Proceso">En Proceso</option>
+                    {% endif %}
                     <option value="Entregado">Entregado</option>
                     <option value="Cancelado">Cancelado</option>
                 </select>
@@ -391,136 +495,196 @@
     </div>
 </div>
 
+<!-- Modal de carga para procesar venta -->
+<div class="modal fade" id="modalProcesandoVenta" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-body text-center py-5">
+                <div class="spinner-border text-primary mb-3" style="width: 4rem; height: 4rem;" role="status">
+                    <span class="visually-hidden">Procesando...</span>
+                </div>
+                <h4 class="mb-3">Procesando Venta</h4>
+                <p class="text-muted">Por favor espere mientras se convierte el pedido en venta...</p>
+                <p class="text-muted"><small>Esto puede tomar unos segundos</small></p>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script>
-// Variables globales
-let pedidoActual = null;
-let estadoActual = null;
+    // Variables globales
+    let pedidoActual = null;
+    let estadoActual = null;
 
-document.addEventListener('DOMContentLoaded', function() {
-    // Inicializar tooltips de Bootstrap
-    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
-    var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
-        return new bootstrap.Tooltip(tooltipTriggerEl);
-    });
-    
-    // Configurar fechas por defecto
-    const today = new Date().toISOString().split('T')[0];
-    const firstDay = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0];
-    
-    const fechaInicio = document.querySelector('input[name="fecha_inicio"]');
-    const fechaFin = document.querySelector('input[name="fecha_fin"]');
-    
-    if (fechaInicio && !fechaInicio.value) {
-        fechaInicio.value = firstDay;
-    }
-    if (fechaFin && !fechaFin.value) {
-        fechaFin.value = today;
-    }
-    
-    // Inicializar DataTables si existe la tabla
-    if (typeof $.fn.DataTable !== 'undefined' && document.getElementById('tablaPedidos')) {
-        $('#tablaPedidos').DataTable({
-            "language": {
-                "url": "//cdn.datatables.net/plug-ins/1.10.25/i18n/Spanish.json"
-            },
-            "order": [[0, 'desc']],
-            "pageLength": 25,
-            "responsive": true,
-            "columnDefs": [
-                { "orderable": false, "targets": [10] } // Columna de acciones no ordenable
-            ]
+    document.addEventListener('DOMContentLoaded', function () {
+        // Inicializar tooltips de Bootstrap
+        var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+        var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+            return new bootstrap.Tooltip(tooltipTriggerEl);
         });
-    }
-});
 
-function nuevoPedido() {
-    window.location.href = "/admin/ventas/nuevo-pedido";
-}
+        // Configurar fechas por defecto
+        const today = new Date().toISOString().split('T')[0];
+        const firstDay = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0];
 
-function cambiarEstado(idPedido, nuevoEstado) {
-    pedidoActual = idPedido;
-    
-    if (nuevoEstado) {
-        // Cambio directo
-        confirmarCambioEstadoDirecto(idPedido, nuevoEstado);
-    } else {
-        // Mostrar modal para selección
-        const modal = new bootstrap.Modal(document.getElementById('modalEstado'));
-        modal.show();
-    }
-}
+        const fechaInicio = document.querySelector('input[name="fecha_inicio"]');
+        const fechaFin = document.querySelector('input[name="fecha_fin"]');
 
-function confirmarCambioEstadoDirecto(idPedido, nuevoEstado) {
-    if (confirm(`¿Está seguro de cambiar el estado del pedido #${idPedido} a "${nuevoEstado}"?`)) {
-        realizarCambioEstado(idPedido, nuevoEstado, '');
-    }
-}
-
-function confirmarCambioEstado() {
-    const nuevoEstado = document.getElementById('selectEstado').value;
-    const observacion = document.getElementById('observacionEstado').value;
-    
-    if (pedidoActual) {
-        if (confirm(`¿Está seguro de cambiar el estado del pedido #${pedidoActual} a "${nuevoEstado}"?`)) {
-            realizarCambioEstado(pedidoActual, nuevoEstado, observacion);
+        if (fechaInicio && !fechaInicio.value) {
+            fechaInicio.value = firstDay;
         }
-    }
-}
+        if (fechaFin && !fechaFin.value) {
+            fechaFin.value = today;
+        }
 
-function realizarCambioEstado(idPedido, nuevoEstado, observacion) {
-    fetch(`/admin/ventas/cambiar-estado/${idPedido}`, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-            estado: nuevoEstado,
-            observacion: observacion
-        })
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            showToast('success', 'Estado actualizado', 'El estado del pedido ha sido actualizado correctamente.');
-            setTimeout(() => {
-                location.reload();
-            }, 1500);
+        // Inicializar DataTables si existe la tabla
+        if (typeof $.fn.DataTable !== 'undefined' && document.getElementById('tablaPedidos')) {
+            $('#tablaPedidos').DataTable({
+                "language": {
+                    "url": "//cdn.datatables.net/plug-ins/1.10.25/i18n/Spanish.json"
+                },
+                "order": [[0, 'desc']],
+                "pageLength": 25,
+                "responsive": true,
+                "columnDefs": [
+                    { "orderable": false, "targets": [10] } // Columna de acciones no ordenable
+                ]
+            });
+        }
+    });
+
+    function nuevoPedido() {
+        window.location.href = "/admin/ventas/nuevo-pedido";
+    }
+
+    function cambiarEstado(idPedido, nuevoEstado) {
+        pedidoActual = idPedido;
+
+        if (nuevoEstado) {
+            // Cambio directo
+            confirmarCambioEstadoDirecto(idPedido, nuevoEstado);
         } else {
-            showToast('error', 'Error', data.message || 'Error al cambiar el estado');
+            // Mostrar modal para selección
+            const modal = new bootstrap.Modal(document.getElementById('modalEstado'));
+            modal.show();
         }
-    })
-    .catch(error => {
-        console.error('Error:', error);
-        showToast('error', 'Error', 'Error al conectar con el servidor');
-    });
-}
-
-function exportarExcel() {
-    // Obtener los datos del formulario
-    const formData = new FormData(document.getElementById('formFiltros'));
-    const params = new URLSearchParams();
-    
-    for (let [key, value] of formData.entries()) {
-        if (value) params.append(key, value);
     }
-    
-    window.open(`/admin/ventas/exportar-excel?${params.toString()}`, '_blank');
-}
 
-function showToast(type, title, message) {
-    // Si tienes una función de toast implementada, úsala
-    if (typeof Toast !== 'undefined') {
-        Toast.fire({
-            icon: type,
-            title: title,
-            text: message
-        });
-    } else {
-        // Toast simple de Bootstrap
-        const toastEl = document.createElement('div');
-        toastEl.className = `toast align-items-center text-white bg-${type} border-0`;
-        toastEl.setAttribute('role', 'alert');
-        toastEl.innerHTML = `
+    function confirmarCambioEstadoDirecto(idPedido, nuevoEstado) {
+        if (confirm(`¿Está seguro de cambiar el estado del pedido #${idPedido} a "${nuevoEstado}"?`)) {
+            realizarCambioEstado(idPedido, nuevoEstado, '');
+        }
+    }
+
+    function confirmarCambioEstado() {
+        const nuevoEstado = document.getElementById('selectEstado').value;
+        const observacion = document.getElementById('observacionEstado').value;
+
+        if (pedidoActual) {
+            if (confirm(`¿Está seguro de cambiar el estado del pedido #${pedidoActual} a "${nuevoEstado}"?`)) {
+                realizarCambioEstado(pedidoActual, nuevoEstado, observacion);
+            }
+        }
+    }
+
+    function realizarCambioEstado(idPedido, nuevoEstado, observacion) {
+        fetch(`/admin/ventas/cambiar-estado/${idPedido}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                estado: nuevoEstado,
+                observacion: observacion
+            })
+        })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showToast('success', 'Estado actualizado', 'El estado del pedido ha sido actualizado correctamente.');
+                    setTimeout(() => {
+                        location.reload();
+                    }, 1500);
+                } else {
+                    showToast('error', 'Error', data.message || 'Error al cambiar el estado');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showToast('error', 'Error', 'Error al conectar con el servidor');
+            });
+    }
+
+    // ===========================================
+    // NUEVA FUNCIÓN PARA PROCESAR COMO VENTA
+    // ===========================================
+    function procesarComoVenta(idPedido) {
+        if (confirm(`¿Está seguro de convertir el pedido #${idPedido} en una venta?\n\nEsta acción:` +
+            `\n• Creará una factura` +
+            `\n• Descontará inventario` +
+            `\n• Actualizará el estado a "Entregado"` +
+            `\n• Registrará el movimiento`)) {
+            
+            // Mostrar modal de carga
+            const modalProcesando = new bootstrap.Modal(document.getElementById('modalProcesandoVenta'));
+            modalProcesando.show();
+            
+            // Redirigir a la página de procesamiento de venta
+            window.location.href = `/admin/ventas/procesar-pedido/${idPedido}`;
+        }
+    }
+
+    // Función cancelar pedido (mantener existente)
+    function cancelarPedido(idPedido) {
+        const razon = prompt('Ingrese la razón de la cancelación:');
+        if (razon !== null && razon.trim() !== '') {
+            if (confirm(`¿Está seguro de cancelar el pedido #${idPedido}?`)) {
+                fetch(`/admin/ventas/cancelar-pedido/${idPedido}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        accion: 'cancelar',
+                        razon: razon
+                    })
+                })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            showToast('success', 'Pedido cancelado', 'El pedido ha sido cancelado correctamente.');
+                            setTimeout(() => {
+                                location.reload();
+                            }, 1500);
+                        } else {
+                            showToast('error', 'Error', data.message || 'Error al cancelar el pedido');
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        showToast('error', 'Error', 'Error al conectar con el servidor');
+                    });
+            }
+        } else if (razon !== null) {
+            alert('Debe ingresar una razón para cancelar el pedido.');
+        }
+    }
+
+    // Función para mostrar toast notifications
+    function showToast(type, title, message) {
+        // Si tienes una función de toast implementada, úsala
+        if (typeof Toast !== 'undefined') {
+            Toast.fire({
+                icon: type,
+                title: title,
+                text: message
+            });
+        } else {
+            // Toast simple de Bootstrap
+            const toastEl = document.createElement('div');
+            toastEl.className = `toast align-items-center text-white bg-${type} border-0`;
+            toastEl.setAttribute('role', 'alert');
+            toastEl.innerHTML = `
             <div class="d-flex">
                 <div class="toast-body">
                     <strong>${title}:</strong> ${message}
@@ -528,62 +692,135 @@ function showToast(type, title, message) {
                 <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
             </div>
         `;
-        
-        document.body.appendChild(toastEl);
-        const toast = new bootstrap.Toast(toastEl);
-        toast.show();
-        
-        // Remover después de mostrar
-        toastEl.addEventListener('hidden.bs.toast', function () {
-            document.body.removeChild(toastEl);
-        });
-    }
-}
 
-// Función para imprimir pedido
-function imprimirPedido(idPedido) {
-    window.open(`/admin/ventas/pedido/${idPedido}/imprimir`, '_blank');
-}
+            document.body.appendChild(toastEl);
+            const toast = new bootstrap.Toast(toastEl);
+            toast.show();
+
+            // Remover después de mostrar
+            toastEl.addEventListener('hidden.bs.toast', function () {
+                document.body.removeChild(toastEl);
+            });
+        }
+    }
+
+    // Función para imprimir pedido
+    function imprimirPedido(idPedido) {
+        window.open(`/admin/ventas/pedido/${idPedido}/imprimir`, '_blank');
+    }
+
+    // Función para exportar a Excel
+    function exportarExcel() {
+        // Obtener los datos del formulario
+        const formData = new FormData(document.getElementById('formFiltros'));
+        const params = new URLSearchParams();
+
+        for (let [key, value] of formData.entries()) {
+            if (value) params.append(key, value);
+        }
+
+        window.open(`/admin/ventas/exportar-excel?${params.toString()}`, '_blank');
+    }
 </script>
 
 <style>
-.table th {
-    background-color: #f8f9fa;
-    font-weight: 600;
-}
-.badge {
-    font-size: 0.85em;
-}
-.btn-group-sm > .btn {
-    padding: 0.25rem 0.5rem;
-}
-.card-header {
-    border-bottom: 2px solid rgba(0,0,0,.125);
-}
-.table-hover tbody tr:hover {
-    background-color: rgba(0,123,255,0.05);
-}
-#tablaPedidos tbody tr {
-    cursor: pointer;
-}
-#tablaPedidos tbody tr:hover td {
-    background-color: rgba(0,123,255,0.05);
-}
+    .table th {
+        background-color: #f8f9fa;
+        font-weight: 600;
+    }
 
-/* Estilos para prioridad Urgente */
-.bg-danger {
-    background-color: #dc3545 !important;
-}
+    .badge {
+        font-size: 0.85em;
+    }
 
-/* Resaltar filas con prioridad Urgente */
-tr .bg-danger {
-    animation: pulse 2s infinite;
-}
+    .btn-group-sm>.btn {
+        padding: 0.25rem 0.5rem;
+        font-size: 0.75rem;
+    }
 
-@keyframes pulse {
-    0% { opacity: 1; }
-    50% { opacity: 0.7; }
-    100% { opacity: 1; }
-}
+    .card-header {
+        border-bottom: 2px solid rgba(0, 0, 0, .125);
+    }
+
+    .table-hover tbody tr:hover {
+        background-color: rgba(0, 123, 255, 0.05);
+    }
+
+    #tablaPedidos tbody tr {
+        cursor: pointer;
+    }
+
+    #tablaPedidos tbody tr:hover td {
+        background-color: rgba(0, 123, 255, 0.05);
+    }
+
+    /* Estilos para prioridad Urgente */
+    .bg-danger {
+        background-color: #dc3545 !important;
+    }
+
+    /* Resaltar filas con prioridad Urgente */
+    tr .bg-danger {
+        animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+        0% {
+            opacity: 1;
+        }
+
+        50% {
+            opacity: 0.7;
+        }
+
+        100% {
+            opacity: 1;
+        }
+    }
+
+    /* Estilos específicos para botón de procesar venta */
+    .btn-outline-primary:hover {
+        background-color: #0d6efd;
+        color: white;
+    }
+
+    .btn-outline-warning:hover {
+        background-color: #ffc107;
+        color: #000;
+    }
+
+    .btn-outline-danger:hover {
+        background-color: #dc3545;
+        color: white;
+    }
+
+    /* Estilo para estadísticas */
+    .bg-light .bg-primary,
+    .bg-light .bg-success,
+    .bg-light .bg-warning,
+    .bg-light .bg-danger {
+        box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    }
+    
+    /* Estilo para estado "En Proceso" */
+    .bg-primary.badge {
+        background-color: #0d6efd !important;
+    }
+    
+    /* Mejorar visualización de botones en móviles */
+    @media (max-width: 768px) {
+        .btn-group {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 2px;
+        }
+        
+        .btn-group .btn {
+            flex: 1;
+            min-width: 70px;
+            font-size: 0.7rem;
+            padding: 0.2rem 0.3rem;
+        }
+    }
 </style>
 {% endblock %}
