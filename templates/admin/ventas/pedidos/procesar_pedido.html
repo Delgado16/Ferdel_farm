@@ -20,20 +20,6 @@
         color: white;
         font-weight: bold;
     }
-    .stock-warning {
-        border-left: 4px solid #dc3545;
-        background-color: #ffe6e6;
-    }
-    .badge-priority-urgente {
-        background-color: #dc3545;
-    }
-    .badge-priority-normal {
-        background-color: #ffc107;
-        color: #000;
-    }
-    .badge-priority-bajo {
-        background-color: #6c757d;
-    }
 </style>
 {% endblock %}
 
@@ -49,14 +35,9 @@
                     </h1>
                     <p class="mb-0">Convirtiendo pedido #{{ pedido.ID_Pedido }} en venta</p>
                 </div>
-                <div>
-                    <a href="{{ url_for('admin_pedidos_venta') }}" class="btn btn-light">
-                        <i class="fas fa-arrow-left me-1"></i> Volver a Pedidos
-                    </a>
-                    <button type="button" onclick="window.print()" class="btn btn-outline-light">
-                        <i class="fas fa-print me-1"></i> Imprimir
-                    </button>
-                </div>
+                <a href="{{ url_for('admin_pedidos_venta') }}" class="btn btn-light">
+                    <i class="fas fa-arrow-left me-1"></i> Volver
+                </a>
             </div>
         </div>
     </div>
@@ -75,183 +56,75 @@
     <!-- Alertas de stock insuficiente -->
     {% if productos_sin_stock %}
     <div class="alert alert-danger mb-4">
-        <div class="d-flex align-items-center">
-            <i class="fas fa-exclamation-triangle fa-2x me-3"></i>
-            <div>
-                <h5 class="alert-heading mb-2">Stock Insuficiente</h5>
-                <p class="mb-2">Los siguientes productos no tienen suficiente stock disponible:</p>
-                <ul class="mb-0">
-                    {% for producto in productos_sin_stock %}
-                    <li>
-                        <strong>{{ producto.producto }}</strong>: 
-                        Solicitado: {{ producto.cantidad_solicitada }}, 
-                        Disponible: {{ producto.stock_actual }}
-                    </li>
-                    {% endfor %}
-                </ul>
-            </div>
-        </div>
-        <hr>
-        <p class="mb-0">
-            <small>Debe reponer el inventario antes de procesar esta venta.</small>
-        </p>
+        <h5 class="alert-heading">
+            <i class="fas fa-exclamation-triangle me-2"></i>Stock Insuficiente
+        </h5>
+        <p>Los siguientes productos no tienen suficiente stock disponible:</p>
+        <ul class="mb-0">
+            {% for producto in productos_sin_stock %}
+            <li>
+                <strong>{{ producto.producto }}</strong>: 
+                Solicitado: {{ producto.cantidad_solicitada }}, 
+                Disponible: {{ producto.stock_actual }}
+            </li>
+            {% endfor %}
+        </ul>
     </div>
     {% endif %}
 
     <div class="row">
-        <!-- Columna izquierda: Información del pedido -->
+        <!-- Información del pedido -->
         <div class="col-lg-8 mb-4">
-            <!-- Información del pedido -->
             <div class="card mb-4">
-                <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
-                    <h5 class="mb-0">
-                        <i class="fas fa-info-circle me-2"></i>Información del Pedido
-                    </h5>
-                    <span class="badge bg-light text-dark">#{{ pedido.ID_Pedido }}</span>
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">Pedido #{{ pedido.ID_Pedido }}</h5>
                 </div>
                 <div class="card-body">
                     <div class="row">
                         <div class="col-md-6">
-                            <div class="mb-3">
-                                <label class="form-label text-muted mb-1">Fecha del Pedido</label>
-                                <p class="mb-0">
-                                    <i class="fas fa-calendar me-2"></i>
-                                    {{ pedido.Fecha.strftime('%d/%m/%Y %H:%M') if pedido.Fecha else 'N/A' }}
-                                </p>
-                            </div>
-                            <div class="mb-3">
-                                <label class="form-label text-muted mb-1">Prioridad</label>
-                                <p class="mb-0">
-                                    <span class="badge {% if pedido.Prioridad == 'Urgente' %}badge-priority-urgente{% elif pedido.Prioridad == 'Normal' %}badge-priority-normal{% else %}badge-priority-bajo{% endif %}">
-                                        <i class="fas {% if pedido.Prioridad == 'Urgente' %}fa-exclamation-circle{% elif pedido.Prioridad == 'Normal' %}fa-clock{% else %}fa-calendar{% endif %} me-1"></i>
-                                        {{ pedido.Prioridad }}
-                                    </span>
-                                </p>
-                            </div>
+                            <p><strong>Cliente:</strong> {{ pedido.Nombre_Cliente }}</p>
+                            <p><strong>Documento:</strong> {{ pedido.Documento_Cliente }}</p>
+                            <p><strong>Tipo Cliente:</strong> {{ pedido.Tipo_Cliente }}</p>
                         </div>
                         <div class="col-md-6">
-                            <div class="mb-3">
-                                <label class="form-label text-muted mb-1">Tipo de Entrega</label>
-                                <p class="mb-0">
-                                    <i class="fas {% if pedido.Tipo_Entrega == 'Entrega a domicilio' %}fa-truck{% else %}fa-store{% endif %} me-2"></i>
-                                    {{ pedido.Tipo_Entrega }}
-                                </p>
-                            </div>
-                            <div class="mb-3">
-                                <label class="form-label text-muted mb-1">Observación</label>
-                                <p class="mb-0">
-                                    <i class="fas fa-sticky-note me-2"></i>
-                                    {{ pedido.Observacion or 'Ninguna' }}
-                                </p>
-                            </div>
+                            <p><strong>Fecha:</strong> {{ pedido.Fecha.strftime('%d/%m/%Y %H:%M') if pedido.Fecha }}</p>
+                            <p><strong>Prioridad:</strong> {{ pedido.Prioridad }}</p>
+                            <p><strong>Observación:</strong> {{ pedido.Observacion or 'Ninguna' }}</p>
                         </div>
                     </div>
-                    
-                    <hr>
-                    
-                    <div class="row">
-                        <div class="col-md-6">
-                            <div class="mb-3">
-                                <label class="form-label text-muted mb-1">Cliente</label>
-                                <p class="mb-0">
-                                    <i class="fas fa-user me-2"></i>
-                                    {{ pedido.Nombre_Cliente }}
-                                </p>
-                            </div>
-                            <div class="mb-3">
-                                <label class="form-label text-muted mb-1">Tipo de Cliente</label>
-                                <p class="mb-0">
-                                    <span class="badge {% if pedido.Tipo_Cliente == 'Especial' %}bg-warning text-dark{% else %}bg-info{% endif %}">
-                                        {{ pedido.Tipo_Cliente }}
-                                    </span>
-                                </p>
-                            </div>
-                        </div>
-                        <div class="col-md-6">
-                            <div class="mb-3">
-                                <label class="form-label text-muted mb-1">Documento</label>
-                                <p class="mb-0">
-                                    <i class="fas fa-id-card me-2"></i>
-                                    {{ pedido.Documento_Cliente }}
-                                </p>
-                            </div>
-                            <div class="mb-3">
-                                <label class="form-label text-muted mb-1">Teléfono</label>
-                                <p class="mb-0">
-                                    <i class="fas fa-phone me-2"></i>
-                                    {{ pedido.Telefono_Cliente or 'N/A' }}
-                                </p>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    {% if pedido.Direccion_Cliente %}
-                    <div class="row">
-                        <div class="col-12">
-                            <label class="form-label text-muted mb-1">Dirección de Entrega</label>
-                            <p class="mb-0">
-                                <i class="fas fa-map-marker-alt me-2"></i>
-                                {{ pedido.Direccion_Cliente }}
-                            </p>
-                        </div>
-                    </div>
-                    {% endif %}
                 </div>
             </div>
 
-            <!-- Productos del pedido -->
+            <!-- Productos -->
             <div class="card">
-                <div class="card-header bg-success text-white d-flex justify-content-between align-items-center">
-                    <h5 class="mb-0">
-                        <i class="fas fa-boxes me-2"></i>Productos del Pedido
-                    </h5>
-                    <span class="badge bg-light text-dark">{{ detalles_pedido|length }} productos</span>
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0">Productos ({{ detalles_pedido|length }})</h5>
                 </div>
                 <div class="card-body">
                     <div class="table-responsive">
                         <table class="table table-hover">
-                            <thead class="table-light">
+                            <thead>
                                 <tr>
-                                    <th width="5%">#</th>
-                                    <th width="40%">Producto</th>
-                                    <th width="20%">Categoría</th>
-                                    <th width="10%" class="text-center">Cantidad</th>
-                                    <th width="15%" class="text-end">Precio Unit.</th>
-                                    <th width="15%" class="text-end">Subtotal</th>
+                                    <th>Producto</th>
+                                    <th class="text-center">Cantidad</th>
+                                    <th class="text-end">Precio</th>
+                                    <th class="text-end">Subtotal</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {% for detalle in detalles_pedido %}
-                                <tr class="product-card {% if loop.index is even %}table-active{% endif %}">
-                                    <td class="text-center">{{ loop.index }}</td>
-                                    <td>
-                                        <div class="d-flex align-items-center">
-                                            <div class="me-3">
-                                                <i class="fas fa-box text-primary"></i>
-                                            </div>
-                                            <div>
-                                                <strong>{{ detalle.Descripcion }}</strong><br>
-                                                <small class="text-muted">COD: {{ detalle.COD_Producto }}</small>
-                                            </div>
-                                        </div>
-                                    </td>
-                                    <td>
-                                        <span class="badge bg-secondary">{{ detalle.Categoria }}</span>
-                                    </td>
-                                    <td class="text-center">
-                                        <span class="badge bg-primary rounded-pill">{{ detalle.Cantidad }}</span>
-                                    </td>
+                                <tr>
+                                    <td>{{ detalle.Descripcion }}</td>
+                                    <td class="text-center">{{ detalle.Cantidad }}</td>
                                     <td class="text-end">C$ {{ "%.2f"|format(detalle.Precio_Unitario) }}</td>
-                                    <td class="text-end">
-                                        <strong>C$ {{ "%.2f"|format(detalle.Subtotal) }}</strong>
-                                    </td>
+                                    <td class="text-end">C$ {{ "%.2f"|format(detalle.Subtotal) }}</td>
                                 </tr>
                                 {% endfor %}
                             </tbody>
-                            <tfoot class="table-light">
-                                <tr>
-                                    <td colspan="5" class="text-end"><h5 class="mb-0">Total Pedido:</h5></td>
-                                    <td class="text-end"><h5 class="mb-0">C$ {{ "%.2f"|format(total_pedido) }}</h5></td>
+                            <tfoot>
+                                <tr class="table-active">
+                                    <td colspan="3" class="text-end"><strong>Total:</strong></td>
+                                    <td class="text-end"><strong>C$ {{ "%.2f"|format(total_pedido) }}</strong></td>
                                 </tr>
                             </tfoot>
                         </table>
@@ -260,18 +133,16 @@
             </div>
         </div>
 
-        <!-- Columna derecha: Procesar venta -->
+        <!-- Formulario de procesamiento -->
         <div class="col-lg-4">
-            <div class="card summary-card sticky-top" style="top: 20px;">
+            <div class="card summary-card">
                 <div class="card-header bg-info text-white">
-                    <h5 class="mb-0">
-                        <i class="fas fa-cash-register me-2"></i>Procesar Venta
-                    </h5>
+                    <h5 class="mb-0">Procesar Venta</h5>
                 </div>
                 <div class="card-body">
-                    <form id="formProcesarVenta" method="POST" action="{{ url_for('admin_procesar_venta_pedido', id_pedido=pedido.ID_Pedido) }}">
+                    <form id="formProcesarVenta" method="POST">
                         <!-- Tipo de Venta -->
-                        <div class="mb-4">
+                        <div class="mb-3">
                             <label class="form-label"><strong>Tipo de Venta:</strong></label>
                             <div class="btn-group w-100" role="group">
                                 <input type="radio" class="btn-check" name="tipo_venta" id="contado" value="contado" checked>
@@ -283,125 +154,39 @@
                                     <i class="fas fa-credit-card me-1"></i> Crédito
                                 </label>
                             </div>
-                            <div class="form-text">
-                                <small>
-                                    <i class="fas fa-info-circle me-1"></i>
-                                    <span id="tipoContadoInfo" class="d-block">Pago inmediato, se registra entrada en caja</span>
-                                    <span id="tipoCreditoInfo" class="d-none">Pago diferido, se crea cuenta por cobrar (30 días)</span>
-                                </small>
-                            </div>
                         </div>
 
                         <!-- Observación adicional -->
-                        <div class="mb-4">
+                        <div class="mb-3">
                             <label for="observacion_adicional" class="form-label">
                                 <strong>Observación Adicional:</strong>
                             </label>
                             <textarea class="form-control" id="observacion_adicional" 
-                                     name="observacion_adicional" rows="3" 
-                                     placeholder="Agregar observaciones adicionales para la venta..."></textarea>
-                            <div class="form-text">
-                                <small>Esta observación se agregará a la factura generada</small>
-                            </div>
+                                     name="observacion_adicional" rows="2"></textarea>
                         </div>
 
                         <!-- Resumen -->
-                        <div class="alert alert-info mb-4">
-                            <h6 class="alert-heading d-flex align-items-center">
-                                <i class="fas fa-clipboard-check me-2"></i>Resumen de Venta
-                            </h6>
-                            <hr class="my-2">
-                            <div class="d-flex justify-content-between mb-2">
-                                <span>Total Pedido:</span>
-                                <strong>C$ {{ "%.2f"|format(total_pedido) }}</strong>
-                            </div>
-                            {% if total_cajillas_huevos > 0 %}
-                            <div class="d-flex justify-content-between mb-2">
-                                <span>
-                                    <i class="fas fa-egg me-1"></i>Cajillas de Huevos:
-                                </span>
-                                <strong>{{ total_cajillas_huevos }} unid.</strong>
-                            </div>
-                            <div class="d-flex justify-content-between mb-2">
-                                <span>
-                                    <i class="fas fa-layer-group me-1"></i>Separadores necesarios:
-                                </span>
-                                <strong>{{ total_cajillas_huevos + (total_cajillas_huevos // 10) }}</strong>
-                            </div>
-                            {% endif %}
-                            <hr class="my-2">
+                        <div class="alert alert-info mb-3">
+                            <h6 class="alert-heading">Resumen</h6>
                             <div class="d-flex justify-content-between">
-                                <span class="fw-bold">Total Factura:</span>
-                                <h5 class="mb-0">C$ {{ "%.2f"|format(total_pedido) }}</h5>
+                                <span>Total:</span>
+                                <strong>C$ {{ "%.2f"|format(total_pedido) }}</strong>
                             </div>
                         </div>
 
                         <!-- Botones -->
                         <div class="d-grid gap-2">
                             {% if productos_sin_stock %}
-                            <button type="button" class="btn btn-danger btn-lg" disabled>
+                            <button type="button" class="btn btn-danger" disabled>
                                 <i class="fas fa-ban me-1"></i> Stock Insuficiente
                             </button>
-                            <div class="alert alert-warning text-center py-2">
-                                <small>
-                                    <i class="fas fa-exclamation-triangle me-1"></i>
-                                    No se puede procesar por falta de stock
-                                </small>
-                            </div>
                             {% else %}
-                            <button type="submit" class="btn btn-process btn-lg">
-                                <i class="fas fa-check-circle me-1"></i> Confirmar y Procesar Venta
+                            <button type="submit" class="btn btn-process">
+                                <i class="fas fa-check-circle me-1"></i> Procesar Venta
                             </button>
                             {% endif %}
-                            <a href="{{ url_for('admin_pedidos_venta') }}" class="btn btn-secondary">
-                                <i class="fas fa-times me-1"></i> Cancelar
-                            </a>
                         </div>
                     </form>
-                </div>
-                <div class="card-footer bg-light">
-                    <div class="row text-center">
-                        <div class="col-6">
-                            <small class="text-muted">
-                                <i class="fas fa-user me-1"></i>
-                                {{ current_user.nombre_usuario }}
-                            </small>
-                        </div>
-                        <div class="col-6">
-                            <small class="text-muted">
-                                <i class="fas fa-calendar me-1"></i>
-                                {{ now.strftime('%d/%m/%Y') }}
-                            </small>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Información de bodega -->
-            <div class="card mt-4">
-                <div class="card-header bg-secondary text-white">
-                    <h6 class="mb-0">
-                        <i class="fas fa-warehouse me-2"></i>Información de Bodega
-                    </h6>
-                </div>
-                <div class="card-body">
-                    <div class="d-flex align-items-center mb-3">
-                        <div class="me-3">
-                            <i class="fas fa-warehouse fa-2x text-secondary"></i>
-                        </div>
-                        <div>
-                            <h6 class="mb-1">{{ bodega_principal.Nombre }}</h6>
-                            <p class="mb-0 text-muted">ID: {{ bodega_principal.ID_Bodega }}</p>
-                        </div>
-                    </div>
-                    {% if total_cajillas_huevos > 0 %}
-                    <div class="alert alert-warning py-2">
-                        <small>
-                            <i class="fas fa-info-circle me-1"></i>
-                            Esta venta requiere separadores para huevos
-                        </small>
-                    </div>
-                    {% endif %}
                 </div>
             </div>
         </div>
@@ -410,156 +195,43 @@
 {% endblock %}
 
 {% block scripts %}
-<!-- SweetAlert2 -->
-<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-
 <script>
-    // Cambiar información según tipo de venta seleccionado
-    document.querySelectorAll('input[name="tipo_venta"]').forEach(function(radio) {
-        radio.addEventListener('change', function() {
-            if (this.value === 'contado') {
-                document.getElementById('tipoContadoInfo').classList.remove('d-none');
-                document.getElementById('tipoCreditoInfo').classList.add('d-none');
-            } else {
-                document.getElementById('tipoContadoInfo').classList.add('d-none');
-                document.getElementById('tipoCreditoInfo').classList.remove('d-none');
-            }
-        });
-    });
-
-    // Manejar envío del formulario
     document.getElementById('formProcesarVenta').addEventListener('submit', function(e) {
         e.preventDefault();
         
-        const tipoVenta = document.querySelector('input[name="tipo_venta"]:checked').value;
-        const tipoVentaTexto = tipoVenta === 'contado' ? 'CONTADO' : 'CRÉDITO';
-        
-        Swal.fire({
-            title: '¿Confirmar Procesamiento?',
-            html: `
-                <div class="text-start">
-                    <p>Esta acción convertirá el pedido en una venta y:</p>
-                    <ul>
-                        <li>Creará una factura</li>
-                        <li>Descontará el inventario</li>
-                        <li>Tipo de venta: <strong>${tipoVentaTexto}</strong></li>
-                        <li>Total: <strong>C$ {{ "%.2f"|format(total_pedido) }}</strong></li>
-                    </ul>
-                    <p class="text-danger mb-0"><small>Esta acción no se puede deshacer</small></p>
-                </div>
-            `,
-            icon: 'question',
-            showCancelButton: true,
-            confirmButtonText: 'Sí, Procesar',
-            cancelButtonText: 'Cancelar',
-            confirmButtonColor: '#00b09b',
-            cancelButtonColor: '#dc3545',
-            reverseButtons: true
-        }).then((result) => {
-            if (result.isConfirmed) {
-                // Mostrar carga
-                Swal.fire({
-                    title: 'Procesando...',
-                    html: `
-                        <div class="text-center">
-                            <div class="spinner-border text-primary mb-3" role="status">
-                                <span class="visually-hidden">Cargando...</span>
-                            </div>
-                            <p>Por favor espere mientras se procesa la venta.</p>
-                            <p class="text-muted"><small>Esto puede tomar unos segundos...</small></p>
-                        </div>
-                    `,
-                    allowOutsideClick: false,
-                    showConfirmButton: false,
-                    didOpen: () => {
-                        Swal.showLoading();
-                    }
-                });
-                
-                // Enviar formulario
-                fetch(this.action, {
-                    method: 'POST',
-                    body: new FormData(this),
-                    headers: {
-                        'X-Requested-With': 'XMLHttpRequest'
-                    }
-                })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        Swal.fire({
-                            title: '¡Venta Procesada!',
-                            html: `
-                                <div class="text-center">
-                                    <i class="fas fa-check-circle fa-4x text-success mb-3"></i>
-                                    <p>${data.message}</p>
-                                    <div class="alert alert-info text-start">
-                                        <small>
-                                            <strong>N° Factura:</strong> ${data.id_factura}<br>
-                                            <strong>N° Pedido:</strong> ${data.id_pedido}<br>
-                                            <strong>Total:</strong> C$ ${data.total_venta.toFixed(2)}
-                                        </small>
-                                    </div>
-                                </div>
-                            `,
-                            icon: 'success',
-                            showCancelButton: true,
-                            confirmButtonText: 'Generar Ticket',
-                            cancelButtonText: 'Volver a Pedidos',
-                            confirmButtonColor: '#00b09b'
-                        }).then((result) => {
-                            if (result.isConfirmed) {
-                                window.location.href = data.redirect_url;
-                            } else {
-                                window.location.href = "{{ url_for('admin_pedidos_venta') }}";
-                            }
-                        });
+        if (confirm('¿Está seguro de procesar esta venta?\n\nEsta acción descontará inventario y creará una factura.')) {
+            // Mostrar carga
+            const submitBtn = this.querySelector('button[type="submit"]');
+            const originalText = submitBtn.innerHTML;
+            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> Procesando...';
+            submitBtn.disabled = true;
+            
+            // Enviar formulario
+            fetch(this.action, {
+                method: 'POST',
+                body: new FormData(this)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert(data.message);
+                    if (data.redirect_url) {
+                        window.location.href = data.redirect_url;
                     } else {
-                        Swal.fire({
-                            title: 'Error',
-                            text: data.error || 'Ocurrió un error al procesar la venta',
-                            icon: 'error',
-                            confirmButtonText: 'Entendido'
-                        });
+                        window.location.href = "{{ url_for('admin_pedidos_venta') }}";
                     }
-                })
-                .catch(error => {
-                    Swal.fire({
-                        title: 'Error de Conexión',
-                        text: 'No se pudo conectar con el servidor: ' + error,
-                        icon: 'error',
-                        confirmButtonText: 'Reintentar'
-                    }).then(() => {
-                        // Reintentar envío
-                        document.getElementById('formProcesarVenta').submit();
-                    });
-                });
-            }
-        });
-    });
-
-    // Validar antes de salir si hay cambios
-    let formChanged = false;
-    const formInputs = document.querySelectorAll('#formProcesarVenta input, #formProcesarVenta textarea, #formProcesarVenta select');
-    
-    formInputs.forEach(input => {
-        input.addEventListener('change', () => {
-            formChanged = true;
-        });
-    });
-
-    window.addEventListener('beforeunload', (e) => {
-        if (formChanged) {
-            e.preventDefault();
-            e.returnValue = 'Tienes cambios sin guardar. ¿Seguro que quieres salir?';
+                } else {
+                    alert('Error: ' + data.error);
+                    submitBtn.innerHTML = originalText;
+                    submitBtn.disabled = false;
+                }
+            })
+            .catch(error => {
+                alert('Error de conexión: ' + error);
+                submitBtn.innerHTML = originalText;
+                submitBtn.disabled = false;
+            });
         }
-    });
-
-    // Imprimir información
-    document.querySelectorAll('.btn-print').forEach(btn => {
-        btn.addEventListener('click', () => {
-            window.print();
-        });
     });
 </script>
 {% endblock %}

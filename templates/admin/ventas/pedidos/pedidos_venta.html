@@ -258,7 +258,7 @@
                             <th width="150">Entrega</th>
                             <th width="120">Total</th>
                             <th width="80">Items</th>
-                            <th width="150">Acciones</th>
+                            <th width="180">Acciones</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -346,25 +346,27 @@
                             </td>
                             <td>
                                 <div class="btn-group btn-group-sm" role="group">
+                                    <!-- Botón para ver detalle -->
                                     <a href="{{ url_for('ver_pedido', id_pedido=pedido.ID_Pedido) }}"
                                         class="btn btn-outline-info" title="Ver detalle" data-bs-toggle="tooltip">
-                                        <i class="fas fa-eye"></i>Detalle
+                                        <i class="fas fa-eye"></i>
                                     </a>
 
                                     {% if current_user.rol == 'Bodega' %}
                                     <!-- Botones para rol Bodega -->
                                     {% if pedido.Estado == 'Aprobado' %}
-                                    <button type="button" class="btn btn-outline-primary" title="Procesar como venta"
-                                        data-bs-toggle="tooltip" onclick="procesarComoVenta({{ pedido.ID_Pedido }})">
-                                        <i class="fas fa-cash-register"></i>Venta
-                                    </button>
+                                    <!-- Botón para procesar como venta -->
+                                    <a href="{{ url_for('admin_procesar_venta_pedido', id_pedido=pedido.ID_Pedido) }}"
+                                        class="btn btn-outline-primary" title="Procesar como venta" data-bs-toggle="tooltip">
+                                        <i class="fas fa-cash-register"></i>
+                                    </a>
                                     {% endif %}
 
                                     {% if pedido.Estado == 'Pendiente' %}
                                     <button type="button" class="btn btn-outline-success" title="Aprobar pedido"
                                         data-bs-toggle="tooltip"
                                         onclick="cambiarEstado({{ pedido.ID_Pedido }}, 'Aprobado')">
-                                        <i class="fas fa-check"></i>Aprobar
+                                        <i class="fas fa-check"></i>
                                     </button>
                                     {% endif %}
 
@@ -372,14 +374,14 @@
                                     <button type="button" class="btn btn-outline-warning" title="Marcar en proceso"
                                         data-bs-toggle="tooltip"
                                         onclick="cambiarEstado({{ pedido.ID_Pedido }}, 'En Proceso')">
-                                        <i class="fas fa-cogs"></i>Proceso
+                                        <i class="fas fa-cogs"></i>
                                     </button>
                                     {% endif %}
 
                                     {% if pedido.Estado != 'Cancelado' and pedido.Estado != 'Entregado' %}
                                     <button type="button" class="btn btn-outline-danger" title="Cancelar pedido"
                                         data-bs-toggle="tooltip" onclick="cancelarPedido({{ pedido.ID_Pedido }})">
-                                        <i class="fas fa-times"></i>Cancelar
+                                        <i class="fas fa-times"></i>
                                     </button>
                                     {% endif %}
                                     {% else %}
@@ -388,13 +390,13 @@
                                     <button type="button" class="btn btn-outline-success" title="Aprobar pedido"
                                         data-bs-toggle="tooltip"
                                         onclick="cambiarEstado({{ pedido.ID_Pedido }}, 'Aprobado')">
-                                        <i class="fas fa-check"></i>Aprobar
+                                        <i class="fas fa-check"></i>
                                     </button>
                                     {% endif %}
                                     {% if pedido.Estado != 'Cancelado' and pedido.Estado != 'Entregado' %}
                                     <button type="button" class="btn btn-outline-warning" title="Cambiar estado"
                                         data-bs-toggle="tooltip" onclick="cambiarEstado({{ pedido.ID_Pedido }})">
-                                        <i class="fas fa-exchange-alt"></i>Estado
+                                        <i class="fas fa-exchange-alt"></i>
                                     </button>
                                     {% endif %}
                                     {% endif %}
@@ -490,22 +492,6 @@
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
                 <button type="button" class="btn btn-primary" onclick="confirmarCambioEstado()">Cambiar Estado</button>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- Modal de carga para procesar venta -->
-<div class="modal fade" id="modalProcesandoVenta" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content">
-            <div class="modal-body text-center py-5">
-                <div class="spinner-border text-primary mb-3" style="width: 4rem; height: 4rem;" role="status">
-                    <span class="visually-hidden">Procesando...</span>
-                </div>
-                <h4 class="mb-3">Procesando Venta</h4>
-                <p class="text-muted">Por favor espere mientras se convierte el pedido en venta...</p>
-                <p class="text-muted"><small>Esto puede tomar unos segundos</small></p>
             </div>
         </div>
     </div>
@@ -615,26 +601,6 @@
             });
     }
 
-    // ===========================================
-    // NUEVA FUNCIÓN PARA PROCESAR COMO VENTA
-    // ===========================================
-    function procesarComoVenta(idPedido) {
-        if (confirm(`¿Está seguro de convertir el pedido #${idPedido} en una venta?\n\nEsta acción:` +
-            `\n• Creará una factura` +
-            `\n• Descontará inventario` +
-            `\n• Actualizará el estado a "Entregado"` +
-            `\n• Registrará el movimiento`)) {
-            
-            // Mostrar modal de carga
-            const modalProcesando = new bootstrap.Modal(document.getElementById('modalProcesandoVenta'));
-            modalProcesando.show();
-            
-            // Redirigir a la página de procesamiento de venta
-            window.location.href = `/admin/ventas/procesar-pedido/${idPedido}`;
-        }
-    }
-
-    // Función cancelar pedido (mantener existente)
     function cancelarPedido(idPedido) {
         const razon = prompt('Ingrese la razón de la cancelación:');
         if (razon !== null && razon.trim() !== '') {
@@ -670,7 +636,6 @@
         }
     }
 
-    // Función para mostrar toast notifications
     function showToast(type, title, message) {
         // Si tienes una función de toast implementada, úsala
         if (typeof Toast !== 'undefined') {
@@ -704,12 +669,10 @@
         }
     }
 
-    // Función para imprimir pedido
     function imprimirPedido(idPedido) {
         window.open(`/admin/ventas/pedido/${idPedido}/imprimir`, '_blank');
     }
 
-    // Función para exportar a Excel
     function exportarExcel() {
         // Obtener los datos del formulario
         const formData = new FormData(document.getElementById('formFiltros'));
@@ -817,9 +780,13 @@
         
         .btn-group .btn {
             flex: 1;
-            min-width: 70px;
+            min-width: 32px;
             font-size: 0.7rem;
             padding: 0.2rem 0.3rem;
+        }
+        
+        .btn-group .btn i {
+            margin-right: 0;
         }
     }
 </style>

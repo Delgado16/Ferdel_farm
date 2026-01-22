@@ -8941,7 +8941,7 @@ def admin_procesar_venta_pedido(id_pedido):
         
         # Si es GET, mostrar formulario de procesamiento
         if request.method == 'GET':
-            return render_template('admin/ventas/procesar_pedido.html',
+            return render_template('admin/ventas/pedidos/procesar_pedido.html',
                                 pedido=pedido,
                                 detalles_pedido=detalles_pedido,
                                 productos_sin_stock=productos_sin_stock,
