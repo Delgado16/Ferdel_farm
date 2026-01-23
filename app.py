@@ -8947,7 +8947,9 @@ def admin_procesar_venta_pedido(id_pedido):
                                 productos_sin_stock=productos_sin_stock,
                                 total_pedido=total_pedido,
                                 total_cajillas_huevos=total_cajillas_huevos,
-                                bodega_principal=bodega_principal)
+                                bodega_principal=bodega_principal,
+                                now=datetime.now(),
+                                current_user=current_user)
         
         # Si es POST, procesar la venta
         if request.method == 'POST':
@@ -8969,7 +8971,8 @@ def admin_procesar_venta_pedido(id_pedido):
                 
                 cliente_data = cursor.fetchone()
                 if not cliente_data:
-                    raise Exception("Cliente no encontrado")
+                    flash('Cliente no encontrado', 'error')
+                    return redirect(url_for('admin_pedidos_venta'))
                 
                 tipo_cliente = cliente_data['tipo_cliente']
                 print(f"👤 Tipo de cliente: {tipo_cliente}")
@@ -9007,7 +9010,7 @@ def admin_procesar_venta_pedido(id_pedido):
                     error_msg = f"Los siguientes productos no están disponibles para este cliente ({tipo_cliente}): {productos_error}"
                     print(f"❌ {error_msg}")
                     flash(error_msg, 'error')
-                    return redirect(url_for('admin_pedidos_venta'))
+                    return redirect(url_for('admin_procesar_venta_pedido', id_pedido=id_pedido))
                 
                 print("✅ Validación de visibilidad completada")
                 
@@ -9219,40 +9222,34 @@ def admin_procesar_venta_pedido(id_pedido):
                         f'FAC-{id_factura:05d}'
                     ))
                 
-                # 11. Actualizar estado del pedido a "Entregado"
+                # 11. CORREGIDO: Actualizar solo el estado del pedido a "Entregado"
                 cursor.execute("""
                     UPDATE pedidos 
-                    SET Estado = 'Entregado',
-                        Fecha_Actualizacion = NOW(),
-                        ID_Usuario_Actualizacion = %s
+                    SET Estado = 'Entregado'
                     WHERE ID_Pedido = %s
-                """, (id_usuario, id_pedido))
+                """, (id_pedido,))
                 
-                success_msg = f'✅ Venta procesada exitosamente desde pedido #{id_pedido}! Factura #{id_factura} - Total: C${total_venta:,.2f}'
-                print(f"🎯 {success_msg}")
+                print(f"📝 Pedido #{id_pedido} actualizado a estado: Entregado")
                 
-                flash(success_msg, 'success')
-                
-                return jsonify({
-                    'success': True,
-                    'message': success_msg,
+                # 12. Guardar datos de la venta en la sesión para mostrarlos en el ticket
+                session['venta_procesada'] = {
                     'id_factura': id_factura,
                     'id_pedido': id_pedido,
                     'total_venta': total_venta,
-                    'redirect_url': url_for('admin_generar_ticket', id_factura=id_factura)
-                })
+                    'tipo_venta': tipo_venta,
+                    'nombre_cliente': pedido['Nombre_Cliente'],
+                    'fecha': datetime.now().strftime('%d/%m/%Y %H:%M:%S')
+                }
+                
+                # 13. Redirigir directamente al ticket SIN mensaje flash
+                print(f"🎯 Venta procesada exitosamente! Redirigiendo al ticket #{id_factura}")
+                return redirect(url_for('admin_generar_ticket', id_factura=id_factura))
                 
     except Exception as e:
         error_msg = f'❌ Error al procesar venta desde pedido: {str(e)}'
         print(f"{error_msg}")
         import traceback
         print(f"Traceback: {traceback.format_exc()}")
-        
-        if request.method == 'POST':
-            return jsonify({
-                'success': False,
-                'error': error_msg
-            }), 500
         
         flash(error_msg, 'error')
         return redirect(url_for('admin_pedidos_venta'))
@@ -11530,7 +11527,6 @@ def bodega_reportes_avanzados():
         flash(f"Error al cargar reportes: {str(e)}", 'error')
         return redirect(url_for('admin_historial_movimientos'))
 
-#Pedidos
 
 #Iniciar Aplicación
 if __name__ == '__main__':
