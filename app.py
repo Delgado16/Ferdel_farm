@@ -637,9 +637,9 @@ def home():
 @login_required
 def dashboard():
     if current_user.rol == 'Administrador':
-        return render_template('admin/dashboard.html')
+        return redirect(url_for('admin_dashboard'))
     elif current_user.rol == 'Vendedor':
-        return render_template('vendedor/dashboard.html')
+        return redirect(url_for('vendedor_dashboard'))
     elif current_user.rol == 'Bodega':
         return redirect(url_for('bodega_dashboard'))
     else:
