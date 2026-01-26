@@ -3129,6 +3129,26 @@ def admin_eliminar_movimiento(id):
     
     return redirect(url_for('admin_movimientos_inventario'))
 
+#RUTAS
+@app.route('/admin/rutas', methods=['GET'])
+@admin_required
+@bitacora_decorator("RUTAS")
+def admin_rutas():
+    try:
+        with get_db_cursor() as cursor:
+            cursor.execute("""
+                SELECT r.*, e.Nombre as Nombre_Empresa 
+                FROM Rutas r 
+                LEFT JOIN empresa e ON r.ID_Empresa = e.ID_Empresa
+                ORDER BY ID_Ruta DESC
+            """)
+            rutas = cursor.fetchall()
+            
+        return render_template('admin/rutas/rutas.html', rutas=rutas)
+    except Exception as e:
+        flash(f"Error al cargar rutas: {str(e)}", "danger")
+        return redirect(url_for('admin_dashboard'))
+
 # MODULO BODEGA
 @app.route('/admin/bodega', methods=['GET'])
 @admin_required
@@ -11681,8 +11701,6 @@ def bodega_reportes_avanzados():
     except Exception as e:
         flash(f"Error al cargar reportes: {str(e)}", 'error')
         return redirect(url_for('admin_historial_movimientos'))
-
-## Ventas vendedor 
 
 
 #Iniciar Aplicación
