@@ -4,26 +4,16 @@
 <div class="container-fluid">
     <div class="d-flex justify-content-between align-items-center mb-4">
         <h2><i class="fas fa-user-tag me-2"></i>Gestión de Roles</h2>
-        <a href="{{ url_for('crear_rol') }}" class="btn btn-primary">
+        <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#modalCrearRol">
             <i class="fas fa-plus me-1"></i> Nuevo Rol
-        </a>
+        </button>
     </div>
 
-    {% with messages = get_flashed_messages(with_categories=true) %}
-        {% if messages %}
-            {% for category, message in messages %}
-                <div class="alert alert-{{ 'danger' if category == 'error' else category }} alert-dismissible fade show" role="alert">
-                    {{ message }}
-                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                </div>
-            {% endfor %}
-        {% endif %}
-    {% endwith %}
 
     <!-- Filtros de búsqueda -->
     <div class="card mb-4">
         <div class="card-body">
-            <form method="GET" action="{{ url_for('admin_roles') }}" class="row g-3">
+            <form method="GET" action="{{ url_for('admin_roles') }}" class="row g-3" id="formFiltros">
                 <div class="col-md-4">
                     <label for="search" class="form-label">Buscar por nombre:</label>
                     <input type="text" class="form-control" id="search" name="search" 
@@ -90,79 +80,39 @@
                             </td>
                             <td>
                                 <div class="btn-group" role="group">
-                                    <a href="{{ url_for('editar_rol', id_rol=rol.ID_Rol) }}" 
-                                       class="btn btn-sm btn-outline-primary" 
-                                       data-bs-toggle="tooltip" 
-                                       title="Editar rol">
-                                        <i class="fas fa-edit"></i>
-                                    </a>
+                                    <!-- Botón Editar -->
+                                    <button type="button" 
+                                            class="btn btn-sm btn-outline-primary" 
+                                            data-bs-toggle="modal" 
+                                            data-bs-target="#modalEditarRol{{ rol.ID_Rol }}"
+                                            title="Editar rol">
+                                        <i class="fas fa-edit"></i>Editar
+                                    </button>
                                     
-                                    {% if rol.Estado == 'Activo' %}
-                                        <a href="{{ url_for('inactivar_rol', id_rol=rol.ID_Rol) }}" 
-                                           class="btn btn-sm btn-outline-warning"
-                                           data-bs-toggle="tooltip"
-                                           title="Inactivar rol"
-                                           onclick="return confirm('¿Está seguro de inactivar el rol {{ rol.Nombre_Rol }}?')">
-                                            <i class="fas fa-pause"></i>
-                                        </a>
-                                    {% else %}
-                                        <a href="{{ url_for('activar_rol', id_rol=rol.ID_Rol) }}" 
-                                           class="btn btn-sm btn-outline-success"
-                                           data-bs-toggle="tooltip"
-                                           title="Activar rol"
-                                           onclick="return confirm('¿Está seguro de activar el rol {{ rol.Nombre_Rol }}?')">
-                                            <i class="fas fa-play"></i>
-                                        </a>
-                                    {% endif %}
+                                    <!-- Botón Cambiar Estado -->
+                                    <button type="button" 
+                                            class="btn btn-sm {% if rol.Estado == 'Activo' %}btn-outline-warning{% else %}btn-outline-success{% endif %}"
+                                            data-bs-toggle="modal"
+                                            data-bs-target="#modalCambiarEstado{{ rol.ID_Rol }}"
+                                            title="{% if rol.Estado == 'Activo' %}Inactivar rol{% else %}Activar rol{% endif %}">
+                                        {% if rol.Estado == 'Activo' %}
+                                            <i class="fas fa-pause"></i>Inactivar
+                                        {% else %}
+                                            <i class="fas fa-play"></i>Activar
+                                        {% endif %}
+                                    </button>
                                     
+                                    <!-- Botón Eliminar -->
                                     <button type="button" 
                                             class="btn btn-sm btn-outline-danger"
                                             data-bs-toggle="modal" 
-                                            data-bs-target="#modalEliminar{{ rol.ID_Rol }}"
+                                            data-bs-target="#modalEliminarRol{{ rol.ID_Rol }}"
                                             title="Eliminar rol">
-                                        <i class="fas fa-trash"></i>
+                                        <i class="fas fa-trash"></i>Eliminar
                                     </button>
                                 </div>
                             </td>
                         </tr>
-
-                        <!-- Modal de confirmación para eliminar -->
-                        <div class="modal fade" id="modalEliminar{{ rol.ID_Rol }}" tabindex="-1">
-                            <div class="modal-dialog">
-                                <div class="modal-content">
-                                    <div class="modal-header bg-danger text-white">
-                                        <h5 class="modal-title">
-                                            <i class="fas fa-exclamation-triangle me-2"></i>
-                                            Confirmar Eliminación
-                                        </h5>
-                                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-                                    </div>
-                                    <div class="modal-body">
-                                        <div class="alert alert-warning">
-                                            <i class="fas fa-exclamation-circle me-2"></i>
-                                            <strong>¡Advertencia!</strong> Esta acción no se puede deshacer.
-                                        </div>
-                                        <p>¿Está seguro que desea eliminar permanentemente el rol?</p>
-                                        <div class="card">
-                                            <div class="card-body">
-                                                <p class="mb-1"><strong>ID:</strong> {{ rol.ID_Rol }}</p>
-                                                <p class="mb-1"><strong>Nombre:</strong> {{ rol.Nombre_Rol }}</p>
-                                                <p class="mb-0"><strong>Estado:</strong> {{ rol.Estado }}</p>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div class="modal-footer">
-                                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
-                                            <i class="fas fa-times me-1"></i> Cancelar
-                                        </button>
-                                        <a href="{{ url_for('eliminar_rol', id_rol=rol.ID_Rol) }}" 
-                                           class="btn btn-danger">
-                                            <i class="fas fa-trash me-1"></i> Eliminar Permanentemente
-                                        </a>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
                         {% endfor %}
                     </tbody>
                 </table>
@@ -174,9 +124,9 @@
                 </div>
                 <h4 class="text-muted">No se encontraron roles</h4>
                 <p class="text-muted">No hay roles registrados en el sistema</p>
-                <a href="{{ url_for('crear_rol') }}" class="btn btn-primary mt-3">
+                <button type="button" class="btn btn-primary mt-3" data-bs-toggle="modal" data-bs-target="#modalCrearRol">
                     <i class="fas fa-plus me-1"></i> Crear Primer Rol
-                </a>
+                </button>
             </div>
             {% endif %}
         </div>
@@ -207,24 +157,235 @@
     </div>
 </div>
 
-<!-- Script para tooltips -->
+<!-- Modal para Crear Rol (ÚNICO para crear) -->
+<div class="modal fade" id="modalCrearRol" tabindex="-1" aria-labelledby="modalCrearRolLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="POST" action="{{ url_for('crear_rol') }}">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title" id="modalCrearRolLabel">
+                        <i class="fas fa-plus-circle me-2"></i>Nuevo Rol
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="nombre_rol" class="form-label">Nombre del Rol *</label>
+                        <input type="text" class="form-control" id="nombre_rol" name="nombre_rol" 
+                               required maxlength="255" placeholder="Ej: Administrador, Supervisor, Usuario, etc.">
+                        <div class="form-text">El nombre debe ser único y descriptivo</div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="fas fa-times me-1"></i> Cancelar
+                    </button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save me-1"></i> Guardar Rol
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modales DINÁMICOS para cada rol -->
+{% for rol in roles %}
+<!-- Modal para Editar Rol {{ rol.ID_Rol }} -->
+<div class="modal fade" id="modalEditarRol{{ rol.ID_Rol }}" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="POST" action="{{ url_for('editar_rol', id_rol=rol.ID_Rol) }}">
+                <div class="modal-header bg-warning text-dark">
+                    <h5 class="modal-title">
+                        <i class="fas fa-edit me-2"></i>Editar Rol #{{ rol.ID_Rol }}
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="nombre_rol_editar{{ rol.ID_Rol }}" class="form-label">Nombre del Rol *</label>
+                        <input type="text" class="form-control" id="nombre_rol_editar{{ rol.ID_Rol }}" 
+                               name="nombre_rol" value="{{ rol.Nombre_Rol }}" required maxlength="255">
+                    </div>
+                    <div class="mb-3">
+                        <label for="estado_editar{{ rol.ID_Rol }}" class="form-label">Estado</label>
+                        <select class="form-select" id="estado_editar{{ rol.ID_Rol }}" name="estado">
+                            <option value="Activo" {% if rol.Estado == 'Activo' %}selected{% endif %}>Activo</option>
+                            <option value="Inactivo" {% if rol.Estado == 'Inactivo' %}selected{% endif %}>Inactivo</option>
+                        </select>
+                        <div class="form-text">Los roles inactivos no estarán disponibles para asignar</div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="fas fa-times me-1"></i> Cancelar
+                    </button>
+                    <button type="submit" class="btn btn-warning">
+                        <i class="fas fa-save me-1"></i> Actualizar
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para Cambiar Estado {{ rol.ID_Rol }} -->
+<div class="modal fade" id="modalCambiarEstado{{ rol.ID_Rol }}" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="POST" action="{{ url_for('cambiar_estado_rol', id_rol=rol.ID_Rol) }}">
+                <div class="modal-header {% if rol.Estado == 'Activo' %}bg-warning text-dark{% else %}bg-success text-white{% endif %}">
+                    <h5 class="modal-title">
+                        {% if rol.Estado == 'Activo' %}
+                            <i class="fas fa-pause-circle me-2"></i>Inactivar Rol
+                        {% else %}
+                            <i class="fas fa-play-circle me-2"></i>Activar Rol
+                        {% endif %}
+                    </h5>
+                    <button type="button" class="btn-close {% if rol.Estado == 'Inactivo' %}btn-close-white{% endif %}" 
+                            data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    {% if rol.Estado == 'Activo' %}
+                    <div class="alert alert-warning">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        <strong>¡Atención!</strong> Al inactivar este rol:
+                        <ul class="mb-0 mt-2">
+                            <li>No se podrá asignar a nuevos usuarios</li>
+                            <li>Los usuarios que ya lo tienen conservarán sus permisos</li>
+                            <li>Podrás activarlo nuevamente cuando lo necesites</li>
+                        </ul>
+                    </div>
+                    {% else %}
+                    <div class="alert alert-success">
+                        <i class="fas fa-check-circle me-2"></i>
+                        <strong>Activar Rol:</strong> Este rol estará disponible para asignar a usuarios.
+                    </div>
+                    {% endif %}
+                    
+                    <div class="card">
+                        <div class="card-body">
+                            <p class="mb-1"><strong>ID:</strong> {{ rol.ID_Rol }}</p>
+                            <p class="mb-1"><strong>Nombre:</strong> {{ rol.Nombre_Rol }}</p>
+                            <p class="mb-0"><strong>Estado Actual:</strong> 
+                                <span class="badge {% if rol.Estado == 'Activo' %}bg-success{% else %}bg-danger{% endif %}">
+                                    {{ rol.Estado }}
+                                </span>
+                            </p>
+                            <p class="mb-0 mt-2"><strong>Nuevo Estado:</strong> 
+                                <span class="badge {% if rol.Estado == 'Activo' %}bg-danger{% else %}bg-success{% endif %} fw-bold">
+                                    {% if rol.Estado == 'Activo' %}Inactivo{% else %}Activo{% endif %}
+                                </span>
+                            </p>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="fas fa-times me-1"></i> Cancelar
+                    </button>
+                    <button type="submit" class="btn {% if rol.Estado == 'Activo' %}btn-warning{% else %}btn-success{% endif %}">
+                        {% if rol.Estado == 'Activo' %}
+                            <i class="fas fa-pause me-1"></i> Inactivar
+                        {% else %}
+                            <i class="fas fa-play me-1"></i> Activar
+                        {% endif %}
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para Eliminar Rol {{ rol.ID_Rol }} -->
+<div class="modal fade" id="modalEliminarRol{{ rol.ID_Rol }}" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="POST" action="{{ url_for('eliminar_rol', id_rol=rol.ID_Rol) }}">
+                <div class="modal-header bg-danger text-white">
+                    <h5 class="modal-title">
+                        <i class="fas fa-exclamation-triangle me-2"></i>Eliminar Rol
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="alert alert-danger">
+                        <i class="fas fa-exclamation-circle me-2"></i>
+                        <strong>¡Advertencia!</strong> Esta acción no se puede deshacer.
+                    </div>
+                    <p>¿Está seguro que desea eliminar permanentemente el siguiente rol?</p>
+                    <div class="card">
+                        <div class="card-body">
+                            <p class="mb-1"><strong>ID:</strong> {{ rol.ID_Rol }}</p>
+                            <p class="mb-1"><strong>Nombre:</strong> {{ rol.Nombre_Rol }}</p>
+                            <p class="mb-0"><strong>Estado:</strong> 
+                                <span class="badge {% if rol.Estado == 'Activo' %}bg-success{% else %}bg-danger{% endif %}">
+                                    {{ rol.Estado }}
+                                </span>
+                            </p>
+                        </div>
+                    </div>
+                    
+                    {% if rol.Estado == 'Activo' %}
+                    <div class="alert alert-warning mt-3">
+                        <i class="fas fa-ban me-2"></i>
+                        <strong>No se puede eliminar:</strong> Solo se pueden eliminar roles que estén <strong>INACTIVOS</strong>.
+                    </div>
+                    {% else %}
+                    <div class="alert alert-info mt-3">
+                        <i class="fas fa-info-circle me-2"></i>
+                        <strong>Requisito para eliminar:</strong> El rol debe estar inactivo y no tener usuarios asociados.
+                    </div>
+                    {% endif %}
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="fas fa-times me-1"></i> Cancelar
+                    </button>
+                    
+                    {% if rol.Estado == 'Activo' %}
+                    <button type="button" class="btn btn-secondary" disabled>
+                        <i class="fas fa-ban me-1"></i> Solo roles inactivos
+                    </button>
+                    {% else %}
+                    <button type="submit" class="btn btn-danger" onclick="return confirm('¿Está COMPLETAMENTE seguro? Esta acción es irreversible.')">
+                        <i class="fas fa-trash me-1"></i> Eliminar Permanentemente
+                    </button>
+                    {% endif %}
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endfor %}
+
+<!-- Scripts -->
 <script>
-    document.addEventListener('DOMContentLoaded', function() {
-        // Inicializar tooltips
-        var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
-        var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
-            return new bootstrap.Tooltip(tooltipTriggerEl)
-        })
-        
-        // Auto cerrar alerts después de 5 segundos
-        setTimeout(function() {
-            var alerts = document.querySelectorAll('.alert');
-            alerts.forEach(function(alert) {
-                var bsAlert = new bootstrap.Alert(alert);
-                bsAlert.close();
-            });
-        }, 5000);
+document.addEventListener('DOMContentLoaded', function() {
+    // Inicializar tooltips
+    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
+    var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl)
     });
+    
+    // Auto cerrar alerts después de 5 segundos
+    setTimeout(function() {
+        var alerts = document.querySelectorAll('.alert:not(.modal .alert)');
+        alerts.forEach(function(alert) {
+            var bsAlert = new bootstrap.Alert(alert);
+            bsAlert.close();
+        });
+    }, 5000);
+    
+    // Limpiar formulario de crear cuando se cierra el modal
+    const modalCrear = document.getElementById('modalCrearRol');
+    if (modalCrear) {
+        modalCrear.addEventListener('hidden.bs.modal', function() {
+            document.querySelector('#modalCrearRol form').reset();
+        });
+    }
+});
 </script>
 
 <style>
@@ -253,6 +414,24 @@
     
     .card-header {
         border-bottom: 1px solid rgba(0, 0, 0, 0.125);
+    }
+    
+    .modal-header {
+        border-bottom: none;
+        padding-bottom: 0;
+    }
+    
+    .modal-footer {
+        border-top: none;
+        padding-top: 0;
+    }
+    
+    .alert {
+        border: none;
+    }
+    
+    .badge {
+        font-size: 0.85em;
     }
 </style>
 {% endblock %}

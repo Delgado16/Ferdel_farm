@@ -1508,6 +1508,158 @@ def admin_roles():
         flash(f"Error al cargar roles: {e}", "danger")
         return redirect(url_for('admin_dashboard'))
     
+@app.route('/admin/roles/crear', methods=['POST'])
+@admin_required
+@bitacora_decorator("CREAR_ROL")
+def crear_rol():
+    """Crear un nuevo rol (formulario tradicional)"""
+    try:
+        nombre_rol = request.form.get('nombre_rol')
+        
+        if not nombre_rol or nombre_rol.strip() == '':
+            flash("El nombre del rol es requerido", "danger")
+            return redirect(url_for('admin_roles'))
+        
+        # Validar si el rol ya existe
+        with get_db_cursor() as cursor:
+            cursor.execute("SELECT ID_Rol FROM Roles WHERE Nombre_Rol = %s", (nombre_rol.strip(),))
+            if cursor.fetchone():
+                flash("Ya existe un rol con ese nombre", "warning")
+                return redirect(url_for('admin_roles'))
+        
+        # Crear el nuevo rol
+        with get_db_cursor(commit=True) as cursor:
+            cursor.execute(
+                "INSERT INTO Roles (Nombre_Rol, Estado) VALUES (%s, 'Activo')",
+                (nombre_rol.strip(),)
+            )
+        
+        flash("Rol creado exitosamente", "success")
+        return redirect(url_for('admin_roles'))
+        
+    except Exception as e:
+        flash(f"Error al crear rol: {str(e)}", "danger")
+        return redirect(url_for('admin_roles'))
+
+
+@app.route('/admin/roles/editar/<int:id_rol>', methods=['POST'])
+@admin_required
+@bitacora_decorator("EDITAR_ROL")
+def editar_rol(id_rol):
+    """Editar un rol existente (formulario tradicional)"""
+    try:
+        nombre_rol = request.form.get('nombre_rol')
+        estado = request.form.get('estado')
+        
+        if not nombre_rol or nombre_rol.strip() == '':
+            flash("El nombre del rol es requerido", "danger")
+            return redirect(url_for('admin_roles'))
+        
+        # Validar si el rol existe
+        with get_db_cursor() as cursor:
+            cursor.execute("SELECT Nombre_Rol FROM Roles WHERE ID_Rol = %s", (id_rol,))
+            rol_existente = cursor.fetchone()
+            
+            if not rol_existente:
+                flash("Rol no encontrado", "danger")
+                return redirect(url_for('admin_roles'))
+            
+            # Validar si el nuevo nombre ya existe en otro rol
+            cursor.execute(
+                "SELECT ID_Rol FROM Roles WHERE Nombre_Rol = %s AND ID_Rol != %s", 
+                (nombre_rol.strip(), id_rol)
+            )
+            if cursor.fetchone():
+                flash("Ya existe otro rol con ese nombre", "warning")
+                return redirect(url_for('admin_roles'))
+        
+        # Actualizar el rol
+        with get_db_cursor(commit=True) as cursor:
+            cursor.execute(
+                "UPDATE Roles SET Nombre_Rol = %s, Estado = %s WHERE ID_Rol = %s",
+                (nombre_rol.strip(), estado, id_rol)
+            )
+        
+        flash("Rol actualizado exitosamente", "success")
+        return redirect(url_for('admin_roles'))
+        
+    except Exception as e:
+        flash(f"Error al actualizar rol: {str(e)}", "danger")
+        return redirect(url_for('admin_roles'))
+
+
+@app.route('/admin/roles/cambiar_estado/<int:id_rol>', methods=['POST'])
+@admin_required
+@bitacora_decorator("CAMBIAR_ESTADO_ROL")
+def cambiar_estado_rol(id_rol):
+    """Cambiar estado de Activo a Inactivo o viceversa (formulario tradicional)"""
+    try:
+        with get_db_cursor() as cursor:
+            # Primero obtenemos el estado actual
+            cursor.execute("SELECT Estado, Nombre_Rol FROM Roles WHERE ID_Rol = %s", (id_rol,))
+            rol = cursor.fetchone()
+            
+            if not rol:
+                flash("Rol no encontrado", "danger")
+                return redirect(url_for('admin_roles'))
+            
+            # Cambiamos el estado
+            nuevo_estado = 'Inactivo' if rol['Estado'] == 'Activo' else 'Activo'
+            nombre_rol = rol['Nombre_Rol']
+            
+            cursor.execute(
+                "UPDATE Roles SET Estado = %s WHERE ID_Rol = %s",
+                (nuevo_estado, id_rol)
+            )
+        
+        mensaje = f"Rol '{nombre_rol}' {nuevo_estado.lower()} correctamente"
+        flash(mensaje, "success")
+        return redirect(url_for('admin_roles'))
+        
+    except Exception as e:
+        flash(f"Error al cambiar estado: {str(e)}", "danger")
+        return redirect(url_for('admin_roles'))
+
+
+@app.route('/admin/roles/eliminar/<int:id_rol>', methods=['POST'])
+@admin_required
+@bitacora_decorator("ELIMINAR_ROL")
+def eliminar_rol(id_rol):
+    """Eliminar un rol (formulario tradicional)"""
+    try:
+        with get_db_cursor() as cursor:
+            # Verificar si el rol existe
+            cursor.execute("SELECT Estado, Nombre_Rol FROM Roles WHERE ID_Rol = %s", (id_rol,))
+            rol = cursor.fetchone()
+            
+            if not rol:
+                flash("Rol no encontrado", "danger")
+                return redirect(url_for('admin_roles'))
+            
+            # Verificar si el rol está activo
+            if rol['Estado'] == 'Activo':
+                flash("No se puede eliminar un rol activo. Primero debe inactivarlo.", "warning")
+                return redirect(url_for('admin_roles'))
+            
+            # Verificar si hay usuarios asociados al rol
+            cursor.execute("SELECT COUNT(*) as count FROM Usuarios WHERE ID_Rol = %s", (id_rol,))
+            usuarios_asociados = cursor.fetchone()['count']
+            
+            if usuarios_asociados > 0:
+                flash(f"No se puede eliminar el rol porque tiene {usuarios_asociados} usuario(s) asociado(s).", "warning")
+                return redirect(url_for('admin_roles'))
+        
+        # Si pasa las validaciones, eliminar
+        with get_db_cursor(commit=True) as cursor:
+            cursor.execute("DELETE FROM Roles WHERE ID_Rol = %s", (id_rol,))
+        
+        flash(f"Rol '{rol['Nombre_Rol']}' eliminado exitosamente", "success")
+        return redirect(url_for('admin_roles'))
+        
+    except Exception as e:
+        flash(f"Error al eliminar rol: {str(e)}", "danger")
+        return redirect(url_for('admin_roles'))
+    
 # CATALOGOS USUARIOS
 @app.route('/admin/usuarios')
 @admin_required
