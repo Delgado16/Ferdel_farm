@@ -428,6 +428,9 @@ def admin_required(f):
 def bodega_required(f):
     return role_requerido('Bodega')(f)
 
+def vendedor_required(f):
+    return role_requerido('Vendedor')(f)
+
 def admin_or_bodega_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
@@ -11526,6 +11529,8 @@ def bodega_reportes_avanzados():
     except Exception as e:
         flash(f"Error al cargar reportes: {str(e)}", 'error')
         return redirect(url_for('admin_historial_movimientos'))
+
+## Ventas vendedor
 
 
 #Iniciar Aplicación
