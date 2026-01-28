@@ -1,0 +1,478 @@
+{% extends 'layout.html' %}
+
+{% block content %}
+<div class="container-fluid">
+    <h2 class="mt-4">Gestión de Rutas</h2>
+    
+    <div class="card mb-4">
+        <div class="card-header">
+            <div class="d-flex justify-content-between align-items-center">
+                <span><i class="bi bi-signpost-split me-1"></i> Lista de Rutas</span>
+                <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#crearRutaModal">
+                    <i class="bi bi-plus-circle"></i> Nueva Ruta
+                </button>
+            </div>
+        </div>
+            
+            <div class="table-responsive">
+                <table class="table table-bordered table-hover" id="tablaRutas" width="100%" cellspacing="0">
+                    <thead class="table-dark">
+                        <tr>
+                            <th>ID</th>
+                            <th>Nombre</th>
+                            <th>Descripción</th>
+                            <th>Empresa</th>
+                            <th>Estado</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for ruta in rutas %}
+                        <tr>
+                            <td>{{ ruta.ID_Ruta }}</td>
+                            <td>{{ ruta.Nombre }}</td>
+                            <td>{{ ruta.Descripcion or 'Sin descripción' }}</td>
+                            <td>{{ ruta.Nombre_Empresa or 'Sin empresa' }}</td>
+                            <td>
+                                <span class="badge bg-{{ 'success' if ruta.Estado == 'Activa' else 'secondary' }}">
+                                    {{ ruta.Estado }}
+                                </span>
+                            </td>
+                            <td>
+                                <div class="btn-group btn-group-sm" role="group">
+                                    <!-- BOTÓN EDITAR - AHORA ES UN ENLACE A PÁGINA SEPARADA -->
+                                    <a href="{{ url_for('editar_ruta', id_ruta=ruta.ID_Ruta) }}" 
+                                       class="btn btn-outline-warning me-1"
+                                       title="Editar Ruta">
+                                        <i class="bi bi-pencil-square"></i>
+                                    </a>
+                                    
+                                    <!-- Botón Cambiar Estado -->
+                                    <form action="{{ url_for('cambiar_estado_ruta', id_ruta=ruta.ID_Ruta) }}" 
+                                          method="POST" class="d-inline me-1">
+                                        <button type="submit" class="btn btn-{{ 'outline-warning' if ruta.Estado == 'Activa' else 'outline-success' }}"
+                                                title="{{ 'Desactivar' if ruta.Estado == 'Activa' else 'Activar' }}">
+                                            <i class="bi bi-{{ 'slash-circle' if ruta.Estado == 'Activa' else 'check-circle' }}"></i>
+                                        </button>
+                                    </form>
+                                    
+                                    <!-- Botón Eliminar -->
+                                    <button type="button" class="btn btn-outline-danger btn-eliminar"
+                                            data-ruta-id="{{ ruta.ID_Ruta }}"
+                                            data-ruta-nombre="{{ ruta.Nombre }}"
+                                            title="Eliminar Ruta">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="6" class="text-center text-muted">
+                                No hay rutas registradas. Crea una nueva ruta para comenzar.
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ========== MODALES (SOLO CREAR Y ELIMINAR - EL EDITAR AHORA ES PÁGINA SEPARADA) ========== -->
+
+<!-- 1. MODAL PARA CREAR -->
+<div class="modal fade" id="crearRutaModal" tabindex="-1" aria-labelledby="crearRutaModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <form method="POST" action="{{ url_for('crear_ruta') }}" id="formCrearRuta">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title" id="crearRutaModalLabel">
+                        <i class="bi bi-plus-circle"></i> Crear Nueva Ruta
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="nombre" class="form-label fw-bold">Nombre de la Ruta *</label>
+                        <input type="text" class="form-control" id="nombre" name="nombre" 
+                               placeholder="Ej: Ruta Norte, Ruta Centro, etc." required
+                               maxlength="255" autocomplete="off">
+                        <div class="form-text">Nombre único para identificar la ruta</div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="descripcion" class="form-label fw-bold">Descripción</label>
+                        <textarea class="form-control" id="descripcion" name="descripcion" 
+                                  rows="3" placeholder="Descripción detallada de la ruta..."></textarea>
+                        <div class="form-text">Opcional: Detalles sobre municipios cubiertos, horarios, etc.</div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="id_empresa" class="form-label fw-bold">Empresa Asignada *</label>
+                        <select class="form-select" id="id_empresa" name="id_empresa" required>
+                            <option value="" selected disabled>-- Seleccione una empresa --</option>
+                            {% for empresa in empresas %}
+                            <option value="{{ empresa.ID_Empresa }}">{{ empresa.Nombre_Empresa }}</option>
+                            {% endfor %}
+                        </select>
+                        <div class="form-text">Seleccione la empresa responsable de esta ruta</div>
+                    </div>
+                    
+                    <div class="alert alert-info">
+                        <small>
+                            <i class="bi bi-info-circle"></i> 
+                            Los campos marcados con (*) son obligatorios. 
+                            La ruta se creará con estado "Activa" por defecto.
+                        </small>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="bi bi-x-circle"></i> Cancelar
+                    </button>
+                    <button type="submit" class="btn btn-primary" id="btnCrearRuta">
+                        <i class="bi bi-save"></i> Guardar Ruta
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- 2. MODAL PARA ELIMINAR -->
+<div class="modal fade" id="eliminarRutaModal" tabindex="-1" aria-labelledby="eliminarRutaModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="POST" action="{{ url_for('eliminar_ruta') }}" id="formEliminarRuta">
+                <div class="modal-header bg-danger text-white">
+                    <h5 class="modal-title" id="eliminarRutaModalLabel">
+                        <i class="bi bi-exclamation-triangle"></i> Confirmar Eliminación
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <!-- Campo oculto para el ID de la ruta -->
+                    <input type="hidden" name="id_ruta" id="delete_id_ruta">
+                    
+                    <div class="text-center mb-3">
+                        <i class="bi bi-trash text-danger" style="font-size: 3rem;"></i>
+                        <h5 class="mt-3">¿Está seguro de eliminar esta ruta?</h5>
+                    </div>
+                    
+                    <div class="alert alert-warning">
+                        <h6>Ruta a eliminar:</h6>
+                        <p class="mb-1"><strong>ID:</strong> <span id="delete_ruta_id"></span></p>
+                        <p class="mb-1"><strong>Nombre:</strong> <span id="delete_ruta_nombre"></span></p>
+                        <p class="mb-0"><strong>Esta acción no se puede deshacer.</strong></p>
+                    </div>
+                    
+                    <div class="alert alert-danger">
+                        <small>
+                            <i class="bi bi-exclamation-circle"></i>
+                            <strong>Advertencia:</strong> Si esta ruta está siendo utilizada en otros módulos del sistema, 
+                            podría afectar su funcionamiento.
+                        </small>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="bi bi-x-circle"></i> Cancelar
+                    </button>
+                    <button type="submit" class="btn btn-danger" id="btnEliminarRuta">
+                        <i class="bi bi-trash"></i> Sí, Eliminar
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<style>
+/* Estilos adicionales */
+.btn-group-sm .btn {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.875rem;
+}
+
+.btn-group .btn {
+    border-radius: 0.25rem !important;
+    margin-right: 2px;
+}
+
+.btn-group .btn:last-child {
+    margin-right: 0;
+}
+
+.btn-outline-warning:hover {
+    background-color: #ffc107;
+    color: #000;
+    border-color: #ffc107;
+}
+
+.btn-outline-danger:hover {
+    background-color: #dc3545;
+    color: #fff;
+    border-color: #dc3545;
+}
+
+.btn-outline-success:hover {
+    background-color: #198754;
+    color: #fff;
+    border-color: #198754;
+}
+
+#tablaRutas td, #tablaRutas th {
+    padding: 0.5rem 0.75rem;
+    vertical-align: middle;
+}
+
+#tablaRutas tbody tr:hover {
+    background-color: rgba(0, 0, 0, 0.02);
+}
+
+/* Estilos para enlaces en la tabla */
+#tablaRutas a.btn {
+    text-decoration: none;
+    transition: all 0.2s ease;
+}
+
+#tablaRutas a.btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+/* Badges mejorados */
+.badge {
+    font-size: 0.85em;
+    padding: 0.4em 0.8em;
+    font-weight: 500;
+    letter-spacing: 0.3px;
+}
+</style>
+{% endblock %}
+
+{% block scripts %}
+<!-- jQuery (necesario para DataTables) -->
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<!-- DataTables CSS y JS -->
+<link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.11.5/css/dataTables.bootstrap5.min.css">
+<script type="text/javascript" src="https://cdn.datatables.net/1.11.5/js/jquery.dataTables.min.js"></script>
+<script type="text/javascript" src="https://cdn.datatables.net/1.11.5/js/dataTables.bootstrap5.min.js"></script>
+
+<script>
+$(document).ready(function() {
+    // Inicializar DataTable
+    var table = $('#tablaRutas').DataTable({
+        "order": [[0, "desc"]],
+        "language": {
+            "url": "//cdn.datatables.net/plug-ins/1.11.5/i18n/es-ES.json",
+            "search": "Buscar:",
+            "lengthMenu": "Mostrar _MENU_ registros por página",
+            "zeroRecords": "No se encontraron registros",
+            "info": "Mostrando página _PAGE_ de _PAGES_",
+            "infoEmpty": "No hay registros disponibles",
+            "infoFiltered": "(filtrado de _MAX_ registros totales)",
+            "paginate": {
+                "first": "Primera",
+                "last": "Última",
+                "next": "Siguiente",
+                "previous": "Anterior"
+            }
+        },
+        "responsive": true,
+        "pageLength": 10,
+        "lengthMenu": [10, 25, 50, 100],
+        "columnDefs": [
+            { 
+                "orderable": false, 
+                "targets": 5, // Deshabilitar orden en columna Acciones
+                "className": "text-center",
+                "width": "180px"
+            },
+            { 
+                "width": "5%", 
+                "targets": 0, // ID
+                "className": "text-center"
+            },
+            { "width": "20%", "targets": 1 }, // Nombre
+            { "width": "25%", "targets": 2 }, // Descripción
+            { "width": "20%", "targets": 3 }, // Empresa
+            { 
+                "width": "10%", 
+                "targets": 4, // Estado
+                "className": "text-center"
+            }
+        ],
+        "dom": '<"row mb-3"<"col-sm-12 col-md-6"l><"col-sm-12 col-md-6 d-flex justify-content-md-end"f>>rt<"row"<"col-sm-12 col-md-6"i><"col-sm-12 col-md-6"p>>',
+        "initComplete": function(settings, json) {
+            console.log('DataTable inicializado con', json.data.length, 'registros');
+        }
+    });
+    
+    // ========== EVENTO PARA BOTONES ELIMINAR ==========
+    $(document).on('click', '.btn-eliminar', function() {
+        var rutaId = $(this).data('ruta-id');
+        var nombre = $(this).data('ruta-nombre');
+        
+        console.log('Solicitando eliminación de ruta:', {rutaId, nombre});
+        
+        // Llenar el modal de eliminar con los datos
+        $('#delete_id_ruta').val(rutaId);
+        $('#delete_ruta_id').text(rutaId);
+        $('#delete_ruta_nombre').text(nombre);
+        
+        // Mostrar el modal
+        var eliminarModal = new bootstrap.Modal(document.getElementById('eliminarRutaModal'));
+        eliminarModal.show();
+    });
+    
+    // ========== VALIDACIONES ==========
+    
+    // Validación para crear ruta
+    $('#formCrearRuta').on('submit', function(e) {
+        var nombre = $('#nombre').val().trim();
+        var empresa = $('#id_empresa').val();
+        
+        if (!nombre) {
+            e.preventDefault();
+            mostrarErrorModal('crear', 'El nombre de la ruta es obligatorio', '#nombre');
+            return false;
+        }
+        
+        if (nombre.length < 3) {
+            e.preventDefault();
+            mostrarErrorModal('crear', 'El nombre debe tener al menos 3 caracteres', '#nombre');
+            return false;
+        }
+        
+        if (!empresa) {
+            e.preventDefault();
+            mostrarErrorModal('crear', 'Debe seleccionar una empresa', '#id_empresa');
+            return false;
+        }
+        
+        // Mostrar indicador de carga
+        $('#btnCrearRuta').html('<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Guardando...').prop('disabled', true);
+        
+        // Registrar en consola para debugging
+        console.log('Creando nueva ruta:', {
+            nombre: nombre,
+            empresa: empresa,
+            descripcion: $('#descripcion').val().trim()
+        });
+        
+        return true;
+    });
+    
+    // Confirmación para eliminar
+    $('#formEliminarRuta').on('submit', function(e) {
+        var nombre = $('#delete_ruta_nombre').text();
+        var id = $('#delete_ruta_id').text();
+        
+        var confirmMessage = `¿Está completamente seguro de eliminar la ruta #${id} "${nombre}"?\n\n` +
+                            `Esta acción es permanente y no se puede deshacer.\n` +
+                            `Si la ruta está siendo utilizada en el sistema, podría causar problemas.`;
+        
+        if (!confirm(confirmMessage)) {
+            e.preventDefault();
+            return false;
+        }
+        
+        // Mostrar indicador de carga
+        $('#btnEliminarRuta').html('<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Eliminando...').prop('disabled', true);
+        
+        console.log('Eliminando ruta:', {id, nombre});
+        
+        return true;
+    });
+    
+    // Confirmación para cambiar estado
+    $('form[action*="cambiar-estado"]').on('submit', function(e) {
+        var accion = $(this).find('button[type="submit"]').attr('title');
+        var nombreRuta = $(this).closest('tr').find('td:nth-child(2)').text().trim();
+        var idRuta = $(this).closest('tr').find('td:nth-child(1)').text().trim();
+        
+        var confirmMessage = `¿Está seguro de ${accion.toLowerCase()} la ruta #${idRuta} "${nombreRuta}"?`;
+        
+        if (!confirm(confirmMessage)) {
+            e.preventDefault();
+            return false;
+        }
+        
+        // Mostrar indicador de carga
+        var btn = $(this).find('button[type="submit"]');
+        var iconOriginal = btn.html();
+        btn.html('<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>').prop('disabled', true);
+        
+        console.log(`${accion} ruta:`, {idRuta, nombreRuta});
+        
+        // Restaurar botón después de 3 segundos por si falla
+        setTimeout(function() {
+            btn.html(iconOriginal).prop('disabled', false);
+        }, 3000);
+    });
+    
+    // Limpiar formularios al cerrar modales
+    $('#crearRutaModal').on('hidden.bs.modal', function() {
+        $(this).find('form')[0].reset();
+        $('#btnCrearRuta').html('<i class="bi bi-save"></i> Guardar Ruta').prop('disabled', false);
+        limpiarErroresModal('crear');
+    });
+    
+    $('#eliminarRutaModal').on('hidden.bs.modal', function() {
+        $('#btnEliminarRuta').html('<i class="bi bi-trash"></i> Sí, Eliminar').prop('disabled', false);
+    });
+    
+    // Función para mostrar errores en modales
+    function mostrarErrorModal(tipo, mensaje, selector) {
+        // Remover errores anteriores
+        limpiarErroresModal(tipo);
+        
+        // Agregar clase de error al campo
+        $(selector).addClass('is-invalid');
+        
+        // Crear mensaje de error
+        var errorDiv = $('<div>', {
+            class: 'invalid-feedback d-block',
+            html: '<i class="bi bi-exclamation-circle"></i> ' + mensaje
+        });
+        
+        $(selector).after(errorDiv);
+        $(selector).focus();
+        
+        // Remover error después de 5 segundos
+        setTimeout(function() {
+            limpiarErroresModal(tipo);
+        }, 5000);
+    }
+    
+    // Función para limpiar errores de modales
+    function limpiarErroresModal(tipo) {
+        if (tipo === 'crear') {
+            $('#crearRutaModal .is-invalid').removeClass('is-invalid');
+            $('#crearRutaModal .invalid-feedback').remove();
+        }
+    }
+    
+    // Auto-focus en el campo de nombre cuando se abre el modal de crear
+    $('#crearRutaModal').on('shown.bs.modal', function() {
+        $('#nombre').focus();
+    });
+    
+    // Búsqueda rápida con DataTables
+    $('#tablaRutas_filter input').addClass('form-control form-control-sm');
+    $('#tablaRutas_length select').addClass('form-select form-select-sm');
+    
+    console.log('✅ Sistema de gestión de rutas cargado correctamente');
+    console.log('Modo de edición: Página separada (enlace directo)');
+    console.log('Total de rutas cargadas:', {{ rutas|length }});
+    
+    // Agregar información de debugging en consola
+    table.on('draw', function() {
+        console.log('Tabla redibujada. Registros visibles:', table.rows({ filter: 'applied' }).count());
+    });
+});
+</script>
+{% endblock %}

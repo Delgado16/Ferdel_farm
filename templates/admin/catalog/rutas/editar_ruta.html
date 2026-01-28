@@ -1,0 +1,527 @@
+{% extends 'layout.html' %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Botón de regreso -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <a href="{{ url_for('admin_rutas') }}" class="btn btn-outline-secondary">
+                <i class="bi bi-arrow-left"></i> Volver a la lista de rutas
+            </a>
+        </div>
+    </div>
+    
+    <div class="row justify-content-center">
+        <div class="col-lg-8 col-xl-6">
+            <div class="card shadow">
+                <div class="card-header bg-warning text-white">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h4 class="mb-0">
+                            <i class="bi bi-pencil-square"></i> Editar Ruta
+                        </h4>
+                        <span class="badge bg-dark">ID: {{ ruta.ID_Ruta }}</span>
+                    </div>
+                </div>
+                
+                <div class="card-body">
+                    
+                    <form method="POST" action="{{ url_for('editar_ruta', id_ruta=ruta.ID_Ruta) }}" id="formEditarRuta">
+                        <!-- Información de la ruta -->
+                        <div class="card mb-4">
+                            <div class="card-header bg-light">
+                                <h5 class="mb-0">Información de la Ruta</h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="row mb-3">
+                                    <div class="col-md-6">
+                                        <label class="form-label fw-bold">Estado Actual:</label>
+                                        <div>
+                                            <span class="badge bg-{{ 'success' if ruta.Estado == 'Activa' else 'secondary' }} fs-6">
+                                                {{ ruta.Estado }}
+                                            </span>
+                                        </div>
+                                        <small class="text-muted">
+                                            <i class="bi bi-info-circle"></i>
+                                            Para cambiar el estado, use la lista principal
+                                        </small>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label fw-bold">ID de Ruta:</label>
+                                        <div class="form-control-plaintext">
+                                            <code>{{ ruta.ID_Ruta }}</code>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                {% if ruta.Nombre_Empresa %}
+                                <div class="row">
+                                    <div class="col-12">
+                                        <label class="form-label fw-bold">Empresa Actual:</label>
+                                        <div class="alert alert-info py-2">
+                                            <i class="bi bi-building"></i>
+                                            <strong>{{ ruta.Nombre_Empresa }}</strong>
+                                            <span class="text-muted ms-2">(ID: {{ ruta.ID_Empresa }})</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        
+                        <!-- Campos editables -->
+                        <div class="mb-3">
+                            <label for="nombre" class="form-label fw-bold">
+                                <i class="bi bi-signpost"></i> Nombre de la Ruta 
+                                <span class="text-danger">*</span>
+                            </label>
+                            <input type="text" class="form-control form-control-lg" 
+                                   id="nombre" name="nombre" 
+                                   value="{{ ruta.Nombre }}" 
+                                   required maxlength="255" autocomplete="off"
+                                   placeholder="Ej: Ruta Norte, Ruta Centro, etc.">
+                            <div class="form-text">
+                                <i class="bi bi-info-circle"></i> 
+                                Nombre único para identificar la ruta
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="descripcion" class="form-label fw-bold">
+                                <i class="bi bi-card-text"></i> Descripción
+                            </label>
+                            <textarea class="form-control" id="descripcion" name="descripcion" 
+                                      rows="4" placeholder="Descripción detallada de la ruta..."
+                                      maxlength="65535">{{ ruta.Descripcion or '' }}</textarea>
+                            <div class="form-text">
+                                <i class="bi bi-info-circle"></i> 
+                                Opcional: Detalles sobre municipios cubiertos, horarios, etc.
+                                <span id="contadorDescripcion" class="float-end">0/65535 caracteres</span>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-4">
+                            <label for="id_empresa" class="form-label fw-bold">
+                                <i class="bi bi-building"></i> Empresa Asignada 
+                                <span class="text-danger">*</span>
+                            </label>
+                            <select class="form-select form-select-lg" id="id_empresa" name="id_empresa" required>
+                                <option value="" disabled>-- Seleccione una empresa --</option>
+                                {% for empresa in empresas %}
+                                <option value="{{ empresa.ID_Empresa }}" 
+                                        {% if empresa.ID_Empresa == ruta.ID_Empresa %}selected{% endif %}>
+                                    {{ empresa.Nombre_Empresa }} {% if empresa.ID_Empresa == ruta.ID_Empresa %}(Actual){% endif %}
+                                </option>
+                                {% endfor %}
+                            </select>
+                            <div class="form-text">
+                                <i class="bi bi-info-circle"></i> 
+                                Empresa responsable de esta ruta
+                            </div>
+                        </div>
+                        
+                        <!-- Alertas importantes -->
+                        <div class="alert alert-warning">
+                            <div class="d-flex">
+                                <i class="bi bi-exclamation-triangle me-2 fs-5"></i>
+                                <div>
+                                    <strong>Nota:</strong> 
+                                    <ul class="mb-0 mt-2">
+                                        <li>Los campos marcados con <span class="text-danger">*</span> son obligatorios</li>
+                                        <li>Verifique los datos antes de guardar</li>
+                                        <li>Después de guardar, será redirigido a la lista principal</li>
+                                        <li>El estado solo puede cambiarse desde la lista principal</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+                
+                <div class="card-footer bg-light">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <button type="button" class="btn btn-outline-danger" 
+                                    onclick="confirmarCancelar()">
+                                <i class="bi bi-x-circle"></i> Cancelar
+                            </button>
+                        </div>
+                        
+                        <div class="btn-group">
+                            <a href="{{ url_for('admin_rutas') }}" class="btn btn-outline-info">
+                                <i class="bi bi-list"></i> Ver Lista
+                            </a>
+                            <button type="submit" form="formEditarRuta" 
+                                    class="btn btn-warning" id="btnGuardar">
+                                <i class="bi bi-save"></i> Guardar Cambios
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Información adicional -->
+            <div class="card mt-4 shadow-sm">
+                <div class="card-header bg-light">
+                    <h5 class="mb-0">
+                        <i class="bi bi-info-circle"></i> Información del Sistema
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6><i class="bi bi-database text-primary"></i> Estructura de Datos</h6>
+                            <ul class="list-unstyled small">
+                                <li><strong>Tabla:</strong> <code>rutas</code></li>
+                                <li><strong>Clave Primaria:</strong> <code>ID_Ruta</code></li>
+                                <li><strong>Clave Foránea:</strong> <code>ID_Empresa</code> → <code>empresa</code></li>
+                                <li><strong>Estado:</strong> <code>Activa</code> | <code>Inactiva</code></li>
+                            </ul>
+                        </div>
+                        <div class="col-md-6">
+                            <h6><i class="bi bi-shield-check text-success"></i> Validaciones</h6>
+                            <ul class="list-unstyled small">
+                                <li><i class="bi bi-check-circle text-success"></i> Nombre único en el sistema</li>
+                                <li><i class="bi bi-check-circle text-success"></i> Empresa debe existir y estar activa</li>
+                                <li><i class="bi bi-check-circle text-success"></i> Descripción opcional (texto)</li>
+                                <li><i class="bi bi-check-circle text-success"></i> Estado controlado por sistema</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para confirmar cancelación -->
+<div class="modal fade" id="confirmarCancelarModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-warning">
+                <h5 class="modal-title">
+                    <i class="bi bi-exclamation-triangle"></i> Confirmar Cancelación
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>¿Está seguro de que desea cancelar la edición?</p>
+                <div class="alert alert-light border">
+                    <small class="text-muted">
+                        <i class="bi bi-info-circle"></i>
+                        Los cambios no guardados se perderán permanentemente.
+                    </small>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="bi bi-arrow-left"></i> Continuar Editando
+                </button>
+                <a href="{{ url_for('admin_rutas') }}" class="btn btn-warning">
+                    <i class="bi bi-x-circle"></i> Sí, Cancelar
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.card {
+    border: none;
+    border-radius: 10px;
+}
+
+.card-header {
+    border-radius: 10px 10px 0 0 !important;
+}
+
+.form-control-lg, .form-select-lg {
+    border-radius: 8px;
+    border: 2px solid #e9ecef;
+    transition: all 0.3s;
+}
+
+.form-control-lg:focus, .form-select-lg:focus {
+    border-color: #ffc107;
+    box-shadow: 0 0 0 0.25rem rgba(255, 193, 7, 0.25);
+}
+
+.btn-warning {
+    background: linear-gradient(135deg, #ffc107 0%, #ff9800 100%);
+    border: none;
+    color: #000;
+    font-weight: 600;
+}
+
+.btn-warning:hover {
+    background: linear-gradient(135deg, #ff9800 0%, #f57c00 100%);
+    color: #000;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(255, 152, 0, 0.3);
+}
+
+.badge {
+    font-size: 0.9em;
+    padding: 0.5em 0.8em;
+    font-weight: 500;
+}
+
+.alert {
+    border-radius: 8px;
+    border: none;
+}
+
+code {
+    background-color: #f8f9fa;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-family: 'Courier New', monospace;
+    color: #d63384;
+}
+
+.form-text {
+    font-size: 0.85rem;
+}
+
+#contadorDescripcion {
+    font-size: 0.75rem;
+    color: #6c757d;
+}
+</style>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Referencias a elementos importantes
+    const formEditar = document.getElementById('formEditarRuta');
+    const btnGuardar = document.getElementById('btnGuardar');
+    const inputNombre = document.getElementById('nombre');
+    const inputDescripcion = document.getElementById('descripcion');
+    const selectEmpresa = document.getElementById('id_empresa');
+    const contadorDescripcion = document.getElementById('contadorDescripcion');
+    
+    // Función para escapar texto para JavaScript
+    function escapeJS(text) {
+        if (text === null || text === undefined) return '';
+        return String(text)
+            .replace(/\\/g, '\\\\')
+            .replace(/'/g, "\\'")
+            .replace(/"/g, '\\"')
+            .replace(/\n/g, '\\n')
+            .replace(/\r/g, '\\r')
+            .replace(/\t/g, '\\t');
+    }
+    
+    // Estado original (capturado desde los valores del formulario)
+    const estadoOriginal = {
+        nombre: escapeJS(inputNombre.value),
+        descripcion: escapeJS(inputDescripcion.value),
+        empresa: selectEmpresa.value
+    };
+    
+    console.log('=== FORMULARIO DE EDICIÓN DE RUTA ===');
+    console.log('ID Ruta:', {{ ruta.ID_Ruta }});
+    
+    // Inicializar contador de descripción
+    function actualizarContadorDescripcion() {
+        const longitud = inputDescripcion.value.length;
+        const maximo = 65535;
+        contadorDescripcion.textContent = `${longitud}/${maximo} caracteres`;
+        
+        if (longitud > maximo * 0.9) {
+            contadorDescripcion.classList.remove('text-muted');
+            contadorDescripcion.classList.add('text-warning');
+        } else if (longitud > maximo) {
+            contadorDescripcion.classList.remove('text-warning');
+            contadorDescripcion.classList.add('text-danger');
+        } else {
+            contadorDescripcion.classList.remove('text-warning', 'text-danger');
+            contadorDescripcion.classList.add('text-muted');
+        }
+    }
+    
+    // Inicializar contador
+    actualizarContadorDescripcion();
+    inputDescripcion.addEventListener('input', actualizarContadorDescripcion);
+    
+    // Función para detectar cambios
+    function detectarCambios() {
+        const nombreActual = inputNombre.value;
+        const descripcionActual = inputDescripcion.value;
+        const empresaActual = selectEmpresa.value;
+        
+        const cambios = {
+            nombre: nombreActual !== estadoOriginal.nombre,
+            descripcion: descripcionActual !== estadoOriginal.descripcion,
+            empresa: empresaActual !== estadoOriginal.empresa
+        };
+        
+        const hayCambios = cambios.nombre || cambios.descripcion || cambios.empresa;
+        
+        return { hayCambios, cambios };
+    }
+    
+    // Actualizar estado del botón según cambios
+    function actualizarEstadoBoton() {
+        const { hayCambios } = detectarCambios();
+        
+        if (hayCambios) {
+            btnGuardar.disabled = false;
+            btnGuardar.innerHTML = '<i class="bi bi-save"></i> Guardar Cambios';
+            btnGuardar.classList.remove('btn-secondary');
+            btnGuardar.classList.add('btn-warning');
+        } else {
+            btnGuardar.disabled = true;
+            btnGuardar.innerHTML = '<i class="bi bi-check"></i> Sin cambios';
+            btnGuardar.classList.remove('btn-warning');
+            btnGuardar.classList.add('btn-secondary');
+        }
+    }
+    
+    // Escuchar cambios en los campos
+    [inputNombre, inputDescripcion, selectEmpresa].forEach(element => {
+        element.addEventListener('input', actualizarEstadoBoton);
+        element.addEventListener('change', actualizarEstadoBoton);
+    });
+    
+    // Inicializar estado del botón
+    actualizarEstadoBoton();
+    
+    // Validación del formulario
+    formEditar.addEventListener('submit', function(e) {
+        const nombre = inputNombre.value.trim();
+        const empresa = selectEmpresa.value;
+        const descripcion = inputDescripcion.value;
+        
+        // Validar campos obligatorios
+        let hayErrores = false;
+        let mensajeError = '';
+        
+        if (!nombre) {
+            mensajeError = 'El nombre de la ruta es obligatorio';
+            mostrarError(mensajeError, inputNombre);
+            hayErrores = true;
+        } else if (nombre.length < 3) {
+            mensajeError = 'El nombre debe tener al menos 3 caracteres';
+            mostrarError(mensajeError, inputNombre);
+            hayErrores = true;
+        } else if (nombre.length > 255) {
+            mensajeError = 'El nombre no puede exceder los 255 caracteres';
+            mostrarError(mensajeError, inputNombre);
+            hayErrores = true;
+        }
+        
+        if (!empresa) {
+            mensajeError = 'Debe seleccionar una empresa';
+            if (!hayErrores) mostrarError(mensajeError, selectEmpresa);
+            hayErrores = true;
+        }
+        
+        if (descripcion.length > 65535) {
+            mensajeError = 'La descripción no puede exceder los 65535 caracteres';
+            if (!hayErrores) mostrarError(mensajeError, inputDescripcion);
+            hayErrores = true;
+        }
+        
+        if (hayErrores) {
+            e.preventDefault();
+            return false;
+        }
+        
+        // Mostrar mensaje de confirmación
+        const confirmacion = confirm('¿Está seguro de guardar los cambios?\n\nSerá redirigido a la lista principal después de guardar.');
+        
+        if (!confirmacion) {
+            e.preventDefault();
+            return false;
+        }
+        
+        // Mostrar indicador de carga
+        btnGuardar.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Guardando...';
+        btnGuardar.disabled = true;
+        
+        // Deshabilitar todos los campos mientras se envía
+        formEditar.querySelectorAll('input, select, textarea, button').forEach(el => {
+            if (el !== btnGuardar) {
+                el.disabled = true;
+            }
+        });
+        
+        // Mostrar mensaje de redirección
+        console.log('Guardando cambios y redirigiendo a la lista principal...');
+        
+        return true;
+    });
+    
+    // Función para mostrar errores
+    function mostrarError(mensaje, elemento) {
+        // Remover errores anteriores
+        const errorAnterior = elemento.parentElement.querySelector('.text-danger');
+        if (errorAnterior) {
+            errorAnterior.remove();
+        }
+        
+        // Agregar feedback visual al elemento
+        elemento.classList.add('is-invalid');
+        
+        // Crear mensaje de error
+        const errorDiv = document.createElement('div');
+        errorDiv.className = 'text-danger mt-1 small';
+        errorDiv.innerHTML = `<i class="bi bi-exclamation-circle"></i> ${mensaje}`;
+        
+        elemento.parentElement.appendChild(errorDiv);
+        
+        // Enfocar el elemento
+        elemento.focus();
+        
+        // Remover el error después de corregir
+        elemento.addEventListener('input', function limpiarError() {
+            elemento.classList.remove('is-invalid');
+            errorDiv.remove();
+            elemento.removeEventListener('input', limpiarError);
+        }, { once: true });
+    }
+    
+    // Función para confirmar cancelación
+    window.confirmarCancelar = function() {
+        const { hayCambios } = detectarCambios();
+        
+        if (hayCambios) {
+            // Mostrar modal de confirmación
+            const modal = new bootstrap.Modal(document.getElementById('confirmarCancelarModal'));
+            modal.show();
+        } else {
+            // No hay cambios, redirigir directamente
+            window.location.href = "{{ url_for('admin_rutas') }}";
+        }
+    };
+    
+    // Prevenir envío accidental con Enter en campos individuales
+    formEditar.querySelectorAll('input, textarea').forEach(element => {
+        element.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' && !e.ctrlKey && !e.shiftKey && !e.altKey) {
+                e.preventDefault();
+            }
+        });
+    });
+    
+    // Permitir Ctrl+Enter en textarea para enviar
+    inputDescripcion.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter' && e.ctrlKey) {
+            e.preventDefault();
+            if (!btnGuardar.disabled) {
+                formEditar.requestSubmit();
+            }
+        }
+    });
+    
+    // Enfoque automático en el primer campo
+    setTimeout(() => {
+        inputNombre.focus();
+        inputNombre.select();
+    }, 100);
+    
+    console.log('Formulario de edición inicializado correctamente');
+});
+</script>
+{% endblock %}

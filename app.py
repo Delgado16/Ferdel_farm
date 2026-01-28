@@ -3136,18 +3136,405 @@ def admin_eliminar_movimiento(id):
 def admin_rutas():
     try:
         with get_db_cursor() as cursor:
+            # Obtener rutas
             cursor.execute("""
-                SELECT r.*, e.Nombre as Nombre_Empresa 
-                FROM Rutas r 
+                SELECT r.*, e.Nombre_Empresa as Nombre_Empresa 
+                FROM rutas r 
                 LEFT JOIN empresa e ON r.ID_Empresa = e.ID_Empresa
-                ORDER BY ID_Ruta DESC
+                ORDER BY r.ID_Ruta DESC
             """)
             rutas = cursor.fetchall()
             
-        return render_template('admin/rutas/rutas.html', rutas=rutas)
+            # Obtener empresas activas para los select
+            cursor.execute("SELECT ID_Empresa, Nombre_Empresa FROM empresa WHERE Estado = 'Activo' ORDER BY Nombre_Empresa")
+            empresas = cursor.fetchall()
+            
+        return render_template('admin/catalog/rutas/rutas.html', rutas=rutas, empresas=empresas)
     except Exception as e:
         flash(f"Error al cargar rutas: {str(e)}", "danger")
         return redirect(url_for('admin_dashboard'))
+
+@app.route('/admin/rutas/crear', methods=['POST'])
+@admin_required
+@bitacora_decorator("CREAR-RUTA")
+def crear_ruta():
+    try:
+        # Obtener datos del formulario
+        nombre = request.form.get('nombre', '').strip()
+        descripcion = request.form.get('descripcion', '').strip()
+        id_empresa = request.form.get('id_empresa')
+        
+        print(f"DEBUG: Creando ruta - Nombre: '{nombre}', Empresa: '{id_empresa}'")
+        
+        # Validaciones básicas
+        if not nombre:
+            flash("El nombre de la ruta es obligatorio", "danger")
+            return redirect(url_for('admin_rutas'))
+        
+        if not id_empresa:
+            flash("Debe seleccionar una empresa", "danger")
+            return redirect(url_for('admin_rutas'))
+        
+        with get_db_cursor(commit=True) as cursor:
+            # Verificar si ya existe una ruta con el mismo nombre
+            cursor.execute("SELECT ID_Ruta FROM rutas WHERE Nombre = %s", (nombre,))
+            if cursor.fetchone():
+                flash("Ya existe una ruta con ese nombre. Por favor, use un nombre diferente.", "warning")
+                return redirect(url_for('admin_rutas'))
+            
+            # Verificar que la empresa existe
+            cursor.execute("SELECT ID_Empresa FROM empresa WHERE ID_Empresa = %s AND Estado = 'Activo'", (id_empresa,))
+            if not cursor.fetchone():
+                flash("La empresa seleccionada no existe o no está activa", "danger")
+                return redirect(url_for('admin_rutas'))
+            
+            # Insertar nueva ruta
+            cursor.execute("""
+                INSERT INTO rutas (Nombre, Descripcion, ID_Empresa, Estado)
+                VALUES (%s, %s, %s, 'Activa')
+            """, (nombre, descripcion, id_empresa))
+            
+            nuevo_id = cursor.lastrowid
+            print(f"DEBUG: Ruta creada con ID: {nuevo_id}")
+        
+        flash("✅ Ruta creada exitosamente", "success")
+        return redirect(url_for('admin_rutas'))
+        
+    except Exception as e:
+        print(f"ERROR en crear_ruta: {str(e)}")
+        flash(f"Error al crear ruta: {str(e)}", "danger")
+        return redirect(url_for('admin_rutas'))
+
+@app.route('/admin/rutas/editar/<int:id_ruta>', methods=['GET', 'POST'])
+@admin_required
+@bitacora_decorator("EDITAR-RUTA")
+def editar_ruta(id_ruta):
+    """Maneja tanto la visualización como el procesamiento del formulario de edición"""
+    
+    try:
+        with get_db_cursor() as cursor:
+            # Obtener empresas activas (se usa en ambos métodos)
+            cursor.execute("SELECT ID_Empresa, Nombre_Empresa FROM empresa WHERE Estado = 'Activo' ORDER BY Nombre_Empresa")
+            empresas = cursor.fetchall()
+            
+            # ========== MÉTODO GET: Mostrar formulario ==========
+            if request.method == 'GET':
+                # Obtener los datos de la ruta específica usando la estructura de la tabla
+                cursor.execute("""
+                    SELECT 
+                        r.ID_Ruta,
+                        r.Nombre,
+                        r.Descripcion,
+                        r.Estado,
+                        r.ID_Empresa,
+                        e.Nombre_Empresa
+                    FROM rutas r 
+                    LEFT JOIN empresa e ON r.ID_Empresa = e.ID_Empresa
+                    WHERE r.ID_Ruta = %s
+                """, (id_ruta,))
+                ruta = cursor.fetchone()
+                
+                if not ruta:
+                    flash("❌ La ruta no existe", "danger")
+                    return redirect(url_for('admin_rutas'))
+                
+                print(f"DEBUG: Mostrando formulario para editar ruta ID: {id_ruta}")
+                print(f"DEBUG: Datos de la ruta: {dict(ruta)}")
+                
+                return render_template('admin/catalog/rutas/editar_ruta.html', 
+                                     ruta=ruta, 
+                                     empresas=empresas)
+            
+            # ========== MÉTODO POST: Procesar formulario ==========
+            elif request.method == 'POST':
+                # Obtener datos del formulario
+                nombre = request.form.get('nombre', '').strip()
+                descripcion = request.form.get('descripcion', '').strip()
+                id_empresa = request.form.get('id_empresa')
+                
+                print(f"DEBUG: Procesando edición de ruta {id_ruta}")
+                print(f"DEBUG: Datos recibidos - Nombre: '{nombre}', Empresa: '{id_empresa}'")
+                
+                # Validaciones
+                errores = []
+                
+                if not nombre:
+                    errores.append("El nombre de la ruta es obligatorio")
+                
+                if not id_empresa:
+                    errores.append("Debe seleccionar una empresa")
+                else:
+                    # Validar que el ID de empresa es numérico
+                    try:
+                        id_empresa = int(id_empresa)
+                    except ValueError:
+                        errores.append("El ID de empresa no es válido")
+                
+                if errores:
+                    for error in errores:
+                        flash(f"❌ {error}", "danger")
+                    
+                    # Obtener datos actuales para mostrar el formulario con errores
+                    cursor.execute("""
+                        SELECT 
+                            r.ID_Ruta,
+                            r.Nombre,
+                            r.Descripcion,
+                            r.Estado,
+                            r.ID_Empresa,
+                            e.Nombre_Empresa
+                        FROM rutas r 
+                        LEFT JOIN empresa e ON r.ID_Empresa = e.ID_Empresa
+                        WHERE r.ID_Ruta = %s
+                    """, (id_ruta,))
+                    ruta = cursor.fetchone()
+                    
+                    return render_template('admin/catalog/rutas/editar_ruta.html', 
+                                         ruta=ruta, 
+                                         empresas=empresas)
+                
+                # Verificar si la ruta existe
+                cursor.execute("""
+                    SELECT ID_Ruta, Nombre, Descripcion, ID_Empresa 
+                    FROM rutas 
+                    WHERE ID_Ruta = %s
+                """, (id_ruta,))
+                ruta_existente = cursor.fetchone()
+                
+                if not ruta_existente:
+                    flash("❌ La ruta no existe", "danger")
+                    return redirect(url_for('admin_rutas'))
+                
+                # Verificar si ya existe otra ruta con el mismo nombre
+                cursor.execute("""
+                    SELECT ID_Ruta 
+                    FROM rutas 
+                    WHERE Nombre = %s AND ID_Ruta != %s
+                """, (nombre, id_ruta))
+                
+                if cursor.fetchone():
+                    flash("⚠️ Ya existe otra ruta con ese nombre. Por favor, use un nombre diferente.", "warning")
+                    
+                    # Recargar datos para mostrar el formulario con el error
+                    cursor.execute("""
+                        SELECT 
+                            r.ID_Ruta,
+                            r.Nombre,
+                            r.Descripcion,
+                            r.Estado,
+                            r.ID_Empresa,
+                            e.Nombre_Empresa
+                        FROM rutas r 
+                        LEFT JOIN empresa e ON r.ID_Empresa = e.ID_Empresa
+                        WHERE r.ID_Ruta = %s
+                    """, (id_ruta,))
+                    ruta = cursor.fetchone()
+                    
+                    return render_template('admin/catalog/rutas/editar_ruta.html', 
+                                         ruta=ruta, 
+                                         empresas=empresas)
+                
+                # Verificar que la empresa existe y está activa
+                cursor.execute("""
+                    SELECT ID_Empresa, Nombre_Empresa 
+                    FROM empresa 
+                    WHERE ID_Empresa = %s AND Estado = 'Activo'
+                """, (id_empresa,))
+                
+                empresa_valida = cursor.fetchone()
+                if not empresa_valida:
+                    flash("❌ La empresa seleccionada no existe o no está activa", "danger")
+                    
+                    # Recargar datos para mostrar el formulario con el error
+                    cursor.execute("""
+                        SELECT 
+                            r.ID_Ruta,
+                            r.Nombre,
+                            r.Descripcion,
+                            r.Estado,
+                            r.ID_Empresa,
+                            e.Nombre_Empresa
+                        FROM rutas r 
+                        LEFT JOIN empresa e ON r.ID_Empresa = e.ID_Empresa
+                        WHERE r.ID_Ruta = %s
+                    """, (id_ruta,))
+                    ruta = cursor.fetchone()
+                    
+                    return render_template('admin/catalog/rutas/editar_ruta.html', 
+                                         ruta=ruta, 
+                                         empresas=empresas)
+                
+                # Comparar datos actuales con nuevos para ver si hubo cambios
+                hubo_cambios = False
+                cambios_detalle = []
+                
+                # Comparar nombre
+                if ruta_existente['Nombre'] != nombre:
+                    hubo_cambios = True
+                    cambios_detalle.append(f"Nombre: '{ruta_existente['Nombre']}' → '{nombre}'")
+                
+                # Comparar descripción (manejar valores None)
+                desc_actual = ruta_existente['Descripcion'] or ''
+                desc_nueva = descripcion or ''
+                if desc_actual != desc_nueva:
+                    hubo_cambios = True
+                    cambios_detalle.append(f"Descripción actualizada")
+                
+                # Comparar empresa
+                if ruta_existente['ID_Empresa'] != id_empresa:
+                    hubo_cambios = True
+                    cambios_detalle.append(f"Empresa: ID {ruta_existente['ID_Empresa']} → ID {id_empresa}")
+                
+                if not hubo_cambios:
+                    flash("ℹ️ No se realizaron cambios en la ruta", "info")
+                    # Redirigir a la página principal
+                    return redirect(url_for('admin_rutas'))
+                
+                # Actualizar ruta en la base de datos
+                cursor.execute("""
+                    UPDATE rutas 
+                    SET 
+                        Nombre = %s,
+                        Descripcion = %s,
+                        ID_Empresa = %s
+                    WHERE ID_Ruta = %s
+                """, (nombre, descripcion or None, id_empresa, id_ruta))
+                
+                print(f"DEBUG: Ruta {id_ruta} actualizada exitosamente")
+                print(f"DEBUG: Cambios realizados: {cambios_detalle}")
+                
+                # Registrar en bitácora
+                if cambios_detalle:
+                    cambios_texto = " | ".join(cambios_detalle)
+                    print(f"BITACORA: Ruta {id_ruta} modificada - {cambios_texto}")
+                
+                flash("✅ Ruta actualizada exitosamente", "success")
+                
+                # REDIRIGIR A LA PÁGINA PRINCIPAL después de guardar exitosamente
+                return redirect(url_for('admin_rutas'))
+    
+    except Exception as e:
+        print(f"ERROR en editar_ruta (ID: {id_ruta}): {str(e)}")
+        print(f"Traceback: {traceback.format_exc()}")
+        
+        flash(f"❌ Error al procesar la ruta: {str(e)}", "danger")
+        
+        # Si es POST, intentar redirigir de nuevo al formulario con datos básicos
+        if request.method == 'POST':
+            try:
+                # Intentar obtener datos básicos para mostrar el formulario
+                with get_db_cursor() as cursor2:
+                    cursor2.execute("SELECT ID_Empresa, Nombre_Empresa FROM empresa WHERE Estado = 'Activo' ORDER BY Nombre_Empresa")
+                    empresas = cursor2.fetchall()
+                    
+                    cursor2.execute("""
+                        SELECT 
+                            r.ID_Ruta,
+                            r.Nombre,
+                            r.Descripcion,
+                            r.Estado,
+                            r.ID_Empresa,
+                            e.Nombre_Empresa
+                        FROM rutas r 
+                        LEFT JOIN empresa e ON r.ID_Empresa = e.ID_Empresa
+                        WHERE r.ID_Ruta = %s
+                    """, (id_ruta,))
+                    ruta = cursor2.fetchone()
+                    
+                    if ruta:
+                        return render_template('admin/catalog/rutas/editar_ruta.html', 
+                                             ruta=ruta, 
+                                             empresas=empresas)
+            except Exception as e2:
+                print(f"ERROR secundario al recuperar datos: {str(e2)}")
+        
+        # En caso de error, también redirigir a la página principal
+        return redirect(url_for('admin_rutas'))
+
+# RUTA CORREGIDA - CAMBIAR ESTADO (ESTA SÍ MANTIENE EL PARÁMETRO DE URL)
+@app.route('/admin/rutas/cambiar-estado/<int:id_ruta>', methods=['POST'])
+@admin_required
+@bitacora_decorator("CAMBIAR-ESTADO-RUTA")
+def cambiar_estado_ruta(id_ruta):
+    try:
+        with get_db_cursor(commit=True) as cursor:
+            # Obtener estado actual
+            cursor.execute("SELECT Estado, Nombre FROM rutas WHERE ID_Ruta = %s", (id_ruta,))
+            resultado = cursor.fetchone()
+            
+            if not resultado:
+                flash("La ruta no existe", "danger")
+                return redirect(url_for('admin_rutas'))
+            
+            estado_actual = resultado['Estado']
+            nombre_ruta = resultado['Nombre']
+            nuevo_estado = 'Inactiva' if estado_actual == 'Activa' else 'Activa'
+            
+            # Actualizar estado
+            cursor.execute("""
+                UPDATE rutas 
+                SET Estado = %s
+                WHERE ID_Ruta = %s
+            """, (nuevo_estado, id_ruta))
+            
+            print(f"DEBUG: Ruta {id_ruta} '{nombre_ruta}' cambiada de '{estado_actual}' a '{nuevo_estado}'")
+        
+        estado_texto = "desactivada" if nuevo_estado == 'Inactiva' else "activada"
+        flash(f"✅ Ruta '{nombre_ruta}' {estado_texto} exitosamente", "success")
+        return redirect(url_for('admin_rutas'))
+        
+    except Exception as e:
+        print(f"ERROR en cambiar_estado_ruta: {str(e)}")
+        flash(f"Error al cambiar estado de ruta: {str(e)}", "danger")
+        return redirect(url_for('admin_rutas'))
+
+# RUTA CORREGIDA - ELIMINAR PARÁMETRO DE URL
+@app.route('/admin/rutas/eliminar', methods=['POST'])
+@admin_required
+@bitacora_decorator("ELIMINAR-RUTA")
+def eliminar_ruta(): 
+    try:
+        # Obtener ID del formulario
+        id_ruta = request.form.get('id_ruta')
+        
+        # Validar que se recibió el ID
+        if not id_ruta:
+            flash("ID de ruta no especificado", "danger")
+            return redirect(url_for('admin_rutas'))
+        
+        # Convertir a entero
+        id_ruta = int(id_ruta)
+        
+        with get_db_cursor(commit=True) as cursor:
+            # Verificar si la ruta existe
+            cursor.execute("SELECT Nombre FROM rutas WHERE ID_Ruta = %s", (id_ruta,))
+            ruta = cursor.fetchone()
+            
+            if not ruta:
+                flash("La ruta no existe", "danger")
+                return redirect(url_for('admin_rutas'))
+            
+            nombre_ruta = ruta['Nombre']
+            
+            # Verificar si hay dependencias antes de eliminar
+            # (Agrega aquí verificaciones según tu esquema de base de datos)
+            # cursor.execute("SELECT COUNT(*) FROM otra_tabla WHERE ID_Ruta = %s", (id_ruta,))
+            # if cursor.fetchone()['COUNT(*)'] > 0:
+            #     flash("No se puede eliminar la ruta porque tiene registros asociados", "warning")
+            #     return redirect(url_for('admin_rutas'))
+            
+            # Eliminar ruta
+            cursor.execute("DELETE FROM rutas WHERE ID_Ruta = %s", (id_ruta,))
+            
+            print(f"DEBUG: Ruta {id_ruta} '{nombre_ruta}' eliminada")
+        
+        flash(f"✅ Ruta '{nombre_ruta}' eliminada exitosamente", "success")
+        return redirect(url_for('admin_rutas'))
+        
+    except Exception as e:
+        print(f"ERROR en eliminar_ruta: {str(e)}")
+        flash(f"Error al eliminar ruta: {str(e)}", "danger")
+        return redirect(url_for('admin_rutas'))   
 
 # MODULO BODEGA
 @app.route('/admin/bodega', methods=['GET'])
