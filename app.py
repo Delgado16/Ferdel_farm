@@ -3136,7 +3136,7 @@ def admin_eliminar_movimiento(id):
 def admin_rutas():
     try:
         with get_db_cursor() as cursor:
-            # Obtener rutas
+            # Obtener rutas - CORREGIDO
             cursor.execute("""
                 SELECT r.*, e.Nombre_Empresa as Nombre_Empresa 
                 FROM rutas r 
@@ -3159,15 +3159,19 @@ def admin_rutas():
 @bitacora_decorator("CREAR-RUTA")
 def crear_ruta():
     try:
-        # Obtener datos del formulario
-        nombre = request.form.get('nombre', '').strip()
+        # Obtener datos del formulario - CORREGIDO (nuevos campos)
+        nombre_ruta = request.form.get('nombre_ruta', '').strip()
         descripcion = request.form.get('descripcion', '').strip()
+        zona = request.form.get('zona', '').strip()
+        dia_semana = request.form.get('dia_semana', '')
+        hora_inicio = request.form.get('hora_inicio', '')
+        hora_fin = request.form.get('hora_fin', '')
         id_empresa = request.form.get('id_empresa')
         
-        print(f"DEBUG: Creando ruta - Nombre: '{nombre}', Empresa: '{id_empresa}'")
+        print(f"DEBUG: Creando ruta - Nombre: '{nombre_ruta}', Empresa: '{id_empresa}'")
         
-        # Validaciones básicas
-        if not nombre:
+        # Validaciones básicas - CORREGIDO
+        if not nombre_ruta:
             flash("El nombre de la ruta es obligatorio", "danger")
             return redirect(url_for('admin_rutas'))
         
@@ -3176,8 +3180,8 @@ def crear_ruta():
             return redirect(url_for('admin_rutas'))
         
         with get_db_cursor(commit=True) as cursor:
-            # Verificar si ya existe una ruta con el mismo nombre
-            cursor.execute("SELECT ID_Ruta FROM rutas WHERE Nombre = %s", (nombre,))
+            # Verificar si ya existe una ruta con el mismo nombre - CORREGIDO
+            cursor.execute("SELECT ID_Ruta FROM rutas WHERE Nombre_Ruta = %s", (nombre_ruta,))
             if cursor.fetchone():
                 flash("Ya existe una ruta con ese nombre. Por favor, use un nombre diferente.", "warning")
                 return redirect(url_for('admin_rutas'))
@@ -3188,11 +3192,12 @@ def crear_ruta():
                 flash("La empresa seleccionada no existe o no está activa", "danger")
                 return redirect(url_for('admin_rutas'))
             
-            # Insertar nueva ruta
+            # Insertar nueva ruta - CORREGIDO (nuevos campos)
             cursor.execute("""
-                INSERT INTO rutas (Nombre, Descripcion, ID_Empresa, Estado)
-                VALUES (%s, %s, %s, 'Activa')
-            """, (nombre, descripcion, id_empresa))
+                INSERT INTO rutas (Nombre_Ruta, Descripcion, Zona, Dia_Semana, Hora_Inicio, Hora_Fin, ID_Empresa, Estado)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, 'Activa')
+            """, (nombre_ruta, descripcion, zona or None, dia_semana or None, 
+                  hora_inicio or None, hora_fin or None, id_empresa))
             
             nuevo_id = cursor.lastrowid
             print(f"DEBUG: Ruta creada con ID: {nuevo_id}")
@@ -3219,12 +3224,16 @@ def editar_ruta(id_ruta):
             
             # ========== MÉTODO GET: Mostrar formulario ==========
             if request.method == 'GET':
-                # Obtener los datos de la ruta específica usando la estructura de la tabla
+                # Obtener los datos de la ruta específica - CORREGIDO
                 cursor.execute("""
                     SELECT 
                         r.ID_Ruta,
-                        r.Nombre,
+                        r.Nombre_Ruta,
                         r.Descripcion,
+                        r.Zona,
+                        r.Dia_Semana,
+                        r.Hora_Inicio,
+                        r.Hora_Fin,
                         r.Estado,
                         r.ID_Empresa,
                         e.Nombre_Empresa
@@ -3247,18 +3256,22 @@ def editar_ruta(id_ruta):
             
             # ========== MÉTODO POST: Procesar formulario ==========
             elif request.method == 'POST':
-                # Obtener datos del formulario
-                nombre = request.form.get('nombre', '').strip()
+                # Obtener datos del formulario - CORREGIDO
+                nombre_ruta = request.form.get('nombre_ruta', '').strip()
                 descripcion = request.form.get('descripcion', '').strip()
+                zona = request.form.get('zona', '').strip()
+                dia_semana = request.form.get('dia_semana', '')
+                hora_inicio = request.form.get('hora_inicio', '')
+                hora_fin = request.form.get('hora_fin', '')
                 id_empresa = request.form.get('id_empresa')
                 
                 print(f"DEBUG: Procesando edición de ruta {id_ruta}")
-                print(f"DEBUG: Datos recibidos - Nombre: '{nombre}', Empresa: '{id_empresa}'")
+                print(f"DEBUG: Datos recibidos - Nombre: '{nombre_ruta}', Empresa: '{id_empresa}'")
                 
                 # Validaciones
                 errores = []
                 
-                if not nombre:
+                if not nombre_ruta:
                     errores.append("El nombre de la ruta es obligatorio")
                 
                 if not id_empresa:
@@ -3278,8 +3291,12 @@ def editar_ruta(id_ruta):
                     cursor.execute("""
                         SELECT 
                             r.ID_Ruta,
-                            r.Nombre,
+                            r.Nombre_Ruta,
                             r.Descripcion,
+                            r.Zona,
+                            r.Dia_Semana,
+                            r.Hora_Inicio,
+                            r.Hora_Fin,
                             r.Estado,
                             r.ID_Empresa,
                             e.Nombre_Empresa
@@ -3293,9 +3310,10 @@ def editar_ruta(id_ruta):
                                          ruta=ruta, 
                                          empresas=empresas)
                 
-                # Verificar si la ruta existe
+                # Verificar si la ruta existe - CORREGIDO
                 cursor.execute("""
-                    SELECT ID_Ruta, Nombre, Descripcion, ID_Empresa 
+                    SELECT ID_Ruta, Nombre_Ruta, Descripcion, Zona, Dia_Semana, 
+                           Hora_Inicio, Hora_Fin, ID_Empresa 
                     FROM rutas 
                     WHERE ID_Ruta = %s
                 """, (id_ruta,))
@@ -3305,12 +3323,12 @@ def editar_ruta(id_ruta):
                     flash("❌ La ruta no existe", "danger")
                     return redirect(url_for('admin_rutas'))
                 
-                # Verificar si ya existe otra ruta con el mismo nombre
+                # Verificar si ya existe otra ruta con el mismo nombre - CORREGIDO
                 cursor.execute("""
                     SELECT ID_Ruta 
                     FROM rutas 
-                    WHERE Nombre = %s AND ID_Ruta != %s
-                """, (nombre, id_ruta))
+                    WHERE Nombre_Ruta = %s AND ID_Ruta != %s
+                """, (nombre_ruta, id_ruta))
                 
                 if cursor.fetchone():
                     flash("⚠️ Ya existe otra ruta con ese nombre. Por favor, use un nombre diferente.", "warning")
@@ -3319,8 +3337,12 @@ def editar_ruta(id_ruta):
                     cursor.execute("""
                         SELECT 
                             r.ID_Ruta,
-                            r.Nombre,
+                            r.Nombre_Ruta,
                             r.Descripcion,
+                            r.Zona,
+                            r.Dia_Semana,
+                            r.Hora_Inicio,
+                            r.Hora_Fin,
                             r.Estado,
                             r.ID_Empresa,
                             e.Nombre_Empresa
@@ -3349,8 +3371,12 @@ def editar_ruta(id_ruta):
                     cursor.execute("""
                         SELECT 
                             r.ID_Ruta,
-                            r.Nombre,
+                            r.Nombre_Ruta,
                             r.Descripcion,
+                            r.Zona,
+                            r.Dia_Semana,
+                            r.Hora_Inicio,
+                            r.Hora_Fin,
                             r.Estado,
                             r.ID_Empresa,
                             e.Nombre_Empresa
@@ -3368,10 +3394,10 @@ def editar_ruta(id_ruta):
                 hubo_cambios = False
                 cambios_detalle = []
                 
-                # Comparar nombre
-                if ruta_existente['Nombre'] != nombre:
+                # Comparar nombre - CORREGIDO
+                if ruta_existente['Nombre_Ruta'] != nombre_ruta:
                     hubo_cambios = True
-                    cambios_detalle.append(f"Nombre: '{ruta_existente['Nombre']}' → '{nombre}'")
+                    cambios_detalle.append(f"Nombre: '{ruta_existente['Nombre_Ruta']}' → '{nombre_ruta}'")
                 
                 # Comparar descripción (manejar valores None)
                 desc_actual = ruta_existente['Descripcion'] or ''
@@ -3380,6 +3406,34 @@ def editar_ruta(id_ruta):
                     hubo_cambios = True
                     cambios_detalle.append(f"Descripción actualizada")
                 
+                # Comparar zona
+                zona_actual = ruta_existente['Zona'] or ''
+                zona_nueva = zona or ''
+                if zona_actual != zona_nueva:
+                    hubo_cambios = True
+                    cambios_detalle.append(f"Zona actualizada")
+                
+                # Comparar día de semana
+                dia_actual = ruta_existente['Dia_Semana'] or ''
+                dia_nuevo = dia_semana or ''
+                if dia_actual != dia_nuevo:
+                    hubo_cambios = True
+                    cambios_detalle.append(f"Día de semana actualizado")
+                
+                # Comparar hora inicio
+                hora_inicio_actual = str(ruta_existente['Hora_Inicio']) if ruta_existente['Hora_Inicio'] else ''
+                hora_inicio_nueva = hora_inicio or ''
+                if hora_inicio_actual != hora_inicio_nueva:
+                    hubo_cambios = True
+                    cambios_detalle.append(f"Hora inicio actualizada")
+                
+                # Comparar hora fin
+                hora_fin_actual = str(ruta_existente['Hora_Fin']) if ruta_existente['Hora_Fin'] else ''
+                hora_fin_nueva = hora_fin or ''
+                if hora_fin_actual != hora_fin_nueva:
+                    hubo_cambios = True
+                    cambios_detalle.append(f"Hora fin actualizada")
+                
                 # Comparar empresa
                 if ruta_existente['ID_Empresa'] != id_empresa:
                     hubo_cambios = True
@@ -3387,18 +3441,22 @@ def editar_ruta(id_ruta):
                 
                 if not hubo_cambios:
                     flash("ℹ️ No se realizaron cambios en la ruta", "info")
-                    # Redirigir a la página principal
                     return redirect(url_for('admin_rutas'))
                 
-                # Actualizar ruta en la base de datos
+                # Actualizar ruta en la base de datos - CORREGIDO
                 cursor.execute("""
                     UPDATE rutas 
                     SET 
-                        Nombre = %s,
+                        Nombre_Ruta = %s,
                         Descripcion = %s,
+                        Zona = %s,
+                        Dia_Semana = %s,
+                        Hora_Inicio = %s,
+                        Hora_Fin = %s,
                         ID_Empresa = %s
                     WHERE ID_Ruta = %s
-                """, (nombre, descripcion or None, id_empresa, id_ruta))
+                """, (nombre_ruta, descripcion or None, zona or None, dia_semana or None,
+                      hora_inicio or None, hora_fin or None, id_empresa, id_ruta))
                 
                 print(f"DEBUG: Ruta {id_ruta} actualizada exitosamente")
                 print(f"DEBUG: Cambios realizados: {cambios_detalle}")
@@ -3409,13 +3467,10 @@ def editar_ruta(id_ruta):
                     print(f"BITACORA: Ruta {id_ruta} modificada - {cambios_texto}")
                 
                 flash("✅ Ruta actualizada exitosamente", "success")
-                
-                # REDIRIGIR A LA PÁGINA PRINCIPAL después de guardar exitosamente
                 return redirect(url_for('admin_rutas'))
     
     except Exception as e:
         print(f"ERROR en editar_ruta (ID: {id_ruta}): {str(e)}")
-        print(f"Traceback: {traceback.format_exc()}")
         
         flash(f"❌ Error al procesar la ruta: {str(e)}", "danger")
         
@@ -3430,8 +3485,12 @@ def editar_ruta(id_ruta):
                     cursor2.execute("""
                         SELECT 
                             r.ID_Ruta,
-                            r.Nombre,
+                            r.Nombre_Ruta,
                             r.Descripcion,
+                            r.Zona,
+                            r.Dia_Semana,
+                            r.Hora_Inicio,
+                            r.Hora_Fin,
                             r.Estado,
                             r.ID_Empresa,
                             e.Nombre_Empresa
@@ -3448,18 +3507,16 @@ def editar_ruta(id_ruta):
             except Exception as e2:
                 print(f"ERROR secundario al recuperar datos: {str(e2)}")
         
-        # En caso de error, también redirigir a la página principal
         return redirect(url_for('admin_rutas'))
 
-# RUTA CORREGIDA - CAMBIAR ESTADO (ESTA SÍ MANTIENE EL PARÁMETRO DE URL)
 @app.route('/admin/rutas/cambiar-estado/<int:id_ruta>', methods=['POST'])
 @admin_required
 @bitacora_decorator("CAMBIAR-ESTADO-RUTA")
 def cambiar_estado_ruta(id_ruta):
     try:
         with get_db_cursor(commit=True) as cursor:
-            # Obtener estado actual
-            cursor.execute("SELECT Estado, Nombre FROM rutas WHERE ID_Ruta = %s", (id_ruta,))
+            # Obtener estado actual - CORREGIDO
+            cursor.execute("SELECT Estado, Nombre_Ruta FROM rutas WHERE ID_Ruta = %s", (id_ruta,))
             resultado = cursor.fetchone()
             
             if not resultado:
@@ -3467,7 +3524,7 @@ def cambiar_estado_ruta(id_ruta):
                 return redirect(url_for('admin_rutas'))
             
             estado_actual = resultado['Estado']
-            nombre_ruta = resultado['Nombre']
+            nombre_ruta = resultado['Nombre_Ruta']
             nuevo_estado = 'Inactiva' if estado_actual == 'Activa' else 'Activa'
             
             # Actualizar estado
@@ -3488,7 +3545,6 @@ def cambiar_estado_ruta(id_ruta):
         flash(f"Error al cambiar estado de ruta: {str(e)}", "danger")
         return redirect(url_for('admin_rutas'))
 
-# RUTA CORREGIDA - ELIMINAR PARÁMETRO DE URL
 @app.route('/admin/rutas/eliminar', methods=['POST'])
 @admin_required
 @bitacora_decorator("ELIMINAR-RUTA")
@@ -3506,22 +3562,15 @@ def eliminar_ruta():
         id_ruta = int(id_ruta)
         
         with get_db_cursor(commit=True) as cursor:
-            # Verificar si la ruta existe
-            cursor.execute("SELECT Nombre FROM rutas WHERE ID_Ruta = %s", (id_ruta,))
+            # Verificar si la ruta existe - CORREGIDO
+            cursor.execute("SELECT Nombre_Ruta FROM rutas WHERE ID_Ruta = %s", (id_ruta,))
             ruta = cursor.fetchone()
             
             if not ruta:
                 flash("La ruta no existe", "danger")
                 return redirect(url_for('admin_rutas'))
             
-            nombre_ruta = ruta['Nombre']
-            
-            # Verificar si hay dependencias antes de eliminar
-            # (Agrega aquí verificaciones según tu esquema de base de datos)
-            # cursor.execute("SELECT COUNT(*) FROM otra_tabla WHERE ID_Ruta = %s", (id_ruta,))
-            # if cursor.fetchone()['COUNT(*)'] > 0:
-            #     flash("No se puede eliminar la ruta porque tiene registros asociados", "warning")
-            #     return redirect(url_for('admin_rutas'))
+            nombre_ruta = ruta['Nombre_Ruta']
             
             # Eliminar ruta
             cursor.execute("DELETE FROM rutas WHERE ID_Ruta = %s", (id_ruta,))
@@ -3534,8 +3583,8 @@ def eliminar_ruta():
     except Exception as e:
         print(f"ERROR en eliminar_ruta: {str(e)}")
         flash(f"Error al eliminar ruta: {str(e)}", "danger")
-        return redirect(url_for('admin_rutas'))   
-
+        return redirect(url_for('admin_rutas'))
+    
 # MODULO BODEGA
 @app.route('/admin/bodega', methods=['GET'])
 @admin_required

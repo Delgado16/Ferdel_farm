@@ -21,6 +21,9 @@
                             <th>ID</th>
                             <th>Nombre</th>
                             <th>Descripción</th>
+                            <th>Zona</th>
+                            <th>Día de la Semana</th>
+                            <th>Horario</th>
                             <th>Empresa</th>
                             <th>Estado</th>
                             <th>Acciones</th>
@@ -30,8 +33,26 @@
                         {% for ruta in rutas %}
                         <tr>
                             <td>{{ ruta.ID_Ruta }}</td>
-                            <td>{{ ruta.Nombre }}</td>
+                            <td>{{ ruta.Nombre_Ruta }}</td>
                             <td>{{ ruta.Descripcion or 'Sin descripción' }}</td>
+                            <td>{{ ruta.Zona or 'No especificada' }}</td>
+                            <td>
+                                {% if ruta.Dia_Semana %}
+                                    {% set dias = ruta.Dia_Semana.split(',') %}
+                                    {% for dia in dias %}
+                                        <span class="badge bg-info me-1 mb-1">{{ dia }}</span>
+                                    {% endfor %}
+                                {% else %}
+                                    <span class="text-muted">No definido</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if ruta.Hora_Inicio and ruta.Hora_Fin %}
+                                    {{ ruta.Hora_Inicio.strftime('%H:%M') }} - {{ ruta.Hora_Fin.strftime('%H:%M') }}
+                                {% else %}
+                                    <span class="text-muted">Sin horario</span>
+                                {% endif %}
+                            </td>
                             <td>{{ ruta.Nombre_Empresa or 'Sin empresa' }}</td>
                             <td>
                                 <span class="badge bg-{{ 'success' if ruta.Estado == 'Activa' else 'secondary' }}">
@@ -59,7 +80,7 @@
                                     <!-- Botón Eliminar -->
                                     <button type="button" class="btn btn-outline-danger btn-eliminar"
                                             data-ruta-id="{{ ruta.ID_Ruta }}"
-                                            data-ruta-nombre="{{ ruta.Nombre }}"
+                                            data-ruta-nombre="{{ ruta.Nombre_Ruta }}"
                                             title="Eliminar Ruta">
                                         <i class="bi bi-trash"></i>
                                     </button>
@@ -68,7 +89,7 @@
                         </tr>
                         {% else %}
                         <tr>
-                            <td colspan="6" class="text-center text-muted">
+                            <td colspan="9" class="text-center text-muted">
                                 No hay rutas registradas. Crea una nueva ruta para comenzar.
                             </td>
                         </tr>
@@ -94,30 +115,76 @@
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
-                    <div class="mb-3">
-                        <label for="nombre" class="form-label fw-bold">Nombre de la Ruta *</label>
-                        <input type="text" class="form-control" id="nombre" name="nombre" 
-                               placeholder="Ej: Ruta Norte, Ruta Centro, etc." required
-                               maxlength="255" autocomplete="off">
-                        <div class="form-text">Nombre único para identificar la ruta</div>
-                    </div>
-                    
-                    <div class="mb-3">
-                        <label for="descripcion" class="form-label fw-bold">Descripción</label>
-                        <textarea class="form-control" id="descripcion" name="descripcion" 
-                                  rows="3" placeholder="Descripción detallada de la ruta..."></textarea>
-                        <div class="form-text">Opcional: Detalles sobre municipios cubiertos, horarios, etc.</div>
-                    </div>
-                    
-                    <div class="mb-3">
-                        <label for="id_empresa" class="form-label fw-bold">Empresa Asignada *</label>
-                        <select class="form-select" id="id_empresa" name="id_empresa" required>
-                            <option value="" selected disabled>-- Seleccione una empresa --</option>
-                            {% for empresa in empresas %}
-                            <option value="{{ empresa.ID_Empresa }}">{{ empresa.Nombre_Empresa }}</option>
-                            {% endfor %}
-                        </select>
-                        <div class="form-text">Seleccione la empresa responsable de esta ruta</div>
+                    <div class="row">
+                        <!-- Columna izquierda -->
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="nombre_ruta" class="form-label fw-bold">Nombre de la Ruta *</label>
+                                <input type="text" class="form-control" id="nombre_ruta" name="nombre_ruta" 
+                                       placeholder="Ej: Ruta Norte, Ruta Centro, etc." required
+                                       maxlength="255" autocomplete="off">
+                                <div class="form-text">Nombre único para identificar la ruta</div>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label for="descripcion" class="form-label fw-bold">Descripción</label>
+                                <textarea class="form-control" id="descripcion" name="descripcion" 
+                                          rows="3" placeholder="Descripción detallada de la ruta..."></textarea>
+                                <div class="form-text">Opcional: Detalles sobre municipios cubiertos, características, etc.</div>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label for="zona" class="form-label fw-bold">Zona</label>
+                                <input type="text" class="form-control" id="zona" name="zona" 
+                                       placeholder="Ej: Zona Norte, Centro, Sur, etc."
+                                       maxlength="255" autocomplete="off">
+                                <div class="form-text">Zona geográfica cubierta por la ruta</div>
+                            </div>
+                        </div>
+                        
+                        <!-- Columna derecha -->
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="id_empresa" class="form-label fw-bold">Empresa Asignada *</label>
+                                <select class="form-select" id="id_empresa" name="id_empresa" required>
+                                    <option value="" selected disabled>-- Seleccione una empresa --</option>
+                                    {% for empresa in empresas %}
+                                    <option value="{{ empresa.ID_Empresa }}">{{ empresa.Nombre_Empresa }}</option>
+                                    {% endfor %}
+                                </select>
+                                <div class="form-text">Seleccione la empresa responsable de esta ruta</div>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label for="dia_semana" class="form-label fw-bold">Día de la Semana</label>
+                                <select class="form-select" id="dia_semana" name="dia_semana" multiple>
+                                    <option value="Lunes">Lunes</option>
+                                    <option value="Martes">Martes</option>
+                                    <option value="Miércoles">Miércoles</option>
+                                    <option value="Jueves">Jueves</option>
+                                    <option value="Viernes">Viernes</option>
+                                    <option value="Sábado">Sábado</option>
+                                    <option value="Domingo">Domingo</option>
+                                </select>
+                                <div class="form-text">Mantenga presionada la tecla Ctrl (Cmd en Mac) para seleccionar múltiples días</div>
+                            </div>
+                            
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="hora_inicio" class="form-label fw-bold">Hora de Inicio</label>
+                                        <input type="time" class="form-control" id="hora_inicio" name="hora_inicio">
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="hora_fin" class="form-label fw-bold">Hora de Fin</label>
+                                        <input type="time" class="form-control" id="hora_fin" name="hora_fin">
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="form-text mb-3">Horario aproximado de operación de la ruta</div>
+                        </div>
                     </div>
                     
                     <div class="alert alert-info">
@@ -250,6 +317,47 @@
     font-weight: 500;
     letter-spacing: 0.3px;
 }
+
+/* Estilos para selección múltiple */
+select[multiple] {
+    min-height: 120px;
+}
+
+select[multiple] option {
+    padding: 5px 10px;
+    border-bottom: 1px solid #eee;
+}
+
+select[multiple] option:last-child {
+    border-bottom: none;
+}
+
+select[multiple] option:checked {
+    background-color: #0d6efd;
+    color: white;
+}
+
+/* Estilos para campos de tiempo */
+input[type="time"] {
+    font-family: monospace;
+}
+
+/* Responsive para la tabla */
+@media (max-width: 768px) {
+    .table-responsive {
+        font-size: 0.85rem;
+    }
+    
+    .btn-group-sm .btn {
+        padding: 0.2rem 0.4rem;
+        font-size: 0.75rem;
+    }
+    
+    .badge {
+        font-size: 0.75em;
+        padding: 0.3em 0.6em;
+    }
+}
 </style>
 {% endblock %}
 
@@ -287,21 +395,28 @@ $(document).ready(function() {
         "columnDefs": [
             { 
                 "orderable": false, 
-                "targets": 5, // Deshabilitar orden en columna Acciones
-                "className": "text-center",
-                "width": "180px"
+                "targets": [7, 8], // Deshabilitar orden en columna Estado y Acciones
+                "className": "text-center"
             },
             { 
                 "width": "5%", 
                 "targets": 0, // ID
                 "className": "text-center"
             },
-            { "width": "20%", "targets": 1 }, // Nombre
-            { "width": "25%", "targets": 2 }, // Descripción
-            { "width": "20%", "targets": 3 }, // Empresa
+            { "width": "15%", "targets": 1 }, // Nombre
+            { "width": "15%", "targets": 2 }, // Descripción
+            { "width": "10%", "targets": 3 }, // Zona
+            { "width": "12%", "targets": 4 }, // Día de la semana
+            { "width": "10%", "targets": 5 }, // Horario
+            { "width": "15%", "targets": 6 }, // Empresa
+            { 
+                "width": "8%", 
+                "targets": 7, // Estado
+                "className": "text-center"
+            },
             { 
                 "width": "10%", 
-                "targets": 4, // Estado
+                "targets": 8, // Acciones
                 "className": "text-center"
             }
         ],
@@ -332,18 +447,18 @@ $(document).ready(function() {
     
     // Validación para crear ruta
     $('#formCrearRuta').on('submit', function(e) {
-        var nombre = $('#nombre').val().trim();
+        var nombre = $('#nombre_ruta').val().trim();
         var empresa = $('#id_empresa').val();
         
         if (!nombre) {
             e.preventDefault();
-            mostrarErrorModal('crear', 'El nombre de la ruta es obligatorio', '#nombre');
+            mostrarErrorModal('crear', 'El nombre de la ruta es obligatorio', '#nombre_ruta');
             return false;
         }
         
         if (nombre.length < 3) {
             e.preventDefault();
-            mostrarErrorModal('crear', 'El nombre debe tener al menos 3 caracteres', '#nombre');
+            mostrarErrorModal('crear', 'El nombre debe tener al menos 3 caracteres', '#nombre_ruta');
             return false;
         }
         
@@ -353,6 +468,21 @@ $(document).ready(function() {
             return false;
         }
         
+        // Validar horarios
+        var horaInicio = $('#hora_inicio').val();
+        var horaFin = $('#hora_fin').val();
+        
+        if (horaInicio && horaFin) {
+            var inicio = new Date('1970-01-01T' + horaInicio + 'Z');
+            var fin = new Date('1970-01-01T' + horaFin + 'Z');
+            
+            if (inicio >= fin) {
+                e.preventDefault();
+                mostrarErrorModal('crear', 'La hora de inicio debe ser anterior a la hora de fin', '#hora_inicio');
+                return false;
+            }
+        }
+        
         // Mostrar indicador de carga
         $('#btnCrearRuta').html('<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Guardando...').prop('disabled', true);
         
@@ -360,7 +490,10 @@ $(document).ready(function() {
         console.log('Creando nueva ruta:', {
             nombre: nombre,
             empresa: empresa,
-            descripcion: $('#descripcion').val().trim()
+            descripcion: $('#descripcion').val().trim(),
+            zona: $('#zona').val().trim(),
+            dias: $('#dia_semana').val(),
+            horarios: {inicio: horaInicio, fin: horaFin}
         });
         
         return true;
@@ -458,12 +591,27 @@ $(document).ready(function() {
     
     // Auto-focus en el campo de nombre cuando se abre el modal de crear
     $('#crearRutaModal').on('shown.bs.modal', function() {
-        $('#nombre').focus();
+        $('#nombre_ruta').focus();
     });
     
     // Búsqueda rápida con DataTables
     $('#tablaRutas_filter input').addClass('form-control form-control-sm');
     $('#tablaRutas_length select').addClass('form-select form-select-sm');
+    
+    // Mejorar la experiencia de selección múltiple
+    $('#dia_semana').on('mousedown', function(e) {
+        e.preventDefault();
+        var scroll = this.scrollTop;
+        
+        e.target.selected = !e.target.selected;
+        
+        $(this).focus().scrollTop(scroll);
+        
+        // Despachar evento change
+        $(this).trigger('change');
+    }).on('change', function() {
+        console.log('Días seleccionados:', $(this).val());
+    });
     
     console.log('✅ Sistema de gestión de rutas cargado correctamente');
     console.log('Modo de edición: Página separada (enlace directo)');

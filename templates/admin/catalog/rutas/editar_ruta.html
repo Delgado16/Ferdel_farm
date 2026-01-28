@@ -12,7 +12,7 @@
     </div>
     
     <div class="row justify-content-center">
-        <div class="col-lg-8 col-xl-6">
+        <div class="col-lg-10 col-xl-8">
             <div class="card shadow">
                 <div class="card-header bg-warning text-white">
                     <div class="d-flex justify-content-between align-items-center">
@@ -33,7 +33,7 @@
                             </div>
                             <div class="card-body">
                                 <div class="row mb-3">
-                                    <div class="col-md-6">
+                                    <div class="col-md-4">
                                         <label class="form-label fw-bold">Estado Actual:</label>
                                         <div>
                                             <span class="badge bg-{{ 'success' if ruta.Estado == 'Activa' else 'secondary' }} fs-6">
@@ -45,10 +45,20 @@
                                             Para cambiar el estado, use la lista principal
                                         </small>
                                     </div>
-                                    <div class="col-md-6">
+                                    <div class="col-md-4">
                                         <label class="form-label fw-bold">ID de Ruta:</label>
                                         <div class="form-control-plaintext">
                                             <code>{{ ruta.ID_Ruta }}</code>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label fw-bold">Fecha de Creación:</label>
+                                        <div class="form-control-plaintext">
+                                            {% if ruta.Fecha_Creacion %}
+                                                {{ ruta.Fecha_Creacion.strftime('%d/%m/%Y %H:%M') }}
+                                            {% else %}
+                                                <span class="text-muted">No disponible</span>
+                                            {% endif %}
                                         </div>
                                     </div>
                                 </div>
@@ -68,20 +78,40 @@
                             </div>
                         </div>
                         
-                        <!-- Campos editables -->
-                        <div class="mb-3">
-                            <label for="nombre" class="form-label fw-bold">
-                                <i class="bi bi-signpost"></i> Nombre de la Ruta 
-                                <span class="text-danger">*</span>
-                            </label>
-                            <input type="text" class="form-control form-control-lg" 
-                                   id="nombre" name="nombre" 
-                                   value="{{ ruta.Nombre }}" 
-                                   required maxlength="255" autocomplete="off"
-                                   placeholder="Ej: Ruta Norte, Ruta Centro, etc.">
-                            <div class="form-text">
-                                <i class="bi bi-info-circle"></i> 
-                                Nombre único para identificar la ruta
+                        <!-- Campos editables - Información básica -->
+                        <div class="row">
+                            <div class="col-md-8">
+                                <div class="mb-3">
+                                    <label for="nombre_ruta" class="form-label fw-bold">
+                                        <i class="bi bi-signpost"></i> Nombre de la Ruta 
+                                        <span class="text-danger">*</span>
+                                    </label>
+                                    <input type="text" class="form-control form-control-lg" 
+                                           id="nombre_ruta" name="nombre_ruta" 
+                                           value="{{ ruta.Nombre_Ruta }}" 
+                                           required maxlength="255" autocomplete="off"
+                                           placeholder="Ej: Ruta Norte, Ruta Centro, etc.">
+                                    <div class="form-text">
+                                        <i class="bi bi-info-circle"></i> 
+                                        Nombre único para identificar la ruta
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    <label for="zona" class="form-label fw-bold">
+                                        <i class="bi bi-geo-alt"></i> Zona
+                                    </label>
+                                    <input type="text" class="form-control form-control-lg" 
+                                           id="zona" name="zona" 
+                                           value="{{ ruta.Zona or '' }}" 
+                                           maxlength="255" autocomplete="off"
+                                           placeholder="Ej: Zona Norte, Centro, Sur">
+                                    <div class="form-text">
+                                        <i class="bi bi-info-circle"></i> 
+                                        Zona geográfica cubierta
+                                    </div>
+                                </div>
                             </div>
                         </div>
                         
@@ -94,8 +124,59 @@
                                       maxlength="65535">{{ ruta.Descripcion or '' }}</textarea>
                             <div class="form-text">
                                 <i class="bi bi-info-circle"></i> 
-                                Opcional: Detalles sobre municipios cubiertos, horarios, etc.
+                                Opcional: Detalles sobre municipios cubiertos, características, etc.
                                 <span id="contadorDescripcion" class="float-end">0/65535 caracteres</span>
+                            </div>
+                        </div>
+                        
+                        <!-- Días de la semana y horarios -->
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="dia_semana" class="form-label fw-bold">
+                                        <i class="bi bi-calendar-week"></i> Días de la Semana
+                                    </label>
+                                    <select class="form-select form-select-lg" id="dia_semana" name="dia_semana" multiple>
+                                        {% set dias_seleccionados = ruta.Dia_Semana.split(',') if ruta.Dia_Semana else [] %}
+                                        {% for dia in ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'] %}
+                                            <option value="{{ dia }}" {% if dia in dias_seleccionados %}selected{% endif %}>
+                                                {{ dia }}
+                                            </option>
+                                        {% endfor %}
+                                    </select>
+                                    <div class="form-text">
+                                        <i class="bi bi-info-circle"></i> 
+                                        Mantenga Ctrl (Cmd en Mac) para seleccionar múltiples días
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <div class="mb-3">
+                                            <label for="hora_inicio" class="form-label fw-bold">
+                                                <i class="bi bi-clock"></i> Hora de Inicio
+                                            </label>
+                                            <input type="time" class="form-control form-control-lg" 
+                                                   id="hora_inicio" name="hora_inicio" 
+                                                   value="{{ ruta.Hora_Inicio.strftime('%H:%M') if ruta.Hora_Inicio else '' }}">
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="mb-3">
+                                            <label for="hora_fin" class="form-label fw-bold">
+                                                <i class="bi bi-clock-fill"></i> Hora de Fin
+                                            </label>
+                                            <input type="time" class="form-control form-control-lg" 
+                                                   id="hora_fin" name="hora_fin" 
+                                                   value="{{ ruta.Hora_Fin.strftime('%H:%M') if ruta.Hora_Fin else '' }}">
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="form-text">
+                                    <i class="bi bi-info-circle"></i> 
+                                    Horario de operación de la ruta
+                                </div>
                             </div>
                         </div>
                         
@@ -130,6 +211,7 @@
                                         <li>Verifique los datos antes de guardar</li>
                                         <li>Después de guardar, será redirigido a la lista principal</li>
                                         <li>El estado solo puede cambiarse desde la lista principal</li>
+                                        <li>Para seleccionar múltiples días, mantenga presionada la tecla Ctrl</li>
                                     </ul>
                                 </div>
                             </div>
@@ -175,6 +257,7 @@
                                 <li><strong>Clave Primaria:</strong> <code>ID_Ruta</code></li>
                                 <li><strong>Clave Foránea:</strong> <code>ID_Empresa</code> → <code>empresa</code></li>
                                 <li><strong>Estado:</strong> <code>Activa</code> | <code>Inactiva</code></li>
+                                <li><strong>Nuevos campos:</strong> <code>Zona</code>, <code>Dia_Semana</code>, <code>Hora_Inicio</code>, <code>Hora_Fin</code></li>
                             </ul>
                         </div>
                         <div class="col-md-6">
@@ -184,6 +267,8 @@
                                 <li><i class="bi bi-check-circle text-success"></i> Empresa debe existir y estar activa</li>
                                 <li><i class="bi bi-check-circle text-success"></i> Descripción opcional (texto)</li>
                                 <li><i class="bi bi-check-circle text-success"></i> Estado controlado por sistema</li>
+                                <li><i class="bi bi-check-circle text-success"></i> Horario: inicio antes de fin</li>
+                                <li><i class="bi bi-check-circle text-success"></i> Días múltiples permitidos</li>
                             </ul>
                         </div>
                     </div>
@@ -286,6 +371,58 @@ code {
     font-size: 0.75rem;
     color: #6c757d;
 }
+
+/* Estilos para select múltiple */
+select[multiple] {
+    min-height: 120px;
+    padding: 0.5rem 0.75rem;
+}
+
+select[multiple] option {
+    padding: 8px 12px;
+    border-bottom: 1px solid #eee;
+    transition: all 0.2s;
+}
+
+select[multiple] option:last-child {
+    border-bottom: none;
+}
+
+select[multiple] option:checked {
+    background-color: #ffc107;
+    color: #000;
+    font-weight: 500;
+}
+
+select[multiple] option:hover {
+    background-color: #f8f9fa;
+}
+
+/* Estilos para campos de tiempo */
+input[type="time"] {
+    font-family: 'Courier New', monospace;
+}
+
+/* Estilos para filas de formulario */
+.row {
+    margin-bottom: 0.5rem;
+}
+
+.row .col-md-6, .row .col-md-4, .row .col-md-8 {
+    margin-bottom: 0.5rem;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .form-control-lg, .form-select-lg {
+        font-size: 0.95rem;
+        padding: 0.5rem 0.75rem;
+    }
+    
+    select[multiple] {
+        min-height: 100px;
+    }
+}
 </style>
 {% endblock %}
 
@@ -295,32 +432,36 @@ document.addEventListener('DOMContentLoaded', function() {
     // Referencias a elementos importantes
     const formEditar = document.getElementById('formEditarRuta');
     const btnGuardar = document.getElementById('btnGuardar');
-    const inputNombre = document.getElementById('nombre');
+    const inputNombre = document.getElementById('nombre_ruta');
     const inputDescripcion = document.getElementById('descripcion');
+    const inputZona = document.getElementById('zona');
+    const selectDias = document.getElementById('dia_semana');
+    const inputHoraInicio = document.getElementById('hora_inicio');
+    const inputHoraFin = document.getElementById('hora_fin');
     const selectEmpresa = document.getElementById('id_empresa');
     const contadorDescripcion = document.getElementById('contadorDescripcion');
     
-    // Función para escapar texto para JavaScript
-    function escapeJS(text) {
-        if (text === null || text === undefined) return '';
-        return String(text)
-            .replace(/\\/g, '\\\\')
-            .replace(/'/g, "\\'")
-            .replace(/"/g, '\\"')
-            .replace(/\n/g, '\\n')
-            .replace(/\r/g, '\\r')
-            .replace(/\t/g, '\\t');
+    // Función para formatear array de días
+    function formatDiasArray(dias) {
+        if (!dias) return [];
+        if (Array.isArray(dias)) return dias;
+        return dias.split(',').map(d => d.trim()).filter(d => d);
     }
     
-    // Estado original (capturado desde los valores del formulario)
+    // Estado original
     const estadoOriginal = {
-        nombre: escapeJS(inputNombre.value),
-        descripcion: escapeJS(inputDescripcion.value),
+        nombre: inputNombre.value.trim(),
+        descripcion: inputDescripcion.value.trim(),
+        zona: inputZona.value.trim(),
+        dias: formatDiasArray("{{ ruta.Dia_Semana or '' }}"),
+        hora_inicio: inputHoraInicio.value,
+        hora_fin: inputHoraFin.value,
         empresa: selectEmpresa.value
     };
     
     console.log('=== FORMULARIO DE EDICIÓN DE RUTA ===');
     console.log('ID Ruta:', {{ ruta.ID_Ruta }});
+    console.log('Estado original:', estadoOriginal);
     
     // Inicializar contador de descripción
     function actualizarContadorDescripcion() {
@@ -344,19 +485,47 @@ document.addEventListener('DOMContentLoaded', function() {
     actualizarContadorDescripcion();
     inputDescripcion.addEventListener('input', actualizarContadorDescripcion);
     
+    // Mejorar experiencia de selección múltiple
+    selectDias.addEventListener('mousedown', function(e) {
+        e.preventDefault();
+        var scroll = this.scrollTop;
+        
+        e.target.selected = !e.target.selected;
+        this.dispatchEvent(new Event('change'));
+        
+        setTimeout(() => this.scrollTop = scroll, 0);
+    });
+    
+    // Función para obtener días seleccionados
+    function getDiasSeleccionados() {
+        return Array.from(selectDias.selectedOptions).map(option => option.value);
+    }
+    
     // Función para detectar cambios
     function detectarCambios() {
-        const nombreActual = inputNombre.value;
-        const descripcionActual = inputDescripcion.value;
+        const nombreActual = inputNombre.value.trim();
+        const descripcionActual = inputDescripcion.value.trim();
+        const zonaActual = inputZona.value.trim();
+        const diasActuales = getDiasSeleccionados();
+        const horaInicioActual = inputHoraInicio.value;
+        const horaFinActual = inputHoraFin.value;
         const empresaActual = selectEmpresa.value;
+        
+        // Ordenar arrays para comparación
+        const diasOriginalesOrdenados = [...estadoOriginal.dias].sort();
+        const diasActualesOrdenados = [...diasActuales].sort();
         
         const cambios = {
             nombre: nombreActual !== estadoOriginal.nombre,
             descripcion: descripcionActual !== estadoOriginal.descripcion,
+            zona: zonaActual !== estadoOriginal.zona,
+            dias: JSON.stringify(diasOriginalesOrdenados) !== JSON.stringify(diasActualesOrdenados),
+            hora_inicio: horaInicioActual !== estadoOriginal.hora_inicio,
+            hora_fin: horaFinActual !== estadoOriginal.hora_fin,
             empresa: empresaActual !== estadoOriginal.empresa
         };
         
-        const hayCambios = cambios.nombre || cambios.descripcion || cambios.empresa;
+        const hayCambios = Object.values(cambios).some(cambio => cambio);
         
         return { hayCambios, cambios };
     }
@@ -379,7 +548,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     // Escuchar cambios en los campos
-    [inputNombre, inputDescripcion, selectEmpresa].forEach(element => {
+    [inputNombre, inputDescripcion, inputZona, selectDias, inputHoraInicio, inputHoraFin, selectEmpresa].forEach(element => {
         element.addEventListener('input', actualizarEstadoBoton);
         element.addEventListener('change', actualizarEstadoBoton);
     });
@@ -392,44 +561,84 @@ document.addEventListener('DOMContentLoaded', function() {
         const nombre = inputNombre.value.trim();
         const empresa = selectEmpresa.value;
         const descripcion = inputDescripcion.value;
+        const horaInicio = inputHoraInicio.value;
+        const horaFin = inputHoraFin.value;
         
         // Validar campos obligatorios
         let hayErrores = false;
         let mensajeError = '';
+        let elementoError = null;
         
         if (!nombre) {
             mensajeError = 'El nombre de la ruta es obligatorio';
-            mostrarError(mensajeError, inputNombre);
+            elementoError = inputNombre;
             hayErrores = true;
         } else if (nombre.length < 3) {
             mensajeError = 'El nombre debe tener al menos 3 caracteres';
-            mostrarError(mensajeError, inputNombre);
+            elementoError = inputNombre;
             hayErrores = true;
         } else if (nombre.length > 255) {
             mensajeError = 'El nombre no puede exceder los 255 caracteres';
-            mostrarError(mensajeError, inputNombre);
+            elementoError = inputNombre;
             hayErrores = true;
         }
         
         if (!empresa) {
             mensajeError = 'Debe seleccionar una empresa';
-            if (!hayErrores) mostrarError(mensajeError, selectEmpresa);
+            if (!hayErrores) elementoError = selectEmpresa;
+            hayErrores = true;
+        }
+        
+        if (inputZona.value.length > 255) {
+            mensajeError = 'La zona no puede exceder los 255 caracteres';
+            if (!hayErrores) elementoError = inputZona;
             hayErrores = true;
         }
         
         if (descripcion.length > 65535) {
             mensajeError = 'La descripción no puede exceder los 65535 caracteres';
-            if (!hayErrores) mostrarError(mensajeError, inputDescripcion);
+            if (!hayErrores) elementoError = inputDescripcion;
             hayErrores = true;
+        }
+        
+        // Validar horarios
+        if (horaInicio && horaFin) {
+            if (horaInicio >= horaFin) {
+                mensajeError = 'La hora de inicio debe ser anterior a la hora de fin';
+                if (!hayErrores) elementoError = inputHoraInicio;
+                hayErrores = true;
+            }
         }
         
         if (hayErrores) {
             e.preventDefault();
+            mostrarError(mensajeError, elementoError);
             return false;
         }
         
-        // Mostrar mensaje de confirmación
-        const confirmacion = confirm('¿Está seguro de guardar los cambios?\n\nSerá redirigido a la lista principal después de guardar.');
+        // Mostrar resumen de cambios
+        const { cambios } = detectarCambios();
+        const cambiosTexto = Object.entries(cambios)
+            .filter(([_, cambio]) => cambio)
+            .map(([campo]) => {
+                switch(campo) {
+                    case 'nombre': return 'Nombre';
+                    case 'descripcion': return 'Descripción';
+                    case 'zona': return 'Zona';
+                    case 'dias': return 'Días de la semana';
+                    case 'hora_inicio': return 'Hora de inicio';
+                    case 'hora_fin': return 'Hora de fin';
+                    case 'empresa': return 'Empresa';
+                    default: return campo;
+                }
+            })
+            .join(', ');
+        
+        const confirmacion = confirm(
+            '¿Está seguro de guardar los cambios?\n\n' +
+            `Cambios a guardar: ${cambiosTexto || 'Ninguno'}\n\n` +
+            'Será redirigido a la lista principal después de guardar.'
+        );
         
         if (!confirmacion) {
             e.preventDefault();
@@ -447,8 +656,8 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
         
-        // Mostrar mensaje de redirección
         console.log('Guardando cambios y redirigiendo a la lista principal...');
+        console.log('Cambios detectados:', cambios);
         
         return true;
     });
@@ -522,6 +731,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }, 100);
     
     console.log('Formulario de edición inicializado correctamente');
+    console.log('Días seleccionados inicialmente:', getDiasSeleccionados());
 });
 </script>
 {% endblock %}
