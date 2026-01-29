@@ -14,96 +14,88 @@
             </div>
         </div>
             
-            <div class="table-responsive">
-                <table class="table table-bordered table-hover" id="tablaRutas" width="100%" cellspacing="0">
-                    <thead class="table-dark">
-                        <tr>
-                            <th>ID</th>
-                            <th>Nombre</th>
-                            <th>Descripción</th>
-                            <th>Zona</th>
-                            <th>Día de la Semana</th>
-                            <th>Horario</th>
-                            <th>Empresa</th>
-                            <th>Estado</th>
-                            <th>Acciones</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for ruta in rutas %}
-                        <tr>
-                            <td>{{ ruta.ID_Ruta }}</td>
-                            <td>{{ ruta.Nombre_Ruta }}</td>
-                            <td>{{ ruta.Descripcion or 'Sin descripción' }}</td>
-                            <td>{{ ruta.Zona or 'No especificada' }}</td>
-                            <td>
-                                {% if ruta.Dia_Semana %}
-                                    {% set dias = ruta.Dia_Semana.split(',') %}
-                                    {% for dia in dias %}
-                                        <span class="badge bg-info me-1 mb-1">{{ dia }}</span>
-                                    {% endfor %}
-                                {% else %}
-                                    <span class="text-muted">No definido</span>
-                                {% endif %}
-                            </td>
-                            <td>
-                                {% if ruta.Hora_Inicio and ruta.Hora_Fin %}
-                                    {{ ruta.Hora_Inicio.strftime('%H:%M') }} - {{ ruta.Hora_Fin.strftime('%H:%M') }}
-                                {% else %}
-                                    <span class="text-muted">Sin horario</span>
-                                {% endif %}
-                            </td>
-                            <td>{{ ruta.Nombre_Empresa or 'Sin empresa' }}</td>
-                            <td>
-                                <span class="badge bg-{{ 'success' if ruta.Estado == 'Activa' else 'secondary' }}">
-                                    {{ ruta.Estado }}
-                                </span>
-                            </td>
-                            <td>
-                                <div class="btn-group btn-group-sm" role="group">
-                                    <!-- BOTÓN EDITAR - AHORA ES UN ENLACE A PÁGINA SEPARADA -->
-                                    <a href="{{ url_for('editar_ruta', id_ruta=ruta.ID_Ruta) }}" 
-                                       class="btn btn-outline-warning me-1"
-                                       title="Editar Ruta">
-                                        <i class="bi bi-pencil-square"></i>
-                                    </a>
-                                    
-                                    <!-- Botón Cambiar Estado -->
-                                    <form action="{{ url_for('cambiar_estado_ruta', id_ruta=ruta.ID_Ruta) }}" 
-                                          method="POST" class="d-inline me-1">
-                                        <button type="submit" class="btn btn-{{ 'outline-warning' if ruta.Estado == 'Activa' else 'outline-success' }}"
-                                                title="{{ 'Desactivar' if ruta.Estado == 'Activa' else 'Activar' }}">
-                                            <i class="bi bi-{{ 'slash-circle' if ruta.Estado == 'Activa' else 'check-circle' }}"></i>
-                                        </button>
-                                    </form>
-                                    
-                                    <!-- Botón Eliminar -->
-                                    <button type="button" class="btn btn-outline-danger btn-eliminar"
-                                            data-ruta-id="{{ ruta.ID_Ruta }}"
-                                            data-ruta-nombre="{{ ruta.Nombre_Ruta }}"
-                                            title="Eliminar Ruta">
-                                        <i class="bi bi-trash"></i>
+        <div class="table-responsive">
+            <table class="table table-bordered table-hover" id="tablaRutas" width="100%" cellspacing="0">
+                <thead class="table-dark">
+                    <tr>
+                        <th>ID</th>
+                        <th>Nombre</th>
+                        <th>Descripción</th>
+                        <th>Empresa</th>
+                        <th>Estado</th>
+                        <th>Fecha Creación</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for ruta in rutas %}
+                    <tr>
+                        <td>{{ ruta.ID_Ruta }}</td>
+                        <td>{{ ruta.Nombre_Ruta }}</td>
+                        <td>{{ ruta.Descripcion or 'Sin descripción' }}</td>
+                        <td>{{ ruta.Nombre_Empresa or 'Sin empresa' }}</td>
+                        <td>
+                            <span class="badge bg-{{ 'success' if ruta.Estado == 'Activa' else 'secondary' }}">
+                                {{ ruta.Estado }}
+                            </span>
+                        </td>
+                        <td>{{ ruta.Fecha_Creacion or 'N/A' }}</td>
+                        <td>
+                            <div class="btn-group btn-group-sm" role="group">
+                                <!-- BOTÓN EDITAR - AHORA ES UN ENLACE A PÁGINA SEPARADA -->
+                                <a href="{{ url_for('editar_ruta', id_ruta=ruta.ID_Ruta) }}" 
+                                   class="btn btn-outline-warning me-1"
+                                   title="Editar Ruta">
+                                    <i class="bi bi-pencil-square"></i>
+                                </a>
+                                
+                                <!-- Botón Cambiar Estado -->
+                                <form action="{{ url_for('cambiar_estado_ruta', id_ruta=ruta.ID_Ruta) }}" 
+                                      method="POST" class="d-inline me-1">
+                                    <button type="submit" class="btn btn-{{ 'outline-warning' if ruta.Estado == 'Activa' else 'outline-success' }}"
+                                            title="{{ 'Desactivar' if ruta.Estado == 'Activa' else 'Activar' }}">
+                                        <i class="bi bi-{{ 'slash-circle' if ruta.Estado == 'Activa' else 'check-circle' }}"></i>
                                     </button>
-                                </div>
-                            </td>
-                        </tr>
-                        {% else %}
-                        <tr>
-                            <td colspan="9" class="text-center text-muted">
-                                No hay rutas registradas. Crea una nueva ruta para comenzar.
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
+                                </form>
+                                
+                                <!-- Botón Eliminar -->
+                                <button type="button" class="btn btn-outline-danger btn-eliminar"
+                                        data-ruta-id="{{ ruta.ID_Ruta }}"
+                                        data-ruta-nombre="{{ ruta.Nombre_Ruta }}"
+                                        title="Eliminar Ruta">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                                
+                                <!-- Botón Detalles -->
+                                <button type="button" class="btn btn-outline-info btn-detalles"
+                                        data-ruta-id="{{ ruta.ID_Ruta }}"
+                                        data-ruta-nombre="{{ ruta.Nombre_Ruta }}"
+                                        data-ruta-descripcion="{{ ruta.Descripcion or 'Sin descripción' }}"
+                                        data-ruta-empresa="{{ ruta.Nombre_Empresa or 'Sin empresa' }}"
+                                        data-ruta-estado="{{ ruta.Estado }}"
+                                        data-ruta-fecha="{{ ruta.Fecha_Creacion or 'No disponible' }}"
+                                        title="Ver Detalles">
+                                    <i class="bi bi-info-circle"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="7" class="text-center text-muted">
+                            No hay rutas registradas. Crea una nueva ruta para comenzar.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
         </div>
     </div>
 </div>
 
-<!-- ========== MODALES (SOLO CREAR Y ELIMINAR - EL EDITAR AHORA ES PÁGINA SEPARADA) ========== -->
+<!-- ========== MODALES ========== -->
 
-<!-- 1. MODAL PARA CREAR -->
+<!-- 1. MODAL PARA CREAR RUTA -->
 <div class="modal fade" id="crearRutaModal" tabindex="-1" aria-labelledby="crearRutaModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-lg">
         <div class="modal-content">
@@ -115,6 +107,20 @@
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
+                    <!-- Mensajes Flash -->
+                    {% with messages = get_flashed_messages(with_categories=true) %}
+                        {% if messages %}
+                            {% for category, message in messages %}
+                                {% if category == 'success' or category == 'danger' or category == 'warning' %}
+                                    <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                                        {{ message }}
+                                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                                    </div>
+                                {% endif %}
+                            {% endfor %}
+                        {% endif %}
+                    {% endwith %}
+                    
                     <div class="row">
                         <!-- Columna izquierda -->
                         <div class="col-md-6">
@@ -124,21 +130,6 @@
                                        placeholder="Ej: Ruta Norte, Ruta Centro, etc." required
                                        maxlength="255" autocomplete="off">
                                 <div class="form-text">Nombre único para identificar la ruta</div>
-                            </div>
-                            
-                            <div class="mb-3">
-                                <label for="descripcion" class="form-label fw-bold">Descripción</label>
-                                <textarea class="form-control" id="descripcion" name="descripcion" 
-                                          rows="3" placeholder="Descripción detallada de la ruta..."></textarea>
-                                <div class="form-text">Opcional: Detalles sobre municipios cubiertos, características, etc.</div>
-                            </div>
-                            
-                            <div class="mb-3">
-                                <label for="zona" class="form-label fw-bold">Zona</label>
-                                <input type="text" class="form-control" id="zona" name="zona" 
-                                       placeholder="Ej: Zona Norte, Centro, Sur, etc."
-                                       maxlength="255" autocomplete="off">
-                                <div class="form-text">Zona geográfica cubierta por la ruta</div>
                             </div>
                         </div>
                         
@@ -154,36 +145,18 @@
                                 </select>
                                 <div class="form-text">Seleccione la empresa responsable de esta ruta</div>
                             </div>
-                            
+                        </div>
+                    </div>
+                    
+                    <!-- Descripción en fila completa -->
+                    <div class="row">
+                        <div class="col-12">
                             <div class="mb-3">
-                                <label for="dia_semana" class="form-label fw-bold">Día de la Semana</label>
-                                <select class="form-select" id="dia_semana" name="dia_semana" multiple>
-                                    <option value="Lunes">Lunes</option>
-                                    <option value="Martes">Martes</option>
-                                    <option value="Miércoles">Miércoles</option>
-                                    <option value="Jueves">Jueves</option>
-                                    <option value="Viernes">Viernes</option>
-                                    <option value="Sábado">Sábado</option>
-                                    <option value="Domingo">Domingo</option>
-                                </select>
-                                <div class="form-text">Mantenga presionada la tecla Ctrl (Cmd en Mac) para seleccionar múltiples días</div>
+                                <label for="descripcion" class="form-label fw-bold">Descripción</label>
+                                <textarea class="form-control" id="descripcion" name="descripcion" 
+                                          rows="3" placeholder="Descripción detallada de la ruta..."></textarea>
+                                <div class="form-text">Opcional: Detalles sobre municipios cubiertos, características, etc.</div>
                             </div>
-                            
-                            <div class="row">
-                                <div class="col-md-6">
-                                    <div class="mb-3">
-                                        <label for="hora_inicio" class="form-label fw-bold">Hora de Inicio</label>
-                                        <input type="time" class="form-control" id="hora_inicio" name="hora_inicio">
-                                    </div>
-                                </div>
-                                <div class="col-md-6">
-                                    <div class="mb-3">
-                                        <label for="hora_fin" class="form-label fw-bold">Hora de Fin</label>
-                                        <input type="time" class="form-control" id="hora_fin" name="hora_fin">
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="form-text mb-3">Horario aproximado de operación de la ruta</div>
                         </div>
                     </div>
                     
@@ -208,7 +181,7 @@
     </div>
 </div>
 
-<!-- 2. MODAL PARA ELIMINAR -->
+<!-- 2. MODAL PARA ELIMINAR RUTA -->
 <div class="modal fade" id="eliminarRutaModal" tabindex="-1" aria-labelledby="eliminarRutaModalLabel" aria-hidden="true">
     <div class="modal-dialog">
         <div class="modal-content">
@@ -256,14 +229,53 @@
     </div>
 </div>
 
+<!-- 3. MODAL PARA VER DETALLES -->
+<div class="modal fade" id="detallesRutaModal" tabindex="-1" aria-labelledby="detallesRutaModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-info text-white">
+                <h5 class="modal-title" id="detallesRutaModalLabel">
+                    <i class="bi bi-info-circle"></i> Detalles de la Ruta
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <dl class="row">
+                    <dt class="col-sm-4">ID Ruta:</dt>
+                    <dd class="col-sm-8" id="detalle_id">-</dd>
+                    
+                    <dt class="col-sm-4">Nombre:</dt>
+                    <dd class="col-sm-8" id="detalle_nombre">-</dd>
+                    
+                    <dt class="col-sm-4">Descripción:</dt>
+                    <dd class="col-sm-8" id="detalle_descripcion">-</dd>
+                    
+                    <dt class="col-sm-4">Empresa:</dt>
+                    <dd class="col-sm-8" id="detalle_empresa">-</dd>
+                    
+                    <dt class="col-sm-4">Estado:</dt>
+                    <dd class="col-sm-8">
+                        <span class="badge" id="detalle_estado_badge">-</span>
+                    </dd>
+                    
+                    <dt class="col-sm-4">Fecha Creación:</dt>
+                    <dd class="col-sm-8" id="detalle_fecha">-</dd>
+                </dl>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="bi bi-x-circle"></i> Cerrar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <style>
 /* Estilos adicionales */
 .btn-group-sm .btn {
     padding: 0.25rem 0.5rem;
     font-size: 0.875rem;
-}
-
-.btn-group .btn {
     border-radius: 0.25rem !important;
     margin-right: 2px;
 }
@@ -290,6 +302,12 @@
     border-color: #198754;
 }
 
+.btn-outline-info:hover {
+    background-color: #0dcaf0;
+    color: #000;
+    border-color: #0dcaf0;
+}
+
 #tablaRutas td, #tablaRutas th {
     padding: 0.5rem 0.75rem;
     vertical-align: middle;
@@ -305,7 +323,7 @@
     transition: all 0.2s ease;
 }
 
-#tablaRutas a.btn:hover {
+#tablaRutas a.btn:hover, #tablaRutas button.btn:hover {
     transform: translateY(-1px);
     box-shadow: 0 2px 4px rgba(0,0,0,0.1);
 }
@@ -318,28 +336,33 @@
     letter-spacing: 0.3px;
 }
 
-/* Estilos para selección múltiple */
-select[multiple] {
-    min-height: 120px;
+.bg-success {
+    background-color: #198754 !important;
 }
 
-select[multiple] option {
-    padding: 5px 10px;
-    border-bottom: 1px solid #eee;
+.bg-secondary {
+    background-color: #6c757d !important;
 }
 
-select[multiple] option:last-child {
-    border-bottom: none;
+/* Ajustar altura del textarea de descripción */
+textarea#descripcion {
+    min-height: 100px;
+    resize: vertical;
 }
 
-select[multiple] option:checked {
-    background-color: #0d6efd;
-    color: white;
+/* Estilos para lista de detalles */
+dl.row {
+    margin-bottom: 0;
 }
 
-/* Estilos para campos de tiempo */
-input[type="time"] {
-    font-family: monospace;
+dl.row dt {
+    font-weight: 600;
+    color: #495057;
+}
+
+dl.row dd {
+    color: #212529;
+    word-break: break-word;
 }
 
 /* Responsive para la tabla */
@@ -357,7 +380,37 @@ input[type="time"] {
         font-size: 0.75em;
         padding: 0.3em 0.6em;
     }
+    
+    .modal-dialog {
+        margin: 0.5rem;
+    }
+    
+    dl.row dt, dl.row dd {
+        padding: 0.25rem 0;
+        font-size: 0.9rem;
+    }
 }
+
+/* Mejorar visualización de modales en móviles */
+@media (max-width: 576px) {
+    .modal-body .row {
+        flex-direction: column;
+    }
+    
+    .modal-body .col-md-6 {
+        width: 100%;
+        margin-bottom: 1rem;
+    }
+}
+
+/* Ajustes específicos para la tabla */
+#tablaRutas th:nth-child(1) { width: 5%; }  /* ID */
+#tablaRutas th:nth-child(2) { width: 20%; } /* Nombre */
+#tablaRutas th:nth-child(3) { width: 25%; } /* Descripción */
+#tablaRutas th:nth-child(4) { width: 20%; } /* Empresa */
+#tablaRutas th:nth-child(5) { width: 10%; }  /* Estado */
+#tablaRutas th:nth-child(6) { width: 15%; } /* Fecha Creación */
+#tablaRutas th:nth-child(7) { width: 5%; }  /* Acciones */
 </style>
 {% endblock %}
 
@@ -395,7 +448,7 @@ $(document).ready(function() {
         "columnDefs": [
             { 
                 "orderable": false, 
-                "targets": [7, 8], // Deshabilitar orden en columna Estado y Acciones
+                "targets": [5, 6], // Deshabilitar orden en columna Estado y Acciones
                 "className": "text-center"
             },
             { 
@@ -403,26 +456,24 @@ $(document).ready(function() {
                 "targets": 0, // ID
                 "className": "text-center"
             },
-            { "width": "15%", "targets": 1 }, // Nombre
-            { "width": "15%", "targets": 2 }, // Descripción
-            { "width": "10%", "targets": 3 }, // Zona
-            { "width": "12%", "targets": 4 }, // Día de la semana
-            { "width": "10%", "targets": 5 }, // Horario
-            { "width": "15%", "targets": 6 }, // Empresa
-            { 
-                "width": "8%", 
-                "targets": 7, // Estado
-                "className": "text-center"
-            },
+            { "width": "20%", "targets": 1 }, // Nombre
+            { "width": "25%", "targets": 2 }, // Descripción
+            { "width": "20%", "targets": 3 }, // Empresa
             { 
                 "width": "10%", 
-                "targets": 8, // Acciones
+                "targets": 4, // Estado
+                "className": "text-center"
+            },
+            { "width": "15%", "targets": 5 }, // Fecha Creación
+            { 
+                "width": "5%", 
+                "targets": 6, // Acciones
                 "className": "text-center"
             }
         ],
         "dom": '<"row mb-3"<"col-sm-12 col-md-6"l><"col-sm-12 col-md-6 d-flex justify-content-md-end"f>>rt<"row"<"col-sm-12 col-md-6"i><"col-sm-12 col-md-6"p>>',
         "initComplete": function(settings, json) {
-            console.log('DataTable inicializado con', json.data.length, 'registros');
+            console.log('✅ DataTable de rutas inicializado');
         }
     });
     
@@ -443,13 +494,43 @@ $(document).ready(function() {
         eliminarModal.show();
     });
     
-    // ========== VALIDACIONES ==========
+    // ========== EVENTO PARA BOTONES DETALLES ==========
+    $(document).on('click', '.btn-detalles', function() {
+        var rutaId = $(this).data('ruta-id');
+        var nombre = $(this).data('ruta-nombre');
+        var descripcion = $(this).data('ruta-descripcion');
+        var empresa = $(this).data('ruta-empresa');
+        var estado = $(this).data('ruta-estado');
+        var fecha = $(this).data('ruta-fecha');
+        
+        // Llenar el modal de detalles
+        $('#detalle_id').text(rutaId);
+        $('#detalle_nombre').text(nombre);
+        $('#detalle_descripcion').text(descripcion);
+        $('#detalle_empresa').text(empresa);
+        $('#detalle_estado_badge').text(estado);
+        $('#detalle_fecha').text(fecha);
+        
+        // Establecer color del badge según el estado
+        var badge = $('#detalle_estado_badge');
+        badge.removeClass('bg-success bg-secondary');
+        if (estado === 'Activa') {
+            badge.addClass('bg-success');
+        } else {
+            badge.addClass('bg-secondary');
+        }
+        
+        // Mostrar el modal
+        var detallesModal = new bootstrap.Modal(document.getElementById('detallesRutaModal'));
+        detallesModal.show();
+    });
     
-    // Validación para crear ruta
+    // ========== VALIDACIONES PARA CREAR RUTA ==========
     $('#formCrearRuta').on('submit', function(e) {
         var nombre = $('#nombre_ruta').val().trim();
         var empresa = $('#id_empresa').val();
         
+        // Validar nombre
         if (!nombre) {
             e.preventDefault();
             mostrarErrorModal('crear', 'El nombre de la ruta es obligatorio', '#nombre_ruta');
@@ -462,38 +543,20 @@ $(document).ready(function() {
             return false;
         }
         
+        // Validar empresa
         if (!empresa) {
             e.preventDefault();
             mostrarErrorModal('crear', 'Debe seleccionar una empresa', '#id_empresa');
             return false;
         }
         
-        // Validar horarios
-        var horaInicio = $('#hora_inicio').val();
-        var horaFin = $('#hora_fin').val();
-        
-        if (horaInicio && horaFin) {
-            var inicio = new Date('1970-01-01T' + horaInicio + 'Z');
-            var fin = new Date('1970-01-01T' + horaFin + 'Z');
-            
-            if (inicio >= fin) {
-                e.preventDefault();
-                mostrarErrorModal('crear', 'La hora de inicio debe ser anterior a la hora de fin', '#hora_inicio');
-                return false;
-            }
-        }
-        
         // Mostrar indicador de carga
         $('#btnCrearRuta').html('<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Guardando...').prop('disabled', true);
         
-        // Registrar en consola para debugging
         console.log('Creando nueva ruta:', {
             nombre: nombre,
             empresa: empresa,
-            descripcion: $('#descripcion').val().trim(),
-            zona: $('#zona').val().trim(),
-            dias: $('#dia_semana').val(),
-            horarios: {inicio: horaInicio, fin: horaFin}
+            descripcion: $('#descripcion').val().trim()
         });
         
         return true;
@@ -522,7 +585,7 @@ $(document).ready(function() {
     });
     
     // Confirmación para cambiar estado
-    $('form[action*="cambiar-estado"]').on('submit', function(e) {
+    $('form[action*="cambiar_estado"]').on('submit', function(e) {
         var accion = $(this).find('button[type="submit"]').attr('title');
         var nombreRuta = $(this).closest('tr').find('td:nth-child(2)').text().trim();
         var idRuta = $(this).closest('tr').find('td:nth-child(1)').text().trim();
@@ -552,6 +615,8 @@ $(document).ready(function() {
         $(this).find('form')[0].reset();
         $('#btnCrearRuta').html('<i class="bi bi-save"></i> Guardar Ruta').prop('disabled', false);
         limpiarErroresModal('crear');
+        // Limpiar mensajes flash
+        $(this).find('.alert').remove();
     });
     
     $('#eliminarRutaModal').on('hidden.bs.modal', function() {
@@ -598,29 +663,17 @@ $(document).ready(function() {
     $('#tablaRutas_filter input').addClass('form-control form-control-sm');
     $('#tablaRutas_length select').addClass('form-select form-select-sm');
     
-    // Mejorar la experiencia de selección múltiple
-    $('#dia_semana').on('mousedown', function(e) {
-        e.preventDefault();
-        var scroll = this.scrollTop;
-        
-        e.target.selected = !e.target.selected;
-        
-        $(this).focus().scrollTop(scroll);
-        
-        // Despachar evento change
-        $(this).trigger('change');
-    }).on('change', function() {
-        console.log('Días seleccionados:', $(this).val());
-    });
-    
     console.log('✅ Sistema de gestión de rutas cargado correctamente');
-    console.log('Modo de edición: Página separada (enlace directo)');
     console.log('Total de rutas cargadas:', {{ rutas|length }});
     
-    // Agregar información de debugging en consola
-    table.on('draw', function() {
-        console.log('Tabla redibujada. Registros visibles:', table.rows({ filter: 'applied' }).count());
-    });
+    // Mostrar mensajes flash en consola para debugging
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                console.log('Flash message ({{ category }}):', '{{ message }}');
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
 });
 </script>
 {% endblock %}

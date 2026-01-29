@@ -3136,13 +3136,21 @@ def admin_eliminar_movimiento(id):
 def admin_rutas():
     try:
         with get_db_cursor() as cursor:
-            # Obtener rutas - CORREGIDO
+            # Obtener rutas - ACTUALIZADO para nueva estructura
             cursor.execute("""
-                SELECT r.*, e.Nombre_Empresa as Nombre_Empresa 
+                SELECT 
+                    r.ID_Ruta,
+                    r.Nombre_Ruta,
+                    r.Descripcion,
+                    r.ID_Empresa,
+                    r.Estado,
+                    DATE_FORMAT(r.Fecha_Creacion, '%d/%m/%Y %H:%i:%s') as Fecha_Creacion,
+                    e.Nombre_Empresa as Nombre_Empresa 
                 FROM rutas r 
                 LEFT JOIN empresa e ON r.ID_Empresa = e.ID_Empresa
                 ORDER BY r.ID_Ruta DESC
             """)
+            
             rutas = cursor.fetchall()
             
             # Obtener empresas activas para los select
@@ -3159,18 +3167,14 @@ def admin_rutas():
 @bitacora_decorator("CREAR-RUTA")
 def crear_ruta():
     try:
-        # Obtener datos del formulario - CORREGIDO (nuevos campos)
+        # Obtener datos del formulario - ACTUALIZADO (sin hora_inicio y hora_fin)
         nombre_ruta = request.form.get('nombre_ruta', '').strip()
         descripcion = request.form.get('descripcion', '').strip()
-        zona = request.form.get('zona', '').strip()
-        dia_semana = request.form.get('dia_semana', '')
-        hora_inicio = request.form.get('hora_inicio', '')
-        hora_fin = request.form.get('hora_fin', '')
         id_empresa = request.form.get('id_empresa')
         
         print(f"DEBUG: Creando ruta - Nombre: '{nombre_ruta}', Empresa: '{id_empresa}'")
         
-        # Validaciones básicas - CORREGIDO
+        # Validaciones básicas
         if not nombre_ruta:
             flash("El nombre de la ruta es obligatorio", "danger")
             return redirect(url_for('admin_rutas'))
@@ -3180,7 +3184,7 @@ def crear_ruta():
             return redirect(url_for('admin_rutas'))
         
         with get_db_cursor(commit=True) as cursor:
-            # Verificar si ya existe una ruta con el mismo nombre - CORREGIDO
+            # Verificar si ya existe una ruta con el mismo nombre
             cursor.execute("SELECT ID_Ruta FROM rutas WHERE Nombre_Ruta = %s", (nombre_ruta,))
             if cursor.fetchone():
                 flash("Ya existe una ruta con ese nombre. Por favor, use un nombre diferente.", "warning")
@@ -3192,12 +3196,11 @@ def crear_ruta():
                 flash("La empresa seleccionada no existe o no está activa", "danger")
                 return redirect(url_for('admin_rutas'))
             
-            # Insertar nueva ruta - CORREGIDO (nuevos campos)
+            # Insertar nueva ruta - ACTUALIZADO: Solo Nombre_Ruta, Descripcion, ID_Empresa, Estado
             cursor.execute("""
-                INSERT INTO rutas (Nombre_Ruta, Descripcion, Zona, Dia_Semana, Hora_Inicio, Hora_Fin, ID_Empresa, Estado)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, 'Activa')
-            """, (nombre_ruta, descripcion, zona or None, dia_semana or None, 
-                  hora_inicio or None, hora_fin or None, id_empresa))
+                INSERT INTO rutas (Nombre_Ruta, Descripcion, ID_Empresa, Estado)
+                VALUES (%s, %s, %s, 'Activa')
+            """, (nombre_ruta, descripcion or None, id_empresa))
             
             nuevo_id = cursor.lastrowid
             print(f"DEBUG: Ruta creada con ID: {nuevo_id}")
@@ -3209,6 +3212,7 @@ def crear_ruta():
         print(f"ERROR en crear_ruta: {str(e)}")
         flash(f"Error al crear ruta: {str(e)}", "danger")
         return redirect(url_for('admin_rutas'))
+
 
 @app.route('/admin/rutas/editar/<int:id_ruta>', methods=['GET', 'POST'])
 @admin_required
@@ -3224,18 +3228,15 @@ def editar_ruta(id_ruta):
             
             # ========== MÉTODO GET: Mostrar formulario ==========
             if request.method == 'GET':
-                # Obtener los datos de la ruta específica - CORREGIDO
+                # Obtener los datos de la ruta específica - ACTUALIZADO para nueva estructura
                 cursor.execute("""
                     SELECT 
                         r.ID_Ruta,
                         r.Nombre_Ruta,
                         r.Descripcion,
-                        r.Zona,
-                        r.Dia_Semana,
-                        r.Hora_Inicio,
-                        r.Hora_Fin,
                         r.Estado,
                         r.ID_Empresa,
+                        r.Fecha_Creacion,
                         e.Nombre_Empresa
                     FROM rutas r 
                     LEFT JOIN empresa e ON r.ID_Empresa = e.ID_Empresa
@@ -3256,13 +3257,9 @@ def editar_ruta(id_ruta):
             
             # ========== MÉTODO POST: Procesar formulario ==========
             elif request.method == 'POST':
-                # Obtener datos del formulario - CORREGIDO
+                # Obtener datos del formulario - ACTUALIZADO (sin hora_inicio y hora_fin)
                 nombre_ruta = request.form.get('nombre_ruta', '').strip()
                 descripcion = request.form.get('descripcion', '').strip()
-                zona = request.form.get('zona', '').strip()
-                dia_semana = request.form.get('dia_semana', '')
-                hora_inicio = request.form.get('hora_inicio', '')
-                hora_fin = request.form.get('hora_fin', '')
                 id_empresa = request.form.get('id_empresa')
                 
                 print(f"DEBUG: Procesando edición de ruta {id_ruta}")
@@ -3293,10 +3290,6 @@ def editar_ruta(id_ruta):
                             r.ID_Ruta,
                             r.Nombre_Ruta,
                             r.Descripcion,
-                            r.Zona,
-                            r.Dia_Semana,
-                            r.Hora_Inicio,
-                            r.Hora_Fin,
                             r.Estado,
                             r.ID_Empresa,
                             e.Nombre_Empresa
@@ -3310,10 +3303,9 @@ def editar_ruta(id_ruta):
                                          ruta=ruta, 
                                          empresas=empresas)
                 
-                # Verificar si la ruta existe - CORREGIDO
+                # Verificar si la ruta existe - ACTUALIZADO (sin hora_inicio y hora_fin)
                 cursor.execute("""
-                    SELECT ID_Ruta, Nombre_Ruta, Descripcion, Zona, Dia_Semana, 
-                           Hora_Inicio, Hora_Fin, ID_Empresa 
+                    SELECT ID_Ruta, Nombre_Ruta, Descripcion, ID_Empresa 
                     FROM rutas 
                     WHERE ID_Ruta = %s
                 """, (id_ruta,))
@@ -3323,7 +3315,7 @@ def editar_ruta(id_ruta):
                     flash("❌ La ruta no existe", "danger")
                     return redirect(url_for('admin_rutas'))
                 
-                # Verificar si ya existe otra ruta con el mismo nombre - CORREGIDO
+                # Verificar si ya existe otra ruta con el mismo nombre
                 cursor.execute("""
                     SELECT ID_Ruta 
                     FROM rutas 
@@ -3339,10 +3331,6 @@ def editar_ruta(id_ruta):
                             r.ID_Ruta,
                             r.Nombre_Ruta,
                             r.Descripcion,
-                            r.Zona,
-                            r.Dia_Semana,
-                            r.Hora_Inicio,
-                            r.Hora_Fin,
                             r.Estado,
                             r.ID_Empresa,
                             e.Nombre_Empresa
@@ -3373,10 +3361,6 @@ def editar_ruta(id_ruta):
                             r.ID_Ruta,
                             r.Nombre_Ruta,
                             r.Descripcion,
-                            r.Zona,
-                            r.Dia_Semana,
-                            r.Hora_Inicio,
-                            r.Hora_Fin,
                             r.Estado,
                             r.ID_Empresa,
                             e.Nombre_Empresa
@@ -3394,7 +3378,7 @@ def editar_ruta(id_ruta):
                 hubo_cambios = False
                 cambios_detalle = []
                 
-                # Comparar nombre - CORREGIDO
+                # Comparar nombre
                 if ruta_existente['Nombre_Ruta'] != nombre_ruta:
                     hubo_cambios = True
                     cambios_detalle.append(f"Nombre: '{ruta_existente['Nombre_Ruta']}' → '{nombre_ruta}'")
@@ -3406,34 +3390,6 @@ def editar_ruta(id_ruta):
                     hubo_cambios = True
                     cambios_detalle.append(f"Descripción actualizada")
                 
-                # Comparar zona
-                zona_actual = ruta_existente['Zona'] or ''
-                zona_nueva = zona or ''
-                if zona_actual != zona_nueva:
-                    hubo_cambios = True
-                    cambios_detalle.append(f"Zona actualizada")
-                
-                # Comparar día de semana
-                dia_actual = ruta_existente['Dia_Semana'] or ''
-                dia_nuevo = dia_semana or ''
-                if dia_actual != dia_nuevo:
-                    hubo_cambios = True
-                    cambios_detalle.append(f"Día de semana actualizado")
-                
-                # Comparar hora inicio
-                hora_inicio_actual = str(ruta_existente['Hora_Inicio']) if ruta_existente['Hora_Inicio'] else ''
-                hora_inicio_nueva = hora_inicio or ''
-                if hora_inicio_actual != hora_inicio_nueva:
-                    hubo_cambios = True
-                    cambios_detalle.append(f"Hora inicio actualizada")
-                
-                # Comparar hora fin
-                hora_fin_actual = str(ruta_existente['Hora_Fin']) if ruta_existente['Hora_Fin'] else ''
-                hora_fin_nueva = hora_fin or ''
-                if hora_fin_actual != hora_fin_nueva:
-                    hubo_cambios = True
-                    cambios_detalle.append(f"Hora fin actualizada")
-                
                 # Comparar empresa
                 if ruta_existente['ID_Empresa'] != id_empresa:
                     hubo_cambios = True
@@ -3443,20 +3399,15 @@ def editar_ruta(id_ruta):
                     flash("ℹ️ No se realizaron cambios en la ruta", "info")
                     return redirect(url_for('admin_rutas'))
                 
-                # Actualizar ruta en la base de datos - CORREGIDO
+                # Actualizar ruta en la base de datos - ACTUALIZADO (sin hora_inicio y hora_fin)
                 cursor.execute("""
                     UPDATE rutas 
                     SET 
                         Nombre_Ruta = %s,
                         Descripcion = %s,
-                        Zona = %s,
-                        Dia_Semana = %s,
-                        Hora_Inicio = %s,
-                        Hora_Fin = %s,
                         ID_Empresa = %s
                     WHERE ID_Ruta = %s
-                """, (nombre_ruta, descripcion or None, zona or None, dia_semana or None,
-                      hora_inicio or None, hora_fin or None, id_empresa, id_ruta))
+                """, (nombre_ruta, descripcion or None, id_empresa, id_ruta))
                 
                 print(f"DEBUG: Ruta {id_ruta} actualizada exitosamente")
                 print(f"DEBUG: Cambios realizados: {cambios_detalle}")
@@ -3487,10 +3438,6 @@ def editar_ruta(id_ruta):
                             r.ID_Ruta,
                             r.Nombre_Ruta,
                             r.Descripcion,
-                            r.Zona,
-                            r.Dia_Semana,
-                            r.Hora_Inicio,
-                            r.Hora_Fin,
                             r.Estado,
                             r.ID_Empresa,
                             e.Nombre_Empresa
@@ -3515,7 +3462,7 @@ def editar_ruta(id_ruta):
 def cambiar_estado_ruta(id_ruta):
     try:
         with get_db_cursor(commit=True) as cursor:
-            # Obtener estado actual - CORREGIDO
+            # Obtener estado actual
             cursor.execute("SELECT Estado, Nombre_Ruta FROM rutas WHERE ID_Ruta = %s", (id_ruta,))
             resultado = cursor.fetchone()
             
@@ -3562,7 +3509,7 @@ def eliminar_ruta():
         id_ruta = int(id_ruta)
         
         with get_db_cursor(commit=True) as cursor:
-            # Verificar si la ruta existe - CORREGIDO
+            # Verificar si la ruta existe
             cursor.execute("SELECT Nombre_Ruta FROM rutas WHERE ID_Ruta = %s", (id_ruta,))
             ruta = cursor.fetchone()
             
@@ -3583,8 +3530,9 @@ def eliminar_ruta():
     except Exception as e:
         print(f"ERROR en eliminar_ruta: {str(e)}")
         flash(f"Error al eliminar ruta: {str(e)}", "danger")
-        return redirect(url_for('admin_rutas'))
-    
+        return redirect(url_for('admin_rutas')) 
+
+
 # MODULO BODEGA
 @app.route('/admin/bodega', methods=['GET'])
 @admin_required
@@ -10097,12 +10045,249 @@ def cancelar_pedido(pedido_id):
     except Exception as e:
         return jsonify({'success': False, 'message': str(e)}), 500
  
+## VEHICULOS
+@app.route('/admin/vehiculos/vehiculos')
+@admin_required
+def admin_vehiculos():
+    try:
+        with get_db_cursor(True) as cursor:
+            cursor.execute("""
+                SELECT v.*, e.Nombre_Empresa as Nombre_Empresa 
+                FROM vehiculos v
+                LEFT JOIN empresa e ON v.ID_Empresa = e.ID_Empresa
+                ORDER BY v.Fecha_Creacion DESC
+            """)
+            vehiculos = cursor.fetchall()
+            
+            cursor.execute("SELECT ID_Empresa, Nombre_Empresa FROM empresa WHERE Estado = 'Activo'")
+            empresas = cursor.fetchall()
+            
+        # Inyectar current_year directamente
+        from datetime import datetime
+        current_year = datetime.now().year
+        
+        return render_template('admin/catalog/vehiculo/vehiculo.html', 
+                             vehiculos=vehiculos, 
+                             empresas=empresas,
+                             current_year=current_year)  # Agregar aquí
+        
+    except Exception as e:
+        flash(f'Error al cargar vehículos: {str(e)}', 'error')
+        return redirect(url_for('admin_dashboard'))
+
+@app.route('/admin/vehiculos/crear', methods=['POST'])
+@admin_required
+def crear_vehiculo():
+    try:
+        # Obtener datos del formulario
+        placa = request.form.get('placa')
+        marca = request.form.get('marca')
+        modelo = request.form.get('modelo')
+        anio = request.form.get('anio')
+        id_empresa = request.form.get('id_empresa')
+        tipo_combustible = request.form.get('tipo_combustible')
+        fecha_vencimiento_seguro = request.form.get('fecha_vencimiento_seguro')
+        
+        # Validar datos requeridos
+        if not all([placa, id_empresa]):
+            flash('Placa y Empresa son campos requeridos', 'error')
+            return redirect(url_for('admin_vehiculos'))
+        
+        with get_db_cursor() as cursor:
+            # Verificar si la placa ya existe para esta empresa
+            cursor.execute("""
+                SELECT ID_Vehiculo FROM vehiculos 
+                WHERE Placa = %s AND ID_Empresa = %s
+            """, (placa, id_empresa))
+            
+            if cursor.fetchone():
+                flash('La placa ya existe para esta empresa', 'error')
+                return redirect(url_for('admin_vehiculos'))
+            
+            # Insertar nuevo vehículo
+            cursor.execute("""
+                INSERT INTO vehiculos 
+                (Placa, Marca, Modelo, Anio, ID_Empresa, Tipo_Combustible, Fecha_Vencimiento_Seguro)
+                VALUES (%s, %s, %s, %s, %s, %s, %s)
+            """, (placa, marca, modelo, anio, id_empresa, tipo_combustible, fecha_vencimiento_seguro))
+            
+            flash('Vehículo creado exitosamente', 'success')
+            return redirect(url_for('admin_vehiculos'))
+            
+    except Exception as e:
+        flash(f'Error al crear vehículo: {str(e)}', 'error')
+        return redirect(url_for('admin_vehiculos'))
+    
+@app.route('/admin/vehiculos/<int:id>')
+@admin_required
+def obtener_vehiculo(id):
+    try:
+        with get_db_cursor(True) as cursor:
+            cursor.execute("""
+                SELECT v.*, e.Nombre_Empresa as Nombre_Empresa 
+                FROM vehiculos v
+                LEFT JOIN empresa e ON v.ID_Empresa = e.ID_Empresa
+                WHERE v.ID_Vehiculo = %s
+            """, (id,))
+            
+            vehiculo = cursor.fetchone()
+            
+            if not vehiculo:
+                return jsonify({'error': 'Vehículo no encontrado'}), 404
+            
+            # Convertir a diccionario y manejar fechas
+            vehiculo_dict = dict(vehiculo)
+            vehiculo_dict['Fecha_Vencimiento_Seguro'] = vehiculo['Fecha_Vencimiento_Seguro'].isoformat() if vehiculo['Fecha_Vencimiento_Seguro'] else None
+            
+            return jsonify(vehiculo_dict)
+            
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/admin/vehiculos/editar/<int:id>')
+@admin_required
+def mostrar_editar_vehiculo(id):
+    """Muestra el formulario de edición de vehículo (GET)"""
+    try:
+        with get_db_cursor(True) as cursor:
+            # Obtener datos del vehículo
+            cursor.execute("""
+                SELECT v.*, e.Nombre_Empresa as Nombre_Empresa 
+                FROM vehiculos v
+                LEFT JOIN empresa e ON v.ID_Empresa = e.ID_Empresa
+                WHERE v.ID_Vehiculo = %s
+            """, (id,))
+            
+            vehiculo = cursor.fetchone()
+            
+            if not vehiculo:
+                flash('Vehículo no encontrado', 'error')
+                return redirect(url_for('admin_vehiculos'))
+            
+            # Obtener lista de empresas activas
+            cursor.execute("SELECT ID_Empresa, Nombre_Empresa FROM empresa WHERE Estado = 'Activo'")
+            empresas = cursor.fetchall()
+            
+        # Inyectar current_year
+        from datetime import datetime
+        current_year = datetime.now().year
+        
+        # Asegurar que el año sea un entero (year en MySQL puede devolver como decimal)
+        if vehiculo['Anio']:
+            vehiculo['Anio'] = int(vehiculo['Anio'])
+        
+        return render_template('admin/catalog/vehiculo/vehiculo_editar.html', 
+                             vehiculo=vehiculo, 
+                             empresas=empresas,
+                             current_year=current_year)
+            
+    except Exception as e:
+        flash(f'Error al cargar formulario de edición: {str(e)}', 'error')
+        return redirect(url_for('admin_vehiculos'))
+
+@app.route('/admin/vehiculos/editar/<int:id>', methods=['POST'])
+@admin_required
+def procesar_editar_vehiculo(id):
+    """Procesa el formulario de edición de vehículo (POST)"""
+    try:
+        # Obtener datos del formulario
+        placa = request.form.get('placa')
+        marca = request.form.get('marca')
+        modelo = request.form.get('modelo')
+        anio = request.form.get('anio')
+        id_empresa = request.form.get('id_empresa')
+        tipo_combustible = request.form.get('tipo_combustible')
+        fecha_vencimiento_seguro = request.form.get('fecha_vencimiento_seguro')
+        estado = request.form.get('estado')  # Nuevo campo para estado
+        
+        # Validar datos requeridos
+        if not all([placa, id_empresa, estado]):
+            flash('Placa, Empresa y Estado son campos requeridos', 'error')
+            return redirect(url_for('mostrar_editar_vehiculo', id=id))
+        
+        # Validar que el estado sea válido
+        estados_validos = ['Disponible', 'En Ruta', 'Mantenimiento', 'Inactivo']
+        if estado not in estados_validos:
+            flash('Estado inválido', 'error')
+            return redirect(url_for('mostrar_editar_vehiculo', id=id))
+        
+        with get_db_cursor() as cursor:
+            # Verificar si la placa ya existe para otra empresa u otro vehículo
+            cursor.execute("""
+                SELECT ID_Vehiculo FROM vehiculos 
+                WHERE Placa = %s AND ID_Empresa = %s AND ID_Vehiculo != %s
+            """, (placa, id_empresa, id))
+            
+            if cursor.fetchone():
+                flash('La placa ya existe para esta empresa en otro vehículo', 'error')
+                return redirect(url_for('mostrar_editar_vehiculo', id=id))
+            
+            # Actualizar vehículo con todos los campos incluyendo estado
+            cursor.execute("""
+                UPDATE vehiculos 
+                SET Placa = %s,
+                    Marca = %s,
+                    Modelo = %s,
+                    Anio = %s,
+                    ID_Empresa = %s,
+                    Tipo_Combustible = %s,
+                    Fecha_Vencimiento_Seguro = %s,
+                    Estado = %s
+                WHERE ID_Vehiculo = %s
+            """, (placa, marca, modelo, anio, id_empresa, tipo_combustible, 
+                  fecha_vencimiento_seguro, estado, id))
+            
+            flash('Vehículo actualizado exitosamente', 'success')
+            return redirect(url_for('admin_vehiculos'))
+            
+    except Exception as e:
+        flash(f'Error al actualizar vehículo: {str(e)}', 'error')
+        return redirect(url_for('mostrar_editar_vehiculo', id=id))
+
+@app.route('/admin/vehiculos/cambiar-estado/<int:id>', methods=['POST'])
+@admin_required
+def cambiar_estado_vehiculo(id):
+    """Cambia el estado del vehículo entre Activo/Inactivo (POST)"""
+    try:
+        # Obtener el nuevo estado del formulario
+        nuevo_estado = request.form.get('nuevo_estado')
+        
+        if not nuevo_estado:
+            flash('Estado no especificado', 'error')
+            return redirect(url_for('admin_vehiculos'))
+        
+        with get_db_cursor() as cursor:
+            # Verificar que el vehículo existe
+            cursor.execute("""
+                SELECT Estado FROM vehiculos WHERE ID_Vehiculo = %s
+            """, (id,))
+            
+            resultado = cursor.fetchone()
+            if not resultado:
+                flash('Vehículo no encontrado', 'error')
+                return redirect(url_for('admin_vehiculos'))
+            
+            # Actualizar solo el estado
+            cursor.execute("""
+                UPDATE vehiculos 
+                SET Estado = %s
+                WHERE ID_Vehiculo = %s
+            """, (nuevo_estado, id))
+            
+            flash(f'Estado del vehículo actualizado a {nuevo_estado}', 'success')
+            return redirect(url_for('admin_vehiculos'))
+            
+    except Exception as e:
+        flash(f'Error al cambiar estado del vehículo: {str(e)}', 'error')
+        return redirect(url_for('admin_vehiculos'))
+
 # =============================================
 # INVENTARIO - MOVIMIENTOS DE INVENTARIO
 @app.route('/admin/inventario')
 @admin_required
 @bitacora_decorator("DASHBOARD-INVENTARIO")
 def admin_inventario_dashboard():
+
     try:
         with get_db_cursor(True) as cursor:
             id_empresa = 1  # Temporalmente fijo, después usa tu función
