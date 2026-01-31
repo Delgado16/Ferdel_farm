@@ -10281,6 +10281,522 @@ def cambiar_estado_vehiculo(id):
         flash(f'Error al cambiar estado del vehículo: {str(e)}', 'error')
         return redirect(url_for('admin_vehiculos'))
 
+## ASIGNACION RUTAS
+# Rutas para asignación de rutas
+@app.route('/admin/catalogos/rutas/asignacion')
+@admin_required
+def admin_asignacion_rutas():
+    """Vista principal para gestionar asignaciones de rutas"""
+    try:
+        empresa_id = session.get('ID_Empresa')
+        if not empresa_id:
+            flash('No se ha identificado la empresa', 'error')
+            return redirect(url_for('admin_dashboard'))
+        
+        with get_db_cursor(commit=False) as cursor:
+            # Obtener asignaciones activas
+            cursor.execute("""
+                SELECT 
+                    a.ID_Asignacion,
+                    CONCAT(u.Nombre, ' ', u.Apellido) AS Vendedor,
+                    r.Nombre_Ruta,
+                    CONCAT(v.Placa, ' - ', v.Marca, ' ', v.Modelo) AS Vehiculo,
+                    a.Fecha_Asignacion,
+                    a.Fecha_Finalizacion,
+                    a.Estado,
+                    CONCAT(ua.Nombre, ' ', ua.Apellido) AS Asignado_Por
+                FROM asignacion_vendedores a
+                LEFT JOIN usuarios u ON a.ID_Usuario = u.ID_Usuario
+                LEFT JOIN rutas r ON a.ID_Ruta = r.ID_Ruta
+                LEFT JOIN vehiculos v ON a.ID_Vehiculo = v.ID_Vehiculo
+                LEFT JOIN usuarios ua ON a.ID_Usuario_Asigna = ua.ID_Usuario
+                WHERE a.ID_Empresa = %s
+                ORDER BY a.Fecha_Asignacion DESC, a.Estado
+            """, (empresa_id,))
+            asignaciones = cursor.fetchall()
+            
+            # Obtener vendedores disponibles
+            cursor.execute("""
+                SELECT u.ID_Usuario, CONCAT(u.Nombre, ' ', u.Apellido) AS Nombre
+                FROM usuarios u
+                WHERE u.ID_Empresa = %s 
+                AND u.Rol = 'Vendedor'
+                AND u.Estado = 'Activo'
+                AND u.ID_Usuario NOT IN (
+                    SELECT ID_Usuario 
+                    FROM asignacion_vendedores 
+                    WHERE Estado = 'Activa' 
+                    AND ID_Empresa = %s
+                )
+            """, (empresa_id, empresa_id))
+            vendedores = cursor.fetchall()
+            
+            # Obtener rutas activas
+            cursor.execute("""
+                SELECT ID_Ruta, Nombre_Ruta
+                FROM rutas
+                WHERE ID_Empresa = %s AND Estado = 'Activa'
+                ORDER BY Nombre_Ruta
+            """, (empresa_id,))
+            rutas = cursor.fetchall()
+            
+            # Obtener vehículos disponibles
+            cursor.execute("""
+                SELECT ID_Vehiculo, CONCAT(Placa, ' - ', Marca, ' ', Modelo) AS Descripcion
+                FROM vehiculos
+                WHERE ID_Empresa = %s 
+                AND Estado = 'Disponible'
+                ORDER BY Placa
+            """, (empresa_id,))
+            vehiculos = cursor.fetchall()
+            
+            # Obtener usuarios que pueden asignar (administradores/supervisores)
+            cursor.execute("""
+                SELECT ID_Usuario, CONCAT(Nombre, ' ', Apellido) AS Nombre
+                FROM usuarios
+                WHERE ID_Empresa = %s 
+                AND Rol IN ('Administrador', 'Supervisor')
+                AND Estado = 'Activo'
+            """, (empresa_id,))
+            asignadores = cursor.fetchall()
+            
+        return render_template(
+            'admin/catalogos/rutas/asignacion.html',
+            asignaciones=asignaciones,
+            vendedores=vendedores,
+            rutas=rutas,
+            vehiculos=vehiculos,
+            asignadores=asignadores,
+            now=datetime.now()
+        )
+        
+    except Exception as e:
+        flash(f'Error al cargar asignación de rutas: {str(e)}', 'error')
+        return redirect(url_for('admin_dashboard'))
+
+@app.route('/admin/catalogos/rutas/asignacion/crear', methods=['POST'])
+@admin_required
+def crear_asignacion_ruta():
+    """Crear nueva asignación de ruta"""
+    try:
+        empresa_id = session.get('ID_Empresa')
+        usuario_id = session.get('ID_Usuario')
+        
+        # Obtener datos del formulario
+        id_vendedor = request.form.get('vendedor')
+        id_ruta = request.form.get('ruta')
+        id_vehiculo = request.form.get('vehiculo')
+        fecha_asignacion = request.form.get('fecha_asignacion')
+        id_asignador = request.form.get('asignador', usuario_id)
+        
+        if not all([id_vendedor, id_ruta, fecha_asignacion]):
+            flash('Los campos vendedor, ruta y fecha son requeridos', 'error')
+            return redirect(url_for('admin_asignacion_rutas'))
+        
+        # Validar que el vendedor no tenga asignación activa en la misma fecha
+        with get_db_cursor(commit=False) as cursor:
+            cursor.execute("""
+                SELECT ID_Asignacion 
+                FROM asignacion_vendedores 
+                WHERE ID_Usuario = %s 
+                AND Fecha_Asignacion = %s 
+                AND Estado = 'Activa'
+                AND ID_Empresa = %s
+            """, (id_vendedor, fecha_asignacion, empresa_id))
+            
+            if cursor.fetchone():
+                flash('El vendedor ya tiene una asignación activa para esta fecha', 'error')
+                return redirect(url_for('admin_asignacion_rutas'))
+        
+        # Crear la asignación en transacción separada
+        with get_db_cursor(commit=True) as cursor:
+            # Si se asignó vehículo, verificar disponibilidad
+            if id_vehiculo:
+                cursor.execute("""
+                    SELECT Estado FROM vehiculos 
+                    WHERE ID_Vehiculo = %s AND ID_Empresa = %s
+                """, (id_vehiculo, empresa_id))
+                vehiculo = cursor.fetchone()
+                
+                if not vehiculo or vehiculo['Estado'] != 'Disponible':
+                    flash('El vehículo seleccionado no está disponible', 'error')
+                    return redirect(url_for('admin_asignacion_rutas'))
+            
+            # Crear la asignación
+            cursor.execute("""
+                INSERT INTO asignacion_vendedores 
+                (ID_Usuario, ID_Ruta, ID_Vehiculo, Fecha_Asignacion, 
+                 Estado, ID_Empresa, ID_Usuario_Asigna)
+                VALUES (%s, %s, %s, %s, 'Activa', %s, %s)
+            """, (id_vendedor, id_ruta, id_vehiculo if id_vehiculo else None, 
+                  fecha_asignacion, empresa_id, id_asignador))
+            
+            # Si se asignó vehículo, cambiar su estado
+            if id_vehiculo:
+                cursor.execute("""
+                    UPDATE vehiculos 
+                    SET Estado = 'En Ruta' 
+                    WHERE ID_Vehiculo = %s
+                """, (id_vehiculo,))
+            
+        flash('Asignación creada exitosamente', 'success')
+            
+    except Exception as e:
+        flash(f'Error al crear asignación: {str(e)}', 'error')
+    
+    return redirect(url_for('admin_asignacion_rutas'))
+
+@app.route('/admin/catalogos/rutas/asignacion/editar/<int:id>')
+@admin_required
+def editar_asignacion_ruta(id):
+    """Vista para editar una asignación existente"""
+    try:
+        empresa_id = session.get('ID_Empresa')
+        
+        with get_db_cursor(commit=False) as cursor:
+            # Obtener la asignación específica
+            cursor.execute("""
+                SELECT 
+                    a.*,
+                    CONCAT(u.Nombre, ' ', u.Apellido) AS Nombre_Vendedor,
+                    r.Nombre_Ruta,
+                    v.Placa
+                FROM asignacion_vendedores a
+                LEFT JOIN usuarios u ON a.ID_Usuario = u.ID_Usuario
+                LEFT JOIN rutas r ON a.ID_Ruta = r.ID_Ruta
+                LEFT JOIN vehiculos v ON a.ID_Vehiculo = v.ID_Vehiculo
+                WHERE a.ID_Asignacion = %s AND a.ID_Empresa = %s
+            """, (id, empresa_id))
+            
+            asignacion = cursor.fetchone()
+            
+            if not asignacion:
+                flash('Asignación no encontrada', 'error')
+                return redirect(url_for('admin_asignacion_rutas'))
+            
+            # Obtener datos para el formulario
+            cursor.execute("""
+                SELECT ID_Ruta, Nombre_Ruta
+                FROM rutas
+                WHERE ID_Empresa = %s AND Estado = 'Activa'
+                ORDER BY Nombre_Ruta
+            """, (empresa_id,))
+            rutas = cursor.fetchall()
+            
+            # Obtener vehículos disponibles + el vehículo actual
+            cursor.execute("""
+                SELECT ID_Vehiculo, CONCAT(Placa, ' - ', Marca, ' ', Modelo) AS Descripcion
+                FROM vehiculos
+                WHERE ID_Empresa = %s 
+                AND (Estado = 'Disponible' OR ID_Vehiculo = %s)
+                ORDER BY Placa
+            """, (empresa_id, asignacion['ID_Vehiculo']))
+            vehiculos = cursor.fetchall()
+            
+            # Obtener usuarios que pueden asignar
+            cursor.execute("""
+                SELECT ID_Usuario, CONCAT(Nombre, ' ', Apellido) AS Nombre
+                FROM usuarios
+                WHERE ID_Empresa = %s 
+                AND Rol IN ('Administrador', 'Supervisor')
+                AND Estado = 'Activo'
+            """, (empresa_id,))
+            asignadores = cursor.fetchall()
+            
+        return render_template(
+            'admin/catalogos/rutas/editar_asignacion.html',
+            asignacion=asignacion,
+            rutas=rutas,
+            vehiculos=vehiculos,
+            asignadores=asignadores
+        )
+        
+    except Exception as e:
+        flash(f'Error al cargar asignación para editar: {str(e)}', 'error')
+        return redirect(url_for('admin_asignacion_rutas'))
+
+@app.route('/admin/catalogos/rutas/asignacion/actualizar/<int:id>', methods=['POST'])
+@admin_required
+def actualizar_asignacion_ruta(id):
+    """Actualizar una asignación existente"""
+    try:
+        empresa_id = session.get('ID_Empresa')
+        
+        # Obtener datos del formulario
+        id_ruta = request.form.get('ruta')
+        id_vehiculo = request.form.get('vehiculo')
+        fecha_asignacion = request.form.get('fecha_asignacion')
+        fecha_finalizacion = request.form.get('fecha_finalizacion')
+        estado = request.form.get('estado')
+        
+        if not all([id_ruta, fecha_asignacion, estado]):
+            flash('Los campos ruta, fecha y estado son requeridos', 'error')
+            return redirect(url_for('editar_asignacion_ruta', id=id))
+        
+        with get_db_cursor(commit=True) as cursor:
+            # Obtener asignación actual para comparar vehículo
+            cursor.execute("""
+                SELECT ID_Vehiculo, Estado 
+                FROM asignacion_vendedores 
+                WHERE ID_Asignacion = %s AND ID_Empresa = %s
+            """, (id, empresa_id))
+            
+            asignacion_actual = cursor.fetchone()
+            
+            if not asignacion_actual:
+                flash('Asignación no encontrada', 'error')
+                return redirect(url_for('admin_asignacion_rutas'))
+            
+            # Manejar cambio de vehículo
+            vehiculo_actual = asignacion_actual['ID_Vehiculo']
+            nuevo_vehiculo = id_vehiculo if id_vehiculo else None
+            
+            # Convertir a string para comparación
+            vehiculo_actual_str = str(vehiculo_actual) if vehiculo_actual else None
+            nuevo_vehiculo_str = str(nuevo_vehiculo) if nuevo_vehiculo else None
+            
+            if vehiculo_actual_str != nuevo_vehiculo_str:
+                # Liberar vehículo anterior si existe
+                if vehiculo_actual:
+                    cursor.execute("""
+                        UPDATE vehiculos 
+                        SET Estado = 'Disponible' 
+                        WHERE ID_Vehiculo = %s
+                    """, (vehiculo_actual,))
+                
+                # Asignar nuevo vehículo
+                if nuevo_vehiculo:
+                    # Verificar que el nuevo vehículo esté disponible
+                    cursor.execute("""
+                        SELECT Estado FROM vehiculos 
+                        WHERE ID_Vehiculo = %s AND ID_Empresa = %s
+                    """, (nuevo_vehiculo, empresa_id))
+                    vehiculo_nuevo = cursor.fetchone()
+                    
+                    if not vehiculo_nuevo or vehiculo_nuevo['Estado'] != 'Disponible':
+                        flash('El vehículo seleccionado no está disponible', 'error')
+                        return redirect(url_for('editar_asignacion_ruta', id=id))
+                    
+                    cursor.execute("""
+                        UPDATE vehiculos 
+                        SET Estado = 'En Ruta' 
+                        WHERE ID_Vehiculo = %s
+                    """, (nuevo_vehiculo,))
+            
+            # Actualizar la asignación
+            cursor.execute("""
+                UPDATE asignacion_vendedores 
+                SET ID_Ruta = %s,
+                    ID_Vehiculo = %s,
+                    Fecha_Asignacion = %s,
+                    Fecha_Finalizacion = %s,
+                    Estado = %s
+                WHERE ID_Asignacion = %s AND ID_Empresa = %s
+            """, (id_ruta, nuevo_vehiculo, fecha_asignacion, 
+                  fecha_finalizacion if fecha_finalizacion else None, 
+                  estado, id, empresa_id))
+            
+            # Si se finaliza la asignación, liberar el vehículo si existe
+            if estado == 'Finalizada' and nuevo_vehiculo:
+                cursor.execute("""
+                    UPDATE vehiculos 
+                    SET Estado = 'Disponible' 
+                    WHERE ID_Vehiculo = %s
+                """, (nuevo_vehiculo,))
+            
+        flash('Asignación actualizada exitosamente', 'success')
+            
+    except Exception as e:
+        flash(f'Error al actualizar asignación: {str(e)}', 'error')
+    
+    return redirect(url_for('admin_asignacion_rutas'))
+
+@app.route('/admin/catalogos/rutas/asignacion/finalizar/<int:id>')
+@admin_required
+def finalizar_asignacion_ruta(id):
+    """Finalizar una asignación activa"""
+    try:
+        empresa_id = session.get('ID_Empresa')
+        
+        with get_db_cursor(commit=True) as cursor:
+            # Obtener el vehículo asignado
+            cursor.execute("""
+                SELECT ID_Vehiculo 
+                FROM asignacion_vendedores 
+                WHERE ID_Asignacion = %s 
+                AND ID_Empresa = %s 
+                AND Estado = 'Activa'
+            """, (id, empresa_id))
+            
+            asignacion = cursor.fetchone()
+            
+            if not asignacion:
+                flash('Asignación no encontrada o ya finalizada', 'error')
+                return redirect(url_for('admin_asignacion_rutas'))
+            
+            # Actualizar estado de la asignación
+            cursor.execute("""
+                UPDATE asignacion_vendedores 
+                SET Estado = 'Finalizada',
+                    Fecha_Finalizacion = CURDATE()
+                WHERE ID_Asignacion = %s AND ID_Empresa = %s
+            """, (id, empresa_id))
+            
+            # Liberar el vehículo si existe
+            if asignacion['ID_Vehiculo']:
+                cursor.execute("""
+                    UPDATE vehiculos 
+                    SET Estado = 'Disponible' 
+                    WHERE ID_Vehiculo = %s
+                """, (asignacion['ID_Vehiculo'],))
+            
+        flash('Asignación finalizada exitosamente', 'success')
+            
+    except Exception as e:
+        flash(f'Error al finalizar asignación: {str(e)}', 'error')
+    
+    return redirect(url_for('admin_asignacion_rutas'))
+
+@app.route('/admin/catalogos/rutas/asignacion/eliminar/<int:id>', methods=['POST'])
+@admin_required
+def eliminar_asignacion_ruta(id):
+    """Eliminar una asignación (solo si está en estado Finalizada o Suspendida)"""
+    try:
+        empresa_id = session.get('ID_Empresa')
+        
+        with get_db_cursor(commit=True) as cursor:
+            # Verificar que la asignación exista y no esté activa
+            cursor.execute("""
+                SELECT ID_Vehiculo, Estado 
+                FROM asignacion_vendedores 
+                WHERE ID_Asignacion = %s 
+                AND ID_Empresa = %s
+            """, (id, empresa_id))
+            
+            asignacion = cursor.fetchone()
+            
+            if not asignacion:
+                flash('Asignación no encontrada', 'error')
+                return redirect(url_for('admin_asignacion_rutas'))
+            
+            if asignacion['Estado'] == 'Activa':
+                flash('No se puede eliminar una asignación activa', 'error')
+                return redirect(url_for('admin_asignacion_rutas'))
+            
+            # Liberar vehículo si existe
+            if asignacion['ID_Vehiculo']:
+                cursor.execute("""
+                    UPDATE vehiculos 
+                    SET Estado = 'Disponible' 
+                    WHERE ID_Vehiculo = %s
+                """, (asignacion['ID_Vehiculo'],))
+            
+            # Eliminar la asignación
+            cursor.execute("""
+                DELETE FROM asignacion_vendedores 
+                WHERE ID_Asignacion = %s AND ID_Empresa = %s
+            """, (id, empresa_id))
+            
+        flash('Asignación eliminada exitosamente', 'success')
+            
+    except Exception as e:
+        flash(f'Error al eliminar asignación: {str(e)}', 'error')
+    
+    return redirect(url_for('admin_asignacion_rutas'))
+
+@app.route('/api/asignaciones/disponibilidad')
+@admin_required
+def api_disponibilidad_asignaciones():
+    """API para verificar disponibilidad de vendedores y vehículos en una fecha"""
+    try:
+        empresa_id = session.get('ID_Empresa')
+        fecha = request.args.get('fecha')
+        
+        if not fecha:
+            return jsonify({'error': 'Fecha requerida'}), 400
+        
+        with get_db_cursor(commit=False) as cursor:
+            # Obtener vendedores disponibles en esa fecha
+            cursor.execute("""
+                SELECT u.ID_Usuario, CONCAT(u.Nombre, ' ', u.Apellido) AS Nombre
+                FROM usuarios u
+                WHERE u.ID_Empresa = %s 
+                AND u.Rol = 'Vendedor'
+                AND u.Estado = 'Activo'
+                AND u.ID_Usuario NOT IN (
+                    SELECT ID_Usuario 
+                    FROM asignacion_vendedores 
+                    WHERE Fecha_Asignacion = %s 
+                    AND Estado = 'Activa'
+                    AND ID_Empresa = %s
+                )
+                ORDER BY u.Nombre, u.Apellido
+            """, (empresa_id, fecha, empresa_id))
+            
+            vendedores = cursor.fetchall()
+            
+            # Obtener vehículos disponibles en esa fecha
+            cursor.execute("""
+                SELECT v.ID_Vehiculo, 
+                       CONCAT(v.Placa, ' - ', COALESCE(v.Marca, ''), ' ', COALESCE(v.Modelo, '')) AS Descripcion
+                FROM vehiculos v
+                WHERE v.ID_Empresa = %s 
+                AND v.Estado = 'Disponible'
+                AND v.ID_Vehiculo NOT IN (
+                    SELECT ID_Vehiculo 
+                    FROM asignacion_vendedores 
+                    WHERE Fecha_Asignacion = %s 
+                    AND Estado = 'Activa'
+                    AND ID_Vehiculo IS NOT NULL
+                    AND ID_Empresa = %s
+                )
+                ORDER BY v.Placa
+            """, (empresa_id, fecha, empresa_id))
+            
+            vehiculos = cursor.fetchall()
+            
+        return jsonify({
+            'vendedores': vendedores,
+            'vehiculos': vehiculos
+        })
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/asignaciones/vendedor/<int:id_vendedor>')
+@admin_required
+def api_asignaciones_vendedor(id_vendedor):
+    """API para obtener asignaciones de un vendedor específico"""
+    try:
+        empresa_id = session.get('ID_Empresa')
+        
+        with get_db_cursor(commit=False) as cursor:
+            cursor.execute("""
+                SELECT 
+                    a.ID_Asignacion,
+                    r.Nombre_Ruta,
+                    a.Fecha_Asignacion,
+                    a.Fecha_Finalizacion,
+                    a.Estado,
+                    v.Placa,
+                    v.Marca,
+                    v.Modelo
+                FROM asignacion_vendedores a
+                LEFT JOIN rutas r ON a.ID_Ruta = r.ID_Ruta
+                LEFT JOIN vehiculos v ON a.ID_Vehiculo = v.ID_Vehiculo
+                WHERE a.ID_Usuario = %s 
+                AND a.ID_Empresa = %s
+                ORDER BY a.Fecha_Asignacion DESC
+                LIMIT 10
+            """, (id_vendedor, empresa_id))
+            
+            asignaciones = cursor.fetchall()
+            
+        return jsonify(asignaciones)
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 # =============================================
 # INVENTARIO - MOVIMIENTOS DE INVENTARIO
 @app.route('/admin/inventario')
