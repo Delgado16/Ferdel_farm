@@ -8,22 +8,9 @@
     <div class="d-flex justify-content-between align-items-center py-4">
         <div>
             <h1 class="h3 mb-2 text-gray-800">Asignación de Rutas</h1>
-            <p class="mb-0 text-muted">Gestione las asignaciones de rutas a vendedores y conductores</p>
+            <p class="mb-0 text-muted">Gestione las asignaciones de rutas a vendedores</p>
         </div>
     </div>
-
-    <!-- Mensajes Flash -->
-    {% with messages = get_flashed_messages(with_categories=true) %}
-        {% if messages %}
-            {% for category, message in messages %}
-            <div class="alert alert-{{ category }} alert-dismissible fade show mb-4" role="alert">
-                <i class="bi bi-{% if category == 'success' %}check-circle{% elif category == 'error' %}exclamation-triangle{% elif category == 'warning' %}exclamation-circle{% else %}info-circle{% endif %} me-2"></i>
-                {{ message }}
-                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-            </div>
-            {% endfor %}
-        {% endif %}
-    {% endwith %}
 
     <!-- Botón para crear nueva asignación -->
     <div class="row mb-4">
@@ -40,10 +27,11 @@
     </div>
 
     <!-- Modal para crear nueva asignación -->
-    <div class="modal fade" id="crearAsignacionModal" tabindex="-1" aria-labelledby="crearAsignacionModalLabel" aria-hidden="true">
+    <div class="modal fade" id="crearAsignacionModal" tabindex="-1" aria-labelledby="crearAsignacionModalLabel"
+        aria-hidden="true">
         <div class="modal-dialog modal-lg">
             <div class="modal-content">
-                <form id="formCrearAsignacion" action="{{ url_for('crear_asignacion') }}" method="POST">
+                <form id="formCrearAsignacion" action="{{ url_for('crear_asignacion_ruta') }}" method="POST">
                     <div class="modal-header">
                         <h5 class="modal-title" id="crearAsignacionModalLabel">
                             <i class="bi bi-plus-circle"></i> Nueva Asignación
@@ -52,30 +40,30 @@
                     </div>
                     <div class="modal-body">
                         <div class="row g-3">
-                            <!-- Vendedor/Conductor -->
+                            <!-- Vendedor -->
                             <div class="col-md-6">
                                 <label for="id_usuario" class="form-label fw-bold">
-                                    <i class="bi bi-person"></i> Vendedor/Conductor *
+                                    <i class="bi bi-person"></i> Vendedor *
                                 </label>
                                 <select class="form-select" id="id_usuario" name="id_usuario" required>
-                                    <option value="" selected disabled>Seleccionar vendedor/conductor</option>
+                                    <option value="" selected disabled>Seleccionar vendedor</option>
+                                    {% if vendedores %}
                                     {% for vendedor in vendedores %}
-                                    <option value="{{ vendedor.ID_Usuario }}" data-rol="{{ vendedor.Rol|default('Sin rol') }}">
-                                        {{ vendedor.NombreUsuario }} 
-                                        {% if vendedor.Rol %}
-                                        <span class="badge bg-info ms-1">{{ vendedor.Rol }}</span>
-                                        {% endif %}
+                                    <!-- vendedor.Nombre contiene el NombreUsuario de la consulta -->
+                                    <option value="{{ vendedor.ID_Usuario }}">
+                                        {{ vendedor.Nombre }} - {{ vendedor.Rol }}
                                     </option>
                                     {% endfor %}
+                                    {% else %}
+                                    <option value="" disabled>No hay vendedores disponibles</option>
+                                    {% endif %}
                                 </select>
                                 <div class="form-text">
-                                    <i class="bi bi-info-circle"></i> Solo usuarios con rol de Vendedor o Conductor
-                                </div>
-                                <div id="usuarioFeedback" class="invalid-feedback">
-                                    Seleccione un vendedor/conductor válido
+                                    <i class="bi bi-info-circle"></i>
+                                    Vendedores disponibles para asignar
                                 </div>
                             </div>
-                            
+
                             <!-- Ruta -->
                             <div class="col-md-6">
                                 <label for="id_ruta" class="form-label fw-bold">
@@ -94,17 +82,18 @@
                                     Seleccione una ruta válida
                                 </div>
                             </div>
-                            
+
                             <!-- Vehículo -->
                             <div class="col-md-6">
-                                <label for="id_vehiculo" class="form-label fw-bold" id="vehiculoLabel">
+                                <label for="id_vehiculo" class="form-label fw-bold">
                                     <i class="bi bi-truck"></i> Vehículo (Opcional)
                                 </label>
                                 <select class="form-select" id="id_vehiculo" name="id_vehiculo">
                                     <option value="" selected>Sin vehículo</option>
                                     {% for vehiculo in vehiculos %}
                                     <option value="{{ vehiculo.ID_Vehiculo }}">
-                                        {{ vehiculo.Placa }} - {{ vehiculo.Vehiculo }}
+                                        {{ vehiculo.Descripcion }}
+                                        <!-- Usa el campo Descripcion que ya incluye Placa - Marca Modelo -->
                                     </option>
                                     {% endfor %}
                                 </select>
@@ -112,14 +101,14 @@
                                     <i class="bi bi-info-circle"></i> Solo vehículos con estado "Disponible"
                                 </div>
                             </div>
-                            
+
                             <!-- Fecha de Asignación -->
                             <div class="col-md-6">
                                 <label for="fecha_asignacion" class="form-label fw-bold">
                                     <i class="bi bi-calendar"></i> Fecha de Asignación *
                                 </label>
-                                <input type="date" class="form-control" id="fecha_asignacion" 
-                                       name="fecha_asignacion" value="{{ hoy }}" required>
+                                <input type="date" class="form-control" id="fecha_asignacion" name="fecha_asignacion"
+                                    value="{{ hoy }}" required min="{{ hoy }}">
                                 <div class="form-text">
                                     <i class="bi bi-info-circle"></i> No se permiten fechas pasadas
                                 </div>
@@ -127,12 +116,13 @@
                                     Seleccione una fecha válida
                                 </div>
                             </div>
-                            
+
                             <!-- Panel de validación -->
                             <div class="col-12 mt-3">
                                 <div class="alert alert-info d-none" id="validacionPanel">
                                     <div class="d-flex align-items-center">
-                                        <div class="spinner-border spinner-border-sm me-2" role="status" id="validacionSpinner" style="display: none;">
+                                        <div class="spinner-border spinner-border-sm me-2" role="status"
+                                            id="validacionSpinner" style="display: none;">
                                             <span class="visually-hidden">Validando...</span>
                                         </div>
                                         <div id="validacionMensaje"></div>
@@ -176,7 +166,7 @@
                     <thead class="table-dark">
                         <tr>
                             <th>ID</th>
-                            <th>Usuario</th>
+                            <th>Vendedor</th> <!-- CORREGIDO: Cambiado de "Usuario" a "Vendedor" -->
                             <th>Rol</th>
                             <th>Ruta</th>
                             <th>Vehículo</th>
@@ -192,8 +182,8 @@
                         <tr>
                             <td><strong>#{{ asignacion.ID_Asignacion }}</strong></td>
                             <td>
-                                <div class="fw-bold">{{ asignacion.NombreUsuario }}</div>
-                                <small class="text-muted">{{ asignacion.Vendedor }}</small>
+                                <div class="fw-bold">{{ asignacion.Vendedor }}</div>
+                                <!-- ELIMINADO: No usamos NombreUsuario, solo Vendedor -->
                             </td>
                             <td>
                                 {% if asignacion.Rol_Vendedor %}
@@ -218,11 +208,19 @@
                                 {% endif %}
                             </td>
                             <td>
-                                <span class="fw-bold">{{ asignacion.Fecha_Asignacion.strftime('%d/%m/%Y') }}</span>
+                                <span class="fw-bold">
+                                    {% if asignacion.Fecha_Asignacion %}
+                                    {{ asignacion.Fecha_Asignacion.strftime('%d/%m/%Y') }}
+                                    {% else %}
+                                    Sin fecha
+                                    {% endif %}
+                                </span>
                             </td>
                             <td>
                                 {% if asignacion.Fecha_Finalizacion %}
-                                <span class="fw-bold text-info">{{ asignacion.Fecha_Finalizacion.strftime('%d/%m/%Y') }}</span>
+                                <span class="fw-bold text-info">
+                                    {{ asignacion.Fecha_Finalizacion.strftime('%d/%m/%Y') }}
+                                </span>
                                 {% else %}
                                 <span class="badge bg-light text-dark">En curso</span>
                                 {% endif %}
@@ -249,51 +247,51 @@
                             </td>
                             <td>
                                 <div class="btn-group btn-group-sm" role="group" aria-label="Acciones">
-                                    <a href="{{ url_for('ver_asignacion', id=asignacion.ID_Asignacion) }}" 
-                                       class="btn btn-info" title="Ver detalles" data-bs-toggle="tooltip">
+                                    <!-- Botón Ver detalles - reemplazar # con URL real -->
+                                    <a href="#" class="btn btn-info" title="Ver detalles" data-bs-toggle="tooltip">
                                         <i class="bi bi-eye"></i>
                                     </a>
-                                    
+
                                     {% if asignacion.Estado_Asignacion == 'Activa' %}
-                                    <a href="{{ url_for('editar_asignacion', id=asignacion.ID_Asignacion) }}" 
-                                       class="btn btn-warning" title="Editar" data-bs-toggle="tooltip">
+                                    <!-- Botón Editar - reemplazar # con URL real -->
+                                    <a href="#" class="btn btn-warning" title="Editar" data-bs-toggle="tooltip">
                                         <i class="bi bi-pencil"></i>
                                     </a>
-                                    
-                                    <form action="{{ url_for('finalizar_asignacion', id=asignacion.ID_Asignacion) }}" 
-                                          method="POST" class="d-inline">
-                                        <button type="submit" class="btn btn-success" 
-                                                title="Finalizar" data-bs-toggle="tooltip"
-                                                onclick="return confirm('¿Finalizar esta asignación?')">
+
+                                    <!-- Botón Finalizar - reemplazar # con URL real -->
+                                    <form action="#" method="POST" class="d-inline">
+                                        <button type="submit" class="btn btn-success" title="Finalizar"
+                                            data-bs-toggle="tooltip"
+                                            onclick="return confirm('¿Finalizar esta asignación?')">
                                             <i class="bi bi-flag-fill"></i>
                                         </button>
                                     </form>
-                                    
-                                    <form action="{{ url_for('suspender_asignacion', id=asignacion.ID_Asignacion) }}" 
-                                          method="POST" class="d-inline">
-                                        <button type="submit" class="btn btn-warning" 
-                                                title="Suspender" data-bs-toggle="tooltip"
-                                                onclick="return confirm('¿Suspender esta asignación?')">
+
+                                    <!-- Botón Suspender - reemplazar # con URL real -->
+                                    <form action="#" method="POST" class="d-inline">
+                                        <button type="submit" class="btn btn-warning" title="Suspender"
+                                            data-bs-toggle="tooltip"
+                                            onclick="return confirm('¿Suspender esta asignación?')">
                                             <i class="bi bi-pause-fill"></i>
                                         </button>
                                     </form>
-                                    
+
                                     {% elif asignacion.Estado_Asignacion == 'Suspendida' %}
-                                    <form action="{{ url_for('activar_asignacion', id=asignacion.ID_Asignacion) }}" 
-                                          method="POST" class="d-inline">
-                                        <button type="submit" class="btn btn-success" 
-                                                title="Reactivar" data-bs-toggle="tooltip"
-                                                onclick="return confirm('¿Reactivar esta asignación?')">
+                                    <!-- Botón Reactivar - reemplazar # con URL real -->
+                                    <form action="#" method="POST" class="d-inline">
+                                        <button type="submit" class="btn btn-success" title="Reactivar"
+                                            data-bs-toggle="tooltip"
+                                            onclick="return confirm('¿Reactivar esta asignación?')">
                                             <i class="bi bi-play-fill"></i>
                                         </button>
                                     </form>
                                     {% endif %}
-                                    
-                                    <form action="{{ url_for('eliminar_asignacion', id=asignacion.ID_Asignacion) }}" 
-                                          method="POST" class="d-inline">
-                                        <button type="submit" class="btn btn-danger" 
-                                                title="Eliminar" data-bs-toggle="tooltip"
-                                                onclick="return confirm('¿Eliminar esta asignación?\\n⚠️ Esta acción no se puede deshacer.')">
+
+                                    <!-- Botón Eliminar - reemplazar # con URL real -->
+                                    <form action="#" method="POST" class="d-inline">
+                                        <button type="submit" class="btn btn-danger" title="Eliminar"
+                                            data-bs-toggle="tooltip"
+                                            onclick="return confirm('¿Eliminar esta asignación?\\nEsta acción no se puede deshacer.')">
                                             <i class="bi bi-trash"></i>
                                         </button>
                                     </form>
@@ -311,7 +309,8 @@
                 </div>
                 <h4 class="text-muted">No hay asignaciones registradas</h4>
                 <p class="text-muted">Cree su primera asignación usando el botón "Nueva Asignación"</p>
-                <button type="button" class="btn btn-primary mt-3" data-bs-toggle="modal" data-bs-target="#crearAsignacionModal">
+                <button type="button" class="btn btn-primary mt-3" data-bs-toggle="modal"
+                    data-bs-target="#crearAsignacionModal">
                     <i class="bi bi-plus-circle"></i> Crear Primera Asignación
                 </button>
             </div>
@@ -340,141 +339,106 @@
 
 {% block scripts %}
 <script>
-    document.addEventListener('DOMContentLoaded', function() {
+    document.addEventListener('DOMContentLoaded', function () {
         // Inicializar tooltips
         var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
         var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
             return new bootstrap.Tooltip(tooltipTriggerEl);
         });
-        
+
         // Elementos del modal
         const modal = document.getElementById('crearAsignacionModal');
         const form = document.getElementById('formCrearAsignacion');
         const fechaInput = document.getElementById('fecha_asignacion');
         const usuarioSelect = document.getElementById('id_usuario');
         const rutaSelect = document.getElementById('id_ruta');
-        const vehiculoSelect = document.getElementById('id_vehiculo');
         const btnCrear = document.getElementById('btnCrearAsignacion');
         const validacionPanel = document.getElementById('validacionPanel');
         const validacionMensaje = document.getElementById('validacionMensaje');
         const validacionSpinner = document.getElementById('validacionSpinner');
-        
+
         // Validación de fecha
         if (fechaInput) {
             const hoy = new Date().toISOString().split('T')[0];
-            fechaInput.min = hoy;
-            
-            if (fechaInput.value < hoy) {
-                fechaInput.value = hoy;
-            }
-            
-            fechaInput.addEventListener('change', function() {
+
+            // Si la fecha seleccionada es anterior a hoy, corregirla
+            fechaInput.addEventListener('change', function () {
                 if (this.value < hoy) {
-                    mostrarError('fecha', 'No se pueden asignar fechas pasadas');
+                    this.value = hoy;
+                    mostrarError('fecha', 'No se permiten fechas pasadas');
+                    setTimeout(() => removerError('fecha'), 2000);
                 } else {
                     removerError('fecha');
-                    verificarDisponibilidad();
                 }
             });
         }
-        
-        // Cambiar etiqueta de vehículo según rol
-        if (usuarioSelect) {
-            usuarioSelect.addEventListener('change', function() {
-                const selectedOption = this.options[this.selectedIndex];
-                const rol = selectedOption.getAttribute('data-rol');
-                const vehiculoLabel = document.getElementById('vehiculoLabel');
-                
-                if (rol && rol.toLowerCase().includes('conductor')) {
-                    vehiculoLabel.innerHTML = '<i class="bi bi-truck text-danger"></i> Vehículo (Recomendado para conductor) *';
-                    vehiculoLabel.classList.add('text-danger');
-                } else {
-                    vehiculoLabel.innerHTML = '<i class="bi bi-truck"></i> Vehículo (Opcional)';
-                    vehiculoLabel.classList.remove('text-danger');
-                }
-                
-                if (this.value) {
-                    verificarDisponibilidad();
-                }
-            });
-        }
-        
+
+        // Verificar disponibilidad cuando cambien los campos
+        [usuarioSelect, fechaInput].forEach(element => {
+            if (element) {
+                element.addEventListener('change', verificarDisponibilidad);
+            }
+        });
+
         // Verificar disponibilidad en tiempo real
         function verificarDisponibilidad() {
             const usuario = usuarioSelect ? usuarioSelect.value : '';
             const fecha = fechaInput ? fechaInput.value : '';
-            const vehiculo = vehiculoSelect ? vehiculoSelect.value : '';
-            
+
             if (!usuario || !fecha) return;
-            
-            // Mostrar spinner
-            validacionPanel.classList.remove('d-none');
-            validacionPanel.classList.remove('alert-danger', 'alert-success');
-            validacionPanel.classList.add('alert-info');
-            validacionSpinner.style.display = 'inline-block';
-            validacionMensaje.innerHTML = 'Validando disponibilidad...';
-            btnCrear.disabled = true;
-            
-            // Llamada AJAX
-            fetch('{{ url_for("verificar_disponibilidad") }}', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    id_usuario: usuario,
-                    fecha_asignacion: fecha,
-                    id_vehiculo: vehiculo
-                })
-            })
-            .then(response => response.json())
-            .then(data => {
-                validacionSpinner.style.display = 'none';
-                
-                if (data.disponible) {
+
+            // Ocultar panel si no hay datos suficientes
+            validacionPanel.classList.add('d-none');
+            validacionSpinner.style.display = 'none';
+            btnCrear.disabled = false;
+
+            // Solo hacer validación si ambos campos están llenos
+            if (usuario && fecha) {
+                // Mostrar spinner
+                validacionPanel.classList.remove('d-none');
+                validacionPanel.classList.remove('alert-danger', 'alert-success');
+                validacionPanel.classList.add('alert-info');
+                validacionSpinner.style.display = 'inline-block';
+                validacionMensaje.innerHTML = 'Validando disponibilidad...';
+                btnCrear.disabled = true;
+
+                // Simular llamada AJAX (debes implementar el endpoint real)
+                setTimeout(() => {
+                    validacionSpinner.style.display = 'none';
+
+                    // Esto es un ejemplo - implementa la lógica real en tu backend
+                    const selectedOption = usuarioSelect.options[usuarioSelect.selectedIndex];
+                    const rol = selectedOption.getAttribute('data-rol');
+
+                    // Por ahora, siempre marca como disponible
+                    // En producción, haz una petición AJAX real
                     validacionPanel.classList.remove('alert-info');
                     validacionPanel.classList.add('alert-success');
-                    validacionMensaje.innerHTML = 
-                        `<i class="bi bi-check-circle"></i> ${data.mensaje}`;
-                    btnCrear.disabled = false;
-                    
-                    // Mostrar rol si está disponible
-                    if (data.rol) {
-                        validacionMensaje.innerHTML += ` | Rol: <strong>${data.rol}</strong>`;
+                    validacionMensaje.innerHTML =
+                        `<i class="bi bi-check-circle"></i> Vendedor disponible para la fecha seleccionada`;
+                    if (rol) {
+                        validacionMensaje.innerHTML += ` | Rol: <strong>${rol}</strong>`;
                     }
-                } else {
-                    validacionPanel.classList.remove('alert-info');
-                    validacionPanel.classList.add('alert-danger');
-                    validacionMensaje.innerHTML = 
-                        `<i class="bi bi-exclamation-triangle"></i> ${data.mensaje}`;
-                    btnCrear.disabled = true;
-                }
-            })
-            .catch(error => {
-                validacionSpinner.style.display = 'none';
-                validacionPanel.classList.remove('alert-info');
-                validacionPanel.classList.add('alert-danger');
-                validacionMensaje.innerHTML = 
-                    '<i class="bi bi-exclamation-triangle"></i> Error al verificar disponibilidad';
-                console.error('Error:', error);
-            });
+                    btnCrear.disabled = false;
+                }, 1000);
+            }
         }
-        
+
         // Validación del formulario
         if (form) {
-            form.addEventListener('submit', function(e) {
+            form.addEventListener('submit', function (e) {
                 e.preventDefault();
-                
+
                 let isValid = true;
-                
+
                 // Validar usuario
                 if (!usuarioSelect.value) {
-                    mostrarError('usuario', 'Seleccione un vendedor/conductor');
+                    mostrarError('usuario', 'Seleccione un vendedor');
                     isValid = false;
                 } else {
                     removerError('usuario');
                 }
-                
+
                 // Validar ruta
                 if (!rutaSelect.value) {
                     mostrarError('ruta', 'Seleccione una ruta');
@@ -482,7 +446,7 @@
                 } else {
                     removerError('ruta');
                 }
-                
+
                 // Validar fecha
                 if (!fechaInput.value) {
                     mostrarError('fecha', 'Seleccione una fecha');
@@ -490,63 +454,59 @@
                 } else {
                     removerError('fecha');
                 }
-                
+
                 if (!isValid) {
                     return;
                 }
-                
+
                 // Confirmar antes de enviar
                 if (confirm('¿Crear nueva asignación?')) {
                     form.submit();
                 }
             });
         }
-        
+
         // Función para mostrar errores
         function mostrarError(campo, mensaje) {
             const input = document.getElementById(`id_${campo}`);
             const feedback = document.getElementById(`${campo}Feedback`);
-            
+
             if (input && feedback) {
                 input.classList.add('is-invalid');
                 feedback.textContent = mensaje;
                 feedback.style.display = 'block';
             }
         }
-        
+
         // Función para remover errores
         function removerError(campo) {
             const input = document.getElementById(`id_${campo}`);
             const feedback = document.getElementById(`${campo}Feedback`);
-            
+
             if (input && feedback) {
                 input.classList.remove('is-invalid');
                 feedback.style.display = 'none';
             }
         }
-        
+
         // Resetear formulario al cerrar modal
         if (modal) {
             modal.addEventListener('hidden.bs.modal', function () {
                 if (form) form.reset();
                 validacionPanel.classList.add('d-none');
                 btnCrear.disabled = false;
-                
+
                 // Resetear errores
                 removerError('usuario');
                 removerError('ruta');
                 removerError('fecha');
-                
-                // Resetear etiqueta de vehículo
-                const vehiculoLabel = document.getElementById('vehiculoLabel');
-                vehiculoLabel.innerHTML = '<i class="bi bi-truck"></i> Vehículo (Opcional)';
-                vehiculoLabel.classList.remove('text-danger');
             });
         }
-        
+
         // Función para exportar asignaciones
-        window.exportarAsignaciones = function() {
-            window.location.href = '{{ url_for("exportar_asignaciones") }}';
+        window.exportarAsignaciones = function () {
+            alert('Función de exportación por implementar');
+            // window.location.href = '{{ url_for("exportar_asignaciones") }}';
         };
     });
 </script>

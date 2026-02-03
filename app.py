@@ -256,7 +256,7 @@ def verify_credentials_debug(username, password):
             user_data = cursor.fetchone()
             
             if user_data:
-                print(f"✅ Usuario encontrado en BD:")
+                print(f" Usuario encontrado en BD:")
                 print(f"   ID: {user_data['ID_Usuario']}")
                 print(f"   Nombre: {user_data['NombreUsuario']}")
                 print(f"   Rol: {user_data['Nombre_Rol']}")
@@ -1238,7 +1238,6 @@ def admin_caja_cerrar():
         flash(f'❌ Error: {str(e)}', 'error')
         return redirect(url_for('admin_caja'))
 
-
 @app.route('/admin/caja/anular/<int:id_movimiento>', methods=['POST'])
 @admin_required
 @bitacora_decorator("ANULAR_MOVIMIENTO")
@@ -1307,7 +1306,6 @@ def admin_caja_anular(id_movimiento):
     except Exception as e:
         flash(f'❌ Error: {str(e)}', 'error')
         return redirect(url_for('admin_caja'))
-
 
 @app.route('/admin/caja/historial')
 @admin_required
@@ -10288,25 +10286,34 @@ def cambiar_estado_vehiculo(id):
 def admin_asignacion_rutas():
     """Vista principal para gestionar asignaciones de rutas"""
     try:
-        empresa_id = session.get('ID_Empresa')
+        empresa_id = session.get('id_empresa', 1)
+
         if not empresa_id:
             flash('No se ha identificado la empresa', 'error')
             return redirect(url_for('admin_dashboard'))
         
         with get_db_cursor(commit=False) as cursor:
-            # Obtener asignaciones activas
+            # Obtener asignaciones activas - CORREGIDA
             cursor.execute("""
                 SELECT 
                     a.ID_Asignacion,
-                    CONCAT(u.Nombre, ' ', u.Apellido) AS Vendedor,
+                    u.ID_Usuario,
+                    u.NombreUsuario AS Vendedor,  -- Cambiado: solo NombreUsuario
                     r.Nombre_Ruta,
-                    CONCAT(v.Placa, ' - ', v.Marca, ' ', v.Modelo) AS Vehiculo,
+                    r.ID_Ruta,
+                    v.ID_Vehiculo,
+                    v.Placa,
+                    v.Marca,
+                    v.Modelo,
+                    CONCAT(v.Placa, ' - ', v.Marca, ' ', v.Modelo) AS Vehiculo_Completo,
                     a.Fecha_Asignacion,
                     a.Fecha_Finalizacion,
-                    a.Estado,
-                    CONCAT(ua.Nombre, ' ', ua.Apellido) AS Asignado_Por
+                    a.Estado AS Estado_Asignacion,
+                    ua.NombreUsuario AS Asignado_Por,  -- Cambiado: solo NombreUsuario
+                    rol.Nombre_Rol AS Rol_Vendedor
                 FROM asignacion_vendedores a
                 LEFT JOIN usuarios u ON a.ID_Usuario = u.ID_Usuario
+                LEFT JOIN roles rol ON u.ID_Rol = rol.ID_Rol
                 LEFT JOIN rutas r ON a.ID_Ruta = r.ID_Ruta
                 LEFT JOIN vehiculos v ON a.ID_Vehiculo = v.ID_Vehiculo
                 LEFT JOIN usuarios ua ON a.ID_Usuario_Asigna = ua.ID_Usuario
@@ -10315,20 +10322,30 @@ def admin_asignacion_rutas():
             """, (empresa_id,))
             asignaciones = cursor.fetchall()
             
-            # Obtener vendedores disponibles
+            # Obtener vendedores disponibles - CORREGIDA
             cursor.execute("""
-                SELECT u.ID_Usuario, CONCAT(u.Nombre, ' ', u.Apellido) AS Nombre
+                SELECT 
+                    u.ID_Usuario, 
+                    u.NombreUsuario AS Nombre,
+                    rol.Nombre_Rol AS Rol
                 FROM usuarios u
+                LEFT JOIN roles rol ON u.ID_Rol = rol.ID_Rol
                 WHERE u.ID_Empresa = %s 
-                AND u.Rol = 'Vendedor'
-                AND u.Estado = 'Activo'
-                AND u.ID_Usuario NOT IN (
-                    SELECT ID_Usuario 
-                    FROM asignacion_vendedores 
-                    WHERE Estado = 'Activa' 
-                    AND ID_Empresa = %s
+                AND u.Estado = 'ACTIVO'
+                -- Opción 1: Filtrar por nombre de rol (recomendado)
+                AND rol.Nombre_Rol LIKE '%%Vendedor%%'
+                -- Opción 2: Filtrar por ID de rol específico
+                -- AND u.ID_Rol = [ID_DEL_ROL_VENDEDOR]
+                AND NOT EXISTS (
+                    SELECT 1 
+                    FROM asignacion_vendedores av
+                    WHERE av.ID_Usuario = u.ID_Usuario 
+                    AND av.Estado = 'Activa'
+                    AND av.ID_Empresa = %s
                 )
+                ORDER BY u.NombreUsuario
             """, (empresa_id, empresa_id))
+            
             vendedores = cursor.fetchall()
             
             # Obtener rutas activas
@@ -10340,58 +10357,92 @@ def admin_asignacion_rutas():
             """, (empresa_id,))
             rutas = cursor.fetchall()
             
-            # Obtener vehículos disponibles
+            # Obtener vehículos disponibles - CORREGIDA
             cursor.execute("""
-                SELECT ID_Vehiculo, CONCAT(Placa, ' - ', Marca, ' ', Modelo) AS Descripcion
+                SELECT 
+                    ID_Vehiculo, 
+                    Placa,
+                    Marca,
+                    Modelo,
+                    CONCAT(Placa, ' - ', Marca, ' ', Modelo) AS Descripcion
                 FROM vehiculos
                 WHERE ID_Empresa = %s 
                 AND Estado = 'Disponible'
+                AND NOT EXISTS (
+                    SELECT 1 
+                    FROM asignacion_vendedores av 
+                    WHERE av.ID_Vehiculo = vehiculos.ID_Vehiculo 
+                    AND av.Estado = 'Activa' 
+                    AND av.ID_Empresa = %s
+                )
                 ORDER BY Placa
-            """, (empresa_id,))
+            """, (empresa_id, empresa_id))
             vehiculos = cursor.fetchall()
             
             # Obtener usuarios que pueden asignar (administradores/supervisores)
+            # IMPORTANTE: Cambia el ID_Rol = 1 por el ID correcto de administrador en tu sistema
             cursor.execute("""
-                SELECT ID_Usuario, CONCAT(Nombre, ' ', Apellido) AS Nombre
-                FROM usuarios
-                WHERE ID_Empresa = %s 
-                AND Rol IN ('Administrador', 'Supervisor')
-                AND Estado = 'Activo'
+                SELECT 
+                    u.ID_Usuario, 
+                    u.NombreUsuario AS Nombre,  -- Cambiado: solo NombreUsuario
+                    rol.Nombre_Rol AS Rol
+                FROM usuarios u
+                LEFT JOIN roles rol ON u.ID_Rol = rol.ID_Rol
+                WHERE u.ID_Empresa = %s 
+                AND u.Estado = 'ACTIVO'
+                -- Filtro alternativo: Por nombre de rol
+                -- AND rol.Nombre_Rol IN ('Administrador', 'Supervisor', 'ADMINISTRADOR', 'SUPERVISOR')
+                -- Filtro alternativo: Por ID de rol específico
+                -- AND u.ID_Rol IN ([ID_ADMIN], [ID_SUPERVISOR])
+                ORDER BY u.NombreUsuario
             """, (empresa_id,))
             asignadores = cursor.fetchall()
             
         return render_template(
-            'admin/catalogos/rutas/asignacion.html',
+            'admin/catalog/rutas/asignacion.html',
             asignaciones=asignaciones,
             vendedores=vendedores,
             rutas=rutas,
             vehiculos=vehiculos,
             asignadores=asignadores,
-            now=datetime.now()
+            hoy=datetime.now().strftime('%Y-%m-%d')
         )
         
     except Exception as e:
         flash(f'Error al cargar asignación de rutas: {str(e)}', 'error')
         return redirect(url_for('admin_dashboard'))
+    
 
 @app.route('/admin/catalogos/rutas/asignacion/crear', methods=['POST'])
 @admin_required
 def crear_asignacion_ruta():
     """Crear nueva asignación de ruta"""
     try:
-        empresa_id = session.get('ID_Empresa')
-        usuario_id = session.get('ID_Usuario')
+        empresa_id = session.get('id_empresa', 1)
         
         # Obtener datos del formulario
-        id_vendedor = request.form.get('vendedor')
-        id_ruta = request.form.get('ruta')
-        id_vehiculo = request.form.get('vehiculo')
+        id_vendedor = request.form.get('id_usuario')
+        id_ruta = request.form.get('id_ruta')
+        id_vehiculo = request.form.get('id_vehiculo')
         fecha_asignacion = request.form.get('fecha_asignacion')
-        id_asignador = request.form.get('asignador', usuario_id)
-        
-        if not all([id_vendedor, id_ruta, fecha_asignacion]):
-            flash('Los campos vendedor, ruta y fecha son requeridos', 'error')
+        id_asignador = current_user.id
+
+        # Validaciones básicas
+        if not id_vendedor or id_vendedor == '':
+            flash('Debe seleccionar un vendedor', 'error')
             return redirect(url_for('admin_asignacion_rutas'))
+            
+        if not id_ruta or id_ruta == '':
+            flash('Debe seleccionar una ruta', 'error')
+            return redirect(url_for('admin_asignacion_rutas'))
+            
+        if not fecha_asignacion or fecha_asignacion == '':
+            flash('Debe seleccionar una fecha', 'error')
+            return redirect(url_for('admin_asignacion_rutas'))
+        
+        # Convertir ID vehículo a None si está vacío
+        if id_vehiculo == '':
+            id_vehiculo = None
         
         # Validar que el vendedor no tenga asignación activa en la misma fecha
         with get_db_cursor(commit=False) as cursor:
@@ -10428,7 +10479,7 @@ def crear_asignacion_ruta():
                 (ID_Usuario, ID_Ruta, ID_Vehiculo, Fecha_Asignacion, 
                  Estado, ID_Empresa, ID_Usuario_Asigna)
                 VALUES (%s, %s, %s, %s, 'Activa', %s, %s)
-            """, (id_vendedor, id_ruta, id_vehiculo if id_vehiculo else None, 
+            """, (id_vendedor, id_ruta, id_vehiculo, 
                   fecha_asignacion, empresa_id, id_asignador))
             
             # Si se asignó vehículo, cambiar su estado
@@ -10451,18 +10502,25 @@ def crear_asignacion_ruta():
 def editar_asignacion_ruta(id):
     """Vista para editar una asignación existente"""
     try:
-        empresa_id = session.get('ID_Empresa')
+        empresa_id = session.get('id_empresa', 1)
         
         with get_db_cursor(commit=False) as cursor:
-            # Obtener la asignación específica
+            # Obtener la asignación específica - CORREGIDA
             cursor.execute("""
                 SELECT 
                     a.*,
-                    CONCAT(u.Nombre, ' ', u.Apellido) AS Nombre_Vendedor,
+                    u.ID_Usuario,
+                    CONCAT(u.NombreUsuario) AS Nombre_Vendedor,
                     r.Nombre_Ruta,
-                    v.Placa
+                    r.ID_Ruta,
+                    v.Placa,
+                    v.Marca,
+                    v.Modelo,
+                    v.ID_Vehiculo,
+                    rol.Nombre_Rol AS Rol_Vendedor
                 FROM asignacion_vendedores a
                 LEFT JOIN usuarios u ON a.ID_Usuario = u.ID_Usuario
+                LEFT JOIN roles rol ON u.ID_Rol = rol.ID_Rol
                 LEFT JOIN rutas r ON a.ID_Ruta = r.ID_Ruta
                 LEFT JOIN vehiculos v ON a.ID_Vehiculo = v.ID_Vehiculo
                 WHERE a.ID_Asignacion = %s AND a.ID_Empresa = %s
@@ -10483,9 +10541,15 @@ def editar_asignacion_ruta(id):
             """, (empresa_id,))
             rutas = cursor.fetchall()
             
-            # Obtener vehículos disponibles + el vehículo actual
+            # Obtener vehículos disponibles + el vehículo actual - CORREGIDA
             cursor.execute("""
-                SELECT ID_Vehiculo, CONCAT(Placa, ' - ', Marca, ' ', Modelo) AS Descripcion
+                SELECT 
+                    ID_Vehiculo, 
+                    Placa,
+                    Marca,
+                    Modelo,
+                    CONCAT(Placa, ' - ', Marca, ' ', Modelo) AS Descripcion,
+                    Estado
                 FROM vehiculos
                 WHERE ID_Empresa = %s 
                 AND (Estado = 'Disponible' OR ID_Vehiculo = %s)
@@ -10493,18 +10557,23 @@ def editar_asignacion_ruta(id):
             """, (empresa_id, asignacion['ID_Vehiculo']))
             vehiculos = cursor.fetchall()
             
-            # Obtener usuarios que pueden asignar
+            # Obtener usuarios que pueden asignar - CORREGIDA
             cursor.execute("""
-                SELECT ID_Usuario, CONCAT(Nombre, ' ', Apellido) AS Nombre
-                FROM usuarios
-                WHERE ID_Empresa = %s 
-                AND Rol IN ('Administrador', 'Supervisor')
-                AND Estado = 'Activo'
+                SELECT 
+                    u.ID_Usuario, 
+                    CONCAT(u.NombreUsuario) AS Nombre,
+                    rol.Nombre_Rol AS Rol
+                FROM usuarios u
+                LEFT JOIN roles rol ON u.ID_Rol = rol.ID_Rol
+                WHERE u.ID_Empresa = %s 
+                AND u.ID_Rol = 1  -- Rol de administrador
+                AND u.Estado = 'ACTIVO'
+                ORDER BY u.NombreUsuario
             """, (empresa_id,))
             asignadores = cursor.fetchall()
             
         return render_template(
-            'admin/catalogos/rutas/editar_asignacion.html',
+            'admin/catalog/rutas/editar_asignacion.html',  # Corregida ruta
             asignacion=asignacion,
             rutas=rutas,
             vehiculos=vehiculos,
@@ -10520,11 +10589,11 @@ def editar_asignacion_ruta(id):
 def actualizar_asignacion_ruta(id):
     """Actualizar una asignación existente"""
     try:
-        empresa_id = session.get('ID_Empresa')
+        empresa_id = session.get('id_empresa', 1)
         
         # Obtener datos del formulario
-        id_ruta = request.form.get('ruta')
-        id_vehiculo = request.form.get('vehiculo')
+        id_ruta = request.form.get('id_ruta')
+        id_vehiculo = request.form.get('id_vehiculo')
         fecha_asignacion = request.form.get('fecha_asignacion')
         fecha_finalizacion = request.form.get('fecha_finalizacion')
         estado = request.form.get('estado')
@@ -10549,13 +10618,9 @@ def actualizar_asignacion_ruta(id):
             
             # Manejar cambio de vehículo
             vehiculo_actual = asignacion_actual['ID_Vehiculo']
-            nuevo_vehiculo = id_vehiculo if id_vehiculo else None
+            nuevo_vehiculo = id_vehiculo if id_vehiculo and id_vehiculo != '' else None
             
-            # Convertir a string para comparación
-            vehiculo_actual_str = str(vehiculo_actual) if vehiculo_actual else None
-            nuevo_vehiculo_str = str(nuevo_vehiculo) if nuevo_vehiculo else None
-            
-            if vehiculo_actual_str != nuevo_vehiculo_str:
+            if vehiculo_actual != nuevo_vehiculo:
                 # Liberar vehículo anterior si existe
                 if vehiculo_actual:
                     cursor.execute("""
@@ -10593,7 +10658,7 @@ def actualizar_asignacion_ruta(id):
                     Estado = %s
                 WHERE ID_Asignacion = %s AND ID_Empresa = %s
             """, (id_ruta, nuevo_vehiculo, fecha_asignacion, 
-                  fecha_finalizacion if fecha_finalizacion else None, 
+                  fecha_finalizacion if fecha_finalizacion and fecha_finalizacion != '' else None, 
                   estado, id, empresa_id))
             
             # Si se finaliza la asignación, liberar el vehículo si existe
@@ -10616,7 +10681,7 @@ def actualizar_asignacion_ruta(id):
 def finalizar_asignacion_ruta(id):
     """Finalizar una asignación activa"""
     try:
-        empresa_id = session.get('ID_Empresa')
+        empresa_id = session.get('id_empresa', 1)
         
         with get_db_cursor(commit=True) as cursor:
             # Obtener el vehículo asignado
@@ -10662,7 +10727,7 @@ def finalizar_asignacion_ruta(id):
 def eliminar_asignacion_ruta(id):
     """Eliminar una asignación (solo si está en estado Finalizada o Suspendida)"""
     try:
-        empresa_id = session.get('ID_Empresa')
+        empresa_id = session.get('id_empresa', 1)
         
         with get_db_cursor(commit=True) as cursor:
             # Verificar que la asignación exista y no esté activa
@@ -10709,36 +10774,37 @@ def eliminar_asignacion_ruta(id):
 def api_disponibilidad_asignaciones():
     """API para verificar disponibilidad de vendedores y vehículos en una fecha"""
     try:
-        empresa_id = session.get('ID_Empresa')
+        empresa_id = session.get('id_empresa')
         fecha = request.args.get('fecha')
         
         if not fecha:
             return jsonify({'error': 'Fecha requerida'}), 400
         
         with get_db_cursor(commit=False) as cursor:
-            # Obtener vendedores disponibles en esa fecha
+            # Obtener vendedores disponibles en esa fecha - CORREGIDA
             cursor.execute("""
-                SELECT u.ID_Usuario, CONCAT(u.Nombre, ' ', u.Apellido) AS Nombre
-                FROM usuarios u
-                WHERE u.ID_Empresa = %s 
-                AND u.Rol = 'Vendedor'
-                AND u.Estado = 'Activo'
-                AND u.ID_Usuario NOT IN (
-                    SELECT ID_Usuario 
-                    FROM asignacion_vendedores 
-                    WHERE Fecha_Asignacion = %s 
-                    AND Estado = 'Activa'
-                    AND ID_Empresa = %s
-                )
-                ORDER BY u.Nombre, u.Apellido
-            """, (empresa_id, fecha, empresa_id))
+            SELECT 
+                u.ID_Usuario, 
+                u.NombreUsuario AS Nombre,  -- ← Esto ya es el nombre del usuario
+                rol.Nombre_Rol AS Rol
+            FROM usuarios u
+            LEFT JOIN roles rol ON u.ID_Rol = rol.ID_Rol
+            WHERE u.ID_Empresa = %s 
+            AND u.Estado = 'ACTIVO'
+            AND u.ID_Rol = 4  -- Solo vendedores
+            ORDER BY u.NombreUsuario
+            """, (empresa_id, empresa_id, fecha, fecha))
             
             vendedores = cursor.fetchall()
             
-            # Obtener vehículos disponibles en esa fecha
+            # Obtener vehículos disponibles en esa fecha - CORREGIDA
             cursor.execute("""
-                SELECT v.ID_Vehiculo, 
-                       CONCAT(v.Placa, ' - ', COALESCE(v.Marca, ''), ' ', COALESCE(v.Modelo, '')) AS Descripcion
+                SELECT 
+                    v.ID_Vehiculo, 
+                    v.Placa,
+                    v.Marca,
+                    v.Modelo,
+                    CONCAT(v.Placa, ' - ', v.Marca, ' ', v.Modelo) AS Descripcion
                 FROM vehiculos v
                 WHERE v.ID_Empresa = %s 
                 AND v.Estado = 'Disponible'
@@ -10747,7 +10813,6 @@ def api_disponibilidad_asignaciones():
                     FROM asignacion_vendedores 
                     WHERE Fecha_Asignacion = %s 
                     AND Estado = 'Activa'
-                    AND ID_Vehiculo IS NOT NULL
                     AND ID_Empresa = %s
                 )
                 ORDER BY v.Placa
@@ -10768,7 +10833,7 @@ def api_disponibilidad_asignaciones():
 def api_asignaciones_vendedor(id_vendedor):
     """API para obtener asignaciones de un vendedor específico"""
     try:
-        empresa_id = session.get('ID_Empresa')
+        empresa_id = session.get('id_empresa', 1)
         
         with get_db_cursor(commit=False) as cursor:
             cursor.execute("""
@@ -10796,7 +10861,7 @@ def api_asignaciones_vendedor(id_vendedor):
         
     except Exception as e:
         return jsonify({'error': str(e)}), 500
-
+    
 # =============================================
 # INVENTARIO - MOVIMIENTOS DE INVENTARIO
 @app.route('/admin/inventario')
