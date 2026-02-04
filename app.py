@@ -10412,7 +10412,6 @@ def admin_asignacion_rutas():
         flash(f'Error al cargar asignación de rutas: {str(e)}', 'error')
         return redirect(url_for('admin_dashboard'))
     
-
 @app.route('/admin/catalogos/rutas/asignacion/crear', methods=['POST'])
 @admin_required
 def crear_asignacion_ruta():
@@ -10510,7 +10509,7 @@ def editar_asignacion_ruta(id):
                 SELECT 
                     a.*,
                     u.ID_Usuario,
-                    CONCAT(u.NombreUsuario) AS Nombre_Vendedor,
+                    u.NombreUsuario AS Nombre_Vendedor,
                     r.Nombre_Ruta,
                     r.ID_Ruta,
                     v.Placa,
