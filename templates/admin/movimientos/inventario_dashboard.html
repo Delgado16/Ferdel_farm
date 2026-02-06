@@ -8,7 +8,7 @@
     <!-- Font Awesome (CSS solo) -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <!-- DataTables CSS -->
-    <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.11.5/css/jquery.dataTables.css">
+    <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.11.5/css/dataTables.bootstrap5.min.css">
     
     <style>
         :root {
@@ -17,56 +17,53 @@
             --color-optimo: #28a745;
             --color-exceso: #17a2b8;
             --color-sin-stock: #6c757d;
+            --color-produccion: #6610f2;
+            --color-compra: #20c997;
         }
         
-        .dashboard-header {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            border-radius: 10px;
-            padding: 20px;
-            margin-bottom: 20px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-        }
-        
+        /* Estilos consistentes con el diseño anterior */
         .stat-card {
-            border-radius: 10px;
-            padding: 20px;
-            margin-bottom: 20px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-            transition: transform 0.3s;
+            border-radius: 0.25rem;
+            padding: 1rem;
+            margin-bottom: 1rem;
+            border: 1px solid #dee2e6;
+            transition: all 0.3s;
         }
         
         .stat-card:hover {
-            transform: translateY(-5px);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
         }
         
         .stat-value {
-            font-size: 2rem;
+            font-size: 1.5rem;
             font-weight: bold;
+            margin-bottom: 0.25rem;
         }
         
         .stat-label {
             color: #6c757d;
-            font-size: 0.9rem;
+            font-size: 0.85rem;
         }
         
         .card-title {
             border-bottom: 2px solid #dee2e6;
-            padding-bottom: 10px;
-            margin-bottom: 15px;
+            padding-bottom: 0.5rem;
+            margin-bottom: 1rem;
             color: #495057;
+            font-weight: 600;
         }
         
         .table-responsive {
-            border-radius: 8px;
+            border-radius: 0.25rem;
             overflow: hidden;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         }
         
         .badge-nivel {
-            padding: 5px 10px;
-            border-radius: 20px;
-            font-weight: 600;
+            padding: 0.25rem 0.5rem;
+            border-radius: 0.25rem;
+            font-weight: 500;
+            font-size: 0.85em;
         }
         
         .badge-sin-stock { background-color: var(--color-sin-stock); color: white; }
@@ -74,10 +71,12 @@
         .badge-bajo { background-color: var(--color-bajo); color: #212529; }
         .badge-optimo { background-color: var(--color-optimo); color: white; }
         .badge-exceso { background-color: var(--color-exceso); color: white; }
+        .badge-produccion { background-color: var(--color-produccion); color: white; }
+        .badge-compra { background-color: var(--color-compra); color: white; }
         
         .progress {
-            height: 10px;
-            margin-bottom: 5px;
+            height: 0.5rem;
+            margin-bottom: 0.25rem;
         }
         
         .progress-bar-critico { background-color: var(--color-critico); }
@@ -85,37 +84,179 @@
         .progress-bar-optimo { background-color: var(--color-optimo); }
         .progress-bar-exceso { background-color: var(--color-exceso); }
         
+        /* Mejoras específicas para gráficos */
         .chart-container {
             position: relative;
-            height: 300px;
-            margin-bottom: 20px;
+            height: 280px; /* Aumentado de 250px */
+            margin-bottom: 1rem;
+        }
+        
+        .chart-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+            color: #495057;
+        }
+        
+        .chart-subtitle {
+            font-size: 0.85rem;
+            color: #6c757d;
+            margin-bottom: 1.5rem;
+        }
+        
+        .chart-legend {
+            display: flex;
+            justify-content: center;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            margin-top: 1rem;
+            padding: 0.5rem;
+            background-color: #f8f9fa;
+            border-radius: 0.25rem;
+        }
+        
+        .legend-item {
+            display: flex;
+            align-items: center;
+            font-size: 0.85rem;
+            color: #495057;
+        }
+        
+        .legend-color {
+            width: 12px;
+            height: 12px;
+            border-radius: 2px;
+            margin-right: 0.25rem;
+        }
+        
+        /* Colores específicos para el gráfico de barras */
+        .color-sin-stock { background-color: #6c757d; }
+        .color-critico { background-color: #dc3545; }
+        .color-bajo { background-color: #ffc107; }
+        .color-optimo { background-color: #28a745; }
+        .color-exceso { background-color: #17a2b8; }
+        
+        /* Tooltip personalizado */
+        .chart-tooltip {
+            background-color: rgba(0, 0, 0, 0.8) !important;
+            border-radius: 0.25rem !important;
+            border: 1px solid #dee2e6 !important;
+            padding: 0.5rem !important;
+            font-size: 0.85rem !important;
         }
         
         .filter-section {
-            background: white;
-            padding: 15px;
-            border-radius: 8px;
-            margin-bottom: 20px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            background: #fff;
+            padding: 1rem;
+            border-radius: 0.25rem;
+            margin-bottom: 1rem;
+            border: 1px solid #dee2e6;
         }
         
         .action-buttons {
             position: fixed;
-            bottom: 20px;
-            right: 20px;
+            bottom: 1rem;
+            right: 1rem;
             z-index: 1000;
         }
         
         .btn-action {
-            width: 50px;
-            height: 50px;
+            width: 3rem;
+            height: 3rem;
             border-radius: 50%;
-            margin-bottom: 10px;
-            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+            margin-bottom: 0.5rem;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         }
         
+        /* Estilos específicos para las nuevas secciones */
+        .entradas-dia-section {
+            border-left: 3px solid;
+            padding-left: 1rem;
+            margin-bottom: 1rem;
+        }
+        
+        .entradas-produccion {
+            border-left-color: var(--color-produccion);
+        }
+        
+        .entradas-compras {
+            border-left-color: var(--color-compra);
+        }
+        
+        .entradas-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+        
+        .entradas-total {
+            font-size: 1rem;
+            font-weight: bold;
+            color: #495057;
+        }
+        
+        .table-entradas {
+            font-size: 0.85rem;
+        }
+        
+        .table-entradas th {
+            font-weight: 600;
+            background-color: #f8f9fa;
+        }
+        
+        .table-entradas td {
+            vertical-align: middle;
+        }
+        
+        .no-data {
+            text-align: center;
+            padding: 2rem;
+            color: #6c757d;
+            font-style: italic;
+        }
+        
+        /* Ajustes para DataTables */
         .dataTables_wrapper {
-            padding: 10px;
+            padding: 0.5rem;
+        }
+        
+        .dataTables_wrapper .dataTables_length,
+        .dataTables_wrapper .dataTables_filter {
+            margin-bottom: 1rem;
+        }
+        
+        /* Badges consistentes */
+        .badge {
+            font-size: 0.85em;
+            padding: 0.4em 0.8em;
+            font-weight: 500;
+            letter-spacing: 0.3px;
+        }
+        
+        /* Responsive */
+        @media (max-width: 768px) {
+            .stat-value {
+                font-size: 1.25rem;
+            }
+            
+            .chart-container {
+                height: 220px;
+            }
+            
+            .btn-action {
+                width: 2.5rem;
+                height: 2.5rem;
+            }
+            
+            .chart-legend {
+                font-size: 0.75rem;
+            }
+        }
+        
+        /* Efecto hover para gráficos */
+        canvas:hover {
+            cursor: pointer;
         }
         
         /* Evitar conflictos con Bootstrap Icons */
@@ -126,69 +267,74 @@
 {% endblock %}
 
 {% block content %}
-<div class="container-fluid py-4">
+<div class="container-fluid">
     <!-- Header -->
-    <div class="dashboard-header">
-        <div class="row align-items-center">
-            <div class="col-md-8">
-                <h1><i class="fas fa-boxes"></i> Dashboard de Inventario</h1>
-                <p class="mb-0">Resumen completo del inventario y bodegas</p>
-                <small class="text-light">Última actualización: {{ fecha_actual }}</small>
-            </div>
-            <div class="col-md-4 text-end">
-                <button class="btn btn-light me-2" onclick="exportarReporte()">
-                    <i class="fas fa-download"></i> Exportar
-                </button>
-                <button class="btn btn-light" onclick="actualizarDashboard()">
-                    <i class="fas fa-sync-alt"></i> Actualizar
-                </button>
-            </div>
+    <div class="d-flex justify-content-between align-items-center py-4">
+        <div>
+            <h2 class="mt-4">
+                <i class="fas fa-boxes me-1"></i> Dashboard de Inventario
+            </h2>
+            <p class="text-muted mb-0">Resumen completo del inventario y bodegas | Entradas del día: {{ fecha_filtro }}</p>
+            <small class="text-muted">Última actualización: {{ fecha_actual }}</small>
+        </div>
+        <div>
+            <button class="btn btn-outline-secondary me-2" onclick="exportarReporte()" title="Exportar Reporte">
+                <i class="fas fa-download"></i>
+            </button>
+            <button class="btn btn-outline-secondary" onclick="actualizarDashboard()" title="Actualizar Dashboard">
+                <i class="fas fa-sync-alt"></i>
+            </button>
         </div>
     </div>
 
     <!-- Filtros -->
-    <div class="filter-section">
-        <div class="row">
-            <div class="col-md-3">
-                <label class="form-label">Bodega</label>
-                <select class="form-select" id="filtro-bodega">
-                    <option value="">Todas las bodegas</option>
-                    {% for bodega in inventario_bodegas %}
-                    <option value="{{ bodega.ID_Bodega }}">{{ bodega.Bodega }}</option>
-                    {% endfor %}
-                </select>
-            </div>
-            <div class="col-md-3">
-                <label class="form-label">Categoría</label>
-                <select class="form-select" id="filtro-categoria">
-                    <option value="">Todas las categorías</option>
-                    {% for cat in distribucion_categorias %}
-                    <option value="{{ cat.Categoria }}">{{ cat.Categoria }}</option>
-                    {% endfor %}
-                </select>
-            </div>
-            <div class="col-md-3">
-                <label class="form-label">Nivel de Stock</label>
-                <select class="form-select" id="filtro-nivel">
-                    <option value="">Todos los niveles</option>
-                    <option value="SIN_STOCK">Sin Stock</option>
-                    <option value="CRITICO">Crítico</option>
-                    <option value="BAJO">Bajo</option>
-                    <option value="OPTIMO">Óptimo</option>
-                    <option value="EXCESO">Exceso</option>
-                </select>
-            </div>
-            <div class="col-md-3 d-flex align-items-end">
-                <button class="btn btn-primary w-100" onclick="aplicarFiltros()">
-                    <i class="fas fa-filter"></i> Aplicar Filtros
-                </button>
+    <div class="card mb-4">
+        <div class="card-header">
+            <span><i class="fas fa-filter me-1"></i> Filtros de Búsqueda</span>
+        </div>
+        <div class="card-body">
+            <div class="row g-3">
+                <div class="col-md-3">
+                    <label class="form-label">Bodega</label>
+                    <select class="form-select" id="filtro-bodega">
+                        <option value="">Todas las bodegas</option>
+                        {% for bodega in inventario_bodegas %}
+                        <option value="{{ bodega.ID_Bodega }}">{{ bodega.Bodega }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Categoría</label>
+                    <select class="form-select" id="filtro-categoria">
+                        <option value="">Todas las categorías</option>
+                        {% for cat in distribucion_categorias %}
+                        <option value="{{ cat.Categoria }}">{{ cat.Categoria }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Nivel de Stock</label>
+                    <select class="form-select" id="filtro-nivel">
+                        <option value="">Todos los niveles</option>
+                        <option value="SIN_STOCK">Sin Stock</option>
+                        <option value="CRITICO">Crítico</option>
+                        <option value="BAJO">Bajo</option>
+                        <option value="OPTIMO">Óptimo</option>
+                        <option value="EXCESO">Exceso</option>
+                    </select>
+                </div>
+                <div class="col-md-3 d-flex align-items-end">
+                    <button class="btn btn-primary w-100" onclick="aplicarFiltros()">
+                        <i class="fas fa-filter me-1"></i> Aplicar Filtros
+                    </button>
+                </div>
             </div>
         </div>
     </div>
 
     <!-- Estadísticas Rápidas -->
     <div class="row mb-4">
-        <div class="col-md-3">
+        <div class="col-md-2">
             <div class="stat-card bg-white">
                 <div class="d-flex justify-content-between align-items-center">
                     <div>
@@ -201,7 +347,7 @@
                 </div>
             </div>
         </div>
-        <div class="col-md-3">
+        <div class="col-md-2">
             <div class="stat-card bg-white">
                 <div class="d-flex justify-content-between align-items-center">
                     <div>
@@ -214,7 +360,7 @@
                 </div>
             </div>
         </div>
-        <div class="col-md-3">
+        <div class="col-md-2">
             <div class="stat-card bg-white">
                 <div class="d-flex justify-content-between align-items-center">
                     <div>
@@ -227,16 +373,157 @@
                 </div>
             </div>
         </div>
-        <div class="col-md-3">
+        <div class="col-md-2">
             <div class="stat-card bg-white">
                 <div class="d-flex justify-content-between align-items-center">
                     <div>
                         <div class="stat-value text-info">
                             C${{ "{:,.2f}".format(estadisticas.Valor_Total_Inventario|default(0)) }}
                         </div>
-                        <div class="stat-label">Valor Total Inventario</div>
+                        <div class="stat-label">Valor Total</div>
                     </div>
                     <i class="fas fa-dollar-sign fa-2x text-info"></i>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-2">
+            <div class="stat-card bg-white">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <div class="stat-value" style="color: var(--color-produccion);">
+                            {{ datos_graficos.total_produccion_hoy|default(0) }}
+                        </div>
+                        <div class="stat-label">Producción Hoy</div>
+                    </div>
+                    <i class="fas fa-industry fa-2x" style="color: var(--color-produccion);"></i>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-2">
+            <div class="stat-card bg-white">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <div class="stat-value" style="color: var(--color-compra);">
+                            {{ datos_graficos.total_compras_hoy|default(0) }}
+                        </div>
+                        <div class="stat-label">Compras Hoy</div>
+                    </div>
+                    <i class="fas fa-shopping-cart fa-2x" style="color: var(--color-compra);"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- NUEVA SECCIÓN: Entradas del Día -->
+    <div class="row mb-4">
+        <!-- Entradas por Producción -->
+        <div class="col-md-6">
+            <div class="card entradas-dia-section entradas-produccion">
+                <div class="card-header">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <span>
+                            <i class="fas fa-industry me-1" style="color: var(--color-produccion);"></i> 
+                            Entradas por Producción - Hoy
+                        </span>
+                        <span class="badge badge-produccion">
+                            {{ datos_graficos.productos_produccion_hoy|default(0) }} productos
+                        </span>
+                    </div>
+                </div>
+                <div class="card-body">
+                    {% if entradas_produccion_hoy %}
+                    <div class="table-responsive">
+                        <table class="table table-sm table-entradas">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Categoría</th>
+                                    <th>Producto</th>
+                                    <th>Código</th>
+                                    <th class="text-end">Cantidad</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for item in entradas_produccion_hoy %}
+                                <tr>
+                                    <td>{{ item.Categoria }}</td>
+                                    <td>{{ item.Producto }}</td>
+                                    <td><code>{{ item.Codigo_Producto }}</code></td>
+                                    <td class="text-end fw-bold">{{ item.Cantidad_Total_Ingresada }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                            <tfoot class="table-light">
+                                <tr>
+                                    <td colspan="3" class="text-end"><strong>Total:</strong></td>
+                                    <td class="text-end fw-bold">
+                                        {{ datos_graficos.total_produccion_hoy|default(0) }}
+                                    </td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="no-data">
+                        <i class="fas fa-box-open fa-2x mb-3" style="color: #dee2e6;"></i>
+                        <p>No hay entradas por producción hoy</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        
+        <!-- Entradas por Compras -->
+        <div class="col-md-6">
+            <div class="card entradas-dia-section entradas-compras">
+                <div class="card-header">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <span>
+                            <i class="fas fa-shopping-cart me-1" style="color: var(--color-compra);"></i> 
+                            Entradas por Compras - Hoy
+                        </span>
+                        <span class="badge badge-compra">
+                            {{ datos_graficos.productos_compras_hoy|default(0) }} productos
+                        </span>
+                    </div>
+                </div>
+                <div class="card-body">
+                    {% if entradas_compras_hoy %}
+                    <div class="table-responsive">
+                        <table class="table table-sm table-entradas">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Categoría</th>
+                                    <th>Producto</th>
+                                    <th>Código</th>
+                                    <th class="text-end">Cantidad</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for item in entradas_compras_hoy %}
+                                <tr>
+                                    <td>{{ item.Categoria }}</td>
+                                    <td>{{ item.Producto }}</td>
+                                    <td><code>{{ item.Codigo_Producto }}</code></td>
+                                    <td class="text-end fw-bold">{{ item.Cantidad_Total_Comprada }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                            <tfoot class="table-light">
+                                <tr>
+                                    <td colspan="3" class="text-end"><strong>Total:</strong></td>
+                                    <td class="text-end fw-bold">
+                                        {{ datos_graficos.total_compras_hoy|default(0) }}
+                                    </td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="no-data">
+                        <i class="fas fa-cart-plus fa-2x mb-3" style="color: #dee2e6;"></i>
+                        <p>No hay entradas por compras hoy</p>
+                    </div>
+                    {% endif %}
                 </div>
             </div>
         </div>
@@ -246,24 +533,52 @@
     <div class="row mb-4">
         <div class="col-md-6">
             <div class="card">
+                <div class="card-header">
+                    <span><i class="fas fa-chart-pie me-1"></i> Distribución por Categoría</span>
+                </div>
                 <div class="card-body">
-                    <h5 class="card-title">
-                        <i class="fas fa-chart-pie"></i> Distribución por Categoría
-                    </h5>
                     <div class="chart-container">
                         <canvas id="graficoCategorias"></canvas>
+                    </div>
+                    <div class="chart-subtitle text-center">
+                        Valor total por categoría de producto
                     </div>
                 </div>
             </div>
         </div>
         <div class="col-md-6">
             <div class="card">
+                <div class="card-header">
+                    <span><i class="fas fa-chart-bar me-1"></i> Distribución de Niveles de Stock</span>
+                </div>
                 <div class="card-body">
-                    <h5 class="card-title">
-                        <i class="fas fa-chart-bar"></i> Niveles de Stock
-                    </h5>
                     <div class="chart-container">
                         <canvas id="graficoNivelesStock"></canvas>
+                    </div>
+                    <div class="chart-legend">
+                        <div class="legend-item">
+                            <div class="legend-color color-sin-stock"></div>
+                            <span>Sin Stock</span>
+                        </div>
+                        <div class="legend-item">
+                            <div class="legend-color color-critico"></div>
+                            <span>Crítico</span>
+                        </div>
+                        <div class="legend-item">
+                            <div class="legend-color color-bajo"></div>
+                            <span>Bajo</span>
+                        </div>
+                        <div class="legend-item">
+                            <div class="legend-color color-optimo"></div>
+                            <span>Óptimo</span>
+                        </div>
+                        <div class="legend-item">
+                            <div class="legend-color color-exceso"></div>
+                            <span>Exceso</span>
+                        </div>
+                    </div>
+                    <div class="chart-subtitle text-center">
+                        Cantidad de productos por nivel de inventario
                     </div>
                 </div>
             </div>
@@ -271,65 +586,72 @@
     </div>
 
     <!-- Productos por Nivel de Stock -->
-    <div class="row mb-4">
-        <div class="col-12">
-            <div class="card">
-                <div class="card-body">
-                    <h5 class="card-title">
-                        <i class="fas fa-exclamation-circle"></i> Productos por Nivel de Stock
-                    </h5>
-                    <div class="table-responsive">
-                        <table id="tablaProductos" class="table table-hover">
-                            <thead>
-                                <tr>
-                                    <th>Código</th>
-                                    <th>Descripción</th>
-                                    <th>Categoría</th>
-                                    <th>Stock Actual</th>
-                                    <th>Stock Mínimo</th>
-                                    <th>Nivel</th>
-                                    <th>Valor en Inventario</th>
-                                    <th>Acciones</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for producto in productos_nivel %}
-                                <tr>
-                                    <td>{{ producto.COD_Producto }}</td>
-                                    <td>{{ producto.Descripcion }}</td>
-                                    <td>{{ producto.Categoria }}</td>
-                                    <td>{{ producto.Stock_Actual }}</td>
-                                    <td>{{ producto.Stock_Minimo }}</td>
-                                    <td>
-                                        {% if producto.Nivel_Stock == 'SIN_STOCK' %}
-                                            <span class="badge badge-sin-stock">Sin Stock</span>
-                                        {% elif producto.Nivel_Stock == 'CRITICO' %}
-                                            <span class="badge badge-critico">Crítico</span>
-                                        {% elif producto.Nivel_Stock == 'BAJO' %}
-                                            <span class="badge badge-bajo">Bajo</span>
-                                        {% elif producto.Nivel_Stock == 'OPTIMO' %}
-                                            <span class="badge badge-optimo">Óptimo</span>
-                                        {% elif producto.Nivel_Stock == 'EXCESO' %}
-                                            <span class="badge badge-exceso">Exceso</span>
-                                        {% endif %}
-                                    </td>
-                                    <td>C${{ "{:,.2f}".format(producto.Valor_Inventario) }}</td>
-                                    <td>
-                                        <button class="btn btn-sm btn-outline-primary" 
-                                                onclick="verDetalleProducto({{ producto.ID_Producto }})">
-                                            <i class="fas fa-eye"></i>
-                                        </button>
-                                        <button class="btn btn-sm btn-outline-success" 
-                                                onclick="realizarMovimiento({{ producto.ID_Producto }})">
-                                            <i class="fas fa-exchange-alt"></i>
-                                        </button>
-                                    </td>
-                                </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
-                    </div>
+    <div class="card mb-4">
+        <div class="card-header">
+            <div class="d-flex justify-content-between align-items-center">
+                <span><i class="fas fa-exclamation-circle me-1"></i> Productos por Nivel de Stock</span>
+                <div>
+                    <button class="btn btn-sm btn-outline-primary" onclick="generarReporteStock()">
+                        <i class="fas fa-file-alt me-1"></i> Reporte
+                    </button>
                 </div>
+            </div>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table id="tablaProductos" class="table table-bordered table-hover" width="100%" cellspacing="0">
+                    <thead class="table-dark">
+                        <tr>
+                            <th>Código</th>
+                            <th>Descripción</th>
+                            <th>Categoría</th>
+                            <th>Stock Actual</th>
+                            <th>Stock Mínimo</th>
+                            <th>Nivel</th>
+                            <th>Valor en Inventario</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for producto in productos_nivel %}
+                        <tr>
+                            <td><code>{{ producto.COD_Producto }}</code></td>
+                            <td>{{ producto.Descripcion }}</td>
+                            <td>{{ producto.Categoria }}</td>
+                            <td class="text-center">{{ producto.Stock_Actual }}</td>
+                            <td class="text-center">{{ producto.Stock_Minimo }}</td>
+                            <td class="text-center">
+                                {% if producto.Nivel_Stock == 'SIN_STOCK' %}
+                                    <span class="badge badge-sin-stock">Sin Stock</span>
+                                {% elif producto.Nivel_Stock == 'CRITICO' %}
+                                    <span class="badge badge-critico">Crítico</span>
+                                {% elif producto.Nivel_Stock == 'BAJO' %}
+                                    <span class="badge badge-bajo">Bajo</span>
+                                {% elif producto.Nivel_Stock == 'OPTIMO' %}
+                                    <span class="badge badge-optimo">Óptimo</span>
+                                {% elif producto.Nivel_Stock == 'EXCESO' %}
+                                    <span class="badge badge-exceso">Exceso</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-end">C${{ "{:,.2f}".format(producto.Valor_Inventario) }}</td>
+                            <td class="text-center">
+                                <div class="btn-group btn-group-sm" role="group">
+                                    <button class="btn btn-outline-info" 
+                                            onclick="verDetalleProducto({{ producto.ID_Producto }})"
+                                            title="Ver Detalles">
+                                        <i class="fas fa-eye"></i>
+                                    </button>
+                                    <button class="btn btn-outline-success" 
+                                            onclick="realizarMovimiento({{ producto.ID_Producto }})"
+                                            title="Realizar Movimiento">
+                                        <i class="fas fa-exchange-alt"></i>
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
             </div>
         </div>
     </div>
@@ -338,35 +660,37 @@
     <div class="row mb-4">
         <div class="col-md-6">
             <div class="card">
+                <div class="card-header">
+                    <span><i class="fas fa-warehouse me-1"></i> Inventario por Bodega</span>
+                </div>
                 <div class="card-body">
-                    <h5 class="card-title">
-                        <i class="fas fa-warehouse"></i> Inventario por Bodega
-                    </h5>
                     <div class="table-responsive">
-                        <table class="table table-sm">
-                            <thead>
+                        <table class="table table-bordered table-hover table-sm">
+                            <thead class="table-light">
                                 <tr>
                                     <th>Bodega</th>
-                                    <th>Productos</th>
-                                    <th>Existencias</th>
-                                    <th>Valor</th>
-                                    <th>% Stock</th>
+                                    <th class="text-center">Productos</th>
+                                    <th class="text-center">Existencias</th>
+                                    <th class="text-end">Valor</th>
+                                    <th class="text-center">% Stock</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {% for bodega in inventario_bodegas %}
                                 <tr>
                                     <td>{{ bodega.Bodega }}</td>
-                                    <td>{{ bodega.Productos_Diferentes }}</td>
-                                    <td>{{ bodega.Total_Existencias }}</td>
-                                    <td>C${{ "{:,.2f}".format(bodega.Valor_Total) }}</td>
+                                    <td class="text-center">{{ bodega.Productos_Diferentes }}</td>
+                                    <td class="text-center">{{ bodega.Total_Existencias }}</td>
+                                    <td class="text-end">C${{ "{:,.2f}".format(bodega.Valor_Total) }}</td>
                                     <td>
-                                        <div class="progress">
-                                            <div class="progress-bar {% if bodega.Porcentaje_Stock_Promedio < 50 %}bg-danger{% elif bodega.Porcentaje_Stock_Promedio < 80 %}bg-warning{% else %}bg-success{% endif %}" 
-                                                 style="width: {{ bodega.Porcentaje_Stock_Promedio }}%">
+                                        <div class="d-flex align-items-center">
+                                            <div class="progress flex-grow-1 me-2">
+                                                <div class="progress-bar {% if bodega.Porcentaje_Stock_Promedio < 50 %}bg-danger{% elif bodega.Porcentaje_Stock_Promedio < 80 %}bg-warning{% else %}bg-success{% endif %}" 
+                                                     style="width: {{ bodega.Porcentaje_Stock_Promedio }}%">
+                                                </div>
                                             </div>
+                                            <span>{{ "%.1f"|format(bodega.Porcentaje_Stock_Promedio) }}%</span>
                                         </div>
-                                        {{ "%.1f"|format(bodega.Porcentaje_Stock_Promedio) }}%
                                     </td>
                                 </tr>
                                 {% endfor %}
@@ -378,29 +702,29 @@
         </div>
         <div class="col-md-6">
             <div class="card">
+                <div class="card-header">
+                    <span><i class="fas fa-shopping-cart me-1"></i> Sugerencias de Reorden</span>
+                </div>
                 <div class="card-body">
-                    <h5 class="card-title">
-                        <i class="fas fa-shopping-cart"></i> Sugerencias de Reorden
-                    </h5>
                     <div class="table-responsive">
-                        <table class="table table-sm">
-                            <thead>
+                        <table class="table table-bordered table-hover table-sm">
+                            <thead class="table-light">
                                 <tr>
                                     <th>Producto</th>
-                                    <th>Stock Actual</th>
-                                    <th>Requerido</th>
-                                    <th>Valor</th>
-                                    <th>Prioridad</th>
+                                    <th class="text-center">Stock Actual</th>
+                                    <th class="text-center">Requerido</th>
+                                    <th class="text-end">Valor</th>
+                                    <th class="text-center">Prioridad</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {% for sugerencia in sugerencias_reorden %}
                                 <tr>
                                     <td>{{ sugerencia.Descripcion[:30] }}...</td>
-                                    <td>{{ sugerencia.Stock_Actual }}</td>
-                                    <td>{{ sugerencia.Cantidad_Requerida }}</td>
-                                    <td>C${{ "{:,.2f}".format(sugerencia.Valor_Reorden) }}</td>
-                                    <td>
+                                    <td class="text-center">{{ sugerencia.Stock_Actual }}</td>
+                                    <td class="text-center">{{ sugerencia.Cantidad_Requerida }}</td>
+                                    <td class="text-end">C${{ "{:,.2f}".format(sugerencia.Valor_Reorden) }}</td>
+                                    <td class="text-center">
                                         {% if sugerencia.Prioridad == 'URGENTE' %}
                                             <span class="badge bg-danger">URGENTE</span>
                                         {% elif sugerencia.Prioridad == 'ALTA' %}
@@ -411,80 +735,6 @@
                                             <span class="badge bg-secondary">BAJA</span>
                                         {% endif %}
                                     </td>
-                                </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Top Productos y Movimientos -->
-    <div class="row mb-4">
-        <div class="col-md-6">
-            <div class="card">
-                <div class="card-body">
-                    <h5 class="card-title">
-                        <i class="fas fa-trophy"></i> Top 10 Productos Más Valiosos
-                    </h5>
-                    <div class="table-responsive">
-                        <table class="table table-sm">
-                            <thead>
-                                <tr>
-                                    <th>Producto</th>
-                                    <th>Categoría</th>
-                                    <th>Stock</th>
-                                    <th>Valor Total</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for producto in top_productos_valiosos %}
-                                <tr>
-                                    <td>{{ producto.Descripcion[:25] }}...</td>
-                                    <td>{{ producto.Categoria }}</td>
-                                    <td>{{ producto.Stock_Total }}</td>
-                                    <td class="fw-bold">${{ "{:,.2f}".format(producto.Valor_Total) }}</td>
-                                </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-6">
-            <div class="card">
-                <div class="card-body">
-                    <h5 class="card-title">
-                        <i class="fas fa-history"></i> Últimos Movimientos
-                    </h5>
-                    <div class="table-responsive">
-                        <table class="table table-sm">
-                            <thead>
-                                <tr>
-                                    <th>Fecha</th>
-                                    <th>Tipo</th>
-                                    <th>Cantidad</th>
-                                    <th>Valor</th>
-                                    <th>Productos</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for movimiento in movimientos_diarios %}
-                                <tr>
-                                    <td>{{ movimiento.Fecha.strftime('%d/%m') if movimiento.Fecha else '' }}</td>
-                                    <td>
-                                        {% if movimiento.Direccion == 'ENTRADA' %}
-                                            <span class="badge bg-success">{{ movimiento.Tipo_Movimiento[:20] }}</span>
-                                        {% else %}
-                                            <span class="badge bg-danger">{{ movimiento.Tipo_Movimiento[:20] }}</span>
-                                        {% endif %}
-                                    </td>
-                                    <td>{{ movimiento.Total_Cantidad }}</td>
-                                    <td>C${{ "{:,.2f}".format(movimiento.Valor_Total) }}</td>
-                                    <td>{{ movimiento.Productos_Diferentes }}</td>
                                 </tr>
                                 {% endfor %}
                             </tbody>
@@ -521,26 +771,74 @@
     <!-- jQuery para DataTables (debe cargarse antes que DataTables) -->
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <!-- DataTables JS -->
-    <script type="text/javascript" charset="utf8" src="https://cdn.datatables.net/1.11.5/js/jquery.dataTables.js"></script>
+    <script type="text/javascript" charset="utf8" src="https://cdn.datatables.net/1.11.5/js/jquery.dataTables.min.js"></script>
+    <script type="text/javascript" charset="utf8" src="https://cdn.datatables.net/1.11.5/js/dataTables.bootstrap5.min.js"></script>
     
     <script>
         // Inicializar DataTable cuando el DOM esté listo
-        document.addEventListener('DOMContentLoaded', function() {
-            // Verificar que jQuery esté cargado
-            if (typeof jQuery === 'undefined') {
-                console.error('jQuery no está cargado');
-                return;
-            }
-            
+        $(document).ready(function() {
             // Inicializar DataTable
-            $('#tablaProductos').DataTable({
+            var table = $('#tablaProductos').DataTable({
+                "order": [[5, 'asc']],
                 "language": {
-                    "url": "//cdn.datatables.net/plug-ins/1.11.5/i18n/es-ES.json"
+                    "url": "//cdn.datatables.net/plug-ins/1.11.5/i18n/es-ES.json",
+                    "search": "Buscar:",
+                    "lengthMenu": "Mostrar _MENU_ registros por página",
+                    "zeroRecords": "No se encontraron registros",
+                    "info": "Mostrando página _PAGE_ de _PAGES_",
+                    "infoEmpty": "No hay registros disponibles",
+                    "infoFiltered": "(filtrado de _MAX_ registros totales)",
+                    "paginate": {
+                        "first": "Primera",
+                        "last": "Última",
+                        "next": "Siguiente",
+                        "previous": "Anterior"
+                    }
                 },
+                "responsive": true,
                 "pageLength": 25,
-                "order": [[5, 'asc']] // Ordenar por nivel
+                "lengthMenu": [10, 25, 50, 100],
+                "columnDefs": [
+                    { 
+                        "orderable": false, 
+                        "targets": [7], // Deshabilitar orden en columna Acciones
+                        "className": "text-center"
+                    },
+                    { "width": "10%", "targets": 0 }, // Código
+                    { "width": "25%", "targets": 1 }, // Descripción
+                    { "width": "15%", "targets": 2 }, // Categoría
+                    { 
+                        "width": "8%", 
+                        "targets": 3, // Stock Actual
+                        "className": "text-center"
+                    },
+                    { 
+                        "width": "8%", 
+                        "targets": 4, // Stock Mínimo
+                        "className": "text-center"
+                    },
+                    { 
+                        "width": "10%", 
+                        "targets": 5, // Nivel
+                        "className": "text-center"
+                    },
+                    { 
+                        "width": "12%", 
+                        "targets": 6, // Valor
+                        "className": "text-end"
+                    },
+                    { 
+                        "width": "12%", 
+                        "targets": 7, // Acciones
+                        "className": "text-center"
+                    }
+                ],
+                "dom": '<"row mb-3"<"col-sm-12 col-md-6"l><"col-sm-12 col-md-6 d-flex justify-content-md-end"f>>rt<"row"<"col-sm-12 col-md-6"i><"col-sm-12 col-md-6"p>>',
+                "initComplete": function(settings, json) {
+                    console.log('✅ DataTable de productos inicializado');
+                }
             });
-            
+
             // Inicializar gráficos
             inicializarGraficos();
         });
@@ -549,9 +847,14 @@
         const datosGraficos = {
             categorias: {{ datos_graficos.categorias|tojson }},
             valoresCategorias: {{ datos_graficos.valores_categorias|tojson }},
-            productosBajos: {{ datos_graficos.productos_bajos|tojson }},
-            nivelesStock: {{ datos_graficos.niveles_stock|tojson }}
+            nivelesStock: {{ datos_graficos.niveles_stock|tojson }},
+            totalProduccionHoy: {{ datos_graficos.total_produccion_hoy|default(0) }},
+            totalComprasHoy: {{ datos_graficos.total_compras_hoy|default(0) }}
         };
+
+        // Variable global para almacenar los gráficos
+        let graficoCategorias = null;
+        let graficoNivelesStock = null;
 
         function inicializarGraficos() {
             // Verificar que Chart.js esté cargado
@@ -563,7 +866,7 @@
             // Gráfico de pastel: Distribución por categoría
             const ctx1 = document.getElementById('graficoCategorias');
             if (ctx1) {
-                new Chart(ctx1.getContext('2d'), {
+                graficoCategorias = new Chart(ctx1.getContext('2d'), {
                     type: 'doughnut',
                     data: {
                         labels: datosGraficos.categorias,
@@ -573,7 +876,9 @@
                                 '#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0',
                                 '#9966FF', '#FF9F40', '#C9CBCF', '#7CBF4F',
                                 '#E74C3C', '#3498DB'
-                            ]
+                            ],
+                            borderWidth: 1,
+                            borderColor: '#fff'
                         }]
                     },
                     options: {
@@ -582,6 +887,11 @@
                         plugins: {
                             legend: {
                                 position: 'right',
+                                labels: {
+                                    padding: 15,
+                                    usePointStyle: true,
+                                    pointStyle: 'circle'
+                                }
                             },
                             tooltip: {
                                 callbacks: {
@@ -590,56 +900,149 @@
                                         if (label) {
                                             label += ': ';
                                         }
-                                        label += '$' + context.parsed.toLocaleString();
+                                        label += 'C$ ' + context.parsed.toLocaleString();
                                         return label;
                                     }
                                 }
                             }
+                        },
+                        cutout: '60%',
+                        animation: {
+                            animateScale: true,
+                            animateRotate: true
                         }
                     }
                 });
             }
 
-            // Gráfico de barras: Niveles de stock
+            // Gráfico de barras: Niveles de stock mejorado
             const ctx2 = document.getElementById('graficoNivelesStock');
             if (ctx2) {
-                new Chart(ctx2.getContext('2d'), {
+                graficoNivelesStock = new Chart(ctx2.getContext('2d'), {
                     type: 'bar',
                     data: {
-                        labels: datosGraficos.nivelesStock,
+                        labels: ['Sin Stock', 'Crítico', 'Bajo', 'Óptimo', 'Exceso'],
                         datasets: [{
-                            label: 'Cantidad de Productos',
-                            data: datosGraficos.productosBajos,
+                            label: 'Productos',
+                            data: [
+                                datosGraficos.nivelesStock?.SIN_STOCK || 0,
+                                datosGraficos.nivelesStock?.CRITICO || 0,
+                                datosGraficos.nivelesStock?.BAJO || 0,
+                                datosGraficos.nivelesStock?.OPTIMO || 0,
+                                datosGraficos.nivelesStock?.EXCESO || 0
+                            ],
                             backgroundColor: [
                                 'rgba(108, 117, 125, 0.8)',
                                 'rgba(220, 53, 69, 0.8)',
+                                'rgba(255, 193, 7, 0.8)',
                                 'rgba(40, 167, 69, 0.8)',
                                 'rgba(23, 162, 184, 0.8)'
                             ],
                             borderColor: [
-                                'rgb(108, 117, 125)',
+                                'rgb(73, 80, 87)',
                                 'rgb(220, 53, 69)',
+                                'rgb(255, 193, 7)',
                                 'rgb(40, 167, 69)',
                                 'rgb(23, 162, 184)'
                             ],
-                            borderWidth: 1
+                            borderWidth: 1,
+                            borderRadius: 4,
+                            borderSkipped: false,
                         }]
                     },
                     options: {
                         responsive: true,
                         maintainAspectRatio: false,
-                        scales: {
-                            y: {
-                                beginAtZero: true,
-                                ticks: {
-                                    callback: function(value) {
-                                        return value;
+                        plugins: {
+                            legend: {
+                                display: false
+                            },
+                            tooltip: {
+                                backgroundColor: 'rgba(0, 0, 0, 0.85)',
+                                titleColor: '#fff',
+                                bodyColor: '#fff',
+                                borderColor: '#dee2e6',
+                                borderWidth: 1,
+                                cornerRadius: 4,
+                                padding: 10,
+                                displayColors: true,
+                                callbacks: {
+                                    label: function(context) {
+                                        let label = context.dataset.label || '';
+                                        if (label) {
+                                            label += ': ';
+                                        }
+                                        label += context.parsed.y + ' productos';
+                                        return label;
+                                    },
+                                    afterLabel: function(context) {
+                                        const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                        if (total > 0) {
+                                            const percentage = ((context.parsed.y / total) * 100).toFixed(1);
+                                            return `(${percentage}% del total)`;
+                                        }
+                                        return '(0%)';
                                     }
                                 }
                             }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                grid: {
+                                    color: 'rgba(0, 0, 0, 0.05)'
+                                },
+                                ticks: {
+                                    stepSize: 1,
+                                    callback: function(value) {
+                                        return Number.isInteger(value) ? value : '';
+                                    }
+                                },
+                                title: {
+                                    display: true,
+                                    text: 'Cantidad de Productos',
+                                    color: '#6c757d',
+                                    font: {
+                                        size: 12,
+                                        weight: '500'
+                                    }
+                                }
+                            },
+                            x: {
+                                grid: {
+                                    display: false
+                                },
+                                ticks: {
+                                    font: {
+                                        size: 11
+                                    }
+                                }
+                            }
+                        },
+                        animation: {
+                            duration: 1000,
+                            easing: 'easeOutQuart'
+                        },
+                        interaction: {
+                            intersect: false,
+                            mode: 'index'
                         }
                     }
                 });
+            }
+        }
+
+        // Función para actualizar solo el gráfico de barras
+        function actualizarGraficoBarras(nuevosDatos) {
+            if (graficoNivelesStock) {
+                graficoNivelesStock.data.datasets[0].data = [
+                    nuevosDatos.SIN_STOCK || 0,
+                    nuevosDatos.CRITICO || 0,
+                    nuevosDatos.BAJO || 0,
+                    nuevosDatos.OPTIMO || 0,
+                    nuevosDatos.EXCESO || 0
+                ];
+                graficoNivelesStock.update('active');
             }
         }
 
@@ -671,8 +1074,7 @@
         }
 
         function realizarMovimiento(idProducto) {
-            // Implementar modal para movimiento rápido
-            alert(`Movimiento para producto ID: ${idProducto}`);
+            alert(`Movimiento para producto ID: ${idProducto}\nEsta función abrirá un modal para realizar movimientos rápidos.`);
         }
 
         function nuevaEntrada() {
@@ -688,13 +1090,15 @@
         }
 
         function generarReporte() {
-            // Implementar generación de reporte
-            alert('Generando reporte...');
+            alert('Generando reporte completo del inventario...');
+        }
+
+        function generarReporteStock() {
+            alert('Generando reporte de niveles de stock...');
         }
 
         function exportarReporte() {
-            // Implementar exportación
-            alert('Exportando datos...');
+            alert('Exportando datos del dashboard...');
         }
 
         function actualizarDashboard() {

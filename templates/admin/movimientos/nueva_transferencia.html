@@ -6,7 +6,7 @@
 <div class="container-fluid">
     <div class="d-flex justify-content-between align-items-center mb-4">
         <h1 class="h3 mb-0 text-gray-800">
-            <i class="fas fa-exchange-alt text-warning me-2"></i>Transferencia entre Bodegas
+            <i class="fas fa-exchange-alt text-warning me-2"></i>Nueva Transferencia entre Bodegas
         </h1>
         <div>
             <a href="{{ url_for('admin_historial_movimientos') }}" class="btn btn-secondary">
@@ -19,14 +19,13 @@
         <div class="col-lg-8">
             <!-- Formulario Principal -->
             <div class="card shadow mb-4">
-                <div class="card-header py-3 bg-warning text-dark">
+                <div class="card-header py-3 bg-warning text-white">
                     <h6 class="m-0 font-weight-bold">
                         <i class="fas fa-info-circle me-1"></i>Información de Transferencia
                     </h6>
                 </div>
                 <div class="card-body">
-                    <form id="formTransferencia" method="POST" 
-                          action="{{ url_for('admin_procesar_transferencia') }}">
+                    <form id="formTransferencia" method="POST" action="{{ url_for('admin_procesar_transferencia') }}">
                         <div class="row g-3">
                             <div class="col-md-6">
                                 <label class="form-label required">Fecha</label>
@@ -36,19 +35,32 @@
                             
                             <div class="col-md-6">
                                 <label class="form-label">Tipo de Movimiento</label>
-                                <input type="text" class="form-control" value="Traslado" readonly>
-                                <input type="hidden" name="id_tipo_movimiento" value="6">
+                                <select class="form-select" disabled>
+                                    <option selected>
+                                        {% if tipo_movimiento %}
+                                            {{ tipo_movimiento.Descripcion }}
+                                        {% else %}
+                                            Traslado entre Bodegas
+                                        {% endif %}
+                                    </option>
+                                </select>
+                                {% if tipo_movimiento %}
+                                <input type="hidden" name="id_tipo_movimiento" 
+                                       value="{{ tipo_movimiento.ID_TipoMovimiento }}">
+                                {% endif %}
                             </div>
                             
                             <div class="col-md-6">
                                 <label class="form-label required">Bodega Origen</label>
                                 <select name="id_bodega_origen" id="select-bodega-origen" 
-                                        class="form-select" required 
-                                        onchange="cargarProductosOrigen()">
+                                        class="form-select" required>
                                     <option value="">Seleccionar...</option>
                                     {% for bodega in bodegas %}
                                     <option value="{{ bodega.ID_Bodega }}">
                                         {{ bodega.Nombre }}
+                                        {% if bodega.Ubicacion %}
+                                            - {{ bodega.Ubicacion }}
+                                        {% endif %}
                                     </option>
                                     {% endfor %}
                                 </select>
@@ -62,6 +74,9 @@
                                     {% for bodega in bodegas %}
                                     <option value="{{ bodega.ID_Bodega }}">
                                         {{ bodega.Nombre }}
+                                        {% if bodega.Ubicacion %}
+                                            - {{ bodega.Ubicacion }}
+                                        {% endif %}
                                     </option>
                                     {% endfor %}
                                 </select>
@@ -69,27 +84,30 @@
                             
                             <div class="col-md-6">
                                 <label class="form-label">Ubicación de Entrega</label>
-                                <input type="text" name="ubicacion_entrega" class="form-control">
+                                <input type="text" name="ubicacion_entrega" class="form-control" 
+                                       placeholder="Ej: Estante A-3, Pasillo Principal">
                             </div>
                             
                             <div class="col-12">
                                 <label class="form-label">Observaciones</label>
-                                <textarea name="observacion" class="form-control" rows="3"></textarea>
+                                <textarea name="observacion" class="form-control" rows="3" 
+                                          placeholder="Observaciones adicionales sobre la transferencia"></textarea>
                             </div>
                         </div>
                         
-                        <!-- Productos -->
+                        <!-- Productos - TABLA SIEMPRE VISIBLE -->
                         <div class="mt-4">
                             <div class="d-flex justify-content-between align-items-center mb-3">
                                 <h5 class="mb-0">
                                     <i class="fas fa-boxes me-2"></i>Productos a Transferir
                                 </h5>
                                 <button type="button" class="btn btn-primary btn-sm" 
-                                        onclick="agregarProductoTransferencia()">
+                                        onclick="agregarProducto()">
                                     <i class="fas fa-plus me-1"></i> Agregar Producto
                                 </button>
                             </div>
                             
+                            <!-- Tabla siempre visible -->
                             <div class="table-responsive">
                                 <table class="table table-sm">
                                     <thead>
@@ -97,17 +115,23 @@
                                             <th>Producto</th>
                                             <th>Stock Disponible</th>
                                             <th>Cantidad</th>
-                                            <th>Lote</th>
-                                            <th></th>
+                                            <th>Acciones</th>
                                         </tr>
                                     </thead>
                                     <tbody id="productos-tbody">
-                                        <!-- Productos se agregarán aquí dinámicamente -->
+                                        <!-- Se llena dinámicamente -->
                                     </tbody>
                                 </table>
                             </div>
                             
-                            <input type="hidden" name="productos" id="productos-json" required>
+                            <!-- SOLO ESTE MENSAJE SIMPLE CUANDO NO HAY PRODUCTOS -->
+                            <div id="mensaje-vacio" class="text-center text-muted py-4">
+                                <i class="fas fa-box-open fa-2x mb-3"></i>
+                                <p class="mb-0">Agregue productos usando el botón o seleccionando de la lista</p>
+                            </div>
+                            
+                            <!-- CAMPO OCULTO CON JSON - ES EL ÚNICO QUE SE ENVÍA -->
+                            <input type="hidden" name="productos" id="productos-json" value="[]" required>
                         </div>
                         
                         <div class="mt-4 pt-3 border-top">
@@ -116,7 +140,7 @@
                                         onclick="window.history.back()">
                                     Cancelar
                                 </button>
-                                <button type="submit" class="btn btn-warning">
+                                <button type="submit" class="btn btn-warning" id="btn-guardar" disabled>
                                     <i class="fas fa-save me-1"></i> Guardar Transferencia
                                 </button>
                             </div>
@@ -127,7 +151,7 @@
         </div>
         
         <div class="col-lg-4">
-            <!-- Productos Disponibles en Origen -->
+            <!-- Productos Disponibles en Bodega Origen -->
             <div class="card shadow mb-4">
                 <div class="card-header py-3 bg-primary text-white">
                     <h6 class="m-0 font-weight-bold">
@@ -135,29 +159,47 @@
                     </h6>
                 </div>
                 <div class="card-body">
-                    <div class="alert alert-info" role="alert">
-                        <i class="fas fa-info-circle me-1"></i>
-                        Seleccione bodega origen para ver productos disponibles
+                    <!-- Información del estado -->
+                    <div class="mb-3">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <small class="text-muted">
+                                <i class="fas fa-info-circle me-1"></i>
+                                <span id="texto-estado">Seleccione bodega origen</span>
+                            </small>
+                            <span id="contador-disponibles" class="badge bg-secondary">0</span>
+                        </div>
                     </div>
                     
-                    <div id="lista-productos-origen" class="list-group" 
-                         style="max-height: 300px; overflow-y: auto;">
-                        <!-- Productos se cargarán dinámicamente -->
+                    <div class="input-group mb-3">
+                        <input type="text" id="buscar-producto-bodega" class="form-control" 
+                               placeholder="Buscar producto..." disabled>
+                        <button class="btn btn-outline-primary" type="button" id="btn-buscar" disabled>
+                            <i class="fas fa-search"></i>
+                        </button>
+                    </div>
+                    
+                    <!-- Lista de productos - siempre visible -->
+                    <div id="lista-productos-bodega" class="list-group" 
+                         style="max-height: 400px; overflow-y: auto;">
+                        <div class="text-center text-muted p-4">
+                            <i class="fas fa-warehouse fa-2x mb-3"></i>
+                            <p class="mb-0">Seleccione una bodega origen</p>
+                        </div>
                     </div>
                 </div>
             </div>
             
-            <!-- Validaciones -->
+            <!-- Resumen -->
             <div class="card shadow">
                 <div class="card-header py-3 bg-info text-white">
                     <h6 class="m-0 font-weight-bold">
-                        <i class="fas fa-clipboard-check me-1"></i>Validaciones
+                        <i class="fas fa-clipboard-check me-1"></i>Resumen
                     </h6>
                 </div>
                 <div class="card-body">
-                    <div class="alert alert-warning" id="alerta-misma-bodega" style="display: none;">
+                    <div id="alerta-misma-bodega" class="text-danger small mb-3" style="display: none;">
                         <i class="fas fa-exclamation-triangle me-1"></i>
-                        Las bodegas de origen y destino deben ser diferentes
+                        Las bodegas deben ser diferentes
                     </div>
                     
                     <ul class="list-group list-group-flush">
@@ -167,25 +209,409 @@
                         </li>
                         <li class="list-group-item d-flex justify-content-between">
                             <span>Total Unidades:</span>
-                            <strong id="resumen-unidades">0</strong>
+                            <strong id="resumen-unidades">0.000</strong>
                         </li>
                         <li class="list-group-item d-flex justify-content-between">
                             <span>Estado:</span>
                             <span id="estado-validacion" class="badge bg-secondary">Pendiente</span>
                         </li>
                     </ul>
+                    
+                    <!-- Botón para depuración (opcional, puedes eliminarlo después) -->
+                    <div class="mt-3 pt-2 border-top">
+                        <button type="button" class="btn btn-sm btn-outline-info" onclick="depurarDatos()">
+                            <i class="fas fa-bug me-1"></i> Depurar Datos
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
 </div>
 
-<!-- JavaScript -->
 <script>
 let productosTransferencia = [];
-let contadorProductos = 0;
+let productosDisponibles = [];
 
-// Validar que bodegas sean diferentes
+// Inicializar
+document.addEventListener('DOMContentLoaded', function() {
+    // Fecha actual
+    const fechaInput = document.querySelector('input[name="fecha"]');
+    if (!fechaInput.value) {
+        fechaInput.value = new Date().toISOString().split('T')[0];
+    }
+    
+    // Event listeners
+    document.getElementById('select-bodega-origen').addEventListener('change', cargarProductosBodega);
+    document.getElementById('select-bodega-destino').addEventListener('change', validarYActualizar);
+    document.getElementById('btn-buscar').addEventListener('click', filtrarProductos);
+    
+    document.getElementById('buscar-producto-bodega').addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            filtrarProductos();
+        }
+    });
+    
+    // Estado inicial
+    actualizarMensajeVacio();
+    actualizarEstado();
+    habilitarBotonGuardar();
+});
+
+// Validar y actualizar estado
+function validarYActualizar() {
+    validarBodegas();
+    habilitarBotonGuardar();
+}
+
+// Actualizar mensaje cuando la tabla está vacía
+function actualizarMensajeVacio() {
+    const mensaje = document.getElementById('mensaje-vacio');
+    if (productosTransferencia.length === 0) {
+        mensaje.style.display = 'block';
+    } else {
+        mensaje.style.display = 'none';
+    }
+}
+
+// Actualizar estado de productos disponibles
+function actualizarEstado() {
+    const estadoTexto = document.getElementById('texto-estado');
+    const contador = document.getElementById('contador-disponibles');
+    const bodegaOrigen = document.getElementById('select-bodega-origen').value;
+    
+    if (!bodegaOrigen) {
+        estadoTexto.textContent = 'Seleccione bodega origen';
+        contador.textContent = '0';
+        contador.className = 'badge bg-secondary';
+    } else if (productosDisponibles.length === 0) {
+        estadoTexto.textContent = 'Cargando...';
+        contador.textContent = '0';
+        contador.className = 'badge bg-secondary';
+    } else {
+        estadoTexto.textContent = 'Productos disponibles';
+        contador.textContent = productosDisponibles.length;
+        contador.className = 'badge bg-primary';
+    }
+}
+
+// Cargar productos de bodega
+function cargarProductosBodega() {
+    const bodegaId = document.getElementById('select-bodega-origen').value;
+    const lista = document.getElementById('lista-productos-bodega');
+    const buscarInput = document.getElementById('buscar-producto-bodega');
+    const btnBuscar = document.getElementById('btn-buscar');
+    
+    // Limpiar
+    productosDisponibles = [];
+    actualizarEstado();
+    validarBodegas();
+    
+    if (!bodegaId) {
+        lista.innerHTML = `
+            <div class="text-center text-muted p-4">
+                <i class="fas fa-warehouse fa-2x mb-3"></i>
+                <p class="mb-0">Seleccione una bodega origen</p>
+            </div>
+        `;
+        
+        buscarInput.disabled = true;
+        btnBuscar.disabled = true;
+        buscarInput.value = '';
+        return;
+    }
+    
+    // Mostrar carga
+    lista.innerHTML = `
+        <div class="text-center p-4">
+            <div class="spinner-border text-primary mb-3" role="status">
+                <span class="visually-hidden">Cargando...</span>
+            </div>
+            <p class="text-muted">Cargando productos...</p>
+        </div>
+    `;
+    
+    buscarInput.disabled = false;
+    btnBuscar.disabled = false;
+    
+    // API call
+    fetch(`/api/inventario/productos-bodega/${bodegaId}`)
+        .then(response => response.json())
+        .then(data => {
+            productosDisponibles = Array.isArray(data) ? data : (data.productos || []);
+            
+            if (productosDisponibles.length === 0) {
+                lista.innerHTML = `
+                    <div class="text-center text-muted p-4">
+                        <i class="fas fa-box fa-2x mb-3"></i>
+                        <p class="mb-0">No hay productos disponibles</p>
+                    </div>
+                `;
+            } else {
+                mostrarProductos(productosDisponibles);
+            }
+            
+            actualizarEstado();
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            lista.innerHTML = `
+                <div class="text-center text-danger p-4">
+                    <i class="fas fa-exclamation-circle fa-2x mb-3"></i>
+                    <p class="mb-0">Error al cargar productos</p>
+                </div>
+            `;
+            actualizarEstado();
+        });
+}
+
+// Mostrar productos en lista
+function mostrarProductos(productos) {
+    const lista = document.getElementById('lista-productos-bodega');
+    
+    if (!productos || productos.length === 0) {
+        lista.innerHTML = '<div class="text-center text-muted p-3">No hay productos</div>';
+        return;
+    }
+    
+    // Productos ya agregados
+    const agregados = obtenerProductosAgregados();
+    
+    // Filtrar
+    const disponibles = productos.filter(p => !agregados.includes(p.ID_Producto.toString()));
+    
+    if (disponibles.length === 0) {
+        lista.innerHTML = `
+            <div class="text-center text-success p-4">
+                <i class="fas fa-check-circle fa-2x mb-3"></i>
+                <p class="mb-0">Todos los productos están agregados</p>
+            </div>
+        `;
+        return;
+    }
+    
+    // Crear lista
+    let html = '';
+    disponibles.forEach(producto => {
+        const stock = parseFloat(producto.Existencias || producto.Stock_Bodega || 0);
+        html += `
+            <a href="#" class="list-group-item list-group-item-action" 
+               onclick="seleccionarProducto(${producto.ID_Producto})" 
+               style="cursor: pointer;">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div class="flex-grow-1">
+                        <h6 class="mb-1">${producto.Descripcion}</h6>
+                        <p class="mb-1">
+                            <small class="text-muted">${producto.COD_Producto || 'Sin código'}</small><br>
+                            <small class="text-muted">${producto.Categoria_Descripcion || ''}</small>
+                        </p>
+                    </div>
+                    <div class="text-end ms-2">
+                        <span class="badge bg-success">${stock.toFixed(2)}</span>
+                    </div>
+                </div>
+            </a>
+        `;
+    });
+    
+    lista.innerHTML = html;
+}
+
+// Obtener productos agregados
+function obtenerProductosAgregados() {
+    return productosTransferencia.map(p => p.id_producto.toString());
+}
+
+// Filtrar productos
+function filtrarProductos() {
+    const termino = document.getElementById('buscar-producto-bodega').value.toLowerCase();
+    
+    if (!termino) {
+        mostrarProductos(productosDisponibles);
+        return;
+    }
+    
+    const filtrados = productosDisponibles.filter(p => 
+        p.Descripcion.toLowerCase().includes(termino) ||
+        (p.COD_Producto && p.COD_Producto.toLowerCase().includes(termino))
+    );
+    
+    mostrarProductos(filtrados);
+}
+
+// Seleccionar producto
+function seleccionarProducto(productoId) {
+    const producto = productosDisponibles.find(p => p.ID_Producto == productoId);
+    if (!producto) return;
+    
+    // Verificar si ya está agregado
+    if (obtenerProductosAgregados().includes(productoId.toString())) {
+        alert('Producto ya agregado');
+        return;
+    }
+    
+    agregarProducto(producto);
+}
+
+// Agregar producto a la tabla
+function agregarProducto(producto = null) {
+    if (!producto) {
+        // Si no se pasa producto, verificar que haya bodega origen seleccionada
+        if (!document.getElementById('select-bodega-origen').value) {
+            alert('Primero seleccione una bodega origen');
+            return;
+        }
+        
+        // Enfocar el campo de búsqueda
+        document.getElementById('buscar-producto-bodega').focus();
+        return;
+    }
+    
+    const tbody = document.getElementById('productos-tbody');
+    const stock = parseFloat(producto.Existencias || producto.Stock_Bodega || 0);
+    
+    // ID único para este producto
+    const productoId = `prod-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    
+    const fila = document.createElement('tr');
+    fila.id = productoId;
+    fila.innerHTML = `
+        <td>
+            <input type="hidden" class="id-producto-transferencia" 
+                   value="${producto.ID_Producto}">
+            <div>
+                <strong>${producto.Descripcion}</strong><br>
+                <small class="text-muted">${producto.COD_Producto || ''}</small>
+            </div>
+        </td>
+        <td class="text-center">
+            <span class="badge bg-success stock-disponible">${stock.toFixed(2)}</span>
+        </td>
+        <td>
+            <input type="number" step="0.001" min="0.001" max="${stock}"
+                   class="form-control form-control-sm cantidad-producto" 
+                   value="1.000" 
+                   oninput="actualizarCantidad('${productoId}', this.value)" 
+                   data-id="${producto.ID_Producto}"
+                   required>
+        </td>
+        <td class="text-center">
+            <button type="button" class="btn btn-danger btn-sm" 
+                    onclick="eliminarFilaProducto('${productoId}')">
+                <i class="fas fa-trash"></i>
+            </button>
+        </td>
+    `;
+    
+    tbody.appendChild(fila);
+    
+    // Agregar al array de productos
+    productosTransferencia.push({
+        id_producto: producto.ID_Producto,
+        cantidad: 1.000,
+        producto: producto,
+        filaId: productoId
+    });
+    
+    actualizarMensajeVacio();
+    actualizarResumen();
+    habilitarBotonGuardar();
+    mostrarProductos(productosDisponibles);
+}
+
+// Actualizar cantidad
+function actualizarCantidad(filaId, cantidad) {
+    const producto = productosTransferencia.find(p => p.filaId === filaId);
+    if (!producto) return;
+    
+    let cantidadNum = parseFloat(cantidad) || 0;
+    const stock = parseFloat(producto.producto.Existencias || producto.producto.Stock_Bodega || 0);
+    
+    // Validar límites
+    if (cantidadNum <= 0) {
+        cantidadNum = 0.001;
+    }
+    
+    if (cantidadNum > stock) {
+        cantidadNum = stock;
+        document.querySelector(`#${filaId} .cantidad-producto`).value = stock.toFixed(3);
+    }
+    
+    producto.cantidad = cantidadNum;
+    actualizarResumen();
+}
+
+// Eliminar producto
+function eliminarFilaProducto(filaId) {
+    // Remover del array
+    const index = productosTransferencia.findIndex(p => p.filaId === filaId);
+    if (index !== -1) {
+        productosTransferencia.splice(index, 1);
+    }
+    
+    // Remover fila del DOM
+    const fila = document.getElementById(filaId);
+    if (fila) {
+        fila.remove();
+    }
+    
+    actualizarMensajeVacio();
+    actualizarResumen();
+    habilitarBotonGuardar();
+    mostrarProductos(productosDisponibles);
+}
+
+// Actualizar resumen
+function actualizarResumen() {
+    let unidades = 0;
+    
+    productosTransferencia.forEach(prod => {
+        unidades += parseFloat(prod.cantidad) || 0;
+    });
+    
+    document.getElementById('resumen-cantidad').textContent = productosTransferencia.length;
+    document.getElementById('resumen-unidades').textContent = unidades.toFixed(3);
+    
+    // PREPARAR JSON CORRECTAMENTE
+    const productosData = productosTransferencia.map(prod => ({
+        id_producto: parseInt(prod.id_producto),
+        cantidad: parseFloat(prod.cantidad)
+    }));
+    
+    // IMPORTANTE: Stringify para enviar como JSON
+    document.getElementById('productos-json').value = JSON.stringify(productosData);
+}
+
+// Habilitar botón guardar
+function habilitarBotonGuardar() {
+    const btnGuardar = document.getElementById('btn-guardar');
+    const origen = document.getElementById('select-bodega-origen').value;
+    const destino = document.getElementById('select-bodega-destino').value;
+    const estadoElement = document.getElementById('estado-validacion');
+    
+    let habilitar = false;
+    
+    if (productosTransferencia.length > 0 && origen && destino && origen !== destino) {
+        // Verificar que todas las cantidades sean válidas
+        const todosValidos = productosTransferencia.every(p => 
+            p.id_producto && p.cantidad && parseFloat(p.cantidad) > 0
+        );
+        habilitar = todosValidos;
+    }
+    
+    btnGuardar.disabled = !habilitar;
+    
+    if (habilitar) {
+        estadoElement.className = 'badge bg-success';
+        estadoElement.textContent = 'Listo';
+    } else {
+        estadoElement.className = 'badge bg-secondary';
+        estadoElement.textContent = 'Pendiente';
+    }
+}
+
+// Validar bodegas
 function validarBodegas() {
     const origen = document.getElementById('select-bodega-origen').value;
     const destino = document.getElementById('select-bodega-destino').value;
@@ -200,282 +626,142 @@ function validarBodegas() {
     }
 }
 
-// Cargar productos de bodega origen
-function cargarProductosOrigen() {
-    const bodegaId = document.getElementById('select-bodega-origen').value;
-    const lista = document.getElementById('lista-productos-origen');
+// DEPURACIÓN: Función para ver datos actuales
+function depurarDatos() {
+    console.log('🔍 DEPURACIÓN DE DATOS:');
+    console.log('Array productosTransferencia:', productosTransferencia);
+    console.log('JSON a enviar:', document.getElementById('productos-json').value);
+    console.log('Parseado:', JSON.parse(document.getElementById('productos-json').value));
     
-    validarBodegas();
-    
-    if (!bodegaId) {
-        lista.innerHTML = `
-            <div class="alert alert-warning">
-                Seleccione una bodega origen primero
-            </div>
-        `;
-        return;
-    }
-    
-    lista.innerHTML = `
-        <div class="text-center py-3">
-            <div class="spinner-border text-primary" role="status">
-                <span class="visually-hidden">Cargando...</span>
-            </div>
-            <p class="mt-2">Cargando productos...</p>
-        </div>
-    `;
-    
-    fetch(`/api/productos/buscar?q=&bodega=${bodegaId}`)
-        .then(response => response.json())
-        .then(data => {
-            lista.innerHTML = '';
-            
-            if (data.error) {
-                lista.innerHTML = `
-                    <div class="alert alert-danger">
-                        ${data.error}
-                    </div>
-                `;
-                return;
-            }
-            
-            if (data.length === 0) {
-                lista.innerHTML = `
-                    <div class="alert alert-warning">
-                        No hay productos en esta bodega
-                    </div>
-                `;
-                return;
-            }
-            
-            // Filtrar solo productos con stock
-            const productosConStock = data.filter(p => p.Stock_Bodega > 0);
-            
-            if (productosConStock.length === 0) {
-                lista.innerHTML = `
-                    <div class="alert alert-warning">
-                        No hay productos con stock disponible
-                    </div>
-                `;
-                return;
-            }
-            
-            productosConStock.forEach(producto => {
-                const item = document.createElement('a');
-                item.className = 'list-group-item list-group-item-action';
-                item.href = '#';
-                item.onclick = () => seleccionarProductoTransferencia(producto);
-                item.innerHTML = `
-                    <div class="d-flex w-100 justify-content-between">
-                        <h6 class="mb-1">${producto.Descripcion}</h6>
-                        <small class="text-muted">${producto.Stock_Bodega} disp.</small>
-                    </div>
-                    <p class="mb-1">
-                        <small>Código: ${producto.COD_Producto || 'N/A'}</small>
-                    </p>
-                `;
-                lista.appendChild(item);
-            });
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            lista.innerHTML = `
-                <div class="alert alert-danger">
-                    Error al cargar productos
-                </div>
-            `;
-        });
+    // Mostrar en alerta también
+    const data = JSON.parse(document.getElementById('productos-json').value);
+    alert(`Depuración:\n\nProductos: ${data.length}\nJSON: ${JSON.stringify(data, null, 2)}`);
 }
 
-// Agregar producto a transferencia
-function agregarProductoTransferencia(producto = null) {
-    const tbody = document.getElementById('productos-tbody');
-    const index = contadorProductos++;
-    
-    const fila = document.createElement('tr');
-    fila.id = `producto-transferencia-${index}`;
-    fila.innerHTML = `
-        <td>
-            <input type="hidden" name="productos[${index}][id_producto]" 
-                   value="${producto ? producto.ID_Producto : ''}" class="id-producto">
-            <input type="text" class="form-control form-control-sm producto-nombre" 
-                   value="${producto ? producto.Descripcion : ''}" readonly>
-        </td>
-        <td>
-            <input type="text" class="form-control form-control-sm stock-disponible" 
-                   value="${producto ? producto.Stock_Bodega : '0'}" readonly>
-        </td>
-        <td>
-            <input type="number" step="0.001" min="0.001" 
-                   max="${producto ? producto.Stock_Bodega : ''}"
-                   name="productos[${index}][cantidad]" 
-                   class="form-control form-control-sm cantidad" 
-                   value="1" onchange="validarCantidadTransferencia(${index})">
-            <small class="text-danger max-error" style="display: none;">
-                Máximo: ${producto ? producto.Stock_Bodega : 0}
-            </small>
-        </td>
-        <td>
-            <input type="text" name="productos[${index}][lote]" 
-                   class="form-control form-control-sm lote">
-        </td>
-        <td>
-            <button type="button" class="btn btn-danger btn-sm" 
-                    onclick="eliminarProductoTransferencia(${index})">
-                <i class="fas fa-trash"></i>
-            </button>
-        </td>
-    `;
-    
-    tbody.appendChild(fila);
-    if (producto) {
-        validarCantidadTransferencia(index);
-    }
-    actualizarResumenTransferencia();
-}
-
-// Validar cantidad no exceda stock
-function validarCantidadTransferencia(index) {
-    const fila = document.getElementById(`producto-transferencia-${index}`);
-    const cantidadInput = fila.querySelector('.cantidad');
-    const maxStock = parseFloat(fila.querySelector('.stock-disponible').value) || 0;
-    const cantidad = parseFloat(cantidadInput.value) || 0;
-    const errorElement = fila.querySelector('.max-error');
-    
-    if (cantidad > maxStock) {
-        cantidadInput.value = maxStock;
-        errorElement.style.display = 'block';
-    } else {
-        errorElement.style.display = 'none';
-    }
-    
-    actualizarResumenTransferencia();
-}
-
-// Eliminar producto de transferencia
-function eliminarProductoTransferencia(index) {
-    document.getElementById(`producto-transferencia-${index}`).remove();
-    actualizarResumenTransferencia();
-}
-
-// Actualizar resumen de transferencia
-function actualizarResumenTransferencia() {
-    let unidades = 0;
-    let cantidadProductos = 0;
-    
-    document.querySelectorAll('#productos-tbody tr').forEach(fila => {
-        const cantidad = parseFloat(fila.querySelector('.cantidad').value) || 0;
-        unidades += cantidad;
-        cantidadProductos++;
-    });
-    
-    document.getElementById('resumen-cantidad').textContent = cantidadProductos;
-    document.getElementById('resumen-unidades').textContent = unidades.toFixed(3);
-    
-    // Actualizar estado de validación
-    const estadoElement = document.getElementById('estado-validacion');
-    if (cantidadProductos > 0 && validarBodegas()) {
-        estadoElement.className = 'badge bg-success';
-        estadoElement.textContent = 'Listo';
-    } else {
-        estadoElement.className = 'badge bg-warning';
-        estadoElement.textContent = 'Pendiente';
-    }
-    
-    // Actualizar JSON oculto
-    const productosData = [];
-    document.querySelectorAll('#productos-tbody tr').forEach(fila => {
-        const producto = {
-            id_producto: fila.querySelector('.id-producto').value,
-            cantidad: fila.querySelector('.cantidad').value,
-            lote: fila.querySelector('.lote').value || ''
-        };
-        productosData.push(producto);
-    });
-    
-    document.getElementById('productos-json').value = JSON.stringify(productosData);
-}
-
-// Seleccionar producto para transferencia
-function seleccionarProductoTransferencia(producto) {
-    // Verificar si ya existe en la tabla
-    const existente = Array.from(document.querySelectorAll('.id-producto'))
-        .find(input => input.value == producto.ID_Producto);
-    
-    if (existente) {
-        alert('Este producto ya está en la lista');
-        return;
-    }
-    
-    agregarProductoTransferencia(producto);
-}
-
-// Validar formulario antes de enviar
+// Validar formulario
 document.getElementById('formTransferencia').addEventListener('submit', function(e) {
-    // Validar bodegas diferentes
-    const origen = document.getElementById('select-bodega-origen').value;
-    const destino = document.getElementById('select-bodega-destino').value;
+    e.preventDefault();
     
-    if (!origen || !destino) {
-        e.preventDefault();
-        alert('Debe seleccionar ambas bodegas');
-        return;
+    console.log('🚀 Validando formulario...');
+    
+    // 1. Validar bodegas
+    if (!validarBodegas()) {
+        alert('Las bodegas deben ser diferentes');
+        return false;
     }
     
-    if (origen === destino) {
-        e.preventDefault();
-        alert('Las bodegas de origen y destino deben ser diferentes');
-        return;
+    // 2. Validar que haya productos
+    if (productosTransferencia.length === 0) {
+        alert('Agregue al menos un producto');
+        return false;
     }
     
-    const productosData = JSON.parse(document.getElementById('productos-json').value);
-    
-    if (productosData.length === 0) {
-        e.preventDefault();
-        alert('Debe agregar al menos un producto');
-        return;
-    }
-    
-    // Verificar stock antes de enviar
-    let stockValido = true;
+    // 3. Validar stock
+    let stockOk = true;
     let mensajeError = '';
     
-    document.querySelectorAll('#productos-tbody tr').forEach(fila => {
-        const idProducto = fila.querySelector('.id-producto').value;
-        const cantidad = parseFloat(fila.querySelector('.cantidad').value) || 0;
-        const stockDisponible = parseFloat(fila.querySelector('.stock-disponible').value) || 0;
-        const productoNombre = fila.querySelector('.producto-nombre').value;
+    productosTransferencia.forEach(prod => {
+        const stock = parseFloat(prod.producto.Existencias || prod.producto.Stock_Bodega || 0);
+        const cantidad = parseFloat(prod.cantidad) || 0;
         
-        if (cantidad > stockDisponible) {
-            stockValido = false;
-            mensajeError += `- ${productoNombre}: Solicitado ${cantidad}, Disponible ${stockDisponible}\n`;
+        if (cantidad > stock) {
+            stockOk = false;
+            mensajeError += `• ${prod.producto.Descripcion}: `;
+            mensajeError += `Solicitado ${cantidad.toFixed(3)} > Disponible ${stock.toFixed(3)}\n`;
         }
     });
     
-    if (!stockValido) {
-        e.preventDefault();
-        alert(`Stock insuficiente en bodega origen:\n${mensajeError}`);
-        return;
+    if (!stockOk) {
+        alert(`❌ Stock insuficiente:\n\n${mensajeError}`);
+        return false;
     }
     
-    if (!confirm('¿Está seguro de guardar esta transferencia?')) {
-        e.preventDefault();
+    // 4. Asegurar que el campo JSON esté actualizado
+    actualizarResumen();
+    
+    // 5. Mostrar resumen y confirmar
+    const origenText = document.getElementById('select-bodega-origen').selectedOptions[0].text;
+    const destinoText = document.getElementById('select-bodega-destino').selectedOptions[0].text;
+    const totalUnidades = productosTransferencia.reduce((sum, p) => sum + parseFloat(p.cantidad), 0);
+    
+    const resumen = `¿Confirmar transferencia?\n\n` +
+                   `📦 Productos: ${productosTransferencia.length}\n` +
+                   `📊 Unidades: ${totalUnidades.toFixed(3)}\n` +
+                   `📍 De: ${origenText}\n` +
+                   `🏁 A: ${destinoText}`;
+    
+    if (confirm(resumen)) {
+        console.log('✅ Enviando formulario...');
+        console.log('📤 Datos enviados:', JSON.parse(document.getElementById('productos-json').value));
+        
+        // Enviar formulario
+        this.submit();
     }
 });
-
-// Escuchar cambios en selects de bodegas
-document.getElementById('select-bodega-origen').addEventListener('change', validarBodegas);
-document.getElementById('select-bodega-destino').addEventListener('change', validarBodegas);
 </script>
 
 <style>
 .required:after {
     content: " *";
-    color: red;
+    color: #dc3545;
 }
 
-.max-error {
-    font-size: 0.8em;
+#productos-tbody tr td {
+    vertical-align: middle;
+}
+
+.badge {
+    min-width: 60px;
+    font-size: 0.75rem;
+}
+
+.form-control-sm {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.875rem;
+}
+
+.list-group-item:hover {
+    background-color: #f8f9fa;
+}
+
+.btn-warning {
+    background-color: #ffc107;
+    border-color: #ffc107;
+    color: #000;
+}
+
+.visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    border: 0;
+}
+
+/* Estilos para la tabla de productos */
+#productos-tbody tr:hover {
+    background-color: #f8f9fa;
+}
+
+#productos-tbody input.cantidad-producto {
+    width: 120px;
+}
+
+/* Estilos para la lista de productos */
+#lista-productos-bodega .list-group-item {
+    border-left: none;
+    border-right: none;
+}
+
+#lista-productos-bodega .list-group-item:first-child {
+    border-top: none;
+}
+
+#lista-productos-bodega .list-group-item:last-child {
+    border-bottom: none;
 }
 </style>
 {% endblock %}

@@ -669,7 +669,7 @@ def vendedor_dashboard():
     return render_template('vendedor/dashboard.html')
 
 @app.route('/bodega/dashboard')
-@login_required
+@admin_or_bodega_required
 def bodega_dashboard():
     try:
         with get_db_cursor() as cursor:
@@ -10867,10 +10867,12 @@ def api_asignaciones_vendedor(id_vendedor):
 @admin_required
 @bitacora_decorator("DASHBOARD-INVENTARIO")
 def admin_inventario_dashboard():
-
     try:
         with get_db_cursor(True) as cursor:
             id_empresa = 1  # Temporalmente fijo, después usa tu función
+            
+            # Obtener la fecha actual para filtrar
+            fecha_actual = datetime.now().strftime('%Y-%m-%d')
             
             # 1. RESUMEN ESTADÍSTICO - CORREGIDO
             cursor.execute("""
@@ -11060,7 +11062,7 @@ def admin_inventario_dashboard():
             """, (id_empresa,))
             inventario_bodegas = cursor.fetchall()
             
-            # 5. MOVIMIENTOS RECIENTES - CORREGIDO
+            # 5. MOVIMIENTOS RECIENTES - CORREGIDO (AHORA CON FILTRO DEL DÍA)
             cursor.execute("""
                 SELECT 
                     DATE(mi.Fecha) as Fecha,
@@ -11074,7 +11076,7 @@ def admin_inventario_dashboard():
                 INNER JOIN catalogo_movimientos cm ON mi.ID_TipoMovimiento = cm.ID_TipoMovimiento
                 INNER JOIN detalle_movimientos_inventario dmi ON mi.ID_Movimiento = dmi.ID_Movimiento
                 WHERE mi.Estado = 'Activa'
-                AND mi.Fecha >= DATE_SUB(CURDATE(), INTERVAL 15 DAY)
+                AND mi.Fecha = CURDATE()  -- SOLO MOVIMIENTOS DEL DÍA ACTUAL
                 AND mi.ID_Empresa = %s
                 GROUP BY DATE(mi.Fecha), cm.Descripcion, cm.Adicion
                 ORDER BY Fecha DESC, Valor_Total DESC
@@ -11219,6 +11221,48 @@ def admin_inventario_dashboard():
             """, (id_empresa,))
             sugerencias_reorden = cursor.fetchall()
             
+            # 9. ENTRADAS POR PRODUCCIÓN DEL DÍA ACTUAL
+            cursor.execute("""
+                SELECT 
+                    cp.Descripcion AS Categoria,
+                    pr.Descripcion AS Producto,
+                    pr.COD_Producto AS Codigo_Producto,
+                    SUM(dmi.Cantidad) AS Cantidad_Total_Ingresada
+                FROM movimientos_inventario mi
+                INNER JOIN detalle_movimientos_inventario dmi ON mi.ID_Movimiento = dmi.ID_Movimiento
+                INNER JOIN productos pr ON dmi.ID_Producto = pr.ID_Producto
+                INNER JOIN categorias_producto cp ON pr.ID_Categoria = cp.ID_Categoria
+                WHERE mi.ID_Empresa = %s 
+                    AND mi.ID_Bodega = 1
+                    AND mi.Estado = 'Activa'
+                    AND mi.ID_TipoMovimiento = 3  -- Solo Producción
+                    AND mi.Fecha = CURDATE()  -- SOLO DEL DÍA ACTUAL
+                GROUP BY cp.ID_Categoria, cp.Descripcion, pr.ID_Producto, pr.Descripcion, pr.COD_Producto
+                ORDER BY cp.Descripcion, Cantidad_Total_Ingresada DESC
+            """, (id_empresa,))
+            entradas_produccion_hoy = cursor.fetchall()
+            
+            # 10. ENTRADAS POR COMPRAS DEL DÍA ACTUAL
+            cursor.execute("""
+                SELECT 
+                    cp.Descripcion AS Categoria,
+                    pr.Descripcion AS Producto,
+                    pr.COD_Producto AS Codigo_Producto,
+                    SUM(dmi.Cantidad) AS Cantidad_Total_Comprada
+                FROM movimientos_inventario mi
+                INNER JOIN detalle_movimientos_inventario dmi ON mi.ID_Movimiento = dmi.ID_Movimiento
+                INNER JOIN productos pr ON dmi.ID_Producto = pr.ID_Producto
+                INNER JOIN categorias_producto cp ON pr.ID_Categoria = cp.ID_Categoria
+                WHERE mi.ID_Empresa = %s 
+                    AND mi.ID_Bodega = 1
+                    AND mi.Estado = 'Activa'
+                    AND mi.ID_TipoMovimiento = 1  -- Solo Compras
+                    AND mi.Fecha = CURDATE()  -- SOLO DEL DÍA ACTUAL
+                GROUP BY cp.ID_Categoria, cp.Descripcion, pr.ID_Producto, pr.Descripcion, pr.COD_Producto
+                ORDER BY cp.Descripcion, Cantidad_Total_Comprada DESC
+            """, (id_empresa,))
+            entradas_compras_hoy = cursor.fetchall()
+            
             # Preparar datos para gráficos
             datos_graficos = {
                 'categorias': [cat['Categoria'] for cat in distribucion_categorias],
@@ -11229,7 +11273,13 @@ def admin_inventario_dashboard():
                     estadisticas['Productos_Optimos'],
                     estadisticas['Productos_Exceso']
                 ],
-                'niveles_stock': ['Sin Stock', 'Bajo Stock', 'Óptimo', 'Exceso']
+                'niveles_stock': ['Sin Stock', 'Bajo Stock', 'Óptimo', 'Exceso'],
+                
+                # Datos para las nuevas secciones
+                'total_produccion_hoy': sum(item['Cantidad_Total_Ingresada'] for item in entradas_produccion_hoy),
+                'total_compras_hoy': sum(item['Cantidad_Total_Comprada'] for item in entradas_compras_hoy),
+                'productos_produccion_hoy': len(entradas_produccion_hoy),
+                'productos_compras_hoy': len(entradas_compras_hoy)
             }
             
             return render_template(
@@ -11246,11 +11296,16 @@ def admin_inventario_dashboard():
                 rotacion_productos=rotacion_productos,
                 sugerencias_reorden=sugerencias_reorden,
                 
+                # NUEVAS CONSULTAS - Entradas del día
+                entradas_produccion_hoy=entradas_produccion_hoy,
+                entradas_compras_hoy=entradas_compras_hoy,
+                
                 # Datos para gráficos
                 datos_graficos=datos_graficos,
                 
                 # Fecha actual para el dashboard
-                fecha_actual=datetime.now().strftime('%d/%m/%Y %H:%M')
+                fecha_actual=datetime.now().strftime('%d/%m/%Y %H:%M'),
+                fecha_filtro=fecha_actual  # Para mostrar en el template
             )
             
     except Exception as e:
@@ -12043,7 +12098,8 @@ def api_productos_stock_bodega():
         print(f"Error en API productos stock bodega: {e}")
         return jsonify({'error': str(e)}), 500
 
-# 6. NUEVA TRANSFERENCIA (Traslado)
+
+# 6. FORMULARIO TRANSFERENCIA
 @app.route('/admin/movimientos/transferencia/nueva')
 @admin_or_bodega_required
 def admin_nueva_transferencia_form():
@@ -12052,164 +12108,492 @@ def admin_nueva_transferencia_form():
         with get_db_cursor(True) as cursor:
             # Solo mostrar tipo Traslado
             cursor.execute("""
-                SELECT * FROM catalogo_movimientos 
-                WHERE ID_TipoMovimiento = %s
-            """, (TIPO_TRASLADO,))
-            
-            tipos_movimiento = cursor.fetchall()
-            
-            # Obtener bodegas
-            cursor.execute("""
-                SELECT * FROM bodegas 
-                WHERE Estado = 1 
-                ORDER BY Nombre
+                SELECT ID_TipoMovimiento, Descripcion, Letra 
+                FROM catalogo_movimientos 
+                WHERE Letra = 'T' AND (Descripcion LIKE '%traslado%' OR Descripcion LIKE '%transferencia%')
+                LIMIT 1
             """)
+            
+            tipo_movimiento = cursor.fetchone()
+            
+            if not tipo_movimiento:
+                # Si no encuentra con 'T', buscar cualquier tipo de traslado
+                cursor.execute("""
+                    SELECT ID_TipoMovimiento, Descripcion, Letra 
+                    FROM catalogo_movimientos 
+                    WHERE Descripcion LIKE '%traslado%' OR Descripcion LIKE '%transferencia%'
+                    LIMIT 1
+                """)
+                tipo_movimiento = cursor.fetchone()
+                
+                if not tipo_movimiento:
+                    flash("No se encontró el tipo de movimiento para traslados", 'error')
+                    return redirect(url_for('admin_historial_movimientos'))
+            
+            # Obtener bodegas de la empresa del usuario
+            id_empresa = session.get('id_empresa', 1)
+            cursor.execute("""
+                SELECT ID_Bodega, Nombre, Ubicacion 
+                FROM bodegas 
+                WHERE Estado = 'activa' AND ID_Empresa = %s
+                ORDER BY Nombre
+            """, (id_empresa,))
             bodegas = cursor.fetchall()
             
-            # Importar datetime y obtener fecha actual
+            if not bodegas or len(bodegas) < 2:
+                flash("Debe haber al menos 2 bodegas activas para hacer transferencias", 'error')
+                return redirect(url_for('admin_historial_movimientos'))
+            
+            # Obtener fecha actual
             from datetime import datetime
             fecha_actual = datetime.now().strftime('%Y-%m-%d')
             
             return render_template('admin/movimientos/nueva_transferencia.html',
-                                 tipos_movimiento=tipos_movimiento,
+                                 tipo_movimiento=tipo_movimiento,
                                  bodegas=bodegas,
                                  fecha_actual=fecha_actual)
     except Exception as e:
         flash(f"Error al cargar formulario: {str(e)}", 'error')
         return redirect(url_for('admin_historial_movimientos'))
 
-# 7. PROCESAR TRANSFERENCIA
+# 7. PROCESAR TRANSFERENCIA - VERSIÓN COMPLETAMENTE CORREGIDA
 @app.route('/admin/movimientos/transferencia/procesar', methods=['POST'])
 @admin_or_bodega_required
 @bitacora_decorator("PROCESAR-TRANSFERENCIA")
 def admin_procesar_transferencia():
-    """Procesar transferencia entre bodegas"""
+    """Procesar transferencia entre bodegas - Versión corregida para suma correcta"""
     try:
+        # Obtener datos del formulario
         fecha = request.form.get('fecha')
-        id_bodega_origen = int(request.form.get('id_bodega_origen'))
-        id_bodega_destino = int(request.form.get('id_bodega_destino'))
-        ubicacion_entrega = request.form.get('ubicacion_entrega')
-        observacion = request.form.get('observacion')
+        id_bodega_origen = request.form.get('id_bodega_origen')
+        id_bodega_destino = request.form.get('id_bodega_destino')
+        ubicacion_entrega = request.form.get('ubicacion_entrega', '').strip()
+        observacion = request.form.get('observacion', '').strip()
         
-        # Validaciones
+        # Validaciones básicas
         if not all([fecha, id_bodega_origen, id_bodega_destino]):
             flash("Fecha y bodegas son requeridas", 'error')
+            return redirect(url_for('admin_nueva_transferencia_form'))
+        
+        try:
+            id_bodega_origen = int(id_bodega_origen)
+            id_bodega_destino = int(id_bodega_destino)
+        except ValueError:
+            flash("Bodegas inválidas", 'error')
             return redirect(url_for('admin_nueva_transferencia_form'))
         
         if id_bodega_origen == id_bodega_destino:
             flash("La bodega de origen y destino no pueden ser la misma", 'error')
             return redirect(url_for('admin_nueva_transferencia_form'))
         
+        # Validar productos
         productos_json = request.form.get('productos')
-        if not productos_json:
+        if not productos_json or productos_json == '[]':
             flash("Debe agregar al menos un producto", 'error')
             return redirect(url_for('admin_nueva_transferencia_form'))
         
         productos = json.loads(productos_json)
         
-        with get_db_cursor() as cursor:
+        # Validar que haya productos
+        if not productos:
+            flash("Debe agregar al menos un producto", 'error')
+            return redirect(url_for('admin_nueva_transferencia_form'))
+        
+        # Obtener usuario y empresa
+        id_usuario = current_user.id
+        id_empresa = session.get('id_empresa', 1)
+        
+        # IMPORTANTE: Agregar commit=True
+        with get_db_cursor(commit=True) as cursor:
+            # Validar que ambas bodegas existan y pertenezcan a la empresa
+            cursor.execute("""
+                SELECT ID_Bodega, Nombre 
+                FROM bodegas 
+                WHERE ID_Bodega IN (%s, %s) 
+                AND Estado = 'activa' 
+                AND ID_Empresa = %s
+            """, (id_bodega_origen, id_bodega_destino, id_empresa))
+            
+            bodegas_validas = cursor.fetchall()
+            if len(bodegas_validas) != 2:
+                flash("Una o ambas bodegas no son válidas", 'error')
+                return redirect(url_for('admin_nueva_transferencia_form'))
+            
+            # Obtener nombres para mensajes
+            bodega_origen_nombre = next((b['Nombre'] for b in bodegas_validas if b['ID_Bodega'] == id_bodega_origen), 'Origen')
+            bodega_destino_nombre = next((b['Nombre'] for b in bodegas_validas if b['ID_Bodega'] == id_bodega_destino), 'Destino')
+            
+            # Obtener ID del tipo de movimiento para traslados
+            cursor.execute("""
+                SELECT ID_TipoMovimiento, Letra 
+                FROM catalogo_movimientos 
+                WHERE (Letra = 'T' OR Descripcion LIKE '%traslado%' OR Descripcion LIKE '%transferencia%')
+                ORDER BY 
+                    CASE WHEN Letra = 'T' THEN 1 
+                         ELSE 2 
+                    END
+                LIMIT 1
+            """)
+            
+            tipo_movimiento_result = cursor.fetchone()
+            if not tipo_movimiento_result:
+                flash("Tipo de movimiento para traslados no encontrado", 'error')
+                return redirect(url_for('admin_nueva_transferencia_form'))
+            
+            id_tipo_movimiento = tipo_movimiento_result['ID_TipoMovimiento']
+            letra_movimiento = tipo_movimiento_result['Letra']
+            
             # VERIFICAR STOCK en bodega origen
             productos_insuficientes = []
+            productos_validos = []
             
             for prod in productos:
-                cursor.execute("""
-                    SELECT Existencias 
-                    FROM inventario_bodega 
-                    WHERE ID_Bodega = %s AND ID_Producto = %s
-                """, (id_bodega_origen, prod['id_producto']))
-                
-                stock = cursor.fetchone()
+                producto_id = int(prod['id_producto'])
+                # IMPORTANTE: Mantener como Decimal, NO convertir a float
                 cantidad = Decimal(str(prod['cantidad']))
                 
-                stock_disponible = stock['Existencias'] if stock else Decimal('0')
+                if cantidad <= 0:
+                    flash(f"La cantidad para producto ID {producto_id} debe ser mayor a 0", 'error')
+                    return redirect(url_for('admin_nueva_transferencia_form'))
                 
-                if stock_disponible < cantidad:
-                    cursor.execute("SELECT Descripcion FROM productos WHERE ID_Producto = %s", 
-                                 (prod['id_producto'],))
-                    producto_info = cursor.fetchone()
-                    producto_nombre = producto_info['Descripcion'] if producto_info else 'Producto desconocido'
-                    
+                # Verificar si producto existe, está activo y pertenece a la empresa
+                cursor.execute("""
+                    SELECT ID_Producto, Descripcion, Precio_Venta, COD_Producto
+                    FROM productos 
+                    WHERE ID_Producto = %s 
+                    AND Estado = 'activo'
+                    AND ID_Empresa = %s
+                """, (producto_id, id_empresa))
+                
+                producto_existe = cursor.fetchone()
+                if not producto_existe:
                     productos_insuficientes.append({
-                        'producto': producto_nombre,
+                        'producto': f'ID {producto_id}',
+                        'error': 'Producto no existe, está inactivo o no pertenece a su empresa'
+                    })
+                    continue
+                
+                # Verificar stock disponible en bodega origen (con manejo de NULL)
+                cursor.execute("""
+                    SELECT COALESCE(Existencias, 0) as Existencias 
+                    FROM inventario_bodega 
+                    WHERE ID_Bodega = %s AND ID_Producto = %s
+                """, (id_bodega_origen, producto_id))
+                
+                stock = cursor.fetchone()
+                stock_disponible = Decimal(str(stock['Existencias'])) if stock else Decimal('0')
+                
+                # Verificar si hay suficiente stock
+                if stock_disponible < cantidad:
+                    productos_insuficientes.append({
+                        'producto': f"{producto_existe['COD_Producto'] or ''} {producto_existe['Descripcion']}",
                         'solicitado': float(cantidad),
-                        'disponible': float(stock_disponible)
+                        'disponible': float(stock_disponible),
+                        'faltante': float(cantidad - stock_disponible)
+                    })
+                else:
+                    productos_validos.append({
+                        'id_producto': producto_id,
+                        'cantidad': cantidad,  # Decimal
+                        'descripcion': producto_existe['Descripcion'],
+                        'codigo': producto_existe['COD_Producto'],
+                        'precio_venta': producto_existe['Precio_Venta'],
+                        'stock_origen': stock_disponible
                     })
             
             if productos_insuficientes:
-                mensaje_error = "Stock insuficiente en bodega origen:<br>"
+                mensaje_error = f"<strong>Stock insuficiente en bodega '{bodega_origen_nombre}':</strong><br><br>"
                 for item in productos_insuficientes:
-                    mensaje_error += f"- {item['producto']}: Solicitado {item['solicitado']}, Disponible {item['disponible']}<br>"
+                    if 'error' in item:
+                        mensaje_error += f"❌ <strong>{item['producto']}</strong>: {item['error']}<br>"
+                    else:
+                        mensaje_error += f"❌ <strong>{item['producto']}</strong>:<br>"
+                        mensaje_error += f"&nbsp;&nbsp;Solicitado: {item['solicitado']:.2f}<br>"
+                        mensaje_error += f"&nbsp;&nbsp;Disponible: {item['disponible']:.2f}<br>"
+                        mensaje_error += f"&nbsp;&nbsp;<strong>Faltan: {item['faltante']:.2f}</strong><br>"
                 flash(mensaje_error, 'error')
+                return redirect(url_for('admin_nueva_transferencia_form'))
+            
+            if not productos_validos:
+                flash("No hay productos válidos para transferir", 'error')
                 return redirect(url_for('admin_nueva_transferencia_form'))
             
             # Insertar movimiento de transferencia
             cursor.execute("""
                 INSERT INTO movimientos_inventario 
                 (ID_TipoMovimiento, Fecha, ID_Bodega, ID_Bodega_Destino,
-                 UbicacionEntrega, Observacion, ID_Empresa, ID_Usuario_Creacion)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                 UbicacionEntrega, Observacion, ID_Empresa, ID_Usuario_Creacion, Estado)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 'Activa')
             """, (
-                TIPO_TRASLADO, fecha, id_bodega_origen, id_bodega_destino,
-                ubicacion_entrega, observacion, session.get('id_empresa', 1), 
-                session.get('user_id')
+                id_tipo_movimiento, fecha, id_bodega_origen, id_bodega_destino,
+                ubicacion_entrega, observacion, id_empresa, id_usuario
             ))
             
             id_movimiento = cursor.lastrowid
             
-            # Procesar productos
-            for prod in productos:
-                cantidad = Decimal(str(prod['cantidad']))
+            # Procesar cada producto válido
+            total_productos = 0
+            total_unidades = Decimal('0')
+            
+            for prod in productos_validos:
+                producto_id = prod['id_producto']
+                cantidad = prod['cantidad']  # Decimal
                 
-                # Obtener costo promedio
+                # Obtener el último costo de entrada del producto
                 cursor.execute("""
-                    SELECT Costo_Unitario 
+                    SELECT dmi.Costo_Unitario 
                     FROM detalle_movimientos_inventario dmi
                     JOIN movimientos_inventario mi ON dmi.ID_Movimiento = mi.ID_Movimiento
                     JOIN catalogo_movimientos cm ON mi.ID_TipoMovimiento = cm.ID_TipoMovimiento
                     WHERE dmi.ID_Producto = %s 
-                    AND cm.Letra = 'E'
+                    AND (cm.Letra = 'E' OR cm.Descripcion LIKE '%entrada%' OR cm.Descripcion LIKE '%compra%')
+                    AND mi.Estado = 'Activa'
                     ORDER BY mi.Fecha DESC, dmi.ID_Detalle_Movimiento DESC
                     LIMIT 1
-                """, (prod['id_producto'],))
+                """, (producto_id,))
                 
                 costo_result = cursor.fetchone()
-                costo_unitario = Decimal(str(costo_result['Costo_Unitario'] if costo_result else 0))
+                
+                # Usar el costo si existe, si no usar 0
+                costo_unitario = Decimal(str(costo_result['Costo_Unitario'])) if costo_result and costo_result['Costo_Unitario'] is not None else Decimal('0')
                 subtotal = cantidad * costo_unitario
                 
-                # Insertar detalle
+                # Insertar detalle del movimiento
                 cursor.execute("""
                     INSERT INTO detalle_movimientos_inventario
                     (ID_Movimiento, ID_Producto, Cantidad, Costo_Unitario,
-                     Subtotal, ID_Usuario_Creacion)
-                    VALUES (%s, %s, %s, %s, %s, %s)
+                     Precio_Unitario, Subtotal, ID_Usuario_Creacion)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s)
                 """, (
-                    id_movimiento, prod['id_producto'], cantidad,
-                    costo_unitario, subtotal, session.get('user_id')
+                    id_movimiento, producto_id, cantidad,
+                    costo_unitario, prod['precio_venta'], subtotal, id_usuario
                 ))
                 
-                # DESCONTAR de bodega origen
+                # 1. DESCONTAR de bodega origen (mantener como Decimal)
                 cursor.execute("""
                     UPDATE inventario_bodega 
                     SET Existencias = Existencias - %s
                     WHERE ID_Bodega = %s AND ID_Producto = %s
-                """, (cantidad, id_bodega_origen, prod['id_producto']))
+                """, (cantidad, id_bodega_origen, producto_id))
                 
-                # AGREGAR a bodega destino
+                # Si no se afectaron filas, significa que no existía el registro
+                if cursor.rowcount == 0:
+                    flash(f"Error: Producto {prod['codigo']} no encontrado en inventario de bodega origen", 'error')
+                    return redirect(url_for('admin_nueva_transferencia_form'))
+                
+                # 2. AGREGAR a bodega destino - VERSIÓN CORREGIDA
+                # Opción A: Usar ON DUPLICATE KEY UPDATE (recomendada)
                 cursor.execute("""
                     INSERT INTO inventario_bodega (ID_Bodega, ID_Producto, Existencias)
                     VALUES (%s, %s, %s)
-                    ON DUPLICATE KEY UPDATE
-                    Existencias = Existencias + VALUES(Existencias)
-                """, (id_bodega_destino, prod['id_producto'], cantidad))
+                    ON DUPLICATE KEY UPDATE 
+                    Existencias = Existencias + %s
+                """, (id_bodega_destino, producto_id, cantidad, cantidad))
                 
-                # NOTA: Existencias generales NO cambian (solo se transfiere)
+                # Opción B: Versión alternativa paso a paso (si la opción A falla)
+                # cursor.execute("""
+                #     SELECT 1 FROM inventario_bodega 
+                #     WHERE ID_Bodega = %s AND ID_Producto = %s
+                # """, (id_bodega_destino, producto_id))
+                # 
+                # existe_destino = cursor.fetchone()
+                # 
+                # if existe_destino:
+                #     cursor.execute("""
+                #         UPDATE inventario_bodega 
+                #         SET Existencias = Existencias + %s
+                #         WHERE ID_Bodega = %s AND ID_Producto = %s
+                #     """, (cantidad, id_bodega_destino, producto_id))
+                # else:
+                #     cursor.execute("""
+                #         INSERT INTO inventario_bodega (ID_Bodega, ID_Producto, Existencias)
+                #         VALUES (%s, %s, %s)
+                #     """, (id_bodega_destino, producto_id, cantidad))
+                
+                # Verificación inmediata (para debugging)
+                cursor.execute("""
+                    SELECT 
+                        (SELECT COALESCE(Existencias, 0) FROM inventario_bodega 
+                         WHERE ID_Bodega = %s AND ID_Producto = %s) as origen_actual,
+                        (SELECT COALESCE(Existencias, 0) FROM inventario_bodega 
+                         WHERE ID_Bodega = %s AND ID_Producto = %s) as destino_actual
+                """, (id_bodega_origen, producto_id, id_bodega_destino, producto_id))
+                
+                verificacion = cursor.fetchone()
+                origen_actual = verificacion['origen_actual']
+                destino_actual = verificacion['destino_actual']
+                
+                print(f"✅ Transferencia producto {prod['codigo']} (ID: {producto_id}):")
+                print(f"   Cantidad transferida: {cantidad:.2f}")
+                print(f"   Origen ({bodega_origen_nombre}): {prod['stock_origen']:.2f} → {origen_actual:.2f}")
+                print(f"   Destino ({bodega_destino_nombre}): +{cantidad:.2f} = {destino_actual:.2f}")
+                
+                # Registrar en bitácora de inventario (si existe la tabla)
+                try:
+                    cursor.execute("""
+                        INSERT INTO bitacora_inventario 
+                        (ID_Movimiento, ID_Producto, ID_Bodega_Origen, ID_Bodega_Destino,
+                         Cantidad, Tipo_Operacion, ID_Usuario, Observacion)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                    """, (
+                        id_movimiento, producto_id, id_bodega_origen, id_bodega_destino,
+                        cantidad, letra_movimiento, id_usuario,
+                        f"Traslado {bodega_origen_nombre} → {bodega_destino_nombre}"
+                    ))
+                except Exception as e:
+                    # Si no existe la tabla bitacora_inventario, solo registrar en logs
+                    print(f"⚠️  No se pudo registrar en bitácora: {str(e)}")
+                    pass
+                
+                total_productos += 1
+                total_unidades += cantidad
             
-            flash(f"✅ Transferencia registrada exitosamente! ID: {id_movimiento}", 'success')
+            # Verificación final de consistencia
+            print(f"\n📊 RESUMEN TRANSFERENCIA #{id_movimiento}:")
+            print(f"   Total productos: {total_productos}")
+            print(f"   Total unidades: {total_unidades:.2f}")
+            print(f"   Bodega origen: {bodega_origen_nombre} (ID: {id_bodega_origen})")
+            print(f"   Bodega destino: {bodega_destino_nombre} (ID: {id_bodega_destino})")
+            
+            flash(
+                f"✅ <strong>Transferencia #{id_movimiento} registrada exitosamente!</strong><br><br>"
+                f"📦 <strong>Productos:</strong> {total_productos}<br>"
+                f"📊 <strong>Unidades:</strong> {total_unidades:.2f}<br>"
+                f"📍 <strong>De:</strong> {bodega_origen_nombre}<br>"
+                f"🏁 <strong>A:</strong> {bodega_destino_nombre}<br><br>"
+                f"<small>Las existencias se han sumado correctamente en la bodega destino.</small>",
+                'success'
+            )
+            
             return redirect(url_for('admin_detalle_movimiento', id_movimiento=id_movimiento))
             
     except Exception as e:
+        print(f"❌ ERROR en procesar transferencia: {str(e)}")
+        import traceback
+        print(traceback.format_exc())
         flash(f"❌ Error al procesar transferencia: {str(e)}", 'error')
         return redirect(url_for('admin_nueva_transferencia_form'))
+
+# Función auxiliar para verificar transferencias (opcional)
+@app.route('/admin/verificar-transferencia/<int:id_movimiento>')
+@admin_or_bodega_required
+def verificar_transferencia(id_movimiento):
+    """Verificar consistencia de una transferencia"""
+    try:
+        with get_db_cursor(True) as cursor:
+            cursor.execute("""
+                SELECT 
+                    mi.ID_Movimiento,
+                    mi.Fecha,
+                    bo.ID_Bodega as Origen_ID,
+                    bo.Nombre as Origen_Nombre,
+                    bd.ID_Bodega as Destino_ID,
+                    bd.Nombre as Destino_Nombre,
+                    dmi.ID_Producto,
+                    p.COD_Producto,
+                    p.Descripcion,
+                    dmi.Cantidad,
+                    (SELECT ib.Existencias FROM inventario_bodega ib 
+                     WHERE ib.ID_Bodega = bo.ID_Bodega AND ib.ID_Producto = dmi.ID_Producto) as Existencia_Origen,
+                    (SELECT ib.Existencias FROM inventario_bodega ib 
+                     WHERE ib.ID_Bodega = bd.ID_Bodega AND ib.ID_Producto = dmi.ID_Producto) as Existencia_Destino
+                FROM movimientos_inventario mi
+                JOIN detalle_movimientos_inventario dmi ON mi.ID_Movimiento = dmi.ID_Movimiento
+                JOIN bodegas bo ON mi.ID_Bodega = bo.ID_Bodega
+                JOIN bodegas bd ON mi.ID_Bodega_Destino = bd.ID_Bodega
+                JOIN productos p ON dmi.ID_Producto = p.ID_Producto
+                WHERE mi.ID_Movimiento = %s
+            """, (id_movimiento,))
+            
+            detalles = cursor.fetchall()
+            
+            if not detalles:
+                return jsonify({'error': 'Transferencia no encontrada'}), 404
+            
+            # Verificar consistencia
+            consistente = True
+            mensajes = []
+            
+            for detalle in detalles:
+                cantidad = Decimal(str(detalle['Cantidad']))
+                origen_actual = Decimal(str(detalle['Existencia_Origen'] or 0))
+                destino_actual = Decimal(str(detalle['Existencia_Destino'] or 0))
+                
+                # La lógica debería ser: destino_actual debería incluir la cantidad transferida
+                if destino_actual < cantidad:
+                    consistente = False
+                    mensajes.append(f"❌ Producto {detalle['COD_Producto']}: "
+                                  f"Destino tiene {destino_actual:.2f} pero debería tener al menos {cantidad:.2f}")
+                else:
+                    mensajes.append(f"✅ Producto {detalle['COD_Producto']}: "
+                                  f"Correcto (Origen: {origen_actual:.2f}, Destino: {destino_actual:.2f})")
+            
+            return jsonify({
+                'transferencia_id': id_movimiento,
+                'consistente': consistente,
+                'detalles': detalles,
+                'mensajes': mensajes
+            })
+            
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/inventario/productos-bodega/<int:id_bodega>')
+@admin_or_bodega_required
+def api_productos_bodega_con_stock(id_bodega):
+    """Obtener productos con stock en una bodega específica"""
+    try:
+        id_empresa = session.get('id_empresa', 1)
+        
+        with get_db_cursor(True) as cursor:
+            # Obtener productos activos
+            cursor.execute("""
+                SELECT 
+                    p.ID_Producto, 
+                    p.Descripcion, 
+                    p.COD_Producto,
+                    p.Precio_Venta,
+                    um.Descripcion as Unidad_Descripcion,
+                    cp.Descripcion as Categoria_Descripcion
+                FROM productos p
+                LEFT JOIN unidades_medida um ON p.Unidad_Medida = um.ID_Unidad
+                LEFT JOIN categorias_producto cp ON p.ID_Categoria = cp.ID_Categoria
+                WHERE p.Estado = 'activo' AND p.ID_Empresa = %s
+                ORDER BY p.Descripcion
+            """, (id_empresa,))
+            
+            todos_productos = cursor.fetchall()
+            productos_con_stock = []
+            
+            for producto in todos_productos:
+                # Obtener stock en esta bodega específica
+                cursor.execute("""
+                    SELECT COALESCE(Existencias, 0) as Existencias
+                    FROM inventario_bodega
+                    WHERE ID_Bodega = %s AND ID_Producto = %s
+                """, (id_bodega, producto['ID_Producto']))
+                
+                stock_result = cursor.fetchone()
+                stock = stock_result['Existencias'] if stock_result else 0
+                
+                if stock > 0:
+                    # Obtener existencias totales usando TU función
+                    existencias_totales = obtener_existencias_producto(producto['ID_Producto'])
+                    
+                    producto['Existencias'] = float(stock)
+                    producto['Stock_Bodega'] = float(stock)
+                    producto['Existencias_Totales'] = float(existencias_totales)
+                    productos_con_stock.append(producto)
+            
+            return {
+                'success': True,
+                'productos': productos_con_stock,
+                'total': len(productos_con_stock)
+            }
+            
+    except Exception as e:
+        return {'error': str(e)}, 500
+
 
 # 8. DETALLE DE MOVIMIENTO
 @app.route('/admin/movimientos/detalle/<int:id_movimiento>')

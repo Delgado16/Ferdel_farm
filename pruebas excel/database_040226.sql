@@ -494,7 +494,7 @@ CREATE TABLE `empresa` (
 
 LOCK TABLES `empresa` WRITE;
 /*!40000 ALTER TABLE `empresa` DISABLE KEYS */;
-INSERT INTO `empresa` VALUES (1,'Granja Avicola FERDEL','Rastro Municipal 150 mts. Norte, Diriomo','81006837','Activo','2031407850000U'),(2,'Cerdos','Rastro Municipal 150 mts. Norte, Diriomo','81006837','Activo','2031407850000U');
+INSERT INTO `empresa` VALUES (1,'Granja Avicola FERDEL','Rastro Municipal 150 mts. Norte, Diriomo','81006837','Activo','2031407850000U');
 /*!40000 ALTER TABLE `empresa` ENABLE KEYS */;
 UNLOCK TABLES;
 
