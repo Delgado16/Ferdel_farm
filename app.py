@@ -704,7 +704,7 @@ def bodega_dashboard():
                     um.Abreviatura AS Unidad,
                     dmi.Cantidad,
                     CASE 
-                        WHEN cm.Adicion = 'SUMA' OR cm.Letra = 'E' 
+                        WHEN cm.Adicion = 'SUMA' OR cm.Letra = 'E' OR cm.Letra = 'TE'
                         THEN 'ENTRADA' 
                         ELSE 'SALIDA' 
                     END AS Tipo,
@@ -10293,12 +10293,12 @@ def admin_asignacion_rutas():
             return redirect(url_for('admin_dashboard'))
         
         with get_db_cursor(commit=False) as cursor:
-            # Obtener asignaciones activas - CORREGIDA
+            # Obtener asignaciones activas - CORREGIDA CON NUEVOS CAMPOS
             cursor.execute("""
                 SELECT 
                     a.ID_Asignacion,
                     u.ID_Usuario,
-                    u.NombreUsuario AS Vendedor,  -- Cambiado: solo NombreUsuario
+                    u.NombreUsuario AS Vendedor,
                     r.Nombre_Ruta,
                     r.ID_Ruta,
                     v.ID_Vehiculo,
@@ -10309,8 +10309,11 @@ def admin_asignacion_rutas():
                     a.Fecha_Asignacion,
                     a.Fecha_Finalizacion,
                     a.Estado AS Estado_Asignacion,
-                    ua.NombreUsuario AS Asignado_Por,  -- Cambiado: solo NombreUsuario
-                    rol.Nombre_Rol AS Rol_Vendedor
+                    ua.NombreUsuario AS Asignado_Por,
+                    rol.Nombre_Rol AS Rol_Vendedor,
+                    a.Hora_Inicio,    -- NUEVO CAMPO
+                    a.Hora_Fin,       -- NUEVO CAMPO
+                    a.ID_Usuario_Asigna
                 FROM asignacion_vendedores a
                 LEFT JOIN usuarios u ON a.ID_Usuario = u.ID_Usuario
                 LEFT JOIN roles rol ON u.ID_Rol = rol.ID_Rol
@@ -10332,10 +10335,7 @@ def admin_asignacion_rutas():
                 LEFT JOIN roles rol ON u.ID_Rol = rol.ID_Rol
                 WHERE u.ID_Empresa = %s 
                 AND u.Estado = 'ACTIVO'
-                -- Opción 1: Filtrar por nombre de rol (recomendado)
                 AND rol.Nombre_Rol LIKE '%%Vendedor%%'
-                -- Opción 2: Filtrar por ID de rol específico
-                -- AND u.ID_Rol = [ID_DEL_ROL_VENDEDOR]
                 AND NOT EXISTS (
                     SELECT 1 
                     FROM asignacion_vendedores av
@@ -10379,21 +10379,17 @@ def admin_asignacion_rutas():
             """, (empresa_id, empresa_id))
             vehiculos = cursor.fetchall()
             
-            # Obtener usuarios que pueden asignar (administradores/supervisores)
-            # IMPORTANTE: Cambia el ID_Rol = 1 por el ID correcto de administrador en tu sistema
+            # Obtener usuarios que pueden asignar
             cursor.execute("""
                 SELECT 
                     u.ID_Usuario, 
-                    u.NombreUsuario AS Nombre,  -- Cambiado: solo NombreUsuario
+                    u.NombreUsuario AS Nombre,
                     rol.Nombre_Rol AS Rol
                 FROM usuarios u
                 LEFT JOIN roles rol ON u.ID_Rol = rol.ID_Rol
                 WHERE u.ID_Empresa = %s 
                 AND u.Estado = 'ACTIVO'
-                -- Filtro alternativo: Por nombre de rol
-                -- AND rol.Nombre_Rol IN ('Administrador', 'Supervisor', 'ADMINISTRADOR', 'SUPERVISOR')
-                -- Filtro alternativo: Por ID de rol específico
-                -- AND u.ID_Rol IN ([ID_ADMIN], [ID_SUPERVISOR])
+                AND rol.Nombre_Rol IN ('Administrador', 'Supervisor', 'ADMINISTRADOR', 'SUPERVISOR')
                 ORDER BY u.NombreUsuario
             """, (empresa_id,))
             asignadores = cursor.fetchall()
@@ -10411,7 +10407,7 @@ def admin_asignacion_rutas():
     except Exception as e:
         flash(f'Error al cargar asignación de rutas: {str(e)}', 'error')
         return redirect(url_for('admin_dashboard'))
-    
+
 @app.route('/admin/catalogos/rutas/asignacion/crear', methods=['POST'])
 @admin_required
 def crear_asignacion_ruta():
@@ -10424,6 +10420,8 @@ def crear_asignacion_ruta():
         id_ruta = request.form.get('id_ruta')
         id_vehiculo = request.form.get('id_vehiculo')
         fecha_asignacion = request.form.get('fecha_asignacion')
+        hora_inicio = request.form.get('hora_inicio')
+        hora_fin = request.form.get('hora_fin')
         id_asignador = current_user.id
 
         # Validaciones básicas
@@ -10439,9 +10437,13 @@ def crear_asignacion_ruta():
             flash('Debe seleccionar una fecha', 'error')
             return redirect(url_for('admin_asignacion_rutas'))
         
-        # Convertir ID vehículo a None si está vacío
+        # Convertir valores vacíos a None
         if id_vehiculo == '':
             id_vehiculo = None
+        if hora_inicio == '':
+            hora_inicio = None
+        if hora_fin == '':
+            hora_fin = None
         
         # Validar que el vendedor no tenga asignación activa en la misma fecha
         with get_db_cursor(commit=False) as cursor:
@@ -10472,14 +10474,15 @@ def crear_asignacion_ruta():
                     flash('El vehículo seleccionado no está disponible', 'error')
                     return redirect(url_for('admin_asignacion_rutas'))
             
-            # Crear la asignación
+            # Crear la asignación CON NUEVOS CAMPOS
             cursor.execute("""
                 INSERT INTO asignacion_vendedores 
                 (ID_Usuario, ID_Ruta, ID_Vehiculo, Fecha_Asignacion, 
-                 Estado, ID_Empresa, ID_Usuario_Asigna)
-                VALUES (%s, %s, %s, %s, 'Activa', %s, %s)
+                 Estado, ID_Empresa, ID_Usuario_Asigna, Hora_Inicio, Hora_Fin)
+                VALUES (%s, %s, %s, %s, 'Activa', %s, %s, %s, %s)
             """, (id_vendedor, id_ruta, id_vehiculo, 
-                  fecha_asignacion, empresa_id, id_asignador))
+                  fecha_asignacion, empresa_id, id_asignador,
+                  hora_inicio, hora_fin))
             
             # Si se asignó vehículo, cambiar su estado
             if id_vehiculo:
@@ -10504,7 +10507,7 @@ def editar_asignacion_ruta(id):
         empresa_id = session.get('id_empresa', 1)
         
         with get_db_cursor(commit=False) as cursor:
-            # Obtener la asignación específica - CORREGIDA
+            # Obtener la asignación específica - YA INCLUYE LOS NUEVOS CAMPOS EN a.*
             cursor.execute("""
                 SELECT 
                     a.*,
@@ -10540,7 +10543,7 @@ def editar_asignacion_ruta(id):
             """, (empresa_id,))
             rutas = cursor.fetchall()
             
-            # Obtener vehículos disponibles + el vehículo actual - CORREGIDA
+            # Obtener vehículos disponibles + el vehículo actual
             cursor.execute("""
                 SELECT 
                     ID_Vehiculo, 
@@ -10556,23 +10559,23 @@ def editar_asignacion_ruta(id):
             """, (empresa_id, asignacion['ID_Vehiculo']))
             vehiculos = cursor.fetchall()
             
-            # Obtener usuarios que pueden asignar - CORREGIDA
+            # Obtener usuarios que pueden asignar
             cursor.execute("""
                 SELECT 
                     u.ID_Usuario, 
-                    CONCAT(u.NombreUsuario) AS Nombre,
+                    u.NombreUsuario AS Nombre,
                     rol.Nombre_Rol AS Rol
                 FROM usuarios u
                 LEFT JOIN roles rol ON u.ID_Rol = rol.ID_Rol
                 WHERE u.ID_Empresa = %s 
-                AND u.ID_Rol = 1  -- Rol de administrador
+                AND rol.Nombre_Rol IN ('Administrador', 'Supervisor', 'ADMINISTRADOR', 'SUPERVISOR')
                 AND u.Estado = 'ACTIVO'
                 ORDER BY u.NombreUsuario
             """, (empresa_id,))
             asignadores = cursor.fetchall()
             
         return render_template(
-            'admin/catalog/rutas/editar_asignacion.html',  # Corregida ruta
+            'admin/catalog/rutas/editar_asignacion.html',
             asignacion=asignacion,
             rutas=rutas,
             vehiculos=vehiculos,
@@ -10595,11 +10598,19 @@ def actualizar_asignacion_ruta(id):
         id_vehiculo = request.form.get('id_vehiculo')
         fecha_asignacion = request.form.get('fecha_asignacion')
         fecha_finalizacion = request.form.get('fecha_finalizacion')
+        hora_inicio = request.form.get('hora_inicio')
+        hora_fin = request.form.get('hora_fin')
         estado = request.form.get('estado')
         
         if not all([id_ruta, fecha_asignacion, estado]):
             flash('Los campos ruta, fecha y estado son requeridos', 'error')
             return redirect(url_for('editar_asignacion_ruta', id=id))
+        
+        # Convertir valores vacíos a None
+        if hora_inicio == '':
+            hora_inicio = None
+        if hora_fin == '':
+            hora_fin = None
         
         with get_db_cursor(commit=True) as cursor:
             # Obtener asignación actual para comparar vehículo
@@ -10647,18 +10658,20 @@ def actualizar_asignacion_ruta(id):
                         WHERE ID_Vehiculo = %s
                     """, (nuevo_vehiculo,))
             
-            # Actualizar la asignación
+            # Actualizar la asignación CON NUEVOS CAMPOS
             cursor.execute("""
                 UPDATE asignacion_vendedores 
                 SET ID_Ruta = %s,
                     ID_Vehiculo = %s,
                     Fecha_Asignacion = %s,
                     Fecha_Finalizacion = %s,
-                    Estado = %s
+                    Estado = %s,
+                    Hora_Inicio = %s,
+                    Hora_Fin = %s
                 WHERE ID_Asignacion = %s AND ID_Empresa = %s
             """, (id_ruta, nuevo_vehiculo, fecha_asignacion, 
                   fecha_finalizacion if fecha_finalizacion and fecha_finalizacion != '' else None, 
-                  estado, id, empresa_id))
+                  estado, hora_inicio, hora_fin, id, empresa_id))
             
             # Si se finaliza la asignación, liberar el vehículo si existe
             if estado == 'Finalizada' and nuevo_vehiculo:
@@ -10698,11 +10711,12 @@ def finalizar_asignacion_ruta(id):
                 flash('Asignación no encontrada o ya finalizada', 'error')
                 return redirect(url_for('admin_asignacion_rutas'))
             
-            # Actualizar estado de la asignación
+            # Actualizar estado de la asignación CON HORA_FIN
             cursor.execute("""
                 UPDATE asignacion_vendedores 
                 SET Estado = 'Finalizada',
-                    Fecha_Finalizacion = CURDATE()
+                    Fecha_Finalizacion = CURDATE(),
+                    Hora_Fin = CURTIME()
                 WHERE ID_Asignacion = %s AND ID_Empresa = %s
             """, (id, empresa_id))
             
@@ -12098,7 +12112,6 @@ def api_productos_stock_bodega():
         print(f"Error en API productos stock bodega: {e}")
         return jsonify({'error': str(e)}), 500
 
-
 # 6. FORMULARIO TRANSFERENCIA
 @app.route('/admin/movimientos/transferencia/nueva')
 @admin_or_bodega_required
@@ -12106,30 +12119,6 @@ def admin_nueva_transferencia_form():
     """Mostrar formulario para transferencia entre bodegas"""
     try:
         with get_db_cursor(True) as cursor:
-            # Solo mostrar tipo Traslado
-            cursor.execute("""
-                SELECT ID_TipoMovimiento, Descripcion, Letra 
-                FROM catalogo_movimientos 
-                WHERE Letra = 'T' AND (Descripcion LIKE '%traslado%' OR Descripcion LIKE '%transferencia%')
-                LIMIT 1
-            """)
-            
-            tipo_movimiento = cursor.fetchone()
-            
-            if not tipo_movimiento:
-                # Si no encuentra con 'T', buscar cualquier tipo de traslado
-                cursor.execute("""
-                    SELECT ID_TipoMovimiento, Descripcion, Letra 
-                    FROM catalogo_movimientos 
-                    WHERE Descripcion LIKE '%traslado%' OR Descripcion LIKE '%transferencia%'
-                    LIMIT 1
-                """)
-                tipo_movimiento = cursor.fetchone()
-                
-                if not tipo_movimiento:
-                    flash("No se encontró el tipo de movimiento para traslados", 'error')
-                    return redirect(url_for('admin_historial_movimientos'))
-            
             # Obtener bodegas de la empresa del usuario
             id_empresa = session.get('id_empresa', 1)
             cursor.execute("""
@@ -12149,19 +12138,18 @@ def admin_nueva_transferencia_form():
             fecha_actual = datetime.now().strftime('%Y-%m-%d')
             
             return render_template('admin/movimientos/nueva_transferencia.html',
-                                 tipo_movimiento=tipo_movimiento,
                                  bodegas=bodegas,
                                  fecha_actual=fecha_actual)
     except Exception as e:
         flash(f"Error al cargar formulario: {str(e)}", 'error')
         return redirect(url_for('admin_historial_movimientos'))
 
-# 7. PROCESAR TRANSFERENCIA - VERSIÓN COMPLETAMENTE CORREGIDA
+# 2. PROCESAR TRANSFERENCIA (CON TS Y TE SEPARADOS)
 @app.route('/admin/movimientos/transferencia/procesar', methods=['POST'])
 @admin_or_bodega_required
 @bitacora_decorator("PROCESAR-TRANSFERENCIA")
 def admin_procesar_transferencia():
-    """Procesar transferencia entre bodegas - Versión corregida para suma correcta"""
+    """Procesar transferencia entre bodegas - Crea TS (salida) y TE (entrada) separados"""
     try:
         # Obtener datos del formulario
         fecha = request.form.get('fecha')
@@ -12203,7 +12191,10 @@ def admin_procesar_transferencia():
         id_usuario = current_user.id
         id_empresa = session.get('id_empresa', 1)
         
-        # IMPORTANTE: Agregar commit=True
+        # IDs FIJOS para TS y TE (según tus datos: TS=12, TE=13)
+        ID_TS = 12  # Traslado Salida
+        ID_TE = 13  # Traslado Entrada
+        
         with get_db_cursor(commit=True) as cursor:
             # Validar que ambas bodegas existan y pertenezcan a la empresa
             cursor.execute("""
@@ -12223,33 +12214,12 @@ def admin_procesar_transferencia():
             bodega_origen_nombre = next((b['Nombre'] for b in bodegas_validas if b['ID_Bodega'] == id_bodega_origen), 'Origen')
             bodega_destino_nombre = next((b['Nombre'] for b in bodegas_validas if b['ID_Bodega'] == id_bodega_destino), 'Destino')
             
-            # Obtener ID del tipo de movimiento para traslados
-            cursor.execute("""
-                SELECT ID_TipoMovimiento, Letra 
-                FROM catalogo_movimientos 
-                WHERE (Letra = 'T' OR Descripcion LIKE '%traslado%' OR Descripcion LIKE '%transferencia%')
-                ORDER BY 
-                    CASE WHEN Letra = 'T' THEN 1 
-                         ELSE 2 
-                    END
-                LIMIT 1
-            """)
-            
-            tipo_movimiento_result = cursor.fetchone()
-            if not tipo_movimiento_result:
-                flash("Tipo de movimiento para traslados no encontrado", 'error')
-                return redirect(url_for('admin_nueva_transferencia_form'))
-            
-            id_tipo_movimiento = tipo_movimiento_result['ID_TipoMovimiento']
-            letra_movimiento = tipo_movimiento_result['Letra']
-            
             # VERIFICAR STOCK en bodega origen
             productos_insuficientes = []
             productos_validos = []
             
             for prod in productos:
                 producto_id = int(prod['id_producto'])
-                # IMPORTANTE: Mantener como Decimal, NO convertir a float
                 cantidad = Decimal(str(prod['cantidad']))
                 
                 if cantidad <= 0:
@@ -12273,7 +12243,7 @@ def admin_procesar_transferencia():
                     })
                     continue
                 
-                # Verificar stock disponible en bodega origen (con manejo de NULL)
+                # Verificar stock disponible en bodega origen
                 cursor.execute("""
                     SELECT COALESCE(Existencias, 0) as Existencias 
                     FROM inventario_bodega 
@@ -12294,7 +12264,7 @@ def admin_procesar_transferencia():
                 else:
                     productos_validos.append({
                         'id_producto': producto_id,
-                        'cantidad': cantidad,  # Decimal
+                        'cantidad': cantidad,
                         'descripcion': producto_existe['Descripcion'],
                         'codigo': producto_existe['COD_Producto'],
                         'precio_venta': producto_existe['Precio_Venta'],
@@ -12318,26 +12288,53 @@ def admin_procesar_transferencia():
                 flash("No hay productos válidos para transferir", 'error')
                 return redirect(url_for('admin_nueva_transferencia_form'))
             
-            # Insertar movimiento de transferencia
+            # ============================================
+            # 1. CREAR MOVIMIENTO DE SALIDA (TS - ID 12)
+            # ============================================
+            obs_salida = f"Salida por traslado a {bodega_destino_nombre}"
+            if observacion:
+                obs_salida += f" - {observacion}"
+                
             cursor.execute("""
                 INSERT INTO movimientos_inventario 
                 (ID_TipoMovimiento, Fecha, ID_Bodega, ID_Bodega_Destino,
                  UbicacionEntrega, Observacion, ID_Empresa, ID_Usuario_Creacion, Estado)
                 VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 'Activa')
             """, (
-                id_tipo_movimiento, fecha, id_bodega_origen, id_bodega_destino,
-                ubicacion_entrega, observacion, id_empresa, id_usuario
+                ID_TS, fecha, id_bodega_origen, id_bodega_destino,
+                ubicacion_entrega, obs_salida, id_empresa, id_usuario
             ))
             
-            id_movimiento = cursor.lastrowid
+            id_movimiento_salida = cursor.lastrowid
             
-            # Procesar cada producto válido
+            # ============================================
+            # 2. CREAR MOVIMIENTO DE ENTRADA (TE - ID 13)
+            # ============================================
+            obs_entrada = f"Entrada por traslado desde {bodega_origen_nombre}"
+            if observacion:
+                obs_entrada += f" - {observacion}"
+                
+            cursor.execute("""
+                INSERT INTO movimientos_inventario 
+                (ID_TipoMovimiento, Fecha, ID_Bodega, ID_Bodega_Destino,
+                 UbicacionEntrega, Observacion, ID_Empresa, ID_Usuario_Creacion, Estado)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 'Activa')
+            """, (
+                ID_TE, fecha, id_bodega_destino, id_bodega_origen,
+                ubicacion_entrega, obs_entrada, id_empresa, id_usuario
+            ))
+            
+            id_movimiento_entrada = cursor.lastrowid
+            
+            # ============================================
+            # 3. PROCESAR CADA PRODUCTO (PARA AMBOS MOVIMIENTOS)
+            # ============================================
             total_productos = 0
             total_unidades = Decimal('0')
             
             for prod in productos_validos:
                 producto_id = prod['id_producto']
-                cantidad = prod['cantidad']  # Decimal
+                cantidad = prod['cantidad']
                 
                 # Obtener el último costo de entrada del producto
                 cursor.execute("""
@@ -12358,31 +12355,44 @@ def admin_procesar_transferencia():
                 costo_unitario = Decimal(str(costo_result['Costo_Unitario'])) if costo_result and costo_result['Costo_Unitario'] is not None else Decimal('0')
                 subtotal = cantidad * costo_unitario
                 
-                # Insertar detalle del movimiento
+                # A. INSERTAR EN SALIDA (TS)
                 cursor.execute("""
                     INSERT INTO detalle_movimientos_inventario
                     (ID_Movimiento, ID_Producto, Cantidad, Costo_Unitario,
                      Precio_Unitario, Subtotal, ID_Usuario_Creacion)
                     VALUES (%s, %s, %s, %s, %s, %s, %s)
                 """, (
-                    id_movimiento, producto_id, cantidad,
+                    id_movimiento_salida, producto_id, cantidad,
                     costo_unitario, prod['precio_venta'], subtotal, id_usuario
                 ))
                 
-                # 1. DESCONTAR de bodega origen (mantener como Decimal)
+                # B. INSERTAR EN ENTRADA (TE)
+                cursor.execute("""
+                    INSERT INTO detalle_movimientos_inventario
+                    (ID_Movimiento, ID_Producto, Cantidad, Costo_Unitario,
+                     Precio_Unitario, Subtotal, ID_Usuario_Creacion)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s)
+                """, (
+                    id_movimiento_entrada, producto_id, cantidad,
+                    costo_unitario, prod['precio_venta'], subtotal, id_usuario
+                ))
+                
+                # ============================================
+                # 4. ACTUALIZAR INVENTARIOS
+                # ============================================
+                
+                # A. DESCONTAR de bodega origen
                 cursor.execute("""
                     UPDATE inventario_bodega 
                     SET Existencias = Existencias - %s
                     WHERE ID_Bodega = %s AND ID_Producto = %s
                 """, (cantidad, id_bodega_origen, producto_id))
                 
-                # Si no se afectaron filas, significa que no existía el registro
                 if cursor.rowcount == 0:
                     flash(f"Error: Producto {prod['codigo']} no encontrado en inventario de bodega origen", 'error')
                     return redirect(url_for('admin_nueva_transferencia_form'))
                 
-                # 2. AGREGAR a bodega destino - VERSIÓN CORREGIDA
-                # Opción A: Usar ON DUPLICATE KEY UPDATE (recomendada)
+                # B. AGREGAR a bodega destino - VERSIÓN CORREGIDA
                 cursor.execute("""
                     INSERT INTO inventario_bodega (ID_Bodega, ID_Producto, Existencias)
                     VALUES (%s, %s, %s)
@@ -12390,90 +12400,34 @@ def admin_procesar_transferencia():
                     Existencias = Existencias + %s
                 """, (id_bodega_destino, producto_id, cantidad, cantidad))
                 
-                # Opción B: Versión alternativa paso a paso (si la opción A falla)
-                # cursor.execute("""
-                #     SELECT 1 FROM inventario_bodega 
-                #     WHERE ID_Bodega = %s AND ID_Producto = %s
-                # """, (id_bodega_destino, producto_id))
-                # 
-                # existe_destino = cursor.fetchone()
-                # 
-                # if existe_destino:
-                #     cursor.execute("""
-                #         UPDATE inventario_bodega 
-                #         SET Existencias = Existencias + %s
-                #         WHERE ID_Bodega = %s AND ID_Producto = %s
-                #     """, (cantidad, id_bodega_destino, producto_id))
-                # else:
-                #     cursor.execute("""
-                #         INSERT INTO inventario_bodega (ID_Bodega, ID_Producto, Existencias)
-                #         VALUES (%s, %s, %s)
-                #     """, (id_bodega_destino, producto_id, cantidad))
-                
-                # Verificación inmediata (para debugging)
-                cursor.execute("""
-                    SELECT 
-                        (SELECT COALESCE(Existencias, 0) FROM inventario_bodega 
-                         WHERE ID_Bodega = %s AND ID_Producto = %s) as origen_actual,
-                        (SELECT COALESCE(Existencias, 0) FROM inventario_bodega 
-                         WHERE ID_Bodega = %s AND ID_Producto = %s) as destino_actual
-                """, (id_bodega_origen, producto_id, id_bodega_destino, producto_id))
-                
-                verificacion = cursor.fetchone()
-                origen_actual = verificacion['origen_actual']
-                destino_actual = verificacion['destino_actual']
-                
-                print(f"✅ Transferencia producto {prod['codigo']} (ID: {producto_id}):")
-                print(f"   Cantidad transferida: {cantidad:.2f}")
-                print(f"   Origen ({bodega_origen_nombre}): {prod['stock_origen']:.2f} → {origen_actual:.2f}")
-                print(f"   Destino ({bodega_destino_nombre}): +{cantidad:.2f} = {destino_actual:.2f}")
-                
-                # Registrar en bitácora de inventario (si existe la tabla)
-                try:
-                    cursor.execute("""
-                        INSERT INTO bitacora_inventario 
-                        (ID_Movimiento, ID_Producto, ID_Bodega_Origen, ID_Bodega_Destino,
-                         Cantidad, Tipo_Operacion, ID_Usuario, Observacion)
-                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
-                    """, (
-                        id_movimiento, producto_id, id_bodega_origen, id_bodega_destino,
-                        cantidad, letra_movimiento, id_usuario,
-                        f"Traslado {bodega_origen_nombre} → {bodega_destino_nombre}"
-                    ))
-                except Exception as e:
-                    # Si no existe la tabla bitacora_inventario, solo registrar en logs
-                    print(f"⚠️  No se pudo registrar en bitácora: {str(e)}")
-                    pass
-                
                 total_productos += 1
                 total_unidades += cantidad
             
-            # Verificación final de consistencia
-            print(f"\n📊 RESUMEN TRANSFERENCIA #{id_movimiento}:")
-            print(f"   Total productos: {total_productos}")
-            print(f"   Total unidades: {total_unidades:.2f}")
-            print(f"   Bodega origen: {bodega_origen_nombre} (ID: {id_bodega_origen})")
-            print(f"   Bodega destino: {bodega_destino_nombre} (ID: {id_bodega_destino})")
-            
+            # ============================================
+            # 5. MENSAJE DE CONFIRMACIÓN MEJORADO
+            # ============================================
             flash(
-                f"✅ <strong>Transferencia #{id_movimiento} registrada exitosamente!</strong><br><br>"
-                f"📦 <strong>Productos:</strong> {total_productos}<br>"
-                f"📊 <strong>Unidades:</strong> {total_unidades:.2f}<br>"
-                f"📍 <strong>De:</strong> {bodega_origen_nombre}<br>"
-                f"🏁 <strong>A:</strong> {bodega_destino_nombre}<br><br>"
-                f"<small>Las existencias se han sumado correctamente en la bodega destino.</small>",
+                f"✅ <strong>Transferencia completada exitosamente!</strong><br><br>"
+                f"📤 <strong>Salida #{id_movimiento_salida}</strong> (Traslado Salida)<br>"
+                f"&nbsp;&nbsp;Desde: {bodega_origen_nombre}<br>"
+                f"📥 <strong>Entrada #{id_movimiento_entrada}</strong> (Traslado Entrada)<br>"
+                f"&nbsp;&nbsp;Hacia: {bodega_destino_nombre}<br>"
+                f"📦 Productos transferidos: {total_productos}<br>"
+                f"📊 Total unidades: {total_unidades:.2f}<br><br>"
+                f"<small>Se registraron 2 movimientos separados para mejor trazabilidad</small>",
                 'success'
             )
             
-            return redirect(url_for('admin_detalle_movimiento', id_movimiento=id_movimiento))
+            # Redirigir al detalle de la SALIDA
+            return redirect(url_for('admin_detalle_movimiento', id_movimiento=id_movimiento_salida))
             
     except Exception as e:
-        print(f"❌ ERROR en procesar transferencia: {str(e)}")
         import traceback
+        print(f"Error en procesar transferencia: {str(e)}")
         print(traceback.format_exc())
         flash(f"❌ Error al procesar transferencia: {str(e)}", 'error')
         return redirect(url_for('admin_nueva_transferencia_form'))
-
+    
 # Función auxiliar para verificar transferencias (opcional)
 @app.route('/admin/verificar-transferencia/<int:id_movimiento>')
 @admin_or_bodega_required
@@ -12538,6 +12492,7 @@ def verificar_transferencia(id_movimiento):
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+
 @app.route('/api/inventario/productos-bodega/<int:id_bodega>')
 @admin_or_bodega_required
 def api_productos_bodega_con_stock(id_bodega):
@@ -12585,15 +12540,14 @@ def api_productos_bodega_con_stock(id_bodega):
                     producto['Existencias_Totales'] = float(existencias_totales)
                     productos_con_stock.append(producto)
             
-            return {
+            return jsonify({
                 'success': True,
                 'productos': productos_con_stock,
                 'total': len(productos_con_stock)
-            }
+            })
             
     except Exception as e:
-        return {'error': str(e)}, 500
-
+        return jsonify({'error': str(e)}), 500
 
 # 8. DETALLE DE MOVIMIENTO
 @app.route('/admin/movimientos/detalle/<int:id_movimiento>')
