@@ -870,12 +870,13 @@ function mostrarModalConfirmacion() {
             const productoDiv = document.createElement('div');
             productoDiv.className = 'confirm-product-item';
             
+            const subtotalNumeric = parseNumericFromDatasetOrString(subtotal.dataset.value || subtotal.value);
             productoDiv.innerHTML = `
                 <div class="confirm-product-name">${productoNombre.split(' - ')[0]}</div>
                 <div class="confirm-product-details">
                     <span>${cantidad.value} ${tarjeta.querySelector('.input-group-text')?.textContent || 'und'}</span>
-                    <span>C$ ${costo.value}</span>
-                    <span class="fw-bold">C$ ${subtotal.value}</span>
+                    <span>${formatCurrency(parseFloat(costo.value || 0))}</span>
+                    <span class="fw-bold">${formatCurrency(subtotalNumeric)}</span>
                 </div>
             `;
             
@@ -1298,6 +1299,20 @@ function actualizarPrecio(id) {
 // ============================================
 // FUNCIONES DE CÁLCULO (ADAPTADAS)
 // ============================================
+function formatCurrency(number) {
+    const num = Number(number) || 0;
+    return 'C$ ' + num.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+}
+
+function parseNumericFromDatasetOrString(value) {
+    if (value === undefined || value === null) return 0;
+    // Si viene como dataset (string sin formato) ya debería ser numérico
+    if (typeof value === 'number') return value;
+    // Eliminar cualquier carácter no numérico salvo punto y guión
+    const cleaned = String(value).replace(/[^0-9.-]+/g, '');
+    const n = parseFloat(cleaned);
+    return isNaN(n) ? 0 : n;
+}
 
 function calcularSubtotal(id) {
     const tarjeta = document.getElementById(`producto-card-${id}`);
@@ -1306,10 +1321,12 @@ function calcularSubtotal(id) {
     const cantidad = parseFloat(tarjeta.querySelector('.cantidad').value) || 0;
     const costo = parseFloat(tarjeta.querySelector('.costo').value) || 0;
     const subtotal = cantidad * costo;
-    
+
     const subtotalInput = tarjeta.querySelector('.subtotal');
     if (subtotalInput) {
-        subtotalInput.value = subtotal.toFixed(2);
+        // Guardar valor numérico en dataset y mostrar formato legible
+        subtotalInput.dataset.value = subtotal.toFixed(2);
+        subtotalInput.value = formatCurrency(subtotal);
     }
     
     actualizarTotales();
@@ -1320,11 +1337,10 @@ function calcularSubtotal(id) {
 function actualizarTotales() {
     let totalCompra = 0;
     let totalProductos = 0;
-
     document.querySelectorAll('.product-card').forEach(producto => {
         const subtotalInput = producto.querySelector('.subtotal');
         if (subtotalInput) {
-            const valor = parseFloat(subtotalInput.value) || 0;
+            const valor = parseNumericFromDatasetOrString(subtotalInput.dataset.value || subtotalInput.value);
             if (valor > 0) {
                 totalCompra += valor;
                 totalProductos++;
@@ -1332,8 +1348,8 @@ function actualizarTotales() {
         }
     });
 
-    document.getElementById('total-compra').textContent = `C$ ${totalCompra.toFixed(2)}`;
-    document.getElementById('subtotal').textContent = `C$ ${totalCompra.toFixed(2)}`;
+    document.getElementById('total-compra').textContent = formatCurrency(totalCompra);
+    document.getElementById('subtotal').textContent = formatCurrency(totalCompra);
     document.getElementById('total-productos').textContent = totalProductos;
     
     console.log(`💰 Total compra: C$ ${totalCompra.toFixed(2)}, Productos: ${totalProductos}`);

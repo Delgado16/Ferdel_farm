@@ -1,0 +1,126 @@
+{% extends "layout.html" %}
+
+{% block title %}Detalle de Ruta - {{ asignacion.Nombre_Ruta }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="card">
+        <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+            <h4 class="mb-0">{{ asignacion.Nombre_Ruta }}</h4>
+            <a href="{{ url_for('vendedor_mis_rutas') }}" class="btn btn-light btn-sm">
+                <i class="bi bi-arrow-left"></i> Volver a mis rutas
+            </a>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-6">
+                    <h5>Información de la Ruta</h5>
+                    <table class="table table-bordered">
+                        <tr>
+                            <th width="40%">ID Asignación:</th>
+                            <td>#{{ asignacion.ID_Asignacion }}</td>
+                        </tr>
+                        <tr>
+                            <th>Ruta:</th>
+                            <td>{{ asignacion.Nombre_Ruta }}</td>
+                        </tr>
+                        <tr>
+                            <th>Fecha Asignación:</th>
+                            <td>{{ asignacion.Fecha_Asignacion_str or 'Sin fecha' }}</td>
+                        </tr>
+                        <tr>
+                            <th>Fecha Finalización:</th>
+                            <td>{{ asignacion.Fecha_Finalizacion_str or 'Pendiente' }}</td>
+                        </tr>
+                        <tr>
+                            <th>Estado:</th>
+                            <td>
+                                {% if asignacion.Estado == 'Activa' %}
+                                <span class="badge bg-success">Activa</span>
+                                {% elif asignacion.Estado == 'Finalizada' %}
+                                <span class="badge bg-secondary">Finalizada</span>
+                                {% elif asignacion.Estado == 'Suspendida' %}
+                                <span class="badge bg-warning">Suspendida</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                    </table>
+                </div>
+                
+                <div class="col-md-6">
+                    <h5>Horarios y Vehículo</h5>
+                    <table class="table table-bordered">
+                        <tr>
+                            <th width="40%">Hora Inicio:</th>
+                            <td>
+                                {% if asignacion.Hora_Inicio_str %}
+                                <span class="badge bg-success">{{ asignacion.Hora_Inicio_str }}</span>
+                                {% else %}
+                                <span class="badge bg-warning">Por iniciar</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        <tr>
+                            <th>Hora Fin:</th>
+                            <td>
+                                {% if asignacion.Hora_Fin_str %}
+                                <span class="badge bg-secondary">{{ asignacion.Hora_Fin_str }}</span>
+                                {% else %}
+                                <span class="badge bg-info">Pendiente</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        <tr>
+                            <th>Vehículo:</th>
+                            <td>
+                                {% if asignacion.Placa %}
+                                {{ asignacion.Placa }}<br>
+                                <small class="text-muted">{{ asignacion.Marca }} {{ asignacion.Modelo }}</small>
+                                {% else %}
+                                <span class="badge bg-light text-dark">Sin vehículo asignado</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        <tr>
+                            <th>Asignado por:</th>
+                            <td>{{ asignacion.Asignado_Por or 'Sistema' }}</td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+            
+            {% if asignacion.Descripcion_Ruta %}
+            <div class="mt-4">
+                <h5>Descripción de la Ruta</h5>
+                <div class="card">
+                    <div class="card-body">
+                        {{ asignacion.Descripcion_Ruta|safe }}
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+        <div class="card-footer">
+            <a href="{{ url_for('vendedor_mis_rutas') }}" class="btn btn-secondary">
+                <i class="bi bi-arrow-left"></i> Volver a mis rutas
+            </a>
+            
+            {% if asignacion.Estado == 'Activa' %}
+                {% if not asignacion.Hora_Inicio_str %}
+                <button type="button" class="btn btn-success" data-bs-toggle="modal" 
+                        data-bs-target="#iniciarModal">
+                    <i class="bi bi-play-circle"></i> Iniciar Ruta
+                </button>
+                {% elif asignacion.Hora_Inicio_str and not asignacion.Hora_Fin_str %}
+                <button type="button" class="btn btn-danger" data-bs-toggle="modal" 
+                        data-bs-target="#finalizarModal">
+                    <i class="bi bi-flag"></i> Finalizar Ruta
+                </button>
+                {% endif %}
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Incluir modales (mismos que en la lista) -->
+{% endblock %}

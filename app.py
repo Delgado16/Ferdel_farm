@@ -1097,7 +1097,7 @@ def admin_caja_aperturar():
                 VALUES (NOW(), 'ENTRADA', %s, %s, %s, 'ACTIVO')
             """, (f"Apertura de caja", monto, current_user.id))
             
-            flash(f'✅ Caja aperturada con ${monto:.2f}', 'success')
+            flash(f'Caja aperturada con C${monto:.2f}', 'success')
             return redirect(url_for('admin_caja'))
             
     except ValueError:
@@ -13241,6 +13241,308 @@ def bodega_reportes_avanzados():
         flash(f"Error al cargar reportes: {str(e)}", 'error')
         return redirect(url_for('admin_historial_movimientos'))
 
+##Vendedores
+def convertir_hora_db(hora_db):
+    """Convierte hora de la base de datos (timedelta, time, o string) a string HH:MM"""
+    if not hora_db:
+        return None
+    
+    try:
+        # Si es timedelta (MySQL devuelve TIME como timedelta)
+        if hasattr(hora_db, 'seconds'):
+            total_seconds = hora_db.seconds
+            hours = total_seconds // 3600
+            minutes = (total_seconds % 3600) // 60
+            return f"{hours:02d}:{minutes:02d}"
+        
+        # Si es datetime.time
+        elif hasattr(hora_db, 'hour'):
+            return f"{hora_db.hour:02d}:{hora_db.minute:02d}"
+        
+        # Si es datetime.datetime
+        elif hasattr(hora_db, 'strftime'):
+            return hora_db.strftime('%H:%M')
+        
+        # Si ya es string
+        elif isinstance(hora_db, str):
+            # Limpiar string si tiene segundos
+            if ':' in hora_db:
+                parts = hora_db.split(':')
+                return f"{parts[0].zfill(2)}:{parts[1].zfill(2)}"
+            return hora_db
+        
+        # Otro tipo
+        else:
+            return str(hora_db)
+            
+    except Exception as e:
+        print(f"Error convirtiendo hora: {hora_db}, tipo: {type(hora_db)}, error: {e}")
+        return None
+
+def procesar_asignacion(asignacion_raw):
+    """Procesa una asignación para convertir fechas y horas a strings"""
+    if not asignacion_raw:
+        return None
+    
+    if isinstance(asignacion_raw, dict):
+        asignacion = asignacion_raw
+    else:
+        asignacion = dict(asignacion_raw)
+    
+    # Convertir horas
+    asignacion['Hora_Inicio_str'] = convertir_hora_db(asignacion.get('Hora_Inicio'))
+    asignacion['Hora_Fin_str'] = convertir_hora_db(asignacion.get('Hora_Fin'))
+    
+    # Convertir fechas a strings para el template
+    if asignacion.get('Fecha_Asignacion'):
+        if hasattr(asignacion['Fecha_Asignacion'], 'strftime'):
+            asignacion['Fecha_Asignacion_str'] = asignacion['Fecha_Asignacion'].strftime('%d/%m/%Y')
+        else:
+            asignacion['Fecha_Asignacion_str'] = str(asignacion['Fecha_Asignacion'])
+    
+    if asignacion.get('Fecha_Finalizacion'):
+        if hasattr(asignacion['Fecha_Finalizacion'], 'strftime'):
+            asignacion['Fecha_Finalizacion_str'] = asignacion['Fecha_Finalizacion'].strftime('%d/%m/%Y')
+        else:
+            asignacion['Fecha_Finalizacion_str'] = str(asignacion['Fecha_Finalizacion'])
+    
+    return asignacion
+
+def procesar_lista_asignaciones(asignaciones_raw):
+    """Procesa una lista de asignaciones"""
+    return [procesar_asignacion(a) for a in asignaciones_raw if a]
+
+
+# ==============================================
+# RUTAS PARA VENDEDORES
+# ==============================================
+
+@app.route('/vendedor/mis-rutas')
+@login_required
+def vendedor_mis_rutas():
+    """Vista principal para que el vendedor vea y gestione sus rutas asignadas"""
+    try:
+        empresa_id = session.get('id_empresa', 1)
+        usuario_id = current_user.id
+        
+        with get_db_cursor(commit=False) as cursor:
+            # Obtener las asignaciones del vendedor actual
+            cursor.execute("""
+                SELECT 
+                    a.ID_Asignacion,
+                    r.Nombre_Ruta,
+                    v.Placa,
+                    v.Marca,
+                    v.Modelo,
+                    a.Fecha_Asignacion,
+                    a.Fecha_Finalizacion,
+                    a.Estado,
+                    a.Hora_Inicio,
+                    a.Hora_Fin,
+                    ua.NombreUsuario AS Asignado_Por
+                FROM asignacion_vendedores a
+                LEFT JOIN rutas r ON a.ID_Ruta = r.ID_Ruta
+                LEFT JOIN vehiculos v ON a.ID_Vehiculo = v.ID_Vehiculo
+                LEFT JOIN usuarios ua ON a.ID_Usuario_Asigna = ua.ID_Usuario
+                WHERE a.ID_Usuario = %s 
+                AND a.ID_Empresa = %s
+                AND a.Estado IN ('Activa', 'Finalizada', 'Suspendida')
+                ORDER BY 
+                    CASE 
+                        WHEN a.Estado = 'Activa' THEN 1
+                        WHEN a.Estado = 'Finalizada' THEN 2
+                        WHEN a.Estado = 'Suspendida' THEN 3
+                        ELSE 4
+                    END,
+                    a.Fecha_Asignacion DESC
+            """, (usuario_id, empresa_id))
+            asignaciones_raw = cursor.fetchall()
+            
+            # Procesar asignaciones para convertir horas
+            asignaciones = procesar_lista_asignaciones(asignaciones_raw)
+            
+        return render_template(
+            'vendedor/rutas/rutas.html',
+            asignaciones=asignaciones,
+            hoy=datetime.now().strftime('%Y-%m-%d'),
+            hora_actual=datetime.now().strftime('%H:%M')
+        )
+        
+    except Exception as e:
+        flash(f'Error al cargar rutas: {str(e)}', 'error')
+        return redirect(url_for('dashboard'))
+
+
+@app.route('/vendedor/ruta/iniciar/<int:id>', methods=['POST'])
+@login_required
+def vendedor_iniciar_ruta(id):
+    """Permite al vendedor iniciar su ruta asignada"""
+    try:
+        empresa_id = session.get('id_empresa', 1)
+        usuario_id = current_user.id
+        
+        # Verificar que la asignación pertenezca al usuario actual
+        with get_db_cursor(commit=False) as cursor:
+            cursor.execute("""
+                SELECT Estado, Hora_Inicio 
+                FROM asignacion_vendedores 
+                WHERE ID_Asignacion = %s 
+                AND ID_Usuario = %s 
+                AND ID_Empresa = %s
+            """, (id, usuario_id, empresa_id))
+            
+            asignacion = cursor.fetchone()
+            
+            if not asignacion:
+                flash('Asignación no encontrada o no pertenece a usted', 'error')
+                return redirect(url_for('vendedor_mis_rutas'))
+            
+            if asignacion['Estado'] != 'Activa':
+                flash('Solo puede iniciar rutas en estado "Activa"', 'error')
+                return redirect(url_for('vendedor_mis_rutas'))
+            
+            if asignacion['Hora_Inicio']:
+                flash('La ruta ya ha sido iniciada', 'warning')
+                return redirect(url_for('vendedor_mis_rutas'))
+        
+        # Obtener la hora de inicio del formulario o usar la actual
+        hora_inicio = request.form.get('hora_inicio')
+        if not hora_inicio:
+            hora_inicio = datetime.now().strftime('%H:%M')
+        
+        # Actualizar la asignación (solo agregar hora inicio, mantener estado "Activa")
+        with get_db_cursor(commit=True) as cursor:
+            cursor.execute("""
+                UPDATE asignacion_vendedores 
+                SET Hora_Inicio = %s
+                WHERE ID_Asignacion = %s 
+                AND ID_Usuario = %s 
+                AND ID_Empresa = %s
+            """, (hora_inicio, id, usuario_id, empresa_id))
+            
+        flash('Ruta iniciada exitosamente', 'success')
+        
+    except Exception as e:
+        flash(f'Error al iniciar ruta: {str(e)}', 'error')
+    
+    return redirect(url_for('vendedor_mis_rutas'))
+
+
+@app.route('/vendedor/ruta/finalizar/<int:id>', methods=['POST'])
+@login_required
+def vendedor_finalizar_ruta(id):
+    """Permite al vendedor finalizar su ruta"""
+    try:
+        empresa_id = session.get('id_empresa', 1)
+        usuario_id = current_user.id
+        
+        # Verificar que la asignación pertenezca al usuario actual
+        with get_db_cursor(commit=False) as cursor:
+            cursor.execute("""
+                SELECT Estado, Hora_Inicio, Hora_Fin, ID_Vehiculo
+                FROM asignacion_vendedores 
+                WHERE ID_Asignacion = %s 
+                AND ID_Usuario = %s 
+                AND ID_Empresa = %s
+            """, (id, usuario_id, empresa_id))
+            
+            asignacion = cursor.fetchone()
+            
+            if not asignacion:
+                flash('Asignación no encontrada o no pertenece a usted', 'error')
+                return redirect(url_for('vendedor_mis_rutas'))
+            
+            if asignacion['Estado'] != 'Activa':
+                flash('Solo puede finalizar rutas en estado "Activa"', 'error')
+                return redirect(url_for('vendedor_mis_rutas'))
+            
+            if asignacion['Hora_Fin']:
+                flash('La ruta ya ha sido finalizada', 'warning')
+                return redirect(url_for('vendedor_mis_rutas'))
+        
+        # Obtener datos del formulario
+        hora_fin = request.form.get('hora_fin')
+        comentario = request.form.get('comentario', '')
+        
+        if not hora_fin:
+            hora_fin = datetime.now().strftime('%H:%M')
+        
+        # Actualizar la asignación
+        with get_db_cursor(commit=True) as cursor:
+            # Actualizar hora de fin y estado
+            cursor.execute("""
+                UPDATE asignacion_vendedores 
+                SET Estado = 'Finalizada',
+                    Hora_Fin = %s,
+                    Fecha_Finalizacion = CURDATE()
+                WHERE ID_Asignacion = %s 
+                AND ID_Usuario = %s 
+                AND ID_Empresa = %s
+            """, (hora_fin, id, usuario_id, empresa_id))
+            
+            # Liberar el vehículo si estaba asignado
+            if asignacion['ID_Vehiculo']:
+                cursor.execute("""
+                    UPDATE vehiculos 
+                    SET Estado = 'Disponible' 
+                    WHERE ID_Vehiculo = %s
+                """, (asignacion['ID_Vehiculo'],))
+            
+        flash('Ruta finalizada exitosamente', 'success')
+        
+    except Exception as e:
+        flash(f'Error al finalizar ruta: {str(e)}', 'error')
+    
+    return redirect(url_for('vendedor_mis_rutas'))
+
+
+@app.route('/vendedor/ruta/detalle/<int:id>')
+@login_required
+def vendedor_detalle_ruta(id):
+    """Detalle de una ruta específica del vendedor"""
+    try:
+        empresa_id = session.get('id_empresa', 1)
+        usuario_id = current_user.id
+        
+        with get_db_cursor(commit=False) as cursor:
+            cursor.execute("""
+                SELECT 
+                    a.ID_Asignacion,
+                    r.Nombre_Ruta,
+                    r.Descripcion AS Descripcion_Ruta,
+                    v.Placa,
+                    v.Marca,
+                    v.Modelo,
+                    a.Fecha_Asignacion,
+                    a.Fecha_Finalizacion,
+                    a.Estado,
+                    a.Hora_Inicio,
+                    a.Hora_Fin,
+                    ua.NombreUsuario AS Asignado_Por,
+                    a.Fecha_Creacion
+                FROM asignacion_vendedores a
+                LEFT JOIN rutas r ON a.ID_Ruta = r.ID_Ruta
+                LEFT JOIN vehiculos v ON a.ID_Vehiculo = v.ID_Vehiculo
+                LEFT JOIN usuarios ua ON a.ID_Usuario_Asigna = ua.ID_Usuario
+                WHERE a.ID_Asignacion = %s 
+                AND a.ID_Usuario = %s 
+                AND a.ID_Empresa = %s
+            """, (id, usuario_id, empresa_id))
+            
+            asignacion_raw = cursor.fetchone()
+            
+            if not asignacion_raw:
+                flash('Ruta no encontrada o no tiene acceso', 'error')
+                return redirect(url_for('vendedor_mis_rutas'))
+            
+            # Procesar la asignación para convertir horas
+            asignacion = procesar_asignacion(asignacion_raw)
+            
+        return render_template('vendedor/rutas/detalle_ruta.html', asignacion=asignacion)
+        
+    except Exception as e:
+        flash(f'Error al cargar detalle: {str(e)}', 'error')
+        return redirect(url_for('vendedor_mis_rutas'))
 
 #Iniciar Aplicación
 if __name__ == '__main__':

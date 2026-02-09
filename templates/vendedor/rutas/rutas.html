@@ -1,0 +1,388 @@
+{% extends "layout.html" %}
+
+{% block title %}Mis Rutas Asignadas{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Encabezado -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="mb-1">Mis Rutas Asignadas</h2>
+            <p class="text-muted mb-0">Gestiona tus rutas asignadas</p>
+        </div>
+        <div>
+            <a href="#" class="btn btn-outline-info">
+                <i class="bi bi-graph-up"></i> Estadísticas
+            </a>
+        </div>
+    </div>
+
+    <!-- Filtros de estado -->
+    <div class="card mb-4">
+        <div class="card-body py-2">
+            <div class="d-flex justify-content-center">
+                <div class="btn-group" role="group">
+                    <button type="button" class="btn btn-outline-primary btn-sm estado-filtro active" data-estado="todos">
+                        Todas <span class="badge bg-primary ms-1">{{ asignaciones|length }}</span>
+                    </button>
+                    {% set activas = asignaciones|selectattr('Estado', 'equalto', 'Activa')|list %}
+                    <button type="button" class="btn btn-outline-success btn-sm estado-filtro" data-estado="Activa">
+                        Activas <span class="badge bg-success ms-1">{{ activas|length }}</span>
+                    </button>
+                    {% set finalizadas = asignaciones|selectattr('Estado', 'equalto', 'Finalizada')|list %}
+                    <button type="button" class="btn btn-outline-secondary btn-sm estado-filtro" data-estado="Finalizada">
+                        Finalizadas <span class="badge bg-secondary ms-1">{{ finalizadas|length }}</span>
+                    </button>
+                    {% set suspendidas = asignaciones|selectattr('Estado', 'equalto', 'Suspendida')|list %}
+                    <button type="button" class="btn btn-outline-warning btn-sm estado-filtro" data-estado="Suspendida">
+                        Suspendidas <span class="badge bg-warning ms-1">{{ suspendidas|length }}</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Lista de rutas -->
+    <div class="row" id="lista-rutas">
+        {% for asignacion in asignaciones %}
+        <div class="col-12 mb-4 ruta-item" data-estado="{{ asignacion.Estado }}">
+            <div class="card h-100 shadow-sm border-{{ 'success' if asignacion.Estado == 'Activa' else 'secondary' if asignacion.Estado == 'Finalizada' else 'warning' }}">
+                <div class="card-header d-flex justify-content-between align-items-center py-3 
+                    {% if asignacion.Estado == 'Activa' %}bg-success text-white
+                    {% elif asignacion.Estado == 'Finalizada' %}bg-secondary text-white
+                    {% else %}bg-warning text-dark{% endif %}">
+                    <div class="d-flex align-items-center">
+                        <i class="bi bi-signpost fs-4 me-3"></i>
+                        <div>
+                            <h5 class="mb-0">{{ asignacion.Nombre_Ruta }}</h5>
+                            <small class="opacity-75">
+                                <i class="bi bi-calendar"></i> {{ asignacion.Fecha_Asignacion_str or 'Sin fecha' }}
+                            </small>
+                        </div>
+                    </div>
+                    <div class="d-flex align-items-center">
+                        <span class="badge bg-light text-dark me-2">
+                            #{{ asignacion.ID_Asignacion }}
+                        </span>
+                        <button type="button" class="btn btn-light btn-sm" data-bs-toggle="collapse" 
+                                data-bs-target="#detalles{{ asignacion.ID_Asignacion }}">
+                            <i class="bi bi-chevron-down"></i>
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Contenido colapsable -->
+                <div class="collapse show" id="detalles{{ asignacion.ID_Asignacion }}">
+                    <div class="card-body">
+                        <div class="row">
+                            <!-- Columna izquierda: Información -->
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <h6 class="text-muted mb-2"><i class="bi bi-info-circle"></i> Información de la Ruta</h6>
+                                    <div class="list-group list-group-flush">
+                                        <div class="list-group-item d-flex justify-content-between px-0 py-2">
+                                            <span class="fw-medium">Vehículo:</span>
+                                            <span>
+                                                {% if asignacion.Placa %}
+                                                <span class="badge bg-info text-dark">
+                                                    <i class="bi bi-truck"></i> {{ asignacion.Placa }}
+                                                </span>
+                                                <small class="text-muted d-block mt-1">{{ asignacion.Marca }} {{ asignacion.Modelo }}</small>
+                                                {% else %}
+                                                <span class="badge bg-light text-dark">Sin vehículo</span>
+                                                {% endif %}
+                                            </span>
+                                        </div>
+                                        <div class="list-group-item d-flex justify-content-between px-0 py-2">
+                                            <span class="fw-medium">Asignado por:</span>
+                                            <span>{{ asignacion.Asignado_Por or 'Sistema' }}</span>
+                                        </div>
+                                        <div class="list-group-item d-flex justify-content-between px-0 py-2">
+                                            <span class="fw-medium">Fecha Finalización:</span>
+                                            <span>{{ asignacion.Fecha_Finalizacion_str or 'En progreso' }}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Columna derecha: Horarios y estado -->
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <h6 class="text-muted mb-2"><i class="bi bi-clock"></i> Horarios</h6>
+                                    <div class="list-group list-group-flush">
+                                        <div class="list-group-item d-flex justify-content-between px-0 py-2">
+                                            <span class="fw-medium">Hora Inicio:</span>
+                                            <span>
+                                                {% if asignacion.Hora_Inicio_str %}
+                                                <span class="badge bg-success">
+                                                    <i class="bi bi-play-circle"></i> {{ asignacion.Hora_Inicio_str }}
+                                                </span>
+                                                {% else %}
+                                                <span class="badge bg-warning">Pendiente</span>
+                                                {% endif %}
+                                            </span>
+                                        </div>
+                                        <div class="list-group-item d-flex justify-content-between px-0 py-2">
+                                            <span class="fw-medium">Hora Fin:</span>
+                                            <span>
+                                                {% if asignacion.Hora_Fin_str %}
+                                                <span class="badge bg-secondary">
+                                                    <i class="bi bi-flag"></i> {{ asignacion.Hora_Fin_str }}
+                                                </span>
+                                                {% else %}
+                                                <span class="badge bg-info">En progreso</span>
+                                                {% endif %}
+                                            </span>
+                                        </div>
+                                        <div class="list-group-item d-flex justify-content-between px-0 py-2">
+                                            <span class="fw-medium">Estado:</span>
+                                            <span>
+                                                {% if asignacion.Estado == 'Activa' %}
+                                                <span class="badge bg-success">
+                                                    <i class="bi bi-play-circle"></i> Activa
+                                                </span>
+                                                {% elif asignacion.Estado == 'Finalizada' %}
+                                                <span class="badge bg-secondary">
+                                                    <i class="bi bi-flag"></i> Finalizada
+                                                </span>
+                                                {% elif asignacion.Estado == 'Suspendida' %}
+                                                <span class="badge bg-warning">
+                                                    <i class="bi bi-pause-circle"></i> Suspendida
+                                                </span>
+                                                {% endif %}
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Botones de acción -->
+                        <div class="mt-4 pt-3 border-top">
+                            <div class="d-flex justify-content-between">
+                                <div>
+                                    <a href="{{ url_for('vendedor_detalle_ruta', id=asignacion.ID_Asignacion) }}" 
+                                       class="btn btn-outline-info btn-sm">
+                                        <i class="bi bi-eye"></i> Ver Detalles
+                                    </a>
+                                </div>
+                                
+                                <div>
+                                    {% if asignacion.Estado == 'Activa' %}
+                                        <!-- Si no tiene hora inicio: mostrar botón iniciar -->
+                                        {% if not asignacion.Hora_Inicio_str %}
+                                        <button type="button" class="btn btn-success btn-sm" data-bs-toggle="modal" 
+                                                data-bs-target="#iniciarModal{{ asignacion.ID_Asignacion }}">
+                                            <i class="bi bi-play-circle"></i> Iniciar Ruta
+                                        </button>
+                                        {% endif %}
+                                        
+                                        <!-- Si tiene hora inicio pero no fin: mostrar botón finalizar -->
+                                        {% if asignacion.Hora_Inicio_str and not asignacion.Hora_Fin_str %}
+                                        <button type="button" class="btn btn-danger btn-sm" data-bs-toggle="modal" 
+                                                data-bs-target="#finalizarModal{{ asignacion.ID_Asignacion }}">
+                                            <i class="bi bi-flag"></i> Finalizar Ruta
+                                        </button>
+                                        {% endif %}
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% else %}
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body text-center py-5">
+                    <i class="bi bi-signpost text-muted fs-1 mb-3"></i>
+                    <h4 class="text-muted">No tienes rutas asignadas</h4>
+                    <p class="text-muted">Cuando te asignen una ruta, aparecerá aquí.</p>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<!-- ========== MODALES ========== -->
+
+<!-- Modal para iniciar ruta -->
+{% for asignacion in asignaciones %}
+{% if asignacion.Estado == 'Activa' and not asignacion.Hora_Inicio_str %}
+<div class="modal fade" id="iniciarModal{{ asignacion.ID_Asignacion }}" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="POST" action="{{ url_for('vendedor_iniciar_ruta', id=asignacion.ID_Asignacion) }}">
+                <div class="modal-header bg-success text-white">
+                    <h5 class="modal-title">
+                        <i class="bi bi-play-circle"></i> Iniciar Ruta
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="text-center mb-4">
+                        <i class="bi bi-signpost text-success" style="font-size: 3rem;"></i>
+                        <h5 class="mt-3">¿Listo para iniciar la ruta?</h5>
+                        <p class="text-muted">Está a punto de iniciar la ruta: <strong>{{ asignacion.Nombre_Ruta }}</strong></p>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="hora_inicio{{ asignacion.ID_Asignacion }}" class="form-label fw-medium">
+                            <i class="bi bi-clock"></i> Hora de inicio
+                        </label>
+                        <input type="time" class="form-control" id="hora_inicio{{ asignacion.ID_Asignacion }}" 
+                               name="hora_inicio" value="{{ hora_actual }}">
+                        <div class="form-text">
+                            La hora actual es <span class="fw-bold">{{ hora_actual }}</span>. Puede ajustarla si es necesario.
+                        </div>
+                    </div>
+                    
+                    <div class="alert alert-info">
+                        <small>
+                            <i class="bi bi-info-circle"></i>
+                            Al iniciar la ruta, se registrará la hora de inicio. 
+                            Posteriormente podrá finalizarla cuando complete el recorrido.
+                        </small>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="bi bi-x-circle"></i> Cancelar
+                    </button>
+                    <button type="submit" class="btn btn-success">
+                        <i class="bi bi-play-circle"></i> Iniciar Ruta
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endfor %}
+
+<!-- Modal para finalizar ruta -->
+{% for asignacion in asignaciones %}
+{% if asignacion.Estado == 'Activa' and asignacion.Hora_Inicio_str and not asignacion.Hora_Fin_str %}
+<div class="modal fade" id="finalizarModal{{ asignacion.ID_Asignacion }}" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="POST" action="{{ url_for('vendedor_finalizar_ruta', id=asignacion.ID_Asignacion) }}">
+                <div class="modal-header bg-danger text-white">
+                    <h5 class="modal-title">
+                        <i class="bi bi-flag"></i> Finalizar Ruta
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="text-center mb-4">
+                        <i class="bi bi-signpost text-danger" style="font-size: 3rem;"></i>
+                        <h5 class="mt-3">¿Finalizar ruta?</h5>
+                        <p class="text-muted">Está a punto de finalizar la ruta: <strong>{{ asignacion.Nombre_Ruta }}</strong></p>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="hora_fin{{ asignacion.ID_Asignacion }}" class="form-label fw-medium">
+                            <i class="bi bi-clock-fill"></i> Hora de finalización
+                        </label>
+                        <input type="time" class="form-control" id="hora_fin{{ asignacion.ID_Asignacion }}" 
+                               name="hora_fin" value="{{ hora_actual }}">
+                        <div class="form-text">
+                            La hora actual es <span class="fw-bold">{{ hora_actual }}</span>. Ajuste si finalizó antes.
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="comentario{{ asignacion.ID_Asignacion }}" class="form-label fw-medium">
+                            <i class="bi bi-chat-left-text"></i> Comentarios (opcional)
+                        </label>
+                        <textarea class="form-control" id="comentario{{ asignacion.ID_Asignacion }}" 
+                                  name="comentario" rows="3" 
+                                  placeholder="Observaciones, incidencias, comentarios sobre la ruta..."></textarea>
+                    </div>
+                    
+                    <div class="alert alert-warning">
+                        <small>
+                            <i class="bi bi-exclamation-triangle"></i>
+                            <strong>Importante:</strong> Al finalizar la ruta, se cambiará el estado a "Finalizada" 
+                            y se liberará el vehículo asignado si tiene uno. Esta acción no se puede deshacer.
+                        </small>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="bi bi-x-circle"></i> Cancelar
+                    </button>
+                    <button type="submit" class="btn btn-danger">
+                        <i class="bi bi-flag"></i> Finalizar Ruta
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endfor %}
+
+<style>
+.ruta-item {
+    transition: all 0.3s ease;
+}
+.ruta-item:hover {
+    transform: translateY(-2px);
+}
+.card-header {
+    border-bottom: none;
+}
+.list-group-item {
+    border: none;
+    background: transparent;
+}
+.estado-filtro.active {
+    font-weight: 600;
+}
+.badge {
+    font-size: 0.75em;
+    padding: 0.35em 0.65em;
+}
+</style>
+
+<script>
+$(document).ready(function() {
+    // Filtro por estado
+    $('.estado-filtro').click(function() {
+        var estado = $(this).data('estado');
+        
+        // Actualizar botones activos
+        $('.estado-filtro').removeClass('active');
+        $(this).addClass('active');
+        
+        // Filtrar rutas
+        if (estado === 'todos') {
+            $('.ruta-item').show();
+        } else {
+            $('.ruta-item').hide();
+            $('.ruta-item[data-estado="' + estado + '"]').show();
+        }
+    });
+    
+    // Auto-focus en campo de hora al abrir modal
+    $('.modal').on('shown.bs.modal', function() {
+        $(this).find('input[type="time"]').focus();
+    });
+    
+    // Validar que hora fin sea posterior a hora inicio (si existen ambos)
+    $('form').on('submit', function() {
+        var horaInicio = $(this).find('input[name="hora_inicio"]').val();
+        var horaFin = $(this).find('input[name="hora_fin"]').val();
+        
+        if (horaInicio && horaFin && horaFin <= horaInicio) {
+            alert('La hora de finalización debe ser posterior a la hora de inicio.');
+            return false;
+        }
+        return true;
+    });
+});
+</script>
+{% endblock %}

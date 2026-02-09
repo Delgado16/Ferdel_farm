@@ -117,6 +117,28 @@
                                 </div>
                             </div>
 
+                            <!-- Hora de Inicio -->
+                            <div class="col-md-6">
+                                <label for="hora_inicio" class="form-label fw-bold">
+                                    <i class="bi bi-clock"></i> Hora de Inicio (Opcional)
+                                </label>
+                                <input type="time" class="form-control" id="hora_inicio" name="hora_inicio">
+                                <div class="form-text">
+                                    <i class="bi bi-info-circle"></i> Hora prevista para iniciar la ruta
+                                </div>
+                            </div>
+
+                            <!-- Hora de Fin -->
+                            <div class="col-md-6">
+                                <label for="hora_fin" class="form-label fw-bold">
+                                    <i class="bi bi-clock-fill"></i> Hora de Fin (Opcional)
+                                </label>
+                                <input type="time" class="form-control" id="hora_fin" name="hora_fin">
+                                <div class="form-text">
+                                    <i class="bi bi-info-circle"></i> Hora prevista para finalizar la ruta
+                                </div>
+                            </div>
+
                             <!-- Panel de validación -->
                             <div class="col-12 mt-3">
                                 <div class="alert alert-info d-none" id="validacionPanel">
@@ -175,6 +197,7 @@
                         <th>Ruta</th>
                         <th>Vehículo</th>
                         <th>Fecha Asignación</th>
+                        <th>Horario</th>
                         <th>Fecha Finalización</th>
                         <th>Asignado Por</th>
                         <th>Estado</th>
@@ -220,6 +243,20 @@
                             </span>
                         </td>
                         <td>
+                            {% if asignacion.Hora_Inicio or asignacion.Hora_Fin %}
+                            <div class="d-flex flex-column">
+                                {% if asignacion.Hora_Inicio %}
+                                <small><i class="bi bi-clock text-primary"></i> Inicio: {{ asignacion.Hora_Inicio.strftime('%H:%M') }}</small>
+                                {% endif %}
+                                {% if asignacion.Hora_Fin %}
+                                <small><i class="bi bi-clock-fill text-success"></i> Fin: {{ asignacion.Hora_Fin.strftime('%H:%M') }}</small>
+                                {% endif %}
+                            </div>
+                            {% else %}
+                            <span class="badge bg-light text-dark">Sin horario</span>
+                            {% endif %}
+                        </td>
+                        <td>
                             {% if asignacion.Fecha_Finalizacion %}
                             <span class="fw-bold text-info">
                                 {{ asignacion.Fecha_Finalizacion.strftime('%d/%m/%Y') }}
@@ -258,6 +295,8 @@
                                         data-vehiculo="{{ asignacion.Placa or 'Sin vehículo' }}"
                                         data-fecha-asignacion="{% if asignacion.Fecha_Asignacion %}{{ asignacion.Fecha_Asignacion.strftime('%d/%m/%Y') }}{% else %}Sin fecha{% endif %}"
                                         data-fecha-finalizacion="{% if asignacion.Fecha_Finalizacion %}{{ asignacion.Fecha_Finalizacion.strftime('%d/%m/%Y') }}{% else %}En curso{% endif %}"
+                                        data-hora-inicio="{% if asignacion.Hora_Inicio %}{{ asignacion.Hora_Inicio.strftime('%H:%M') }}{% else %}Sin definir{% endif %}"
+                                        data-hora-fin="{% if asignacion.Hora_Fin %}{{ asignacion.Hora_Fin.strftime('%H:%M') }}{% else %}Sin definir{% endif %}"
                                         data-asignado-por="{{ asignacion.Asignado_Por or 'Sistema' }}"
                                         data-estado="{{ asignacion.Estado_Asignacion }}"
                                         title="Ver Detalles">
@@ -303,7 +342,7 @@
                     </tr>
                     {% else %}
                     <tr>
-                        <td colspan="10" class="text-center text-muted">
+                        <td colspan="11" class="text-center text-muted">
                             No hay asignaciones registradas. Crea una nueva asignación para comenzar.
                         </td>
                     </tr>
@@ -360,6 +399,12 @@
                     
                     <dt class="col-sm-4">Fecha Asignación:</dt>
                     <dd class="col-sm-8" id="detalle_fecha_asignacion">-</dd>
+                    
+                    <dt class="col-sm-4">Hora Inicio:</dt>
+                    <dd class="col-sm-8" id="detalle_hora_inicio">-</dd>
+                    
+                    <dt class="col-sm-4">Hora Fin:</dt>
+                    <dd class="col-sm-8" id="detalle_hora_fin">-</dd>
                     
                     <dt class="col-sm-4">Fecha Finalización:</dt>
                     <dd class="col-sm-8" id="detalle_fecha_finalizacion">-</dd>
@@ -556,15 +601,30 @@ dl.row dd {
 
 /* Ajustes específicos para la tabla */
 #tablaAsignaciones th:nth-child(1) { width: 5%; }    /* ID */
-#tablaAsignaciones th:nth-child(2) { width: 15%; }   /* Vendedor */
-#tablaAsignaciones th:nth-child(3) { width: 10%; }   /* Rol */
-#tablaAsignaciones th:nth-child(4) { width: 15%; }   /* Ruta */
-#tablaAsignaciones th:nth-child(5) { width: 15%; }   /* Vehículo */
+#tablaAsignaciones th:nth-child(2) { width: 12%; }   /* Vendedor */
+#tablaAsignaciones th:nth-child(3) { width: 8%; }    /* Rol */
+#tablaAsignaciones th:nth-child(4) { width: 12%; }   /* Ruta */
+#tablaAsignaciones th:nth-child(5) { width: 12%; }   /* Vehículo */
 #tablaAsignaciones th:nth-child(6) { width: 10%; }   /* Fecha Asignación */
-#tablaAsignaciones th:nth-child(7) { width: 10%; }   /* Fecha Finalización */
-#tablaAsignaciones th:nth-child(8) { width: 10%; }   /* Asignado Por */
-#tablaAsignaciones th:nth-child(9) { width: 5%; }    /* Estado */
-#tablaAsignaciones th:nth-child(10) { width: 5%; }   /* Acciones */
+#tablaAsignaciones th:nth-child(7) { width: 12%; }   /* Horario */
+#tablaAsignaciones th:nth-child(8) { width: 10%; }   /* Fecha Finalización */
+#tablaAsignaciones th:nth-child(9) { width: 10%; }   /* Asignado Por */
+#tablaAsignaciones th:nth-child(10) { width: 5%; }   /* Estado */
+#tablaAsignaciones th:nth-child(11) { width: 4%; }   /* Acciones */
+
+/* Estilos para mostrar el horario en la tabla */
+#tablaAsignaciones td:nth-child(7) small {
+    font-size: 0.75rem;
+    line-height: 1.2;
+}
+
+#tablaAsignaciones td:nth-child(7) .bi-clock {
+    margin-right: 2px;
+}
+
+#tablaAsignaciones td:nth-child(7) .bi-clock-fill {
+    margin-right: 2px;
+}
 </style>
 {% endblock %}
 
@@ -602,7 +662,7 @@ $(document).ready(function() {
         "columnDefs": [
             { 
                 "orderable": false, 
-                "targets": [9], // Deshabilitar orden en columna Acciones
+                "targets": [10], // Deshabilitar orden en columna Acciones
                 "className": "text-center"
             },
             { 
@@ -610,17 +670,18 @@ $(document).ready(function() {
                 "targets": 0, // ID
                 "className": "text-center"
             },
-            { "width": "15%", "targets": 1 }, // Vendedor
-            { "width": "10%", "targets": 2 }, // Rol
-            { "width": "15%", "targets": 3 }, // Ruta
-            { "width": "15%", "targets": 4 }, // Vehículo
+            { "width": "12%", "targets": 1 }, // Vendedor
+            { "width": "8%", "targets": 2 },  // Rol
+            { "width": "12%", "targets": 3 }, // Ruta
+            { "width": "12%", "targets": 4 }, // Vehículo
             { "width": "10%", "targets": 5 }, // Fecha Asignación
-            { "width": "10%", "targets": 6 }, // Fecha Finalización
-            { "width": "10%", "targets": 7 }, // Asignado Por
-            { "width": "5%", "targets": 8 },  // Estado
+            { "width": "12%", "targets": 6 }, // Horario
+            { "width": "10%", "targets": 7 }, // Fecha Finalización
+            { "width": "10%", "targets": 8 }, // Asignado Por
+            { "width": "5%", "targets": 9 },  // Estado
             { 
-                "width": "5%", 
-                "targets": 9, // Acciones
+                "width": "4%", 
+                "targets": 10, // Acciones
                 "className": "text-center"
             }
         ],
@@ -638,6 +699,8 @@ $(document).ready(function() {
         var vehiculo = $(this).data('vehiculo');
         var fechaAsignacion = $(this).data('fecha-asignacion');
         var fechaFinalizacion = $(this).data('fecha-finalizacion');
+        var horaInicio = $(this).data('hora-inicio');
+        var horaFin = $(this).data('hora-fin');
         var asignadoPor = $(this).data('asignado-por');
         var estado = $(this).data('estado');
         
@@ -647,6 +710,8 @@ $(document).ready(function() {
         $('#detalle_ruta').text(ruta);
         $('#detalle_vehiculo').text(vehiculo);
         $('#detalle_fecha_asignacion').text(fechaAsignacion);
+        $('#detalle_hora_inicio').text(horaInicio);
+        $('#detalle_hora_fin').text(horaFin);
         $('#detalle_fecha_finalizacion').text(fechaFinalizacion);
         $('#detalle_asignado_por').text(asignadoPor);
         $('#detalle_estado_badge').text(estado);
@@ -722,6 +787,8 @@ $(document).ready(function() {
         var ruta = $('#id_ruta').val();
         var fecha = $('#fecha_asignacion').val();
         var hoy = new Date().toISOString().split('T')[0];
+        var horaInicio = $('#hora_inicio').val();
+        var horaFin = $('#hora_fin').val();
         
         // Validar usuario
         if (!usuario) {
@@ -750,6 +817,15 @@ $(document).ready(function() {
             return false;
         }
         
+        // Validar horarios si ambos están llenos
+        if (horaInicio && horaFin) {
+            if (horaFin <= horaInicio) {
+                e.preventDefault();
+                mostrarErrorModal('crear', 'La hora de fin debe ser posterior a la hora de inicio', '#hora_fin');
+                return false;
+            }
+        }
+        
         // Mostrar indicador de carga
         $('#btnCrearAsignacion').html('<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Guardando...').prop('disabled', true);
         
@@ -757,6 +833,8 @@ $(document).ready(function() {
             usuario: usuario,
             ruta: ruta,
             fecha: fecha,
+            hora_inicio: horaInicio,
+            hora_fin: horaFin,
             vehiculo: $('#id_vehiculo').val()
         });
         
@@ -895,7 +973,7 @@ $(document).ready(function() {
         $('#id_usuario').focus();
     });
     
-    console.log('✅ Sistema de asignación de rutas cargado correctamente');
+    console.log(' Sistema de asignación de rutas cargado correctamente');
     console.log('Total de asignaciones cargadas:', {{ asignaciones|length }});
     
     // Mostrar mensajes flash en consola para debugging
