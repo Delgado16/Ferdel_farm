@@ -19,68 +19,7 @@
             </a>
         </div>
     </div>
-
-    <!-- Estadísticas para rol Bodega -->
-    {% if es_rol_bodega and stats %}
-    <div class="row mb-4">
-        <div class="col-12">
-            <div class="card bg-light">
-                <div class="card-body">
-                    <h5 class="card-title">
-                        <i class="fas fa-chart-line me-2"></i>Estadísticas del Día ({{ stats.fecha_hoy }})
-                    </h5>
-                    <div class="row">
-                        <div class="col-md-3">
-                            <div class="d-flex align-items-center">
-                                <div class="bg-primary rounded-circle p-3 me-3">
-                                    <i class="fas fa-shopping-cart fa-2x text-white"></i>
-                                </div>
-                                <div>
-                                    <h3 class="mb-0">{{ stats.total_hoy }}</h3>
-                                    <p class="text-muted mb-0">Total Pedidos</p>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-md-3">
-                            <div class="d-flex align-items-center">
-                                <div class="bg-warning rounded-circle p-3 me-3">
-                                    <i class="fas fa-clock fa-2x text-white"></i>
-                                </div>
-                                <div>
-                                    <h3 class="mb-0">{{ stats.pendientes_hoy }}</h3>
-                                    <p class="text-muted mb-0">Pendientes</p>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-md-3">
-                            <div class="d-flex align-items-center">
-                                <div class="bg-success rounded-circle p-3 me-3">
-                                    <i class="fas fa-check-circle fa-2x text-white"></i>
-                                </div>
-                                <div>
-                                    <h3 class="mb-0">{{ stats.aprobados_hoy }}</h3>
-                                    <p class="text-muted mb-0">Aprobados</p>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-md-3">
-                            <div class="d-flex align-items-center">
-                                <div class="bg-danger rounded-circle p-3 me-3">
-                                    <i class="fas fa-exclamation-triangle fa-2x text-white"></i>
-                                </div>
-                                <div>
-                                    <h3 class="mb-0">{{ stats.urgentes_hoy }}</h3>
-                                    <p class="text-muted mb-0">Urgentes</p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-    {% endif %}
-
+    
     <!-- Filtros Avanzados -->
     <div class="card mb-4">
         <div class="card-header bg-light">
@@ -349,7 +288,7 @@
                                     <!-- Botón para ver detalle -->
                                     <a href="{{ url_for('ver_pedido', id_pedido=pedido.ID_Pedido) }}"
                                         class="btn btn-outline-info" title="Ver detalle" data-bs-toggle="tooltip">
-                                        <i class="fas fa-eye"></i>
+                                        <i class="fas fa-eye"></i> Detalle
                                     </a>
 
                                     {% if current_user.rol == 'Bodega' %}
@@ -358,7 +297,7 @@
                                     <!-- Botón para procesar como venta -->
                                     <a href="{{ url_for('admin_procesar_venta_pedido', id_pedido=pedido.ID_Pedido) }}"
                                         class="btn btn-outline-primary" title="Procesar como venta" data-bs-toggle="tooltip">
-                                        <i class="fas fa-cash-register"></i>
+                                        <i class="fas fa-cash-register"></i>Procesar Venta
                                     </a>
                                     {% endif %}
 
@@ -366,7 +305,7 @@
                                     <button type="button" class="btn btn-outline-success" title="Aprobar pedido"
                                         data-bs-toggle="tooltip"
                                         onclick="cambiarEstado({{ pedido.ID_Pedido }}, 'Aprobado')">
-                                        <i class="fas fa-check"></i>
+                                        <i class="fas fa-check"></i>Aprobar
                                     </button>
                                     {% endif %}
 
@@ -374,14 +313,14 @@
                                     <button type="button" class="btn btn-outline-warning" title="Marcar en proceso"
                                         data-bs-toggle="tooltip"
                                         onclick="cambiarEstado({{ pedido.ID_Pedido }}, 'En Proceso')">
-                                        <i class="fas fa-cogs"></i>
+                                        <i class="fas fa-cogs"></i>En Proceso
                                     </button>
                                     {% endif %}
 
                                     {% if pedido.Estado != 'Cancelado' and pedido.Estado != 'Entregado' %}
                                     <button type="button" class="btn btn-outline-danger" title="Cancelar pedido"
                                         data-bs-toggle="tooltip" onclick="cancelarPedido({{ pedido.ID_Pedido }})">
-                                        <i class="fas fa-times"></i>
+                                        <i class="fas fa-times"></i> Cancelar
                                     </button>
                                     {% endif %}
                                     {% else %}
@@ -390,13 +329,13 @@
                                     <button type="button" class="btn btn-outline-success" title="Aprobar pedido"
                                         data-bs-toggle="tooltip"
                                         onclick="cambiarEstado({{ pedido.ID_Pedido }}, 'Aprobado')">
-                                        <i class="fas fa-check"></i>
+                                        <i class="fas fa-check"></i> Aprobar
                                     </button>
                                     {% endif %}
                                     {% if pedido.Estado != 'Cancelado' and pedido.Estado != 'Entregado' %}
                                     <button type="button" class="btn btn-outline-warning" title="Cambiar estado"
                                         data-bs-toggle="tooltip" onclick="cambiarEstado({{ pedido.ID_Pedido }})">
-                                        <i class="fas fa-exchange-alt"></i>
+                                        <i class="fas fa-exchange-alt"></i> Cambiar Estado
                                     </button>
                                     {% endif %}
                                     {% endif %}

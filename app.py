@@ -8810,7 +8810,6 @@ def ver_pedido(id_pedido):
 
 # Ruta para filtrar pedidos mejorada
 @app.route('/admin/ventas/pedidos-venta/filtrar', methods=['POST'])
-@admin_required
 def filtrar_pedidos():
     try:
         estado = request.form.get('estado', 'todos')
@@ -8889,7 +8888,7 @@ def filtrar_pedidos():
             sql_base += """
             GROUP BY p.ID_Pedido, p.Fecha, p.Estado, p.Tipo_Entrega, p.Observacion, 
                      p.Fecha_Creacion, p.Prioridad, c.ID_Cliente, c.Nombre, c.Telefono, 
-                     c.RUC_CEDULA, c.tipo_cliente, e.Nombre_Empresa, u.Nombre
+                     c.RUC_CEDULA, c.tipo_cliente, e.Nombre_Empresa, u.NombreUsuario
             ORDER BY 
                 CASE p.Prioridad
                     WHEN 'Urgente' THEN 1
@@ -13311,12 +13310,9 @@ def procesar_asignacion(asignacion_raw):
 def procesar_lista_asignaciones(asignaciones_raw):
     """Procesa una lista de asignaciones"""
     return [procesar_asignacion(a) for a in asignaciones_raw if a]
-
-
 # ==============================================
 # RUTAS PARA VENDEDORES
 # ==============================================
-
 @app.route('/vendedor/mis-rutas')
 @login_required
 def vendedor_mis_rutas():
@@ -13372,7 +13368,6 @@ def vendedor_mis_rutas():
         flash(f'Error al cargar rutas: {str(e)}', 'error')
         return redirect(url_for('dashboard'))
 
-
 @app.route('/vendedor/ruta/iniciar/<int:id>', methods=['POST'])
 @login_required
 def vendedor_iniciar_ruta(id):
@@ -13426,7 +13421,6 @@ def vendedor_iniciar_ruta(id):
         flash(f'Error al iniciar ruta: {str(e)}', 'error')
     
     return redirect(url_for('vendedor_mis_rutas'))
-
 
 @app.route('/vendedor/ruta/finalizar/<int:id>', methods=['POST'])
 @login_required
@@ -13495,7 +13489,6 @@ def vendedor_finalizar_ruta(id):
     
     return redirect(url_for('vendedor_mis_rutas'))
 
-
 @app.route('/vendedor/ruta/detalle/<int:id>')
 @login_required
 def vendedor_detalle_ruta(id):
@@ -13549,7 +13542,7 @@ if __name__ == '__main__':
     
     os.makedirs('templates/admin', exist_ok=True)
     os.makedirs('templates/vendedor', exist_ok=True)
-    os.makedirs('templates/jefe_galera', exist_ok=True)
+    os.makedirs('templates/bodega', exist_ok=True)
     
     # Ejecutar diagnóstico al iniciar
     print("🚀 Iniciando aplicación...")
