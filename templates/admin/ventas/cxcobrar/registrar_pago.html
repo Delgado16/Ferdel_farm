@@ -20,10 +20,12 @@
                             <p><strong>Documento:</strong> {{ cuenta.Num_Documento }}</p>
                             <p><strong>Fecha Emisión:</strong> {{ cuenta.Fecha.strftime('%d/%m/%Y') if cuenta.Fecha }}</p>
                             <p><strong>Estado Actual:</strong> 
-                                {% if cuenta.Estado_Actual == 'Cancelado' %}
-                                    <span class="badge badge-success">Cancelado</span>
-                                {% elif cuenta.Estado_Actual == 'Vencido' %}
-                                    <span class="badge badge-danger">Vencido</span>
+                                {% if cuenta.Estado == 'Pagada' %}
+                                    <span class="badge badge-success">Pagada</span>
+                                {% elif cuenta.Estado == 'Vencida' %}
+                                    <span class="badge badge-danger">Vencida</span>
+                                {% elif cuenta.Estado == 'Anulada' %}
+                                    <span class="badge badge-secondary">Anulada</span>
                                 {% else %}
                                     <span class="badge badge-warning">Pendiente</span>
                                 {% endif %}
@@ -38,7 +40,7 @@
                                 {% if cuenta.Fecha_Vencimiento %}
                                     {{ cuenta.Fecha_Vencimiento.strftime('%d/%m/%Y') }}
                                     {% if cuenta.Fecha_Vencimiento < today %}
-                                    <span class="badge badge-danger">Vencido</span>
+                                    <span class="badge badge-danger ml-2">Vencido</span>
                                     {% endif %}
                                 {% else %}
                                     N/A
@@ -101,21 +103,26 @@
                             <select class="form-control" id="metodo_pago" name="metodo_pago" required>
                                 <option value="">Seleccionar método de pago...</option>
                                 {% for metodo in metodos_pago %}
-                                <option value="{{ metodo.ID_MetodoPago }}">{{ metodo.Nombre }}</option>
+                                <option value="{{ metodo.ID_MetodoPago }}" 
+                                        data-tipo="{{ metodo.Nombre|upper }}">
+                                    {{ metodo.Nombre }}
+                                </option>
                                 {% endfor %}
                             </select>
                         </div>
 
-                        <div class="form-group">
-                            <label for="detalles_metodo" class="font-weight-bold">Detalles del Método de Pago</label>
-                            <input type="text" class="form-control" id="detalles_metodo" name="detalles_metodo"
-                                   placeholder="Ej: Número de transferencia, referencia, cheque, etc.">
-                            <small class="form-text text-muted">
-                                Complete esta información según el método de pago seleccionado
-                            </small>
+                        <!-- Sección dinámica para detalles del método de pago -->
+                        <div id="detalles-metodo-container" class="mt-4">
+                            <!-- Se mostrarán los campos específicos según el método seleccionado -->
+                            <div class="alert alert-info">
+                                <i class="fas fa-info-circle"></i> Seleccione un método de pago para ver los campos específicos
+                            </div>
                         </div>
 
-                        <div class="form-group">
+                        <!-- Campo oculto para enviar los detalles finales -->
+                        <input type="hidden" id="detalles_metodo" name="detalles_metodo">
+
+                        <div class="form-group mt-4">
                             <label for="comentarios" class="font-weight-bold">Comentarios u Observaciones</label>
                             <textarea class="form-control" id="comentarios" name="comentarios" 
                                       rows="3" placeholder="Observaciones adicionales sobre el pago..."></textarea>
@@ -153,7 +160,7 @@
                             <li>El pago se registrará inmediatamente</li>
                             <li>El saldo pendiente se actualizará automáticamente</li>
                             <li>Se generará un comprobante en el historial</li>
-                            <li>El pago no se puede modificar después de registrado</li>
+                            <li>Los pagos en efectivo se registrarán en caja</li>
                         </ul>
                     </div>
 
@@ -183,6 +190,14 @@
                         <div id="simulacionSaldo" class="mt-2 p-2 bg-light rounded">
                             <p class="mb-1">Nuevo saldo: <span id="nuevoSaldo" class="font-weight-bold">C${{ "%.2f"|format(cuenta.Saldo_Pendiente) }}</span></p>
                             <p class="mb-0">Estado: <span id="nuevoEstado" class="badge badge-warning">Pendiente</span></p>
+                        </div>
+                    </div>
+
+                    <!-- Detalles del método seleccionado -->
+                    <div class="border-top pt-3 mt-3" id="resumenDetalles" style="display: none;">
+                        <h6 class="font-weight-bold">Detalles del Método:</h6>
+                        <div id="resumenDetallesContenido" class="mt-2 p-2 bg-light rounded">
+                            <!-- Se llenará con JavaScript -->
                         </div>
                     </div>
                 </div>
@@ -233,10 +248,485 @@
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     const montoInput = document.getElementById('monto');
-    const saldoMaximo = parseFloat({{ cuenta.Saldo_Pendiente }}); // Cambio importante aquí
+    const metodoSelect = document.getElementById('metodo_pago');
+    const detallesContainer = document.getElementById('detalles-metodo-container');
+    const detallesHidden = document.getElementById('detalles_metodo');
+    const resumenDetalles = document.getElementById('resumenDetalles');
+    const resumenDetallesContenido = document.getElementById('resumenDetallesContenido');
+    const saldoMaximo = parseFloat({{ cuenta.Saldo_Pendiente }});
     const form = document.getElementById('formPago');
     const nuevoSaldoSpan = document.getElementById('nuevoSaldo');
     const nuevoEstadoSpan = document.getElementById('nuevoEstado');
+    
+    // Configuraciones por tipo de método de pago
+    const configMetodos = {
+        'EFECTIVO': {
+            titulo: 'Detalles de Pago en Efectivo',
+            campos: [
+                {
+                    id: 'efectivo_recibido',
+                    label: 'Cantidad Recibida *',
+                    type: 'number',
+                    placeholder: '0.00',
+                    required: true,
+                    step: '0.01',
+                    min: '0.01',
+                    ayuda: 'Ingrese la cantidad de dinero recibida del cliente'
+                },
+                {
+                    id: 'efectivo_cambio',
+                    label: 'Cambio',
+                    type: 'text',
+                    placeholder: 'Se calculará automáticamente',
+                    readonly: true,
+                    ayuda: 'El cambio se calculará automáticamente'
+                }
+            ],
+            instrucciones: 'Ingrese la cantidad de efectivo recibido del cliente. El cambio se calculará automáticamente.'
+        },
+        'TRANSFERENCIA': {
+            titulo: 'Detalles de Transferencia Bancaria',
+            campos: [
+                {
+                    id: 'transferencia_numero',
+                    label: 'Número de Transacción/Referencia *',
+                    type: 'text',
+                    placeholder: 'Ej: T-2024-001234',
+                    required: true,
+                    ayuda: 'Número único de la transacción bancaria'
+                },
+                {
+                    id: 'transferencia_banco',
+                    label: 'Banco',
+                    type: 'text',
+                    placeholder: 'Nombre del banco (opcional)',
+                    ayuda: 'Ej: BAC, Banco Nacional, Banpro, etc.'
+                },
+                {
+                    id: 'transferencia_fecha',
+                    label: 'Fecha de Transferencia',
+                    type: 'date',
+                    ayuda: 'Fecha en que se realizó la transferencia'
+                }
+            ],
+            instrucciones: 'Ingrese los datos de la transferencia bancaria.'
+        },
+        'DEPÓSITO': {
+            titulo: 'Detalles de Depósito Bancario',
+            campos: [
+                {
+                    id: 'deposito_numero',
+                    label: 'Número de Depósito/Referencia *',
+                    type: 'text',
+                    placeholder: 'Ej: D-2024-001234',
+                    required: true,
+                    ayuda: 'Número del depósito o comprobante'
+                },
+                {
+                    id: 'deposito_banco',
+                    label: 'Banco',
+                    type: 'text',
+                    placeholder: 'Nombre del banco',
+                    ayuda: 'Ej: BAC, Banco Nacional, Banpro, etc.'
+                },
+                {
+                    id: 'deposito_fecha',
+                    label: 'Fecha de Depósito',
+                    type: 'date',
+                    ayuda: 'Fecha en que se realizó el depósito'
+                }
+            ],
+            instrucciones: 'Ingrese los datos del depósito bancario.'
+        },
+        'CHEQUE': {
+            titulo: 'Detalles de Cheque',
+            campos: [
+                {
+                    id: 'cheque_numero',
+                    label: 'Número de Cheque *',
+                    type: 'text',
+                    placeholder: 'Ej: 000123456',
+                    required: true,
+                    ayuda: 'Número del cheque'
+                },
+                {
+                    id: 'cheque_banco',
+                    label: 'Banco *',
+                    type: 'text',
+                    placeholder: 'Nombre del banco',
+                    required: true,
+                    ayuda: 'Banco emisor del cheque'
+                },
+                {
+                    id: 'cheque_fecha',
+                    label: 'Fecha del Cheque',
+                    type: 'date',
+                    ayuda: 'Fecha del cheque (puede ser post-datado)'
+                }
+            ],
+            instrucciones: 'Ingrese los datos del cheque. Verifique que el cheque sea válido.'
+        },
+        'TARJETA': {
+            titulo: 'Detalles de Pago con Tarjeta',
+            campos: [
+                {
+                    id: 'tarjeta_numero',
+                    label: 'Últimos 4 dígitos *',
+                    type: 'text',
+                    placeholder: 'XXXX',
+                    maxlength: 4,
+                    pattern: '\\d{4}',
+                    required: true,
+                    ayuda: 'Últimos 4 dígitos de la tarjeta'
+                },
+                {
+                    id: 'tarjeta_tipo',
+                    label: 'Tipo de Tarjeta',
+                    type: 'select',
+                    options: ['Crédito', 'Débito', 'Prepago'],
+                    ayuda: 'Seleccione el tipo de tarjeta'
+                },
+                {
+                    id: 'tarjeta_autorizacion',
+                    label: 'Número de Autorización',
+                    type: 'text',
+                    placeholder: 'Número de autorización (opcional)',
+                    ayuda: 'Número de autorización de la transacción'
+                }
+            ],
+            instrucciones: 'Ingrese los datos de la transacción con tarjeta.'
+        },
+        'SINPE': {
+            titulo: 'Detalles de SINPE Móvil',
+            campos: [
+                {
+                    id: 'sinpe_numero',
+                    label: 'Número de Teléfono *',
+                    type: 'text',
+                    placeholder: '8888-8888',
+                    required: true,
+                    ayuda: 'Número de teléfono desde donde se realizó el SINPE'
+                },
+                {
+                    id: 'sinpe_comprobante',
+                    label: 'Número de Comprobante *',
+                    type: 'text',
+                    placeholder: 'Ej: SINPE-001234',
+                    required: true,
+                    ayuda: 'Número de comprobante del SINPE'
+                },
+                {
+                    id: 'sinpe_fecha',
+                    label: 'Fecha de Transferencia',
+                    type: 'date',
+                    ayuda: 'Fecha en que se realizó la transferencia'
+                }
+            ],
+            instrucciones: 'Ingrese los datos de la transferencia por SINPE Móvil.'
+        }
+    };
+
+    // Función para actualizar los campos de detalles
+    function actualizarCamposDetalles() {
+        const metodoSeleccionado = metodoSelect.options[metodoSelect.selectedIndex];
+        const metodoNombre = metodoSeleccionado.getAttribute('data-tipo');
+        
+        // Limpiar contenedor
+        detallesContainer.innerHTML = '';
+        
+        // Ocultar resumen de detalles
+        resumenDetalles.style.display = 'none';
+        
+        if (!metodoNombre) {
+            detallesContainer.innerHTML = `
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle"></i> Seleccione un método de pago para ver los campos específicos
+                </div>
+            `;
+            return;
+        }
+        
+        // Encontrar configuración para el método seleccionado
+        let config = null;
+        for (const [key, value] of Object.entries(configMetodos)) {
+            if (metodoNombre.includes(key)) {
+                config = value;
+                break;
+            }
+        }
+        
+        // Si no hay configuración específica, mostrar campo genérico
+        if (!config) {
+            detallesContainer.innerHTML = `
+                <div class="card border-left-primary shadow h-100 py-2">
+                    <div class="card-body">
+                        <div class="form-group">
+                            <label for="detalles_generico" class="font-weight-bold">Detalles del Pago</label>
+                            <input type="text" class="form-control" id="detalles_generico" 
+                                   placeholder="Ingrese detalles del pago (número de referencia, observaciones, etc.)">
+                            <small class="form-text text-muted">
+                                Ingrese cualquier información relevante sobre este pago
+                            </small>
+                        </div>
+                    </div>
+                </div>
+            `;
+            return;
+        }
+        
+        // Crear card para los detalles
+        let camposHTML = `
+            <div class="card border-left-success shadow h-100 py-2">
+                <div class="card-body">
+                    <h5 class="font-weight-bold text-success mb-3">
+                        <i class="fas fa-credit-card mr-2"></i>${config.titulo}
+                    </h5>
+        `;
+        
+        // Mostrar instrucciones
+        if (config.instrucciones) {
+            camposHTML += `
+                <div class="alert alert-info mb-4">
+                    <i class="fas fa-info-circle"></i> ${config.instrucciones}
+                </div>
+            `;
+        }
+        
+        // Crear campos según configuración
+        config.campos.forEach(campo => {
+            let campoHTML = '';
+            
+            if (campo.type === 'select') {
+                campoHTML = `
+                    <div class="form-group">
+                        <label for="${campo.id}" class="font-weight-bold">${campo.label}</label>
+                        <select class="form-control" id="${campo.id}" ${campo.required ? 'required' : ''}>
+                            <option value="">Seleccionar...</option>
+                            ${campo.options.map(opt => `<option value="${opt}">${opt}</option>`).join('')}
+                        </select>
+                        ${campo.ayuda ? `<small class="form-text text-muted">${campo.ayuda}</small>` : ''}
+                    </div>
+                `;
+            } else {
+                campoHTML = `
+                    <div class="form-group">
+                        <label for="${campo.id}" class="font-weight-bold">${campo.label}</label>
+                        <input type="${campo.type}" 
+                               class="form-control ${campo.id.includes('cambio') ? 'cambio-input' : ''}" 
+                               id="${campo.id}" 
+                               ${campo.placeholder ? `placeholder="${campo.placeholder}"` : ''}
+                               ${campo.required ? 'required' : ''}
+                               ${campo.readonly ? 'readonly' : ''}
+                               ${campo.step ? `step="${campo.step}"` : ''}
+                               ${campo.min ? `min="${campo.min}"` : ''}
+                               ${campo.maxlength ? `maxlength="${campo.maxlength}"` : ''}
+                               ${campo.pattern ? `pattern="${campo.pattern}"` : ''}>
+                        ${campo.ayuda ? `<small class="form-text text-muted">${campo.ayuda}</small>` : ''}
+                    </div>
+                `;
+            }
+            
+            camposHTML += campoHTML;
+        });
+        
+        camposHTML += '</div></div>';
+        detallesContainer.innerHTML = camposHTML;
+        
+        // Si es efectivo, agregar event listeners para calcular cambio
+        if (metodoNombre.includes('EFECTIVO')) {
+            const recibidoInput = document.getElementById('efectivo_recibido');
+            const cambioInput = document.getElementById('efectivo_cambio');
+            
+            if (recibidoInput && cambioInput) {
+                recibidoInput.addEventListener('input', calcularCambio);
+                montoInput.addEventListener('input', calcularCambio);
+                recibidoInput.addEventListener('blur', actualizarResumenDetalles);
+            }
+        } else {
+            // Para otros métodos, actualizar resumen al cambiar cualquier campo
+            const inputs = detallesContainer.querySelectorAll('input, select, textarea');
+            inputs.forEach(input => {
+                input.addEventListener('change', actualizarResumenDetalles);
+                input.addEventListener('input', actualizarResumenDetalles);
+            });
+        }
+        
+        // Actualizar resumen inicial
+        actualizarResumenDetalles();
+    }
+    
+    // Función para calcular cambio en efectivo
+    function calcularCambio() {
+        const recibido = parseFloat(document.getElementById('efectivo_recibido')?.value) || 0;
+        const montoPago = parseFloat(montoInput.value) || 0;
+        const cambioInput = document.getElementById('efectivo_cambio');
+        
+        if (cambioInput && recibido > 0) {
+            const cambio = recibido - montoPago;
+            if (cambio >= 0) {
+                cambioInput.value = `C$ ${cambio.toFixed(2)}`;
+                cambioInput.className = 'form-control cambio-positivo';
+            } else {
+                cambioInput.value = `Falta: C$ ${Math.abs(cambio).toFixed(2)}`;
+                cambioInput.className = 'form-control cambio-negativo';
+            }
+        }
+    }
+    
+    // Función para actualizar el resumen de detalles
+    function actualizarResumenDetalles() {
+        const metodoSeleccionado = metodoSelect.options[metodoSelect.selectedIndex];
+        const metodoNombre = metodoSeleccionado.getAttribute('data-tipo');
+        
+        let detallesHTML = '';
+        
+        if (metodoNombre && metodoNombre.includes('EFECTIVO')) {
+            const recibido = document.getElementById('efectivo_recibido')?.value;
+            const cambio = document.getElementById('efectivo_cambio')?.value;
+            if (recibido) {
+                detallesHTML = `<p><strong>Recibido:</strong> C$ ${parseFloat(recibido).toFixed(2)}</p>`;
+                if (cambio && !cambio.includes('Se calculará')) {
+                    detallesHTML += `<p><strong>Cambio:</strong> ${cambio}</p>`;
+                }
+            }
+        } 
+        else if (metodoNombre && metodoNombre.includes('TRANSFERENCIA')) {
+            const numero = document.getElementById('transferencia_numero')?.value;
+            const banco = document.getElementById('transferencia_banco')?.value;
+            const fecha = document.getElementById('transferencia_fecha')?.value;
+            
+            if (numero) detallesHTML += `<p><strong>Transacción:</strong> ${numero}</p>`;
+            if (banco) detallesHTML += `<p><strong>Banco:</strong> ${banco}</p>`;
+            if (fecha) detallesHTML += `<p><strong>Fecha:</strong> ${fecha}</p>`;
+        }
+        else if (metodoNombre && metodoNombre.includes('DEPÓSITO')) {
+            const numero = document.getElementById('deposito_numero')?.value;
+            const banco = document.getElementById('deposito_banco')?.value;
+            const fecha = document.getElementById('deposito_fecha')?.value;
+            
+            if (numero) detallesHTML += `<p><strong>Depósito:</strong> ${numero}</p>`;
+            if (banco) detallesHTML += `<p><strong>Banco:</strong> ${banco}</p>`;
+            if (fecha) detallesHTML += `<p><strong>Fecha:</strong> ${fecha}</p>`;
+        }
+        else if (metodoNombre && metodoNombre.includes('CHEQUE')) {
+            const numero = document.getElementById('cheque_numero')?.value;
+            const banco = document.getElementById('cheque_banco')?.value;
+            const fecha = document.getElementById('cheque_fecha')?.value;
+            
+            if (numero) detallesHTML += `<p><strong>Cheque #:</strong> ${numero}</p>`;
+            if (banco) detallesHTML += `<p><strong>Banco:</strong> ${banco}</p>`;
+            if (fecha) detallesHTML += `<p><strong>Fecha cheque:</strong> ${fecha}</p>`;
+        }
+        else if (metodoNombre && metodoNombre.includes('TARJETA')) {
+            const numero = document.getElementById('tarjeta_numero')?.value;
+            const tipo = document.getElementById('tarjeta_tipo')?.value;
+            const autorizacion = document.getElementById('tarjeta_autorizacion')?.value;
+            
+            if (numero) detallesHTML += `<p><strong>Tarjeta:</strong> XXXX-${numero}</p>`;
+            if (tipo) detallesHTML += `<p><strong>Tipo:</strong> ${tipo}</p>`;
+            if (autorizacion) detallesHTML += `<p><strong>Autorización:</strong> ${autorizacion}</p>`;
+        }
+        else if (metodoNombre && metodoNombre.includes('SINPE')) {
+            const numero = document.getElementById('sinpe_numero')?.value;
+            const comprobante = document.getElementById('sinpe_comprobante')?.value;
+            const fecha = document.getElementById('sinpe_fecha')?.value;
+            
+            if (numero) detallesHTML += `<p><strong>Teléfono:</strong> ${numero}</p>`;
+            if (comprobante) detallesHTML += `<p><strong>Comprobante:</strong> ${comprobante}</p>`;
+            if (fecha) detallesHTML += `<p><strong>Fecha:</strong> ${fecha}</p>`;
+        }
+        else {
+            // Para métodos genéricos
+            const generico = document.getElementById('detalles_generico')?.value;
+            if (generico) detallesHTML = `<p><strong>Detalles:</strong> ${generico}</p>`;
+        }
+        
+        if (detallesHTML) {
+            resumenDetallesContenido.innerHTML = detallesHTML;
+            resumenDetalles.style.display = 'block';
+        } else {
+            resumenDetalles.style.display = 'none';
+        }
+    }
+    
+    // Función para preparar detalles antes de enviar
+    function prepararDetallesParaEnvio() {
+        const metodoSeleccionado = metodoSelect.options[metodoSelect.selectedIndex];
+        const metodoNombre = metodoSeleccionado.getAttribute('data-tipo');
+        
+        let detalles = '';
+        
+        if (metodoNombre && metodoNombre.includes('EFECTIVO')) {
+            const recibido = document.getElementById('efectivo_recibido')?.value;
+            const cambio = document.getElementById('efectivo_cambio')?.value;
+            if (recibido) {
+                detalles = `Recibido: ${recibido}`;
+                if (cambio && !cambio.includes('Se calculará')) {
+                    detalles += `, Cambio: ${cambio}`;
+                }
+            }
+        } 
+        else if (metodoNombre && metodoNombre.includes('TRANSFERENCIA')) {
+            const numero = document.getElementById('transferencia_numero')?.value;
+            const banco = document.getElementById('transferencia_banco')?.value;
+            const fecha = document.getElementById('transferencia_fecha')?.value;
+            
+            if (numero) detalles = `Transferencia: ${numero}`;
+            if (banco) detalles += (detalles ? ', ' : '') + `Banco: ${banco}`;
+            if (fecha) detalles += (detalles ? ', ' : '') + `Fecha: ${fecha}`;
+        }
+        else if (metodoNombre && metodoNombre.includes('DEPÓSITO')) {
+            const numero = document.getElementById('deposito_numero')?.value;
+            const banco = document.getElementById('deposito_banco')?.value;
+            const fecha = document.getElementById('deposito_fecha')?.value;
+            
+            if (numero) detalles = `Depósito: ${numero}`;
+            if (banco) detalles += (detalles ? ', ' : '') + `Banco: ${banco}`;
+            if (fecha) detalles += (detalles ? ', ' : '') + `Fecha: ${fecha}`;
+        }
+        else if (metodoNombre && metodoNombre.includes('CHEQUE')) {
+            const numero = document.getElementById('cheque_numero')?.value;
+            const banco = document.getElementById('cheque_banco')?.value;
+            const fecha = document.getElementById('cheque_fecha')?.value;
+            
+            if (numero) detalles = `Cheque #${numero}`;
+            if (banco) detalles += (detalles ? ', ' : '') + `Banco: ${banco}`;
+            if (fecha) detalles += (detalles ? ', ' : '') + `Fecha: ${fecha}`;
+        }
+        else if (metodoNombre && metodoNombre.includes('TARJETA')) {
+            const numero = document.getElementById('tarjeta_numero')?.value;
+            const tipo = document.getElementById('tarjeta_tipo')?.value;
+            const autorizacion = document.getElementById('tarjeta_autorizacion')?.value;
+            
+            if (numero) detalles = `Tarjeta: XXXX-${numero}`;
+            if (tipo) detalles += (detalles ? ', ' : '') + `Tipo: ${tipo}`;
+            if (autorizacion) detalles += (detalles ? ', ' : '') + `Auth: ${autorizacion}`;
+        }
+        else if (metodoNombre && metodoNombre.includes('SINPE')) {
+            const numero = document.getElementById('sinpe_numero')?.value;
+            const comprobante = document.getElementById('sinpe_comprobante')?.value;
+            const fecha = document.getElementById('sinpe_fecha')?.value;
+            
+            if (numero) detalles = `SINPE: ${numero}`;
+            if (comprobante) detalles += (detalles ? ', ' : '') + `Comp: ${comprobante}`;
+            if (fecha) detalles += (detalles ? ', ' : '') + `Fecha: ${fecha}`;
+        }
+        else {
+            // Para métodos genéricos
+            const generico = document.getElementById('detalles_generico')?.value;
+            if (generico) detalles = generico;
+        }
+        
+        detallesHidden.value = detalles;
+        return detalles;
+    }
+    
+    // Event listener para cambio de método de pago
+    metodoSelect.addEventListener('change', function() {
+        actualizarCamposDetalles();
+        // Actualizar simulación
+        actualizarSimulacion();
+    });
     
     // Función para actualizar la simulación
     function actualizarSimulacion() {
@@ -254,7 +744,7 @@ document.addEventListener('DOMContentLoaded', function() {
         // Actualizar estado
         if (nuevoSaldo === 0) {
             nuevoEstadoSpan.className = 'badge badge-success';
-            nuevoEstadoSpan.textContent = 'Cancelado';
+            nuevoEstadoSpan.textContent = 'Pagada';
         } else if (nuevoSaldo > 0) {
             nuevoEstadoSpan.className = 'badge badge-warning';
             nuevoEstadoSpan.textContent = 'Pendiente';
@@ -288,14 +778,19 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         
         actualizarSimulacion();
+        
+        // Si hay campos de efectivo, recalcular cambio
+        if (document.getElementById('efectivo_recibido')) {
+            calcularCambio();
+        }
     });
 
     // Validar formulario antes de enviar
     form.addEventListener('submit', function(e) {
         const monto = parseFloat(montoInput.value) || 0;
-        const metodoPago = document.getElementById('metodo_pago').value;
+        const metodoPago = metodoSelect.value;
         
-        // Validaciones
+        // Validaciones básicas
         if (monto <= 0) {
             e.preventDefault();
             alert('❌ Por favor ingrese un monto válido (mayor a cero)');
@@ -313,19 +808,100 @@ document.addEventListener('DOMContentLoaded', function() {
         if (!metodoPago) {
             e.preventDefault();
             alert('❌ Por favor seleccione un método de pago');
-            document.getElementById('metodo_pago').focus();
+            metodoSelect.focus();
             return false;
+        }
+        
+        // Preparar detalles para envío
+        const detalles = prepararDetallesParaEnvio();
+        
+        // Validaciones específicas por método
+        const metodoSeleccionado = metodoSelect.options[metodoSelect.selectedIndex];
+        const metodoNombre = metodoSeleccionado.getAttribute('data-tipo') || '';
+        
+        if (metodoNombre.includes('EFECTIVO')) {
+            const recibido = parseFloat(document.getElementById('efectivo_recibido')?.value) || 0;
+            if (!recibido || recibido <= 0) {
+                e.preventDefault();
+                alert('❌ Debe ingresar la cantidad recibida en efectivo');
+                document.getElementById('efectivo_recibido').focus();
+                return false;
+            }
+            if (recibido < monto) {
+                e.preventDefault();
+                alert('❌ La cantidad recibida no puede ser menor al monto del pago');
+                document.getElementById('efectivo_recibido').focus();
+                return false;
+            }
+        }
+        else if (metodoNombre.includes('TRANSFERENCIA') || metodoNombre.includes('DEPÓSITO')) {
+            const numero = document.getElementById('transferencia_numero')?.value || 
+                          document.getElementById('deposito_numero')?.value;
+            if (!numero || numero.trim() === '') {
+                e.preventDefault();
+                alert('❌ Debe ingresar el número de transacción o referencia');
+                const input = document.getElementById('transferencia_numero') || 
+                             document.getElementById('deposito_numero');
+                input?.focus();
+                return false;
+            }
+        }
+        else if (metodoNombre.includes('CHEQUE')) {
+            const numero = document.getElementById('cheque_numero')?.value;
+            const banco = document.getElementById('cheque_banco')?.value;
+            if (!numero || numero.trim() === '') {
+                e.preventDefault();
+                alert('❌ Debe ingresar el número de cheque');
+                document.getElementById('cheque_numero').focus();
+                return false;
+            }
+            if (!banco || banco.trim() === '') {
+                e.preventDefault();
+                alert('❌ Debe ingresar el nombre del banco');
+                document.getElementById('cheque_banco').focus();
+                return false;
+            }
+        }
+        else if (metodoNombre.includes('TARJETA')) {
+            const numero = document.getElementById('tarjeta_numero')?.value;
+            if (!numero || numero.trim() === '' || numero.length !== 4) {
+                e.preventDefault();
+                alert('❌ Debe ingresar los últimos 4 dígitos de la tarjeta');
+                document.getElementById('tarjeta_numero').focus();
+                return false;
+            }
+        }
+        else if (metodoNombre.includes('SINPE')) {
+            const numero = document.getElementById('sinpe_numero')?.value;
+            const comprobante = document.getElementById('sinpe_comprobante')?.value;
+            if (!numero || numero.trim() === '') {
+                e.preventDefault();
+                alert('❌ Debe ingresar el número de teléfono');
+                document.getElementById('sinpe_numero').focus();
+                return false;
+            }
+            if (!comprobante || comprobante.trim() === '') {
+                e.preventDefault();
+                alert('❌ Debe ingresar el número de comprobante');
+                document.getElementById('sinpe_comprobante').focus();
+                return false;
+            }
         }
         
         // Confirmación final
         const nuevoSaldo = saldoMaximo - monto;
-        const estadoFinal = nuevoSaldo === 0 ? 'CANCELADO' : 'PENDIENTE';
+        const estadoFinal = nuevoSaldo === 0 ? 'PAGADA' : 'PENDIENTE';
         
-        const confirmMessage = `¿Está seguro de registrar este pago?\n\n` +
-                              `Monto del pago: C$${monto.toFixed(2)}\n` +
-                              `Saldo anterior: C$${saldoMaximo.toFixed(2)}\n` +
-                              `Nuevo saldo: C$${nuevoSaldo.toFixed(2)}\n` +
-                              `Estado final: ${estadoFinal}`;
+        let confirmMessage = `¿Está seguro de registrar este pago?\n\n` +
+                            `Método: ${metodoSeleccionado.textContent}\n` +
+                            `Monto del pago: C$${monto.toFixed(2)}\n` +
+                            `Saldo anterior: C$${saldoMaximo.toFixed(2)}\n` +
+                            `Nuevo saldo: C$${nuevoSaldo.toFixed(2)}\n` +
+                            `Estado final: ${estadoFinal}`;
+        
+        if (detalles) {
+            confirmMessage += `\n\nDetalles del pago:\n${detalles}`;
+        }
         
         if (!confirm(confirmMessage)) {
             e.preventDefault();
@@ -346,4 +922,26 @@ document.addEventListener('DOMContentLoaded', function() {
     montoInput.select();
 });
 </script>
+
+<style>
+.cambio-positivo {
+    color: #1cc88a;
+    font-weight: bold;
+    background-color: #f8fff9;
+}
+
+.cambio-negativo {
+    color: #e74a3b;
+    font-weight: bold;
+    background-color: #fff8f8;
+}
+
+.border-left-success {
+    border-left: 0.5rem solid #1cc88a !important;
+}
+
+.border-left-primary {
+    border-left: 0.5rem solid #4e73df !important;
+}
+</style>
 {% endblock %}

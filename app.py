@@ -1,6 +1,7 @@
 from venv import logger
 from flask import Flask, flash, render_template, redirect, send_file, url_for, abort, request, session, Response, jsonify, current_app, g
 from flask_session import Session
+import markupsafe
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_login import LoginManager, login_user, login_required, logout_user, UserMixin, current_user
 from weasyprint import HTML
@@ -8,6 +9,10 @@ from datetime import datetime, timedelta
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from mysql.connector import Error, pooling
+from reportlab.lib.pagesizes import letter, A4
+from reportlab.pdfgen import canvas
+from reportlab.lib.utils import ImageReader
+from reportlab.lib.colors import Color
 from markupsafe import Markup
 import mysql.connector
 import functools
@@ -8113,8 +8118,12 @@ def admin_anular_venta(id_factura):
 @bitacora_decorator("CUENTAS-POR-COBRAR")
 def admin_cuentascobrar():
     try:
+        # Obtener parámetro de filtro de la URL
+        filtro_estado = request.args.get('estado', 'pendientes')
+        
         with get_db_cursor(True) as cursor:
-            cursor.execute("""
+            # Construir la consulta base
+            query = """
                 SELECT 
                     c.ID_Movimiento,
                     c.Fecha,
@@ -8139,21 +8148,74 @@ def admin_cuentascobrar():
                 LEFT JOIN clientes cl ON c.ID_Cliente = cl.ID_Cliente
                 LEFT JOIN facturacion f ON c.ID_Factura = f.ID_Factura
                 LEFT JOIN empresa e ON c.ID_Empresa = e.ID_Empresa
-                WHERE c.Estado IN ('Pendiente', 'Vencida')
-                ORDER BY 
-                    CASE 
-                        WHEN c.Fecha_Vencimiento < CURDATE() AND c.Saldo_Pendiente > 0 THEN 1
-                        WHEN c.Estado = 'Vencida' THEN 2
-                        ELSE 3
-                    END,
-                    c.Fecha_Vencimiento ASC,
-                    c.Fecha DESC
-            """)
+                WHERE 1=1
+            """
+            
+            params = []
+            
+            # Aplicar filtros según el parámetro
+            if filtro_estado == 'pagados':
+                query += " AND c.Saldo_Pendiente = 0 AND c.Estado IN ('Pagada')"
+            elif filtro_estado == 'todos':
+                query += " AND c.Estado IN ('Pendiente', 'Pagada', 'Vencida')"
+            elif filtro_estado == 'vencidos':
+                query += " AND c.Fecha_Vencimiento < CURDATE() AND c.Saldo_Pendiente > 0"
+            else:  # Por defecto: pendientes
+                query += " AND c.Estado IN ('Pendiente', 'Vencida')"
+            
+            # Ordenar de manera diferente según el filtro
+            if filtro_estado == 'pendientes':
+                # Para pendientes: primero las pendientes normales, luego las vencidas
+                query += """
+                    ORDER BY 
+                        CASE 
+                            WHEN c.Fecha_Vencimiento >= CURDATE() AND c.Saldo_Pendiente > 0 THEN 1
+                            WHEN c.Fecha_Vencimiento < CURDATE() AND c.Saldo_Pendiente > 0 THEN 2
+                            ELSE 3
+                        END,
+                        c.Fecha_Vencimiento ASC,
+                        c.Fecha DESC
+                """
+            elif filtro_estado == 'vencidos':
+                # Para vencidos: ordenar por días de vencimiento (más viejos primero)
+                query += """
+                    ORDER BY 
+                        c.Fecha_Vencimiento ASC,
+                        DATEDIFF(CURDATE(), c.Fecha_Vencimiento) DESC,
+                        c.Fecha DESC
+                """
+            elif filtro_estado == 'pagados':
+                # Para pagados: ordenar por fecha de pago (más recientes primero)
+                query += """
+                    ORDER BY 
+                        c.Fecha DESC,
+                        c.ID_Movimiento DESC
+                """
+            else:  # 'todos'
+                # Para todos: primero pendientes, luego vencidos, luego pagados
+                query += """
+                    ORDER BY 
+                        CASE 
+                            WHEN c.Saldo_Pendiente > 0 AND c.Fecha_Vencimiento >= CURDATE() THEN 1
+                            WHEN c.Saldo_Pendiente > 0 AND c.Fecha_Vencimiento < CURDATE() THEN 2
+                            WHEN c.Saldo_Pendiente = 0 THEN 3
+                            ELSE 4
+                        END,
+                        c.Fecha_Vencimiento ASC,
+                        c.Fecha DESC
+                """
+            
+            cursor.execute(query)
             cuentas = cursor.fetchall()
             
             # Calcular totales solo de las cuentas filtradas
             total_pendiente = sum(cuenta['Monto_Movimiento'] for cuenta in cuentas)
             total_saldo = sum(cuenta['Saldo_Pendiente'] for cuenta in cuentas)
+            
+            # Contadores para estadísticas
+            cuentas_pagadas = [c for c in cuentas if c['Saldo_Pendiente'] == 0]
+            cuentas_vencidas = [c for c in cuentas if c['Estado'] == 'Vencido']
+            cuentas_pendientes = [c for c in cuentas if c['Estado'] == 'Pendiente' and c['Saldo_Pendiente'] > 0]
 
             hoy = datetime.now().date()
             
@@ -8161,7 +8223,11 @@ def admin_cuentascobrar():
                                  cuentas=cuentas,
                                  total_pendiente=total_pendiente,
                                  total_saldo=total_saldo,
-                                 hoy=hoy)
+                                 hoy=hoy,
+                                 filtro_actual=filtro_estado,
+                                 total_pagadas=len(cuentas_pagadas),
+                                 total_vencidas=len(cuentas_vencidas),
+                                 total_pendientes=len(cuentas_pendientes))
     except Exception as e:
         flash(f"Error al cargar cuentas por cobrar: {e}")
         return redirect(url_for('admin_dashboard'))
@@ -8179,6 +8245,47 @@ def admin_registrar_pago(id_movimiento):
             id_metodo_pago = request.form['metodo_pago']
             comentarios = request.form.get('comentarios', '')
             detalles_metodo = request.form.get('detalles_metodo', '')
+            
+            # Obtener el nombre del método de pago para validaciones
+            metodo_pago_nombre = ''
+            with get_db_cursor(True) as cursor:
+                cursor.execute("SELECT Nombre FROM Metodos_Pago WHERE ID_MetodoPago = %s", (id_metodo_pago,))
+                resultado = cursor.fetchone()
+                if resultado:
+                    metodo_pago_nombre = resultado['Nombre'].upper()
+            
+            # Validar detalles según el método de pago
+            if metodo_pago_nombre in ['EFECTIVO', 'CASH', 'CONTADO']:
+                if detalles_metodo:
+                    try:
+                        # Extraer cantidad recibida del string
+                        import re
+                        recibido_match = re.search(r'recibido:\s*([\d,]+(?:\.\d+)?)', detalles_metodo.lower())
+                        if recibido_match:
+                            # Remover comas y convertir a Decimal
+                            recibido_str = recibido_match.group(1).replace(',', '')
+                            recibido = Decimal(recibido_str)
+                            if recibido < monto_pago:
+                                flash("❌ La cantidad recibida no puede ser menor al monto del pago")
+                                return redirect(url_for('admin_registrar_pago', id_movimiento=id_movimiento))
+                    except Exception as e:
+                        print(f"Error procesando detalles de efectivo: {e}")
+                        # Continuar con el procesamiento aunque haya error en el parseo
+            
+            elif metodo_pago_nombre in ['TRANSFERENCIA', 'DEPÓSITO', 'DEPOSITO', 'TRANSFERENCIA BANCARIA', 'DEPOSITO BANCARIO']:
+                if not detalles_metodo.strip():
+                    flash("❌ Para pagos por transferencia/depósito debe proporcionar el número de transacción o referencia")
+                    return redirect(url_for('admin_registrar_pago', id_movimiento=id_movimiento))
+            
+            elif metodo_pago_nombre in ['CHEQUE']:
+                if not detalles_metodo.strip():
+                    flash("❌ Para pagos con cheque debe proporcionar los detalles del cheque")
+                    return redirect(url_for('admin_registrar_pago', id_movimiento=id_movimiento))
+            
+            elif 'TARJETA' in metodo_pago_nombre:
+                if not detalles_metodo.strip():
+                    flash("❌ Para pagos con tarjeta debe proporcionar los detalles de la transacción")
+                    return redirect(url_for('admin_registrar_pago', id_movimiento=id_movimiento))
             
             with get_db_cursor(True) as cursor:
                 # Verificar saldo pendiente y datos de la cuenta
@@ -8225,7 +8332,7 @@ def admin_registrar_pago(id_movimiento):
                     VALUES (%s, %s, %s, %s, %s, %s)
                 """, (
                     id_movimiento,
-                    float(monto_pago),  # Convertir a float para la inserción
+                    float(monto_pago),
                     id_metodo_pago,
                     comentarios,
                     detalles_metodo,
@@ -8269,13 +8376,7 @@ def admin_registrar_pago(id_movimiento):
                 """, (float(nuevo_saldo), nuevo_estado, id_movimiento))
                 
                 # Verificar si el método de pago es EFECTIVO y registrar en caja
-                cursor.execute("""
-                    SELECT Nombre FROM Metodos_Pago 
-                    WHERE ID_MetodoPago = %s
-                """, (id_metodo_pago,))
-                metodo_pago_info = cursor.fetchone()
-                
-                if metodo_pago_info and metodo_pago_info['Nombre'].upper() in ['EFECTIVO', 'CASH', 'CONTADO']:
+                if metodo_pago_nombre in ['EFECTIVO', 'CASH', 'CONTADO']:
                     nombre_cliente = resultado['NombreCliente'] if resultado['NombreCliente'] else f'Cliente ID: {resultado["ID_Cliente"]}'
                     num_documento = resultado['Num_Documento'] if resultado['Num_Documento'] else f'CXC-{id_movimiento:05d}'
                     
@@ -8293,20 +8394,36 @@ def admin_registrar_pago(id_movimiento):
                         f'PAGO-CXC-{id_pago:05d}'
                     ))
                     print(f"💰 Entrada en caja registrada por pago en efectivo: C${float(monto_pago):,.2f}")
+                
+                # Guardar detalles del método de pago en comentarios adicionales si existe
+                if detalles_metodo.strip():
+                    cursor.execute("""
+                        UPDATE Pagos_CuentasCobrar 
+                        SET Comentarios = CONCAT(COALESCE(Comentarios, ''), 
+                            CASE WHEN COALESCE(Comentarios, '') != '' THEN ' | ' ELSE '' END,
+                            'Detalles: ', %s)
+                        WHERE ID_Pago = %s
+                    """, (detalles_metodo[:200], id_pago))
                     
                 # Mensaje final según el estado
                 if nuevo_estado == "Pagada":
-                    flash(f"✅✅ PAGO COMPLETO REGISTRADO. La cuenta ha sido marcada como PAGADA. Monto: ${float(monto_pago):,.2f}")
+                    flash(f" PAGO COMPLETO REGISTRADO. La cuenta ha sido marcada como PAGADA. Monto: C${float(monto_pago):,.2f}")
+                    if detalles_metodo:
+                        flash(f"📝 Detalles del pago: {detalles_metodo}")
                 else:
-                    flash(f"✅ Pago de ${float(monto_pago):,.2f} registrado exitosamente. Saldo restante: ${float(nuevo_saldo):,.2f} - Estado: {nuevo_estado}")
+                    flash(f"Pago de ${float(monto_pago):,.2f} registrado exitosamente. Saldo restante: C${float(nuevo_saldo):,.2f} - Estado: {nuevo_estado}")
+                    if detalles_metodo:
+                        flash(f"📝 Detalles del pago: {detalles_metodo}")
                     
                 return redirect(url_for('admin_detalle_cuentacobrar', id_movimiento=id_movimiento))
                 
         except ValueError as e:
-            flash(f"❌ Error: El monto ingresado no es válido")
+            flash(f"❌ Error: El monto ingresado no es válido: {e}")
             return redirect(url_for('admin_registrar_pago', id_movimiento=id_movimiento))
         except Exception as e:
-            flash(f"❌ Error al registrar pago: {e}")
+            flash(f"❌ Error al registrar pago: {str(e)}")
+            import traceback
+            print(traceback.format_exc())
             return redirect(url_for('admin_registrar_pago', id_movimiento=id_movimiento))
     
     # GET: Cargar datos para el formulario
@@ -8349,7 +8466,7 @@ def admin_registrar_pago(id_movimiento):
                 cuenta['Monto_Movimiento'] = float(cuenta['Monto_Movimiento'])
             
             # Métodos de pago disponibles
-            cursor.execute("SELECT ID_MetodoPago, Nombre FROM Metodos_Pago")
+            cursor.execute("SELECT ID_MetodoPago, Nombre FROM Metodos_Pago ORDER BY Nombre")
             metodos_pago = cursor.fetchall()
             
             # Pasar la fecha actual para comparar vencimientos
@@ -8363,6 +8480,8 @@ def admin_registrar_pago(id_movimiento):
                                  
     except Exception as e:
         flash(f"❌ Error al cargar formulario de pago: {e}")
+        import traceback
+        print(traceback.format_exc())
         return redirect(url_for('admin_cuentascobrar'))
 
 @app.route('/admin/ventas/cxcobrar/detalle/<int:id_movimiento>')
