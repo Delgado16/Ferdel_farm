@@ -87,6 +87,7 @@
                             <th>Identificación</th>
                             <th>Teléfono</th>
                             <th>Tipo</th>
+                            <th>Ruta</th> <!-- Nueva columna -->
                             <th>Estado</th>
                             <th class="text-center">Acciones</th>
                         </tr>
@@ -121,6 +122,13 @@
                                 <span class="badge {% if cliente.tipo_cliente == 'Especial' %}bg-warning text-dark{% else %}bg-secondary{% endif %} badge-tipo">
                                     {{ cliente.tipo_cliente }}
                                 </span>
+                            </td>
+                            <td>
+                                {% if cliente.Nombre_Ruta %}
+                                    <span class="badge bg-info">{{ cliente.Nombre_Ruta }}</span>
+                                {% else %}
+                                    <span class="text-muted">Sin ruta</span>
+                                {% endif %}
                             </td>
                             <td>
                                 <span class="badge bg-{% if cliente.Estado == 'ACTIVO' %}success{% else %}danger{% endif %}">
@@ -210,7 +218,7 @@
     {% endif %}
 </div>
 
-<!-- Modal para crear cliente - ACTUALIZADO -->
+<!-- Modal para crear cliente - ACTUALIZADO con campo de ruta -->
 <div class="modal fade" id="crearClienteModal" tabindex="-1" aria-labelledby="crearClienteModalLabel" aria-hidden="true">
     <div class="modal-dialog">
         <div class="modal-content">
@@ -276,6 +284,18 @@
                         </select>
                         <div class="form-text">Los clientes especiales pueden tener condiciones diferentes</div>
                         <div class="invalid-feedback">Por favor seleccione el tipo de cliente.</div>
+                    </div>
+                    
+                    <!-- Ruta (Nuevo campo) -->
+                    <div class="mb-3">
+                        <label for="id_ruta" class="form-label">Ruta de Entrega</label>
+                        <select class="form-select" id="id_ruta" name="id_ruta">
+                            <option value="" selected>Sin ruta asignada</option>
+                            {% for ruta in rutas %}
+                            <option value="{{ ruta.ID_Ruta }}">{{ ruta.Nombre_Ruta }}</option>
+                            {% endfor %}
+                        </select>
+                        <div class="form-text">Seleccione una ruta para la entrega de productos (opcional)</div>
                     </div>
                 </div>
                 <div class="modal-footer">
@@ -429,7 +449,9 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // Restablecer los select
         const tipoClienteSelect = document.getElementById('tipo_cliente');
+        const rutaSelect = document.getElementById('id_ruta');
         tipoClienteSelect.selectedIndex = 0;
+        rutaSelect.selectedIndex = 0;
     });
     
     // Auto-focus en el campo nombre cuando se abre el modal

@@ -44,6 +44,7 @@
                     <p class="card-text">
                         <strong>Nombre:</strong> {{ cliente.Nombre }}<br>
                         <strong>Identificación:</strong> {{ cliente.RUC_CEDULA or 'No especificada' }}<br>
+                        <strong>Ruta actual:</strong> {{ cliente.Nombre_Ruta or 'Sin ruta asignada' }}<br>
                         <strong>Fecha de creación:</strong> {{ cliente.Fecha_Creacion|default('No disponible', true) }}
                     </p>
                 </div>
@@ -53,27 +54,14 @@
                             <i class="bi bi-info-circle"></i> <strong>Notas importantes:</strong><br>
                             1. Los clientes inactivos no aparecerán en las listas de selección<br>
                             2. El RUC/Cédula debe ser único solo entre clientes activos<br>
-                            3. Puedes reactivar un cliente cambiando su estado a "Activo"
+                            3. Puedes reactivar un cliente cambiando su estado a "Activo"<br>
+                            4. La ruta es opcional y ayuda en la organización de entregas
                         </small>
                     </div>
                 </div>
             </div>
         </div>
     </div>
-
-    <!-- Mostrar mensajes flash -->
-    {% with messages = get_flashed_messages(with_categories=true) %}
-    {% if messages %}
-    {% for category, message in messages %}
-    <div class="alert alert-{{ 'danger' if category == 'danger' else 'success' }} alert-dismissible fade show mb-4"
-        role="alert">
-        <i class="bi bi-{{ 'exclamation-triangle' if category == 'danger' else 'check-circle' }} me-2"></i>
-        {{ message }}
-        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-    </div>
-    {% endfor %}
-    {% endif %}
-    {% endwith %}
 
     <!-- Formulario de edición -->
     <div class="card shadow">
@@ -152,6 +140,21 @@
                         Los clientes inactivos no aparecerán en listas
                     </div>
                     <div class="invalid-feedback">Por favor seleccione el estado del cliente.</div>
+                </div>
+                
+                <!-- Ruta de Entrega (Nuevo campo) -->
+                <div class="col-md-6">
+                    <label for="id_ruta" class="form-label">Ruta de Entrega</label>
+                    <select name="id_ruta" id="id_ruta" class="form-select">
+                        <option value="">Sin ruta asignada</option>
+                        {% for ruta in rutas %}
+                        <option value="{{ ruta.ID_Ruta }}" 
+                                {% if cliente.ID_Ruta == ruta.ID_Ruta %}selected{% endif %}>
+                            {{ ruta.Nombre_Ruta }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                    <div class="form-text">Seleccione una ruta para la entrega de productos (opcional)</div>
                 </div>
 
                 <!-- Botones -->

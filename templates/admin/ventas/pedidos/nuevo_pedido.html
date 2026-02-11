@@ -504,7 +504,7 @@ function mostrarIndicadorPrioridad(prioridad) {
         
         icono.className = getIconoPrioridad(prioridad) + ' fa-2x';
         alert.className = 'alert alert-danger alert-dismissible fade show';
-        titnero.textContent = 'Pedido Urgente';
+        titulo.textContent = 'Pedido Urgente';
         descripcion.innerHTML = `Este pedido será marcado como <strong class="text-uppercase">${prioridad}</strong> y tendrá prioridad máxima en el procesamiento y entrega.`;
     } else {
         indicador.style.display = 'none';
@@ -1097,7 +1097,10 @@ function guardarPedido() {
         if (data.success) {
             showToast('success', 'Pedido creado', `Pedido #${data.pedido_id} creado exitosamente`);
             setTimeout(() => {
-                window.location.href = `/admin/ventas/pedido/${data.pedido_id}`;
+                // ✅ CORREGIDO: Redirigir a la ruta correcta que existe
+                window.location.href = `/admin/ventas/pedido-venta/${data.pedido_id}`;
+                // O mejor aún, si el servidor envía redirect_url:
+                // window.location.href = data.redirect_url;
             }, 1500);
         } else {
             showAlert('error', data.message || 'Error al crear el pedido');
@@ -1105,7 +1108,6 @@ function guardarPedido() {
     })
     .catch(error => {
         console.error('Error:', error);
-        // Cerrar el modal también en caso de error
         modal.hide();
         showAlert('error', 'Error al conectar con el servidor');
     });

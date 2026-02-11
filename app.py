@@ -5,7 +5,6 @@ import markupsafe
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_login import LoginManager, login_user, login_required, logout_user, UserMixin, current_user
 from weasyprint import HTML
-from datetime import datetime, timedelta
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from mysql.connector import Error, pooling
@@ -17,7 +16,7 @@ from markupsafe import Markup
 import mysql.connector
 import functools
 from functools import wraps
-from datetime import datetime, time, date
+from datetime import datetime, time, date, timedelta
 import time
 import threading
 import traceback
@@ -2136,6 +2135,7 @@ def editar_empresa(id):
 def admin_clientes():
     # Valores por defecto
     clientes = []
+    rutas = []  # Nuevo: lista de rutas para el formulario
     page = 1
     per_page = 20
     total = 0
@@ -2148,17 +2148,28 @@ def admin_clientes():
         id_empresa = session.get('id_empresa', 1)
         
         with get_db_cursor() as cursor:
+            # Obtener rutas activas para el formulario
+            cursor.execute("""
+                SELECT ID_Ruta, Nombre_Ruta 
+                FROM rutas 
+                WHERE ID_Empresa = %s 
+                AND Estado = 'Activa'
+                ORDER BY Nombre_Ruta
+            """, (id_empresa,))
+            rutas = cursor.fetchall()
+            
             # Validar página
             if page < 1:
                 page = 1
             
             offset = (page - 1) * per_page
             
-            # Consulta base CORREGIDA con JOIN
+            # Consulta base ACTUALIZADA con JOIN de rutas
             base_query = """
-                SELECT c.*, e.Nombre_Empresa
+                SELECT c.*, e.Nombre_Empresa, r.Nombre_Ruta
                 FROM Clientes c
                 INNER JOIN empresa e ON c.ID_Empresa = e.ID_Empresa
+                LEFT JOIN rutas r ON c.ID_Ruta = r.ID_Ruta
                 WHERE c.Estado = 'ACTIVO' 
                 AND c.ID_Empresa = %s
                 AND e.Estado = 'Activo'
@@ -2170,7 +2181,7 @@ def admin_clientes():
                 search_param = f"%{search_query}%"
                 params.extend([search_param, search_param, search_param])
             
-            # Contar total CORREGIDO con mismo JOIN
+            # Contar total ACTUALIZADO
             count_query = """
                 SELECT COUNT(*) as total 
                 FROM Clientes c
@@ -2212,6 +2223,7 @@ def admin_clientes():
     # Siempre retornamos el template, incluso si hay error
     return render_template("admin/catalog/client/clientes.html", 
                         clientes=clientes, 
+                        rutas=rutas,  # Pasar rutas al template
                         page=page,
                         per_page=per_page,
                         total=total,
@@ -2228,6 +2240,7 @@ def admin_crear_cliente():
         direccion = request.form.get("direccion", "").strip()
         ruc_cedula = request.form.get("ruc_cedula", "").strip()
         tipo_cliente = request.form.get("tipo_cliente", "Comun").strip()
+        id_ruta = request.form.get("id_ruta", "").strip()  # Nuevo campo
         id_usuario = session.get('id_usuario', 1)
         id_empresa = session.get('id_empresa', 1)
 
@@ -2248,6 +2261,17 @@ def admin_crear_cliente():
         if tipo_cliente not in ['Comun', 'Especial']:
             tipo_cliente = 'Comun'
         
+        # Validar ID_Ruta (puede ser opcional)
+        if id_ruta:
+            try:
+                id_ruta = int(id_ruta)
+                if id_ruta <= 0:
+                    id_ruta = None
+            except (ValueError, TypeError):
+                id_ruta = None
+        else:
+            id_ruta = None
+        
         with get_db_cursor() as cursor:
             # Verificar que la empresa existe y está activa
             cursor.execute(
@@ -2259,6 +2283,20 @@ def admin_crear_cliente():
             if not empresa_activa:
                 flash("Empresa no válida o inactiva.", "danger")
                 return redirect(url_for("admin_clientes"))
+            
+            # Si se proporcionó una ruta, verificar que existe y pertenece a la empresa
+            if id_ruta:
+                cursor.execute(
+                    """SELECT 1 FROM rutas 
+                    WHERE ID_Ruta = %s 
+                    AND ID_Empresa = %s 
+                    AND Estado = 'Activa'""",
+                    (id_ruta, id_empresa)
+                )
+                ruta_valida = cursor.fetchone()
+                if not ruta_valida:
+                    flash("La ruta seleccionada no es válida o está inactiva.", "danger")
+                    return redirect(url_for("admin_clientes"))
             
             # Verificar si el RUC/Cédula ya existe (solo si se proporcionó)
             if ruc_cedula:
@@ -2274,12 +2312,14 @@ def admin_crear_cliente():
                     flash("Ya existe un cliente con este RUC/Cédula", "danger")
                     return redirect(url_for("admin_clientes"))
 
-            # Insertar nuevo cliente CON el campo tipo_cliente
+            # Insertar nuevo cliente CON el campo ID_Ruta
             cursor.execute("""
                 INSERT INTO Clientes 
-                (Nombre, Telefono, Direccion, RUC_CEDULA, ID_Empresa, ID_Usuario_Creacion, tipo_cliente)
-                VALUES (%s, %s, %s, %s, %s, %s, %s)
-            """, (nombre, telefono, direccion, ruc_cedula, id_empresa, id_usuario, tipo_cliente))
+                (Nombre, Telefono, Direccion, RUC_CEDULA, ID_Empresa, 
+                 ID_Usuario_Creacion, tipo_cliente, ID_Ruta)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+            """, (nombre, telefono, direccion, ruc_cedula, id_empresa, 
+                  id_usuario, tipo_cliente, id_ruta))
             
             flash("Cliente agregado correctamente.", "success")
             
@@ -2297,11 +2337,22 @@ def admin_editar_cliente(id):
         id_empresa = session.get('id_empresa', 1)
         
         with get_db_cursor() as cursor:
+            # Obtener rutas activas para el formulario
+            cursor.execute("""
+                SELECT ID_Ruta, Nombre_Ruta 
+                FROM rutas 
+                WHERE ID_Empresa = %s 
+                AND Estado = 'Activa'
+                ORDER BY Nombre_Ruta
+            """, (id_empresa,))
+            rutas = cursor.fetchall()
+            
             # Verificar que el cliente existe (sin filtrar por estado para poder reactivar)
             cursor.execute(
-                """SELECT c.* 
+                """SELECT c.*, r.Nombre_Ruta
                 FROM Clientes c
                 INNER JOIN empresa e ON c.ID_Empresa = e.ID_Empresa
+                LEFT JOIN rutas r ON c.ID_Ruta = r.ID_Ruta
                 WHERE c.ID_Cliente = %s 
                 AND c.ID_Empresa = %s 
                 AND e.Estado = 'ACTIVO'
@@ -2316,7 +2367,8 @@ def admin_editar_cliente(id):
             
             # MÉTODO GET - Mostrar formulario
             if request.method == 'GET':
-                return render_template("admin/catalog/client/editar_clientes.html", cliente=cliente)
+                return render_template("admin/catalog/client/editar_clientes.html", 
+                                     cliente=cliente, rutas=rutas)
             
             # MÉTODO POST - Procesar formulario
             elif request.method == 'POST':
@@ -2326,15 +2378,17 @@ def admin_editar_cliente(id):
                 ruc_cedula = request.form.get("ruc_cedula", "").strip()
                 estado = request.form.get("estado", "ACTIVO").strip()
                 tipo_cliente = request.form.get("tipo_cliente", "Comun").strip()
+                id_ruta = request.form.get("id_ruta", "").strip()  # Nuevo campo
 
                 if not nombre:
                     flash("El nombre del cliente es obligatorio.", "danger")
-                    # Redirigir de vuelta al formulario de edición
-                    return render_template("admin/catalog/client/editar_clientes.html", cliente=cliente)
+                    return render_template("admin/catalog/client/editar_clientes.html", 
+                                         cliente=cliente, rutas=rutas)
                 
                 if not telefono:
                     flash("El teléfono del cliente es obligatorio.", "danger")
-                    return render_template("admin/catalog/client/editar_clientes.html", cliente=cliente)
+                    return render_template("admin/catalog/client/editar_clientes.html", 
+                                         cliente=cliente, rutas=rutas)
                 
                 # Validar estado
                 if estado not in ['ACTIVO', 'INACTIVO']:
@@ -2344,18 +2398,45 @@ def admin_editar_cliente(id):
                 if tipo_cliente not in ['Comun', 'Especial']:
                     tipo_cliente = 'Comun'
                 
+                # Validar ID_Ruta (puede ser opcional)
+                if id_ruta:
+                    try:
+                        id_ruta = int(id_ruta)
+                        if id_ruta <= 0:
+                            id_ruta = None
+                    except (ValueError, TypeError):
+                        id_ruta = None
+                        
+                    # Si se proporcionó una ruta, verificar que existe y pertenece a la empresa
+                    if id_ruta:
+                        cursor.execute(
+                            """SELECT 1 FROM rutas 
+                            WHERE ID_Ruta = %s 
+                            AND ID_Empresa = %s 
+                            AND Estado = 'Activa'""",
+                            (id_ruta, id_empresa)
+                        )
+                        ruta_valida = cursor.fetchone()
+                        if not ruta_valida:
+                            flash("La ruta seleccionada no es válida o está inactiva.", "danger")
+                            return render_template("admin/catalog/client/editar_clientes.html", 
+                                                 cliente=cliente, rutas=rutas)
+                else:
+                    id_ruta = None
+                
                 # Validar y limpiar RUC/Cédula
                 if ruc_cedula:
-                    
                     # Validar que solo contenga números
                     if not ruc_cedula.isdigit():
                         flash("El RUC/Cédula debe contener solo números", "danger")
-                        return render_template("admin/catalog/client/editar_clientes.html", cliente=cliente)
+                        return render_template("admin/catalog/client/editar_clientes.html", 
+                                             cliente=cliente, rutas=rutas)
                     
                     # Validar longitud (Ecuador: cédula=10, ruc=13)
                     if len(ruc_cedula) not in [10, 13]:
                         flash("El RUC/Cédula debe tener 10 (cédula) o 13 (RUC) dígitos", "danger")
-                        return render_template("admin/catalog/client/editar_clientes.html", cliente=cliente)
+                        return render_template("admin/catalog/client/editar_clientes.html", 
+                                             cliente=cliente, rutas=rutas)
 
                 # Verificar si el RUC/Cédula ya existe en otro cliente activo
                 if ruc_cedula and estado == 'ACTIVO':
@@ -2370,9 +2451,10 @@ def admin_editar_cliente(id):
                     ruc_existente = cursor.fetchone()
                     if ruc_existente:
                         flash("Ya existe otro cliente activo con este RUC/Cédula", "danger")
-                        return render_template("admin/catalog/client/editar_clientes.html", cliente=cliente)
+                        return render_template("admin/catalog/client/editar_clientes.html", 
+                                             cliente=cliente, rutas=rutas)
 
-                # Actualizar cliente CON el campo tipo_cliente
+                # Actualizar cliente CON el campo ID_Ruta
                 cursor.execute("""
                     UPDATE Clientes 
                     SET Nombre = %s, 
@@ -2380,10 +2462,12 @@ def admin_editar_cliente(id):
                         Direccion = %s, 
                         RUC_CEDULA = %s, 
                         Estado = %s,
-                        tipo_cliente = %s
+                        tipo_cliente = %s,
+                        ID_Ruta = %s
                     WHERE ID_Cliente = %s 
                     AND ID_Empresa = %s
-                """, (nombre, telefono, direccion, ruc_cedula, estado, tipo_cliente, id, id_empresa))
+                """, (nombre, telefono, direccion, ruc_cedula, estado, 
+                      tipo_cliente, id_ruta, id, id_empresa))
                 
                 # Registrar en bitácora
                 accion = "actualizado" if estado == 'ACTIVO' else "desactivado"
@@ -2412,7 +2496,8 @@ def admin_eliminar_cliente(id):
                 """SELECT c.* 
                 FROM Clientes c
                 INNER JOIN empresa e ON c.ID_Empresa = e.ID_Empresa
-                WHERE c.ID_Cliente = %s AND c.ID_Empresa = %s AND c.Estado = 'ACTIVO' AND e.Estado = 'Activo'""",
+                WHERE c.ID_Cliente = %s AND c.ID_Empresa = %s 
+                AND c.Estado = 'ACTIVO' AND e.Estado = 'Activo'""",
                 (id, id_empresa)
             )
             cliente = cursor.fetchone()
@@ -3534,7 +3619,6 @@ def eliminar_ruta():
         print(f"ERROR en eliminar_ruta: {str(e)}")
         flash(f"Error al eliminar ruta: {str(e)}", "danger")
         return redirect(url_for('admin_rutas')) 
-
 
 # MODULO BODEGA
 @app.route('/admin/bodega', methods=['GET'])
@@ -9315,7 +9399,7 @@ def crear_pedido():
         
         fecha = data.get('fecha')
         tipo_entrega = data.get('tipo_entrega', 'Retiro en local')
-        prioridad = data.get('prioridad', 'Normal')  # Nueva columna
+        prioridad = data.get('prioridad', 'Normal')
         observacion = data.get('observacion', '')
         
         with get_db_cursor() as cursor:
@@ -9352,7 +9436,7 @@ def crear_pedido():
                 user,
                 observacion,
                 tipo_entrega,
-                prioridad  # Nuevo parámetro
+                prioridad
             ))
             
             pedido_id = cursor.lastrowid
@@ -9408,10 +9492,9 @@ def crear_pedido():
                     subtotal
                 ))
                 
-                # Descontar stock de las bodegas (FIFO: First In, First Out)
+                # Descontar stock de las bodegas (FIFO)
                 cantidad_a_descontar = producto['cantidad']
                 
-                # Obtener bodegas con stock disponible para este producto
                 sql_bodegas_stock = """
                 SELECT ID_Bodega, Existencias 
                 FROM inventario_bodega 
@@ -9429,7 +9512,6 @@ def crear_pedido():
                     id_bodega = bodega['ID_Bodega']
                     
                     if stock_disponible >= cantidad_a_descontar:
-                        # Descontar todo de esta bodega
                         sql_update = """
                         UPDATE inventario_bodega 
                         SET Existencias = Existencias - %s
@@ -9438,7 +9520,6 @@ def crear_pedido():
                         cursor.execute(sql_update, (cantidad_a_descontar, id_bodega, producto['id']))
                         cantidad_a_descontar = 0
                     else:
-                        # Descontar lo que haya disponible y continuar con la siguiente bodega
                         sql_update = """
                         UPDATE inventario_bodega 
                         SET Existencias = Existencias - %s
@@ -9447,23 +9528,26 @@ def crear_pedido():
                         cursor.execute(sql_update, (stock_disponible, id_bodega, producto['id']))
                         cantidad_a_descontar -= stock_disponible
                 
-                # Verificar que se descontó todo el stock necesario
                 if cantidad_a_descontar > 0:
                     raise Exception(f"No se pudo descontar todo el stock para el producto {producto['id']}")
             
-            # Registrar en bitácora
-            cursor.execute("""
-                INSERT INTO bitacora (ID_Usuario, Accion, Descripcion, Fecha)
-                VALUES (%s, 'CREAR_PEDIDO', %s, NOW())
-            """, (session.get('user_id'), f'Pedido #{pedido_id} creado para cliente {data["cliente_id"]} con prioridad {prioridad}'))
+            # 🔥🔥🔥 IMPORTANTE: Generar la URL para redirigir al detalle del pedido 🔥🔥🔥
+            redirect_url = url_for('ver_pedido', id_pedido=pedido_id)
+            
+            # Log para debugging
+            print(f"✅ Pedido #{pedido_id} creado exitosamente")
+            print(f"   Redirigiendo a: {redirect_url}")
             
             return jsonify({
                 'success': True, 
                 'message': 'Pedido creado exitosamente',
-                'pedido_id': pedido_id
+                'pedido_id': pedido_id,
+                'redirect_url': redirect_url  # 👈 ESTO ES LO QUE FALTABA
             })
             
     except Exception as e:
+        print(f"❌ Error al crear pedido: {str(e)}")
+        traceback.print_exc()
         return jsonify({'success': False, 'message': str(e)}), 500
 
 @app.route('/admin/ventas/procesar-pedido/<int:id_pedido>', methods=['GET', 'POST'])
@@ -10411,7 +10495,7 @@ def admin_asignacion_rutas():
             return redirect(url_for('admin_dashboard'))
         
         with get_db_cursor(commit=False) as cursor:
-            # Obtener asignaciones activas - CORREGIDA CON NUEVOS CAMPOS
+            # Obtener asignaciones activas
             cursor.execute("""
                 SELECT 
                     a.ID_Asignacion,
@@ -10429,8 +10513,8 @@ def admin_asignacion_rutas():
                     a.Estado AS Estado_Asignacion,
                     ua.NombreUsuario AS Asignado_Por,
                     rol.Nombre_Rol AS Rol_Vendedor,
-                    a.Hora_Inicio,    -- NUEVO CAMPO
-                    a.Hora_Fin,       -- NUEVO CAMPO
+                    a.Hora_Inicio,
+                    a.Hora_Fin,
                     a.ID_Usuario_Asigna
                 FROM asignacion_vendedores a
                 LEFT JOIN usuarios u ON a.ID_Usuario = u.ID_Usuario
@@ -10441,9 +10525,93 @@ def admin_asignacion_rutas():
                 WHERE a.ID_Empresa = %s
                 ORDER BY a.Fecha_Asignacion DESC, a.Estado
             """, (empresa_id,))
-            asignaciones = cursor.fetchall()
+            asignaciones_raw = cursor.fetchall()
             
-            # Obtener vendedores disponibles - CORREGIDA
+            # Verificar el tipo de datos devuelto
+            print(f"DEBUG: Tipo de asignaciones_raw: {type(asignaciones_raw)}")
+            if asignaciones_raw:
+                print(f"DEBUG: Primer elemento tipo: {type(asignaciones_raw[0])}")
+                print(f"DEBUG: Claves del primer elemento (si es dict): {list(asignaciones_raw[0].keys()) if isinstance(asignaciones_raw[0], dict) else 'No es dict'}")
+            
+            # Procesar asignaciones para formatear correctamente
+            asignaciones = []
+            for asignacion in asignaciones_raw:
+                # Crear una copia del diccionario si ya es un diccionario
+                if isinstance(asignacion, dict):
+                    asignacion_dict = asignacion.copy()
+                else:
+                    # Si es una tupla, convertir a diccionario
+                    asignacion_dict = {}
+                    for i, col in enumerate(cursor.description):
+                        col_name = col[0]
+                        value = asignacion[i]
+                        asignacion_dict[col_name] = value
+                
+                # Formatear fechas
+                if asignacion_dict.get('Fecha_Asignacion'):
+                    fecha_val = asignacion_dict['Fecha_Asignacion']
+                    if isinstance(fecha_val, (datetime, date)):
+                        asignacion_dict['Fecha_Asignacion_fmt'] = fecha_val.strftime('%d/%m/%Y')
+                    else:
+                        # Convertir a string y tomar los primeros 10 caracteres
+                        fecha_str = str(fecha_val)
+                        asignacion_dict['Fecha_Asignacion_fmt'] = fecha_str[:10] if len(fecha_str) >= 10 else fecha_str
+                else:
+                    asignacion_dict['Fecha_Asignacion_fmt'] = None
+                
+                if asignacion_dict.get('Fecha_Finalizacion'):
+                    fecha_val = asignacion_dict['Fecha_Finalizacion']
+                    if isinstance(fecha_val, (datetime, date)):
+                        asignacion_dict['Fecha_Finalizacion_fmt'] = fecha_val.strftime('%d/%m/%Y')
+                    else:
+                        # Convertir a string y tomar los primeros 10 caracteres
+                        fecha_str = str(fecha_val)
+                        asignacion_dict['Fecha_Finalizacion_fmt'] = fecha_str[:10] if len(fecha_str) >= 10 else fecha_str
+                else:
+                    asignacion_dict['Fecha_Finalizacion_fmt'] = None
+                
+                # Formatear horas
+                if asignacion_dict.get('Hora_Inicio'):
+                    hora_val = asignacion_dict['Hora_Inicio']
+                    if isinstance(hora_val, timedelta):
+                        total_seconds = int(hora_val.total_seconds())
+                        hours = total_seconds // 3600
+                        minutes = (total_seconds % 3600) // 60
+                        asignacion_dict['Hora_Inicio_fmt'] = f"{hours:02d}:{minutes:02d}"
+                    elif isinstance(hora_val, time):
+                        asignacion_dict['Hora_Inicio_fmt'] = hora_val.strftime('%H:%M')
+                    else:
+                        # Si es string, extraer solo la parte de tiempo
+                        hora_str = str(hora_val)
+                        if ':' in hora_str:
+                            asignacion_dict['Hora_Inicio_fmt'] = hora_str[:5]
+                        else:
+                            asignacion_dict['Hora_Inicio_fmt'] = hora_str
+                else:
+                    asignacion_dict['Hora_Inicio_fmt'] = None
+                
+                if asignacion_dict.get('Hora_Fin'):
+                    hora_val = asignacion_dict['Hora_Fin']
+                    if isinstance(hora_val, timedelta):
+                        total_seconds = int(hora_val.total_seconds())
+                        hours = total_seconds // 3600
+                        minutes = (total_seconds % 3600) // 60
+                        asignacion_dict['Hora_Fin_fmt'] = f"{hours:02d}:{minutes:02d}"
+                    elif isinstance(hora_val, time):
+                        asignacion_dict['Hora_Fin_fmt'] = hora_val.strftime('%H:%M')
+                    else:
+                        # Si es string, extraer solo la parte de tiempo
+                        hora_str = str(hora_val)
+                        if ':' in hora_str:
+                            asignacion_dict['Hora_Fin_fmt'] = hora_str[:5]
+                        else:
+                            asignacion_dict['Hora_Fin_fmt'] = hora_str
+                else:
+                    asignacion_dict['Hora_Fin_fmt'] = None
+                
+                asignaciones.append(asignacion_dict)
+            
+            # Obtener vendedores disponibles
             cursor.execute("""
                 SELECT 
                     u.ID_Usuario, 
@@ -10475,7 +10643,7 @@ def admin_asignacion_rutas():
             """, (empresa_id,))
             rutas = cursor.fetchall()
             
-            # Obtener vehículos disponibles - CORREGIDA
+            # Obtener vehículos disponibles
             cursor.execute("""
                 SELECT 
                     ID_Vehiculo, 
@@ -10524,8 +10692,12 @@ def admin_asignacion_rutas():
         
     except Exception as e:
         flash(f'Error al cargar asignación de rutas: {str(e)}', 'error')
+        # Para debugging detallado
+        import traceback
+        error_details = traceback.format_exc()
+        print(f"ERROR DETALLADO: {error_details}")
         return redirect(url_for('admin_dashboard'))
-
+    
 @app.route('/admin/catalogos/rutas/asignacion/crear', methods=['POST'])
 @admin_required
 def crear_asignacion_ruta():
