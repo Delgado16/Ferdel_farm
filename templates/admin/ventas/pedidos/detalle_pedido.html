@@ -7,7 +7,18 @@
     <!-- Encabezado -->
     <div class="d-flex justify-content-between align-items-center mb-4">
         <div>
-            <h2><i class="fas fa-file-invoice me-2"></i>Pedido #{{ pedido.ID_Pedido }}</h2>
+            <h2>
+                <i class="fas {% if pedido.Tipo_Pedido == 'Consolidado' %}fa-layer-group{% else %}fa-file-invoice{% endif %} me-2"></i>
+                Pedido #{{ pedido.ID_Pedido }}
+                {% if pedido.Tipo_Pedido == 'Consolidado' %}
+                <span class="badge bg-info ms-2">CONSOLIDADO</span>
+                {% endif %}
+                {% if pedido.Es_Pedido_Ruta == 'SI' %}
+                <span class="badge bg-success ms-2">
+                    <i class="fas fa-route me-1"></i> RUTA
+                </span>
+                {% endif %}
+            </h2>
             <p class="text-muted mb-0">
                 Fecha: 
                 {% if pedido.Fecha %}
@@ -18,6 +29,9 @@
                     {% endif %}
                 {% else %}
                     N/A
+                {% endif %}
+                {% if pedido.Fecha_Creacion %}
+                | Creado: {{ pedido.Fecha_Creacion.strftime('%d/%m/%Y %H:%M') }}
                 {% endif %}
             </p>
         </div>
@@ -39,8 +53,20 @@
             <span>
                 <strong>Estado:</strong> {{ pedido.Estado }}
                 {% if pedido.Prioridad == 'Urgente' %}
-                | <span class="badge bg-danger">URGENTE</span>
+                | <span class="badge bg-danger">
+                    <i class="fas fa-exclamation-triangle me-1"></i>URGENTE
+                </span>
                 {% endif %}
+                | <span class="badge 
+                    {% if pedido.Prioridad == 'Urgente' %}bg-danger
+                    {% elif pedido.Prioridad == 'Normal' %}bg-primary
+                    {% else %}bg-secondary{% endif %}">
+                    <i class="fas 
+                        {% if pedido.Prioridad == 'Urgente' %}fa-exclamation-circle
+                        {% elif pedido.Prioridad == 'Normal' %}fa-clock
+                        {% else %}fa-calendar{% endif %} me-1"></i>
+                    {{ pedido.Prioridad }}
+                </span>
             </span>
             
             {% if pedido.Estado == 'Pendiente' %}
@@ -57,6 +83,12 @@
                 <button type="button" class="btn btn-sm btn-primary" onclick="cambiarEstado('Entregado')">
                     <i class="fas fa-truck me-1"></i> Entregar
                 </button>
+                {% if pedido.Tipo_Pedido != 'Consolidado' %}
+                <a href="{{ url_for('admin_procesar_venta_pedido', id_pedido=pedido.ID_Pedido) }}" 
+                   class="btn btn-sm btn-success">
+                    <i class="fas fa-cash-register me-1"></i> Procesar Venta
+                </a>
+                {% endif %}
             </div>
             {% endif %}
         </div>
@@ -64,38 +96,80 @@
     
     <!-- Información principal -->
     <div class="row">
-        <!-- Información del Cliente -->
+        <!-- Información del Cliente / Consolidado -->
         <div class="col-md-4 mb-4">
             <div class="card">
                 <div class="card-header">
-                    <h5 class="mb-0"><i class="fas fa-user me-2"></i>Cliente</h5>
+                    <h5 class="mb-0">
+                        <i class="fas {% if pedido.Tipo_Pedido == 'Consolidado' %}fa-layer-group{% else %}fa-user{% endif %} me-2"></i>
+                        {% if pedido.Tipo_Pedido == 'Consolidado' %}Información del Consolidado{% else %}Cliente{% endif %}
+                    </h5>
                 </div>
                 <div class="card-body">
-                    <h6>{{ pedido.Nombre_Cliente or 'Cliente' }}</h6>
-                    <table class="table table-sm table-borderless">
-                        {% if pedido.Documento_Cliente %}
-                        <tr>
-                            <td class="text-muted">Documento:</td>
-                            <td>{{ pedido.Documento_Cliente }}</td>
-                        </tr>
-                        {% endif %}
-                        {% if pedido.Telefono_Cliente %}
-                        <tr>
-                            <td class="text-muted">Teléfono:</td>
-                            <td>{{ pedido.Telefono_Cliente }}</td>
-                        </tr>
-                        {% endif %}
-                        {% if pedido.Direccion_Cliente %}
-                        <tr>
-                            <td class="text-muted">Dirección:</td>
-                            <td>{{ pedido.Direccion_Cliente }}</td>
-                        </tr>
-                        {% endif %}
-                        <tr>
-                            <td class="text-muted">Empresa:</td>
-                            <td>{{ pedido.Nombre_Empresa or 'N/A' }}</td>
-                        </tr>
-                    </table>
+                    {% if pedido.Tipo_Pedido == 'Consolidado' %}
+                        <h6>
+                            <i class="fas fa-building me-2"></i>
+                            {{ pedido.Nombre_Empresa or 'Empresa' }}
+                        </h6>
+                        <table class="table table-sm table-borderless">
+                            <tr>
+                                <td class="text-muted">Tipo Pedido:</td>
+                                <td>
+                                    <span class="badge bg-info">Consolidado</span>
+                                </td>
+                            </tr>
+                            {% if pedido.Nombre_Ruta %}
+                            <tr>
+                                <td class="text-muted">Ruta:</td>
+                                <td>
+                                    <span class="badge bg-success">
+                                        <i class="fas fa-route me-1"></i> {{ pedido.Nombre_Ruta }}
+                                    </span>
+                                </td>
+                            </tr>
+                            {% if pedido.Descripcion_Ruta %}
+                            <tr>
+                                <td class="text-muted">Descripción Ruta:</td>
+                                <td>{{ pedido.Descripcion_Ruta }}</td>
+                            </tr>
+                            {% endif %}
+                            {% endif %}
+                            <tr>
+                                <td class="text-muted">Usuario Creación:</td>
+                                <td>{{ pedido.Usuario_Creacion or 'N/A' }}</td>
+                            </tr>
+                        </table>
+                    {% else %}
+                        <h6>{{ pedido.Nombre_Cliente or 'Cliente' }}</h6>
+                        <table class="table table-sm table-borderless">
+                            {% if pedido.Documento_Cliente %}
+                            <tr>
+                                <td class="text-muted">Documento:</td>
+                                <td>{{ pedido.Documento_Cliente }}</td>
+                            </tr>
+                            {% endif %}
+                            {% if pedido.Telefono_Cliente %}
+                            <tr>
+                                <td class="text-muted">Teléfono:</td>
+                                <td>{{ pedido.Telefono_Cliente }}</td>
+                            </tr>
+                            {% endif %}
+                            {% if pedido.Direccion_Cliente %}
+                            <tr>
+                                <td class="text-muted">Dirección:</td>
+                                <td>{{ pedido.Direccion_Cliente }}</td>
+                            </tr>
+                            {% endif %}
+                            <tr>
+                                <td class="text-muted">Tipo Cliente:</td>
+                                <td>
+                                    <span class="badge {% if pedido.Tipo_Cliente == 'Especial' %}bg-warning text-dark{% else %}bg-primary{% endif %}">
+                                        {{ pedido.Tipo_Cliente }}
+                                    </span>
+                                </td>
+                            </tr>
+                        </table>
+                    {% endif %}
                 </div>
             </div>
             
@@ -114,7 +188,7 @@
                         </tr>
                         <tr>
                             <td><strong>Total General:</strong></td>
-                            <td class="text-end fw-bold">C${{ "{:,.2f}".format(totales.get('Total_General', 0) or 0) }}</td>
+                            <td class="text-end fw-bold text-success">C${{ "{:,.2f}".format(totales.get('Total_General', 0) or 0) }}</td>
                         </tr>
                     </table>
                 </div>
@@ -124,8 +198,16 @@
         <!-- Detalle de Productos -->
         <div class="col-md-8">
             <div class="card">
-                <div class="card-header">
-                    <h5 class="mb-0"><i class="fas fa-boxes me-2"></i>Productos</h5>
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">
+                        <i class="fas fa-boxes me-2"></i>
+                        {% if pedido.Tipo_Pedido == 'Consolidado' %}
+                            Productos Consolidados
+                        {% else %}
+                            Productos
+                        {% endif %}
+                    </h5>
+                    <span class="badge bg-secondary">{{ detalles|length }} items</span>
                 </div>
                 <div class="card-body">
                     <div class="table-responsive">
@@ -148,6 +230,12 @@
                                         {% if detalle.COD_Producto %}
                                         <small class="text-muted">Código: {{ detalle.COD_Producto }}</small>
                                         {% endif %}
+                                        {% if detalle.Categoria %}
+                                        <br><small class="text-muted">Categoría: {{ detalle.Categoria }}</small>
+                                        {% endif %}
+                                        {% if detalle.Unidad_Abreviatura %}
+                                        <br><small class="text-muted">Unidad: {{ detalle.Unidad_Abreviatura }}</small>
+                                        {% endif %}
                                     </td>
                                     <td class="text-end">C${{ "{:,.2f}".format(detalle.Precio_Unitario or 0) }}</td>
                                     <td class="text-end">{{ "{:,.2f}".format(detalle.Cantidad or 0) }}</td>
@@ -158,7 +246,7 @@
                                 {% else %}
                                 <tr>
                                     <td colspan="5" class="text-center text-muted">
-                                        No hay productos
+                                        No hay productos en este pedido
                                     </td>
                                 </tr>
                                 {% endfor %}
@@ -167,25 +255,45 @@
                     </div>
                     
                     <!-- Información adicional -->
-                    {% if pedido.Observacion or pedido.Tipo_Entrega %}
-                    <div class="mt-4">
-                        <h6>Información Adicional</h6>
-                        <table class="table table-sm table-borderless">
-                            {% if pedido.Tipo_Entrega %}
-                            <tr>
-                                <td class="text-muted" width="120">Entrega:</td>
-                                <td>{{ pedido.Tipo_Entrega or 'Retiro en local' }}</td>
-                            </tr>
+                    <div class="row mt-4">
+                        <div class="col-md-6">
+                            {% if pedido.Tipo_Entrega or pedido.Observacion %}
+                            <h6>Información Adicional</h6>
+                            <table class="table table-sm table-borderless">
+                                {% if pedido.Tipo_Entrega %}
+                                <tr>
+                                    <td class="text-muted" width="120">Entrega:</td>
+                                    <td>
+                                        <span class="badge 
+                                            {% if pedido.Tipo_Entrega == 'Entrega a domicilio' %}bg-primary
+                                            {% else %}bg-light text-dark{% endif %}">
+                                            <i class="fas 
+                                                {% if pedido.Tipo_Entrega == 'Entrega a domicilio' %}fa-truck
+                                                {% else %}fa-store{% endif %} me-1"></i>
+                                            {{ pedido.Tipo_Entrega }}
+                                        </span>
+                                    </td>
+                                </tr>
+                                {% endif %}
+                                {% if pedido.Observacion %}
+                                <tr>
+                                    <td class="text-muted">Observación:</td>
+                                    <td>{{ pedido.Observacion }}</td>
+                                </tr>
+                                {% endif %}
+                            </table>
                             {% endif %}
-                            {% if pedido.Observacion %}
-                            <tr>
-                                <td class="text-muted">Observación:</td>
-                                <td>{{ pedido.Observacion }}</td>
-                            </tr>
+                        </div>
+                        <div class="col-md-6">
+                            {% if pedido.Tipo_Pedido == 'Consolidado' and pedido.Es_Pedido_Ruta == 'SI' %}
+                            <div class="alert alert-info py-2">
+                                <i class="fas fa-info-circle me-2"></i>
+                                Este es un pedido <strong>consolidado de ruta</strong>. 
+                                Los productos están agrupados para planificación de entrega.
+                            </div>
                             {% endif %}
-                        </table>
+                        </div>
                     </div>
-                    {% endif %}
                 </div>
             </div>
         </div>
@@ -207,7 +315,7 @@ function cambiarEstado(nuevoEstado) {
         .then(response => response.json())
         .then(data => {
             if (data.success) {
-                alert('Estado actualizado');
+                alert('Estado actualizado correctamente');
                 location.reload();
             } else {
                 alert('Error: ' + (data.message || 'No se pudo cambiar el estado'));
@@ -225,15 +333,21 @@ function cambiarEstado(nuevoEstado) {
 .card {
     border: 1px solid #dee2e6;
     border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
 }
 .card-header {
     background-color: #f8f9fa;
     border-bottom: 1px solid #dee2e6;
     padding: 0.75rem 1rem;
+    font-weight: 600;
 }
 .table th {
     font-weight: 600;
     background-color: #f8f9fa;
+}
+.badge {
+    font-size: 0.85em;
+    padding: 0.35em 0.65em;
 }
 </style>
 {% endblock %}

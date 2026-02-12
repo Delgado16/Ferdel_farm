@@ -2423,20 +2423,6 @@ def admin_editar_cliente(id):
                                                  cliente=cliente, rutas=rutas)
                 else:
                     id_ruta = None
-                
-                # Validar y limpiar RUC/Cédula
-                if ruc_cedula:
-                    # Validar que solo contenga números
-                    if not ruc_cedula.isdigit():
-                        flash("El RUC/Cédula debe contener solo números", "danger")
-                        return render_template("admin/catalog/client/editar_clientes.html", 
-                                             cliente=cliente, rutas=rutas)
-                    
-                    # Validar longitud (Ecuador: cédula=10, ruc=13)
-                    if len(ruc_cedula) not in [10, 13]:
-                        flash("El RUC/Cédula debe tener 10 (cédula) o 13 (RUC) dígitos", "danger")
-                        return render_template("admin/catalog/client/editar_clientes.html", 
-                                             cliente=cliente, rutas=rutas)
 
                 # Verificar si el RUC/Cédula ya existe en otro cliente activo
                 if ruc_cedula and estado == 'ACTIVO':
@@ -8801,7 +8787,7 @@ def admin_pedidos_venta():
             # Obtener el rol del usuario actual
             es_rol_bodega = current_user.rol == 'Bodega'
             
-            # Consulta base
+            # 🔥 CONSULTA CORREGIDA - AHORA INCLUYE PEDIDOS CONSOLIDADOS
             sql = """
             SELECT 
                 p.ID_Pedido,
@@ -8811,6 +8797,11 @@ def admin_pedidos_venta():
                 p.Observacion,
                 p.Fecha_Creacion,
                 p.Prioridad,
+                p.Tipo_Pedido,
+                p.Es_Pedido_Ruta,
+                p.ID_Ruta,
+                r.Nombre_Ruta,
+                r.Descripcion as Descripcion_Ruta,
                 c.ID_Cliente,
                 c.Nombre as Nombre_Cliente,
                 c.Telefono as Telefono_Cliente,
@@ -8820,26 +8811,58 @@ def admin_pedidos_venta():
                 c.Estado as Estado_Cliente,
                 e.Nombre_Empresa,
                 u.NombreUsuario as Usuario_Creacion,
-                COUNT(dp.ID_Detalle_Pedido) as Total_Items,
-                SUM(dp.Subtotal) as Total_Pedido
+                -- Calcular Total_Items según tipo de pedido
+                CASE 
+                    WHEN p.Tipo_Pedido = 'Consolidado' THEN (
+                        SELECT COALESCE(SUM(pcp.Cantidad_Total), 0)
+                        FROM pedidos_consolidados_productos pcp
+                        WHERE pcp.ID_Pedido = p.ID_Pedido
+                    )
+                    ELSE COALESCE(SUM(dp.Cantidad), 0)
+                END as Total_Items,
+                -- Calcular Total_Pedido según tipo de pedido
+                CASE 
+                    WHEN p.Tipo_Pedido = 'Consolidado' THEN (
+                        SELECT COALESCE(SUM(pcp.Cantidad_Total * pr.Precio_Venta), 0)
+                        FROM pedidos_consolidados_productos pcp
+                        LEFT JOIN productos pr ON pcp.ID_Producto = pr.ID_Producto
+                        WHERE pcp.ID_Pedido = p.ID_Pedido
+                    )
+                    ELSE COALESCE(SUM(dp.Subtotal), 0)
+                END as Total_Pedido,
+                -- Contador de items para consolidados
+                COUNT(DISTINCT CASE 
+                    WHEN p.Tipo_Pedido = 'Consolidado' THEN pcp.ID_Pedido_Consolidado_Producto 
+                    ELSE dp.ID_Detalle_Pedido 
+                END) as Numero_Items
             FROM pedidos p
+            -- LEFT JOIN para clientes (puede ser NULL en consolidados)
             LEFT JOIN clientes c ON p.ID_Cliente = c.ID_Cliente
             LEFT JOIN empresa e ON p.ID_Empresa = e.ID_Empresa
             LEFT JOIN usuarios u ON p.ID_Usuario_Creacion = u.ID_Usuario
-            LEFT JOIN detalle_pedidos dp ON p.ID_Pedido = dp.ID_Pedido
-            WHERE c.Estado = 'ACTIVO'
+            LEFT JOIN rutas r ON p.ID_Ruta = r.ID_Ruta
+            -- LEFT JOIN condicionales para productos
+            LEFT JOIN detalle_pedidos dp ON p.ID_Pedido = dp.ID_Pedido AND p.Tipo_Pedido != 'Consolidado'
+            LEFT JOIN pedidos_consolidados_productos pcp ON p.ID_Pedido = pcp.ID_Pedido AND p.Tipo_Pedido = 'Consolidado'
+            LEFT JOIN productos pr ON pcp.ID_Producto = pr.ID_Producto
+            WHERE 1=1
             """
+            
+            # Filtro para clientes activos (solo aplica cuando hay cliente)
+            sql += " AND (c.ID_Cliente IS NULL OR c.Estado = 'ACTIVO')"
             
             # Si es rol Bodega, filtrar solo pedidos del día actual
             if es_rol_bodega:
-                sql += """ AND DATE(p.Fecha) = CURDATE() """
+                sql += " AND DATE(p.Fecha) = CURDATE()"
             
-            # Continuación de la consulta
+            # Group by y Order by
             sql += """
-            GROUP BY p.ID_Pedido, p.Fecha, p.Estado, p.Tipo_Entrega, p.Observacion, 
-                    p.Fecha_Creacion, p.Prioridad, c.ID_Cliente, c.Nombre, c.Telefono, 
-                    c.Direccion, c.RUC_CEDULA, c.tipo_cliente, c.Estado,
-                    e.Nombre_Empresa, u.NombreUsuario
+            GROUP BY 
+                p.ID_Pedido, p.Fecha, p.Estado, p.Tipo_Entrega, p.Observacion,
+                p.Fecha_Creacion, p.Prioridad, p.Tipo_Pedido, p.Es_Pedido_Ruta,
+                p.ID_Ruta, r.Nombre_Ruta, r.Descripcion,
+                c.ID_Cliente, c.Nombre, c.Telefono, c.Direccion, c.RUC_CEDULA,
+                c.tipo_cliente, c.Estado, e.Nombre_Empresa, u.NombreUsuario
             ORDER BY 
                 CASE 
                     WHEN p.Prioridad = 'Urgente' THEN 1
@@ -8847,53 +8870,73 @@ def admin_pedidos_venta():
                     WHEN p.Prioridad = 'Bajo' THEN 3
                     ELSE 4
                 END,
-                p.Fecha DESC
+                p.Fecha DESC,
+                p.ID_Pedido DESC
             """
             
             cursor.execute(sql)
-            pedidos = cursor.fetchall()  # Esto devuelve una lista de diccionarios
+            pedidos = cursor.fetchall()
+            
+            # Debug - imprimir cantidad de pedidos encontrados
+            print(f"📊 Total pedidos encontrados: {len(pedidos)}")
+            consolidados = [p for p in pedidos if p.get('Tipo_Pedido') == 'Consolidado']
+            print(f"   - Individuales: {len(pedidos) - len(consolidados)}")
+            print(f"   - Consolidados: {len(consolidados)}")
             
             # Obtener opciones de filtro
             estados = ['Pendiente', 'Aprobado', 'Entregado', 'Cancelado']
             tipos_entrega = ['Retiro en local', 'Entrega a domicilio']
             tipos_cliente = ['Comun', 'Especial']
             prioridades = ['Urgente', 'Normal', 'Bajo']
+            tipos_pedido = ['Individual', 'Consolidado']
+            opciones_ruta = ['SI', 'NO']
             
-            # Variable para estadísticas
+            # Obtener lista de rutas para filtros
+            cursor.execute("""
+                SELECT ID_Ruta, Nombre_Ruta 
+                FROM rutas 
+                WHERE Estado = 'Activa' 
+                ORDER BY Nombre_Ruta
+            """)
+            rutas = cursor.fetchall()
+            
+            # Estadísticas para Bodega
             stats = None
-            
-            # Si es rol Bodega, agregar "En Proceso" como estado disponible y calcular estadísticas
             if es_rol_bodega:
-                estados.insert(2, 'En Proceso')  # Insertar después de 'Aprobado'
-                
-                # Calcular estadísticas para el día - USANDO NOTACIÓN DE DICCIONARIO
+                estados.insert(2, 'En Proceso')
                 fecha_hoy = datetime.now().strftime('%Y-%m-%d')
-                pedidos_hoy = len(pedidos)
-                urgentes_hoy = len([p for p in pedidos if p.get('Prioridad') == 'Urgente'])
-                aprobados_hoy = len([p for p in pedidos if p.get('Estado') == 'Aprobado'])
-                pendientes_hoy = len([p for p in pedidos if p.get('Estado') == 'Pendiente'])
+                pedidos_hoy = [p for p in pedidos if p.get('Fecha') and p['Fecha'].strftime('%Y-%m-%d') == fecha_hoy]
+                urgentes_hoy = [p for p in pedidos_hoy if p.get('Prioridad') == 'Urgente']
+                aprobados_hoy = [p for p in pedidos_hoy if p.get('Estado') == 'Aprobado']
+                pendientes_hoy = [p for p in pedidos_hoy if p.get('Estado') == 'Pendiente']
+                consolidados_hoy = [p for p in pedidos_hoy if p.get('Tipo_Pedido') == 'Consolidado']
                 
-                # Pasar estadísticas al template
                 stats = {
-                    'total_hoy': pedidos_hoy,
-                    'urgentes_hoy': urgentes_hoy,
-                    'aprobados_hoy': aprobados_hoy,
-                    'pendientes_hoy': pendientes_hoy,
+                    'total_hoy': len(pedidos_hoy),
+                    'urgentes_hoy': len(urgentes_hoy),
+                    'aprobados_hoy': len(aprobados_hoy),
+                    'pendientes_hoy': len(pendientes_hoy),
+                    'consolidados_hoy': len(consolidados_hoy),
                     'fecha_hoy': fecha_hoy
                 }
             
-            # Renderizar template con los datos
-            return render_template('admin/ventas/pedidos/pedidos_venta.html', 
+            return render_template('admin/ventas/pedidos/pedidos_venta.html',
                                  pedidos=pedidos,
                                  estados=estados,
                                  tipos_entrega=tipos_entrega,
                                  tipos_cliente=tipos_cliente,
                                  prioridades=prioridades,
+                                 tipos_pedido=tipos_pedido,
+                                 opciones_ruta=opciones_ruta,
+                                 rutas=rutas,
                                  es_rol_bodega=es_rol_bodega,
                                  stats=stats,
                                  now=datetime.now())
             
     except Exception as e:
+        print(f"❌ Error en admin_pedidos_venta: {str(e)}")
+        import traceback
+        traceback.print_exc()
         flash(f"Error al cargar pedidos de venta: {str(e)}", "error")
         return redirect(url_for('admin_dashboard'))
 
@@ -8901,12 +8944,9 @@ def admin_pedidos_venta():
 @app.route('/admin/ventas/pedido-venta/<int:id_pedido>')
 @admin_or_bodega_required
 def ver_pedido(id_pedido):
-    """
-    Muestra el detalle completo de un pedido específico
-    """
     try:
         with get_db_cursor(True) as cursor:
-            # 1. Obtener información principal del pedido
+            # Obtener información del pedido
             sql_pedido = """
             SELECT 
                 p.*,
@@ -8920,11 +8960,15 @@ def ver_pedido(id_pedido):
                 e.Nombre_Empresa,
                 e.Direccion as Direccion_Empresa,
                 e.Telefono as Telefono_Empresa,
-                u.NombreUsuario as Usuario_Creacion
+                e.RUC as RUC_Empresa,
+                u.NombreUsuario as Usuario_Creacion,
+                r.Nombre_Ruta,
+                r.Descripcion as Descripcion_Ruta
             FROM pedidos p
             LEFT JOIN clientes c ON p.ID_Cliente = c.ID_Cliente
             LEFT JOIN empresa e ON p.ID_Empresa = e.ID_Empresa
             LEFT JOIN usuarios u ON p.ID_Usuario_Creacion = u.ID_Usuario
+            LEFT JOIN rutas r ON p.ID_Ruta = r.ID_Ruta
             WHERE p.ID_Pedido = %s
             """
             
@@ -8935,76 +8979,81 @@ def ver_pedido(id_pedido):
                 flash("Pedido no encontrado", "error")
                 return redirect(url_for('admin_pedidos_venta'))
             
-            # 2. Obtener detalle del pedido (productos)
-            sql_detalle = """
-            SELECT 
-                dp.*,
-                pr.COD_Producto,
-                pr.Descripcion as Nombre_Producto,
-                pr.Unidad_Medida,
-                um.Descripcion as Unidad_Nombre,
-                -- Calcular subtotal si no existe en la tabla
-                COALESCE(dp.Subtotal, dp.Precio_Unitario * dp.Cantidad) as Subtotal
-            FROM detalle_pedidos dp
-            LEFT JOIN productos pr ON dp.ID_Producto = pr.ID_Producto
-            LEFT JOIN unidades_medida um ON pr.Unidad_Medida = um.ID_Unidad
-            WHERE dp.ID_Pedido = %s
-            ORDER BY dp.ID_Detalle_Pedido
-            """
-            
-            cursor.execute(sql_detalle, (id_pedido,))
-            detalles = cursor.fetchall()
-            
-            # 3. Calcular totales - SIMPLIFICADO
-            sql_total = """
-            SELECT 
-                COALESCE(SUM(dp.Cantidad), 0) as Total_Cantidad,
-                COALESCE(SUM(COALESCE(dp.Subtotal, dp.Precio_Unitario * dp.Cantidad)), 0) as Total_General,
-                COUNT(DISTINCT dp.ID_Producto) as Total_Productos
-            FROM detalle_pedidos dp
-            WHERE dp.ID_Pedido = %s
-            """
-            
-            cursor.execute(sql_total, (id_pedido,))
-            totales_result = cursor.fetchone()
-            
-            # Crear diccionario simple para totales
-            if totales_result:
-                # Convertir a diccionario según el tipo de cursor
-                if isinstance(totales_result, dict):
-                    totales = totales_result
-                elif hasattr(totales_result, '_asdict'):
-                    totales = totales_result._asdict()
-                else:
-                    # Asumir que es una tupla con el orden de las columnas
-                    totales = {
-                        'Total_Cantidad': totales_result[0] if len(totales_result) > 0 else 0,
-                        'Total_General': totales_result[1] if len(totales_result) > 1 else 0,
-                        'Total_Productos': totales_result[2] if len(totales_result) > 2 else 0
-                    }
+            # Obtener detalles según tipo de pedido
+            if pedido['Tipo_Pedido'] == 'Consolidado':
+                # Para pedidos consolidados
+                cursor.execute("""
+                    SELECT 
+                        pcp.ID_Pedido_Consolidado_Producto,
+                        pcp.ID_Producto,
+                        pcp.Cantidad_Total as Cantidad,
+                        pcp.Fecha_Creacion,
+                        u.NombreUsuario as Usuario_Creacion,
+                        pr.COD_Producto,
+                        pr.Descripcion as Nombre_Producto,
+                        pr.Precio_Venta,
+                        pr.Unidad_Medida,
+                        um.Descripcion as Unidad_Nombre,
+                        um.Abreviatura as Unidad_Abreviatura,
+                        cat.Descripcion as Categoria,
+                        (pcp.Cantidad_Total * pr.Precio_Venta) as Subtotal
+                    FROM pedidos_consolidados_productos pcp
+                    LEFT JOIN productos pr ON pcp.ID_Producto = pr.ID_Producto
+                    LEFT JOIN unidades_medida um ON pr.Unidad_Medida = um.ID_Unidad
+                    LEFT JOIN categorias_producto cat ON pr.ID_Categoria = cat.ID_Categoria
+                    LEFT JOIN usuarios u ON pcp.ID_Usuario_Creacion = u.ID_Usuario
+                    WHERE pcp.ID_Pedido = %s
+                    ORDER BY pr.Descripcion
+                """, (id_pedido,))
+                detalles = cursor.fetchall()
+                
+                # Calcular totales
+                cursor.execute("""
+                    SELECT 
+                        COALESCE(SUM(pcp.Cantidad_Total), 0) as Total_Cantidad,
+                        COALESCE(SUM(pcp.Cantidad_Total * pr.Precio_Venta), 0) as Total_General,
+                        COUNT(DISTINCT pcp.ID_Producto) as Total_Productos
+                    FROM pedidos_consolidados_productos pcp
+                    LEFT JOIN productos pr ON pcp.ID_Producto = pr.ID_Producto
+                    WHERE pcp.ID_Pedido = %s
+                """, (id_pedido,))
+                totales = cursor.fetchone()
+                
             else:
-                totales = {
-                    'Total_Cantidad': 0,
-                    'Total_General': 0,
-                    'Total_Productos': 0
-                }
+                # Para pedidos individuales
+                cursor.execute("""
+                    SELECT 
+                        dp.*,
+                        pr.COD_Producto,
+                        pr.Descripcion as Nombre_Producto,
+                        pr.Unidad_Medida,
+                        um.Descripcion as Unidad_Nombre,
+                        um.Abreviatura as Unidad_Abreviatura,
+                        cat.Descripcion as Categoria,
+                        COALESCE(dp.Subtotal, dp.Precio_Unitario * dp.Cantidad) as Subtotal
+                    FROM detalle_pedidos dp
+                    LEFT JOIN productos pr ON dp.ID_Producto = pr.ID_Producto
+                    LEFT JOIN unidades_medida um ON pr.Unidad_Medida = um.ID_Unidad
+                    LEFT JOIN categorias_producto cat ON pr.ID_Categoria = cat.ID_Categoria
+                    WHERE dp.ID_Pedido = %s
+                    ORDER BY dp.ID_Detalle_Pedido
+                """, (id_pedido,))
+                detalles = cursor.fetchall()
+                
+                cursor.execute("""
+                    SELECT 
+                        COALESCE(SUM(dp.Cantidad), 0) as Total_Cantidad,
+                        COALESCE(SUM(COALESCE(dp.Subtotal, dp.Precio_Unitario * dp.Cantidad)), 0) as Total_General,
+                        COUNT(DISTINCT dp.ID_Producto) as Total_Productos
+                    FROM detalle_pedidos dp
+                    WHERE dp.ID_Pedido = %s
+                """, (id_pedido,))
+                totales = cursor.fetchone()
             
-            # 4. Verificar que los campos existan
-            print(f"=== DEBUG PEDIDO #{id_pedido} ===")
-            print(f"Campos del pedido: {list(pedido.keys())}")
-            print(f"Número de detalles: {len(detalles)}")
-            if detalles:
-                print(f"Campos del primer detalle: {list(detalles[0].keys())}")
-                print(f"Subtotal del primer item: {detalles[0].get('Subtotal')}")
-            print(f"Totales calculados: {totales}")
-            
-            # 5. Renderizar template con diccionarios normales
-            return render_template(
-                'admin/ventas/pedidos/detalle_pedido.html',
-                pedido=pedido,
-                detalles=detalles,
-                totales=totales  # Ahora es un diccionario normal
-            )
+            return render_template('admin/ventas/pedidos/detalle_pedido.html',
+                                 pedido=pedido,
+                                 detalles=detalles,
+                                 totales=totales)
             
     except Exception as e:
         flash(f"Error al cargar el pedido: {str(e)}", "error")
@@ -9020,11 +9069,14 @@ def filtrar_pedidos():
         fecha_fin = request.form.get('fecha_fin')
         tipo_entrega = request.form.get('tipo_entrega', 'todos')
         tipo_cliente = request.form.get('tipo_cliente', 'todos')
-        prioridad = request.form.get('prioridad', 'todos')  # Nuevo filtro
+        prioridad = request.form.get('prioridad', 'todos')
+        tipo_pedido = request.form.get('tipo_pedido', 'todos')  # Nuevo
+        es_pedido_ruta = request.form.get('es_pedido_ruta', 'todos')  # Nuevo
+        id_ruta = request.form.get('id_ruta', 'todos')  # Nuevo
         documento_cliente = request.form.get('documento_cliente', '').strip()
         nombre_cliente = request.form.get('nombre_cliente', '').strip()
         
-        condiciones = ["c.Estado = 'ACTIVO'"]  # Siempre filtrar por clientes activos
+        condiciones = ["(c.ID_Cliente IS NULL OR c.Estado = 'ACTIVO')"]
         parametros = []
         
         if estado != 'todos':
@@ -9047,9 +9099,21 @@ def filtrar_pedidos():
             condiciones.append("c.tipo_cliente = %s")
             parametros.append(tipo_cliente)
         
-        if prioridad != 'todos':  # Nuevo filtro
+        if prioridad != 'todos':
             condiciones.append("p.Prioridad = %s")
             parametros.append(prioridad)
+        
+        if tipo_pedido != 'todos':  # Nuevo filtro
+            condiciones.append("p.Tipo_Pedido = %s")
+            parametros.append(tipo_pedido)
+        
+        if es_pedido_ruta != 'todos':  # Nuevo filtro
+            condiciones.append("p.Es_Pedido_Ruta = %s")
+            parametros.append(es_pedido_ruta)
+        
+        if id_ruta != 'todos':  # Nuevo filtro
+            condiciones.append("p.ID_Ruta = %s")
+            parametros.append(id_ruta)
         
         if documento_cliente:
             condiciones.append("c.RUC_CEDULA LIKE %s")
@@ -9060,6 +9124,10 @@ def filtrar_pedidos():
             parametros.append(f"%{nombre_cliente}%")
         
         with get_db_cursor(True) as cursor:
+            # Obtener lista de rutas para el select
+            cursor.execute("SELECT ID_Ruta, Nombre_Ruta FROM rutas WHERE Estado = 1 ORDER BY Nombre_Ruta")
+            rutas = cursor.fetchall()
+            
             sql_base = """
             SELECT 
                 p.ID_Pedido,
@@ -9068,7 +9136,11 @@ def filtrar_pedidos():
                 p.Tipo_Entrega,
                 p.Observacion,
                 p.Fecha_Creacion,
-                p.Prioridad,  -- Nueva columna añadida
+                p.Prioridad,
+                p.Tipo_Pedido,
+                p.Es_Pedido_Ruta,
+                p.ID_Ruta,
+                r.Nombre_Ruta,
                 c.ID_Cliente,
                 c.Nombre as Nombre_Cliente,
                 c.Telefono as Telefono_Cliente,
@@ -9076,13 +9148,29 @@ def filtrar_pedidos():
                 c.tipo_cliente as Tipo_Cliente,
                 e.Nombre_Empresa,
                 u.NombreUsuario as Usuario_Creacion,
-                COUNT(dp.ID_Detalle_Pedido) as Total_Items,
-                SUM(dp.Subtotal) as Total_Pedido
+                CASE 
+                    WHEN p.Tipo_Pedido = 'Consolidado' THEN (
+                        SELECT COALESCE(SUM(pcp.Cantidad_Total), 0)
+                        FROM pedidos_consolidados_productos pcp
+                        WHERE pcp.ID_Pedido = p.ID_Pedido
+                    )
+                    ELSE COALESCE(SUM(dp.Cantidad), 0)
+                END as Total_Items,
+                CASE 
+                    WHEN p.Tipo_Pedido = 'Consolidado' THEN (
+                        SELECT COALESCE(SUM(pcp.Cantidad_Total * pr.Precio_Venta), 0)
+                        FROM pedidos_consolidados_productos pcp
+                        JOIN productos pr ON pcp.ID_Producto = pr.ID_Producto
+                        WHERE pcp.ID_Pedido = p.ID_Pedido
+                    )
+                    ELSE COALESCE(SUM(dp.Subtotal), 0)
+                END as Total_Pedido
             FROM pedidos p
             LEFT JOIN clientes c ON p.ID_Cliente = c.ID_Cliente
             LEFT JOIN empresa e ON p.ID_Empresa = e.ID_Empresa
             LEFT JOIN usuarios u ON p.ID_Usuario_Creacion = u.ID_Usuario
-            LEFT JOIN detalle_pedidos dp ON p.ID_Pedido = dp.ID_Pedido
+            LEFT JOIN rutas r ON p.ID_Ruta = r.ID_Ruta
+            LEFT JOIN detalle_pedidos dp ON p.ID_Pedido = dp.ID_Pedido AND p.Tipo_Pedido != 'Consolidado'
             """
             
             if condiciones:
@@ -9090,7 +9178,8 @@ def filtrar_pedidos():
             
             sql_base += """
             GROUP BY p.ID_Pedido, p.Fecha, p.Estado, p.Tipo_Entrega, p.Observacion, 
-                     p.Fecha_Creacion, p.Prioridad, c.ID_Cliente, c.Nombre, c.Telefono, 
+                     p.Fecha_Creacion, p.Prioridad, p.Tipo_Pedido, p.Es_Pedido_Ruta,
+                     p.ID_Ruta, r.Nombre_Ruta, c.ID_Cliente, c.Nombre, c.Telefono, 
                      c.RUC_CEDULA, c.tipo_cliente, e.Nombre_Empresa, u.NombreUsuario
             ORDER BY 
                 CASE p.Prioridad
@@ -9109,21 +9198,29 @@ def filtrar_pedidos():
             estados = ['Pendiente', 'Aprobado', 'Entregado', 'Cancelado']
             tipos_entrega = ['Retiro en local', 'Entrega a domicilio']
             tipos_cliente = ['Comun', 'Especial']
-            prioridades = ['Urgente', 'Normal', 'Bajo']  # Nueva opción de filtro
+            prioridades = ['Urgente', 'Normal', 'Bajo']
+            tipos_pedido = ['Individual', 'Consolidado']
+            opciones_ruta = ['SI', 'NO']
             
             return render_template('admin/ventas/pedidos/pedidos_venta.html',
                                  pedidos=pedidos,
                                  estados=estados,
                                  tipos_entrega=tipos_entrega,
                                  tipos_cliente=tipos_cliente,
-                                 prioridades=prioridades,  # Nueva variable
+                                 prioridades=prioridades,
+                                 tipos_pedido=tipos_pedido,
+                                 opciones_ruta=opciones_ruta,
+                                 rutas=rutas,
                                  filtros_aplicados={
                                      'estado': estado,
                                      'fecha_inicio': fecha_inicio,
                                      'fecha_fin': fecha_fin,
                                      'tipo_entrega': tipo_entrega,
                                      'tipo_cliente': tipo_cliente,
-                                     'prioridad': prioridad,  # Nuevo filtro
+                                     'prioridad': prioridad,
+                                     'tipo_pedido': tipo_pedido,
+                                     'es_pedido_ruta': es_pedido_ruta,
+                                     'id_ruta': id_ruta,
                                      'documento_cliente': documento_cliente,
                                      'nombre_cliente': nombre_cliente
                                  },
@@ -9147,7 +9244,7 @@ def cambiar_estado_pedido(id_pedido):
         
         with get_db_cursor() as cursor:
             # Verificar que el pedido existe
-            cursor.execute("SELECT Estado FROM pedidos WHERE ID_Pedido = %s", (id_pedido,))
+            cursor.execute("SELECT Estado, Tipo_Pedido FROM pedidos WHERE ID_Pedido = %s", (id_pedido,))
             pedido = cursor.fetchone()
             
             if not pedido:
@@ -9166,11 +9263,156 @@ def cambiar_estado_pedido(id_pedido):
             
             cursor.execute(sql, (nuevo_estado, nuevo_estado, id_pedido))
             
+            # Registrar en historial (si existe tabla)
+            try:
+                cursor.execute("""
+                    INSERT INTO pedidos_historial_estados 
+                    (ID_Pedido, Estado_Anterior, Estado_Nuevo, ID_Usuario)
+                    VALUES (%s, %s, %s, %s)
+                """, (id_pedido, pedido['Estado'], nuevo_estado, current_user.id))
+            except:
+                pass  # La tabla puede no existir
             
             return jsonify({'success': True, 'message': 'Estado actualizado correctamente'})
             
     except Exception as e:
         return jsonify({'success': False, 'message': str(e)}), 500
+
+@app.route('/admin/ventas/nuevo-pedido-consolidado', methods=['GET', 'POST'])
+@admin_required
+@bitacora_decorator("NUEVO_PEDIDO_CONSOLIDADO")
+def nuevo_pedido_consolidado():
+    """
+    Crear un pedido consolidado - Carga total para una ruta específica
+    """
+    try:
+        if request.method == 'POST':
+            data = request.get_json()
+            user = current_user.id
+            
+            # Validar datos requeridos
+            if not data.get('empresa_id'):
+                return jsonify({'success': False, 'message': 'Se requiere una empresa'}), 400
+            
+            if not data.get('id_ruta'):
+                return jsonify({'success': False, 'message': 'Se requiere una ruta para el pedido consolidado'}), 400
+            
+            if not data.get('productos') or len(data['productos']) == 0:
+                return jsonify({'success': False, 'message': 'Se requiere al menos un producto'}), 400
+            
+            fecha = data.get('fecha')
+            observacion = data.get('observacion', '')
+            prioridad = data.get('prioridad', 'Normal')
+            id_ruta = data.get('id_ruta')
+            
+            with get_db_cursor() as cursor:
+                # Verificar que la ruta existe y está activa
+                cursor.execute("""
+                    SELECT ID_Ruta, Nombre_Ruta, Descripcion 
+                    FROM rutas 
+                    WHERE ID_Ruta = %s AND Estado = 'Activa'
+                """, (id_ruta,))
+                ruta = cursor.fetchone()
+                
+                if not ruta:
+                    return jsonify({'success': False, 'message': 'Ruta no encontrada o inactiva'}), 400
+                
+                # Crear el pedido consolidado - SIN CLIENTE, CON RUTA OBLIGATORIA
+                sql_pedido = """
+                INSERT INTO pedidos (
+                    Fecha, ID_Cliente, ID_Empresa, ID_Ruta,
+                    ID_Usuario_Creacion, Estado, Observacion, 
+                    Tipo_Entrega, Prioridad, Tipo_Pedido, Es_Pedido_Ruta
+                )
+                VALUES (%s, NULL, %s, %s, %s, 'Pendiente', %s, 'Entrega a domicilio', %s, 'Consolidado', 'SI')
+                """
+                
+                cursor.execute(sql_pedido, (
+                    fecha,
+                    data['empresa_id'],
+                    id_ruta,
+                    user,
+                    observacion,
+                    prioridad
+                ))
+                
+                pedido_id = cursor.lastrowid
+                
+                # Agregar productos consolidados
+                for producto in data['productos']:
+                    if producto['cantidad'] <= 0:
+                        return jsonify({
+                            'success': False, 
+                            'message': f"La cantidad para {producto['nombre']} debe ser mayor a 0"
+                        }), 400
+                    
+                    # Insertar en pedidos_consolidados_productos
+                    sql_consolidado = """
+                    INSERT INTO pedidos_consolidados_productos (
+                        ID_Pedido, ID_Producto, Cantidad_Total, ID_Usuario_Creacion
+                    )
+                    VALUES (%s, %s, %s, %s)
+                    ON DUPLICATE KEY UPDATE 
+                        Cantidad_Total = Cantidad_Total + VALUES(Cantidad_Total)
+                    """
+                    
+                    cursor.execute(sql_consolidado, (
+                        pedido_id,
+                        producto['id'],
+                        producto['cantidad'],
+                        user
+                    ))
+                
+                return jsonify({
+                    'success': True,
+                    'message': f'Pedido consolidado creado para ruta: {ruta["Nombre_Ruta"]}',
+                    'pedido_id': pedido_id,
+                    'redirect_url': url_for('ver_pedido', id_pedido=pedido_id)
+                })
+        
+        # GET: Mostrar formulario
+        with get_db_cursor(True) as cursor:
+            # Obtener empresas
+            cursor.execute("""
+                SELECT ID_Empresa, Nombre_Empresa 
+                FROM empresa 
+                ORDER BY Nombre_Empresa
+            """)
+            empresas = cursor.fetchall()
+            
+            # 🔥 CORREGIDO: Usando 'Descripcion' que es el nombre correcto de la columna
+            cursor.execute("""
+                SELECT 
+                    r.ID_Ruta,
+                    r.Nombre_Ruta,
+                    r.Descripcion,
+                    COUNT(c.ID_Cliente) as Total_Clientes
+                FROM rutas r
+                LEFT JOIN clientes c ON r.ID_Ruta = c.ID_Ruta AND c.Estado = 'ACTIVO'
+                WHERE r.Estado = 'Activa'
+                GROUP BY r.ID_Ruta, r.Nombre_Ruta, r.Descripcion
+                ORDER BY r.Nombre_Ruta
+            """)
+            rutas = cursor.fetchall()
+            
+            prioridades = ['Urgente', 'Normal', 'Bajo']
+            
+            return render_template('admin/ventas/pedidos/nuevo_pedido_consolidado.html',
+                                 empresas=empresas,
+                                 rutas=rutas,
+                                 prioridades=prioridades,
+                                 now=datetime.now().date())
+            
+    except Exception as e:
+        print(f"Error en nuevo_pedido_consolidado: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        
+        if request.method == 'POST':
+            return jsonify({'success': False, 'message': str(e)}), 500
+        else:
+            flash(f"Error al cargar formulario de pedido consolidado: {e}", "error")
+            return redirect(url_for('admin_pedidos_venta'))
 
 # Ruta para buscar clientes (para autocompletar)
 @app.route('/admin/ventas/buscar-clientes')
