@@ -234,7 +234,7 @@
                             <th width="150">Entrega</th>
                             <th width="120">Total</th>
                             <th width="80">Items</th>
-                            <th width="200">Acciones</th>
+                            <th width="250">Acciones</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -363,54 +363,76 @@
                                 <span class="badge bg-dark rounded-circle">
                                     {{ pedido.Total_Items|default(0, true) }}
                                 </span>
-                                {% if pedido.Num_Items_Consolidados and pedido.Num_Items_Consolidados > 0 %}
-                                <small class="d-block text-muted">{{ pedido.Num_Items_Consolidados }} consolidados</small>
-                                {% endif %}
                             </td>
                             <td>
                                 <div class="btn-group btn-group-sm" role="group">
-                                    <!-- Botón para ver detalle -->
+                                    <!-- ============================================ -->
+                                    <!-- BOTÓN DETALLE - SIEMPRE VISIBLE            -->
+                                    <!-- ============================================ -->
                                     <a href="{{ url_for('ver_pedido', id_pedido=pedido.ID_Pedido) }}"
                                         class="btn btn-outline-info" title="Ver detalle" data-bs-toggle="tooltip">
                                         <i class="fas fa-eye"></i> Detalle
                                     </a>
 
+                                    <!-- ============================================ -->
+                                    <!-- USUARIO: BODEGA                             -->
+                                    <!-- ============================================ -->
                                     {% if current_user.rol == 'Bodega' %}
-                                        <!-- Botones para rol Bodega -->
-                                        {% if pedido.Estado == 'Aprobado' and pedido.Tipo_Pedido != 'Consolidado' %}
+                                        
+                                        <!-- 🔥 CASO 1: PEDIDO CONSOLIDADO - PENDIENTE - PROCESAR CARGA 🔥 -->
+                                        {% if pedido.Tipo_Pedido == 'Consolidado' and pedido.Estado == 'Pendiente' %}
+                                        <a href="{{ url_for('distribuir_carga', id_pedido=pedido.ID_Pedido) }}"
+                                            class="btn btn-warning" title="Procesar carga a ruta" data-bs-toggle="tooltip">
+                                            <i class="fas fa-truck-loading"></i> Carga
+                                        </a>
+                                        
+                                        <!-- CASO 2: PEDIDO INDIVIDUAL - APROBADO - PROCESAR VENTA -->
+                                        {% elif pedido.Tipo_Pedido != 'Consolidado' and pedido.Estado == 'Aprobado' %}
                                         <a href="{{ url_for('admin_procesar_venta_pedido', id_pedido=pedido.ID_Pedido) }}"
                                             class="btn btn-outline-primary" title="Procesar como venta" data-bs-toggle="tooltip">
                                             <i class="fas fa-cash-register"></i> Venta
                                         </a>
                                         {% endif %}
-                                        {% if pedido.Estado == 'Pendiente' %}
+                                        
+                                        <!-- CASO 3: PEDIDO PENDIENTE - APROBAR (excepto consolidados pendientes que ya tienen botón de carga) -->
+                                        {% if pedido.Estado == 'Pendiente' and not (pedido.Tipo_Pedido == 'Consolidado') %}
                                         <button type="button" class="btn btn-outline-success" title="Aprobar pedido"
                                             data-bs-toggle="tooltip"
                                             onclick="cambiarEstado({{ pedido.ID_Pedido }}, 'Aprobado')">
                                             <i class="fas fa-check"></i>
                                         </button>
                                         {% endif %}
+                                        
+                                        <!-- CASO 4: PEDIDO NO CANCELADO NI ENTREGADO - CANCELAR -->
                                         {% if pedido.Estado != 'Cancelado' and pedido.Estado != 'Entregado' %}
                                         <button type="button" class="btn btn-outline-danger" title="Cancelar pedido"
                                             data-bs-toggle="tooltip" onclick="cancelarPedido({{ pedido.ID_Pedido }})">
                                             <i class="fas fa-times"></i>
                                         </button>
                                         {% endif %}
+
+                                    <!-- ============================================ -->
+                                    <!-- USUARIO: OTROS ROLES (ADMIN, VENTAS, ETC)   -->
+                                    <!-- ============================================ -->
                                     {% else %}
-                                        <!-- Botones para otros roles -->
+                                        
+                                        <!-- CASO 1: PEDIDO PENDIENTE - APROBAR -->
                                         {% if pedido.Estado == 'Pendiente' %}
                                         <button type="button" class="btn btn-outline-success" title="Aprobar pedido"
                                             data-bs-toggle="tooltip"
                                             onclick="cambiarEstado({{ pedido.ID_Pedido }}, 'Aprobado')">
-                                            <i class="fas fa-check"></i>
+                                            <i class="fas fa-check"></i> Aprobar
                                         </button>
                                         {% endif %}
+                                        
+                                        <!-- CASO 2: PEDIDO NO CANCELADO NI ENTREGADO - CAMBIAR ESTADO -->
                                         {% if pedido.Estado != 'Cancelado' and pedido.Estado != 'Entregado' %}
                                         <button type="button" class="btn btn-outline-warning" title="Cambiar estado"
                                             data-bs-toggle="tooltip" onclick="cambiarEstado({{ pedido.ID_Pedido }})">
-                                            <i class="fas fa-exchange-alt"></i>
+                                            <i class="fas fa-exchange-alt"></i> Estado
                                         </button>
                                         {% endif %}
+                                        
                                     {% endif %}
                                 </div>
                             </td>
@@ -549,7 +571,7 @@
                 "pageLength": 25,
                 "responsive": true,
                 "columnDefs": [
-                    { "orderable": false, "targets": [12] } // Columna de acciones no ordenable
+                    { "orderable": false, "targets": [12] }
                 ]
             });
         }
@@ -567,10 +589,8 @@
         pedidoActual = idPedido;
 
         if (nuevoEstado) {
-            // Cambio directo
             confirmarCambioEstadoDirecto(idPedido, nuevoEstado);
         } else {
-            // Mostrar modal para selección
             const modal = new bootstrap.Modal(document.getElementById('modalEstado'));
             modal.show();
         }
@@ -657,7 +677,6 @@
     }
 
     function showToast(type, title, message) {
-        // Si tienes una función de toast implementada, úsala
         if (typeof Toast !== 'undefined') {
             Toast.fire({
                 icon: type,
@@ -665,7 +684,6 @@
                 text: message
             });
         } else {
-            // Toast simple de Bootstrap
             const toastEl = document.createElement('div');
             toastEl.className = `toast align-items-center text-white bg-${type} border-0`;
             toastEl.setAttribute('role', 'alert');
@@ -682,7 +700,6 @@
             const toast = new bootstrap.Toast(toastEl);
             toast.show();
 
-            // Remover después de mostrar
             toastEl.addEventListener('hidden.bs.toast', function () {
                 document.body.removeChild(toastEl);
             });
@@ -721,12 +738,10 @@
         background-color: rgba(0, 123, 255, 0.05);
     }
 
-    /* Estilos para prioridad Urgente */
     .bg-danger {
         background-color: #dc3545 !important;
     }
 
-    /* Resaltar filas con prioridad Urgente */
     tr .bg-danger {
         animation: pulse 2s infinite;
     }
@@ -735,17 +750,14 @@
         0% {
             opacity: 1;
         }
-
         50% {
             opacity: 0.7;
         }
-
         100% {
             opacity: 1;
         }
     }
 
-    /* Estilos específicos para botón de procesar venta */
     .btn-outline-primary:hover {
         background-color: #0d6efd;
         color: white;
@@ -761,7 +773,18 @@
         color: white;
     }
 
-    /* Estilo para estadísticas */
+    .btn-warning {
+        background-color: #ffc107;
+        border-color: #ffc107;
+        color: #000;
+    }
+
+    .btn-warning:hover {
+        background-color: #e0a800;
+        border-color: #d39e00;
+        color: #000;
+    }
+
     .bg-light .bg-primary,
     .bg-light .bg-success,
     .bg-light .bg-warning,
@@ -769,12 +792,10 @@
         box-shadow: 0 2px 5px rgba(0,0,0,0.1);
     }
     
-    /* Estilo para estado "En Proceso" */
     .bg-primary.badge {
         background-color: #0d6efd !important;
     }
     
-    /* Mejorar visualización de botones en móviles */
     @media (max-width: 768px) {
         .btn-group {
             display: flex;
