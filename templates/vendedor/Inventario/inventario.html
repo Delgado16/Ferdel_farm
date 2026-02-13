@@ -1,0 +1,305 @@
+{% extends "layout.html" %}
+
+{% block title %}Mi Inventario{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <!-- ============================================ -->
+    <!-- ENCABEZADO                                   -->
+    <!-- ============================================ -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2>
+                <i class="fas fa-boxes me-2 text-primary"></i>
+                Mi Inventario
+            </h2>
+            <p class="text-muted">
+                Bienvenido, <strong>{{ current_user.NombreUsuario }}</strong>
+            </p>
+        </div>
+        <div>
+            <button class="btn btn-outline-primary" onclick="refrescarInventario()">
+                <i class="fas fa-sync-alt me-1"></i> Refrescar
+            </button>
+        </div>
+    </div>
+
+    {% if not asignacion %}
+    <!-- ============================================ -->
+    <!-- SIN ASIGNACIÓN                               -->
+    <!-- ============================================ -->
+    <div class="alert alert-warning text-center py-5">
+        <i class="fas fa-exclamation-triangle fa-3x mb-3"></i>
+        <h4>No tienes una asignación activa para hoy</h4>
+        <p>Consulta con el administrador para asignarte una ruta.</p>
+    </div>
+    {% else %}
+
+    <!-- ============================================ -->
+    <!-- INFORMACIÓN DE ASIGNACIÓN                    -->
+    <!-- ============================================ -->
+    <div class="card mb-4 border-primary">
+        <div class="card-header bg-primary text-white">
+            <h5 class="mb-0">
+                <i class="fas fa-clipboard-list me-2"></i>
+                Asignación del Día - {{ asignacion.Fecha_Asignacion.strftime('%d/%m/%Y') }}
+            </h5>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-3">
+                    <div class="mb-3">
+                        <label class="text-muted small mb-1">Ruta Asignada</label>
+                        <h4 class="fw-bold text-primary">
+                            <i class="fas fa-route me-2"></i>{{ asignacion.Nombre_Ruta }}
+                        </h4>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="mb-3">
+                        <label class="text-muted small mb-1">Horario</label>
+                        <h4 class="fw-bold">
+                            <i class="fas fa-clock me-2"></i>
+                            {{ asignacion.Hora_Inicio|default('08:00', true) }} - {{ asignacion.Hora_Fin|default('17:00', true) }}
+                        </h4>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="mb-3">
+                        <label class="text-muted small mb-1">Vehículo</label>
+                        <h4 class="fw-bold">
+                            <i class="fas fa-truck me-2"></i>
+                            {{ asignacion.Vehiculo|default('No asignado', true) }}
+                            {% if asignacion.Placa %}
+                            <small class="text-muted">({{ asignacion.Placa }})</small>
+                            {% endif %}
+                        </h4>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="mb-3">
+                        <label class="text-muted small mb-1">ID Asignación</label>
+                        <h4 class="fw-bold">#{{ asignacion.ID_Asignacion }}</h4>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============================================ -->
+    <!-- TARJETAS DE RESUMEN                          -->
+    <!-- ============================================ -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card bg-primary text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="mb-0">Productos</h6>
+                            <h2 class="mt-2 mb-0">{{ totales.total_productos }}</h2>
+                        </div>
+                        <i class="fas fa-boxes fa-3x opacity-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-success text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="mb-0">Unidades</h6>
+                            <h2 class="mt-2 mb-0">{{ "%.2f"|format(totales.total_unidades) }}</h2>
+                        </div>
+                        <i class="fas fa-cubes fa-3x opacity-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-warning text-dark">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="mb-0">Valor Total</h6>
+                            <h2 class="mt-2 mb-0">C${{ "%.2f"|format(totales.total_valor) }}</h2>
+                        </div>
+                        <i class="fas fa-dollar-sign fa-3x opacity-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-info text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="mb-0">Vendido Hoy</h6>
+                            <h2 class="mt-2 mb-0">C${{ "%.2f"|format(totales.vendido_hoy) }}</h2>
+                            <small>{{ totales.ventas_hoy }} ventas</small>
+                        </div>
+                        <i class="fas fa-chart-line fa-3x opacity-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============================================ -->
+    <!-- ALERTA DE STOCK BAJO                         -->
+    <!-- ============================================ -->
+    {% if stock_bajo|length > 0 %}
+    <div class="alert alert-danger mb-4">
+        <div class="d-flex align-items-center">
+            <i class="fas fa-exclamation-triangle fa-2x me-3"></i>
+            <div>
+                <h5 class="alert-heading mb-1">¡Stock Bajo!</h5>
+                <p class="mb-0">Tienes {{ stock_bajo|length }} productos con stock por debajo del mínimo.</p>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- ============================================ -->
+    <!-- LISTADO DE INVENTARIO                        -->
+    <!-- ============================================ -->
+    <div class="card">
+        <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">
+                <i class="fas fa-list me-2"></i>
+                Productos en Inventario
+            </h5>
+            <div>
+                <span class="badge bg-light text-dark me-2">{{ inventario|length }} productos</span>
+                <input type="text" id="buscador" class="form-control form-control-sm d-inline-block" style="width: 200px;" placeholder="Buscar producto...">
+            </div>
+        </div>
+        <div class="card-body p-0">
+            {% if inventario %}
+            <div class="table-responsive">
+                <table class="table table-hover table-striped mb-0" id="tablaInventario">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Producto</th>
+                            <th>Código</th>
+                            <th>Categoría</th>
+                            <th class="text-end">Precio</th>
+                            <th class="text-center">Stock</th>
+                            <th class="text-center">Unidad</th>
+                            <th class="text-center">Estado</th>
+                            <th class="text-center">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in inventario %}
+                        <tr class="{% if item.Cantidad|float <= item.Stock_Minimo|float %}table-danger{% endif %}">
+                            <td>
+                                <strong>{{ item.Nombre_Producto }}</strong>
+                                <br><small class="text-muted">Actualizado: {{ item.Fecha_Actualizacion.strftime('%d/%m/%Y %H:%M') }}</small>
+                            </td>
+                            <td>{{ item.COD_Producto }}</td>
+                            <td>{{ item.Categoria or 'N/A' }}</td>
+                            <td class="text-end fw-bold">C${{ "%.2f"|format(item.Precio_Venta) }}</td>
+                            <td class="text-center">
+                                <span class="badge {% if item.Cantidad|float <= item.Stock_Minimo|float %}bg-danger{% else %}bg-success{% endif %} p-2">
+                                    {{ "%.2f"|format(item.Cantidad) }}
+                                </span>
+                            </td>
+                            <td class="text-center">{{ item.Unidad_Abrev or 'UN' }}</td>
+                            <td class="text-center">
+                                {% if item.Cantidad|float <= item.Stock_Minimo|float %}
+                                <span class="badge bg-danger">Bajo</span>
+                                {% else %}
+                                <span class="badge bg-success">Normal</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-center">
+                                <a href="#" 
+                                   class="btn btn-sm btn-outline-primary" title="Ver detalle">
+                                    <i class="fas fa-eye"></i>
+                                </a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="text-center py-5">
+                <i class="fas fa-box-open fa-4x text-muted mb-3"></i>
+                <h5 class="text-muted">No tienes productos en inventario</h5>
+                <p class="text-muted">Espera a que te asignen una carga.</p>
+            </div>
+            {% endif %}
+        </div>
+        <div class="card-footer bg-light">
+            <div class="row">
+                <div class="col-md-6">
+                    <small class="text-muted">
+                        <i class="fas fa-info-circle me-1"></i>
+                        Última actualización: {{ now.strftime('%d/%m/%Y %H:%M:%S') }}
+                    </small>
+                </div>
+                <div class="col-md-6 text-end">
+                    <small class="text-muted">
+                        <i class="fas fa-route me-1"></i>
+                        Ruta: {{ asignacion.Nombre_Ruta }}
+                    </small>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<script>
+document.getElementById('buscador')?.addEventListener('keyup', function() {
+    const texto = this.value.toLowerCase();
+    const filas = document.querySelectorAll('#tablaInventario tbody tr');
+    
+    filas.forEach(fila => {
+        const textoFila = fila.textContent.toLowerCase();
+        fila.style.display = textoFila.includes(texto) ? '' : 'none';
+    });
+});
+
+function refrescarInventario() {
+    fetch('/vendedor/refrescar-inventario', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            location.reload();
+        } else {
+            alert('Error: ' + data.message);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Error al refrescar el inventario');
+    });
+}
+</script>
+
+<style>
+.table td {
+    vertical-align: middle;
+}
+.badge {
+    font-size: 0.9rem;
+}
+.opacity-50 {
+    opacity: 0.5;
+}
+.card {
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+.table-danger {
+    background-color: #fff8f8 !important;
+}
+</style>
+{% endblock %}

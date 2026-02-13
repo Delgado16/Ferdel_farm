@@ -3720,7 +3720,7 @@ def admin_editar_bodega(id):
 def admin_productos():
     try:
         with get_db_cursor() as cursor:
-            # Consulta de productos - Sumando existencias de Inventario_Bodega
+            # Consulta de productos - Actualizada con los nuevos campos de precio
             cursor.execute("""
                 SELECT 
                     p.ID_Producto,
@@ -3733,7 +3733,9 @@ def admin_productos():
                     p.Estado,
                     p.ID_Categoria,
                     cp.Descripcion as Nombre_Categoria,
-                    p.Precio_Venta,
+                    p.Precio_Mercado,      -- Cambiado de Precio_Venta
+                    p.Precio_Mayorista,    -- Nuevo campo
+                    p.Precio_Ruta,          -- Nuevo campo
                     p.ID_Empresa,
                     e.Nombre_Empresa,
                     p.Fecha_Creacion,
@@ -3747,17 +3749,46 @@ def admin_productos():
                 LEFT JOIN empresa e ON p.ID_Empresa = e.ID_Empresa
                 LEFT JOIN usuarios u ON p.Usuario_Creador = u.ID_Usuario
                 LEFT JOIN Inventario_Bodega ib ON p.ID_Producto = ib.ID_Producto
-                -- Cambio en WHERE: 'activo' en lugar de 1
-                WHERE p.Estado = 'activo'
+                WHERE p.Estado = 'activo'   -- Ya está correcto con string
                 GROUP BY p.ID_Producto, p.COD_Producto, p.Descripcion, p.Unidad_Medida, 
                          um.Descripcion, um.Abreviatura, p.Estado, p.ID_Categoria,
-                         cp.Descripcion, p.Precio_Venta, p.ID_Empresa, e.Nombre_Empresa,
-                         p.Fecha_Creacion, p.Usuario_Creador, u.NombreUsuario, p.Stock_Minimo
+                         cp.Descripcion, p.Precio_Mercado, p.Precio_Mayorista, p.Precio_Ruta,  -- Actualizado
+                         p.ID_Empresa, e.Nombre_Empresa, p.Fecha_Creacion, p.Usuario_Creador, 
+                         u.NombreUsuario, p.Stock_Minimo
                 ORDER BY p.ID_Producto DESC
             """)
             productos = cursor.fetchall()
             
-            # Resto del código sigue igual...
+            # Convertir productos a diccionario si es necesario
+            productos_list = []
+            for producto in productos:
+                if isinstance(producto, dict):
+                    productos_list.append(producto)
+                else:
+                    productos_list.append({
+                        'ID_Producto': producto[0],
+                        'COD_Producto': producto[1],
+                        'Descripcion': producto[2],
+                        'Unidad_Medida': producto[3],
+                        'Nombre_Unidad': producto[4],
+                        'Abreviatura': producto[5],
+                        'Existencias': producto[6],
+                        'Estado': producto[7],
+                        'ID_Categoria': producto[8],
+                        'Nombre_Categoria': producto[9],
+                        'Precio_Mercado': producto[10],
+                        'Precio_Mayorista': producto[11],
+                        'Precio_Ruta': producto[12],
+                        'ID_Empresa': producto[13],
+                        'Nombre_Empresa': producto[14],
+                        'Fecha_Creacion': producto[15],
+                        'Usuario_Creador': producto[16],
+                        'Usuario_Creador_Nombre': producto[17],
+                        'Stock_Minimo': producto[18],
+                        'Bodegas_Con_Stock': producto[19]
+                    })
+            
+            # Resto del código igual...
             cursor.execute("SELECT ID_Categoria, Descripcion FROM categorias_producto")
             categorias = cursor.fetchall()
             
@@ -3777,7 +3808,7 @@ def admin_productos():
             bodegas = cursor.fetchall()
             
             return render_template('admin/bodega/producto/productos.html', 
-                                 productos=productos,
+                                 productos=productos_list,
                                  categorias=categorias,
                                  unidades=unidades,
                                  empresas=empresas,
@@ -3790,18 +3821,20 @@ def admin_productos():
                                 unidades=[], 
                                 empresas=[],
                                 bodegas=[])
-        
+
 @app.route('/admin/bodega/productos/crear', methods=['POST'])
 @admin_required
 @bitacora_decorator("CREAR_PRODUCTO")
 def admin_crear_producto():
     try:
-        # Obtener datos del formulario
+        # Obtener datos del formulario - Actualizado con nuevos precios
         cod_producto = request.form.get('COD_Producto')
         descripcion = request.form.get('Descripcion')
         id_unidad_medida = request.form.get('Unidad_Medida')
         id_categoria = request.form.get('ID_Categoria')
-        precio_venta = request.form.get('Precio_Venta')
+        precio_mercado = request.form.get('Precio_Mercado', 0)      # Nuevo
+        precio_mayorista = request.form.get('Precio_Mayorista', 0)  # Nuevo
+        precio_ruta = request.form.get('Precio_Ruta', 0)            # Nuevo
         id_empresa = request.form.get('ID_Empresa', 1)
         stock_minimo = request.form.get('Stock_Minimo', 5)
         cantidad_inicial = request.form.get('Cantidad_Inicial')
@@ -3826,10 +3859,21 @@ def admin_crear_producto():
         except (ValueError, TypeError):
             cantidad_inicial = 0
             
+        # Convertir precios
         try:
-            precio_venta = float(precio_venta) if precio_venta else 0.0
+            precio_mercado = float(precio_mercado) if precio_mercado else 0.0
         except (ValueError, TypeError):
-            precio_venta = 0.0
+            precio_mercado = 0.0
+            
+        try:
+            precio_mayorista = float(precio_mayorista) if precio_mayorista else 0.0
+        except (ValueError, TypeError):
+            precio_mayorista = 0.0
+            
+        try:
+            precio_ruta = float(precio_ruta) if precio_ruta else 0.0
+        except (ValueError, TypeError):
+            precio_ruta = 0.0
             
         try:
             stock_minimo = float(stock_minimo) if stock_minimo else 5.0
@@ -3877,11 +3921,9 @@ def admin_crear_producto():
             
             # Manejar tanto diccionarios como tuplas
             if isinstance(bodega_data, dict):
-                # Si es diccionario (cursorclass=DictCursor)
                 bodega_id = bodega_data.get('ID_Bodega')
                 bodega_empresa_id = bodega_data.get('ID_Empresa')
             else:
-                # Si es tupla (cursorclass por defecto)
                 bodega_id = bodega_data[0]
                 bodega_empresa_id = bodega_data[1]
             
@@ -3907,25 +3949,26 @@ def admin_crear_producto():
                 """)
                 result = cursor.fetchone()
                 
-                # Manejar tanto diccionarios como tuplas
                 if isinstance(result, dict):
-                    max_cod = result.get(list(result.keys())[0])  # Primer valor del diccionario
+                    max_cod = result.get(list(result.keys())[0])
                 else:
                     max_cod = result[0] if result else 0
                     
                 cod_producto = str(max_cod + 1) if max_cod else "1"
                 print(f"DEBUG: Código generado: {cod_producto}")
 
-            # Insertar nuevo producto
+            # Insertar nuevo producto - Actualizado con los nuevos campos de precio
             print(f"DEBUG: Insertando producto...")
             cursor.execute("""
                 INSERT INTO Productos (
                     COD_Producto, Descripcion, Unidad_Medida, Estado,
-                    ID_Categoria, Precio_Venta, ID_Empresa, Usuario_Creador, Stock_Minimo
-                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    ID_Categoria, Precio_Mercado, Precio_Mayorista, Precio_Ruta, 
+                    ID_Empresa, Usuario_Creador, Stock_Minimo
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             """, (
                 cod_producto, descripcion, id_unidad_medida, estado,
-                id_categoria, precio_venta, id_empresa, usuario_creador, stock_minimo
+                id_categoria, precio_mercado, precio_mayorista, precio_ruta, 
+                id_empresa, usuario_creador, stock_minimo
             ))
 
             producto_id = cursor.lastrowid
@@ -3973,15 +4016,17 @@ def admin_editar_producto(id_producto):
     try:
         if request.method == 'POST':
             # ========== PROCESAR FORMULARIO POST ==========
-            # Obtener datos del formulario
+            # Obtener datos del formulario - Actualizado con nuevos precios
             cod_producto = request.form.get('COD_Producto', '').strip()
             descripcion = request.form.get('Descripcion', '').strip()
             unidad_medida = request.form.get('Unidad_Medida')
             id_categoria = request.form.get('ID_Categoria')
-            precio_venta = request.form.get('Precio_Venta', 0)
+            precio_mercado = request.form.get('Precio_Mercado', 0)      # Nuevo
+            precio_mayorista = request.form.get('Precio_Mayorista', 0)  # Nuevo
+            precio_ruta = request.form.get('Precio_Ruta', 0)            # Nuevo
             id_empresa = request.form.get('ID_Empresa')
             stock_minimo = request.form.get('Stock_Minimo', 5)
-            estado = request.form.get('Estado', 'activo')  # Cambiado: 'activo' por defecto
+            estado = request.form.get('Estado', 'activo')
 
             # Validaciones
             if not descripcion:
@@ -3998,12 +4043,14 @@ def admin_editar_producto(id_producto):
 
             # Convertir valores numéricos
             try:
-                precio_venta = float(precio_venta) if precio_venta else 0
+                precio_mercado = float(precio_mercado) if precio_mercado else 0
+                precio_mayorista = float(precio_mayorista) if precio_mayorista else 0
+                precio_ruta = float(precio_ruta) if precio_ruta else 0
                 stock_minimo = float(stock_minimo) if stock_minimo else 5
                 
                 # Validar valores positivos
-                if precio_venta < 0:
-                    flash('El precio de venta no puede ser negativo', 'error')
+                if precio_mercado < 0 or precio_mayorista < 0 or precio_ruta < 0:
+                    flash('Los precios no pueden ser negativos', 'error')
                     return redirect(url_for('admin_editar_producto', id_producto=id_producto))
                     
                 if stock_minimo < 0:
@@ -4041,27 +4088,31 @@ def admin_editar_producto(id_producto):
                     flash('La empresa seleccionada no existe o está inactiva', 'error')
                     return redirect(url_for('admin_editar_producto', id_producto=id_producto))
 
-                # Actualizar producto
+                # Actualizar producto - Actualizado con nuevos precios
                 cursor.execute("""
                     UPDATE Productos SET
                         COD_Producto = %s,
                         Descripcion = %s,
                         Unidad_Medida = %s,
                         ID_Categoria = %s,
-                        Precio_Venta = %s,
+                        Precio_Mercado = %s,      -- Nuevo
+                        Precio_Mayorista = %s,    -- Nuevo
+                        Precio_Ruta = %s,          -- Nuevo
                         ID_Empresa = %s,
                         Stock_Minimo = %s,
                         Estado = %s
                     WHERE ID_Producto = %s
                 """, (
-                    cod_producto or None,  # Guardar como NULL si está vacío
+                    cod_producto or None,
                     descripcion, 
                     unidad_medida, 
                     id_categoria,
-                    precio_venta, 
+                    precio_mercado, 
+                    precio_mayorista,
+                    precio_ruta,
                     id_empresa, 
                     stock_minimo, 
-                    estado,  # Ahora string 'activo'/'inactivo'
+                    estado,
                     id_producto
                 ))
 
@@ -4076,7 +4127,7 @@ def admin_editar_producto(id_producto):
         else:
             # ========== CARGAR FORMULARIO GET ==========
             with get_db_cursor() as cursor:
-                # Obtener el producto específico (sin Existencias de Productos)
+                # Obtener el producto específico - Actualizado con nuevos precios
                 cursor.execute("""
                     SELECT 
                         p.ID_Producto,
@@ -4085,17 +4136,18 @@ def admin_editar_producto(id_producto):
                         p.Unidad_Medida,
                         um.Descripcion as Nombre_Unidad,
                         um.Abreviatura,
-                        p.Estado,  -- Ahora 'activo' o 'inactivo'
+                        p.Estado,
                         p.ID_Categoria,
                         cp.Descripcion as Nombre_Categoria,
-                        p.Precio_Venta,
+                        p.Precio_Mercado,      -- Nuevo
+                        p.Precio_Mayorista,    -- Nuevo
+                        p.Precio_Ruta,          -- Nuevo
                         p.ID_Empresa,
                         e.Nombre_Empresa,
                         p.Fecha_Creacion,
                         p.Usuario_Creador,
                         u.NombreUsuario as Usuario_Creador_Nombre,
                         p.Stock_Minimo,
-                        -- Calcular existencias totales sumando Inventario_Bodega
                         COALESCE(SUM(ib.Existencias), 0) as Existencias_Totales
                     FROM Productos p
                     LEFT JOIN Unidades_Medida um ON p.Unidad_Medida = um.ID_Unidad
@@ -4106,8 +4158,9 @@ def admin_editar_producto(id_producto):
                     WHERE p.ID_Producto = %s
                     GROUP BY p.ID_Producto, p.COD_Producto, p.Descripcion, p.Unidad_Medida,
                              um.Descripcion, um.Abreviatura, p.Estado, p.ID_Categoria,
-                             cp.Descripcion, p.Precio_Venta, p.ID_Empresa, e.Nombre_Empresa,
-                             p.Fecha_Creacion, p.Usuario_Creador, u.NombreUsuario, p.Stock_Minimo
+                             cp.Descripcion, p.Precio_Mercado, p.Precio_Mayorista, p.Precio_Ruta,  -- Actualizado
+                             p.ID_Empresa, e.Nombre_Empresa, p.Fecha_Creacion, p.Usuario_Creador, 
+                             u.NombreUsuario, p.Stock_Minimo
                 """, (id_producto,))
                 producto = cursor.fetchone()
                 
@@ -4119,7 +4172,7 @@ def admin_editar_producto(id_producto):
                 if isinstance(producto, dict):
                     producto_data = producto
                 else:
-                    # Si es tupla, convertir a diccionario
+                    # Si es tupla, convertir a diccionario - Actualizado
                     producto_data = {
                         'ID_Producto': producto[0],
                         'COD_Producto': producto[1],
@@ -4127,21 +4180,23 @@ def admin_editar_producto(id_producto):
                         'Unidad_Medida': producto[3],
                         'Nombre_Unidad': producto[4],
                         'Abreviatura': producto[5],
-                        'Estado': producto[6],  # 'activo' o 'inactivo'
+                        'Estado': producto[6],
                         'ID_Categoria': producto[7],
                         'Nombre_Categoria': producto[8],
-                        'Precio_Venta': producto[9],
-                        'ID_Empresa': producto[10],
-                        'Nombre_Empresa': producto[11],
-                        'Fecha_Creacion': producto[12],
-                        'Usuario_Creador': producto[13],
-                        'Usuario_Creador_Nombre': producto[14],
-                        'Stock_Minimo': producto[15],
-                        'Existencias_Totales': producto[16] or 0
+                        'Precio_Mercado': producto[9],
+                        'Precio_Mayorista': producto[10],
+                        'Precio_Ruta': producto[11],
+                        'ID_Empresa': producto[12],
+                        'Nombre_Empresa': producto[13],
+                        'Fecha_Creacion': producto[14],
+                        'Usuario_Creador': producto[15],
+                        'Usuario_Creador_Nombre': producto[16],
+                        'Stock_Minimo': producto[17],
+                        'Existencias_Totales': producto[18] or 0
                     }
                 
                 print(f"DEBUG - Estado del producto: {producto_data.get('Estado')}")
-                print(f"DEBUG - Existencias totales: {producto_data.get('Existencias_Totales')}")
+                print(f"DEBUG - Precios: Mercado={producto_data.get('Precio_Mercado')}, Mayorista={producto_data.get('Precio_Mayorista')}, Ruta={producto_data.get('Precio_Ruta')}")
                 
                 # Obtener datos para los dropdowns
                 cursor.execute("SELECT ID_Categoria, Descripcion FROM categorias_producto")
@@ -4153,7 +4208,7 @@ def admin_editar_producto(id_producto):
                 cursor.execute("SELECT ID_Empresa, Nombre_Empresa FROM empresa WHERE Estado = 'Activo'")
                 empresas = cursor.fetchall()
                 
-                # CONSULTA PARA INVENTARIO POR BODEGA (sin cambios)
+                # CONSULTA PARA INVENTARIO POR BODEGA
                 cursor.execute("""
                     SELECT 
                         b.ID_Bodega, 
@@ -4191,11 +4246,10 @@ def admin_activar_producto(id_producto):
         with get_db_cursor(commit=True) as cursor:
             cursor.execute("""
                 UPDATE Productos 
-                SET Estado = 'activo'  -- Cambiado de 1 a 'activo'
+                SET Estado = 'activo'
                 WHERE ID_Producto = %s
             """, (id_producto,))
             
-            # Verificar si se actualizó
             if cursor.rowcount > 0:
                 flash('Producto activado exitosamente', 'success')
             else:
@@ -4214,11 +4268,10 @@ def admin_desactivar_producto(id_producto):
         with get_db_cursor(commit=True) as cursor:
             cursor.execute("""
                 UPDATE Productos 
-                SET Estado = 'inactivo'  -- Cambiado de 0 a 'inactivo'
+                SET Estado = 'inactivo'
                 WHERE ID_Producto = %s
             """, (id_producto,))
             
-            # Verificar si se actualizó
             if cursor.rowcount > 0:
                 flash('Producto desactivado exitosamente', 'success')
             else:
@@ -14289,7 +14342,7 @@ def procesar_lista_asignaciones(asignaciones_raw):
 # RUTAS PARA VENDEDORES
 # ==============================================
 @app.route('/vendedor/mis-rutas')
-@login_required
+@vendedor_required
 def vendedor_mis_rutas():
     """Vista principal para que el vendedor vea y gestione sus rutas asignadas"""
     try:
@@ -14344,7 +14397,7 @@ def vendedor_mis_rutas():
         return redirect(url_for('dashboard'))
 
 @app.route('/vendedor/ruta/iniciar/<int:id>', methods=['POST'])
-@login_required
+@vendedor_required
 def vendedor_iniciar_ruta(id):
     """Permite al vendedor iniciar su ruta asignada"""
     try:
@@ -14398,7 +14451,7 @@ def vendedor_iniciar_ruta(id):
     return redirect(url_for('vendedor_mis_rutas'))
 
 @app.route('/vendedor/ruta/finalizar/<int:id>', methods=['POST'])
-@login_required
+@vendedor_required
 def vendedor_finalizar_ruta(id):
     """Permite al vendedor finalizar su ruta"""
     try:
@@ -14465,7 +14518,7 @@ def vendedor_finalizar_ruta(id):
     return redirect(url_for('vendedor_mis_rutas'))
 
 @app.route('/vendedor/ruta/detalle/<int:id>')
-@login_required
+@vendedor_required
 def vendedor_detalle_ruta(id):
     """Detalle de una ruta específica del vendedor"""
     try:
@@ -14511,6 +14564,332 @@ def vendedor_detalle_ruta(id):
     except Exception as e:
         flash(f'Error al cargar detalle: {str(e)}', 'error')
         return redirect(url_for('vendedor_mis_rutas'))
+
+## Inventario ruta:
+@app.route('/vendedor/inventario')
+@vendedor_required
+def vendedor_inventario():
+    """
+    Muestra el inventario actual del vendedor basado en su asignación activa de hoy
+    """
+    try:
+        with get_db_cursor(True) as cursor:
+            # ============================================
+            # 1. OBTENER ASIGNACIÓN ACTIVA DEL VENDEDOR HOY
+            # ============================================
+            cursor.execute("""
+                SELECT 
+                    av.ID_Asignacion,
+                    av.ID_Ruta,
+                    r.Nombre_Ruta,
+                    av.Fecha_Asignacion,
+                    av.Hora_Inicio,
+                    av.Hora_Fin,
+                    v.Marca as Vehiculo,
+                    v.Placa
+                FROM asignacion_vendedores av
+                LEFT JOIN rutas r ON av.ID_Ruta = r.ID_Ruta
+                LEFT JOIN vehiculos v ON av.ID_Vehiculo = v.ID_Vehiculo
+                WHERE av.ID_Usuario = %s
+                AND av.Estado = 'Activa'
+                AND av.Fecha_Asignacion = CURDATE()
+                LIMIT 1
+            """, (current_user.id,))
+            
+            asignacion = cursor.fetchone()
+            
+            if not asignacion:
+                flash('No tienes una asignación activa para hoy', 'warning')
+                return render_template('vendedor/inventario/inventario.html', 
+                                     asignacion=None,
+                                     inventario=[],
+                                     totales={})
+            
+            # ============================================
+            # 2. OBTENER INVENTARIO DEL VENDEDOR
+            # ============================================
+            cursor.execute("""
+                SELECT 
+                    ir.ID_Inventario_Ruta,
+                    ir.ID_Producto,
+                    ir.Cantidad,
+                    ir.Fecha_Actualizacion,
+                    p.Descripcion as Nombre_Producto,
+                    p.COD_Producto,
+                    p.Precio_Venta,
+                    p.Stock_Minimo,
+                    um.Descripcion as Unidad,
+                    um.Abreviatura as Unidad_Abrev,
+                    c.Descripcion as Categoria
+                FROM inventario_ruta ir
+                INNER JOIN productos p ON ir.ID_Producto = p.ID_Producto
+                LEFT JOIN unidades_medida um ON p.Unidad_Medida = um.ID_Unidad
+                LEFT JOIN categorias_producto c ON p.ID_Categoria = c.ID_Categoria
+                WHERE ir.ID_Asignacion = %s
+                AND ir.Cantidad > 0
+                ORDER BY c.Descripcion, p.Descripcion
+            """, (asignacion['ID_Asignacion'],))
+            
+            inventario = cursor.fetchall()
+            
+            # ============================================
+            # 3. CALCULAR TOTALES
+            # ============================================
+            total_productos = len(inventario)
+            total_unidades = sum(float(item['Cantidad']) for item in inventario)
+            total_valor = sum(float(item['Cantidad']) * float(item['Precio_Venta']) for item in inventario)
+            
+            # Productos con stock bajo (menor al mínimo)
+            stock_bajo = []
+            for item in inventario:
+                if float(item['Cantidad']) <= float(item['Stock_Minimo'] or 0):
+                    stock_bajo.append(item)
+            
+            # ============================================
+            # 4. OBTENER VENTAS DEL DÍA (RESUMEN)
+            # ============================================
+            cursor.execute("""
+                SELECT 
+                    COUNT(*) as total_ventas,
+                    COALESCE(SUM(Total_Subtotal), 0) as total_vendido,
+                    COALESCE(SUM(Total_Items), 0) as total_items
+                FROM movimientos_ruta_cabecera
+                WHERE ID_Asignacion = %s
+                AND ID_TipoMovimiento = 3  -- Tipo Venta
+                AND DATE(Fecha_Movimiento) = CURDATE()
+                AND Estado = 'ACTIVO'
+            """, (asignacion['ID_Asignacion'],))
+            
+            ventas_hoy = cursor.fetchone()
+            
+            totales = {
+                'total_productos': total_productos,
+                'total_unidades': total_unidades,
+                'total_valor': total_valor,
+                'stock_bajo': len(stock_bajo),
+                'ventas_hoy': ventas_hoy['total_ventas'] if ventas_hoy else 0,
+                'vendido_hoy': float(ventas_hoy['total_vendido']) if ventas_hoy else 0,
+                'items_vendidos': int(ventas_hoy['total_items']) if ventas_hoy else 0
+            }
+            
+            return render_template('vendedor/inventario/inventario.html',
+                                 asignacion=asignacion,
+                                 inventario=inventario,
+                                 stock_bajo=stock_bajo,
+                                 totales=totales,
+                                 now=datetime.now())
+            
+    except Exception as e:
+        print(f"Error: {str(e)}")
+        traceback.print_exc()
+        flash(f'Error al cargar inventario: {str(e)}', 'error')
+        return redirect(url_for('vendedor_dashboard'))
+
+@app.route('/api/vendedor/inventario')
+@login_required
+def api_vendedor_inventario():
+    """
+    API para consultar inventario del vendedor (formato JSON)
+    Utiliza current_user.id para identificar al vendedor
+    """
+    try:
+        with get_db_cursor(True) as cursor:
+            # Obtener asignación activa del usuario actual
+            cursor.execute("""
+                SELECT ID_Asignacion
+                FROM asignacion_vendedores
+                WHERE ID_Usuario = %s
+                AND Estado = 'Activa'
+                AND Fecha_Asignacion = CURDATE()
+                LIMIT 1
+            """, (current_user.id,))
+            
+            asignacion = cursor.fetchone()
+            
+            if not asignacion:
+                return jsonify({
+                    'success': False,
+                    'message': 'No tienes asignación activa hoy',
+                    'data': []
+                })
+            
+            # Obtener inventario
+            cursor.execute("""
+                SELECT 
+                    ir.ID_Producto,
+                    ir.Cantidad,
+                    p.Descripcion as producto,
+                    p.COD_Producto as codigo,
+                    p.Precio_Venta as precio,
+                    um.Abreviatura as unidad
+                FROM inventario_ruta ir
+                INNER JOIN productos p ON ir.ID_Producto = p.ID_Producto
+                LEFT JOIN unidades_medida um ON p.Unidad_Medida = um.ID_Unidad
+                WHERE ir.ID_Asignacion = %s
+                AND ir.Cantidad > 0
+                ORDER BY p.Descripcion
+            """, (asignacion['ID_Asignacion'],))
+            
+            inventario = cursor.fetchall()
+            
+            return jsonify({
+                'success': True,
+                'data': inventario
+            })
+            
+    except Exception as e:
+        print(f"Error en API inventario: {str(e)}")
+        return jsonify({
+            'success': False,
+            'message': str(e),
+            'data': []
+        }), 500
+
+@app.route('/vendedor/producto/<int:id_producto>')
+@login_required
+def vendedor_producto_detalle(id_producto):
+    """
+    Muestra el detalle de un producto específico en el inventario del vendedor
+    Utiliza current_user.id para identificar al vendedor
+    """
+    try:
+        with get_db_cursor(True) as cursor:
+            # Obtener asignación activa del usuario actual
+            cursor.execute("""
+                SELECT ID_Asignacion
+                FROM asignacion_vendedores
+                WHERE ID_Usuario = %s
+                AND Estado = 'Activa'
+                AND Fecha_Asignacion = CURDATE()
+                LIMIT 1
+            """, (current_user.id,))
+            
+            asignacion = cursor.fetchone()
+            
+            if not asignacion:
+                flash('No tienes asignación activa para hoy', 'warning')
+                return redirect(url_for('vendedor_inventario'))
+            
+            # Obtener detalle del producto
+            cursor.execute("""
+                SELECT 
+                    ir.ID_Inventario_Ruta,
+                    ir.ID_Producto,
+                    ir.Cantidad as Stock_Actual,
+                    ir.Fecha_Actualizacion,
+                    p.Descripcion as Nombre_Producto,
+                    p.COD_Producto,
+                    p.Precio_Venta,
+                    p.Stock_Minimo,
+                    um.Descripcion as Unidad,
+                    um.Abreviatura as Unidad_Abrev,
+                    c.Descripcion as Categoria
+                FROM inventario_ruta ir
+                INNER JOIN productos p ON ir.ID_Producto = p.ID_Producto
+                LEFT JOIN unidades_medida um ON p.Unidad_Medida = um.ID_Unidad
+                LEFT JOIN categorias_producto c ON p.ID_Categoria = c.ID_Categoria
+                WHERE ir.ID_Asignacion = %s
+                AND ir.ID_Producto = %s
+                LIMIT 1
+            """, (asignacion['ID_Asignacion'], id_producto))
+            
+            producto = cursor.fetchone()
+            
+            if not producto:
+                flash('Producto no encontrado en tu inventario', 'error')
+                return redirect(url_for('vendedor_inventario'))
+            
+            # Obtener historial de movimientos de este producto
+            cursor.execute("""
+                SELECT 
+                    mrc.ID_Movimiento,
+                    mrc.Fecha_Movimiento,
+                    mrc.Documento_Numero,
+                    mrc.Total_Subtotal,
+                    mrd.Cantidad,
+                    mrd.Precio_Unitario,
+                    mrd.Subtotal,
+                    CASE 
+                        WHEN mrc.ID_TipoMovimiento = 2 THEN 'CARGA'
+                        WHEN mrc.ID_TipoMovimiento = 3 THEN 'VENTA'
+                        ELSE 'OTRO'
+                    END as Tipo_Movimiento
+                FROM movimientos_ruta_detalle mrd
+                INNER JOIN movimientos_ruta_cabecera mrc ON mrd.ID_Movimiento = mrc.ID_Movimiento
+                WHERE mrc.ID_Asignacion = %s
+                AND mrd.ID_Producto = %s
+                ORDER BY mrc.Fecha_Movimiento DESC
+                LIMIT 20
+            """, (asignacion['ID_Asignacion'], id_producto))
+            
+            historial = cursor.fetchall()
+            
+            return render_template('vendedor/producto_detalle.html',
+                                 producto=producto,
+                                 historial=historial,
+                                 now=datetime.now(),
+                                 current_user=current_user)
+            
+    except Exception as e:
+        print(f"Error en vendedor_producto_detalle: {str(e)}")
+        flash(f'Error: {str(e)}', 'error')
+        return redirect(url_for('vendedor_inventario'))
+
+@app.route('/vendedor/refrescar-inventario', methods=['POST'])
+@login_required
+def vendedor_refrescar_inventario():
+    """
+    Refresca el inventario del vendedor (útil después de una venta)
+    Utiliza current_user.id para identificar al vendedor
+    """
+    try:
+        with get_db_cursor(True) as cursor:
+            # Obtener asignación activa del usuario actual
+            cursor.execute("""
+                SELECT ID_Asignacion
+                FROM asignacion_vendedores
+                WHERE ID_Usuario = %s
+                AND Estado = 'Activa'
+                AND Fecha_Asignacion = CURDATE()
+                LIMIT 1
+            """, (current_user.id,))
+            
+            asignacion = cursor.fetchone()
+            
+            if not asignacion:
+                return jsonify({
+                    'success': False,
+                    'message': 'No tienes asignación activa hoy'
+                })
+            
+            # Obtener inventario actualizado
+            cursor.execute("""
+                SELECT 
+                    COUNT(*) as total_productos,
+                    COALESCE(SUM(Cantidad), 0) as total_unidades,
+                    COALESCE(SUM(Cantidad * p.Precio_Venta), 0) as total_valor
+                FROM inventario_ruta ir
+                INNER JOIN productos p ON ir.ID_Producto = p.ID_Producto
+                WHERE ir.ID_Asignacion = %s
+            """, (asignacion['ID_Asignacion'],))
+            
+            totales = cursor.fetchone()
+            
+            return jsonify({
+                'success': True,
+                'data': {
+                    'total_productos': int(totales['total_productos']),
+                    'total_unidades': float(totales['total_unidades']),
+                    'total_valor': float(totales['total_valor'])
+                }
+            })
+            
+    except Exception as e:
+        print(f"Error en refrescar inventario: {str(e)}")
+        return jsonify({
+            'success': False,
+            'message': str(e)
+        }), 500
 
 #Iniciar Aplicación
 if __name__ == '__main__':

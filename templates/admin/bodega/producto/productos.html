@@ -27,7 +27,9 @@
                             <th>Unidad</th>
                             <th>Existencias</th>
                             <th>Categoría</th>
-                            <th>Precio Venta</th>
+                            <th>Precio Mercado</th>
+                            <th>Precio Mayorista</th>
+                            <th>Precio Ruta</th>
                             <th>Empresa</th>
                             <th>Stock Mínimo</th>
                             <th>Estado</th>
@@ -51,11 +53,13 @@
                                 </span>
                             </td>
                             <td>{{ producto.Nombre_Categoria }}</td>
-                            <td>C${{ "%.2f"|format(producto.Precio_Venta or 0) }}</td>
+                            <td>C${{ "%.2f"|format(producto.Precio_Mercado or 0) }}</td>
+                            <td>C${{ "%.2f"|format(producto.Precio_Mayorista or 0) }}</td>
+                            <td>C${{ "%.2f"|format(producto.Precio_Ruta or 0) }}</td>
                             <td>{{ producto.Nombre_Empresa }}</td>
                             <td>{{ producto.Stock_Minimo }}</td>
                             <td>
-                                {% if producto.Estado == 'activo' %}  <!-- CORREGIDO -->
+                                {% if producto.Estado == 'activo' %}
                                     <span class="badge bg-success">Activo</span>
                                 {% else %}
                                     <span class="badge bg-danger">Inactivo</span>
@@ -69,7 +73,7 @@
                                         <i class="fas fa-edit"></i> Editar
                                     </a>
                                     
-                                    {% if producto.Estado == 'activo' %}  <!-- CORREGIDO -->
+                                    {% if producto.Estado == 'activo' %}
                                     <!-- Botón Desactivar -->
                                     <form method="POST" action="{{ url_for('admin_desactivar_producto', id_producto=producto.ID_Producto) }}" class="d-inline">
                                         <button type="submit" class="btn btn-danger" 
@@ -91,7 +95,7 @@
                         </tr>
                         {% else %}
                         <tr>
-                            <td colspan="10" class="text-center text-muted py-4">
+                            <td colspan="12" class="text-center text-muted py-4">
                                 <i class="fas fa-box-open fa-2x mb-3"></i><br>
                                 No hay productos registrados
                             </td>
@@ -152,25 +156,35 @@
                     </div>
                     
                     <div class="row">
-                        <div class="col-md-4 mb-3">
+                        <div class="col-md-3 mb-3">
                             <label class="form-label">Cantidad Inicial *</label>
                             <input type="number" class="form-control" name="Cantidad_Inicial" value="0" step="0.01" min="0" required>
-                            <div class="form-text">Existencias iniciales en inventario</div>
+                            <div class="form-text">Existencias iniciales</div>
                         </div>
-                        <div class="col-md-4 mb-3">
-                            <label class="form-label">Precio Venta *</label>
-                            <input type="number" class="form-control" name="Precio_Venta" value="0" step="0.01" min="0" required>
-                            <div class="form-text">Precio de venta unitario</div>
+                        <div class="col-md-3 mb-3">
+                            <label class="form-label">Precio Mercado</label>
+                            <input type="number" class="form-control" name="Precio_Mercado" value="0" step="0.01" min="0">
+                            <div class="form-text">Precio de mercado</div>
                         </div>
+                        <div class="col-md-3 mb-3">
+                            <label class="form-label">Precio Mayorista</label>
+                            <input type="number" class="form-control" name="Precio_Mayorista" value="0" step="0.01" min="0">
+                            <div class="form-text">Precio mayorista</div>
+                        </div>
+                        <div class="col-md-3 mb-3">
+                            <label class="form-label">Precio Ruta</label>
+                            <input type="number" class="form-control" name="Precio_Ruta" value="0" step="0.01" min="0">
+                            <div class="form-text">Precio de ruta</div>
+                        </div>
+                    </div>
+
+                    <div class="row">
                         <div class="col-md-4 mb-3">
                             <label class="form-label">Stock Mínimo</label>
                             <input type="number" class="form-control" name="Stock_Minimo" value="5" step="0.01" min="0">
                             <div class="form-text">Nivel mínimo de inventario</div>
                         </div>
-                    </div>
-
-                    <div class="row">
-                        <div class="col-md-6 mb-3">
+                        <div class="col-md-4 mb-3">
                             <label class="form-label">Empresa *</label>
                             <select class="form-select" name="ID_Empresa" id="ID_Empresa" required>
                                 <option value="">Seleccionar empresa</option>
@@ -179,13 +193,12 @@
                                 {% endfor %}
                             </select>
                         </div>
-                        <div class="col-md-6 mb-3">
+                        <div class="col-md-4 mb-3">
                             <label class="form-label">Estado</label>
                             <select class="form-select" name="Estado">
-                                <option value="activo" selected>Activo</option>  <!-- CORREGIDO -->
-                                <option value="inactivo">Inactivo</option>       <!-- CORREGIDO -->
+                                <option value="activo" selected>Activo</option>
+                                <option value="inactivo">Inactivo</option>
                             </select>
-                            <div class="form-text">Estado inicial del producto</div>
                         </div>
                     </div>
 
@@ -288,10 +301,8 @@ document.addEventListener('DOMContentLoaded', function() {
             const categoria = form.querySelector('select[name="ID_Categoria"]');
             const empresa = form.querySelector('select[name="ID_Empresa"]');
             const bodega = document.getElementById('ID_Bodega');
-            const precioVenta = form.querySelector('input[name="Precio_Venta"]');
             const cantidadInicial = form.querySelector('input[name="Cantidad_Inicial"]');
             const stockMinimo = form.querySelector('input[name="Stock_Minimo"]');
-            const estado = form.querySelector('select[name="Estado"]');
             
             let isValid = true;
             let errorMessage = '';
@@ -316,10 +327,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 isValid = false;
                 errorMessage = 'Debe seleccionar una bodega válida';
                 bodega.focus();
-            } else if (!precioVenta.value || parseFloat(precioVenta.value) < 0) {
-                isValid = false;
-                errorMessage = 'El precio de venta debe ser un valor positivo';
-                precioVenta.focus();
             } else if (!cantidadInicial.value || parseFloat(cantidadInicial.value) < 0) {
                 isValid = false;
                 errorMessage = 'La cantidad inicial debe ser un valor positivo';
@@ -328,10 +335,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 isValid = false;
                 errorMessage = 'El stock mínimo no puede ser negativo';
                 stockMinimo.focus();
-            } else if (estado && estado.value && !['activo', 'inactivo'].includes(estado.value)) {
-                isValid = false;
-                errorMessage = 'El estado debe ser "activo" o "inactivo"';
-                estado.focus();
             }
             
             if (!isValid) {

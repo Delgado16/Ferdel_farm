@@ -21,16 +21,22 @@
             <!-- Información de Existencias -->
             <div class="alert alert-info mb-4">
                 <div class="row">
-                    <div class="col-md-6">
+                    <div class="col-md-4">
                         <strong><i class="fas fa-warehouse me-2"></i>Existencias Totales:</strong>
                         <span class="badge bg-primary fs-6 ms-2">
                             {{ "%.2f"|format(producto.get('Existencias_Totales', 0)) }} {{ producto['Abreviatura'] }}
                         </span>
                     </div>
-                    <div class="col-md-6">
+                    <div class="col-md-4">
                         <strong><i class="fas fa-boxes me-2"></i>Stock Mínimo:</strong>
                         <span class="badge bg-warning fs-6 ms-2">
                             {{ "%.2f"|format(producto['Stock_Minimo']) }} {{ producto['Abreviatura'] }}
+                        </span>
+                    </div>
+                    <div class="col-md-4">
+                        <strong><i class="fas fa-tag me-2"></i>Unidad:</strong>
+                        <span class="badge bg-info fs-6 ms-2">
+                            {{ producto['Nombre_Unidad'] }} ({{ producto['Abreviatura'] }})
                         </span>
                     </div>
                 </div>
@@ -90,11 +96,35 @@
                 
                 <div class="row">
                     <div class="col-md-4 mb-3">
-                        <label class="form-label">Precio Venta *</label>
-                        <input type="number" class="form-control" name="Precio_Venta" 
-                               value="{{ producto['Precio_Venta'] or 0 }}" step="0.01" min="0" required>
-                        <div class="form-text">Precio de venta unitario</div>
+                        <label class="form-label">Precio Mercado</label>
+                        <div class="input-group">
+                            <span class="input-group-text">C$</span>
+                            <input type="number" class="form-control" name="Precio_Mercado" 
+                                   value="{{ producto['Precio_Mercado'] or 0 }}" step="0.01" min="0">
+                        </div>
+                        <div class="form-text">Precio de mercado</div>
                     </div>
+                    <div class="col-md-4 mb-3">
+                        <label class="form-label">Precio Mayorista</label>
+                        <div class="input-group">
+                            <span class="input-group-text">C$</span>
+                            <input type="number" class="form-control" name="Precio_Mayorista" 
+                                   value="{{ producto['Precio_Mayorista'] or 0 }}" step="0.01" min="0">
+                        </div>
+                        <div class="form-text">Precio mayorista</div>
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <label class="form-label">Precio Ruta</label>
+                        <div class="input-group">
+                            <span class="input-group-text">C$</span>
+                            <input type="number" class="form-control" name="Precio_Ruta" 
+                                   value="{{ producto['Precio_Ruta'] or 0 }}" step="0.01" min="0">
+                        </div>
+                        <div class="form-text">Precio de ruta</div>
+                    </div>
+                </div>
+
+                <div class="row">
                     <div class="col-md-4 mb-3">
                         <label class="form-label">Stock Mínimo</label>
                         <input type="number" class="form-control" name="Stock_Minimo" 
@@ -102,17 +132,6 @@
                         <div class="form-text">Nivel mínimo de inventario</div>
                     </div>
                     <div class="col-md-4 mb-3">
-                        <label class="form-label">Estado</label>
-                        <select class="form-select" name="Estado">
-                            <option value="activo" {% if producto['Estado'] == 'activo' %}selected{% endif %}>Activo</option>
-                            <option value="inactivo" {% if producto['Estado'] == 'inactivo' %}selected{% endif %}>Inactivo</option>
-                        </select>
-                        <div class="form-text">Estado del producto en el sistema</div>
-                    </div>
-                </div>
-
-                <div class="row">
-                    <div class="col-md-6 mb-3">
                         <label class="form-label">Empresa *</label>
                         <select class="form-select" name="ID_Empresa" required>
                             <option value="">Seleccionar empresa</option>
@@ -124,11 +143,13 @@
                             {% endfor %}
                         </select>
                     </div>
-                    <div class="col-md-6 mb-3">
-                        <label class="form-label">Existencias Totales</label>
-                        <input type="text" class="form-control" 
-                               value="{{ "%.2f"|format(producto.get('Existencias_Totales', 0)) }}" readonly disabled>
-                        <div class="form-text">Existencias totales en todas las bodegas (solo lectura)</div>
+                    <div class="col-md-4 mb-3">
+                        <label class="form-label">Estado</label>
+                        <select class="form-select" name="Estado">
+                            <option value="activo" {% if producto['Estado'] == 'activo' %}selected{% endif %}>Activo</option>
+                            <option value="inactivo" {% if producto['Estado'] == 'inactivo' %}selected{% endif %}>Inactivo</option>
+                        </select>
+                        <div class="form-text">Estado del producto en el sistema</div>
                     </div>
                 </div>
 
@@ -152,7 +173,7 @@
                                         <td>{{ inventario['Nombre_Bodega'] }}</td>
                                         <td>{{ inventario['Nombre_Empresa'] }}</td>
                                         <td class="{% if inventario['Existencias'] <= producto['Stock_Minimo'] %}table-warning{% endif %}">
-                                            {{ "%.2f"|format(inventario['Existencias']) }}
+                                            {{ "%.2f"|format(inventario['Existencias']) }} {{ producto['Abreviatura'] }}
                                             {% if inventario['Existencias'] <= producto['Stock_Minimo'] %}
                                             <i class="fas fa-exclamation-triangle text-warning ms-1" title="Stock por debajo del mínimo"></i>
                                             {% endif %}
