@@ -10400,12 +10400,7 @@ def obtener_stock_producto(producto_id):
 @bitacora_decorator("PROCESAR_CARGA_CONSOLIDADA")
 def procesar_carga_consolidada(id_pedido):
     """
-    PROCESAR CARGA CONSOLIDADA - ÚNICAMENTE PARA PEDIDOS CONSOLIDADOS
-    ---------------------------------------------------------------
-    - Toma un pedido consolidado y distribuye el inventario a vendedores de UNA ruta
-    - Registra SALIDA en movimientos_inventario (bodega local)
-    - Registra ENTRADA en movimientos_ruta_cabecera/detalle (inventario de ruta)
-    - NO genera factura, NO cuenta por cobrar
+    Procesa la distribución de carga a vendedores
     """
     try:
         # ============================================
@@ -10436,103 +10431,95 @@ def procesar_carga_consolidada(id_pedido):
         
         with get_db_cursor() as cursor:
             # ============================================
-            # 2. VERIFICAR QUE ES PEDIDO CONSOLIDADO
+            # 2. VERIFICAR PEDIDO
             # ============================================
             cursor.execute("""
                 SELECT 
                     p.ID_Pedido,
                     p.ID_Ruta,
                     p.Estado,
-                    p.Tipo_Pedido,
                     r.Nombre_Ruta,
                     e.ID_Empresa,
                     b.ID_Bodega as Bodega_Origen
                 FROM pedidos p
                 LEFT JOIN rutas r ON p.ID_Ruta = r.ID_Ruta
                 LEFT JOIN empresa e ON p.ID_Empresa = e.ID_Empresa
-                LEFT JOIN bodegas b ON b.ID_Empresa = e.ID_Empresa 
-                    AND b.Estado = 'activa' 
-                    AND (b.Nombre LIKE '%PRINCIPAL%' OR b.Nombre LIKE '%CENTRAL%' OR b.Nombre LIKE '%BODEGA%')
-                WHERE p.ID_Pedido = %s 
-                AND p.Tipo_Pedido = 'Consolidado'  -- 🔥 SOLO CONSOLIDADOS
+                LEFT JOIN bodegas b ON b.ID_Empresa = e.ID_Empresa AND b.Estado = 'activa'
+                WHERE p.ID_Pedido = %s AND p.Tipo_Pedido = 'Consolidado'
                 LIMIT 1
             """, (id_pedido,))
             
             pedido = cursor.fetchone()
             
             if not pedido:
-                flash('Pedido no encontrado o no es un pedido consolidado', 'error')
+                flash('Pedido no encontrado', 'error')
                 return redirect(url_for('admin_pedidos_venta'))
             
             if pedido['Estado'] != 'Pendiente':
-                flash(f'No se puede procesar. El pedido está en estado: {pedido["Estado"]}', 'error')
+                flash(f'El pedido debe estar Pendiente, no {pedido["Estado"]}', 'error')
                 return redirect(url_for('ver_pedido', id_pedido=id_pedido))
             
             if not pedido['ID_Ruta']:
-                flash('El pedido consolidado no tiene una ruta asignada', 'error')
+                flash('El pedido no tiene una ruta asignada', 'error')
                 return redirect(url_for('ver_pedido', id_pedido=id_pedido))
             
             # ============================================
-            # 3. VERIFICAR VENDEDORES ACTIVOS DE LA RUTA
+            # 3. VERIFICAR VENDEDORES
             # ============================================
             vendedores_ids = list(set([item['id_vendedor'] for item in distribucion]))
             placeholders = ','.join(['%s'] * len(vendedores_ids))
             
-            cursor.execute(f"""
-                SELECT 
-                    av.ID_Asignacion,
-                    av.ID_Usuario,
-                    u.NombreUsuario,
-                    u.Nombre_Completo,
-                    av.ID_Ruta
-                FROM asignacion_vendedores av
-                JOIN usuarios u ON av.ID_Usuario = u.ID_Usuario
-                WHERE av.ID_Asignacion IN ({placeholders})
-                AND av.Estado = 'Activa'
-                AND av.Fecha_Asignacion = CURDATE()
-            """, vendedores_ids)
+            query_vendedores = f"""
+                SELECT ID_Asignacion, ID_Usuario
+                FROM asignacion_vendedores
+                WHERE ID_Asignacion IN ({placeholders})
+                AND Estado = 'Activa'
+                AND Fecha_Asignacion = CURDATE()
+            """
+            cursor.execute(query_vendedores, vendedores_ids)
             
             vendedores_validos = cursor.fetchall()
             vendedores_dict = {v['ID_Asignacion']: v for v in vendedores_validos}
             
-            # Validar que todos los vendedores pertenezcan a la MISMA ruta del pedido
             for item in distribucion:
                 if item['id_vendedor'] not in vendedores_dict:
-                    flash(f'Vendedor ID {item["id_vendedor"]} no tiene asignación activa hoy', 'error')
-                    return redirect(url_for('ver_pedido', id_pedido=id_pedido))
-                
-                if vendedores_dict[item['id_vendedor']]['ID_Ruta'] != pedido['ID_Ruta']:
-                    flash(f'❌ El vendedor {vendedores_dict[item["id_vendedor"]]["Nombre_Completo"]} no pertenece a la ruta {pedido["Nombre_Ruta"]}', 'error')
+                    flash('Uno o más vendedores no tienen asignación activa hoy', 'error')
                     return redirect(url_for('ver_pedido', id_pedido=id_pedido))
             
             # ============================================
-            # 4. OBTENER PRODUCTOS DEL CONSOLIDADO
+            # 4. VERIFICAR PRODUCTOS
             # ============================================
             productos_ids = list(set([item['id_producto'] for item in distribucion]))
             placeholders = ','.join(['%s'] * len(productos_ids))
             
-            cursor.execute(f"""
+            query_productos = f"""
                 SELECT 
                     pcp.ID_Producto,
                     pcp.Cantidad_Total,
-                    pr.Descripcion as Nombre_Producto,
                     pr.Precio_Venta,
-                    pr.COD_Producto,
                     COALESCE(ib.Existencias, 0) as Stock_Disponible
                 FROM pedidos_consolidados_productos pcp
                 JOIN productos pr ON pcp.ID_Producto = pr.ID_Producto
-                LEFT JOIN inventario_bodega ib ON ib.ID_Bodega = %s 
-                    AND ib.ID_Producto = pcp.ID_Producto
+                LEFT JOIN inventario_bodega ib ON ib.ID_Bodega = %s AND ib.ID_Producto = pcp.ID_Producto
                 WHERE pcp.ID_Pedido = %s
                 AND pcp.ID_Producto IN ({placeholders})
-            """, (pedido['Bodega_Origen'], id_pedido, *productos_ids))
+            """
+            
+            params = [pedido['Bodega_Origen'], id_pedido] + productos_ids
+            cursor.execute(query_productos, params)
             
             productos_consolidados = cursor.fetchall()
-            productos_dict = {p['ID_Producto']: p for p in productos_consolidados}
+            productos_dict = {}
             
-            # ============================================
-            # 5. VERIFICAR STOCK DISPONIBLE
-            # ============================================
+            # 🔥 CONVERTIR Decimal a float para evitar errores
+            for p in productos_consolidados:
+                productos_dict[p['ID_Producto']] = {
+                    'ID_Producto': p['ID_Producto'],
+                    'Cantidad_Total': float(p['Cantidad_Total']),
+                    'Precio_Venta': float(p['Precio_Venta']),
+                    'Stock_Disponible': float(p['Stock_Disponible'])
+                }
+            
             from collections import defaultdict
             total_por_producto = defaultdict(float)
             
@@ -10541,59 +10528,31 @@ def procesar_carga_consolidada(id_pedido):
             
             for id_producto, cantidad_solicitada in total_por_producto.items():
                 if id_producto not in productos_dict:
-                    flash(f'Producto no está en el pedido consolidado', 'error')
+                    flash('Producto no válido', 'error')
                     return redirect(url_for('ver_pedido', id_pedido=id_pedido))
                 
                 producto = productos_dict[id_producto]
                 
                 if cantidad_solicitada > producto['Cantidad_Total']:
-                    flash(f'❌ Cantidad solicitada para {producto["Nombre_Producto"]} excede el consolidado', 'error')
+                    flash(f'Cantidad excede el consolidado', 'error')
                     return redirect(url_for('ver_pedido', id_pedido=id_pedido))
                 
                 if cantidad_solicitada > producto['Stock_Disponible']:
-                    flash(f'❌ Stock insuficiente en bodega para {producto["Nombre_Producto"]}', 'error')
+                    flash(f'Stock insuficiente en bodega', 'error')
                     return redirect(url_for('ver_pedido', id_pedido=id_pedido))
             
             # ============================================
-            # 6. REGISTRAR MOVIMIENTO DE SALIDA (BODEGA LOCAL)
+            # 5. MOVIMIENTO DE SALIDA
             # ============================================
-            
-            # Obtener ID_TipoMovimiento para SALIDA POR CARGA A RUTA
-            cursor.execute("""
-                SELECT ID_TipoMovimiento FROM catalogo_movimientos 
-                WHERE Descripcion LIKE '%Salida%' 
-                AND Descripcion LIKE '%Ruta%'
-                LIMIT 1
-            """)
-            tipo_salida = cursor.fetchone()
-            
-            if not tipo_salida:
-                cursor.execute("""
-                    SELECT ID_TipoMovimiento FROM catalogo_movimientos 
-                    WHERE Descripcion LIKE '%Salida%' OR Descripcion LIKE '%Transferencia%' 
-                    LIMIT 1
-                """)
-                tipo_salida = cursor.fetchone()
-            
-            id_tipo_salida = tipo_salida['ID_TipoMovimiento'] if tipo_salida else 1
-            
-            # 🔥 MOVIMIENTO DE INVENTARIO - SALIDA DE BODEGA LOCAL
             cursor.execute("""
                 INSERT INTO movimientos_inventario (
-                    ID_TipoMovimiento, 
-                    ID_Bodega, 
-                    Fecha, 
-                    Observacion,
-                    ID_Empresa, 
-                    ID_Usuario_Creacion, 
-                    Estado, 
-                    ID_Pedido_Origen
+                    ID_TipoMovimiento, ID_Bodega, Fecha, Observacion,
+                    ID_Empresa, ID_Usuario_Creacion, Estado, ID_Pedido_Origen
                 )
-                VALUES (%s, %s, CURDATE(), %s, %s, %s, 'Activa', %s)
+                VALUES (1, %s, CURDATE(), %s, %s, %s, 'Activa', %s)
             """, (
-                id_tipo_salida,
                 pedido['Bodega_Origen'],
-                f'SALIDA POR CARGA A RUTA #{id_pedido} - {pedido["Nombre_Ruta"]}',
+                f'SALIDA POR CARGA #{id_pedido} - {pedido["Nombre_Ruta"]}',
                 pedido['ID_Empresa'],
                 current_user.id,
                 id_pedido
@@ -10601,106 +10560,67 @@ def procesar_carga_consolidada(id_pedido):
             
             movimiento_salida_id = cursor.lastrowid
             
-            # Descontar inventario y registrar detalle de salida
             for id_producto, cantidad_total in total_por_producto.items():
                 producto = productos_dict[id_producto]
                 
-                # 🔥 DESCONTAR STOCK DE BODEGA LOCAL
                 cursor.execute("""
                     UPDATE inventario_bodega 
                     SET Existencias = Existencias - %s
                     WHERE ID_Bodega = %s AND ID_Producto = %s
                 """, (cantidad_total, pedido['Bodega_Origen'], id_producto))
                 
-                # Detalle del movimiento de salida
+                # 🔥 CALCULAR SUBTOTAL USANDO FLOAT
+                subtotal = cantidad_total * producto['Precio_Venta']
+                
                 cursor.execute("""
                     INSERT INTO detalle_movimientos_inventario (
-                        ID_Movimiento, 
-                        ID_Producto, 
-                        Cantidad,
-                        Costo_Unitario, 
-                        Precio_Unitario, 
-                        Subtotal,
+                        ID_Movimiento, ID_Producto, Cantidad,
+                        Costo_Unitario, Precio_Unitario, Subtotal,
                         ID_Usuario_Creacion
                     )
-                    VALUES (%s, %s, %s, %s, %s, %s, %s)
+                    VALUES (%s, %s, %s, 0, %s, %s, %s)
                 """, (
                     movimiento_salida_id,
                     id_producto,
                     cantidad_total,
-                    0,
                     producto['Precio_Venta'],
-                    cantidad_total * producto['Precio_Venta'],
+                    subtotal,
                     current_user.id
                 ))
             
             # ============================================
-            # 7. REGISTRAR MOVIMIENTO DE ENTRADA (RUTA - VENDEDORES)
+            # 6. DISTRIBUIR A VENDEDORES
             # ============================================
-            
-            # Obtener ID_TipoMovimiento para ENTRADA POR CARGA DE RUTA
-            cursor.execute("""
-                SELECT ID_TipoMovimiento FROM catalogo_movimientos 
-                WHERE Descripcion LIKE '%Entrada%' 
-                AND Descripcion LIKE '%Ruta%'
-                LIMIT 1
-            """)
-            tipo_entrada = cursor.fetchone()
-            
-            if not tipo_entrada:
-                cursor.execute("""
-                    SELECT ID_TipoMovimiento FROM catalogo_movimientos 
-                    WHERE Descripcion LIKE '%Entrada%' OR Descripcion LIKE '%Ingreso%' 
-                    LIMIT 1
-                """)
-                tipo_entrada = cursor.fetchone()
-            
-            id_tipo_entrada = tipo_entrada['ID_TipoMovimiento'] if tipo_entrada else 2
-            
-            # Distribuir a cada vendedor
-            productos_distribuidos = []
-            
             for item in distribucion:
-                vendedor = vendedores_dict[item['id_vendedor']]
                 producto = productos_dict[item['id_producto']]
                 
-                # 🔥 MOVIMIENTO DE RUTA - CABECERA (ENTRADA A VENDEDOR)
+                # 🔥 CALCULAR SUBTOTAL USANDO FLOAT
+                subtotal = item['cantidad'] * producto['Precio_Venta']
+                
                 cursor.execute("""
                     INSERT INTO movimientos_ruta_cabecera (
-                        ID_Asignacion,
-                        ID_TipoMovimiento,
-                        Fecha_Movimiento,
-                        ID_Usuario_Registra,
-                        Documento_Numero,
-                        ID_Pedido,
-                        Total_Productos,
-                        Total_Items,
-                        Total_Subtotal,
-                        ID_Empresa,
-                        Estado
+                        ID_Asignacion, ID_TipoMovimiento, Fecha_Movimiento,
+                        ID_Usuario_Registra, Documento_Numero, ID_Pedido,
+                        Total_Productos, Total_Items, Total_Subtotal,
+                        ID_Empresa, Estado
                     )
-                    VALUES (%s, %s, NOW(), %s, %s, %s, %s, 1, %s, %s, 'ACTIVO')
+                    VALUES (%s, 2, NOW(), %s, %s, %s, %s, 1, %s, %s, 'ACTIVO')
                 """, (
                     item['id_vendedor'],
-                    id_tipo_entrada,
                     current_user.id,
-                    f'CARGA-{id_pedido}-V{item["id_vendedor"]}',
+                    f'CARGA-{id_pedido}',
                     id_pedido,
                     item['cantidad'],
-                    item['cantidad'] * producto['Precio_Venta'],
+                    subtotal,
                     pedido['ID_Empresa']
                 ))
                 
                 movimiento_ruta_id = cursor.lastrowid
                 
-                # 🔥 MOVIMIENTO DE RUTA - DETALLE
                 cursor.execute("""
                     INSERT INTO movimientos_ruta_detalle (
-                        ID_Movimiento,
-                        ID_Producto,
-                        Cantidad,
-                        Precio_Unitario,
-                        Subtotal
+                        ID_Movimiento, ID_Producto, Cantidad,
+                        Precio_Unitario, Subtotal
                     )
                     VALUES (%s, %s, %s, %s, %s)
                 """, (
@@ -10708,16 +10628,12 @@ def procesar_carga_consolidada(id_pedido):
                     item['id_producto'],
                     item['cantidad'],
                     producto['Precio_Venta'],
-                    item['cantidad'] * producto['Precio_Venta']
+                    subtotal
                 ))
                 
-                # 🔥 ACTUALIZAR INVENTARIO DE RUTA (por vendedor)
                 cursor.execute("""
                     INSERT INTO inventario_ruta (
-                        ID_Asignacion,
-                        ID_Producto,
-                        Cantidad,
-                        Fecha_Actualizacion
+                        ID_Asignacion, ID_Producto, Cantidad, Fecha_Actualizacion
                     )
                     VALUES (%s, %s, %s, NOW())
                     ON DUPLICATE KEY UPDATE
@@ -10728,15 +10644,9 @@ def procesar_carga_consolidada(id_pedido):
                     item['id_producto'],
                     item['cantidad']
                 ))
-                
-                productos_distribuidos.append({
-                    'vendedor': vendedor['Nombre_Completo'] or vendedor['NombreUsuario'],
-                    'producto': producto['Nombre_Producto'],
-                    'cantidad': item['cantidad']
-                })
             
             # ============================================
-            # 8. ACTUALIZAR PEDIDO CONSOLIDADO
+            # 7. ACTUALIZAR PEDIDO
             # ============================================
             for id_producto, cantidad_solicitada in total_por_producto.items():
                 producto = productos_dict[id_producto]
@@ -10754,10 +10664,8 @@ def procesar_carga_consolidada(id_pedido):
                         WHERE ID_Pedido = %s AND ID_Producto = %s
                     """, (id_pedido, id_producto))
             
-            # Verificar si quedan productos
             cursor.execute("""
-                SELECT COUNT(*) as total, 
-                       COALESCE(SUM(Cantidad_Total), 0) as cantidad_total
+                SELECT COUNT(*) as total
                 FROM pedidos_consolidados_productos
                 WHERE ID_Pedido = %s
             """, (id_pedido,))
@@ -10766,83 +10674,168 @@ def procesar_carga_consolidada(id_pedido):
             
             if pedido_actualizado['total'] == 0:
                 cursor.execute("""
-                    UPDATE pedidos 
-                    SET Estado = 'Entregado',
-                        Fecha_Procesamiento = NOW()
+                    UPDATE pedidos SET Estado = 'Entregado'
                     WHERE ID_Pedido = %s
                 """, (id_pedido,))
-                estado_pedido = 'Entregado'
-                mensaje = f'✅ Carga #{id_pedido} completada y distribuida a {len(set([item["id_vendedor"] for item in distribucion]))} vendedores'
+                flash(f'✅ Carga #{id_pedido} completada', 'success')
             else:
-                cursor.execute("""
-                    UPDATE pedidos 
-                    SET Estado = 'Aprobado',
-                        Fecha_Procesamiento = NOW()
-                    WHERE ID_Pedido = %s
-                """, (id_pedido,))
-                estado_pedido = 'Aprobado'
-                mensaje = f'✅ Distribución parcial. Quedan {pedido_actualizado["cantidad_total"]} unidades pendientes'
-            
-            # ============================================
-            # 9. REGISTRAR EN BITÁCORA
-            # ============================================
-            total_items = len(productos_distribuidos)
-            total_vendedores = len(set([item['id_vendedor'] for item in distribucion]))
-            
-            cursor.execute("""
-                INSERT INTO bitacora (
-                    ID_Usuario,
-                    Accion,
-                    Descripcion,
-                    Fecha
-                )
-                VALUES (%s, 'PROCESAR_CARGA_CONSOLIDADA', %s, NOW())
-            """, (
-                current_user.id,
-                f'Carga a ruta: Pedido #{id_pedido} - Ruta: {pedido["Nombre_Ruta"]} - {total_items} items - {total_vendedores} vendedores - {estado_pedido}'
-            ))
-            
-            # ============================================
-            # 10. FLASH MESSAGES Y REDIRECCIÓN
-            # ============================================
-            flash(mensaje, 'success')
-            
-            # Resumen de distribución
-            resumen = f"📦 Distribución a {total_vendedores} vendedores:\n"
-            for item in productos_distribuidos[:5]:
-                resumen += f"• {item['vendedor']}: {item['producto']} - {item['cantidad']} unidades\n"
-            
-            if len(productos_distribuidos) > 5:
-                resumen += f"... y {len(productos_distribuidos) - 5} items más"
-            
-            flash(resumen, 'info')
+                flash(f'✅ Distribución parcial - Quedan {pedido_actualizado["total"]} productos', 'success')
             
             return redirect(url_for('ver_pedido', id_pedido=id_pedido))
             
     except Exception as e:
-        print(f"❌ Error al procesar carga consolidada: {str(e)}")
+        print(f"Error: {str(e)}")
         traceback.print_exc()
-        flash(f'Error al procesar la carga: {str(e)}', 'error')
+        flash(f'Error: {str(e)}', 'error')
         return redirect(url_for('ver_pedido', id_pedido=id_pedido))
 
 @app.route('/admin/ventas/distribuir-carga/<int:id_pedido>')
 @admin_or_bodega_required
 def distribuir_carga(id_pedido):
-    """Página de distribución de carga para pedidos consolidados"""
-    with get_db_cursor(True) as cursor:
-        cursor.execute("""
-            SELECT p.*, r.Nombre_Ruta 
-            FROM pedidos p
-            LEFT JOIN rutas r ON p.ID_Ruta = r.ID_Ruta
-            WHERE p.ID_Pedido = %s AND p.Tipo_Pedido = 'Consolidado'
-        """, (id_pedido,))
-        pedido = cursor.fetchone()
-        
-        if not pedido:
-            flash('Pedido no encontrado', 'error')
-            return redirect(url_for('admin_pedidos_venta'))
+    """
+    Muestra el formulario de distribución con datos precargados
+    """
+    try:
+        with get_db_cursor(True) as cursor:
+            # ============================================
+            # 1. OBTENER DATOS DEL PEDIDO
+            # ============================================
+            cursor.execute("""
+                SELECT 
+                    p.ID_Pedido,
+                    p.Fecha,
+                    p.Estado,
+                    p.Tipo_Pedido,
+                    p.ID_Ruta,
+                    r.Nombre_Ruta,
+                    e.ID_Empresa
+                FROM pedidos p
+                LEFT JOIN rutas r ON p.ID_Ruta = r.ID_Ruta
+                LEFT JOIN empresa e ON p.ID_Empresa = e.ID_Empresa
+                WHERE p.ID_Pedido = %s AND p.Tipo_Pedido = 'Consolidado'
+            """, (id_pedido,))
             
-        return render_template('admin/ventas/pedidos/distribuir_carga.html', pedido=pedido)
+            pedido = cursor.fetchone()
+            
+            if not pedido:
+                flash('Pedido no encontrado', 'error')
+                return redirect(url_for('admin_pedidos_venta'))
+            
+            if not pedido['ID_Ruta']:
+                flash('El pedido no tiene una ruta asignada', 'error')
+                return redirect(url_for('ver_pedido', id_pedido=id_pedido))
+            
+            # ============================================
+            # 2. OBTENER VENDEDORES ACTIVOS DE LA RUTA
+            # ============================================
+            cursor.execute("""
+                SELECT 
+                    av.ID_Asignacion,
+                    u.ID_Usuario,
+                    u.NombreUsuario
+                FROM asignacion_vendedores av
+                INNER JOIN usuarios u ON av.ID_Usuario = u.ID_Usuario
+                WHERE av.ID_Ruta = %s
+                AND av.Estado = 'Activa'
+                AND av.Fecha_Asignacion = CURDATE()
+                ORDER BY u.NombreUsuario
+            """, (pedido['ID_Ruta'],))
+            
+            vendedores = cursor.fetchall()
+            
+            # ============================================
+            # 3. OBTENER PRODUCTOS DEL CONSOLIDADO
+            # ============================================
+            cursor.execute("""
+                SELECT 
+                    pcp.ID_Producto,
+                    pcp.Cantidad_Total,
+                    pr.Descripcion as Nombre_Producto,
+                    pr.COD_Producto,
+                    pr.Precio_Venta
+                FROM pedidos_consolidados_productos pcp
+                INNER JOIN productos pr ON pcp.ID_Producto = pr.ID_Producto
+                WHERE pcp.ID_Pedido = %s
+                ORDER BY pr.Descripcion
+            """, (id_pedido,))
+            
+            productos = cursor.fetchall()
+            
+            return render_template('admin/ventas/pedidos/distribuir_carga.html',
+                                 pedido=pedido,
+                                 vendedores=vendedores,
+                                 productos=productos,
+                                 now=datetime.now())
+            
+    except Exception as e:
+        print(f"Error: {str(e)}")
+        traceback.print_exc()
+        flash(f'Error al cargar datos: {str(e)}', 'error')
+        return redirect(url_for('ver_pedido', id_pedido=id_pedido))
+    
+@app.route('/api/rutas/<int:id_ruta>/vendedores-activos')
+@login_required
+def api_vendedores_activos(id_ruta):
+    try:
+        with get_db_cursor(True) as cursor:
+            cursor.execute("""
+                SELECT 
+                    av.ID_Asignacion,
+                    u.ID_Usuario,
+                    u.NombreUsuario
+                FROM asignacion_vendedores av
+                INNER JOIN usuarios u ON av.ID_Usuario = u.ID_Usuario
+                WHERE av.ID_Ruta = %s
+                AND av.Estado = 'Activa'
+                AND av.Fecha_Asignacion = CURDATE()
+                ORDER BY u.NombreUsuario
+            """, (id_ruta,))
+            
+            vendedores = cursor.fetchall()
+            
+            return jsonify({
+                'success': True,
+                'data': vendedores
+            })
+    except Exception as e:
+        print(f"Error API vendedores: {str(e)}")
+        return jsonify({
+            'success': False,
+            'message': str(e),
+            'data': []
+        }), 500
+
+@app.route('/api/pedidos/<int:id_pedido>/productos-consolidados')
+@login_required
+def api_productos_consolidados(id_pedido):
+    try:
+        with get_db_cursor(True) as cursor:
+            cursor.execute("""
+                SELECT 
+                    pcp.ID_Producto,
+                    pcp.Cantidad_Total,
+                    pr.Descripcion as Nombre_Producto,
+                    pr.COD_Producto,
+                    pr.Precio_Venta
+                FROM pedidos_consolidados_productos pcp
+                INNER JOIN productos pr ON pcp.ID_Producto = pr.ID_Producto
+                WHERE pcp.ID_Pedido = %s
+                ORDER BY pr.Descripcion
+            """, (id_pedido,))
+            
+            productos = cursor.fetchall()
+            
+            return jsonify({
+                'success': True,
+                'data': productos
+            })
+    except Exception as e:
+        print(f"Error API productos: {str(e)}")
+        return jsonify({
+            'success': False,
+            'message': str(e),
+            'data': []
+        }), 500
 
 # Ruta para obtener bodegas de una empresa
 @app.route('/admin/ventas/obtener-bodegas-empresa/<int:empresa_id>')
