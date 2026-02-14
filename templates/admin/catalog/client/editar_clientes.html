@@ -44,6 +44,8 @@
                     <p class="card-text">
                         <strong>Nombre:</strong> {{ cliente.Nombre }}<br>
                         <strong>Identificación:</strong> {{ cliente.RUC_CEDULA or 'No especificada' }}<br>
+                        <strong>Tipo:</strong> {{ cliente.tipo_cliente }}<br>
+                        <strong>Perfil actual:</strong> {{ cliente.perfil_cliente or 'No especificado' }}<br>
                         <strong>Ruta actual:</strong> {{ cliente.Nombre_Ruta or 'Sin ruta asignada' }}<br>
                         <strong>Fecha de creación:</strong> {{ cliente.Fecha_Creacion|default('No disponible', true) }}
                     </p>
@@ -55,7 +57,8 @@
                             1. Los clientes inactivos no aparecerán en las listas de selección<br>
                             2. El RUC/Cédula debe ser único solo entre clientes activos<br>
                             3. Puedes reactivar un cliente cambiando su estado a "Activo"<br>
-                            4. La ruta es opcional y ayuda en la organización de entregas
+                            4. El perfil determina el tratamiento comercial del cliente<br>
+                            5. La ruta es opcional y ayuda en la organización de entregas
                         </small>
                     </div>
                 </div>
@@ -79,6 +82,17 @@
                     <div class="invalid-feedback">El nombre es obligatorio (mínimo 2 caracteres).</div>
                 </div>
 
+                <!-- Teléfono -->
+                <div class="col-md-6">
+                    <label for="telefono" class="form-label required">Teléfono</label>
+                    <input type="tel" name="telefono" id="telefono" class="form-control" 
+                           value="{{ cliente.Telefono or '' }}"
+                           required maxlength="20"
+                           placeholder="Ej: 0991234567"
+                           oninput="this.value = this.value.replace(/[^0-9+\-()\s]/g, '')">
+                    <div class="invalid-feedback">Por favor ingrese un número de teléfono válido.</div>
+                </div>
+
                 <!-- RUC/Cédula -->
                 <div class="col-md-6">
                     <label for="ruc_cedula" class="form-label">RUC/Cédula</label>
@@ -95,19 +109,17 @@
                     </div>
                 </div>
 
-                <!-- Teléfono -->
+                <!-- Dirección -->
                 <div class="col-md-6">
-                    <label for="telefono" class="form-label required">Teléfono</label>
-                    <input type="tel" name="telefono" id="telefono" class="form-control" 
-                           value="{{ cliente.Telefono or '' }}"
-                           required maxlength="20"
-                           placeholder="Ej: 0991234567"
-                           oninput="this.value = this.value.replace(/[^0-9+\-()\s]/g, '')">
-                    <div class="invalid-feedback">Por favor ingrese un número de teléfono válido.</div>
+                    <label for="direccion" class="form-label">Dirección</label>
+                    <textarea name="direccion" id="direccion" class="form-control" 
+                              rows="2" maxlength="200"
+                              placeholder="Ingrese la dirección completa">{{ cliente.Direccion or '' }}</textarea>
+                    <div class="form-text">Máximo 200 caracteres</div>
                 </div>
 
                 <!-- Tipo de Cliente -->
-                <div class="col-md-6">
+                <div class="col-md-4">
                     <label for="tipo_cliente" class="form-label required">Tipo de Cliente</label>
                     <select name="tipo_cliente" id="tipo_cliente" class="form-select" required>
                         <option value="" disabled {% if not cliente.tipo_cliente %}selected{% endif %}>Seleccione...</option>
@@ -120,13 +132,23 @@
                     <div class="invalid-feedback">Por favor seleccione el tipo de cliente.</div>
                 </div>
 
-                <!-- Dirección -->
-                <div class="col-md-8">
-                    <label for="direccion" class="form-label">Dirección</label>
-                    <textarea name="direccion" id="direccion" class="form-control" 
-                              rows="2" maxlength="200"
-                              placeholder="Ingrese la dirección completa">{{ cliente.Direccion or '' }}</textarea>
-                    <div class="form-text">Máximo 200 caracteres</div>
+                <!-- Perfil de Cliente - NUEVO CAMPO -->
+                <div class="col-md-4">
+                    <label for="perfil_cliente" class="form-label required">Perfil de Cliente</label>
+                    <select name="perfil_cliente" id="perfil_cliente" class="form-select" required>
+                        <option value="" disabled {% if not cliente.perfil_cliente %}selected{% endif %}>Seleccione un perfil...</option>
+                        <option value="Ruta" {% if cliente.perfil_cliente == 'Ruta' %}selected{% endif %}>Ruta</option>
+                        <option value="Mayorista" {% if cliente.perfil_cliente == 'Mayorista' %}selected{% endif %}>Mayorista</option>
+                        <option value="Mercado" {% if cliente.perfil_cliente == 'Mercado' %}selected{% endif %}>Mercado</option>
+                        <option value="Especial" {% if cliente.perfil_cliente == 'Especial' %}selected{% endif %}>Especial</option>
+                    </select>
+                    <div class="form-text">
+                        <small>
+                            <i class="bi bi-info-circle"></i> 
+                            El perfil define el tratamiento comercial
+                        </small>
+                    </div>
+                    <div class="invalid-feedback">Por favor seleccione el perfil del cliente.</div>
                 </div>
 
                 <!-- Estado -->
@@ -142,7 +164,7 @@
                     <div class="invalid-feedback">Por favor seleccione el estado del cliente.</div>
                 </div>
                 
-                <!-- Ruta de Entrega (Nuevo campo) -->
+                <!-- Ruta de Entrega -->
                 <div class="col-md-6">
                     <label for="id_ruta" class="form-label">Ruta de Entrega</label>
                     <select name="id_ruta" id="id_ruta" class="form-select">
@@ -314,14 +336,6 @@ document.addEventListener('DOMContentLoaded', function() {
     rucCedulaInput.parentNode.insertBefore(rucNote, rucCedulaInput.nextSibling);
     {% endif %}
     
-    // Mostrar mensajes flash con toast
-    {% with messages = get_flashed_messages(with_categories=true) %}
-        {% if messages %}
-            {% for category, message in messages %}
-                showToast('{{ category }}', '{{ message }}');
-            {% endfor %}
-        {% endif %}
-    {% endwith %}
 });
 
 // Función para mostrar toasts de notificación

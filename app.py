@@ -2135,7 +2135,7 @@ def editar_empresa(id):
 def admin_clientes():
     # Valores por defecto
     clientes = []
-    rutas = []  # Nuevo: lista de rutas para el formulario
+    rutas = []
     page = 1
     per_page = 20
     total = 0
@@ -2164,7 +2164,7 @@ def admin_clientes():
             
             offset = (page - 1) * per_page
             
-            # Consulta base ACTUALIZADA con JOIN de rutas
+            # Consulta base ACTUALIZADA con JOIN de rutas y perfil_cliente
             base_query = """
                 SELECT c.*, e.Nombre_Empresa, r.Nombre_Ruta
                 FROM Clientes c
@@ -2223,7 +2223,7 @@ def admin_clientes():
     # Siempre retornamos el template, incluso si hay error
     return render_template("admin/catalog/client/clientes.html", 
                         clientes=clientes, 
-                        rutas=rutas,  # Pasar rutas al template
+                        rutas=rutas,
                         page=page,
                         per_page=per_page,
                         total=total,
@@ -2240,7 +2240,8 @@ def admin_crear_cliente():
         direccion = request.form.get("direccion", "").strip()
         ruc_cedula = request.form.get("ruc_cedula", "").strip()
         tipo_cliente = request.form.get("tipo_cliente", "Comun").strip()
-        id_ruta = request.form.get("id_ruta", "").strip()  # Nuevo campo
+        perfil_cliente = request.form.get("perfil_cliente", "Mercado").strip()  # Nuevo campo
+        id_ruta = request.form.get("id_ruta", "").strip()
         id_usuario = session.get('id_usuario', 1)
         id_empresa = session.get('id_empresa', 1)
 
@@ -2260,6 +2261,10 @@ def admin_crear_cliente():
         # Validar tipo de cliente
         if tipo_cliente not in ['Comun', 'Especial']:
             tipo_cliente = 'Comun'
+        
+        # Validar perfil de cliente
+        if perfil_cliente not in ['Ruta', 'Mayorista', 'Mercado', 'Especial']:
+            perfil_cliente = 'Mercado'
         
         # Validar ID_Ruta (puede ser opcional)
         if id_ruta:
@@ -2312,14 +2317,14 @@ def admin_crear_cliente():
                     flash("Ya existe un cliente con este RUC/Cédula", "danger")
                     return redirect(url_for("admin_clientes"))
 
-            # Insertar nuevo cliente CON el campo ID_Ruta
+            # Insertar nuevo cliente CON los campos ID_Ruta y perfil_cliente
             cursor.execute("""
                 INSERT INTO Clientes 
                 (Nombre, Telefono, Direccion, RUC_CEDULA, ID_Empresa, 
-                 ID_Usuario_Creacion, tipo_cliente, ID_Ruta)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                 ID_Usuario_Creacion, tipo_cliente, perfil_cliente, ID_Ruta)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
             """, (nombre, telefono, direccion, ruc_cedula, id_empresa, 
-                  id_usuario, tipo_cliente, id_ruta))
+                  id_usuario, tipo_cliente, perfil_cliente, id_ruta))
             
             flash("Cliente agregado correctamente.", "success")
             
@@ -2378,7 +2383,8 @@ def admin_editar_cliente(id):
                 ruc_cedula = request.form.get("ruc_cedula", "").strip()
                 estado = request.form.get("estado", "ACTIVO").strip()
                 tipo_cliente = request.form.get("tipo_cliente", "Comun").strip()
-                id_ruta = request.form.get("id_ruta", "").strip()  # Nuevo campo
+                perfil_cliente = request.form.get("perfil_cliente", "Mercado").strip()  # Nuevo campo
+                id_ruta = request.form.get("id_ruta", "").strip()
 
                 if not nombre:
                     flash("El nombre del cliente es obligatorio.", "danger")
@@ -2397,6 +2403,10 @@ def admin_editar_cliente(id):
                 # Validar tipo de cliente
                 if tipo_cliente not in ['Comun', 'Especial']:
                     tipo_cliente = 'Comun'
+                
+                # Validar perfil de cliente
+                if perfil_cliente not in ['Ruta', 'Mayorista', 'Mercado', 'Especial']:
+                    perfil_cliente = 'Mercado'
                 
                 # Validar ID_Ruta (puede ser opcional)
                 if id_ruta:
@@ -2440,7 +2450,7 @@ def admin_editar_cliente(id):
                         return render_template("admin/catalog/client/editar_clientes.html", 
                                              cliente=cliente, rutas=rutas)
 
-                # Actualizar cliente CON el campo ID_Ruta
+                # Actualizar cliente CON los campos ID_Ruta y perfil_cliente
                 cursor.execute("""
                     UPDATE Clientes 
                     SET Nombre = %s, 
@@ -2449,11 +2459,12 @@ def admin_editar_cliente(id):
                         RUC_CEDULA = %s, 
                         Estado = %s,
                         tipo_cliente = %s,
+                        perfil_cliente = %s,
                         ID_Ruta = %s
                     WHERE ID_Cliente = %s 
                     AND ID_Empresa = %s
                 """, (nombre, telefono, direccion, ruc_cedula, estado, 
-                      tipo_cliente, id_ruta, id, id_empresa))
+                      tipo_cliente, perfil_cliente, id_ruta, id, id_empresa))
                 
                 # Registrar en bitácora
                 accion = "actualizado" if estado == 'ACTIVO' else "desactivado"
