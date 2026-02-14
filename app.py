@@ -4445,7 +4445,7 @@ def admin_crear_compra():
                         p.ID_Producto, 
                         p.COD_Producto, 
                         p.Descripcion,
-                        COALESCE(p.Precio_Venta, 0) as Precio_Venta, 
+                        COALESCE(p.Precio_Mercado, 0) as Precio_Venta, 
                         p.ID_Categoria, 
                         c.Descripcion as Categoria,
                         um.Descripcion as Unidad_Medida,
@@ -4748,7 +4748,7 @@ def verificar_existencias_producto(id_producto):
                 SELECT 
                     p.ID_Producto,
                     p.Descripcion,
-                    COALESCE(p.Precio_Venta, 0) as Precio_Venta,
+                    COALESCE(p.Precio_Mercado, 0) as Precio_Venta,
                     um.Descripcion as Unidad_Medida,
                     COALESCE(ib.Existencias, 0) as Existencias
                 FROM productos p
@@ -4827,377 +4827,6 @@ def obtener_id_bodega_empresa(id_empresa=None):
     except Exception as e:
         print(f"❌ Error al obtener bodega: {str(e)}")
         return None
-
-@app.route('/admin/compras/compras-entradas/editar/<int:id_movimiento>', methods=['GET', 'POST'])
-@admin_required
-@bitacora_decorator("COMPRAS-ENTRADAS-EDITAR")
-def admin_editar_compra(id_movimiento):
-    try:
-        if request.method == 'GET':
-            with get_db_cursor(True) as cursor:
-                # Obtener datos del movimiento principal
-                cursor.execute("""
-                    SELECT 
-                        mi.ID_Movimiento,
-                        mi.ID_TipoMovimiento,
-                        mi.N_Factura_Externa,
-                        mi.Fecha,
-                        mi.ID_Proveedor,
-                        mi.Tipo_Compra,
-                        mi.Observacion,
-                        mi.ID_Bodega,
-                        mi.ID_Usuario_Creacion,
-                        cm.Descripcion as Tipo_Movimiento_Desc,
-                        (SELECT SUM(Subtotal) FROM detalle_movimientos_inventario 
-                         WHERE ID_Movimiento = mi.ID_Movimiento) as Total_Compra,
-                        mi.Estado
-                    FROM Movimientos_Inventario mi
-                    LEFT JOIN catalogo_movimientos cm ON mi.ID_TipoMovimiento = cm.ID_TipoMovimiento
-                    WHERE mi.ID_Movimiento = %s AND mi.Estado = 1
-                """, (id_movimiento,))
-                
-                movimiento = cursor.fetchone()
-                
-                if not movimiento:
-                    flash('Compra no encontrada o ha sido anulada', 'error')
-                    return redirect(url_for('admin_compras_entradas'))
-                
-                # Obtener detalles del movimiento - CORREGIDO: Sin Lote y Fecha_Vencimiento
-                cursor.execute("""
-                    SELECT 
-                        dmi.ID_Detalle_Movimiento,
-                        dmi.ID_Producto,
-                        p.COD_Producto,
-                        p.Descripcion as Producto_Desc,
-                        COALESCE((
-                            SELECT SUM(dmi2.Cantidad) 
-                            FROM detalle_movimientos_inventario dmi2
-                            INNER JOIN Movimientos_Inventario mi2 ON dmi2.ID_Movimiento = mi2.ID_Movimiento
-                            WHERE dmi2.ID_Producto = p.ID_Producto
-                            AND mi2.ID_TipoMovimiento = 1  -- Solo compras
-                            AND mi2.Estado = 1
-                        ), 0) as Existencias,
-                        dmi.Cantidad,
-                        dmi.Costo_Unitario,
-                        dmi.Precio_Unitario,
-                        dmi.Subtotal
-                    FROM detalle_movimientos_inventario dmi
-                    INNER JOIN Productos p ON dmi.ID_Producto = p.ID_Producto
-                    WHERE dmi.ID_Movimiento = %s
-                """, (id_movimiento,))
-                
-                detalles = cursor.fetchall()
-                
-                # Obtener tipos de movimiento de entrada/compra
-                cursor.execute("""
-                    SELECT ID_TipoMovimiento, Descripcion, Letra, Adicion
-                    FROM catalogo_movimientos 
-                    WHERE Adicion = 'ENTRADA' OR Letra = 'E'
-                    ORDER BY Descripcion
-                """)
-                tipos_movimiento = cursor.fetchall()
-                
-                # Obtener proveedores activos
-                cursor.execute("SELECT ID_Proveedor, Nombre FROM Proveedores WHERE Estado = 'ACTIVO' ORDER BY Nombre")
-                proveedores = cursor.fetchall()
-                
-                # Obtener bodegas activas
-                cursor.execute("SELECT ID_Bodega, Nombre FROM bodegas WHERE Estado = 'activa'")
-                bodegas = cursor.fetchall()
-                
-                # Obtener categorías de productos
-                cursor.execute("SELECT ID_Categoria, Descripcion FROM categorias_producto ORDER BY Descripcion")
-                categorias = cursor.fetchall()
-                
-                # Obtener productos activos CON PRECIO_VENTA y UNIDAD DE MEDIDA
-                cursor.execute("""
-                    SELECT 
-                        p.ID_Producto, 
-                        p.COD_Producto, 
-                        p.Descripcion,
-                        p.Precio_Venta, 
-                        p.ID_Categoria, 
-                        c.Descripcion as Categoria,
-                        um.Descripcion as Unidad_Medida,
-                        um.Abreviatura as Simbolo_Medida
-                    FROM Productos p
-                    LEFT JOIN categorias_producto c ON p.ID_Categoria = c.ID_Categoria
-                    LEFT JOIN unidades_medida um ON p.Unidad_Medida = um.ID_Unidad
-                    WHERE p.Estado = 'activo'
-                    ORDER BY c.Descripcion, p.Descripcion
-                """)
-                productos = cursor.fetchall()
-                
-                # Verificar si existe cuenta por pagar
-                cursor.execute("""
-                    SELECT ID_Cuenta, Saldo_Pendiente, Monto_Movimiento
-                    FROM Cuentas_Por_Pagar 
-                    WHERE ID_Movimiento = %s
-                """, (id_movimiento,))
-                cuenta_por_pagar = cursor.fetchone()
-                
-                return render_template('admin/compras/editar_compra.html',
-                                    movimiento=movimiento,
-                                    detalles=detalles,
-                                    tipos_movimiento=tipos_movimiento,
-                                    proveedores=proveedores,
-                                    bodegas=bodegas,
-                                    productos=productos,
-                                    categorias=categorias,
-                                    cuenta_por_pagar=cuenta_por_pagar)
-        
-        elif request.method == 'POST':
-            id_usuario_modificacion = current_user.id
-            
-            # Obtener datos del formulario
-            id_tipo_movimiento = request.form.get('id_tipo_movimiento')
-            n_factura_externa = request.form.get('n_factura_externa')
-            fecha = request.form.get('fecha')
-            id_proveedor = request.form.get('id_proveedor')
-            tipo_compra = request.form.get('tipo_compra', 'CONTADO')
-            observacion = request.form.get('observacion')
-            id_bodega = request.form.get('id_bodega')
-            fecha_vencimiento = request.form.get('fecha_vencimiento')
-            
-            # Obtener productos del formulario - CORREGIDO: Sin lotes y fechas de vencimiento
-            productos = []
-            producto_ids = request.form.getlist('productos[]')
-            cantidades = request.form.getlist('cantidades[]')
-            costos_unitarios = request.form.getlist('costos_unitarios[]')
-            precios_unitarios = request.form.getlist('precios_unitarios[]')
-            
-            print(f"[EDIT] Datos recibidos - Productos: {len(producto_ids)}, IDs: {producto_ids}")
-            
-            # Validar datos requeridos
-            if not all([id_tipo_movimiento, fecha, id_bodega, id_usuario_modificacion]):
-                flash('Todos los campos obligatorios deben ser completados', 'error')
-                return redirect(url_for('admin_editar_compra', id_movimiento=id_movimiento))
-            
-            # Validar que hay productos
-            if not producto_ids or len(producto_ids) == 0:
-                flash('Debe agregar al menos un producto', 'error')
-                return redirect(url_for('admin_editar_compra', id_movimiento=id_movimiento))
-            
-            # Construir lista de productos - CORREGIDO: Sin lotes y fechas de vencimiento
-            for i in range(len(producto_ids)):
-                if producto_ids[i] and cantidades[i] and costos_unitarios[i]:
-                    cantidad = round(float(cantidades[i]), 2)
-                    costo_unitario = round(float(costos_unitarios[i]), 2)
-                    precio_unitario = round(float(precios_unitarios[i]) if precios_unitarios[i] and precios_unitarios[i] != '' else costo_unitario, 2)
-                    
-                    productos.append({
-                        'id_producto': producto_ids[i],
-                        'cantidad': cantidad,
-                        'costo_unitario': costo_unitario,
-                        'precio_unitario': precio_unitario
-                    })
-            
-            # Validar usuario
-            try:
-                id_usuario = int(id_usuario_modificacion)
-                if id_usuario <= 0:
-                    raise ValueError("ID debe ser mayor a 0")
-            except (ValueError, TypeError) as e:
-                print(f"[EDIT] Error en ID usuario: {e}")
-                flash('ID de usuario no válido', 'error')
-                return redirect(url_for('admin_editar_compra', id_movimiento=id_movimiento))
-            
-            # USAR get_db_cursor(True) para transacción automática
-            with get_db_cursor(True) as cursor:
-                # 1. Verificar que el movimiento existe y está activo
-                cursor.execute("""
-                    SELECT Estado, ID_Bodega, Tipo_Compra, ID_Proveedor 
-                    FROM Movimientos_Inventario 
-                    WHERE ID_Movimiento = %s
-                """, (id_movimiento,))
-                movimiento_actual = cursor.fetchone()
-                
-                if not movimiento_actual:
-                    flash('Movimiento no encontrado', 'error')
-                    return redirect(url_for('admin_compras_entradas'))
-                
-                if movimiento_actual['Estado'] != 1:
-                    flash('No se puede editar un movimiento anulado', 'error')
-                    return redirect(url_for('admin_compras_entradas'))
-                
-                bodega_anterior = movimiento_actual['ID_Bodega']
-                print(f"[EDIT] Reversando existencias de movimiento {id_movimiento} de bodega {bodega_anterior}")
-                
-                # 2. Reversar existencias de productos anteriores
-                cursor.execute("""
-                    SELECT dmi.ID_Producto, dmi.Cantidad 
-                    FROM detalle_movimientos_inventario dmi
-                    WHERE dmi.ID_Movimiento = %s
-                """, (id_movimiento,))
-                
-                detalles_anteriores = cursor.fetchall()
-                
-                for detalle in detalles_anteriores:
-                    cursor.execute("""
-                        UPDATE Inventario_Bodega 
-                        SET Existencias = Existencias - %s 
-                        WHERE ID_Bodega = %s AND ID_Producto = %s
-                    """, (detalle['Cantidad'], bodega_anterior, detalle['ID_Producto']))
-                    print(f"[EDIT] Reversado producto {detalle['ID_Producto']} en bodega {bodega_anterior}: -{detalle['Cantidad']} unidades")
-                
-                # 3. Eliminar detalles anteriores
-                cursor.execute("DELETE FROM detalle_movimientos_inventario WHERE ID_Movimiento = %s", (id_movimiento,))
-                print(f"[EDIT] Detalles anteriores eliminados")
-                
-                # 4. Actualizar movimiento principal
-                cursor.execute("""
-                    UPDATE Movimientos_Inventario 
-                    SET ID_TipoMovimiento = %s,
-                        N_Factura_Externa = %s,
-                        Fecha = %s,
-                        ID_Proveedor = %s,
-                        Tipo_Compra = %s,
-                        Observacion = %s,
-                        ID_Bodega = %s,
-                        ID_Usuario_Modificacion = %s,
-                        Fecha_Modificacion = NOW()
-                    WHERE ID_Movimiento = %s
-                """, (
-                    id_tipo_movimiento,
-                    n_factura_externa,
-                    fecha,
-                    id_proveedor if id_proveedor else None,
-                    tipo_compra,
-                    observacion,
-                    id_bodega,
-                    id_usuario,
-                    id_movimiento
-                ))
-                print(f"[EDIT] Movimiento principal actualizado")
-                
-                # 5. Insertar nuevos detalles y actualizar existencias
-                total_compra = 0
-                for producto in productos:
-                    cantidad = producto['cantidad']
-                    costo_unitario = producto['costo_unitario']
-                    subtotal = round(cantidad * costo_unitario, 2)
-                    total_compra += subtotal
-                    
-                    # Insertar detalle - CORREGIDO: Sin Lote y Fecha_Vencimiento
-                    cursor.execute("""
-                        INSERT INTO detalle_movimientos_inventario (
-                            ID_Movimiento, ID_Producto, Cantidad, Costo_Unitario, 
-                            Precio_Unitario, Subtotal, ID_Usuario_Creacion
-                        ) VALUES (%s, %s, %s, %s, %s, %s, %s)
-                    """, (
-                        id_movimiento,
-                        producto['id_producto'],
-                        cantidad,
-                        costo_unitario,
-                        producto['precio_unitario'],
-                        subtotal,
-                        id_usuario
-                    ))
-                    
-                    # Actualizar Inventario_Bodega
-                    cursor.execute("""
-                        SELECT ID_Producto FROM Inventario_Bodega 
-                        WHERE ID_Bodega = %s AND ID_Producto = %s
-                    """, (id_bodega, producto['id_producto']))
-                    
-                    existing_record = cursor.fetchone()
-                    
-                    if existing_record:
-                        cursor.execute("""
-                            UPDATE Inventario_Bodega 
-                            SET Existencias = Existencias + %s 
-                            WHERE ID_Bodega = %s AND ID_Producto = %s
-                        """, (cantidad, id_bodega, producto['id_producto']))
-                    else:
-                        cursor.execute("""
-                            INSERT INTO Inventario_Bodega (ID_Bodega, ID_Producto, Existencias)
-                            VALUES (%s, %s, %s)
-                        """, (id_bodega, producto['id_producto'], cantidad))
-                    
-                    print(f"[EDIT] Producto {producto['id_producto']} agregado en bodega {id_bodega}: +{cantidad} unidades")
-                
-                print(f"[EDIT] Total compra actualizado: C$ {total_compra:.2f}")
-                
-                # 6. Manejar cuenta por pagar
-                cursor.execute("SELECT ID_Cuenta FROM Cuentas_Por_Pagar WHERE ID_Movimiento = %s", (id_movimiento,))
-                cuenta_existente = cursor.fetchone()
-                
-                # Si la compra es a crédito y hay proveedor
-                if tipo_compra == 'CREDITO' and id_proveedor:
-                    if not fecha_vencimiento:
-                        from datetime import datetime, timedelta
-                        fecha_compra = datetime.strptime(fecha, '%Y-%m-%d')
-                        fecha_vencimiento = (fecha_compra + timedelta(days=30)).strftime('%Y-%m-%d')
-                    
-                    if cuenta_existente:
-                        # Actualizar cuenta existente
-                        cursor.execute("""
-                            UPDATE Cuentas_Por_Pagar 
-                            SET Fecha = %s,
-                                ID_Proveedor = %s,
-                                Num_Documento = %s,
-                                Observacion = %s,
-                                Fecha_Vencimiento = %s,
-                                Tipo_Movimiento = %s,
-                                Monto_Movimiento = %s,
-                                Saldo_Pendiente = %s,
-                                ID_Usuario_Creacion = %s
-                            WHERE ID_Movimiento = %s
-                        """, (
-                            fecha,
-                            id_proveedor,
-                            n_factura_externa or '',
-                            observacion or 'Compra a crédito editada',
-                            fecha_vencimiento,
-                            id_tipo_movimiento,
-                            total_compra,
-                            total_compra,
-                            id_usuario,
-                            id_movimiento
-                        ))
-                        print(f"[EDIT] Cuenta por pagar actualizada")
-                    else:
-                        # Crear nueva cuenta
-                        cursor.execute("""
-                            INSERT INTO Cuentas_Por_Pagar (
-                                ID_Movimiento, Fecha, ID_Proveedor, Num_Documento, Observacion,
-                                Fecha_Vencimiento, Tipo_Movimiento, Monto_Movimiento, ID_Empresa,
-                                Saldo_Pendiente, ID_Usuario_Creacion
-                            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-                        """, (
-                            id_movimiento,
-                            fecha,
-                            id_proveedor,
-                            n_factura_externa or '',
-                            observacion or 'Compra a crédito',
-                            fecha_vencimiento,
-                            id_tipo_movimiento,
-                            total_compra,
-                            session.get('id_empresa', 1),
-                            total_compra,
-                            id_usuario
-                        ))
-                        print(f"[EDIT] Nueva cuenta por pagar creada")
-                elif cuenta_existente:
-                    # Si antes era crédito y ahora es contado, eliminar la cuenta
-                    cursor.execute("DELETE FROM Cuentas_Por_Pagar WHERE ID_Movimiento = %s", (id_movimiento,))
-                    print(f"[EDIT] Cuenta por pagar eliminada (cambio a contado)")
-                
-                flash('Compra actualizada exitosamente', 'success')
-                print(f"[EDIT] Compra {id_movimiento} actualizada exitosamente")
-                return redirect(url_for('admin_compras_entradas'))
-                
-    except Exception as e:
-        print(f" Error editando compra: {str(e)}")
-        import traceback
-        traceback.print_exc()
-        
-        if request.method == 'GET':
-            flash(f'Error al cargar formulario de edición: {str(e)}', 'error')
-            return redirect(url_for('admin_compras_entradas'))
-        else:
-            flash(f'Error al actualizar compra: {str(e)}', 'error')
-            return redirect(url_for('admin_editar_compra', id_movimiento=id_movimiento))
 
 @app.route('/admin/compras/compras-entradas/anular/<int:id_movimiento>', methods=['GET', 'POST'])
 @admin_required
@@ -6315,7 +5944,6 @@ def admin_ventas_salidas():
                         WHEN f.Estado = 'Anulada' THEN 'ANULADA'
                         ELSE UPPER(f.Estado)
                     END as Estado_Formateado,
-                    -- Agregar clase CSS para colorear según estado
                     CASE 
                         WHEN f.Estado = 'Activa' THEN 'badge-success'
                         WHEN f.Estado = 'Anulada' THEN 'badge-danger'
@@ -6343,7 +5971,7 @@ def admin_ventas_salidas():
                 LEFT JOIN catalogo_movimientos cm ON mi.ID_TipoMovimiento = cm.ID_TipoMovimiento
                 {where_clause}
                 ORDER BY f.Fecha DESC, f.ID_Factura DESC
-                LIMIT 100  -- Aumenté el límite para mostrar más resultados
+                LIMIT 100 
             """, tuple(params))
             ventas = cursor.fetchall()
             
@@ -6461,7 +6089,7 @@ def admin_crear_venta():
                     p.COD_Producto, 
                     p.Descripcion, 
                     COALESCE(ib.Existencias, 0) as Existencias,
-                    COALESCE(p.Precio_Venta, 0) as Precio_Venta, 
+                    COALESCE(p.Precio_Mercado, 0) as Precio_Venta, 
                     p.ID_Categoria,
                     c.Descripcion as Categoria
                 FROM productos p
@@ -6680,9 +6308,9 @@ def admin_crear_venta():
                     # ✅ DETECTAR SI ES PRODUCTO DE HUEVOS POR CATEGORÍA
                     if producto_data['ID_Categoria'] == ID_CATEGORIA_HUEVOS:
                         total_cajillas_huevos += cantidad
-                        print(f"  🥚 ¡Producto de huevos! Total cajillas: {total_cajillas_huevos}")
+                        print(f"  ¡Producto de huevos! Total cajillas: {total_cajillas_huevos}")
                 
-                print(f"📊 RESUMEN:")
+                print(f" RESUMEN:")
                 print(f"  Total venta: C${total_venta:,.2f}")
                 print(f"  Total cajillas de huevos: {total_cajillas_huevos}")
                 
@@ -6693,7 +6321,7 @@ def admin_crear_venta():
                     separadores_base_extra = total_cajillas_huevos // 10
                     separadores_totales = separadores_entre_cajillas + separadores_base_extra
                     
-                    print(f"🔢 CÁLCULO DE SEPARADORES:")
+                    print(f" CÁLCULO DE SEPARADORES:")
                     print(f"  Cajillas: {total_cajillas_huevos}")
                     print(f"  Separadores entre cajillas: {separadores_entre_cajillas}")
                     print(f"  Separadores base extra: {separadores_base_extra}")
@@ -6701,7 +6329,7 @@ def admin_crear_venta():
                 
                 # 4. DESCONTAR SEPARADORES SI HAY PRODUCTOS DE HUEVOS
                 if separadores_totales > 0:
-                    print(f"🔧 Descontando {separadores_totales} separadores...")
+                    print(f" Descontando {separadores_totales} separadores...")
                     
                     # Verificar stock de separadores
                     cursor.execute("""
@@ -6926,7 +6554,7 @@ def api_productos_por_cliente(cliente_id):
                     p.COD_Producto, 
                     p.Descripcion, 
                     COALESCE(ib.Existencias, 0) as Existencias,
-                    COALESCE(p.Precio_Venta, 0) as Precio_Venta, 
+                    COALESCE(p.Precio_Mercado, 0) as Precio_Venta, 
                     p.ID_Categoria,
                     c.Descripcion as Categoria,
                     um.Descripcion as Unidad_Medida
