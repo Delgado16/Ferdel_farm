@@ -13,9 +13,9 @@
             <span class="badge bg-info">
                 <i class="fas fa-calendar me-1"></i>{{ fecha_hoy }}
             </span>
-            {% if info_bodega %}
+            {% if info_bodegas and info_bodegas|length > 0 %}
             <span class="badge bg-secondary ms-2">
-                <i class="fas fa-warehouse me-1"></i>{{ info_bodega.Nombre }}
+                <i class="fas fa-warehouse me-1"></i>{{ info_bodegas|length }} Bodegas
             </span>
             {% endif %}
             <span class="badge bg-light text-dark ms-2">
@@ -34,7 +34,7 @@
                         <div>
                             <h6 class="text-muted mb-1">Movimientos Hoy</h6>
                             <h2 class="fw-bold text-dark mb-0">
-                                {{ resumen_dia.total_movimientos if resumen_dia else 0 }}
+                                {{ resumen_dia_total.total_movimientos if resumen_dia_total else 0 }}
                             </h2>
                         </div>
                         <div class="text-primary">
@@ -53,8 +53,8 @@
                         <div>
                             <h6 class="text-muted mb-1">Salidas Hoy</h6>
                             <h2 class="fw-bold text-dark mb-0">
-                                {% if resumen_dia and resumen_dia.total_salidas %}
-                                    {{ "{:,.2f}".format(resumen_dia.total_salidas) }}
+                                {% if resumen_dia_total and resumen_dia_total.total_salidas %}
+                                    {{ "{:,.2f}".format(resumen_dia_total.total_salidas) }}
                                 {% else %}
                                     0
                                 {% endif %}
@@ -76,8 +76,8 @@
                         <div>
                             <h6 class="text-muted mb-1">Entradas Hoy</h6>
                             <h2 class="fw-bold text-dark mb-0">
-                                {% if resumen_dia and resumen_dia.total_entradas %}
-                                    {{ resumen_dia.total_entradas }}
+                                {% if resumen_dia_total and resumen_dia_total.total_entradas %}
+                                    {{ "{:,.2f}".format(resumen_dia_total.total_entradas) }}
                                 {% else %}
                                     0
                                 {% endif %}
@@ -99,7 +99,7 @@
                         <div>
                             <h6 class="text-muted mb-1">Productos Movidos</h6>
                             <h2 class="fw-bold text-dark mb-0">
-                                {{ resumen_dia.total_productos_movidos if resumen_dia else 0 }}
+                                {{ resumen_dia_total.total_productos_movidos if resumen_dia_total else 0 }}
                             </h2>
                         </div>
                         <div class="text-info">
@@ -129,25 +129,15 @@
             </div>
         </div>
         
-        <!-- Info Bodega -->
+        <!-- Total Bodegas -->
         <div class="col-xl-2 col-md-4 col-sm-6 mb-3">
             <div class="card">
                 <div class="card-body">
                     <div class="d-flex justify-content-between align-items-center">
                         <div>
-                            <h6 class="text-muted mb-1">
-                                {% if info_bodega %}
-                                    {{ info_bodega.Nombre[:10] }}...
-                                {% else %}
-                                    Bodega
-                                {% endif %}
-                            </h6>
+                            <h6 class="text-muted mb-1">Bodegas Activas</h6>
                             <h2 class="fw-bold text-dark mb-0">
-                                {% if info_bodega %}
-                                    {{ info_bodega.total_productos if info_bodega.total_productos else 0 }}
-                                {% else %}
-                                    Bodega Central
-                                {% endif %}
+                                {{ sistema_info.total_bodegas_sistema if sistema_info else 0 }}
                             </h2>
                         </div>
                         <div class="text-secondary">
@@ -181,6 +171,7 @@
                                     <th>Producto</th>
                                     <th class="text-end">Cantidad</th>
                                     <th>Unidad</th>
+                                    <th>Bodega</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -199,11 +190,14 @@
                                     <td>
                                         <span class="badge bg-light text-dark">{{ producto.Unidad }}</span>
                                     </td>
+                                    <td>
+                                        <small>{{ producto.Bodega[:15] }}{% if producto.Bodega|length > 15 %}...{% endif %}</small>
+                                    </td>
                                 </tr>
                                 {% endfor %}
                                 {% else %}
                                 <tr>
-                                    <td colspan="4" class="text-center py-5">
+                                    <td colspan="5" class="text-center py-5">
                                         <i class="fas fa-check-circle fa-3x text-success mb-3"></i>
                                         <h5 class="text-muted">¡Excelente!</h5>
                                         <p class="text-muted">No hay salidas registradas hoy</p>
@@ -245,7 +239,7 @@
                                 {% if kardex_hoy %}
                                 {% for movimiento in kardex_hoy %}
                                 <tr>
-                                    <td><small>{{ movimiento.hora }}</small></td>
+                                    <td><small>{{ movimiento.Hora }}</small></td>
                                     <td>
                                         <div class="fw-bold mb-1">{{ movimiento.Tipo_Movimiento[:15] }}{% if movimiento.Tipo_Movimiento|length > 15 %}...{% endif %}</div>
                                     </td>
@@ -271,12 +265,11 @@
                                         {% endif %}
                                     </td>
                                     <td><small>{{ movimiento.Bodega[:15] }}{% if movimiento.Bodega|length > 15 %}...{% endif %}</small></td>
-                                    <td>
                                 </tr>
                                 {% endfor %}
                                 {% else %}
                                 <tr>
-                                    <td colspan="7" class="text-center py-5">
+                                    <td colspan="6" class="text-center py-5">
                                         <i class="fas fa-info-circle fa-3x mb-3"></i>
                                         <h5 class="text-muted">Sin movimientos</h5>
                                         <p class="text-muted">No hay movimientos registrados hoy</p>
@@ -312,7 +305,8 @@
                                     <th>#</th>
                                     <th>Producto</th>
                                     <th class="text-end">Cantidad</th>
-                                    <th class="text-end">Total</th>
+                                    <th>Unidad</th>
+                                    <th>Bodega</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -328,16 +322,17 @@
                                             {{ "{:,.2f}".format(producto.Total_Salidas|float) }} {{ producto.Unidad }}
                                         </span>
                                     </td>
-                                    <td class="text-end">
-                                        <span class="badge bg-light text-dark">
-                                            C${{ "{:,.2f}".format(producto.Total_Vendido|float) if producto.Total_Vendido else "0.00" }}
-                                        </span>
+                                    <td>
+                                        <span class="badge bg-light text-dark">{{ producto.Unidad }}</span>
+                                    </td>
+                                    <td>
+                                        <small>{{ producto.Bodega[:15] }}{% if producto.Bodega|length > 15 %}...{% endif %}</small>
                                     </td>
                                 </tr>
                                 {% endfor %}
                                 {% else %}
                                 <tr>
-                                    <td colspan="4" class="text-center py-5">
+                                    <td colspan="5" class="text-center py-5">
                                         <i class="fas fa-chart-bar fa-3x mb-3"></i>
                                         <h5 class="text-muted">Sin datos</h5>
                                         <p class="text-muted">No hay datos de ventas hoy</p>
@@ -371,6 +366,7 @@
                                     <th class="text-center">Stock Actual</th>
                                     <th class="text-center">Mínimo</th>
                                     <th>%</th>
+                                    <th>Bodega</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -381,7 +377,7 @@
                                         <div class="fw-bold mb-1">{{ producto.Producto[:25] }}{% if producto.Producto|length > 25 %}...{% endif %}</div>
                                     </td>
                                     <td class="text-center">
-                                        <span class="badge {% if producto.Stock_Actual <= producto.Stock_Minimo %}bg-danger{% else %}bg-warning{% endif %}">
+                                        <span class="badge {% if producto.Nivel_Alerta == 'CRÍTICO' %}bg-danger{% elif producto.Nivel_Alerta == 'BAJO' %}bg-warning{% else %}bg-success{% endif %}">
                                             {{ producto.Stock_Actual_Formateado }}
                                         </span>
                                     </td>
@@ -401,11 +397,14 @@
                                             <small class="text-muted">{{ "{:.1f}".format(producto.Porcentaje_Stock|float) }}%</small>
                                         </div>
                                     </td>
+                                    <td>
+                                        <small>{{ producto.Bodega[:15] }}{% if producto.Bodega|length > 15 %}...{% endif %}</small>
+                                    </td>
                                 </tr>
                                 {% endfor %}
                                 {% else %}
                                 <tr>
-                                    <td colspan="4" class="text-center py-5">
+                                    <td colspan="5" class="text-center py-5">
                                         <i class="fas fa-check-circle fa-3x text-success mb-3"></i>
                                         <h5 class="text-success">¡Todo en orden!</h5>
                                         <p class="text-muted">No hay productos con stock bajo</p>
@@ -419,13 +418,13 @@
             </div>
         </div>
 
-        <!-- Movimientos por bodega -->
+        <!-- Resumen de movimientos por bodega -->
         <div class="col-xl-4 col-lg-6 mb-4">
             <div class="card shadow-sm">
                 <div class="card-header bg-white">
                     <div class="d-flex justify-content-between align-items-center">
                         <h5 class="card-title fw-bold mb-0">
-                            <i class="fas fa-warehouse me-2 text-secondary"></i>Movimientos por bodega
+                            <i class="fas fa-warehouse me-2 text-secondary"></i>Resumen por bodega
                         </h5>
                     </div>
                 </div>
@@ -438,33 +437,37 @@
                                     <th class="text-center">Movimientos</th>
                                     <th class="text-end">Entradas</th>
                                     <th class="text-end">Salidas</th>
+                                    <th class="text-center">Productos</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                {% if movimientos_por_bodega %}
-                                {% for bodega in movimientos_por_bodega %}
+                                {% if resumen_por_bodega %}
+                                {% for bodega in resumen_por_bodega %}
                                 <tr>
                                     <td>
                                         <div class="fw-bold mb-1">{{ bodega.Bodega[:20] }}{% if bodega.Bodega|length > 20 %}...{% endif %}</div>
                                     </td>
                                     <td class="text-center">
-                                        <span class="badge bg-primary">{{ bodega.movimientos }}</span>
+                                        <span class="badge bg-primary">{{ bodega.total_movimientos }}</span>
                                     </td>
                                     <td class="text-end">
                                         <span class="badge bg-success">
-                                            {{ "{:,.2f}".format(bodega.entradas|float) if bodega.entradas else "0.00" }}
+                                            {{ "{:,.2f}".format(bodega.total_entradas|float) if bodega.total_entradas else "0.00" }}
                                         </span>
                                     </td>
                                     <td class="text-end">
                                         <span class="badge bg-danger">
-                                            {{ "{:,.2f}".format(bodega.salidas|float) if bodega.salidas else "0.00" }}
+                                            {{ "{:,.2f}".format(bodega.total_salidas|float) if bodega.total_salidas else "0.00" }}
                                         </span>
+                                    </td>
+                                    <td class="text-center">
+                                        <span class="badge bg-info">{{ bodega.total_productos_movidos }}</span>
                                     </td>
                                 </tr>
                                 {% endfor %}
                                 {% else %}
                                 <tr>
-                                    <td colspan="4" class="text-center py-5">
+                                    <td colspan="5" class="text-center py-5">
                                         <i class="fas fa-warehouse fa-3x mb-3"></i>
                                         <h5 class="text-muted">Sin movimientos</h5>
                                         <p class="text-muted">No hay movimientos por bodega</p>
@@ -473,6 +476,59 @@
                                 {% endif %}
                             </tbody>
                         </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Información de Bodegas -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card shadow-sm">
+                <div class="card-header bg-white">
+                    <h5 class="card-title fw-bold mb-0">
+                        <i class="fas fa-warehouse me-2 text-primary"></i>Estado de Bodegas
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        {% if info_bodegas %}
+                        {% for bodega in info_bodegas %}
+                        <div class="col-md-3 col-sm-6 mb-3">
+                            <div class="card border h-100">
+                                <div class="card-body">
+                                    <div class="d-flex align-items-center mb-2">
+                                        <i class="fas fa-warehouse fa-2x me-2 text-secondary"></i>
+                                        <h6 class="card-title fw-bold mb-0">{{ bodega.Nombre }}</h6>
+                                    </div>
+                                    <p class="text-muted small mb-2">{{ bodega.Ubicacion|default('Sin ubicación') }}</p>
+                                    <div class="d-flex justify-content-between">
+                                        <div>
+                                            <small class="text-muted d-block">Productos</small>
+                                            <span class="fw-bold">{{ bodega.total_productos|default(0) }}</span>
+                                        </div>
+                                        <div>
+                                            <small class="text-muted d-block">Existencias</small>
+                                            <span class="fw-bold">{{ "{:,.0f}".format(bodega.total_existencias|float) }}</span>
+                                        </div>
+                                        <div>
+                                            <small class="text-muted d-block">Críticos</small>
+                                            <span class="fw-bold {% if bodega.productos_criticos > 0 %}text-danger{% endif %}">
+                                                {{ bodega.productos_criticos|default(0) }}
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                        {% else %}
+                        <div class="col-12 text-center py-4">
+                            <i class="fas fa-warehouse fa-3x mb-3 text-muted"></i>
+                            <h5 class="text-muted">No hay bodegas registradas</h5>
+                        </div>
+                        {% endif %}
                     </div>
                 </div>
             </div>
@@ -494,9 +550,6 @@
                                     aria-controls="collapseResumenCategorias">
                                 <i class="fas fa-chart-pie me-1"></i>Ver Resumen
                             </button>
-                            <button class="btn btn-sm btn-outline-primary ms-2" onclick="exportarInventario()">
-                                <i class="fas fa-file-excel me-1"></i>Exportar
-                            </button>
                         </div>
                     </div>
                 </div>
@@ -507,29 +560,20 @@
                         <div class="row">
                             {% if resumen_categorias %}
                             {% for categoria in resumen_categorias %}
-                            <div class="col-md-3 col-sm-6 mb-3">
+                            <div class="col-md-4 col-sm-6 mb-3">
                                 <div class="card border-0 shadow-sm">
                                     <div class="card-body p-3">
-                                        <h6 class="card-title text-truncate mb-1" title="{{ categoria.Categoria }}">
-                                            {{ categoria.Categoria[:20] }}{% if categoria.Categoria|length > 20 %}...{% endif %}
-                                        </h6>
-                                        <div class="d-flex justify-content-between align-items-center">
-                                            <div>
-                                                <small class="text-muted">Productos:</small>
-                                                <span class="badge bg-info ms-1">{{ categoria.Total_Productos }}</span>
-                                            </div>
-                                            <div>
-                                                <small class="text-muted">Stock:</small>
-                                                <span class="badge bg-secondary ms-1">{{ "{:,.0f}".format(categoria.Stock_Total|float) }}</span>
-                                            </div>
+                                        <div class="d-flex justify-content-between">
+                                            <h6 class="card-title text-truncate mb-1" title="{{ categoria.Categoria }}">
+                                                {{ categoria.Bodega }} - {{ categoria.Categoria[:20] }}{% if categoria.Categoria|length > 20 %}...{% endif %}
+                                            </h6>
+                                            <span class="badge bg-secondary">{{ categoria.Total_Productos }}</span>
                                         </div>
                                         <div class="mt-2">
-                                            <small class="text-muted">Valor:</small>
-                                            <span class="fw-bold text-success">
-                                                C${{ "{:,.2f}".format(categoria.Valor_Total|float) }}
-                                            </span>
+                                            <small class="text-muted">Stock Total:</small>
+                                            <span class="badge bg-info ms-1">{{ "{:,.0f}".format(categoria.Stock_Total|float) }}</span>
                                         </div>
-                                        <div class="mt-1">
+                                        <div class="mt-2">
                                             {% if categoria.Productos_Criticos > 0 %}
                                             <span class="badge bg-danger me-1">Críticos: {{ categoria.Productos_Criticos }}</span>
                                             {% endif %}
@@ -557,6 +601,7 @@
                         <table class="table table-striped table-hover mb-0" id="tablaInventario">
                             <thead class="table-dark">
                                 <tr>
+                                    <th>Bodega</th>
                                     <th>Categoría</th>
                                     <th>Código</th>
                                     <th>Producto</th>
@@ -564,122 +609,92 @@
                                     <th class="text-end">Stock Actual</th>
                                     <th class="text-end">Stock Mínimo</th>
                                     <th class="text-center">Estado</th>
-                                    <th class="text-end">Precio Unit.</th>
-                                    <th class="text-end">Valor Total</th>
-                                    <th>Bodega</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {% if productos_categorias %}
-                                {% set current_category = [] %}
+                                {% set current_bodega = '' %}
+                                {% set current_category = '' %}
                                 {% for producto in productos_categorias %}
-                                {% if current_category.append(producto.Categoria) or True %}
-                                {% if loop.first or producto.Categoria != productos_categorias[loop.index0-1].Categoria %}
-                                <!-- Fila de categoría -->
-                                <tr class="table-secondary fw-bold">
-                                    <td colspan="10">
-                                        <i class="fas fa-folder me-2"></i>{{ producto.Categoria }}
-                                        {% for cat_resumen in resumen_categorias %}
-                                            {% if cat_resumen.Categoria == producto.Categoria %}
-                                                <span class="badge bg-light text-dark ms-2">
-                                                    {{ cat_resumen.Total_Productos }}
+                                    {% if current_bodega != producto.Bodega %}
+                                        {% set current_bodega = producto.Bodega %}
+                                        <!-- Fila de bodega -->
+                                        <tr class="table-primary fw-bold">
+                                            <td colspan="8">
+                                                <i class="fas fa-warehouse me-2"></i>{{ producto.Bodega }}
+                                            </td>
+                                        </tr>
+                                    {% endif %}
+                                    
+                                    {% if current_category != producto.Categoria %}
+                                        {% set current_category = producto.Categoria %}
+                                        <!-- Fila de categoría -->
+                                        <tr class="table-secondary">
+                                            <td colspan="8" class="ps-4">
+                                                <i class="fas fa-folder me-2"></i>{{ producto.Categoria }}
+                                            </td>
+                                        </tr>
+                                    {% endif %}
+                                    
+                                    <tr class="{% if producto.Estado_Stock == 'CRITICO' %}table-danger{% elif producto.Estado_Stock == 'BAJO' %}table-warning{% endif %}">
+                                        <td></td> <!-- Columna Bodega vacía -->
+                                        <td></td> <!-- Columna Categoría vacía -->
+                                        <td>
+                                            <small><code>{{ producto.Codigo|default('N/A') }}</code></small>
+                                        </td>
+                                        <td>
+                                            <div class="fw-bold mb-1">{{ producto.Producto[:40] }}{% if producto.Producto|length > 40 %}...{% endif %}</div>
+                                        </td>
+                                        <td class="text-center">
+                                            <span class="badge bg-light text-dark">{{ producto.Unidad }}</span>
+                                        </td>
+                                        <td class="text-end">
+                                            <div class="d-flex align-items-center justify-content-end">
+                                                <span class="fw-bold me-2">
+                                                    {{ "{:,.2f}".format(producto.Stock_Actual|float) }}
                                                 </span>
-                                            {% endif %}
-                                        {% endfor %}
-                                    </td>
-                                </tr>
-                                {% endif %}
-                                <tr class="{% if producto.Estado_Stock == 'CRITICO' %}table-danger{% elif producto.Estado_Stock == 'BAJO' %}table-warning{% endif %}">
-                                    <td></td> <!-- Columna vacía para alineación -->
-                                    <td>
-                                        <small><code>{{ producto.Codigo|default('N/A') }}</code></small>
-                                    </td>
-                                    <td>
-                                        <div class="fw-bold mb-1">{{ producto.Producto[:40] }}{% if producto.Producto|length > 40 %}...{% endif %}</div>
-                                    </td>
-                                    <td class="text-center">
-                                        <span class="badge bg-light text-dark">{{ producto.Unidad }}</span>
-                                    </td>
-                                    <td class="text-end">
-                                        <div class="d-flex align-items-center justify-content-end">
-                                            <span class="fw-bold me-2">
-                                                {{ "{:,.2f}".format(producto.Stock_Actual|float) }}
-                                            </span>
-                                            {% set porcentaje = (producto.Stock_Actual / producto.Stock_Minimo * 100) if producto.Stock_Minimo > 0 else 100 %}
-                                            <div class="progress" style="height: 8px; width: 80px;">
-                                                <div class="progress-bar 
-                                                    {% if porcentaje < 50 %}bg-danger
-                                                    {% elif porcentaje < 100 %}bg-warning
-                                                    {% else %}bg-success{% endif %}" 
-                                                    role="progressbar" 
-                                                    style="width: {{ porcentaje if porcentaje <= 200 else 200 }}%">
+                                                {% set porcentaje = (producto.Stock_Actual / producto.Stock_Minimo * 100) if producto.Stock_Minimo > 0 else 100 %}
+                                                <div class="progress" style="height: 8px; width: 80px;">
+                                                    <div class="progress-bar 
+                                                        {% if porcentaje < 50 %}bg-danger
+                                                        {% elif porcentaje < 100 %}bg-warning
+                                                        {% else %}bg-success{% endif %}" 
+                                                        role="progressbar" 
+                                                        style="width: {{ porcentaje if porcentaje <= 200 else 200 }}%">
+                                                    </div>
                                                 </div>
                                             </div>
-                                        </div>
-                                    </td>
-                                    <td class="text-end">
-                                        <span class="badge bg-light text-dark">{{ "{:,.2f}".format(producto.Stock_Minimo|float) }}</span>
-                                    </td>
-                                    <td class="text-center">
-                                        {% if producto.Estado_Stock == 'CRITICO' %}
-                                        <span class="badge bg-danger">
-                                            <i class="fas fa-exclamation-circle me-1"></i>Crítico
-                                        </span>
-                                        {% elif producto.Estado_Stock == 'BAJO' %}
-                                        <span class="badge bg-warning">
-                                            <i class="fas fa-exclamation-triangle me-1"></i>Bajo
-                                        </span>
-                                        {% else %}
-                                        <span class="badge bg-success">
-                                            <i class="fas fa-check-circle me-1"></i>Normal
-                                        </span>
-                                        {% endif %}
-                                    </td>
-                                    <td class="text-end fw-bold">
-                                        C${{ "{:,.2f}".format(producto.Precio|float) if producto.Precio else "0.00" }}
-                                    </td>
-                                    <td class="text-end fw-bold text-success">
-                                        C${{ "{:,.2f}".format(producto.Valor_Total|float) if producto.Valor_Total else "0.00" }}
-                                    </td>
-                                    <td>
-                                        <small>{{ producto.Bodega[:15] }}{% if producto.Bodega|length > 15 %}...{% endif %}</small>
-                                    </td>
-                                </tr>
-                                {% endif %}
+                                        </td>
+                                        <td class="text-end">
+                                            <span class="badge bg-light text-dark">{{ "{:,.2f}".format(producto.Stock_Minimo|float) }}</span>
+                                        </td>
+                                        <td class="text-center">
+                                            {% if producto.Estado_Stock == 'CRITICO' %}
+                                            <span class="badge bg-danger">
+                                                <i class="fas fa-exclamation-circle me-1"></i>Crítico
+                                            </span>
+                                            {% elif producto.Estado_Stock == 'BAJO' %}
+                                            <span class="badge bg-warning">
+                                                <i class="fas fa-exclamation-triangle me-1"></i>Bajo
+                                            </span>
+                                            {% else %}
+                                            <span class="badge bg-success">
+                                                <i class="fas fa-check-circle me-1"></i>Normal
+                                            </span>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
                                 {% endfor %}
                                 {% else %}
                                 <tr>
-                                    <td colspan="10" class="text-center py-5">
+                                    <td colspan="8" class="text-center py-5">
                                         <i class="fas fa-box fa-3x text-success mb-3"></i>
                                         <h5 class="text-muted">¡Excelente!</h5>
-                                        <p class="text-muted">No hay productos registrados en esta bodega</p>
+                                        <p class="text-muted">No hay productos registrados</p>
                                     </td>
                                 </tr>
                                 {% endif %}
                             </tbody>
-                            <tfoot class="table-light">
-                                <tr>
-                                    <td colspan="4" class="text-end fw-bold">TOTALES:</td>
-                                    <td class="text-end fw-bold">
-                                        {% if productos_categorias %}
-                                        {{ "{:,.2f}".format(productos_categorias|sum(attribute='Stock_Actual')|float) }}
-                                        {% else %}
-                                        0.00
-                                        {% endif %}
-                                    </td>
-                                    <td></td>
-                                    <td></td>
-                                    <td></td>
-                                    <td class="text-end fw-bold text-success">
-                                        {% if productos_categorias %}
-                                        C${{ "{:,.2f}".format(productos_categorias|sum(attribute='Valor_Total')|float) }}
-                                        {% else %}
-                                        C$0.00
-                                        {% endif %}
-                                    </td>
-                                    <td></td>
-                                </tr>
-                            </tfoot>
                         </table>
                     </div>
                     
@@ -747,36 +762,24 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }, 5000);
 
-    // Función para exportar inventario
-    window.exportarInventario = function() {
-        // Crear tabla HTML para exportar
-        let tabla = document.getElementById('tablaInventario');
-        let html = tabla.outerHTML;
-        
-        // Crear archivo
-        let blob = new Blob([html], {type: 'application/vnd.ms-excel'});
-        let url = URL.createObjectURL(blob);
-        let a = document.createElement('a');
-        a.href = url;
-        a.download = 'inventario_' + new Date().toISOString().slice(0,10) + '.xls';
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-    };
-
     // Función para filtrar por estado
     window.filtrarPorEstado = function(estado) {
         let filas = document.querySelectorAll('#tablaInventario tbody tr');
+        let currentBodega = '';
+        let bodegaRow = null;
         let currentCategory = '';
         let categoryRow = null;
         let hasVisibleProductsInCategory = false;
         
         filas.forEach(function(fila) {
-            if (fila.classList.contains('table-secondary')) {
-                currentCategory = fila.textContent.toLowerCase();
-                categoryRow = fila;
+            if (fila.classList.contains('table-primary')) {
+                currentBodega = fila.textContent;
+                bodegaRow = fila;
+                fila.style.display = '';
                 hasVisibleProductsInCategory = false;
+            } else if (fila.classList.contains('table-secondary')) {
+                currentCategory = fila.textContent;
+                categoryRow = fila;
                 fila.style.display = '';
             } else {
                 let estadoFila = '';
@@ -791,11 +794,12 @@ document.addEventListener('DOMContentLoaded', function() {
                     hasVisibleProductsInCategory = true;
                 }
                 
-                // Mostrar/ocultar categoría según si tiene productos visibles
-                if (categoryRow && hasVisibleProductsInCategory) {
-                    categoryRow.style.display = '';
-                } else if (categoryRow) {
-                    categoryRow.style.display = 'none';
+                // Mostrar/ocultar categoría y bodega según si tiene productos visibles
+                if (categoryRow) {
+                    categoryRow.style.display = hasVisibleProductsInCategory ? '' : 'none';
+                }
+                if (bodegaRow) {
+                    bodegaRow.style.display = hasVisibleProductsInCategory ? '' : 'none';
                 }
             }
         });
@@ -813,19 +817,26 @@ document.addEventListener('DOMContentLoaded', function() {
         buscarProducto.addEventListener('input', function(e) {
             let searchTerm = e.target.value.toLowerCase();
             let filas = document.querySelectorAll('#tablaInventario tbody tr');
+            let currentBodega = '';
+            let bodegaRow = null;
             let currentCategory = '';
             let categoryRow = null;
             let hasVisibleProductsInCategory = false;
             
             filas.forEach(function(fila) {
-                if (fila.classList.contains('table-secondary')) {
+                if (fila.classList.contains('table-primary')) {
+                    currentBodega = fila.textContent.toLowerCase();
+                    bodegaRow = fila;
+                    hasVisibleProductsInCategory = false;
+                    fila.style.display = '';
+                } else if (fila.classList.contains('table-secondary')) {
                     currentCategory = fila.textContent.toLowerCase();
                     categoryRow = fila;
-                    hasVisibleProductsInCategory = false;
                     fila.style.display = '';
                 } else {
                     let textoFila = fila.textContent.toLowerCase();
                     let mostrarFila = textoFila.includes(searchTerm) || 
+                                     currentBodega.includes(searchTerm) ||
                                      currentCategory.includes(searchTerm);
                     
                     fila.style.display = mostrarFila ? '' : 'none';
@@ -834,11 +845,12 @@ document.addEventListener('DOMContentLoaded', function() {
                         hasVisibleProductsInCategory = true;
                     }
                     
-                    // Mostrar/ocultar categoría según si tiene productos visibles
-                    if (categoryRow && hasVisibleProductsInCategory) {
-                        categoryRow.style.display = '';
-                    } else if (categoryRow) {
-                        categoryRow.style.display = 'none';
+                    // Mostrar/ocultar categoría y bodega según si tiene productos visibles
+                    if (categoryRow) {
+                        categoryRow.style.display = hasVisibleProductsInCategory ? '' : 'none';
+                    }
+                    if (bodegaRow) {
+                        bodegaRow.style.display = hasVisibleProductsInCategory ? '' : 'none';
                     }
                 }
             });
@@ -850,37 +862,46 @@ document.addEventListener('DOMContentLoaded', function() {
     if (filasPorPagina) {
         filasPorPagina.addEventListener('change', function(e) {
             let filasPorPaginaValue = parseInt(e.target.value);
-            let filas = document.querySelectorAll('#tablaInventario tbody tr:not(.table-secondary)');
+            let filas = document.querySelectorAll('#tablaInventario tbody tr:not(.table-primary):not(.table-secondary)');
             
             if (filasPorPaginaValue === -1) {
                 filas.forEach(fila => fila.style.display = '');
-                document.querySelectorAll('#tablaInventario tbody tr.table-secondary').forEach(fila => {
+                document.querySelectorAll('#tablaInventario tbody tr.table-primary, #tablaInventario tbody tr.table-secondary').forEach(fila => {
                     fila.style.display = '';
                 });
             } else {
                 let contador = 0;
+                let currentBodega = '';
                 let currentCategory = '';
+                let bodegaRow = null;
                 let categoryRow = null;
-                let productosMostradosEnCategoria = 0;
+                let productosMostradosEnBodega = 0;
                 
                 document.querySelectorAll('#tablaInventario tbody tr').forEach((fila) => {
-                    if (fila.classList.contains('table-secondary')) {
+                    if (fila.classList.contains('table-primary')) {
+                        currentBodega = fila.textContent;
+                        bodegaRow = fila;
+                        productosMostradosEnBodega = 0;
+                        fila.style.display = '';
+                    } else if (fila.classList.contains('table-secondary')) {
                         currentCategory = fila.textContent;
                         categoryRow = fila;
-                        productosMostradosEnCategoria = 0;
                         fila.style.display = '';
                     } else {
                         if (contador < filasPorPaginaValue) {
                             fila.style.display = '';
                             contador++;
-                            productosMostradosEnCategoria++;
+                            productosMostradosEnBodega++;
                         } else {
                             fila.style.display = 'none';
                         }
                         
-                        // Ocultar categoría si no tiene productos visibles
-                        if (categoryRow && productosMostradosEnCategoria === 0) {
+                        // Ocultar categoría y bodega si no tienen productos visibles
+                        if (categoryRow && productosMostradosEnBodega === 0) {
                             categoryRow.style.display = 'none';
+                        }
+                        if (bodegaRow && productosMostradosEnBodega === 0) {
+                            bodegaRow.style.display = 'none';
                         }
                     }
                 });

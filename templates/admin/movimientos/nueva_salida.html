@@ -65,7 +65,7 @@
                                     {% for factura in facturas %}
                                     <option value="{{ factura.ID_Factura }}">
                                         Factura #{{ factura.ID_Factura }} - {{ factura.Cliente }} 
-                                        ({{ factura.Fecha.strftime('%Y-%m-%d') if factura.Fecha else '' }})
+                                        ({{ factura.Fecha_formatted }})
                                     </option>
                                     {% endfor %}
                                 </select>
@@ -117,24 +117,16 @@
                             <div class="table-responsive" id="tabla-productos-container" style="display: none;">
                                 <table class="table table-sm">
                                     <thead>
-                                        <tr class="table-light">
-                                            <th>Producto</th>
-                                            <th>Stock Disponible</th>
-                                            <th>Cantidad</th>
-                                            <th>Costo Unitario</th>
-                                            <th>Precio Unitario</th>
-                                            <th>Subtotal</th>
-                                            <th>Acciones</th>
+                                        <tr class="table-light" id="tabla-header">
+                                            <!-- Los headers se actualizarán dinámicamente -->
                                         </tr>
                                     </thead>
                                     <tbody id="productos-tbody">
                                         <!-- Productos se agregarán aquí dinámicamente -->
                                     </tbody>
                                     <tfoot>
-                                        <tr class="table-secondary">
-                                            <td colspan="5" class="text-end"><strong>Total:</strong></td>
-                                            <td><strong id="total-salida">C$0.00</strong></td>
-                                            <td></td>
+                                        <tr class="table-secondary" id="tabla-footer">
+                                            <!-- Los footers se actualizarán dinámicamente -->
                                         </tr>
                                     </tfoot>
                                 </table>
@@ -213,13 +205,14 @@
                             <span>Total Unidades:</span>
                             <strong id="resumen-unidades">0.000</strong>
                         </li>
-                        <li class="list-group-item d-flex justify-content-between">
+                        <!-- Elementos que se mostrarán según el tipo -->
+                        <li class="list-group-item d-flex justify-content-between" id="resumen-costo-container">
                             <span>Total Costo:</span>
                             <strong id="resumen-costo">C$0.00</strong>
                         </li>
-                        <li class="list-group-item d-flex justify-content-between">
+                        <li class="list-group-item d-flex justify-content-between" id="resumen-venta-container">
                             <span>Total Venta:</span>
-                            <strong id="resumen-total">C$0.00</strong>
+                            <strong id="resumen-total-venta">C$0.00</strong>
                         </li>
                     </ul>
                 </div>
@@ -234,10 +227,65 @@ let productosSalida = [];
 let contadorProductos = 0;
 let productosDisponibles = [];
 
+// Configurar headers de tabla según tipo de movimiento
+function actualizarHeadersTabla() {
+    const tipoMovimiento = document.getElementById('tipo-movimiento').value;
+    const esVenta = tipoMovimiento === '2';
+    const headerRow = document.getElementById('tabla-header');
+    const footerRow = document.getElementById('tabla-footer');
+    
+    if (esVenta) {
+        // Headers para VENTA (solo precio de venta)
+        headerRow.innerHTML = `
+            <th>Producto</th>
+            <th>Stock Disp.</th>
+            <th>Cantidad</th>
+            <th>Precio Unitario</th>
+            <th>Total</th>
+            <th>Acciones</th>
+        `;
+        
+        // Footer para VENTA
+        footerRow.innerHTML = `
+            <td colspan="4" class="text-end"><strong>Total Venta:</strong></td>
+            <td><strong id="total-venta">C$0.00</strong></td>
+            <td></td>
+        `;
+        
+        // Ocultar resumen de costo
+        document.getElementById('resumen-costo-container').style.display = 'none';
+        document.getElementById('resumen-venta-container').style.display = 'flex';
+    } else {
+        // Headers para otros tipos de salida (muestra costo)
+        headerRow.innerHTML = `
+            <th>Producto</th>
+            <th>Stock Disp.</th>
+            <th>Cantidad</th>
+            <th>Costo Unitario</th>
+            <th>Subtotal</th>
+            <th>Acciones</th>
+        `;
+        
+        // Footer para otros tipos
+        footerRow.innerHTML = `
+            <td colspan="4" class="text-end"><strong>Total Costo:</strong></td>
+            <td><strong id="total-costo">C$0.00</strong></td>
+            <td></td>
+        `;
+        
+        // Mostrar resumen de costo, ocultar venta
+        document.getElementById('resumen-costo-container').style.display = 'flex';
+        document.getElementById('resumen-venta-container').style.display = 'none';
+    }
+}
+
 // Configurar campos según tipo de movimiento
 function configurarCamposPorTipoSalida() {
     const tipoMovimiento = document.getElementById('tipo-movimiento').value;
     const esVenta = tipoMovimiento === '2'; // TIPO_VENTA = 2
+    
+    // Actualizar headers de tabla
+    actualizarHeadersTabla();
     
     // Mostrar/ocultar campos de facturación
     const mostrar = esVenta ? 'block' : 'none';
@@ -258,7 +306,125 @@ function configurarCamposPorTipoSalida() {
         document.querySelector('textarea[name="observacion_factura"]').value = '';
     }
     
+    // Actualizar todas las filas existentes
+    actualizarFilasPorTipoMovimiento();
+    
     habilitarBotonGuardar();
+}
+
+// Actualizar filas existentes cuando cambia el tipo de movimiento
+function actualizarFilasPorTipoMovimiento() {
+    const tipoMovimiento = document.getElementById('tipo-movimiento').value;
+    const esVenta = tipoMovimiento === '2';
+    
+    document.querySelectorAll('#productos-tbody tr').forEach((fila, index) => {
+        const productoId = fila.querySelector('.id-producto')?.value;
+        if (!productoId) return;
+        
+        // Obtener datos del producto
+        const producto = productosDisponibles.find(p => p.ID_Producto == productoId);
+        if (!producto) return;
+        
+        // Reconstruir la fila con el formato correcto
+        const nuevaFila = crearFilaProducto(producto, index, esVenta);
+        fila.outerHTML = nuevaFila;
+    });
+    
+    // Reasignar eventos y recalcular
+    contadorProductos = document.querySelectorAll('#productos-tbody tr').length;
+    actualizarResumen();
+}
+
+// Crear fila de producto según el tipo
+function crearFilaProducto(producto, index, esVenta) {
+    if (esVenta) {
+        return `
+            <tr id="producto-salida-${index}">
+                <td>
+                    <input type="hidden" name="productos[${index}][id_producto]" 
+                           value="${producto.ID_Producto}" class="id-producto">
+                    <div>
+                        <strong>${producto.Descripcion}</strong><br>
+                        <small class="text-muted">${producto.COD_Producto || 'Sin código'}</small>
+                    </div>
+                </td>
+                <td class="text-center">
+                    <span class="badge bg-success stock-disponible">${producto.Stock_Bodega.toFixed(2)}</span>
+                </td>
+                <td>
+                    <input type="number" step="0.001" min="0.001" max="${producto.Stock_Bodega}"
+                           name="productos[${index}][cantidad]" 
+                           class="form-control form-control-sm cantidad" 
+                           value="1" onchange="validarCantidad(${index})" oninput="validarCantidad(${index})" required>
+                    <small class="text-danger d-block" style="font-size: 0.7em;" id="error-${index}"></small>
+                </td>
+                <td>
+                    <input type="number" step="0.01" min="0" 
+                           name="productos[${index}][precio_unitario]" 
+                           class="form-control form-control-sm precio" 
+                           value="${producto.Precio_Venta.toFixed(2)}"
+                           onchange="calcularTotalFila(${index})" oninput="calcularTotalFila(${index})" required>
+                    <input type="hidden" name="productos[${index}][costo_unitario]" 
+                           class="costo-oculto" value="0">
+                </td>
+                <td>
+                    <input type="text" class="form-control form-control-sm total-fila" 
+                           value="C$0.00" readonly>
+                </td>
+                <td class="text-center">
+                    <button type="button" class="btn btn-danger btn-sm" 
+                            onclick="eliminarProductoSalida(${index})" title="Eliminar">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </td>
+            </tr>
+        `;
+    } else {
+        // Calcular costo sugerido (60% del precio de venta para margen del 40%)
+        const costoSugerido = (producto.Precio_Venta * 0.6).toFixed(2);
+        
+        return `
+            <tr id="producto-salida-${index}">
+                <td>
+                    <input type="hidden" name="productos[${index}][id_producto]" 
+                           value="${producto.ID_Producto}" class="id-producto">
+                    <div>
+                        <strong>${producto.Descripcion}</strong><br>
+                        <small class="text-muted">${producto.COD_Producto || 'Sin código'}</small>
+                    </div>
+                </td>
+                <td class="text-center">
+                    <span class="badge bg-success stock-disponible">${producto.Stock_Bodega.toFixed(2)}</span>
+                </td>
+                <td>
+                    <input type="number" step="0.001" min="0.001" max="${producto.Stock_Bodega}"
+                           name="productos[${index}][cantidad]" 
+                           class="form-control form-control-sm cantidad" 
+                           value="1" onchange="validarCantidad(${index})" oninput="validarCantidad(${index})" required>
+                    <small class="text-danger d-block" style="font-size: 0.7em;" id="error-${index}"></small>
+                </td>
+                <td>
+                    <input type="number" step="0.01" min="0" 
+                           name="productos[${index}][costo_unitario]" 
+                           class="form-control form-control-sm costo" 
+                           value="${costoSugerido}"
+                           onchange="calcularTotalFila(${index})" oninput="calcularTotalFila(${index})" required>
+                    <input type="hidden" name="productos[${index}][precio_unitario]" 
+                           class="precio-oculto" value="${producto.Precio_Venta.toFixed(2)}">
+                </td>
+                <td>
+                    <input type="text" class="form-control form-control-sm total-fila" 
+                           value="C$0.00" readonly>
+                </td>
+                <td class="text-center">
+                    <button type="button" class="btn btn-danger btn-sm" 
+                            onclick="eliminarProductoSalida(${index})" title="Eliminar">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </td>
+            </tr>
+        `;
+    }
 }
 
 // Cargar productos de la bodega seleccionada usando API
@@ -356,7 +522,10 @@ function mostrarProductosDisponibles(productos) {
         const item = document.createElement('a');
         item.className = 'list-group-item list-group-item-action';
         item.href = '#';
-        item.onclick = () => seleccionarProductoSalida(producto);
+        item.onclick = (e) => {
+            e.preventDefault();
+            seleccionarProductoSalida(producto);
+        };
         
         item.innerHTML = `
             <div class="d-flex w-100 justify-content-between align-items-start">
@@ -398,99 +567,35 @@ function filtrarProductos() {
 
 // Agregar producto a salida
 function agregarProductoSalida(producto = null) {
-    const tbody = document.getElementById('productos-tbody');
-    const index = contadorProductos++;
-    
-    const fila = document.createElement('tr');
-    fila.id = `producto-salida-${index}`;
-    
-    if (producto) {
-        fila.innerHTML = `
-            <td>
-                <input type="hidden" name="productos[${index}][id_producto]" 
-                       value="${producto.ID_Producto}" class="id-producto">
-                <div>
-                    <strong>${producto.Descripcion}</strong><br>
-                    <small class="text-muted">${producto.COD_Producto || 'Sin código'}</small>
-                </div>
-            </td>
-            <td class="text-center">
-                <span class="badge bg-success">${producto.Stock_Bodega.toFixed(2)}</span>
-            </td>
-            <td>
-                <input type="number" step="0.001" min="0.001" max="${producto.Stock_Bodega}"
-                       name="productos[${index}][cantidad]" 
-                       class="form-control form-control-sm cantidad" 
-                       value="1" onchange="validarCantidad(${index})" oninput="validarCantidad(${index})" required>
-                <small class="text-danger d-block" style="font-size: 0.7em;" id="error-${index}"></small>
-            </td>
-            <td>
-                <input type="number" step="0.01" min="0" 
-                       name="productos[${index}][costo_unitario]" 
-                       class="form-control form-control-sm costo" 
-                       value="0.00"
-                       onchange="calcularSubtotalSalida(${index})" oninput="calcularSubtotalSalida(${index})" required>
-            </td>
-            <td>
-                <input type="number" step="0.01" min="0" 
-                       name="productos[${index}][precio_unitario]" 
-                       class="form-control form-control-sm precio" 
-                       value="${producto.Precio_Venta.toFixed(2)}"
-                       onchange="calcularSubtotalSalida(${index})" oninput="calcularSubtotalSalida(${index})">
-            </td>
-            <td>
-                <input type="text" class="form-control form-control-sm subtotal" 
-                       value="C$0.00" readonly>
-            </td>
-            <td class="text-center">
-                <button type="button" class="btn btn-danger btn-sm" 
-                        onclick="eliminarProductoSalida(${index})" title="Eliminar">
-                    <i class="fas fa-trash"></i> Quitar
-                </button>
-            </td>
-        `;
-    } else {
-        // Opción para agregar producto manualmente (sin selección de lista)
-        fila.innerHTML = `
-            <td>
-                <div class="alert alert-warning p-1 m-0">
-                    <small>Seleccione producto de la lista</small>
-                </div>
-                <input type="hidden" name="productos[${index}][id_producto]" class="id-producto">
-            </td>
-            <td class="text-center">
-                <span class="badge bg-secondary">-</span>
-            </td>
-            <td colspan="4" class="text-center">
-                <small class="text-muted">Agregue productos desde la lista</small>
-            </td>
-            <td class="text-center">
-                <button type="button" class="btn btn-danger btn-sm" 
-                        onclick="eliminarProductoSalida(${index})" title="Eliminar">
-                    <i class="fas fa-trash"></i> Quitar
-                </button>
-            </td>
-        `;
+    if (!producto) {
+        alert('Seleccione un producto de la lista');
+        return;
     }
     
-    tbody.appendChild(fila);
+    // Verificar si ya existe en la tabla
+    const existente = Array.from(document.querySelectorAll('.id-producto'))
+        .find(input => input.value == producto.ID_Producto);
+    
+    if (existente) {
+        alert('Este producto ya está en la lista');
+        return;
+    }
+    
+    const tbody = document.getElementById('productos-tbody');
+    const index = contadorProductos++;
+    const tipoMovimiento = document.getElementById('tipo-movimiento').value;
+    const esVenta = tipoMovimiento === '2';
+    
+    // Crear fila según el tipo
+    const filaHTML = crearFilaProducto(producto, index, esVenta);
+    tbody.insertAdjacentHTML('beforeend', filaHTML);
     
     // Mostrar tabla y ocultar alerta
     document.getElementById('tabla-productos-container').style.display = 'block';
     document.getElementById('alerta-sin-productos').style.display = 'none';
     
-    if (producto) {
-        calcularSubtotalSalida(index);
-        // Si es venta, sugerir costo (60% del precio de venta)
-        const tipoMovimiento = document.getElementById('tipo-movimiento').value;
-        if (tipoMovimiento === '2') {
-            const costoCalculado = (producto.Precio_Venta * 0.6).toFixed(2);
-            fila.querySelector('.costo').value = costoCalculado;
-            calcularSubtotalSalida(index);
-        }
-    }
-    
-    actualizarResumenSalida();
+    calcularTotalFila(index);
+    actualizarResumen();
     habilitarBotonGuardar();
 }
 
@@ -501,10 +606,10 @@ function validarCantidad(index) {
     
     const cantidadInput = fila.querySelector('.cantidad');
     const errorElement = fila.querySelector(`#error-${index}`);
-    const stockBadge = fila.querySelector('.badge');
+    const stockBadge = fila.querySelector('.stock-disponible');
     
     let maxStock = 0;
-    if (stockBadge && stockBadge.textContent !== '-') {
+    if (stockBadge) {
         maxStock = parseFloat(stockBadge.textContent) || 0;
     }
     
@@ -522,26 +627,44 @@ function validarCantidad(index) {
         }
     }
     
-    calcularSubtotalSalida(index);
+    calcularTotalFila(index);
 }
 
-// Calcular subtotal para salida
-function calcularSubtotalSalida(index) {
+// Calcular total de la fila
+function calcularTotalFila(index) {
     const fila = document.getElementById(`producto-salida-${index}`);
     if (!fila) return;
     
     const cantidadInput = fila.querySelector('.cantidad');
-    const costoInput = fila.querySelector('.costo');
-    const subtotalInput = fila.querySelector('.subtotal');
+    const precioInput = fila.querySelector('.precio') || fila.querySelector('.costo');
+    const totalInput = fila.querySelector('.total-fila');
+    const tipoMovimiento = document.getElementById('tipo-movimiento').value;
+    const esVenta = tipoMovimiento === '2';
     
-    if (!cantidadInput || !costoInput || !subtotalInput) return;
+    if (!cantidadInput || !precioInput || !totalInput) return;
     
     const cantidad = parseFloat(cantidadInput.value) || 0;
-    const costo = parseFloat(costoInput.value) || 0;
-    const subtotal = cantidad * costo;
+    const precio = parseFloat(precioInput.value) || 0;
+    const total = cantidad * precio;
     
-    subtotalInput.value = `C$${subtotal.toFixed(2)}`;
-    actualizarResumenSalida();
+    totalInput.value = `C$${total.toFixed(2)}`;
+    
+    // Actualizar campos ocultos según el tipo
+    if (esVenta) {
+        const costoOculto = fila.querySelector('.costo-oculto');
+        if (costoOculto) {
+            // Estimar costo como 60% del precio para inventario
+            costoOculto.value = (precio * 0.6).toFixed(2);
+        }
+    } else {
+        const precioOculto = fila.querySelector('.precio-oculto');
+        if (precioOculto) {
+            // Mantener el precio de venta original
+            // No se modifica
+        }
+    }
+    
+    actualizarResumen();
 }
 
 // Eliminar producto de salida
@@ -549,7 +672,7 @@ function eliminarProductoSalida(index) {
     const fila = document.getElementById(`producto-salida-${index}`);
     if (fila) {
         fila.remove();
-        actualizarResumenSalida();
+        actualizarResumen();
         
         // Si no quedan productos, mostrar alerta
         const tbody = document.getElementById('productos-tbody');
@@ -562,54 +685,68 @@ function eliminarProductoSalida(index) {
     habilitarBotonGuardar();
 }
 
-// Actualizar resumen de salida
-function actualizarResumenSalida() {
-    let totalCosto = 0;
-    let totalVenta = 0;
+// Actualizar resumen
+function actualizarResumen() {
+    const tipoMovimiento = document.getElementById('tipo-movimiento').value;
+    const esVenta = tipoMovimiento === '2';
+    
+    let total = 0;
     let unidades = 0;
     let cantidadProductos = 0;
     
     document.querySelectorAll('#productos-tbody tr').forEach(fila => {
         const cantidadInput = fila.querySelector('.cantidad');
-        const costoInput = fila.querySelector('.costo');
-        const precioInput = fila.querySelector('.precio');
+        const precioInput = fila.querySelector('.precio') || fila.querySelector('.costo');
         
-        if (!cantidadInput || !costoInput) return;
+        if (!cantidadInput || !precioInput) return;
         
         const cantidad = parseFloat(cantidadInput.value) || 0;
-        const costo = parseFloat(costoInput.value) || 0;
-        const precio = precioInput ? parseFloat(precioInput.value) || 0 : 0;
+        const precio = parseFloat(precioInput.value) || 0;
         
-        if (cantidad > 0 && costo >= 0) {
+        if (cantidad > 0) {
             unidades += cantidad;
-            totalCosto += cantidad * costo;
-            totalVenta += cantidad * precio;
+            total += cantidad * precio;
             cantidadProductos++;
         }
     });
     
     document.getElementById('resumen-cantidad').textContent = cantidadProductos;
     document.getElementById('resumen-unidades').textContent = unidades.toFixed(3);
-    document.getElementById('resumen-costo').textContent = `C$${totalCosto.toFixed(2)}`;
-    document.getElementById('resumen-total').textContent = `C$${totalVenta.toFixed(2)}`;
-    document.getElementById('total-salida').textContent = `C$${totalCosto.toFixed(2)}`;
     
-    // Actualizar JSON oculto
+    if (esVenta) {
+        document.getElementById('resumen-total-venta').textContent = `C$${total.toFixed(2)}`;
+        document.getElementById('total-venta').textContent = `C$${total.toFixed(2)}`;
+    } else {
+        document.getElementById('resumen-costo').textContent = `C$${total.toFixed(2)}`;
+        document.getElementById('total-costo').textContent = `C$${total.toFixed(2)}`;
+    }
+    
+    // Actualizar JSON oculto con todos los datos necesarios
     const productosData = [];
-    document.querySelectorAll('#productos-tbody tr').forEach(fila => {
+    document.querySelectorAll('#productos-tbody tr').forEach((fila, idx) => {
         const idProductoInput = fila.querySelector('.id-producto');
         const cantidadInput = fila.querySelector('.cantidad');
-        const costoInput = fila.querySelector('.costo');
-        const precioInput = fila.querySelector('.precio');
         
-        if (idProductoInput && idProductoInput.value && 
-            cantidadInput && costoInput) {
-            const producto = {
+        if (idProductoInput && idProductoInput.value && cantidadInput) {
+            let producto = {
                 id_producto: idProductoInput.value,
-                cantidad: cantidadInput.value,
-                costo_unitario: costoInput.value,
-                precio_unitario: precioInput ? precioInput.value : '0.00'
+                cantidad: cantidadInput.value
             };
+            
+            if (esVenta) {
+                // Para ventas: tomar precio del campo visible y costo del oculto
+                const precioInput = fila.querySelector('.precio');
+                const costoOculto = fila.querySelector('.costo-oculto');
+                producto.precio_unitario = precioInput ? precioInput.value : '0';
+                producto.costo_unitario = costoOculto ? costoOculto.value : '0';
+            } else {
+                // Para otros: tomar costo del campo visible y precio del oculto
+                const costoInput = fila.querySelector('.costo');
+                const precioOculto = fila.querySelector('.precio-oculto');
+                producto.costo_unitario = costoInput ? costoInput.value : '0';
+                producto.precio_unitario = precioOculto ? precioOculto.value : '0';
+            }
+            
             productosData.push(producto);
         }
     });
@@ -631,8 +768,7 @@ function habilitarBotonGuardar() {
         // Verificar que todos los productos tengan datos válidos
         const todosValidos = productosData.every(p => 
             p.id_producto && 
-            p.cantidad && parseFloat(p.cantidad) > 0 &&
-            p.costo_unitario && parseFloat(p.costo_unitario) >= 0
+            p.cantidad && parseFloat(p.cantidad) > 0
         );
         
         // Si es venta, verificar cliente seleccionado
@@ -650,15 +786,6 @@ function habilitarBotonGuardar() {
 
 // Seleccionar producto para salida
 function seleccionarProductoSalida(producto) {
-    // Verificar si ya existe en la tabla
-    const existente = Array.from(document.querySelectorAll('.id-producto'))
-        .find(input => input.value == producto.ID_Producto);
-    
-    if (existente) {
-        alert('Este producto ya está en la lista');
-        return;
-    }
-    
     agregarProductoSalida(producto);
 }
 
@@ -707,7 +834,7 @@ document.getElementById('formSalida').addEventListener('submit', function(e) {
     document.querySelectorAll('#productos-tbody tr').forEach(fila => {
         const idProductoInput = fila.querySelector('.id-producto');
         const cantidadInput = fila.querySelector('.cantidad');
-        const stockBadge = fila.querySelector('.badge');
+        const stockBadge = fila.querySelector('.stock-disponible');
         
         if (!idProductoInput || !idProductoInput.value || !cantidadInput) return;
         
@@ -715,7 +842,7 @@ document.getElementById('formSalida').addEventListener('submit', function(e) {
         const cantidad = parseFloat(cantidadInput.value) || 0;
         
         let stockDisponible = 0;
-        if (stockBadge && stockBadge.textContent !== '-') {
+        if (stockBadge) {
             stockDisponible = parseFloat(stockBadge.textContent) || 0;
         }
         
@@ -737,20 +864,21 @@ document.getElementById('formSalida').addEventListener('submit', function(e) {
     if (tipoMovimiento === '2') {
         const tipoPago = document.getElementById('select-tipo-pago').value;
         const cliente = document.querySelector('#select-cliente option:checked').textContent;
+        const totalVenta = document.getElementById('total-venta').textContent;
         
         mensajeConfirmacion = `¿Está seguro de guardar esta VENTA?\n\n`;
         mensajeConfirmacion += `Cliente: ${cliente}\n`;
         mensajeConfirmacion += `Tipo de pago: ${tipoPago}\n`;
         mensajeConfirmacion += `Productos: ${productosData.length}\n`;
-        mensajeConfirmacion += `Total: ${document.getElementById('total-salida').textContent}\n\n`;
+        mensajeConfirmacion += `Total Venta: ${totalVenta}\n\n`;
         mensajeConfirmacion += `Esta acción:\n`;
         mensajeConfirmacion += `1. Descontará productos del inventario\n`;
-        mensajeConfirmacion += `2. Creará una factura\n`;
-        mensajeConfirmacion += tipoPago === 'CREDITO' ? '3. Creará una cuenta por cobrar' : '3. Marcará como pagado';
+        mensajeConfirmacion += `2. Creará una factura por ${totalVenta}\n`;
+        mensajeConfirmacion += tipoPago === 'CREDITO' ? '3. Creará una cuenta por cobrar' : '3. Registrará pago de contado';
     } else {
         mensajeConfirmacion = `¿Está seguro de guardar esta ${tipoMovimientoTexto.toUpperCase()}?\n\n`;
         mensajeConfirmacion += `Productos: ${productosData.length}\n`;
-        mensajeConfirmacion += `Total: ${document.getElementById('total-salida').textContent}`;
+        mensajeConfirmacion += `Total: ${document.getElementById('total-costo').textContent}`;
     }
     
     if (confirm(mensajeConfirmacion)) {
@@ -766,6 +894,9 @@ document.addEventListener('DOMContentLoaded', function() {
         const hoy = new Date().toISOString().split('T')[0];
         fechaInput.value = hoy;
     }
+    
+    // Inicializar headers
+    actualizarHeadersTabla();
     
     // Configurar cambios en tipo de movimiento
     document.getElementById('tipo-movimiento').addEventListener('change', configurarCamposPorTipoSalida);
@@ -790,12 +921,6 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Inicializar
     configurarCamposPorTipoSalida();
-    
-    // Configurar tooltips
-    const tooltipTriggerList = [].slice.call(document.querySelectorAll('[title]'));
-    tooltipTriggerList.map(function (tooltipTriggerEl) {
-        return new bootstrap.Tooltip(tooltipTriggerEl);
-    });
 });
 </script>
 

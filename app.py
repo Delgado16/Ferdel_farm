@@ -677,24 +677,26 @@ def vendedor_dashboard():
 def bodega_dashboard():
     try:
         with get_db_cursor() as cursor:
-            # 1. Productos que han salido hoy (formato solicitado)
+            # 1. Productos que han salido hoy
             cursor.execute("""
                 SELECT 
                     p.Descripcion AS Producto,
                     um.Abreviatura AS Unidad,
                     SUM(dmi.Cantidad) AS Cantidad_Salida,
-                    CONCAT(p.Descripcion, ' ', FORMAT(SUM(dmi.Cantidad), 2), ' ', um.Abreviatura) AS Detalle
+                    b.Nombre AS Bodega
                 FROM productos p
                 INNER JOIN detalle_movimientos_inventario dmi ON p.ID_Producto = dmi.ID_Producto
                 INNER JOIN movimientos_inventario mi ON dmi.ID_Movimiento = mi.ID_Movimiento
                 INNER JOIN catalogo_movimientos cm ON mi.ID_TipoMovimiento = cm.ID_TipoMovimiento
                 INNER JOIN unidades_medida um ON p.Unidad_Medida = um.ID_Unidad
+                INNER JOIN bodegas b ON mi.ID_Bodega = b.ID_Bodega
                 WHERE mi.Estado = 'Activa'
                     AND mi.Fecha = CURDATE()
                     AND (cm.Adicion = 'RESTA' OR cm.Letra = 'S')
-                GROUP BY p.ID_Producto, p.Descripcion, um.Abreviatura
+                GROUP BY p.ID_Producto, p.Descripcion, um.Abreviatura, b.Nombre
                 HAVING SUM(dmi.Cantidad) > 0
                 ORDER BY SUM(dmi.Cantidad) DESC
+                LIMIT 20
             """)
             productos_salidas_hoy = cursor.fetchall()
             
@@ -712,17 +714,13 @@ def bodega_dashboard():
                         THEN 'ENTRADA' 
                         ELSE 'SALIDA' 
                     END AS Tipo,
-                    b.Nombre AS Bodega,
-                    COALESCE(prov.Nombre, 'N/A') AS Proveedor_Cliente,
-                    mi.N_Factura_Externa AS Documento,
-                    mi.Observacion
+                    b.Nombre AS Bodega
                 FROM movimientos_inventario mi
                 INNER JOIN detalle_movimientos_inventario dmi ON mi.ID_Movimiento = dmi.ID_Movimiento
                 INNER JOIN productos p ON dmi.ID_Producto = p.ID_Producto
                 INNER JOIN catalogo_movimientos cm ON mi.ID_TipoMovimiento = cm.ID_TipoMovimiento
                 INNER JOIN unidades_medida um ON p.Unidad_Medida = um.ID_Unidad
                 INNER JOIN bodegas b ON mi.ID_Bodega = b.ID_Bodega
-                LEFT JOIN proveedores prov ON mi.ID_Proveedor = prov.ID_Proveedor
                 WHERE mi.Estado = 'Activa'
                     AND mi.Fecha = CURDATE()
                 ORDER BY dmi.Fecha_Creacion DESC
@@ -730,7 +728,34 @@ def bodega_dashboard():
             """)
             kardex_hoy = cursor.fetchall()
             
-            # 3. Resumen de movimientos del día
+            # 3. Resumen de movimientos del día por bodega
+            cursor.execute("""
+                SELECT 
+                    b.Nombre AS Bodega,
+                    COUNT(DISTINCT mi.ID_Movimiento) AS total_movimientos,
+                    COUNT(DISTINCT dmi.ID_Producto) AS total_productos_movidos,
+                    SUM(CASE 
+                        WHEN cm.Adicion = 'SUMA' OR cm.Letra = 'E' 
+                        THEN dmi.Cantidad 
+                        ELSE 0 
+                    END) AS total_entradas,
+                    SUM(CASE 
+                        WHEN cm.Adicion = 'RESTA' OR cm.Letra = 'S' 
+                        THEN dmi.Cantidad 
+                        ELSE 0 
+                    END) AS total_salidas
+                FROM movimientos_inventario mi
+                INNER JOIN detalle_movimientos_inventario dmi ON mi.ID_Movimiento = dmi.ID_Movimiento
+                INNER JOIN catalogo_movimientos cm ON mi.ID_TipoMovimiento = cm.ID_TipoMovimiento
+                INNER JOIN bodegas b ON mi.ID_Bodega = b.ID_Bodega
+                WHERE mi.Estado = 'Activa'
+                    AND mi.Fecha = CURDATE()
+                GROUP BY b.Nombre
+                ORDER BY total_movimientos DESC
+            """)
+            resumen_por_bodega = cursor.fetchall()
+            
+            # Resumen total del día
             cursor.execute("""
                 SELECT 
                     COUNT(DISTINCT mi.ID_Movimiento) AS total_movimientos,
@@ -751,141 +776,121 @@ def bodega_dashboard():
                 WHERE mi.Estado = 'Activa'
                     AND mi.Fecha = CURDATE()
             """)
-            resumen_dia = cursor.fetchone()
+            resumen_dia_total = cursor.fetchone()
             
-            # 4. Productos con stock bajo (menor al mínimo)
+            # 4. Productos con stock bajo (menor al mínimo) - TODAS las bodegas
             cursor.execute("""
                 SELECT 
                     p.Descripcion AS Producto,
                     um.Abreviatura AS Unidad,
                     ib.Existencias AS Stock_Actual,
                     p.Stock_Minimo AS Stock_Minimo,
+                    b.Nombre AS Bodega,
                     CONCAT(FORMAT(ib.Existencias, 2), ' ', um.Abreviatura) AS Stock_Actual_Formateado,
-                    ROUND((ib.Existencias / p.Stock_Minimo) * 100, 2) AS Porcentaje_Stock
+                    ROUND((ib.Existencias / p.Stock_Minimo) * 100, 2) AS Porcentaje_Stock,
+                    CASE 
+                        WHEN ib.Existencias <= p.Stock_Minimo * 0.5 THEN 'CRÍTICO'
+                        WHEN ib.Existencias <= p.Stock_Minimo THEN 'BAJO'
+                        ELSE 'NORMAL'
+                    END AS Nivel_Alerta
                 FROM productos p
                 INNER JOIN inventario_bodega ib ON p.ID_Producto = ib.ID_Producto
                 INNER JOIN unidades_medida um ON p.Unidad_Medida = um.ID_Unidad
+                INNER JOIN bodegas b ON ib.ID_Bodega = b.ID_Bodega
                 WHERE p.Estado = 'activo'
                     AND ib.Existencias <= p.Stock_Minimo
-                    AND ib.ID_Bodega = %s
-                ORDER BY Porcentaje_Stock ASC
-                LIMIT 10
-            """, (session.get('id_bodega', 1),))
+                ORDER BY Porcentaje_Stock ASC, b.Nombre
+                LIMIT 30
+            """)
             productos_stock_bajo = cursor.fetchall()
             
-            # 5. Top 10 productos más vendidos hoy
+            # 5. Top 10 productos más vendidos hoy - SIN PRECIOS
             cursor.execute("""
                 SELECT 
                     p.Descripcion AS Producto,
                     um.Abreviatura AS Unidad,
-                    SUM(dmi.Cantidad) AS Total_Salidas,
-                    ROUND(SUM(dmi.Subtotal), 2) AS Total_Vendido
+                    b.Nombre AS Bodega,
+                    SUM(dmi.Cantidad) AS Total_Salidas
                 FROM productos p
                 INNER JOIN detalle_movimientos_inventario dmi ON p.ID_Producto = dmi.ID_Producto
                 INNER JOIN movimientos_inventario mi ON dmi.ID_Movimiento = mi.ID_Movimiento
                 INNER JOIN catalogo_movimientos cm ON mi.ID_TipoMovimiento = cm.ID_TipoMovimiento
                 INNER JOIN unidades_medida um ON p.Unidad_Medida = um.ID_Unidad
-                WHERE mi.Estado = 'Activa'
-                    AND mi.Fecha = CURDATE()
-                    AND (cm.Adicion = 'RESTA' OR cm.Letra = 'S')
-                GROUP BY p.ID_Producto, p.Descripcion, um.Abreviatura
-                HAVING SUM(dmi.Cantidad) > 0
-                ORDER BY SUM(dmi.Cantidad) DESC
-                LIMIT 10
-            """)
-            top_productos_hoy = cursor.fetchall()
-            
-            # 6. Movimientos por bodega
-            cursor.execute("""
-                SELECT 
-                    b.Nombre AS Bodega,
-                    COUNT(DISTINCT mi.ID_Movimiento) AS movimientos,
-                    SUM(CASE 
-                        WHEN cm.Adicion = 'SUMA' OR cm.Letra = 'E' 
-                        THEN dmi.Cantidad 
-                        ELSE 0 
-                    END) AS entradas,
-                    SUM(CASE 
-                        WHEN cm.Adicion = 'RESTA' OR cm.Letra = 'S' 
-                        THEN dmi.Cantidad 
-                        ELSE 0 
-                    END) AS salidas
-                FROM movimientos_inventario mi
-                INNER JOIN detalle_movimientos_inventario dmi ON mi.ID_Movimiento = dmi.ID_Movimiento
-                INNER JOIN catalogo_movimientos cm ON mi.ID_TipoMovimiento = cm.ID_TipoMovimiento
                 INNER JOIN bodegas b ON mi.ID_Bodega = b.ID_Bodega
                 WHERE mi.Estado = 'Activa'
                     AND mi.Fecha = CURDATE()
-                GROUP BY b.ID_Bodega, b.Nombre
-                ORDER BY movimientos DESC
+                    AND (cm.Adicion = 'RESTA' OR cm.Letra = 'S')
+                GROUP BY p.ID_Producto, p.Descripcion, um.Abreviatura, b.Nombre
+                HAVING SUM(dmi.Cantidad) > 0
+                ORDER BY SUM(dmi.Cantidad) DESC
+                LIMIT 20
             """)
-            movimientos_por_bodega = cursor.fetchall()
+            top_productos_hoy = cursor.fetchall()
             
-            # 7. Información de la bodega actual
-            if session.get('id_bodega'):
-                cursor.execute("""
-                    SELECT 
-                        b.Nombre,
-                        b.Ubicacion,
-                        COUNT(DISTINCT ib.ID_Producto) AS total_productos,
-                        SUM(ib.Existencias) AS total_existencias
-                    FROM bodegas b
-                    LEFT JOIN inventario_bodega ib ON b.ID_Bodega = ib.ID_Bodega
-                    WHERE b.ID_Bodega = %s
-                    GROUP BY b.ID_Bodega, b.Nombre, b.Ubicacion
-                """, (session.get('id_bodega'),))
-                info_bodega = cursor.fetchone()
-            else:
-                info_bodega = None
-            
-            # 8. Productos por categoría con stock - NUEVA CONSULTA
+            # 6. Información de TODAS las bodegas - SIN VALORES MONETARIOS
             cursor.execute("""
                 SELECT 
+                    b.Nombre,
+                    b.Ubicacion,
+                    COUNT(DISTINCT ib.ID_Producto) AS total_productos,
+                    COALESCE(SUM(ib.Existencias), 0) AS total_existencias,
+                    COUNT(DISTINCT CASE WHEN ib.Existencias <= p.Stock_Minimo THEN ib.ID_Producto END) AS productos_criticos
+                FROM bodegas b
+                LEFT JOIN inventario_bodega ib ON b.ID_Bodega = ib.ID_Bodega
+                LEFT JOIN productos p ON ib.ID_Producto = p.ID_Producto AND p.Estado = 'activo'
+                WHERE b.Estado = 'activa'
+                GROUP BY b.ID_Bodega, b.Nombre, b.Ubicacion
+                ORDER BY b.Nombre
+            """)
+            info_bodegas = cursor.fetchall()
+            
+            # 7. Productos por categoría - SIN PRECIOS NI VALORES TOTALES
+            cursor.execute("""
+                SELECT 
+                    b.Nombre AS Bodega,
                     cp.Descripcion AS Categoria,
                     p.Descripcion AS Producto,
                     um.Abreviatura AS Unidad,
                     p.COD_Producto AS Codigo,
                     ib.Existencias AS Stock_Actual,
                     p.Stock_Minimo AS Stock_Minimo,
-                    p.Precio_Venta AS Precio,
-                    ROUND((ib.Existencias * COALESCE(p.Precio_Venta, 0)), 2) AS Valor_Total,
                     CASE 
                         WHEN ib.Existencias <= p.Stock_Minimo THEN 'CRITICO'
                         WHEN ib.Existencias <= (p.Stock_Minimo * 1.5) THEN 'BAJO'
                         ELSE 'NORMAL'
-                    END AS Estado_Stock,
-                    b.Nombre AS Bodega
+                    END AS Estado_Stock
                 FROM productos p
                 INNER JOIN categorias_producto cp ON p.ID_Categoria = cp.ID_Categoria
                 INNER JOIN unidades_medida um ON p.Unidad_Medida = um.ID_Unidad
                 INNER JOIN inventario_bodega ib ON p.ID_Producto = ib.ID_Producto
                 INNER JOIN bodegas b ON ib.ID_Bodega = b.ID_Bodega
                 WHERE p.Estado = 'activo'
-                    AND b.ID_Bodega = %s
-                ORDER BY cp.Descripcion, p.Descripcion
-            """, (session.get('id_bodega', 1),))
+                ORDER BY b.Nombre, cp.Descripcion, p.Descripcion
+                LIMIT 500
+            """)
             productos_categorias = cursor.fetchall()
             
-            # 9. Resumen por categoría para agrupar - NUEVA CONSULTA
+            # 8. Resumen por bodega y categoría - SIN VALORES MONETARIOS
             cursor.execute("""
                 SELECT 
+                    b.Nombre AS Bodega,
                     cp.Descripcion AS Categoria,
                     COUNT(p.ID_Producto) AS Total_Productos,
-                    SUM(ib.Existencias) AS Stock_Total,
-                    SUM(ib.Existencias * COALESCE(p.Precio_Venta, 0)) AS Valor_Total,
+                    COALESCE(SUM(ib.Existencias), 0) AS Stock_Total,
                     COUNT(CASE WHEN ib.Existencias <= p.Stock_Minimo THEN 1 END) AS Productos_Criticos,
                     COUNT(CASE WHEN ib.Existencias <= (p.Stock_Minimo * 1.5) AND ib.Existencias > p.Stock_Minimo THEN 1 END) AS Productos_Bajos
-                FROM productos p
-                INNER JOIN categorias_producto cp ON p.ID_Categoria = cp.ID_Categoria
-                INNER JOIN inventario_bodega ib ON p.ID_Producto = ib.ID_Producto
-                WHERE p.Estado = 'activo'
-                    AND ib.ID_Bodega = %s
-                GROUP BY cp.Descripcion
-                ORDER BY cp.Descripcion
-            """, (session.get('id_bodega', 1),))
+                FROM bodegas b
+                CROSS JOIN categorias_producto cp
+                LEFT JOIN productos p ON p.ID_Categoria = cp.ID_Categoria AND p.Estado = 'activo'
+                LEFT JOIN inventario_bodega ib ON p.ID_Producto = ib.ID_Producto AND ib.ID_Bodega = b.ID_Bodega
+                WHERE b.Estado = 'activa'
+                GROUP BY b.Nombre, cp.Descripcion
+                HAVING Total_Productos > 0
+                ORDER BY b.Nombre, cp.Descripcion
+            """)
             resumen_categorias = cursor.fetchall()
             
-            # 10. Información adicional del sistema
+            # 9. Información adicional del sistema
             cursor.execute("""
                 SELECT 
                     (SELECT COUNT(*) FROM productos WHERE Estado = 'activo') as total_productos_sistema,
@@ -897,17 +902,16 @@ def bodega_dashboard():
             # Formatear fecha actual para mostrar
             fecha_hoy = datetime.now().strftime("%d/%m/%Y")
             
-            # Pasar todas las variables a la plantilla
             return render_template('bodega/dashboard.html',
                                  productos_salidas_hoy=productos_salidas_hoy,
                                  kardex_hoy=kardex_hoy,
-                                 resumen_dia=resumen_dia,
+                                 resumen_por_bodega=resumen_por_bodega,
+                                 resumen_dia_total=resumen_dia_total,
                                  productos_stock_bajo=productos_stock_bajo,
                                  top_productos_hoy=top_productos_hoy,
-                                 movimientos_por_bodega=movimientos_por_bodega,
+                                 info_bodegas=info_bodegas,
                                  productos_categorias=productos_categorias,
                                  resumen_categorias=resumen_categorias,
-                                 info_bodega=info_bodega,
                                  sistema_info=sistema_info,
                                  fecha_hoy=fecha_hoy,
                                  current_user=current_user)
@@ -916,17 +920,16 @@ def bodega_dashboard():
         flash(f'Error al cargar el dashboard: {str(e)}', 'error')
         print(f"ERROR en bodega_dashboard: {str(e)}")
         traceback.print_exc()
-        # Pasar variables vacías para evitar errores en la plantilla
         return render_template('bodega/dashboard.html',
                              productos_salidas_hoy=[],
                              kardex_hoy=[],
-                             resumen_dia={},
+                             resumen_por_bodega=[],
+                             resumen_dia_total={},
                              productos_stock_bajo=[],
                              top_productos_hoy=[],
-                             movimientos_por_bodega=[],
+                             info_bodegas=[],
                              productos_categorias=[],
                              resumen_categorias=[],
-                             info_bodega=None,
                              sistema_info={},
                              fecha_hoy=datetime.now().strftime("%d/%m/%Y"),
                              current_user=current_user)
@@ -6651,7 +6654,7 @@ def obtener_productos_por_categoria_venta(id_categoria):
                         p.COD_Producto, 
                         p.Descripcion, 
                         COALESCE(ib.Existencias, 0) as Existencias,
-                        COALESCE(p.Precio_Venta, 0) as Precio_Venta, 
+                        COALESCE(p.Precio_Mercado, 0) as Precio_Venta, 
                         p.ID_Categoria,
                         c.Descripcion as Categoria
                     FROM productos p
@@ -6838,7 +6841,7 @@ def obtener_todos_productos_venta():
                     p.COD_Producto, 
                     p.Descripcion, 
                     COALESCE(ib.Existencias, 0) as Existencias,
-                    COALESCE(p.Precio_Venta, 0) as Precio_Venta, 
+                    COALESCE(p.Precio_Mercado, 0) as Precio_Venta, 
                     p.ID_Categoria,
                     c.Descripcion as Categoria
                 FROM productos p
@@ -8536,7 +8539,7 @@ def admin_pedidos_venta():
                 -- Calcular Total_Pedido según tipo de pedido
                 CASE 
                     WHEN p.Tipo_Pedido = 'Consolidado' THEN (
-                        SELECT COALESCE(SUM(pcp.Cantidad_Total * pr.Precio_Venta), 0)
+                        SELECT COALESCE(SUM(pcp.Cantidad_Total * pr.Precio_Mercado), 0)
                         FROM pedidos_consolidados_productos pcp
                         LEFT JOIN productos pr ON pcp.ID_Producto = pr.ID_Producto
                         WHERE pcp.ID_Pedido = p.ID_Pedido
@@ -8648,7 +8651,6 @@ def admin_pedidos_venta():
             
     except Exception as e:
         print(f"❌ Error en admin_pedidos_venta: {str(e)}")
-        import traceback
         traceback.print_exc()
         flash(f"Error al cargar pedidos de venta: {str(e)}", "error")
         return redirect(url_for('admin_dashboard'))
@@ -8704,12 +8706,12 @@ def ver_pedido(id_pedido):
                         u.NombreUsuario as Usuario_Creacion,
                         pr.COD_Producto,
                         pr.Descripcion as Nombre_Producto,
-                        pr.Precio_Venta,
+                        pr.Precio_Mercado as Precio_Venta,
                         pr.Unidad_Medida,
                         um.Descripcion as Unidad_Nombre,
                         um.Abreviatura as Unidad_Abreviatura,
                         cat.Descripcion as Categoria,
-                        (pcp.Cantidad_Total * pr.Precio_Venta) as Subtotal
+                        (pcp.Cantidad_Total * pr.Precio_Mercado) as Subtotal
                     FROM pedidos_consolidados_productos pcp
                     LEFT JOIN productos pr ON pcp.ID_Producto = pr.ID_Producto
                     LEFT JOIN unidades_medida um ON pr.Unidad_Medida = um.ID_Unidad
@@ -8724,7 +8726,7 @@ def ver_pedido(id_pedido):
                 cursor.execute("""
                     SELECT 
                         COALESCE(SUM(pcp.Cantidad_Total), 0) as Total_Cantidad,
-                        COALESCE(SUM(pcp.Cantidad_Total * pr.Precio_Venta), 0) as Total_General,
+                        COALESCE(SUM(pcp.Cantidad_Total * pr.Precio_Mercado), 0) as Total_General,
                         COUNT(DISTINCT pcp.ID_Producto) as Total_Productos
                     FROM pedidos_consolidados_productos pcp
                     LEFT JOIN productos pr ON pcp.ID_Producto = pr.ID_Producto
@@ -8871,7 +8873,7 @@ def filtrar_pedidos():
                 END as Total_Items,
                 CASE 
                     WHEN p.Tipo_Pedido = 'Consolidado' THEN (
-                        SELECT COALESCE(SUM(pcp.Cantidad_Total * pr.Precio_Venta), 0)
+                        SELECT COALESCE(SUM(pcp.Cantidad_Total * pr.Precio_Mercado), 0)
                         FROM pedidos_consolidados_productos pcp
                         JOIN productos pr ON pcp.ID_Producto = pr.ID_Producto
                         WHERE pcp.ID_Pedido = p.ID_Pedido
@@ -9252,7 +9254,7 @@ def obtener_productos_categoria():
                 p.ID_Producto,
                 p.Descripcion as Nombre_Producto,
                 p.COD_Producto,
-                p.Precio_Venta,
+                p.Precio_Mercado as Precio_Venta,
                 p.ID_Categoria,
                 p.Unidad_Medida,
                 u.Descripcion as Unidad_Descripcion,
@@ -9265,7 +9267,7 @@ def obtener_productos_categoria():
             LEFT JOIN inventario_bodega ib ON p.ID_Producto = ib.ID_Producto
             WHERE p.ID_Categoria = %s 
             AND p.Estado = 'activo'
-            GROUP BY p.ID_Producto, p.Descripcion, p.COD_Producto, p.Precio_Venta, 
+            GROUP BY p.ID_Producto, p.Descripcion, p.COD_Producto, Precio_Venta, 
                      p.ID_Categoria, p.Unidad_Medida, u.Descripcion, u.Abreviatura, 
                      c.Descripcion
             HAVING Stock_Total > 0
@@ -9416,7 +9418,7 @@ def crear_pedido():
                 
                 # Obtener precio del producto
                 sql_precio = """
-                SELECT Precio_Venta FROM productos 
+                SELECT Precio_Mercado as Precio_Venta FROM productos 
                 WHERE ID_Producto = %s AND Estado = 'activo'
                 """
                 cursor.execute(sql_precio, (producto['id'],))
@@ -9987,7 +9989,7 @@ def buscar_productos():
                     p.ID_Producto,
                     p.Descripcion as Nombre_Producto,
                     p.COD_Producto,
-                    p.Precio_Venta,
+                    p.Precio_Mercado as Precio_Venta,
                     p.Unidad_Medida,
                     u.Descripcion as Unidad_Descripcion,
                     u.Abreviatura as Unidad_Abreviatura,
@@ -10002,7 +10004,7 @@ def buscar_productos():
                 AND p.Estado = 'activo'
                 AND cv.tipo_cliente = %s
                 AND cv.visible = 1
-                GROUP BY p.ID_Producto, p.Descripcion, p.COD_Producto, p.Precio_Venta,
+                GROUP BY p.ID_Producto, p.Descripcion, p.COD_Producto, Precio_Venta,
                          p.Unidad_Medida, u.Descripcion, u.Abreviatura, cp.Descripcion
                 HAVING Stock_Total > 0
                 ORDER BY p.Descripcion
@@ -10016,7 +10018,7 @@ def buscar_productos():
                     p.ID_Producto,
                     p.Descripcion as Nombre_Producto,
                     p.COD_Producto,
-                    p.Precio_Venta,
+                    p.Precio_Mercado as Precio_Venta,
                     p.Unidad_Medida,
                     u.Descripcion as Unidad_Descripcion,
                     u.Abreviatura as Unidad_Abreviatura,
@@ -10028,7 +10030,7 @@ def buscar_productos():
                 LEFT JOIN inventario_bodega ib ON p.ID_Producto = ib.ID_Producto
                 WHERE (p.Descripcion LIKE %s OR p.COD_Producto LIKE %s)
                 AND p.Estado = 'activo'
-                GROUP BY p.ID_Producto, p.Descripcion, p.COD_Producto, p.Precio_Venta,
+                GROUP BY p.ID_Producto, p.Descripcion, p.COD_Producto, Precio_Venta,
                          p.Unidad_Medida, u.Descripcion, u.Abreviatura, cp.Descripcion
                 HAVING Stock_Total > 0
                 ORDER BY p.Descripcion
@@ -10209,7 +10211,7 @@ def procesar_carga_consolidada(id_pedido):
                 SELECT 
                     pcp.ID_Producto,
                     pcp.Cantidad_Total,
-                    pr.Precio_Venta,
+                    pr.Precio_Mercado as Precio_Venta,
                     COALESCE(ib.Existencias, 0) as Stock_Disponible
                 FROM pedidos_consolidados_productos pcp
                 JOIN productos pr ON pcp.ID_Producto = pr.ID_Producto
@@ -10465,7 +10467,7 @@ def distribuir_carga(id_pedido):
                     pcp.Cantidad_Total,
                     pr.Descripcion as Nombre_Producto,
                     pr.COD_Producto,
-                    pr.Precio_Venta
+                    pr.Precio_Mercado as Precio_Venta
                 FROM pedidos_consolidados_productos pcp
                 INNER JOIN productos pr ON pcp.ID_Producto = pr.ID_Producto
                 WHERE pcp.ID_Pedido = %s
@@ -10529,7 +10531,7 @@ def api_productos_consolidados(id_pedido):
                     pcp.Cantidad_Total,
                     pr.Descripcion as Nombre_Producto,
                     pr.COD_Producto,
-                    pr.Precio_Venta
+                    pr.Precio_Mercado as Precio_Venta
                 FROM pedidos_consolidados_productos pcp
                 INNER JOIN productos pr ON pcp.ID_Producto = pr.ID_Producto
                 WHERE pcp.ID_Pedido = %s
@@ -11636,7 +11638,7 @@ def admin_inventario_dashboard():
                     ), 0) as Total_Existencias,
                     
                     COALESCE((
-                        SELECT SUM(ib2.Existencias * p2.Precio_Venta)
+                        SELECT SUM(ib2.Existencias * p2.Precio_Mercado)
                         FROM inventario_bodega ib2
                         JOIN productos p2 ON ib2.ID_Producto = p2.ID_Producto
                         WHERE p2.Estado = 'activo' AND p2.ID_Empresa = %s
@@ -11666,8 +11668,8 @@ def admin_inventario_dashboard():
                     COALESCE(ib.Existencias, 0) as Stock_Actual,
                     cp.Descripcion as Categoria,
                     um.Abreviatura as Unidad_Medida,
-                    p.Precio_Venta,
-                    ROUND(COALESCE(ib.Existencias * p.Precio_Venta, 0), 2) as Valor_Inventario,
+                    p.Precio_Mercado as Precio_Venta,
+                    ROUND(COALESCE(ib.Existencias * p.Precio_Mercado, 0), 2) as Valor_Inventario,
                     
                     -- Cálculo de niveles
                     CASE 
@@ -11717,7 +11719,7 @@ def admin_inventario_dashboard():
                     SUM(CASE WHEN COALESCE(ib.Existencias, 0) < p.Stock_Minimo THEN 1 ELSE 0 END) as Productos_Bajos,
                     SUM(CASE WHEN COALESCE(ib.Existencias, 0) = 0 THEN 1 ELSE 0 END) as Productos_Sin_Stock,
                     ROUND(SUM(COALESCE(ib.Existencias, 0)), 2) as Total_Existencias,
-                    ROUND(SUM(COALESCE(ib.Existencias * p.Precio_Venta, 0)), 2) as Valor_Total,
+                    ROUND(SUM(COALESCE(ib.Existencias * p.Precio_Mercado, 0)), 2) as Valor_Total,
                     ROUND(AVG(CASE 
                         WHEN p.Stock_Minimo > 0 
                         THEN COALESCE(ib.Existencias, 0) / p.Stock_Minimo * 100 
@@ -11747,7 +11749,7 @@ def admin_inventario_dashboard():
                     COUNT(DISTINCT ib.ID_Producto) as Productos_Diferentes,
                     SUM(ib.Existencias) as Total_Existencias,
                     COUNT(CASE WHEN p.Stock_Minimo > 0 AND ib.Existencias < p.Stock_Minimo THEN 1 END) as Productos_Bajos_Stock,
-                    ROUND(SUM(ib.Existencias * p.Precio_Venta), 2) as Valor_Total,
+                    ROUND(SUM(ib.Existencias * p.Precio_Mercado), 2) as Valor_Total,
                     ROUND(AVG(CASE 
                         WHEN p.Stock_Minimo > 0 
                         THEN (ib.Existencias / p.Stock_Minimo * 100)
@@ -11793,8 +11795,8 @@ def admin_inventario_dashboard():
                     p.Descripcion,
                     cp.Descripcion as Categoria,
                     ROUND(COALESCE(ib.Existencias, 0), 2) as Stock_Total,
-                    p.Precio_Venta,
-                    ROUND(COALESCE(ib.Existencias * p.Precio_Venta, 0), 2) as Valor_Total
+                    p.Precio_Mercado as Precio_Venta,
+                    ROUND(COALESCE(ib.Existencias * p.Mercado, 0), 2) as Valor_Total
                 FROM productos p
                 LEFT JOIN (
                     SELECT ID_Producto, SUM(Existencias) as Existencias
@@ -11872,8 +11874,8 @@ def admin_inventario_dashboard():
                     p.Stock_Minimo,
                     COALESCE(ib.Existencias, 0) as Stock_Actual,
                     GREATEST(p.Stock_Minimo - COALESCE(ib.Existencias, 0), 0) as Cantidad_Requerida,
-                    p.Precio_Venta,
-                    ROUND(GREATEST(p.Stock_Minimo - COALESCE(ib.Existencias, 0), 0) * p.Precio_Venta, 2) as Valor_Reorden,
+                    p.Precio_Mercado as Precio_Venta,
+                    ROUND(GREATEST(p.Stock_Minimo - COALESCE(ib.Existencias, 0), 0) * p.Precio_Mercado, 2) as Valor_Reorden,
                     COALESCE(ventas.Promedio_Venta_Diaria, 0) as Promedio_Venta_Diaria,
                     CASE 
                         WHEN COALESCE(ventas.Promedio_Venta_Diaria, 0) > 0
@@ -12168,7 +12170,7 @@ def admin_nueva_entrada_form():
                     p.Descripcion, 
                     p.Unidad_Medida, 
                     um.Descripcion as Unidad_Descripcion,
-                    p.Precio_Venta, 
+                    p.Precio_Mercado as Precio_Venta, 
                     p.Stock_Minimo,
                     cp.Descripcion as Categoria_Descripcion,
                     COALESCE(SUM(ib.Existencias), 0) as Existencias_Totales
@@ -12178,7 +12180,7 @@ def admin_nueva_entrada_form():
                 LEFT JOIN inventario_bodega ib ON p.ID_Producto = ib.ID_Producto
                 WHERE p.Estado = 'activo'
                 GROUP BY p.ID_Producto, p.COD_Producto, p.Descripcion, 
-                         p.Unidad_Medida, p.Precio_Venta, p.Stock_Minimo,
+                         p.Unidad_Medida, Precio_Venta, p.Stock_Minimo,
                          um.Descripcion, cp.Descripcion
                 ORDER BY p.Descripcion
                 LIMIT 100
@@ -12592,15 +12594,16 @@ def admin_procesar_salida():
                     ))
                     id_factura_venta = cursor.lastrowid
                     
-                    # Calcular total de la venta
+                    # Calcular total de la venta - CORREGIDO: usar precio_unitario, NO costo_unitario
                     total_venta = Decimal('0')
                     for prod in productos:
                         cantidad = Decimal(str(prod['cantidad']))
+                        # ✅ USAR PRECIO_UNITARIO para el total de venta
                         precio_unitario = Decimal(str(prod.get('precio_unitario', 0)))
                         total_item = cantidad * precio_unitario
                         total_venta += total_item
                         
-                        # Insertar detalle de facturación
+                        # Insertar detalle de facturación - guardamos el precio de venta
                         cursor.execute("""
                             INSERT INTO detalle_facturacion 
                             (ID_Factura, ID_Producto, Cantidad, Costo, Total)
@@ -12609,7 +12612,9 @@ def admin_procesar_salida():
                             id_factura_venta,
                             prod['id_producto'],
                             cantidad,
-                            Decimal(str(prod.get('costo_unitario', 0))),
+                            # Guardamos el precio_unitario como el "Costo" en facturación 
+                            # (aunque debería llamarse Precio_Venta en la tabla)
+                            precio_unitario,  
                             total_item
                         ))
                     
@@ -12632,9 +12637,9 @@ def admin_procesar_salida():
                             f"Venta a crédito - Factura #{id_factura_venta}",
                             fecha_vencimiento,
                             1,  # Tipo movimiento: 1 = Factura (debe)
-                            total_venta,
+                            total_venta,  # ✅ Usamos total_venta (basado en precio_unitario)
                             id_empresa,
-                            total_venta,  # Saldo pendiente inicial = monto total
+                            total_venta,  # ✅ Saldo pendiente inicial = monto total (basado en precio)
                             id_factura_venta,
                             user_id
                         ))
@@ -12642,7 +12647,7 @@ def admin_procesar_salida():
                     flash(f"✅ Factura #{id_factura_venta} creada exitosamente", 'success')
                     
                     if tipo_pago == 'CREDITO':
-                        flash(f"📝 Cuenta por cobrar registrada - Vence: {fecha_vencimiento}", 'info')
+                        flash(f"📝 Cuenta por cobrar registrada por C${total_venta:,.2f} - Vence: {fecha_vencimiento}", 'info')
             
             # Insertar movimiento de inventario (SALIDA)
             cursor.execute("""
@@ -12677,9 +12682,9 @@ def admin_procesar_salida():
                     cantidad = Decimal(str(prod['cantidad']))
                     precio_unitario = Decimal(str(prod.get('precio_unitario', 0)))
                     
-                    # Obtener costo promedio (último costo de entrada)
+                    # Obtener costo promedio (último costo de entrada) - para el inventario
                     cursor.execute("""
-                        SELECT Costo_Unitario 
+                        SELECT Precio_Unitario 
                         FROM detalle_movimientos_inventario dmi
                         JOIN movimientos_inventario mi ON dmi.ID_Movimiento = mi.ID_Movimiento
                         JOIN catalogo_movimientos cm ON mi.ID_TipoMovimiento = cm.ID_TipoMovimiento
@@ -12689,17 +12694,17 @@ def admin_procesar_salida():
                         LIMIT 1
                     """, (id_producto,))
                     
-                    costo_result = cursor.fetchone()
+                    precio_result = cursor.fetchone()
                     
                     # Usar costo proporcionado o el último costo encontrado
-                    if 'costo_unitario' in prod and prod['costo_unitario']:
-                        costo_unitario = Decimal(str(prod['costo_unitario']))
-                    elif costo_result:
-                        costo_unitario = Decimal(str(costo_result['Costo_Unitario']))
+                    if 'precio_unitario' in prod and prod['precio_unitario']:
+                        precio_unitario = Decimal(str(prod['precio_unitario']))
+                    elif precio_result:
+                        precio_unitario = Decimal(str(precio_result['Precio_Unitario']))
                     else:
-                        costo_unitario = Decimal('0')
+                        precio_unitario = Decimal('0')
                     
-                    subtotal = cantidad * costo_unitario
+                    subtotal = cantidad * precio_unitario
                     
                     # Insertar detalle del movimiento de inventario
                     cursor.execute("""
@@ -12711,8 +12716,8 @@ def admin_procesar_salida():
                         id_movimiento, 
                         id_producto, 
                         cantidad,
-                        costo_unitario, 
                         precio_unitario, 
+                        precio_unitario,  # Guardamos también el precio de venta aquí
                         subtotal,
                         user_id
                     ))
@@ -12760,7 +12765,7 @@ def api_productos_stock_bodega():
                     p.Descripcion, 
                     p.Unidad_Medida, 
                     um.Descripcion as Unidad_Descripcion,
-                    p.Precio_Venta, 
+                    p.Precio_Mercado as Precio_Venta, 
                     p.Stock_Minimo,
                     cp.Descripcion as Categoria_Descripcion,
                     COALESCE(ib.Existencias, 0) as Stock_Bodega,
@@ -12774,7 +12779,7 @@ def api_productos_stock_bodega():
                 WHERE p.Estado = 'activo'
                     AND COALESCE(ib.Existencias, 0) > 0
                 GROUP BY p.ID_Producto, p.COD_Producto, p.Descripcion, 
-                         p.Unidad_Medida, p.Precio_Venta, p.Stock_Minimo,
+                         p.Unidad_Medida, Precio_Venta, p.Stock_Minimo,
                          um.Descripcion, cp.Descripcion, ib.Existencias
                 ORDER BY p.Descripcion
                 LIMIT 100
@@ -12914,7 +12919,7 @@ def admin_procesar_transferencia():
                 
                 # Verificar si producto existe, está activo y pertenece a la empresa
                 cursor.execute("""
-                    SELECT ID_Producto, Descripcion, Precio_Venta, COD_Producto
+                    SELECT ID_Producto, Descripcion, Precio_Mercado as Precio_Venta, COD_Producto
                     FROM productos 
                     WHERE ID_Producto = %s 
                     AND Estado = 'activo'
@@ -13193,7 +13198,7 @@ def api_productos_bodega_con_stock(id_bodega):
                     p.ID_Producto, 
                     p.Descripcion, 
                     p.COD_Producto,
-                    p.Precio_Venta,
+                    p.Precio_Mercado as Precio_Venta,
                     um.Descripcion as Unidad_Descripcion,
                     cp.Descripcion as Categoria_Descripcion
                 FROM productos p
@@ -13592,7 +13597,7 @@ def api_obtener_stock(id_producto, id_bodega):
             cursor.execute("""
                 SELECT p.ID_Producto, p.Descripcion, p.COD_Producto,
                        ib.Existencias, p.Existencias as Total_General,
-                       p.Precio_Venta, p.Stock_Minimo,
+                       p.Precio_Mercado as Precio_Venta, p.Stock_Minimo,
                        um.Descripcion as Unidad_Medida
                 FROM productos p
                 LEFT JOIN inventario_bodega ib ON p.ID_Producto = ib.ID_Producto 
@@ -13630,7 +13635,7 @@ def api_buscar_productos():
             query = """
                 SELECT p.ID_Producto, p.COD_Producto, p.Descripcion, 
                        p.Unidad_Medida, um.Descripcion as Unidad_Descripcion,
-                       p.Precio_Venta, p.Existencias as Stock_General,
+                       p.Precio_Mercado as Precio_Venta, p.Existencias as Stock_General,
                        ib.Existencias as Stock_Bodega,
                        p.Stock_Minimo
                 FROM productos p
@@ -13738,7 +13743,7 @@ def bodega_reportes_avanzados():
                     b.Nombre AS Bodega,
                     ib.Existencias AS Stock_Actual,
                     p.Stock_Minimo,
-                    p.Precio_Venta,
+                    p.Precio_Mercado AS Precio_Venta,
                     CASE 
                         WHEN ib.Existencias <= p.Stock_Minimo THEN 'BAJO STOCK'
                         WHEN ib.Existencias = 0 THEN 'AGOTADO'
@@ -14275,7 +14280,7 @@ def vendedor_inventario():
                     ir.Fecha_Actualizacion,
                     p.Descripcion as Nombre_Producto,
                     p.COD_Producto,
-                    p.Precio_Venta,
+                    p.Precio_Mercado as Precio_Venta,
                     p.Stock_Minimo,
                     um.Descripcion as Unidad,
                     um.Abreviatura as Unidad_Abrev,
@@ -14379,7 +14384,7 @@ def api_vendedor_inventario():
                     ir.Cantidad,
                     p.Descripcion as producto,
                     p.COD_Producto as codigo,
-                    p.Precio_Venta as precio,
+                    p.Precio_Mercado as precio,
                     um.Abreviatura as unidad
                 FROM inventario_ruta ir
                 INNER JOIN productos p ON ir.ID_Producto = p.ID_Producto
@@ -14438,7 +14443,7 @@ def vendedor_producto_detalle(id_producto):
                     ir.Fecha_Actualizacion,
                     p.Descripcion as Nombre_Producto,
                     p.COD_Producto,
-                    p.Precio_Venta,
+                    p.Precio_Mercado as Precio_Venta,
                     p.Stock_Minimo,
                     um.Descripcion as Unidad,
                     um.Abreviatura as Unidad_Abrev,
@@ -14526,7 +14531,7 @@ def vendedor_refrescar_inventario():
                 SELECT 
                     COUNT(*) as total_productos,
                     COALESCE(SUM(Cantidad), 0) as total_unidades,
-                    COALESCE(SUM(Cantidad * p.Precio_Venta), 0) as total_valor
+                    COALESCE(SUM(Cantidad * p.Precio_Mercado), 0) as total_valor
                 FROM inventario_ruta ir
                 INNER JOIN productos p ON ir.ID_Producto = p.ID_Producto
                 WHERE ir.ID_Asignacion = %s
