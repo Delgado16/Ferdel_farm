@@ -3730,9 +3730,12 @@ def admin_editar_bodega(id):
 @bitacora_decorator("PRODUCTOS")
 def admin_productos():
     try:
+        # Obtener el parámetro de filtro de categoría de la URL
+        categoria_filtro = request.args.get('categoria', 'todos')
+        
         with get_db_cursor() as cursor:
-            # Consulta de productos - Actualizada con los nuevos campos de precio
-            cursor.execute("""
+            # Consulta base para productos con filtro opcional por categoría
+            query = """
                 SELECT 
                     p.ID_Producto,
                     p.COD_Producto,
@@ -3744,9 +3747,9 @@ def admin_productos():
                     p.Estado,
                     p.ID_Categoria,
                     cp.Descripcion as Nombre_Categoria,
-                    p.Precio_Mercado,      -- Cambiado de Precio_Venta
-                    p.Precio_Mayorista,    -- Nuevo campo
-                    p.Precio_Ruta,          -- Nuevo campo
+                    p.Precio_Mercado,
+                    p.Precio_Mayorista,
+                    p.Precio_Ruta,
                     p.ID_Empresa,
                     e.Nombre_Empresa,
                     p.Fecha_Creacion,
@@ -3760,14 +3763,27 @@ def admin_productos():
                 LEFT JOIN empresa e ON p.ID_Empresa = e.ID_Empresa
                 LEFT JOIN usuarios u ON p.Usuario_Creador = u.ID_Usuario
                 LEFT JOIN Inventario_Bodega ib ON p.ID_Producto = ib.ID_Producto
-                WHERE p.Estado = 'activo'   -- Ya está correcto con string
+                WHERE p.Estado = 'activo'
+            """
+            
+            # Parámetros para la consulta
+            params = []
+            
+            # Agregar filtro por categoría si no es 'todos'
+            if categoria_filtro != 'todos':
+                query += " AND p.ID_Categoria = %s"
+                params.append(categoria_filtro)
+            
+            query += """
                 GROUP BY p.ID_Producto, p.COD_Producto, p.Descripcion, p.Unidad_Medida, 
                          um.Descripcion, um.Abreviatura, p.Estado, p.ID_Categoria,
-                         cp.Descripcion, p.Precio_Mercado, p.Precio_Mayorista, p.Precio_Ruta,  -- Actualizado
+                         cp.Descripcion, p.Precio_Mercado, p.Precio_Mayorista, p.Precio_Ruta,
                          p.ID_Empresa, e.Nombre_Empresa, p.Fecha_Creacion, p.Usuario_Creador, 
                          u.NombreUsuario, p.Stock_Minimo
                 ORDER BY p.ID_Producto DESC
-            """)
+            """
+            
+            cursor.execute(query, params)
             productos = cursor.fetchall()
             
             # Convertir productos a diccionario si es necesario
@@ -3799,10 +3815,11 @@ def admin_productos():
                         'Bodegas_Con_Stock': producto[19]
                     })
             
-            # Resto del código igual...
-            cursor.execute("SELECT ID_Categoria, Descripcion FROM categorias_producto")
+            # Obtener todas las categorías para el filtro
+            cursor.execute("SELECT ID_Categoria, Descripcion FROM categorias_producto ORDER BY Descripcion")
             categorias = cursor.fetchall()
             
+            # Resto de las consultas...
             cursor.execute("SELECT ID_Unidad, Descripcion, Abreviatura FROM Unidades_Medida")
             unidades = cursor.fetchall()
             
@@ -3821,6 +3838,8 @@ def admin_productos():
             return render_template('admin/bodega/producto/productos.html', 
                                  productos=productos_list,
                                  categorias=categorias,
+                                 categorias_filtro=categorias,  # Para el filtro
+                                 categoria_seleccionada=categoria_filtro,
                                  unidades=unidades,
                                  empresas=empresas,
                                  bodegas=bodegas)
@@ -3829,6 +3848,8 @@ def admin_productos():
         return render_template('admin/bodega/producto/productos.html',
                                 productos=[], 
                                 categorias=[], 
+                                categorias_filtro=[],
+                                categoria_seleccionada='todos',
                                 unidades=[], 
                                 empresas=[],
                                 bodegas=[])
@@ -4664,7 +4685,7 @@ def obtener_productos_por_categoria_compra(id_categoria):
                         p.ID_Producto, 
                         p.COD_Producto, 
                         p.Descripcion,
-                        COALESCE(p.Precio_Venta, 0) as Precio_Venta, 
+                        COALESCE(p.Precio_Mercado, 0) as Precio_Venta, 
                         p.ID_Categoria,
                         c.Descripcion as Categoria,
                         um.Descripcion as Unidad_Medida,
@@ -4685,7 +4706,7 @@ def obtener_productos_por_categoria_compra(id_categoria):
                         p.ID_Producto, 
                         p.COD_Producto, 
                         p.Descripcion,
-                        COALESCE(p.Precio_Venta, 0) as Precio_Venta,
+                        COALESCE(p.Precio_Mercado, 0) as Precio_Venta,
                         p.ID_Categoria,
                         c.Descripcion as Categoria,
                         um.Descripcion as Unidad_Medida,
@@ -11989,7 +12010,6 @@ def admin_inventario_dashboard():
             )
             
     except Exception as e:
-        import traceback
         error_details = traceback.format_exc()
         print(f"ERROR DETALLADO:\n{error_details}")
         flash(f"Error al cargar dashboard de inventario: {str(e)}", 'error')

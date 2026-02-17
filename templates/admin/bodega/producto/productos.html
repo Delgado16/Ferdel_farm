@@ -12,6 +12,57 @@
         </button>
     </div>
 
+    <!-- Filtro por categoría -->
+    <div class="card mb-3">
+        <div class="card-body">
+            <form method="GET" action="{{ url_for('admin_productos') }}" class="row align-items-end">
+                <div class="col-md-4">
+                    <label for="categoria" class="form-label">Filtrar por Categoría:</label>
+                    <select name="categoria" id="categoria" class="form-select">
+                        <option value="todos" {% if categoria_seleccionada == 'todos' %}selected{% endif %}>
+                            Todas las categorías
+                        </option>
+                        {% for categoria in categorias_filtro %}
+                            <option value="{{ categoria.ID_Categoria }}" 
+                                    {% if categoria_seleccionada|string == categoria.ID_Categoria|string %}selected{% endif %}>
+                                {{ categoria.Descripcion }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-filter"></i> Filtrar
+                    </button>
+                    {% if categoria_seleccionada != 'todos' %}
+                        <a href="{{ url_for('admin_productos') }}" class="btn btn-secondary">
+                            <i class="fas fa-times"></i> Limpiar
+                        </a>
+                    {% endif %}
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Mostrar información del filtro actual -->
+    {% if categoria_seleccionada != 'todos' %}
+        {% for categoria in categorias_filtro %}
+            {% if categoria.ID_Categoria|string == categoria_seleccionada|string %}
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle"></i> 
+                    Mostrando productos de la categoría: <strong>{{ categoria.Descripcion }}</strong>
+                    <span class="badge bg-primary float-end">{{ productos|length }} producto(s)</span>
+                </div>
+            {% endif %}
+        {% endfor %}
+    {% else %}
+        <div class="alert alert-secondary">
+            <i class="fas fa-list"></i> 
+            Mostrando todos los productos
+            <span class="badge bg-primary float-end">{{ productos|length }} producto(s)</span>
+        </div>
+    {% endif %}
+
     <!-- Tabla de Productos -->
     <div class="card">
         <div class="card-header">
@@ -145,13 +196,21 @@
                             </select>
                         </div>
                         <div class="col-md-6 mb-3">
-                            <label class="form-label">Categoría *</label>
-                            <select class="form-select" name="ID_Categoria" required>
+                            <label class="form-label">
+                                Categoría * 
+                                <i class="fas fa-search text-primary ms-2" 
+                                   style="cursor: pointer;" 
+                                   onclick="filtrarCategorias()" 
+                                   data-bs-toggle="tooltip" 
+                                   title="Buscar categoría"></i>
+                            </label>
+                            <select class="form-select" name="ID_Categoria" id="ID_Categoria" required>
                                 <option value="">Seleccionar categoría</option>
                                 {% for categoria in categorias %}
                                 <option value="{{ categoria.ID_Categoria }}">{{ categoria.Descripcion }}</option>
                                 {% endfor %}
                             </select>
+                            <div class="form-text">Categoría del producto</div>
                         </div>
                     </div>
                     
@@ -162,19 +221,31 @@
                             <div class="form-text">Existencias iniciales</div>
                         </div>
                         <div class="col-md-3 mb-3">
-                            <label class="form-label">Precio Mercado</label>
+                            <label class="form-label">
+                                Precio Mercado
+                                <i class="fas fa-info-circle text-primary" 
+                                   data-bs-toggle="tooltip" 
+                                   title="Precio de venta al público general"></i>
+                            </label>
                             <input type="number" class="form-control" name="Precio_Mercado" value="0" step="0.01" min="0">
-                            <div class="form-text">Precio de mercado</div>
                         </div>
                         <div class="col-md-3 mb-3">
-                            <label class="form-label">Precio Mayorista</label>
+                            <label class="form-label">
+                                Precio Mayorista
+                                <i class="fas fa-info-circle text-primary" 
+                                   data-bs-toggle="tooltip" 
+                                   title="Precio para compras al por mayor"></i>
+                            </label>
                             <input type="number" class="form-control" name="Precio_Mayorista" value="0" step="0.01" min="0">
-                            <div class="form-text">Precio mayorista</div>
                         </div>
                         <div class="col-md-3 mb-3">
-                            <label class="form-label">Precio Ruta</label>
+                            <label class="form-label">
+                                Precio Ruta
+                                <i class="fas fa-info-circle text-primary" 
+                                   data-bs-toggle="tooltip" 
+                                   title="Precio especial para rutas de venta"></i>
+                            </label>
                             <input type="number" class="form-control" name="Precio_Ruta" value="0" step="0.01" min="0">
-                            <div class="form-text">Precio de ruta</div>
                         </div>
                     </div>
 
@@ -232,6 +303,12 @@
 {% block scripts %}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    // Inicializar tooltips de Bootstrap
+    const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+    const tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl);
+    });
+
     // Auto-focus en el primer campo del modal cuando se abre
     var modalCrear = document.getElementById('modalCrearProducto');
     if (modalCrear) {
@@ -304,6 +381,11 @@ document.addEventListener('DOMContentLoaded', function() {
             const cantidadInicial = form.querySelector('input[name="Cantidad_Inicial"]');
             const stockMinimo = form.querySelector('input[name="Stock_Minimo"]');
             
+            // Precios
+            const precioMercado = parseFloat(form.querySelector('input[name="Precio_Mercado"]').value || 0);
+            const precioMayorista = parseFloat(form.querySelector('input[name="Precio_Mayorista"]').value || 0);
+            const precioRuta = parseFloat(form.querySelector('input[name="Precio_Ruta"]').value || 0);
+            
             let isValid = true;
             let errorMessage = '';
             
@@ -335,6 +417,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 isValid = false;
                 errorMessage = 'El stock mínimo no puede ser negativo';
                 stockMinimo.focus();
+            } else if (precioMercado <= 0 && precioMayorista <= 0 && precioRuta <= 0) {
+                isValid = false;
+                errorMessage = 'Debe ingresar al menos un precio mayor a 0';
+                form.querySelector('input[name="Precio_Mercado"]').focus();
             }
             
             if (!isValid) {
@@ -347,5 +433,56 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 });
+
+// Función para filtrar categorías
+function filtrarCategorias() {
+    const categoriaSelect = document.getElementById('ID_Categoria');
+    const busqueda = prompt('Ingrese el texto a buscar en categorías:', '');
+    
+    if (busqueda !== null && busqueda.trim() !== '') {
+        const textoBusqueda = busqueda.trim().toLowerCase();
+        const opciones = Array.from(categoriaSelect.options);
+        let encontrada = false;
+        let opcionesEncontradas = [];
+        
+        // Primero, encontrar todas las opciones que coinciden
+        for (let i = 1; i < opciones.length; i++) { // Empezar desde 1 para saltar la opción vacía
+            if (opciones[i].text.toLowerCase().includes(textoBusqueda)) {
+                opcionesEncontradas.push({
+                    index: i,
+                    text: opciones[i].text,
+                    value: opciones[i].value
+                });
+            }
+        }
+        
+        if (opcionesEncontradas.length > 0) {
+            if (opcionesEncontradas.length === 1) {
+                // Si solo hay una coincidencia, seleccionarla automáticamente
+                categoriaSelect.selectedIndex = opcionesEncontradas[0].index;
+                alert(`Categoría encontrada: ${opcionesEncontradas[0].text}`);
+            } else {
+                // Si hay múltiples coincidencias, mostrar lista para elegir
+                let mensaje = 'Se encontraron varias categorías:\n\n';
+                opcionesEncontradas.forEach((opt, idx) => {
+                    mensaje += `${idx + 1}. ${opt.text}\n`;
+                });
+                mensaje += '\nIngrese el número de la categoría deseada:';
+                
+                const seleccion = prompt(mensaje, '1');
+                if (seleccion !== null) {
+                    const numSeleccion = parseInt(seleccion);
+                    if (!isNaN(numSeleccion) && numSeleccion > 0 && numSeleccion <= opcionesEncontradas.length) {
+                        categoriaSelect.selectedIndex = opcionesEncontradas[numSeleccion - 1].index;
+                    } else {
+                        alert('Selección no válida');
+                    }
+                }
+            }
+        } else {
+            alert('No se encontró ninguna categoría con ese texto');
+        }
+    }
+}
 </script>
 {% endblock %}
