@@ -85,604 +85,66 @@ def get_db():
             print(f"Pool agotado, usando conexion directa: {e}")
             try:
                 config_simple = {k: v for k, v in DB_CONFIG.items()
-                                if k not in ['pool_name','pool_size','pool_reset_session']}
-                g.db = mysql.connector.connect(**config_simple)
-            except Error as fallback_error:
-                print(f"Fallback tambien fallo: {fallback_error}")
-                g.db = None
-        except Error as e:
-            print(f"Error al conectar a la BD: {e}")
-            g.db = None
-    return g.db
 
-@app.teardown_appcontext
-def close_db(exception):
-    """Cerrar conexión al final de cada request"""
-    db = g.pop('db', None)
-    if db is not None:
-        try:
-            if db.is_connected():
-                db.close()
-                print("Conexión a BD cerrada")
-            else:
-                print("Conexion ya estaba cerrada")
-        except Error as e:
-            print(f"Error al cerrar conexión: {e}")
+                                # ========================
+                                # RUTAS PRINCIPALES (ADMIN)
+                                # ========================
 
-@contextlib.contextmanager
-def get_db_cursor(commit=False):
-    """Context manager para manejar cursor automáticamente"""
-    db = get_db()
-    if db is None:
-        raise Exception("No se pudo conectar a la base de datos")
-    
-    cursor = None
-    try:
-        if not db.is_connected():
-            print("Reconectando...")
-            db.reconnect(attempts=1, delay=0)
-    
-        cursor = db.cursor(dictionary=True)
-        yield cursor
-        
-        if commit:
-            db.commit()
-            print("Cambios confirmados en la BD")
+                                @app.route('/admin/ventas/ventas-salidas', methods=['GET'])
+                                @admin_or_bodega_required
+                                @bitacora_decorator("VENTAS-SALIDAS")
+                                def admin_ventas_salidas():
+                                    # ...existing code...
 
-    except Exception as e:
-        print(f"Error en operacion de BD: {e}")
-        if commit:
-            try:
-                db.rollback()
-                print("Rollback realizado en la BD")
-            except:
-                print("Error al hacer rollback")
-        raise e
+                                @app.route('/admin/ventas/crear', methods=['GET', 'POST'])
+                                @admin_or_bodega_required
+                                @bitacora_decorator("CREAR_VENTA")
+                                def admin_crear_venta():
+                                    # ...existing code...
 
-    finally:
-        if cursor:
-            try:
-                cursor.close()
-                print("Cursor cerrado")
-            except:
-                pass
+                                @app.route('/admin/ventas/ticket/<int:id_factura>')
+                                def admin_generar_ticket(id_factura):
+                                    # ...existing code...
 
-def test_connection():
-    """Probar la conexión a la base de datos"""
-    try:
-        conn = get_db()
-        if conn:
-            cursor = conn.cursor()
-            cursor.execute("SELECT 1")
-            cursor.fetchone()
-            cursor.close()
-            print("✅ Conexión a BD exitosa")
-            return True
-        else:
-            print("❌ No se pudo establecer conexión a la BD")
-            return False
-    except Error as e:
-        print(f"❌ Error al probar conexión a la BD: {e}")
-        return False
+                                @app.route('/admin/ventas/detalles/<int:id_factura>', methods=['GET'])
+                                @bitacora_decorator("DETALLES_VENTA")
+                                def admin_detalles_venta(id_factura):
+                                    # ...existing code...
 
-def diagnose_db():
-    """Diagnóstico completo de la base de datos"""
-    print("\n=== DIAGNÓSTICO DE BASE DE DATOS ===")
-    
-    # Verificar variables de entorno
-    print(f"📋 Variables de entorno:")
-    print(f"   DB_USER: {os.environ.get('DB_USER')}")
-    print(f"   DB_NAME: {os.environ.get('DB_NAME')}")
-    print(f"   DB_HOST: {os.environ.get('DB_HOST')}")
-    
-    # 1. Verificar conexión
-    conn = get_db()
-    if not conn:
-        print("❌ No se pudo conectar a la BD")
-        return False
-    
-    try:
-        # Crear cursor con dictionary=True para obtener resultados como diccionarios
-        cursor = conn.cursor(buffered=True, dictionary=True)
-        
-        # 2. Verificar base de datos
-        cursor.execute("SELECT DATABASE() as current_db")
-        current_db = cursor.fetchone()['current_db']
-        print(f"📊 Base de datos actual: {current_db}")
-        
-        # 3. Verificar tablas
-        cursor.execute("SHOW TABLES")
-        tables = cursor.fetchall()
-        table_names = [list(table.values())[0] for table in tables] if tables else []
-        print(f"📊 Tablas encontradas: {table_names}")
-        
-        # 4. Verificar tabla usuarios específicamente
-        if 'usuarios' in table_names:
-            cursor.execute("DESCRIBE usuarios")
-            columns = cursor.fetchall()
-            print("📋 Estructura de tabla usuarios:")
-            for col in columns:
-                print(f"   - {col['Field']}: {col['Type']}")
-                
-            # 5. Verificar datos en usuarios
-            cursor.execute("SELECT COUNT(*) as count FROM usuarios")
-            count_result = cursor.fetchone()
-            user_count = count_result['count'] if count_result else 0
-            print(f"👥 Usuarios en sistema: {user_count}")
-            
-            # 6. Mostrar algunos usuarios de ejemplo
-            if user_count > 0:
-                cursor.execute("SELECT ID_Usuario, NombreUsuario, Estado, Contraseña FROM usuarios LIMIT 5")
-                sample_users = cursor.fetchall()
-                print("👤 Ejemplo de usuarios:")
-                for user in sample_users:
-                    print(f"   - {user['ID_Usuario']}: {user['NombreUsuario']} ({user['Estado']})")
-                    print(f"     Contraseña: {user['Contraseña']}")
-        
-        # 7. Verificar tabla Roles
-        if 'Roles' in table_names:
-            cursor.execute("SELECT * FROM Roles")
-            roles = cursor.fetchall()
-            print("🎭 Roles disponibles:")
-            for role in roles:
-                print(f"   - {role['ID_Rol']}: {role['Nombre_Rol']}")
-        
-        else:
-            print("❌ Tabla 'usuarios' no encontrada")
-            
-        cursor.close()
-        return True
-        
-    except Error as e:
-        print(f"❌ Error en diagnóstico: {e}")
-        return False
-    finally:
-        if conn:
-            conn.close()
+                                @app.route('/admin/ventas/anular/<int:id_factura>', methods=['GET', 'POST'])
+                                @admin_required
+                                @bitacora_decorator("ANULAR_VENTA")
+                                def admin_anular_venta(id_factura):
+                                    # ...existing code...
 
-def verify_credentials_debug(username, password):
-    """Función de debug para verificar credenciales con logs detallados"""
-    print(f"\n🔍 DEBUG: Verificando credenciales para usuario: '{username}'")
-    
-    try:
-        with get_db_cursor() as cursor:
-            # Consulta case-insensitive para estado
-            query = """
-                SELECT u.ID_Usuario, u.NombreUsuario, u.Contraseña, r.Nombre_Rol, u.Estado
-                FROM Usuarios u 
-                JOIN Roles r ON u.ID_Rol = r.ID_Rol 
-                WHERE u.NombreUsuario = %s AND UPPER(u.Estado) = 'ACTIVO'
-            """
-            print(f"📝 Ejecutando query: {query}")
-            print(f"📝 Parámetros: ({username},)")
-            
-            cursor.execute(query, (username,))
-            user_data = cursor.fetchone()
-            
-            if user_data:
-                print(f" Usuario encontrado en BD:")
-                print(f"   ID: {user_data['ID_Usuario']}")
-                print(f"   Nombre: {user_data['NombreUsuario']}")
-                print(f"   Rol: {user_data['Nombre_Rol']}")
-                print(f"   Estado: {user_data['Estado']}")
-                print(f"   Hash contraseña: {user_data['Contraseña']}")
-                
-                # Verificar si la contraseña está hasheada
-                is_hashed = user_data['Contraseña'].startswith(('scrypt:', 'pbkdf2:', 'bcrypt:'))
-                print(f"   ¿Contraseña hasheada?: {is_hashed}")
-                
-                if is_hashed:
-                    # Verificar contraseña hasheada
-                    password_match = check_password_hash(user_data['Contraseña'], password)
-                    print(f"🔐 Contraseña coincide (hash): {password_match}")
-                else:
-                    # Verificar contraseña en texto plano (temporal)
-                    password_match = (user_data['Contraseña'] == password)
-                    print(f"🔐 Contraseña coincide (texto plano): {password_match}")
-                    print("⚠️  ADVERTENCIA: Contraseña en texto plano - debe ser hasheada")
-                
-                if password_match:
-                    print("✅ Credenciales válidas")
-                    return True
-                else:
-                    print("❌ Contraseña incorrecta")
-                    return False
-            else:
-                print("❌ Usuario no encontrado en la base de datos")
-                return False
-                
-    except Exception as e:
-        print(f"❌ Error en verify_credentials_debug: {e}")
-        return False
+                                # ========================
+                                # RUTAS API (ENDPOINTS)
+                                # ========================
 
-def registrar_bitacora(id_usuario=None, modulo=None, accion=None, ip_acceso=None):
-    """
-    Función principal para registrar en la bitácora
-    """
-    try:
-        with get_db_cursor(commit=True) as cursor:
-            # Si no se proporciona IP, obtenerla del request
-            if ip_acceso is None and request:
-                ip_acceso = request.remote_addr
-            
-            # Si no se proporciona usuario, usar el current_user
-            if id_usuario is None and current_user.is_authenticated:
-                id_usuario = current_user.id
-            
-            cursor.execute("""
-                INSERT INTO bitacora (ID_Usuario, Modulo, Accion, IP_Acceso)
-                VALUES (%s, %s, %s, %s)
-            """, (id_usuario, modulo, accion, ip_acceso))
-            
-            print(f"Bitácora registrada: {modulo} - {accion} - Usuario: {id_usuario}")
-            return True
-            
-    except Exception as e:
-        print(f"Error al registrar en bitácora: {e}")
-        return False
+                                @app.route('/api/ventas/productos/cliente/<int:cliente_id>', methods=['GET'])
+                                def api_productos_por_cliente(cliente_id):
+                                    # ...existing code...
 
-def bitacora_decorator(modulo):
-    """
-    Decorador para automatizar el registro en bitácora
-    """
-    def decorator(func):
-        @functools.wraps(func)
-        def wrapper(*args, **kwargs):
-            # Ejecutar la función primero
-            result = func(*args, **kwargs)
-            
-            # Registrar en bitácora después de la ejecución exitosa
-            try:
-                if current_user.is_authenticated:
-                    registrar_bitacora(
-                        modulo=modulo,
-                        accion=func.__name__,
-                        ip_acceso=request.remote_addr
-                    )
-            except Exception as e:
-                print(f"Error en decorador bitácora: {e}")
-            
-            return result
-        return wrapper
-    return decorator
+                                # RUTAS AUXILIARES SIMPLIFICADAS - UNA SOLA BODEGA
+                                @app.route('/admin/ventas/productos-por-categoria/<int:id_categoria>')
+                                def obtener_productos_por_categoria_venta(id_categoria):
+                                    # ...existing code...
 
-def registrar_login_exitoso(username, id_usuario):
-    """Registrar login exitoso en bitácora"""
-    registrar_bitacora(
-        id_usuario=id_usuario,
-        modulo="AUTH",
-        accion="LOGIN_EXITOSO",
-        ip_acceso=request.remote_addr
-    )
-    
-def registrar_login_fallido(username, razon):
-    """Registrar intento fallido de login"""
-    try:
-        with get_db_cursor(commit=True) as cursor:
-            cursor.execute("""
-                INSERT INTO bitacora (Modulo, Accion, IP_Acceso)
-                VALUES (%s, %s, %s)
-            """, ("AUTH", f"LOGIN_FALLIDO: {razon} - Usuario: {username}", request.remote_addr))
-    except Exception as e:
-        print(f"Error al registrar login fallido: {e}")
+                                @app.route('/admin/ventas/verificar-stock/<int:id_producto>')
+                                def verificar_stock_producto(id_producto):
+                                    # ...existing code...
 
-def registrar_logout(id_usuario):
-    """Registrar logout en bitácora"""
-    registrar_bitacora(
-        id_usuario=id_usuario,
-        modulo="AUTH", 
-        accion="LOGOUT",
-        ip_acceso=request.remote_addr
-    )
+                                @app.route('/admin/ventas/categorias-productos')
+                                def obtener_categorias_productos_venta():
+                                    # ...existing code...
 
-# Configuración de Flask (FUERA del bloque try-except)
-app.secret_key = os.environ.get("SECRET_KEY", secrets.token_hex(24))
-app.config["TEMPLATES_AUTO_RELOAD"] = True
-app.config["SESSION_PERMANENT"] = False
-app.config["SESSION_TYPE"] = "filesystem"
-app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(hours=1)
-Session(app)
+                                @app.route('/admin/ventas/bodega-principal')
+                                def obtener_bodega_principal():
+                                    # ...existing code...
 
-# Configuración de Flask-Login
-login_manager = LoginManager(app)
-login_manager.login_view = 'login'
-login_manager.login_message = "Inicia sesión para acceder a esta página"
-login_manager.login_message_category = "info"
-
-class User(UserMixin):
-    def __init__(self, id, username, rol):
-        self.id = str(id)
-        self.username = username
-        self.rol = rol
-
-@login_manager.user_loader
-def load_user(user_id):
-    try:
-        with get_db_cursor() as cursor:
-            cursor.execute(""" 
-                SELECT u.ID_Usuario, u.NombreUsuario, r.Nombre_Rol
-                FROM Usuarios u
-                JOIN Roles r ON u.ID_Rol = r.ID_Rol
-                WHERE u.ID_Usuario = %s AND UPPER(u.Estado) = 'ACTIVO'
-            """, (user_id,))
-            user_data = cursor.fetchone()
-            
-            if user_data:
-                return User(user_data['ID_Usuario'], user_data['NombreUsuario'], user_data['Nombre_Rol'])
-            return None
-    except Exception as e:
-        print(f"Error en load_user: {e}")
-        return None
-
-# Decorador Personalizado
-def role_requerido(requested_role):
-    def decorator(f):
-        @login_required
-        @wraps(f)
-        def decorated_function(*args, **kwargs):
-            if current_user.rol != requested_role:
-                abort(403)
-            return f(*args, **kwargs)
-        return decorated_function
-    return decorator
-
-def admin_required(f):
-    return role_requerido('Administrador')(f)
-
-def bodega_required(f):
-    return role_requerido('Bodega')(f)
-
-def vendedor_required(f):
-    return role_requerido('Vendedor')(f)
-
-def admin_or_bodega_required(f):
-    @wraps(f)
-    def decorated_function(*args, **kwargs):
-        if not current_user.is_authenticated:
-            abort(401)  # No autenticado
-        if current_user.rol not in ['Administrador', 'Bodega']:
-            abort(403)  # No autorizado
-        return f(*args, **kwargs)
-    return decorated_function
-
-# Rutas de autenticaciones y autorizaciones
-@app.route('/login', methods=['GET', 'POST'])
-def login():
-    if current_user.is_authenticated:
-        return redirect(url_for('dashboard'))
-    
-    session.clear()
-    
-    if request.method == 'POST':
-        username = request.form.get("username", "").strip()
-        password = request.form.get("password", "")
-        
-        print(f"\n Intento de login - Usuario: '{username}', Contraseña: '{password}'")
-        
-        if not username:
-            flash("El nombre de usuario es requerido", "danger")
-            registrar_login_fallido(username,"Usuario vacio")
-            return render_template('login.html')
-        
-        if not password:
-            flash("La contraseña es requerida", "danger")
-            registrar_login_fallido(username, "Contraseña vacia")
-            return render_template('login.html')
-        
-        if len(password) < 4:
-            flash("La contraseña debe tener al menos 4 caracteres", "danger")
-            return render_template('login.html')
-        
-        # Debug: verificar credenciales con logging detallado
-        credentials_valid = verify_credentials_debug(username, password)
-        
-        try:
-            with get_db_cursor() as cursor:
-                # Consulta case-insensitive para estado
-                cursor.execute("""
-                    SELECT u.ID_Usuario, u.NombreUsuario, u.Contraseña, r.Nombre_Rol 
-                    FROM Usuarios u 
-                    JOIN Roles r ON u.ID_Rol = r.ID_Rol 
-                    WHERE u.NombreUsuario = %s AND UPPER(u.Estado) = 'ACTIVO' AND r.Estado = 'Activo'
-                """, (username,))
-                
-                user_data = cursor.fetchone()
-                
-                if user_data:
-                    # Verificar si la contraseña está hasheada
-                    if user_data['Contraseña'].startswith(('scrypt:', 'pbkdf2:', 'bcrypt:')):
-                        # Contraseña hasheada
-                        if check_password_hash(user_data['Contraseña'], password):
-                            user = User(user_data['ID_Usuario'], user_data['NombreUsuario'], user_data['Nombre_Rol'])
-                            login_user(user)
-                            registrar_login_exitoso(username, user_data['ID_Usuario'])
-                            print(f"Usuario {username} ha iniciado sesión - Rol: {user_data['Nombre_Rol']}")
-                            flash(f"¡Bienvenido {user.username}!", "success")
-                            return redirect(url_for('dashboard'))
-                        else:
-                            print("Contraseña incorrecta (hash)")
-                            registrar_login_fallido(username, "contraseña incorrecta")
-                            flash("Credenciales incorrectas. Por favor verifique sus datos.", "danger")
-                    else:
-                        # Contraseña en texto plano (temporal)
-                        if user_data['Contraseña'] == password:
-                            user = User(user_data['ID_Usuario'], user_data['NombreUsuario'], user_data['Nombre_Rol'])
-                            login_user(user)
-                            registrar_login_exitoso(username, user_data['ID_Usuario'])
-                            print(f"Usuario {username} ha iniciado sesión (texto plano) - Rol: {user_data['Nombre_Rol']}")
-                            flash(f"¡Bienvenido {user.username}!", "success")
-                            return redirect(url_for('dashboard'))
-                        else:
-                            print("Contraseña incorrecta (texto plano)")
-                            registrar_login_fallido(username, "contraseña incorrecta")
-                            flash("Credenciales incorrectas. Por favor verifique sus datos.", "danger")
-                else:
-                    print("Usuario no encontrado o inactivo")
-                    registrar_login_fallido(username, "contraseña no encontrado o inactivo")
-                    flash("Credenciales incorrectas o usuario inactivo.", "danger")
-                
-        except Exception as e:
-            print(f"Error en login: {e}")
-            registrar_login_fallido(username, f"Error del sistema: {e}")
-            flash("Error interno del sistema. Intente más tarde.", "danger")
-        
-        return render_template('login.html')
-
-    return render_template('login.html')
-
-@app.route('/reset-admin')
-def reset_admin():
-    """Reset completo del usuario admin"""
-    try:
-        with get_db_cursor() as cursor:
-            # Resetear a texto plano temporalmente
-            cursor.execute("""
-                UPDATE Usuarios 
-                SET Estado = 'Activo', 
-                    Contraseña = 'Admin123$'
-                WHERE ID_Usuario = 2
-            """)
-            
-            print("✅ Admin reseteado a texto plano")
-            print("   Usuario: Admin")
-            print("   Contraseña: Admin123$ (texto plano)")
-            
-        return """
-        <h1>✅ Admin reseteado</h1>
-        <p>Ahora prueba iniciar sesión con:</p>
-        <ul>
-            <li><strong>Usuario:</strong> Admin</li>
-            <li><strong>Contraseña:</strong> Admin123$</li>
-        </ul>
-        <p><a href="/login">Ir al login</a></p>
-        """
-    except Exception as e:
-        return f"<h1>❌ Error:</h1><p>{e}</p>"
-
-# RUTAS TEMPORALES PARA FIX - ELIMINAR DESPUÉS DE USAR
-@app.route('/fix-admin')
-def fix_admin():
-    """Ruta temporal para corregir el usuario admin - ELIMINAR DESPUÉS"""
-    try:
-        with get_db_cursor() as cursor:
-            # 1. Corregir estado (case-insensitive)
-            cursor.execute("UPDATE Usuarios SET Estado = 'Activo' WHERE ID_Usuario = 2")
-            
-            # 2. Crear hash válido para la contraseña
-            hashed_password = generate_password_hash('Admin123$')
-            cursor.execute("UPDATE Usuarios SET Contraseña = %s WHERE ID_Usuario = 2", (hashed_password,))
-            
-            print("✅ Usuario admin corregido:")
-            print(f"   - Estado: Activo")
-            print(f"   - Contraseña hash: {hashed_password}")
-            print("   - Credenciales: usuario='Admin', contraseña='Admin123$'")
-            
-        return """
-        <h1>✅ Usuario admin corregido</h1>
-        <p>Ahora puedes iniciar sesión con:</p>
-        <ul>
-            <li><strong>Usuario:</strong> Admin</li>
-            <li><strong>Contraseña:</strong> Admin123$</li>
-        </ul>
-        <p><a href="/login">Ir al login</a></p>
-        <p style='color: red; font-weight: bold;'>⚠️ RECUERDA ELIMINAR ESTA RUTA /fix-admin DESPUÉS DE USAR</p>
-        """
-    except Exception as e:
-        return f"<h1>❌ Error:</h1><p>{e}</p>"
-
-@app.route('/check-users')
-def check_users():
-    """Ruta temporal para ver todos los usuarios - ELIMINAR DESPUÉS"""
-    try:
-        with get_db_cursor() as cursor:
-            cursor.execute("SELECT ID_Usuario, NombreUsuario, Estado, Contraseña FROM Usuarios")
-            users = cursor.fetchall()
-            
-            result = "<h1>👥 Usuarios en el sistema</h1>"
-            for user in users:
-                result += f"""
-                <div style='border: 1px solid #ccc; padding: 10px; margin: 10px;'>
-                    <strong>ID:</strong> {user['ID_Usuario']}<br>
-                    <strong>Usuario:</strong> {user['NombreUsuario']}<br>
-                    <strong>Estado:</strong> {user['Estado']}<br>
-                    <strong>Contraseña:</strong> {user['Contraseña']}<br>
-                    <strong>¿Hasheada?:</strong> {user['Contraseña'].startswith(('scrypt:', 'pbkdf2:', 'bcrypt:'))}
-                </div>
-                """
-            
-            return result + "<p><a href='/login'>Ir al login</a></p>"
-    except Exception as e:
-        return f"<h1>❌ Error:</h1><p>{e}</p>"
-
-@app.route('/diagnostico', methods=["GET"])
-def diagnostico():
-    """Página de diagnóstico para verificar el estado de la BD"""
-    result = diagnose_db()
-    return f"""
-    <h1>Diagnóstico de Base de Datos</h1>
-    <p>Resultado: {'✅ Éxito' if result else '❌ Fallo'}</p>
-    <p>Ver logs detallados en la consola del servidor.</p>
-    <p><a href="/login">Ir al login</a> | <a href="/fix-admin">Corregir admin</a> | <a href="/check-users">Ver usuarios</a></p>
-    """
-
-@app.route('/logout')
-@login_required
-def logout():
-    registrar_logout(current_user.id)
-    logout_user()
-    flash("Sesion cerrada exitosamente", "info")
-    return redirect(url_for('login'))
-
-# Rutas principales
-@app.route('/')
-def home():
-    if current_user.is_authenticated:
-        return redirect(url_for('dashboard'))
-    return redirect(url_for('login'))
-
-@app.route('/dashboard')
-@login_required
-def dashboard():
-    if current_user.rol == 'Administrador':
-        return redirect(url_for('admin_dashboard'))
-    elif current_user.rol == 'Vendedor':
-        return redirect(url_for('vendedor_dashboard'))
-    elif current_user.rol == 'Bodega':
-        return redirect(url_for('bodega_dashboard'))
-    else:
-        abort(403)
-
-# Dashboard por roles
-@app.route('/admin/dashboard')
-@login_required
-def admin_dashboard():
-    
-    try:
-        with get_db_cursor() as cursor:
-            cursor.execute("SELECT COUNT(*) as count FROM Usuarios WHERE UPPER(Estado) = 'ACTIVO'")
-            usuarios_count = cursor.fetchone()['count']
-            
-            return render_template('admin/dashboard.html', usuarios_count=usuarios_count)
-    except Exception as e:
-        flash(f"Error al cargar dashboard: {e}", "danger")
-        return redirect(url_for('dashboard'))
-
-@app.route('/vendedor/dashboard')
-@login_required
-def vendedor_dashboard():
-    return render_template('vendedor/dashboard.html')
-
-@app.route('/bodega/dashboard')
-@admin_or_bodega_required
-def bodega_dashboard():
-    try:
-        with get_db_cursor() as cursor:
-            # 1. Productos que han salido hoy
-            cursor.execute("""
-                SELECT 
-                    p.Descripcion AS Producto,
-                    um.Abreviatura AS Unidad,
-                    SUM(dmi.Cantidad) AS Cantidad_Salida,
+                                @app.route('/admin/ventas/todos-productos')
+                                def obtener_todos_productos_venta():
+                                    # ...existing code...
                     b.Nombre AS Bodega
                 FROM productos p
                 INNER JOIN detalle_movimientos_inventario dmi ON p.ID_Producto = dmi.ID_Producto
@@ -6049,7 +5511,7 @@ def admin_ventas_salidas():
 @bitacora_decorator("CREAR_VENTA")
 def admin_crear_venta():
     """
-    Crear nueva venta con filtrado por visibilidad de cliente
+    Crear nueva venta con precios según perfil del cliente (Ruta, Mayorista, Mercado)
     """
     try:
         # Obtener ID de empresa y usuario desde la sesión
@@ -6080,12 +5542,19 @@ def admin_crear_venta():
             
             id_tipo_movimiento = tipo_movimiento['ID_TipoMovimiento']
             
-            # Obtener datos para el formulario - INCLUYENDO tipo_cliente
+            # ✅ MODIFICADO: Obtener clientes con su perfil y ruta
             cursor.execute("""
-                SELECT ID_Cliente, Nombre, RUC_CEDULA, tipo_cliente 
-                FROM clientes 
-                WHERE Estado = 'ACTIVO' AND (ID_Empresa = %s OR ID_Empresa IS NULL)
-                ORDER BY Nombre
+                SELECT 
+                    c.ID_Cliente, 
+                    c.Nombre, 
+                    c.RUC_CEDULA, 
+                    c.tipo_cliente,
+                    c.perfil_cliente,
+                    r.Nombre_Ruta
+                FROM clientes c
+                LEFT JOIN rutas r ON c.ID_Ruta = r.ID_Ruta
+                WHERE c.Estado = 'ACTIVO' AND (c.ID_Empresa = %s OR c.ID_Empresa IS NULL)
+                ORDER BY c.perfil_cliente, c.Nombre
             """, (id_empresa,))
             clientes = cursor.fetchall()
             
@@ -6106,20 +5575,22 @@ def admin_crear_venta():
             """)
             categorias = cursor.fetchall()
             
-            # Obtener productos INICIALMENTE sin filtrar (se filtrarán con JavaScript)
+            # ✅ MODIFICADO: Obtener productos con los 3 tipos de precio
             cursor.execute("""
                 SELECT 
                     p.ID_Producto, 
                     p.COD_Producto, 
                     p.Descripcion, 
                     COALESCE(ib.Existencias, 0) as Existencias,
-                    COALESCE(p.Precio_Mercado, 0) as Precio_Venta, 
+                    p.Precio_Mercado,
+                    p.Precio_Mayorista,
+                    p.Precio_Ruta,
                     p.ID_Categoria,
                     c.Descripcion as Categoria
                 FROM productos p
                 LEFT JOIN categorias_producto c ON p.ID_Categoria = c.ID_Categoria
                 LEFT JOIN inventario_bodega ib ON p.ID_Producto = ib.ID_Producto AND ib.ID_Bodega = %s
-                WHERE p.Estado = 1 
+                WHERE p.Estado = 'activo' 
                 AND (p.ID_Empresa = %s OR p.ID_Empresa IS NULL)
                 AND COALESCE(ib.Existencias, 0) > 0
                 ORDER BY c.Descripcion, p.Descripcion
@@ -6130,9 +5601,9 @@ def admin_crear_venta():
             cursor.execute("SELECT Nombre_Empresa, RUC, Direccion, Telefono FROM empresa WHERE ID_Empresa = %s", (id_empresa,))
             empresa_data = cursor.fetchone()
 
-        # Si es POST, procesar el formulario CON VALIDACIÓN DE VISIBILIDAD
+        # Si es POST, procesar el formulario CON PRECIOS SEGÚN PERFIL
         if request.method == 'POST':
-            print("📨 Iniciando procesamiento de venta con validación de visibilidad...")
+            print("📨 Iniciando procesamiento de venta con precios por perfil de cliente...")
             
             # Obtener datos del formulario
             id_cliente = request.form.get('id_cliente','').strip()
@@ -6142,7 +5613,8 @@ def admin_crear_venta():
             # Obtener productos del formulario
             productos_ids = request.form.getlist('producto_id[]')
             cantidades = request.form.getlist('cantidad[]')
-            precios = request.form.getlist('precio[]')
+            precios = request.form.getlist('precio[]')  # NUEVO: Precios enviados desde el frontend
+            # Los precios ya vienen calculados desde el frontend según el perfil
             
             print(f"Datos recibidos - Cliente: {id_cliente}, Tipo: {tipo_venta}")
             print(f"Productos recibidos: {len(productos_ids)}")
@@ -6174,12 +5646,9 @@ def admin_crear_venta():
 
             # Usar otro contexto para la transacción de la venta
             with get_db_cursor(True) as cursor:
-                # ✅ NUEVO: VALIDACIÓN DE VISIBILIDAD DE PRODUCTOS
-                print("🔍 Validando visibilidad de productos para el cliente...")
-                
-                # Obtener tipo de cliente
+                # ✅ Obtener perfil del cliente
                 cursor.execute("""
-                    SELECT tipo_cliente 
+                    SELECT tipo_cliente, perfil_cliente, Nombre
                     FROM clientes 
                     WHERE ID_Cliente = %s
                 """, (id_cliente,))
@@ -6189,9 +5658,13 @@ def admin_crear_venta():
                     raise Exception("Cliente no encontrado")
                 
                 tipo_cliente = cliente_data['tipo_cliente']
-                print(f"👤 Tipo de cliente: {tipo_cliente}")
+                perfil_cliente = cliente_data['perfil_cliente']
+                nombre_cliente = cliente_data['Nombre']
                 
-                # Validar cada producto contra la visibilidad del cliente
+                print(f"👤 Cliente: {nombre_cliente}")
+                print(f"📊 Perfil: {perfil_cliente} | Tipo: {tipo_cliente}")
+                
+                # ✅ Validar visibilidad de productos (como ya lo tienes)
                 productos_invalidos = []
                 for i, producto_id in enumerate(productos_ids):
                     cantidad = float(cantidades[i]) if cantidades[i] else 0
@@ -6220,17 +5693,13 @@ def admin_crear_venta():
                             'categoria': resultado['categoria_nombre'] if resultado else 'Desconocida'
                         })
                 
-                # Si hay productos no visibles, mostrar error
                 if productos_invalidos:
                     productos_error = ", ".join([f"{p['nombre']} ({p['categoria']})" for p in productos_invalidos])
                     error_msg = f"Los siguientes productos no están disponibles para este cliente ({tipo_cliente}): {productos_error}"
                     print(f"❌ {error_msg}")
                     
                     if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-                        return jsonify({
-                            'success': False,
-                            'error': error_msg
-                        }), 400
+                        return jsonify({'success': False, 'error': error_msg}), 400
                     else:
                         flash(error_msg, 'error')
                         return render_template('admin/ventas/crear_venta.html',
@@ -6241,37 +5710,38 @@ def admin_crear_venta():
                                             empresa=empresa_data,
                                             id_tipo_movimiento=id_tipo_movimiento)
                 
-                print("✅ Validación de visibilidad completada - Todos los productos son visibles para el cliente")
+                print("✅ Validación de visibilidad completada")
                 
                 # 1. Crear factura
                 cursor.execute("""
                     INSERT INTO Facturacion (
                         Fecha, IDCliente, Credito_Contado, Observacion, 
-                        ID_Empresa, ID_Usuario_Creacion
+                        ID_Empresa, ID_Usuario_Creacion, Perfil_Cliente
                     )
-                    VALUES (CURDATE(), %s, %s, %s, %s, %s)
+                    VALUES (CURDATE(), %s, %s, %s, %s, %s, %s)
                 """, (
                     id_cliente,
                     1 if tipo_venta == 'credito' else 0,
-                    observacion,
+                    f"{observacion} | Perfil: {perfil_cliente}",
                     id_empresa,
-                    id_usuario
+                    id_usuario,
+                    perfil_cliente
                 ))
                 
-                # Obtener el ID de la factura recién insertada
+                # Obtener el ID de la factura
                 cursor.execute("SELECT LAST_INSERT_ID() as id_factura")
                 id_factura = cursor.fetchone()['id_factura']
-                print(f"🧾 Factura creada: #{id_factura}")
+                print(f"🧾 Factura #{id_factura} creada para cliente con perfil: {perfil_cliente}")
                 
                 total_venta = 0
-                total_cajillas_huevos = 0  # Contador de cajillas de huevos
+                total_cajillas_huevos = 0
                 
                 # CONSTANTES
-                ID_SEPARADOR = 11          # ID_Producto del separador
-                ID_CATEGORIA_HUEVOS = 1    # ID_Categoria para Huevos (AJUSTA ESTE NÚMERO)
-                ID_BODEGA_EMPAQUE = 1      # Bodega de donde se descuentan
+                ID_SEPARADOR = 11
+                ID_CATEGORIA_HUEVOS = 1
+                ID_BODEGA_EMPAQUE = 1
                 
-                # 2. Procesar productos y crear detalles de facturación
+                # 2. Procesar productos
                 for i in range(len(productos_ids)):
                     id_producto = int(productos_ids[i])
                     cantidad = float(cantidades[i]) if cantidades[i] else 0
@@ -6283,10 +5753,11 @@ def admin_crear_venta():
                     total_linea = cantidad * precio
                     total_venta += total_linea
                     
-                    # Obtener datos del producto INCLUYENDO LA CATEGORÍA
+                    # Obtener datos del producto
                     cursor.execute("""
                         SELECT p.ID_Producto, p.COD_Producto, p.Descripcion, p.ID_Categoria,
-                               c.Descripcion as Nombre_Categoria
+                               c.Descripcion as Nombre_Categoria,
+                               p.Precio_Mercado, p.Precio_Mayorista, p.Precio_Ruta
                         FROM productos p
                         LEFT JOIN categorias_producto c ON p.ID_Categoria = c.ID_Categoria
                         WHERE p.ID_Producto = %s
@@ -6297,9 +5768,24 @@ def admin_crear_venta():
                     if not producto_data:
                         raise Exception(f"Producto con ID {id_producto} no encontrado")
                     
-                    print(f"  Producto: {producto_data['Descripcion']} (Categoría: {producto_data['Nombre_Categoria']})")
+                    # Verificar que el precio corresponda al perfil
+                    precio_esperado = None
+                    if perfil_cliente == 'Ruta':
+                        precio_esperado = producto_data['Precio_Ruta']
+                    elif perfil_cliente == 'Mayorista':
+                        precio_esperado = producto_data['Precio_Mayorista']
+                    elif perfil_cliente == 'Mercado':
+                        precio_esperado = producto_data['Precio_Mercado']
+                    else:
+                        precio_esperado = producto_data['Precio_Mercado']  # Default
                     
-                    # Verificar stock disponible
+                    # Pequeña tolerancia para diferencias de redondeo
+                    if abs(precio - precio_esperado) > 0.01:
+                        print(f"⚠️ Advertencia: Precio usado ({precio}) diferente del precio de {perfil_cliente} ({precio_esperado})")
+                    
+                    print(f"  Producto: {producto_data['Descripcion']} | Precio {perfil_cliente}: C${precio}")
+                    
+                    # Verificar stock
                     cursor.execute("""
                         SELECT COALESCE(Existencias, 0) as Stock 
                         FROM inventario_bodega 
@@ -6315,12 +5801,13 @@ def admin_crear_venta():
                     # Insertar detalle de facturación
                     cursor.execute("""
                         INSERT INTO Detalle_Facturacion (
-                            ID_Factura, ID_Producto, Cantidad, Costo, Total
+                            ID_Factura, ID_Producto, Cantidad, Costo, Total,
+                            Perfil_Utilizado
                         )
-                        VALUES (%s, %s, %s, %s, %s)
-                    """, (id_factura, id_producto, cantidad, precio, total_linea))
+                        VALUES (%s, %s, %s, %s, %s, %s)
+                    """, (id_factura, id_producto, cantidad, precio, total_linea, perfil_cliente))
                     
-                    # Actualizar inventario del producto
+                    # Actualizar inventario
                     cursor.execute("""
                         UPDATE inventario_bodega 
                         SET Existencias = Existencias - %s
@@ -6329,31 +5816,21 @@ def admin_crear_venta():
                     
                     print(f"  {cantidad} x C${precio} = C${total_linea}")
                     
-                    # ✅ DETECTAR SI ES PRODUCTO DE HUEVOS POR CATEGORÍA
+                    # Detectar productos de huevos
                     if producto_data['ID_Categoria'] == ID_CATEGORIA_HUEVOS:
                         total_cajillas_huevos += cantidad
-                        print(f"  ¡Producto de huevos! Total cajillas: {total_cajillas_huevos}")
                 
-                print(f" RESUMEN:")
-                print(f"  Total venta: C${total_venta:,.2f}")
-                print(f"  Total cajillas de huevos: {total_cajillas_huevos}")
+                print(f"📊 Total venta: C${total_venta:,.2f}")
+                print(f"🥚 Total cajillas de huevos: {total_cajillas_huevos}")
                 
-                # 3. CALCULAR SEPARADORES NECESARIOS
+                # 3. Calcular y descontar separadores
                 separadores_totales = 0
                 if total_cajillas_huevos > 0:
                     separadores_entre_cajillas = total_cajillas_huevos
                     separadores_base_extra = total_cajillas_huevos // 10
                     separadores_totales = separadores_entre_cajillas + separadores_base_extra
                     
-                    print(f" CÁLCULO DE SEPARADORES:")
-                    print(f"  Cajillas: {total_cajillas_huevos}")
-                    print(f"  Separadores entre cajillas: {separadores_entre_cajillas}")
-                    print(f"  Separadores base extra: {separadores_base_extra}")
-                    print(f"  TOTAL separadores necesarios: {separadores_totales}")
-                
-                # 4. DESCONTAR SEPARADORES SI HAY PRODUCTOS DE HUEVOS
-                if separadores_totales > 0:
-                    print(f" Descontando {separadores_totales} separadores...")
+                    print(f"📦 Separadores necesarios: {separadores_totales}")
                     
                     # Verificar stock de separadores
                     cursor.execute("""
@@ -6365,17 +5842,15 @@ def admin_crear_venta():
                     stock_separadores = cursor.fetchone()
                     stock_actual_separadores = stock_separadores['Stock'] if stock_separadores else 0
                     
-                    print(f"  Stock actual separadores: {stock_actual_separadores}")
-                    
                     if stock_actual_separadores >= separadores_totales:
-                        # Restar separadores del inventario
+                        # Restar separadores
                         cursor.execute("""
                             UPDATE inventario_bodega 
                             SET Existencias = Existencias - %s
                             WHERE ID_Bodega = %s AND ID_Producto = %s
                         """, (separadores_totales, ID_BODEGA_EMPAQUE, ID_SEPARADOR))
                         
-                        # Registrar separador en detalle de factura (costo 0)
+                        # Registrar separador
                         cursor.execute("""
                             INSERT INTO Detalle_Facturacion (
                                 ID_Factura, ID_Producto, Cantidad, Costo, Total
@@ -6393,7 +5868,7 @@ def admin_crear_venta():
                             WHERE ID_Factura = %s
                         """, (warning_msg, id_factura))
                 
-                # 5. Registrar movimiento de inventario (VENTA)
+                # 4. Registrar movimiento de inventario
                 cursor.execute("""
                     INSERT INTO Movimientos_Inventario (
                         ID_TipoMovimiento, ID_Bodega, Fecha, Tipo_Compra,
@@ -6405,18 +5880,16 @@ def admin_crear_venta():
                     id_tipo_movimiento,
                     id_bodega_principal,
                     'CREDITO' if tipo_venta == 'credito' else 'CONTADO',
-                    observacion or 'Venta realizada',
+                    f"{observacion} | Perfil cliente: {perfil_cliente}",
                     id_empresa,
                     id_usuario,
                     id_factura
                 ))
                 
-                # Obtener el ID del movimiento de inventario
                 cursor.execute("SELECT LAST_INSERT_ID() as id_movimiento")
                 id_movimiento = cursor.fetchone()['id_movimiento']
-                print(f"📋 Movimiento de inventario creado: #{id_movimiento}")
                 
-                # 6. Insertar detalles del movimiento de inventario
+                # 5. Insertar detalles del movimiento
                 for i in range(len(productos_ids)):
                     id_producto = int(productos_ids[i])
                     cantidad = float(cantidades[i]) if cantidades[i] else 0
@@ -6444,7 +5917,7 @@ def admin_crear_venta():
                         id_usuario
                     ))
                 
-                # 7. Insertar detalle del movimiento para el separador
+                # 6. Insertar detalle del separador
                 if separadores_totales > 0:
                     cursor.execute("""
                         INSERT INTO detalle_movimientos_inventario (
@@ -6459,9 +5932,8 @@ def admin_crear_venta():
                         separadores_totales,
                         id_usuario
                     ))
-                    print(f"  📝 Separador registrado en movimiento de inventario")
                 
-                # 8. Si es crédito, crear cuenta por cobrar
+                # 7. Manejar crédito o contado
                 if tipo_venta == 'credito':
                     cursor.execute("""
                         INSERT INTO Cuentas_Por_Cobrar (
@@ -6474,21 +5946,16 @@ def admin_crear_venta():
                     """, (
                         id_cliente,
                         f'FAC-{id_factura:05d}',
-                        observacion or 'Venta a crédito',
+                        f"Venta {perfil_cliente} - {observacion}",
                         total_venta,
                         id_empresa,
                         total_venta,
                         id_factura,
                         id_usuario
                     ))
-                    print(f"💳 Cuenta por cobrar creada para factura #{id_factura}")
+                    print(f"💳 Cuenta por cobrar creada")
                 
-                # 9. Si es CONTADO, registrar entrada en caja
                 if tipo_venta == 'contado':
-                    cursor.execute("SELECT Nombre FROM clientes WHERE ID_Cliente = %s", (id_cliente,))
-                    cliente_data = cursor.fetchone()
-                    nombre_cliente = cliente_data['Nombre'] if cliente_data else f'Cliente ID: {id_cliente}'
-                    
                     cursor.execute("""
                         INSERT INTO Caja_Movimientos (
                             Fecha, Tipo_Movimiento, Descripcion, Monto, 
@@ -6496,16 +5963,15 @@ def admin_crear_venta():
                         )
                         VALUES (NOW(), 'ENTRADA', %s, %s, %s, %s, %s)
                     """, (
-                        f'Venta al contado - Factura #{id_factura} - Cliente: {nombre_cliente}',
+                        f'Venta {perfil_cliente} - Factura #{id_factura} - Cliente: {nombre_cliente}',
                         total_venta,
                         id_factura,
                         id_usuario,
                         f'FAC-{id_factura:05d}'
                     ))
-                    print(f"💰 Entrada en caja registrada: C${total_venta:,.2f}")
+                    print(f"💰 Entrada en caja registrada")
                 
-                success_msg = f'✅ Venta creada exitosamente! Factura # {id_factura} - Total: C${total_venta:,.2f}'
-                
+                success_msg = f'✅ Venta {perfil_cliente} creada! Factura #{id_factura} - Total: C${total_venta:,.2f}'
                 print(f"🎯 {success_msg}")
                 flash(success_msg, 'success')
                 
@@ -6514,6 +5980,7 @@ def admin_crear_venta():
                     'message': success_msg,
                     'id_factura': id_factura,
                     'total_venta': total_venta,
+                    'perfil_cliente': perfil_cliente,
                     'cajillas_huevos': total_cajillas_huevos,
                     'separadores': separadores_totales,
                     'redirect_url': url_for('admin_generar_ticket', id_factura=id_factura)
@@ -6551,16 +6018,21 @@ def admin_crear_venta():
 
 @app.route('/api/ventas/productos/cliente/<int:cliente_id>', methods=['GET'])
 def api_productos_por_cliente(cliente_id):
-    """API para obtener productos visibles para un cliente específico"""
+    """API para obtener productos visibles para un cliente específico con los 3 tipos de precio"""
     
     try:
         id_empresa = session.get('id_empresa', 1)
-        id_bodega = session.get('id_bodega_principal', 1)  # Ajusta según tu sistema
+        
+        # Obtener la bodega principal
+        with get_db_cursor(True) as cursor:
+            cursor.execute("SELECT ID_Bodega FROM bodegas WHERE Estado = 1 ORDER BY ID_Bodega LIMIT 1")
+            bodega_result = cursor.fetchone()
+            id_bodega = bodega_result['ID_Bodega'] if bodega_result else 1
         
         with get_db_cursor() as cursor:
-            # 1. Obtener tipo de cliente
+            # 1. Obtener tipo y perfil del cliente
             cursor.execute("""
-                SELECT tipo_cliente 
+                SELECT tipo_cliente, perfil_cliente, Nombre 
                 FROM clientes 
                 WHERE ID_Cliente = %s AND Estado = 'ACTIVO'
             """, (cliente_id,))
@@ -6570,15 +6042,18 @@ def api_productos_por_cliente(cliente_id):
                 return jsonify({'success': False, 'error': 'Cliente no encontrado'}), 404
             
             tipo_cliente = cliente['tipo_cliente']
+            perfil_cliente = cliente['perfil_cliente']
             
-            # 2. Obtener productos visibles para ese tipo de cliente
+            # 2. Obtener productos visibles para ese tipo de cliente con los 3 precios
             cursor.execute("""
                 SELECT 
                     p.ID_Producto, 
                     p.COD_Producto, 
                     p.Descripcion, 
                     COALESCE(ib.Existencias, 0) as Existencias,
-                    COALESCE(p.Precio_Mercado, 0) as Precio_Venta, 
+                    p.Precio_Mercado,
+                    p.Precio_Mayorista,
+                    p.Precio_Ruta,
                     p.ID_Categoria,
                     c.Descripcion as Categoria,
                     um.Descripcion as Unidad_Medida
@@ -6591,7 +6066,7 @@ def api_productos_por_cliente(cliente_id):
                 LEFT JOIN unidades_medida um ON p.Unidad_Medida = um.ID_Unidad
                 WHERE cfg.tipo_cliente = %s
                   AND cfg.visible = 1
-                  AND p.Estado = 1 
+                  AND p.Estado = 'activo' 
                   AND (p.ID_Empresa = %s OR p.ID_Empresa IS NULL)
                   AND COALESCE(ib.Existencias, 0) > 0
                 ORDER BY c.Descripcion, p.Descripcion
@@ -6610,7 +6085,7 @@ def api_productos_por_cliente(cliente_id):
                     AND ib.ID_Bodega = %s
                 WHERE cfg.tipo_cliente = %s
                   AND cfg.visible = 1
-                  AND p.Estado = 1 
+                  AND p.Estado = 'activo' 
                   AND (p.ID_Empresa = %s OR p.ID_Empresa IS NULL)
                   AND COALESCE(ib.Existencias, 0) > 0
                 GROUP BY c.ID_Categoria, c.Descripcion
@@ -6618,22 +6093,44 @@ def api_productos_por_cliente(cliente_id):
             
             categorias_count = cursor.fetchall()
             
+            # Calcular el precio según el perfil para cada producto (para referencia)
+            productos_con_precio_segun_perfil = []
+            for producto in productos:
+                producto_dict = dict(producto)
+                # Determinar qué precio usar según el perfil
+                if perfil_cliente == 'Ruta':
+                    precio_aplicado = producto['Precio_Ruta'] or 0
+                elif perfil_cliente == 'Mayorista':
+                    precio_aplicado = producto['Precio_Mayorista'] or 0
+                elif perfil_cliente == 'Mercado':
+                    precio_aplicado = producto['Precio_Mercado'] or 0
+                else:  # Especial u otros
+                    precio_aplicado = producto['Precio_Mercado'] or 0
+                
+                producto_dict['Precio_Aplicado'] = float(precio_aplicado)
+                producto_dict['Perfil_Aplicado'] = perfil_cliente
+                productos_con_precio_segun_perfil.append(producto_dict)
+            
             return jsonify({
                 'success': True,
                 'tipo_cliente': tipo_cliente,
-                'productos': productos,
+                'perfil_cliente': perfil_cliente,
+                'productos': productos_con_precio_segun_perfil,
                 'categorias': categorias_count,
                 'total': len(productos)
             })
             
     except Exception as e:
+        print(f"❌ Error en API productos por cliente: {str(e)}")
+        import traceback
+        traceback.print_exc()
         return jsonify({'success': False, 'error': str(e)}), 500
 
 # RUTAS AUXILIARES SIMPLIFICADAS - UNA SOLA BODEGA
 @app.route('/admin/ventas/productos-por-categoria/<int:id_categoria>')
 def obtener_productos_por_categoria_venta(id_categoria):
     """
-    Endpoint para obtener productos filtrados por categoría - UNA SOLA BODEGA
+    Endpoint para obtener productos filtrados por categoría (con los 3 precios)
     """
     try:
         id_empresa = session.get('id_empresa', 1)
@@ -6654,13 +6151,15 @@ def obtener_productos_por_categoria_venta(id_categoria):
                         p.COD_Producto, 
                         p.Descripcion, 
                         COALESCE(ib.Existencias, 0) as Existencias,
-                        COALESCE(p.Precio_Mercado, 0) as Precio_Venta, 
+                        p.Precio_Mercado,
+                        p.Precio_Mayorista,
+                        p.Precio_Ruta,
                         p.ID_Categoria,
                         c.Descripcion as Categoria
                     FROM productos p
                     LEFT JOIN categorias_producto c ON p.ID_Categoria = c.ID_Categoria
                     LEFT JOIN inventario_bodega ib ON p.ID_Producto = ib.ID_Producto AND ib.ID_Bodega = %s
-                    WHERE p.Estado = 1 
+                    WHERE p.Estado = 'activo' 
                     AND (p.ID_Empresa = %s OR p.ID_Empresa IS NULL)
                     AND COALESCE(ib.Existencias, 0) > 0
                     ORDER BY c.Descripcion, p.Descripcion
@@ -6672,13 +6171,15 @@ def obtener_productos_por_categoria_venta(id_categoria):
                         p.COD_Producto, 
                         p.Descripcion, 
                         COALESCE(ib.Existencias, 0) as Existencias,
-                        COALESCE(p.Precio_Venta, 0) as Precio_Venta, 
+                        p.Precio_Mercado,
+                        p.Precio_Mayorista,
+                        p.Precio_Ruta,
                         p.ID_Categoria,
                         c.Descripcion as Categoria
                     FROM productos p
                     LEFT JOIN categorias_producto c ON p.ID_Categoria = c.ID_Categoria
                     LEFT JOIN inventario_bodega ib ON p.ID_Producto = ib.ID_Producto AND ib.ID_Bodega = %s
-                    WHERE p.Estado = 1 
+                    WHERE p.Estado = 'activo' 
                     AND p.ID_Categoria = %s 
                     AND (p.ID_Empresa = %s OR p.ID_Empresa IS NULL)
                     AND COALESCE(ib.Existencias, 0) > 0
@@ -6691,13 +6192,15 @@ def obtener_productos_por_categoria_venta(id_categoria):
             productos_list = []
             for producto in productos:
                 productos_list.append({
-                    'id': producto['ID_Producto'],
-                    'codigo': producto['COD_Producto'],
-                    'descripcion': producto['Descripcion'],
-                    'existencias': float(producto['Existencias']),
-                    'precio_venta': float(producto['Precio_Venta']),
-                    'id_categoria': producto['ID_Categoria'],
-                    'categoria': producto['Categoria']
+                    'ID_Producto': producto['ID_Producto'],
+                    'COD_Producto': producto['COD_Producto'],
+                    'Descripcion': producto['Descripcion'],
+                    'Existencias': float(producto['Existencias']),
+                    'Precio_Mercado': float(producto['Precio_Mercado'] or 0),
+                    'Precio_Mayorista': float(producto['Precio_Mayorista'] or 0),
+                    'Precio_Ruta': float(producto['Precio_Ruta'] or 0),
+                    'ID_Categoria': producto['ID_Categoria'],
+                    'Categoria': producto['Categoria']
                 })
             
             return jsonify(productos_list)
@@ -6711,7 +6214,7 @@ def obtener_productos_por_categoria_venta(id_categoria):
 @app.route('/admin/ventas/verificar-stock/<int:id_producto>')
 def verificar_stock_producto(id_producto):
     """
-    Endpoint para verificar stock en tiempo real - UNA SOLA BODEGA
+    Endpoint para verificar stock en tiempo real y obtener precios del producto
     """
     try:
         id_empresa = session.get('id_empresa', 1)
@@ -6729,6 +6232,10 @@ def verificar_stock_producto(id_producto):
                 SELECT 
                     p.ID_Producto,
                     p.Descripcion,
+                    p.COD_Producto,
+                    p.Precio_Mercado,
+                    p.Precio_Mayorista,
+                    p.Precio_Ruta,
                     COALESCE(ib.Existencias, 0) as Existencias,
                     b.Nombre as Bodega
                 FROM productos p
@@ -6736,7 +6243,7 @@ def verificar_stock_producto(id_producto):
                 LEFT JOIN bodegas b ON ib.ID_Bodega = b.ID_Bodega
                 WHERE p.ID_Producto = %s 
                 AND (p.ID_Empresa = %s OR p.ID_Empresa IS NULL)
-                AND p.Estado = 1
+                AND p.Estado = 'activo'
             """, (id_bodega, id_producto, id_empresa))
             
             producto = cursor.fetchone()
@@ -6746,19 +6253,28 @@ def verificar_stock_producto(id_producto):
                 print(f"✅ [STOCK] Producto {id_producto}: {stock} unidades en {producto['Bodega']}")
                 
                 return jsonify({
+                    'success': True,
                     'id_producto': producto['ID_Producto'],
+                    'codigo': producto['COD_Producto'],
                     'descripcion': producto['Descripcion'],
                     'existencias': stock,
-                    'bodega': producto['Bodega']
+                    'bodega': producto['Bodega'],
+                    'precios': {
+                        'mercado': float(producto['Precio_Mercado'] or 0),
+                        'mayorista': float(producto['Precio_Mayorista'] or 0),
+                        'ruta': float(producto['Precio_Ruta'] or 0)
+                    }
                 })
             else:
                 print(f"❌ [STOCK] Producto {id_producto} no encontrado en bodega {id_bodega}")
-                return jsonify({'error': 'Producto no encontrado'}), 404
+                return jsonify({'success': False, 'error': 'Producto no encontrado'}), 404
                 
     except Exception as e:
         print(f"❌ [STOCK] Error al verificar stock: {str(e)}")
-        return jsonify({'error': str(e)}), 500
-
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)}), 500
+    
 @app.route('/admin/ventas/categorias-productos')
 def obtener_categorias_productos_venta():
     """
@@ -6821,7 +6337,7 @@ def obtener_bodega_principal():
 @app.route('/admin/ventas/todos-productos')
 def obtener_todos_productos_venta():
     """
-    Endpoint para obtener TODOS los productos activos con stock
+    Endpoint para obtener TODOS los productos activos con stock (con los 3 precios)
     """
     try:
         id_empresa = session.get('id_empresa', 1)
@@ -6832,7 +6348,7 @@ def obtener_todos_productos_venta():
             bodega_result = cursor.fetchone()
             id_bodega = bodega_result['ID_Bodega'] if bodega_result else 1
         
-        print(f"🔍 [VENTAS] Cargando TODOS los productos - Bodega: {id_bodega}")
+        print(f"🔍 [VENTAS] Cargando TODOS los productos con los 3 precios - Bodega: {id_bodega}")
         
         with get_db_cursor(True) as cursor:
             cursor.execute("""
@@ -6841,13 +6357,15 @@ def obtener_todos_productos_venta():
                     p.COD_Producto, 
                     p.Descripcion, 
                     COALESCE(ib.Existencias, 0) as Existencias,
-                    COALESCE(p.Precio_Mercado, 0) as Precio_Venta, 
+                    p.Precio_Mercado,
+                    p.Precio_Mayorista,
+                    p.Precio_Ruta,
                     p.ID_Categoria,
                     c.Descripcion as Categoria
                 FROM productos p
                 LEFT JOIN categorias_producto c ON p.ID_Categoria = c.ID_Categoria
                 LEFT JOIN inventario_bodega ib ON p.ID_Producto = ib.ID_Producto AND ib.ID_Bodega = %s
-                WHERE p.Estado = 1 
+                WHERE p.Estado = 'activo' 
                 AND (p.ID_Empresa = %s OR p.ID_Empresa IS NULL)
                 AND COALESCE(ib.Existencias, 0) > 0
                 ORDER BY c.Descripcion, p.Descripcion
@@ -6863,7 +6381,9 @@ def obtener_todos_productos_venta():
                     'COD_Producto': producto['COD_Producto'],
                     'Descripcion': producto['Descripcion'],
                     'Existencias': float(producto['Existencias']),
-                    'Precio_Venta': float(producto['Precio_Venta']),
+                    'Precio_Mercado': float(producto['Precio_Mercado'] or 0),
+                    'Precio_Mayorista': float(producto['Precio_Mayorista'] or 0),
+                    'Precio_Ruta': float(producto['Precio_Ruta'] or 0),
                     'ID_Categoria': producto['ID_Categoria'],
                     'Categoria': producto['Categoria']
                 })
@@ -8493,7 +8013,9 @@ def admin_detalle_cuentacobrar(id_movimiento):
         traceback.print_exc()
         return redirect(url_for('admin_cuentascobrar'))
 
-## PEDIDOS DE VENTA 
+#==================#
+# PEDIDOS DE VENTA #
+#==================#
 @app.route('/admin/ventas/pedidos-venta')
 @admin_or_bodega_required
 @bitacora_decorator("PEDIDOS-VENTA")
@@ -8706,12 +8228,12 @@ def ver_pedido(id_pedido):
                         u.NombreUsuario as Usuario_Creacion,
                         pr.COD_Producto,
                         pr.Descripcion as Nombre_Producto,
-                        pr.Precio_Mercado as Precio_Venta,
+                        pr.Precio_Ruta as Precio_Venta,
                         pr.Unidad_Medida,
                         um.Descripcion as Unidad_Nombre,
                         um.Abreviatura as Unidad_Abreviatura,
                         cat.Descripcion as Categoria,
-                        (pcp.Cantidad_Total * pr.Precio_Mercado) as Subtotal
+                        (pcp.Cantidad_Total * pr.Precio_Ruta) as Subtotal
                     FROM pedidos_consolidados_productos pcp
                     LEFT JOIN productos pr ON pcp.ID_Producto = pr.ID_Producto
                     LEFT JOIN unidades_medida um ON pr.Unidad_Medida = um.ID_Unidad
@@ -8726,7 +8248,7 @@ def ver_pedido(id_pedido):
                 cursor.execute("""
                     SELECT 
                         COALESCE(SUM(pcp.Cantidad_Total), 0) as Total_Cantidad,
-                        COALESCE(SUM(pcp.Cantidad_Total * pr.Precio_Mercado), 0) as Total_General,
+                        COALESCE(SUM(pcp.Cantidad_Total * pr.Precio_Ruta), 0) as Total_General,
                         COUNT(DISTINCT pcp.ID_Producto) as Total_Productos
                     FROM pedidos_consolidados_productos pcp
                     LEFT JOIN productos pr ON pcp.ID_Producto = pr.ID_Producto
@@ -9506,7 +9028,7 @@ def crear_pedido():
         print(f"❌ Error al crear pedido: {str(e)}")
         traceback.print_exc()
         return jsonify({'success': False, 'message': str(e)}), 500
-
+ 
 @app.route('/admin/ventas/procesar-pedido/<int:id_pedido>', methods=['GET', 'POST'])
 @admin_or_bodega_required
 @bitacora_decorator("PROCESAR_VENTA_PEDIDO")
@@ -9989,7 +9511,7 @@ def buscar_productos():
                     p.ID_Producto,
                     p.Descripcion as Nombre_Producto,
                     p.COD_Producto,
-                    p.Precio_Mercado as Precio_Venta,
+                    p.Precio_Ruta,
                     p.Unidad_Medida,
                     u.Descripcion as Unidad_Descripcion,
                     u.Abreviatura as Unidad_Abreviatura,
@@ -10004,7 +9526,7 @@ def buscar_productos():
                 AND p.Estado = 'activo'
                 AND cv.tipo_cliente = %s
                 AND cv.visible = 1
-                GROUP BY p.ID_Producto, p.Descripcion, p.COD_Producto, Precio_Venta,
+                GROUP BY p.ID_Producto, p.Descripcion, p.COD_Producto, p.Precio_Ruta,
                          p.Unidad_Medida, u.Descripcion, u.Abreviatura, cp.Descripcion
                 HAVING Stock_Total > 0
                 ORDER BY p.Descripcion
@@ -10018,7 +9540,7 @@ def buscar_productos():
                     p.ID_Producto,
                     p.Descripcion as Nombre_Producto,
                     p.COD_Producto,
-                    p.Precio_Mercado as Precio_Venta,
+                    p.Precio_Ruta as Precio_Venta,
                     p.Unidad_Medida,
                     u.Descripcion as Unidad_Descripcion,
                     u.Abreviatura as Unidad_Abreviatura,
@@ -10030,7 +9552,7 @@ def buscar_productos():
                 LEFT JOIN inventario_bodega ib ON p.ID_Producto = ib.ID_Producto
                 WHERE (p.Descripcion LIKE %s OR p.COD_Producto LIKE %s)
                 AND p.Estado = 'activo'
-                GROUP BY p.ID_Producto, p.Descripcion, p.COD_Producto, Precio_Venta,
+                GROUP BY p.ID_Producto, p.Descripcion, p.COD_Producto, p.Precio_Ruta,
                          p.Unidad_Medida, u.Descripcion, u.Abreviatura, cp.Descripcion
                 HAVING Stock_Total > 0
                 ORDER BY p.Descripcion
@@ -10211,7 +9733,7 @@ def procesar_carga_consolidada(id_pedido):
                 SELECT 
                     pcp.ID_Producto,
                     pcp.Cantidad_Total,
-                    pr.Precio_Mercado as Precio_Venta,
+                    pr.Precio_Ruta as Precio_Venta,
                     COALESCE(ib.Existencias, 0) as Stock_Disponible
                 FROM pedidos_consolidados_productos pcp
                 JOIN productos pr ON pcp.ID_Producto = pr.ID_Producto
@@ -10259,13 +9781,17 @@ def procesar_carga_consolidada(id_pedido):
             # ============================================
             # 5. MOVIMIENTO DE SALIDA
             # ============================================
+
+            TRASLADO_SALIDA = 12
+            TRASLADO_ENTRADA = 13
             cursor.execute("""
                 INSERT INTO movimientos_inventario (
                     ID_TipoMovimiento, ID_Bodega, Fecha, Observacion,
                     ID_Empresa, ID_Usuario_Creacion, Estado, ID_Pedido_Origen
                 )
-                VALUES (1, %s, CURDATE(), %s, %s, %s, 'Activa', %s)
+                VALUES (%s, %s, CURDATE(), %s, %s, %s, 'Activa', %s)
             """, (
+                TRASLADO_SALIDA,
                 pedido['Bodega_Origen'],
                 f'SALIDA POR CARGA #{id_pedido} - {pedido["Nombre_Ruta"]}',
                 pedido['ID_Empresa'],
@@ -10319,9 +9845,10 @@ def procesar_carga_consolidada(id_pedido):
                         Total_Productos, Total_Items, Total_Subtotal,
                         ID_Empresa, Estado
                     )
-                    VALUES (%s, 2, NOW(), %s, %s, %s, %s, 1, %s, %s, 'ACTIVO')
+                    VALUES (%s, %s, NOW(), %s, %s, %s, %s, 1, %s, %s, 'ACTIVO')
                 """, (
                     item['id_vendedor'],
+                    TRASLADO_ENTRADA,
                     current_user.id,
                     f'CARGA-{id_pedido}',
                     id_pedido,
@@ -10467,7 +9994,7 @@ def distribuir_carga(id_pedido):
                     pcp.Cantidad_Total,
                     pr.Descripcion as Nombre_Producto,
                     pr.COD_Producto,
-                    pr.Precio_Mercado as Precio_Venta
+                    pr.Precio_Ruta as Precio_Venta
                 FROM pedidos_consolidados_productos pcp
                 INNER JOIN productos pr ON pcp.ID_Producto = pr.ID_Producto
                 WHERE pcp.ID_Pedido = %s
@@ -12612,12 +12139,10 @@ def admin_procesar_salida():
                             id_factura_venta,
                             prod['id_producto'],
                             cantidad,
-                            # Guardamos el precio_unitario como el "Costo" en facturación 
-                            # (aunque debería llamarse Precio_Venta en la tabla)
                             precio_unitario,  
                             total_item
                         ))
-                    
+
                     # Si es CRÉDITO, crear registro en cuentas por cobrar
                     if tipo_pago == 'CREDITO':
                         # Calcular fecha de vencimiento (30 días por defecto)
@@ -12643,6 +12168,26 @@ def admin_procesar_salida():
                             id_factura_venta,
                             user_id
                         ))
+
+                    if tipo_pago == 'CONTADO':
+                        cursor.execute("SELECT Nombre FROM clientes WHERE ID_Cliente = %s", (id_cliente,))
+                        cliente_data = cursor.fetchone()
+                        nombre_cliente = cliente_data['Nombre'] if cliente_data else f'Cliente ID: {id_cliente}'
+                        
+                        cursor.execute("""
+                            INSERT INTO Caja_Movimientos (
+                                Fecha, Tipo_Movimiento, Descripcion, Monto, 
+                                ID_Factura, ID_Usuario, Referencia_Documento
+                            )
+                            VALUES (NOW(), 'ENTRADA', %s, %s, %s, %s, %s)
+                        """, (
+                            f'Venta al contado - Factura #{id_factura_venta} - Cliente: {nombre_cliente}',
+                            total_venta,
+                            id_factura_venta,
+                            current_user.id,
+                            f'FAC-{id_factura_venta:05d}'
+                        ))
+                    print(f"💰 Entrada en caja registrada: C${total_venta:,.2f}")
                     
                     flash(f"✅ Factura #{id_factura_venta} creada exitosamente", 'success')
                     
@@ -12698,13 +12243,13 @@ def admin_procesar_salida():
                     
                     # Usar costo proporcionado o el último costo encontrado
                     if 'precio_unitario' in prod and prod['precio_unitario']:
-                        precio_unitario = Decimal(str(prod['precio_unitario']))
+                        precio = Decimal(str(prod['precio_unitario']))
                     elif precio_result:
-                        precio_unitario = Decimal(str(precio_result['Precio_Unitario']))
+                        precio = Decimal(str(precio_result['Precio_Unitario']))
                     else:
-                        precio_unitario = Decimal('0')
+                        precio = Decimal('0')
                     
-                    subtotal = cantidad * precio_unitario
+                    subtotal = cantidad * precio
                     
                     # Insertar detalle del movimiento de inventario
                     cursor.execute("""
@@ -12716,7 +12261,7 @@ def admin_procesar_salida():
                         id_movimiento, 
                         id_producto, 
                         cantidad,
-                        precio_unitario, 
+                        precio, 
                         precio_unitario,  # Guardamos también el precio de venta aquí
                         subtotal,
                         user_id
