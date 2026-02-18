@@ -85,66 +85,604 @@ def get_db():
             print(f"Pool agotado, usando conexion directa: {e}")
             try:
                 config_simple = {k: v for k, v in DB_CONFIG.items()
+                                if k not in ['pool_name','pool_size','pool_reset_session']}
+                g.db = mysql.connector.connect(**config_simple)
+            except Error as fallback_error:
+                print(f"Fallback tambien fallo: {fallback_error}")
+                g.db = None
+        except Error as e:
+            print(f"Error al conectar a la BD: {e}")
+            g.db = None
+    return g.db
 
-                                # ========================
-                                # RUTAS PRINCIPALES (ADMIN)
-                                # ========================
+@app.teardown_appcontext
+def close_db(exception):
+    """Cerrar conexión al final de cada request"""
+    db = g.pop('db', None)
+    if db is not None:
+        try:
+            if db.is_connected():
+                db.close()
+                print("Conexión a BD cerrada")
+            else:
+                print("Conexion ya estaba cerrada")
+        except Error as e:
+            print(f"Error al cerrar conexión: {e}")
 
-                                @app.route('/admin/ventas/ventas-salidas', methods=['GET'])
-                                @admin_or_bodega_required
-                                @bitacora_decorator("VENTAS-SALIDAS")
-                                def admin_ventas_salidas():
-                                    # ...existing code...
+@contextlib.contextmanager
+def get_db_cursor(commit=False):
+    """Context manager para manejar cursor automáticamente"""
+    db = get_db()
+    if db is None:
+        raise Exception("No se pudo conectar a la base de datos")
+    
+    cursor = None
+    try:
+        if not db.is_connected():
+            print("Reconectando...")
+            db.reconnect(attempts=1, delay=0)
+    
+        cursor = db.cursor(dictionary=True)
+        yield cursor
+        
+        if commit:
+            db.commit()
+            print("Cambios confirmados en la BD")
 
-                                @app.route('/admin/ventas/crear', methods=['GET', 'POST'])
-                                @admin_or_bodega_required
-                                @bitacora_decorator("CREAR_VENTA")
-                                def admin_crear_venta():
-                                    # ...existing code...
+    except Exception as e:
+        print(f"Error en operacion de BD: {e}")
+        if commit:
+            try:
+                db.rollback()
+                print("Rollback realizado en la BD")
+            except:
+                print("Error al hacer rollback")
+        raise e
 
-                                @app.route('/admin/ventas/ticket/<int:id_factura>')
-                                def admin_generar_ticket(id_factura):
-                                    # ...existing code...
+    finally:
+        if cursor:
+            try:
+                cursor.close()
+                print("Cursor cerrado")
+            except:
+                pass
 
-                                @app.route('/admin/ventas/detalles/<int:id_factura>', methods=['GET'])
-                                @bitacora_decorator("DETALLES_VENTA")
-                                def admin_detalles_venta(id_factura):
-                                    # ...existing code...
+def test_connection():
+    """Probar la conexión a la base de datos"""
+    try:
+        conn = get_db()
+        if conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT 1")
+            cursor.fetchone()
+            cursor.close()
+            print("✅ Conexión a BD exitosa")
+            return True
+        else:
+            print("❌ No se pudo establecer conexión a la BD")
+            return False
+    except Error as e:
+        print(f"❌ Error al probar conexión a la BD: {e}")
+        return False
 
-                                @app.route('/admin/ventas/anular/<int:id_factura>', methods=['GET', 'POST'])
-                                @admin_required
-                                @bitacora_decorator("ANULAR_VENTA")
-                                def admin_anular_venta(id_factura):
-                                    # ...existing code...
+def diagnose_db():
+    """Diagnóstico completo de la base de datos"""
+    print("\n=== DIAGNÓSTICO DE BASE DE DATOS ===")
+    
+    # Verificar variables de entorno
+    print(f"📋 Variables de entorno:")
+    print(f"   DB_USER: {os.environ.get('DB_USER')}")
+    print(f"   DB_NAME: {os.environ.get('DB_NAME')}")
+    print(f"   DB_HOST: {os.environ.get('DB_HOST')}")
+    
+    # 1. Verificar conexión
+    conn = get_db()
+    if not conn:
+        print("❌ No se pudo conectar a la BD")
+        return False
+    
+    try:
+        # Crear cursor con dictionary=True para obtener resultados como diccionarios
+        cursor = conn.cursor(buffered=True, dictionary=True)
+        
+        # 2. Verificar base de datos
+        cursor.execute("SELECT DATABASE() as current_db")
+        current_db = cursor.fetchone()['current_db']
+        print(f"📊 Base de datos actual: {current_db}")
+        
+        # 3. Verificar tablas
+        cursor.execute("SHOW TABLES")
+        tables = cursor.fetchall()
+        table_names = [list(table.values())[0] for table in tables] if tables else []
+        print(f"📊 Tablas encontradas: {table_names}")
+        
+        # 4. Verificar tabla usuarios específicamente
+        if 'usuarios' in table_names:
+            cursor.execute("DESCRIBE usuarios")
+            columns = cursor.fetchall()
+            print("📋 Estructura de tabla usuarios:")
+            for col in columns:
+                print(f"   - {col['Field']}: {col['Type']}")
+                
+            # 5. Verificar datos en usuarios
+            cursor.execute("SELECT COUNT(*) as count FROM usuarios")
+            count_result = cursor.fetchone()
+            user_count = count_result['count'] if count_result else 0
+            print(f"👥 Usuarios en sistema: {user_count}")
+            
+            # 6. Mostrar algunos usuarios de ejemplo
+            if user_count > 0:
+                cursor.execute("SELECT ID_Usuario, NombreUsuario, Estado, Contraseña FROM usuarios LIMIT 5")
+                sample_users = cursor.fetchall()
+                print("👤 Ejemplo de usuarios:")
+                for user in sample_users:
+                    print(f"   - {user['ID_Usuario']}: {user['NombreUsuario']} ({user['Estado']})")
+                    print(f"     Contraseña: {user['Contraseña']}")
+        
+        # 7. Verificar tabla Roles
+        if 'Roles' in table_names:
+            cursor.execute("SELECT * FROM Roles")
+            roles = cursor.fetchall()
+            print("🎭 Roles disponibles:")
+            for role in roles:
+                print(f"   - {role['ID_Rol']}: {role['Nombre_Rol']}")
+        
+        else:
+            print("❌ Tabla 'usuarios' no encontrada")
+            
+        cursor.close()
+        return True
+        
+    except Error as e:
+        print(f"❌ Error en diagnóstico: {e}")
+        return False
+    finally:
+        if conn:
+            conn.close()
 
-                                # ========================
-                                # RUTAS API (ENDPOINTS)
-                                # ========================
+def verify_credentials_debug(username, password):
+    """Función de debug para verificar credenciales con logs detallados"""
+    print(f"\n🔍 DEBUG: Verificando credenciales para usuario: '{username}'")
+    
+    try:
+        with get_db_cursor() as cursor:
+            # Consulta case-insensitive para estado
+            query = """
+                SELECT u.ID_Usuario, u.NombreUsuario, u.Contraseña, r.Nombre_Rol, u.Estado
+                FROM Usuarios u 
+                JOIN Roles r ON u.ID_Rol = r.ID_Rol 
+                WHERE u.NombreUsuario = %s AND UPPER(u.Estado) = 'ACTIVO'
+            """
+            print(f"📝 Ejecutando query: {query}")
+            print(f"📝 Parámetros: ({username},)")
+            
+            cursor.execute(query, (username,))
+            user_data = cursor.fetchone()
+            
+            if user_data:
+                print(f" Usuario encontrado en BD:")
+                print(f"   ID: {user_data['ID_Usuario']}")
+                print(f"   Nombre: {user_data['NombreUsuario']}")
+                print(f"   Rol: {user_data['Nombre_Rol']}")
+                print(f"   Estado: {user_data['Estado']}")
+                print(f"   Hash contraseña: {user_data['Contraseña']}")
+                
+                # Verificar si la contraseña está hasheada
+                is_hashed = user_data['Contraseña'].startswith(('scrypt:', 'pbkdf2:', 'bcrypt:'))
+                print(f"   ¿Contraseña hasheada?: {is_hashed}")
+                
+                if is_hashed:
+                    # Verificar contraseña hasheada
+                    password_match = check_password_hash(user_data['Contraseña'], password)
+                    print(f"🔐 Contraseña coincide (hash): {password_match}")
+                else:
+                    # Verificar contraseña en texto plano (temporal)
+                    password_match = (user_data['Contraseña'] == password)
+                    print(f"🔐 Contraseña coincide (texto plano): {password_match}")
+                    print("⚠️  ADVERTENCIA: Contraseña en texto plano - debe ser hasheada")
+                
+                if password_match:
+                    print("✅ Credenciales válidas")
+                    return True
+                else:
+                    print("❌ Contraseña incorrecta")
+                    return False
+            else:
+                print("❌ Usuario no encontrado en la base de datos")
+                return False
+                
+    except Exception as e:
+        print(f"❌ Error en verify_credentials_debug: {e}")
+        return False
 
-                                @app.route('/api/ventas/productos/cliente/<int:cliente_id>', methods=['GET'])
-                                def api_productos_por_cliente(cliente_id):
-                                    # ...existing code...
+def registrar_bitacora(id_usuario=None, modulo=None, accion=None, ip_acceso=None):
+    """
+    Función principal para registrar en la bitácora
+    """
+    try:
+        with get_db_cursor(commit=True) as cursor:
+            # Si no se proporciona IP, obtenerla del request
+            if ip_acceso is None and request:
+                ip_acceso = request.remote_addr
+            
+            # Si no se proporciona usuario, usar el current_user
+            if id_usuario is None and current_user.is_authenticated:
+                id_usuario = current_user.id
+            
+            cursor.execute("""
+                INSERT INTO bitacora (ID_Usuario, Modulo, Accion, IP_Acceso)
+                VALUES (%s, %s, %s, %s)
+            """, (id_usuario, modulo, accion, ip_acceso))
+            
+            print(f"Bitácora registrada: {modulo} - {accion} - Usuario: {id_usuario}")
+            return True
+            
+    except Exception as e:
+        print(f"Error al registrar en bitácora: {e}")
+        return False
 
-                                # RUTAS AUXILIARES SIMPLIFICADAS - UNA SOLA BODEGA
-                                @app.route('/admin/ventas/productos-por-categoria/<int:id_categoria>')
-                                def obtener_productos_por_categoria_venta(id_categoria):
-                                    # ...existing code...
+def bitacora_decorator(modulo):
+    """
+    Decorador para automatizar el registro en bitácora
+    """
+    def decorator(func):
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):
+            # Ejecutar la función primero
+            result = func(*args, **kwargs)
+            
+            # Registrar en bitácora después de la ejecución exitosa
+            try:
+                if current_user.is_authenticated:
+                    registrar_bitacora(
+                        modulo=modulo,
+                        accion=func.__name__,
+                        ip_acceso=request.remote_addr
+                    )
+            except Exception as e:
+                print(f"Error en decorador bitácora: {e}")
+            
+            return result
+        return wrapper
+    return decorator
 
-                                @app.route('/admin/ventas/verificar-stock/<int:id_producto>')
-                                def verificar_stock_producto(id_producto):
-                                    # ...existing code...
+def registrar_login_exitoso(username, id_usuario):
+    """Registrar login exitoso en bitácora"""
+    registrar_bitacora(
+        id_usuario=id_usuario,
+        modulo="AUTH",
+        accion="LOGIN_EXITOSO",
+        ip_acceso=request.remote_addr
+    )
+    
+def registrar_login_fallido(username, razon):
+    """Registrar intento fallido de login"""
+    try:
+        with get_db_cursor(commit=True) as cursor:
+            cursor.execute("""
+                INSERT INTO bitacora (Modulo, Accion, IP_Acceso)
+                VALUES (%s, %s, %s)
+            """, ("AUTH", f"LOGIN_FALLIDO: {razon} - Usuario: {username}", request.remote_addr))
+    except Exception as e:
+        print(f"Error al registrar login fallido: {e}")
 
-                                @app.route('/admin/ventas/categorias-productos')
-                                def obtener_categorias_productos_venta():
-                                    # ...existing code...
+def registrar_logout(id_usuario):
+    """Registrar logout en bitácora"""
+    registrar_bitacora(
+        id_usuario=id_usuario,
+        modulo="AUTH", 
+        accion="LOGOUT",
+        ip_acceso=request.remote_addr
+    )
 
-                                @app.route('/admin/ventas/bodega-principal')
-                                def obtener_bodega_principal():
-                                    # ...existing code...
+# Configuración de Flask (FUERA del bloque try-except)
+app.secret_key = os.environ.get("SECRET_KEY", secrets.token_hex(24))
+app.config["TEMPLATES_AUTO_RELOAD"] = True
+app.config["SESSION_PERMANENT"] = False
+app.config["SESSION_TYPE"] = "filesystem"
+app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(hours=1)
+Session(app)
 
-                                @app.route('/admin/ventas/todos-productos')
-                                def obtener_todos_productos_venta():
-                                    # ...existing code...
+# Configuración de Flask-Login
+login_manager = LoginManager(app)
+login_manager.login_view = 'login'
+login_manager.login_message = "Inicia sesión para acceder a esta página"
+login_manager.login_message_category = "info"
+
+class User(UserMixin):
+    def __init__(self, id, username, rol):
+        self.id = str(id)
+        self.username = username
+        self.rol = rol
+
+@login_manager.user_loader
+def load_user(user_id):
+    try:
+        with get_db_cursor() as cursor:
+            cursor.execute(""" 
+                SELECT u.ID_Usuario, u.NombreUsuario, r.Nombre_Rol
+                FROM Usuarios u
+                JOIN Roles r ON u.ID_Rol = r.ID_Rol
+                WHERE u.ID_Usuario = %s AND UPPER(u.Estado) = 'ACTIVO'
+            """, (user_id,))
+            user_data = cursor.fetchone()
+            
+            if user_data:
+                return User(user_data['ID_Usuario'], user_data['NombreUsuario'], user_data['Nombre_Rol'])
+            return None
+    except Exception as e:
+        print(f"Error en load_user: {e}")
+        return None
+
+# Decorador Personalizado
+def role_requerido(requested_role):
+    def decorator(f):
+        @login_required
+        @wraps(f)
+        def decorated_function(*args, **kwargs):
+            if current_user.rol != requested_role:
+                abort(403)
+            return f(*args, **kwargs)
+        return decorated_function
+    return decorator
+
+def admin_required(f):
+    return role_requerido('Administrador')(f)
+
+def bodega_required(f):
+    return role_requerido('Bodega')(f)
+
+def vendedor_required(f):
+    return role_requerido('Vendedor')(f)
+
+def admin_or_bodega_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if not current_user.is_authenticated:
+            abort(401)  # No autenticado
+        if current_user.rol not in ['Administrador', 'Bodega']:
+            abort(403)  # No autorizado
+        return f(*args, **kwargs)
+    return decorated_function
+
+# Rutas de autenticaciones y autorizaciones
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if current_user.is_authenticated:
+        return redirect(url_for('dashboard'))
+    
+    session.clear()
+    
+    if request.method == 'POST':
+        username = request.form.get("username", "").strip()
+        password = request.form.get("password", "")
+        
+        print(f"\n Intento de login - Usuario: '{username}', Contraseña: '{password}'")
+        
+        if not username:
+            flash("El nombre de usuario es requerido", "danger")
+            registrar_login_fallido(username,"Usuario vacio")
+            return render_template('login.html')
+        
+        if not password:
+            flash("La contraseña es requerida", "danger")
+            registrar_login_fallido(username, "Contraseña vacia")
+            return render_template('login.html')
+        
+        if len(password) < 4:
+            flash("La contraseña debe tener al menos 4 caracteres", "danger")
+            return render_template('login.html')
+        
+        # Debug: verificar credenciales con logging detallado
+        credentials_valid = verify_credentials_debug(username, password)
+        
+        try:
+            with get_db_cursor() as cursor:
+                # Consulta case-insensitive para estado
+                cursor.execute("""
+                    SELECT u.ID_Usuario, u.NombreUsuario, u.Contraseña, r.Nombre_Rol 
+                    FROM Usuarios u 
+                    JOIN Roles r ON u.ID_Rol = r.ID_Rol 
+                    WHERE u.NombreUsuario = %s AND UPPER(u.Estado) = 'ACTIVO' AND r.Estado = 'Activo'
+                """, (username,))
+                
+                user_data = cursor.fetchone()
+                
+                if user_data:
+                    # Verificar si la contraseña está hasheada
+                    if user_data['Contraseña'].startswith(('scrypt:', 'pbkdf2:', 'bcrypt:')):
+                        # Contraseña hasheada
+                        if check_password_hash(user_data['Contraseña'], password):
+                            user = User(user_data['ID_Usuario'], user_data['NombreUsuario'], user_data['Nombre_Rol'])
+                            login_user(user)
+                            registrar_login_exitoso(username, user_data['ID_Usuario'])
+                            print(f"Usuario {username} ha iniciado sesión - Rol: {user_data['Nombre_Rol']}")
+                            flash(f"¡Bienvenido {user.username}!", "success")
+                            return redirect(url_for('dashboard'))
+                        else:
+                            print("Contraseña incorrecta (hash)")
+                            registrar_login_fallido(username, "contraseña incorrecta")
+                            flash("Credenciales incorrectas. Por favor verifique sus datos.", "danger")
+                    else:
+                        # Contraseña en texto plano (temporal)
+                        if user_data['Contraseña'] == password:
+                            user = User(user_data['ID_Usuario'], user_data['NombreUsuario'], user_data['Nombre_Rol'])
+                            login_user(user)
+                            registrar_login_exitoso(username, user_data['ID_Usuario'])
+                            print(f"Usuario {username} ha iniciado sesión (texto plano) - Rol: {user_data['Nombre_Rol']}")
+                            flash(f"¡Bienvenido {user.username}!", "success")
+                            return redirect(url_for('dashboard'))
+                        else:
+                            print("Contraseña incorrecta (texto plano)")
+                            registrar_login_fallido(username, "contraseña incorrecta")
+                            flash("Credenciales incorrectas. Por favor verifique sus datos.", "danger")
+                else:
+                    print("Usuario no encontrado o inactivo")
+                    registrar_login_fallido(username, "contraseña no encontrado o inactivo")
+                    flash("Credenciales incorrectas o usuario inactivo.", "danger")
+                
+        except Exception as e:
+            print(f"Error en login: {e}")
+            registrar_login_fallido(username, f"Error del sistema: {e}")
+            flash("Error interno del sistema. Intente más tarde.", "danger")
+        
+        return render_template('login.html')
+
+    return render_template('login.html')
+
+@app.route('/reset-admin')
+def reset_admin():
+    """Reset completo del usuario admin"""
+    try:
+        with get_db_cursor() as cursor:
+            # Resetear a texto plano temporalmente
+            cursor.execute("""
+                UPDATE Usuarios 
+                SET Estado = 'Activo', 
+                    Contraseña = 'Admin123$'
+                WHERE ID_Usuario = 2
+            """)
+            
+            print("✅ Admin reseteado a texto plano")
+            print("   Usuario: Admin")
+            print("   Contraseña: Admin123$ (texto plano)")
+            
+        return """
+        <h1>✅ Admin reseteado</h1>
+        <p>Ahora prueba iniciar sesión con:</p>
+        <ul>
+            <li><strong>Usuario:</strong> Admin</li>
+            <li><strong>Contraseña:</strong> Admin123$</li>
+        </ul>
+        <p><a href="/login">Ir al login</a></p>
+        """
+    except Exception as e:
+        return f"<h1>❌ Error:</h1><p>{e}</p>"
+
+# RUTAS TEMPORALES PARA FIX - ELIMINAR DESPUÉS DE USAR
+@app.route('/fix-admin')
+def fix_admin():
+    """Ruta temporal para corregir el usuario admin - ELIMINAR DESPUÉS"""
+    try:
+        with get_db_cursor() as cursor:
+            # 1. Corregir estado (case-insensitive)
+            cursor.execute("UPDATE Usuarios SET Estado = 'Activo' WHERE ID_Usuario = 2")
+            
+            # 2. Crear hash válido para la contraseña
+            hashed_password = generate_password_hash('Admin123$')
+            cursor.execute("UPDATE Usuarios SET Contraseña = %s WHERE ID_Usuario = 2", (hashed_password,))
+            
+            print("✅ Usuario admin corregido:")
+            print(f"   - Estado: Activo")
+            print(f"   - Contraseña hash: {hashed_password}")
+            print("   - Credenciales: usuario='Admin', contraseña='Admin123$'")
+            
+        return """
+        <h1>✅ Usuario admin corregido</h1>
+        <p>Ahora puedes iniciar sesión con:</p>
+        <ul>
+            <li><strong>Usuario:</strong> Admin</li>
+            <li><strong>Contraseña:</strong> Admin123$</li>
+        </ul>
+        <p><a href="/login">Ir al login</a></p>
+        <p style='color: red; font-weight: bold;'>⚠️ RECUERDA ELIMINAR ESTA RUTA /fix-admin DESPUÉS DE USAR</p>
+        """
+    except Exception as e:
+        return f"<h1>❌ Error:</h1><p>{e}</p>"
+
+@app.route('/check-users')
+def check_users():
+    """Ruta temporal para ver todos los usuarios - ELIMINAR DESPUÉS"""
+    try:
+        with get_db_cursor() as cursor:
+            cursor.execute("SELECT ID_Usuario, NombreUsuario, Estado, Contraseña FROM Usuarios")
+            users = cursor.fetchall()
+            
+            result = "<h1>👥 Usuarios en el sistema</h1>"
+            for user in users:
+                result += f"""
+                <div style='border: 1px solid #ccc; padding: 10px; margin: 10px;'>
+                    <strong>ID:</strong> {user['ID_Usuario']}<br>
+                    <strong>Usuario:</strong> {user['NombreUsuario']}<br>
+                    <strong>Estado:</strong> {user['Estado']}<br>
+                    <strong>Contraseña:</strong> {user['Contraseña']}<br>
+                    <strong>¿Hasheada?:</strong> {user['Contraseña'].startswith(('scrypt:', 'pbkdf2:', 'bcrypt:'))}
+                </div>
+                """
+            
+            return result + "<p><a href='/login'>Ir al login</a></p>"
+    except Exception as e:
+        return f"<h1>❌ Error:</h1><p>{e}</p>"
+
+@app.route('/diagnostico', methods=["GET"])
+def diagnostico():
+    """Página de diagnóstico para verificar el estado de la BD"""
+    result = diagnose_db()
+    return f"""
+    <h1>Diagnóstico de Base de Datos</h1>
+    <p>Resultado: {'✅ Éxito' if result else '❌ Fallo'}</p>
+    <p>Ver logs detallados en la consola del servidor.</p>
+    <p><a href="/login">Ir al login</a> | <a href="/fix-admin">Corregir admin</a> | <a href="/check-users">Ver usuarios</a></p>
+    """
+
+@app.route('/logout')
+@login_required
+def logout():
+    registrar_logout(current_user.id)
+    logout_user()
+    flash("Sesion cerrada exitosamente", "info")
+    return redirect(url_for('login'))
+
+# Rutas principales
+@app.route('/')
+def home():
+    if current_user.is_authenticated:
+        return redirect(url_for('dashboard'))
+    return redirect(url_for('login'))
+
+@app.route('/dashboard')
+@login_required
+def dashboard():
+    if current_user.rol == 'Administrador':
+        return redirect(url_for('admin_dashboard'))
+    elif current_user.rol == 'Vendedor':
+        return redirect(url_for('vendedor_dashboard'))
+    elif current_user.rol == 'Bodega':
+        return redirect(url_for('bodega_dashboard'))
+    else:
+        abort(403)
+
+# Dashboard por roles
+@app.route('/admin/dashboard')
+@login_required
+def admin_dashboard():
+    
+    try:
+        with get_db_cursor() as cursor:
+            cursor.execute("SELECT COUNT(*) as count FROM Usuarios WHERE UPPER(Estado) = 'ACTIVO'")
+            usuarios_count = cursor.fetchone()['count']
+            
+            return render_template('admin/dashboard.html', usuarios_count=usuarios_count)
+    except Exception as e:
+        flash(f"Error al cargar dashboard: {e}", "danger")
+        return redirect(url_for('dashboard'))
+
+@app.route('/vendedor/dashboard')
+@login_required
+def vendedor_dashboard():
+    return render_template('vendedor/dashboard.html')
+
+@app.route('/bodega/dashboard')
+@admin_or_bodega_required
+def bodega_dashboard():
+    try:
+        with get_db_cursor() as cursor:
+            # 1. Productos que han salido hoy
+            cursor.execute("""
+                SELECT 
+                    p.Descripcion AS Producto,
+                    um.Abreviatura AS Unidad,
+                    SUM(dmi.Cantidad) AS Cantidad_Salida,
                     b.Nombre AS Bodega
                 FROM productos p
                 INNER JOIN detalle_movimientos_inventario dmi ON p.ID_Producto = dmi.ID_Producto
@@ -8019,13 +8557,13 @@ def admin_detalle_cuentacobrar(id_movimiento):
 @app.route('/admin/ventas/pedidos-venta')
 @admin_or_bodega_required
 @bitacora_decorator("PEDIDOS-VENTA")
-def admin_pedidos_venta():
+def admin_pedidos_venta():#
     try:
         with get_db_cursor(True) as cursor:
             # Obtener el rol del usuario actual
             es_rol_bodega = current_user.rol == 'Bodega'
             
-            # 🔥 CONSULTA CORREGIDA - AHORA INCLUYE PEDIDOS CONSOLIDADOS
+            # 🔥 CONSULTA ACTUALIZADA - INCLUYE PRECIOS SEGÚN PERFIL
             sql = """
             SELECT 
                 p.ID_Pedido,
@@ -8046,6 +8584,7 @@ def admin_pedidos_venta():
                 c.Direccion as Direccion_Cliente,
                 c.RUC_CEDULA as Documento_Cliente,
                 c.tipo_cliente as Tipo_Cliente,
+                c.perfil_cliente as Perfil_Cliente,  -- NUEVO: perfil del cliente
                 c.Estado as Estado_Cliente,
                 e.Nombre_Empresa,
                 u.NombreUsuario as Usuario_Creacion,
@@ -8058,15 +8597,29 @@ def admin_pedidos_venta():
                     )
                     ELSE COALESCE(SUM(dp.Cantidad), 0)
                 END as Total_Items,
-                -- Calcular Total_Pedido según tipo de pedido
+                -- Calcular Total_Pedido según tipo de pedido y PERFIL DEL CLIENTE
                 CASE 
                     WHEN p.Tipo_Pedido = 'Consolidado' THEN (
-                        SELECT COALESCE(SUM(pcp.Cantidad_Total * pr.Precio_Mercado), 0)
+                        SELECT COALESCE(SUM(pcp.Cantidad_Total * 
+                            CASE c.perfil_cliente
+                                WHEN 'Ruta' THEN pr.Precio_Ruta
+                                WHEN 'Mayorista' THEN pr.Precio_Mayorista
+                                WHEN 'Mercado' THEN pr.Precio_Mercado
+                                ELSE pr.Precio_Mercado
+                            END), 0)
                         FROM pedidos_consolidados_productos pcp
                         LEFT JOIN productos pr ON pcp.ID_Producto = pr.ID_Producto
                         WHERE pcp.ID_Pedido = p.ID_Pedido
                     )
-                    ELSE COALESCE(SUM(dp.Subtotal), 0)
+                    ELSE COALESCE(SUM(
+                        dp.Cantidad * 
+                        CASE c.perfil_cliente
+                            WHEN 'Ruta' THEN pr.Precio_Ruta
+                            WHEN 'Mayorista' THEN pr.Precio_Mayorista
+                            WHEN 'Mercado' THEN pr.Precio_Mercado
+                            ELSE pr.Precio_Mercado
+                        END
+                    ), 0)
                 END as Total_Pedido,
                 -- Contador de items para consolidados
                 COUNT(DISTINCT CASE 
@@ -8082,7 +8635,7 @@ def admin_pedidos_venta():
             -- LEFT JOIN condicionales para productos
             LEFT JOIN detalle_pedidos dp ON p.ID_Pedido = dp.ID_Pedido AND p.Tipo_Pedido != 'Consolidado'
             LEFT JOIN pedidos_consolidados_productos pcp ON p.ID_Pedido = pcp.ID_Pedido AND p.Tipo_Pedido = 'Consolidado'
-            LEFT JOIN productos pr ON pcp.ID_Producto = pr.ID_Producto
+            LEFT JOIN productos pr ON COALESCE(dp.ID_Producto, pcp.ID_Producto) = pr.ID_Producto
             WHERE 1=1
             """
             
@@ -8100,7 +8653,7 @@ def admin_pedidos_venta():
                 p.Fecha_Creacion, p.Prioridad, p.Tipo_Pedido, p.Es_Pedido_Ruta,
                 p.ID_Ruta, r.Nombre_Ruta, r.Descripcion,
                 c.ID_Cliente, c.Nombre, c.Telefono, c.Direccion, c.RUC_CEDULA,
-                c.tipo_cliente, c.Estado, e.Nombre_Empresa, u.NombreUsuario
+                c.tipo_cliente, c.perfil_cliente, c.Estado, e.Nombre_Empresa, u.NombreUsuario
             ORDER BY 
                 CASE 
                     WHEN p.Prioridad = 'Urgente' THEN 1
@@ -8128,6 +8681,7 @@ def admin_pedidos_venta():
             prioridades = ['Urgente', 'Normal', 'Bajo']
             tipos_pedido = ['Individual', 'Consolidado']
             opciones_ruta = ['SI', 'NO']
+            perfiles_cliente = ['Ruta', 'Mayorista', 'Mercado', 'Especial']  # NUEVO
             
             # Obtener lista de rutas para filtros
             cursor.execute("""
@@ -8167,6 +8721,7 @@ def admin_pedidos_venta():
                                  tipos_pedido=tipos_pedido,
                                  opciones_ruta=opciones_ruta,
                                  rutas=rutas,
+                                 perfiles_cliente=perfiles_cliente,  # NUEVO
                                  es_rol_bodega=es_rol_bodega,
                                  stats=stats,
                                  now=datetime.now())
@@ -8193,6 +8748,7 @@ def ver_pedido(id_pedido):
                 c.Direccion as Direccion_Cliente,
                 c.RUC_CEDULA as Documento_Cliente,
                 c.tipo_cliente as Tipo_Cliente,
+                c.perfil_cliente as Perfil_Cliente,  -- NUEVO
                 c.Estado as Estado_Cliente,
                 e.Nombre_Empresa,
                 e.Direccion as Direccion_Empresa,
@@ -8218,7 +8774,7 @@ def ver_pedido(id_pedido):
             
             # Obtener detalles según tipo de pedido
             if pedido['Tipo_Pedido'] == 'Consolidado':
-                # Para pedidos consolidados
+                # Para pedidos consolidados - USAR PRECIO DE RUTA
                 cursor.execute("""
                     SELECT 
                         pcp.ID_Pedido_Consolidado_Producto,
@@ -8228,7 +8784,10 @@ def ver_pedido(id_pedido):
                         u.NombreUsuario as Usuario_Creacion,
                         pr.COD_Producto,
                         pr.Descripcion as Nombre_Producto,
-                        pr.Precio_Ruta as Precio_Venta,
+                        pr.Precio_Ruta as Precio_Unitario,  -- Consolidados usan precio de ruta
+                        pr.Precio_Mercado,
+                        pr.Precio_Mayorista,
+                        pr.Precio_Ruta,
                         pr.Unidad_Medida,
                         um.Descripcion as Unidad_Nombre,
                         um.Abreviatura as Unidad_Abreviatura,
@@ -8257,34 +8816,59 @@ def ver_pedido(id_pedido):
                 totales = cursor.fetchone()
                 
             else:
-                # Para pedidos individuales
+                # Para pedidos individuales - USAR PRECIO SEGÚN PERFIL DEL CLIENTE
+                perfil_cliente = pedido.get('Perfil_Cliente', 'Mercado')
+                
                 cursor.execute("""
                     SELECT 
                         dp.*,
                         pr.COD_Producto,
                         pr.Descripcion as Nombre_Producto,
+                        pr.Precio_Mercado,
+                        pr.Precio_Mayorista,
+                        pr.Precio_Ruta,
                         pr.Unidad_Medida,
                         um.Descripcion as Unidad_Nombre,
                         um.Abreviatura as Unidad_Abreviatura,
                         cat.Descripcion as Categoria,
-                        COALESCE(dp.Subtotal, dp.Precio_Unitario * dp.Cantidad) as Subtotal
+                        CASE %s
+                            WHEN 'Ruta' THEN pr.Precio_Ruta
+                            WHEN 'Mayorista' THEN pr.Precio_Mayorista
+                            WHEN 'Mercado' THEN pr.Precio_Mercado
+                            ELSE pr.Precio_Mercado
+                        END as Precio_Segun_Perfil,
+                        COALESCE(dp.Subtotal, dp.Cantidad * 
+                            CASE %s
+                                WHEN 'Ruta' THEN pr.Precio_Ruta
+                                WHEN 'Mayorista' THEN pr.Precio_Mayorista
+                                WHEN 'Mercado' THEN pr.Precio_Mercado
+                                ELSE pr.Precio_Mercado
+                            END) as Subtotal
                     FROM detalle_pedidos dp
                     LEFT JOIN productos pr ON dp.ID_Producto = pr.ID_Producto
                     LEFT JOIN unidades_medida um ON pr.Unidad_Medida = um.ID_Unidad
                     LEFT JOIN categorias_producto cat ON pr.ID_Categoria = cat.ID_Categoria
                     WHERE dp.ID_Pedido = %s
                     ORDER BY dp.ID_Detalle_Pedido
-                """, (id_pedido,))
+                """, (perfil_cliente, perfil_cliente, id_pedido))
                 detalles = cursor.fetchall()
                 
                 cursor.execute("""
                     SELECT 
                         COALESCE(SUM(dp.Cantidad), 0) as Total_Cantidad,
-                        COALESCE(SUM(COALESCE(dp.Subtotal, dp.Precio_Unitario * dp.Cantidad)), 0) as Total_General,
+                        COALESCE(SUM(COALESCE(dp.Subtotal, 
+                            dp.Cantidad * 
+                            CASE %s
+                                WHEN 'Ruta' THEN pr.Precio_Ruta
+                                WHEN 'Mayorista' THEN pr.Precio_Mayorista
+                                WHEN 'Mercado' THEN pr.Precio_Mercado
+                                ELSE pr.Precio_Mercado
+                            END)), 0) as Total_General,
                         COUNT(DISTINCT dp.ID_Producto) as Total_Productos
                     FROM detalle_pedidos dp
+                    LEFT JOIN productos pr ON dp.ID_Producto = pr.ID_Producto
                     WHERE dp.ID_Pedido = %s
-                """, (id_pedido,))
+                """, (perfil_cliente, id_pedido))
                 totales = cursor.fetchone()
             
             return render_template('admin/ventas/pedidos/detalle_pedido.html',
@@ -8307,9 +8891,10 @@ def filtrar_pedidos():
         tipo_entrega = request.form.get('tipo_entrega', 'todos')
         tipo_cliente = request.form.get('tipo_cliente', 'todos')
         prioridad = request.form.get('prioridad', 'todos')
-        tipo_pedido = request.form.get('tipo_pedido', 'todos')  # Nuevo
-        es_pedido_ruta = request.form.get('es_pedido_ruta', 'todos')  # Nuevo
-        id_ruta = request.form.get('id_ruta', 'todos')  # Nuevo
+        tipo_pedido = request.form.get('tipo_pedido', 'todos')
+        es_pedido_ruta = request.form.get('es_pedido_ruta', 'todos')
+        id_ruta = request.form.get('id_ruta', 'todos')
+        perfil_cliente = request.form.get('perfil_cliente', 'todos')  # NUEVO
         documento_cliente = request.form.get('documento_cliente', '').strip()
         nombre_cliente = request.form.get('nombre_cliente', '').strip()
         
@@ -8336,19 +8921,23 @@ def filtrar_pedidos():
             condiciones.append("c.tipo_cliente = %s")
             parametros.append(tipo_cliente)
         
+        if perfil_cliente != 'todos':  # NUEVO filtro
+            condiciones.append("c.perfil_cliente = %s")
+            parametros.append(perfil_cliente)
+        
         if prioridad != 'todos':
             condiciones.append("p.Prioridad = %s")
             parametros.append(prioridad)
         
-        if tipo_pedido != 'todos':  # Nuevo filtro
+        if tipo_pedido != 'todos':
             condiciones.append("p.Tipo_Pedido = %s")
             parametros.append(tipo_pedido)
         
-        if es_pedido_ruta != 'todos':  # Nuevo filtro
+        if es_pedido_ruta != 'todos':
             condiciones.append("p.Es_Pedido_Ruta = %s")
             parametros.append(es_pedido_ruta)
         
-        if id_ruta != 'todos':  # Nuevo filtro
+        if id_ruta != 'todos':
             condiciones.append("p.ID_Ruta = %s")
             parametros.append(id_ruta)
         
@@ -8383,6 +8972,7 @@ def filtrar_pedidos():
                 c.Telefono as Telefono_Cliente,
                 c.RUC_CEDULA as Documento_Cliente,
                 c.tipo_cliente as Tipo_Cliente,
+                c.perfil_cliente as Perfil_Cliente,  -- NUEVO
                 e.Nombre_Empresa,
                 u.NombreUsuario as Usuario_Creacion,
                 CASE 
@@ -8395,12 +8985,20 @@ def filtrar_pedidos():
                 END as Total_Items,
                 CASE 
                     WHEN p.Tipo_Pedido = 'Consolidado' THEN (
-                        SELECT COALESCE(SUM(pcp.Cantidad_Total * pr.Precio_Mercado), 0)
+                        SELECT COALESCE(SUM(pcp.Cantidad_Total * pr.Precio_Ruta), 0)
                         FROM pedidos_consolidados_productos pcp
                         JOIN productos pr ON pcp.ID_Producto = pr.ID_Producto
                         WHERE pcp.ID_Pedido = p.ID_Pedido
                     )
-                    ELSE COALESCE(SUM(dp.Subtotal), 0)
+                    ELSE COALESCE(SUM(
+                        dp.Cantidad * 
+                        CASE c.perfil_cliente
+                            WHEN 'Ruta' THEN pr.Precio_Ruta
+                            WHEN 'Mayorista' THEN pr.Precio_Mayorista
+                            WHEN 'Mercado' THEN pr.Precio_Mercado
+                            ELSE pr.Precio_Mercado
+                        END
+                    ), 0)
                 END as Total_Pedido
             FROM pedidos p
             LEFT JOIN clientes c ON p.ID_Cliente = c.ID_Cliente
@@ -8408,6 +9006,7 @@ def filtrar_pedidos():
             LEFT JOIN usuarios u ON p.ID_Usuario_Creacion = u.ID_Usuario
             LEFT JOIN rutas r ON p.ID_Ruta = r.ID_Ruta
             LEFT JOIN detalle_pedidos dp ON p.ID_Pedido = dp.ID_Pedido AND p.Tipo_Pedido != 'Consolidado'
+            LEFT JOIN productos pr ON dp.ID_Producto = pr.ID_Producto
             """
             
             if condiciones:
@@ -8417,7 +9016,7 @@ def filtrar_pedidos():
             GROUP BY p.ID_Pedido, p.Fecha, p.Estado, p.Tipo_Entrega, p.Observacion, 
                      p.Fecha_Creacion, p.Prioridad, p.Tipo_Pedido, p.Es_Pedido_Ruta,
                      p.ID_Ruta, r.Nombre_Ruta, c.ID_Cliente, c.Nombre, c.Telefono, 
-                     c.RUC_CEDULA, c.tipo_cliente, e.Nombre_Empresa, u.NombreUsuario
+                     c.RUC_CEDULA, c.tipo_cliente, c.perfil_cliente, e.Nombre_Empresa, u.NombreUsuario
             ORDER BY 
                 CASE p.Prioridad
                     WHEN 'Urgente' THEN 1
@@ -8438,6 +9037,7 @@ def filtrar_pedidos():
             prioridades = ['Urgente', 'Normal', 'Bajo']
             tipos_pedido = ['Individual', 'Consolidado']
             opciones_ruta = ['SI', 'NO']
+            perfiles_cliente = ['Ruta', 'Mayorista', 'Mercado', 'Especial']  # NUEVO
             
             return render_template('admin/ventas/pedidos/pedidos_venta.html',
                                  pedidos=pedidos,
@@ -8448,12 +9048,14 @@ def filtrar_pedidos():
                                  tipos_pedido=tipos_pedido,
                                  opciones_ruta=opciones_ruta,
                                  rutas=rutas,
+                                 perfiles_cliente=perfiles_cliente,  # NUEVO
                                  filtros_aplicados={
                                      'estado': estado,
                                      'fecha_inicio': fecha_inicio,
                                      'fecha_fin': fecha_fin,
                                      'tipo_entrega': tipo_entrega,
                                      'tipo_cliente': tipo_cliente,
+                                     'perfil_cliente': perfil_cliente,  # NUEVO
                                      'prioridad': prioridad,
                                      'tipo_pedido': tipo_pedido,
                                      'es_pedido_ruta': es_pedido_ruta,
@@ -8521,6 +9123,7 @@ def cambiar_estado_pedido(id_pedido):
 def nuevo_pedido_consolidado():
     """
     Crear un pedido consolidado - Carga total para una ruta específica
+    Los consolidados SIEMPRE usan precio de ruta
     """
     try:
         if request.method == 'POST':
@@ -8583,6 +9186,26 @@ def nuevo_pedido_consolidado():
                             'message': f"La cantidad para {producto['nombre']} debe ser mayor a 0"
                         }), 400
                     
+                    # Verificar que el producto existe y tiene precio de ruta
+                    cursor.execute("""
+                        SELECT Precio_Ruta 
+                        FROM productos 
+                        WHERE ID_Producto = %s AND Estado = 'activo'
+                    """, (producto['id'],))
+                    
+                    producto_info = cursor.fetchone()
+                    if not producto_info:
+                        return jsonify({
+                            'success': False,
+                            'message': f"Producto {producto['nombre']} no encontrado o inactivo"
+                        }), 400
+                    
+                    if producto_info['Precio_Ruta'] is None or producto_info['Precio_Ruta'] <= 0:
+                        return jsonify({
+                            'success': False,
+                            'message': f"Producto {producto['nombre']} no tiene precio de ruta definido"
+                        }), 400
+                    
                     # Insertar en pedidos_consolidados_productos
                     sql_consolidado = """
                     INSERT INTO pedidos_consolidados_productos (
@@ -8617,7 +9240,7 @@ def nuevo_pedido_consolidado():
             """)
             empresas = cursor.fetchall()
             
-            # 🔥 CORREGIDO: Usando 'Descripcion' que es el nombre correcto de la columna
+            # Obtener rutas activas
             cursor.execute("""
                 SELECT 
                     r.ID_Ruta,
@@ -8707,9 +9330,10 @@ def nuevo_pedido():
         cliente_id = request.args.get('cliente')
         
         with get_db_cursor(True) as cursor:
-            # Obtener clientes activos
+            # Obtener clientes activos (ahora incluye perfil_cliente)
             sql_clientes = """
-            SELECT ID_Cliente, Nombre, Telefono, Direccion, RUC_CEDULA, tipo_cliente 
+            SELECT ID_Cliente, Nombre, Telefono, Direccion, RUC_CEDULA, 
+                   tipo_cliente, perfil_cliente 
             FROM clientes 
             WHERE Estado = 'ACTIVO'
             ORDER BY Nombre
@@ -8726,14 +9350,14 @@ def nuevo_pedido():
             cliente_seleccionado = None
             if cliente_id:
                 sql_cliente = """
-                SELECT ID_Cliente, Nombre, Telefono, Direccion, RUC_CEDULA, tipo_cliente 
+                SELECT ID_Cliente, Nombre, Telefono, Direccion, RUC_CEDULA, 
+                       tipo_cliente, perfil_cliente 
                 FROM clientes 
                 WHERE ID_Cliente = %s AND Estado = 'ACTIVO'
                 """
                 cursor.execute(sql_cliente, (cliente_id,))
                 cliente_seleccionado = cursor.fetchone()
 
-            
             # Definir opciones de prioridad
             prioridades = ['Urgente', 'Normal', 'Bajo']
             
@@ -8741,7 +9365,7 @@ def nuevo_pedido():
                                  clientes=clientes,
                                  empresas=empresas,
                                  cliente_seleccionado=cliente_seleccionado,
-                                 prioridades=prioridades,  # Nueva variable
+                                 prioridades=prioridades,
                                  now=datetime.now().date())
             
     except Exception as e:
@@ -8882,9 +9506,10 @@ def crear_pedido():
         observacion = data.get('observacion', '')
         
         with get_db_cursor() as cursor:
-            # Verificar que el cliente existe y está activo
+            # Verificar que el cliente existe y está activo (obtener perfil)
             sql_cliente = """
-            SELECT ID_Cliente, tipo_cliente FROM clientes 
+            SELECT ID_Cliente, tipo_cliente, perfil_cliente 
+            FROM clientes 
             WHERE ID_Cliente = %s AND Estado = 'ACTIVO'
             """
             cursor.execute(sql_cliente, (data['cliente_id'],))
@@ -8892,6 +9517,8 @@ def crear_pedido():
             
             if not cliente:
                 return jsonify({'success': False, 'message': 'Cliente no encontrado o inactivo'}), 400
+            
+            perfil_cliente = cliente['perfil_cliente']  # 'Ruta', 'Mayorista', 'Mercado'
             
             # Verificar que la empresa existe
             sql_empresa = "SELECT ID_Empresa FROM empresa WHERE ID_Empresa = %s"
@@ -8938,9 +9565,13 @@ def crear_pedido():
                         'message': f"Stock insuficiente para {producto['nombre']}. Disponible: {stock_total}"
                     }), 400
                 
-                # Obtener precio del producto
+                # Obtener precio del producto SEGÚN EL PERFIL DEL CLIENTE
                 sql_precio = """
-                SELECT Precio_Mercado as Precio_Venta FROM productos 
+                SELECT 
+                    Precio_Mercado,
+                    Precio_Mayorista,
+                    Precio_Ruta
+                FROM productos 
                 WHERE ID_Producto = %s AND Estado = 'activo'
                 """
                 cursor.execute(sql_precio, (producto['id'],))
@@ -8952,8 +9583,21 @@ def crear_pedido():
                         'message': f"Producto ID {producto['id']} no encontrado o inactivo"
                     }), 400
                 
+                # Determinar qué precio usar según el perfil
+                if perfil_cliente == 'Ruta':
+                    precio_unitario = producto_info['Precio_Ruta'] or 0
+                elif perfil_cliente == 'Mayorista':
+                    precio_unitario = producto_info['Precio_Mayorista'] or 0
+                elif perfil_cliente == 'Mercado':
+                    precio_unitario = producto_info['Precio_Mercado'] or 0
+                else:
+                    precio_unitario = producto_info['Precio_Mercado'] or 0
+                
+                # Si el frontend envió un precio específico, usarlo (por si se modificó)
+                if producto.get('precio') and float(producto.get('precio')) > 0:
+                    precio_unitario = float(producto['precio'])
+                
                 # Calcular subtotal
-                precio_unitario = producto.get('precio') or producto_info['Precio_Venta']
                 subtotal = precio_unitario * producto['cantidad']
                 
                 # Insertar detalle del pedido
@@ -9010,18 +9654,19 @@ def crear_pedido():
                 if cantidad_a_descontar > 0:
                     raise Exception(f"No se pudo descontar todo el stock para el producto {producto['id']}")
             
-            # 🔥🔥🔥 IMPORTANTE: Generar la URL para redirigir al detalle del pedido 🔥🔥🔥
+            # Generar la URL para redirigir al detalle del pedido
             redirect_url = url_for('ver_pedido', id_pedido=pedido_id)
             
             # Log para debugging
-            print(f"✅ Pedido #{pedido_id} creado exitosamente")
+            print(f"✅ Pedido #{pedido_id} creado exitosamente con perfil {perfil_cliente}")
             print(f"   Redirigiendo a: {redirect_url}")
             
             return jsonify({
                 'success': True, 
                 'message': 'Pedido creado exitosamente',
                 'pedido_id': pedido_id,
-                'redirect_url': redirect_url  # 👈 ESTO ES LO QUE FALTABA
+                'redirect_url': redirect_url,
+                'perfil_cliente': perfil_cliente  # NUEVO
             })
             
     except Exception as e:
@@ -9050,7 +9695,7 @@ def admin_procesar_venta_pedido(id_pedido):
             return redirect(url_for('admin_pedidos_venta'))
 
         with get_db_cursor(True) as cursor:
-            # Obtener información del pedido
+            # Obtener información del pedido (ahora incluye perfil_cliente)
             cursor.execute("""
                 SELECT 
                     p.ID_Pedido,
@@ -9064,6 +9709,7 @@ def admin_procesar_venta_pedido(id_pedido):
                     c.Nombre as Nombre_Cliente,
                     c.RUC_CEDULA as Documento_Cliente,
                     c.tipo_cliente as Tipo_Cliente,
+                    c.perfil_cliente as Perfil_Cliente,  -- NUEVO
                     c.Direccion as Direccion_Cliente,
                     c.Telefono as Telefono_Cliente,
                     e.Nombre_Empresa,
@@ -9087,7 +9733,9 @@ def admin_procesar_venta_pedido(id_pedido):
                 flash('Solo se pueden procesar ventas de pedidos aprobados', 'error')
                 return redirect(url_for('admin_pedidos_venta'))
             
-            # Obtener los detalles del pedido
+            perfil_cliente = pedido.get('Perfil_Cliente', 'Mercado')
+            
+            # Obtener los detalles del pedido (ahora con precios según perfil)
             cursor.execute("""
                 SELECT 
                     dp.ID_Detalle_Pedido,
@@ -9097,13 +9745,22 @@ def admin_procesar_venta_pedido(id_pedido):
                     dp.Subtotal,
                     p.COD_Producto,
                     p.Descripcion,
-                    cp.Descripcion as Categoria
+                    p.Precio_Mercado,
+                    p.Precio_Mayorista,
+                    p.Precio_Ruta,
+                    cp.Descripcion as Categoria,
+                    CASE %s
+                        WHEN 'Ruta' THEN p.Precio_Ruta
+                        WHEN 'Mayorista' THEN p.Precio_Mayorista
+                        WHEN 'Mercado' THEN p.Precio_Mercado
+                        ELSE p.Precio_Mercado
+                    END as Precio_Segun_Perfil
                 FROM detalle_pedidos dp
                 LEFT JOIN productos p ON dp.ID_Producto = p.ID_Producto
                 LEFT JOIN categorias_producto cp ON p.ID_Categoria = cp.ID_Categoria
                 WHERE dp.ID_Pedido = %s
                 ORDER BY dp.ID_Detalle_Pedido
-            """, (id_pedido,))
+            """, (perfil_cliente, id_pedido))
             
             detalles_pedido = cursor.fetchall()
             
@@ -9186,6 +9843,7 @@ def admin_procesar_venta_pedido(id_pedido):
                                 total_pedido=total_pedido,
                                 total_cajillas_huevos=total_cajillas_huevos,
                                 bodega_principal=bodega_principal,
+                                perfil_cliente=perfil_cliente,  # NUEVO
                                 now=datetime.now(),
                                 current_user=current_user)
         
@@ -13262,7 +13920,6 @@ def admin_imprimir_movimiento(id_movimiento):
     except Exception as e:
         flash(f"Error al generar impresión: {str(e)}", 'error')
         return redirect(url_for('admin_detalle_movimiento', id_movimiento=id_movimiento))
-
 
 ## MODULO BODEGA
 # REPORTES AVANZADOS
