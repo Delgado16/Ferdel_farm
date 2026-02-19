@@ -6254,16 +6254,15 @@ def admin_crear_venta():
                 cursor.execute("""
                     INSERT INTO Facturacion (
                         Fecha, IDCliente, Credito_Contado, Observacion, 
-                        ID_Empresa, ID_Usuario_Creacion, Perfil_Cliente
+                        ID_Empresa, ID_Usuario_Creacion
                     )
-                    VALUES (CURDATE(), %s, %s, %s, %s, %s, %s)
+                    VALUES (CURDATE(), %s, %s, %s, %s, %s)
                 """, (
                     id_cliente,
                     1 if tipo_venta == 'credito' else 0,
                     f"{observacion} | Perfil: {perfil_cliente}",
                     id_empresa,
-                    id_usuario,
-                    perfil_cliente
+                    id_usuario
                 ))
                 
                 # Obtener el ID de la factura
@@ -6318,8 +6317,7 @@ def admin_crear_venta():
                         precio_esperado = producto_data['Precio_Mercado']  # Default
                     
                     # Pequeña tolerancia para diferencias de redondeo
-                    if abs(precio - precio_esperado) > 0.01:
-                        print(f"⚠️ Advertencia: Precio usado ({precio}) diferente del precio de {perfil_cliente} ({precio_esperado})")
+
                     
                     print(f"  Producto: {producto_data['Descripcion']} | Precio {perfil_cliente}: C${precio}")
                     
@@ -6339,11 +6337,10 @@ def admin_crear_venta():
                     # Insertar detalle de facturación
                     cursor.execute("""
                         INSERT INTO Detalle_Facturacion (
-                            ID_Factura, ID_Producto, Cantidad, Costo, Total,
-                            Perfil_Utilizado
+                            ID_Factura, ID_Producto, Cantidad, Costo, Total
                         )
-                        VALUES (%s, %s, %s, %s, %s, %s)
-                    """, (id_factura, id_producto, cantidad, precio, total_linea, perfil_cliente))
+                        VALUES (%s, %s, %s, %s, %s)
+                    """, (id_factura, id_producto, cantidad, precio, total_linea))
                     
                     # Actualizar inventario
                     cursor.execute("""
@@ -6536,7 +6533,6 @@ def admin_crear_venta():
     except Exception as e:
         error_msg = f'❌ Error al procesar venta: {str(e)}'
         print(f"{error_msg}")
-        import traceback
         print(f"Traceback: {traceback.format_exc()}")
         
         if request.method == 'POST':
