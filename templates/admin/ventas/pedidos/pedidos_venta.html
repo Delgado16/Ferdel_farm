@@ -76,6 +76,20 @@
                             {% endfor %}
                         </select>
                     </div>
+                    
+                    <!-- NUEVO: Filtro por Perfil de Cliente -->
+                    <div class="col-md-2">
+                        <label class="form-label fw-bold">Perfil Cliente:</label>
+                        <select name="perfil_cliente" class="form-select">
+                            <option value="todos">Todos los perfiles</option>
+                            {% for perfil in perfiles_cliente %}
+                            <option value="{{ perfil }}" {% if filtros_aplicados and filtros_aplicados.perfil_cliente == perfil %}selected{% endif %}>
+                                {{ perfil }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
                     <div class="col-md-2">
                         <label class="form-label fw-bold">Tipo Entrega:</label>
                         <select name="tipo_entrega" class="form-select">
@@ -227,6 +241,7 @@
                             <th>Cliente / Consolidado</th>
                             <th width="120">Documento</th>
                             <th width="100">Tipo</th>
+                            <th width="100">Perfil / Precio</th> <!-- NUEVA COLUMNA -->
                             <th width="100">Tipo Pedido</th>
                             <th width="80">Ruta</th>
                             <th width="100">Prioridad</th>
@@ -303,6 +318,40 @@
                                 <span class="badge bg-secondary">-</span>
                                 {% endif %}
                             </td>
+                            
+                            <!-- NUEVA CELDA: Perfil / Tipo de Precio -->
+                            <td>
+                                {% if pedido.Tipo_Pedido == 'Consolidado' %}
+                                    <span class="badge bg-primary">
+                                        <i class="fas fa-tag me-1"></i>Precio Ruta
+                                    </span>
+                                {% else %}
+                                    {% if pedido.Perfil_Cliente %}
+                                        <span class="badge 
+                                            {% if pedido.Perfil_Cliente == 'Ruta' %}bg-info
+                                            {% elif pedido.Perfil_Cliente == 'Mayorista' %}bg-success
+                                            {% elif pedido.Perfil_Cliente == 'Mercado' %}bg-warning text-dark
+                                            {% else %}bg-secondary{% endif %}">
+                                            {{ pedido.Perfil_Cliente }}
+                                        </span>
+                                        <br>
+                                        <small class="text-muted">
+                                            {% if pedido.Perfil_Cliente == 'Ruta' %}
+                                                Precio Ruta
+                                            {% elif pedido.Perfil_Cliente == 'Mayorista' %}
+                                                Precio Mayorista
+                                            {% elif pedido.Perfil_Cliente == 'Mercado' %}
+                                                Precio Mercado
+                                            {% else %}
+                                                Precio Especial
+                                            {% endif %}
+                                        </small>
+                                    {% else %}
+                                        <span class="badge bg-secondary">Sin perfil</span>
+                                    {% endif %}
+                                {% endif %}
+                            </td>
+                            
                             <td>
                                 <span class="badge 
                                     {% if pedido.Tipo_Pedido == 'Consolidado' %}bg-info
@@ -441,7 +490,7 @@
                     </tbody>
                     <tfoot>
                         <tr class="table-active">
-                            <td colspan="10" class="text-end fw-bold">TOTAL GENERAL:</td>
+                            <td colspan="11" class="text-end fw-bold">TOTAL GENERAL:</td>
                             <td class="fw-bold text-primary fs-5">C${{ "{:,.2f}".format(pedidos|sum(attribute='Total_Pedido') or 0) }}</td>
                             <td class="text-center fw-bold">{{ pedidos|sum(attribute='Total_Items') or 0 }}</td>
                             <td></td>
@@ -571,7 +620,7 @@
                 "pageLength": 25,
                 "responsive": true,
                 "columnDefs": [
-                    { "orderable": false, "targets": [12] }
+                    { "orderable": false, "targets": [13] }
                 ]
             });
         }

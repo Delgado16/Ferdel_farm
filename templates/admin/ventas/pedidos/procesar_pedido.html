@@ -121,6 +121,44 @@
                                     </span>
                                 </p>
                             </div>
+                            <!-- NUEVO: Información de Perfil y Precio -->
+                            <div class="mb-3">
+                                <label class="form-label text-muted mb-1">Perfil / Precio Aplicado</label>
+                                <p class="mb-0">
+                                    {% if pedido.Tipo_Pedido == 'Consolidado' %}
+                                        <span class="badge bg-primary">
+                                            <i class="fas fa-tag me-1"></i>Precio Ruta (Consolidado)
+                                        </span>
+                                    {% else %}
+                                        {% if pedido.Perfil_Cliente %}
+                                            <span class="badge 
+                                                {% if pedido.Perfil_Cliente == 'Ruta' %}bg-info
+                                                {% elif pedido.Perfil_Cliente == 'Mayorista' %}bg-success
+                                                {% elif pedido.Perfil_Cliente == 'Mercado' %}bg-warning text-dark
+                                                {% else %}bg-secondary{% endif %}">
+                                                {{ pedido.Perfil_Cliente }}
+                                            </span>
+                                            <span class="badge 
+                                                {% if pedido.Perfil_Cliente == 'Ruta' %}bg-info
+                                                {% elif pedido.Perfil_Cliente == 'Mayorista' %}bg-success
+                                                {% elif pedido.Perfil_Cliente == 'Mercado' %}bg-warning text-dark
+                                                {% else %}bg-secondary{% endif %} ms-1">
+                                                {% if pedido.Perfil_Cliente == 'Ruta' %}
+                                                    Precio Ruta
+                                                {% elif pedido.Perfil_Cliente == 'Mayorista' %}
+                                                    Precio Mayorista
+                                                {% elif pedido.Perfil_Cliente == 'Mercado' %}
+                                                    Precio Mercado
+                                                {% else %}
+                                                    Precio Especial
+                                                {% endif %}
+                                            </span>
+                                        {% else %}
+                                            <span class="badge bg-secondary">Sin perfil</span>
+                                        {% endif %}
+                                    {% endif %}
+                                </p>
+                            </div>
                         </div>
                         <div class="col-md-6">
                             <div class="mb-3">
@@ -168,11 +206,12 @@
                             <thead class="table-light">
                                 <tr>
                                     <th width="5%">#</th>
-                                    <th width="40%">Producto</th>
-                                    <th width="20%">Categoría</th>
+                                    <th width="35%">Producto</th>
+                                    <th width="15%">Categoría</th>
+                                    <th width="15%">Tipo Precio</th> <!-- NUEVA COLUMNA -->
                                     <th width="10%" class="text-center">Cantidad</th>
-                                    <th width="15%" class="text-end">Precio Unit.</th>
-                                    <th width="15%" class="text-end">Subtotal</th>
+                                    <th width="10%" class="text-end">Precio Unit.</th>
+                                    <th width="10%" class="text-end">Subtotal</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -193,6 +232,23 @@
                                     <td>
                                         <span class="badge bg-secondary">{{ detalle.Categoria }}</span>
                                     </td>
+                                    <td>
+                                        {% if pedido.Tipo_Pedido == 'Consolidado' %}
+                                            <span class="badge bg-primary">Precio Ruta</span>
+                                        {% else %}
+                                            {% if pedido.Perfil_Cliente == 'Ruta' %}
+                                                <span class="badge bg-info">Precio Ruta</span>
+                                            {% elif pedido.Perfil_Cliente == 'Mayorista' %}
+                                                <span class="badge bg-success">Precio Mayorista</span>
+                                            {% elif pedido.Perfil_Cliente == 'Mercado' %}
+                                                <span class="badge bg-warning text-dark">Precio Mercado</span>
+                                            {% elif pedido.Perfil_Cliente == 'Especial' %}
+                                                <span class="badge bg-secondary">Precio Especial</span>
+                                            {% else %}
+                                                <span class="badge bg-secondary">Precio Mercado</span>
+                                            {% endif %}
+                                        {% endif %}
+                                    </td>
                                     <td class="text-center">
                                         <span class="badge bg-primary rounded-pill">{{ detalle.Cantidad }}</span>
                                     </td>
@@ -205,7 +261,7 @@
                             </tbody>
                             <tfoot class="table-light">
                                 <tr>
-                                    <td colspan="5" class="text-end"><h5 class="mb-0">Total Pedido:</h5></td>
+                                    <td colspan="6" class="text-end"><h5 class="mb-0">Total Pedido:</h5></td>
                                     <td class="text-end"><h5 class="mb-0">C$ {{ "%.2f"|format(total_pedido) }}</h5></td>
                                 </tr>
                             </tfoot>
@@ -226,6 +282,40 @@
                 <div class="card-body">
                     <form method="POST" action="{{ url_for('admin_procesar_venta_pedido', id_pedido=pedido.ID_Pedido) }}" 
                           id="formProcesarVenta">
+                        
+                        <!-- Información del Perfil (Resumen) -->
+                        <div class="alert 
+                            {% if pedido.Tipo_Pedido == 'Consolidado' %}
+                                alert-primary
+                            {% else %}
+                                {% if pedido.Perfil_Cliente == 'Ruta' %}alert-info
+                                {% elif pedido.Perfil_Cliente == 'Mayorista' %}alert-success
+                                {% elif pedido.Perfil_Cliente == 'Mercado' %}alert-warning
+                                {% else %}alert-secondary{% endif %}
+                            {% endif %} mb-4">
+                            <div class="d-flex align-items-center">
+                                <i class="fas fa-tag fa-2x me-3"></i>
+                                <div>
+                                    <h6 class="alert-heading mb-1">Tipo de Precio Aplicado</h6>
+                                    <p class="mb-0">
+                                        {% if pedido.Tipo_Pedido == 'Consolidado' %}
+                                            <strong>PRECIO RUTA</strong> (Pedido Consolidado)
+                                        {% else %}
+                                            <strong>{{ pedido.Perfil_Cliente or 'Mercado' }}</strong> - 
+                                            {% if pedido.Perfil_Cliente == 'Ruta' %}
+                                                Precio Ruta
+                                            {% elif pedido.Perfil_Cliente == 'Mayorista' %}
+                                                Precio Mayorista
+                                            {% elif pedido.Perfil_Cliente == 'Mercado' %}
+                                                Precio Mercado
+                                            {% else %}
+                                                Precio Especial
+                                            {% endif %}
+                                        {% endif %}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
                         
                         <!-- Tipo de Venta -->
                         <div class="mb-4">
@@ -275,6 +365,27 @@
                                         <strong>C$ {{ "%.2f"|format(total_pedido) }}</strong>
                                     </div>
                                 </div>
+                                
+                                <!-- Información de Perfil en Resumen -->
+                                <div class="mb-3 d-flex justify-content-between">
+                                    <label class="mb-0"><i class="fas fa-tag me-1"></i>Tipo Precio:</label>
+                                    <div>
+                                        {% if pedido.Tipo_Pedido == 'Consolidado' %}
+                                            <span class="badge bg-primary">Precio Ruta</span>
+                                        {% else %}
+                                            {% if pedido.Perfil_Cliente == 'Ruta' %}
+                                                <span class="badge bg-info">Precio Ruta</span>
+                                            {% elif pedido.Perfil_Cliente == 'Mayorista' %}
+                                                <span class="badge bg-success">Precio Mayorista</span>
+                                            {% elif pedido.Perfil_Cliente == 'Mercado' %}
+                                                <span class="badge bg-warning text-dark">Precio Mercado</span>
+                                            {% else %}
+                                                <span class="badge bg-secondary">Precio Especial</span>
+                                            {% endif %}
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                
                                 {% if total_cajillas_huevos > 0 %}
                                 <div class="mb-3 d-flex justify-content-between">
                                     <label class="mb-0"><i class="fas fa-egg me-1"></i>Cajillas de Huevos:</label>
@@ -285,6 +396,7 @@
                                     <div><strong>{{ total_cajillas_huevos + (total_cajillas_huevos // 10) }}</strong></div>
                                 </div>
                                 {% endif %}
+                                
                                 <hr class="my-2">
                                 <div class="d-flex justify-content-between align-items-center">
                                     <span class="fw-bold">Total Factura:</span>
@@ -295,6 +407,8 @@
                                 <input type="hidden" name="total_pedido" value="{{ "%.2f"|format(total_pedido) }}">
                                 <input type="hidden" name="total_cajillas_huevos" value="{{ total_cajillas_huevos }}">
                                 <input type="hidden" name="separadores_necesarios" value="{{ total_cajillas_huevos + (total_cajillas_huevos // 10) }}">
+                                <input type="hidden" name="perfil_cliente" value="{{ pedido.Perfil_Cliente or 'Mercado' }}">
+                                <input type="hidden" name="tipo_pedido" value="{{ pedido.Tipo_Pedido }}">
                             </div>
                         </div>
 
@@ -377,7 +491,10 @@
                 const tipoVenta = document.querySelector('input[name="tipo_venta"]:checked').value;
                 const tipoVentaTexto = tipoVenta === 'contado' ? 'CONTADO' : 'CRÉDITO';
                 
-                if (confirm(`¿Está seguro de procesar esta venta como ${tipoVentaTexto}?\n\nEsta acción:\n• Creará una factura\n• Descontará el inventario\n• Actualizará el pedido a "Entregado"\n• Registrará el movimiento de inventario`)) {
+                // Obtener información del perfil para mostrar en confirmación
+                const perfilInfo = document.querySelector('.alert-info, .alert-primary, .alert-success, .alert-warning, .alert-secondary')?.querySelector('strong')?.textContent || 'desconocido';
+                
+                if (confirm(`¿Está seguro de procesar esta venta como ${tipoVentaTexto}?\n\nTipo de precio aplicado: ${perfilInfo}\n\nEsta acción:\n• Creará una factura\n• Descontará el inventario\n• Actualizará el pedido a "Entregado"\n• Registrará el movimiento de inventario`)) {
                     // Mostrar indicador de carga
                     const originalText = btnProcesar.innerHTML;
                     btnProcesar.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> Procesando...';
@@ -466,6 +583,37 @@
     @keyframes spin {
         0% { transform: rotate(0deg); }
         100% { transform: rotate(360deg); }
+    }
+
+    /* Estilos para los diferentes tipos de alertas de perfil */
+    .alert-info {
+        background-color: #cff4fc;
+        border-color: #b6effb;
+        color: #055160;
+    }
+    
+    .alert-success {
+        background-color: #d1e7dd;
+        border-color: #badbcc;
+        color: #0a3622;
+    }
+    
+    .alert-warning {
+        background-color: #fff3cd;
+        border-color: #ffecb5;
+        color: #664d03;
+    }
+    
+    .alert-primary {
+        background-color: #cfe2ff;
+        border-color: #b6d4fe;
+        color: #084298;
+    }
+    
+    .alert-secondary {
+        background-color: #e2e3e5;
+        border-color: #d3d6d8;
+        color: #41464b;
     }
 </style>
 {% endblock %}

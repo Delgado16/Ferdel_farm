@@ -8550,568 +8550,301 @@ def admin_detalle_cuentacobrar(id_movimiento):
 #==================#
 # PEDIDOS DE VENTA #
 #==================#
-@app.route('/admin/ventas/pedidos-venta')
-@admin_or_bodega_required
-@bitacora_decorator("PEDIDOS-VENTA")
-def admin_pedidos_venta():#
-    try:
-        with get_db_cursor(True) as cursor:
-            # Obtener el rol del usuario actual
-            es_rol_bodega = current_user.rol == 'Bodega'
-            
-            # 🔥 CONSULTA ACTUALIZADA - INCLUYE PRECIOS SEGÚN PERFIL
-            sql = """
-            SELECT 
-                p.ID_Pedido,
-                p.Fecha,
-                p.Estado,
-                p.Tipo_Entrega,
-                p.Observacion,
-                p.Fecha_Creacion,
-                p.Prioridad,
-                p.Tipo_Pedido,
-                p.Es_Pedido_Ruta,
-                p.ID_Ruta,
-                r.Nombre_Ruta,
-                r.Descripcion as Descripcion_Ruta,
-                c.ID_Cliente,
-                c.Nombre as Nombre_Cliente,
-                c.Telefono as Telefono_Cliente,
-                c.Direccion as Direccion_Cliente,
-                c.RUC_CEDULA as Documento_Cliente,
-                c.tipo_cliente as Tipo_Cliente,
-                c.perfil_cliente as Perfil_Cliente,  -- NUEVO: perfil del cliente
-                c.Estado as Estado_Cliente,
-                e.Nombre_Empresa,
-                u.NombreUsuario as Usuario_Creacion,
-                -- Calcular Total_Items según tipo de pedido
-                CASE 
-                    WHEN p.Tipo_Pedido = 'Consolidado' THEN (
-                        SELECT COALESCE(SUM(pcp.Cantidad_Total), 0)
-                        FROM pedidos_consolidados_productos pcp
-                        WHERE pcp.ID_Pedido = p.ID_Pedido
-                    )
-                    ELSE COALESCE(SUM(dp.Cantidad), 0)
-                END as Total_Items,
-                -- Calcular Total_Pedido según tipo de pedido y PERFIL DEL CLIENTE
-                CASE 
-                    WHEN p.Tipo_Pedido = 'Consolidado' THEN (
-                        SELECT COALESCE(SUM(pcp.Cantidad_Total * 
-                            CASE c.perfil_cliente
-                                WHEN 'Ruta' THEN pr.Precio_Ruta
-                                WHEN 'Mayorista' THEN pr.Precio_Mayorista
-                                WHEN 'Mercado' THEN pr.Precio_Mercado
-                                ELSE pr.Precio_Mercado
-                            END), 0)
-                        FROM pedidos_consolidados_productos pcp
-                        LEFT JOIN productos pr ON pcp.ID_Producto = pr.ID_Producto
-                        WHERE pcp.ID_Pedido = p.ID_Pedido
-                    )
-                    ELSE COALESCE(SUM(
-                        dp.Cantidad * 
-                        CASE c.perfil_cliente
-                            WHEN 'Ruta' THEN pr.Precio_Ruta
-                            WHEN 'Mayorista' THEN pr.Precio_Mayorista
-                            WHEN 'Mercado' THEN pr.Precio_Mercado
-                            ELSE pr.Precio_Mercado
-                        END
-                    ), 0)
-                END as Total_Pedido,
-                -- Contador de items para consolidados
-                COUNT(DISTINCT CASE 
-                    WHEN p.Tipo_Pedido = 'Consolidado' THEN pcp.ID_Pedido_Consolidado_Producto 
-                    ELSE dp.ID_Detalle_Pedido 
-                END) as Numero_Items
-            FROM pedidos p
-            -- LEFT JOIN para clientes (puede ser NULL en consolidados)
-            LEFT JOIN clientes c ON p.ID_Cliente = c.ID_Cliente
-            LEFT JOIN empresa e ON p.ID_Empresa = e.ID_Empresa
-            LEFT JOIN usuarios u ON p.ID_Usuario_Creacion = u.ID_Usuario
-            LEFT JOIN rutas r ON p.ID_Ruta = r.ID_Ruta
-            -- LEFT JOIN condicionales para productos
-            LEFT JOIN detalle_pedidos dp ON p.ID_Pedido = dp.ID_Pedido AND p.Tipo_Pedido != 'Consolidado'
-            LEFT JOIN pedidos_consolidados_productos pcp ON p.ID_Pedido = pcp.ID_Pedido AND p.Tipo_Pedido = 'Consolidado'
-            LEFT JOIN productos pr ON COALESCE(dp.ID_Producto, pcp.ID_Producto) = pr.ID_Producto
-            WHERE 1=1
-            """
-            
-            # Filtro para clientes activos (solo aplica cuando hay cliente)
-            sql += " AND (c.ID_Cliente IS NULL OR c.Estado = 'ACTIVO')"
-            
-            # Si es rol Bodega, filtrar solo pedidos del día actual
-            if es_rol_bodega:
-                sql += " AND DATE(p.Fecha) = CURDATE()"
-            
-            # Group by y Order by
-            sql += """
-            GROUP BY 
-                p.ID_Pedido, p.Fecha, p.Estado, p.Tipo_Entrega, p.Observacion,
-                p.Fecha_Creacion, p.Prioridad, p.Tipo_Pedido, p.Es_Pedido_Ruta,
-                p.ID_Ruta, r.Nombre_Ruta, r.Descripcion,
-                c.ID_Cliente, c.Nombre, c.Telefono, c.Direccion, c.RUC_CEDULA,
-                c.tipo_cliente, c.perfil_cliente, c.Estado, e.Nombre_Empresa, u.NombreUsuario
-            ORDER BY 
-                CASE 
-                    WHEN p.Prioridad = 'Urgente' THEN 1
-                    WHEN p.Prioridad = 'Normal' THEN 2
-                    WHEN p.Prioridad = 'Bajo' THEN 3
-                    ELSE 4
-                END,
-                p.Fecha DESC,
-                p.ID_Pedido DESC
-            """
-            
-            cursor.execute(sql)
-            pedidos = cursor.fetchall()
-            
-            # Debug - imprimir cantidad de pedidos encontrados
-            print(f"📊 Total pedidos encontrados: {len(pedidos)}")
-            consolidados = [p for p in pedidos if p.get('Tipo_Pedido') == 'Consolidado']
-            print(f"   - Individuales: {len(pedidos) - len(consolidados)}")
-            print(f"   - Consolidados: {len(consolidados)}")
-            
-            # Obtener opciones de filtro
-            estados = ['Pendiente', 'Aprobado', 'Entregado', 'Cancelado']
-            tipos_entrega = ['Retiro en local', 'Entrega a domicilio']
-            tipos_cliente = ['Comun', 'Especial']
-            prioridades = ['Urgente', 'Normal', 'Bajo']
-            tipos_pedido = ['Individual', 'Consolidado']
-            opciones_ruta = ['SI', 'NO']
-            perfiles_cliente = ['Ruta', 'Mayorista', 'Mercado', 'Especial']  # NUEVO
-            
-            # Obtener lista de rutas para filtros
-            cursor.execute("""
-                SELECT ID_Ruta, Nombre_Ruta 
-                FROM rutas 
-                WHERE Estado = 'Activa' 
-                ORDER BY Nombre_Ruta
-            """)
-            rutas = cursor.fetchall()
-            
-            # Estadísticas para Bodega
-            stats = None
-            if es_rol_bodega:
-                estados.insert(2, 'En Proceso')
-                fecha_hoy = datetime.now().strftime('%Y-%m-%d')
-                pedidos_hoy = [p for p in pedidos if p.get('Fecha') and p['Fecha'].strftime('%Y-%m-%d') == fecha_hoy]
-                urgentes_hoy = [p for p in pedidos_hoy if p.get('Prioridad') == 'Urgente']
-                aprobados_hoy = [p for p in pedidos_hoy if p.get('Estado') == 'Aprobado']
-                pendientes_hoy = [p for p in pedidos_hoy if p.get('Estado') == 'Pendiente']
-                consolidados_hoy = [p for p in pedidos_hoy if p.get('Tipo_Pedido') == 'Consolidado']
-                
-                stats = {
-                    'total_hoy': len(pedidos_hoy),
-                    'urgentes_hoy': len(urgentes_hoy),
-                    'aprobados_hoy': len(aprobados_hoy),
-                    'pendientes_hoy': len(pendientes_hoy),
-                    'consolidados_hoy': len(consolidados_hoy),
-                    'fecha_hoy': fecha_hoy
-                }
-            
-            return render_template('admin/ventas/pedidos/pedidos_venta.html',
-                                 pedidos=pedidos,
-                                 estados=estados,
-                                 tipos_entrega=tipos_entrega,
-                                 tipos_cliente=tipos_cliente,
-                                 prioridades=prioridades,
-                                 tipos_pedido=tipos_pedido,
-                                 opciones_ruta=opciones_ruta,
-                                 rutas=rutas,
-                                 perfiles_cliente=perfiles_cliente,  # NUEVO
-                                 es_rol_bodega=es_rol_bodega,
-                                 stats=stats,
-                                 now=datetime.now())
-            
-    except Exception as e:
-        print(f"❌ Error en admin_pedidos_venta: {str(e)}")
-        traceback.print_exc()
-        flash(f"Error al cargar pedidos de venta: {str(e)}", "error")
-        return redirect(url_for('admin_dashboard'))
+# ============================================
+# RUTAS PARA PEDIDOS INDIVIDUALES (CLIENTES)
+# ============================================
 
-# Ruta para ver el detalle de un pedido específico
-@app.route('/admin/ventas/pedido-venta/<int:id_pedido>')
-@admin_or_bodega_required
-def ver_pedido(id_pedido):
+@app.route('/admin/ventas/nuevo-pedido')
+@admin_required
+@bitacora_decorator("NUEVO_PEDIDO")
+def nuevo_pedido():
+    """
+    Formulario para crear un nuevo pedido individual
+    Los precios se muestran según el perfil del cliente seleccionado
+    """
     try:
+        cliente_id = request.args.get('cliente')
+        
         with get_db_cursor(True) as cursor:
-            # Obtener información del pedido
-            sql_pedido = """
+            # Obtener clientes activos con su perfil
+            sql_clientes = """
             SELECT 
-                p.*,
-                c.ID_Cliente,
-                c.Nombre as Nombre_Cliente,
-                c.Telefono as Telefono_Cliente,
-                c.Direccion as Direccion_Cliente,
-                c.RUC_CEDULA as Documento_Cliente,
-                c.tipo_cliente as Tipo_Cliente,
-                c.perfil_cliente as Perfil_Cliente,  -- NUEVO
-                c.Estado as Estado_Cliente,
-                e.Nombre_Empresa,
-                e.Direccion as Direccion_Empresa,
-                e.Telefono as Telefono_Empresa,
-                e.RUC as RUC_Empresa,
-                u.NombreUsuario as Usuario_Creacion,
-                r.Nombre_Ruta,
-                r.Descripcion as Descripcion_Ruta
-            FROM pedidos p
-            LEFT JOIN clientes c ON p.ID_Cliente = c.ID_Cliente
-            LEFT JOIN empresa e ON p.ID_Empresa = e.ID_Empresa
-            LEFT JOIN usuarios u ON p.ID_Usuario_Creacion = u.ID_Usuario
-            LEFT JOIN rutas r ON p.ID_Ruta = r.ID_Ruta
-            WHERE p.ID_Pedido = %s
+                ID_Cliente, 
+                Nombre, 
+                Telefono, 
+                Direccion, 
+                RUC_CEDULA, 
+                tipo_cliente, 
+                perfil_cliente,
+                ID_Ruta
+            FROM clientes 
+            WHERE Estado = 'ACTIVO'
+            ORDER BY Nombre
             """
+            cursor.execute(sql_clientes)
+            clientes = cursor.fetchall()
             
-            cursor.execute(sql_pedido, (id_pedido,))
-            pedido = cursor.fetchone()
+            # Obtener empresas
+            sql_empresas = "SELECT ID_Empresa, Nombre_Empresa FROM empresa ORDER BY Nombre_Empresa"
+            cursor.execute(sql_empresas)
+            empresas = cursor.fetchall()
             
-            if not pedido:
-                flash("Pedido no encontrado", "error")
-                return redirect(url_for('admin_pedidos_venta'))
+            # Obtener perfiles disponibles para mostrar en el selector si es necesario
+            perfiles = ['Ruta', 'Mayorista', 'Mercado', 'Especial']
             
-            # Obtener detalles según tipo de pedido
-            if pedido['Tipo_Pedido'] == 'Consolidado':
-                # Para pedidos consolidados - USAR PRECIO DE RUTA
-                cursor.execute("""
-                    SELECT 
-                        pcp.ID_Pedido_Consolidado_Producto,
-                        pcp.ID_Producto,
-                        pcp.Cantidad_Total as Cantidad,
-                        pcp.Fecha_Creacion,
-                        u.NombreUsuario as Usuario_Creacion,
-                        pr.COD_Producto,
-                        pr.Descripcion as Nombre_Producto,
-                        pr.Precio_Ruta as Precio_Unitario,  -- Consolidados usan precio de ruta
-                        pr.Precio_Mercado,
-                        pr.Precio_Mayorista,
-                        pr.Precio_Ruta,
-                        pr.Unidad_Medida,
-                        um.Descripcion as Unidad_Nombre,
-                        um.Abreviatura as Unidad_Abreviatura,
-                        cat.Descripcion as Categoria,
-                        (pcp.Cantidad_Total * pr.Precio_Ruta) as Subtotal
-                    FROM pedidos_consolidados_productos pcp
-                    LEFT JOIN productos pr ON pcp.ID_Producto = pr.ID_Producto
-                    LEFT JOIN unidades_medida um ON pr.Unidad_Medida = um.ID_Unidad
-                    LEFT JOIN categorias_producto cat ON pr.ID_Categoria = cat.ID_Categoria
-                    LEFT JOIN usuarios u ON pcp.ID_Usuario_Creacion = u.ID_Usuario
-                    WHERE pcp.ID_Pedido = %s
-                    ORDER BY pr.Descripcion
-                """, (id_pedido,))
-                detalles = cursor.fetchall()
-                
-                # Calcular totales
-                cursor.execute("""
-                    SELECT 
-                        COALESCE(SUM(pcp.Cantidad_Total), 0) as Total_Cantidad,
-                        COALESCE(SUM(pcp.Cantidad_Total * pr.Precio_Ruta), 0) as Total_General,
-                        COUNT(DISTINCT pcp.ID_Producto) as Total_Productos
-                    FROM pedidos_consolidados_productos pcp
-                    LEFT JOIN productos pr ON pcp.ID_Producto = pr.ID_Producto
-                    WHERE pcp.ID_Pedido = %s
-                """, (id_pedido,))
-                totales = cursor.fetchone()
-                
-            else:
-                # Para pedidos individuales - USAR PRECIO SEGÚN PERFIL DEL CLIENTE
-                perfil_cliente = pedido.get('Perfil_Cliente', 'Mercado')
-                
-                cursor.execute("""
-                    SELECT 
-                        dp.*,
-                        pr.COD_Producto,
-                        pr.Descripcion as Nombre_Producto,
-                        pr.Precio_Mercado,
-                        pr.Precio_Mayorista,
-                        pr.Precio_Ruta,
-                        pr.Unidad_Medida,
-                        um.Descripcion as Unidad_Nombre,
-                        um.Abreviatura as Unidad_Abreviatura,
-                        cat.Descripcion as Categoria,
-                        CASE %s
-                            WHEN 'Ruta' THEN pr.Precio_Ruta
-                            WHEN 'Mayorista' THEN pr.Precio_Mayorista
-                            WHEN 'Mercado' THEN pr.Precio_Mercado
-                            ELSE pr.Precio_Mercado
-                        END as Precio_Segun_Perfil,
-                        COALESCE(dp.Subtotal, dp.Cantidad * 
-                            CASE %s
-                                WHEN 'Ruta' THEN pr.Precio_Ruta
-                                WHEN 'Mayorista' THEN pr.Precio_Mayorista
-                                WHEN 'Mercado' THEN pr.Precio_Mercado
-                                ELSE pr.Precio_Mercado
-                            END) as Subtotal
-                    FROM detalle_pedidos dp
-                    LEFT JOIN productos pr ON dp.ID_Producto = pr.ID_Producto
-                    LEFT JOIN unidades_medida um ON pr.Unidad_Medida = um.ID_Unidad
-                    LEFT JOIN categorias_producto cat ON pr.ID_Categoria = cat.ID_Categoria
-                    WHERE dp.ID_Pedido = %s
-                    ORDER BY dp.ID_Detalle_Pedido
-                """, (perfil_cliente, perfil_cliente, id_pedido))
-                detalles = cursor.fetchall()
-                
-                cursor.execute("""
-                    SELECT 
-                        COALESCE(SUM(dp.Cantidad), 0) as Total_Cantidad,
-                        COALESCE(SUM(COALESCE(dp.Subtotal, 
-                            dp.Cantidad * 
-                            CASE %s
-                                WHEN 'Ruta' THEN pr.Precio_Ruta
-                                WHEN 'Mayorista' THEN pr.Precio_Mayorista
-                                WHEN 'Mercado' THEN pr.Precio_Mercado
-                                ELSE pr.Precio_Mercado
-                            END)), 0) as Total_General,
-                        COUNT(DISTINCT dp.ID_Producto) as Total_Productos
-                    FROM detalle_pedidos dp
-                    LEFT JOIN productos pr ON dp.ID_Producto = pr.ID_Producto
-                    WHERE dp.ID_Pedido = %s
-                """, (perfil_cliente, id_pedido))
-                totales = cursor.fetchone()
+            # Si se pasa un cliente específico, obtener sus datos
+            cliente_seleccionado = None
+            if cliente_id:
+                sql_cliente = """
+                SELECT 
+                    ID_Cliente, 
+                    Nombre, 
+                    Telefono, 
+                    Direccion, 
+                    RUC_CEDULA, 
+                    tipo_cliente, 
+                    perfil_cliente,
+                    ID_Ruta
+                FROM clientes 
+                WHERE ID_Cliente = %s AND Estado = 'ACTIVO'
+                """
+                cursor.execute(sql_cliente, (cliente_id,))
+                cliente_seleccionado = cursor.fetchone()
+
+            # Definir opciones de prioridad
+            prioridades = ['Urgente', 'Normal', 'Bajo']
             
-            return render_template('admin/ventas/pedidos/detalle_pedido.html',
-                                 pedido=pedido,
-                                 detalles=detalles,
-                                 totales=totales)
+            return render_template('admin/ventas/pedidos/nuevo_pedido.html',
+                                 clientes=clientes,
+                                 empresas=empresas,
+                                 cliente_seleccionado=cliente_seleccionado,
+                                 prioridades=prioridades,
+                                 perfiles=perfiles,
+                                 now=datetime.now().date())
             
     except Exception as e:
-        flash(f"Error al cargar el pedido: {str(e)}", "error")
-        print(f"Error detallado: {traceback.format_exc()}")
+        flash(f"Error al cargar formulario de pedido: {e}", "error")
         return redirect(url_for('admin_pedidos_venta'))
 
-# Ruta para filtrar pedidos mejorada
-@app.route('/admin/ventas/pedidos-venta/filtrar', methods=['POST'])
-def filtrar_pedidos():
-    try:
-        estado = request.form.get('estado', 'todos')
-        fecha_inicio = request.form.get('fecha_inicio')
-        fecha_fin = request.form.get('fecha_fin')
-        tipo_entrega = request.form.get('tipo_entrega', 'todos')
-        tipo_cliente = request.form.get('tipo_cliente', 'todos')
-        prioridad = request.form.get('prioridad', 'todos')
-        tipo_pedido = request.form.get('tipo_pedido', 'todos')
-        es_pedido_ruta = request.form.get('es_pedido_ruta', 'todos')
-        id_ruta = request.form.get('id_ruta', 'todos')
-        perfil_cliente = request.form.get('perfil_cliente', 'todos')  # NUEVO
-        documento_cliente = request.form.get('documento_cliente', '').strip()
-        nombre_cliente = request.form.get('nombre_cliente', '').strip()
-        
-        condiciones = ["(c.ID_Cliente IS NULL OR c.Estado = 'ACTIVO')"]
-        parametros = []
-        
-        if estado != 'todos':
-            condiciones.append("p.Estado = %s")
-            parametros.append(estado)
-        
-        if fecha_inicio:
-            condiciones.append("p.Fecha >= %s")
-            parametros.append(fecha_inicio)
-        
-        if fecha_fin:
-            condiciones.append("p.Fecha <= %s")
-            parametros.append(fecha_fin)
-        
-        if tipo_entrega != 'todos':
-            condiciones.append("p.Tipo_Entrega = %s")
-            parametros.append(tipo_entrega)
-        
-        if tipo_cliente != 'todos':
-            condiciones.append("c.tipo_cliente = %s")
-            parametros.append(tipo_cliente)
-        
-        if perfil_cliente != 'todos':  # NUEVO filtro
-            condiciones.append("c.perfil_cliente = %s")
-            parametros.append(perfil_cliente)
-        
-        if prioridad != 'todos':
-            condiciones.append("p.Prioridad = %s")
-            parametros.append(prioridad)
-        
-        if tipo_pedido != 'todos':
-            condiciones.append("p.Tipo_Pedido = %s")
-            parametros.append(tipo_pedido)
-        
-        if es_pedido_ruta != 'todos':
-            condiciones.append("p.Es_Pedido_Ruta = %s")
-            parametros.append(es_pedido_ruta)
-        
-        if id_ruta != 'todos':
-            condiciones.append("p.ID_Ruta = %s")
-            parametros.append(id_ruta)
-        
-        if documento_cliente:
-            condiciones.append("c.RUC_CEDULA LIKE %s")
-            parametros.append(f"%{documento_cliente}%")
-        
-        if nombre_cliente:
-            condiciones.append("c.Nombre LIKE %s")
-            parametros.append(f"%{nombre_cliente}%")
-        
-        with get_db_cursor(True) as cursor:
-            # Obtener lista de rutas para el select
-            cursor.execute("SELECT ID_Ruta, Nombre_Ruta FROM rutas WHERE Estado = 1 ORDER BY Nombre_Ruta")
-            rutas = cursor.fetchall()
-            
-            sql_base = """
-            SELECT 
-                p.ID_Pedido,
-                p.Fecha,
-                p.Estado,
-                p.Tipo_Entrega,
-                p.Observacion,
-                p.Fecha_Creacion,
-                p.Prioridad,
-                p.Tipo_Pedido,
-                p.Es_Pedido_Ruta,
-                p.ID_Ruta,
-                r.Nombre_Ruta,
-                c.ID_Cliente,
-                c.Nombre as Nombre_Cliente,
-                c.Telefono as Telefono_Cliente,
-                c.RUC_CEDULA as Documento_Cliente,
-                c.tipo_cliente as Tipo_Cliente,
-                c.perfil_cliente as Perfil_Cliente,  -- NUEVO
-                e.Nombre_Empresa,
-                u.NombreUsuario as Usuario_Creacion,
-                CASE 
-                    WHEN p.Tipo_Pedido = 'Consolidado' THEN (
-                        SELECT COALESCE(SUM(pcp.Cantidad_Total), 0)
-                        FROM pedidos_consolidados_productos pcp
-                        WHERE pcp.ID_Pedido = p.ID_Pedido
-                    )
-                    ELSE COALESCE(SUM(dp.Cantidad), 0)
-                END as Total_Items,
-                CASE 
-                    WHEN p.Tipo_Pedido = 'Consolidado' THEN (
-                        SELECT COALESCE(SUM(pcp.Cantidad_Total * pr.Precio_Ruta), 0)
-                        FROM pedidos_consolidados_productos pcp
-                        JOIN productos pr ON pcp.ID_Producto = pr.ID_Producto
-                        WHERE pcp.ID_Pedido = p.ID_Pedido
-                    )
-                    ELSE COALESCE(SUM(
-                        dp.Cantidad * 
-                        CASE c.perfil_cliente
-                            WHEN 'Ruta' THEN pr.Precio_Ruta
-                            WHEN 'Mayorista' THEN pr.Precio_Mayorista
-                            WHEN 'Mercado' THEN pr.Precio_Mercado
-                            ELSE pr.Precio_Mercado
-                        END
-                    ), 0)
-                END as Total_Pedido
-            FROM pedidos p
-            LEFT JOIN clientes c ON p.ID_Cliente = c.ID_Cliente
-            LEFT JOIN empresa e ON p.ID_Empresa = e.ID_Empresa
-            LEFT JOIN usuarios u ON p.ID_Usuario_Creacion = u.ID_Usuario
-            LEFT JOIN rutas r ON p.ID_Ruta = r.ID_Ruta
-            LEFT JOIN detalle_pedidos dp ON p.ID_Pedido = dp.ID_Pedido AND p.Tipo_Pedido != 'Consolidado'
-            LEFT JOIN productos pr ON dp.ID_Producto = pr.ID_Producto
-            """
-            
-            if condiciones:
-                sql_base += " WHERE " + " AND ".join(condiciones)
-            
-            sql_base += """
-            GROUP BY p.ID_Pedido, p.Fecha, p.Estado, p.Tipo_Entrega, p.Observacion, 
-                     p.Fecha_Creacion, p.Prioridad, p.Tipo_Pedido, p.Es_Pedido_Ruta,
-                     p.ID_Ruta, r.Nombre_Ruta, c.ID_Cliente, c.Nombre, c.Telefono, 
-                     c.RUC_CEDULA, c.tipo_cliente, c.perfil_cliente, e.Nombre_Empresa, u.NombreUsuario
-            ORDER BY 
-                CASE p.Prioridad
-                    WHEN 'Urgente' THEN 1
-                    WHEN 'Normal' THEN 2
-                    WHEN 'Bajo' THEN 3
-                    ELSE 4
-                END,
-                p.Fecha DESC, 
-                p.ID_Pedido DESC
-            """
-            
-            cursor.execute(sql_base, tuple(parametros))
-            pedidos = cursor.fetchall()
-            
-            estados = ['Pendiente', 'Aprobado', 'Entregado', 'Cancelado']
-            tipos_entrega = ['Retiro en local', 'Entrega a domicilio']
-            tipos_cliente = ['Comun', 'Especial']
-            prioridades = ['Urgente', 'Normal', 'Bajo']
-            tipos_pedido = ['Individual', 'Consolidado']
-            opciones_ruta = ['SI', 'NO']
-            perfiles_cliente = ['Ruta', 'Mayorista', 'Mercado', 'Especial']  # NUEVO
-            
-            return render_template('admin/ventas/pedidos/pedidos_venta.html',
-                                 pedidos=pedidos,
-                                 estados=estados,
-                                 tipos_entrega=tipos_entrega,
-                                 tipos_cliente=tipos_cliente,
-                                 prioridades=prioridades,
-                                 tipos_pedido=tipos_pedido,
-                                 opciones_ruta=opciones_ruta,
-                                 rutas=rutas,
-                                 perfiles_cliente=perfiles_cliente,  # NUEVO
-                                 filtros_aplicados={
-                                     'estado': estado,
-                                     'fecha_inicio': fecha_inicio,
-                                     'fecha_fin': fecha_fin,
-                                     'tipo_entrega': tipo_entrega,
-                                     'tipo_cliente': tipo_cliente,
-                                     'perfil_cliente': perfil_cliente,  # NUEVO
-                                     'prioridad': prioridad,
-                                     'tipo_pedido': tipo_pedido,
-                                     'es_pedido_ruta': es_pedido_ruta,
-                                     'id_ruta': id_ruta,
-                                     'documento_cliente': documento_cliente,
-                                     'nombre_cliente': nombre_cliente
-                                 },
-                                 now=datetime.now())
-            
-    except Exception as e:
-        flash(f"Error al filtrar pedidos: {e}", "error")
-        return redirect(url_for('admin_pedidos_venta'))
 
-# Nueva ruta para cambiar estado de pedido
-@app.route('/admin/ventas/cambiar-estado/<int:id_pedido>', methods=['POST'])
-@admin_or_bodega_required
-@bitacora_decorator("CAMBIAR_ESTADO_PEDIDO")
-def cambiar_estado_pedido(id_pedido):
+@app.route('/admin/ventas/crear-pedido', methods=['POST'])
+@admin_required
+@bitacora_decorator("CREAR_PEDIDO")
+def crear_pedido():
+    """
+    Crear un nuevo pedido individual
+    Aplica el precio según el perfil_cliente del cliente:
+    - perfil_cliente = 'Ruta' → Precio_Ruta
+    - perfil_cliente = 'Mayorista' → Precio_Mayorista  
+    - perfil_cliente = 'Mercado' → Precio_Mercado
+    - perfil_cliente = 'Especial' → Precio_Mercado (por defecto)
+    """
     try:
         data = request.get_json()
-        nuevo_estado = data.get('estado')
+        user = current_user.id
         
-        if nuevo_estado not in ['Pendiente', 'Aprobado', 'Entregado', 'Cancelado']:
-            return jsonify({'success': False, 'message': 'Estado inválido'}), 400
+        # Validar datos requeridos
+        if not data.get('cliente_id'):
+            return jsonify({'success': False, 'message': 'Se requiere un cliente'}), 400
+        
+        if not data.get('empresa_id'):
+            return jsonify({'success': False, 'message': 'Se requiere una empresa'}), 400
+        
+        if not data.get('productos') or len(data['productos']) == 0:
+            return jsonify({'success': False, 'message': 'Se requiere al menos un producto'}), 400
+        
+        fecha = data.get('fecha')
+        tipo_entrega = data.get('tipo_entrega', 'Retiro en local')
+        prioridad = data.get('prioridad', 'Normal')
+        observacion = data.get('observacion', '')
         
         with get_db_cursor() as cursor:
-            # Verificar que el pedido existe
-            cursor.execute("SELECT Estado, Tipo_Pedido FROM pedidos WHERE ID_Pedido = %s", (id_pedido,))
-            pedido = cursor.fetchone()
+            # Verificar que el cliente existe y está activo (obtener perfil)
+            sql_cliente = """
+            SELECT 
+                ID_Cliente, 
+                tipo_cliente, 
+                perfil_cliente 
+            FROM clientes 
+            WHERE ID_Cliente = %s AND Estado = 'ACTIVO'
+            """
+            cursor.execute(sql_cliente, (data['cliente_id'],))
+            cliente = cursor.fetchone()
             
-            if not pedido:
-                return jsonify({'success': False, 'message': 'Pedido no encontrado'}), 404
+            if not cliente:
+                return jsonify({'success': False, 'message': 'Cliente no encontrado o inactivo'}), 400
             
-            # Actualizar estado
-            sql = """
-            UPDATE pedidos 
-            SET Estado = %s,
-                Fecha_Creacion = CASE 
-                    WHEN %s = 'Entregado' THEN CURRENT_TIMESTAMP 
-                    ELSE Fecha_Creacion 
-                END
-            WHERE ID_Pedido = %s
+            perfil_cliente = cliente['perfil_cliente']  # 'Ruta', 'Mayorista', 'Mercado', 'Especial'
+            
+            # Verificar que la empresa existe
+            sql_empresa = "SELECT ID_Empresa FROM empresa WHERE ID_Empresa = %s"
+            cursor.execute(sql_empresa, (data['empresa_id'],))
+            empresa = cursor.fetchone()
+            
+            if not empresa:
+                return jsonify({'success': False, 'message': 'Empresa no encontrada'}), 400
+            
+            # Crear el pedido
+            sql_pedido = """
+            INSERT INTO pedidos (
+                Fecha, ID_Cliente, ID_Empresa, ID_Usuario_Creacion, 
+                Estado, Observacion, Tipo_Entrega, Prioridad
+            )
+            VALUES (%s, %s, %s, %s, 'Pendiente', %s, %s, %s)
             """
             
-            cursor.execute(sql, (nuevo_estado, nuevo_estado, id_pedido))
+            cursor.execute(sql_pedido, (
+                fecha,
+                data['cliente_id'],
+                data['empresa_id'],
+                user,
+                observacion,
+                tipo_entrega,
+                prioridad
+            ))
             
-            # Registrar en historial (si existe tabla)
-            try:
-                cursor.execute("""
-                    INSERT INTO pedidos_historial_estados 
-                    (ID_Pedido, Estado_Anterior, Estado_Nuevo, ID_Usuario)
-                    VALUES (%s, %s, %s, %s)
-                """, (id_pedido, pedido['Estado'], nuevo_estado, current_user.id))
-            except:
-                pass  # La tabla puede no existir
+            pedido_id = cursor.lastrowid
             
-            return jsonify({'success': True, 'message': 'Estado actualizado correctamente'})
+            # Agregar productos al detalle del pedido
+            for producto in data['productos']:
+                # Verificar stock total disponible en inventario_bodega
+                sql_stock_total = """
+                SELECT COALESCE(SUM(Existencias), 0) as Stock_Total
+                FROM inventario_bodega 
+                WHERE ID_Producto = %s
+                """
+                cursor.execute(sql_stock_total, (producto['id'],))
+                stock_total_result = cursor.fetchone()
+                stock_total = stock_total_result['Stock_Total'] if stock_total_result else 0
+                
+                if stock_total < producto['cantidad']:
+                    return jsonify({
+                        'success': False, 
+                        'message': f"Stock insuficiente para {producto['nombre']}. Disponible: {stock_total}"
+                    }), 400
+                
+                # Obtener los tres precios del producto
+                sql_precio = """
+                SELECT 
+                    Precio_Mercado,
+                    Precio_Mayorista,
+                    Precio_Ruta
+                FROM productos 
+                WHERE ID_Producto = %s AND Estado = 'activo'
+                """
+                cursor.execute(sql_precio, (producto['id'],))
+                producto_info = cursor.fetchone()
+                
+                if not producto_info:
+                    return jsonify({
+                        'success': False, 
+                        'message': f"Producto ID {producto['id']} no encontrado o inactivo"
+                    }), 400
+                
+                # Determinar qué precio usar según el perfil del cliente
+                if perfil_cliente == 'Ruta':
+                    precio_unitario = producto_info['Precio_Ruta'] or 0
+                elif perfil_cliente == 'Mayorista':
+                    precio_unitario = producto_info['Precio_Mayorista'] or 0
+                elif perfil_cliente == 'Mercado':
+                    precio_unitario = producto_info['Precio_Mercado'] or 0
+                elif perfil_cliente == 'Especial':
+                    # Para clientes especiales, usamos precio de mercado por defecto
+                    # pero podría ser un precio personalizado si se implementa después
+                    precio_unitario = producto_info['Precio_Mercado'] or 0
+                else:
+                    # Por defecto, precio de mercado
+                    precio_unitario = producto_info['Precio_Mercado'] or 0
+                
+                # Validar que el precio sea mayor a 0
+                if precio_unitario <= 0:
+                    return jsonify({
+                        'success': False,
+                        'message': f"El producto {producto['nombre']} no tiene precio válido para el perfil {perfil_cliente}"
+                    }), 400
+                
+                # Calcular subtotal
+                subtotal = precio_unitario * producto['cantidad']
+                
+                # Insertar detalle del pedido
+                sql_detalle = """
+                INSERT INTO detalle_pedidos (
+                    ID_Pedido, ID_Producto, Precio_Unitario, 
+                    Cantidad, Subtotal
+                )
+                VALUES (%s, %s, %s, %s, %s)
+                """
+                
+                cursor.execute(sql_detalle, (
+                    pedido_id,
+                    producto['id'],
+                    precio_unitario,
+                    producto['cantidad'],
+                    subtotal
+                ))
+                
+                # Descontar stock de las bodegas (FIFO)
+                cantidad_a_descontar = producto['cantidad']
+                
+                sql_bodegas_stock = """
+                SELECT ID_Bodega, Existencias 
+                FROM inventario_bodega 
+                WHERE ID_Producto = %s AND Existencias > 0
+                ORDER BY ID_Bodega
+                """
+                cursor.execute(sql_bodegas_stock, (producto['id'],))
+                bodegas_stock = cursor.fetchall()
+                
+                for bodega in bodegas_stock:
+                    if cantidad_a_descontar <= 0:
+                        break
+                    
+                    stock_disponible = bodega['Existencias']
+                    id_bodega = bodega['ID_Bodega']
+                    
+                    if stock_disponible >= cantidad_a_descontar:
+                        sql_update = """
+                        UPDATE inventario_bodega 
+                        SET Existencias = Existencias - %s
+                        WHERE ID_Bodega = %s AND ID_Producto = %s
+                        """
+                        cursor.execute(sql_update, (cantidad_a_descontar, id_bodega, producto['id']))
+                        cantidad_a_descontar = 0
+                    else:
+                        sql_update = """
+                        UPDATE inventario_bodega 
+                        SET Existencias = Existencias - %s
+                        WHERE ID_Bodega = %s AND ID_Producto = %s
+                        """
+                        cursor.execute(sql_update, (stock_disponible, id_bodega, producto['id']))
+                        cantidad_a_descontar -= stock_disponible
+                
+                if cantidad_a_descontar > 0:
+                    raise Exception(f"No se pudo descontar todo el stock para el producto {producto['id']}")
+            
+            # Generar la URL para redirigir al detalle del pedido
+            redirect_url = url_for('ver_pedido', id_pedido=pedido_id)
+            
+            # Log para debugging
+            print(f"✅ Pedido #{pedido_id} creado exitosamente con perfil {perfil_cliente}")
+            print(f"   Redirigiendo a: {redirect_url}")
+            
+            return jsonify({
+                'success': True, 
+                'message': 'Pedido creado exitosamente',
+                'pedido_id': pedido_id,
+                'redirect_url': redirect_url,
+                'perfil_cliente': perfil_cliente
+            })
             
     except Exception as e:
+        print(f"❌ Error al crear pedido: {str(e)}")
+        traceback.print_exc()
         return jsonify({'success': False, 'message': str(e)}), 500
+
+# ============================================
+# RUTAS PARA PEDIDOS CONSOLIDADOS (RUTAS)
+# ============================================
 
 @app.route('/admin/ventas/nuevo-pedido-consolidado', methods=['GET', 'POST'])
 @admin_required
@@ -9119,7 +8852,8 @@ def cambiar_estado_pedido(id_pedido):
 def nuevo_pedido_consolidado():
     """
     Crear un pedido consolidado - Carga total para una ruta específica
-    Los consolidados SIEMPRE usan precio de ruta
+    Los consolidados SIEMPRE usan Precio_Ruta de los productos
+    Independientemente del perfil del cliente (no aplica porque no hay cliente)
     """
     try:
         if request.method == 'POST':
@@ -9270,412 +9004,1067 @@ def nuevo_pedido_consolidado():
             flash(f"Error al cargar formulario de pedido consolidado: {e}", "error")
             return redirect(url_for('admin_pedidos_venta'))
 
-# Ruta para buscar clientes (para autocompletar)
-@app.route('/admin/ventas/buscar-clientes')
-@admin_required
-def buscar_clientes():
-    try:
-        termino = request.args.get('q', '')
-        
-        if not termino or len(termino) < 2:
-            return jsonify([])
-        
-        with get_db_cursor(True) as cursor:
-            sql = """
-            SELECT 
-                ID_Cliente,
-                Nombre,
-                RUC_CEDULA as Documento,
-                Telefono,
-                Direccion,
-                tipo_cliente as Tipo
-            FROM clientes 
-            WHERE Estado = 'ACTIVO'
-            AND (Nombre LIKE %s OR RUC_CEDULA LIKE %s OR Telefono LIKE %s)
-            ORDER BY Nombre
-            LIMIT 20
-            """
-            
-            termino_busqueda = f"%{termino}%"
-            cursor.execute(sql, (termino_busqueda, termino_busqueda, termino_busqueda))
-            clientes = cursor.fetchall()
-            
-            # Convertir a lista de diccionarios
-            resultados = []
-            for cliente in clientes:
-                resultados.append({
-                    'id': cliente['ID_Cliente'],
-                    'text': f"{cliente['Nombre']} - {cliente['Documento'] or 'Sin documento'}",
-                    'nombre': cliente['Nombre'],
-                    'documento': cliente['Documento'],
-                    'telefono': cliente['Telefono'],
-                    'direccion': cliente['Direccion'],
-                    'tipo': cliente['Tipo']
-                })
-            
-            return jsonify(resultados)
-            
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
 
-@app.route('/admin/ventas/nuevo-pedido')
-@admin_required
-@bitacora_decorator("NUEVO_PEDIDO")
-def nuevo_pedido():
+@app.route('/admin/ventas/distribuir-carga/<int:id_pedido>')
+@admin_or_bodega_required
+def distribuir_carga(id_pedido):
+    """
+    Muestra el formulario de distribución de carga consolidada a vendedores
+    Solo para pedidos consolidados en estado Pendiente
+    """
     try:
-        cliente_id = request.args.get('cliente')
-        
         with get_db_cursor(True) as cursor:
-            # Obtener clientes activos (ahora incluye perfil_cliente)
-            sql_clientes = """
-            SELECT ID_Cliente, Nombre, Telefono, Direccion, RUC_CEDULA, 
-                   tipo_cliente, perfil_cliente 
-            FROM clientes 
-            WHERE Estado = 'ACTIVO'
-            ORDER BY Nombre
-            """
-            cursor.execute(sql_clientes)
-            clientes = cursor.fetchall()
+            # ============================================
+            # 1. OBTENER DATOS DEL PEDIDO
+            # ============================================
+            cursor.execute("""
+                SELECT 
+                    p.ID_Pedido,
+                    p.Fecha,
+                    p.Estado,
+                    p.Tipo_Pedido,
+                    p.ID_Ruta,
+                    r.Nombre_Ruta,
+                    e.ID_Empresa
+                FROM pedidos p
+                LEFT JOIN rutas r ON p.ID_Ruta = r.ID_Ruta
+                LEFT JOIN empresa e ON p.ID_Empresa = e.ID_Empresa
+                WHERE p.ID_Pedido = %s AND p.Tipo_Pedido = 'Consolidado'
+            """, (id_pedido,))
             
-            # Obtener empresas
-            sql_empresas = "SELECT ID_Empresa, Nombre_Empresa FROM empresa ORDER BY Nombre_Empresa"
-            cursor.execute(sql_empresas)
-            empresas = cursor.fetchall()
+            pedido = cursor.fetchone()
             
-            # Si se pasa un cliente específico, obtener sus datos
-            cliente_seleccionado = None
-            if cliente_id:
-                sql_cliente = """
-                SELECT ID_Cliente, Nombre, Telefono, Direccion, RUC_CEDULA, 
-                       tipo_cliente, perfil_cliente 
-                FROM clientes 
-                WHERE ID_Cliente = %s AND Estado = 'ACTIVO'
-                """
-                cursor.execute(sql_cliente, (cliente_id,))
-                cliente_seleccionado = cursor.fetchone()
-
-            # Definir opciones de prioridad
-            prioridades = ['Urgente', 'Normal', 'Bajo']
+            if not pedido:
+                flash('Pedido no encontrado', 'error')
+                return redirect(url_for('admin_pedidos_venta'))
             
-            return render_template('admin/ventas/pedidos/nuevo_pedido.html',
-                                 clientes=clientes,
-                                 empresas=empresas,
-                                 cliente_seleccionado=cliente_seleccionado,
-                                 prioridades=prioridades,
-                                 now=datetime.now().date())
+            if not pedido['ID_Ruta']:
+                flash('El pedido no tiene una ruta asignada', 'error')
+                return redirect(url_for('ver_pedido', id_pedido=id_pedido))
             
-    except Exception as e:
-        flash(f"Error al cargar formulario de pedido: {e}", "error")
-        return redirect(url_for('admin_pedidos_venta'))
-
-@app.route('/admin/ventas/obtener-productos-categoria')
-@admin_required
-def obtener_productos_categoria():
-    try:
-        categoria_id = request.args.get('categoria_id')
-        tipo_cliente = request.args.get('tipo_cliente')
-        
-        if not categoria_id or not tipo_cliente:
-            return jsonify({'error': 'Parámetros incompletos'}), 400
-        
-        with get_db_cursor(True) as cursor:
-            # Verificar que la categoría es visible para este tipo de cliente
-            sql_visibilidad = """
-            SELECT visible FROM config_visibilidad_categorias 
-            WHERE ID_Categoria = %s AND tipo_cliente = %s
-            """
-            cursor.execute(sql_visibilidad, (categoria_id, tipo_cliente))
-            config = cursor.fetchone()
+            # ============================================
+            # 2. OBTENER VENDEDORES ACTIVOS DE LA RUTA
+            # ============================================
+            cursor.execute("""
+                SELECT 
+                    av.ID_Asignacion,
+                    u.ID_Usuario,
+                    u.NombreUsuario
+                FROM asignacion_vendedores av
+                INNER JOIN usuarios u ON av.ID_Usuario = u.ID_Usuario
+                WHERE av.ID_Ruta = %s
+                AND av.Estado = 'Activa'
+                AND av.Fecha_Asignacion = CURDATE()
+                ORDER BY u.NombreUsuario
+            """, (pedido['ID_Ruta'],))
             
-            if not config or not config['visible']:
-                return jsonify({'productos': []})
+            vendedores = cursor.fetchall()
             
-            # Obtener productos activos de esta categoría con stock de bodega
-            sql_productos = """
-            SELECT 
-                p.ID_Producto,
-                p.Descripcion as Nombre_Producto,
-                p.COD_Producto,
-                p.Precio_Mercado as Precio_Venta,
-                p.ID_Categoria,
-                p.Unidad_Medida,
-                u.Descripcion as Unidad_Descripcion,
-                u.Abreviatura as Unidad_Abreviatura,
-                c.Descripcion as Categoria_Descripcion,
-                COALESCE(SUM(ib.Existencias), 0) as Stock_Total
-            FROM productos p
-            LEFT JOIN unidades_medida u ON p.Unidad_Medida = u.ID_Unidad
-            LEFT JOIN categorias_producto c ON p.ID_Categoria = c.ID_Categoria
-            LEFT JOIN inventario_bodega ib ON p.ID_Producto = ib.ID_Producto
-            WHERE p.ID_Categoria = %s 
-            AND p.Estado = 'activo'
-            GROUP BY p.ID_Producto, p.Descripcion, p.COD_Producto, Precio_Venta, 
-                     p.ID_Categoria, p.Unidad_Medida, u.Descripcion, u.Abreviatura, 
-                     c.Descripcion
-            HAVING Stock_Total > 0
-            ORDER BY p.Descripcion
-            """
+            # ============================================
+            # 3. OBTENER PRODUCTOS DEL CONSOLIDADO
+            # ============================================
+            cursor.execute("""
+                SELECT 
+                    pcp.ID_Producto,
+                    pcp.Cantidad_Total,
+                    pr.Descripcion as Nombre_Producto,
+                    pr.COD_Producto,
+                    pr.Precio_Ruta as Precio_Venta
+                FROM pedidos_consolidados_productos pcp
+                INNER JOIN productos pr ON pcp.ID_Producto = pr.ID_Producto
+                WHERE pcp.ID_Pedido = %s
+                ORDER BY pr.Descripcion
+            """, (id_pedido,))
             
-            cursor.execute(sql_productos, (categoria_id,))
             productos = cursor.fetchall()
             
-            # Convertir a lista de diccionarios
-            productos_lista = []
-            for producto in productos:
-                productos_lista.append({
-                    'id': producto['ID_Producto'],
-                    'nombre': producto['Nombre_Producto'],
-                    'codigo': producto['COD_Producto'],
-                    'precio': float(producto['Precio_Venta']) if producto['Precio_Venta'] else 0,
-                    'stock': float(producto['Stock_Total']) if producto['Stock_Total'] else 0,
-                    'categoria_id': producto['ID_Categoria'],
-                    'unidad_medida': producto['Unidad_Medida'],
-                    'unidad_descripcion': producto['Unidad_Descripcion'] or 'Unidad',
-                    'unidad_abreviatura': producto['Unidad_Abreviatura'] or '',
-                    'categoria_descripcion': producto['Categoria_Descripcion'] or ''
-                })
-            
-            return jsonify({'productos': productos_lista})
+            return render_template('admin/ventas/pedidos/distribuir_carga.html',
+                                 pedido=pedido,
+                                 vendedores=vendedores,
+                                 productos=productos,
+                                 now=datetime.now())
             
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        print(f"Error: {str(e)}")
+        traceback.print_exc()
+        flash(f'Error al cargar datos: {str(e)}', 'error')
+        return redirect(url_for('ver_pedido', id_pedido=id_pedido))
 
-@app.route('/admin/ventas/obtener-categorias-visibles')
-@admin_required
-def obtener_categorias_visibles():
+
+@app.route('/admin/ventas/procesar-carga-consolidada/<int:id_pedido>', methods=['POST'])
+@admin_or_bodega_required
+@bitacora_decorator("PROCESAR_CARGA_CONSOLIDADA")
+def procesar_carga_consolidada(id_pedido):
+    """
+    Procesa la distribución de carga consolidada a vendedores
+    - Crea movimientos de salida de bodega principal
+    - Crea movimientos de entrada en rutas de vendedores
+    - Actualiza inventario de rutas
+    - Actualiza estado del pedido consolidado
+    """
     try:
-        tipo_cliente = request.args.get('tipo_cliente')
+        # ============================================
+        # 1. OBTENER DATOS DEL FORMULARIO
+        # ============================================
+        distribucion = []
+        index = 0
         
-        if not tipo_cliente:
-            return jsonify({'error': 'Tipo de cliente no especificado'}), 400
-        
-        with get_db_cursor(True) as cursor:
-            # Obtener categorías visibles para el tipo de cliente
-            sql_categorias = """
-            SELECT 
-                cp.ID_Categoria,
-                cp.Descripcion as Nombre_Categoria
-            FROM categorias_producto cp
-            INNER JOIN config_visibilidad_categorias cv ON cp.ID_Categoria = cv.ID_Categoria
-            WHERE cv.tipo_cliente = %s 
-            AND cv.visible = 1
-            ORDER BY cp.Descripcion
-            """
+        while True:
+            id_vendedor = request.form.get(f'distribucion[{index}][id_vendedor]')
+            id_producto = request.form.get(f'distribucion[{index}][id_producto]')
+            cantidad = request.form.get(f'distribucion[{index}][cantidad]')
             
-            cursor.execute(sql_categorias, (tipo_cliente,))
-            categorias = cursor.fetchall()
-            
-            # Convertir a lista de diccionarios
-            categorias_lista = []
-            for categoria in categorias:
-                categorias_lista.append({
-                    'id': categoria['ID_Categoria'],
-                    'nombre': categoria['Nombre_Categoria']
+            if id_vendedor is None or id_producto is None or cantidad is None:
+                break
+                
+            if float(cantidad) > 0:
+                distribucion.append({
+                    'id_vendedor': int(id_vendedor),
+                    'id_producto': int(id_producto),
+                    'cantidad': float(cantidad)
                 })
-            
-            return jsonify({'categorias': categorias_lista})
-            
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
-@app.route('/admin/ventas/crear-pedido', methods=['POST'])
-@admin_required
-@bitacora_decorator("CREAR_PEDIDO")
-def crear_pedido():
-    try:
-        data = request.get_json()
-        user = current_user.id
+            index += 1
         
-        # Validar datos requeridos
-        if not data.get('cliente_id'):
-            return jsonify({'success': False, 'message': 'Se requiere un cliente'}), 400
-        
-        if not data.get('empresa_id'):
-            return jsonify({'success': False, 'message': 'Se requiere una empresa'}), 400
-        
-        if not data.get('productos') or len(data['productos']) == 0:
-            return jsonify({'success': False, 'message': 'Se requiere al menos un producto'}), 400
-        
-        fecha = data.get('fecha')
-        tipo_entrega = data.get('tipo_entrega', 'Retiro en local')
-        prioridad = data.get('prioridad', 'Normal')
-        observacion = data.get('observacion', '')
+        if not distribucion:
+            flash('Debe asignar al menos un producto a un vendedor', 'error')
+            return redirect(url_for('ver_pedido', id_pedido=id_pedido))
         
         with get_db_cursor() as cursor:
-            # Verificar que el cliente existe y está activo (obtener perfil)
-            sql_cliente = """
-            SELECT ID_Cliente, tipo_cliente, perfil_cliente 
-            FROM clientes 
-            WHERE ID_Cliente = %s AND Estado = 'ACTIVO'
+            # ============================================
+            # 2. VERIFICAR PEDIDO
+            # ============================================
+            cursor.execute("""
+                SELECT 
+                    p.ID_Pedido,
+                    p.ID_Ruta,
+                    p.Estado,
+                    r.Nombre_Ruta,
+                    e.ID_Empresa,
+                    b.ID_Bodega as Bodega_Origen
+                FROM pedidos p
+                LEFT JOIN rutas r ON p.ID_Ruta = r.ID_Ruta
+                LEFT JOIN empresa e ON p.ID_Empresa = e.ID_Empresa
+                LEFT JOIN bodegas b ON b.ID_Empresa = e.ID_Empresa AND b.Estado = 'activa'
+                WHERE p.ID_Pedido = %s AND p.Tipo_Pedido = 'Consolidado'
+                LIMIT 1
+            """, (id_pedido,))
+            
+            pedido = cursor.fetchone()
+            
+            if not pedido:
+                flash('Pedido no encontrado', 'error')
+                return redirect(url_for('admin_pedidos_venta'))
+            
+            if pedido['Estado'] != 'Pendiente':
+                flash(f'El pedido debe estar Pendiente, no {pedido["Estado"]}', 'error')
+                return redirect(url_for('ver_pedido', id_pedido=id_pedido))
+            
+            if not pedido['ID_Ruta']:
+                flash('El pedido no tiene una ruta asignada', 'error')
+                return redirect(url_for('ver_pedido', id_pedido=id_pedido))
+            
+            # ============================================
+            # 3. VERIFICAR VENDEDORES
+            # ============================================
+            vendedores_ids = list(set([item['id_vendedor'] for item in distribucion]))
+            placeholders = ','.join(['%s'] * len(vendedores_ids))
+            
+            query_vendedores = f"""
+                SELECT ID_Asignacion, ID_Usuario
+                FROM asignacion_vendedores
+                WHERE ID_Asignacion IN ({placeholders})
+                AND Estado = 'Activa'
+                AND Fecha_Asignacion = CURDATE()
             """
-            cursor.execute(sql_cliente, (data['cliente_id'],))
-            cliente = cursor.fetchone()
+            cursor.execute(query_vendedores, vendedores_ids)
             
-            if not cliente:
-                return jsonify({'success': False, 'message': 'Cliente no encontrado o inactivo'}), 400
+            vendedores_validos = cursor.fetchall()
+            vendedores_dict = {v['ID_Asignacion']: v for v in vendedores_validos}
             
-            perfil_cliente = cliente['perfil_cliente']  # 'Ruta', 'Mayorista', 'Mercado'
+            for item in distribucion:
+                if item['id_vendedor'] not in vendedores_dict:
+                    flash('Uno o más vendedores no tienen asignación activa hoy', 'error')
+                    return redirect(url_for('ver_pedido', id_pedido=id_pedido))
             
-            # Verificar que la empresa existe
-            sql_empresa = "SELECT ID_Empresa FROM empresa WHERE ID_Empresa = %s"
-            cursor.execute(sql_empresa, (data['empresa_id'],))
-            empresa = cursor.fetchone()
+            # ============================================
+            # 4. VERIFICAR PRODUCTOS
+            # ============================================
+            productos_ids = list(set([item['id_producto'] for item in distribucion]))
+            placeholders = ','.join(['%s'] * len(productos_ids))
             
-            if not empresa:
-                return jsonify({'success': False, 'message': 'Empresa no encontrada'}), 400
-            
-            # Crear el pedido
-            sql_pedido = """
-            INSERT INTO pedidos (Fecha, ID_Cliente, ID_Empresa, ID_Usuario_Creacion, 
-                               Estado, Observacion, Tipo_Entrega, Prioridad)
-            VALUES (%s, %s, %s, %s, 'Pendiente', %s, %s, %s)
+            query_productos = f"""
+                SELECT 
+                    pcp.ID_Producto,
+                    pcp.Cantidad_Total,
+                    pr.Precio_Ruta as Precio_Venta,
+                    COALESCE(ib.Existencias, 0) as Stock_Disponible
+                FROM pedidos_consolidados_productos pcp
+                JOIN productos pr ON pcp.ID_Producto = pr.ID_Producto
+                LEFT JOIN inventario_bodega ib ON ib.ID_Bodega = %s AND ib.ID_Producto = pcp.ID_Producto
+                WHERE pcp.ID_Pedido = %s
+                AND pcp.ID_Producto IN ({placeholders})
             """
             
-            cursor.execute(sql_pedido, (
-                fecha,
-                data['cliente_id'],
-                data['empresa_id'],
-                user,
-                observacion,
-                tipo_entrega,
-                prioridad
+            params = [pedido['Bodega_Origen'], id_pedido] + productos_ids
+            cursor.execute(query_productos, params)
+            
+            productos_consolidados = cursor.fetchall()
+            productos_dict = {}
+            
+            for p in productos_consolidados:
+                productos_dict[p['ID_Producto']] = {
+                    'ID_Producto': p['ID_Producto'],
+                    'Cantidad_Total': float(p['Cantidad_Total']),
+                    'Precio_Venta': float(p['Precio_Venta']),
+                    'Stock_Disponible': float(p['Stock_Disponible'])
+                }
+            
+            from collections import defaultdict
+            total_por_producto = defaultdict(float)
+            
+            for item in distribucion:
+                total_por_producto[item['id_producto']] += item['cantidad']
+            
+            for id_producto, cantidad_solicitada in total_por_producto.items():
+                if id_producto not in productos_dict:
+                    flash('Producto no válido', 'error')
+                    return redirect(url_for('ver_pedido', id_pedido=id_pedido))
+                
+                producto = productos_dict[id_producto]
+                
+                if cantidad_solicitada > producto['Cantidad_Total']:
+                    flash(f'Cantidad excede el consolidado', 'error')
+                    return redirect(url_for('ver_pedido', id_pedido=id_pedido))
+                
+                if cantidad_solicitada > producto['Stock_Disponible']:
+                    flash(f'Stock insuficiente en bodega', 'error')
+                    return redirect(url_for('ver_pedido', id_pedido=id_pedido))
+            
+            # ============================================
+            # 5. MOVIMIENTO DE SALIDA DE BODEGA PRINCIPAL
+            # ============================================
+            TRASLADO_SALIDA = 12
+            TRASLADO_ENTRADA = 13
+            
+            cursor.execute("""
+                INSERT INTO movimientos_inventario (
+                    ID_TipoMovimiento, ID_Bodega, Fecha, Observacion,
+                    ID_Empresa, ID_Usuario_Creacion, Estado, ID_Pedido_Origen
+                )
+                VALUES (%s, %s, CURDATE(), %s, %s, %s, 'Activa', %s)
+            """, (
+                TRASLADO_SALIDA,
+                pedido['Bodega_Origen'],
+                f'SALIDA POR CARGA #{id_pedido} - {pedido["Nombre_Ruta"]}',
+                pedido['ID_Empresa'],
+                current_user.id,
+                id_pedido
             ))
             
-            pedido_id = cursor.lastrowid
+            movimiento_salida_id = cursor.lastrowid
             
-            # Agregar productos al detalle del pedido
-            for producto in data['productos']:
-                # Verificar stock total disponible en inventario_bodega
-                sql_stock_total = """
-                SELECT COALESCE(SUM(Existencias), 0) as Stock_Total
-                FROM inventario_bodega 
-                WHERE ID_Producto = %s
-                """
-                cursor.execute(sql_stock_total, (producto['id'],))
-                stock_total_result = cursor.fetchone()
-                stock_total = stock_total_result['Stock_Total'] if stock_total_result else 0
+            for id_producto, cantidad_total in total_por_producto.items():
+                producto = productos_dict[id_producto]
                 
-                if stock_total < producto['cantidad']:
-                    return jsonify({
-                        'success': False, 
-                        'message': f"Stock insuficiente para {producto['nombre']}. Disponible: {stock_total}"
-                    }), 400
+                cursor.execute("""
+                    UPDATE inventario_bodega 
+                    SET Existencias = Existencias - %s
+                    WHERE ID_Bodega = %s AND ID_Producto = %s
+                """, (cantidad_total, pedido['Bodega_Origen'], id_producto))
                 
-                # Obtener precio del producto SEGÚN EL PERFIL DEL CLIENTE
-                sql_precio = """
-                SELECT 
-                    Precio_Mercado,
-                    Precio_Mayorista,
-                    Precio_Ruta
-                FROM productos 
-                WHERE ID_Producto = %s AND Estado = 'activo'
-                """
-                cursor.execute(sql_precio, (producto['id'],))
-                producto_info = cursor.fetchone()
+                subtotal = cantidad_total * producto['Precio_Venta']
                 
-                if not producto_info:
-                    return jsonify({
-                        'success': False, 
-                        'message': f"Producto ID {producto['id']} no encontrado o inactivo"
-                    }), 400
+                cursor.execute("""
+                    INSERT INTO detalle_movimientos_inventario (
+                        ID_Movimiento, ID_Producto, Cantidad,
+                        Costo_Unitario, Precio_Unitario, Subtotal,
+                        ID_Usuario_Creacion
+                    )
+                    VALUES (%s, %s, %s, 0, %s, %s, %s)
+                """, (
+                    movimiento_salida_id,
+                    id_producto,
+                    cantidad_total,
+                    producto['Precio_Venta'],
+                    subtotal,
+                    current_user.id
+                ))
+            
+            # ============================================
+            # 6. DISTRIBUIR A VENDEDORES (ENTRADA EN RUTAS)
+            # ============================================
+            for item in distribucion:
+                producto = productos_dict[item['id_producto']]
                 
-                # Determinar qué precio usar según el perfil
-                if perfil_cliente == 'Ruta':
-                    precio_unitario = producto_info['Precio_Ruta'] or 0
-                elif perfil_cliente == 'Mayorista':
-                    precio_unitario = producto_info['Precio_Mayorista'] or 0
-                elif perfil_cliente == 'Mercado':
-                    precio_unitario = producto_info['Precio_Mercado'] or 0
-                else:
-                    precio_unitario = producto_info['Precio_Mercado'] or 0
+                subtotal = item['cantidad'] * producto['Precio_Venta']
                 
-                # Si el frontend envió un precio específico, usarlo (por si se modificó)
-                if producto.get('precio') and float(producto.get('precio')) > 0:
-                    precio_unitario = float(producto['precio'])
+                cursor.execute("""
+                    INSERT INTO movimientos_ruta_cabecera (
+                        ID_Asignacion, ID_TipoMovimiento, Fecha_Movimiento,
+                        ID_Usuario_Registra, Documento_Numero, ID_Pedido,
+                        Total_Productos, Total_Items, Total_Subtotal,
+                        ID_Empresa, Estado
+                    )
+                    VALUES (%s, %s, NOW(), %s, %s, %s, %s, 1, %s, %s, 'ACTIVO')
+                """, (
+                    item['id_vendedor'],
+                    TRASLADO_ENTRADA,
+                    current_user.id,
+                    f'CARGA-{id_pedido}',
+                    id_pedido,
+                    item['cantidad'],
+                    subtotal,
+                    pedido['ID_Empresa']
+                ))
                 
-                # Calcular subtotal
-                subtotal = precio_unitario * producto['cantidad']
+                movimiento_ruta_id = cursor.lastrowid
                 
-                # Insertar detalle del pedido
-                sql_detalle = """
-                INSERT INTO detalle_pedidos (ID_Pedido, ID_Producto, Precio_Unitario, 
-                                           Cantidad, Subtotal)
-                VALUES (%s, %s, %s, %s, %s)
-                """
-                
-                cursor.execute(sql_detalle, (
-                    pedido_id,
-                    producto['id'],
-                    precio_unitario,
-                    producto['cantidad'],
+                cursor.execute("""
+                    INSERT INTO movimientos_ruta_detalle (
+                        ID_Movimiento, ID_Producto, Cantidad,
+                        Precio_Unitario, Subtotal
+                    )
+                    VALUES (%s, %s, %s, %s, %s)
+                """, (
+                    movimiento_ruta_id,
+                    item['id_producto'],
+                    item['cantidad'],
+                    producto['Precio_Venta'],
                     subtotal
                 ))
                 
-                # Descontar stock de las bodegas (FIFO)
-                cantidad_a_descontar = producto['cantidad']
+                cursor.execute("""
+                    INSERT INTO inventario_ruta (
+                        ID_Asignacion, ID_Producto, Cantidad, Fecha_Actualizacion
+                    )
+                    VALUES (%s, %s, %s, NOW())
+                    ON DUPLICATE KEY UPDATE
+                        Cantidad = Cantidad + VALUES(Cantidad),
+                        Fecha_Actualizacion = NOW()
+                """, (
+                    item['id_vendedor'],
+                    item['id_producto'],
+                    item['cantidad']
+                ))
+            
+            # ============================================
+            # 7. ACTUALIZAR PEDIDO CONSOLIDADO
+            # ============================================
+            for id_producto, cantidad_solicitada in total_por_producto.items():
+                producto = productos_dict[id_producto]
+                cantidad_restante = producto['Cantidad_Total'] - cantidad_solicitada
                 
-                sql_bodegas_stock = """
-                SELECT ID_Bodega, Existencias 
-                FROM inventario_bodega 
-                WHERE ID_Producto = %s AND Existencias > 0
-                ORDER BY ID_Bodega
+                if cantidad_restante > 0:
+                    cursor.execute("""
+                        UPDATE pedidos_consolidados_productos
+                        SET Cantidad_Total = %s
+                        WHERE ID_Pedido = %s AND ID_Producto = %s
+                    """, (cantidad_restante, id_pedido, id_producto))
+                else:
+                    cursor.execute("""
+                        DELETE FROM pedidos_consolidados_productos
+                        WHERE ID_Pedido = %s AND ID_Producto = %s
+                    """, (id_pedido, id_producto))
+            
+            cursor.execute("""
+                SELECT COUNT(*) as total
+                FROM pedidos_consolidados_productos
+                WHERE ID_Pedido = %s
+            """, (id_pedido,))
+            
+            pedido_actualizado = cursor.fetchone()
+            
+            if pedido_actualizado['total'] == 0:
+                cursor.execute("""
+                    UPDATE pedidos SET Estado = 'Entregado'
+                    WHERE ID_Pedido = %s
+                """, (id_pedido,))
+                flash(f'✅ Carga #{id_pedido} completada', 'success')
+            else:
+                flash(f'✅ Distribución parcial - Quedan {pedido_actualizado["total"]} productos', 'success')
+            
+            return redirect(url_for('ver_pedido', id_pedido=id_pedido))
+            
+    except Exception as e:
+        print(f"Error: {str(e)}")
+        traceback.print_exc()
+        flash(f'Error: {str(e)}', 'error')
+        return redirect(url_for('ver_pedido', id_pedido=id_pedido))
+
+
+# ============================================
+# RUTAS COMUNES (APLICAN A AMBOS TIPOS DE PEDIDOS)
+# ============================================
+
+@app.route('/admin/ventas/pedidos-venta')
+@admin_or_bodega_required
+@bitacora_decorator("PEDIDOS-VENTA")
+def admin_pedidos_venta():
+    """
+    Listado principal de pedidos (individuales y consolidados)
+    Los precios se calculan según:
+    - Individuales: usando CASE con perfil_cliente para elegir el precio correcto
+    - Consolidados: siempre usan Precio_Ruta
+    """
+    try:
+        with get_db_cursor(True) as cursor:
+            # Obtener el rol del usuario actual
+            es_rol_bodega = current_user.rol == 'Bodega'
+            
+            # CONSULTA QUE USA perfil_cliente PARA ELEGIR EL PRECIO CORRECTO
+            sql = """
+            SELECT 
+                p.ID_Pedido,
+                p.Fecha,
+                p.Estado,
+                p.Tipo_Entrega,
+                p.Observacion,
+                p.Fecha_Creacion,
+                p.Prioridad,
+                p.Tipo_Pedido,
+                p.Es_Pedido_Ruta,
+                p.ID_Ruta,
+                r.Nombre_Ruta,
+                r.Descripcion as Descripcion_Ruta,
+                c.ID_Cliente,
+                c.Nombre as Nombre_Cliente,
+                c.Telefono as Telefono_Cliente,
+                c.Direccion as Direccion_Cliente,
+                c.RUC_CEDULA as Documento_Cliente,
+                c.tipo_cliente as Tipo_Cliente,
+                c.perfil_cliente as Perfil_Cliente,
+                c.Estado as Estado_Cliente,
+                e.Nombre_Empresa,
+                u.NombreUsuario as Usuario_Creacion,
+                -- Calcular Total_Items según tipo de pedido
+                CASE 
+                    WHEN p.Tipo_Pedido = 'Consolidado' THEN (
+                        SELECT COALESCE(SUM(pcp.Cantidad_Total), 0)
+                        FROM pedidos_consolidados_productos pcp
+                        WHERE pcp.ID_Pedido = p.ID_Pedido
+                    )
+                    ELSE COALESCE(SUM(dp.Cantidad), 0)
+                END as Total_Items,
+                -- Calcular Total_Pedido según tipo de pedido y PERFIL DEL CLIENTE
+                CASE 
+                    WHEN p.Tipo_Pedido = 'Consolidado' THEN (
+                        -- CONSOLIDADOS: siempre usan Precio_Ruta
+                        SELECT COALESCE(SUM(pcp.Cantidad_Total * pr.Precio_Ruta), 0)
+                        FROM pedidos_consolidados_productos pcp
+                        LEFT JOIN productos pr ON pcp.ID_Producto = pr.ID_Producto
+                        WHERE pcp.ID_Pedido = p.ID_Pedido
+                    )
+                    ELSE COALESCE(SUM(
+                        -- INDIVIDUALES: usan precio según perfil_cliente
+                        dp.Cantidad * 
+                        CASE c.perfil_cliente
+                            WHEN 'Ruta' THEN pr.Precio_Ruta
+                            WHEN 'Mayorista' THEN pr.Precio_Mayorista
+                            WHEN 'Mercado' THEN pr.Precio_Mercado
+                            WHEN 'Especial' THEN pr.Precio_Mercado  -- Especial usa precio de mercado por defecto
+                            ELSE pr.Precio_Mercado
+                        END
+                    ), 0)
+                END as Total_Pedido,
+                -- Contador de items
+                COUNT(DISTINCT CASE 
+                    WHEN p.Tipo_Pedido = 'Consolidado' THEN pcp.ID_Pedido_Consolidado_Producto 
+                    ELSE dp.ID_Detalle_Pedido 
+                END) as Numero_Items
+            FROM pedidos p
+            LEFT JOIN clientes c ON p.ID_Cliente = c.ID_Cliente
+            LEFT JOIN empresa e ON p.ID_Empresa = e.ID_Empresa
+            LEFT JOIN usuarios u ON p.ID_Usuario_Creacion = u.ID_Usuario
+            LEFT JOIN rutas r ON p.ID_Ruta = r.ID_Ruta
+            LEFT JOIN detalle_pedidos dp ON p.ID_Pedido = dp.ID_Pedido AND p.Tipo_Pedido != 'Consolidado'
+            LEFT JOIN pedidos_consolidados_productos pcp ON p.ID_Pedido = pcp.ID_Pedido AND p.Tipo_Pedido = 'Consolidado'
+            LEFT JOIN productos pr ON COALESCE(dp.ID_Producto, pcp.ID_Producto) = pr.ID_Producto
+            WHERE 1=1
+            """
+            
+            # Filtro para clientes activos (solo aplica cuando hay cliente)
+            sql += " AND (c.ID_Cliente IS NULL OR c.Estado = 'ACTIVO')"
+            
+            # Si es rol Bodega, filtrar solo pedidos del día actual
+            if es_rol_bodega:
+                sql += " AND DATE(p.Fecha) = CURDATE()"
+            
+            # Group by y Order by
+            sql += """
+            GROUP BY 
+                p.ID_Pedido, p.Fecha, p.Estado, p.Tipo_Entrega, p.Observacion,
+                p.Fecha_Creacion, p.Prioridad, p.Tipo_Pedido, p.Es_Pedido_Ruta,
+                p.ID_Ruta, r.Nombre_Ruta, r.Descripcion,
+                c.ID_Cliente, c.Nombre, c.Telefono, c.Direccion, c.RUC_CEDULA,
+                c.tipo_cliente, c.perfil_cliente, c.Estado, e.Nombre_Empresa, u.NombreUsuario
+            ORDER BY 
+                CASE 
+                    WHEN p.Prioridad = 'Urgente' THEN 1
+                    WHEN p.Prioridad = 'Normal' THEN 2
+                    WHEN p.Prioridad = 'Bajo' THEN 3
+                    ELSE 4
+                END,
+                p.Fecha DESC,
+                p.ID_Pedido DESC
+            """
+            
+            cursor.execute(sql)
+            pedidos = cursor.fetchall()
+            
+            # Debug - imprimir cantidad de pedidos encontrados
+            print(f"📊 Total pedidos encontrados: {len(pedidos)}")
+            consolidados = [p for p in pedidos if p.get('Tipo_Pedido') == 'Consolidado']
+            print(f"   - Individuales: {len(pedidos) - len(consolidados)}")
+            print(f"   - Consolidados: {len(consolidados)}")
+            
+            # Obtener opciones de filtro
+            estados = ['Pendiente', 'Aprobado', 'Entregado', 'Cancelado']
+            tipos_entrega = ['Retiro en local', 'Entrega a domicilio']
+            tipos_cliente = ['Comun', 'Especial']
+            prioridades = ['Urgente', 'Normal', 'Bajo']
+            tipos_pedido = ['Individual', 'Consolidado']
+            opciones_ruta = ['SI', 'NO']
+            perfiles_cliente = ['Ruta', 'Mayorista', 'Mercado', 'Especial']
+            
+            # Obtener lista de rutas para filtros
+            cursor.execute("""
+                SELECT ID_Ruta, Nombre_Ruta 
+                FROM rutas 
+                WHERE Estado = 'Activa' 
+                ORDER BY Nombre_Ruta
+            """)
+            rutas = cursor.fetchall()
+            
+            # Estadísticas para Bodega
+            stats = None
+            if es_rol_bodega:
+                estados.insert(2, 'En Proceso')
+                fecha_hoy = datetime.now().strftime('%Y-%m-%d')
+                pedidos_hoy = [p for p in pedidos if p.get('Fecha') and p['Fecha'].strftime('%Y-%m-%d') == fecha_hoy]
+                urgentes_hoy = [p for p in pedidos_hoy if p.get('Prioridad') == 'Urgente']
+                aprobados_hoy = [p for p in pedidos_hoy if p.get('Estado') == 'Aprobado']
+                pendientes_hoy = [p for p in pedidos_hoy if p.get('Estado') == 'Pendiente']
+                consolidados_hoy = [p for p in pedidos_hoy if p.get('Tipo_Pedido') == 'Consolidado']
+                
+                stats = {
+                    'total_hoy': len(pedidos_hoy),
+                    'urgentes_hoy': len(urgentes_hoy),
+                    'aprobados_hoy': len(aprobados_hoy),
+                    'pendientes_hoy': len(pendientes_hoy),
+                    'consolidados_hoy': len(consolidados_hoy),
+                    'fecha_hoy': fecha_hoy
+                }
+            
+            return render_template('admin/ventas/pedidos/pedidos_venta.html',
+                                 pedidos=pedidos,
+                                 estados=estados,
+                                 tipos_entrega=tipos_entrega,
+                                 tipos_cliente=tipos_cliente,
+                                 prioridades=prioridades,
+                                 tipos_pedido=tipos_pedido,
+                                 opciones_ruta=opciones_ruta,
+                                 rutas=rutas,
+                                 perfiles_cliente=perfiles_cliente,
+                                 es_rol_bodega=es_rol_bodega,
+                                 stats=stats,
+                                 now=datetime.now())
+            
+    except Exception as e:
+        print(f"❌ Error en admin_pedidos_venta: {str(e)}")
+        traceback.print_exc()
+        flash(f"Error al cargar pedidos de venta: {str(e)}", "error")
+        return redirect(url_for('admin_dashboard'))
+
+
+@app.route('/admin/ventas/pedidos-venta/filtrar', methods=['POST'])
+def filtrar_pedidos():
+    """
+    Filtro avanzado para el listado de pedidos
+    Incluye filtro por perfil_cliente
+    """
+    try:
+        estado = request.form.get('estado', 'todos')
+        fecha_inicio = request.form.get('fecha_inicio')
+        fecha_fin = request.form.get('fecha_fin')
+        tipo_entrega = request.form.get('tipo_entrega', 'todos')
+        tipo_cliente = request.form.get('tipo_cliente', 'todos')
+        prioridad = request.form.get('prioridad', 'todos')
+        tipo_pedido = request.form.get('tipo_pedido', 'todos')
+        es_pedido_ruta = request.form.get('es_pedido_ruta', 'todos')
+        id_ruta = request.form.get('id_ruta', 'todos')
+        perfil_cliente = request.form.get('perfil_cliente', 'todos')
+        documento_cliente = request.form.get('documento_cliente', '').strip()
+        nombre_cliente = request.form.get('nombre_cliente', '').strip()
+        
+        condiciones = ["(c.ID_Cliente IS NULL OR c.Estado = 'ACTIVO')"]
+        parametros = []
+        
+        if estado != 'todos':
+            condiciones.append("p.Estado = %s")
+            parametros.append(estado)
+        
+        if fecha_inicio:
+            condiciones.append("p.Fecha >= %s")
+            parametros.append(fecha_inicio)
+        
+        if fecha_fin:
+            condiciones.append("p.Fecha <= %s")
+            parametros.append(fecha_fin)
+        
+        if tipo_entrega != 'todos':
+            condiciones.append("p.Tipo_Entrega = %s")
+            parametros.append(tipo_entrega)
+        
+        if tipo_cliente != 'todos':
+            condiciones.append("c.tipo_cliente = %s")
+            parametros.append(tipo_cliente)
+        
+        if perfil_cliente != 'todos':
+            condiciones.append("c.perfil_cliente = %s")
+            parametros.append(perfil_cliente)
+        
+        if prioridad != 'todos':
+            condiciones.append("p.Prioridad = %s")
+            parametros.append(prioridad)
+        
+        if tipo_pedido != 'todos':
+            condiciones.append("p.Tipo_Pedido = %s")
+            parametros.append(tipo_pedido)
+        
+        if es_pedido_ruta != 'todos':
+            condiciones.append("p.Es_Pedido_Ruta = %s")
+            parametros.append(es_pedido_ruta)
+        
+        if id_ruta != 'todos':
+            condiciones.append("p.ID_Ruta = %s")
+            parametros.append(id_ruta)
+        
+        if documento_cliente:
+            condiciones.append("c.RUC_CEDULA LIKE %s")
+            parametros.append(f"%{documento_cliente}%")
+        
+        if nombre_cliente:
+            condiciones.append("c.Nombre LIKE %s")
+            parametros.append(f"%{nombre_cliente}%")
+        
+        with get_db_cursor(True) as cursor:
+            # Obtener lista de rutas para el select
+            cursor.execute("SELECT ID_Ruta, Nombre_Ruta FROM rutas WHERE Estado = 1 ORDER BY Nombre_Ruta")
+            rutas = cursor.fetchall()
+            
+            sql_base = """
+            SELECT 
+                p.ID_Pedido,
+                p.Fecha,
+                p.Estado,
+                p.Tipo_Entrega,
+                p.Observacion,
+                p.Fecha_Creacion,
+                p.Prioridad,
+                p.Tipo_Pedido,
+                p.Es_Pedido_Ruta,
+                p.ID_Ruta,
+                r.Nombre_Ruta,
+                c.ID_Cliente,
+                c.Nombre as Nombre_Cliente,
+                c.Telefono as Telefono_Cliente,
+                c.RUC_CEDULA as Documento_Cliente,
+                c.tipo_cliente as Tipo_Cliente,
+                c.perfil_cliente as Perfil_Cliente,
+                e.Nombre_Empresa,
+                u.NombreUsuario as Usuario_Creacion,
+                CASE 
+                    WHEN p.Tipo_Pedido = 'Consolidado' THEN (
+                        SELECT COALESCE(SUM(pcp.Cantidad_Total), 0)
+                        FROM pedidos_consolidados_productos pcp
+                        WHERE pcp.ID_Pedido = p.ID_Pedido
+                    )
+                    ELSE COALESCE(SUM(dp.Cantidad), 0)
+                END as Total_Items,
+                CASE 
+                    WHEN p.Tipo_Pedido = 'Consolidado' THEN (
+                        -- CONSOLIDADOS: Precio_Ruta
+                        SELECT COALESCE(SUM(pcp.Cantidad_Total * pr.Precio_Ruta), 0)
+                        FROM pedidos_consolidados_productos pcp
+                        JOIN productos pr ON pcp.ID_Producto = pr.ID_Producto
+                        WHERE pcp.ID_Pedido = p.ID_Pedido
+                    )
+                    ELSE COALESCE(SUM(
+                        -- INDIVIDUALES: precio según perfil_cliente
+                        dp.Cantidad * 
+                        CASE c.perfil_cliente
+                            WHEN 'Ruta' THEN pr.Precio_Ruta
+                            WHEN 'Mayorista' THEN pr.Precio_Mayorista
+                            WHEN 'Mercado' THEN pr.Precio_Mercado
+                            WHEN 'Especial' THEN pr.Precio_Mercado
+                            ELSE pr.Precio_Mercado
+                        END
+                    ), 0)
+                END as Total_Pedido
+            FROM pedidos p
+            LEFT JOIN clientes c ON p.ID_Cliente = c.ID_Cliente
+            LEFT JOIN empresa e ON p.ID_Empresa = e.ID_Empresa
+            LEFT JOIN usuarios u ON p.ID_Usuario_Creacion = u.ID_Usuario
+            LEFT JOIN rutas r ON p.ID_Ruta = r.ID_Ruta
+            LEFT JOIN detalle_pedidos dp ON p.ID_Pedido = dp.ID_Pedido AND p.Tipo_Pedido != 'Consolidado'
+            LEFT JOIN productos pr ON dp.ID_Producto = pr.ID_Producto
+            """
+            
+            if condiciones:
+                sql_base += " WHERE " + " AND ".join(condiciones)
+            
+            sql_base += """
+            GROUP BY p.ID_Pedido, p.Fecha, p.Estado, p.Tipo_Entrega, p.Observacion, 
+                     p.Fecha_Creacion, p.Prioridad, p.Tipo_Pedido, p.Es_Pedido_Ruta,
+                     p.ID_Ruta, r.Nombre_Ruta, c.ID_Cliente, c.Nombre, c.Telefono, 
+                     c.RUC_CEDULA, c.tipo_cliente, c.perfil_cliente, e.Nombre_Empresa, u.NombreUsuario
+            ORDER BY 
+                CASE p.Prioridad
+                    WHEN 'Urgente' THEN 1
+                    WHEN 'Normal' THEN 2
+                    WHEN 'Bajo' THEN 3
+                    ELSE 4
+                END,
+                p.Fecha DESC, 
+                p.ID_Pedido DESC
+            """
+            
+            cursor.execute(sql_base, tuple(parametros))
+            pedidos = cursor.fetchall()
+            
+            estados = ['Pendiente', 'Aprobado', 'Entregado', 'Cancelado']
+            tipos_entrega = ['Retiro en local', 'Entrega a domicilio']
+            tipos_cliente = ['Comun', 'Especial']
+            prioridades = ['Urgente', 'Normal', 'Bajo']
+            tipos_pedido = ['Individual', 'Consolidado']
+            opciones_ruta = ['SI', 'NO']
+            perfiles_cliente = ['Ruta', 'Mayorista', 'Mercado', 'Especial']
+            
+            return render_template('admin/ventas/pedidos/pedidos_venta.html',
+                                 pedidos=pedidos,
+                                 estados=estados,
+                                 tipos_entrega=tipos_entrega,
+                                 tipos_cliente=tipos_cliente,
+                                 prioridades=prioridades,
+                                 tipos_pedido=tipos_pedido,
+                                 opciones_ruta=opciones_ruta,
+                                 rutas=rutas,
+                                 perfiles_cliente=perfiles_cliente,
+                                 filtros_aplicados={
+                                     'estado': estado,
+                                     'fecha_inicio': fecha_inicio,
+                                     'fecha_fin': fecha_fin,
+                                     'tipo_entrega': tipo_entrega,
+                                     'tipo_cliente': tipo_cliente,
+                                     'perfil_cliente': perfil_cliente,
+                                     'prioridad': prioridad,
+                                     'tipo_pedido': tipo_pedido,
+                                     'es_pedido_ruta': es_pedido_ruta,
+                                     'id_ruta': id_ruta,
+                                     'documento_cliente': documento_cliente,
+                                     'nombre_cliente': nombre_cliente
+                                 },
+                                 now=datetime.now())
+            
+    except Exception as e:
+        flash(f"Error al filtrar pedidos: {e}", "error")
+        return redirect(url_for('admin_pedidos_venta'))
+
+
+@app.route('/admin/ventas/pedido-venta/<int:id_pedido>')
+@admin_or_bodega_required
+def ver_pedido(id_pedido):
+    """
+    Ver detalle completo de un pedido
+    - Individuales: muestra el precio según perfil_cliente del cliente
+    - Consolidados: siempre muestra Precio_Ruta
+    """
+    try:
+        with get_db_cursor(True) as cursor:
+            # Obtener información del pedido
+            sql_pedido = """
+            SELECT 
+                p.*,
+                c.ID_Cliente,
+                c.Nombre as Nombre_Cliente,
+                c.Telefono as Telefono_Cliente,
+                c.Direccion as Direccion_Cliente,
+                c.RUC_CEDULA as Documento_Cliente,
+                c.tipo_cliente as Tipo_Cliente,
+                c.perfil_cliente as Perfil_Cliente,
+                c.Estado as Estado_Cliente,
+                e.Nombre_Empresa,
+                e.Direccion as Direccion_Empresa,
+                e.Telefono as Telefono_Empresa,
+                e.RUC as RUC_Empresa,
+                u.NombreUsuario as Usuario_Creacion,
+                r.Nombre_Ruta,
+                r.Descripcion as Descripcion_Ruta
+            FROM pedidos p
+            LEFT JOIN clientes c ON p.ID_Cliente = c.ID_Cliente
+            LEFT JOIN empresa e ON p.ID_Empresa = e.ID_Empresa
+            LEFT JOIN usuarios u ON p.ID_Usuario_Creacion = u.ID_Usuario
+            LEFT JOIN rutas r ON p.ID_Ruta = r.ID_Ruta
+            WHERE p.ID_Pedido = %s
+            """
+            
+            cursor.execute(sql_pedido, (id_pedido,))
+            pedido = cursor.fetchone()
+            
+            if not pedido:
+                flash("Pedido no encontrado", "error")
+                return redirect(url_for('admin_pedidos_venta'))
+            
+            # Obtener detalles según tipo de pedido
+            if pedido['Tipo_Pedido'] == 'Consolidado':
+                # PARA CONSOLIDADOS: SIEMPRE usar Precio_Ruta
+                cursor.execute("""
+                    SELECT 
+                        pcp.ID_Pedido_Consolidado_Producto,
+                        pcp.ID_Producto,
+                        pcp.Cantidad_Total as Cantidad,
+                        pcp.Fecha_Creacion,
+                        u.NombreUsuario as Usuario_Creacion,
+                        pr.COD_Producto,
+                        pr.Descripcion as Nombre_Producto,
+                        pr.Precio_Ruta as Precio_Unitario,
+                        pr.Precio_Mercado,
+                        pr.Precio_Mayorista,
+                        pr.Precio_Ruta,
+                        pr.Unidad_Medida,
+                        um.Descripcion as Unidad_Nombre,
+                        um.Abreviatura as Unidad_Abreviatura,
+                        cat.Descripcion as Categoria,
+                        (pcp.Cantidad_Total * pr.Precio_Ruta) as Subtotal
+                    FROM pedidos_consolidados_productos pcp
+                    LEFT JOIN productos pr ON pcp.ID_Producto = pr.ID_Producto
+                    LEFT JOIN unidades_medida um ON pr.Unidad_Medida = um.ID_Unidad
+                    LEFT JOIN categorias_producto cat ON pr.ID_Categoria = cat.ID_Categoria
+                    LEFT JOIN usuarios u ON pcp.ID_Usuario_Creacion = u.ID_Usuario
+                    WHERE pcp.ID_Pedido = %s
+                    ORDER BY pr.Descripcion
+                """, (id_pedido,))
+                detalles = cursor.fetchall()
+                
+                # Calcular totales
+                cursor.execute("""
+                    SELECT 
+                        COALESCE(SUM(pcp.Cantidad_Total), 0) as Total_Cantidad,
+                        COALESCE(SUM(pcp.Cantidad_Total * pr.Precio_Ruta), 0) as Total_General,
+                        COUNT(DISTINCT pcp.ID_Producto) as Total_Productos
+                    FROM pedidos_consolidados_productos pcp
+                    LEFT JOIN productos pr ON pcp.ID_Producto = pr.ID_Producto
+                    WHERE pcp.ID_Pedido = %s
+                """, (id_pedido,))
+                totales = cursor.fetchone()
+                
+            else:
+                # PARA INDIVIDUALES: usar precio según perfil_cliente
+                perfil_cliente = pedido.get('Perfil_Cliente', 'Mercado')
+                
+                cursor.execute("""
+                    SELECT 
+                        dp.*,
+                        pr.COD_Producto,
+                        pr.Descripcion as Nombre_Producto,
+                        pr.Precio_Mercado,
+                        pr.Precio_Mayorista,
+                        pr.Precio_Ruta,
+                        pr.Unidad_Medida,
+                        um.Descripcion as Unidad_Nombre,
+                        um.Abreviatura as Unidad_Abreviatura,
+                        cat.Descripcion as Categoria,
+                        -- Mostrar el precio según el perfil del cliente
+                        CASE %s
+                            WHEN 'Ruta' THEN pr.Precio_Ruta
+                            WHEN 'Mayorista' THEN pr.Precio_Mayorista
+                            WHEN 'Mercado' THEN pr.Precio_Mercado
+                            WHEN 'Especial' THEN pr.Precio_Mercado
+                            ELSE pr.Precio_Mercado
+                        END as Precio_Segun_Perfil,
+                        -- Calcular subtotal según el perfil
+                        COALESCE(dp.Subtotal, dp.Cantidad * 
+                            CASE %s
+                                WHEN 'Ruta' THEN pr.Precio_Ruta
+                                WHEN 'Mayorista' THEN pr.Precio_Mayorista
+                                WHEN 'Mercado' THEN pr.Precio_Mercado
+                                WHEN 'Especial' THEN pr.Precio_Mercado
+                                ELSE pr.Precio_Mercado
+                            END) as Subtotal
+                    FROM detalle_pedidos dp
+                    LEFT JOIN productos pr ON dp.ID_Producto = pr.ID_Producto
+                    LEFT JOIN unidades_medida um ON pr.Unidad_Medida = um.ID_Unidad
+                    LEFT JOIN categorias_producto cat ON pr.ID_Categoria = cat.ID_Categoria
+                    WHERE dp.ID_Pedido = %s
+                    ORDER BY dp.ID_Detalle_Pedido
+                """, (perfil_cliente, perfil_cliente, id_pedido))
+                detalles = cursor.fetchall()
+                
+                cursor.execute("""
+                    SELECT 
+                        COALESCE(SUM(dp.Cantidad), 0) as Total_Cantidad,
+                        COALESCE(SUM(COALESCE(dp.Subtotal, 
+                            dp.Cantidad * 
+                            CASE %s
+                                WHEN 'Ruta' THEN pr.Precio_Ruta
+                                WHEN 'Mayorista' THEN pr.Precio_Mayorista
+                                WHEN 'Mercado' THEN pr.Precio_Mercado
+                                WHEN 'Especial' THEN pr.Precio_Mercado
+                                ELSE pr.Precio_Mercado
+                            END)), 0) as Total_General,
+                        COUNT(DISTINCT dp.ID_Producto) as Total_Productos
+                    FROM detalle_pedidos dp
+                    LEFT JOIN productos pr ON dp.ID_Producto = pr.ID_Producto
+                    WHERE dp.ID_Pedido = %s
+                """, (perfil_cliente, id_pedido))
+                totales = cursor.fetchone()
+            
+            return render_template('admin/ventas/pedidos/detalle_pedido.html',
+                                 pedido=pedido,
+                                 detalles=detalles,
+                                 totales=totales)
+            
+    except Exception as e:
+        flash(f"Error al cargar el pedido: {str(e)}", "error")
+        print(f"Error detallado: {traceback.format_exc()}")
+        return redirect(url_for('admin_pedidos_venta'))
+
+
+@app.route('/admin/ventas/cambiar-estado/<int:id_pedido>', methods=['POST'])
+@admin_or_bodega_required
+@bitacora_decorator("CAMBIAR_ESTADO_PEDIDO")
+def cambiar_estado_pedido(id_pedido):
+    """
+    Cambiar estado de un pedido (Pendiente, Aprobado, Entregado, Cancelado)
+    Registra el cambio en historial si la tabla existe
+    """
+    try:
+        data = request.get_json()
+        nuevo_estado = data.get('estado')
+        
+        if nuevo_estado not in ['Pendiente', 'Aprobado', 'Entregado', 'Cancelado']:
+            return jsonify({'success': False, 'message': 'Estado inválido'}), 400
+        
+        with get_db_cursor() as cursor:
+            # Verificar que el pedido existe
+            cursor.execute("SELECT Estado, Tipo_Pedido FROM pedidos WHERE ID_Pedido = %s", (id_pedido,))
+            pedido = cursor.fetchone()
+            
+            if not pedido:
+                return jsonify({'success': False, 'message': 'Pedido no encontrado'}), 404
+            
+            # Actualizar estado
+            sql = """
+            UPDATE pedidos 
+            SET Estado = %s,
+                Fecha_Creacion = CASE 
+                    WHEN %s = 'Entregado' THEN CURRENT_TIMESTAMP 
+                    ELSE Fecha_Creacion 
+                END
+            WHERE ID_Pedido = %s
+            """
+            
+            cursor.execute(sql, (nuevo_estado, nuevo_estado, id_pedido))
+            
+            # Registrar en historial (si existe tabla)
+            try:
+                cursor.execute("""
+                    INSERT INTO pedidos_historial_estados 
+                    (ID_Pedido, Estado_Anterior, Estado_Nuevo, ID_Usuario)
+                    VALUES (%s, %s, %s, %s)
+                """, (id_pedido, pedido['Estado'], nuevo_estado, current_user.id))
+            except:
+                pass  # La tabla puede no existir
+            
+            return jsonify({'success': True, 'message': 'Estado actualizado correctamente'})
+            
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+
+@app.route('/admin/ventas/cancelar-pedido/<int:pedido_id>', methods=['POST'])
+@admin_required
+@bitacora_decorator("CANCELAR_PEDIDO")
+def cancelar_pedido(pedido_id):
+    """
+    Cancelar un pedido y devolver el stock a inventario
+    Solo aplica para pedidos en estado Pendiente o Aprobado
+    """
+    try:
+        with get_db_cursor() as cursor:
+            # Verificar que el pedido existe y está pendiente o aprobado
+            sql_verificar = """
+            SELECT Estado FROM pedidos 
+            WHERE ID_Pedido = %s AND Estado IN ('Pendiente', 'Aprobado')
+            """
+            cursor.execute(sql_verificar, (pedido_id,))
+            pedido = cursor.fetchone()
+            
+            if not pedido:
+                return jsonify({'success': False, 'message': 'Pedido no encontrado o no se puede cancelar'}), 400
+            
+            # Obtener productos del pedido para devolver al stock
+            sql_productos = """
+            SELECT dp.ID_Producto, dp.Cantidad 
+            FROM detalle_pedidos dp
+            WHERE dp.ID_Pedido = %s
+            """
+            cursor.execute(sql_productos, (pedido_id,))
+            productos = cursor.fetchall()
+            
+            # Devolver stock a las bodegas (se devuelve a la primera bodega disponible)
+            for producto in productos:
+                # Obtener bodegas de la empresa del pedido
+                sql_bodegas = """
+                SELECT b.ID_Bodega 
+                FROM pedidos p
+                JOIN bodegas b ON p.ID_Empresa = b.ID_Empresa
+                WHERE p.ID_Pedido = %s AND b.Estado = 'ACTIVO'
+                ORDER BY b.ID_Bodega
+                LIMIT 1
                 """
-                cursor.execute(sql_bodegas_stock, (producto['id'],))
-                bodegas_stock = cursor.fetchall()
+                cursor.execute(sql_bodegas, (pedido_id,))
+                bodega = cursor.fetchone()
                 
-                for bodega in bodegas_stock:
-                    if cantidad_a_descontar <= 0:
-                        break
-                    
-                    stock_disponible = bodega['Existencias']
-                    id_bodega = bodega['ID_Bodega']
-                    
-                    if stock_disponible >= cantidad_a_descontar:
-                        sql_update = """
-                        UPDATE inventario_bodega 
-                        SET Existencias = Existencias - %s
-                        WHERE ID_Bodega = %s AND ID_Producto = %s
-                        """
-                        cursor.execute(sql_update, (cantidad_a_descontar, id_bodega, producto['id']))
-                        cantidad_a_descontar = 0
-                    else:
-                        sql_update = """
-                        UPDATE inventario_bodega 
-                        SET Existencias = Existencias - %s
-                        WHERE ID_Bodega = %s AND ID_Producto = %s
-                        """
-                        cursor.execute(sql_update, (stock_disponible, id_bodega, producto['id']))
-                        cantidad_a_descontar -= stock_disponible
-                
-                if cantidad_a_descontar > 0:
-                    raise Exception(f"No se pudo descontar todo el stock para el producto {producto['id']}")
+                if bodega:
+                    # Actualizar inventario_bodega
+                    sql_update = """
+                    INSERT INTO inventario_bodega (ID_Bodega, ID_Producto, Existencias)
+                    VALUES (%s, %s, %s)
+                    ON DUPLICATE KEY UPDATE Existencias = Existencias + VALUES(Existencias)
+                    """
+                    cursor.execute(sql_update, (bodega['ID_Bodega'], producto['ID_Producto'], producto['Cantidad']))
             
-            # Generar la URL para redirigir al detalle del pedido
-            redirect_url = url_for('ver_pedido', id_pedido=pedido_id)
+            # Actualizar estado del pedido
+            sql_actualizar = """
+            UPDATE pedidos 
+            SET Estado = 'Cancelado' 
+            WHERE ID_Pedido = %s
+            """
+            cursor.execute(sql_actualizar, (pedido_id,))
             
-            # Log para debugging
-            print(f"✅ Pedido #{pedido_id} creado exitosamente con perfil {perfil_cliente}")
-            print(f"   Redirigiendo a: {redirect_url}")
+            # Registrar en bitácora
+            cursor.execute("""
+                INSERT INTO bitacora (ID_Usuario, Accion, Descripcion, Fecha)
+                VALUES (%s, 'CANCELAR_PEDIDO', %s, NOW())
+            """, (session.get('user_id'), f'Pedido #{pedido_id} cancelado'))
             
             return jsonify({
                 'success': True, 
-                'message': 'Pedido creado exitosamente',
-                'pedido_id': pedido_id,
-                'redirect_url': redirect_url,
-                'perfil_cliente': perfil_cliente  # NUEVO
+                'message': 'Pedido cancelado exitosamente'
             })
             
     except Exception as e:
-        print(f"❌ Error al crear pedido: {str(e)}")
-        traceback.print_exc()
         return jsonify({'success': False, 'message': str(e)}), 500
- 
+
+
 @app.route('/admin/ventas/procesar-pedido/<int:id_pedido>', methods=['GET', 'POST'])
 @admin_or_bodega_required
 @bitacora_decorator("PROCESAR_VENTA_PEDIDO")
 def admin_procesar_venta_pedido(id_pedido):
     """
     Procesar venta desde un pedido aprobado
+    Respeta el perfil_cliente para elegir el precio correcto en individuales
     """
     try:
         # Obtener ID de empresa y usuario desde la sesión
@@ -9691,7 +10080,7 @@ def admin_procesar_venta_pedido(id_pedido):
             return redirect(url_for('admin_pedidos_venta'))
 
         with get_db_cursor(True) as cursor:
-            # Obtener información del pedido (ahora incluye perfil_cliente)
+            # Obtener información del pedido con perfil_cliente
             cursor.execute("""
                 SELECT 
                     p.ID_Pedido,
@@ -9702,10 +10091,11 @@ def admin_procesar_venta_pedido(id_pedido):
                     p.Prioridad,
                     p.ID_Cliente,
                     p.ID_Empresa,
+                    p.Tipo_Pedido,
                     c.Nombre as Nombre_Cliente,
                     c.RUC_CEDULA as Documento_Cliente,
                     c.tipo_cliente as Tipo_Cliente,
-                    c.perfil_cliente as Perfil_Cliente,  -- NUEVO
+                    c.perfil_cliente as Perfil_Cliente,
                     c.Direccion as Direccion_Cliente,
                     c.Telefono as Telefono_Cliente,
                     e.Nombre_Empresa,
@@ -9730,33 +10120,58 @@ def admin_procesar_venta_pedido(id_pedido):
                 return redirect(url_for('admin_pedidos_venta'))
             
             perfil_cliente = pedido.get('Perfil_Cliente', 'Mercado')
+            tipo_pedido = pedido.get('Tipo_Pedido')
             
-            # Obtener los detalles del pedido (ahora con precios según perfil)
-            cursor.execute("""
-                SELECT 
-                    dp.ID_Detalle_Pedido,
-                    dp.ID_Producto,
-                    dp.Cantidad,
-                    dp.Precio_Unitario,
-                    dp.Subtotal,
-                    p.COD_Producto,
-                    p.Descripcion,
-                    p.Precio_Mercado,
-                    p.Precio_Mayorista,
-                    p.Precio_Ruta,
-                    cp.Descripcion as Categoria,
-                    CASE %s
-                        WHEN 'Ruta' THEN p.Precio_Ruta
-                        WHEN 'Mayorista' THEN p.Precio_Mayorista
-                        WHEN 'Mercado' THEN p.Precio_Mercado
-                        ELSE p.Precio_Mercado
-                    END as Precio_Segun_Perfil
-                FROM detalle_pedidos dp
-                LEFT JOIN productos p ON dp.ID_Producto = p.ID_Producto
-                LEFT JOIN categorias_producto cp ON p.ID_Categoria = cp.ID_Categoria
-                WHERE dp.ID_Pedido = %s
-                ORDER BY dp.ID_Detalle_Pedido
-            """, (perfil_cliente, id_pedido))
+            # Obtener los detalles del pedido según el tipo
+            if tipo_pedido == 'Consolidado':
+                # Para consolidados: obtener detalles con Precio_Ruta
+                cursor.execute("""
+                    SELECT 
+                        pcp.ID_Pedido_Consolidado_Producto as ID_Detalle_Pedido,
+                        pcp.ID_Producto,
+                        pcp.Cantidad_Total as Cantidad,
+                        pr.Precio_Ruta as Precio_Unitario,
+                        (pcp.Cantidad_Total * pr.Precio_Ruta) as Subtotal,
+                        pr.COD_Producto,
+                        pr.Descripcion,
+                        pr.Precio_Mercado,
+                        pr.Precio_Mayorista,
+                        pr.Precio_Ruta,
+                        cp.Descripcion as Categoria
+                    FROM pedidos_consolidados_productos pcp
+                    LEFT JOIN productos pr ON pcp.ID_Producto = pr.ID_Producto
+                    LEFT JOIN categorias_producto cp ON pr.ID_Categoria = cp.ID_Categoria
+                    WHERE pcp.ID_Pedido = %s
+                    ORDER BY pr.Descripcion
+                """, (id_pedido,))
+            else:
+                # Para individuales: obtener detalles con precio según perfil
+                cursor.execute("""
+                    SELECT 
+                        dp.ID_Detalle_Pedido,
+                        dp.ID_Producto,
+                        dp.Cantidad,
+                        dp.Precio_Unitario,
+                        dp.Subtotal,
+                        pr.COD_Producto,
+                        pr.Descripcion,
+                        pr.Precio_Mercado,
+                        pr.Precio_Mayorista,
+                        pr.Precio_Ruta,
+                        cp.Descripcion as Categoria,
+                        CASE %s
+                            WHEN 'Ruta' THEN pr.Precio_Ruta
+                            WHEN 'Mayorista' THEN pr.Precio_Mayorista
+                            WHEN 'Mercado' THEN pr.Precio_Mercado
+                            WHEN 'Especial' THEN pr.Precio_Mercado
+                            ELSE pr.Precio_Mercado
+                        END as Precio_Segun_Perfil
+                    FROM detalle_pedidos dp
+                    LEFT JOIN productos pr ON dp.ID_Producto = pr.ID_Producto
+                    LEFT JOIN categorias_producto cp ON pr.ID_Categoria = cp.ID_Categoria
+                    WHERE dp.ID_Pedido = %s
+                    ORDER BY dp.ID_Detalle_Pedido
+                """, (perfil_cliente, id_pedido))
             
             detalles_pedido = cursor.fetchall()
             
@@ -9839,7 +10254,7 @@ def admin_procesar_venta_pedido(id_pedido):
                                 total_pedido=total_pedido,
                                 total_cajillas_huevos=total_cajillas_huevos,
                                 bodega_principal=bodega_principal,
-                                perfil_cliente=perfil_cliente,  # NUEVO
+                                perfil_cliente=perfil_cliente,
                                 now=datetime.now(),
                                 current_user=current_user)
         
@@ -10114,7 +10529,7 @@ def admin_procesar_venta_pedido(id_pedido):
                         f'FAC-{id_factura:05d}'
                     ))
                 
-                # 11. CORREGIDO: Actualizar solo el estado del pedido a "Entregado"
+                # 11. Actualizar el estado del pedido a "Entregado"
                 cursor.execute("""
                     UPDATE pedidos 
                     SET Estado = 'Entregado'
@@ -10146,13 +10561,89 @@ def admin_procesar_venta_pedido(id_pedido):
         flash(error_msg, 'error')
         return redirect(url_for('admin_pedidos_venta'))
 
-# Ruta adicional para buscar productos por nombre o código
+
+# ============================================
+# API ENDPOINTS (DATOS PARA AJAX)
+# ============================================
+
+@app.route('/admin/ventas/buscar-clientes')
+@admin_required
+def buscar_clientes():
+    """
+    API para buscar clientes (autocompletado)
+    AHORA INCLUYE: perfil_cliente para determinar qué precio aplicar
+    Retorna clientes activos que coincidan con nombre, documento o teléfono
+    """
+    try:
+        termino = request.args.get('q', '')
+        
+        if not termino or len(termino) < 2:
+            return jsonify([])
+        
+        with get_db_cursor(True) as cursor:
+            sql = """
+            SELECT 
+                ID_Cliente,
+                Nombre,
+                RUC_CEDULA as Documento,
+                Telefono,
+                Direccion,
+                tipo_cliente as Tipo,
+                perfil_cliente as Perfil,  -- NUEVO: incluimos el perfil
+                ID_Ruta  -- NUEVO: incluimos la ruta asignada
+            FROM clientes 
+            WHERE Estado = 'ACTIVO'
+            AND (Nombre LIKE %s OR RUC_CEDULA LIKE %s OR Telefono LIKE %s)
+            ORDER BY Nombre
+            LIMIT 20
+            """
+            
+            termino_busqueda = f"%{termino}%"
+            cursor.execute(sql, (termino_busqueda, termino_busqueda, termino_busqueda))
+            clientes = cursor.fetchall()
+            
+            # Convertir a lista de diccionarios incluyendo el perfil
+            resultados = []
+            for cliente in clientes:
+                # Determinar qué tipo de precio aplica según el perfil
+                tipo_precio = {
+                    'Ruta': 'Precio de Ruta',
+                    'Mayorista': 'Precio Mayorista',
+                    'Mercado': 'Precio de Mercado',
+                    'Especial': 'Precio Especial (Mercado)'
+                }.get(cliente['Perfil'], 'Precio de Mercado')
+                
+                resultados.append({
+                    'id': cliente['ID_Cliente'],
+                    'text': f"{cliente['Nombre']} - {cliente['Documento'] or 'Sin documento'} ({cliente['Perfil']})",
+                    'nombre': cliente['Nombre'],
+                    'documento': cliente['Documento'],
+                    'telefono': cliente['Telefono'],
+                    'direccion': cliente['Direccion'],
+                    'tipo': cliente['Tipo'],
+                    'perfil': cliente['Perfil'],  # NUEVO
+                    'id_ruta': cliente['ID_Ruta'],  # NUEVO
+                    'tipo_precio': tipo_precio  # NUEVO: para mostrar en el frontend
+                })
+            
+            return jsonify(resultados)
+            
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
 @app.route('/admin/ventas/buscar-productos')
 @admin_required
 def buscar_productos():
+    """
+    API para buscar productos (autocompletado)
+    AHORA INCLUYE: TODOS los precios (Mercado, Mayorista, Ruta)
+    para poder elegir según el perfil del cliente
+    """
     try:
         termino = request.args.get('q', '')
         tipo_cliente = request.args.get('tipo_cliente', '')
+        perfil_cliente = request.args.get('perfil_cliente', 'Mercado')  # NUEVO: perfil del cliente
         
         if not termino or len(termino) < 2:
             return jsonify([])
@@ -10165,6 +10656,8 @@ def buscar_productos():
                     p.ID_Producto,
                     p.Descripcion as Nombre_Producto,
                     p.COD_Producto,
+                    p.Precio_Mercado,
+                    p.Precio_Mayorista,
                     p.Precio_Ruta,
                     p.Unidad_Medida,
                     u.Descripcion as Unidad_Descripcion,
@@ -10180,7 +10673,8 @@ def buscar_productos():
                 AND p.Estado = 'activo'
                 AND cv.tipo_cliente = %s
                 AND cv.visible = 1
-                GROUP BY p.ID_Producto, p.Descripcion, p.COD_Producto, p.Precio_Ruta,
+                GROUP BY p.ID_Producto, p.Descripcion, p.COD_Producto, 
+                         p.Precio_Mercado, p.Precio_Mayorista, p.Precio_Ruta,
                          p.Unidad_Medida, u.Descripcion, u.Abreviatura, cp.Descripcion
                 HAVING Stock_Total > 0
                 ORDER BY p.Descripcion
@@ -10194,7 +10688,9 @@ def buscar_productos():
                     p.ID_Producto,
                     p.Descripcion as Nombre_Producto,
                     p.COD_Producto,
-                    p.Precio_Ruta as Precio_Venta,
+                    p.Precio_Mercado,
+                    p.Precio_Mayorista,
+                    p.Precio_Ruta,
                     p.Unidad_Medida,
                     u.Descripcion as Unidad_Descripcion,
                     u.Abreviatura as Unidad_Abreviatura,
@@ -10206,7 +10702,8 @@ def buscar_productos():
                 LEFT JOIN inventario_bodega ib ON p.ID_Producto = ib.ID_Producto
                 WHERE (p.Descripcion LIKE %s OR p.COD_Producto LIKE %s)
                 AND p.Estado = 'activo'
-                GROUP BY p.ID_Producto, p.Descripcion, p.COD_Producto, p.Precio_Ruta,
+                GROUP BY p.ID_Producto, p.Descripcion, p.COD_Producto, 
+                         p.Precio_Mercado, p.Precio_Mayorista, p.Precio_Ruta,
                          p.Unidad_Medida, u.Descripcion, u.Abreviatura, cp.Descripcion
                 HAVING Stock_Total > 0
                 ORDER BY p.Descripcion
@@ -10217,15 +10714,35 @@ def buscar_productos():
             
             productos = cursor.fetchall()
             
-            # Convertir a lista de diccionarios
+            # Convertir a lista de diccionarios con TODOS los precios
             resultados = []
             for producto in productos:
+                # Determinar el precio según el perfil del cliente (si se proporciona)
+                precio_segun_perfil = 0
+                if perfil_cliente == 'Ruta':
+                    precio_segun_perfil = float(producto['Precio_Ruta'] or 0)
+                elif perfil_cliente == 'Mayorista':
+                    precio_segun_perfil = float(producto['Precio_Mayorista'] or 0)
+                elif perfil_cliente == 'Mercado':
+                    precio_segun_perfil = float(producto['Precio_Mercado'] or 0)
+                elif perfil_cliente == 'Especial':
+                    precio_segun_perfil = float(producto['Precio_Mercado'] or 0)
+                else:
+                    precio_segun_perfil = float(producto['Precio_Mercado'] or 0)
+                
                 resultados.append({
                     'id': producto['ID_Producto'],
                     'nombre': producto['Nombre_Producto'],
                     'codigo': producto['COD_Producto'],
-                    'precio': float(producto['Precio_Venta']) if producto['Precio_Venta'] else 0,
+                    # Todos los precios disponibles
+                    'precio_mercado': float(producto['Precio_Mercado'] or 0),
+                    'precio_mayorista': float(producto['Precio_Mayorista'] or 0),
+                    'precio_ruta': float(producto['Precio_Ruta'] or 0),
+                    # Precio según el perfil solicitado
+                    'precio': precio_segun_perfil,
+                    'perfil_aplicado': perfil_cliente,  # Para saber qué perfil se usó
                     'stock': float(producto['Stock_Total']) if producto['Stock_Total'] else 0,
+                    'unidad_medida': producto['Unidad_Medida'],
                     'unidad_descripcion': producto['Unidad_Descripcion'] or 'Unidad',
                     'unidad_abreviatura': producto['Unidad_Abreviatura'] or '',
                     'categoria': producto['Categoria_Descripcion'] or ''
@@ -10236,10 +10753,151 @@ def buscar_productos():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-# Ruta para obtener stock detallado por bodega
+@app.route('/admin/ventas/obtener-categorias-visibles')
+@admin_required
+def obtener_categorias_visibles():
+    """
+    API para obtener categorías visibles según tipo de cliente
+    Útil para cargar selectores dinámicos en formularios
+    """
+    try:
+        tipo_cliente = request.args.get('tipo_cliente')
+        
+        if not tipo_cliente:
+            return jsonify({'error': 'Tipo de cliente no especificado'}), 400
+        
+        with get_db_cursor(True) as cursor:
+            # Obtener categorías visibles para el tipo de cliente
+            sql_categorias = """
+            SELECT 
+                cp.ID_Categoria,
+                cp.Descripcion as Nombre_Categoria
+            FROM categorias_producto cp
+            INNER JOIN config_visibilidad_categorias cv ON cp.ID_Categoria = cv.ID_Categoria
+            WHERE cv.tipo_cliente = %s 
+            AND cv.visible = 1
+            ORDER BY cp.Descripcion
+            """
+            
+            cursor.execute(sql_categorias, (tipo_cliente,))
+            categorias = cursor.fetchall()
+            
+            # Convertir a lista de diccionarios
+            categorias_lista = []
+            for categoria in categorias:
+                categorias_lista.append({
+                    'id': categoria['ID_Categoria'],
+                    'nombre': categoria['Nombre_Categoria']
+                })
+            
+            return jsonify({'categorias': categorias_lista})
+            
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/admin/ventas/obtener-productos-categoria')
+@admin_required
+def obtener_productos_categoria():
+    """
+    API para obtener productos de una categoría específica
+    AHORA INCLUYE: TODOS los precios y filtra por perfil_cliente
+    """
+    try:
+        categoria_id = request.args.get('categoria_id')
+        tipo_cliente = request.args.get('tipo_cliente')
+        perfil_cliente = request.args.get('perfil_cliente', 'Mercado')  # NUEVO
+        
+        if not categoria_id or not tipo_cliente:
+            return jsonify({'error': 'Parámetros incompletos'}), 400
+        
+        with get_db_cursor(True) as cursor:
+            # Verificar que la categoría es visible para este tipo de cliente
+            sql_visibilidad = """
+            SELECT visible FROM config_visibilidad_categorias 
+            WHERE ID_Categoria = %s AND tipo_cliente = %s
+            """
+            cursor.execute(sql_visibilidad, (categoria_id, tipo_cliente))
+            config = cursor.fetchone()
+            
+            if not config or not config['visible']:
+                return jsonify({'productos': []})
+            
+            # Obtener productos activos de esta categoría con TODOS los precios
+            sql_productos = """
+            SELECT 
+                p.ID_Producto,
+                p.Descripcion as Nombre_Producto,
+                p.COD_Producto,
+                p.Precio_Mercado,
+                p.Precio_Mayorista,
+                p.Precio_Ruta,
+                p.ID_Categoria,
+                p.Unidad_Medida,
+                u.Descripcion as Unidad_Descripcion,
+                u.Abreviatura as Unidad_Abreviatura,
+                c.Descripcion as Categoria_Descripcion,
+                COALESCE(SUM(ib.Existencias), 0) as Stock_Total
+            FROM productos p
+            LEFT JOIN unidades_medida u ON p.Unidad_Medida = u.ID_Unidad
+            LEFT JOIN categorias_producto c ON p.ID_Categoria = c.ID_Categoria
+            LEFT JOIN inventario_bodega ib ON p.ID_Producto = ib.ID_Producto
+            WHERE p.ID_Categoria = %s 
+            AND p.Estado = 'activo'
+            GROUP BY p.ID_Producto, p.Descripcion, p.COD_Producto, 
+                     p.Precio_Mercado, p.Precio_Mayorista, p.Precio_Ruta,
+                     p.ID_Categoria, p.Unidad_Medida, u.Descripcion, u.Abreviatura, 
+                     c.Descripcion
+            HAVING Stock_Total > 0
+            ORDER BY p.Descripcion
+            """
+            
+            cursor.execute(sql_productos, (categoria_id,))
+            productos = cursor.fetchall()
+            
+            # Convertir a lista de diccionarios con todos los precios
+            productos_lista = []
+            for producto in productos:
+                # Calcular precio según perfil para mostrar por defecto
+                if perfil_cliente == 'Ruta':
+                    precio_segun_perfil = float(producto['Precio_Ruta'] or 0)
+                elif perfil_cliente == 'Mayorista':
+                    precio_segun_perfil = float(producto['Precio_Mayorista'] or 0)
+                else:  # Mercado o Especial
+                    precio_segun_perfil = float(producto['Precio_Mercado'] or 0)
+                
+                productos_lista.append({
+                    'id': producto['ID_Producto'],
+                    'nombre': producto['Nombre_Producto'],
+                    'codigo': producto['COD_Producto'],
+                    # Todos los precios
+                    'precio_mercado': float(producto['Precio_Mercado'] or 0),
+                    'precio_mayorista': float(producto['Precio_Mayorista'] or 0),
+                    'precio_ruta': float(producto['Precio_Ruta'] or 0),
+                    # Precio según perfil (para mostrar por defecto)
+                    'precio': precio_segun_perfil,
+                    'perfil_aplicado': perfil_cliente,
+                    'stock': float(producto['Stock_Total']) if producto['Stock_Total'] else 0,
+                    'categoria_id': producto['ID_Categoria'],
+                    'unidad_medida': producto['Unidad_Medida'],
+                    'unidad_descripcion': producto['Unidad_Descripcion'] or 'Unidad',
+                    'unidad_abreviatura': producto['Unidad_Abreviatura'] or '',
+                    'categoria_descripcion': producto['Categoria_Descripcion'] or ''
+                })
+            
+            return jsonify({'productos': productos_lista})
+            
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
 @app.route('/admin/ventas/obtener-stock-producto/<int:producto_id>')
 @admin_required
 def obtener_stock_producto(producto_id):
+    """
+    API para obtener stock detallado de un producto por bodega
+    AHORA INCLUYE: información de precios del producto
+    """
     try:
         with get_db_cursor(True) as cursor:
             # Obtener stock por bodega
@@ -10268,9 +10926,17 @@ def obtener_stock_producto(producto_id):
             stock_total_result = cursor.fetchone()
             stock_total = stock_total_result['Stock_Total'] if stock_total_result else 0
             
-            # Obtener información del producto
+            # Obtener información completa del producto (con todos los precios)
             sql_producto = """
-            SELECT Descripcion, COD_Producto FROM productos 
+            SELECT 
+                Descripcion, 
+                COD_Producto,
+                Precio_Mercado,
+                Precio_Mayorista,
+                Precio_Ruta,
+                Unidad_Medida,
+                Stock_Minimo
+            FROM productos 
             WHERE ID_Producto = %s
             """
             cursor.execute(sql_producto, (producto_id,))
@@ -10279,6 +10945,13 @@ def obtener_stock_producto(producto_id):
             return jsonify({
                 'producto': producto_info['Descripcion'] if producto_info else 'Producto desconocido',
                 'codigo': producto_info['COD_Producto'] if producto_info else '',
+                'precios': {
+                    'mercado': float(producto_info['Precio_Mercado'] or 0) if producto_info else 0,
+                    'mayorista': float(producto_info['Precio_Mayorista'] or 0) if producto_info else 0,
+                    'ruta': float(producto_info['Precio_Ruta'] or 0) if producto_info else 0
+                },
+                'unidad_medida': producto_info['Unidad_Medida'] if producto_info else None,
+                'stock_minimo': float(producto_info['Stock_Minimo'] or 5) if producto_info else 5,
                 'stock_total': float(stock_total),
                 'bodegas': stock_bodegas
             })
@@ -10286,392 +10959,98 @@ def obtener_stock_producto(producto_id):
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-@app.route('/admin/ventas/procesar-carga-consolidada/<int:id_pedido>', methods=['POST'])
-@admin_or_bodega_required
-@bitacora_decorator("PROCESAR_CARGA_CONSOLIDADA")
-def procesar_carga_consolidada(id_pedido):
-    """
-    Procesa la distribución de carga a vendedores
-    """
-    try:
-        # ============================================
-        # 1. OBTENER DATOS DEL FORMULARIO
-        # ============================================
-        distribucion = []
-        index = 0
-        
-        while True:
-            id_vendedor = request.form.get(f'distribucion[{index}][id_vendedor]')
-            id_producto = request.form.get(f'distribucion[{index}][id_producto]')
-            cantidad = request.form.get(f'distribucion[{index}][cantidad]')
-            
-            if id_vendedor is None or id_producto is None or cantidad is None:
-                break
-                
-            if float(cantidad) > 0:
-                distribucion.append({
-                    'id_vendedor': int(id_vendedor),
-                    'id_producto': int(id_producto),
-                    'cantidad': float(cantidad)
-                })
-            index += 1
-        
-        if not distribucion:
-            flash('Debe asignar al menos un producto a un vendedor', 'error')
-            return redirect(url_for('ver_pedido', id_pedido=id_pedido))
-        
-        with get_db_cursor() as cursor:
-            # ============================================
-            # 2. VERIFICAR PEDIDO
-            # ============================================
-            cursor.execute("""
-                SELECT 
-                    p.ID_Pedido,
-                    p.ID_Ruta,
-                    p.Estado,
-                    r.Nombre_Ruta,
-                    e.ID_Empresa,
-                    b.ID_Bodega as Bodega_Origen
-                FROM pedidos p
-                LEFT JOIN rutas r ON p.ID_Ruta = r.ID_Ruta
-                LEFT JOIN empresa e ON p.ID_Empresa = e.ID_Empresa
-                LEFT JOIN bodegas b ON b.ID_Empresa = e.ID_Empresa AND b.Estado = 'activa'
-                WHERE p.ID_Pedido = %s AND p.Tipo_Pedido = 'Consolidado'
-                LIMIT 1
-            """, (id_pedido,))
-            
-            pedido = cursor.fetchone()
-            
-            if not pedido:
-                flash('Pedido no encontrado', 'error')
-                return redirect(url_for('admin_pedidos_venta'))
-            
-            if pedido['Estado'] != 'Pendiente':
-                flash(f'El pedido debe estar Pendiente, no {pedido["Estado"]}', 'error')
-                return redirect(url_for('ver_pedido', id_pedido=id_pedido))
-            
-            if not pedido['ID_Ruta']:
-                flash('El pedido no tiene una ruta asignada', 'error')
-                return redirect(url_for('ver_pedido', id_pedido=id_pedido))
-            
-            # ============================================
-            # 3. VERIFICAR VENDEDORES
-            # ============================================
-            vendedores_ids = list(set([item['id_vendedor'] for item in distribucion]))
-            placeholders = ','.join(['%s'] * len(vendedores_ids))
-            
-            query_vendedores = f"""
-                SELECT ID_Asignacion, ID_Usuario
-                FROM asignacion_vendedores
-                WHERE ID_Asignacion IN ({placeholders})
-                AND Estado = 'Activa'
-                AND Fecha_Asignacion = CURDATE()
-            """
-            cursor.execute(query_vendedores, vendedores_ids)
-            
-            vendedores_validos = cursor.fetchall()
-            vendedores_dict = {v['ID_Asignacion']: v for v in vendedores_validos}
-            
-            for item in distribucion:
-                if item['id_vendedor'] not in vendedores_dict:
-                    flash('Uno o más vendedores no tienen asignación activa hoy', 'error')
-                    return redirect(url_for('ver_pedido', id_pedido=id_pedido))
-            
-            # ============================================
-            # 4. VERIFICAR PRODUCTOS
-            # ============================================
-            productos_ids = list(set([item['id_producto'] for item in distribucion]))
-            placeholders = ','.join(['%s'] * len(productos_ids))
-            
-            query_productos = f"""
-                SELECT 
-                    pcp.ID_Producto,
-                    pcp.Cantidad_Total,
-                    pr.Precio_Ruta as Precio_Venta,
-                    COALESCE(ib.Existencias, 0) as Stock_Disponible
-                FROM pedidos_consolidados_productos pcp
-                JOIN productos pr ON pcp.ID_Producto = pr.ID_Producto
-                LEFT JOIN inventario_bodega ib ON ib.ID_Bodega = %s AND ib.ID_Producto = pcp.ID_Producto
-                WHERE pcp.ID_Pedido = %s
-                AND pcp.ID_Producto IN ({placeholders})
-            """
-            
-            params = [pedido['Bodega_Origen'], id_pedido] + productos_ids
-            cursor.execute(query_productos, params)
-            
-            productos_consolidados = cursor.fetchall()
-            productos_dict = {}
-            
-            # 🔥 CONVERTIR Decimal a float para evitar errores
-            for p in productos_consolidados:
-                productos_dict[p['ID_Producto']] = {
-                    'ID_Producto': p['ID_Producto'],
-                    'Cantidad_Total': float(p['Cantidad_Total']),
-                    'Precio_Venta': float(p['Precio_Venta']),
-                    'Stock_Disponible': float(p['Stock_Disponible'])
-                }
-            
-            from collections import defaultdict
-            total_por_producto = defaultdict(float)
-            
-            for item in distribucion:
-                total_por_producto[item['id_producto']] += item['cantidad']
-            
-            for id_producto, cantidad_solicitada in total_por_producto.items():
-                if id_producto not in productos_dict:
-                    flash('Producto no válido', 'error')
-                    return redirect(url_for('ver_pedido', id_pedido=id_pedido))
-                
-                producto = productos_dict[id_producto]
-                
-                if cantidad_solicitada > producto['Cantidad_Total']:
-                    flash(f'Cantidad excede el consolidado', 'error')
-                    return redirect(url_for('ver_pedido', id_pedido=id_pedido))
-                
-                if cantidad_solicitada > producto['Stock_Disponible']:
-                    flash(f'Stock insuficiente en bodega', 'error')
-                    return redirect(url_for('ver_pedido', id_pedido=id_pedido))
-            
-            # ============================================
-            # 5. MOVIMIENTO DE SALIDA
-            # ============================================
 
-            TRASLADO_SALIDA = 12
-            TRASLADO_ENTRADA = 13
-            cursor.execute("""
-                INSERT INTO movimientos_inventario (
-                    ID_TipoMovimiento, ID_Bodega, Fecha, Observacion,
-                    ID_Empresa, ID_Usuario_Creacion, Estado, ID_Pedido_Origen
-                )
-                VALUES (%s, %s, CURDATE(), %s, %s, %s, 'Activa', %s)
-            """, (
-                TRASLADO_SALIDA,
-                pedido['Bodega_Origen'],
-                f'SALIDA POR CARGA #{id_pedido} - {pedido["Nombre_Ruta"]}',
-                pedido['ID_Empresa'],
-                current_user.id,
-                id_pedido
-            ))
-            
-            movimiento_salida_id = cursor.lastrowid
-            
-            for id_producto, cantidad_total in total_por_producto.items():
-                producto = productos_dict[id_producto]
-                
-                cursor.execute("""
-                    UPDATE inventario_bodega 
-                    SET Existencias = Existencias - %s
-                    WHERE ID_Bodega = %s AND ID_Producto = %s
-                """, (cantidad_total, pedido['Bodega_Origen'], id_producto))
-                
-                # 🔥 CALCULAR SUBTOTAL USANDO FLOAT
-                subtotal = cantidad_total * producto['Precio_Venta']
-                
-                cursor.execute("""
-                    INSERT INTO detalle_movimientos_inventario (
-                        ID_Movimiento, ID_Producto, Cantidad,
-                        Costo_Unitario, Precio_Unitario, Subtotal,
-                        ID_Usuario_Creacion
-                    )
-                    VALUES (%s, %s, %s, 0, %s, %s, %s)
-                """, (
-                    movimiento_salida_id,
-                    id_producto,
-                    cantidad_total,
-                    producto['Precio_Venta'],
-                    subtotal,
-                    current_user.id
-                ))
-            
-            # ============================================
-            # 6. DISTRIBUIR A VENDEDORES
-            # ============================================
-            for item in distribucion:
-                producto = productos_dict[item['id_producto']]
-                
-                # 🔥 CALCULAR SUBTOTAL USANDO FLOAT
-                subtotal = item['cantidad'] * producto['Precio_Venta']
-                
-                cursor.execute("""
-                    INSERT INTO movimientos_ruta_cabecera (
-                        ID_Asignacion, ID_TipoMovimiento, Fecha_Movimiento,
-                        ID_Usuario_Registra, Documento_Numero, ID_Pedido,
-                        Total_Productos, Total_Items, Total_Subtotal,
-                        ID_Empresa, Estado
-                    )
-                    VALUES (%s, %s, NOW(), %s, %s, %s, %s, 1, %s, %s, 'ACTIVO')
-                """, (
-                    item['id_vendedor'],
-                    TRASLADO_ENTRADA,
-                    current_user.id,
-                    f'CARGA-{id_pedido}',
-                    id_pedido,
-                    item['cantidad'],
-                    subtotal,
-                    pedido['ID_Empresa']
-                ))
-                
-                movimiento_ruta_id = cursor.lastrowid
-                
-                cursor.execute("""
-                    INSERT INTO movimientos_ruta_detalle (
-                        ID_Movimiento, ID_Producto, Cantidad,
-                        Precio_Unitario, Subtotal
-                    )
-                    VALUES (%s, %s, %s, %s, %s)
-                """, (
-                    movimiento_ruta_id,
-                    item['id_producto'],
-                    item['cantidad'],
-                    producto['Precio_Venta'],
-                    subtotal
-                ))
-                
-                cursor.execute("""
-                    INSERT INTO inventario_ruta (
-                        ID_Asignacion, ID_Producto, Cantidad, Fecha_Actualizacion
-                    )
-                    VALUES (%s, %s, %s, NOW())
-                    ON DUPLICATE KEY UPDATE
-                        Cantidad = Cantidad + VALUES(Cantidad),
-                        Fecha_Actualizacion = NOW()
-                """, (
-                    item['id_vendedor'],
-                    item['id_producto'],
-                    item['cantidad']
-                ))
-            
-            # ============================================
-            # 7. ACTUALIZAR PEDIDO
-            # ============================================
-            for id_producto, cantidad_solicitada in total_por_producto.items():
-                producto = productos_dict[id_producto]
-                cantidad_restante = producto['Cantidad_Total'] - cantidad_solicitada
-                
-                if cantidad_restante > 0:
-                    cursor.execute("""
-                        UPDATE pedidos_consolidados_productos
-                        SET Cantidad_Total = %s
-                        WHERE ID_Pedido = %s AND ID_Producto = %s
-                    """, (cantidad_restante, id_pedido, id_producto))
-                else:
-                    cursor.execute("""
-                        DELETE FROM pedidos_consolidados_productos
-                        WHERE ID_Pedido = %s AND ID_Producto = %s
-                    """, (id_pedido, id_producto))
-            
-            cursor.execute("""
-                SELECT COUNT(*) as total
-                FROM pedidos_consolidados_productos
-                WHERE ID_Pedido = %s
-            """, (id_pedido,))
-            
-            pedido_actualizado = cursor.fetchone()
-            
-            if pedido_actualizado['total'] == 0:
-                cursor.execute("""
-                    UPDATE pedidos SET Estado = 'Entregado'
-                    WHERE ID_Pedido = %s
-                """, (id_pedido,))
-                flash(f'✅ Carga #{id_pedido} completada', 'success')
-            else:
-                flash(f'✅ Distribución parcial - Quedan {pedido_actualizado["total"]} productos', 'success')
-            
-            return redirect(url_for('ver_pedido', id_pedido=id_pedido))
-            
-    except Exception as e:
-        print(f"Error: {str(e)}")
-        traceback.print_exc()
-        flash(f'Error: {str(e)}', 'error')
-        return redirect(url_for('ver_pedido', id_pedido=id_pedido))
-
-@app.route('/admin/ventas/distribuir-carga/<int:id_pedido>')
-@admin_or_bodega_required
-def distribuir_carga(id_pedido):
+@app.route('/admin/ventas/obtener-bodegas-empresa/<int:empresa_id>')
+@admin_required
+def obtener_bodegas_empresa(empresa_id):
     """
-    Muestra el formulario de distribución con datos precargados
+    API para obtener bodegas activas de una empresa
     """
     try:
         with get_db_cursor(True) as cursor:
-            # ============================================
-            # 1. OBTENER DATOS DEL PEDIDO
-            # ============================================
-            cursor.execute("""
-                SELECT 
-                    p.ID_Pedido,
-                    p.Fecha,
-                    p.Estado,
-                    p.Tipo_Pedido,
-                    p.ID_Ruta,
-                    r.Nombre_Ruta,
-                    e.ID_Empresa
-                FROM pedidos p
-                LEFT JOIN rutas r ON p.ID_Ruta = r.ID_Ruta
-                LEFT JOIN empresa e ON p.ID_Empresa = e.ID_Empresa
-                WHERE p.ID_Pedido = %s AND p.Tipo_Pedido = 'Consolidado'
-            """, (id_pedido,))
+            sql = """
+            SELECT ID_Bodega, Nombre_Bodega 
+            FROM bodegas 
+            WHERE ID_Empresa = %s AND Estado = 'ACTIVO'
+            ORDER BY Nombre_Bodega
+            """
+            cursor.execute(sql, (empresa_id,))
+            bodegas = cursor.fetchall()
             
-            pedido = cursor.fetchone()
-            
-            if not pedido:
-                flash('Pedido no encontrado', 'error')
-                return redirect(url_for('admin_pedidos_venta'))
-            
-            if not pedido['ID_Ruta']:
-                flash('El pedido no tiene una ruta asignada', 'error')
-                return redirect(url_for('ver_pedido', id_pedido=id_pedido))
-            
-            # ============================================
-            # 2. OBTENER VENDEDORES ACTIVOS DE LA RUTA
-            # ============================================
-            cursor.execute("""
-                SELECT 
-                    av.ID_Asignacion,
-                    u.ID_Usuario,
-                    u.NombreUsuario
-                FROM asignacion_vendedores av
-                INNER JOIN usuarios u ON av.ID_Usuario = u.ID_Usuario
-                WHERE av.ID_Ruta = %s
-                AND av.Estado = 'Activa'
-                AND av.Fecha_Asignacion = CURDATE()
-                ORDER BY u.NombreUsuario
-            """, (pedido['ID_Ruta'],))
-            
-            vendedores = cursor.fetchall()
-            
-            # ============================================
-            # 3. OBTENER PRODUCTOS DEL CONSOLIDADO
-            # ============================================
-            cursor.execute("""
-                SELECT 
-                    pcp.ID_Producto,
-                    pcp.Cantidad_Total,
-                    pr.Descripcion as Nombre_Producto,
-                    pr.COD_Producto,
-                    pr.Precio_Ruta as Precio_Venta
-                FROM pedidos_consolidados_productos pcp
-                INNER JOIN productos pr ON pcp.ID_Producto = pr.ID_Producto
-                WHERE pcp.ID_Pedido = %s
-                ORDER BY pr.Descripcion
-            """, (id_pedido,))
-            
-            productos = cursor.fetchall()
-            
-            return render_template('admin/ventas/pedidos/distribuir_carga.html',
-                                 pedido=pedido,
-                                 vendedores=vendedores,
-                                 productos=productos,
-                                 now=datetime.now())
+            return jsonify({'bodegas': bodegas})
             
     except Exception as e:
-        print(f"Error: {str(e)}")
-        traceback.print_exc()
-        flash(f'Error al cargar datos: {str(e)}', 'error')
-        return redirect(url_for('ver_pedido', id_pedido=id_pedido))
-    
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/admin/ventas/obtener-precio-segun-perfil')
+@admin_required
+def obtener_precio_segun_perfil():
+    """
+    API para obtener el precio de un producto según el perfil del cliente
+    Útil para actualizar precios dinámicamente en el frontend
+    """
+    try:
+        producto_id = request.args.get('producto_id')
+        perfil_cliente = request.args.get('perfil_cliente', 'Mercado')
+        
+        if not producto_id:
+            return jsonify({'error': 'ID de producto requerido'}), 400
+        
+        with get_db_cursor(True) as cursor:
+            sql = """
+            SELECT 
+                Precio_Mercado,
+                Precio_Mayorista,
+                Precio_Ruta
+            FROM productos 
+            WHERE ID_Producto = %s AND Estado = 'activo'
+            """
+            
+            cursor.execute(sql, (producto_id,))
+            producto = cursor.fetchone()
+            
+            if not producto:
+                return jsonify({'error': 'Producto no encontrado'}), 404
+            
+            # Determinar qué precio aplicar según el perfil
+            if perfil_cliente == 'Ruta':
+                precio = float(producto['Precio_Ruta'] or 0)
+                tipo_precio = 'Precio Ruta'
+            elif perfil_cliente == 'Mayorista':
+                precio = float(producto['Precio_Mayorista'] or 0)
+                tipo_precio = 'Precio Mayorista'
+            else:  # Mercado o Especial
+                precio = float(producto['Precio_Mercado'] or 0)
+                tipo_precio = 'Precio Mercado'
+            
+            return jsonify({
+                'success': True,
+                'producto_id': producto_id,
+                'perfil': perfil_cliente,
+                'precio': precio,
+                'tipo_precio': tipo_precio,
+                'todos_los_precios': {
+                    'mercado': float(producto['Precio_Mercado'] or 0),
+                    'mayorista': float(producto['Precio_Mayorista'] or 0),
+                    'ruta': float(producto['Precio_Ruta'] or 0)
+                }
+            })
+            
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+# ============================================
+# API ESPECÍFICAS PARA CONSOLIDADOS
+# ============================================
+
 @app.route('/api/rutas/<int:id_ruta>/vendedores-activos')
 @login_required
 def api_vendedores_activos(id_ruta):
+    """
+    API para obtener vendedores activos de una ruta en la fecha actual
+    """
     try:
         with get_db_cursor(True) as cursor:
             cursor.execute("""
@@ -10701,9 +11080,13 @@ def api_vendedores_activos(id_ruta):
             'data': []
         }), 500
 
+
 @app.route('/api/pedidos/<int:id_pedido>/productos-consolidados')
 @login_required
 def api_productos_consolidados(id_pedido):
+    """
+    API para obtener productos de un pedido consolidado
+    """
     try:
         with get_db_cursor(True) as cursor:
             cursor.execute("""
@@ -10733,98 +11116,7 @@ def api_productos_consolidados(id_pedido):
             'data': []
         }), 500
 
-# Ruta para obtener bodegas de una empresa
-@app.route('/admin/ventas/obtener-bodegas-empresa/<int:empresa_id>')
-@admin_required
-def obtener_bodegas_empresa(empresa_id):
-    try:
-        with get_db_cursor(True) as cursor:
-            sql = """
-            SELECT ID_Bodega, Nombre_Bodega 
-            FROM bodegas 
-            WHERE ID_Empresa = %s AND Estado = 'ACTIVO'
-            ORDER BY Nombre_Bodega
-            """
-            cursor.execute(sql, (empresa_id,))
-            bodegas = cursor.fetchall()
-            
-            return jsonify({'bodegas': bodegas})
-            
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
 
-# Ruta para cancelar pedido
-@app.route('/admin/ventas/cancelar-pedido/<int:pedido_id>', methods=['POST'])
-@admin_required
-@bitacora_decorator("CANCELAR_PEDIDO")
-def cancelar_pedido(pedido_id):
-    try:
-        with get_db_cursor() as cursor:
-            # Verificar que el pedido existe y está pendiente o aprobado
-            sql_verificar = """
-            SELECT Estado FROM pedidos 
-            WHERE ID_Pedido = %s AND Estado IN ('Pendiente', 'Aprobado')
-            """
-            cursor.execute(sql_verificar, (pedido_id,))
-            pedido = cursor.fetchone()
-            
-            if not pedido:
-                return jsonify({'success': False, 'message': 'Pedido no encontrado o no se puede cancelar'}), 400
-            
-            # Obtener productos del pedido para devolver al stock
-            sql_productos = """
-            SELECT dp.ID_Producto, dp.Cantidad 
-            FROM detalle_pedidos dp
-            WHERE dp.ID_Pedido = %s
-            """
-            cursor.execute(sql_productos, (pedido_id,))
-            productos = cursor.fetchall()
-            
-            # Devolver stock a las bodegas (se devuelve a la primera bodega disponible)
-            for producto in productos:
-                # Obtener bodegas de la empresa del pedido
-                sql_bodegas = """
-                SELECT b.ID_Bodega 
-                FROM pedidos p
-                JOIN bodegas b ON p.ID_Empresa = b.ID_Empresa
-                WHERE p.ID_Pedido = %s AND b.Estado = 'ACTIVO'
-                ORDER BY b.ID_Bodega
-                LIMIT 1
-                """
-                cursor.execute(sql_bodegas, (pedido_id,))
-                bodega = cursor.fetchone()
-                
-                if bodega:
-                    # Actualizar inventario_bodega
-                    sql_update = """
-                    INSERT INTO inventario_bodega (ID_Bodega, ID_Producto, Existencias)
-                    VALUES (%s, %s, %s)
-                    ON DUPLICATE KEY UPDATE Existencias = Existencias + VALUES(Existencias)
-                    """
-                    cursor.execute(sql_update, (bodega['ID_Bodega'], producto['ID_Producto'], producto['Cantidad']))
-            
-            # Actualizar estado del pedido
-            sql_actualizar = """
-            UPDATE pedidos 
-            SET Estado = 'Cancelado' 
-            WHERE ID_Pedido = %s
-            """
-            cursor.execute(sql_actualizar, (pedido_id,))
-            
-            # Registrar en bitácora
-            cursor.execute("""
-                INSERT INTO bitacora (ID_Usuario, Accion, Descripcion, Fecha)
-                VALUES (%s, 'CANCELAR_PEDIDO', %s, NOW())
-            """, (session.get('user_id'), f'Pedido #{pedido_id} cancelado'))
-            
-            return jsonify({
-                'success': True, 
-                'message': 'Pedido cancelado exitosamente'
-            })
-            
-    except Exception as e:
-        return jsonify({'success': False, 'message': str(e)}), 500
- 
 ## VEHICULOS
 @app.route('/admin/vehiculos/vehiculos')
 @admin_required
@@ -11060,6 +11352,7 @@ def cambiar_estado_vehiculo(id):
     except Exception as e:
         flash(f'Error al cambiar estado del vehículo: {str(e)}', 'error')
         return redirect(url_for('admin_vehiculos'))
+ 
 
 ## ASIGNACION RUTAS
 # Rutas para asignación de rutas

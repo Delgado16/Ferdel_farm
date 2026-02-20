@@ -22,6 +22,8 @@
     <div class="alert alert-warning">
         <i class="fas fa-exclamation-triangle me-2"></i>
         <strong>No hay vendedores activos hoy</strong> en la ruta {{ pedido.Nombre_Ruta }}
+        <br>
+        <small>Debe asignar vendedores a la ruta para poder distribuir la carga.</small>
     </div>
     {% endif %}
 
@@ -29,6 +31,8 @@
     <div class="alert alert-warning">
         <i class="fas fa-exclamation-triangle me-2"></i>
         <strong>El pedido no tiene productos</strong>
+        <br>
+        <small>No hay productos para distribuir en este pedido consolidado.</small>
     </div>
     {% endif %}
 
@@ -60,8 +64,22 @@
         </div>
     </div>
 
+    <!-- Información de Precios - SIEMPRE RUTA -->
+    <div class="alert alert-primary mb-3">
+        <div class="d-flex align-items-center">
+            <i class="fas fa-tag fa-2x me-3"></i>
+            <div>
+                <strong>Tipo de Precio Aplicado:</strong> 
+                <span class="badge bg-primary ms-2">PRECIO RUTA</span>
+                <p class="mb-0 mt-1">
+                    <small>Los pedidos consolidados SIEMPRE utilizan precio de ruta para todos los productos.</small>
+                </p>
+            </div>
+        </div>
+    </div>
+
     <!-- Formulario -->
-    <form method="POST" action="{{ url_for('procesar_carga_consolidada', id_pedido=pedido.ID_Pedido) }}">
+    <form method="POST" action="{{ url_for('procesar_carga_consolidada', id_pedido=pedido.ID_Pedido) }}" id="formDistribucion">
         <div id="inputsContainer"></div>
         
         <div class="card">
@@ -70,27 +88,36 @@
             </div>
             <div class="card-body p-0">
                 <div class="table-responsive">
-                    <table class="table table-bordered mb-0">
+                    <table class="table table-bordered mb-0" id="tablaDistribucion">
                         <thead class="table-dark">
                             <tr>
                                 <th>Producto</th>
+                                <th class="text-center">Código</th>
+                                <th class="text-center">Precio Ruta</th>
                                 <th class="text-center">Stock</th>
                                 {% for v in vendedores %}
-                                <th class="text-center">{{ v.NombreUsuario }}</th>
+                                <th class="text-center" title="ID: {{ v.ID_Asignacion }}">
+                                    {{ v.NombreUsuario }}
+                                </th>
                                 {% endfor %}
                                 <th class="text-center">Total</th>
                             </tr>
                         </thead>
                         <tbody>
                             {% for p in productos %}
-                            <tr>
+                            <tr id="fila-{{ p.ID_Producto }}">
                                 <td>
                                     <strong>{{ p.Nombre_Producto }}</strong>
-                                    <br><small class="text-muted">{{ p.COD_Producto }}</small>
+                                </td>
+                                <td class="text-center align-middle">
+                                    <span class="badge bg-secondary">{{ p.COD_Producto }}</span>
+                                </td>
+                                <td class="text-center align-middle">
+                                    <span class="badge bg-primary">C${{ "%.2f"|format(p.Precio_Venta) }}</span>
                                 </td>
                                 <td class="text-center align-middle">
                                     <span class="badge bg-primary stock-badge" id="stock-{{ p.ID_Producto }}">
-                                        {{ p.Cantidad_Total }}
+                                        {{ "%.2f"|format(p.Cantidad_Total) }}
                                     </span>
                                 </td>
                                 
@@ -102,16 +129,21 @@
                                            data-vendedor="{{ v.ID_Asignacion }}"
                                            data-max="{{ p.Cantidad_Total }}"
                                            data-precio="{{ p.Precio_Venta }}"
+                                           data-nombre-producto="{{ p.Nombre_Producto }}"
+                                           data-nombre-vendedor="{{ v.NombreUsuario }}"
                                            min="0"
                                            max="{{ p.Cantidad_Total }}"
                                            step="0.01"
                                            value="0"
-                                           onchange="actualizarProducto({{ p.ID_Producto }}, {{ p.Cantidad_Total }})">
+                                           onchange="validarCantidad(this, {{ p.ID_Producto }}, {{ p.Cantidad_Total }})"
+                                           oninput="actualizarTotalProducto({{ p.ID_Producto }}, {{ p.Cantidad_Total }})">
                                 </td>
                                 {% endfor %}
                                 
                                 <td class="text-center align-middle">
-                                    <span class="badge bg-info" id="total-{{ p.ID_Producto }}">0</span>
+                                    <span class="badge bg-info total-producto" id="total-{{ p.ID_Producto }}">0.00</span>
+                                    <br>
+                                    <small class="text-muted">/ {{ "%.2f"|format(p.Cantidad_Total) }}</small>
                                 </td>
                             </tr>
                             {% endfor %}
@@ -125,6 +157,14 @@
                         <button type="button" class="btn btn-sm btn-outline-success" onclick="distribuirTodo()">
                             <i class="fas fa-calculator me-1"></i> Distribuir equitativamente
                         </button>
+                        <button type="button" class="btn btn-sm btn-outline-info" onclick="limpiarTodo()">
+                            <i class="fas fa-eraser me-1"></i> Limpiar todo
+                        </button>
+                    </div>
+                    <div class="col-md-6 text-end">
+                        <button type="button" class="btn btn-sm btn-outline-warning" onclick="verificarStock()">
+                            <i class="fas fa-check-circle me-1"></i> Verificar stock
+                        </button>
                     </div>
                 </div>
             </div>
@@ -137,6 +177,7 @@
                     <div class="card-body text-center">
                         <h6 class="text-muted">Productos</h6>
                         <h3 id="resumen-productos">0</h3>
+                        <small class="text-muted">con asignación</small>
                     </div>
                 </div>
             </div>
@@ -144,7 +185,8 @@
                 <div class="card bg-light">
                     <div class="card-body text-center">
                         <h6 class="text-muted">Unidades</h6>
-                        <h3 id="resumen-unidades">0</h3>
+                        <h3 id="resumen-unidades">0.00</h3>
+                        <small class="text-muted">total asignado</small>
                     </div>
                 </div>
             </div>
@@ -153,6 +195,7 @@
                     <div class="card-body text-center">
                         <h6 class="text-muted">Vendedores</h6>
                         <h3 id="resumen-vendedores">0</h3>
+                        <small class="text-muted">con carga</small>
                     </div>
                 </div>
             </div>
@@ -161,6 +204,7 @@
                     <div class="card-body text-center">
                         <h6>Valor Total</h6>
                         <h3 id="resumen-valor">C$0.00</h3>
+                        <small>Precio Ruta</small>
                     </div>
                 </div>
             </div>
@@ -171,7 +215,7 @@
             <a href="{{ url_for('ver_pedido', id_pedido=pedido.ID_Pedido) }}" class="btn btn-secondary">
                 <i class="fas fa-times me-1"></i> Cancelar
             </a>
-            <button type="submit" class="btn btn-warning" id="btnGuardar">
+            <button type="submit" class="btn btn-warning" id="btnGuardar" disabled>
                 <i class="fas fa-check me-1"></i> Procesar Carga
             </button>
         </div>
@@ -180,7 +224,36 @@
 </div>
 
 <script>
-function actualizarProducto(idProducto, stockTotal) {
+// Variables globales
+let productosData = {};
+
+// Inicializar
+document.addEventListener('DOMContentLoaded', function() {
+    // Inicializar datos de productos
+    {% for p in productos %}
+    productosData[{{ p.ID_Producto }}] = {
+        nombre: "{{ p.Nombre_Producto }}",
+        stockTotal: {{ p.Cantidad_Total }},
+        precio: {{ p.Precio_Venta }}
+    };
+    {% endfor %}
+    
+    actualizarResumen();
+});
+
+// Validar cantidad individual
+function validarCantidad(input, idProducto, stockTotal) {
+    let valor = parseFloat(input.value) || 0;
+    
+    if (valor < 0) valor = 0;
+    if (valor > stockTotal) valor = stockTotal;
+    
+    input.value = valor.toFixed(2);
+    actualizarTotalProducto(idProducto, stockTotal);
+}
+
+// Actualizar total por producto
+function actualizarTotalProducto(idProducto, stockTotal) {
     const inputs = document.querySelectorAll(`.input-cantidad[data-producto="${idProducto}"]`);
     let total = 0;
     
@@ -188,12 +261,34 @@ function actualizarProducto(idProducto, stockTotal) {
         total += parseFloat(input.value) || 0;
     });
     
-    document.getElementById(`stock-${idProducto}`).textContent = (stockTotal - total).toFixed(2);
-    document.getElementById(`total-${idProducto}`).textContent = total.toFixed(2);
+    // Actualizar stock disponible
+    const stockSpan = document.getElementById(`stock-${idProducto}`);
+    if (stockSpan) {
+        stockSpan.textContent = (stockTotal - total).toFixed(2);
+        
+        // Cambiar color si hay excedente
+        if (total > stockTotal) {
+            stockSpan.classList.add('bg-danger');
+            stockSpan.classList.remove('bg-primary');
+        } else if (total === stockTotal) {
+            stockSpan.classList.add('bg-success');
+            stockSpan.classList.remove('bg-primary');
+        } else {
+            stockSpan.classList.add('bg-primary');
+            stockSpan.classList.remove('bg-danger', 'bg-success');
+        }
+    }
+    
+    // Actualizar total
+    const totalSpan = document.getElementById(`total-${idProducto}`);
+    if (totalSpan) {
+        totalSpan.textContent = total.toFixed(2);
+    }
     
     actualizarResumen();
 }
 
+// Actualizar resumen general
 function actualizarResumen() {
     const inputs = document.querySelectorAll('.input-cantidad');
     let totalUnidades = 0;
@@ -215,8 +310,15 @@ function actualizarResumen() {
     document.getElementById('resumen-unidades').textContent = totalUnidades.toFixed(2);
     document.getElementById('resumen-vendedores').textContent = vendedoresSet.size;
     document.getElementById('resumen-valor').textContent = 'C$' + totalValor.toFixed(2);
+    
+    // Habilitar/deshabilitar botón guardar
+    const btnGuardar = document.getElementById('btnGuardar');
+    if (btnGuardar) {
+        btnGuardar.disabled = totalUnidades === 0;
+    }
 }
 
+// Distribuir equitativamente
 function distribuirTodo() {
     const filas = document.querySelectorAll('tbody tr');
     const totalVendedores = {{ vendedores|length }};
@@ -225,42 +327,129 @@ function distribuirTodo() {
         const inputs = fila.querySelectorAll('.input-cantidad');
         if (inputs.length === 0) return;
         
+        const idProducto = inputs[0].dataset.producto;
         const stockTotal = parseFloat(inputs[0].dataset.max);
-        const cantidadBase = Math.floor((stockTotal / totalVendedores) * 100) / 100;
+        
+        // Calcular distribución
+        const cantidadPorVendedor = Math.floor((stockTotal / totalVendedores) * 100) / 100;
         let suma = 0;
         
         inputs.forEach((input, index) => {
+            let valor;
             if (index === inputs.length - 1) {
-                input.value = (stockTotal - suma).toFixed(2);
+                // Último vendedor recibe el resto
+                valor = (stockTotal - suma).toFixed(2);
             } else {
-                input.value = cantidadBase.toFixed(2);
-                suma += cantidadBase;
+                valor = cantidadPorVendedor.toFixed(2);
+                suma += cantidadPorVendedor;
             }
+            input.value = valor;
         });
         
-        const idProducto = inputs[0].dataset.producto;
-        actualizarProducto(idProducto, stockTotal);
+        actualizarTotalProducto(idProducto, stockTotal);
     });
 }
 
-document.querySelector('form').addEventListener('submit', function(e) {
+// Limpiar todas las asignaciones
+function limpiarTodo() {
+    const inputs = document.querySelectorAll('.input-cantidad');
+    inputs.forEach(input => {
+        input.value = '0';
+    });
+    
+    // Actualizar cada producto
+    const productos = document.querySelectorAll('[id^="stock-"]');
+    productos.forEach(span => {
+        const idProducto = span.id.replace('stock-', '');
+        const stockTotal = parseFloat(document.querySelector(`.input-cantidad[data-producto="${idProducto}"]`).dataset.max);
+        actualizarTotalProducto(idProducto, stockTotal);
+    });
+}
+
+// Verificar stock
+function verificarStock() {
+    const filas = document.querySelectorAll('tbody tr');
+    let errores = [];
+    
+    filas.forEach(fila => {
+        const inputs = fila.querySelectorAll('.input-cantidad');
+        if (inputs.length === 0) return;
+        
+        const idProducto = inputs[0].dataset.producto;
+        const nombreProducto = inputs[0].dataset.nombreProducto;
+        const stockTotal = parseFloat(inputs[0].dataset.max);
+        let suma = 0;
+        
+        inputs.forEach(input => {
+            suma += parseFloat(input.value) || 0;
+        });
+        
+        if (Math.abs(suma - stockTotal) > 0.01) { // Tolerancia por decimales
+            if (suma > stockTotal) {
+                errores.push(`❌ ${nombreProducto}: Excede el stock (${suma.toFixed(2)} > ${stockTotal.toFixed(2)})`);
+            } else {
+                errores.push(`⚠️ ${nombreProducto}: Faltan ${(stockTotal - suma).toFixed(2)} unidades por distribuir`);
+            }
+        }
+    });
+    
+    if (errores.length > 0) {
+        alert('Problemas detectados:\n' + errores.join('\n'));
+    } else {
+        alert('✅ Todo correcto! El stock está completamente distribuido.');
+    }
+}
+
+// Validar antes de enviar
+document.getElementById('formDistribucion').addEventListener('submit', function(e) {
     const inputs = document.querySelectorAll('.input-cantidad');
     const container = document.getElementById('inputsContainer');
     container.innerHTML = '';
     
     let index = 0;
     let hayAsignacion = false;
+    let errores = [];
+    let productosSuma = {};
     
+    // Primera pasada: validar y recolectar sumas
     inputs.forEach(input => {
         const cantidad = parseFloat(input.value) || 0;
+        const idProducto = input.dataset.producto;
         const max = parseFloat(input.dataset.max);
         
-        if (cantidad > max) {
-            e.preventDefault();
-            alert('Hay cantidades que exceden el stock');
-            return;
+        if (!productosSuma[idProducto]) {
+            productosSuma[idProducto] = 0;
         }
+        productosSuma[idProducto] += cantidad;
         
+        if (cantidad > max) {
+            errores.push(`Producto ${input.dataset.nombreProducto}: cantidad excede el stock`);
+        }
+    });
+    
+    // Segunda pasada: verificar que las sumas totales sean correctas
+    for (const [idProducto, suma] of Object.entries(productosSuma)) {
+        const stockTotal = parseFloat(document.querySelector(`.input-cantidad[data-producto="${idProducto}"]`).dataset.max);
+        if (Math.abs(suma - stockTotal) > 0.01) {
+            const nombreProducto = document.querySelector(`.input-cantidad[data-producto="${idProducto}"]`).dataset.nombreProducto;
+            if (suma < stockTotal) {
+                if (!confirm(`⚠️ El producto "${nombreProducto}" tiene ${(stockTotal - suma).toFixed(2)} unidades sin distribuir.\n¿Desea continuar de todas formas?`)) {
+                    e.preventDefault();
+                    return;
+                }
+            }
+        }
+    }
+    
+    if (errores.length > 0) {
+        e.preventDefault();
+        alert('Errores encontrados:\n' + errores.join('\n'));
+        return;
+    }
+    
+    // Crear inputs ocultos para enviar
+    inputs.forEach(input => {
+        const cantidad = parseFloat(input.value) || 0;
         if (cantidad > 0) {
             hayAsignacion = true;
             container.innerHTML += `
@@ -274,16 +463,91 @@ document.querySelector('form').addEventListener('submit', function(e) {
     
     if (!hayAsignacion) {
         e.preventDefault();
-        alert('Debe asignar al menos un producto');
+        alert('Debe asignar al menos un producto a algún vendedor');
+        return;
+    }
+    
+    // Confirmación final
+    if (!confirm('¿Está seguro de procesar esta distribución? Se descontará el stock de bodega y se asignará a los vendedores.')) {
+        e.preventDefault();
     }
 });
 </script>
 
 <style>
 .input-cantidad {
-    width: 90px;
+    width: 100px;
     margin: 0 auto;
     text-align: center;
+    font-size: 0.9rem;
+    padding: 0.25rem;
+}
+
+.input-cantidad:focus {
+    border-color: #ffc107;
+    box-shadow: 0 0 0 0.2rem rgba(255, 193, 7, 0.25);
+}
+
+.table th {
+    text-align: center;
+    vertical-align: middle;
+}
+
+.table td {
+    vertical-align: middle;
+}
+
+.badge {
+    font-size: 0.9rem;
+    padding: 0.35em 0.65em;
+}
+
+.badge.bg-primary {
+    background-color: #0d6efd !important;
+}
+
+.badge.bg-success {
+    background-color: #198754 !important;
+}
+
+.badge.bg-danger {
+    background-color: #dc3545 !important;
+}
+
+.badge.bg-info {
+    background-color: #0dcaf0 !important;
+    color: #000;
+}
+
+.card-header {
+    font-weight: 600;
+}
+
+#btnGuardar:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* Animación para cambios */
+.total-producto {
+    transition: all 0.3s ease;
+}
+
+/* Tooltips personalizados */
+[title] {
+    cursor: help;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .input-cantidad {
+        width: 70px;
+        font-size: 0.8rem;
+    }
+    
+    .table {
+        font-size: 0.85rem;
+    }
 }
 </style>
 {% endblock %}
