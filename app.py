@@ -15136,7 +15136,7 @@ def vendedor_venta_crear():
         with get_db_cursor(True) as cursor:
             # Obtener asignación activa del vendedor
             cursor.execute("""
-                SELECT av.*, r.Nombre_Ruta, u.Nombre as Nombre_Vendedor
+                SELECT av.*, r.Nombre_Ruta, u.NombreUsuario as Nombre_Vendedor
                 FROM asignacion_vendedores av
                 INNER JOIN rutas r ON av.ID_Ruta = r.ID_Ruta
                 INNER JOIN usuarios u ON av.ID_Usuario = u.ID_Usuario
