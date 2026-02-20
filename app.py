@@ -4324,7 +4324,7 @@ def admin_desactivar_producto(id_producto):
 def admin_compras_entradas():
     try:
         with get_db_cursor() as cursor:
-            # Consulta 1: Obtener las entradas para la tabla
+            # Consulta 1: Obtener las entradas para la tabla (se mantiene igual)
             cursor.execute("""
                 SELECT 
                     mi.ID_Movimiento,
@@ -4408,10 +4408,17 @@ def admin_compras_entradas():
             resultado_credito = cursor.fetchone()
             capital_credito = resultado_credito['Capital_Credito'] if resultado_credito else 0.0
             
-            # **VALIDACIÓN**: Asegurar que Total = Contado + Crédito
-            diferencia = abs(capital_total - (capital_contado + capital_credito))
-            if diferencia > 0.01:  # Tolerancia de 1 centavo
-                print(f"ADVERTENCIA: Discrepancia en cálculos. Total: {capital_total}, Contado: {capital_contado}, Crédito: {capital_credito}")
+            # 🔥 CORRECCIÓN: Calcular el total correcto como la suma de contado + crédito
+            capital_total_calculado = capital_contado + capital_credito
+            
+            # VALIDACIÓN: Comparar con el total de la base de datos
+            diferencia = abs(capital_total - capital_total_calculado)
+            if diferencia > 0.01:
+                print(f"⚠️ ADVERTENCIA: Discrepancia detectada - Usando suma manual")
+                print(f"   Total BD: {capital_total}, Contado: {capital_contado}, Crédito: {capital_credito}")
+                print(f"   Suma manual: {capital_total_calculado}, Diferencia: {diferencia}")
+                # Usar la suma manual para mostrar en la interfaz
+                capital_total = capital_total_calculado
             
             # Inicializar contadores para las entradas mostradas
             total_compras = len(entradas)
@@ -4434,7 +4441,7 @@ def admin_compras_entradas():
             return render_template('admin/compras/compras_entradas.html', 
                                  entradas=entradas,
                                  total_invertido=total_invertido_lista,
-                                 capital_total=capital_total,           # Total (Contado + Crédito)
+                                 capital_total=capital_total,           # Ahora es la suma manual si hay discrepancia
                                  capital_contado=capital_contado,       # Solo contado
                                  capital_credito=capital_credito,       # Solo crédito
                                  total_productos_activos=total_productos_activos,
@@ -4444,7 +4451,7 @@ def admin_compras_entradas():
     except Exception as e:
         flash(f'Error al cargar entradas de compras: {str(e)}', 'error')
         return redirect(url_for('admin_dashboard'))
-    
+
 @app.route('/admin/compras/compras-entradas/crear', methods=['GET', 'POST'])
 @admin_required
 @bitacora_decorator("COMPRAS-ENTRADAS-CREAR")
@@ -4463,13 +4470,12 @@ def admin_crear_compra():
                 cursor.execute("SELECT ID_Categoria, Descripcion FROM categorias_producto ORDER BY Descripcion")
                 categorias = cursor.fetchall()
                 
-                # CONSULTA CORREGIDA: Información básica de productos
+                # CONSULTA MODIFICADA: Eliminamos Precio_Venta de la consulta
                 cursor.execute("""
                     SELECT 
                         p.ID_Producto, 
                         p.COD_Producto, 
                         p.Descripcion,
-                        COALESCE(p.Precio_Mercado, 0) as Precio_Venta, 
                         p.ID_Categoria, 
                         c.Descripcion as Categoria,
                         um.Descripcion as Unidad_Medida,
@@ -4491,9 +4497,7 @@ def admin_crear_compra():
         
         elif request.method == 'POST':
             # Obtener datos del formulario
-
             id_usuario_creacion = current_user.id
-
             id_tipo_movimiento = 1
             n_factura_externa = request.form.get('n_factura_externa')
             fecha = request.form.get('fecha')
@@ -4501,15 +4505,13 @@ def admin_crear_compra():
             tipo_compra = request.form.get('tipo_compra', 'CONTADO')
             observacion = request.form.get('observacion')
             id_bodega = request.form.get('id_bodega')
-            id_usuario_creacion
             fecha_vencimiento = request.form.get('fecha_vencimiento')
             
-            # Obtener productos del formulario - SIN LOTE Y FECHA_VENCIMIENTO
+            # Obtener productos del formulario - AHORA SOLO CON PRODUCTO, CANTIDAD Y COSTO
             productos = []
             producto_ids = request.form.getlist('productos[]')
             cantidades = request.form.getlist('cantidades[]')
             costos_unitarios = request.form.getlist('costos_unitarios[]')
-            precios_unitarios = request.form.getlist('precios_unitarios[]')
             
             print(f"Datos recibidos - Productos: {len(producto_ids)}, IDs: {producto_ids}")
             
@@ -4523,18 +4525,21 @@ def admin_crear_compra():
                 flash('Debe agregar al menos un producto', 'error')
                 return redirect(url_for('admin_crear_compra'))
             
-            # Construir lista de productos - SIN LOTE Y FECHA_VENCIMIENTO
+            # Construir lista de productos - AHORA SIN PRECIO_VENTA
             for i in range(len(producto_ids)):
                 if producto_ids[i] and cantidades[i] and costos_unitarios[i]:
                     cantidad = round(float(cantidades[i]), 2)
                     costo_unitario = round(float(costos_unitarios[i]), 2)
-                    precio_unitario = round(float(precios_unitarios[i]) if precios_unitarios[i] and precios_unitarios[i] != '' else costo_unitario, 2)
+                    
+                    # El precio_unitario ahora será igual al costo_unitario
+                    # para mantener compatibilidad con la estructura de la BD
+                    precio_unitario = costo_unitario
                     
                     productos.append({
                         'id_producto': producto_ids[i],
                         'cantidad': cantidad,
                         'costo_unitario': costo_unitario,
-                        'precio_unitario': precio_unitario
+                        'precio_unitario': precio_unitario  # Se mantiene igual al costo
                     })
             
             # Validar usuario
@@ -4579,7 +4584,7 @@ def admin_crear_compra():
                 id_movimiento = cursor.lastrowid
                 print(f"Movimiento creado con ID: {id_movimiento}")
                 
-                # Insertar detalles del movimiento - SIN LOTE Y FECHA_VENCIMIENTO
+                # Insertar detalles del movimiento - AHORA CON PRECIO_UNITARIO IGUAL AL COSTO
                 for producto in productos:
                     subtotal = round(producto['cantidad'] * producto['costo_unitario'], 2)
                     
@@ -4594,7 +4599,7 @@ def admin_crear_compra():
                         producto['id_producto'],
                         producto['cantidad'],
                         producto['costo_unitario'],
-                        producto['precio_unitario'],
+                        producto['precio_unitario'],  # Ahora es igual al costo
                         subtotal,
                         id_usuario
                     ))
@@ -4646,7 +4651,7 @@ def admin_crear_compra():
                             session.get('id_empresa', 1),
                             total_compra,
                             id_usuario,
-                            'Pendiente'  # NUEVO CAMPO REQUERIDO
+                            'Pendiente'
                         ))
                 
                 flash(f'Compra creada exitosamente', 'success')
@@ -4657,14 +4662,13 @@ def admin_crear_compra():
         print(f"Traceback: {traceback.format_exc()}")
         flash(f'Error al crear compra: {str(e)}', 'error')
         return redirect(url_for('admin_crear_compra'))
-    
-# RUTAS AUXILIARES PARA COMPRAS - CORREGIDAS (BASADAS EN MOVIMIENTOS_INVENTARIO)
+
 @app.route('/admin/compras/productos-por-categoria/<int:id_categoria>')
 @admin_required
 def obtener_productos_por_categoria_compra(id_categoria):
     """
     Obtiene productos filtrados por categoría usando inventario_bodega
-    RUTA FUNCIONANDO: ✅
+    RUTA FUNCIONANDO: ✅ (MODIFICADA: SIN PRECIO_VENTA)
     """
     try:
         id_empresa = session.get('id_empresa', 1)
@@ -4688,7 +4692,6 @@ def obtener_productos_por_categoria_compra(id_categoria):
                         p.ID_Producto, 
                         p.COD_Producto, 
                         p.Descripcion,
-                        COALESCE(p.Precio_Mercado, 0) as Precio_Venta, 
                         p.ID_Categoria,
                         c.Descripcion as Categoria,
                         um.Descripcion as Unidad_Medida,
@@ -4709,7 +4712,6 @@ def obtener_productos_por_categoria_compra(id_categoria):
                         p.ID_Producto, 
                         p.COD_Producto, 
                         p.Descripcion,
-                        COALESCE(p.Precio_Mercado, 0) as Precio_Venta,
                         p.ID_Categoria,
                         c.Descripcion as Categoria,
                         um.Descripcion as Unidad_Medida,
@@ -4732,7 +4734,6 @@ def obtener_productos_por_categoria_compra(id_categoria):
                 'codigo': p['COD_Producto'],
                 'descripcion': p['Descripcion'],
                 'existencias': float(p['Existencias']),
-                'precio_venta': float(p['Precio_Venta']),
                 'id_categoria': p['ID_Categoria'],
                 'categoria': p['Categoria'],
                 'unidad_medida': p['Unidad_Medida'],
@@ -6549,6 +6550,7 @@ def admin_crear_venta():
                             categorias=categorias if 'categorias' in locals() else [],
                             empresa=empresa_data if 'empresa_data' in locals() else None,
                             id_tipo_movimiento=id_tipo_movimiento if 'id_tipo_movimiento' in locals() else None)
+
 
 @app.route('/api/ventas/productos/cliente/<int:cliente_id>', methods=['GET'])
 def api_productos_por_cliente(cliente_id):
@@ -15045,6 +15047,497 @@ def vendedor_refrescar_inventario():
             'success': False,
             'message': str(e)
         }), 500
+
+#ventas rutas
+# =============================================
+# RUTAS PARA VENTAS EN RUTA
+# =============================================
+
+@app.route('/vendedor/ventas')
+@vendedor_required
+def vendedor_ventas():
+    """Visualizar listado de ventas realizadas por el vendedor
+    """
+    try:
+        id_vendedor = current_user.id
+        id_empresa = session.get('empresa_id')
+        
+        with get_db_cursor(True) as cursor:
+            # Obtener asignaciones del vendedor para el filtro
+            cursor.execute("""
+                SELECT av.ID_Asignacion, r.Nombre_Ruta, av.Fecha_Asignacion,
+                       av.Estado as Estado_Asignacion
+                FROM asignacion_vendedores av
+                INNER JOIN rutas r ON av.ID_Ruta = r.ID_Ruta
+                WHERE av.ID_Usuario = %s 
+                ORDER BY av.Fecha_Asignacion DESC
+            """, (id_vendedor,))
+            asignaciones = cursor.fetchall()
+            
+            # Obtener ventas del vendedor
+            ventas = []
+            if asignaciones:
+                ids_asignacion = [a['ID_Asignacion'] for a in asignaciones]
+                placeholders = ','.join(['%s'] * len(ids_asignacion))
+                
+                cursor.execute(f"""
+                    SELECT fr.ID_FacturaRuta, 
+                           DATE_FORMAT(fr.Fecha, '%%d/%%m/%%Y') as Fecha,
+                           fr.Credito_Contado,
+                           fr.Observacion, 
+                           fr.Estado, 
+                           DATE_FORMAT(fr.Fecha_Creacion, '%%d/%%m/%%Y %%H:%%i') as Fecha_Creacion,
+                           c.Nombre as Cliente, 
+                           c.RUC_CEDULA,
+                           r.Nombre_Ruta,
+                           COALESCE(SUM(dfr.Total), 0) as Total_Venta,
+                           CASE 
+                               WHEN fr.Credito_Contado = 1 THEN 'CONTADO'
+                               ELSE 'CRÉDITO'
+                           END as Tipo_Venta,
+                           CASE 
+                               WHEN fr.Credito_Contado = 2 THEN (
+                                   SELECT COALESCE(SUM(Saldo_Pendiente), 0)
+                                   FROM cuentas_por_cobrar 
+                                   WHERE Num_Documento = CONCAT('FAC-R', fr.ID_FacturaRuta)
+                               )
+                               ELSE 0
+                           END as Saldo_Pendiente
+                    FROM facturacion_ruta fr
+                    INNER JOIN clientes c ON fr.ID_Cliente = c.ID_Cliente
+                    INNER JOIN asignacion_vendedores av ON fr.ID_Asignacion = av.ID_Asignacion
+                    INNER JOIN rutas r ON av.ID_Ruta = r.ID_Ruta
+                    LEFT JOIN detalle_facturacion_ruta dfr ON fr.ID_FacturaRuta = dfr.ID_FacturaRuta
+                    WHERE fr.ID_Asignacion IN ({placeholders})
+                    GROUP BY fr.ID_FacturaRuta
+                    ORDER BY fr.Fecha DESC, fr.ID_FacturaRuta DESC
+                """, tuple(ids_asignacion))
+                ventas = cursor.fetchall()
+            
+        return render_template('vendedor/ventas/ventas.html', 
+                             asignaciones=asignaciones,
+                             ventas=ventas,
+                             now=datetime.now())
+                             
+    except Exception as e:
+        print(f"Error en vendedor_ventas: {str(e)}")
+        flash(f'Error al cargar ventas: {str(e)}', 'error')
+        return redirect(url_for('vendedor_dashboard'))
+
+
+@app.route('/vendedor/venta/crear', methods=['GET', 'POST'])
+@vendedor_required
+def vendedor_venta_crear():
+    """Crear una nueva venta en ruta
+    """
+    try:
+        id_vendedor = session.get('user_id')
+        
+        with get_db_cursor(True) as cursor:
+            # Obtener asignación activa del vendedor
+            cursor.execute("""
+                SELECT av.*, r.Nombre_Ruta, u.Nombre as Nombre_Vendedor
+                FROM asignacion_vendedores av
+                INNER JOIN rutas r ON av.ID_Ruta = r.ID_Ruta
+                INNER JOIN usuarios u ON av.ID_Usuario = u.ID_Usuario
+                WHERE av.ID_Usuario = %s 
+                AND av.Estado = 'Activa'
+                LIMIT 1
+            """, (id_vendedor,))
+            asignacion = cursor.fetchone()
+            
+            if not asignacion:
+                flash('No tienes una ruta activa asignada', 'warning')
+                return redirect(url_for('vendedor_dashboard'))
+            
+            if request.method == 'POST':
+                # Procesar creación de venta
+                id_cliente = request.form.get('cliente')
+                tipo_venta = request.form.get('tipo_venta')  # '1'=Contado, '2'=Crédito
+                observacion = request.form.get('observacion', '')
+                productos_json = request.form.get('productos', '[]')
+                
+                # Validar datos básicos
+                if not id_cliente:
+                    flash('Debe seleccionar un cliente', 'error')
+                    return redirect(request.url)
+                
+                # Parsear productos
+                try:
+                    productos = json.loads(productos_json)
+                except:
+                    productos = []
+                
+                if not productos:
+                    flash('Debe agregar al menos un producto a la venta', 'error')
+                    return redirect(request.url)
+                
+                # Validar stock
+                error_stock = False
+                for prod in productos:
+                    cursor.execute("""
+                        SELECT Cantidad FROM inventario_ruta
+                        WHERE ID_Asignacion = %s AND ID_Producto = %s
+                    """, (asignacion['ID_Asignacion'], prod['id']))
+                    stock = cursor.fetchone()
+                    
+                    if not stock or stock['Cantidad'] < prod['cantidad']:
+                        cursor.execute("""
+                            SELECT Descripcion FROM productos WHERE ID_Producto = %s
+                        """, (prod['id'],))
+                        prod_nombre = cursor.fetchone()
+                        flash(f'Stock insuficiente para {prod_nombre["Descripcion"]}', 'error')
+                        error_stock = True
+                
+                if error_stock:
+                    return redirect(request.url)
+                
+                # Calcular total de la venta
+                total_venta = 0
+                for prod in productos:
+                    total_venta += prod['cantidad'] * prod['precio']
+                
+                # Insertar factura
+                cursor.execute("""
+                    INSERT INTO facturacion_ruta 
+                    (Fecha, ID_Cliente, ID_Asignacion, Credito_Contado, 
+                     Observacion, ID_Empresa, ID_Usuario_Creacion, Estado)
+                    VALUES (CURDATE(), %s, %s, %s, %s, %s, %s, 'Activa')
+                """, (id_cliente, asignacion['ID_Asignacion'], tipo_venta, 
+                      observacion, asignacion['ID_Empresa'], id_vendedor))
+                
+                id_factura = cursor.lastrowid
+                
+                # Insertar detalles y actualizar inventario
+                for prod in productos:
+                    total_linea = prod['cantidad'] * prod['precio']
+                    
+                    cursor.execute("""
+                        INSERT INTO detalle_facturacion_ruta
+                        (ID_FacturaRuta, ID_Producto, Cantidad, Precio, Total)
+                        VALUES (%s, %s, %s, %s, %s)
+                    """, (id_factura, prod['id'], prod['cantidad'], 
+                          prod['precio'], total_linea))
+                    
+                    # Actualizar inventario de ruta
+                    cursor.execute("""
+                        UPDATE inventario_ruta 
+                        SET Cantidad = Cantidad - %s
+                        WHERE ID_Asignacion = %s AND ID_Producto = %s
+                    """, (prod['cantidad'], asignacion['ID_Asignacion'], prod['id']))
+                
+                # Si es a crédito, crear cuenta por cobrar
+                if tipo_venta == '2':  # Crédito
+                    fecha_vencimiento = (datetime.now() + timedelta(days=30)).strftime('%Y-%m-%d')
+                    cursor.execute("""
+                        INSERT INTO cuentas_por_cobrar
+                        (Fecha, ID_Cliente, Num_Documento, Observacion, Fecha_Vencimiento,
+                         Tipo_Movimiento, Monto_Movimiento, ID_Empresa, Saldo_Pendiente,
+                         ID_Usuario_Creacion, Estado)
+                        VALUES (CURDATE(), %s, %s, %s, %s, 2, %s, %s, %s, %s, 'Pendiente')
+                    """, (id_cliente, f"FAC-R{id_factura}", observacion, fecha_vencimiento,
+                          total_venta, asignacion['ID_Empresa'], total_venta, id_vendedor))
+                
+                flash('Venta registrada exitosamente', 'success')
+                return redirect(url_for('vendedor_venta_detalle', id_venta=id_factura))
+            
+            # GET: Mostrar formulario de creación
+            # Obtener clientes de la empresa (filtrados por ruta)
+            cursor.execute("""
+                SELECT ID_Cliente, Nombre, RUC_CEDULA, Telefono, Direccion,
+                       tipo_cliente, perfil_cliente
+                FROM clientes 
+                WHERE Estado = 'ACTIVO' 
+                AND ID_Empresa = %s
+                AND (ID_Ruta = %s OR ID_Ruta IS NULL)
+                ORDER BY Nombre
+            """, (asignacion['ID_Empresa'], asignacion['ID_Ruta']))
+            clientes = cursor.fetchall()
+            
+            # Obtener inventario disponible con precios de ruta
+            cursor.execute("""
+                SELECT ir.ID_Producto, 
+                       p.COD_Producto, 
+                       p.Descripcion as Nombre,
+                       p.Precio_Ruta,
+                       ir.Cantidad as Stock_Disponible,
+                       um.Nombre_Unidad
+                FROM inventario_ruta ir
+                INNER JOIN productos p ON ir.ID_Producto = p.ID_Producto
+                LEFT JOIN unidades_medida um ON p.Unidad_Medida = um.ID_Unidad
+                WHERE ir.ID_Asignacion = %s 
+                AND ir.Cantidad > 0
+                AND p.Estado = 'activo'
+                ORDER BY p.Descripcion
+            """, (asignacion['ID_Asignacion'],))
+            inventario = cursor.fetchall()
+            
+            # Obtener métodos de pago
+            cursor.execute("""
+                SELECT ID_MetodoPago, Nombre_Metodo
+                FROM metodos_pago
+                WHERE Estado = 1
+                ORDER BY Nombre_Metodo
+            """)
+            metodos_pago = cursor.fetchall()
+            
+        return render_template('vendedor/venta_crear.html',
+                             asignacion=asignacion,
+                             clientes=clientes,
+                             inventario=inventario,
+                             metodos_pago=metodos_pago)
+                             
+    except Exception as e:
+        print(f"Error en vendedor_venta_crear: {str(e)}")
+        flash(f'Error al cargar formulario: {str(e)}', 'error')
+        return redirect(url_for('vendedor_ventas'))
+
+
+@app.route('/vendedor/venta/<int:id_venta>/detalle')
+@vendedor_required
+def vendedor_venta_detalle(id_venta):
+    """Ver detalle completo de una venta específica
+    """
+    try:
+        id_vendedor = session.get('user_id')
+        
+        with get_db_cursor(True) as cursor:
+            # Obtener información general de la venta
+            cursor.execute("""
+                SELECT fr.ID_FacturaRuta,
+                       DATE_FORMAT(fr.Fecha, '%%d/%%m/%%Y') as Fecha,
+                       fr.Credito_Contado,
+                       fr.Observacion,
+                       fr.Estado,
+                       DATE_FORMAT(fr.Fecha_Creacion, '%%d/%%m/%%Y %%H:%%i') as Fecha_Creacion,
+                       c.ID_Cliente,
+                       c.Nombre as Cliente,
+                       c.RUC_CEDULA,
+                       c.Telefono,
+                       c.Direccion,
+                       u.Nombre as Vendedor,
+                       r.Nombre_Ruta,
+                       av.Fecha_Asignacion,
+                       CASE 
+                           WHEN fr.Credito_Contado = 1 THEN 'CONTADO'
+                           ELSE 'CRÉDITO'
+                       END as Tipo_Venta
+                FROM facturacion_ruta fr
+                INNER JOIN clientes c ON fr.ID_Cliente = c.ID_Cliente
+                INNER JOIN asignacion_vendedores av ON fr.ID_Asignacion = av.ID_Asignacion
+                INNER JOIN usuarios u ON av.ID_Usuario = u.ID_Usuario
+                INNER JOIN rutas r ON av.ID_Ruta = r.ID_Ruta
+                WHERE fr.ID_FacturaRuta = %s
+                AND av.ID_Usuario = %s
+            """, (id_venta, id_vendedor))
+            venta = cursor.fetchone()
+            
+            if not venta:
+                flash('Venta no encontrada o no tienes permiso para verla', 'error')
+                return redirect(url_for('vendedor_ventas'))
+            
+            # Obtener detalle de productos
+            cursor.execute("""
+                SELECT df.ID_DetalleRuta,
+                       df.Cantidad,
+                       df.Precio,
+                       df.Total,
+                       p.ID_Producto,
+                       p.COD_Producto,
+                       p.Descripcion as Producto,
+                       um.Nombre_Unidad
+                FROM detalle_facturacion_ruta df
+                INNER JOIN productos p ON df.ID_Producto = p.ID_Producto
+                LEFT JOIN unidades_medida um ON p.Unidad_Medida = um.ID_Unidad
+                WHERE df.ID_FacturaRuta = %s
+                ORDER BY df.ID_DetalleRuta
+            """, (id_venta,))
+            detalles = cursor.fetchall()
+            
+            # Calcular totales
+            subtotal = 0
+            for d in detalles:
+                subtotal += float(d['Total'])
+            
+            # Obtener información de cuentas por cobrar si es crédito
+            cuentas_cobrar = None
+            if venta['Credito_Contado'] == 2:
+                cursor.execute("""
+                    SELECT ID_Movimiento, Saldo_Pendiente, Estado as Estado_CXC,
+                           DATE_FORMAT(Fecha_Vencimiento, '%%d/%%m/%%Y') as Fecha_Vencimiento,
+                           DATEDIFF(CURDATE(), Fecha_Vencimiento) as Dias_Vencidos
+                    FROM cuentas_por_cobrar
+                    WHERE Num_Documento = %s
+                """, (f"FAC-R{id_venta}",))
+                cuentas_cobrar = cursor.fetchone()
+            
+        return render_template('vendedor/venta_detalle.html',
+                             venta=venta,
+                             detalles=detalles,
+                             subtotal=subtotal,
+                             cuentas_cobrar=cuentas_cobrar)
+                             
+    except Exception as e:
+        print(f"Error en vendedor_venta_detalle: {str(e)}")
+        flash(f'Error al cargar detalle: {str(e)}', 'error')
+        return redirect(url_for('vendedor_ventas'))
+
+
+# =============================================
+# RUTA ADICIONAL: Anular venta (desde el detalle)
+# =============================================
+
+@app.route('/vendedor/venta/<int:id_venta>/anular', methods=['POST'])
+@vendedor_required
+def vendedor_venta_anular(id_venta):
+    """Anular una venta (solo si es del día y está activa)
+    """
+    try:
+        id_vendedor = session.get('user_id')
+        motivo = request.form.get('motivo', 'Sin motivo especificado')
+        
+        with get_db_cursor() as cursor:
+            # Verificar que la venta pertenezca al vendedor y sea del día
+            cursor.execute("""
+                SELECT fr.ID_FacturaRuta, fr.ID_Asignacion, fr.Credito_Contado,
+                       dfr.ID_Producto, dfr.Cantidad
+                FROM facturacion_ruta fr
+                LEFT JOIN detalle_facturacion_ruta dfr ON fr.ID_FacturaRuta = dfr.ID_FacturaRuta
+                WHERE fr.ID_FacturaRuta = %s 
+                AND fr.ID_Usuario_Creacion = %s
+                AND fr.Estado = 'Activa'
+                AND DATE(fr.Fecha_Creacion) = CURDATE()
+            """, (id_venta, id_vendedor))
+            venta_data = cursor.fetchall()
+            
+            if not venta_data:
+                flash('No se puede anular la venta. Solo puedes anular ventas del día', 'error')
+                return redirect(url_for('vendedor_venta_detalle', id_venta=id_venta))
+            
+            # Devolver productos al inventario
+            for item in venta_data:
+                if item['ID_Producto']:
+                    cursor.execute("""
+                        UPDATE inventario_ruta 
+                        SET Cantidad = Cantidad + %s
+                        WHERE ID_Asignacion = %s AND ID_Producto = %s
+                    """, (item['Cantidad'], item['ID_Asignacion'], item['ID_Producto']))
+            
+            # Si es crédito, anular cuenta por cobrar
+            if venta_data[0]['Credito_Contado'] == 2:
+                cursor.execute("""
+                    UPDATE cuentas_por_cobrar 
+                    SET Estado = 'Anulada'
+                    WHERE Num_Documento = %s
+                """, (f"FAC-R{id_venta}",))
+            
+            # Anular factura
+            cursor.execute("""
+                UPDATE facturacion_ruta 
+                SET Estado = 'Anulada',
+                    Observacion = CONCAT(COALESCE(Observacion, ''), ' | ANULADA: ', %s)
+                WHERE ID_FacturaRuta = %s
+            """, (motivo, id_venta))
+            
+            flash('Venta anulada exitosamente', 'success')
+            
+    except Exception as e:
+        print(f"Error en vendedor_venta_anular: {str(e)}")
+        flash(f'Error al anular venta: {str(e)}', 'error')
+    
+    return redirect(url_for('vendedor_ventas'))
+
+@app.route('/api/filtrar_ventas', methods=['POST'])
+@vendedor_required
+def api_filtrar_ventas():
+    """API para filtrar ventas por fecha y ruta
+    """
+    try:
+        id_vendedor = session.get('user_id')
+        fecha = request.form.get('fecha', 'hoy')
+        id_ruta = request.form.get('ruta')
+        fecha_inicio = request.form.get('fecha_inicio')
+        fecha_fin = request.form.get('fecha_fin')
+        
+        with get_db_cursor(True) as cursor:
+            # Construir condición de fecha
+            fecha_cond = ""
+            params = [id_vendedor]
+            
+            if fecha == 'hoy':
+                fecha_cond = "AND DATE(fr.Fecha) = CURDATE()"
+            elif fecha == 'ayer':
+                fecha_cond = "AND DATE(fr.Fecha) = DATE_SUB(CURDATE(), INTERVAL 1 DAY)"
+            elif fecha == 'semana':
+                fecha_cond = "AND fr.Fecha >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)"
+            elif fecha == 'mes':
+                fecha_cond = "AND fr.Fecha >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)"
+            elif fecha == 'personalizado' and fecha_inicio and fecha_fin:
+                fecha_cond = "AND fr.Fecha BETWEEN %s AND %s"
+                params.extend([fecha_inicio, fecha_fin])
+            
+            # Construir condición de ruta
+            ruta_cond = ""
+            if id_ruta:
+                ruta_cond = "AND fr.ID_Asignacion = %s"
+                params.append(id_ruta)
+            
+            # Obtener ventas filtradas
+            cursor.execute(f"""
+                SELECT fr.ID_FacturaRuta, 
+                       DATE_FORMAT(fr.Fecha, '%%d/%%m/%%Y') as Fecha,
+                       DATE_FORMAT(fr.Fecha_Creacion, '%%H:%%i') as Hora,
+                       fr.Credito_Contado,
+                       fr.Estado,
+                       c.Nombre as Cliente,
+                       c.RUC_CEDULA,
+                       c.Telefono,
+                       r.Nombre_Ruta,
+                       COALESCE(SUM(dfr.Total), 0) as Total_Venta,
+                       CASE 
+                           WHEN fr.Credito_Contado = 1 THEN 'CONTADO'
+                           ELSE 'CRÉDITO'
+                       END as Tipo_Venta,
+                       CASE 
+                           WHEN fr.Credito_Contado = 2 THEN (
+                               SELECT COALESCE(SUM(Saldo_Pendiente), 0)
+                               FROM cuentas_por_cobrar 
+                               WHERE Num_Documento = CONCAT('FAC-R', fr.ID_FacturaRuta)
+                           )
+                           ELSE 0
+                       END as Saldo_Pendiente
+                FROM facturacion_ruta fr
+                INNER JOIN clientes c ON fr.ID_Cliente = c.ID_Cliente
+                INNER JOIN asignacion_vendedores av ON fr.ID_Asignacion = av.ID_Asignacion
+                INNER JOIN rutas r ON av.ID_Ruta = r.ID_Ruta
+                LEFT JOIN detalle_facturacion_ruta dfr ON fr.ID_FacturaRuta = dfr.ID_FacturaRuta
+                WHERE av.ID_Usuario = %s {fecha_cond} {ruta_cond}
+                GROUP BY fr.ID_FacturaRuta
+                ORDER BY fr.Fecha DESC, fr.ID_FacturaRuta DESC
+            """, tuple(params))
+            ventas = cursor.fetchall()
+            
+            # Formatear para JSON
+            ventas_list = []
+            for v in ventas:
+                ventas_list.append({
+                    'ID_FacturaRuta': v['ID_FacturaRuta'],
+                    'Fecha': v['Fecha'],
+                    'Hora': v['Hora'],
+                    'Cliente': v['Cliente'],
+                    'RUC_CEDULA': v['RUC_CEDULA'],
+                    'Telefono': v['Telefono'],
+                    'Nombre_Ruta': v['Nombre_Ruta'],
+                    'Total_Venta': "${:,.2f}".format(float(v['Total_Venta'])),
+                    'Tipo_Venta': v['Tipo_Venta'],
+                    'Estado': v['Estado'],
+                    'Saldo_Pendiente': float(v['Saldo_Pendiente']) if v['Saldo_Pendiente'] else 0
+                })
+            
+            return jsonify({'success': True, 'ventas': ventas_list})
+            
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
 
 #Iniciar Aplicación
 if __name__ == '__main__':

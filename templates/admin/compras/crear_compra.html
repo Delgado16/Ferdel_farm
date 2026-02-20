@@ -146,7 +146,7 @@
 
     .product-grid {
         display: grid;
-        grid-template-columns: 2fr 1fr 1fr 1fr 1fr;
+        grid-template-columns: 2fr 1fr 1fr 1fr;
         gap: 1rem;
         align-items: end;
     }
@@ -593,7 +593,7 @@
                 <!-- Campo oculto para el ID del usuario -->
                 <input type="hidden" id="id_usuario_creacion" name="id_usuario_creacion" value="{{ session.get('id_usuario', 1) }}">
 
-                <!-- Información General Compacta (Estilo Editar_Compra) -->
+                <!-- Información General -->
                 <div class="form-section">
                     <h4 class="section-title"><i class="fas fa-info-circle me-2"></i>Información General</h4>
                     
@@ -679,7 +679,7 @@
                     </div>
                 </div>
 
-                <!-- Productos - Versión Compacta (Estilo Editar_Compra) -->
+                <!-- Productos - VERSIÓN SIMPLIFICADA (SIN PRECIO DE VENTA) -->
                 <div class="form-section">
                     <div class="d-flex justify-content-between align-items-center mb-3">
                         <h4 class="section-title mb-0"><i class="fas fa-boxes me-2"></i>Productos</h4>
@@ -752,7 +752,7 @@
 
 <script>
 // ============================================
-// VARIABLES GLOBALES (MANTENIDAS DE NUEVA_COMPRA)
+// VARIABLES GLOBALES
 // ============================================
 let productos = [];
 let contadorProductos = 0;
@@ -760,7 +760,7 @@ let filtroCategoriaActual = 0;
 let productosEnCache = [];
 
 // ============================================
-// FUNCIONES DE INICIALIZACIÓN (MANTENIDAS)
+// FUNCIONES DE INICIALIZACIÓN
 // ============================================
 
 // Establecer fecha actual por defecto
@@ -860,7 +860,6 @@ function mostrarModalConfirmacion() {
         const select = tarjeta.querySelector('.producto-select');
         const cantidad = tarjeta.querySelector('.cantidad');
         const costo = tarjeta.querySelector('.costo');
-        const precio = tarjeta.querySelector('.precio');
         const subtotal = tarjeta.querySelector('.subtotal');
         
         if (select.value && parseFloat(cantidad.value) > 0 && parseFloat(costo.value) > 0) {
@@ -912,7 +911,7 @@ function confirmarCompra() {
 }
 
 // ============================================
-// FUNCIONES DE FILTRADO DE PRODUCTOS (MANTENIDAS)
+// FUNCIONES DE FILTRADO DE PRODUCTOS
 // ============================================
 
 // APLICAR FILTRO POR CATEGORÍA
@@ -1037,7 +1036,6 @@ function actualizarSelectConProductos(select, productos) {
         option.textContent = `${producto.descripcion} (${producto.codigo}) - Stock: ${stockText}`;
         option.dataset.codigo = producto.codigo;
         option.dataset.existencias = stock;
-        option.dataset.precio = producto.precio_venta || 0;
         option.dataset.categoria = producto.id_categoria;
         option.dataset.unidad = producto.unidad_medida || '';
         option.dataset.simbolo = producto.simbolo_medida || '';
@@ -1062,7 +1060,7 @@ function limpiarFiltro() {
 }
 
 // ============================================
-// FUNCIONES DE GESTIÓN DE PRODUCTOS (ADAPTADAS AL NUEVO DISEÑO)
+// FUNCIONES DE GESTIÓN DE PRODUCTOS (VERSIÓN SIMPLIFICADA)
 // ============================================
 
 function agregarProducto() {
@@ -1074,7 +1072,7 @@ function agregarProducto() {
             <div class="product-card-header">
                 <h6 class="product-card-title">Producto #${contadorProductos}</h6>
                 <button type="button" class="btn btn-danger btn-sm" onclick="eliminarProducto(${contadorProductos})" title="Eliminar producto">
-                    <i class="fas fa-times"></i>Quitar
+                    <i class="fas fa-times"></i> Quitar
                 </button>
             </div>
             <div class="product-grid">
@@ -1102,9 +1100,9 @@ function agregarProducto() {
                     <div class="invalid-feedback">Ingrese una cantidad válida</div>
                 </div>
                 
-                <!-- Costo -->
+                <!-- Costo Unitario (único precio necesario) -->
                 <div>
-                    <label class="form-label required-field">Costo</label>
+                    <label class="form-label required-field">Costo Unitario (C$)</label>
                     <div class="input-group input-group-sm">
                         <span class="input-group-text">C$</span>
                         <input type="number" class="form-control costo" name="costos_unitarios[]" 
@@ -1112,18 +1110,7 @@ function agregarProducto() {
                                onchange="calcularSubtotal(${contadorProductos})">
                     </div>
                     <div class="invalid-feedback">Ingrese un costo válido</div>
-                </div>
-                
-                <!-- Precio -->
-                <div>
-                    <label class="form-label required-field">Precio</label>
-                    <div class="input-group input-group-sm">
-                        <span class="input-group-text">C$</span>
-                        <input type="number" class="form-control precio" name="precios_unitarios[]" 
-                               step="0.01" min="0" value="0" required 
-                               onchange="actualizarPrecio(${contadorProductos})">
-                    </div>
-                    <div class="invalid-feedback">Ingrese un precio válido</div>
+                    <small class="text-muted"></small>
                 </div>
                 
                 <!-- Subtotal -->
@@ -1193,7 +1180,6 @@ async function actualizarInfoProducto(id) {
     const productoInfo = document.getElementById(`producto-info-${id}`);
     const stockInfo = document.getElementById(`stock-info-${id}`);
     const unidadSimbolo = document.getElementById(`unidad-simbolo-${id}`);
-    const precioInput = tarjeta.querySelector('.precio');
     const costoInput = tarjeta.querySelector('.costo');
     const cantidadInput = tarjeta.querySelector('.cantidad');
     
@@ -1222,10 +1208,9 @@ async function actualizarInfoProducto(id) {
             }
             
             const existenciasActual = data.existencias;
-            const precioSugerido = data.precio_venta || 0;
             const unidad = data.unidad_medida || 'unidades';
             
-            console.log(`📊 Stock actual: ${existenciasActual} ${unidad}, Precio sugerido: ${precioSugerido}`);
+            console.log(`📊 Stock actual: ${existenciasActual} ${unidad}`);
             
             // Mostrar información de stock
             let stockClass = 'stock-good';
@@ -1251,22 +1236,6 @@ async function actualizarInfoProducto(id) {
                 stockInfo.style.display = 'block';
             }
             
-            // Auto-completar precio unitario si está vacío
-            if (precioSugerido > 0 && (!precioInput.value || precioInput.value == '0')) {
-                precioInput.value = precioSugerido.toFixed(2);
-                console.log(`💰 Precio auto-completado: ${precioSugerido.toFixed(2)}`);
-            }
-            
-            // Sugerir costo basado en precio (80% del precio sugerido)
-            if (precioSugerido > 0 && (!costoInput.value || costoInput.value == '0')) {
-                const costoSugerido = (precioSugerido * 0.8).toFixed(2);
-                costoInput.value = costoSugerido;
-                console.log(`💵 Costo sugerido: ${costoSugerido}`);
-                
-                // Recalcular subtotal
-                calcularSubtotal(id);
-            }
-            
         } catch (error) {
             console.error('❌ Error en actualización tiempo real:', error);
             if (stockInfo) {
@@ -1280,24 +1249,8 @@ async function actualizarInfoProducto(id) {
     }
 }
 
-function actualizarPrecio(id) {
-    const tarjeta = document.getElementById(`producto-card-${id}`);
-    if (!tarjeta) return;
-    
-    const precioInput = tarjeta.querySelector('.precio');
-    const precioValue = parseFloat(precioInput.value) || 0;
-    
-    // Validar que el precio no sea menor al costo
-    const costo = parseFloat(tarjeta.querySelector('.costo').value) || 0;
-    if (precioValue > 0 && precioValue < costo) {
-        mostrarAlerta('warning', '⚠️ Advertencia', 'El precio de venta es menor al costo. Esto generará pérdidas.');
-    }
-    
-    console.log(`💰 Precio actualizado para producto ${id}: ${precioValue}`);
-}
-
 // ============================================
-// FUNCIONES DE CÁLCULO (ADAPTADAS)
+// FUNCIONES DE CÁLCULO
 // ============================================
 function formatCurrency(number) {
     const num = Number(number) || 0;
@@ -1369,7 +1322,7 @@ function actualizarMensajeProductos() {
 }
 
 // ============================================
-// FUNCIONES DE API (MANTENIDAS)
+// FUNCIONES DE API
 // ============================================
 
 // VERIFICACIÓN DE EXISTENCIAS EN TIEMPO REAL
@@ -1400,7 +1353,7 @@ async function obtenerExistenciasActuales(idProducto) {
 }
 
 // ============================================
-// FUNCIONES DE UTILIDAD (MANTENIDAS)
+// FUNCIONES DE UTILIDAD
 // ============================================
 
 function mostrarAlerta(tipo, titulo, mensaje) {
@@ -1464,35 +1417,30 @@ function validarCompraBasica() {
         const select = tarjeta.querySelector(".producto-select");
         const cantidad = tarjeta.querySelector(".cantidad");
         const costo = tarjeta.querySelector(".costo");
-        const precio = tarjeta.querySelector(".precio");
         
         const cantidadVal = parseFloat(cantidad.value) || 0;
         const costoVal = parseFloat(costo.value) || 0;
-        const precioVal = parseFloat(precio.value) || 0;
         
-        if (select.value && cantidadVal > 0 && costoVal > 0 && precioVal > 0) {
+        if (select.value && cantidadVal > 0 && costoVal > 0) {
             hayProductosValidos = true;
             select.classList.remove("is-invalid");
             cantidad.classList.remove("is-invalid");
             costo.classList.remove("is-invalid");
-            precio.classList.remove("is-invalid");
             console.log(`✅ Producto ${index + 1}: válido`);
         } else {
             console.log(`❌ Producto ${index + 1}: inválido`, {
                 select: select.value,
                 cantidad: cantidadVal,
-                costo: costoVal,
-                precio: precioVal
+                costo: costoVal
             });
             if (!select.value) select.classList.add("is-invalid");
             if (cantidadVal <= 0) cantidad.classList.add("is-invalid");
             if (costoVal <= 0) costo.classList.add("is-invalid");
-            if (precioVal <= 0) precio.classList.add("is-invalid");
         }
     });
     
     if (!hayProductosValidos) {
-        mostrarAlerta('danger', '❌ Error!', 'Debe agregar al menos un producto con cantidad, costo y precio válidos.');
+        mostrarAlerta('danger', '❌ Error!', 'Debe agregar al menos un producto con cantidad y costo válidos.');
         valido = false;
     }
     
@@ -1519,7 +1467,7 @@ function validarCompraBasica() {
     return valido;
 }
 
-// PROCESAR COMPRA
+// PROCESAR COMPRA (ACTUALIZADO - SIN PRECIO DE VENTA)
 function procesarCompra() {
     console.log('🚀 Procesando compra...');
     const formData = new FormData();
@@ -1549,7 +1497,7 @@ function procesarCompra() {
         }
     }
     
-    // Campos de productos
+    // Campos de productos - AHORA SOLO CON PRODUCTO, CANTIDAD Y COSTO
     const productoElements = document.querySelectorAll('.product-card');
     let productosValidos = 0;
     
@@ -1559,20 +1507,17 @@ function procesarCompra() {
         const select = item.querySelector('.producto-select');
         const cantidad = item.querySelector('.cantidad');
         const costo = item.querySelector('.costo');
-        const precio = item.querySelector('.precio');
         
         const productoId = select.value;
         const cantidadVal = parseFloat(cantidad.value);
         const costoVal = parseFloat(costo.value);
-        const precioVal = parseFloat(precio.value);
         
-        if (productoId && cantidadVal > 0 && costoVal > 0 && precioVal > 0) {
+        if (productoId && cantidadVal > 0 && costoVal > 0) {
             
             // AGREGAR SOLO LOS CAMPOS QUE EL BACKEND ESPERA
             formData.append('productos[]', productoId);
             formData.append('cantidades[]', cantidadVal.toFixed(4));
             formData.append('costos_unitarios[]', costoVal.toFixed(2));
-            formData.append('precios_unitarios[]', precioVal.toFixed(2));
             
             productosValidos++;
             
@@ -1580,7 +1525,6 @@ function procesarCompra() {
                 id: productoId,
                 cantidad: cantidadVal.toFixed(4),
                 costo: costoVal.toFixed(2),
-                precio: precioVal.toFixed(2),
                 subtotal: (cantidadVal * costoVal).toFixed(2)
             });
         }
