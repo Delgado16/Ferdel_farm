@@ -15124,14 +15124,14 @@ def vendedor_ventas():
         flash(f'Error al cargar ventas: {str(e)}', 'error')
         return redirect(url_for('vendedor_dashboard'))
 
-
 @app.route('/vendedor/venta/crear', methods=['GET', 'POST'])
 @vendedor_required
 def vendedor_venta_crear():
     """Crear una nueva venta en ruta
     """
     try:
-        id_vendedor = session.get('user_id')
+        id_vendedor = current_user.id
+        id_empresa = session.get('empresa_id',1)
         
         with get_db_cursor(True) as cursor:
             # Obtener asignación activa del vendedor
@@ -15142,8 +15142,9 @@ def vendedor_venta_crear():
                 INNER JOIN usuarios u ON av.ID_Usuario = u.ID_Usuario
                 WHERE av.ID_Usuario = %s 
                 AND av.Estado = 'Activa'
+                AND r.ID_Empresa = %s
                 LIMIT 1
-            """, (id_vendedor,))
+            """, (id_vendedor, id_empresa))
             asignacion = cursor.fetchone()
             
             if not asignacion:
@@ -15165,7 +15166,9 @@ def vendedor_venta_crear():
                 # Parsear productos
                 try:
                     productos = json.loads(productos_json)
-                except:
+                    print(f"Productos recibidos: {productos}")  # Debug
+                except Exception as e:
+                    print(f"Error al parsear JSON: {e}")
                     productos = []
                 
                 if not productos:
@@ -15261,7 +15264,7 @@ def vendedor_venta_crear():
                        p.Descripcion as Nombre,
                        p.Precio_Ruta,
                        ir.Cantidad as Stock_Disponible,
-                       um.Nombre_Unidad
+                       um.Descripcion
                 FROM inventario_ruta ir
                 INNER JOIN productos p ON ir.ID_Producto = p.ID_Producto
                 LEFT JOIN unidades_medida um ON p.Unidad_Medida = um.ID_Unidad
@@ -15274,24 +15277,28 @@ def vendedor_venta_crear():
             
             # Obtener métodos de pago
             cursor.execute("""
-                SELECT ID_MetodoPago, Nombre_Metodo
+                SELECT ID_MetodoPago, Nombre
                 FROM metodos_pago
-                WHERE Estado = 1
-                ORDER BY Nombre_Metodo
+                ORDER BY Nombre
             """)
             metodos_pago = cursor.fetchall()
             
-        return render_template('vendedor/venta_crear.html',
+            # CORRECCIÓN: Fecha actual para el template
+            fecha_actual = datetime.now().strftime('%d/%m/%Y')
+            
+        return render_template('vendedor/ventas/venta_crear.html',
                              asignacion=asignacion,
                              clientes=clientes,
                              inventario=inventario,
-                             metodos_pago=metodos_pago)
+                             metodos_pago=metodos_pago,
+                             fecha_actual=fecha_actual)  # <-- Solo agregué esto
                              
     except Exception as e:
         print(f"Error en vendedor_venta_crear: {str(e)}")
+        traceback.print_exc()
         flash(f'Error al cargar formulario: {str(e)}', 'error')
         return redirect(url_for('vendedor_ventas'))
-
+    
 
 @app.route('/vendedor/venta/<int:id_venta>/detalle')
 @vendedor_required
