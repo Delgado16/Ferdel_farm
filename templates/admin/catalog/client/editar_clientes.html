@@ -15,6 +15,17 @@
         content: " *";
         color: #dc3545;
     }
+    .saldo-card {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border-radius: 10px;
+        padding: 15px;
+        margin-bottom: 20px;
+    }
+    .saldo-card .saldo-monto {
+        font-size: 1.8rem;
+        font-weight: bold;
+    }
 </style>
 {% endblock %}
 
@@ -44,6 +55,7 @@
                     <p class="card-text">
                         <strong>Nombre:</strong> {{ cliente.Nombre }}<br>
                         <strong>Identificación:</strong> {{ cliente.RUC_CEDULA or 'No especificada' }}<br>
+                        <strong>Teléfono:</strong> {{ cliente.Telefono or 'No especificado' }}<br>
                         <strong>Tipo:</strong> {{ cliente.tipo_cliente }}<br>
                         <strong>Perfil actual:</strong> {{ cliente.perfil_cliente or 'No especificado' }}<br>
                         <strong>Ruta actual:</strong> {{ cliente.Nombre_Ruta or 'Sin ruta asignada' }}<br>
@@ -51,6 +63,23 @@
                     </p>
                 </div>
                 <div class="col-md-6">
+                    <!-- Tarjeta de saldo - SOLO VISUAL, NO EDITABLE -->
+                    <div class="saldo-card">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <i class="bi bi-wallet2 fs-2"></i>
+                                <h6 class="mb-0">Saldo Pendiente Total</h6>
+                            </div>
+                            <div class="saldo-monto">
+                                C${{ "{:,.2f}".format(cliente.Saldo_Pendiente_Total) }}
+                            </div>
+                        </div>
+                        <div class="mt-2 small opacity-75">
+                            <i class="bi bi-shield-lock"></i> 
+                            Este saldo no es editable manualmente. Se actualiza automáticamente con facturas y pagos.
+                        </div>
+                    </div>
+                    
                     <div class="alert alert-info mb-0">
                         <small>
                             <i class="bi bi-info-circle"></i> <strong>Notas importantes:</strong><br>
@@ -132,7 +161,7 @@
                     <div class="invalid-feedback">Por favor seleccione el tipo de cliente.</div>
                 </div>
 
-                <!-- Perfil de Cliente - NUEVO CAMPO -->
+                <!-- Perfil de Cliente -->
                 <div class="col-md-4">
                     <label for="perfil_cliente" class="form-label required">Perfil de Cliente</label>
                     <select name="perfil_cliente" id="perfil_cliente" class="form-select" required>
@@ -181,7 +210,7 @@
 
                 <!-- Botones -->
                 <div class="col-12 mt-4 pt-3 border-top">
-                    <div class="d-flex justify-content-between">
+                    <div class="d-flex justify-content-between align-items-center">
                         <div>
                             <button type="submit" class="btn btn-primary">
                                 <i class="bi bi-check-circle"></i> Guardar Cambios
@@ -190,12 +219,23 @@
                                 <i class="bi bi-x-circle"></i> Cancelar
                             </a>
                         </div>
-                        {% if cliente.Estado == 'ACTIVO' %}
-                        <button type="button" class="btn btn-outline-danger" 
-                                data-bs-toggle="modal" data-bs-target="#eliminarClienteModal">
-                            <i class="bi bi-trash"></i> Eliminar Cliente
-                        </button>
-                        {% endif %}
+                        
+                        <div class="d-flex align-items-center">
+                            <!-- Mostrar última actividad si está disponible -->
+                            {% if cliente.Fecha_Ultimo_Movimiento %}
+                            <small class="text-muted me-3">
+                                <i class="bi bi-clock-history"></i> 
+                                Último movimiento: {{ cliente.Fecha_Ultimo_Movimiento|default('', true) }}
+                            </small>
+                            {% endif %}
+                            
+                            {% if cliente.Estado == 'ACTIVO' %}
+                            <button type="button" class="btn btn-outline-danger" 
+                                    data-bs-toggle="modal" data-bs-target="#eliminarClienteModal">
+                                <i class="bi bi-trash"></i> Eliminar Cliente
+                            </button>
+                            {% endif %}
+                        </div>
                     </div>
                 </div>
             </form>
@@ -215,6 +255,16 @@
             </div>
             <div class="modal-body">
                 <p>¿Está seguro que desea eliminar al cliente <strong>{{ cliente.Nombre }}</strong>?</p>
+                
+                {% if cliente.Saldo_Pendiente_Total > 0 %}
+                <div class="alert alert-danger">
+                    <i class="bi bi-exclamation-triangle-fill"></i>
+                    <strong>¡Atención!</strong> Este cliente tiene un saldo pendiente de 
+                    <strong>C${{ "{:,.2f}".format(cliente.Saldo_Pendiente_Total) }}</strong>.
+                    Se recomienda gestionar el cobro antes de desactivar el cliente.
+                </div>
+                {% endif %}
+                
                 <p class="text-danger small">
                     <i class="bi bi-info-circle"></i> Esta acción cambiará el estado del cliente a INACTIVO y no podrá ser seleccionado en nuevas operaciones.
                 </p>

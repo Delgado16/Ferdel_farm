@@ -2132,6 +2132,7 @@ def editar_empresa(id):
         return redirect(url_for('admin_empresas'))
 
 # CATALOGO CLIENTES
+
 @app.route('/admin/catalog/client/clientes', methods=['GET'])
 @admin_required
 @bitacora_decorator("CLIENTES")
@@ -2167,10 +2168,15 @@ def admin_clientes():
             
             offset = (page - 1) * per_page
             
-            # Consulta base ACTUALIZADA con JOIN de rutas y perfil_cliente
+            # Consulta base ACTUALIZADA con JOIN de rutas y todos los campos de clientes
             base_query = """
-                SELECT c.*, e.Nombre_Empresa, r.Nombre_Ruta
-                FROM Clientes c
+                SELECT c.ID_Cliente, c.Nombre, c.Telefono, c.Direccion, c.RUC_CEDULA,
+                       c.ID_Empresa, c.ID_Ruta, c.Saldo_Pendiente_Total,
+                       c.Fecha_Ultimo_Movimiento, c.ID_Ultima_Factura, c.Fecha_Ultimo_Pago,
+                       c.Estado, c.Fecha_Creacion, c.ID_Usuario_Creacion,
+                       c.tipo_cliente, c.perfil_cliente,
+                       e.Nombre_Empresa, r.Nombre_Ruta
+                FROM clientes c
                 INNER JOIN empresa e ON c.ID_Empresa = e.ID_Empresa
                 LEFT JOIN rutas r ON c.ID_Ruta = r.ID_Ruta
                 WHERE c.Estado = 'ACTIVO' 
@@ -2187,7 +2193,7 @@ def admin_clientes():
             # Contar total ACTUALIZADO
             count_query = """
                 SELECT COUNT(*) as total 
-                FROM Clientes c
+                FROM clientes c
                 INNER JOIN empresa e ON c.ID_Empresa = e.ID_Empresa
                 WHERE c.Estado = 'ACTIVO' 
                 AND c.ID_Empresa = %s
@@ -2233,6 +2239,7 @@ def admin_clientes():
                         total_pages=total_pages,
                         search=search_query)
 
+
 @app.route('/admin/catalog/client/crear-cliente', methods=['POST'])
 @admin_required
 @bitacora_decorator("CLIENTES-CREAR")
@@ -2243,7 +2250,7 @@ def admin_crear_cliente():
         direccion = request.form.get("direccion", "").strip()
         ruc_cedula = request.form.get("ruc_cedula", "").strip()
         tipo_cliente = request.form.get("tipo_cliente", "Comun").strip()
-        perfil_cliente = request.form.get("perfil_cliente", "Mercado").strip()  # Nuevo campo
+        perfil_cliente = request.form.get("perfil_cliente", "Mercado").strip()
         id_ruta = request.form.get("id_ruta", "").strip()
         id_usuario = session.get('id_usuario', 1)
         id_empresa = session.get('id_empresa', 1)
@@ -2309,7 +2316,7 @@ def admin_crear_cliente():
             # Verificar si el RUC/Cédula ya existe (solo si se proporcionó)
             if ruc_cedula:
                 cursor.execute(
-                    """SELECT 1 FROM Clientes 
+                    """SELECT 1 FROM clientes 
                     WHERE RUC_CEDULA = %s 
                     AND ID_Empresa = %s 
                     AND Estado = 'ACTIVO'""", 
@@ -2320,14 +2327,17 @@ def admin_crear_cliente():
                     flash("Ya existe un cliente con este RUC/Cédula", "danger")
                     return redirect(url_for("admin_clientes"))
 
-            # Insertar nuevo cliente CON los campos ID_Ruta y perfil_cliente
+            # Insertar nuevo cliente con todos los campos
+            # NOTA: Saldo_Pendiente_Total siempre inicia en 0 y solo se modifica mediante facturación/pagos
             cursor.execute("""
-                INSERT INTO Clientes 
+                INSERT INTO clientes 
                 (Nombre, Telefono, Direccion, RUC_CEDULA, ID_Empresa, 
-                 ID_Usuario_Creacion, tipo_cliente, perfil_cliente, ID_Ruta)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                 ID_Usuario_Creacion, tipo_cliente, perfil_cliente, ID_Ruta,
+                 Saldo_Pendiente_Total, Estado)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             """, (nombre, telefono, direccion, ruc_cedula, id_empresa, 
-                  id_usuario, tipo_cliente, perfil_cliente, id_ruta))
+                  id_usuario, tipo_cliente, perfil_cliente, id_ruta,
+                  0.00, 'ACTIVO'))
             
             flash("Cliente agregado correctamente.", "success")
             
@@ -2336,6 +2346,7 @@ def admin_crear_cliente():
         flash("Error al guardar el cliente", "danger")
     
     return redirect(url_for("admin_clientes"))
+
 
 @app.route('/admin/catalog/client/editar-cliente/<int:id>', methods=['GET', 'POST'])
 @admin_required
@@ -2357,13 +2368,18 @@ def admin_editar_cliente(id):
             
             # Verificar que el cliente existe (sin filtrar por estado para poder reactivar)
             cursor.execute(
-                """SELECT c.*, r.Nombre_Ruta
-                FROM Clientes c
-                INNER JOIN empresa e ON c.ID_Empresa = e.ID_Empresa
-                LEFT JOIN rutas r ON c.ID_Ruta = r.ID_Ruta
-                WHERE c.ID_Cliente = %s 
-                AND c.ID_Empresa = %s 
-                AND e.Estado = 'ACTIVO'
+                """SELECT c.ID_Cliente, c.Nombre, c.Telefono, c.Direccion, c.RUC_CEDULA,
+                          c.ID_Empresa, c.ID_Ruta, c.Saldo_Pendiente_Total,
+                          c.Fecha_Ultimo_Movimiento, c.ID_Ultima_Factura, c.Fecha_Ultimo_Pago,
+                          c.Estado, c.Fecha_Creacion, c.ID_Usuario_Creacion,
+                          c.tipo_cliente, c.perfil_cliente,
+                          r.Nombre_Ruta
+                   FROM clientes c
+                   INNER JOIN empresa e ON c.ID_Empresa = e.ID_Empresa
+                   LEFT JOIN rutas r ON c.ID_Ruta = r.ID_Ruta
+                   WHERE c.ID_Cliente = %s 
+                   AND c.ID_Empresa = %s 
+                   AND e.Estado = 'Activo'
                 """,
                 (id, id_empresa)
             )
@@ -2386,7 +2402,7 @@ def admin_editar_cliente(id):
                 ruc_cedula = request.form.get("ruc_cedula", "").strip()
                 estado = request.form.get("estado", "ACTIVO").strip()
                 tipo_cliente = request.form.get("tipo_cliente", "Comun").strip()
-                perfil_cliente = request.form.get("perfil_cliente", "Mercado").strip()  # Nuevo campo
+                perfil_cliente = request.form.get("perfil_cliente", "Mercado").strip()
                 id_ruta = request.form.get("id_ruta", "").strip()
 
                 if not nombre:
@@ -2440,7 +2456,7 @@ def admin_editar_cliente(id):
                 # Verificar si el RUC/Cédula ya existe en otro cliente activo
                 if ruc_cedula and estado == 'ACTIVO':
                     cursor.execute(
-                        """SELECT 1 FROM Clientes 
+                        """SELECT 1 FROM clientes 
                         WHERE RUC_CEDULA = %s 
                         AND ID_Cliente != %s 
                         AND ID_Empresa = %s 
@@ -2453,9 +2469,10 @@ def admin_editar_cliente(id):
                         return render_template("admin/catalog/client/editar_clientes.html", 
                                              cliente=cliente, rutas=rutas)
 
-                # Actualizar cliente CON los campos ID_Ruta y perfil_cliente
+                # Actualizar cliente con todos los campos EXCEPTO Saldo_Pendiente_Total
+                # El saldo solo se modifica mediante facturación, pagos, notas de crédito, etc.
                 cursor.execute("""
-                    UPDATE Clientes 
+                    UPDATE clientes 
                     SET Nombre = %s, 
                         Telefono = %s, 
                         Direccion = %s, 
@@ -2483,6 +2500,7 @@ def admin_editar_cliente(id):
     # Fallback en caso de que no se cumpla ninguna condición anterior
     return redirect(url_for("admin_clientes"))
 
+
 @app.route('/admin/catalog/client/eliminar-cliente/<int:id>', methods=['POST'])
 @admin_required
 @bitacora_decorator("CLIENTES-ELIMINAR")
@@ -2494,7 +2512,7 @@ def admin_eliminar_cliente(id):
             # Verificar que el cliente pertenece a la empresa actual y está activo
             cursor.execute(
                 """SELECT c.* 
-                FROM Clientes c
+                FROM clientes c
                 INNER JOIN empresa e ON c.ID_Empresa = e.ID_Empresa
                 WHERE c.ID_Cliente = %s AND c.ID_Empresa = %s 
                 AND c.Estado = 'ACTIVO' AND e.Estado = 'Activo'""",
@@ -2508,7 +2526,7 @@ def admin_eliminar_cliente(id):
             
             # Eliminar (cambiar estado a INACTIVO)
             cursor.execute(
-                "UPDATE Clientes SET Estado = 'INACTIVO' WHERE ID_Cliente = %s AND ID_Empresa = %s",
+                "UPDATE clientes SET Estado = 'INACTIVO' WHERE ID_Cliente = %s AND ID_Empresa = %s",
                 (id, id_empresa)
             )
             
@@ -14773,7 +14791,7 @@ def vendedor_inventario():
                     ir.Fecha_Actualizacion,
                     p.Descripcion as Nombre_Producto,
                     p.COD_Producto,
-                    p.Precio_Mercado as Precio_Venta,
+                    p.Precio_Ruta as Precio_Venta,
                     p.Stock_Minimo,
                     um.Descripcion as Unidad,
                     um.Abreviatura as Unidad_Abrev,
@@ -14877,7 +14895,7 @@ def api_vendedor_inventario():
                     ir.Cantidad,
                     p.Descripcion as producto,
                     p.COD_Producto as codigo,
-                    p.Precio_Mercado as precio,
+                    p.Precio_Ruta as precio,
                     um.Abreviatura as unidad
                 FROM inventario_ruta ir
                 INNER JOIN productos p ON ir.ID_Producto = p.ID_Producto
@@ -14936,7 +14954,7 @@ def vendedor_producto_detalle(id_producto):
                     ir.Fecha_Actualizacion,
                     p.Descripcion as Nombre_Producto,
                     p.COD_Producto,
-                    p.Precio_Mercado as Precio_Venta,
+                    p.Precio_Ruta as Precio_Venta,
                     p.Stock_Minimo,
                     um.Descripcion as Unidad,
                     um.Abreviatura as Unidad_Abrev,
@@ -15052,7 +15070,6 @@ def vendedor_refrescar_inventario():
 # =============================================
 # RUTAS PARA VENTAS EN RUTA
 # =============================================
-
 @app.route('/vendedor/ventas')
 @vendedor_required
 def vendedor_ventas():
@@ -15065,30 +15082,50 @@ def vendedor_ventas():
         with get_db_cursor(True) as cursor:
             # Obtener asignaciones del vendedor para el filtro
             cursor.execute("""
-                SELECT av.ID_Asignacion, r.Nombre_Ruta, av.Fecha_Asignacion,
+                SELECT av.ID_Asignacion, r.Nombre_Ruta, 
+                       av.Fecha_Asignacion,
                        av.Estado as Estado_Asignacion
                 FROM asignacion_vendedores av
                 INNER JOIN rutas r ON av.ID_Ruta = r.ID_Ruta
                 WHERE av.ID_Usuario = %s 
                 ORDER BY av.Fecha_Asignacion DESC
             """, (id_vendedor,))
-            asignaciones = cursor.fetchall()
+            asignaciones_raw = cursor.fetchall()
+            
+            # Formatear fechas de asignaciones
+            asignaciones = []
+            from datetime import datetime
+            for a in asignaciones_raw:
+                a_dict = dict(a)
+                if a_dict.get('Fecha_Asignacion'):
+                    if isinstance(a_dict['Fecha_Asignacion'], datetime):
+                        a_dict['Fecha_Asignacion'] = a_dict['Fecha_Asignacion'].strftime('%d/%m/%Y')
+                    else:
+                        try:
+                            fecha_obj = datetime.strptime(str(a_dict['Fecha_Asignacion']), '%Y-%m-%d')
+                            a_dict['Fecha_Asignacion'] = fecha_obj.strftime('%d/%m/%Y')
+                        except:
+                            a_dict['Fecha_Asignacion'] = 'Fecha no disponible'
+                else:
+                    a_dict['Fecha_Asignacion'] = 'Fecha no disponible'
+                asignaciones.append(a_dict)
             
             # Obtener ventas del vendedor
             ventas = []
-            if asignaciones:
-                ids_asignacion = [a['ID_Asignacion'] for a in asignaciones]
+            if asignaciones_raw:
+                ids_asignacion = [a['ID_Asignacion'] for a in asignaciones_raw]
                 placeholders = ','.join(['%s'] * len(ids_asignacion))
                 
                 cursor.execute(f"""
                     SELECT fr.ID_FacturaRuta, 
-                           DATE_FORMAT(fr.Fecha, '%%d/%%m/%%Y') as Fecha,
+                           fr.Fecha,
+                           fr.Fecha_Creacion,
                            fr.Credito_Contado,
                            fr.Observacion, 
                            fr.Estado, 
-                           DATE_FORMAT(fr.Fecha_Creacion, '%%d/%%m/%%Y %%H:%%i') as Fecha_Creacion,
                            c.Nombre as Cliente, 
                            c.RUC_CEDULA,
+                           c.Telefono,
                            r.Nombre_Ruta,
                            COALESCE(SUM(dfr.Total), 0) as Total_Venta,
                            CASE 
@@ -15112,46 +15149,189 @@ def vendedor_ventas():
                     GROUP BY fr.ID_FacturaRuta
                     ORDER BY fr.Fecha DESC, fr.ID_FacturaRuta DESC
                 """, tuple(ids_asignacion))
-                ventas = cursor.fetchall()
+                ventas_raw = cursor.fetchall()
+                
+                # Formatear fechas de ventas
+                for v in ventas_raw:
+                    venta_dict = dict(v)
+                    
+                    # Formatear Fecha
+                    if venta_dict.get('Fecha'):
+                        if isinstance(venta_dict['Fecha'], datetime):
+                            venta_dict['Fecha'] = venta_dict['Fecha'].strftime('%d/%m/%Y')
+                        else:
+                            try:
+                                fecha_obj = datetime.strptime(str(venta_dict['Fecha']), '%Y-%m-%d')
+                                venta_dict['Fecha'] = fecha_obj.strftime('%d/%m/%Y')
+                            except:
+                                venta_dict['Fecha'] = 'Fecha no disponible'
+                    else:
+                        venta_dict['Fecha'] = 'Fecha no disponible'
+                    
+                    # Formatear Fecha_Creacion y extraer Hora
+                    if venta_dict.get('Fecha_Creacion'):
+                        if isinstance(venta_dict['Fecha_Creacion'], datetime):
+                            venta_dict['Hora'] = venta_dict['Fecha_Creacion'].strftime('%H:%M')
+                            venta_dict['Fecha_Creacion'] = venta_dict['Fecha_Creacion'].strftime('%d/%m/%Y %H:%M')
+                        else:
+                            try:
+                                fecha_obj = datetime.strptime(str(venta_dict['Fecha_Creacion']), '%Y-%m-%d %H:%M:%S')
+                                venta_dict['Hora'] = fecha_obj.strftime('%H:%M')
+                                venta_dict['Fecha_Creacion'] = fecha_obj.strftime('%d/%m/%Y %H:%M')
+                            except:
+                                try:
+                                    fecha_obj = datetime.strptime(str(venta_dict['Fecha_Creacion']), '%Y-%m-%d')
+                                    venta_dict['Hora'] = '00:00'
+                                    venta_dict['Fecha_Creacion'] = fecha_obj.strftime('%d/%m/%Y') + ' 00:00'
+                                except:
+                                    venta_dict['Hora'] = 'Hora no disponible'
+                                    venta_dict['Fecha_Creacion'] = 'Fecha no disponible'
+                    else:
+                        venta_dict['Hora'] = 'Hora no disponible'
+                        venta_dict['Fecha_Creacion'] = 'Fecha no disponible'
+                    
+                    ventas.append(venta_dict)
+            
+            # Obtener fecha actual formateada para comparaciones
+            fecha_actual = datetime.now().strftime('%d/%m/%Y')
             
         return render_template('vendedor/ventas/ventas.html', 
                              asignaciones=asignaciones,
                              ventas=ventas,
-                             now=datetime.now())
+                             fecha_actual=fecha_actual)
                              
     except Exception as e:
         print(f"Error en vendedor_ventas: {str(e)}")
+        import traceback
+        traceback.print_exc()
         flash(f'Error al cargar ventas: {str(e)}', 'error')
         return redirect(url_for('vendedor_dashboard'))
 
 @app.route('/vendedor/venta/crear', methods=['GET', 'POST'])
 @vendedor_required
 def vendedor_venta_crear():
-    """Crear una nueva venta en ruta
-    """
+    """Crear una nueva venta en ruta con integración a caja"""
     try:
-        id_vendedor = current_user.id
-        id_empresa = session.get('empresa_id',1)
+        id_vendedor = int(current_user.id)
+        id_empresa = session.get('empresa_id', 1)
         
-        with get_db_cursor(True) as cursor:
-            # Obtener asignación activa del vendedor
-            cursor.execute("""
-                SELECT av.*, r.Nombre_Ruta, u.NombreUsuario as Nombre_Vendedor
-                FROM asignacion_vendedores av
-                INNER JOIN rutas r ON av.ID_Ruta = r.ID_Ruta
-                INNER JOIN usuarios u ON av.ID_Usuario = u.ID_Usuario
-                WHERE av.ID_Usuario = %s 
-                AND av.Estado = 'Activa'
-                AND r.ID_Empresa = %s
-                LIMIT 1
-            """, (id_vendedor, id_empresa))
-            asignacion = cursor.fetchone()
-            
-            if not asignacion:
-                flash('No tienes una ruta activa asignada', 'warning')
-                return redirect(url_for('vendedor_dashboard'))
-            
-            if request.method == 'POST':
+        # Para GET - solo consultas
+        if request.method == 'GET':
+            with get_db_cursor() as cursor:
+                # Obtener asignación activa del vendedor
+                cursor.execute("""
+                    SELECT av.*, r.Nombre_Ruta, u.NombreUsuario as Nombre_Vendedor
+                    FROM asignacion_vendedores av
+                    INNER JOIN rutas r ON av.ID_Ruta = r.ID_Ruta
+                    INNER JOIN usuarios u ON av.ID_Usuario = u.ID_Usuario
+                    WHERE av.ID_Usuario = %s 
+                    AND av.Estado = 'Activa'
+                    AND r.ID_Empresa = %s
+                    LIMIT 1
+                """, (id_vendedor, id_empresa))
+                asignacion = cursor.fetchone()
+                
+                if not asignacion:
+                    flash('No tienes una ruta activa asignada', 'warning')
+                    return redirect(url_for('vendedor_dashboard'))
+                
+                # Obtener clientes de la empresa (filtrados por ruta)
+                cursor.execute("""
+                    SELECT ID_Cliente, Nombre, RUC_CEDULA, Telefono, Direccion,
+                           tipo_cliente, perfil_cliente, COALESCE(Saldo_Pendiente_Total, 0) as Saldo_Pendiente_Total
+                    FROM clientes 
+                    WHERE Estado = 'ACTIVO' 
+                    AND ID_Empresa = %s
+                    AND (ID_Ruta = %s OR ID_Ruta IS NULL)
+                    ORDER BY Nombre
+                """, (asignacion['ID_Empresa'], asignacion['ID_Ruta']))
+                clientes = cursor.fetchall()
+                
+                # Obtener inventario disponible con precios de ruta
+                cursor.execute("""
+                    SELECT ir.ID_Producto, 
+                           p.COD_Producto, 
+                           p.Descripcion as Nombre,
+                           p.Precio_Ruta,
+                           ir.Cantidad as Stock_Disponible,
+                           um.Descripcion as Unidad_Medida
+                    FROM inventario_ruta ir
+                    INNER JOIN productos p ON ir.ID_Producto = p.ID_Producto
+                    LEFT JOIN unidades_medida um ON p.Unidad_Medida = um.ID_Unidad
+                    WHERE ir.ID_Asignacion = %s 
+                    AND ir.Cantidad > 0
+                    AND p.Estado = 'activo'
+                    ORDER BY p.Descripcion
+                """, (asignacion['ID_Asignacion'],))
+                inventario = cursor.fetchall()
+                
+                # Obtener métodos de pago
+                cursor.execute("""
+                    SELECT ID_MetodoPago, Nombre
+                    FROM metodos_pago
+                    ORDER BY Nombre
+                """)
+                metodos_pago = cursor.fetchall()
+                
+                # Verificar si hay caja abierta hoy
+                cursor.execute("""
+                    SELECT COUNT(*) as tiene_caja
+                    FROM movimientos_caja_ruta 
+                    WHERE ID_Asignacion = %s 
+                    AND DATE(Fecha) = CURDATE() 
+                    AND Tipo = 'APERTURA'
+                    AND Estado = 'ACTIVO'
+                """, (asignacion['ID_Asignacion'],))
+                caja_abierta = cursor.fetchone()['tiene_caja'] > 0
+                
+                # Fecha actual para el template
+                fecha_actual = datetime.now().strftime('%d/%m/%Y')
+                
+            return render_template('vendedor/ventas/venta_crear.html',
+                                 asignacion=asignacion,
+                                 clientes=clientes,
+                                 inventario=inventario,
+                                 metodos_pago=metodos_pago,
+                                 fecha_actual=fecha_actual,
+                                 caja_abierta=caja_abierta)
+        
+        # Para POST - operaciones de escritura con commit
+        if request.method == 'POST':
+            # Usar get_db_cursor con commit=True
+            with get_db_cursor(commit=True) as cursor:
+                # Obtener asignación activa del vendedor
+                cursor.execute("""
+                    SELECT av.*, r.Nombre_Ruta, u.NombreUsuario as Nombre_Vendedor
+                    FROM asignacion_vendedores av
+                    INNER JOIN rutas r ON av.ID_Ruta = r.ID_Ruta
+                    INNER JOIN usuarios u ON av.ID_Usuario = u.ID_Usuario
+                    WHERE av.ID_Usuario = %s 
+                    AND av.Estado = 'Activa'
+                    AND r.ID_Empresa = %s
+                    LIMIT 1
+                """, (id_vendedor, id_empresa))
+                asignacion = cursor.fetchone()
+                
+                if not asignacion:
+                    flash('No tienes una ruta activa asignada', 'warning')
+                    return redirect(url_for('vendedor_dashboard'))
+                
+                # Verificar si hay caja abierta hoy
+                cursor.execute("""
+                    SELECT ID_Movimiento 
+                    FROM movimientos_caja_ruta 
+                    WHERE ID_Asignacion = %s 
+                    AND DATE(Fecha) = CURDATE() 
+                    AND Tipo = 'APERTURA'
+                    AND Estado = 'ACTIVO'
+                    ORDER BY Fecha DESC LIMIT 1
+                """, (asignacion['ID_Asignacion'],))
+                caja = cursor.fetchone()
+                
+                if not caja:
+                    flash('Debe abrir la caja antes de realizar ventas', 'warning')
+                    return redirect(url_for('vendedor_dashboard'))
+                
                 # Procesar creación de venta
                 id_cliente = request.form.get('cliente')
                 tipo_venta = request.form.get('tipo_venta')  # '1'=Contado, '2'=Crédito
@@ -15163,10 +15343,14 @@ def vendedor_venta_crear():
                     flash('Debe seleccionar un cliente', 'error')
                     return redirect(request.url)
                 
+                if not tipo_venta:
+                    flash('Debe seleccionar el tipo de venta', 'error')
+                    return redirect(request.url)
+                
                 # Parsear productos
                 try:
                     productos = json.loads(productos_json)
-                    print(f"Productos recibidos: {productos}")  # Debug
+                    print(f"Productos recibidos: {productos}")
                 except Exception as e:
                     print(f"Error al parsear JSON: {e}")
                     productos = []
@@ -15177,6 +15361,7 @@ def vendedor_venta_crear():
                 
                 # Validar stock
                 error_stock = False
+                productos_sin_stock = []
                 for prod in productos:
                     cursor.execute("""
                         SELECT Cantidad FROM inventario_ruta
@@ -15189,10 +15374,11 @@ def vendedor_venta_crear():
                             SELECT Descripcion FROM productos WHERE ID_Producto = %s
                         """, (prod['id'],))
                         prod_nombre = cursor.fetchone()
-                        flash(f'Stock insuficiente para {prod_nombre["Descripcion"]}', 'error')
+                        productos_sin_stock.append(prod_nombre["Descripcion"] if prod_nombre else f"Producto ID {prod['id']}")
                         error_stock = True
                 
                 if error_stock:
+                    flash(f'Stock insuficiente para: {", ".join(productos_sin_stock)}', 'error')
                     return redirect(request.url)
                 
                 # Calcular total de la venta
@@ -15206,10 +15392,11 @@ def vendedor_venta_crear():
                     (Fecha, ID_Cliente, ID_Asignacion, Credito_Contado, 
                      Observacion, ID_Empresa, ID_Usuario_Creacion, Estado)
                     VALUES (CURDATE(), %s, %s, %s, %s, %s, %s, 'Activa')
-                """, (id_cliente, asignacion['ID_Asignacion'], tipo_venta, 
+                """, (int(id_cliente), asignacion['ID_Asignacion'], int(tipo_venta), 
                       observacion, asignacion['ID_Empresa'], id_vendedor))
                 
                 id_factura = cursor.lastrowid
+                print(f"✅ Factura de ruta creada con ID: {id_factura}")
                 
                 # Insertar detalles y actualizar inventario
                 for prod in productos:
@@ -15231,74 +15418,612 @@ def vendedor_venta_crear():
                 
                 # Si es a crédito, crear cuenta por cobrar
                 if tipo_venta == '2':  # Crédito
-                    fecha_vencimiento = (datetime.now() + timedelta(days=30)).strftime('%Y-%m-%d')
-                    cursor.execute("""
-                        INSERT INTO cuentas_por_cobrar
-                        (Fecha, ID_Cliente, Num_Documento, Observacion, Fecha_Vencimiento,
-                         Tipo_Movimiento, Monto_Movimiento, ID_Empresa, Saldo_Pendiente,
-                         ID_Usuario_Creacion, Estado)
-                        VALUES (CURDATE(), %s, %s, %s, %s, 2, %s, %s, %s, %s, 'Pendiente')
-                    """, (id_cliente, f"FAC-R{id_factura}", observacion, fecha_vencimiento,
-                          total_venta, asignacion['ID_Empresa'], total_venta, id_vendedor))
+                    try:
+                        fecha_vencimiento = (datetime.now() + timedelta(days=30)).strftime('%Y-%m-%d')
+                        
+                        # Determinar el tipo de movimiento (2 = Venta a Crédito)
+                        tipo_movimiento = 2
+                        
+                        print(f"💰 Creando cuenta por cobrar para factura de ruta: {id_factura}")
+                        
+                        # Insertar en cuentas_por_cobrar
+                        cursor.execute("""
+                            INSERT INTO cuentas_por_cobrar
+                            (Fecha, ID_Cliente, Num_Documento, Observacion, Fecha_Vencimiento,
+                             Tipo_Movimiento, Monto_Movimiento, ID_Empresa, Saldo_Pendiente,
+                             ID_Factura, ID_FacturaRuta, ID_Usuario_Creacion, Estado)
+                            VALUES (CURDATE(), %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                        """, (
+                            int(id_cliente),                    # ID_Cliente
+                            f"FAC-R{id_factura}",               # Num_Documento
+                            observacion,                         # Observacion
+                            fecha_vencimiento,                   # Fecha_Vencimiento
+                            tipo_movimiento,                     # Tipo_Movimiento
+                            total_venta,                         # Monto_Movimiento
+                            asignacion['ID_Empresa'],            # ID_Empresa
+                            total_venta,                         # Saldo_Pendiente
+                            None,                                # ID_Factura (NULL para facturas de ruta)
+                            id_factura,                          # ID_FacturaRuta
+                            id_vendedor,                         # ID_Usuario_Creacion
+                            'Pendiente'                          # Estado
+                        ))
+                        
+                        id_cuenta = cursor.lastrowid
+                        print(f"✅ Cuenta por cobrar creada con ID: {id_cuenta}")
+                        
+                        # Actualizar saldo pendiente del cliente
+                        cursor.execute("""
+                            UPDATE clientes 
+                            SET Saldo_Pendiente_Total = COALESCE(Saldo_Pendiente_Total, 0) + %s,
+                                Fecha_Ultimo_Movimiento = NOW(),
+                                ID_Ultima_Factura = %s
+                            WHERE ID_Cliente = %s AND ID_Empresa = %s
+                        """, (total_venta, id_factura, int(id_cliente), asignacion['ID_Empresa']))
+                        
+                        print(f"✅ Saldo del cliente actualizado: +{total_venta}")
+                        
+                        # Calcular saldo acumulado ANTES de insertar
+                        cursor.execute("""
+                            SELECT COALESCE(SUM(CASE 
+                                WHEN Tipo = 'GASTO' THEN -Monto 
+                                ELSE Monto 
+                            END), 0) as Saldo_Actual
+                            FROM movimientos_caja_ruta 
+                            WHERE ID_Asignacion = %s 
+                              AND DATE(Fecha) = CURDATE() 
+                              AND Tipo != 'CIERRE'
+                              AND Estado = 'ACTIVO'
+                        """, (asignacion['ID_Asignacion'],))
+                        
+                        saldo_result = cursor.fetchone()
+                        saldo_actual = float(saldo_result['Saldo_Actual'] if saldo_result else 0)
+                        
+                        # Registrar en movimientos_caja_ruta (venta a crédito - no afecta saldo)
+                        cursor.execute("""
+                            INSERT INTO movimientos_caja_ruta
+                            (ID_Asignacion, ID_Usuario, Tipo, Concepto, Monto, 
+                             Tipo_Pago, ID_FacturaRuta, ID_Cliente, Saldo_Acumulado, Estado)
+                            VALUES (%s, %s, 'VENTA', %s, %s, %s, %s, %s, %s, 'ACTIVO')
+                        """, (
+                            asignacion['ID_Asignacion'],
+                            id_vendedor,
+                            f"Venta a Crédito Factura #{id_factura}",
+                            0.00,  # Monto 0 porque no afecta caja
+                            'CREDITO',
+                            id_factura,
+                            int(id_cliente),
+                            saldo_actual  # Usamos el saldo calculado (sin cambios por ser crédito)
+                        ))
+                        
+                    except Exception as e:
+                        print(f"❌ Error al crear cuenta por cobrar: {str(e)}")
+                        import traceback
+                        traceback.print_exc()
+                        raise
                 
-                flash('Venta registrada exitosamente', 'success')
-                return redirect(url_for('vendedor_venta_detalle', id_venta=id_factura))
+                else:  # Venta a Contado
+                    try:
+                        # Calcular saldo actual ANTES de insertar
+                        cursor.execute("""
+                            SELECT COALESCE(SUM(CASE 
+                                WHEN Tipo = 'GASTO' THEN -Monto 
+                                ELSE Monto 
+                            END), 0) as Saldo_Actual
+                            FROM movimientos_caja_ruta 
+                            WHERE ID_Asignacion = %s 
+                              AND DATE(Fecha) = CURDATE() 
+                              AND Tipo != 'CIERRE'
+                              AND Estado = 'ACTIVO'
+                        """, (asignacion['ID_Asignacion'],))
+                        
+                        saldo_result = cursor.fetchone()
+                        saldo_actual = float(saldo_result['Saldo_Actual'] if saldo_result else 0)
+                        nuevo_saldo = saldo_actual + total_venta
+                        
+                        # Registrar en movimientos_caja_ruta (venta contado - afecta caja)
+                        cursor.execute("""
+                            INSERT INTO movimientos_caja_ruta
+                            (ID_Asignacion, ID_Usuario, Tipo, Concepto, Monto, 
+                             Tipo_Pago, ID_FacturaRuta, ID_Cliente, Saldo_Acumulado, Estado)
+                            VALUES (%s, %s, 'VENTA', %s, %s, %s, %s, %s, %s, 'ACTIVO')
+                        """, (
+                            asignacion['ID_Asignacion'],
+                            id_vendedor,
+                            f"Venta Contado Factura #{id_factura}",
+                            total_venta,
+                            'CONTADO',
+                            id_factura,
+                            int(id_cliente),
+                            nuevo_saldo  # Usamos el nuevo saldo calculado
+                        ))
+                        
+                        print(f"✅ Movimiento en caja registrado: +{total_venta}")
+                        
+                    except Exception as e:
+                        print(f"❌ Error al registrar en caja: {str(e)}")
+                        traceback.print_exc()
+                        raise
+                
+                print(f"✅ Venta {id_factura} procesada exitosamente")
+                
+            # Fuera del context manager, los cambios ya están commiteados
+            flash('Venta registrada exitosamente', 'success')
             
-            # GET: Mostrar formulario de creación
-            # Obtener clientes de la empresa (filtrados por ruta)
-            cursor.execute("""
-                SELECT ID_Cliente, Nombre, RUC_CEDULA, Telefono, Direccion,
-                       tipo_cliente, perfil_cliente
-                FROM clientes 
-                WHERE Estado = 'ACTIVO' 
-                AND ID_Empresa = %s
-                AND (ID_Ruta = %s OR ID_Ruta IS NULL)
-                ORDER BY Nombre
-            """, (asignacion['ID_Empresa'], asignacion['ID_Ruta']))
-            clientes = cursor.fetchall()
-            
-            # Obtener inventario disponible con precios de ruta
-            cursor.execute("""
-                SELECT ir.ID_Producto, 
-                       p.COD_Producto, 
-                       p.Descripcion as Nombre,
-                       p.Precio_Ruta,
-                       ir.Cantidad as Stock_Disponible,
-                       um.Descripcion
-                FROM inventario_ruta ir
-                INNER JOIN productos p ON ir.ID_Producto = p.ID_Producto
-                LEFT JOIN unidades_medida um ON p.Unidad_Medida = um.ID_Unidad
-                WHERE ir.ID_Asignacion = %s 
-                AND ir.Cantidad > 0
-                AND p.Estado = 'activo'
-                ORDER BY p.Descripcion
-            """, (asignacion['ID_Asignacion'],))
-            inventario = cursor.fetchall()
-            
-            # Obtener métodos de pago
-            cursor.execute("""
-                SELECT ID_MetodoPago, Nombre
-                FROM metodos_pago
-                ORDER BY Nombre
-            """)
-            metodos_pago = cursor.fetchall()
-            
-            # CORRECCIÓN: Fecha actual para el template
-            fecha_actual = datetime.now().strftime('%d/%m/%Y')
-            
-        return render_template('vendedor/ventas/venta_crear.html',
-                             asignacion=asignacion,
-                             clientes=clientes,
-                             inventario=inventario,
-                             metodos_pago=metodos_pago,
-                             fecha_actual=fecha_actual)  # <-- Solo agregué esto
+            # Redirigir directamente al ticket con autoPrint
+            return redirect(url_for('vendedor_generar_ticket_ruta', 
+                                  id_venta=id_factura, 
+                                  autoPrint=1))
                              
     except Exception as e:
-        print(f"Error en vendedor_venta_crear: {str(e)}")
+        print(f"❌ Error en vendedor_venta_crear: {str(e)}")
+        import traceback
         traceback.print_exc()
-        flash(f'Error al cargar formulario: {str(e)}', 'error')
+        flash(f'Error al procesar la venta: {str(e)}', 'error')
         return redirect(url_for('vendedor_ventas'))
+
+@app.route('/api/vendedor/procesar_abono', methods=['POST'])
+@vendedor_required
+def api_procesar_abono():
+    """Procesa un abono con información completa de ruta y usuario"""
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({'success': False, 'error': 'Datos no válidos'}), 400
+            
+        id_cliente = data.get('id_cliente')
+        monto_abono = float(data.get('monto_abono', 0))
+        id_vendedor = int(current_user.id)
+        
+        if not id_cliente or monto_abono <= 0:
+            return jsonify({'success': False, 'error': 'Datos incompletos o monto inválido'}), 400
+        
+        with get_db_cursor(commit=True) as cursor:
+            # 1. Obtener asignación activa del vendedor
+            cursor.execute("""
+                SELECT ID_Asignacion, ID_Ruta 
+                FROM asignacion_vendedores 
+                WHERE ID_Usuario = %s AND Estado = 'Activa'
+            """, (id_vendedor,))
+            
+            asignacion = cursor.fetchone()
+            if not asignacion:
+                return jsonify({'success': False, 'error': 'Sin ruta activa'}), 400
+            
+            # 2. Obtener nombre del vendedor para la respuesta
+            cursor.execute("""
+                SELECT NombreUsuario 
+                FROM usuarios 
+                WHERE ID_Usuario = %s
+            """, (id_vendedor,))
+            vendedor_data = cursor.fetchone()
+            nombre_vendedor = vendedor_data['NombreUsuario'] if vendedor_data else 'Vendedor'
+            
+            # 3. Obtener facturas pendientes del cliente
+            cursor.execute("""
+                SELECT ID_Movimiento, Num_Documento, Saldo_Pendiente,
+                       Fecha_Vencimiento,
+                       CASE 
+                           WHEN Fecha_Vencimiento < CURDATE() THEN 1 
+                           ELSE 2 
+                       END as Prioridad
+                FROM cuentas_por_cobrar
+                WHERE ID_Cliente = %s 
+                  AND Estado IN ('Pendiente', 'Vencida')
+                  AND Saldo_Pendiente > 0
+                ORDER BY Prioridad ASC, Fecha_Vencimiento ASC
+            """, (int(id_cliente),))
+            
+            facturas = cursor.fetchall()
+            
+            if not facturas:
+                return jsonify({'success': False, 'error': 'No hay facturas pendientes'}), 400
+            
+            # 4. Calcular saldo actual de caja ANTES de insertar
+            cursor.execute("""
+                SELECT COALESCE(SUM(CASE 
+                    WHEN Tipo = 'GASTO' THEN -Monto 
+                    ELSE Monto 
+                END), 0) as Saldo_Actual
+                FROM movimientos_caja_ruta
+                WHERE ID_Asignacion = %s 
+                  AND DATE(Fecha) = CURDATE() 
+                  AND Tipo != 'CIERRE'
+                  AND Estado = 'ACTIVO'
+            """, (asignacion['ID_Asignacion'],))
+            
+            saldo_result = cursor.fetchone()
+            saldo_actual = float(saldo_result['Saldo_Actual'] if saldo_result else 0)
+            nuevo_saldo = saldo_actual + monto_abono
+            
+            # 5. Registrar movimiento en caja
+            cursor.execute("""
+                INSERT INTO movimientos_caja_ruta
+                (ID_Asignacion, ID_Usuario, Tipo, Concepto, Monto, 
+                 Tipo_Pago, ID_Cliente, Saldo_Acumulado, Estado)
+                VALUES (%s, %s, 'ABONO', %s, %s, 'CONTADO', %s, %s, 'ACTIVO')
+            """, (
+                asignacion['ID_Asignacion'],
+                id_vendedor,
+                f"Abono de cliente - Total: ${monto_abono:,.2f}",
+                monto_abono,
+                int(id_cliente),
+                nuevo_saldo
+            ))
+            
+            id_movimiento_caja = cursor.lastrowid
+            
+            # 6. Distribuir el abono entre las facturas
+            monto_restante = monto_abono
+            detalle_abono = []
+            monto_aplicado = 0
+            
+            for factura in facturas:
+                if monto_restante <= 0:
+                    break
+                    
+                saldo_factura = float(factura['Saldo_Pendiente'])
+                monto_aplicar = min(monto_restante, saldo_factura)
+                nuevo_saldo_factura = saldo_factura - monto_aplicar
+                nuevo_estado = 'Pagada' if nuevo_saldo_factura <= 0 else 'Pendiente'
+                
+                # Actualizar factura
+                cursor.execute("""
+                    UPDATE cuentas_por_cobrar
+                    SET Saldo_Pendiente = %s, 
+                        Estado = %s
+                    WHERE ID_Movimiento = %s
+                """, (nuevo_saldo_factura, nuevo_estado, factura['ID_Movimiento']))
+                
+                # Verificar si existe la tabla abonos_detalle
+                try:
+                    cursor.execute("""
+                        INSERT INTO abonos_detalle
+                        (ID_Movimiento_Caja, ID_Asignacion, ID_Usuario, ID_Cliente, 
+                         ID_CuentaCobrar, Monto_Aplicado, Saldo_Anterior, Saldo_Nuevo)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                    """, (
+                        id_movimiento_caja,
+                        asignacion['ID_Asignacion'],
+                        id_vendedor,
+                        int(id_cliente),
+                        factura['ID_Movimiento'],
+                        monto_aplicar,
+                        saldo_factura,
+                        nuevo_saldo_factura
+                    ))
+                except Exception as e:
+                    print(f"⚠️ No se pudo insertar en abonos_detalle: {e}")
+                    # Continuamos aunque falle el detalle
+                
+                detalle_abono.append({
+                    'factura': factura['Num_Documento'],
+                    'monto': monto_aplicar,
+                    'saldo_anterior': saldo_factura,
+                    'saldo_nuevo': nuevo_saldo_factura,
+                    'estado': nuevo_estado
+                })
+                
+                monto_restante -= monto_aplicar
+                monto_aplicado += monto_aplicar
+            
+            # 7. Actualizar saldo del cliente
+            cursor.execute("""
+                UPDATE clientes 
+                SET Saldo_Pendiente_Total = GREATEST(0, COALESCE(Saldo_Pendiente_Total, 0) - %s),
+                    Fecha_Ultimo_Pago = NOW()
+                WHERE ID_Cliente = %s
+            """, (monto_aplicado, int(id_cliente)))
+            
+            return jsonify({
+                'success': True,
+                'mensaje': 'Abono procesado correctamente',
+                'id_movimiento': id_movimiento_caja,
+                'ruta': asignacion['ID_Ruta'],
+                'vendedor': nombre_vendedor,
+                'vendedor_username': current_user.username,
+                'monto_abono': monto_abono,
+                'monto_aplicado': monto_aplicado,
+                'vuelto': monto_restante,
+                'detalle': detalle_abono,
+                'nuevo_saldo_caja': nuevo_saldo
+            })
+            
+    except Exception as e:
+        print(f"❌ Error en api_procesar_abono: {str(e)}")
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)}), 500
     
+@app.route('/vendedor/venta/<int:id_venta>/ticket')
+@vendedor_required
+def vendedor_generar_ticket_ruta(id_venta):
+    """Generar ticket de venta de ruta con información de saldos"""
+    try:
+        id_vendedor = int(current_user.id)
+        
+        with get_db_cursor() as cursor:
+            # Obtener datos de la venta de ruta
+            cursor.execute("""
+                SELECT 
+                    fr.ID_FacturaRuta as ID_Factura,
+                    fr.Fecha,
+                    fr.Fecha_Creacion,
+                    fr.Observacion,
+                    fr.Credito_Contado,
+                    fr.ID_Usuario_Creacion,
+                    c.ID_Cliente,
+                    c.Nombre as Cliente,
+                    c.RUC_CEDULA as RUC_Cliente,
+                    c.Telefono as Telefono_Cliente,
+                    c.Direccion as Direccion_Cliente,
+                    COALESCE(c.Saldo_Pendiente_Total, 0) as Saldo_Cliente,
+                    u.NombreUsuario as Usuario,
+                    e.ID_Empresa,
+                    COALESCE(e.Nombre_Empresa, 'MI EMPRESA') as Nombre_Empresa,
+                    COALESCE(e.RUC, 'RUC NO CONFIGURADO') as RUC_Empresa,
+                    COALESCE(e.Direccion, '') as Direccion_Empresa,
+                    COALESCE(e.Telefono, '') as Telefono_Empresa,
+                    r.Nombre_Ruta,
+                    CASE 
+                        WHEN fr.Credito_Contado = 1 THEN 'CONTADO'
+                        ELSE 'CREDITO'
+                    END as Tipo_Venta_Formateado
+                FROM facturacion_ruta fr
+                INNER JOIN clientes c ON fr.ID_Cliente = c.ID_Cliente
+                INNER JOIN asignacion_vendedores av ON fr.ID_Asignacion = av.ID_Asignacion
+                INNER JOIN usuarios u ON av.ID_Usuario = u.ID_Usuario
+                INNER JOIN rutas r ON av.ID_Ruta = r.ID_Ruta
+                LEFT JOIN empresa e ON fr.ID_Empresa = e.ID_Empresa
+                WHERE fr.ID_FacturaRuta = %s
+                AND av.ID_Usuario = %s
+            """, (id_venta, id_vendedor))
+            
+            factura = cursor.fetchone()
+            
+            if not factura:
+                flash('Venta no encontrada o no tienes permiso para verla', 'error')
+                return redirect(url_for('vendedor_ventas'))
+            
+            # Formatear fechas
+            fecha_formateada = factura['Fecha'].strftime('%d/%m/%Y') if factura['Fecha'] else ''
+            hora_creacion = factura['Fecha_Creacion'].strftime('%H:%M:%S') if factura['Fecha_Creacion'] else ''
+            
+            # Obtener detalles de la venta
+            cursor.execute("""
+                SELECT 
+                    df.ID_DetalleRuta as ID_Detalle,
+                    df.Cantidad,
+                    df.Precio,
+                    df.Total as Subtotal,
+                    p.ID_Producto,
+                    COALESCE(p.COD_Producto, 'N/A') as COD_Producto,
+                    COALESCE(p.Descripcion, 'PRODUCTO ELIMINADO') as Producto,
+                    cat.Descripcion as Categoria,
+                    um.Descripcion as Unidad
+                FROM detalle_facturacion_ruta df
+                LEFT JOIN productos p ON df.ID_Producto = p.ID_Producto
+                LEFT JOIN categorias_producto cat ON p.ID_Categoria = cat.ID_Categoria
+                LEFT JOIN unidades_medida um ON p.Unidad_Medida = um.ID_Unidad
+                WHERE df.ID_FacturaRuta = %s
+                ORDER BY df.ID_DetalleRuta
+            """, (id_venta,))
+            
+            detalles = cursor.fetchall()
+            
+            if not detalles:
+                flash('La venta no tiene detalles de productos', 'error')
+                return redirect(url_for('vendedor_venta_detalle', id_venta=id_venta))
+            
+            # Calcular total
+            total_venta = 0
+            for detalle in detalles:
+                subtotal = float(detalle['Subtotal'] or 0)
+                total_venta += subtotal
+            
+            # Calcular subtotales por producto
+            for detalle in detalles:
+                detalle['Subtotal_Calculado'] = float(detalle['Cantidad']) * float(detalle['Precio'])
+                detalle['Cantidad_Formateada'] = f"{float(detalle['Cantidad']):g}"
+                detalle['Precio_Formateado'] = f"C$ {float(detalle['Precio']):,.2f}"
+                detalle['Subtotal_Formateado'] = f"C$ {float(detalle['Subtotal']):,.2f}"
+            
+            # Variables para información de crédito
+            cuenta_cobrar = None
+            facturas_pendientes = []
+            saldo_pendiente_total = 0
+            saldo_anterior_total = 0
+            abonos_detalle = []
+            proximo_vencimiento = None
+            abono_realizado = 0
+            abonos_esta_factura = 0
+            mostrar_seccion_credito = False
+            mensaje_credito = ""
+            
+            # Obtener TODAS las facturas pendientes del cliente
+            cursor.execute("""
+                SELECT 
+                    cxc.ID_Movimiento,
+                    cxc.Num_Documento,
+                    cxc.Saldo_Pendiente,
+                    cxc.Monto_Movimiento as Monto_Original,
+                    cxc.Fecha_Vencimiento,
+                    cxc.Estado,
+                    DATEDIFF(CURDATE(), cxc.Fecha_Vencimiento) as Dias_Vencido,
+                    DATE_FORMAT(cxc.Fecha_Vencimiento, '%d/%m/%Y') as Fecha_Vencimiento_Formateada,
+                    CASE 
+                        WHEN cxc.ID_FacturaRuta = %s THEN 1 
+                        ELSE 0 
+                    END as Es_Factura_Actual,
+                    CASE 
+                        WHEN cxc.Fecha_Vencimiento < CURDATE() THEN 'VENCIDA'
+                        ELSE 'PENDIENTE'
+                    END as Estado_Calculado
+                FROM cuentas_por_cobrar cxc
+                WHERE cxc.ID_Cliente = %s 
+                AND cxc.Estado IN ('Pendiente', 'Vencida')
+                AND cxc.Saldo_Pendiente > 0
+                ORDER BY 
+                    Es_Factura_Actual DESC,
+                    CASE WHEN cxc.Fecha_Vencimiento < CURDATE() THEN 0 ELSE 1 END,
+                    cxc.Fecha_Vencimiento ASC
+            """, (id_venta, factura['ID_Cliente']))
+            
+            facturas_pendientes = cursor.fetchall()
+            
+            # Obtener abonos realizados para la factura actual
+            cursor.execute("""
+                SELECT COALESCE(SUM(ad.Monto_Aplicado), 0) as Total_Abonado
+                FROM abonos_detalle ad
+                INNER JOIN cuentas_por_cobrar cxc ON ad.ID_CuentaCobrar = cxc.ID_Movimiento
+                WHERE cxc.ID_FacturaRuta = %s
+                AND cxc.Estado IN ('Pendiente', 'Pagada', 'Vencida')
+            """, (id_venta,))
+            
+            abonos_result = cursor.fetchone()
+            abonos_esta_factura = float(abonos_result['Total_Abonado'] if abonos_result else 0)
+            
+            # Calcular saldos
+            for fact in facturas_pendientes:
+                saldo = float(fact['Saldo_Pendiente'] or 0)
+                monto_original = float(fact['Monto_Original'] or 0)
+                saldo_pendiente_total += saldo
+                
+                # Si NO es la factura actual, sumar al saldo anterior
+                if not fact['Es_Factura_Actual']:
+                    saldo_anterior_total += saldo
+                
+                # Si es la factura actual y es a crédito, guardar info
+                if fact['Es_Factura_Actual'] and factura['Credito_Contado'] == 2:
+                    fecha_venc = fact['Fecha_Vencimiento'].strftime('%d/%m/%Y') if fact['Fecha_Vencimiento'] else ''
+                    cuenta_cobrar = {
+                        'ID_Movimiento': fact['ID_Movimiento'],
+                        'Saldo_Pendiente': saldo,
+                        'Monto_Original': monto_original,
+                        'Fecha_Vencimiento': fact['Fecha_Vencimiento'],
+                        'Fecha_Vencimiento_Formateada': fecha_venc,
+                        'Estado': fact['Estado']
+                    }
+                    # Calcular abono realizado en esta factura (diferencia entre original y saldo)
+                    abono_realizado = monto_original - saldo
+            
+            # Determinar si mostrar sección de crédito
+            if facturas_pendientes or abonos_esta_factura > 0:
+                mostrar_seccion_credito = True
+                if factura['Credito_Contado'] == 2:
+                    if saldo_anterior_total > 0:
+                        mensaje_credito = "NUEVA DEUDA + SALDO ANTERIOR"
+                    else:
+                        mensaje_credito = "NUEVA VENTA A CREDITO"
+                else:
+                    if saldo_anterior_total > 0:
+                        mensaje_credito = "RECORDATORIO: DEUDAS PENDIENTES"
+            
+            # Obtener el próximo vencimiento
+            if facturas_pendientes:
+                facturas_futuras = [f for f in facturas_pendientes 
+                                  if f['Fecha_Vencimiento'] and f['Fecha_Vencimiento'] >= datetime.now().date()]
+                if facturas_futuras:
+                    proxima_factura = min(facturas_futuras, key=lambda x: x['Fecha_Vencimiento'])
+                    if proxima_factura['Fecha_Vencimiento']:
+                        proximo_vencimiento = proxima_factura['Fecha_Vencimiento'].strftime('%d/%m/%Y')
+            
+            # Obtener historial de abonos recientes (todos los del cliente)
+            cursor.execute("""
+                SELECT 
+                    m.Fecha,
+                    m.Concepto,
+                    m.Monto,
+                    m.ID_Movimiento,
+                    DATE_FORMAT(m.Fecha, '%d/%m/%Y') as Fecha_Formateada,
+                    TIME_FORMAT(m.Fecha, '%H:%i') as Hora_Formateada
+                FROM movimientos_caja_ruta m
+                WHERE m.ID_Cliente = %s 
+                AND m.Tipo = 'ABONO'
+                AND m.Estado = 'ACTIVO'
+                ORDER BY m.Fecha DESC
+                LIMIT 5
+            """, (factura['ID_Cliente'],))
+            
+            abonos_detalle = cursor.fetchall()
+            
+            # Formatear montos de abonos
+            for abono in abonos_detalle:
+                abono['Monto_Formateado'] = f"C$ {float(abono['Monto'] or 0):,.2f}"
+            
+            # Preparar datos para el ticket
+            ticket_data = {
+                'id_factura': f"R-{id_venta:06d}",
+                'id_factura_numerico': id_venta,
+                'fecha': factura['Fecha'],
+                'hora_emision': datetime.now(),
+                'fecha_factura': fecha_formateada,
+                'hora_factura': hora_creacion,
+                'ruta': factura['Nombre_Ruta'],
+                'cliente': factura['Cliente'] or 'Consumidor Final',
+                'ruc_cliente': factura['RUC_Cliente'] or 'Consumidor Final',
+                'cliente_detalles': {
+                    'nombre': factura['Cliente'] or 'Consumidor Final',
+                    'ruc': factura['RUC_Cliente'] or 'Consumidor Final',
+                    'telefono': factura['Telefono_Cliente'] or '',
+                    'direccion': factura['Direccion_Cliente'] or ''
+                },
+                'tipo_venta': factura['Tipo_Venta_Formateado'],
+                'tipo_venta_valor': factura['Credito_Contado'],
+                'observacion': factura['Observacion'] or '',
+                'usuario': factura['Usuario'] or 'Vendedor',
+                'usuario_id': factura['ID_Usuario_Creacion'],
+                'detalles': detalles,
+                'total': total_venta,
+                'total_formateado': f"C$ {total_venta:,.2f}",
+                'subtotal_sin_descuento': total_venta,
+                'descuento': 0,
+                'empresa': {
+                    'nombre': factura['Nombre_Empresa'],
+                    'ruc': factura['RUC_Empresa'],
+                    'direccion': factura['Direccion_Empresa'],
+                    'telefono': factura['Telefono_Empresa'],
+                },
+                'tiene_credito': cuenta_cobrar is not None,
+                'cuenta_cobrar': cuenta_cobrar,
+                'saldo_cliente': float(factura['Saldo_Cliente']),
+                'saldo_cliente_formateado': f"C$ {float(factura['Saldo_Cliente']):,.2f}"
+            }
+            
+            # Calcular valores para la sección de crédito
+            saldo_anterior_formateado = f"C$ {saldo_anterior_total:,.2f}"
+            saldo_pendiente_formateado = f"C$ {saldo_pendiente_total:,.2f}"
+            abono_realizado_formateado = f"C$ {abono_realizado:,.2f}"
+            abonos_esta_factura_formateado = f"C$ {abonos_esta_factura:,.2f}"
+            nueva_deuda = total_venta if factura['Credito_Contado'] == 2 else 0
+            nueva_deuda_formateada = f"C$ {nueva_deuda:,.2f}"
+            
+            # Determinar si debe imprimir automáticamente
+            auto_print = request.args.get('autoPrint', 0)
+            
+            return render_template('vendedor/ventas/ticket_venta_ruta.html',
+                                 ticket=ticket_data,
+                                 mostrar_seccion_credito=mostrar_seccion_credito,
+                                 mensaje_credito=mensaje_credito,
+                                 facturas_pendientes=facturas_pendientes,
+                                 saldo_pendiente_total=saldo_pendiente_total,
+                                 saldo_pendiente_formateado=saldo_pendiente_formateado,
+                                 saldo_anterior_total=saldo_anterior_total,
+                                 saldo_anterior_formateado=saldo_anterior_formateado,
+                                 abonos_detalle=abonos_detalle,
+                                 proximo_vencimiento=proximo_vencimiento,
+                                 abono_realizado=abono_realizado,
+                                 abono_realizado_formateado=abono_realizado_formateado,
+                                 abonos_esta_factura=abonos_esta_factura,
+                                 abonos_esta_factura_formateado=abonos_esta_factura_formateado,
+                                 nueva_deuda=nueva_deuda,
+                                 nueva_deuda_formateada=nueva_deuda_formateada,
+                                 auto_print=auto_print,
+                                 now=datetime.now())
+                             
+    except Exception as e:
+        print(f"Error en vendedor_generar_ticket_ruta: {str(e)}")
+        traceback.print_exc()
+        flash(f'Error al generar ticket: {str(e)}', 'error')
+        return redirect(url_for('vendedor_venta_detalle', id_venta=id_venta))
 
 @app.route('/vendedor/venta/<int:id_venta>/detalle')
 @vendedor_required
@@ -15306,42 +16031,107 @@ def vendedor_venta_detalle(id_venta):
     """Ver detalle completo de una venta específica
     """
     try:
-        id_vendedor = session.get('user_id')
+        id_vendedor = current_user.id  # CORREGIDO: usar current_user.id en lugar de session.get
         
         with get_db_cursor(True) as cursor:
+            # Verificar que la venta pertenezca al vendedor actual
+            cursor.execute("""
+                SELECT COUNT(*) as total
+                FROM facturacion_ruta fr
+                INNER JOIN asignacion_vendedores av ON fr.ID_Asignacion = av.ID_Asignacion
+                WHERE fr.ID_FacturaRuta = %s
+                AND av.ID_Usuario = %s
+            """, (id_venta, id_vendedor))
+            verificar = cursor.fetchone()
+            
+            if verificar['total'] == 0:
+                flash('Venta no encontrada o no tienes permiso para verla', 'error')
+                return redirect(url_for('vendedor_ventas'))
+            
             # Obtener información general de la venta
             cursor.execute("""
                 SELECT fr.ID_FacturaRuta,
-                       DATE_FORMAT(fr.Fecha, '%%d/%%m/%%Y') as Fecha,
+                       fr.Fecha,
                        fr.Credito_Contado,
                        fr.Observacion,
                        fr.Estado,
-                       DATE_FORMAT(fr.Fecha_Creacion, '%%d/%%m/%%Y %%H:%%i') as Fecha_Creacion,
+                       fr.Fecha_Creacion,
                        c.ID_Cliente,
                        c.Nombre as Cliente,
                        c.RUC_CEDULA,
                        c.Telefono,
                        c.Direccion,
-                       u.Nombre as Vendedor,
+                       u.NombreUsuario as Vendedor,
+                       u.NombreUsuario,
                        r.Nombre_Ruta,
                        av.Fecha_Asignacion,
                        CASE 
                            WHEN fr.Credito_Contado = 1 THEN 'CONTADO'
                            ELSE 'CRÉDITO'
-                       END as Tipo_Venta
+                       END as Tipo_Venta,
+                       COALESCE((
+                           SELECT SUM(Saldo_Pendiente) 
+                           FROM cuentas_por_cobrar 
+                           WHERE Num_Documento = CONCAT('FAC-R', fr.ID_FacturaRuta)
+                       ), 0) as Saldo_Pendiente
                 FROM facturacion_ruta fr
                 INNER JOIN clientes c ON fr.ID_Cliente = c.ID_Cliente
                 INNER JOIN asignacion_vendedores av ON fr.ID_Asignacion = av.ID_Asignacion
                 INNER JOIN usuarios u ON av.ID_Usuario = u.ID_Usuario
                 INNER JOIN rutas r ON av.ID_Ruta = r.ID_Ruta
                 WHERE fr.ID_FacturaRuta = %s
-                AND av.ID_Usuario = %s
-            """, (id_venta, id_vendedor))
-            venta = cursor.fetchone()
+            """, (id_venta,))
+            venta = dict(cursor.fetchone())  # Convertir a diccionario para poder modificarlo
             
             if not venta:
-                flash('Venta no encontrada o no tienes permiso para verla', 'error')
+                flash('Venta no encontrada', 'error')
                 return redirect(url_for('vendedor_ventas'))
+            
+            # Formatear fechas manualmente
+            from datetime import datetime
+            
+            # Formatear Fecha
+            if venta.get('Fecha'):
+                if isinstance(venta['Fecha'], datetime):
+                    venta['Fecha'] = venta['Fecha'].strftime('%d/%m/%Y')
+                else:
+                    try:
+                        fecha_obj = datetime.strptime(str(venta['Fecha']), '%Y-%m-%d')
+                        venta['Fecha'] = fecha_obj.strftime('%d/%m/%Y')
+                    except:
+                        venta['Fecha'] = 'Fecha no disponible'
+            else:
+                venta['Fecha'] = 'Fecha no disponible'
+            
+            # Formatear Fecha_Creacion
+            if venta.get('Fecha_Creacion'):
+                if isinstance(venta['Fecha_Creacion'], datetime):
+                    venta['Fecha_Creacion'] = venta['Fecha_Creacion'].strftime('%d/%m/%Y %H:%M')
+                else:
+                    try:
+                        fecha_obj = datetime.strptime(str(venta['Fecha_Creacion']), '%Y-%m-%d %H:%M:%S')
+                        venta['Fecha_Creacion'] = fecha_obj.strftime('%d/%m/%Y %H:%M')
+                    except:
+                        try:
+                            fecha_obj = datetime.strptime(str(venta['Fecha_Creacion']), '%Y-%m-%d')
+                            venta['Fecha_Creacion'] = fecha_obj.strftime('%d/%m/%Y %H:%M')
+                        except:
+                            venta['Fecha_Creacion'] = 'Fecha no disponible'
+            else:
+                venta['Fecha_Creacion'] = 'Fecha no disponible'
+            
+            # Formatear Fecha_Asignacion
+            if venta.get('Fecha_Asignacion'):
+                if isinstance(venta['Fecha_Asignacion'], datetime):
+                    venta['Fecha_Asignacion'] = venta['Fecha_Asignacion'].strftime('%d/%m/%Y')
+                else:
+                    try:
+                        fecha_obj = datetime.strptime(str(venta['Fecha_Asignacion']), '%Y-%m-%d')
+                        venta['Fecha_Asignacion'] = fecha_obj.strftime('%d/%m/%Y')
+                    except:
+                        venta['Fecha_Asignacion'] = 'Fecha no disponible'
+            else:
+                venta['Fecha_Asignacion'] = 'Fecha no disponible'
             
             # Obtener detalle de productos
             cursor.execute("""
@@ -15352,7 +16142,7 @@ def vendedor_venta_detalle(id_venta):
                        p.ID_Producto,
                        p.COD_Producto,
                        p.Descripcion as Producto,
-                       um.Nombre_Unidad
+                       um.Descripcion as Unidad_Medida
                 FROM detalle_facturacion_ruta df
                 INNER JOIN productos p ON df.ID_Producto = p.ID_Producto
                 LEFT JOIN unidades_medida um ON p.Unidad_Medida = um.ID_Unidad
@@ -15368,31 +16158,79 @@ def vendedor_venta_detalle(id_venta):
             
             # Obtener información de cuentas por cobrar si es crédito
             cuentas_cobrar = None
+            pagos = []
             if venta['Credito_Contado'] == 2:
                 cursor.execute("""
-                    SELECT ID_Movimiento, Saldo_Pendiente, Estado as Estado_CXC,
-                           DATE_FORMAT(Fecha_Vencimiento, '%%d/%%m/%%Y') as Fecha_Vencimiento,
+                    SELECT ID_Movimiento, 
+                           Monto_Movimiento,
+                           Saldo_Pendiente, 
+                           Estado as Estado_CXC,
+                           Fecha_Vencimiento,
                            DATEDIFF(CURDATE(), Fecha_Vencimiento) as Dias_Vencidos
                     FROM cuentas_por_cobrar
                     WHERE Num_Documento = %s
                 """, (f"FAC-R{id_venta}",))
-                cuentas_cobrar = cursor.fetchone()
+                cuentas_cobrar = dict(cursor.fetchone()) if cursor.fetchone() else None
+                
+                # Formatear fecha de vencimiento
+                if cuentas_cobrar and cuentas_cobrar.get('Fecha_Vencimiento'):
+                    if isinstance(cuentas_cobrar['Fecha_Vencimiento'], datetime):
+                        cuentas_cobrar['Fecha_Vencimiento'] = cuentas_cobrar['Fecha_Vencimiento'].strftime('%d/%m/%Y')
+                    else:
+                        try:
+                            fecha_obj = datetime.strptime(str(cuentas_cobrar['Fecha_Vencimiento']), '%Y-%m-%d')
+                            cuentas_cobrar['Fecha_Vencimiento'] = fecha_obj.strftime('%d/%m/%Y')
+                        except:
+                            cuentas_cobrar['Fecha_Vencimiento'] = 'Fecha no disponible'
+                
+                # Obtener pagos realizados si existen
+                if cuentas_cobrar:
+                    cursor.execute("""
+                        SELECT pr.ID_Pago,
+                               pr.Fecha_Pago,
+                               pr.Monto_Pagado,
+                               mp.Nombre as Metodo_Pago,
+                               pr.Observacion
+                        FROM pagos_recibidos pr
+                        INNER JOIN metodos_pago mp ON pr.ID_MetodoPago = mp.ID_MetodoPago
+                        WHERE pr.ID_CuentaCobrar = %s
+                        ORDER BY pr.Fecha_Pago DESC
+                    """, (cuentas_cobrar['ID_Movimiento'],))
+                    pagos_data = cursor.fetchall()
+                    
+                    # Formatear fechas de pagos
+                    pagos = []
+                    for pago in pagos_data:
+                        pago_dict = dict(pago)
+                        if pago_dict.get('Fecha_Pago'):
+                            if isinstance(pago_dict['Fecha_Pago'], datetime):
+                                pago_dict['Fecha_Pago'] = pago_dict['Fecha_Pago'].strftime('%d/%m/%Y')
+                            else:
+                                try:
+                                    fecha_obj = datetime.strptime(str(pago_dict['Fecha_Pago']), '%Y-%m-%d')
+                                    pago_dict['Fecha_Pago'] = fecha_obj.strftime('%d/%m/%Y')
+                                except:
+                                    pago_dict['Fecha_Pago'] = 'Fecha no disponible'
+                        pagos.append(pago_dict)
             
-        return render_template('vendedor/venta_detalle.html',
+            # Obtener métodos de pago para el modal
+            cursor.execute("SELECT ID_MetodoPago, Nombre FROM metodos_pago ")
+            metodos_pago = cursor.fetchall()
+            
+        return render_template('vendedor/ventas/venta_detalle.html',
                              venta=venta,
                              detalles=detalles,
                              subtotal=subtotal,
-                             cuentas_cobrar=cuentas_cobrar)
+                             cuentas_cobrar=cuentas_cobrar,
+                             pagos=pagos,
+                             metodos_pago=metodos_pago)
                              
     except Exception as e:
         print(f"Error en vendedor_venta_detalle: {str(e)}")
+        import traceback
+        traceback.print_exc()
         flash(f'Error al cargar detalle: {str(e)}', 'error')
         return redirect(url_for('vendedor_ventas'))
-
-
-# =============================================
-# RUTA ADICIONAL: Anular venta (desde el detalle)
-# =============================================
 
 @app.route('/vendedor/venta/<int:id_venta>/anular', methods=['POST'])
 @vendedor_required
@@ -15545,6 +16383,444 @@ def api_filtrar_ventas():
             
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)})
+
+@app.route('/api/vendedor/verificar_saldo_cliente/<int:id_cliente>', methods=['GET'])
+@vendedor_required
+def api_verificar_saldo_cliente(id_cliente):
+    """API para verificar el saldo pendiente de un cliente"""
+    try:
+        id_empresa = session.get('empresa_id', 1)
+        
+        with get_db_cursor() as cursor:
+            # Obtener saldo pendiente del cliente
+            cursor.execute("""
+                SELECT ID_Cliente, Nombre, RUC_CEDULA, Saldo_Pendiente_Total,
+                       (SELECT COUNT(*) FROM cuentas_por_cobrar 
+                        WHERE ID_Cliente = c.ID_Cliente 
+                        AND Estado IN ('Pendiente', 'Vencida')) as Facturas_Pendientes
+                FROM clientes c
+                WHERE c.ID_Cliente = %s 
+                AND c.ID_Empresa = %s
+                AND c.Estado = 'ACTIVO'
+            """, (id_cliente, id_empresa))
+            
+            cliente = cursor.fetchone()
+            
+            if not cliente:
+                return jsonify({
+                    'success': False,
+                    'error': 'Cliente no encontrado'
+                }), 404
+            
+            # Si tiene saldo pendiente, obtener detalles de las facturas de ruta
+            facturas_pendientes = []
+            if cliente['Saldo_Pendiente_Total'] > 0:
+                cursor.execute("""
+                    SELECT c.ID_Movimiento, c.Fecha, c.Num_Documento, 
+                           c.Monto_Movimiento, c.Saldo_Pendiente,
+                           c.Fecha_Vencimiento,
+                           DATEDIFF(CURDATE(), c.Fecha_Vencimiento) as Dias_Vencido,
+                           fr.ID_FacturaRuta,
+                           fr.Fecha as FechaFactura
+                    FROM cuentas_por_cobrar c
+                    LEFT JOIN facturacion_ruta fr ON c.ID_FacturaRuta = fr.ID_FacturaRuta
+                    WHERE c.ID_Cliente = %s 
+                    AND c.Estado IN ('Pendiente', 'Vencida')
+                    AND c.ID_FacturaRuta IS NOT NULL  -- Solo facturas de ruta
+                    ORDER BY c.Fecha_Vencimiento ASC, c.Fecha ASC
+                """, (id_cliente,))
+                facturas_pendientes = cursor.fetchall()
+            
+            return jsonify({
+                'success': True,
+                'cliente': {
+                    'id': cliente['ID_Cliente'],
+                    'nombre': cliente['Nombre'],
+                    'ruc': cliente['RUC_CEDULA'],
+                    'saldo_pendiente': float(cliente['Saldo_Pendiente_Total'] or 0),
+                    'facturas_pendientes': cliente['Facturas_Pendientes']
+                },
+                'facturas_detalle': facturas_pendientes
+            })
+            
+    except Exception as e:
+        print(f"Error en verificar saldo: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@app.route('/vendedor/caja/mis_movimientos', methods=['GET'])
+@vendedor_required
+def mis_movimientos_caja():
+    """Muestra los movimientos del vendedor actual en su ruta"""
+    try:
+        id_vendedor = current_user.id
+        fecha = request.args.get('fecha', datetime.now().strftime('%Y-%m-%d'))
+        
+        # Obtener nombre del vendedor (con manejo seguro)
+        nombre_vendedor = getattr(current_user, 'NombreUsuario', 
+                                  getattr(current_user, 'username', 
+                                         getattr(current_user, 'name', f"Vendedor {id_vendedor}")))
+        
+        with get_db_cursor() as cursor:
+            # Obtener asignación activa
+            cursor.execute("""
+                SELECT av.ID_Asignacion, av.ID_Ruta, r.Nombre_Ruta
+                FROM asignacion_vendedores av
+                INNER JOIN rutas r ON av.ID_Ruta = r.ID_Ruta
+                WHERE av.ID_Usuario = %s 
+                  AND av.Estado = 'Activa'
+                  AND av.Fecha_Asignacion <= %s
+                  AND (av.Fecha_Finalizacion >= %s OR av.Fecha_Finalizacion IS NULL)
+                ORDER BY av.Fecha_Asignacion DESC
+                LIMIT 1
+            """, (id_vendedor, fecha, fecha))
+            
+            asignacion = cursor.fetchone()
+            
+            if not asignacion:
+                flash('No tienes una ruta activa asignada para esta fecha', 'warning')
+                return redirect(url_for('vendedor_dashboard'))
+            
+            # Verificar si ya hay apertura y cierre hoy - CORREGIDO
+            cursor.execute("""
+                SELECT 
+                    COALESCE(SUM(CASE WHEN Tipo = 'APERTURA' THEN 1 ELSE 0 END), 0) as tiene_apertura,
+                    COALESCE(SUM(CASE WHEN Tipo = 'CIERRE' THEN 1 ELSE 0 END), 0) as tiene_cierre
+                FROM movimientos_caja_ruta
+                WHERE ID_Usuario = %s 
+                  AND DATE(Fecha) = %s
+                  AND Estado = 'ACTIVO'
+            """, (id_vendedor, fecha))
+            
+            estado_dia = cursor.fetchone()
+            
+            # Resumen del día - CORREGIDO con COALESCE
+            cursor.execute("""
+                SELECT 
+                    COALESCE(SUM(CASE WHEN Tipo = 'APERTURA' THEN Monto ELSE 0 END), 0) as Apertura,
+                    COALESCE(SUM(CASE WHEN Tipo = 'VENTA' AND Tipo_Pago = 'CONTADO' THEN Monto ELSE 0 END), 0) as Ventas_Contado,
+                    COALESCE(COUNT(CASE WHEN Tipo = 'VENTA' AND Tipo_Pago = 'CREDITO' THEN 1 END), 0) as Ventas_Credito_Count,
+                    COALESCE(SUM(CASE WHEN Tipo = 'ABONO' THEN Monto ELSE 0 END), 0) as Total_Abonos,
+                    COALESCE(COUNT(CASE WHEN Tipo = 'ABONO' THEN 1 END), 0) as Cantidad_Abonos,
+                    COALESCE(SUM(CASE WHEN Tipo = 'GASTO' THEN Monto ELSE 0 END), 0) as Gastos,
+                    COALESCE(SUM(CASE 
+                        WHEN Tipo = 'GASTO' THEN -Monto 
+                        WHEN Tipo IN ('APERTURA', 'VENTA', 'ABONO') AND Tipo != 'CIERRE' THEN Monto 
+                        ELSE 0 
+                    END), 0) as Saldo_Actual,
+                    COALESCE(SUM(CASE 
+                        WHEN Tipo = 'VENTA' AND Tipo_Pago = 'CONTADO' THEN Monto 
+                        WHEN Tipo = 'ABONO' THEN Monto 
+                        WHEN Tipo = 'GASTO' THEN -Monto 
+                        ELSE 0 
+                    END), 0) as Total_Movimientos
+                FROM movimientos_caja_ruta
+                WHERE ID_Usuario = %s 
+                  AND DATE(Fecha) = %s
+                  AND Estado = 'ACTIVO'
+            """, (id_vendedor, fecha))
+            
+            resumen = cursor.fetchone()
+            
+            # Movimientos detallados
+            cursor.execute("""
+                SELECT 
+                    m.ID_Movimiento,
+                    m.ID_Asignacion,
+                    m.ID_Usuario,
+                    DATE_FORMAT(m.Fecha, '%d/%m/%Y %H:%i') as Fecha_Formateada,
+                    m.Fecha as Fecha_Original,
+                    m.Tipo,
+                    m.Concepto,
+                    m.Monto,
+                    m.Tipo_Pago,
+                    m.ID_FacturaRuta,
+                    m.ID_Cliente,
+                    m.Saldo_Acumulado,
+                    m.Estado as Estado_Movimiento,
+                    c.Nombre as Nombre_Cliente,
+                    c.RUC_CEDULA,
+                    c.Telefono as Telefono_Cliente
+                FROM movimientos_caja_ruta m
+                LEFT JOIN clientes c ON m.ID_Cliente = c.ID_Cliente
+                WHERE m.ID_Usuario = %s 
+                  AND DATE(m.Fecha) = %s
+                  AND m.Estado = 'ACTIVO'
+                ORDER BY m.Fecha DESC
+            """, (id_vendedor, fecha))
+            
+            movimientos = cursor.fetchall()
+            
+            # Estadísticas - CORREGIDO con COALESCE
+            cursor.execute("""
+                SELECT 
+                    COALESCE(COUNT(DISTINCT ID_Cliente), 0) as Clientes_Atendidos,
+                    COALESCE(COUNT(CASE WHEN Tipo = 'VENTA' THEN 1 END), 0) as Total_Ventas,
+                    COALESCE(COUNT(CASE WHEN Tipo = 'ABONO' THEN 1 END), 0) as Total_Abonos_Dia,
+                    COALESCE(COUNT(CASE WHEN Tipo = 'GASTO' THEN 1 END), 0) as Total_Gastos_Dia
+                FROM movimientos_caja_ruta
+                WHERE ID_Usuario = %s 
+                  AND DATE(Fecha) = %s
+                  AND Estado = 'ACTIVO'
+            """, (id_vendedor, fecha))
+            
+            estadisticas = cursor.fetchone()
+            
+            # Calcular valores seguros para el template - CORREGIDO
+            tiene_apertura = int(estado_dia['tiene_apertura'] or 0) > 0
+            tiene_cierre = int(estado_dia['tiene_cierre'] or 0) > 0
+            
+            # Asegurar que todos los valores del resumen sean números
+            resumen_seguro = {
+                'apertura': float(resumen['Apertura'] or 0),
+                'ventas_contado': float(resumen['Ventas_Contado'] or 0),
+                'ventas_credito_count': int(resumen['Ventas_Credito_Count'] or 0),
+                'total_abonos': float(resumen['Total_Abonos'] or 0),
+                'cantidad_abonos': int(resumen['Cantidad_Abonos'] or 0),
+                'gastos': float(resumen['Gastos'] or 0),
+                'saldo_actual': float(resumen['Saldo_Actual'] or 0),
+                'total_movimientos': float(resumen['Total_Movimientos'] or 0)
+            }
+            
+            # Calcular saldo esperado para el cierre (saldo_actual + gastos)
+            saldo_esperado_cierre = resumen_seguro['saldo_actual'] + resumen_seguro['gastos']
+            
+            # Estadísticas seguras
+            estadisticas_seguras = {
+                'clientes_atendidos': int(estadisticas['Clientes_Atendidos'] or 0),
+                'total_ventas': int(estadisticas['Total_Ventas'] or 0),
+                'total_abonos_dia': int(estadisticas['Total_Abonos_Dia'] or 0),
+                'total_gastos_dia': int(estadisticas['Total_Gastos_Dia'] or 0)
+            }
+            
+            return render_template('vendedor/caja/mis_movimientos.html',
+                                 vendedor=nombre_vendedor,
+                                 ruta=asignacion['Nombre_Ruta'],
+                                 id_asignacion=asignacion['ID_Asignacion'],
+                                 fecha=fecha,
+                                 tiene_apertura=tiene_apertura,
+                                 tiene_cierre=tiene_cierre,
+                                 resumen=resumen_seguro,
+                                 saldo_esperado_cierre=saldo_esperado_cierre,
+                                 estadisticas=estadisticas_seguras,
+                                 movimientos=movimientos)
+            
+    except Exception as e:
+        print(f"Error en mis_movimientos_caja: {str(e)}")
+        traceback.print_exc()
+        flash(f'Error al cargar los movimientos: {str(e)}', 'danger')
+        return redirect(url_for('vendedor_dashboard'))
+
+@app.route('/vendedor/caja/apertura_modal', methods=['POST'])
+@vendedor_required
+def apertura_caja_modal():
+    """Procesa la apertura de caja desde el modal"""
+    try:
+        data = request.get_json()
+        id_vendedor = current_user.id
+        monto = float(data.get('monto', 0))
+        observacion = data.get('observacion', '')
+        fecha_actual = datetime.now().strftime('%Y-%m-%d')
+        
+        with get_db_cursor() as cursor:
+            # Obtener asignación activa
+            cursor.execute("""
+                SELECT ID_Asignacion
+                FROM asignacion_vendedores
+                WHERE ID_Usuario = %s 
+                  AND Estado = 'Activa'
+                  AND Fecha_Asignacion <= %s
+                  AND (Fecha_Finalizacion >= %s OR Fecha_Finalizacion IS NULL)
+                LIMIT 1
+            """, (id_vendedor, fecha_actual, fecha_actual))
+            
+            asignacion = cursor.fetchone()
+            
+            if not asignacion:
+                return jsonify({'success': False, 'error': 'Sin ruta activa'})
+            
+            # Insertar apertura
+            cursor.execute("""
+                INSERT INTO movimientos_caja_ruta 
+                (ID_Asignacion, ID_Usuario, Tipo, Concepto, Monto, Estado)
+                VALUES (%s, %s, 'APERTURA', %s, %s, 'ACTIVO')
+            """, (
+                asignacion['ID_Asignacion'],
+                id_vendedor,
+                f"Apertura de caja: {observacion}" if observacion else "Apertura de caja",
+                monto
+            ))
+            
+            return jsonify({'success': True, 'message': 'Apertura realizada con éxito'})
+            
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/vendedor/caja/cierre_modal', methods=['POST'])
+@vendedor_required
+def cierre_caja_modal():
+    """Procesa el cierre de caja desde el modal"""
+    try:
+        data = request.get_json()
+        id_vendedor = current_user.id
+        monto_real = float(data.get('monto_real', 0))
+        observacion = data.get('observacion', '')
+        fecha_actual = datetime.now().strftime('%Y-%m-%d')
+        
+        with get_db_cursor() as cursor:
+            # Obtener asignación activa
+            cursor.execute("""
+                SELECT ID_Asignacion
+                FROM asignacion_vendedores
+                WHERE ID_Usuario = %s 
+                  AND Estado = 'Activa'
+                  AND Fecha_Asignacion <= %s
+                  AND (Fecha_Finalizacion >= %s OR Fecha_Finalizacion IS NULL)
+                LIMIT 1
+            """, (id_vendedor, fecha_actual, fecha_actual))
+            
+            asignacion = cursor.fetchone()
+            
+            if not asignacion:
+                return jsonify({'success': False, 'error': 'Sin ruta activa'})
+            
+            # Calcular saldo esperado
+            cursor.execute("""
+                SELECT COALESCE(SUM(CASE 
+                    WHEN Tipo = 'GASTO' THEN -Monto 
+                    WHEN Tipo IN ('APERTURA', 'VENTA', 'ABONO') THEN Monto 
+                    ELSE 0 
+                END), 0) as Saldo_Esperado
+                FROM movimientos_caja_ruta
+                WHERE ID_Usuario = %s 
+                  AND DATE(Fecha) = %s
+                  AND Estado = 'ACTIVO'
+            """, (id_vendedor, fecha_actual))
+            
+            saldo = cursor.fetchone()
+            saldo_esperado = float(saldo['Saldo_Esperado'])
+            diferencia = monto_real - saldo_esperado
+            
+            # Insertar cierre
+            cursor.execute("""
+                INSERT INTO movimientos_caja_ruta 
+                (ID_Asignacion, ID_Usuario, Tipo, Concepto, Monto, Estado)
+                VALUES (%s, %s, 'CIERRE', %s, %s, 'ACTIVO')
+            """, (
+                asignacion['ID_Asignacion'],
+                id_vendedor,
+                f"Cierre de caja - Diferencia: Gs. {diferencia:,.0f}. {observacion}" if observacion else f"Cierre de caja - Diferencia: Gs. {diferencia:,.0f}",
+                monto_real
+            ))
+            
+            return jsonify({
+                'success': True, 
+                'message': 'Cierre realizado con éxito',
+                'diferencia': diferencia,
+                'saldo_esperado': saldo_esperado
+            })
+            
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/vendedor/abonos/mis_abonos', methods=['GET'])
+@vendedor_required
+def mis_abonos_detalle():
+    """Muestra los abonos registrados por el vendedor con detalle de facturas"""
+    try:
+        id_vendedor = current_user.id
+        
+        with get_db_cursor() as cursor:
+            cursor.execute("""
+                SELECT 
+                    ad.Fecha,
+                    ad.ID_Movimiento_Caja,
+                    ad.ID_Cliente,
+                    c.Nombre as Cliente,
+                    c.RUC_CEDULA,
+                    ad.ID_CuentaCobrar,
+                    cc.Num_Documento as Factura,
+                    ad.Monto_Aplicado,
+                    ad.Saldo_Anterior,
+                    ad.Saldo_Nuevo,
+                    CASE 
+                        WHEN ad.Saldo_Nuevo = 0 THEN 'Pagada'
+                        WHEN ad.Monto_Aplicado < ad.Saldo_Anterior THEN 'Pago Parcial'
+                        ELSE 'Pendiente'
+                    END as Estado_Factura,
+                    r.Nombre_Ruta
+                FROM abonos_detalle ad
+                INNER JOIN clientes c ON ad.ID_Cliente = c.ID_Cliente
+                INNER JOIN cuentas_por_cobrar cc ON ad.ID_CuentaCobrar = cc.ID_Movimiento
+                INNER JOIN asignacion_vendedores av ON ad.ID_Asignacion = av.ID_Asignacion
+                INNER JOIN rutas r ON av.ID_Ruta = r.ID_Ruta
+                WHERE ad.ID_Usuario = %s
+                ORDER BY ad.Fecha DESC
+                LIMIT 50
+            """, (id_vendedor,))
+            
+            abonos = cursor.fetchall()
+            
+            return jsonify({
+                'success': True,
+                'vendedor': current_user.NombreUsuario,
+                'total_abonos': len(abonos),
+                'abonos': abonos
+            })
+            
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/vendedor/resumen/diario', methods=['GET'])
+@vendedor_required
+def resumen_diario_vendedor():
+    """Resumen diario de actividades del vendedor"""
+    try:
+        id_vendedor = current_user.id
+        
+        with get_db_cursor() as cursor:
+            cursor.execute("""
+                SELECT 
+                    DATE(m.Fecha) as Dia,
+                    r.Nombre_Ruta,
+                    COUNT(DISTINCT CASE WHEN m.Tipo = 'VENTA' THEN m.ID_FacturaRuta END) as Total_Ventas,
+                    SUM(CASE WHEN m.Tipo = 'VENTA' AND m.Tipo_Pago = 'CONTADO' THEN m.Monto ELSE 0 END) as Ventas_Contado,
+                    SUM(CASE WHEN m.Tipo = 'VENTA' AND m.Tipo_Pago = 'CREDITO' THEN 1 ELSE 0 END) as Ventas_Credito,
+                    COUNT(DISTINCT CASE WHEN m.Tipo = 'ABONO' THEN m.ID_Movimiento END) as Cantidad_Abonos,
+                    SUM(CASE WHEN m.Tipo = 'ABONO' THEN m.Monto ELSE 0 END) as Total_Abonado,
+                    COUNT(DISTINCT CASE WHEN m.Tipo = 'ABONO' THEN m.ID_Cliente END) as Clientes_Abonaron,
+                    SUM(CASE WHEN m.Tipo = 'GASTO' THEN m.Monto ELSE 0 END) as Total_Gastos
+                FROM movimientos_caja_ruta m
+                INNER JOIN asignacion_vendedores av ON m.ID_Asignacion = av.ID_Asignacion
+                INNER JOIN rutas r ON av.ID_Ruta = r.ID_Ruta
+                WHERE m.ID_Usuario = %s
+                AND m.Fecha >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
+                GROUP BY DATE(m.Fecha), r.Nombre_Ruta
+                ORDER BY Dia DESC
+            """, (id_vendedor,))
+            
+            resumen = cursor.fetchall()
+            
+            return jsonify({
+                'success': True,
+                'vendedor': current_user.NombreUsuario,
+                'resumen': resumen
+            })
+            
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+# ==================================
+# CLIENTES DE RUTA
+# ==================================
+
+
+# ============================================
+# FACTURA DE VENTA/FACTURA CON VENTA Y SALDO PENDIENTE
+# ============================================
+
 
 #Iniciar Aplicación
 if __name__ == '__main__':

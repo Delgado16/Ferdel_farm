@@ -1,12 +1,13 @@
-
 {% extends "layout.html" %}
-{% block title %}Mis Ventas del Día{% endblock %}
+
+{% block title %}Mis Ventas{% endblock %}
+
 {% block content %}
 <div class="container-fluid">
     <!-- Page Heading -->
     <div class="d-sm-flex align-items-center justify-content-between mb-4">
         <h1 class="h3 mb-0 text-gray-800">
-            <i class="fas fa-shopping-cart"></i> Mis Ventas del Día
+            <i class="fas fa-shopping-cart"></i> Mis Ventas
         </h1>
         <a href="{{ url_for('vendedor_venta_crear') }}" class="btn btn-primary btn-sm">
             <i class="fas fa-plus"></i> Nueva Venta
@@ -40,11 +41,11 @@
                     <div class="form-group">
                         <label><i class="fas fa-calendar-alt"></i> Rango:</label>
                         <div class="input-group">
-                            <input type="date" class="form-control" id="fecha_inicio" value="{{ now.strftime('%Y-%m-%d') }}">
+                            <input type="date" class="form-control" id="fecha_inicio" value="{{ fecha_actual.replace('/', '-') }}">
                             <div class="input-group-prepend">
                                 <span class="input-group-text">a</span>
                             </div>
-                            <input type="date" class="form-control" id="fecha_fin" value="{{ now.strftime('%Y-%m-%d') }}">
+                            <input type="date" class="form-control" id="fecha_fin" value="{{ fecha_actual.replace('/', '-') }}">
                         </div>
                     </div>
                 </div>
@@ -75,7 +76,7 @@
         </div>
     </div>
 
-    <!-- Resumen del Día -->
+    <!-- Resumen -->
     <div class="row">
         <div class="col-xl-3 col-md-6 mb-4">
             <div class="card border-left-primary shadow h-100 py-2">
@@ -83,7 +84,7 @@
                     <div class="row no-gutters align-items-center">
                         <div class="col mr-2">
                             <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">
-                                Ventas del Día
+                                Total Ventas
                             </div>
                             <div class="h5 mb-0 font-weight-bold text-gray-800" id="total_ventas">
                                 0
@@ -103,10 +104,10 @@
                     <div class="row no-gutters align-items-center">
                         <div class="col mr-2">
                             <div class="text-xs font-weight-bold text-success text-uppercase mb-1">
-                                Total Ventas $
+                                Total Ventas C$
                             </div>
                             <div class="h5 mb-0 font-weight-bold text-gray-800" id="total_monto">
-                                $ 0.00
+                                C$ 0.00
                             </div>
                         </div>
                         <div class="col-auto">
@@ -126,7 +127,7 @@
                                 Ventas Contado
                             </div>
                             <div class="h5 mb-0 font-weight-bold text-gray-800" id="total_contado">
-                                $ 0.00
+                                C$ 0.00
                             </div>
                         </div>
                         <div class="col-auto">
@@ -146,7 +147,7 @@
                                 Ventas Crédito
                             </div>
                             <div class="h5 mb-0 font-weight-bold text-gray-800" id="total_credito">
-                                $ 0.00
+                                C$ 0.00
                             </div>
                         </div>
                         <div class="col-auto">
@@ -184,31 +185,33 @@
                     </thead>
                     <tbody>
                         {% for venta in ventas %}
-                        <tr class="venta-row" data-id="{{ venta.ID_FacturaRuta }}">
+                        <tr class="venta-row" 
+                            data-id="{{ venta.ID_FacturaRuta }}" 
+                            data-fecha="{{ venta.Fecha }}" 
+                            data-tipo="{{ venta.Tipo_Venta }}" 
+                            data-monto="{{ venta.Total_Venta }}">
                             <td>
                                 <strong>#{{ venta.ID_FacturaRuta }}</strong>
                             </td>
                             <td>{{ venta.Fecha }}</td>
-                            <td>
-                                {% if venta.Fecha_Creacion %}
-                                    {{ venta.Fecha_Creacion.split(' ')[1] }}
-                                {% endif %}
-                            </td>
+                            <td>{{ venta.Hora }}</td>
                             <td>
                                 <strong>{{ venta.Cliente }}</strong>
+                                {% if venta.Telefono %}
                                 <br>
-                                <small class="text-muted">{{ venta.Telefono if venta.Telefono else '' }}</small>
+                                <small class="text-muted">{{ venta.Telefono }}</small>
+                                {% endif %}
                             </td>
-                            <td>{{ venta.RUC_CEDULA }}</td>
+                            <td>{{ venta.RUC_CEDULA or 'N/A' }}</td>
                             <td>
                                 <span class="badge badge-info">{{ venta.Nombre_Ruta }}</span>
                             </td>
                             <td class="text-right">
-                                <strong>$ {{ "{:,.2f}".format(venta.Total_Venta) }}</strong>
+                                <strong>C$ {{ "{:,.2f}".format(venta.Total_Venta) }}</strong>
                                 {% if venta.Saldo_Pendiente > 0 %}
                                     <br>
                                     <small class="text-danger">
-                                        Saldo: $ {{ "{:,.2f}".format(venta.Saldo_Pendiente) }}
+                                        Saldo: C$ {{ "{:,.2f}".format(venta.Saldo_Pendiente) }}
                                     </small>
                                 {% endif %}
                             </td>
@@ -231,17 +234,15 @@
                                 {% endif %}
                             </td>
                             <td class="text-center">
-                                <a href="#" 
-                                   class="btn btn-info btn-sm" 
-                                   title="Ver detalle">
-                                    <i class="fas fa-eye"></i>
+                                <a href="{{ url_for('vendedor_venta_detalle', id_venta=venta.ID_FacturaRuta) }}" class="btn btn-info btn-sm" title="Ver detalle">
+                                    <i class="fas fa-eye"></i> Detalles
                                 </a>
-                                {% if venta.Estado == 'Activa' and venta.Fecha == now.strftime('%d/%m/%Y') %}
+                                {% if venta.Estado == 'Activa' and venta.Fecha == fecha_actual %}
                                 <button type="button" 
                                         class="btn btn-danger btn-sm" 
                                         onclick="confirmarAnulacion({{ venta.ID_FacturaRuta }})"
                                         title="Anular venta">
-                                    <i class="fas fa-times"></i>
+                                    <i class="fas fa-times"></i>Anular venta
                                 </button>
                                 {% endif %}
                             </td>
@@ -251,8 +252,8 @@
                             <td colspan="10" class="text-center py-4">
                                 <div class="text-muted">
                                     <i class="fas fa-shopping-cart fa-3x mb-3"></i>
-                                    <p>No hay ventas registradas para hoy</p>
-                                    <a href="#" class="btn btn-primary">
+                                    <p>No hay ventas registradas</p>
+                                    <a href="{{ url_for('vendedor_venta_crear') }}" class="btn btn-primary">
                                         <i class="fas fa-plus"></i> Registrar primera venta
                                     </a>
                                 </div>
@@ -308,22 +309,106 @@
         </div>
     </div>
 </div>
+
+<style>
+/* Estilos adicionales */
+.badge {
+    font-size: 0.85rem;
+    padding: 0.5rem 0.65rem;
+}
+.badge-success {
+    background-color: #1cc88a !important;
+}
+.badge-warning {
+    background-color: #f6c23e !important;
+    color: #fff !important;
+}
+.badge-info {
+    background-color: #36b9cc !important;
+}
+.badge-danger {
+    background-color: #e74a3b !important;
+}
+.btn-primary {
+    background-color: #4e73df;
+    border-color: #4e73df;
+}
+.btn-primary:hover {
+    background-color: #2e59d9;
+    border-color: #2653d4;
+}
+.btn-info {
+    background-color: #36b9cc;
+    border-color: #36b9cc;
+    color: #fff;
+}
+.btn-info:hover {
+    background-color: #2a9eb0;
+    border-color: #2795a6;
+    color: #fff;
+}
+.btn-danger {
+    background-color: #e74a3b;
+    border-color: #e74a3b;
+}
+.btn-danger:hover {
+    background-color: #e02d1b;
+    border-color: #d42a1a;
+}
+.card.border-left-primary {
+    border-left: 0.25rem solid #4e73df !important;
+}
+.card.border-left-success {
+    border-left: 0.25rem solid #1cc88a !important;
+}
+.card.border-left-info {
+    border-left: 0.25rem solid #36b9cc !important;
+}
+.card.border-left-warning {
+    border-left: 0.25rem solid #f6c23e !important;
+}
+.text-gray-300 {
+    color: #dddfeb !important;
+}
+.text-gray-800 {
+    color: #5a5c69 !important;
+}
+.table thead th {
+    border-bottom-width: 1px;
+    font-weight: 600;
+    color: #5a5c69;
+    background-color: #f8f9fc;
+}
+.modal-header.bg-danger {
+    background-color: #e74a3b !important;
+}
+.close {
+    color: #fff;
+    opacity: 1;
+}
+.close:hover {
+    color: #fff;
+    opacity: 0.8;
+}
+</style>
 {% endblock %}
 
 {% block scripts %}
 <script>
 $(document).ready(function() {
-    // Inicializar DataTable
-    $('#tablaVentas').DataTable({
-        language: {
-            url: '//cdn.datatables.net/plug-ins/1.10.24/i18n/Spanish.json'
-        },
-        order: [[1, 'desc']],
-        pageLength: 25,
-        columnDefs: [
-            { orderable: false, targets: [9] }  // Deshabilitar orden en acciones
-        ]
-    });
+    // Inicializar DataTable solo si hay datos
+    if ($('#tablaVentas tbody tr').length > 1 || ($('#tablaVentas tbody tr').length === 1 && $('#tablaVentas tbody tr td').length > 1)) {
+        $('#tablaVentas').DataTable({
+            language: {
+                url: '//cdn.datatables.net/plug-ins/1.10.24/i18n/Spanish.json'
+            },
+            order: [[1, 'desc']],
+            pageLength: 25,
+            columnDefs: [
+                { orderable: false, targets: [9] }  // Deshabilitar orden en acciones
+            ]
+        });
+    }
 
     // Mostrar/ocultar rango de fechas
     $('#filtro_fecha').change(function() {
@@ -344,6 +429,14 @@ function filtrarVentas() {
     var ruta = $('#filtro_ruta').val();
     var fechaInicio = $('#fecha_inicio').val();
     var fechaFin = $('#fecha_fin').val();
+
+    // Convertir fechas de YYYY-MM-DD a DD/MM/YYYY para la comparación
+    if (fechaInicio) {
+        fechaInicio = fechaInicio.split('-').reverse().join('/');
+    }
+    if (fechaFin) {
+        fechaFin = fechaFin.split('-').reverse().join('/');
+    }
 
     $.ajax({
         url: "{{ url_for('api_filtrar_ventas') }}",
@@ -391,24 +484,29 @@ function actualizarTabla(ventas) {
                 </td>
             </tr>
         `);
+        
+        // Destruir DataTable si existe
+        if ($.fn.DataTable.isDataTable('#tablaVentas')) {
+            $('#tablaVentas').DataTable().destroy();
+        }
         return;
     }
 
     ventas.forEach(function(v) {
         var row = `
-            <tr class="venta-row" data-id="${v.ID_FacturaRuta}">
+            <tr class="venta-row" data-id="${v.ID_FacturaRuta}" data-fecha="${v.Fecha}" data-tipo="${v.Tipo_Venta}" data-monto="${v.Total_Venta}">
                 <td><strong>#${v.ID_FacturaRuta}</strong></td>
                 <td>${v.Fecha}</td>
                 <td>${v.Hora}</td>
                 <td>
                     <strong>${v.Cliente}</strong>
-                    <br><small class="text-muted">${v.Telefono || ''}</small>
+                    ${v.Telefono ? '<br><small class="text-muted">' + v.Telefono + '</small>' : ''}
                 </td>
-                <td>${v.RUC_CEDULA}</td>
+                <td>${v.RUC_CEDULA || 'N/A'}</td>
                 <td><span class="badge badge-info">${v.Nombre_Ruta}</span></td>
                 <td class="text-right">
-                    <strong>$ ${v.Total_Venta}</strong>
-                    ${v.Saldo_Pendiente > 0 ? '<br><small class="text-danger">Saldo: $ ' + v.Saldo_Pendiente + '</small>' : ''}
+                    <strong>C$ ${new Intl.NumberFormat('es-PY', {minimumFractionDigits: 2, maximumFractionDigits: 2}).format(v.Total_Venta)}</strong>
+                    ${v.Saldo_Pendiente > 0 ? '<br><small class="text-danger">Saldo: C$ ' + new Intl.NumberFormat('es-PY', {minimumFractionDigits: 2, maximumFractionDigits: 2}).format(v.Saldo_Pendiente) + '</small>' : ''}
                 </td>
                 <td class="text-center">
                     ${v.Tipo_Venta === 'CONTADO' 
@@ -424,7 +522,7 @@ function actualizarTabla(ventas) {
                     <a href="/vendedor/venta/${v.ID_FacturaRuta}/detalle" class="btn btn-info btn-sm" title="Ver detalle">
                         <i class="fas fa-eye"></i>
                     </a>
-                    ${v.Estado === 'Activa' && v.Fecha === todayDate()
+                    ${v.Estado === 'Activa' && v.Fecha === '{{ fecha_actual }}'
                         ? `<button type="button" class="btn btn-danger btn-sm" onclick="confirmarAnulacion(${v.ID_FacturaRuta})" title="Anular venta">
                                 <i class="fas fa-times"></i>
                            </button>`
@@ -436,7 +534,9 @@ function actualizarTabla(ventas) {
     });
 
     // Reinitializar DataTable
-    $('#tablaVentas').DataTable().destroy();
+    if ($.fn.DataTable.isDataTable('#tablaVentas')) {
+        $('#tablaVentas').DataTable().destroy();
+    }
     $('#tablaVentas').DataTable({
         language: {
             url: '//cdn.datatables.net/plug-ins/1.10.24/i18n/Spanish.json'
@@ -455,7 +555,7 @@ function actualizarResumen(ventas) {
     var totalCredito = 0;
 
     ventas.forEach(function(v) {
-        var monto = parseFloat(v.Total_Venta.replace(/[$,]/g, ''));
+        var monto = parseFloat(v.Total_Venta) || 0;
         totalMonto += monto;
         
         if (v.Tipo_Venta === 'CONTADO') {
@@ -466,9 +566,9 @@ function actualizarResumen(ventas) {
     });
 
     $('#total_ventas').text(totalVentas);
-    $('#total_monto').text('$ ' + totalMonto.toFixed(2).replace(/\d(?=(\d{3})+\.)/g, '$&,'));
-    $('#total_contado').text('$ ' + totalContado.toFixed(2).replace(/\d(?=(\d{3})+\.)/g, '$&,'));
-    $('#total_credito').text('$ ' + totalCredito.toFixed(2).replace(/\d(?=(\d{3})+\.)/g, '$&,'));
+    $('#total_monto').text('C$ ' + totalMonto.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ','));
+    $('#total_contado').text('C$ ' + totalContado.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ','));
+    $('#total_credito').text('C$ ' + totalCredito.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ','));
 }
 
 function calcularResumen() {
@@ -478,14 +578,13 @@ function calcularResumen() {
     var totalCredito = 0;
 
     $('.venta-row').each(function() {
-        var tipo = $(this).find('td:eq(7) .badge').text().trim();
-        var montoText = $(this).find('td:eq(6) strong').text().replace('$', '').replace(/,/g, '');
-        var monto = parseFloat(montoText) || 0;
+        var tipo = $(this).data('tipo');
+        var monto = parseFloat($(this).data('monto')) || 0;
         
         totalVentas++;
         totalMonto += monto;
         
-        if (tipo.includes('Contado')) {
+        if (tipo === 'CONTADO') {
             totalContado += monto;
         } else {
             totalCredito += monto;
@@ -493,22 +592,17 @@ function calcularResumen() {
     });
 
     $('#total_ventas').text(totalVentas);
-    $('#total_monto').text('$ ' + totalMonto.toFixed(2).replace(/\d(?=(\d{3})+\.)/g, '$&,'));
-    $('#total_contado').text('$ ' + totalContado.toFixed(2).replace(/\d(?=(\d{3})+\.)/g, '$&,'));
-    $('#total_credito').text('$ ' + totalCredito.toFixed(2).replace(/\d(?=(\d{3})+\.)/g, '$&,'));
+    $('#total_monto').text('C$ ' + totalMonto.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ','));
+    $('#total_contado').text('C$ ' + totalContado.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ','));
+    $('#total_credito').text('C$ ' + totalCredito.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ','));
 }
 
 function confirmarAnulacion(idVenta) {
-    $('#formAnular').attr('action', `/vendedor/venta/${idVenta}/anular`);
+    $('#formAnular').attr('action', '/vendedor/venta/' + idVenta + '/anular');
     $('#modalAnular').modal('show');
 }
-
-function todayDate() {
-    var today = new Date();
-    var dd = String(today.getDate()).padStart(2, '0');
-    var mm = String(today.getMonth() + 1).padStart(2, '0');
-    var yyyy = today.getFullYear();
-    return dd + '/' + mm + '/' + yyyy;
-}
 </script>
+
+<!-- SweetAlert2 para alertas bonitas -->
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 {% endblock %}

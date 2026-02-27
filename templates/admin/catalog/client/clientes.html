@@ -20,6 +20,10 @@
     .badge-perfil {
         font-size: 0.8em;
     }
+    .info-card {
+        background: linear-gradient(45deg, #f8f9fa, #e9ecef);
+        border-left: 4px solid #0d6efd;
+    }
 </style>
 {% endblock %}
 
@@ -92,6 +96,7 @@
                             <th>Tipo</th>
                             <th>Perfil</th>
                             <th>Ruta</th>
+                            <th>Saldo</th>
                             <th>Estado</th>
                             <th class="text-center">Acciones</th>
                         </tr>
@@ -146,6 +151,14 @@
                                     <span class="badge bg-info">{{ cliente.Nombre_Ruta }}</span>
                                 {% else %}
                                     <span class="text-muted">Sin ruta</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <span class="badge {% if cliente.Saldo_Pendiente_Total > 0 %}bg-warning text-dark{% elif cliente.Saldo_Pendiente_Total < 0 %}bg-success{% else %}bg-secondary{% endif %}">
+                                    C${{ "{:,.2f}".format(cliente.Saldo_Pendiente_Total) }}
+                                </span>
+                                {% if cliente.Saldo_Pendiente_Total > 0 %}
+                                <i class="bi bi-exclamation-triangle text-warning ms-1" title="Saldo pendiente"></i>
                                 {% endif %}
                             </td>
                             <td>
@@ -236,7 +249,7 @@
     {% endif %}
 </div>
 
-<!-- Modal para crear cliente - ACTUALIZADO con perfil_cliente -->
+<!-- Modal para crear cliente -->
 <div class="modal fade" id="crearClienteModal" tabindex="-1" aria-labelledby="crearClienteModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-lg">
         <div class="modal-content">
@@ -248,12 +261,17 @@
             </div>
             <form method="POST" action="{{ url_for('admin_crear_cliente') }}" id="crearClienteForm" novalidate>
                 <div class="modal-body">
+                    <!-- Nota sobre saldos -->
+                    <div class="alert alert-secondary small p-2 mb-3">
+                        <i class="bi bi-info-circle"></i> El saldo pendiente inicia en C$0.00 y solo se modifica mediante facturación/pagos.
+                    </div>
+                    
                     <div class="row">
                         <!-- Nombre Completo -->
                         <div class="col-md-6 mb-3">
                             <label for="nombre" class="form-label">Nombre Completo <span class="text-danger">*</span></label>
                             <input type="text" class="form-control" id="nombre" name="nombre" 
-                                   required minlength="2" maxlength="100"
+                                   required minlength="2" maxlength="255"
                                    placeholder="Ingrese el nombre completo del cliente">
                             <div class="invalid-feedback">Por favor ingrese el nombre del cliente (mínimo 2 caracteres).</div>
                         </div>
@@ -305,7 +323,7 @@
                             <div class="invalid-feedback">Por favor seleccione el tipo de cliente.</div>
                         </div>
                         
-                        <!-- Perfil de Cliente - NUEVO CAMPO -->
+                        <!-- Perfil de Cliente -->
                         <div class="col-md-6 mb-3">
                             <label for="perfil_cliente" class="form-label">Perfil de Cliente <span class="text-danger">*</span></label>
                             <select class="form-select" id="perfil_cliente" name="perfil_cliente" required>
@@ -510,7 +528,6 @@ document.addEventListener('DOMContentLoaded', function() {
         // Mover cursor al final
         searchInput.selectionStart = searchInput.selectionEnd = searchInput.value.length;
     }
-
 });
 
 // Función para mostrar toasts de notificación

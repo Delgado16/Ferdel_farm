@@ -1,0 +1,420 @@
+{% extends "layout.html" %}
+
+{% block title %}Detalle de Venta{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Breadcrumb y acciones -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{{ url_for('vendedor_dashboard') }}">Dashboard</a></li>
+                    <li class="breadcrumb-item"><a href="{{ url_for('vendedor_ventas') }}">Ventas</a></li>
+                    <li class="breadcrumb-item active">Detalle de Venta #{{ venta.ID_FacturaRuta }}</li>
+                </ol>
+            </nav>
+        </div>
+    </div>
+
+    <!-- Cabecera de la venta -->
+    <div class="row mb-4">
+        <div class="col-md-8">
+            <h2 class="mb-0">
+                <i class="fas fa-file-invoice me-2"></i>Factura Ruta #{{ venta.ID_FacturaRuta }}
+                <span class="badge {% if venta.Estado == 'Activa' %}bg-success{% else %}bg-secondary{% endif %} ms-2">
+                    {{ venta.Estado }}
+                </span>
+                <span class="badge {% if venta.Credito_Contado == 1 %}bg-info{% else %}bg-warning{% endif %} ms-2">
+                    {{ venta.Tipo_Venta }}
+                </span>
+            </h2>
+            <p class="text-muted mt-2">
+                <i class="fas fa-calendar me-1"></i>Fecha: {{ venta.Fecha }} | 
+                <i class="fas fa-clock me-1"></i>Registrado: {{ venta.Fecha_Creacion }}
+            </p>
+        </div>
+        <div class="col-md-4 text-end">
+            <a href="{{ url_for('vendedor_generar_ticket_ruta', id_venta=venta.ID_FacturaRuta, autoPrint=0) }}" 
+               class="btn btn-primary" target="_blank">
+                <i class="fas fa-print me-2"></i>Imprimir Ticket
+            </a>
+            <a href="{{ url_for('vendedor_ventas') }}" class="btn btn-outline-secondary">
+                <i class="fas fa-arrow-left me-2"></i>Volver
+            </a>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Información del cliente y vendedor -->
+        <div class="col-md-6 mb-4">
+            <div class="card h-100 shadow-sm">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-user me-2"></i>Información del Cliente
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <table class="table table-sm table-borderless">
+                        <tr>
+                            <th style="width: 120px;">Cliente:</th>
+                            <td>{{ venta.Cliente }}</td>
+                        </tr>
+                        <tr>
+                            <th>RUC/Cédula:</th>
+                            <td>{{ venta.RUC_CEDULA or 'N/A' }}</td>
+                        </tr>
+                        <tr>
+                            <th>Teléfono:</th>
+                            <td>{{ venta.Telefono or 'N/A' }}</td>
+                        </tr>
+                        <tr>
+                            <th>Dirección:</th>
+                            <td>{{ venta.Direccion or 'N/A' }}</td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-6 mb-4">
+            <div class="card h-100 shadow-sm">
+                <div class="card-header bg-success text-white">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-truck me-2"></i>Información de la Ruta
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <table class="table table-sm table-borderless">
+                        <tr>
+                            <th style="width: 120px;">Ruta:</th>
+                            <td>{{ venta.Nombre_Ruta }}</td>
+                        </tr>
+                        <tr>
+                            <th>Vendedor:</th>
+                            <td>{{ venta.NombreCompleto or venta.Vendedor }}</td>
+                        </tr>
+                        <tr>
+                            <th>Fecha Ruta:</th>
+                            <td>{{ venta.Fecha_Asignacion }}</td>
+                        </tr>
+                        {% if venta.Observacion %}
+                        <tr>
+                            <th>Observación:</th>
+                            <td>{{ venta.Observacion }}</td>
+                        </tr>
+                        {% endif %}
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Detalle de productos -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card shadow-sm">
+                <div class="card-header bg-secondary text-white">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-boxes me-2"></i>Productos Vendidos
+                    </h5>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover table-striped mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>#</th>
+                                    <th>Código</th>
+                                    <th>Producto</th>
+                                    <th class="text-center">Cantidad</th>
+                                    <th class="text-end">Precio Unit.</th>
+                                    <th class="text-end">Subtotal</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for item in detalles %}
+                                <tr>
+                                    <td>{{ loop.index }}</td>
+                                    <td><small>{{ item.COD_Producto }}</small></td>
+                                    <td>
+                                        {{ item.Producto }}
+                                        <small class="d-block text-muted">{{ item.Unidad_Medida or 'U' }}</small>
+                                    </td>
+                                    <td class="text-center">{{ item.Cantidad|int }}</td>
+                                    <td class="text-end">$ {{ item.Precio|round(2) }}</td>
+                                    <td class="text-end">$ {{ item.Total|round(2) }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                            <tfoot class="table-light">
+                                <tr>
+                                    <td colspan="5" class="text-end fw-bold">SUBTOTAL:</td>
+                                    <td class="text-end fw-bold">$ {{ subtotal|round(2) }}</td>
+                                </tr>
+                                <tr>
+                                    <td colspan="5" class="text-end fw-bold">TOTAL:</td>
+                                    <td class="text-end fw-bold fs-5 text-primary">$ {{ subtotal|round(2) }}</td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {% if venta.Credito_Contado == 2 and cuentas_cobrar %}
+    <!-- Información de crédito -->
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="card shadow-sm border-warning">
+                <div class="card-header bg-warning text-dark">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-credit-card me-2"></i>Información del Crédito
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <table class="table table-sm">
+                        <tr>
+                            <th>Saldo Pendiente:</th>
+                            <td class="fw-bold {% if cuentas_cobrar.Saldo_Pendiente > 0 %}text-danger{% else %}text-success{% endif %}">
+                                $ {{ cuentas_cobrar.Saldo_Pendiente|round(2) }}
+                            </td>
+                        </tr>
+                        <tr>
+                            <th>Fecha Vencimiento:</th>
+                            <td>
+                                {{ cuentas_cobrar.Fecha_Vencimiento }}
+                                {% if cuentas_cobrar.Dias_Vencidos > 0 %}
+                                <span class="badge bg-danger ms-2">Vencido {{ cuentas_cobrar.Dias_Vencidos }} días</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        <tr>
+                            <th>Estado CXC:</th>
+                            <td>
+                                <span class="badge {% if cuentas_cobrar.Estado_CXC == 'Pendiente' %}bg-warning{% elif cuentas_cobrar.Estado_CXC == 'Pagado' %}bg-success{% else %}bg-secondary{% endif %}">
+                                    {{ cuentas_cobrar.Estado_CXC }}
+                                </span>
+                            </td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        {% if pagos %}
+        <div class="col-md-6">
+            <div class="card shadow-sm">
+                <div class="card-header bg-info text-white">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-history me-2"></i>Historial de Pagos
+                    </h5>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-sm table-hover mb-0">
+                            <thead>
+                                <tr>
+                                    <th>Fecha</th>
+                                    <th>Método</th>
+                                    <th class="text-end">Monto</th>
+                                    <th>Observación</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for pago in pagos %}
+                                <tr>
+                                    <td>{{ pago.Fecha_Pago }}</td>
+                                    <td>{{ pago.Metodo_Pago }}</td>
+                                    <td class="text-end fw-bold text-success">$ {{ pago.Monto_Pagado|round(2) }}</td>
+                                    <td><small>{{ pago.Observacion or '-' }}</small></td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+    {% endif %}
+
+    <!-- Botones de acción adicionales -->
+    <div class="row mt-3">
+        <div class="col-12">
+            <div class="card shadow-sm">
+                <div class="card-body">
+                    <a href="{{ url_for('vendedor_ventas') }}" class="btn btn-secondary">
+                        <i class="fas fa-arrow-left me-2"></i>Volver al Listado
+                    </a>
+                    {% if venta.Credito_Contado == 2 and cuentas_cobrar and cuentas_cobrar.Saldo_Pendiente > 0 %}
+                    <a href="#" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#modalPago">
+                        <i class="fas fa-dollar-sign me-2"></i>Registrar Pago
+                    </a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para registrar pago -->
+{% if venta.Credito_Contado == 2 and cuentas_cobrar and cuentas_cobrar.Saldo_Pendiente > 0 %}
+<div class="modal fade" id="modalPago" tabindex="-1" aria-labelledby="modalPagoLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title" id="modalPagoLabel">
+                    <i class="fas fa-dollar-sign me-2"></i>Registrar Pago
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form action="{{ url_for('vendedor_registrar_pago', id_venta=venta.ID_FacturaRuta) }}" method="POST">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="monto" class="form-label">Monto a Pagar</label>
+                        <input type="number" name="monto" id="monto" class="form-control" 
+                               step="0.01" min="0.01" max="{{ cuentas_cobrar.Saldo_Pendiente }}" required>
+                        <small class="text-muted">Saldo pendiente: $ {{ cuentas_cobrar.Saldo_Pendiente|round(2) }}</small>
+                    </div>
+                    <div class="mb-3">
+                        <label for="metodo_pago" class="form-label">Método de Pago</label>
+                        <select name="metodo_pago" id="metodo_pago" class="form-select" required>
+                            <option value="">Seleccione...</option>
+                            {% for mp in metodos_pago %}
+                            <option value="{{ mp.ID_MetodoPago }}">{{ mp.Nombre }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="observacion" class="form-label">Observación</label>
+                        <textarea name="observacion" id="observacion" class="form-control" rows="2" placeholder="Observación del pago (opcional)"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-success">Procesar Pago</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<style>
+.card {
+    border: none;
+    border-radius: 10px;
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075) !important;
+}
+.card-header {
+    border-radius: 10px 10px 0 0 !important;
+    font-weight: 500;
+    padding: 1rem 1.25rem;
+}
+.card-header.bg-primary {
+    background-color: #4e73df !important;
+}
+.card-header.bg-success {
+    background-color: #1cc88a !important;
+}
+.card-header.bg-secondary {
+    background-color: #858796 !important;
+}
+.card-header.bg-warning {
+    background-color: #f6c23e !important;
+    color: #fff !important;
+}
+.card-header.bg-info {
+    background-color: #36b9cc !important;
+}
+.table th {
+    font-weight: 500;
+    color: #495057;
+}
+.badge {
+    padding: 6px 10px;
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+.badge.bg-success {
+    background-color: #1cc88a !important;
+}
+.badge.bg-info {
+    background-color: #36b9cc !important;
+}
+.badge.bg-warning {
+    background-color: #f6c23e !important;
+    color: #fff !important;
+}
+.badge.bg-danger {
+    background-color: #e74a3b !important;
+}
+.btn-primary {
+    background-color: #4e73df;
+    border-color: #4e73df;
+}
+.btn-primary:hover {
+    background-color: #2e59d9;
+    border-color: #2653d4;
+}
+.btn-success {
+    background-color: #1cc88a;
+    border-color: #1cc88a;
+}
+.btn-success:hover {
+    background-color: #17a673;
+    border-color: #169b6b;
+}
+.btn-outline-secondary {
+    color: #858796;
+    border-color: #858796;
+}
+.btn-outline-secondary:hover {
+    background-color: #858796;
+    border-color: #858796;
+    color: #fff;
+}
+.table thead th {
+    border-bottom-width: 1px;
+    font-weight: 600;
+    color: #5a5c69;
+}
+.table tfoot {
+    font-weight: 600;
+}
+.table tfoot .text-primary {
+    color: #4e73df !important;
+}
+.modal-header.bg-success {
+    background-color: #1cc88a !important;
+}
+.btn-close-white {
+    filter: invert(1) grayscale(100%) brightness(200%);
+}
+</style>
+
+<script>
+// Script para validar el monto máximo en el modal de pago
+document.addEventListener('DOMContentLoaded', function() {
+    const modalPago = document.getElementById('modalPago');
+    if (modalPago) {
+        modalPago.addEventListener('show.bs.modal', function() {
+            const montoInput = document.getElementById('monto');
+            if (montoInput) {
+                const maxMonto = parseFloat(montoInput.getAttribute('max'));
+                montoInput.addEventListener('input', function() {
+                    let valor = parseFloat(this.value);
+                    if (valor > maxMonto) {
+                        this.value = maxMonto;
+                    }
+                });
+            }
+        });
+    }
+});
+</script>
+{% endblock %}

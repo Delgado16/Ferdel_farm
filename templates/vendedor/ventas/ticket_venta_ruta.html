@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ticket de Venta #{{ ticket.id_factura }}</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        /* ===== ESTILOS PARA IMPRESIÓN ===== */
+        @media print {
+            @page {
+                margin: 0;
+                size: 80mm auto;
+            }
+            body {
+                margin: 0;
+                padding: 0;
+                font-family: 'Courier New', monospace, Arial, sans-serif;
+                font-size: 10px !important;
+                line-height: 1.2;
+                color: #000;
+                background: #fff;
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+            }
+            .no-print,
+            .btn-group,
+            .container.mt-4 {
+                display: none !important;
+            }
+            .ticket-container {
+                width: 80mm !important;
+                max-width: 80mm !important;
+                margin: 0 auto !important;
+                padding: 5px !important;
+                border: none !important;
+                box-shadow: none !important;
+                page-break-inside: avoid;
+            }
+        }
+
+        /* ===== ESTILOS GENERALES ===== */
+        body {
+            font-family: 'Courier New', monospace, Arial, sans-serif;
+            font-size: 10px;
+            margin: 0;
+            padding: 10px;
+            background: #f8f9fa;
+        }
+
+        .ticket-container {
+            width: 80mm;
+            margin: 0 auto;
+            background: white;
+            padding: 10px;
+            border: 1px solid #ddd;
+            box-shadow: 0 0 5px rgba(0,0,0,0.1);
+        }
+
+        /* ===== UTILIDADES ===== */
+        .text-center { text-align: center; }
+        .text-right { text-align: right; }
+        .text-left { text-align: left; }
+        .bold { font-weight: bold; }
+        
+        .divider {
+            border-top: 1px dashed #000;
+            margin: 5px 0;
+            padding-top: 5px;
+        }
+        
+        .double-divider {
+            border-top: 2px solid #000;
+            margin: 8px 0;
+        }
+
+        /* ===== LOGO Y ENCABEZADO ===== */
+        .logo-container {
+            text-align: center;
+            margin-bottom: 5px;
+        }
+        
+        .logo {
+            max-width: 100%;
+            height: auto;
+            max-height: 40px;
+            margin-bottom: 3px;
+        }
+        
+        .logo-text {
+            font-weight: bold;
+            font-size: 14px;
+            text-transform: uppercase;
+            margin-top: 5px;
+        }
+
+        /* ===== TABLAS ===== */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 0;
+            font-size: 9px;
+        }
+        
+        th, td {
+            padding: 2px 1px;
+            vertical-align: top;
+            line-height: 1.1;
+        }
+        
+        .table-header {
+            border-bottom: 1px dashed #000;
+        }
+        
+        /* ===== TAMAÑOS DE TEXTO ===== */
+        .size-9 { font-size: 9px; }
+        .size-10 { font-size: 10px; }
+        .size-11 { font-size: 11px; }
+        .size-12 { font-size: 12px; }
+        .size-13 { font-size: 13px; }
+        .size-14 { font-size: 14px; }
+
+        /* ===== DETALLES DE PRODUCTOS ===== */
+        .product-desc {
+            font-size: 9px;
+            line-height: 1.1;
+            word-break: break-word;
+        }
+        
+        .product-code {
+            font-size: 8px;
+            color: #666;
+        }
+
+        /* ===== TOTALES ===== */
+        .total-row {
+            border-top: 1px solid #000;
+            border-bottom: 2px solid #000;
+            font-weight: bold;
+        }
+        
+        .subtotal-row {
+            border-top: 1px dashed #000;
+        }
+
+        /* ===== SECCION DE CREDITO ===== */
+        .credito-container {
+            margin: 8px 0;
+            padding: 5px;
+            border: 1px solid #000;
+            background: #fff;
+        }
+        
+        .credito-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 3px 0;
+            border-bottom: 1px dotted #ccc;
+        }
+        
+        .credito-row:last-child {
+            border-bottom: none;
+        }
+        
+        .credito-label {
+            font-weight: bold;
+            text-align: left;
+        }
+        
+        .credito-value {
+            text-align: right;
+            font-weight: bold;
+        }
+        
+        .credito-total {
+            font-size: 11px;
+            background: #f0f0f0;
+            padding: 5px 0;
+            margin-top: 5px;
+            border-top: 2px solid #000;
+            border-bottom: 2px solid #000;
+        }
+        
+        .credito-mensaje {
+            text-align: center;
+            font-weight: bold;
+            padding: 3px;
+            margin-bottom: 5px;
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+        }
+
+        /* ===== DETALLE DE DEUDAS ===== */
+        .deudas-container {
+            margin: 5px 0;
+            padding: 3px;
+            font-size: 8px;
+        }
+        
+        .deuda-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 2px 0;
+            border-bottom: 1px dotted #eee;
+        }
+
+        /* ===== CONTROLES NO IMPRIMIBLES ===== */
+        .print-controls {
+            margin-top: 20px;
+            text-align: center;
+        }
+        
+        .btn-sm {
+            padding: 4px 8px;
+            font-size: 12px;
+            margin: 2px;
+        }
+    </style>
+</head>
+<body>
+    <!-- CONTENEDOR PRINCIPAL DEL TICKET -->
+    <div class="ticket-container">
+        <!-- ENCABEZADO DE LA EMPRESA -->
+        <div class="logo-container">
+            <img src="{{ url_for('static', filename='ferdel.png') }}" 
+                 alt="Logo {{ ticket.empresa.nombre }}" 
+                 class="logo"
+                 onerror="this.style.display='none'; document.getElementById('logo-text').style.display='block';">
+            <div id="logo-text" class="logo-text" style="display: none;">
+                {{ ticket.empresa.nombre }}
+            </div>
+            <div class="size-10 bold">{{ ticket.empresa.nombre }}</div>
+            <div class="size-9">RUC: {{ ticket.empresa.ruc }}</div>
+            <div class="size-9">{{ ticket.empresa.direccion }}</div>
+            <div class="size-9">Tel: {{ ticket.empresa.telefono }}</div>
+            <div class="double-divider"></div>
+        </div>
+
+        <!-- INFORMACIÓN DE LA FACTURA -->
+        <div class="text-center">
+            <div class="size-13 bold">FACTURA #{{ ticket.id_factura }}</div>
+            <div class="size-9">Emision: {{ ticket.hora_emision.strftime('%d/%m/%Y %H:%M:%S') }}</div>
+            <div class="size-9">Atendido por: {{ ticket.usuario }}</div>
+            <div class="divider"></div>
+        </div>
+
+        <!-- DATOS DEL CLIENTE -->
+        <div class="size-9">
+            <div><strong>Cliente:</strong> {{ ticket.cliente }}</div>
+            <div><strong>RUC/Cedula:</strong> {{ ticket.ruc_cliente }}</div>
+            <div><strong>Tipo Venta:</strong> {{ ticket.tipo_venta }}</div>
+            {% if ticket.observacion %}
+            <div><strong>Observaciones:</strong> {{ ticket.observacion }}</div>
+            {% endif %}
+        </div>
+        <div class="divider"></div>
+
+        <!-- DETALLES DE PRODUCTOS -->
+        <table>
+            <thead>
+                <tr class="size-9 bold table-header">
+                    <th class="text-left" style="width: 40%">Descripcion</th>
+                    <th class="text-right" style="width: 15%">Cant</th>
+                    <th class="text-right" style="width: 20%">P.Unit</th>
+                    <th class="text-right" style="width: 25%">Total</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in ticket.detalles %}
+                <tr>
+                    <td class="text-left">
+                        <div class="product-desc">
+                            {{ item.Producto[:30] }}{% if item.Producto|length > 30 %}...{% endif %}
+                        </div>
+                        {% if item.COD_Producto and item.COD_Producto != 'N/A' %}
+                        <div class="product-code">Cod: {{ item.COD_Producto }}</div>
+                        {% endif %}
+                    </td>
+                    <td class="text-right">{{ item.Cantidad_Formateada }}</td>
+                    <td class="text-right">{{ item.Precio_Formateado }}</td>
+                    <td class="text-right">{{ item.Subtotal_Formateado }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        <div class="double-divider"></div>
+
+        <!-- TOTALES -->
+        <table class="size-10">
+            <tr class="total-row">
+                <td class="text-left size-11">TOTAL A PAGAR:</td>
+                <td colspan="2"></td>
+                <td class="text-right size-12 bold">{{ ticket.total_formateado }}</td>
+            </tr>
+        </table>
+
+        <!-- SECCION DE CREDITO COMPLETA -->
+        {% if mostrar_seccion_credito %}
+        <div class="credito-container">
+            {% if mensaje_credito %}
+            <div class="credito-mensaje size-9">
+                {{ mensaje_credito }}
+            </div>
+            {% endif %}
+            
+            <!-- DESCRIPCION DE LA VENTA -->
+            <div class="credito-row">
+                <span class="credito-label">Descripcion de la venta:</span>
+                <span class="credito-value">FACTURA #{{ ticket.id_factura }}</span>
+            </div>
+            
+            <!-- TOTAL DE LA VENTA -->
+            <div class="credito-row">
+                <span class="credito-label">Total de la venta:</span>
+                <span class="credito-value">{{ ticket.total_formateado }}</span>
+            </div>
+            
+            <!-- SALDO PENDIENTE ANTERIOR (DEUDAS PREVIAS) -->
+            <div class="credito-row">
+                <span class="credito-label">Saldo pendiente anterior:</span>
+                <span class="credito-value">{{ saldo_anterior_formateado }}</span>
+            </div>
+            
+            <!-- ABONOS REALIZADOS - Línea única corregida -->
+            <div class="credito-row">
+                <span class="credito-label">Abonos realizados:</span>
+                <span class="credito-value">
+                    {% if abonos_esta_factura > 0 %}
+                        {{ abonos_esta_factura_formateado }}
+                    {% else %}
+                        C$ 0.00
+                    {% endif %}
+                </span>
+            </div>
+            
+            <!-- TOTAL SALDO PENDIENTE ACTUAL -->
+            <div class="credito-row credito-total">
+                <span class="credito-label">TOTAL SALDO PENDIENTE:</span>
+                <span class="credito-value">{{ saldo_pendiente_formateado }}</span>
+            </div>
+            
+            <!-- PROXIMO VENCIMIENTO -->
+            {% if proximo_vencimiento %}
+            <div class="credito-row">
+                <span class="credito-label">Proximo vencimiento:</span>
+                <span class="credito-value">{{ proximo_vencimiento }}</span>
+            </div>
+            {% endif %}
+        </div>
+        {% endif %}
+
+        <!-- PIE DEL TICKET -->
+        <div class="text-center size-9">
+            <div class="bold">Gracias por su compra!</div>
+            <div>Vuelva pronto</div>
+            <div style="margin-top: 10px;">
+                <div>--- Original ---</div>
+            </div>
+            {% if ticket.empresa.correo %}
+            <div class="size-8" style="margin-top: 5px;">
+                Email: {{ ticket.empresa.correo }}
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- BOTONES DE CONTROL (NO SE IMPRIMEN) -->
+    <div class="no-print print-controls">
+        <div class="btn-group" role="group">
+            <button onclick="imprimirTicket()" class="btn btn-primary btn-sm">
+                Imprimir Ticket
+            </button>
+            <button onclick="window.history.back()" class="btn btn-secondary btn-sm">
+                Cerrar
+            </button>
+            <a href="{{ url_for('vendedor_ventas') }}" class="btn btn-success btn-sm">
+                Volver a Ventas
+            </a>
+        </div>
+        <p class="size-10 mt-2">
+            <em>Nota: Los botones no apareceran en la impresion</em>
+        </p>
+    </div>
+
+    <script>
+        function imprimirTicket() {
+            window.print();
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            var urlParams = new URLSearchParams(window.location.search);
+            if (urlParams.has('autoPrint')) {
+                setTimeout(function() {
+                    window.print();
+                }, 500);
+            }
+        });
+
+        document.addEventListener('keydown', function(e) {
+            if ((e.ctrlKey || e.metaKey) && e.key === 'p') {
+                e.preventDefault();
+                imprimirTicket();
+            }
+        });
+    </script>
+</body>
+</html>

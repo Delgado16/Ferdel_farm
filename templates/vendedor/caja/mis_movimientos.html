@@ -1,0 +1,621 @@
+{% extends "layout.html" %}
+
+{% block title %}Mis Movimientos de Caja{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Botones de acción flotantes -->
+    <div class="position-fixed bottom-0 end-0 p-3" style="z-index: 5">
+        <div class="d-flex flex-column gap-2">
+            {% if not tiene_apertura and not tiene_cierre %}
+            <button class="btn btn-primary btn-lg rounded-circle shadow" 
+                    data-bs-toggle="modal" 
+                    data-bs-target="#aperturaModal"
+                    title="Aperturar Caja">
+                <i class="fas fa-play"></i>
+            </button>
+            {% endif %}
+            
+            {% if tiene_apertura and not tiene_cierre %}
+            <button class="btn btn-success btn-lg rounded-circle shadow" 
+                    data-bs-toggle="modal" 
+                    data-bs-target="#cierreModal"
+                    title="Cerrar Caja">
+                <i class="fas fa-check"></i>
+            </button>
+            {% endif %}
+            
+            <button class="btn btn-info btn-lg rounded-circle shadow" 
+                    onclick="window.location.reload()"
+                    title="Actualizar">
+                <i class="fas fa-sync-alt"></i>
+            </button>
+        </div>
+    </div>
+
+    <!-- Modal de Apertura -->
+    <div class="modal fade" id="aperturaModal" tabindex="-1" aria-labelledby="aperturaModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title" id="aperturaModalLabel">
+                        <i class="fas fa-cash-register me-2"></i>
+                        Apertura de Caja
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <form id="formApertura">
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label for="montoApertura" class="form-label">Monto de Apertura</label>
+                            <div class="input-group">
+                                <span class="input-group-text">C$</span>
+                                <input type="number" 
+                                       id="montoApertura" 
+                                       name="monto_apertura" 
+                                       class="form-control" 
+                                       step="0.01" 
+                                       min="0" 
+                                       placeholder="0.00"
+                                       required>
+                            </div>
+                            <div class="form-text text-primary" id="montoAperturaFormateado"></div>
+                            <small class="text-muted">Ingresa el monto con el que inicias la caja</small>
+                        </div>
+                        <div class="mb-3">
+                            <label for="obsApertura" class="form-label">Observación (opcional)</label>
+                            <textarea id="obsApertura" 
+                                      name="observacion" 
+                                      class="form-control" 
+                                      rows="2"
+                                      placeholder="Notas adicionales..."></textarea>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                            <i class="fas fa-times me-2"></i>Cancelar
+                        </button>
+                        <button type="submit" class="btn btn-primary" id="btnApertura">
+                            <i class="fas fa-play me-2"></i>Iniciar Jornada
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de Cierre -->
+    <div class="modal fade" id="cierreModal" tabindex="-1" aria-labelledby="cierreModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header bg-success text-white">
+                    <h5 class="modal-title" id="cierreModalLabel">
+                        <i class="fas fa-lock me-2"></i>
+                        Cierre de Caja
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <form id="formCierre">
+                    <div class="modal-body">
+                        <div class="alert alert-info" id="resumenCierre">
+                            <h6 class="alert-heading mb-3">
+                                <i class="fas fa-chart-bar me-2"></i>
+                                Resumen del Día
+                            </h6>
+                            <table class="table table-sm table-borderless mb-0">
+                                <tr>
+                                    <td>Apertura:</td>
+                                    <td class="text-end"><strong>C$ {{ "{:,.2f}".format(resumen.apertura) }}</strong></td>
+                                </tr>
+                                <tr>
+                                    <td>Ventas Contado:</td>
+                                    <td class="text-end"><strong>C$ {{ "{:,.2f}".format(resumen.ventas_contado) }}</strong></td>
+                                </tr>
+                                <tr>
+                                    <td>Abonos:</td>
+                                    <td class="text-end"><strong>C$ {{ "{:,.2f}".format(resumen.total_abonos) }}</strong></td>
+                                </tr>
+                                <tr>
+                                    <td>Gastos:</td>
+                                    <td class="text-end"><strong>C$ {{ "{:,.2f}".format(resumen.gastos) }}</strong></td>
+                                </tr>
+                                <tr class="fw-bold border-top">
+                                    <td>SALDO ESPERADO:</td>
+                                    <td class="text-end text-primary" id="saldoEsperado">
+                                        <strong>C$ {{ "{:,.2f}".format(saldo_esperado_cierre) }}</strong>
+                                    </td>
+                                </tr>
+                            </table>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="montoReal" class="form-label">Monto Real en Caja</label>
+                            <div class="input-group">
+                                <span class="input-group-text">C$</span>
+                                <input type="number" 
+                                       id="montoReal" 
+                                       name="monto_real" 
+                                       class="form-control" 
+                                       step="0.01" 
+                                       min="0" 
+                                       placeholder="0.00"
+                                       required>
+                            </div>
+                            <div class="form-text text-primary" id="montoRealFormateado"></div>
+                            <small class="text-muted">Ingresa el monto real que tienes en caja</small>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="obsCierre" class="form-label">Observación (opcional)</label>
+                            <textarea id="obsCierre" 
+                                      name="observacion" 
+                                      class="form-control" 
+                                      rows="2"
+                                      placeholder="Notas sobre el cierre..."></textarea>
+                        </div>
+                        
+                        <div class="alert alert-warning d-none" id="diferenciaAlert">
+                            <i class="fas fa-exclamation-triangle me-2"></i>
+                            <span id="diferenciaTexto"></span>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                            <i class="fas fa-times me-2"></i>Cancelar
+                        </button>
+                        <button type="submit" class="btn btn-success" id="btnCierre">
+                            <i class="fas fa-check-circle me-2"></i>Cerrar Jornada
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Cabecera principal -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="mb-1">
+                <i class="fas fa-cash-register me-2 text-primary"></i>
+                Mis Movimientos de Caja
+            </h1>
+            <p class="text-muted mb-0">
+                <i class="fas fa-user me-2"></i>{{ vendedor }} | 
+                <i class="fas fa-route me-2 ms-2"></i>{{ ruta }} | 
+                <i class="fas fa-calendar me-2 ms-2"></i>{{ fecha }}
+            </p>
+        </div>
+        <div>
+            <form method="GET" class="d-flex">
+                <input type="date" name="fecha" value="{{ fecha }}" class="form-control me-2">
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-search me-1"></i> Filtrar
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Cards de resumen -->
+    <div class="row mb-4">
+        <div class="col-md-3 mb-3">
+            <div class="card h-100 border-0 shadow-sm">
+                <div class="card-body text-center">
+                    <div class="d-inline-block p-3 bg-primary bg-opacity-10 rounded-circle mb-3">
+                        <i class="fas fa-play-circle fa-2x text-primary"></i>
+                    </div>
+                    <h6 class="text-muted mb-2">Apertura</h6>
+                    <h4 class="text-primary mb-0">C$ {{ "{:,.2f}".format(resumen.apertura) }}</h4>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 mb-3">
+            <div class="card h-100 border-0 shadow-sm">
+                <div class="card-body text-center">
+                    <div class="d-inline-block p-3 bg-success bg-opacity-10 rounded-circle mb-3">
+                        <i class="fas fa-shopping-cart fa-2x text-success"></i>
+                    </div>
+                    <h6 class="text-muted mb-2">Ventas Contado</h6>
+                    <h4 class="text-success mb-0">C$ {{ "{:,.2f}".format(resumen.ventas_contado) }}</h4>
+                    <small class="text-muted">{{ resumen.ventas_credito_count }} créditos</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 mb-3">
+            <div class="card h-100 border-0 shadow-sm">
+                <div class="card-body text-center">
+                    <div class="d-inline-block p-3 bg-info bg-opacity-10 rounded-circle mb-3">
+                        <i class="fas fa-hand-holding-usd fa-2x text-info"></i>
+                    </div>
+                    <h6 class="text-muted mb-2">Abonos</h6>
+                    <h4 class="text-info mb-0">C$ {{ "{:,.2f}".format(resumen.total_abonos) }}</h4>
+                    <small class="text-muted">{{ resumen.cantidad_abonos }} abonos</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 mb-3">
+            <div class="card h-100 border-0 shadow-sm">
+                <div class="card-body text-center">
+                    <div class="d-inline-block p-3 bg-warning bg-opacity-10 rounded-circle mb-3">
+                        <i class="fas fa-wallet fa-2x text-warning"></i>
+                    </div>
+                    <h6 class="text-muted mb-2">Gastos</h6>
+                    <h4 class="text-warning mb-0">C$ {{ "{:,.2f}".format(resumen.gastos) }}</h4>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Estadísticas y saldo actual -->
+    <div class="row mb-4">
+        <div class="col-md-6 mb-3">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-light">
+                    <h5 class="mb-0">
+                        <i class="fas fa-chart-pie me-2 text-primary"></i>
+                        Estadísticas del Día
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-6 mb-3">
+                            <div class="text-center">
+                                <h3 class="text-primary mb-1">{{ estadisticas.clientes_atendidos }}</h3>
+                                <small class="text-muted">Clientes Atendidos</small>
+                            </div>
+                        </div>
+                        <div class="col-6 mb-3">
+                            <div class="text-center">
+                                <h3 class="text-success mb-1">{{ estadisticas.total_ventas }}</h3>
+                                <small class="text-muted">Total Ventas</small>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="text-center">
+                                <h3 class="text-info mb-1">{{ estadisticas.total_abonos_dia }}</h3>
+                                <small class="text-muted">Abonos Hoy</small>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="text-center">
+                                <h3 class="text-warning mb-1">{{ estadisticas.total_gastos_dia }}</h3>
+                                <small class="text-muted">Gastos Hoy</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6 mb-3">
+            <div class="card border-0 shadow-sm bg-primary text-white">
+                <div class="card-body text-center py-4">
+                    <h5 class="mb-3">
+                        <i class="fas fa-cash-register me-2"></i>
+                        Saldo Actual en Caja
+                    </h5>
+                    <h1 class="display-4 mb-0">C$ {{ "{:,.2f}".format(resumen.saldo_actual) }}</h1>
+                    <small class="opacity-75">Total disponible al momento</small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tabla de movimientos -->
+    <div class="card border-0 shadow-sm">
+        <div class="card-header bg-light d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">
+                <i class="fas fa-list me-2 text-primary"></i>
+                Movimientos Detallados
+            </h5>
+            <span class="badge bg-primary">
+                {{ movimientos|length }} movimientos
+            </span>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Fecha</th>
+                            <th>Tipo</th>
+                            <th>Cliente</th>
+                            <th>RUC/Cédula</th>
+                            <th>Concepto</th>
+                            <th class="text-end">Monto</th>
+                            <th>Tipo Pago</th>
+                            <th>Estado</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for movimiento in movimientos %}
+                        <tr>
+                            <td>{{ movimiento.Fecha_Formateada }}</td>
+                            <td>
+                                {% if movimiento.Tipo == 'APERTURA' %}
+                                    <span class="badge bg-primary">Apertura</span>
+                                {% elif movimiento.Tipo == 'VENTA' %}
+                                    <span class="badge bg-success">Venta</span>
+                                {% elif movimiento.Tipo == 'ABONO' %}
+                                    <span class="badge bg-info">Abono</span>
+                                {% elif movimiento.Tipo == 'GASTO' %}
+                                    <span class="badge bg-warning">Gasto</span>
+                                {% elif movimiento.Tipo == 'CIERRE' %}
+                                    <span class="badge bg-secondary">Cierre</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ movimiento.Nombre_Cliente or '-' }}</td>
+                            <td>{{ movimiento.RUC_CEDULA or '-' }}</td>
+                            <td>{{ movimiento.Concepto or '-' }}</td>
+                            <td class="text-end">
+                                <strong>C$ {{ "{:,.2f}".format(movimiento.Monto) }}</strong>
+                            </td>
+                            <td>
+                                {% if movimiento.Tipo_Pago %}
+                                    <span class="badge bg-info">{{ movimiento.Tipo_Pago }}</span>
+                                {% else %}
+                                    <span class="badge bg-secondary">-</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if movimiento.Estado_Movimiento == 'ACTIVO' %}
+                                    <span class="badge bg-success">Activo</span>
+                                {% else %}
+                                    <span class="badge bg-danger">Anulado</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="8" class="text-center py-5">
+                                <i class="fas fa-inbox fa-3x text-muted mb-3"></i>
+                                <h5 class="text-muted">No hay movimientos para esta fecha</h5>
+                                <p class="text-muted">Selecciona otra fecha o realiza nuevos movimientos</p>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Script para manejar los modales -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Formateo en tiempo real para montoApertura
+    const montoAperturaInput = document.getElementById('montoApertura');
+    const montoAperturaFormateado = document.getElementById('montoAperturaFormateado');
+    if (montoAperturaInput && montoAperturaFormateado) {
+        montoAperturaInput.addEventListener('input', function() {
+            const valor = parseFloat(this.value);
+            if (!isNaN(valor)) {
+                montoAperturaFormateado.textContent = 'C$' + valor.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+            } else {
+                montoAperturaFormateado.textContent = '';
+            }
+        });
+    }
+    // Manejar apertura
+    const formApertura = document.getElementById('formApertura');
+    if (formApertura) {
+        formApertura.addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const btn = document.getElementById('btnApertura');
+            const originalText = btn.innerHTML;
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Procesando...';
+            
+            const data = {
+                monto: document.getElementById('montoApertura').value,
+                observacion: document.getElementById('obsApertura').value
+            };
+            
+            try {
+                const response = await fetch('/vendedor/caja/apertura_modal', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(data)
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    // Cerrar modal
+                    const modal = bootstrap.Modal.getInstance(document.getElementById('aperturaModal'));
+                    modal.hide();
+                    
+                    // Mostrar notificación de éxito
+                    showNotification('Apertura realizada con éxito', 'success');
+                    
+                    // Recargar después de 1.5 segundos
+                    setTimeout(() => window.location.reload(), 1500);
+                } else {
+                    showNotification(result.error, 'danger');
+                    btn.disabled = false;
+                    btn.innerHTML = originalText;
+                }
+            } catch (error) {
+                showNotification('Error al procesar la apertura', 'danger');
+                btn.disabled = false;
+                btn.innerHTML = originalText;
+            }
+        });
+    }
+    
+    // Manejar cierre
+    const formCierre = document.getElementById('formCierre');
+    if (formCierre) {
+        // Formateo en tiempo real para montoReal
+        const montoRealInput = document.getElementById('montoReal');
+        const montoRealFormateado = document.getElementById('montoRealFormateado');
+        if (montoRealInput && montoRealFormateado) {
+            montoRealInput.addEventListener('input', function() {
+                const valor = parseFloat(this.value);
+                if (!isNaN(valor)) {
+                    montoRealFormateado.textContent = 'C$' + valor.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+                } else {
+                    montoRealFormateado.textContent = '';
+                }
+            });
+        }
+        // Calcular diferencia en tiempo real
+        const saldoEsperado = parseFloat('{{ saldo_esperado_cierre }}');
+        const alertDiv = document.getElementById('diferenciaAlert');
+        const diferenciaTexto = document.getElementById('diferenciaTexto');
+        
+        montoRealInput.addEventListener('input', function() {
+            const montoReal = parseFloat(this.value) || 0;
+            const diferencia = montoReal - saldoEsperado;
+            
+            if (Math.abs(diferencia) > 0.01) { // Tolerancia para decimales
+                alertDiv.classList.remove('d-none');
+                diferenciaTexto.innerHTML = `Diferencia: C$${diferencia.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+                if (diferencia > 0) {
+                    alertDiv.className = 'alert alert-success';
+                    diferenciaTexto.innerHTML += ' (sobrante)';
+                } else {
+                    alertDiv.className = 'alert alert-danger';
+                    diferenciaTexto.innerHTML += ' (faltante)';
+                }
+            } else {
+                alertDiv.classList.add('d-none');
+            }
+        });
+        
+        formCierre.addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const btn = document.getElementById('btnCierre');
+            const originalText = btn.innerHTML;
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Procesando...';
+            
+            const data = {
+                monto_real: document.getElementById('montoReal').value,
+                observacion: document.getElementById('obsCierre').value
+            };
+            
+            try {
+                const response = await fetch('/vendedor/caja/cierre_modal', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(data)
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    // Cerrar modal
+                    const modal = bootstrap.Modal.getInstance(document.getElementById('cierreModal'));
+                    modal.hide();
+                    
+                    // Mostrar notificación con diferencia si existe
+                    if (Math.abs(result.diferencia) > 0.01) {
+                        const diffType = result.diferencia > 0 ? 'sobrante' : 'faltante';
+                        showNotification(`Cierre exitoso. Diferencia ${diffType}: C$${Math.abs(result.diferencia).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`,
+                                       result.diferencia > 0 ? 'success' : 'warning');
+                    } else {
+                        showNotification('Cierre realizado con éxito', 'success');
+                    }
+                    
+                    // Recargar después de 2 segundos
+                    setTimeout(() => window.location.reload(), 2000);
+                } else {
+                    showNotification(result.error, 'danger');
+                    btn.disabled = false;
+                    btn.innerHTML = originalText;
+                }
+            } catch (error) {
+                showNotification('Error al procesar el cierre', 'danger');
+                btn.disabled = false;
+                btn.innerHTML = originalText;
+            }
+        });
+    }
+    
+    // Función para mostrar notificaciones
+    function showNotification(message, type) {
+        const alertDiv = document.createElement('div');
+        alertDiv.className = `alert alert-${type} alert-dismissible fade show position-fixed top-0 end-0 m-3 shadow`;
+        alertDiv.style.zIndex = '9999';
+        alertDiv.style.minWidth = '300px';
+        alertDiv.innerHTML = `
+            <div class="d-flex align-items-center">
+                <i class="fas ${type === 'success' ? 'fa-check-circle' : 'fa-exclamation-circle'} me-2 fa-lg"></i>
+                <div class="flex-grow-1">${message}</div>
+                <button type="button" class="btn-close ms-3" data-bs-dismiss="alert"></button>
+            </div>
+        `;
+        document.body.appendChild(alertDiv);
+        
+        setTimeout(() => {
+            alertDiv.remove();
+        }, 5000);
+    }
+});
+</script>
+
+<style>
+/* Estilo para los botones flotantes */
+.position-fixed.bottom-0.end-0 {
+    margin-bottom: 2rem;
+    margin-right: 2rem;
+}
+
+.btn-lg.rounded-circle {
+    width: 60px;
+    height: 60px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: transform 0.2s;
+}
+
+.btn-lg.rounded-circle:hover {
+    transform: scale(1.1);
+}
+
+.btn-lg.rounded-circle i {
+    font-size: 1.5rem;
+}
+
+/* Animación para las cards */
+.card {
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 10px 20px rgba(0,0,0,0.1) !important;
+}
+
+/* Estilo para la tabla */
+.table thead th {
+    border-bottom-width: 2px;
+    font-weight: 600;
+    text-transform: uppercase;
+    font-size: 0.85rem;
+}
+
+.table tbody tr:hover {
+    background-color: rgba(0,123,255,0.05);
+}
+
+/* Estilo para las notificaciones */
+.alert {
+    animation: slideIn 0.3s ease-out;
+}
+
+@keyframes slideIn {
+    from {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+</style>
+{% endblock %}
