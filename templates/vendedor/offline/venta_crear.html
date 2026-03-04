@@ -1,0 +1,2937 @@
+{% extends "layout_offline.html" %}
+
+{% block title %}Nueva Venta Offline{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <!-- Encabezado con indicador offline -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2><i class="fas fa-shopping-cart me-2"></i>Nueva Venta Offline</h2>
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{{ url_for('vendedor_offline_venta_crear') }}">Inicio
+                            Offline</a></li>
+                    <li class="breadcrumb-item active" aria-current="page">Nueva Venta</li>
+                </ol>
+            </nav>
+            <div class="alert alert-info mt-2 mb-0" id="offlineAlert">
+                <i class="fas fa-wifi-slash me-2"></i>
+                <span id="offlineMessage">Modo Offline - Las ventas se guardarán localmente</span>
+            </div>
+        </div>
+        <div>
+            <div class="btn-group">
+                <a href="{{ url_for('vendedor_offline_venta_crear') }}" class="btn btn-outline-secondary">
+                    <i class="fas fa-arrow-left me-1"></i> Cancelar
+                </a>
+                <button class="btn btn-outline-success" id="syncStatus" onclick="verEstadoSincronizacion()">
+                    <i class="fas fa-sync me-1"></i> <span id="syncCount">0</span> pendientes
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Barra de progreso de sincronización -->
+    <div id="syncProgress" style="display: none;" class="mb-3">
+        <div class="progress">
+            <div class="progress-bar progress-bar-striped progress-bar-animated" id="syncProgressBar" style="width: 0%">
+                0%</div>
+        </div>
+        <small class="text-muted" id="syncProgressText">Sincronizando...</small>
+    </div>
+
+    <!-- Formulario Principal -->
+    <form id="ventaForm" onsubmit="return false;">
+        <div class="row">
+            <!-- Columna Izquierda - Datos de la Venta -->
+            <div class="col-md-4">
+                <div class="card mb-4">
+                    <div class="card-header bg-primary text-white">
+                        <h5 class="mb-0"><i class="fas fa-info-circle me-2"></i>Datos de la Venta</h5>
+                    </div>
+                    <div class="card-body">
+                        <!-- Cliente -->
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Seleccionar Cliente:</label>
+                            <select class="form-select" id="cliente" required>
+                                <option value="">Seleccione un cliente...</option>
+                                <!-- Los clientes se cargarán desde IndexedDB -->
+                            </select>
+                            <small class="text-muted">
+                                <i class="fas fa-info-circle me-1"></i>
+                                El precio se muestra según el inventario offline
+                            </small>
+                            <div class="mt-2">
+                                <a href="#" class="text-primary" data-bs-toggle="modal"
+                                    data-bs-target="#nuevoClienteModal">
+                                    <i class="fas fa-plus-circle me-1"></i> Registrar nuevo cliente offline
+                                </a>
+                            </div>
+                        </div>
+
+                        <!-- Información del cliente -->
+                        <div id="clienteInfo" class="p-3 bg-light rounded mb-3" style="display: none;">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="mb-2">
+                                        <small class="text-muted d-block">Nombre:</small>
+                                        <span id="clienteNombre" class="fw-bold"></span>
+                                    </div>
+                                    <div class="mb-2">
+                                        <small class="text-muted d-block">Documento:</small>
+                                        <span id="clienteRUC" class="badge bg-dark"></span>
+                                    </div>
+                                    <div class="mb-2">
+                                        <small class="text-muted d-block">Teléfono:</small>
+                                        <span id="clienteTelefono"></span>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-2">
+                                        <small class="text-muted d-block">Dirección:</small>
+                                        <span id="clienteDireccion"></span>
+                                    </div>
+                                    <div class="mb-2">
+                                        <small class="text-muted d-block">Perfil:</small>
+                                        <span id="clientePerfil" class="badge bg-info"></span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="mt-2">
+                                <small class="text-muted">
+                                    <i class="fas fa-info-circle me-1"></i>
+                                    Saldo pendiente: <span id="clienteSaldoPendiente" class="text-danger fw-bold">C$
+                                        0.00</span>
+                                </small>
+                            </div>
+                        </div>
+
+                        <!-- Contenedor para información de saldo pendiente -->
+                        <div id="saldo-info" class="mb-3"></div>
+
+                        <!-- Tipo de Venta -->
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Tipo de Venta:</label>
+                            <div class="row">
+                                <div class="col-6">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="radio" name="tipo_venta" id="tipo_contado"
+                                            value="1" checked>
+                                        <label class="form-check-label" for="tipo_contado">
+                                            <span class="badge bg-success p-2">
+                                                <i class="fas fa-money-bill-wave me-1"></i>Contado
+                                            </span>
+                                        </label>
+                                    </div>
+                                </div>
+                                <div class="col-6">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="radio" name="tipo_venta" id="tipo_credito"
+                                            value="2">
+                                        <label class="form-check-label" for="tipo_credito">
+                                            <span class="badge bg-warning text-dark p-2">
+                                                <i class="fas fa-credit-card me-1"></i>Crédito
+                                            </span>
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Observación -->
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Observaciones:</label>
+                            <textarea class="form-control" id="observacion" rows="3"
+                                placeholder="Agregue notas adicionales..."></textarea>
+                        </div>
+
+                        <!-- Indicador de crédito -->
+                        <div id="indicadorCredito" class="alert alert-warning mb-3" style="display: none;">
+                            <div class="d-flex align-items-center">
+                                <div class="flex-shrink-0 me-3">
+                                    <i class="fas fa-exclamation-triangle fa-2x"></i>
+                                </div>
+                                <div class="flex-grow-1">
+                                    <h6 class="alert-heading mb-1">Venta a Crédito</h6>
+                                    <p class="mb-0 small">
+                                        Se generará un comprobante de crédito offline
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Resumen de la Venta -->
+                        <div class="bg-light p-3 rounded">
+                            <h6 class="mb-3">Resumen de la Venta</h6>
+                            <div class="d-flex justify-content-between mb-2">
+                                <span>Subtotal:</span>
+                                <span class="fw-bold" id="resumen_subtotal">C$ 0.00</span>
+                            </div>
+                            <hr>
+                            <div class="d-flex justify-content-between mb-3">
+                                <span class="h6">Total:</span>
+                                <span class="h5 text-success" id="resumen_total">C$ 0.00</span>
+                            </div>
+                            <div class="d-grid">
+                                <button type="button" class="btn btn-primary btn-lg" id="btnMostrarConfirmacion">
+                                    <i class="fas fa-check-circle me-2"></i>Revisar y Guardar Venta
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Columna Derecha - Productos -->
+            <div class="col-md-8">
+                <!-- Búsqueda rápida de productos -->
+                <div class="card mb-4">
+                    <div class="card-header bg-info text-white">
+                        <h5 class="mb-0"><i class="fas fa-search me-2"></i>Búsqueda Rápida de Productos</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="input-group">
+                            <input type="text" id="buscarProducto" class="form-control"
+                                placeholder="Buscar producto por nombre o código..." disabled>
+                            <button class="btn btn-outline-primary" type="button" id="btnBuscarProducto" disabled>
+                                <i class="fas fa-search"></i>
+                            </button>
+                        </div>
+                        <div id="resultadosBusqueda" class="mt-2" style="display: none;"></div>
+                        <small class="text-muted mt-2 d-block">
+                            <i class="fas fa-info-circle me-1"></i>
+                            Seleccione un cliente primero para habilitar la búsqueda
+                        </small>
+                    </div>
+                </div>
+
+                <!-- Selector de Productos Manual -->
+                <div class="card mb-4">
+                    <div class="card-header bg-success text-white">
+                        <h5 class="mb-0"><i class="fas fa-box me-2"></i>Agregar Productos Manualmente</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold">Producto</label>
+                                <select class="form-select" id="producto_select">
+                                    <option value="">Seleccione un producto</option>
+                                    <!-- Los productos se cargarán desde IndexedDB -->
+                                </select>
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label fw-bold">Cantidad</label>
+                                <input type="number" class="form-control" id="cantidad" min="1" value="1">
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label fw-bold">Precio Unit.</label>
+                                <div class="input-group">
+                                    <span class="input-group-text">C$</span>
+                                    <input type="number" class="form-control" id="precio" step="0.01" min="0">
+                                </div>
+                            </div>
+                            <div class="col-12">
+                                <button type="button" class="btn btn-primary" id="btnAgregarProducto">
+                                    <i class="fas fa-plus-circle me-2"></i>Agregar Producto
+                                </button>
+                                <button type="button" class="btn btn-outline-info" id="btnVerInventario">
+                                    <i class="fas fa-warehouse me-2"></i>Ver Inventario
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tabla de Productos Agregados -->
+                <div class="card">
+                    <div class="card-header bg-dark text-white">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0"><i class="fas fa-list me-2"></i>Productos en la Venta</h5>
+                            <div>
+                                <span id="contadorProductos" class="badge bg-primary me-2">0 productos</span>
+                                <span id="indicadorTotal" class="badge bg-success">Total: C$ 0.00</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-hover" id="tablaProductos">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th width="50">#</th>
+                                        <th>Producto</th>
+                                        <th width="120">Código</th>
+                                        <th width="200" class="text-center">Cantidad</th>
+                                        <th width="150" class="text-end">Precio Unit.</th>
+                                        <th width="150" class="text-end">Subtotal</th>
+                                        <th width="100" class="text-center">Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="productos_tbody">
+                                    <tr id="fila_vacia">
+                                        <td colspan="7" class="text-center text-muted py-4">
+                                            <i class="fas fa-box-open fa-3x mb-3"></i>
+                                            <p>No hay productos agregados a la venta</p>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                                <tfoot id="tfootTotales" style="display: none;">
+                                    <tr class="table-active">
+                                        <td colspan="5" class="text-end fw-bold">TOTAL:</td>
+                                        <td class="fw-bold text-success fs-5" id="total_tabla">C$ 0.00</td>
+                                        <td></td>
+                                    </tr>
+                                </tfoot>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </form>
+</div>
+
+<!-- Modal Nuevo Cliente -->
+<div class="modal fade" id="nuevoClienteModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title">
+                    <i class="fas fa-user-plus me-2"></i>Registrar Nuevo Cliente Offline
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="formNuevoCliente">
+                    <div class="mb-3">
+                        <label class="form-label fw-bold required">Nombre/Razón Social</label>
+                        <input type="text" class="form-control" id="cliente_nombre" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold required">RUC/Cédula</label>
+                        <input type="text" class="form-control" id="cliente_ruc" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Teléfono</label>
+                        <input type="text" class="form-control" id="cliente_telefono">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Dirección</label>
+                        <textarea class="form-control" id="cliente_direccion" rows="2"></textarea>
+                    </div>
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle me-2"></i>
+                        El cliente se guardará localmente y se sincronizará cuando haya conexión
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" id="btnGuardarCliente">
+                    <i class="fas fa-save me-2"></i>Guardar Cliente
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de Confirmación de Venta -->
+<div class="modal fade" id="modalConfirmacionVenta" tabindex="-1" data-bs-backdrop="static">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title">
+                    <i class="fas fa-check-circle me-2"></i>Confirmar Venta
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-info">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-shrink-0 me-3">
+                            <i class="fas fa-info-circle fa-2x"></i>
+                        </div>
+                        <div class="flex-grow-1">
+                            <h6 class="alert-heading mb-1">Resumen de la venta</h6>
+                            <p class="mb-0" id="mensajeConfirmacion">
+                                La venta se guardará localmente y se sincronizará cuando haya conexión.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="resumenVenta"></div>
+
+                <!-- Resumen de saldo en modal de confirmación -->
+                <div id="resumenSaldoModal" class="alert alert-warning mt-3" style="display: none;">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <strong>Saldo anterior:</strong> <span id="saldoAnteriorModal">C$ 0.00</span>
+                        </div>
+                        <div class="col-md-6">
+                            <strong>Nueva venta:</strong> <span id="nuevaVentaModal">C$ 0.00</span>
+                        </div>
+                        <div class="col-md-12 mt-2">
+                            <strong class="text-danger">Total a deber:</strong> <span id="totalPendienteModal"
+                                class="h5">C$ 0.00</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mt-3">
+                    <h6 class="mb-3">Detalle de productos:</h6>
+                    <div class="table-responsive">
+                        <table class="table table-sm table-bordered" id="tablaResumenProductos">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>#</th>
+                                    <th>Producto</th>
+                                    <th class="text-center">Cantidad</th>
+                                    <th class="text-end">Precio Unit.</th>
+                                    <th class="text-end">Subtotal</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tbodyResumenProductos"></tbody>
+                            <tfoot>
+                                <tr class="table-active">
+                                    <td colspan="4" class="text-end fw-bold">TOTAL:</td>
+                                    <td class="text-end fw-bold text-success fs-5" id="totalResumen">C$ 0.00</td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                </div>
+
+                <div id="infoCreditoModal" class="alert alert-warning mt-3" style="display: none;">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    <strong>Venta a Crédito:</strong> Se generará un comprobante de crédito offline.
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-success" id="btnConfirmarGuardar">
+                    <i class="fas fa-check me-2"></i>Guardar Venta
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de Abono para Clientes con Saldo Pendiente -->
+<div class="modal fade" id="modalAbonoCredito" tabindex="-1" data-bs-backdrop="static">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-warning">
+                <h5 class="modal-title text-dark">
+                    <i class="fas fa-exclamation-triangle me-2"></i>Cliente con Saldo Pendiente
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-info">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-shrink-0 me-3">
+                            <i class="fas fa-info-circle fa-2x"></i>
+                        </div>
+                        <div class="flex-grow-1">
+                            <h6 class="alert-heading mb-1">Información de Crédito</h6>
+                            <p class="mb-0">El cliente tiene saldo pendiente. Puede registrar un abono ahora.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card mb-3">
+                    <div class="card-body">
+                        <h6 class="card-title border-bottom pb-2 mb-3">Resumen de Cuentas</h6>
+
+                        <div class="d-flex justify-content-between mb-2">
+                            <span class="fw-bold">Saldo Pendiente Anterior:</span>
+                            <span class="text-danger fw-bold" id="modalSaldoAnterior">C$ 0.00</span>
+                        </div>
+
+                        <div class="d-flex justify-content-between mb-2">
+                            <span class="fw-bold">Nueva Venta (Crédito):</span>
+                            <span class="text-primary fw-bold" id="modalNuevaVenta">C$ 0.00</span>
+                        </div>
+
+                        <hr>
+
+                        <div class="d-flex justify-content-between mb-3">
+                            <span class="h6 fw-bold">Total a Deber:</span>
+                            <span class="h5 text-danger fw-bold" id="modalTotalDeber">C$ 0.00</span>
+                        </div>
+
+                        <!-- Tabla de facturas pendientes -->
+                        <div class="table-responsive mb-3">
+                            <table class="table table-sm table-bordered" id="tablaFacturasPendientes">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Documento</th>
+                                        <th>Vencimiento</th>
+                                        <th class="text-end">Saldo</th>
+                                        <th class="text-center">Abonar</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tbodyFacturasPendientes">
+                                    <tr>
+                                        <td colspan="4" class="text-center">Cargando facturas...</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <!-- Campo de Abono Total -->
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">
+                                <i class="fas fa-money-bill-wave me-1 text-success"></i>
+                                Monto total a abonar:
+                            </label>
+                            <div class="input-group">
+                                <span class="input-group-text">C$</span>
+                                <input type="number" class="form-control form-control-lg" id="modalMontoAbonoTotal"
+                                    min="0" step="0.01" value="0.00" placeholder="Ingrese monto total a abonar">
+                            </div>
+                        </div>
+
+                        <!-- Detalle de cómo se aplicará el abono -->
+                        <div id="detalleAplicacionAbono" class="mt-3 p-3 bg-light rounded" style="display: none;">
+                            <h6 class="mb-2">📊 Aplicación del abono:</h6>
+                            <div id="listaAplicacionAbono" class="small"></div>
+                        </div>
+
+                        <!-- Nuevos Totales después del Abono -->
+                        <div class="bg-light p-3 rounded mt-3">
+                            <h6 class="mb-3">Después del Abono:</h6>
+
+                            <div class="d-flex justify-content-between mb-2">
+                                <span>Nuevo Saldo Pendiente:</span>
+                                <span class="fw-bold" id="modalNuevoSaldo">C$ 0.00</span>
+                            </div>
+
+                            <div class="d-flex justify-content-between mb-2">
+                                <span>Total Nueva Venta:</span>
+                                <span class="fw-bold" id="modalNuevaVentaDespues">C$ 0.00</span>
+                            </div>
+
+                            <hr>
+
+                            <div class="d-flex justify-content-between">
+                                <span class="h6 fw-bold">Total Final a Deber:</span>
+                                <span class="h5 text-success fw-bold" id="modalTotalFinal">C$ 0.00</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar Venta</button>
+                <button type="button" class="btn btn-success" id="btnConfirmarConAbono">Confirmar con Abono</button>
+                <button type="button" class="btn btn-primary" id="btnContinuarSinAbono">Continuar sin Abono</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de Inventario -->
+<div class="modal fade" id="modalInventario" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-info text-white">
+                <h5 class="modal-title">
+                    <i class="fas fa-warehouse me-2"></i>Inventario Offline
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="table-responsive">
+                    <table class="table table-hover" id="tablaInventario">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Producto</th>
+                                <th>Código</th>
+                                <th class="text-center">Stock Disponible</th>
+                                <th class="text-end">Precio</th>
+                                <th class="text-center">Acción</th>
+                            </tr>
+                        </thead>
+                        <tbody id="inventario_tbody">
+                            <tr>
+                                <td colspan="5" class="text-center">
+                                    <i class="fas fa-spinner fa-spin me-2"></i>Cargando inventario...
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de Gasto -->
+<div class="modal fade" id="modalGasto" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title">
+                    <i class="fas fa-wallet me-2"></i>Registrar Gasto
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="formGasto">
+                    <div class="mb-3">
+                        <label class="form-label fw-bold required">Concepto del Gasto</label>
+                        <input type="text" class="form-control" id="gasto_concepto"
+                            placeholder="Ej: Combustible, peaje, almuerzo..." required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold required">Monto</label>
+                        <div class="input-group">
+                            <span class="input-group-text">C$</span>
+                            <input type="number" class="form-control" id="gasto_monto" min="0.01" step="0.01" required>
+                        </div>
+                    </div>
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle me-2"></i>
+                        El gasto se registrará en tu caja y afectará tu saldo disponible.
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-danger" id="btnGuardarGasto">
+                    <i class="fas fa-save me-2"></i>Registrar Gasto
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de Estado de Sincronización -->
+<div class="modal fade" id="modalSyncStatus" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-info text-white">
+                <h5 class="modal-title">
+                    <i class="fas fa-sync me-2"></i>Estado de Sincronización
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row mb-3">
+                    <div class="col-md-4">
+                        <div class="card text-center">
+                            <div class="card-body">
+                                <h3 id="pendientesVentas">0</h3>
+                                <small class="text-muted">Ventas pendientes</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="card text-center">
+                            <div class="card-body">
+                                <h3 id="pendientesAbonos">0</h3>
+                                <small class="text-muted">Abonos pendientes</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="card text-center">
+                            <div class="card-body">
+                                <h3 id="pendientesGastos">0</h3>
+                                <small class="text-muted">Gastos pendientes</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <ul class="nav nav-tabs" id="syncTabs" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active" id="ventas-tab" data-bs-toggle="tab" data-bs-target="#ventas"
+                            type="button">Ventas</button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="abonos-tab" data-bs-toggle="tab" data-bs-target="#abonos"
+                            type="button">Abonos</button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="gastos-tab" data-bs-toggle="tab" data-bs-target="#gastos"
+                            type="button">Gastos</button>
+                    </li>
+                </ul>
+
+                <div class="tab-content mt-3">
+                    <div class="tab-pane fade show active" id="ventas">
+                        <div class="list-group" id="pendientesListVentas"></div>
+                    </div>
+                    <div class="tab-pane fade" id="abonos">
+                        <div class="list-group" id="pendientesListAbonos"></div>
+                    </div>
+                    <div class="tab-pane fade" id="gastos">
+                        <div class="list-group" id="pendientesListGastos"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-primary" id="btnForzarSincronizacion">
+                    <i class="fas fa-sync me-2"></i>Sincronizar Ahora
+                </button>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+<script>
+    // ============================================
+    // VERIFICAR QUE BOOTSTRAP ESTÉ CARGADO
+    // ============================================
+    (function () {
+        if (typeof bootstrap === 'undefined') {
+            console.warn('Bootstrap no está cargado. Cargando dinámicamente...');
+            var script = document.createElement('script');
+            script.src = 'https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js';
+            document.head.appendChild(script);
+        }
+    })();
+
+    // ============================================
+    // VARIABLES GLOBALES
+    // ============================================
+    let db = null;
+    let productos = [];
+    let clientes = [];
+    let facturasPendientes = [];
+    let saldoClienteActual = 0;
+    let productosVenta = [];
+    let operacionesPendientes = {
+        ventas: [],
+        abonos: [],
+        gastos: []
+    };
+    let infoAsignacion = null;
+    let infoEmpresa = null;
+    let sincronizacionEnProgreso = false;
+    let timeoutSincronizacion = null;
+    let datosVentaActual = { clienteId: null, totalVenta: 0, saldoAnterior: 0, facturasCliente: [] };
+
+    // ============================================
+    // FUNCIONES AUXILIARES
+    // ============================================
+    function getElement(id) {
+        const element = document.getElementById(id);
+        if (!element) console.warn(`Elemento '${id}' no encontrado`);
+        return element;
+    }
+
+    function getModal(element) {
+        if (typeof bootstrap !== 'undefined' && bootstrap.Modal) {
+            return new bootstrap.Modal(element);
+        } else {
+            console.error('Bootstrap no está disponible');
+            return null;
+        }
+    }
+
+    function formatoCordoba(valor) {
+        return 'C$ ' + parseFloat(valor || 0).toFixed(2).replace(/\d(?=(\d{3})+\.)/g, '$&,');
+    }
+
+    function formatNumber(number) {
+        return parseFloat(number || 0).toFixed(2).replace(/\d(?=(\d{3})+\.)/g, '$&,');
+    }
+
+    function showToast(type, title, message) {
+        Swal.fire({
+            icon: type,
+            title,
+            text: message,
+            timer: 3000,
+            showConfirmButton: false,
+            position: 'top-end',
+            toast: true
+        });
+    }
+
+    function showAlert(type, message) {
+        Swal.fire({
+            icon: type,
+            title: type === 'success' ? 'Éxito' : type === 'warning' ? 'Advertencia' : 'Error',
+            text: message,
+            timer: 3000,
+            showConfirmButton: false
+        });
+    }
+
+    // ============================================
+    // INDEXEDDB - INICIALIZACIÓN
+    // ============================================
+    function abrirBaseDatos() {
+        return new Promise((resolve, reject) => {
+            const request = indexedDB.open('VendedorOfflineDB', 2);
+
+            request.onupgradeneeded = (event) => {
+                const db = event.target.result;
+
+                if (!db.objectStoreNames.contains('productos')) {
+                    const store = db.createObjectStore('productos', { keyPath: 'ID_Producto' });
+                    store.createIndex('nombre', 'nombre_producto', { unique: false });
+                    store.createIndex('codigo', 'COD_Producto', { unique: false });
+                }
+
+                if (!db.objectStoreNames.contains('clientes')) {
+                    const store = db.createObjectStore('clientes', { keyPath: 'ID_Cliente' });
+                    store.createIndex('nombre', 'Nombre', { unique: false });
+                    store.createIndex('ruc', 'RUC_CEDULA', { unique: false });
+                }
+
+                if (!db.objectStoreNames.contains('cuentas_cobrar')) {
+                    const store = db.createObjectStore('cuentas_cobrar', { keyPath: 'ID_Movimiento' });
+                    store.createIndex('cliente', 'ID_Cliente', { unique: false });
+                }
+
+                if (!db.objectStoreNames.contains('ventas_pendientes')) {
+                    const store = db.createObjectStore('ventas_pendientes', { keyPath: 'id_temporal' });
+                    store.createIndex('fecha', 'fecha', { unique: false });
+                    store.createIndex('sincronizada', 'sincronizada', { unique: false });
+                }
+
+                if (!db.objectStoreNames.contains('abonos_pendientes')) {
+                    const store = db.createObjectStore('abonos_pendientes', { keyPath: 'id_temporal' });
+                    store.createIndex('fecha', 'fecha', { unique: false });
+                    store.createIndex('sincronizada', 'sincronizada', { unique: false });
+                }
+
+                if (!db.objectStoreNames.contains('gastos_pendientes')) {
+                    const store = db.createObjectStore('gastos_pendientes', { keyPath: 'id_temporal' });
+                    store.createIndex('fecha', 'fecha', { unique: false });
+                    store.createIndex('sincronizada', 'sincronizada', { unique: false });
+                }
+
+                if (!db.objectStoreNames.contains('metadata')) {
+                    db.createObjectStore('metadata');
+                }
+            };
+
+            request.onsuccess = (event) => {
+                db = event.target.result;
+                console.log('✅ Base de datos offline abierta');
+                resolve(db);
+            };
+
+            request.onerror = (event) => {
+                console.error('❌ Error abriendo base de datos:', event.target.error);
+                reject(event.target.error);
+            };
+        });
+    }
+
+    // ============================================
+    // CARGA DE DATOS DESDE API
+    // ============================================
+    async function cargarDatosIniciales() {
+        if (!navigator.onLine) {
+            console.log('📴 Modo offline detectado, usando datos locales');
+            return false;
+        }
+
+        try {
+            showToast('info', 'Cargando datos', 'Sincronizando con el servidor...');
+
+            const response = await fetch('/api/vendedor/offline/datos_iniciales');
+            const data = await response.json();
+
+            if (data.success) {
+                infoAsignacion = data.asignacion;
+                infoEmpresa = data.empresa;
+                await guardarDatosEnIndexedDB(data);
+                showToast('success', 'Datos cargados', 'Datos sincronizados correctamente');
+                return true;
+            } else {
+                console.warn('API respondió con error:', data.message);
+                return false;
+            }
+        } catch (error) {
+            console.log('📴 Error de conexión al cargar datos iniciales, usando datos locales');
+            return false;
+        }
+    }
+
+    async function guardarDatosEnIndexedDB(data) {
+        return new Promise((resolve, reject) => {
+            const tx = db.transaction(['productos', 'clientes', 'cuentas_cobrar', 'metadata'], 'readwrite');
+
+            tx.oncomplete = () => resolve();
+            tx.onerror = (e) => reject(e.target.error);
+
+            const productStore = tx.objectStore('productos');
+            if (data.inventario && Array.isArray(data.inventario)) {
+                data.inventario.forEach(prod => productStore.put(prod));
+            }
+
+            const clientStore = tx.objectStore('clientes');
+            if (data.clientes && Array.isArray(data.clientes)) {
+                data.clientes.forEach(cliente => clientStore.put(cliente));
+            }
+
+            const cxcStore = tx.objectStore('cuentas_cobrar');
+            if (data.cuentas_cobrar && Array.isArray(data.cuentas_cobrar)) {
+                data.cuentas_cobrar.forEach(cxc => cxcStore.put(cxc));
+            }
+
+            const metaStore = tx.objectStore('metadata');
+            if (data.asignacion) metaStore.put(data.asignacion, 'asignacion_actual');
+            if (data.empresa) metaStore.put(data.empresa, 'empresa');
+            metaStore.put(new Date().toISOString(), 'ultima_sincronizacion');
+        });
+    }
+
+    // ============================================
+    // CARGA DE DATOS DESDE INDEXEDDB
+    // ============================================
+    async function cargarProductos() {
+        return new Promise((resolve, reject) => {
+            const tx = db.transaction(['productos'], 'readonly');
+            const store = tx.objectStore('productos');
+            const request = store.getAll();
+
+            request.onsuccess = () => {
+                productos = request.result || [];
+                console.log(`✅ ${productos.length} productos cargados`);
+                llenarSelectProductos();
+                resolve();
+            };
+
+            request.onerror = (e) => {
+                console.error('❌ Error cargando productos:', e);
+                reject(e.target.error);
+            };
+        });
+    }
+
+    async function cargarClientes() {
+        return new Promise((resolve, reject) => {
+            const tx = db.transaction(['clientes'], 'readonly');
+            const store = tx.objectStore('clientes');
+            const request = store.getAll();
+
+            request.onsuccess = () => {
+                clientes = request.result || [];
+                console.log(`✅ ${clientes.length} clientes cargados`);
+                llenarSelectClientes();
+                resolve();
+            };
+
+            request.onerror = (e) => {
+                console.error('❌ Error cargando clientes:', e);
+                reject(e.target.error);
+            };
+        });
+    }
+
+    async function cargarCuentasCobrar() {
+        return new Promise((resolve, reject) => {
+            const tx = db.transaction(['cuentas_cobrar'], 'readonly');
+            const store = tx.objectStore('cuentas_cobrar');
+            const request = store.getAll();
+
+            request.onsuccess = () => {
+                facturasPendientes = (request.result || []).filter(f =>
+                    f.Estado !== 'Pagada' && parseFloat(f.Saldo_Pendiente || 0) > 0
+                );
+                console.log(`✅ ${facturasPendientes.length} facturas pendientes cargadas`);
+                resolve();
+            };
+
+            request.onerror = (e) => {
+                console.error('❌ Error cargando cuentas por cobrar:', e);
+                reject(e.target.error);
+            };
+        });
+    }
+
+    async function cargarOperacionesPendientes() {
+        try {
+            const tx = db.transaction(['ventas_pendientes', 'abonos_pendientes', 'gastos_pendientes'], 'readonly');
+
+            const ventasStore = tx.objectStore('ventas_pendientes');
+            const ventasRequest = ventasStore.getAll();
+            operacionesPendientes.ventas = await new Promise((resolve, reject) => {
+                ventasRequest.onsuccess = () => resolve(ventasRequest.result || []);
+                ventasRequest.onerror = reject;
+            });
+
+            const abonosStore = tx.objectStore('abonos_pendientes');
+            const abonosRequest = abonosStore.getAll();
+            operacionesPendientes.abonos = await new Promise((resolve, reject) => {
+                abonosRequest.onsuccess = () => resolve(abonosRequest.result || []);
+                abonosRequest.onerror = reject;
+            });
+
+            const gastosStore = tx.objectStore('gastos_pendientes');
+            const gastosRequest = gastosStore.getAll();
+            operacionesPendientes.gastos = await new Promise((resolve, reject) => {
+                gastosRequest.onsuccess = () => resolve(gastosRequest.result || []);
+                gastosRequest.onerror = reject;
+            });
+
+            const total = operacionesPendientes.ventas.length +
+                operacionesPendientes.abonos.length +
+                operacionesPendientes.gastos.length;
+
+            console.log(`📊 Operaciones pendientes: ${total} (V:${operacionesPendientes.ventas.length} A:${operacionesPendientes.abonos.length} G:${operacionesPendientes.gastos.length})`);
+
+            actualizarContadorPendientes();
+        } catch (error) {
+            console.error('Error cargando operaciones pendientes:', error);
+        }
+    }
+
+    function llenarSelectProductos() {
+        const select = getElement('producto_select');
+        if (!select) return;
+
+        select.innerHTML = '<option value="">Seleccione un producto</option>';
+
+        productos.forEach(p => {
+            const option = document.createElement('option');
+            option.value = p.ID_Producto;
+            option.dataset.nombre = p.nombre_producto || p.Descripcion || '';
+            option.dataset.codigo = p.COD_Producto || '';
+            option.dataset.precio = p.precio_venta || p.Precio_Ruta || 0;
+            option.dataset.stock = p.stock_disponible || p.Cantidad || 0;
+            option.dataset.unidad = p.Abreviatura || 'und';
+            option.textContent = `${p.nombre_producto || p.Descripcion} - Stock: ${p.stock_disponible || p.Cantidad} ${p.Abreviatura || 'und'}`;
+            select.appendChild(option);
+        });
+    }
+
+    function llenarSelectClientes() {
+        const select = getElement('cliente');
+        if (!select) return;
+
+        select.innerHTML = '<option value="">Seleccione un cliente...</option>';
+
+        clientes.forEach(c => {
+            const option = document.createElement('option');
+            option.value = c.ID_Cliente;
+            option.dataset.nombre = c.Nombre || '';
+            option.dataset.ruc = c.RUC_CEDULA || '';
+            option.dataset.telefono = c.Telefono || '';
+            option.dataset.direccion = c.Direccion || '';
+            option.dataset.perfil = c.perfil_cliente || 'Mercado';
+            option.dataset.saldo = c.saldo_pendiente || 0;
+            option.textContent = `${c.Nombre} - ${c.RUC_CEDULA} (${c.perfil_cliente || 'Mercado'})`;
+            select.appendChild(option);
+        });
+    }
+
+    function llenarTablaInventario() {
+        const tbody = getElement('inventario_tbody');
+        if (!tbody) return;
+
+        if (productos.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="5" class="text-center">No hay productos en inventario</td></tr>';
+            return;
+        }
+
+        let html = '';
+        productos.forEach(p => {
+            const stock = p.stock_disponible || p.Cantidad || 0;
+            const stockClass = stock <= (p.Stock_Minimo || 0) ? 'bg-warning' :
+                stock > 0 ? 'bg-success' : 'bg-danger';
+
+            html += `<tr>
+                <td>${p.nombre_producto || p.Descripcion}</td>
+                <td>${p.COD_Producto}</td>
+                <td class="text-center">
+                    <span class="badge ${stockClass}">
+                        ${stock} ${p.Abreviatura || ''}
+                    </span>
+                </td>
+                <td class="text-end">${formatoCordoba(p.precio_venta || p.Precio_Ruta)}</td>
+                <td class="text-center">
+                    <button type="button" class="btn btn-sm btn-primary" 
+                            onclick="agregarDesdeInventario(${p.ID_Producto})">
+                        <i class="fas fa-plus"></i>
+                    </button>
+                </td>
+            </tr>`;
+        });
+
+        tbody.innerHTML = html;
+    }
+
+    // ============================================
+    // DETECCIÓN DE CONEXIÓN Y SINCRONIZACIÓN AUTOMÁTICA
+    // ============================================
+    function actualizarEstadoConexion() {
+        const offlineAlert = getElement('offlineAlert');
+        const offlineMessage = getElement('offlineMessage');
+
+        if (navigator.onLine) {
+            offlineAlert.className = 'alert alert-success mt-2 mb-0';
+
+            const totalPendientes = operacionesPendientes.ventas.length +
+                operacionesPendientes.abonos.length +
+                operacionesPendientes.gastos.length;
+
+            if (totalPendientes > 0) {
+                offlineMessage.innerHTML = `<i class="fas fa-wifi me-2"></i>Conectado - <span class="badge bg-warning text-dark">${totalPendientes} pendientes</span>`;
+                console.log(`📡 Conectado con ${totalPendientes} operaciones pendientes`);
+            } else {
+                offlineMessage.innerHTML = '<i class="fas fa-wifi me-2"></i>Conectado - Todo sincronizado';
+            }
+        } else {
+            offlineAlert.className = 'alert alert-info mt-2 mb-0';
+            offlineMessage.innerHTML = '<i class="fas fa-wifi-slash me-2"></i>Modo Offline - Trabajando localmente';
+        }
+
+        actualizarContadorPendientes();
+    }
+
+    window.addEventListener('online', function () {
+        console.log('📡 Conexión restablecida');
+        actualizarEstadoConexion();
+
+        if (timeoutSincronizacion) clearTimeout(timeoutSincronizacion);
+        timeoutSincronizacion = setTimeout(() => {
+            const totalPendientes = operacionesPendientes.ventas.length +
+                operacionesPendientes.abonos.length +
+                operacionesPendientes.gastos.length;
+            if (totalPendientes > 0) {
+                console.log('🔄 Iniciando sincronización automática...');
+                sincronizarTodo();
+            }
+        }, 3000);
+    });
+
+    window.addEventListener('offline', function () {
+        console.log('📴 Conexión perdida');
+        actualizarEstadoConexion();
+    });
+
+    // ============================================
+    // FUNCIONES DE VERIFICACIÓN DE SALDO
+    // ============================================
+    function verificarSaldoCliente(idCliente) {
+        if (!idCliente) {
+            ocultarAlertaSaldo();
+            return;
+        }
+
+        const facturasCliente = facturasPendientes.filter(f => f.ID_Cliente == idCliente);
+        const saldoTotal = facturasCliente.reduce((sum, f) => sum + parseFloat(f.Saldo_Pendiente || 0), 0);
+
+        saldoClienteActual = saldoTotal;
+
+        const clienteSaldoSpan = getElement('clienteSaldoPendiente');
+        if (clienteSaldoSpan) clienteSaldoSpan.textContent = formatoCordoba(saldoTotal);
+
+        if (saldoTotal > 0) {
+            mostrarAlertaSaldoOffline(facturasCliente, saldoTotal);
+        } else {
+            ocultarAlertaSaldo();
+        }
+    }
+
+    function mostrarAlertaSaldoOffline(facturas, saldoTotal) {
+        const cliente = clientes.find(c => c.ID_Cliente == getElement('cliente')?.value);
+        if (!cliente) return;
+
+        const saldoInfo = getElement('saldo-info');
+        if (!saldoInfo) return;
+
+        let html = `
+        <div class="alert alert-warning" role="alert">
+            <h5 class="alert-heading"><i class="fas fa-exclamation-triangle me-2"></i>Cliente con Saldo Pendiente</h5>
+            <div class="row">
+                <div class="col-md-6">
+                    <p><strong>Cliente:</strong> ${cliente.Nombre}</p>
+                    <p><strong>Documento:</strong> ${cliente.RUC_CEDULA}</p>
+                </div>
+                <div class="col-md-6">
+                    <p><strong>Saldo Pendiente:</strong> <span class="text-danger fw-bold">${formatoCordoba(saldoTotal)}</span></p>
+                    <p><strong>Facturas Pendientes:</strong> ${facturas.length}</p>
+                </div>
+            </div>`;
+
+        if (facturas.length > 0) {
+            html += `<div class="table-responsive mt-2">
+                <table class="table table-sm table-bordered">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Documento</th>
+                            <th>Fecha</th>
+                            <th>Vencimiento</th>
+                            <th class="text-end">Saldo</th>
+                        </tr>
+                    </thead>
+                    <tbody>`;
+
+            facturas.forEach(f => {
+                const fecha = f.Fecha ? new Date(f.Fecha).toLocaleDateString() : 'N/A';
+                const vencimiento = f.Fecha_Vencimiento ? new Date(f.Fecha_Vencimiento).toLocaleDateString() : 'N/A';
+
+                html += `<tr>
+                    <td>${f.Num_Documento || 'N/A'}</td>
+                    <td>${fecha}</td>
+                    <td>${vencimiento}</td>
+                    <td class="text-end">${formatoCordoba(f.Saldo_Pendiente)}</td>
+                </tr>`;
+            });
+
+            html += `</tbody></table></div>`;
+        }
+
+        html += `<hr><div class="row">
+            <div class="col-md-6">
+                <p><strong>Total Nueva Venta:</strong> <span id="total-nueva-venta">C$ 0.00</span></p>
+            </div>
+            <div class="col-md-6">
+                <p><strong>Total Pendiente con Nueva Venta:</strong> <span id="total-pendiente-con-nueva" class="text-danger fw-bold">${formatoCordoba(saldoTotal)}</span></p>
+            </div>
+        </div>
+        </div>`;
+
+        saldoInfo.innerHTML = html;
+        actualizarTotalesConSaldo();
+    }
+
+    function ocultarAlertaSaldo() {
+        const saldoInfo = getElement('saldo-info');
+        if (saldoInfo) saldoInfo.innerHTML = '';
+        saldoClienteActual = 0;
+    }
+
+    function actualizarTotalesConSaldo() {
+        const totalVenta = calcularTotalVenta();
+        const totalPendiente = saldoClienteActual + totalVenta;
+
+        const totalNuevaVenta = getElement('total-nueva-venta');
+        const totalPendienteConNueva = getElement('total-pendiente-con-nueva');
+
+        if (totalNuevaVenta) totalNuevaVenta.textContent = formatoCordoba(totalVenta);
+        if (totalPendienteConNueva) totalPendienteConNueva.textContent = formatoCordoba(totalPendiente);
+    }
+
+    function calcularTotalVenta() {
+        return productosVenta.reduce((total, prod) => total + (prod.cantidad * prod.precio), 0);
+    }
+
+    // ============================================
+    // FUNCIONES DE PRODUCTOS
+    // ============================================
+    function agregarProductoALista(producto) {
+        const index = productosVenta.findIndex(p => p.id === producto.id);
+
+        if (index !== -1) {
+            const nuevaCantidad = productosVenta[index].cantidad + producto.cantidad;
+            if (nuevaCantidad > productosVenta[index].stock) {
+                showAlert('warning', `Stock insuficiente. Disponible: ${formatNumber(productosVenta[index].stock)}`);
+                return;
+            }
+            productosVenta[index].cantidad = nuevaCantidad;
+            productosVenta[index].subtotal = productosVenta[index].precio * nuevaCantidad;
+            showToast('info', 'Cantidad actualizada', `Cantidad actualizada a ${formatNumber(nuevaCantidad)}`);
+        } else {
+            productosVenta.push({
+                id: producto.id,
+                codigo: producto.codigo,
+                nombre: producto.nombre,
+                cantidad: producto.cantidad,
+                precio: producto.precio,
+                stock: producto.stock,
+                unidad: producto.unidad,
+                subtotal: producto.precio * producto.cantidad
+            });
+            showToast('success', 'Producto agregado', `"${producto.nombre}" agregado`);
+        }
+
+        actualizarTabla();
+        actualizarResumen();
+        actualizarTotalesConSaldo();
+    }
+
+    window.agregarDesdeInventario = function (productoId) {
+        const producto = productos.find(p => p.ID_Producto == productoId);
+        if (!producto) return;
+
+        agregarProductoALista({
+            id: producto.ID_Producto,
+            codigo: producto.COD_Producto,
+            nombre: producto.nombre_producto || producto.Descripcion,
+            cantidad: 1,
+            precio: parseFloat(producto.precio_venta || producto.Precio_Ruta),
+            stock: producto.stock_disponible || producto.Cantidad,
+            unidad: producto.Abreviatura || 'und'
+        });
+
+        const modalElement = getElement('modalInventario');
+        if (modalElement) {
+            const modal = getModal(modalElement);
+            if (modal) modal.hide();
+        }
+    };
+
+    window.agregarProductoBusqueda = function (productoId) {
+        const option = document.querySelector(`#producto_select option[value="${productoId}"]`);
+        const select = getElement('producto_select');
+        const cantidadInput = getElement('cantidad');
+        const precioInput = getElement('precio');
+        const btnAgregar = getElement('btnAgregarProducto');
+
+        if (option && select) {
+            select.value = productoId;
+            if (cantidadInput) cantidadInput.value = 1;
+            if (precioInput) precioInput.value = option.dataset.precio;
+            if (btnAgregar) btnAgregar.click();
+
+            const resultadosDiv = getElement('resultadosBusqueda');
+            const inputBuscar = getElement('buscarProducto');
+            if (resultadosDiv) resultadosDiv.style.display = 'none';
+            if (inputBuscar) inputBuscar.value = '';
+        }
+    };
+
+    function actualizarTabla() {
+        const tablaBody = getElement('productos_tbody');
+        const tfootTotales = getElement('tfootTotales');
+        const contador = getElement('contadorProductos');
+        const indicadorTotal = getElement('indicadorTotal');
+        const totalTabla = getElement('total_tabla');
+
+        if (!tablaBody) return;
+
+        if (productosVenta.length === 0) {
+            tablaBody.innerHTML = `
+                <tr id="fila_vacia">
+                    <td colspan="7" class="text-center text-muted py-4">
+                        <i class="fas fa-box-open fa-3x mb-3"></i>
+                        <p>No hay productos agregados a la venta</p>
+                    </td>
+                </tr>`;
+
+            if (tfootTotales) tfootTotales.style.display = 'none';
+            if (indicadorTotal) indicadorTotal.textContent = 'Total: C$ 0.00';
+            if (contador) {
+                contador.textContent = '0 productos';
+                contador.className = 'badge bg-primary me-2';
+            }
+            return;
+        }
+
+        let html = '';
+        let total = 0;
+
+        productosVenta.sort((a, b) => a.nombre.localeCompare(b.nombre));
+
+        productosVenta.forEach((prod, index) => {
+            const subtotal = prod.cantidad * prod.precio;
+            total += subtotal;
+
+            html += `<tr>
+                <td>${index + 1}</td>
+                <td>
+                    <div class="fw-bold">${prod.nombre}</div>
+                    <small class="text-muted">Unidad: ${prod.unidad}</small>
+                </td>
+                <td>${prod.codigo}</td>
+                <td class="text-center">
+                    <div class="input-group input-group-sm mx-auto" style="width: 150px;">
+                        <button class="btn btn-outline-secondary" type="button" onclick="modificarCantidad(${index}, -1)"><i class="fas fa-minus"></i></button>
+                        <input type="number" class="form-control text-center cantidad-input" data-index="${index}" value="${prod.cantidad}" min="0.01" max="${prod.stock}" step="0.01">
+                        <button class="btn btn-outline-secondary" type="button" onclick="modificarCantidad(${index}, 1)"><i class="fas fa-plus"></i></button>
+                    </div>
+                    <small class="text-muted">Stock: ${formatNumber(prod.stock)}</small>
+                </td>
+                <td class="text-end">
+                    <div class="input-group input-group-sm">
+                        <span class="input-group-text">C$</span>
+                        <input type="number" class="form-control text-end precio-input" data-index="${index}" value="${prod.precio.toFixed(2)}" min="0.01" step="0.01">
+                    </div>
+                </td>
+                <td class="text-end fw-bold text-success">${formatoCordoba(subtotal)}</td>
+                <td class="text-center">
+                    <button type="button" class="btn btn-sm btn-danger" onclick="eliminarProducto(${index})"><i class="fas fa-trash"></i></button>
+                </td>
+            </tr>`;
+        });
+
+        tablaBody.innerHTML = html;
+
+        document.querySelectorAll('.cantidad-input').forEach(input => {
+            input.addEventListener('change', function () {
+                const index = parseInt(this.dataset.index);
+                actualizarCantidad(index, this.value);
+            });
+        });
+
+        document.querySelectorAll('.precio-input').forEach(input => {
+            input.addEventListener('change', function () {
+                const index = parseInt(this.dataset.index);
+                actualizarPrecio(index, this.value);
+            });
+        });
+
+        if (tfootTotales) {
+            tfootTotales.style.display = '';
+            if (totalTabla) totalTabla.textContent = formatoCordoba(total);
+        }
+        if (indicadorTotal) indicadorTotal.textContent = `Total: ${formatoCordoba(total)}`;
+        if (contador) {
+            contador.textContent = `${productosVenta.length} producto${productosVenta.length !== 1 ? 's' : ''}`;
+            contador.className = `badge ${productosVenta.length > 0 ? 'bg-success' : 'bg-primary'} me-2`;
+        }
+    }
+
+    window.modificarCantidad = function (index, cambio) {
+        if (index < 0 || index >= productosVenta.length) return;
+        const producto = productosVenta[index];
+        const nuevaCantidad = producto.cantidad + cambio;
+        if (nuevaCantidad < 0.01) return;
+        if (nuevaCantidad > producto.stock) {
+            showAlert('warning', `Stock insuficiente. Disponible: ${formatNumber(producto.stock)}`);
+            return;
+        }
+        productosVenta[index].cantidad = nuevaCantidad;
+        productosVenta[index].subtotal = producto.precio * nuevaCantidad;
+        actualizarTabla();
+        actualizarResumen();
+        actualizarTotalesConSaldo();
+    };
+
+    window.actualizarCantidad = function (index, nuevaCantidad) {
+        if (index < 0 || index >= productosVenta.length) return;
+        nuevaCantidad = parseFloat(nuevaCantidad);
+        if (isNaN(nuevaCantidad) || nuevaCantidad < 0.01) nuevaCantidad = productosVenta[index].cantidad;
+        if (nuevaCantidad > productosVenta[index].stock) {
+            showAlert('warning', `Stock insuficiente. Disponible: ${formatNumber(productosVenta[index].stock)}`);
+            nuevaCantidad = productosVenta[index].cantidad;
+        }
+        productosVenta[index].cantidad = nuevaCantidad;
+        productosVenta[index].subtotal = productosVenta[index].precio * nuevaCantidad;
+        actualizarTabla();
+        actualizarResumen();
+        actualizarTotalesConSaldo();
+    };
+
+    window.actualizarPrecio = function (index, nuevoPrecio) {
+        if (index < 0 || index >= productosVenta.length) return;
+        nuevoPrecio = parseFloat(nuevoPrecio);
+        if (isNaN(nuevoPrecio) || nuevoPrecio < 0.01) nuevoPrecio = productosVenta[index].precio;
+        productosVenta[index].precio = nuevoPrecio;
+        productosVenta[index].subtotal = nuevoPrecio * productosVenta[index].cantidad;
+        actualizarTabla();
+        actualizarResumen();
+        actualizarTotalesConSaldo();
+    };
+
+    window.eliminarProducto = function (index) {
+        Swal.fire({
+            title: '¿Eliminar producto?',
+            text: `¿Eliminar ${productosVenta[index].nombre}?`,
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonColor: '#d33',
+            confirmButtonText: 'Sí, eliminar',
+            cancelButtonText: 'Cancelar'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                productosVenta.splice(index, 1);
+                actualizarTabla();
+                actualizarResumen();
+                actualizarTotalesConSaldo();
+                showToast('success', 'Eliminado', 'Producto eliminado');
+            }
+        });
+    };
+
+    function actualizarResumen() {
+        const subtotal = productosVenta.reduce((sum, prod) => sum + (prod.cantidad * prod.precio), 0);
+        const resumenSubtotal = getElement('resumen_subtotal');
+        const resumenTotal = getElement('resumen_total');
+        if (resumenSubtotal) resumenSubtotal.textContent = formatoCordoba(subtotal);
+        if (resumenTotal) resumenTotal.textContent = formatoCordoba(subtotal);
+    }
+
+    // ============================================
+    // FUNCIONES DE BÚSQUEDA
+    // ============================================
+    function buscarProductos() {
+        const inputBuscar = getElement('buscarProducto');
+        if (!inputBuscar) return;
+
+        const termino = inputBuscar.value.trim().toLowerCase();
+        if (termino.length < 2) {
+            showAlert('warning', 'Ingrese al menos 2 caracteres');
+            return;
+        }
+
+        const resultadosDiv = getElement('resultadosBusqueda');
+        if (!resultadosDiv) return;
+
+        resultadosDiv.innerHTML = '<div class="spinner-border text-primary"></div>';
+        resultadosDiv.style.display = 'block';
+
+        const productosEncontrados = productos.filter(p =>
+            (p.nombre_producto || p.Descripcion || '').toLowerCase().includes(termino) ||
+            (p.COD_Producto && p.COD_Producto.toLowerCase().includes(termino))
+        ).slice(0, 5);
+
+        if (productosEncontrados.length === 0) {
+            resultadosDiv.innerHTML = '<div class="alert alert-warning">No se encontraron productos</div>';
+            return;
+        }
+
+        let html = '<div class="list-group">';
+        productosEncontrados.forEach(p => {
+            const stock = p.stock_disponible || p.Cantidad || 0;
+            const stockClass = stock <= 0 ? 'bg-danger' :
+                stock <= (p.Stock_Minimo || 0) ? 'bg-warning' : 'bg-success';
+
+            html += `<div class="list-group-item list-group-item-action">
+                <div class="d-flex w-100 justify-content-between align-items-start">
+                    <div class="flex-grow-1">
+                        <h6 class="mb-1">${p.nombre_producto || p.Descripcion}</h6>
+                        <small class="text-muted">Código: ${p.COD_Producto || 'N/A'} | 
+                            Stock: <span class="badge ${stockClass}">${stock} ${p.Abreviatura || ''}</span>
+                        </small>
+                    </div>
+                    <div>
+                        <span class="fw-bold text-success me-3">${formatoCordoba(p.precio_venta || p.Precio_Ruta)}</span>
+                        <button type="button" class="btn btn-sm btn-primary" onclick="agregarProductoBusqueda('${p.ID_Producto}')">
+                            <i class="fas fa-plus"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>`;
+        });
+        html += '</div>';
+        resultadosDiv.innerHTML = html;
+    }
+
+    // ============================================
+    // FUNCIÓN DE GUARDADO VENTA CORREGIDA
+    // ============================================
+    async function guardarVentaOffline() {
+        const clienteSelect = getElement('cliente');
+        const tipoVenta = document.querySelector('input[name="tipo_venta"]:checked');
+        const observacion = getElement('observacion')?.value || '';
+
+        if (!clienteSelect || !clienteSelect.value) {
+            showAlert('warning', 'Seleccione un cliente');
+            return false;
+        }
+
+        if (productosVenta.length === 0) {
+            showAlert('warning', 'Agregue productos a la venta');
+            return false;
+        }
+
+        const totalVenta = calcularTotalVenta();
+        const idTemporal = `venta_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+        // Crear copia limpia de productos para guardar - FORMATO EXACTO QUE ESPERA LA API
+        const productosParaGuardar = productosVenta.map(p => ({
+            id_producto: p.id,
+            cantidad: p.cantidad,
+            precio: p.precio
+        }));
+
+        console.log('📦 Productos a guardar:', productosParaGuardar);
+
+        const venta = {
+            id_temporal: idTemporal,
+            id_cliente: parseInt(clienteSelect.value),
+            tipo_venta: parseInt(tipoVenta.value),
+            observacion: observacion || '',
+            productos: productosParaGuardar,
+            total: totalVenta,
+            fecha: new Date().toISOString(),
+            sincronizada: false
+        };
+
+        try {
+            // Iniciar transacción
+            const tx = db.transaction(['ventas_pendientes', 'productos'], 'readwrite');
+
+            // 1. Guardar la venta pendiente
+            const ventaStore = tx.objectStore('ventas_pendientes');
+            await new Promise((resolve, reject) => {
+                const request = ventaStore.add(venta);
+                request.onsuccess = () => {
+                    console.log('✅ Venta guardada en IndexedDB:', venta);
+                    resolve();
+                };
+                request.onerror = (e) => reject(new Error('Error al guardar venta: ' + e.target.error));
+            });
+
+            // 2. Actualizar stock local
+            const productoStore = tx.objectStore('productos');
+
+            for (const prod of productosVenta) {
+                const producto = await new Promise((resolve, reject) => {
+                    const request = productoStore.get(prod.id);
+                    request.onsuccess = () => resolve(request.result);
+                    request.onerror = reject;
+                });
+
+                if (producto) {
+                    const stockActual = producto.stock_disponible || producto.Cantidad || 0;
+                    const nuevoStock = stockActual - prod.cantidad;
+
+                    producto.stock_disponible = nuevoStock;
+                    producto.Cantidad = nuevoStock;
+
+                    await new Promise((resolve, reject) => {
+                        const request = productoStore.put(producto);
+                        request.onsuccess = resolve;
+                        request.onerror = reject;
+                    });
+
+                    console.log(`✅ Stock actualizado: ${prod.nombre} (${stockActual} → ${nuevoStock})`);
+                }
+            }
+
+            // 3. Si es crédito, crear cuenta por cobrar
+            if (tipoVenta.value === '2') {
+                await crearCuentaCobrarOffline(venta);
+            }
+
+            // Completar transacción
+            await new Promise((resolve, reject) => {
+                tx.oncomplete = resolve;
+                tx.onerror = (e) => reject(e.target.error);
+            });
+
+            showAlert('success', '✅ Venta guardada localmente');
+
+            // Recargar operaciones pendientes
+            await cargarOperacionesPendientes();
+
+            // Sincronizar inmediatamente si hay conexión
+            if (navigator.onLine) {
+                console.log('📡 Hay conexión, sincronizando inmediatamente...');
+                setTimeout(() => sincronizarTodo(), 1000);
+            }
+
+            // Limpiar formulario
+            productosVenta = [];
+            actualizarTabla();
+            actualizarResumen();
+            if (clienteSelect) clienteSelect.value = '';
+
+            return true;
+
+        } catch (error) {
+            console.error('❌ Error guardando venta:', error);
+            showAlert('error', 'Error al guardar la venta: ' + error.message);
+            return false;
+        }
+    }
+
+    // ============================================
+    // FUNCIÓN PARA CREAR CUENTA POR COBRAR
+    // ============================================
+    async function crearCuentaCobrarOffline(venta) {
+        return new Promise((resolve, reject) => {
+            const tx = db.transaction(['cuentas_cobrar'], 'readwrite');
+
+            tx.oncomplete = () => {
+                console.log('✅ Cuenta por cobrar creada');
+                resolve();
+            };
+            tx.onerror = (e) => reject(e.target.error);
+
+            const store = tx.objectStore('cuentas_cobrar');
+
+            const fechaActual = new Date();
+            const fechaVencimiento = new Date();
+            fechaVencimiento.setDate(fechaVencimiento.getDate() + 30);
+
+            const nuevaCuenta = {
+                ID_Movimiento: `temp_${venta.id_temporal}`,
+                ID_Cliente: venta.id_cliente,
+                Num_Documento: `FAC-R-OFFLINE-${Date.now()}`,
+                Fecha: fechaActual.toISOString().split('T')[0],
+                Fecha_Vencimiento: fechaVencimiento.toISOString().split('T')[0],
+                Monto_Movimiento: venta.total,
+                Saldo_Pendiente: venta.total,
+                Estado: 'Pendiente'
+            };
+
+            const request = store.add(nuevaCuenta);
+            request.onerror = (e) => reject(new Error('Error al guardar cuenta: ' + e.target.error));
+        });
+    }
+
+// ============================================
+// FUNCIÓN DE SINCRONIZACIÓN MEJORADA (VENTAS INDIVIDUALES)
+// ============================================
+async function sincronizarTodo() {
+    if (sincronizacionEnProgreso) {
+        console.log('⏳ Sincronización ya en progreso, ignorando...');
+        return;
+    }
+
+    if (!navigator.onLine) {
+        showAlert('warning', 'No hay conexión a internet');
+        return;
+    }
+
+    await cargarOperacionesPendientes();
+
+    const totalPendientes = operacionesPendientes.ventas.length + 
+                           operacionesPendientes.abonos.length + 
+                           operacionesPendientes.gastos.length;
+    
+    if (totalPendientes === 0) {
+        console.log('✅ No hay operaciones pendientes');
+        showToast('info', 'Sincronización', 'No hay operaciones pendientes');
+        return;
+    }
+
+    sincronizacionEnProgreso = true;
+
+    const syncProgress = getElement('syncProgress');
+    const syncProgressBar = getElement('syncProgressBar');
+    const syncProgressText = getElement('syncProgressText');
+    
+    syncProgress.style.display = 'block';
+    syncProgressBar.style.width = '0%';
+    syncProgressBar.textContent = '0%';
+    syncProgressText.textContent = `Sincronizando ${totalPendientes} operaciones...`;
+
+    try {
+        let exitosas = 0;
+        let fallidas = 0;
+
+        // Sincronizar ventas una por una
+        for (const venta of operacionesPendientes.ventas) {
+            if (venta.sincronizada) continue;
+            
+            syncProgressText.textContent = `Sincronizando venta...`;
+            
+            try {
+                console.log('📤 Enviando venta:', venta);
+                
+                const response = await fetch('/api/vendedor/offline/registrar_venta', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        id_cliente: venta.id_cliente,
+                        tipo_venta: venta.tipo_venta,
+                        observacion: venta.observacion || '',
+                        productos: venta.productos.map(p => ({
+                            id_producto: p.id_producto,
+                            cantidad: p.cantidad,
+                            precio: p.precio
+                        })),
+                        total: venta.total,
+                        id_temporal: venta.id_temporal
+                    })
+                });
+
+                const result = await response.json();
+                console.log('📥 Respuesta:', result);
+
+                if (result.success) {
+                    // Eliminar venta de pendientes
+                    const tx = db.transaction(['ventas_pendientes'], 'readwrite');
+                    const store = tx.objectStore('ventas_pendientes');
+                    
+                    await new Promise((resolve, reject) => {
+                        const request = store.delete(venta.id_temporal);
+                        request.onsuccess = resolve;
+                        request.onerror = reject;
+                    });
+                    
+                    await new Promise((resolve, reject) => {
+                        tx.oncomplete = resolve;
+                        tx.onerror = reject;
+                    });
+                    
+                    console.log(`✅ Venta ${venta.id_temporal} sincronizada`);
+                    exitosas++;
+                } else {
+                    console.error(`❌ Error en venta:`, result.message);
+                    showAlert('error', `Error en venta: ${result.message}`);
+                    fallidas++;
+                }
+            } catch (error) {
+                console.error('❌ Error al sincronizar venta:', error);
+                showAlert('error', 'Error de conexión al sincronizar venta');
+                fallidas++;
+            }
+            
+            // Actualizar progreso
+            const progreso = Math.round((exitosas + fallidas) / totalPendientes * 100);
+            syncProgressBar.style.width = progreso + '%';
+            syncProgressBar.textContent = progreso + '%';
+        }
+
+        // Sincronizar abonos
+        for (const abono of operacionesPendientes.abonos) {
+            if (abono.sincronizada) continue;
+            
+            try {
+                const response = await fetch('/api/vendedor/offline/registrar_abono', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        id_cliente: abono.id_cliente,
+                        monto_abono: abono.monto_abono,
+                        facturas: abono.facturas
+                    })
+                });
+
+                const result = await response.json();
+                
+                if (result.success) {
+                    const tx = db.transaction(['abonos_pendientes'], 'readwrite');
+                    const store = tx.objectStore('abonos_pendientes');
+                    await new Promise((resolve, reject) => {
+                        const request = store.delete(abono.id_temporal);
+                        request.onsuccess = resolve;
+                        request.onerror = reject;
+                    });
+                    exitosas++;
+                } else {
+                    fallidas++;
+                }
+            } catch (error) {
+                fallidas++;
+            }
+        }
+
+        // Sincronizar gastos
+        for (const gasto of operacionesPendientes.gastos) {
+            if (gasto.sincronizada) continue;
+            
+            try {
+                const response = await fetch('/api/vendedor/offline/registrar_gasto', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        concepto: gasto.concepto,
+                        monto: gasto.monto
+                    })
+                });
+
+                const result = await response.json();
+                
+                if (result.success) {
+                    const tx = db.transaction(['gastos_pendientes'], 'readwrite');
+                    const store = tx.objectStore('gastos_pendientes');
+                    await new Promise((resolve, reject) => {
+                        const request = store.delete(gasto.id_temporal);
+                        request.onsuccess = resolve;
+                        request.onerror = reject;
+                    });
+                    exitosas++;
+                } else {
+                    fallidas++;
+                }
+            } catch (error) {
+                fallidas++;
+            }
+        }
+
+        await cargarOperacionesPendientes();
+        
+        syncProgressBar.style.width = '100%';
+        syncProgressBar.textContent = '100%';
+        syncProgressText.textContent = '¡Sincronización completada!';
+        
+        setTimeout(() => {
+            syncProgress.style.display = 'none';
+        }, 2000);
+        
+        if (fallidas > 0) {
+            showAlert('warning', `⚠️ ${exitosas} sincronizadas, ${fallidas} fallidas`);
+        } else {
+            showToast('success', 'Sincronización', `✅ ${exitosas} operaciones sincronizadas`);
+        }
+        
+        actualizarEstadoConexion();
+
+    } catch (error) {
+        console.error('❌ Error en sincronización:', error);
+        syncProgress.style.display = 'none';
+        showAlert('error', 'Error al sincronizar: ' + error.message);
+    } finally {
+        sincronizacionEnProgreso = false;
+    }
+}
+
+// ============================================
+// FUNCIÓN PARA PROBAR VENTA INDIVIDUAL
+// ============================================
+window.probarVentaIndividual = async function() {
+    await cargarOperacionesPendientes();
+    
+    if (operacionesPendientes.ventas.length === 0) {
+        alert('No hay ventas pendientes');
+        return;
+    }
+    
+    const venta = operacionesPendientes.ventas[0];
+    console.log('🔍 Probando con venta:', venta);
+    
+    try {
+        const response = await fetch('/api/vendedor/offline/registrar_venta', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                id_cliente: venta.id_cliente,
+                tipo_venta: venta.tipo_venta,
+                observacion: venta.observacion || '',
+                productos: venta.productos.map(p => ({
+                    id_producto: p.id_producto,
+                    cantidad: p.cantidad,
+                    precio: p.precio
+                })),
+                total: venta.total,
+                id_temporal: venta.id_temporal
+            })
+        });
+        
+        const result = await response.json();
+        console.log('📥 Respuesta del servidor:', result);
+        
+        if (result.success) {
+            alert('✅ Venta sincronizada correctamente');
+        } else {
+            alert('❌ Error: ' + result.message);
+        }
+    } catch (error) {
+        console.error('❌ Error de red:', error);
+        alert('Error de red: ' + error.message);
+    }
+}
+
+    async function guardarAbonoOffline(datosAbono) {
+        const idTemporal = `abono_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+        const abono = {
+            id_temporal: idTemporal,
+            id_cliente: datosAbono.id_cliente,
+            monto_abono: datosAbono.monto_abono,
+            facturas: datosAbono.facturas,
+            fecha: new Date().toISOString(),
+            sincronizada: false
+        };
+
+        try {
+            const tx = db.transaction(['abonos_pendientes', 'cuentas_cobrar'], 'readwrite');
+
+            const abonoStore = tx.objectStore('abonos_pendientes');
+            const addRequest = abonoStore.add(abono);
+            await new Promise((resolve, reject) => {
+                addRequest.onsuccess = resolve;
+                addRequest.onerror = (e) => reject(new Error('Error al guardar abono: ' + e.target.error));
+            });
+
+            const cxcStore = tx.objectStore('cuentas_cobrar');
+
+            for (const factura of datosAbono.facturas) {
+                if (factura.monto_aplicar > 0) {
+                    const getRequest = cxcStore.get(factura.id_movimiento);
+                    const cxc = await new Promise((resolve, reject) => {
+                        getRequest.onsuccess = () => resolve(getRequest.result);
+                        getRequest.onerror = reject;
+                    });
+
+                    if (cxc) {
+                        const nuevoSaldo = (parseFloat(cxc.Saldo_Pendiente) || 0) - factura.monto_aplicar;
+                        cxc.Saldo_Pendiente = Math.max(0, nuevoSaldo);
+                        cxc.Estado = cxc.Saldo_Pendiente <= 0 ? 'Pagada' : 'Pendiente';
+
+                        const putRequest = cxcStore.put(cxc);
+                        await new Promise((resolve, reject) => {
+                            putRequest.onsuccess = resolve;
+                            putRequest.onerror = reject;
+                        });
+                    }
+                }
+            }
+
+            await new Promise((resolve, reject) => {
+                tx.oncomplete = resolve;
+                tx.onerror = (e) => reject(e.target.error);
+            });
+
+            showAlert('success', `✅ Abono de ${formatoCordoba(datosAbono.monto_abono)} guardado localmente`);
+            await cargarOperacionesPendientes();
+
+            if (navigator.onLine) {
+                setTimeout(() => sincronizarTodo(), 500);
+            }
+
+            return true;
+
+        } catch (error) {
+            console.error('Error guardando abono:', error);
+            showAlert('error', 'Error al guardar el abono: ' + error.message);
+            return false;
+        }
+    }
+
+    async function guardarGastoOffline(datosGasto) {
+        const idTemporal = `gasto_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+        const gasto = {
+            id_temporal: idTemporal,
+            concepto: datosGasto.concepto,
+            monto: datosGasto.monto,
+            fecha: new Date().toISOString(),
+            sincronizada: false
+        };
+
+        try {
+            const tx = db.transaction(['gastos_pendientes'], 'readwrite');
+            const gastoStore = tx.objectStore('gastos_pendientes');
+            const addRequest = gastoStore.add(gasto);
+
+            await new Promise((resolve, reject) => {
+                addRequest.onsuccess = resolve;
+                addRequest.onerror = (e) => reject(new Error('Error al guardar gasto: ' + e.target.error));
+            });
+
+            await new Promise((resolve, reject) => {
+                tx.oncomplete = resolve;
+                tx.onerror = (e) => reject(e.target.error);
+            });
+
+            showAlert('success', `✅ Gasto de ${formatoCordoba(datosGasto.monto)} guardado localmente`);
+            await cargarOperacionesPendientes();
+
+            if (navigator.onLine) {
+                setTimeout(() => sincronizarTodo(), 500);
+            }
+
+            return true;
+
+        } catch (error) {
+            console.error('Error guardando gasto:', error);
+            showAlert('error', 'Error al guardar el gasto: ' + error.message);
+            return false;
+        }
+    }
+
+    async function actualizarContadorPendientes() {
+        const syncCount = getElement('syncCount');
+        if (syncCount) {
+            const total = operacionesPendientes.ventas.length +
+                operacionesPendientes.abonos.length +
+                operacionesPendientes.gastos.length;
+            syncCount.textContent = total;
+
+            const pendVentas = getElement('pendientesVentas');
+            const pendAbonos = getElement('pendientesAbonos');
+            const pendGastos = getElement('pendientesGastos');
+
+            if (pendVentas) pendVentas.textContent = operacionesPendientes.ventas.length;
+            if (pendAbonos) pendAbonos.textContent = operacionesPendientes.abonos.length;
+            if (pendGastos) pendGastos.textContent = operacionesPendientes.gastos.length;
+        }
+    }
+
+    window.verEstadoSincronizacion = async function () {
+        await cargarOperacionesPendientes();
+
+        const listVentas = getElement('pendientesListVentas');
+        const listAbonos = getElement('pendientesListAbonos');
+        const listGastos = getElement('pendientesListGastos');
+
+        if (listVentas) {
+            if (operacionesPendientes.ventas.length === 0) {
+                listVentas.innerHTML = '<div class="list-group-item text-center text-muted">No hay ventas pendientes</div>';
+            } else {
+                let html = '';
+                operacionesPendientes.ventas.forEach(v => {
+                    const fecha = new Date(v.fecha).toLocaleString();
+                    html += `<div class="list-group-item">
+                        <div class="d-flex w-100 justify-content-between">
+                            <h6 class="mb-1">Venta - ${formatoCordoba(v.total)}</h6>
+                            <small class="text-warning">Pendiente</small>
+                        </div>
+                        <p class="mb-1">Cliente ID: ${v.id_cliente} | Productos: ${v.productos.length}</p>
+                        <small class="text-muted">${fecha}</small>
+                    </div>`;
+                });
+                listVentas.innerHTML = html;
+            }
+        }
+
+        if (listAbonos) {
+            if (operacionesPendientes.abonos.length === 0) {
+                listAbonos.innerHTML = '<div class="list-group-item text-center text-muted">No hay abonos pendientes</div>';
+            } else {
+                let html = '';
+                operacionesPendientes.abonos.forEach(a => {
+                    const fecha = new Date(a.fecha).toLocaleString();
+                    html += `<div class="list-group-item">
+                        <div class="d-flex w-100 justify-content-between">
+                            <h6 class="mb-1">Abono - ${formatoCordoba(a.monto_abono)}</h6>
+                            <small class="text-warning">Pendiente</small>
+                        </div>
+                        <p class="mb-1">Cliente ID: ${a.id_cliente} | Facturas: ${a.facturas.length}</p>
+                        <small class="text-muted">${fecha}</small>
+                    </div>`;
+                });
+                listAbonos.innerHTML = html;
+            }
+        }
+
+        if (listGastos) {
+            if (operacionesPendientes.gastos.length === 0) {
+                listGastos.innerHTML = '<div class="list-group-item text-center text-muted">No hay gastos pendientes</div>';
+            } else {
+                let html = '';
+                operacionesPendientes.gastos.forEach(g => {
+                    const fecha = new Date(g.fecha).toLocaleString();
+                    html += `<div class="list-group-item">
+                        <div class="d-flex w-100 justify-content-between">
+                            <h6 class="mb-1">Gasto - ${formatoCordoba(g.monto)}</h6>
+                            <small class="text-warning">Pendiente</small>
+                        </div>
+                        <p class="mb-1">${g.concepto}</p>
+                        <small class="text-muted">${fecha}</small>
+                    </div>`;
+                });
+                listGastos.innerHTML = html;
+            }
+        }
+
+        const modalElement = getElement('modalSyncStatus');
+        if (modalElement) {
+            const modal = getModal(modalElement);
+            if (modal) modal.show();
+        }
+    };
+
+    // ============================================
+    // FUNCIONES DEL MODAL DE ABONO
+    // ============================================
+    function mostrarModalAbono(clienteId, saldoAnterior, totalVenta) {
+        const facturasCliente = facturasPendientes.filter(f => f.ID_Cliente == clienteId);
+        datosVentaActual = { clienteId, totalVenta, saldoAnterior, facturasCliente };
+
+        const modalSaldoAnterior = getElement('modalSaldoAnterior');
+        const modalNuevaVenta = getElement('modalNuevaVenta');
+        const modalTotalDeber = getElement('modalTotalDeber');
+        const montoAbonoTotal = getElement('modalMontoAbonoTotal');
+
+        if (modalSaldoAnterior) modalSaldoAnterior.textContent = formatoCordoba(saldoAnterior);
+        if (modalNuevaVenta) modalNuevaVenta.textContent = formatoCordoba(totalVenta);
+
+        const totalDeber = saldoAnterior + totalVenta;
+        if (modalTotalDeber) modalTotalDeber.textContent = formatoCordoba(totalDeber);
+
+        if (montoAbonoTotal) {
+            montoAbonoTotal.value = '0.00';
+            montoAbonoTotal.max = totalDeber;
+        }
+
+        llenarTablaFacturasPendientes(facturasCliente);
+
+        const detalleAplicacion = getElement('detalleAplicacionAbono');
+        if (detalleAplicacion) detalleAplicacion.style.display = 'none';
+
+        actualizarValoresDespuesAbono();
+
+        const modalElement = getElement('modalAbonoCredito');
+        if (modalElement) {
+            const modal = getModal(modalElement);
+            if (modal) modal.show();
+        }
+    }
+
+    function llenarTablaFacturasPendientes(facturas) {
+        const tbody = getElement('tbodyFacturasPendientes');
+        if (!tbody) return;
+
+        if (facturas.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="4" class="text-center">No hay facturas pendientes</td></tr>';
+            return;
+        }
+
+        let html = '';
+        facturas.forEach((f, index) => {
+            const vencimiento = f.Fecha_Vencimiento ? new Date(f.Fecha_Vencimiento).toLocaleDateString() : 'N/A';
+            const diasVencido = f.Fecha_Vencimiento ?
+                Math.floor((new Date() - new Date(f.Fecha_Vencimiento)) / (1000 * 60 * 60 * 24)) : 0;
+            const rowClass = diasVencido > 0 ? 'table-danger' : '';
+
+            html += `<tr class="${rowClass}" data-id="${f.ID_Movimiento}" data-saldo="${f.Saldo_Pendiente}">
+                <td>${f.Num_Documento || 'N/A'}</td>
+                <td>${vencimiento} ${diasVencido > 0 ? `<span class="badge bg-danger">${diasVencido} días vencido</span>` : ''}</td>
+                <td class="text-end">${formatoCordoba(f.Saldo_Pendiente)}</td>
+                <td class="text-center">
+                    <input type="checkbox" class="form-check-input factura-checkbox" 
+                           data-index="${index}" data-id="${f.ID_Movimiento}" 
+                           data-saldo="${f.Saldo_Pendiente}">
+                    <input type="number" class="form-control form-control-sm abono-parcial-input d-none" 
+                           data-id="${f.ID_Movimiento}" min="0" step="0.01" 
+                           placeholder="Monto" style="width: 100px; display: inline-block;">
+                </td>
+            </tr>`;
+        });
+
+        tbody.innerHTML = html;
+
+        document.querySelectorAll('.factura-checkbox').forEach(checkbox => {
+            checkbox.addEventListener('change', function () {
+                const row = this.closest('tr');
+                const abonoInput = row.querySelector('.abono-parcial-input');
+                const saldo = parseFloat(this.dataset.saldo);
+
+                if (this.checked) {
+                    abonoInput.classList.remove('d-none');
+                    abonoInput.value = saldo.toFixed(2);
+                    abonoInput.max = saldo;
+                } else {
+                    abonoInput.classList.add('d-none');
+                    abonoInput.value = 0;
+                }
+                recalcularAbonoTotal();
+            });
+        });
+
+        document.querySelectorAll('.abono-parcial-input').forEach(input => {
+            input.addEventListener('input', recalcularAbonoTotal);
+        });
+    }
+
+    function recalcularAbonoTotal() {
+        let totalAbono = 0;
+        const facturas = [];
+
+        document.querySelectorAll('.factura-checkbox:checked').forEach(checkbox => {
+            const row = checkbox.closest('tr');
+            const abonoInput = row.querySelector('.abono-parcial-input');
+            const monto = parseFloat(abonoInput.value) || 0;
+            const saldo = parseFloat(checkbox.dataset.saldo);
+
+            if (monto > 0 && monto <= saldo) {
+                totalAbono += monto;
+                facturas.push({
+                    id_movimiento: checkbox.dataset.id,
+                    saldo_pendiente: saldo,
+                    monto_aplicar: monto
+                });
+            }
+        });
+
+        const montoAbonoTotal = getElement('modalMontoAbonoTotal');
+        if (montoAbonoTotal) montoAbonoTotal.value = totalAbono.toFixed(2);
+
+        datosVentaActual.facturasSeleccionadas = facturas;
+        actualizarValoresDespuesAbono();
+    }
+
+    function actualizarValoresDespuesAbono() {
+        const montoAbonoTotal = getElement('modalMontoAbonoTotal');
+        if (!montoAbonoTotal) return;
+
+        const montoAbono = parseFloat(montoAbonoTotal.value) || 0;
+        const saldoAnterior = datosVentaActual.saldoAnterior;
+        const nuevaVenta = datosVentaActual.totalVenta;
+        const totalDeber = saldoAnterior + nuevaVenta;
+
+        if (montoAbono > totalDeber) montoAbonoTotal.value = totalDeber.toFixed(2);
+
+        const abonoValido = Math.min(montoAbono, totalDeber);
+        const nuevoSaldo = Math.max(0, saldoAnterior - abonoValido);
+        const totalFinal = nuevoSaldo + nuevaVenta;
+
+        const modalNuevoSaldo = getElement('modalNuevoSaldo');
+        const modalNuevaVentaDespues = getElement('modalNuevaVentaDespues');
+        const modalTotalFinal = getElement('modalTotalFinal');
+
+        if (modalNuevoSaldo) modalNuevoSaldo.textContent = formatoCordoba(nuevoSaldo);
+        if (modalNuevaVentaDespues) modalNuevaVentaDespues.textContent = formatoCordoba(nuevaVenta);
+        if (modalTotalFinal) modalTotalFinal.textContent = formatoCordoba(totalFinal);
+
+        if (abonoValido > 0 && datosVentaActual.facturasCliente) {
+            mostrarAplicacionAbono(abonoValido, datosVentaActual.facturasCliente);
+        } else {
+            const detalleAplicacion = getElement('detalleAplicacionAbono');
+            if (detalleAplicacion) detalleAplicacion.style.display = 'none';
+        }
+    }
+
+    function mostrarAplicacionAbono(montoAbono, facturasCliente) {
+        let montoRestante = montoAbono;
+        let aplicacion = [];
+
+        const facturasOrdenadas = [...facturasCliente].sort((a, b) => {
+            if (a.Fecha_Vencimiento && b.Fecha_Vencimiento) {
+                return new Date(a.Fecha_Vencimiento) - new Date(b.Fecha_Vencimiento);
+            }
+            return 0;
+        });
+
+        for (let factura of facturasOrdenadas) {
+            if (montoRestante <= 0) break;
+            const saldo = parseFloat(factura.Saldo_Pendiente);
+            const montoAplicar = Math.min(montoRestante, saldo);
+            const nuevoSaldo = saldo - montoAplicar;
+            aplicacion.push({
+                documento: factura.Num_Documento || 'N/A',
+                saldo_anterior: saldo,
+                monto_aplicar: montoAplicar,
+                saldo_nuevo: nuevoSaldo,
+                estado: nuevoSaldo <= 0 ? 'Pagada' : 'Parcial'
+            });
+            montoRestante -= montoAplicar;
+        }
+
+        let html = '<div class="small">';
+        aplicacion.forEach(item => {
+            const bgColor = item.estado === 'Pagada' ? 'bg-success text-white' : 'bg-warning';
+            html += `<div class="p-2 mb-2 ${bgColor} rounded">
+                <strong>${item.documento}</strong><br>
+                Saldo anterior: ${formatoCordoba(item.saldo_anterior)}<br>
+                Abono: ${formatoCordoba(item.monto_aplicar)}<br>
+                Nuevo saldo: ${formatoCordoba(item.saldo_nuevo)} ${item.estado === 'Pagada' ? ' ✅' : ' ⚠️'}
+            </div>`;
+        });
+        html += '</div>';
+
+        const listaAplicacion = getElement('listaAplicacionAbono');
+        const detalleAplicacion = getElement('detalleAplicacionAbono');
+
+        if (listaAplicacion) listaAplicacion.innerHTML = html;
+        if (detalleAplicacion) detalleAplicacion.style.display = 'block';
+    }
+
+    // ============================================
+    // FUNCIONES DE CONFIRMACIÓN
+    // ============================================
+    function llenarResumenConfirmacion() {
+        const tipoVenta = document.querySelector('input[name="tipo_venta"]:checked');
+        if (!tipoVenta) return false;
+
+        const tipoVentaText = tipoVenta.value === '1' ? 'Contado' : 'Crédito';
+
+        const infoCreditoModal = getElement('infoCreditoModal');
+        if (infoCreditoModal) infoCreditoModal.style.display = tipoVenta.value === '2' ? 'block' : 'none';
+
+        const resumenSaldoModal = getElement('resumenSaldoModal');
+        const saldoAnteriorModal = getElement('saldoAnteriorModal');
+        const nuevaVentaModal = getElement('nuevaVentaModal');
+        const totalPendienteModal = getElement('totalPendienteModal');
+
+        if (resumenSaldoModal && saldoAnteriorModal && nuevaVentaModal && totalPendienteModal) {
+            const totalVenta = calcularTotalVenta();
+            saldoAnteriorModal.textContent = formatoCordoba(saldoClienteActual);
+            nuevaVentaModal.textContent = formatoCordoba(totalVenta);
+            totalPendienteModal.textContent = formatoCordoba(saldoClienteActual + totalVenta);
+            resumenSaldoModal.style.display = (tipoVenta.value === '2' && saldoClienteActual > 0) ? 'block' : 'none';
+        }
+
+        const clienteSelect = getElement('cliente');
+        const option = clienteSelect?.options[clienteSelect.selectedIndex];
+        const clienteNombre = option?.dataset.nombre || '';
+        const clienteRUC = option?.dataset.ruc || '';
+        const clientePerfil = option?.dataset.perfil || 'Mercado';
+        const observacion = getElement('observacion')?.value || '';
+        const rutaNombre = infoAsignacion?.nombre_ruta || 'Ruta offline';
+        const fechaActual = new Date().toLocaleDateString();
+
+        const resumenVenta = getElement('resumenVenta');
+        if (resumenVenta) {
+            resumenVenta.innerHTML = `
+            <div class="row g-3 mb-3">
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-body">
+                            <h6 class="card-title border-bottom pb-2 mb-3"><i class="fas fa-user me-2"></i>Datos del Cliente</h6>
+                            <p><strong>Cliente:</strong> ${clienteNombre}</p>
+                            <p><strong>Documento:</strong> ${clienteRUC}</p>
+                            <p><strong>Perfil:</strong> <span class="badge bg-info">${clientePerfil}</span></p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-body">
+                            <h6 class="card-title border-bottom pb-2 mb-3"><i class="fas fa-info-circle me-2"></i>Información de la Venta</h6>
+                            <p><strong>Ruta:</strong> ${rutaNombre}</p>
+                            <p><strong>Fecha:</strong> ${fechaActual}</p>
+                            <p><strong>Tipo:</strong> <span class="badge ${tipoVenta.value === '1' ? 'bg-success' : 'bg-warning text-dark'}">${tipoVentaText}</span></p>
+                            <p><strong>Observaciones:</strong> ${observacion || 'Ninguna'}</p>
+                        </div>
+                    </div>
+                </div>
+            </div>`;
+        }
+
+        const tbodyResumen = getElement('tbodyResumenProductos');
+        const totalResumen = getElement('totalResumen');
+
+        if (!tbodyResumen || !totalResumen) return false;
+
+        let htmlResumen = '';
+        let total = 0;
+
+        productosVenta.forEach((prod, index) => {
+            total += prod.subtotal;
+            htmlResumen += `<tr>
+                <td>${index + 1}</td>
+                <td>${prod.nombre}<br><small class="text-muted">Código: ${prod.codigo}</small></td>
+                <td class="text-center">${formatNumber(prod.cantidad)}</td>
+                <td class="text-end">${formatoCordoba(prod.precio)}</td>
+                <td class="text-end fw-bold">${formatoCordoba(prod.subtotal)}</td>
+            </tr>`;
+        });
+
+        tbodyResumen.innerHTML = htmlResumen;
+        totalResumen.textContent = formatoCordoba(total);
+
+        const mensajeConfirmacion = getElement('mensajeConfirmacion');
+        if (mensajeConfirmacion) {
+            mensajeConfirmacion.textContent = navigator.onLine ?
+                'La venta se procesará directamente en el sistema.' :
+                'La venta se guardará localmente y se sincronizará cuando haya conexión.';
+        }
+
+        return true;
+    }
+
+    // ============================================
+    // EVENTOS PRINCIPALES
+    // ============================================
+    document.addEventListener('DOMContentLoaded', async function () {
+        console.log('🚀 Inicializando formulario offline');
+
+        try {
+            await abrirBaseDatos();
+
+            await cargarProductos();
+            await cargarClientes();
+            await cargarCuentasCobrar();
+
+            if (productos.length === 0 || clientes.length === 0) {
+                console.log('📦 Base de datos local vacía, intentando cargar desde API...');
+                const datosCargados = await cargarDatosIniciales();
+                if (datosCargados) {
+                    await cargarProductos();
+                    await cargarClientes();
+                    await cargarCuentasCobrar();
+                }
+            } else {
+                console.log('✅ Usando datos locales existentes');
+            }
+
+            await cargarOperacionesPendientes();
+
+            llenarTablaInventario();
+            actualizarEstadoConexion();
+
+            const clienteSelect = getElement('cliente');
+            const productoSelect = getElement('producto_select');
+            const cantidadInput = getElement('cantidad');
+            const precioInput = getElement('precio');
+            const btnAgregar = getElement('btnAgregarProducto');
+            const btnBuscar = getElement('btnBuscarProducto');
+            const inputBuscar = getElement('buscarProducto');
+            const btnVerInventario = getElement('btnVerInventario');
+            const tipoCredito = getElement('tipo_credito');
+            const indicadorCredito = getElement('indicadorCredito');
+            const btnMostrarConfirmacion = getElement('btnMostrarConfirmacion');
+            const btnConfirmarGuardar = getElement('btnConfirmarGuardar');
+            const btnGuardarCliente = getElement('btnGuardarCliente');
+            const btnForzarSincronizacion = getElement('btnForzarSincronizacion');
+            const btnGuardarGasto = getElement('btnGuardarGasto');
+
+            const headerButtons = document.querySelector('.btn-group');
+            if (headerButtons) {
+                const gastoBtn = document.createElement('button');
+                gastoBtn.className = 'btn btn-outline-danger';
+                gastoBtn.innerHTML = '<i class="fas fa-wallet me-1"></i> Gasto';
+                gastoBtn.onclick = () => {
+                    const modal = getModal(document.getElementById('modalGasto'));
+                    if (modal) modal.show();
+                };
+                headerButtons.appendChild(gastoBtn);
+            }
+
+            if (clienteSelect) {
+                clienteSelect.addEventListener('change', function () {
+                    const option = this.options[this.selectedIndex];
+                    const infoDiv = getElement('clienteInfo');
+
+                    if (option && option.value) {
+                        const clienteNombre = getElement('clienteNombre');
+                        const clienteRUC = getElement('clienteRUC');
+                        const clienteTelefono = getElement('clienteTelefono');
+                        const clienteDireccion = getElement('clienteDireccion');
+                        const clientePerfil = getElement('clientePerfil');
+                        const clienteSaldo = getElement('clienteSaldoPendiente');
+
+                        if (clienteNombre) clienteNombre.textContent = option.dataset.nombre || '';
+                        if (clienteRUC) clienteRUC.textContent = option.dataset.ruc || '';
+                        if (clienteTelefono) clienteTelefono.textContent = option.dataset.telefono || 'No especificado';
+                        if (clienteDireccion) clienteDireccion.textContent = option.dataset.direccion || 'No especificada';
+                        if (clientePerfil) clientePerfil.textContent = option.dataset.perfil || 'Mercado';
+                        if (clienteSaldo) clienteSaldo.textContent = formatoCordoba(option.dataset.saldo || 0);
+
+                        if (infoDiv) infoDiv.style.display = 'block';
+                        if (inputBuscar) inputBuscar.disabled = false;
+                        if (btnBuscar) btnBuscar.disabled = false;
+
+                        verificarSaldoCliente(option.value);
+                    } else {
+                        if (infoDiv) infoDiv.style.display = 'none';
+                        if (inputBuscar) {
+                            inputBuscar.disabled = true;
+                            inputBuscar.value = '';
+                        }
+                        if (btnBuscar) btnBuscar.disabled = true;
+                        ocultarAlertaSaldo();
+                    }
+                });
+            }
+
+            function actualizarIndicadorCredito() {
+                if (indicadorCredito) {
+                    indicadorCredito.style.display = (tipoCredito && tipoCredito.checked) ? 'block' : 'none';
+                }
+            }
+
+            document.querySelectorAll('input[name="tipo_venta"]').forEach(radio => {
+                radio.addEventListener('change', actualizarIndicadorCredito);
+            });
+
+            if (productoSelect) {
+                productoSelect.addEventListener('change', function () {
+                    const option = this.options[this.selectedIndex];
+                    if (precioInput) precioInput.value = option.value ? option.dataset.precio : '';
+                });
+            }
+
+            if (btnAgregar) {
+                btnAgregar.addEventListener('click', function () {
+                    if (!productoSelect || !productoSelect.value) {
+                        showAlert('warning', 'Seleccione un producto');
+                        return;
+                    }
+
+                    const option = productoSelect.options[productoSelect.selectedIndex];
+
+                    if (!cantidadInput) {
+                        showAlert('warning', 'Error en campo cantidad');
+                        return;
+                    }
+
+                    const cantidad = parseFloat(cantidadInput.value);
+                    if (!cantidad || cantidad <= 0) {
+                        showAlert('warning', 'Cantidad válida');
+                        return;
+                    }
+
+                    if (!precioInput) {
+                        showAlert('warning', 'Error en campo precio');
+                        return;
+                    }
+
+                    const precio = parseFloat(precioInput.value);
+                    if (!precio || precio <= 0) {
+                        showAlert('warning', 'Precio válido');
+                        return;
+                    }
+
+                    const stock = parseInt(option.dataset.stock);
+                    if (cantidad > stock) {
+                        showAlert('warning', `Stock insuficiente: ${formatNumber(stock)}`);
+                        return;
+                    }
+
+                    agregarProductoALista({
+                        id: parseInt(option.value),
+                        codigo: option.dataset.codigo,
+                        nombre: option.dataset.nombre,
+                        cantidad: cantidad,
+                        precio: precio,
+                        stock: stock,
+                        unidad: option.dataset.unidad
+                    });
+
+                    productoSelect.value = '';
+                    if (cantidadInput) cantidadInput.value = 1;
+                    if (precioInput) precioInput.value = '';
+                });
+            }
+
+            if (btnVerInventario) {
+                btnVerInventario.addEventListener('click', function () {
+                    llenarTablaInventario();
+                    const modalElement = getElement('modalInventario');
+                    if (modalElement) {
+                        const modal = getModal(modalElement);
+                        if (modal) modal.show();
+                    }
+                });
+            }
+
+            if (btnBuscar) btnBuscar.addEventListener('click', buscarProductos);
+
+            if (inputBuscar) {
+                inputBuscar.addEventListener('keypress', function (e) {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        buscarProductos();
+                    }
+                });
+            }
+
+            if (btnMostrarConfirmacion) {
+                btnMostrarConfirmacion.addEventListener('click', async function () {
+                    if (productosVenta.length === 0) {
+                        showAlert('warning', 'Agregue productos');
+                        return;
+                    }
+
+                    if (!clienteSelect || !clienteSelect.value) {
+                        showAlert('warning', 'Seleccione cliente');
+                        return;
+                    }
+
+                    const tipoVenta = document.querySelector('input[name="tipo_venta"]:checked');
+                    if (!tipoVenta) {
+                        showAlert('warning', 'Seleccione tipo de venta');
+                        return;
+                    }
+
+                    if (tipoVenta.value === '2' && saldoClienteActual > 0) {
+                        const totalVenta = calcularTotalVenta();
+                        mostrarModalAbono(clienteSelect.value, saldoClienteActual, totalVenta);
+                    } else {
+                        if (llenarResumenConfirmacion()) {
+                            const modalElement = getElement('modalConfirmacionVenta');
+                            if (modalElement) {
+                                const modalConfirmacion = getModal(modalElement);
+                                if (modalConfirmacion) modalConfirmacion.show();
+                            }
+                        }
+                    }
+                });
+            }
+
+            if (btnConfirmarGuardar) {
+                btnConfirmarGuardar.addEventListener('click', async function () {
+                    this.disabled = true;
+                    this.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Guardando...';
+
+                    const modalElement = getElement('modalConfirmacionVenta');
+                    if (modalElement) {
+                        const modal = getModal(modalElement);
+                        if (modal) modal.hide();
+                    }
+
+                    const resultado = await guardarVentaOffline();
+
+                    this.disabled = false;
+                    this.innerHTML = 'Guardar Venta';
+
+                    if (resultado) {
+                        setTimeout(() => {
+                            window.location.href = "{{ url_for('vendedor_offline_venta_crear') }}";
+                        }, 1500);
+                    }
+                });
+            }
+
+            const montoAbonoTotal = getElement('modalMontoAbonoTotal');
+            if (montoAbonoTotal) montoAbonoTotal.addEventListener('input', actualizarValoresDespuesAbono);
+
+            const btnConfirmarConAbono = getElement('btnConfirmarConAbono');
+            if (btnConfirmarConAbono) {
+                btnConfirmarConAbono.addEventListener('click', async function () {
+                    const montoAbono = parseFloat(getElement('modalMontoAbonoTotal')?.value) || 0;
+                    const facturasSeleccionadas = datosVentaActual.facturasSeleccionadas || [];
+
+                    if (montoAbono > 0 && facturasSeleccionadas.length > 0) {
+                        const abonoData = {
+                            id_cliente: datosVentaActual.clienteId,
+                            monto_abono: montoAbono,
+                            facturas: facturasSeleccionadas.map(f => ({
+                                id_movimiento: f.id_movimiento,
+                                saldo_pendiente: f.saldo_pendiente,
+                                monto_aplicar: f.monto_aplicar
+                            }))
+                        };
+                        await guardarAbonoOffline(abonoData);
+                    }
+
+                    const modalElement = getElement('modalAbonoCredito');
+                    if (modalElement) {
+                        const modal = getModal(modalElement);
+                        if (modal) modal.hide();
+                    }
+
+                    if (llenarResumenConfirmacion()) {
+                        const modalConfirmacion = getElement('modalConfirmacionVenta');
+                        if (modalConfirmacion) {
+                            const modal = getModal(modalConfirmacion);
+                            if (modal) modal.show();
+                        }
+                    }
+                });
+            }
+
+            const btnContinuarSinAbono = getElement('btnContinuarSinAbono');
+            if (btnContinuarSinAbono) {
+                btnContinuarSinAbono.addEventListener('click', function () {
+                    const modalElement = getElement('modalAbonoCredito');
+                    if (modalElement) {
+                        const modal = getModal(modalElement);
+                        if (modal) modal.hide();
+                    }
+
+                    if (llenarResumenConfirmacion()) {
+                        const modalConfirmacion = getElement('modalConfirmacionVenta');
+                        if (modalConfirmacion) {
+                            const modal = getModal(modalConfirmacion);
+                            if (modal) modal.show();
+                        }
+                    }
+                });
+            }
+
+            if (btnGuardarCliente) {
+                btnGuardarCliente.addEventListener('click', async function () {
+                    const nombre = getElement('cliente_nombre')?.value.trim();
+                    const ruc = getElement('cliente_ruc')?.value.trim();
+
+                    if (!nombre || !ruc) {
+                        showAlert('warning', 'Nombre y RUC obligatorios');
+                        return;
+                    }
+
+                    const telefono = getElement('cliente_telefono')?.value.trim() || '';
+                    const direccion = getElement('cliente_direccion')?.value.trim() || '';
+
+                    const nuevoCliente = {
+                        ID_Cliente: `temp_${Date.now()}`,
+                        Nombre: nombre,
+                        RUC_CEDULA: ruc,
+                        Telefono: telefono,
+                        Direccion: direccion,
+                        perfil_cliente: 'Mercado',
+                        saldo_pendiente: 0,
+                        Estado: 'ACTIVO'
+                    };
+
+                    try {
+                        const tx = db.transaction(['clientes'], 'readwrite');
+                        const store = tx.objectStore('clientes');
+
+                        const addRequest = store.add(nuevoCliente);
+                        await new Promise((resolve, reject) => {
+                            addRequest.onsuccess = resolve;
+                            addRequest.onerror = reject;
+                        });
+
+                        await cargarClientes();
+
+                        showAlert('success', 'Cliente registrado localmente');
+
+                        const modalElement = getElement('nuevoClienteModal');
+                        if (modalElement) {
+                            const modal = getModal(modalElement);
+                            if (modal) modal.hide();
+                        }
+
+                        const formNuevoCliente = getElement('formNuevoCliente');
+                        if (formNuevoCliente) formNuevoCliente.reset();
+
+                    } catch (error) {
+                        console.error('Error guardando cliente:', error);
+                        showAlert('error', 'Error al guardar cliente');
+                    }
+                });
+            }
+
+            if (btnGuardarGasto) {
+                btnGuardarGasto.addEventListener('click', async function () {
+                    const concepto = getElement('gasto_concepto')?.value.trim();
+                    const monto = parseFloat(getElement('gasto_monto')?.value);
+
+                    if (!concepto) {
+                        showAlert('warning', 'Ingrese el concepto del gasto');
+                        return;
+                    }
+
+                    if (!monto || monto <= 0) {
+                        showAlert('warning', 'Ingrese un monto válido');
+                        return;
+                    }
+
+                    this.disabled = true;
+                    this.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Guardando...';
+
+                    const resultado = await guardarGastoOffline({ concepto, monto });
+
+                    this.disabled = false;
+                    this.innerHTML = 'Registrar Gasto';
+
+                    if (resultado) {
+                        const modalElement = getElement('modalGasto');
+                        if (modalElement) {
+                            const modal = getModal(modalElement);
+                            if (modal) modal.hide();
+                        }
+                        const formGasto = getElement('formGasto');
+                        if (formGasto) formGasto.reset();
+                    }
+                });
+            }
+
+            if (btnForzarSincronizacion) {
+                btnForzarSincronizacion.addEventListener('click', async function () {
+                    const modalElement = getElement('modalSyncStatus');
+                    if (modalElement) {
+                        const modal = getModal(modalElement);
+                        if (modal) modal.hide();
+                    }
+                    await sincronizarTodo();
+                });
+            }
+
+            // Sincronización automática cada 5 minutos
+            setInterval(() => {
+                if (navigator.onLine) {
+                    const totalPendientes = operacionesPendientes.ventas.length +
+                        operacionesPendientes.abonos.length +
+                        operacionesPendientes.gastos.length;
+                    if (totalPendientes > 0) sincronizarTodo();
+                }
+            }, 300000);
+
+            actualizarTabla();
+            actualizarResumen();
+            actualizarIndicadorCredito();
+
+            console.log('✅ Formulario offline listo');
+
+        } catch (error) {
+            console.error('❌ Error en inicialización:', error);
+            showAlert('error', 'Error al cargar datos offline');
+        }
+    });
+</script>
+
+<style>
+    .required:after {
+        content: " *";
+        color: red;
+    }
+
+    .card {
+        border: none;
+        box-shadow: 0 0 20px rgba(0, 0, 0, 0.08);
+        margin-bottom: 20px;
+    }
+
+    .card-header {
+        font-weight: 600;
+        padding: 1rem 1.5rem;
+    }
+
+    .card-header.bg-primary {
+        background: linear-gradient(45deg, #667eea, #764ba2);
+    }
+
+    .card-header.bg-info {
+        background: linear-gradient(45deg, #17a2b8, #138496);
+    }
+
+    .card-header.bg-success {
+        background: linear-gradient(45deg, #28a745, #20c997);
+    }
+
+    .card-header.bg-dark {
+        background: linear-gradient(45deg, #343a40, #23272b);
+    }
+
+    .table th {
+        background-color: #f8f9fa;
+        font-weight: 600;
+    }
+
+    .badge {
+        font-size: 0.85em;
+        padding: 0.35em 0.65em;
+    }
+
+    #clienteInfo {
+        border-left: 3px solid #667eea;
+        background-color: #f8f9fa !important;
+    }
+
+    .btn-primary {
+        background: linear-gradient(45deg, #667eea, #764ba2);
+        border: none;
+    }
+
+    .btn-primary:hover {
+        background: linear-gradient(45deg, #5a6fd6, #6a4392);
+        transform: translateY(-1px);
+        box-shadow: 0 5px 15px rgba(102, 126, 234, 0.3);
+    }
+
+    #offlineAlert {
+        background: linear-gradient(45deg, #ffc107, #e0a800);
+        color: #212529;
+        border: none;
+        animation: pulse 2s infinite;
+    }
+
+    #offlineAlert.online {
+        background: linear-gradient(45deg, #28a745, #20c997);
+        color: white;
+    }
+
+    @keyframes pulse {
+        0% {
+            opacity: 1;
+        }
+
+        50% {
+            opacity: 0.9;
+        }
+
+        100% {
+            opacity: 1;
+        }
+    }
+
+    #resultadosBusqueda {
+        max-height: 300px;
+        overflow-y: auto;
+        border: 1px solid #dee2e6;
+        border-radius: 0.25rem;
+        padding: 10px;
+        background-color: #f8f9fa;
+    }
+
+    .progress {
+        height: 25px;
+        border-radius: 12px;
+    }
+
+    .progress-bar {
+        line-height: 25px;
+        font-size: 0.9rem;
+    }
+</style>
+{% endblock %}

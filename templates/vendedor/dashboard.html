@@ -1,11 +1,748 @@
-{% extends "layout.html"%}
+{% extends "layout.html" %}
 
 {% block title %} Dashboard Vendedor {% endblock %}
 
 {% block content %}
 <div class="container-fluid py-4">
+    <!-- Encabezado con indicador de conexión -->
     <div class="d-flex justify-content-between align-items-center mb-4">
-        <h1 class="h3 mb-0 text-gray-800">Dashboard Vendedor</h1>
+        <div>
+            <h1 class="h3 mb-0 text-gray-800">Dashboard Vendedor</h1>
+            <small class="text-muted" id="fechaActual"></small>
+        </div>
+        <div>
+            <!-- Indicador de conexión en tiempo real -->
+            <div class="card shadow-sm" id="connectionCard" style="border-left: 4px solid #28a745;">
+                <div class="card-body py-2 px-3">
+                    <div class="d-flex align-items-center">
+                        <div class="me-3">
+                            <i class="fas fa-wifi fa-2x text-success" id="connectionIcon"></i>
+                        </div>
+                        <div>
+                            <span class="d-block fw-bold" id="connectionStatus">Conectado</span>
+                            <small class="text-muted" id="connectionDetail">Sistema en línea</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tarjetas de Resumen Rápido -->
+    <div class="row mb-4">
+        <!-- Ventas Hoy -->
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-primary shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">
+                                Ventas Hoy</div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800" id="ventasHoy">0</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-shopping-cart fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Total Ventas -->
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-success shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-success text-uppercase mb-1">
+                                Total Ventas</div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800" id="totalVentas">C$ 0.00</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-dollar-sign fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Productos en Inventario -->
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-info shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-info text-uppercase mb-1">
+                                Productos en Ruta</div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800" id="totalProductos">0</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-boxes fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Ventas Offline Pendientes -->
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-warning shadow h-100 py-2" id="pendientesCard">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">
+                                Pendientes Offline</div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800" id="pendientesCount">0</div>
+                            <small class="text-muted" id="pendientesDetail">Sin ventas pendientes</small>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-cloud-upload-alt fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ACCESO RÁPIDO A VENTAS (ONLINE Y OFFLINE) -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card shadow mb-4">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">Nueva Venta</h6>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <!-- Modo Online -->
+                        <div class="col-md-6 mb-3 mb-md-0">
+                            <div class="card border-success h-100">
+                                <div class="card-header bg-success text-white">
+                                    <div class="d-flex align-items-center">
+                                        <i class="fas fa-wifi me-2"></i>
+                                        <span class="flex-grow-1">Modo Online</span>
+                                        <span class="badge bg-light text-success" id="onlineBadge">Disponible</span>
+                                    </div>
+                                </div>
+                                <div class="card-body">
+                                    <h5 class="card-title">Venta en Tiempo Real</h5>
+                                    <p class="card-text small">
+                                        <i class="fas fa-check-circle text-success me-2"></i>Factura inmediata<br>
+                                        <i class="fas fa-check-circle text-success me-2"></i>Stock actualizado al instante<br>
+                                        <i class="fas fa-check-circle text-success me-2"></i>Cliente y saldos en tiempo real
+                                    </p>
+                                    <a href="{{ url_for('vendedor_venta_crear') }}" 
+                                       class="btn btn-success btn-lg w-100" 
+                                       id="btnOnline">
+                                        <i class="fas fa-shopping-cart me-2"></i>Nueva Venta Online
+                                    </a>
+                                    <small class="text-muted d-block mt-2 text-center">
+                                        Requiere conexión a internet
+                                    </small>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Modo Offline -->
+                        <div class="col-md-6">
+                            <div class="card border-warning h-100" id="offlineCard">
+                                <div class="card-header bg-warning">
+                                    <div class="d-flex align-items-center">
+                                        <i class="fas fa-wifi-slash me-2"></i>
+                                        <span class="flex-grow-1">Modo Offline</span>
+                                        <span class="badge bg-light text-warning" id="offlineBadge">Disponible</span>
+                                    </div>
+                                </div>
+                                <div class="card-body">
+                                    <h5 class="card-title">Venta sin Internet</h5>
+                                    <p class="card-text small">
+                                        <i class="fas fa-check-circle text-warning me-2"></i>Funciona sin internet<br>
+                                        <i class="fas fa-check-circle text-warning me-2"></i>Guardado local automático<br>
+                                        <i class="fas fa-check-circle text-warning me-2"></i>Sincronización automática
+                                    </p>
+                                    <a href="{{ url_for('vendedor_offline_venta_crear') }}" 
+                                       class="btn btn-warning btn-lg w-100" 
+                                       id="btnOffline">
+                                        <i class="fas fa-save me-2"></i>Nueva Venta Offline
+                                    </a>
+                                    <div class="mt-3" id="syncInfoOffline">
+                                        <!-- Se actualiza vía JavaScript -->
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ACCESOS RÁPIDOS (INVENTARIO, CLIENTES, ETC) -->
+    <div class="row">
+        <!-- Inventario -->
+        <div class="col-lg-4 mb-4">
+            <div class="card shadow h-100">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">Mi Inventario</h6>
+                </div>
+                <div class="card-body">
+                    <p class="small">Productos disponibles en tu ruta hoy</p>
+                    <a href="{{ url_for('vendedor_inventario') }}" class="btn btn-primary w-100 mb-2">
+                        <i class="fas fa-warehouse me-2"></i>Ver Inventario Online
+                    </a>
+                    <a href="#" class="btn btn-outline-warning w-100">
+                        <i class="fas fa-database me-2"></i>Ver Inventario Offline
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Mis Ventas -->
+        <div class="col-lg-4 mb-4">
+            <div class="card shadow h-100">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">Mis Ventas</h6>
+                </div>
+                <div class="card-body">
+                    <p class="small">Historial de ventas realizadas</p>
+                    <a href="{{ url_for('vendedor_ventas') }}" class="btn btn-info w-100 mb-2">
+                        <i class="fas fa-list me-2"></i>Ver Ventas Online
+                    </a>
+                    <button class="btn btn-outline-info w-100" onclick="verVentasOffline()">
+                        <i class="fas fa-history me-2"></i>Ver Ventas Offline
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Caja / Movimientos -->
+        <div class="col-lg-4 mb-4">
+            <div class="card shadow h-100">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">Mi Caja</h6>
+                </div>
+                <div class="card-body">
+                    <p class="small">Movimientos de caja del día</p>
+                    <a href="{{ url_for('mis_movimientos_caja') }}" class="btn btn-secondary w-100">
+                        <i class="fas fa-cash-register me-2"></i>Ver Movimientos
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- BARRA DE PROGRESO DE SINCRONIZACIÓN (se muestra cuando hay pendientes) -->
+    <div class="row mt-4" id="syncProgressRow" style="display: none;">
+        <div class="col-12">
+            <div class="card bg-light">
+                <div class="card-body">
+                    <div class="d-flex align-items-center mb-2">
+                        <i class="fas fa-sync fa-spin me-2 text-primary"></i>
+                        <span class="flex-grow-1" id="syncStatusText">Sincronizando ventas offline...</span>
+                        <span class="badge bg-primary" id="syncProgressPercent">0%</span>
+                    </div>
+                    <div class="progress" style="height: 10px;">
+                        <div class="progress-bar progress-bar-striped progress-bar-animated bg-success" 
+                             id="syncProgressBar" 
+                             role="progressbar" 
+                             style="width: 0%;">
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 </div>
+
+<!-- Modal de Ventas Offline (para ver pendientes) -->
+<div class="modal fade" id="ventasOfflineModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-warning">
+                <h5 class="modal-title">
+                    <i class="fas fa-cloud-upload-alt me-2"></i>
+                    Ventas Offline Pendientes
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="table-responsive">
+                    <table class="table table-sm">
+                        <thead>
+                            <tr>
+                                <th>Fecha</th>
+                                <th>Cliente</th>
+                                <th>Productos</th>
+                                <th>Total</th>
+                                <th>Estado</th>
+                            </tr>
+                        </thead>
+                        <tbody id="ventasPendientesTable">
+                            <tr>
+                                <td colspan="5" class="text-center text-muted">
+                                    <i class="fas fa-info-circle me-2"></i>
+                                    No hay ventas pendientes
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+                <button type="button" class="btn btn-success" onclick="forzarSincronizacion()">
+                    <i class="fas fa-sync me-2"></i>Sincronizar Ahora
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// ============================================
+// VARIABLES GLOBALES
+// ============================================
+let db = null;
+let intervaloActualizacion = null;
+
+// ============================================
+// INICIALIZACIÓN DE INDEXEDDB PARA OFFLINE
+// ============================================
+function abrirBaseDatos() {
+    return new Promise((resolve, reject) => {
+        const request = indexedDB.open('VendedorOfflineDB', 1);
+        
+        request.onupgradeneeded = (event) => {
+            const db = event.target.result;
+            
+            if (!db.objectStoreNames.contains('ventas_pendientes')) {
+                db.createObjectStore('ventas_pendientes', { 
+                    keyPath: 'id_temporal',
+                    autoIncrement: true 
+                });
+            }
+            
+            if (!db.objectStoreNames.contains('metadata')) {
+                db.createObjectStore('metadata');
+            }
+        };
+        
+        request.onsuccess = (event) => {
+            db = event.target.result;
+            console.log('✅ Base de datos offline conectada');
+            resolve(db);
+        };
+        
+        request.onerror = (event) => {
+            console.error('❌ Error en base de datos:', event.target.error);
+            reject(event.target.error);
+        };
+    });
+}
+
+// ============================================
+// DETECCIÓN DE CONEXIÓN EN TIEMPO REAL
+// ============================================
+function actualizarEstadoConexion() {
+    const connectionIcon = document.getElementById('connectionIcon');
+    const connectionStatus = document.getElementById('connectionStatus');
+    const connectionDetail = document.getElementById('connectionDetail');
+    const connectionCard = document.getElementById('connectionCard');
+    const onlineBadge = document.getElementById('onlineBadge');
+    const offlineBadge = document.getElementById('offlineBadge');
+    const btnOnline = document.getElementById('btnOnline');
+    const btnOffline = document.getElementById('btnOffline');
+    const offlineCard = document.getElementById('offlineCard');
+
+    if (navigator.onLine) {
+        // HAY INTERNET
+        connectionIcon.className = 'fas fa-wifi fa-2x text-success';
+        connectionStatus.textContent = 'Conectado';
+        connectionDetail.textContent = 'Sistema en línea - Tiempo real';
+        connectionCard.style.borderLeftColor = '#28a745';
+        
+        if (onlineBadge) {
+            onlineBadge.textContent = 'Disponible';
+            onlineBadge.className = 'badge bg-light text-success';
+        }
+        
+        if (offlineBadge) {
+            offlineBadge.textContent = 'Disponible';
+            offlineBadge.className = 'badge bg-light text-warning';
+        }
+        
+        if (btnOnline) {
+            btnOnline.classList.remove('btn-secondary');
+            btnOnline.classList.add('btn-success');
+        }
+        
+        if (offlineCard) {
+            offlineCard.classList.remove('border-secondary');
+            offlineCard.classList.add('border-warning');
+        }
+        
+        // Intentar sincronizar pendientes
+        sincronizarPendientesSiHay();
+        
+    } else {
+        // SIN INTERNET
+        connectionIcon.className = 'fas fa-wifi-slash fa-2x text-warning';
+        connectionStatus.textContent = 'Sin conexión';
+        connectionDetail.textContent = 'Modo offline - Ventas locales';
+        connectionCard.style.borderLeftColor = '#ffc107';
+        
+        if (onlineBadge) {
+            onlineBadge.textContent = 'No disponible';
+            onlineBadge.className = 'badge bg-light text-secondary';
+        }
+        
+        if (offlineBadge) {
+            offlineBadge.textContent = 'Disponible (recomendado)';
+            offlineBadge.className = 'badge bg-light text-success';
+        }
+        
+        if (btnOnline) {
+            btnOnline.classList.remove('btn-success');
+            btnOnline.classList.add('btn-secondary');
+        }
+        
+        if (offlineCard) {
+            offlineCard.classList.remove('border-warning');
+            offlineCard.classList.add('border-success');
+        }
+    }
+    
+    // Actualizar fecha/hora
+    document.getElementById('fechaActual').textContent = new Date().toLocaleString('es-ES', {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+    });
+}
+
+// ============================================
+// CONTADOR DE VENTAS PENDIENTES
+// ============================================
+async function actualizarContadorPendientes() {
+    if (!db) return;
+    
+    try {
+        const tx = db.transaction(['ventas_pendientes'], 'readonly');
+        const store = tx.objectStore('ventas_pendientes');
+        const pendientes = await store.getAll();
+        
+        const pendientesCount = document.getElementById('pendientesCount');
+        const pendientesDetail = document.getElementById('pendientesDetail');
+        const syncInfoOffline = document.getElementById('syncInfoOffline');
+        
+        if (pendientesCount) {
+            pendientesCount.textContent = pendientes.length;
+        }
+        
+        if (pendientes.length > 0) {
+            if (pendientesDetail) {
+                pendientesDetail.textContent = `${pendientes.length} venta(s) por sincronizar`;
+                pendientesDetail.className = 'text-warning';
+            }
+            
+            // Mostrar info en tarjeta offline
+            if (syncInfoOffline) {
+                const total = pendientes.reduce((sum, v) => sum + (v.total || 0), 0);
+                syncInfoOffline.innerHTML = `
+                    <div class="alert alert-warning py-2 mb-0">
+                        <small>
+                            <i class="fas fa-clock me-1"></i>
+                            <strong>${pendientes.length}</strong> ventas pendientes<br>
+                            Total: ${formatoCordoba(total)}
+                        </small>
+                    </div>
+                `;
+            }
+        } else {
+            if (pendientesDetail) {
+                pendientesDetail.textContent = 'Sin ventas pendientes';
+                pendientesDetail.className = 'text-muted';
+            }
+            
+            if (syncInfoOffline) {
+                syncInfoOffline.innerHTML = `
+                    <div class="alert alert-success py-2 mb-0">
+                        <small>
+                            <i class="fas fa-check-circle me-1"></i>
+                            Todas las ventas sincronizadas
+                        </small>
+                    </div>
+                `;
+            }
+        }
+        
+    } catch (error) {
+        console.error('Error actualizando contador:', error);
+    }
+}
+
+// ============================================
+// SINCRONIZACIÓN AUTOMÁTICA
+// ============================================
+async function sincronizarPendientesSiHay() {
+    if (!navigator.onLine || !db) return;
+    
+    try {
+        const tx = db.transaction(['ventas_pendientes'], 'readonly');
+        const store = tx.objectStore('ventas_pendientes');
+        const pendientes = await store.getAll();
+        
+        if (pendientes.length === 0) return;
+        
+        // Mostrar barra de progreso
+        document.getElementById('syncProgressRow').style.display = 'block';
+        
+        let sincronizadas = 0;
+        
+        for (let i = 0; i < pendientes.length; i++) {
+            const venta = pendientes[i];
+            
+            if (venta.sincronizada) continue;
+            
+            // Actualizar progreso
+            const progress = Math.round(((i + 1) / pendientes.length) * 100);
+            document.getElementById('syncProgressBar').style.width = progress + '%';
+            document.getElementById('syncProgressPercent').textContent = progress + '%';
+            document.getElementById('syncStatusText').textContent = 
+                `Sincronizando venta ${i + 1} de ${pendientes.length}...`;
+            
+            try {
+                // Enviar al servidor
+                const response = await fetch('/api/vendedor/offline/registrar_venta', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(venta)
+                });
+                
+                if (response.ok) {
+                    // Marcar como sincronizada
+                    const updateTx = db.transaction(['ventas_pendientes'], 'readwrite');
+                    const updateStore = updateTx.objectStore('ventas_pendientes');
+                    venta.sincronizada = true;
+                    await updateStore.put(venta);
+                    sincronizadas++;
+                }
+            } catch (error) {
+                console.error('Error sincronizando venta:', error);
+            }
+        }
+        
+        // Limpiar ventas sincronizadas
+        const cleanTx = db.transaction(['ventas_pendientes'], 'readwrite');
+        const cleanStore = cleanTx.objectStore('ventas_pendientes');
+        const todas = await cleanStore.getAll();
+        
+        for (const v of todas) {
+            if (v.sincronizada) {
+                await cleanStore.delete(v.id_temporal);
+            }
+        }
+        
+        // Ocultar barra de progreso
+        document.getElementById('syncProgressRow').style.display = 'none';
+        
+        // Actualizar contador
+        await actualizarContadorPendientes();
+        
+        // Mostrar notificación
+        if (sincronizadas > 0) {
+            Swal.fire({
+                icon: 'success',
+                title: 'Sincronización completada',
+                text: `${sincronizadas} ventas sincronizadas correctamente`,
+                timer: 3000,
+                toast: true,
+                position: 'top-end',
+                showConfirmButton: false
+            });
+        }
+        
+    } catch (error) {
+        console.error('Error en sincronización:', error);
+        document.getElementById('syncProgressRow').style.display = 'none';
+    }
+}
+
+// ============================================
+// FUNCIONES AUXILIARES
+// ============================================
+function formatoCordoba(valor) {
+    return 'C$ ' + parseFloat(valor || 0).toFixed(2).replace(/\d(?=(\d{3})+\.)/g, '$&,');
+}
+
+// Ver ventas offline
+async function verVentasOffline() {
+    if (!db) {
+        Swal.fire('Error', 'Base de datos no disponible', 'error');
+        return;
+    }
+    
+    const tx = db.transaction(['ventas_pendientes'], 'readonly');
+    const store = tx.objectStore('ventas_pendientes');
+    const pendientes = await store.getAll();
+    
+    const tbody = document.getElementById('ventasPendientesTable');
+    
+    if (pendientes.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted">No hay ventas pendientes</td></tr>';
+    } else {
+        let html = '';
+        pendientes.forEach(v => {
+            const fecha = new Date(v.fecha).toLocaleString();
+            const total = v.total || 0;
+            const productos = v.productos ? v.productos.length : 0;
+            
+            html += `<tr>
+                <td>${fecha}</td>
+                <td>Cliente ID: ${v.id_cliente}</td>
+                <td>${productos} producto(s)</td>
+                <td>${formatoCordoba(total)}</td>
+                <td><span class="badge bg-warning">Pendiente</span></td>
+            </tr>`;
+        });
+        tbody.innerHTML = html;
+    }
+    
+    const modal = new bootstrap.Modal(document.getElementById('ventasOfflineModal'));
+    modal.show();
+}
+
+// Forzar sincronización
+async function forzarSincronizacion() {
+    const modal = bootstrap.Modal.getInstance(document.getElementById('ventasOfflineModal'));
+    if (modal) modal.hide();
+    
+    await sincronizarPendientesSiHay();
+}
+
+// ============================================
+// INICIALIZACIÓN
+// ============================================
+document.addEventListener('DOMContentLoaded', async function() {
+    console.log('🚀 Inicializando dashboard');
+    
+    // Inicializar base de datos
+    try {
+        await abrirBaseDatos();
+        await actualizarContadorPendientes();
+    } catch (error) {
+        console.error('Error con base de datos offline:', error);
+    }
+    
+    // Actualizar estado de conexión
+    actualizarEstadoConexion();
+    
+    // Eventos de conexión
+    window.addEventListener('online', () => {
+        actualizarEstadoConexion();
+        sincronizarPendientesSiHay();
+    });
+    
+    window.addEventListener('offline', actualizarEstadoConexion);
+    
+    // Actualizar cada 30 segundos
+    intervaloActualizacion = setInterval(async () => {
+        actualizarEstadoConexion();
+        await actualizarContadorPendientes();
+        
+        // Si hay internet, intentar sincronizar cada 30 seg
+        if (navigator.onLine) {
+            sincronizarPendientesSiHay();
+        }
+    }, 30000);
+    
+    console.log('✅ Dashboard listo');
+});
+</script>
+
+<style>
+.border-left-primary {
+    border-left: 0.25rem solid #4e73df !important;
+}
+.border-left-success {
+    border-left: 0.25rem solid #1cc88a !important;
+}
+.border-left-info {
+    border-left: 0.25rem solid #36b9cc !important;
+}
+.border-left-warning {
+    border-left: 0.25rem solid #f6c23e !important;
+}
+
+.card {
+    transition: all 0.3s ease;
+    border: none;
+    box-shadow: 0 0.15rem 1.75rem 0 rgba(58, 59, 69, 0.15) !important;
+}
+
+.card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 0.5rem 2rem 0 rgba(58, 59, 69, 0.2) !important;
+}
+
+#connectionCard {
+    transition: all 0.3s ease;
+    min-width: 200px;
+}
+
+#connectionCard:hover {
+    transform: scale(1.02);
+}
+
+.btn {
+    transition: all 0.3s ease;
+    font-weight: 500;
+}
+
+.btn-success, .btn-warning {
+    color: white;
+}
+
+.btn-success:hover {
+    background: linear-gradient(45deg, #28a745, #20c997);
+    transform: scale(1.02);
+    box-shadow: 0 5px 15px rgba(40, 167, 69, 0.3);
+}
+
+.btn-warning:hover {
+    background: linear-gradient(45deg, #ffc107, #e0a800);
+    transform: scale(1.02);
+    box-shadow: 0 5px 15px rgba(255, 193, 7, 0.3);
+}
+
+@keyframes pulse {
+    0% { opacity: 1; }
+    50% { opacity: 0.8; }
+    100% { opacity: 1; }
+}
+
+#syncProgressRow {
+    animation: pulse 2s infinite;
+}
+
+.text-gray-300 {
+    color: #dddfeb !important;
+}
+
+.text-gray-800 {
+    color: #5a5c69 !important;
+}
+
+@media (max-width: 768px) {
+    #connectionCard {
+        min-width: auto;
+    }
+    
+    .h5 {
+        font-size: 1rem;
+    }
+}
+</style>
 {% endblock %}
