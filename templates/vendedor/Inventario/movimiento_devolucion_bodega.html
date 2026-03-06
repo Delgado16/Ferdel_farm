@@ -12,7 +12,8 @@
             </h2>
             <p class="text-muted">
                 Ruta: <strong>{{ asignacion.Nombre_Ruta }}</strong> | 
-                Fecha: <strong>{{ now.strftime('%d/%m/%Y') }}</strong>
+                Fecha: <strong>{{ now.strftime('%d/%m/%Y') }}</strong> |
+                Bodega Destino: <strong>Central (ID: 1)</strong>
             </p>
         </div>
         <a href="{{ url_for('vendedor_inventario') }}" class="btn btn-outline-secondary">
@@ -43,7 +44,10 @@
 
                 <div class="alert alert-info">
                     <i class="fas fa-info-circle me-2"></i>
-                    <strong>Stock disponible:</strong> Selecciona los productos que deseas devolver a bodega.
+                    <div>
+                        <strong>Stock disponible:</strong> Selecciona los productos que deseas devolver a bodega central.<br>
+                        <small class="text-muted">Los productos serán registrados en el inventario general de la bodega central (ID: 1).</small>
+                    </div>
                 </div>
 
                 <div class="table-responsive mb-3">
@@ -114,12 +118,6 @@
                             </tr>
                         </tfoot>
                     </table>
-                </div>
-
-                <div class="mb-3">
-                    <label class="form-label">Motivo de Devolución</label>
-                    <textarea name="observacion" class="form-control" rows="2" 
-                              placeholder="Ej: Productos no vendidos, fecha de vencimiento próxima, etc." required></textarea>
                 </div>
 
                 <div class="text-end">
@@ -244,6 +242,7 @@ document.addEventListener('input', function(e) {
         if (cantidad > stock) {
             alert(`La cantidad no puede exceder el stock actual (${stock})`);
             e.target.value = stock;
+            cantidad = stock;
         }
         
         calcularTotales();
@@ -266,20 +265,65 @@ function calcularTotales() {
 // Validar formulario antes de enviar
 document.getElementById('formDevolucion').addEventListener('submit', function(e) {
     let tieneProductos = false;
+    let errores = [];
     const filas = document.querySelectorAll('#productosBody tr');
     
-    filas.forEach(fila => {
+    filas.forEach((fila, index) => {
         const producto = fila.querySelector('.producto-select').value;
         const cantidad = parseFloat(fila.querySelector('.cantidad').value) || 0;
+        const stock = parseFloat(fila.querySelector('.stock-actual').value) || 0;
+        
         if (producto && cantidad > 0) {
             tieneProductos = true;
+            
+            if (cantidad > stock) {
+                errores.push(`Fila ${index + 1}: La cantidad (${cantidad}) excede el stock disponible (${stock})`);
+            }
         }
     });
     
     if (!tieneProductos) {
         e.preventDefault();
         alert('Debe seleccionar al menos un producto con cantidad mayor a 0');
+    } else if (errores.length > 0) {
+        e.preventDefault();
+        alert('Errores:\n' + errores.join('\n'));
     }
 });
+
+// Inicializar event listeners para selects existentes
+document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('.producto-select').forEach(select => {
+        select.addEventListener('change', function() {
+            const fila = this.closest('tr');
+            const cantidadInput = fila.querySelector('.cantidad');
+            if (cantidadInput.value) {
+                cantidadInput.dispatchEvent(new Event('input'));
+            }
+        });
+    });
+});
 </script>
+
+<style>
+/* Estilos adicionales para mejorar la visualización */
+.table td, .table th {
+    vertical-align: middle;
+}
+.input-group-text {
+    background-color: #f8f9fa;
+}
+.precio-unitario {
+    background-color: #f8f9fa;
+}
+#totalSubtotal {
+    background-color: #fff3cd;
+    font-weight: bold;
+    font-size: 1.1em;
+}
+.cantidad:focus {
+    border-color: #ffc107;
+    box-shadow: 0 0 0 0.2rem rgba(255, 193, 7, 0.25);
+}
+</style>
 {% endblock %}

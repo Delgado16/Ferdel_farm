@@ -15274,6 +15274,9 @@ def vendedor_movimiento_devolucion_bodega():
     Registra una devolución de productos no vendidos a bodega central
     Usando ID_TipoMovimiento = 11 (Devolucion Ruta)
     """
+
+    id_empresa = session.get('id_empresa', 1)
+
     if request.method == 'POST':
         try:
             productos = request.form.getlist('producto_id[]')
@@ -15307,9 +15310,11 @@ def vendedor_movimiento_devolucion_bodega():
                 id_asignacion = asignacion['ID_Asignacion']
                 
                 # ============================================
-                # 2. DEFINIR TIPO DE MOVIMIENTO (Devolucion Ruta)
+                # 2. DEFINIR TIPOS DE MOVIMIENTO
                 # ============================================
-                ID_TIPO_DEVOLUCION = 11  # Devolucion Ruta
+                ID_TIPO_DEVOLUCION_RUTA = 11  # Devolucion Ruta (para tabla de rutas)
+                ID_TIPO_ENTRADA_BODEGA = 11    # Entrada a bodega por devolución (ajusta según tu catálogo)
+                ID_BODEGA_CENTRAL = 1          # ID de la bodega central según tu tabla bodegas
                 
                 # ============================================
                 # 3. VALIDAR STOCK Y CALCULAR TOTALES
@@ -15324,7 +15329,7 @@ def vendedor_movimiento_devolucion_bodega():
                         id_producto = int(productos[i])
                         cantidad = float(cantidades[i])
                         
-                        # Verificar stock actual
+                        # Verificar stock actual en ruta
                         cursor.execute("""
                             SELECT Cantidad 
                             FROM inventario_ruta 
@@ -15336,7 +15341,7 @@ def vendedor_movimiento_devolucion_bodega():
                             flash(f'Stock insuficiente para devolución. Stock actual: {float(stock["Cantidad"]) if stock else 0}', 'error')
                             return redirect(url_for('vendedor_movimiento_devolucion_bodega'))
                         
-                        # Obtener precio del producto
+                        # Obtener precio del producto (Precio_Ruta)
                         cursor.execute("""
                             SELECT Precio_Ruta 
                             FROM productos 
@@ -15347,13 +15352,13 @@ def vendedor_movimiento_devolucion_bodega():
                         if not producto_info:
                             continue
                             
-                        precio = float(producto_info['Precio_Ruta'])
-                        subtotal = cantidad * precio
+                        precio_ruta = float(producto_info['Precio_Ruta'])
+                        subtotal = cantidad * precio_ruta
                         
                         productos_procesar.append({
                             'id_producto': id_producto,
                             'cantidad': cantidad,
-                            'precio': precio,
+                            'precio_ruta': precio_ruta,
                             'subtotal': subtotal
                         })
                         
@@ -15366,54 +15371,100 @@ def vendedor_movimiento_devolucion_bodega():
                     return redirect(url_for('vendedor_movimiento_devolucion_bodega'))
                 
                 # ============================================
-                # 4. CREAR MOVIMIENTO CABECERA
+                # 4. CREAR MOVIMIENTO EN movimientos_ruta_cabecera
                 # ============================================
                 cursor.execute("""
                     INSERT INTO movimientos_ruta_cabecera 
                     (ID_Asignacion, ID_TipoMovimiento, ID_Usuario_Registra, 
                      Documento_Numero, Total_Productos, Total_Items, Total_Subtotal,
-                     ID_Empresa, Estado, Observacion)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 'ACTIVO', %s)
+                     ID_Empresa, Estado)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 'ACTIVO')
                 """, (
                     id_asignacion, 
-                    ID_TIPO_DEVOLUCION, 
+                    ID_TIPO_DEVOLUCION_RUTA, 
                     current_user.id,
                     documento, 
                     total_productos, 
                     total_items, 
                     total_subtotal,
-                    current_user.id_empresa, 
-                    observacion
+                    id_empresa
                 ))
                 
-                id_movimiento = cursor.lastrowid
+                id_movimiento_ruta = cursor.lastrowid
                 
                 # ============================================
-                # 5. CREAR DETALLES Y ACTUALIZAR INVENTARIO
+                # 5. CREAR MOVIMIENTO EN movimientos_inventario (TABLA GENERAL)
+                # ============================================
+                cursor.execute("""
+                    INSERT INTO movimientos_inventario 
+                    (ID_TipoMovimiento, N_Factura_Externa, Fecha, Observacion, 
+                     ID_Empresa, ID_Bodega, ID_Usuario_Creacion, Estado)
+                    VALUES (%s, %s, CURDATE(), %s, %s, %s, %s, 'Activa')
+                """, (
+                    ID_TIPO_ENTRADA_BODEGA,
+                    documento,
+                    f"Devolución de ruta: {asignacion['Nombre_Ruta']} - {observacion}" if observacion else f"Devolución de ruta: {asignacion['Nombre_Ruta']}",
+                    id_empresa,
+                    ID_BODEGA_CENTRAL,
+                    current_user.id
+                ))
+                
+                id_movimiento_inventario = cursor.lastrowid
+                
+                # ============================================
+                # 6. CREAR DETALLES Y ACTUALIZAR INVENTARIOS
                 # ============================================
                 for prod in productos_procesar:
-                    # Insertar detalle
+                    # Insertar detalle en movimientos_ruta_detalle
                     cursor.execute("""
                         INSERT INTO movimientos_ruta_detalle
                         (ID_Movimiento, ID_Producto, Cantidad, Precio_Unitario, Subtotal)
                         VALUES (%s, %s, %s, %s, %s)
                     """, (
-                        id_movimiento, 
+                        id_movimiento_ruta, 
                         prod['id_producto'], 
                         prod['cantidad'], 
-                        prod['precio'], 
+                        prod['precio_ruta'], 
                         prod['subtotal']
                     ))
                     
-                    # Actualizar inventario (RESTAR cantidad)
+                    # Insertar detalle en detalle_movimientos_inventario (tabla general)
+                    # Nota: Como no tenemos precio de costo, usamos Precio_Ruta como referencia
+                    cursor.execute("""
+                        INSERT INTO detalle_movimientos_inventario
+                        (ID_Movimiento, ID_Producto, Cantidad, Precio_Unitario, Subtotal, ID_Usuario_Creacion)
+                        VALUES (%s, %s, %s, %s, %s, %s)
+                    """, (
+                        id_movimiento_inventario,
+                        prod['id_producto'],
+                        prod['cantidad'],
+                        prod['precio_ruta'],  # Precio_Unitario
+                        prod['subtotal'],      # Subtotal
+                        current_user.id
+                    ))
+                    
+                    # Actualizar inventario_ruta (RESTAR cantidad)
                     cursor.execute("""
                         UPDATE inventario_ruta 
                         SET Cantidad = Cantidad - %s
                         WHERE ID_Asignacion = %s AND ID_Producto = %s
                     """, (prod['cantidad'], id_asignacion, prod['id_producto']))
+                    
+                    # Actualizar inventario_bodega (SUMAR cantidad)
+                    cursor.execute("""
+                        INSERT INTO inventario_bodega (ID_Bodega, ID_Producto, Existencias)
+                        VALUES (%s, %s, %s)
+                        ON DUPLICATE KEY UPDATE
+                        Existencias = Existencias + %s
+                    """, (
+                        ID_BODEGA_CENTRAL,
+                        prod['id_producto'],
+                        prod['cantidad'],
+                        prod['cantidad']
+                    ))
                 
                 flash('Devolución a bodega registrada exitosamente', 'success')
-                return redirect(url_for('vendedor_movimiento_detalle', id_movimiento=id_movimiento))
+                return redirect(url_for('vendedor_movimiento_detalle', id_movimiento=id_movimiento_ruta))
                     
         except Exception as e:
             print(f"Error en devolución: {str(e)}")
