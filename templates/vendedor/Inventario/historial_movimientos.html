@@ -1,0 +1,176 @@
+{% extends "layout.html" %}
+
+{% block title %}Historial de Movimientos{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2>
+                <i class="fas fa-history text-info me-2"></i>
+                Historial de Movimientos
+            </h2>
+            <p class="text-muted">
+                Registro de entradas, devoluciones y mermas
+            </p>
+        </div>
+        <a href="{{ url_for('vendedor_inventario') }}" class="btn btn-outline-secondary">
+            <i class="fas fa-arrow-left me-1"></i> Volver al Inventario
+        </a>
+    </div>
+
+    <div class="card">
+        <div class="card-header bg-info text-white d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">
+                <i class="fas fa-list me-2"></i>
+                Movimientos Registrados
+            </h5>
+            <span class="badge bg-light text-dark">{{ movimientos|length }} movimientos</span>
+        </div>
+        <div class="card-body">
+            {% if movimientos %}
+            <div class="table-responsive">
+                <table class="table table-hover" id="tablaMovimientos">
+                    <thead class="table-light">
+                        <tr>
+                            <th>ID</th>
+                            <th>Fecha</th>
+                            <th>Tipo</th>
+                            <th>Documento</th>
+                            <th>Productos</th>
+                            <th>Items</th>
+                            <th>Total</th>
+                            <th>Registrado por</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for mov in movimientos %}
+                        <tr>
+                            <td class="fw-bold">#{{ mov.ID_Movimiento }}</td>
+                            <td>{{ mov.Fecha_Movimiento.strftime('%d/%m/%Y %H:%M') }}</td>
+                            <td>
+                                {% if mov.Tipo_Movimiento == 'ENTRADA BODEGA' %}
+                                <span class="badge bg-success">
+                                    <i class="fas fa-arrow-down me-1"></i> Entrada
+                                </span>
+                                {% elif mov.Tipo_Movimiento == 'DEVOLUCION BODEGA' %}
+                                <span class="badge bg-warning text-dark">
+                                    <i class="fas fa-arrow-up me-1"></i> Devolución
+                                </span>
+                                {% elif mov.Tipo_Movimiento == 'MERMA' %}
+                                <span class="badge bg-danger">
+                                    <i class="fas fa-trash me-1"></i> Merma
+                                </span>
+                                {% else %}
+                                <span class="badge bg-secondary">{{ mov.Tipo_Movimiento }}</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ mov.Documento_Numero or 'N/A' }}</td>
+                            <td class="text-center">{{ mov.Total_Productos }}</td>
+                            <td class="text-center">{{ mov.Total_Items }}</td>
+                            <td class="fw-bold text-end">C${{ "%.2f"|format(mov.Total_Subtotal) }}</td>
+                            <td>{{ mov.Usuario_Registra }}</td>
+                            <td class="text-center">
+                                <a href="{{ url_for('vendedor_movimiento_detalle', id_movimiento=mov.ID_Movimiento) }}" 
+                                   class="btn btn-sm btn-outline-info" title="Ver detalle">
+                                    <i class="fas fa-eye"></i>
+                                </a>
+                                {% if mov.Observacion %}
+                                <button type="button" class="btn btn-sm btn-outline-secondary" 
+                                        title="{{ mov.Observacion }}" data-bs-toggle="tooltip">
+                                    <i class="fas fa-comment"></i>
+                                </button>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="text-center py-5">
+                <i class="fas fa-box-open fa-4x text-muted mb-3"></i>
+                <h5 class="text-muted">No hay movimientos registrados</h5>
+                <p class="text-muted">Realiza entradas, devoluciones o mermas para ver el historial.</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<script>
+// Buscador en tabla
+document.addEventListener('DOMContentLoaded', function() {
+    const searchContainer = document.createElement('div');
+    searchContainer.className = 'mb-3';
+    searchContainer.innerHTML = `
+        <div class="row">
+            <div class="col-md-4">
+                <input type="text" id="buscador" class="form-control" placeholder="Buscar movimientos...">
+            </div>
+            <div class="col-md-8 text-end">
+                <button class="btn btn-sm btn-outline-secondary" onclick="exportarExcel()">
+                    <i class="fas fa-file-excel me-1"></i> Exportar
+                </button>
+            </div>
+        </div>
+    `;
+    
+    const cardHeader = document.querySelector('.card-header');
+    cardHeader.parentNode.insertBefore(searchContainer, cardHeader.nextSibling);
+    
+    document.getElementById('buscador').addEventListener('keyup', function() {
+        const texto = this.value.toLowerCase();
+        const filas = document.querySelectorAll('#tablaMovimientos tbody tr');
+        
+        filas.forEach(fila => {
+            const textoFila = fila.textContent.toLowerCase();
+            fila.style.display = textoFila.includes(texto) ? '' : 'none';
+        });
+    });
+    
+    // Inicializar tooltips
+    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
+    var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl)
+    });
+});
+
+function exportarExcel() {
+    // Función simple para exportar a CSV
+    const filas = document.querySelectorAll('#tablaMovimientos tbody tr');
+    let csv = "ID,Fecha,Tipo,Documento,Productos,Items,Total\n";
+    
+    filas.forEach(fila => {
+        if (fila.style.display !== 'none') {
+            const celdas = fila.querySelectorAll('td');
+            const row = [];
+            // ID
+            row.push(celdas[0].textContent.trim());
+            // Fecha
+            row.push(celdas[1].textContent.trim());
+            // Tipo (limpiar HTML)
+            row.push(celdas[2].textContent.trim());
+            // Documento
+            row.push(celdas[3].textContent.trim());
+            // Productos
+            row.push(celdas[4].textContent.trim());
+            // Items
+            row.push(celdas[5].textContent.trim());
+            // Total
+            row.push(celdas[6].textContent.trim().replace('C$', ''));
+            
+            csv += row.join(',') + '\n';
+        }
+    });
+    
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'movimientos_' + new Date().toISOString().slice(0,10) + '.csv';
+    a.click();
+}
+</script>
+{% endblock %}

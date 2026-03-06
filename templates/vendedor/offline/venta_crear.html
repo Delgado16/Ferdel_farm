@@ -2,16 +2,503 @@
 
 {% block title %}Nueva Venta Offline{% endblock %}
 
+{% block head %}
+{{ super() }}
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
+<style>
+    /* Estilos responsive globales */
+    :root {
+        --primary-gradient: linear-gradient(45deg, #667eea, #764ba2);
+        --info-gradient: linear-gradient(45deg, #17a2b8, #138496);
+        --success-gradient: linear-gradient(45deg, #28a745, #20c997);
+        --dark-gradient: linear-gradient(45deg, #343a40, #23272b);
+    }
+
+    /* Ajustes generales para móviles */
+    @media (max-width: 768px) {
+        .container-fluid {
+            padding-left: 10px;
+            padding-right: 10px;
+        }
+
+        h2 {
+            font-size: 1.5rem;
+        }
+
+        .btn-group {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
+        .btn-group .btn {
+            flex: 1 1 auto;
+            font-size: 0.9rem;
+            padding: 0.5rem;
+        }
+
+        .card-header {
+            padding: 0.75rem 1rem;
+        }
+
+        .card-header h5 {
+            font-size: 1rem;
+        }
+
+        .table-responsive {
+            font-size: 0.85rem;
+        }
+
+        /* Mejorar touch targets en móviles */
+        .btn, 
+        .form-control,
+        .form-select,
+        .input-group-text,
+        .list-group-item {
+            font-size: 16px !important;
+            min-height: 44px;
+        }
+
+        /* Ajustes para inputs en móviles */
+        .input-group {
+            flex-wrap: wrap;
+        }
+
+        .input-group > .form-control {
+            width: 100%;
+        }
+
+        /* Mejorar espaciado en móviles */
+        .row {
+            margin-left: -5px;
+            margin-right: -5px;
+        }
+
+        .col-6, .col-md-4, .col-md-8, .col-md-6, .col-md-3 {
+            padding-left: 5px;
+            padding-right: 5px;
+        }
+
+        .mb-4 {
+            margin-bottom: 1rem !important;
+        }
+
+        .card {
+            margin-bottom: 15px;
+        }
+    }
+
+    /* Ajustes para tablets */
+    @media (min-width: 769px) and (max-width: 1024px) {
+        .container-fluid {
+            padding-left: 15px;
+            padding-right: 15px;
+        }
+
+        .btn-group .btn {
+            padding: 0.5rem 1rem;
+        }
+    }
+
+    /* Ajustes para pantallas grandes */
+    @media (min-width: 1400px) {
+        .container-fluid {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+    }
+
+    /* Estilos específicos para el formulario en móviles */
+    @media (max-width: 576px) {
+        /* Encabezado */
+        .d-flex.justify-content-between {
+            flex-direction: column;
+            align-items: flex-start !important;
+            gap: 10px;
+        }
+
+        .d-flex.justify-content-between > div:last-child {
+            width: 100%;
+        }
+
+        .btn-group {
+            width: 100%;
+        }
+
+        /* Breadcrumb */
+        .breadcrumb {
+            font-size: 0.9rem;
+            flex-wrap: wrap;
+        }
+
+        /* Cliente info */
+        #clienteInfo .row {
+            flex-direction: column;
+        }
+
+        #clienteInfo .col-md-6 {
+            width: 100%;
+            margin-bottom: 10px;
+        }
+
+        /* Radio buttons de tipo venta */
+        .row .col-6 {
+            width: 100%;
+            margin-bottom: 5px;
+        }
+
+        .row .col-6:last-child {
+            margin-bottom: 0;
+        }
+
+        /* Selector de productos manual */
+        .row.g-3 {
+            flex-direction: column;
+        }
+
+        .row.g-3 .col-md-6,
+        .row.g-3 .col-md-3 {
+            width: 100%;
+        }
+
+        /* Tabla de productos */
+        .table th {
+            white-space: nowrap;
+        }
+
+        .table td {
+            min-width: 120px;
+        }
+
+        .cantidad-input {
+            width: 70px !important;
+        }
+
+        /* Input group en tabla */
+        .input-group {
+            flex-wrap: nowrap;
+        }
+
+        .input-group .btn {
+            padding: 0.25rem 0.5rem;
+        }
+    }
+
+    /* Ajustes para la tabla responsive */
+    @media (max-width: 768px) {
+        .table-responsive {
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        /* Mejorar visualización de la tabla */
+        .table {
+            min-width: 650px;
+        }
+
+        /* Ajustes para la tabla de inventario */
+        #tablaInventario {
+            min-width: 500px;
+        }
+
+        /* Modal en móviles */
+        .modal-dialog {
+            margin: 0.5rem;
+        }
+
+        .modal-dialog.modal-lg {
+            max-width: calc(100% - 1rem);
+        }
+
+        .modal-body {
+            padding: 1rem;
+        }
+
+        /* Ajustes para el modal de abono */
+        #modalAbonoCredito .table-responsive {
+            overflow-x: auto;
+        }
+
+        #modalAbonoCredito .table {
+            min-width: 400px;
+        }
+
+        .abono-parcial-input {
+            width: 80px !important;
+        }
+    }
+
+    /* Mejoras para pantallas muy pequeñas */
+    @media (max-width: 380px) {
+        h2 {
+            font-size: 1.2rem;
+        }
+
+        .badge {
+            font-size: 0.75rem;
+        }
+
+        .btn-group .btn {
+            font-size: 0.8rem;
+        }
+
+        #offlineAlert {
+            font-size: 0.85rem;
+        }
+
+        #clienteInfo .badge {
+            display: inline-block;
+            margin-top: 5px;
+        }
+    }
+
+    /* Mejorar la visualización de la búsqueda en móviles */
+    #resultadosBusqueda {
+        max-height: 300px;
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    @media (max-width: 576px) {
+        #resultadosBusqueda .list-group-item {
+            padding: 0.75rem;
+        }
+
+        #resultadosBusqueda h6 {
+            font-size: 0.9rem;
+        }
+    }
+
+    /* Ajustes para el resumen en móviles */
+    @media (max-width: 768px) {
+        #resumenVenta .row {
+            flex-direction: column;
+        }
+
+        #resumenVenta .col-md-6 {
+            width: 100%;
+            margin-bottom: 10px;
+        }
+    }
+
+    /* Mejorar la accesibilidad touch */
+    .btn, 
+    .list-group-item,
+    .dropdown-item,
+    .nav-link {
+        cursor: pointer;
+        -webkit-tap-highlight-color: rgba(102, 126, 234, 0.3);
+    }
+
+    /* Animaciones suaves para cambios de orientación */
+    * {
+        transition: all 0.2s ease-in-out;
+    }
+
+    /* Mejorar la legibilidad en tablets */
+    @media (min-width: 768px) and (max-width: 1024px) and (orientation: portrait) {
+        .col-md-4 {
+            width: 100%;
+        }
+
+        .col-md-8 {
+            width: 100%;
+        }
+    }
+
+    /* Ajustes para landscape en móviles */
+    @media (max-width: 896px) and (orientation: landscape) {
+        .container-fluid {
+            max-height: 100vh;
+            overflow-y: auto;
+        }
+
+        .card {
+            margin-bottom: 10px;
+        }
+
+        .btn-lg {
+            padding: 0.5rem 1rem;
+            font-size: 1rem;
+        }
+    }
+
+    /* Mejorar la visualización de los modales en tablets */
+    @media (min-width: 768px) and (max-width: 1024px) {
+        .modal-dialog.modal-lg {
+            max-width: 90%;
+            margin: 1.75rem auto;
+        }
+    }
+
+    /* Estilos para el indicador de sincronización */
+    #syncProgress {
+        position: sticky;
+        top: 0;
+        z-index: 1000;
+        margin-bottom: 1rem;
+    }
+
+    /* Ajustes para el footer de la tabla */
+    tfoot .table-active td {
+        background-color: rgba(0,0,0,0.05);
+    }
+
+    /* Mejorar la visualización de los badges en móviles */
+    .badge {
+        white-space: normal;
+        word-break: break-word;
+    }
+
+    /* Ajustes para los inputs de cantidad en la tabla */
+    .cantidad-input {
+        min-width: 50px;
+        text-align: center;
+    }
+
+    /* Ajustes para el botón de gasto en móviles */
+    .btn-outline-danger {
+        margin-left: 5px;
+    }
+
+    @media (max-width: 576px) {
+        .btn-outline-danger {
+            margin-left: 0;
+            margin-top: 5px;
+        }
+    }
+
+    /* Mejorar la visualización de la información del cliente */
+    #clienteInfo .bg-light {
+        padding: 1rem !important;
+    }
+
+    /* Ajustes para el modal de nuevo cliente */
+    #nuevoClienteModal .modal-body {
+        max-height: 70vh;
+        overflow-y: auto;
+    }
+
+    /* Ajustes para el modal de gasto */
+    #modalGasto .modal-body {
+        padding: 1rem;
+    }
+
+    /* Estilos originales */
+    .required:after {
+        content: " *";
+        color: red;
+    }
+
+    .card {
+        border: none;
+        box-shadow: 0 0 20px rgba(0, 0, 0, 0.08);
+        margin-bottom: 20px;
+    }
+
+    .card-header {
+        font-weight: 600;
+        padding: 1rem 1.5rem;
+    }
+
+    .card-header.bg-primary {
+        background: linear-gradient(45deg, #667eea, #764ba2);
+    }
+
+    .card-header.bg-info {
+        background: linear-gradient(45deg, #17a2b8, #138496);
+    }
+
+    .card-header.bg-success {
+        background: linear-gradient(45deg, #28a745, #20c997);
+    }
+
+    .card-header.bg-dark {
+        background: linear-gradient(45deg, #343a40, #23272b);
+    }
+
+    .table th {
+        background-color: #f8f9fa;
+        font-weight: 600;
+    }
+
+    .badge {
+        font-size: 0.85em;
+        padding: 0.35em 0.65em;
+    }
+
+    #clienteInfo {
+        border-left: 3px solid #667eea;
+        background-color: #f8f9fa !important;
+    }
+
+    .btn-primary {
+        background: linear-gradient(45deg, #667eea, #764ba2);
+        border: none;
+    }
+
+    .btn-primary:hover {
+        background: linear-gradient(45deg, #5a6fd6, #6a4392);
+        transform: translateY(-1px);
+        box-shadow: 0 5px 15px rgba(102, 126, 234, 0.3);
+    }
+
+    #offlineAlert {
+        background: linear-gradient(45deg, #ffc107, #e0a800);
+        color: #212529;
+        border: none;
+        animation: pulse 2s infinite;
+    }
+
+    #offlineAlert.online {
+        background: linear-gradient(45deg, #28a745, #20c997);
+        color: white;
+    }
+
+    @keyframes pulse {
+        0% {
+            opacity: 1;
+        }
+
+        50% {
+            opacity: 0.9;
+        }
+
+        100% {
+            opacity: 1;
+        }
+    }
+
+    #resultadosBusqueda {
+        max-height: 300px;
+        overflow-y: auto;
+        border: 1px solid #dee2e6;
+        border-radius: 0.25rem;
+        padding: 10px;
+        background-color: #f8f9fa;
+    }
+
+    .progress {
+        height: 25px;
+        border-radius: 12px;
+    }
+
+    .progress-bar {
+        line-height: 25px;
+        font-size: 0.9rem;
+    }
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="container-fluid mt-4">
-    <!-- Encabezado con indicador offline -->
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <div>
+    <!-- Encabezado con indicador offline - VERSIÓN RESPONSIVE -->
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center mb-4">
+        <div class="w-100 w-md-auto mb-3 mb-md-0">
             <h2><i class="fas fa-shopping-cart me-2"></i>Nueva Venta Offline</h2>
             <nav aria-label="breadcrumb">
                 <ol class="breadcrumb">
-                    <li class="breadcrumb-item"><a href="{{ url_for('vendedor_offline_venta_crear') }}">Inicio
-                            Offline</a></li>
+                    <li class="breadcrumb-item"><a href="{{ url_for('vendedor_offline_venta_crear') }}">Inicio Offline</a></li>
                     <li class="breadcrumb-item active" aria-current="page">Nueva Venta</li>
                 </ol>
             </nav>
@@ -20,12 +507,12 @@
                 <span id="offlineMessage">Modo Offline - Las ventas se guardarán localmente</span>
             </div>
         </div>
-        <div>
-            <div class="btn-group">
-                <a href="{{ url_for('vendedor_offline_venta_crear') }}" class="btn btn-outline-secondary">
+        <div class="w-100 w-md-auto">
+            <div class="d-flex flex-wrap gap-2">
+                <a href="{{ url_for('vendedor_offline_venta_crear') }}" class="btn btn-outline-secondary flex-fill flex-md-grow-0">
                     <i class="fas fa-arrow-left me-1"></i> Cancelar
                 </a>
-                <button class="btn btn-outline-success" id="syncStatus" onclick="verEstadoSincronizacion()">
+                <button class="btn btn-outline-success flex-fill flex-md-grow-0" id="syncStatus" onclick="verEstadoSincronizacion()">
                     <i class="fas fa-sync me-1"></i> <span id="syncCount">0</span> pendientes
                 </button>
             </div>
@@ -101,8 +588,7 @@
                             <div class="mt-2">
                                 <small class="text-muted">
                                     <i class="fas fa-info-circle me-1"></i>
-                                    Saldo pendiente: <span id="clienteSaldoPendiente" class="text-danger fw-bold">C$
-                                        0.00</span>
+                                    Saldo pendiente: <span id="clienteSaldoPendiente" class="text-danger fw-bold">C$ 0.00</span>
                                 </small>
                             </div>
                         </div>
@@ -114,23 +600,23 @@
                         <div class="mb-3">
                             <label class="form-label fw-bold">Tipo de Venta:</label>
                             <div class="row">
-                                <div class="col-6">
+                                <div class="col-12 col-sm-6 mb-2 mb-sm-0">
                                     <div class="form-check">
                                         <input class="form-check-input" type="radio" name="tipo_venta" id="tipo_contado"
                                             value="1" checked>
-                                        <label class="form-check-label" for="tipo_contado">
-                                            <span class="badge bg-success p-2">
+                                        <label class="form-check-label w-100" for="tipo_contado">
+                                            <span class="badge bg-success p-2 d-block d-sm-inline">
                                                 <i class="fas fa-money-bill-wave me-1"></i>Contado
                                             </span>
                                         </label>
                                     </div>
                                 </div>
-                                <div class="col-6">
+                                <div class="col-12 col-sm-6">
                                     <div class="form-check">
                                         <input class="form-check-input" type="radio" name="tipo_venta" id="tipo_credito"
                                             value="2">
-                                        <label class="form-check-label" for="tipo_credito">
-                                            <span class="badge bg-warning text-dark p-2">
+                                        <label class="form-check-label w-100" for="tipo_credito">
+                                            <span class="badge bg-warning text-dark p-2 d-block d-sm-inline">
                                                 <i class="fas fa-credit-card me-1"></i>Crédito
                                             </span>
                                         </label>
@@ -232,12 +718,14 @@
                                 </div>
                             </div>
                             <div class="col-12">
-                                <button type="button" class="btn btn-primary" id="btnAgregarProducto">
-                                    <i class="fas fa-plus-circle me-2"></i>Agregar Producto
-                                </button>
-                                <button type="button" class="btn btn-outline-info" id="btnVerInventario">
-                                    <i class="fas fa-warehouse me-2"></i>Ver Inventario
-                                </button>
+                                <div class="d-flex flex-column flex-sm-row gap-2">
+                                    <button type="button" class="btn btn-primary flex-fill" id="btnAgregarProducto">
+                                        <i class="fas fa-plus-circle me-2"></i>Agregar Producto
+                                    </button>
+                                    <button type="button" class="btn btn-outline-info flex-fill" id="btnVerInventario">
+                                        <i class="fas fa-warehouse me-2"></i>Ver Inventario
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -246,7 +734,7 @@
                 <!-- Tabla de Productos Agregados -->
                 <div class="card">
                     <div class="card-header bg-dark text-white">
-                        <div class="d-flex justify-content-between align-items-center">
+                        <div class="d-flex flex-column flex-sm-row justify-content-between align-items-start align-items-sm-center gap-2">
                             <h5 class="mb-0"><i class="fas fa-list me-2"></i>Productos en la Venta</h5>
                             <div>
                                 <span id="contadorProductos" class="badge bg-primary me-2">0 productos</span>
@@ -254,9 +742,9 @@
                             </div>
                         </div>
                     </div>
-                    <div class="card-body">
+                    <div class="card-body p-0 p-sm-3">
                         <div class="table-responsive">
-                            <table class="table table-hover" id="tablaProductos">
+                            <table class="table table-hover mb-0" id="tablaProductos">
                                 <thead class="table-light">
                                     <tr>
                                         <th width="50">#</th>
@@ -294,7 +782,7 @@
 
 <!-- Modal Nuevo Cliente -->
 <div class="modal fade" id="nuevoClienteModal" tabindex="-1">
-    <div class="modal-dialog">
+    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
         <div class="modal-content">
             <div class="modal-header bg-primary text-white">
                 <h5 class="modal-title">
@@ -338,7 +826,7 @@
 
 <!-- Modal de Confirmación de Venta -->
 <div class="modal fade" id="modalConfirmacionVenta" tabindex="-1" data-bs-backdrop="static">
-    <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
         <div class="modal-content">
             <div class="modal-header bg-primary text-white">
                 <h5 class="modal-title">
@@ -366,15 +854,14 @@
                 <!-- Resumen de saldo en modal de confirmación -->
                 <div id="resumenSaldoModal" class="alert alert-warning mt-3" style="display: none;">
                     <div class="row">
-                        <div class="col-md-6">
+                        <div class="col-12 col-md-6 mb-2 mb-md-0">
                             <strong>Saldo anterior:</strong> <span id="saldoAnteriorModal">C$ 0.00</span>
                         </div>
-                        <div class="col-md-6">
+                        <div class="col-12 col-md-6">
                             <strong>Nueva venta:</strong> <span id="nuevaVentaModal">C$ 0.00</span>
                         </div>
-                        <div class="col-md-12 mt-2">
-                            <strong class="text-danger">Total a deber:</strong> <span id="totalPendienteModal"
-                                class="h5">C$ 0.00</span>
+                        <div class="col-12 mt-2">
+                            <strong class="text-danger">Total a deber:</strong> <span id="totalPendienteModal" class="h5">C$ 0.00</span>
                         </div>
                     </div>
                 </div>
@@ -420,7 +907,7 @@
 
 <!-- Modal de Abono para Clientes con Saldo Pendiente -->
 <div class="modal fade" id="modalAbonoCredito" tabindex="-1" data-bs-backdrop="static">
-    <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
         <div class="modal-content">
             <div class="modal-header bg-warning">
                 <h5 class="modal-title text-dark">
@@ -524,10 +1011,10 @@
                     </div>
                 </div>
             </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar Venta</button>
-                <button type="button" class="btn btn-success" id="btnConfirmarConAbono">Confirmar con Abono</button>
-                <button type="button" class="btn btn-primary" id="btnContinuarSinAbono">Continuar sin Abono</button>
+            <div class="modal-footer flex-column flex-sm-row">
+                <button type="button" class="btn btn-secondary w-100 w-sm-auto mb-2 mb-sm-0" data-bs-dismiss="modal">Cancelar Venta</button>
+                <button type="button" class="btn btn-success w-100 w-sm-auto mb-2 mb-sm-0" id="btnConfirmarConAbono">Confirmar con Abono</button>
+                <button type="button" class="btn btn-primary w-100 w-sm-auto" id="btnContinuarSinAbono">Continuar sin Abono</button>
             </div>
         </div>
     </div>
@@ -535,7 +1022,7 @@
 
 <!-- Modal de Inventario -->
 <div class="modal fade" id="modalInventario" tabindex="-1">
-    <div class="modal-dialog modal-lg">
+    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
         <div class="modal-content">
             <div class="modal-header bg-info text-white">
                 <h5 class="modal-title">
@@ -571,7 +1058,7 @@
 
 <!-- Modal de Gasto -->
 <div class="modal fade" id="modalGasto" tabindex="-1">
-    <div class="modal-dialog">
+    <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
             <div class="modal-header bg-danger text-white">
                 <h5 class="modal-title">
@@ -611,7 +1098,7 @@
 
 <!-- Modal de Estado de Sincronización -->
 <div class="modal fade" id="modalSyncStatus" tabindex="-1">
-    <div class="modal-dialog modal-lg">
+    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
         <div class="modal-content">
             <div class="modal-header bg-info text-white">
                 <h5 class="modal-title">
@@ -621,7 +1108,7 @@
             </div>
             <div class="modal-body">
                 <div class="row mb-3">
-                    <div class="col-md-4">
+                    <div class="col-12 col-md-4 mb-2 mb-md-0">
                         <div class="card text-center">
                             <div class="card-body">
                                 <h3 id="pendientesVentas">0</h3>
@@ -629,7 +1116,7 @@
                             </div>
                         </div>
                     </div>
-                    <div class="col-md-4">
+                    <div class="col-12 col-md-4 mb-2 mb-md-0">
                         <div class="card text-center">
                             <div class="card-body">
                                 <h3 id="pendientesAbonos">0</h3>
@@ -637,7 +1124,7 @@
                             </div>
                         </div>
                     </div>
-                    <div class="col-md-4">
+                    <div class="col-12 col-md-4">
                         <div class="card text-center">
                             <div class="card-body">
                                 <h3 id="pendientesGastos">0</h3>
@@ -674,11 +1161,11 @@
                     </div>
                 </div>
             </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-primary" id="btnForzarSincronizacion">
+            <div class="modal-footer flex-column flex-sm-row">
+                <button type="button" class="btn btn-primary w-100 w-sm-auto mb-2 mb-sm-0" id="btnForzarSincronizacion">
                     <i class="fas fa-sync me-2"></i>Sincronizar Ahora
                 </button>
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+                <button type="button" class="btn btn-secondary w-100 w-sm-auto" data-bs-dismiss="modal">Cerrar</button>
             </div>
         </div>
     </div>
@@ -768,14 +1255,17 @@
     }
 
     // ============================================
-    // INDEXEDDB - INICIALIZACIÓN
+    // INDEXEDDB - INICIALIZACIÓN (VERSIÓN 4)
     // ============================================
     function abrirBaseDatos() {
         return new Promise((resolve, reject) => {
-            const request = indexedDB.open('VendedorOfflineDB', 2);
+            const request = indexedDB.open('VendedorOfflineDB', 4);
 
             request.onupgradeneeded = (event) => {
                 const db = event.target.result;
+                const oldVersion = event.oldVersion;
+
+                console.log(`🔄 Actualizando DB de versión ${oldVersion} a ${event.newVersion}`);
 
                 if (!db.objectStoreNames.contains('productos')) {
                     const store = db.createObjectStore('productos', { keyPath: 'ID_Producto' });
@@ -792,6 +1282,7 @@
                 if (!db.objectStoreNames.contains('cuentas_cobrar')) {
                     const store = db.createObjectStore('cuentas_cobrar', { keyPath: 'ID_Movimiento' });
                     store.createIndex('cliente', 'ID_Cliente', { unique: false });
+                    store.createIndex('estado', 'Estado', { unique: false });
                 }
 
                 if (!db.objectStoreNames.contains('ventas_pendientes')) {
@@ -815,11 +1306,17 @@
                 if (!db.objectStoreNames.contains('metadata')) {
                     db.createObjectStore('metadata');
                 }
+
+                if (!db.objectStoreNames.contains('asignaciones')) {
+                    db.createObjectStore('asignaciones', { keyPath: 'id_asignacion' });
+                }
+
+                console.log('✅ Estructura de base de datos actualizada');
             };
 
             request.onsuccess = (event) => {
                 db = event.target.result;
-                console.log('✅ Base de datos offline abierta');
+                console.log('✅ Base de datos offline abierta (versión 4)');
                 resolve(db);
             };
 
@@ -861,31 +1358,97 @@
         }
     }
 
+    // ============================================
+    // GUARDAR DATOS EN INDEXEDDB
+    // ============================================
     async function guardarDatosEnIndexedDB(data) {
         return new Promise((resolve, reject) => {
-            const tx = db.transaction(['productos', 'clientes', 'cuentas_cobrar', 'metadata'], 'readwrite');
+            const tx = db.transaction(['productos', 'clientes', 'cuentas_cobrar', 'metadata', 'asignaciones'], 'readwrite');
 
-            tx.oncomplete = () => resolve();
-            tx.onerror = (e) => reject(e.target.error);
+            tx.oncomplete = () => {
+                console.log('✅ Datos guardados en IndexedDB');
+                resolve();
+            };
+            tx.onerror = (e) => {
+                console.error('❌ Error guardando en IndexedDB:', e);
+                reject(e.target.error);
+            };
+
+            if (data.asignacion) {
+                const asigStore = tx.objectStore('asignaciones');
+                asigStore.put({
+                    id_asignacion: data.asignacion.id_asignacion,
+                    ...data.asignacion,
+                    fecha_sincronizacion: new Date().toISOString()
+                });
+            }
 
             const productStore = tx.objectStore('productos');
             if (data.inventario && Array.isArray(data.inventario)) {
-                data.inventario.forEach(prod => productStore.put(prod));
+                productStore.clear();
+                data.inventario.forEach(prod => {
+                    const productoParaGuardar = {
+                        ID_Producto: prod.ID_Producto,
+                        COD_Producto: prod.COD_Producto,
+                        nombre_producto: prod.nombre_producto,
+                        Descripcion: prod.nombre_producto,
+                        stock_disponible: prod.stock_disponible,
+                        Cantidad: prod.stock_disponible,
+                        precio_venta: prod.precio_venta,
+                        Precio_Ruta: prod.precio_venta,
+                        Stock_Minimo: prod.Stock_Minimo || 0,
+                        unidad_medida: prod.unidad_medida,
+                        Abreviatura: prod.Abreviatura,
+                        categoria: prod.categoria,
+                        fecha_sincronizacion: new Date().toISOString()
+                    };
+                    productStore.put(productoParaGuardar);
+                });
+                console.log(`✅ ${data.inventario.length} productos guardados`);
             }
 
             const clientStore = tx.objectStore('clientes');
             if (data.clientes && Array.isArray(data.clientes)) {
-                data.clientes.forEach(cliente => clientStore.put(cliente));
+                clientStore.clear();
+                data.clientes.forEach(cliente => {
+                    clientStore.put({
+                        ID_Cliente: cliente.ID_Cliente,
+                        Nombre: cliente.Nombre,
+                        RUC_CEDULA: cliente.RUC_CEDULA,
+                        Telefono: cliente.Telefono,
+                        Direccion: cliente.Direccion,
+                        tipo_cliente: cliente.tipo_cliente,
+                        perfil_cliente: cliente.perfil_cliente,
+                        saldo_pendiente: cliente.saldo_pendiente,
+                        Fecha_Ultimo_Pago: cliente.Fecha_Ultimo_Pago,
+                        fecha_sincronizacion: new Date().toISOString()
+                    });
+                });
+                console.log(`✅ ${data.clientes.length} clientes guardados`);
             }
 
             const cxcStore = tx.objectStore('cuentas_cobrar');
             if (data.cuentas_cobrar && Array.isArray(data.cuentas_cobrar)) {
-                data.cuentas_cobrar.forEach(cxc => cxcStore.put(cxc));
+                cxcStore.clear();
+                data.cuentas_cobrar.forEach(cxc => {
+                    cxcStore.put({
+                        ID_Movimiento: cxc.ID_Movimiento,
+                        ID_Cliente: cxc.ID_Cliente,
+                        Num_Documento: cxc.Num_Documento,
+                        Fecha: cxc.Fecha,
+                        Fecha_Vencimiento: cxc.Fecha_Vencimiento,
+                        Monto_Movimiento: cxc.monto_original,
+                        Saldo_Pendiente: cxc.Saldo_Pendiente,
+                        Estado: cxc.Estado,
+                        fecha_sincronizacion: new Date().toISOString()
+                    });
+                });
+                console.log(`✅ ${data.cuentas_cobrar.length} cuentas por cobrar guardadas`);
             }
 
             const metaStore = tx.objectStore('metadata');
-            if (data.asignacion) metaStore.put(data.asignacion, 'asignacion_actual');
             if (data.empresa) metaStore.put(data.empresa, 'empresa');
+            if (data.totales) metaStore.put(data.totales, 'totales');
             metaStore.put(new Date().toISOString(), 'ultima_sincronizacion');
         });
     }
@@ -901,7 +1464,7 @@
 
             request.onsuccess = () => {
                 productos = request.result || [];
-                console.log(`✅ ${productos.length} productos cargados`);
+                console.log(`✅ ${productos.length} productos cargados desde IndexedDB`);
                 llenarSelectProductos();
                 resolve();
             };
@@ -941,7 +1504,7 @@
 
             request.onsuccess = () => {
                 facturasPendientes = (request.result || []).filter(f =>
-                    f.Estado !== 'Pagada' && parseFloat(f.Saldo_Pendiente || 0) > 0
+                    f.Estado !== 'Pagada' && parseFloat(f.Saldo_Pendiente || 0) > 0 && !f.es_temporal
                 );
                 console.log(`✅ ${facturasPendientes.length} facturas pendientes cargadas`);
                 resolve();
@@ -951,6 +1514,25 @@
                 console.error('❌ Error cargando cuentas por cobrar:', e);
                 reject(e.target.error);
             };
+        });
+    }
+
+    async function cargarAsignacion() {
+        return new Promise((resolve) => {
+            const tx = db.transaction(['asignaciones'], 'readonly');
+            const store = tx.objectStore('asignaciones');
+            const request = store.getAll();
+
+            request.onsuccess = () => {
+                const asignaciones = request.result || [];
+                if (asignaciones.length > 0) {
+                    infoAsignacion = asignaciones[0];
+                    console.log('✅ Asignación cargada:', infoAsignacion);
+                }
+                resolve();
+            };
+
+            request.onerror = () => resolve();
         });
     }
 
@@ -991,21 +1573,48 @@
         }
     }
 
+    // ============================================
+    // FUNCIONES DE INTERFAZ
+    // ============================================
     function llenarSelectProductos() {
         const select = getElement('producto_select');
         if (!select) return;
 
         select.innerHTML = '<option value="">Seleccione un producto</option>';
 
-        productos.forEach(p => {
+        const productosOrdenados = [...productos].sort((a, b) => {
+            const stockA = a.stock_disponible || a.Cantidad || 0;
+            const stockB = b.stock_disponible || b.Cantidad || 0;
+            
+            if (stockA === 0 && stockB > 0) return 1;
+            if (stockA > 0 && stockB === 0) return -1;
+            return (a.nombre_producto || a.Descripcion || '').localeCompare(b.nombre_producto || b.Descripcion || '');
+        });
+
+        productosOrdenados.forEach(p => {
+            const stock = p.stock_disponible || p.Cantidad || 0;
             const option = document.createElement('option');
             option.value = p.ID_Producto;
             option.dataset.nombre = p.nombre_producto || p.Descripcion || '';
             option.dataset.codigo = p.COD_Producto || '';
             option.dataset.precio = p.precio_venta || p.Precio_Ruta || 0;
-            option.dataset.stock = p.stock_disponible || p.Cantidad || 0;
+            option.dataset.stock = stock;
             option.dataset.unidad = p.Abreviatura || 'und';
-            option.textContent = `${p.nombre_producto || p.Descripcion} - Stock: ${p.stock_disponible || p.Cantidad} ${p.Abreviatura || 'und'}`;
+            
+            let stockIndicator = '';
+            if (stock === 0) {
+                stockIndicator = ' 🔴 AGOTADO';
+            } else if (stock <= (p.Stock_Minimo || 0)) {
+                stockIndicator = ' 🟡 STOCK BAJO';
+            }
+            
+            option.textContent = `${p.nombre_producto || p.Descripcion} - Stock: ${stock} ${p.Abreviatura || 'und'}${stockIndicator}`;
+            
+            if (stock === 0) {
+                option.disabled = true;
+                option.style.color = '#999';
+            }
+            
             select.appendChild(option);
         });
     }
@@ -1016,7 +1625,12 @@
 
         select.innerHTML = '<option value="">Seleccione un cliente...</option>';
 
-        clientes.forEach(c => {
+        const clientesOrdenados = [...clientes].sort((a, b) => 
+            (a.Nombre || '').localeCompare(b.Nombre || '')
+        );
+
+        clientesOrdenados.forEach(c => {
+            const saldo = parseFloat(c.saldo_pendiente || 0);
             const option = document.createElement('option');
             option.value = c.ID_Cliente;
             option.dataset.nombre = c.Nombre || '';
@@ -1024,8 +1638,16 @@
             option.dataset.telefono = c.Telefono || '';
             option.dataset.direccion = c.Direccion || '';
             option.dataset.perfil = c.perfil_cliente || 'Mercado';
-            option.dataset.saldo = c.saldo_pendiente || 0;
-            option.textContent = `${c.Nombre} - ${c.RUC_CEDULA} (${c.perfil_cliente || 'Mercado'})`;
+            option.dataset.saldo = saldo;
+            
+            let saldoIndicator = saldo > 0 ? ` - Saldo: ${formatoCordoba(saldo)}` : '';
+            option.textContent = `${c.Nombre} - ${c.RUC_CEDULA} (${c.perfil_cliente || 'Mercado'})${saldoIndicator}`;
+            
+            if (saldo > 0) {
+                option.style.color = '#dc3545';
+                option.style.fontWeight = '500';
+            }
+            
             select.appendChild(option);
         });
     }
@@ -1039,24 +1661,51 @@
             return;
         }
 
-        let html = '';
-        productos.forEach(p => {
-            const stock = p.stock_disponible || p.Cantidad || 0;
-            const stockClass = stock <= (p.Stock_Minimo || 0) ? 'bg-warning' :
-                stock > 0 ? 'bg-success' : 'bg-danger';
+        const productosOrdenados = [...productos].sort((a, b) => {
+            const stockA = a.stock_disponible || a.Cantidad || 0;
+            const stockB = b.stock_disponible || b.Cantidad || 0;
+            const minA = a.Stock_Minimo || 0;
+            const minB = b.Stock_Minimo || 0;
+            
+            if (stockA === 0 && stockB > 0) return -1;
+            if (stockA > 0 && stockB === 0) return 1;
+            if (stockA <= minA && stockB > minB) return -1;
+            if (stockA > minA && stockB <= minB) return 1;
+            
+            return (a.nombre_producto || a.Descripcion || '').localeCompare(b.nombre_producto || b.Descripcion || '');
+        });
 
-            html += `<tr>
+        let html = '';
+        productosOrdenados.forEach(p => {
+            const stock = p.stock_disponible || p.Cantidad || 0;
+            const stockMinimo = p.Stock_Minimo || 0;
+            
+            let stockClass = 'bg-success';
+            let nivelTexto = 'Normal';
+            
+            if (stock === 0) {
+                stockClass = 'bg-danger';
+                nivelTexto = 'Agotado';
+            } else if (stock <= stockMinimo) {
+                stockClass = 'bg-warning';
+                nivelTexto = 'Bajo';
+            }
+
+            html += `<tr class="${stock === 0 ? 'table-secondary' : ''}">
                 <td>${p.nombre_producto || p.Descripcion}</td>
-                <td>${p.COD_Producto}</td>
+                <td>${p.COD_Producto || 'N/A'}</td>
                 <td class="text-center">
-                    <span class="badge ${stockClass}">
+                    <span class="badge ${stockClass}" style="font-size: 0.9rem;">
                         ${stock} ${p.Abreviatura || ''}
                     </span>
+                    <br>
+                    <small class="text-${stockClass.replace('bg-', '')}">${nivelTexto}</small>
                 </td>
                 <td class="text-end">${formatoCordoba(p.precio_venta || p.Precio_Ruta)}</td>
                 <td class="text-center">
-                    <button type="button" class="btn btn-sm btn-primary" 
-                            onclick="agregarDesdeInventario(${p.ID_Producto})">
+                    <button type="button" class="btn btn-sm ${stock === 0 ? 'btn-secondary' : 'btn-primary'}" 
+                            onclick="agregarDesdeInventario(${p.ID_Producto})"
+                            ${stock === 0 ? 'disabled' : ''}>
                         <i class="fas fa-plus"></i>
                     </button>
                 </td>
@@ -1067,7 +1716,7 @@
     }
 
     // ============================================
-    // DETECCIÓN DE CONEXIÓN Y SINCRONIZACIÓN AUTOMÁTICA
+    // DETECCIÓN DE CONEXIÓN
     // ============================================
     function actualizarEstadoConexion() {
         const offlineAlert = getElement('offlineAlert');
@@ -1082,7 +1731,6 @@
 
             if (totalPendientes > 0) {
                 offlineMessage.innerHTML = `<i class="fas fa-wifi me-2"></i>Conectado - <span class="badge bg-warning text-dark">${totalPendientes} pendientes</span>`;
-                console.log(`📡 Conectado con ${totalPendientes} operaciones pendientes`);
             } else {
                 offlineMessage.innerHTML = '<i class="fas fa-wifi me-2"></i>Conectado - Todo sincronizado';
             }
@@ -1150,11 +1798,11 @@
         <div class="alert alert-warning" role="alert">
             <h5 class="alert-heading"><i class="fas fa-exclamation-triangle me-2"></i>Cliente con Saldo Pendiente</h5>
             <div class="row">
-                <div class="col-md-6">
+                <div class="col-12 col-md-6">
                     <p><strong>Cliente:</strong> ${cliente.Nombre}</p>
                     <p><strong>Documento:</strong> ${cliente.RUC_CEDULA}</p>
                 </div>
-                <div class="col-md-6">
+                <div class="col-12 col-md-6">
                     <p><strong>Saldo Pendiente:</strong> <span class="text-danger fw-bold">${formatoCordoba(saldoTotal)}</span></p>
                     <p><strong>Facturas Pendientes:</strong> ${facturas.length}</p>
                 </div>
@@ -1166,7 +1814,6 @@
                     <thead class="table-light">
                         <tr>
                             <th>Documento</th>
-                            <th>Fecha</th>
                             <th>Vencimiento</th>
                             <th class="text-end">Saldo</th>
                         </tr>
@@ -1174,12 +1821,10 @@
                     <tbody>`;
 
             facturas.forEach(f => {
-                const fecha = f.Fecha ? new Date(f.Fecha).toLocaleDateString() : 'N/A';
                 const vencimiento = f.Fecha_Vencimiento ? new Date(f.Fecha_Vencimiento).toLocaleDateString() : 'N/A';
 
                 html += `<tr>
                     <td>${f.Num_Documento || 'N/A'}</td>
-                    <td>${fecha}</td>
                     <td>${vencimiento}</td>
                     <td class="text-end">${formatoCordoba(f.Saldo_Pendiente)}</td>
                 </tr>`;
@@ -1189,10 +1834,10 @@
         }
 
         html += `<hr><div class="row">
-            <div class="col-md-6">
+            <div class="col-12 col-md-6">
                 <p><strong>Total Nueva Venta:</strong> <span id="total-nueva-venta">C$ 0.00</span></p>
             </div>
-            <div class="col-md-6">
+            <div class="col-12 col-md-6">
                 <p><strong>Total Pendiente con Nueva Venta:</strong> <span id="total-pendiente-con-nueva" class="text-danger fw-bold">${formatoCordoba(saldoTotal)}</span></p>
             </div>
         </div>
@@ -1227,13 +1872,18 @@
     // FUNCIONES DE PRODUCTOS
     // ============================================
     function agregarProductoALista(producto) {
+        if (producto.cantidad > producto.stock) {
+            showAlert('warning', `Stock insuficiente. Disponible: ${formatNumber(producto.stock)}`);
+            return false;
+        }
+
         const index = productosVenta.findIndex(p => p.id === producto.id);
 
         if (index !== -1) {
             const nuevaCantidad = productosVenta[index].cantidad + producto.cantidad;
             if (nuevaCantidad > productosVenta[index].stock) {
                 showAlert('warning', `Stock insuficiente. Disponible: ${formatNumber(productosVenta[index].stock)}`);
-                return;
+                return false;
             }
             productosVenta[index].cantidad = nuevaCantidad;
             productosVenta[index].subtotal = productosVenta[index].precio * nuevaCantidad;
@@ -1255,11 +1905,18 @@
         actualizarTabla();
         actualizarResumen();
         actualizarTotalesConSaldo();
+        return true;
     }
 
     window.agregarDesdeInventario = function (productoId) {
         const producto = productos.find(p => p.ID_Producto == productoId);
         if (!producto) return;
+
+        const stock = producto.stock_disponible || producto.Cantidad || 0;
+        if (stock === 0) {
+            showAlert('warning', 'Producto agotado');
+            return;
+        }
 
         agregarProductoALista({
             id: producto.ID_Producto,
@@ -1267,7 +1924,7 @@
             nombre: producto.nombre_producto || producto.Descripcion,
             cantidad: 1,
             precio: parseFloat(producto.precio_venta || producto.Precio_Ruta),
-            stock: producto.stock_disponible || producto.Cantidad,
+            stock: stock,
             unidad: producto.Abreviatura || 'und'
         });
 
@@ -1478,10 +2135,11 @@
         resultadosDiv.innerHTML = '<div class="spinner-border text-primary"></div>';
         resultadosDiv.style.display = 'block';
 
-        const productosEncontrados = productos.filter(p =>
-            (p.nombre_producto || p.Descripcion || '').toLowerCase().includes(termino) ||
-            (p.COD_Producto && p.COD_Producto.toLowerCase().includes(termino))
-        ).slice(0, 5);
+        const productosEncontrados = productos.filter(p => {
+            const nombre = (p.nombre_producto || p.Descripcion || '').toLowerCase();
+            const codigo = (p.COD_Producto || '').toLowerCase();
+            return nombre.includes(termino) || codigo.includes(termino);
+        }).slice(0, 5);
 
         if (productosEncontrados.length === 0) {
             resultadosDiv.innerHTML = '<div class="alert alert-warning">No se encontraron productos</div>';
@@ -1493,18 +2151,21 @@
             const stock = p.stock_disponible || p.Cantidad || 0;
             const stockClass = stock <= 0 ? 'bg-danger' :
                 stock <= (p.Stock_Minimo || 0) ? 'bg-warning' : 'bg-success';
+            const disabled = stock <= 0 ? 'disabled' : '';
 
-            html += `<div class="list-group-item list-group-item-action">
-                <div class="d-flex w-100 justify-content-between align-items-start">
+            html += `<div class="list-group-item list-group-item-action ${disabled ? 'text-muted' : ''}">
+                <div class="d-flex w-100 flex-column flex-sm-row justify-content-between align-items-start align-items-sm-center gap-2">
                     <div class="flex-grow-1">
                         <h6 class="mb-1">${p.nombre_producto || p.Descripcion}</h6>
                         <small class="text-muted">Código: ${p.COD_Producto || 'N/A'} | 
                             Stock: <span class="badge ${stockClass}">${stock} ${p.Abreviatura || ''}</span>
                         </small>
                     </div>
-                    <div>
-                        <span class="fw-bold text-success me-3">${formatoCordoba(p.precio_venta || p.Precio_Ruta)}</span>
-                        <button type="button" class="btn btn-sm btn-primary" onclick="agregarProductoBusqueda('${p.ID_Producto}')">
+                    <div class="d-flex align-items-center gap-2 w-100 w-sm-auto">
+                        <span class="fw-bold text-success">${formatoCordoba(p.precio_venta || p.Precio_Ruta)}</span>
+                        <button type="button" class="btn btn-sm ${stock <= 0 ? 'btn-secondary' : 'btn-primary'} flex-shrink-0" 
+                                onclick="agregarProductoBusqueda('${p.ID_Producto}')"
+                                ${stock <= 0 ? 'disabled' : ''}>
                             <i class="fas fa-plus"></i>
                         </button>
                     </div>
@@ -1516,7 +2177,7 @@
     }
 
     // ============================================
-    // FUNCIÓN DE GUARDADO VENTA CORREGIDA
+    // FUNCIÓN DE GUARDADO VENTA - CORREGIDA (SIN RECARGAR)
     // ============================================
     async function guardarVentaOffline() {
         const clienteSelect = getElement('cliente');
@@ -1536,18 +2197,31 @@
         const totalVenta = calcularTotalVenta();
         const idTemporal = `venta_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
-        // Crear copia limpia de productos para guardar - FORMATO EXACTO QUE ESPERA LA API
         const productosParaGuardar = productosVenta.map(p => ({
             id_producto: p.id,
             cantidad: p.cantidad,
             precio: p.precio
         }));
 
+        const productosValidos = productosParaGuardar.every(p => 
+            p.id_producto && 
+            typeof p.cantidad === 'number' && 
+            typeof p.precio === 'number' &&
+            p.cantidad > 0 && 
+            p.precio > 0
+        );
+
+        if (!productosValidos) {
+            console.error('❌ Productos con formato inválido:', productosParaGuardar);
+            showAlert('error', 'Error en formato de productos');
+            return false;
+        }
+
         console.log('📦 Productos a guardar:', productosParaGuardar);
 
         const venta = {
             id_temporal: idTemporal,
-            id_cliente: parseInt(clienteSelect.value),
+            id_cliente: clienteSelect.value.toString(),
             tipo_venta: parseInt(tipoVenta.value),
             observacion: observacion || '',
             productos: productosParaGuardar,
@@ -1557,10 +2231,8 @@
         };
 
         try {
-            // Iniciar transacción
             const tx = db.transaction(['ventas_pendientes', 'productos'], 'readwrite');
 
-            // 1. Guardar la venta pendiente
             const ventaStore = tx.objectStore('ventas_pendientes');
             await new Promise((resolve, reject) => {
                 const request = ventaStore.add(venta);
@@ -1571,7 +2243,6 @@
                 request.onerror = (e) => reject(new Error('Error al guardar venta: ' + e.target.error));
             });
 
-            // 2. Actualizar stock local
             const productoStore = tx.objectStore('productos');
 
             for (const prod of productosVenta) {
@@ -1598,12 +2269,10 @@
                 }
             }
 
-            // 3. Si es crédito, crear cuenta por cobrar
             if (tipoVenta.value === '2') {
                 await crearCuentaCobrarOffline(venta);
             }
 
-            // Completar transacción
             await new Promise((resolve, reject) => {
                 tx.oncomplete = resolve;
                 tx.onerror = (e) => reject(e.target.error);
@@ -1611,21 +2280,18 @@
 
             showAlert('success', '✅ Venta guardada localmente');
 
-            // Recargar operaciones pendientes
             await cargarOperacionesPendientes();
 
-            // Sincronizar inmediatamente si hay conexión
             if (navigator.onLine) {
                 console.log('📡 Hay conexión, sincronizando inmediatamente...');
                 setTimeout(() => sincronizarTodo(), 1000);
             }
 
-            // Limpiar formulario
-            productosVenta = [];
-            actualizarTabla();
-            actualizarResumen();
-            if (clienteSelect) clienteSelect.value = '';
-
+            // ============================================
+            // LIMPIAR FORMULARIO SIN RECARGAR LA PÁGINA
+            // ============================================
+            limpiarFormularioVenta();
+            
             return true;
 
         } catch (error) {
@@ -1636,14 +2302,89 @@
     }
 
     // ============================================
-    // FUNCIÓN PARA CREAR CUENTA POR COBRAR
+    // NUEVA FUNCIÓN PARA LIMPIAR EL FORMULARIO
+    // ============================================
+    function limpiarFormularioVenta() {
+        productosVenta = [];
+        actualizarTabla();
+        actualizarResumen();
+        
+        const clienteSelect = getElement('cliente');
+        if (clienteSelect) {
+            clienteSelect.value = '';
+        }
+        
+        const clienteInfo = getElement('clienteInfo');
+        if (clienteInfo) {
+            clienteInfo.style.display = 'none';
+        }
+        
+        const observacion = getElement('observacion');
+        if (observacion) {
+            observacion.value = '';
+        }
+        
+        const tipoContado = getElement('tipo_contado');
+        if (tipoContado) {
+            tipoContado.checked = true;
+        }
+        
+        const indicadorCredito = getElement('indicadorCredito');
+        if (indicadorCredito) {
+            indicadorCredito.style.display = 'none';
+        }
+        
+        const inputBuscar = getElement('buscarProducto');
+        if (inputBuscar) {
+            inputBuscar.value = '';
+        }
+        
+        const resultadosDiv = getElement('resultadosBusqueda');
+        if (resultadosDiv) {
+            resultadosDiv.style.display = 'none';
+            resultadosDiv.innerHTML = '';
+        }
+        
+        const productoSelect = getElement('producto_select');
+        if (productoSelect) {
+            productoSelect.value = '';
+        }
+        
+        const cantidadInput = getElement('cantidad');
+        if (cantidadInput) {
+            cantidadInput.value = 1;
+        }
+        
+        const precioInput = getElement('precio');
+        if (precioInput) {
+            precioInput.value = '';
+        }
+        
+        ocultarAlertaSaldo();
+        
+        const contadorProductos = getElement('contadorProductos');
+        if (contadorProductos) {
+            contadorProductos.textContent = '0 productos';
+            contadorProductos.className = 'badge bg-primary me-2';
+        }
+        
+        const indicadorTotal = getElement('indicadorTotal');
+        if (indicadorTotal) {
+            indicadorTotal.textContent = 'Total: C$ 0.00';
+        }
+        
+        console.log('🧹 Formulario limpiado, listo para nueva venta');
+    }
+
+    // ============================================
+    // FUNCIÓN PARA CREAR CUENTA POR COBRAR TEMPORAL
     // ============================================
     async function crearCuentaCobrarOffline(venta) {
         return new Promise((resolve, reject) => {
             const tx = db.transaction(['cuentas_cobrar'], 'readwrite');
 
             tx.oncomplete = () => {
-                console.log('✅ Cuenta por cobrar creada');
+                console.log('✅ Cuenta por cobrar temporal creada');
                 resolve();
             };
             tx.onerror = (e) => reject(e.target.error);
@@ -1656,13 +2397,15 @@
 
             const nuevaCuenta = {
                 ID_Movimiento: `temp_${venta.id_temporal}`,
-                ID_Cliente: venta.id_cliente,
+                ID_Cliente: parseInt(venta.id_cliente),
                 Num_Documento: `FAC-R-OFFLINE-${Date.now()}`,
                 Fecha: fechaActual.toISOString().split('T')[0],
                 Fecha_Vencimiento: fechaVencimiento.toISOString().split('T')[0],
                 Monto_Movimiento: venta.total,
                 Saldo_Pendiente: venta.total,
-                Estado: 'Pendiente'
+                Estado: 'Pendiente',
+                es_temporal: true,
+                fecha_creacion: new Date().toISOString()
             };
 
             const request = store.add(nuevaCuenta);
@@ -1670,250 +2413,212 @@
         });
     }
 
-// ============================================
-// FUNCIÓN DE SINCRONIZACIÓN MEJORADA (VENTAS INDIVIDUALES)
-// ============================================
-async function sincronizarTodo() {
-    if (sincronizacionEnProgreso) {
-        console.log('⏳ Sincronización ya en progreso, ignorando...');
-        return;
-    }
-
-    if (!navigator.onLine) {
-        showAlert('warning', 'No hay conexión a internet');
-        return;
-    }
-
-    await cargarOperacionesPendientes();
-
-    const totalPendientes = operacionesPendientes.ventas.length + 
-                           operacionesPendientes.abonos.length + 
-                           operacionesPendientes.gastos.length;
-    
-    if (totalPendientes === 0) {
-        console.log('✅ No hay operaciones pendientes');
-        showToast('info', 'Sincronización', 'No hay operaciones pendientes');
-        return;
-    }
-
-    sincronizacionEnProgreso = true;
-
-    const syncProgress = getElement('syncProgress');
-    const syncProgressBar = getElement('syncProgressBar');
-    const syncProgressText = getElement('syncProgressText');
-    
-    syncProgress.style.display = 'block';
-    syncProgressBar.style.width = '0%';
-    syncProgressBar.textContent = '0%';
-    syncProgressText.textContent = `Sincronizando ${totalPendientes} operaciones...`;
-
-    try {
-        let exitosas = 0;
-        let fallidas = 0;
-
-        // Sincronizar ventas una por una
-        for (const venta of operacionesPendientes.ventas) {
-            if (venta.sincronizada) continue;
-            
-            syncProgressText.textContent = `Sincronizando venta...`;
-            
-            try {
-                console.log('📤 Enviando venta:', venta);
-                
-                const response = await fetch('/api/vendedor/offline/registrar_venta', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        id_cliente: venta.id_cliente,
-                        tipo_venta: venta.tipo_venta,
-                        observacion: venta.observacion || '',
-                        productos: venta.productos.map(p => ({
-                            id_producto: p.id_producto,
-                            cantidad: p.cantidad,
-                            precio: p.precio
-                        })),
-                        total: venta.total,
-                        id_temporal: venta.id_temporal
-                    })
-                });
-
-                const result = await response.json();
-                console.log('📥 Respuesta:', result);
-
-                if (result.success) {
-                    // Eliminar venta de pendientes
-                    const tx = db.transaction(['ventas_pendientes'], 'readwrite');
-                    const store = tx.objectStore('ventas_pendientes');
-                    
-                    await new Promise((resolve, reject) => {
-                        const request = store.delete(venta.id_temporal);
-                        request.onsuccess = resolve;
-                        request.onerror = reject;
-                    });
-                    
-                    await new Promise((resolve, reject) => {
-                        tx.oncomplete = resolve;
-                        tx.onerror = reject;
-                    });
-                    
-                    console.log(`✅ Venta ${venta.id_temporal} sincronizada`);
-                    exitosas++;
-                } else {
-                    console.error(`❌ Error en venta:`, result.message);
-                    showAlert('error', `Error en venta: ${result.message}`);
-                    fallidas++;
-                }
-            } catch (error) {
-                console.error('❌ Error al sincronizar venta:', error);
-                showAlert('error', 'Error de conexión al sincronizar venta');
-                fallidas++;
-            }
-            
-            // Actualizar progreso
-            const progreso = Math.round((exitosas + fallidas) / totalPendientes * 100);
-            syncProgressBar.style.width = progreso + '%';
-            syncProgressBar.textContent = progreso + '%';
+    // ============================================
+    // FUNCIÓN DE SINCRONIZACIÓN
+    // ============================================
+    async function sincronizarTodo() {
+        if (sincronizacionEnProgreso) {
+            console.log('⏳ Sincronización ya en progreso, ignorando...');
+            return;
         }
 
-        // Sincronizar abonos
-        for (const abono of operacionesPendientes.abonos) {
-            if (abono.sincronizada) continue;
-            
-            try {
-                const response = await fetch('/api/vendedor/offline/registrar_abono', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        id_cliente: abono.id_cliente,
-                        monto_abono: abono.monto_abono,
-                        facturas: abono.facturas
-                    })
-                });
-
-                const result = await response.json();
-                
-                if (result.success) {
-                    const tx = db.transaction(['abonos_pendientes'], 'readwrite');
-                    const store = tx.objectStore('abonos_pendientes');
-                    await new Promise((resolve, reject) => {
-                        const request = store.delete(abono.id_temporal);
-                        request.onsuccess = resolve;
-                        request.onerror = reject;
-                    });
-                    exitosas++;
-                } else {
-                    fallidas++;
-                }
-            } catch (error) {
-                fallidas++;
-            }
-        }
-
-        // Sincronizar gastos
-        for (const gasto of operacionesPendientes.gastos) {
-            if (gasto.sincronizada) continue;
-            
-            try {
-                const response = await fetch('/api/vendedor/offline/registrar_gasto', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        concepto: gasto.concepto,
-                        monto: gasto.monto
-                    })
-                });
-
-                const result = await response.json();
-                
-                if (result.success) {
-                    const tx = db.transaction(['gastos_pendientes'], 'readwrite');
-                    const store = tx.objectStore('gastos_pendientes');
-                    await new Promise((resolve, reject) => {
-                        const request = store.delete(gasto.id_temporal);
-                        request.onsuccess = resolve;
-                        request.onerror = reject;
-                    });
-                    exitosas++;
-                } else {
-                    fallidas++;
-                }
-            } catch (error) {
-                fallidas++;
-            }
+        if (!navigator.onLine) {
+            showAlert('warning', 'No hay conexión a internet');
+            return;
         }
 
         await cargarOperacionesPendientes();
+
+        const totalPendientes = operacionesPendientes.ventas.length + 
+                               operacionesPendientes.abonos.length + 
+                               operacionesPendientes.gastos.length;
         
-        syncProgressBar.style.width = '100%';
-        syncProgressBar.textContent = '100%';
-        syncProgressText.textContent = '¡Sincronización completada!';
+        if (totalPendientes === 0) {
+            console.log('✅ No hay operaciones pendientes');
+            showToast('info', 'Sincronización', 'No hay operaciones pendientes');
+            return;
+        }
+
+        sincronizacionEnProgreso = true;
+
+        const syncProgress = getElement('syncProgress');
+        const syncProgressBar = getElement('syncProgressBar');
+        const syncProgressText = getElement('syncProgressText');
         
-        setTimeout(() => {
+        syncProgress.style.display = 'block';
+        syncProgressBar.style.width = '0%';
+        syncProgressBar.textContent = '0%';
+        syncProgressText.textContent = `Sincronizando ${totalPendientes} operaciones...`;
+
+        try {
+            let exitosas = 0;
+            let fallidas = 0;
+
+            for (const venta of operacionesPendientes.ventas) {
+                if (venta.sincronizada) continue;
+                
+                syncProgressText.textContent = `Sincronizando venta...`;
+                
+                try {
+                    console.log('📤 Enviando venta:', venta);
+                    
+                    const response = await fetch('/api/vendedor/offline/registrar_venta', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            id_cliente: venta.id_cliente,
+                            tipo_venta: venta.tipo_venta,
+                            observacion: venta.observacion || '',
+                            productos: venta.productos.map(p => ({
+                                id_producto: p.id_producto,
+                                cantidad: p.cantidad,
+                                precio: p.precio
+                            })),
+                            total: venta.total,
+                            id_temporal: venta.id_temporal
+                        })
+                    });
+
+                    const result = await response.json();
+                    console.log('📥 Respuesta:', result);
+
+                    if (result.success) {
+                        const tx = db.transaction(['ventas_pendientes', 'cuentas_cobrar'], 'readwrite');
+                        
+                        const ventaStore = tx.objectStore('ventas_pendientes');
+                        await new Promise((resolve, reject) => {
+                            const request = ventaStore.delete(venta.id_temporal);
+                            request.onsuccess = resolve;
+                            request.onerror = reject;
+                        });
+
+                        const cxcStore = tx.objectStore('cuentas_cobrar');
+                        const cxcIndex = cxcStore.index('ID_Movimiento');
+                        const cxcRequest = cxcIndex.getAll(`temp_${venta.id_temporal}`);
+                        
+                        cxcRequest.onsuccess = () => {
+                            const cuentasTemp = cxcRequest.result;
+                            cuentasTemp.forEach(cxc => {
+                                if (cxc.es_temporal) {
+                                    cxcStore.delete(cxc.ID_Movimiento);
+                                }
+                            });
+                        };
+
+                        await new Promise((resolve, reject) => {
+                            tx.oncomplete = resolve;
+                            tx.onerror = reject;
+                        });
+                        
+                        console.log(`✅ Venta ${venta.id_temporal} sincronizada`);
+                        exitosas++;
+                    } else {
+                        console.error(`❌ Error en venta:`, result.message);
+                        showAlert('error', `Error en venta: ${result.message}`);
+                        fallidas++;
+                    }
+                } catch (error) {
+                    console.error('❌ Error al sincronizar venta:', error);
+                    showAlert('error', 'Error de conexión al sincronizar venta');
+                    fallidas++;
+                }
+                
+                const progreso = Math.round((exitosas + fallidas) / totalPendientes * 100);
+                syncProgressBar.style.width = progreso + '%';
+                syncProgressBar.textContent = progreso + '%';
+            }
+
+            for (const abono of operacionesPendientes.abonos) {
+                if (abono.sincronizada) continue;
+                
+                try {
+                    const response = await fetch('/api/vendedor/offline/registrar_abono', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            id_cliente: abono.id_cliente,
+                            monto_abono: abono.monto_abono,
+                            facturas: abono.facturas
+                        })
+                    });
+
+                    const result = await response.json();
+                    
+                    if (result.success) {
+                        const tx = db.transaction(['abonos_pendientes'], 'readwrite');
+                        const store = tx.objectStore('abonos_pendientes');
+                        await new Promise((resolve, reject) => {
+                            const request = store.delete(abono.id_temporal);
+                            request.onsuccess = resolve;
+                            request.onerror = reject;
+                        });
+                        exitosas++;
+                    } else {
+                        fallidas++;
+                    }
+                } catch (error) {
+                    fallidas++;
+                }
+            }
+
+            for (const gasto of operacionesPendientes.gastos) {
+                if (gasto.sincronizada) continue;
+                
+                try {
+                    const response = await fetch('/api/vendedor/offline/registrar_gasto', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            concepto: gasto.concepto,
+                            monto: gasto.monto
+                        })
+                    });
+
+                    const result = await response.json();
+                    
+                    if (result.success) {
+                        const tx = db.transaction(['gastos_pendientes'], 'readwrite');
+                        const store = tx.objectStore('gastos_pendientes');
+                        await new Promise((resolve, reject) => {
+                            const request = store.delete(gasto.id_temporal);
+                            request.onsuccess = resolve;
+                            request.onerror = reject;
+                        });
+                        exitosas++;
+                    } else {
+                        fallidas++;
+                    }
+                } catch (error) {
+                    fallidas++;
+                }
+            }
+
+            await cargarOperacionesPendientes();
+            
+            syncProgressBar.style.width = '100%';
+            syncProgressBar.textContent = '100%';
+            syncProgressText.textContent = '¡Sincronización completada!';
+            
+            setTimeout(() => {
+                syncProgress.style.display = 'none';
+            }, 2000);
+            
+            if (fallidas > 0) {
+                showAlert('warning', `⚠️ ${exitosas} sincronizadas, ${fallidas} fallidas`);
+            } else {
+                showToast('success', 'Sincronización', `✅ ${exitosas} operaciones sincronizadas`);
+            }
+            
+            actualizarEstadoConexion();
+
+        } catch (error) {
+            console.error('❌ Error en sincronización:', error);
             syncProgress.style.display = 'none';
-        }, 2000);
-        
-        if (fallidas > 0) {
-            showAlert('warning', `⚠️ ${exitosas} sincronizadas, ${fallidas} fallidas`);
-        } else {
-            showToast('success', 'Sincronización', `✅ ${exitosas} operaciones sincronizadas`);
+            showAlert('error', 'Error al sincronizar: ' + error.message);
+        } finally {
+            sincronizacionEnProgreso = false;
         }
-        
-        actualizarEstadoConexion();
-
-    } catch (error) {
-        console.error('❌ Error en sincronización:', error);
-        syncProgress.style.display = 'none';
-        showAlert('error', 'Error al sincronizar: ' + error.message);
-    } finally {
-        sincronizacionEnProgreso = false;
     }
-}
-
-// ============================================
-// FUNCIÓN PARA PROBAR VENTA INDIVIDUAL
-// ============================================
-window.probarVentaIndividual = async function() {
-    await cargarOperacionesPendientes();
-    
-    if (operacionesPendientes.ventas.length === 0) {
-        alert('No hay ventas pendientes');
-        return;
-    }
-    
-    const venta = operacionesPendientes.ventas[0];
-    console.log('🔍 Probando con venta:', venta);
-    
-    try {
-        const response = await fetch('/api/vendedor/offline/registrar_venta', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                id_cliente: venta.id_cliente,
-                tipo_venta: venta.tipo_venta,
-                observacion: venta.observacion || '',
-                productos: venta.productos.map(p => ({
-                    id_producto: p.id_producto,
-                    cantidad: p.cantidad,
-                    precio: p.precio
-                })),
-                total: venta.total,
-                id_temporal: venta.id_temporal
-            })
-        });
-        
-        const result = await response.json();
-        console.log('📥 Respuesta del servidor:', result);
-        
-        if (result.success) {
-            alert('✅ Venta sincronizada correctamente');
-        } else {
-            alert('❌ Error: ' + result.message);
-        }
-    } catch (error) {
-        console.error('❌ Error de red:', error);
-        alert('Error de red: ' + error.message);
-    }
-}
 
     async function guardarAbonoOffline(datosAbono) {
         const idTemporal = `abono_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
@@ -2031,14 +2736,6 @@ window.probarVentaIndividual = async function() {
                 operacionesPendientes.abonos.length +
                 operacionesPendientes.gastos.length;
             syncCount.textContent = total;
-
-            const pendVentas = getElement('pendientesVentas');
-            const pendAbonos = getElement('pendientesAbonos');
-            const pendGastos = getElement('pendientesGastos');
-
-            if (pendVentas) pendVentas.textContent = operacionesPendientes.ventas.length;
-            if (pendAbonos) pendAbonos.textContent = operacionesPendientes.abonos.length;
-            if (pendGastos) pendGastos.textContent = operacionesPendientes.gastos.length;
         }
     }
 
@@ -2120,7 +2817,7 @@ window.probarVentaIndividual = async function() {
     // FUNCIONES DEL MODAL DE ABONO
     // ============================================
     function mostrarModalAbono(clienteId, saldoAnterior, totalVenta) {
-        const facturasCliente = facturasPendientes.filter(f => f.ID_Cliente == clienteId);
+        const facturasCliente = facturasPendientes.filter(f => f.ID_Cliente == clienteId && !f.es_temporal);
         datosVentaActual = { clienteId, totalVenta, saldoAnterior, facturasCliente };
 
         const modalSaldoAnterior = getElement('modalSaldoAnterior');
@@ -2165,21 +2862,20 @@ window.probarVentaIndividual = async function() {
         let html = '';
         facturas.forEach((f, index) => {
             const vencimiento = f.Fecha_Vencimiento ? new Date(f.Fecha_Vencimiento).toLocaleDateString() : 'N/A';
-            const diasVencido = f.Fecha_Vencimiento ?
-                Math.floor((new Date() - new Date(f.Fecha_Vencimiento)) / (1000 * 60 * 60 * 24)) : 0;
-            const rowClass = diasVencido > 0 ? 'table-danger' : '';
 
-            html += `<tr class="${rowClass}" data-id="${f.ID_Movimiento}" data-saldo="${f.Saldo_Pendiente}">
+            html += `<tr data-id="${f.ID_Movimiento}" data-saldo="${f.Saldo_Pendiente}">
                 <td>${f.Num_Documento || 'N/A'}</td>
-                <td>${vencimiento} ${diasVencido > 0 ? `<span class="badge bg-danger">${diasVencido} días vencido</span>` : ''}</td>
+                <td>${vencimiento}</td>
                 <td class="text-end">${formatoCordoba(f.Saldo_Pendiente)}</td>
                 <td class="text-center">
-                    <input type="checkbox" class="form-check-input factura-checkbox" 
-                           data-index="${index}" data-id="${f.ID_Movimiento}" 
-                           data-saldo="${f.Saldo_Pendiente}">
-                    <input type="number" class="form-control form-control-sm abono-parcial-input d-none" 
-                           data-id="${f.ID_Movimiento}" min="0" step="0.01" 
-                           placeholder="Monto" style="width: 100px; display: inline-block;">
+                    <div class="d-flex flex-column flex-sm-row align-items-center gap-2">
+                        <input type="checkbox" class="form-check-input factura-checkbox" 
+                               data-index="${index}" data-id="${f.ID_Movimiento}" 
+                               data-saldo="${f.Saldo_Pendiente}">
+                        <input type="number" class="form-control form-control-sm abono-parcial-input d-none" 
+                               data-id="${f.ID_Movimiento}" min="0" step="0.01" 
+                               placeholder="Monto" style="width: 100px;">
+                    </div>
                 </td>
             </tr>`;
         });
@@ -2350,7 +3046,7 @@ window.probarVentaIndividual = async function() {
         if (resumenVenta) {
             resumenVenta.innerHTML = `
             <div class="row g-3 mb-3">
-                <div class="col-md-6">
+                <div class="col-12 col-md-6">
                     <div class="card">
                         <div class="card-body">
                             <h6 class="card-title border-bottom pb-2 mb-3"><i class="fas fa-user me-2"></i>Datos del Cliente</h6>
@@ -2360,7 +3056,7 @@ window.probarVentaIndividual = async function() {
                         </div>
                     </div>
                 </div>
-                <div class="col-md-6">
+                <div class="col-12 col-md-6">
                     <div class="card">
                         <div class="card-body">
                             <h6 class="card-title border-bottom pb-2 mb-3"><i class="fas fa-info-circle me-2"></i>Información de la Venta</h6>
@@ -2415,17 +3111,23 @@ window.probarVentaIndividual = async function() {
         try {
             await abrirBaseDatos();
 
-            await cargarProductos();
-            await cargarClientes();
-            await cargarCuentasCobrar();
+            await Promise.all([
+                cargarProductos(),
+                cargarClientes(),
+                cargarCuentasCobrar(),
+                cargarAsignacion()
+            ]);
 
-            if (productos.length === 0 || clientes.length === 0) {
+            if ((productos.length === 0 || clientes.length === 0) && navigator.onLine) {
                 console.log('📦 Base de datos local vacía, intentando cargar desde API...');
                 const datosCargados = await cargarDatosIniciales();
                 if (datosCargados) {
-                    await cargarProductos();
-                    await cargarClientes();
-                    await cargarCuentasCobrar();
+                    await Promise.all([
+                        cargarProductos(),
+                        cargarClientes(),
+                        cargarCuentasCobrar(),
+                        cargarAsignacion()
+                    ]);
                 }
             } else {
                 console.log('✅ Usando datos locales existentes');
@@ -2515,6 +3217,10 @@ window.probarVentaIndividual = async function() {
                 productoSelect.addEventListener('change', function () {
                     const option = this.options[this.selectedIndex];
                     if (precioInput) precioInput.value = option.value ? option.dataset.precio : '';
+                    
+                    if (option.value && option.disabled) {
+                        showAlert('warning', 'Este producto está agotado');
+                    }
                 });
             }
 
@@ -2526,6 +3232,11 @@ window.probarVentaIndividual = async function() {
                     }
 
                     const option = productoSelect.options[productoSelect.selectedIndex];
+                    
+                    if (option.disabled) {
+                        showAlert('warning', 'Este producto está agotado');
+                        return;
+                    }
 
                     if (!cantidadInput) {
                         showAlert('warning', 'Error en campo cantidad');
@@ -2643,9 +3354,12 @@ window.probarVentaIndividual = async function() {
                     this.innerHTML = 'Guardar Venta';
 
                     if (resultado) {
-                        setTimeout(() => {
-                            window.location.href = "{{ url_for('vendedor_offline_venta_crear') }}";
-                        }, 1500);
+                        showToast('success', 'Venta guardada', 'Puede continuar con otra venta');
+                        
+                        window.scrollTo({
+                            top: 0,
+                            behavior: 'smooth'
+                        });
                     }
                 });
             }
@@ -2728,7 +3442,9 @@ window.probarVentaIndividual = async function() {
                         Direccion: direccion,
                         perfil_cliente: 'Mercado',
                         saldo_pendiente: 0,
-                        Estado: 'ACTIVO'
+                        Estado: 'ACTIVO',
+                        es_temporal: true,
+                        fecha_creacion: new Date().toISOString()
                     };
 
                     try {
@@ -2807,13 +3523,15 @@ window.probarVentaIndividual = async function() {
                 });
             }
 
-            // Sincronización automática cada 5 minutos
             setInterval(() => {
                 if (navigator.onLine) {
                     const totalPendientes = operacionesPendientes.ventas.length +
                         operacionesPendientes.abonos.length +
                         operacionesPendientes.gastos.length;
-                    if (totalPendientes > 0) sincronizarTodo();
+                    if (totalPendientes > 0) {
+                        console.log('🔄 Sincronización automática cada 5 minutos');
+                        sincronizarTodo();
+                    }
                 }
             }, 300000);
 
@@ -2825,113 +3543,8 @@ window.probarVentaIndividual = async function() {
 
         } catch (error) {
             console.error('❌ Error en inicialización:', error);
-            showAlert('error', 'Error al cargar datos offline');
+            showAlert('error', 'Error al cargar datos offline: ' + error.message);
         }
     });
 </script>
-
-<style>
-    .required:after {
-        content: " *";
-        color: red;
-    }
-
-    .card {
-        border: none;
-        box-shadow: 0 0 20px rgba(0, 0, 0, 0.08);
-        margin-bottom: 20px;
-    }
-
-    .card-header {
-        font-weight: 600;
-        padding: 1rem 1.5rem;
-    }
-
-    .card-header.bg-primary {
-        background: linear-gradient(45deg, #667eea, #764ba2);
-    }
-
-    .card-header.bg-info {
-        background: linear-gradient(45deg, #17a2b8, #138496);
-    }
-
-    .card-header.bg-success {
-        background: linear-gradient(45deg, #28a745, #20c997);
-    }
-
-    .card-header.bg-dark {
-        background: linear-gradient(45deg, #343a40, #23272b);
-    }
-
-    .table th {
-        background-color: #f8f9fa;
-        font-weight: 600;
-    }
-
-    .badge {
-        font-size: 0.85em;
-        padding: 0.35em 0.65em;
-    }
-
-    #clienteInfo {
-        border-left: 3px solid #667eea;
-        background-color: #f8f9fa !important;
-    }
-
-    .btn-primary {
-        background: linear-gradient(45deg, #667eea, #764ba2);
-        border: none;
-    }
-
-    .btn-primary:hover {
-        background: linear-gradient(45deg, #5a6fd6, #6a4392);
-        transform: translateY(-1px);
-        box-shadow: 0 5px 15px rgba(102, 126, 234, 0.3);
-    }
-
-    #offlineAlert {
-        background: linear-gradient(45deg, #ffc107, #e0a800);
-        color: #212529;
-        border: none;
-        animation: pulse 2s infinite;
-    }
-
-    #offlineAlert.online {
-        background: linear-gradient(45deg, #28a745, #20c997);
-        color: white;
-    }
-
-    @keyframes pulse {
-        0% {
-            opacity: 1;
-        }
-
-        50% {
-            opacity: 0.9;
-        }
-
-        100% {
-            opacity: 1;
-        }
-    }
-
-    #resultadosBusqueda {
-        max-height: 300px;
-        overflow-y: auto;
-        border: 1px solid #dee2e6;
-        border-radius: 0.25rem;
-        padding: 10px;
-        background-color: #f8f9fa;
-    }
-
-    .progress {
-        height: 25px;
-        border-radius: 12px;
-    }
-
-    .progress-bar {
-        line-height: 25px;
-        font-size: 0.9rem;
-    }
-</style>
 {% endblock %}

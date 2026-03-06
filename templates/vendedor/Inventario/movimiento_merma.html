@@ -1,0 +1,286 @@
+{% extends "layout.html" %}
+
+{% block title %}Registrar Merma{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2>
+                <i class="fas fa-trash-alt text-danger me-2"></i>
+                Registrar Merma o Pérdida
+            </h2>
+            <p class="text-muted">
+                Ruta: <strong>{{ asignacion.Nombre_Ruta }}</strong> | 
+                Fecha: <strong>{{ now.strftime('%d/%m/%Y') }}</strong>
+            </p>
+        </div>
+        <a href="{{ url_for('vendedor_inventario') }}" class="btn btn-outline-secondary">
+            <i class="fas fa-arrow-left me-1"></i> Volver al Inventario
+        </a>
+    </div>
+
+    <div class="card">
+        <div class="card-header bg-danger text-white">
+            <h5 class="mb-0">
+                <i class="fas fa-exclamation-triangle me-2"></i>
+                Registrar Productos Dañados o Perdidos
+            </h5>
+        </div>
+        <div class="card-body">
+            <form method="POST" id="formMerma">
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <label class="form-label">Documento de Referencia</label>
+                        <input type="text" name="documento_numero" class="form-control" 
+                               placeholder="N° de reporte (opcional)">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Fecha de Reporte</label>
+                        <input type="text" class="form-control" value="{{ now.strftime('%d/%m/%Y %H:%M') }}" readonly>
+                    </div>
+                </div>
+
+                <div class="alert alert-danger">
+                    <i class="fas fa-exclamation-circle me-2"></i>
+                    <strong>Importante:</strong> La merma representa productos dañados, vencidos o perdidos. 
+                    Esta acción no se puede deshacer.
+                </div>
+
+                <div class="table-responsive mb-3">
+                    <table class="table table-bordered" id="tablaProductos">
+                        <thead class="table-light">
+                            <tr>
+                                <th width="5%">#</th>
+                                <th width="35%">Producto</th>
+                                <th width="12%">Código</th>
+                                <th width="10%">Stock</th>
+                                <th width="13%">Precio</th>
+                                <th width="15%">Cant. Merma</th>
+                                <th width="10%">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody id="productosBody">
+                            <tr id="fila0">
+                                <td class="text-center">1</td>
+                                <td>
+                                    <select name="producto_id[]" class="form-select producto-select" required>
+                                        <option value="">Seleccionar producto...</option>
+                                        {% for item in inventario %}
+                                        <option value="{{ item.ID_Producto }}" 
+                                                data-codigo="{{ item.COD_Producto }}"
+                                                data-stock="{{ item.Stock_Actual }}"
+                                                data-precio="{{ item.Precio_Ruta }}">
+                                            {{ item.Nombre_Producto }} - {{ item.Categoria }}
+                                        </option>
+                                        {% endfor %}
+                                    </select>
+                                </td>
+                                <td>
+                                    <input type="text" class="form-control codigo-producto" readonly placeholder="Código">
+                                </td>
+                                <td>
+                                    <input type="text" class="form-control stock-actual text-center" readonly value="0">
+                                </td>
+                                <td>
+                                    <div class="input-group">
+                                        <span class="input-group-text">C$</span>
+                                        <input type="text" class="form-control precio-unitario" readonly value="0.00">
+                                    </div>
+                                </td>
+                                <td>
+                                    <input type="number" name="cantidad[]" class="form-control cantidad" 
+                                           step="0.01" min="0.01" required>
+                                </td>
+                                <td class="text-center">
+                                    <button type="button" class="btn btn-success btn-sm" onclick="agregarFila()" title="Agregar otro producto">
+                                        <i class="fas fa-plus"></i>
+                                    </button>
+                                    <button type="button" class="btn btn-danger btn-sm" onclick="eliminarFila(this)" title="Eliminar">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                        </tbody>
+                        <tfoot>
+                            <tr class="table-danger">
+                                <td colspan="5" class="text-end fw-bold">TOTAL PÉRDIDA:</td>
+                                <td>
+                                    <div class="input-group">
+                                        <span class="input-group-text">C$</span>
+                                        <input type="text" id="totalSubtotal" class="form-control fw-bold" readonly value="0.00">
+                                    </div>
+                                </td>
+                                <td></td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Motivo de la Merma <span class="text-danger">*</span></label>
+                    <textarea name="observacion" class="form-control" rows="3" 
+                              placeholder="Describa detalladamente el motivo (Ej: Producto dañado en transporte, vencido, robado, etc.)" required></textarea>
+                </div>
+
+                <div class="text-end">
+                    <button type="button" class="btn btn-secondary" onclick="history.back()">
+                        <i class="fas fa-times me-1"></i> Cancelar
+                    </button>
+                    <button type="submit" class="btn btn-danger" onclick="return confirm('¿Está seguro de registrar esta merma? Esta acción no se puede deshacer.')">
+                        <i class="fas fa-trash-alt me-1"></i> Registrar Merma
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+let filaCount = 1;
+
+function agregarFila() {
+    filaCount++;
+    const nuevaFila = document.createElement('tr');
+    nuevaFila.id = `fila${filaCount}`;
+    nuevaFila.innerHTML = `
+        <td class="text-center">${filaCount}</td>
+        <td>
+            <select name="producto_id[]" class="form-select producto-select" required>
+                <option value="">Seleccionar producto...</option>
+                {% for item in inventario %}
+                <option value="{{ item.ID_Producto }}" 
+                        data-codigo="{{ item.COD_Producto }}"
+                        data-stock="{{ item.Stock_Actual }}"
+                        data-precio="{{ item.Precio_Ruta }}">
+                    {{ item.Nombre_Producto }} - {{ item.Categoria }}
+                </option>
+                {% endfor %}
+            </select>
+        </td>
+        <td>
+            <input type="text" class="form-control codigo-producto" readonly placeholder="Código">
+        </td>
+        <td>
+            <input type="text" class="form-control stock-actual text-center" readonly value="0">
+        </td>
+        <td>
+            <div class="input-group">
+                <span class="input-group-text">C$</span>
+                <input type="text" class="form-control precio-unitario" readonly value="0.00">
+            </div>
+        </td>
+        <td>
+            <input type="number" name="cantidad[]" class="form-control cantidad" 
+                   step="0.01" min="0.01" required>
+        </td>
+        <td class="text-center">
+            <button type="button" class="btn btn-success btn-sm" onclick="agregarFila()" title="Agregar otro producto">
+                <i class="fas fa-plus"></i>
+            </button>
+            <button type="button" class="btn btn-danger btn-sm" onclick="eliminarFila(this)" title="Eliminar">
+                <i class="fas fa-trash"></i>
+            </button>
+        </td>
+    `;
+    
+    document.getElementById('productosBody').appendChild(nuevaFila);
+    actualizarNumeracion();
+}
+
+function eliminarFila(boton) {
+    const fila = boton.closest('tr');
+    if (document.querySelectorAll('#productosBody tr').length > 1) {
+        fila.remove();
+        actualizarNumeracion();
+        calcularTotales();
+    } else {
+        alert('Debe haber al menos una fila');
+    }
+}
+
+function actualizarNumeracion() {
+    const filas = document.querySelectorAll('#productosBody tr');
+    filas.forEach((fila, index) => {
+        fila.querySelector('td:first-child').textContent = index + 1;
+    });
+}
+
+// Actualizar información cuando se selecciona un producto
+document.addEventListener('change', function(e) {
+    if (e.target.classList.contains('producto-select')) {
+        const fila = e.target.closest('tr');
+        const selectedOption = e.target.options[e.target.selectedIndex];
+        const codigoInput = fila.querySelector('.codigo-producto');
+        const stockInput = fila.querySelector('.stock-actual');
+        const precioInput = fila.querySelector('.precio-unitario');
+        const cantidadInput = fila.querySelector('.cantidad');
+        
+        if (e.target.value) {
+            codigoInput.value = selectedOption.dataset.codigo || 'N/A';
+            stockInput.value = selectedOption.dataset.stock || '0';
+            precioInput.value = parseFloat(selectedOption.dataset.precio || 0).toFixed(2);
+            
+            // Establecer max para la cantidad
+            cantidadInput.max = selectedOption.dataset.stock;
+            cantidadInput.min = 0.01;
+        } else {
+            codigoInput.value = '';
+            stockInput.value = '0';
+            precioInput.value = '0.00';
+            cantidadInput.value = '';
+            cantidadInput.max = '';
+        }
+    }
+});
+
+// Calcular cuando cambian cantidades
+document.addEventListener('input', function(e) {
+    if (e.target.classList.contains('cantidad')) {
+        const fila = e.target.closest('tr');
+        const cantidad = parseFloat(e.target.value) || 0;
+        const stock = parseFloat(fila.querySelector('.stock-actual').value) || 0;
+        
+        // Validar que no exceda el stock
+        if (cantidad > stock) {
+            alert(`La cantidad no puede exceder el stock actual (${stock})`);
+            e.target.value = stock;
+        }
+        
+        calcularTotales();
+    }
+});
+
+function calcularTotales() {
+    let total = 0;
+    const filas = document.querySelectorAll('#productosBody tr');
+    
+    filas.forEach(fila => {
+        const cantidad = parseFloat(fila.querySelector('.cantidad')?.value) || 0;
+        const precio = parseFloat(fila.querySelector('.precio-unitario')?.value) || 0;
+        total += cantidad * precio;
+    });
+    
+    document.getElementById('totalSubtotal').value = total.toFixed(2);
+}
+
+// Validar formulario antes de enviar
+document.getElementById('formMerma').addEventListener('submit', function(e) {
+    let tieneProductos = false;
+    const filas = document.querySelectorAll('#productosBody tr');
+    
+    filas.forEach(fila => {
+        const producto = fila.querySelector('.producto-select').value;
+        const cantidad = parseFloat(fila.querySelector('.cantidad').value) || 0;
+        if (producto && cantidad > 0) {
+            tieneProductos = true;
+        }
+    });
+    
+    if (!tieneProductos) {
+        e.preventDefault();
+        alert('Debe seleccionar al menos un producto con cantidad mayor a 0');
+    }
+});
+</script>
+{% endblock %}

@@ -1,0 +1,264 @@
+{% extends "layout.html" %}
+
+{% block title %}Entrada desde Bodega{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2>
+                <i class="fas fa-arrow-down text-success me-2"></i>
+                Entrada de Productos desde Bodega
+            </h2>
+            <p class="text-muted">
+                Ruta: <strong>{{ asignacion.Nombre_Ruta }}</strong> | 
+                Fecha: <strong>{{ now.strftime('%d/%m/%Y') }}</strong>
+            </p>
+        </div>
+        <a href="{{ url_for('vendedor_inventario') }}" class="btn btn-outline-secondary">
+            <i class="fas fa-arrow-left me-1"></i> Volver al Inventario
+        </a>
+    </div>
+
+    <div class="card">
+        <div class="card-header bg-success text-white">
+            <h5 class="mb-0">
+                <i class="fas fa-boxes me-2"></i>
+                Registrar Entrada de Productos
+            </h5>
+        </div>
+        <div class="card-body">
+            <form method="POST" id="formEntrada">
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <label class="form-label">Documento de Referencia</label>
+                        <input type="text" name="documento_numero" class="form-control" 
+                               placeholder="N° de guía, factura, etc.">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Fecha de Entrada</label>
+                        <input type="text" class="form-control" value="{{ now.strftime('%d/%m/%Y %H:%M') }}" readonly>
+                    </div>
+                </div>
+
+                <div class="table-responsive mb-3">
+                    <table class="table table-bordered" id="tablaProductos">
+                        <thead class="table-light">
+                            <tr>
+                                <th width="5%">#</th>
+                                <th width="35%">Producto</th>
+                                <th width="15%">Código</th>
+                                <th width="15%">Cantidad</th>
+                                <th width="20%">Precio Ruta</th>
+                                <th width="10%">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody id="productosBody">
+                            <tr id="fila0">
+                                <td class="text-center">1</td>
+                                <td>
+                                    <select name="producto_id[]" class="form-select producto-select" required>
+                                        <option value="">Seleccionar producto...</option>
+                                        {% for producto in productos %}
+                                        <option value="{{ producto.ID_Producto }}" 
+                                                data-codigo="{{ producto.COD_Producto }}"
+                                                data-precio="{{ producto.Precio_Ruta }}">
+                                            {{ producto.Nombre_Producto }} - {{ producto.Categoria }}
+                                        </option>
+                                        {% endfor %}
+                                    </select>
+                                </td>
+                                <td>
+                                    <input type="text" class="form-control codigo-producto" readonly placeholder="Código">
+                                </td>
+                                <td>
+                                    <input type="number" name="cantidad[]" class="form-control cantidad" 
+                                           step="0.01" min="0.01" required>
+                                </td>
+                                <td>
+                                    <div class="input-group">
+                                        <span class="input-group-text">C$</span>
+                                        <input type="number" name="precio[]" class="form-control precio" 
+                                               step="0.01" min="0" readonly>
+                                    </div>
+                                </td>
+                                <td class="text-center">
+                                    <button type="button" class="btn btn-success btn-sm" onclick="agregarFila()" title="Agregar otro producto">
+                                        <i class="fas fa-plus"></i>
+                                    </button>
+                                    <button type="button" class="btn btn-danger btn-sm" onclick="eliminarFila(this)" title="Eliminar">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                        </tbody>
+                        <tfoot>
+                            <tr class="table-info">
+                                <td colspan="4" class="text-end fw-bold">TOTALES:</td>
+                                <td>
+                                    <div class="input-group">
+                                        <span class="input-group-text">C$</span>
+                                        <input type="text" id="totalSubtotal" class="form-control fw-bold" readonly value="0.00">
+                                    </div>
+                                </td>
+                                <td></td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Observaciones</label>
+                    <textarea name="observacion" class="form-control" rows="2" 
+                              placeholder="Notas adicionales sobre la entrada..."></textarea>
+                </div>
+
+                <div class="text-end">
+                    <button type="button" class="btn btn-secondary" onclick="history.back()">
+                        <i class="fas fa-times me-1"></i> Cancelar
+                    </button>
+                    <button type="submit" class="btn btn-success">
+                        <i class="fas fa-save me-1"></i> Registrar Entrada
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+let filaCount = 1;
+
+function agregarFila() {
+    filaCount++;
+    const nuevaFila = document.createElement('tr');
+    nuevaFila.id = `fila${filaCount}`;
+    nuevaFila.innerHTML = `
+        <td class="text-center">${filaCount}</td>
+        <td>
+            <select name="producto_id[]" class="form-select producto-select" required>
+                <option value="">Seleccionar producto...</option>
+                {% for producto in productos %}
+                <option value="{{ producto.ID_Producto }}" 
+                        data-codigo="{{ producto.COD_Producto }}"
+                        data-precio="{{ producto.Precio_Ruta }}">
+                    {{ producto.Nombre_Producto }} - {{ producto.Categoria }}
+                </option>
+                {% endfor %}
+            </select>
+        </td>
+        <td>
+            <input type="text" class="form-control codigo-producto" readonly placeholder="Código">
+        </td>
+        <td>
+            <input type="number" name="cantidad[]" class="form-control cantidad" 
+                   step="0.01" min="0.01" required>
+        </td>
+        <td>
+            <div class="input-group">
+                <span class="input-group-text">C$</span>
+                <input type="number" name="precio[]" class="form-control precio" 
+                       step="0.01" min="0" readonly>
+            </div>
+        </td>
+        <td class="text-center">
+            <button type="button" class="btn btn-success btn-sm" onclick="agregarFila()" title="Agregar otro producto">
+                <i class="fas fa-plus"></i>
+            </button>
+            <button type="button" class="btn btn-danger btn-sm" onclick="eliminarFila(this)" title="Eliminar">
+                <i class="fas fa-trash"></i>
+            </button>
+        </td>
+    `;
+    
+    document.getElementById('productosBody').appendChild(nuevaFila);
+    actualizarNumeracion();
+}
+
+function eliminarFila(boton) {
+    const fila = boton.closest('tr');
+    if (document.querySelectorAll('#productosBody tr').length > 1) {
+        fila.remove();
+        actualizarNumeracion();
+        calcularTotales();
+    } else {
+        alert('Debe haber al menos una fila');
+    }
+}
+
+function actualizarNumeracion() {
+    const filas = document.querySelectorAll('#productosBody tr');
+    filas.forEach((fila, index) => {
+        fila.querySelector('td:first-child').textContent = index + 1;
+    });
+}
+
+// Actualizar código y precio cuando se selecciona un producto
+document.addEventListener('change', function(e) {
+    if (e.target.classList.contains('producto-select')) {
+        const fila = e.target.closest('tr');
+        const selectedOption = e.target.options[e.target.selectedIndex];
+        const codigoInput = fila.querySelector('.codigo-producto');
+        const precioInput = fila.querySelector('.precio');
+        
+        if (e.target.value) {
+            codigoInput.value = selectedOption.dataset.codigo || 'N/A';
+            precioInput.value = selectedOption.dataset.precio || 0;
+        } else {
+            codigoInput.value = '';
+            precioInput.value = '';
+        }
+        calcularTotales();
+    }
+});
+
+// Calcular cuando cambian cantidades
+document.addEventListener('input', function(e) {
+    if (e.target.classList.contains('cantidad')) {
+        calcularTotales();
+    }
+});
+
+function calcularTotales() {
+    let total = 0;
+    const filas = document.querySelectorAll('#productosBody tr');
+    
+    filas.forEach(fila => {
+        const cantidad = parseFloat(fila.querySelector('.cantidad')?.value) || 0;
+        const precio = parseFloat(fila.querySelector('.precio')?.value) || 0;
+        total += cantidad * precio;
+    });
+    
+    document.getElementById('totalSubtotal').value = total.toFixed(2);
+}
+
+// Validar formulario antes de enviar
+document.getElementById('formEntrada').addEventListener('submit', function(e) {
+    const selects = document.querySelectorAll('.producto-select');
+    let productosSeleccionados = new Set();
+    let duplicados = false;
+    let productosValidos = 0;
+    
+    selects.forEach(select => {
+        if (select.value) {
+            if (productosSeleccionados.has(select.value)) {
+                duplicados = true;
+            }
+            productosSeleccionados.add(select.value);
+            productosValidos++;
+        }
+    });
+    
+    if (duplicados) {
+        e.preventDefault();
+        alert('No puedes seleccionar el mismo producto más de una vez');
+        return;
+    }
+    
+    if (productosValidos === 0) {
+        e.preventDefault();
+        alert('Debe seleccionar al menos un producto');
+    }
+});
+</script>
+{% endblock %}

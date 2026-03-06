@@ -14,10 +14,10 @@
                 Mi Inventario
             </h2>
             <p class="text-muted">
-                Bienvenido, <strong>{{ current_user.NombreUsuario }}</strong>
+                Bienvenido, <strong>{{ current_user.username }}</strong>
             </p>
         </div>
-        <div>
+        <div class="btn-group">
             <button class="btn btn-outline-primary" onclick="refrescarInventario()">
                 <i class="fas fa-sync-alt me-1"></i> Refrescar
             </button>
@@ -34,6 +34,44 @@
         <p>Consulta con el administrador para asignarte una ruta.</p>
     </div>
     {% else %}
+
+    <!-- ============================================ -->
+    <!-- BOTONES DE ACCIÓN - MOVIMIENTOS              -->
+    <!-- ============================================ -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card border-primary">
+                <div class="card-body py-2">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <span class="text-primary fw-bold me-3">
+                                <i class="fas fa-exchange-alt me-1"></i> Movimientos de Inventario:
+                            </span>
+                            <div class="btn-group" role="group">
+                                <a href="{{ url_for('vendedor_movimiento_entrada_bodega') }}" class="btn btn-success btn-sm">
+                                    <i class="fas fa-arrow-down"></i> Entrada (Bodega)
+                                </a>
+                                <a href="{{ url_for('vendedor_movimiento_devolucion_bodega') }}" class="btn btn-warning btn-sm">
+                                    <i class="fas fa-arrow-up"></i> Devolver a Bodega
+                                </a>
+                                <a href="{{ url_for('vendedor_movimiento_merma') }}" class="btn btn-danger btn-sm">
+                                    <i class="fas fa-trash"></i> Merma/Pérdida
+                                </a>
+                                <a href="{{ url_for('vendedor_movimientos_historial') }}" class="btn btn-info btn-sm">
+                                    <i class="fas fa-history"></i> Historial
+                                </a>
+                            </div>
+                        </div>
+                        <div>
+                            <span class="badge bg-primary p-2">
+                                <i class="fas fa-clipboard-check me-1"></i> ID: #{{ asignacion.ID_Asignacion }}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <!-- ============================================ -->
     <!-- INFORMACIÓN DE ASIGNACIÓN                    -->
@@ -214,10 +252,13 @@
                                 {% endif %}
                             </td>
                             <td class="text-center">
-                                <a href="#" 
+                                <a href="{{ url_for('vendedor_producto_detalle', id_producto=item.ID_Producto) }}" 
                                    class="btn btn-sm btn-outline-primary" title="Ver detalle">
                                     <i class="fas fa-eye"></i>
                                 </a>
+                                <button type="button" class="btn btn-sm btn-outline-success" title="Entrada rápida" onclick="quickEntry({{ item.ID_Producto }}, '{{ item.Nombre_Producto }}')">
+                                    <i class="fas fa-plus-circle"></i>
+                                </button>
                             </td>
                         </tr>
                         {% endfor %}
@@ -252,6 +293,48 @@
     {% endif %}
 </div>
 
+<!-- Modal para entrada rápida -->
+<div class="modal fade" id="quickEntryModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title">
+                    <i class="fas fa-plus-circle me-2"></i>
+                    Entrada Rápida de Producto
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form action="{{ url_for('vendedor_movimiento_entrada_bodega') }}" method="POST">
+                <div class="modal-body">
+                    <p>Agregar stock para: <strong id="quickProductName"></strong></p>
+                    <input type="hidden" name="producto_id[]" id="quickProductId">
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Cantidad</label>
+                        <input type="number" name="cantidad[]" class="form-control" step="0.01" min="0.01" required>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Documento (opcional)</label>
+                        <input type="text" name="documento_numero" class="form-control" placeholder="N° de guía, factura, etc.">
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Observación</label>
+                        <textarea name="observacion" class="form-control" rows="2" placeholder="Motivo de la entrada..."></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-success">
+                        <i class="fas fa-save me-1"></i> Registrar Entrada
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 <script>
 document.getElementById('buscador')?.addEventListener('keyup', function() {
     const texto = this.value.toLowerCase();
@@ -283,6 +366,20 @@ function refrescarInventario() {
         alert('Error al refrescar el inventario');
     });
 }
+
+function quickEntry(productId, productName) {
+    document.getElementById('quickProductId').value = productId;
+    document.getElementById('quickProductName').textContent = productName;
+    
+    var modal = new bootstrap.Modal(document.getElementById('quickEntryModal'));
+    modal.show();
+}
+
+// Tooltips
+var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
+var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+    return new bootstrap.Tooltip(tooltipTriggerEl)
+});
 </script>
 
 <style>
@@ -300,6 +397,9 @@ function refrescarInventario() {
 }
 .table-danger {
     background-color: #fff8f8 !important;
+}
+.btn-group .btn {
+    margin-right: 2px;
 }
 </style>
 {% endblock %}
