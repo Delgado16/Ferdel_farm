@@ -143,59 +143,71 @@
             border-top: 1px dashed #000;
         }
 
-        /* ===== SECCION DE CREDITO ===== */
-        .credito-container {
-            margin: 8px 0;
-            padding: 5px;
+        /* ===== SECCION DE SALDOS - DISEÑO SOLICITADO ===== */
+        .saldos-container {
+            margin: 10px 0;
+            padding: 8px;
             border: 1px solid #000;
             background: #fff;
         }
         
-        .credito-row {
+        .saldos-row {
             display: flex;
             justify-content: space-between;
-            align-items: center;
             padding: 3px 0;
             border-bottom: 1px dotted #ccc;
         }
         
-        .credito-row:last-child {
-            border-bottom: none;
-        }
-        
-        .credito-label {
-            font-weight: bold;
-            text-align: left;
-        }
-        
-        .credito-value {
-            text-align: right;
+        .saldos-total-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 3px 0;
+            border-bottom: 1px dashed #000;
             font-weight: bold;
         }
         
-        .credito-total {
-            font-size: 11px;
-            background: #f0f0f0;
+        .saldos-abono-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 3px 0;
+            border-bottom: 1px dotted #ccc;
+            color: #006600;
+        }
+        
+        .saldos-final-row {
+            display: flex;
+            justify-content: space-between;
             padding: 5px 0;
-            margin-top: 5px;
+            margin-top: 3px;
             border-top: 2px solid #000;
-            border-bottom: 2px solid #000;
+            font-weight: bold;
+            font-size: 12px;
         }
         
-        .credito-mensaje {
+        .saldos-title {
             text-align: center;
             font-weight: bold;
-            padding: 3px;
-            margin-bottom: 5px;
-            background: #fff3cd;
-            border: 1px solid #ffeaa7;
+            margin-bottom: 8px;
+            font-size: 11px;
+            border-bottom: 1px solid #000;
+            padding-bottom: 3px;
+        }
+        
+        .abono-info {
+            font-size: 8px;
+            text-align: right;
+            color: #555;
+            margin-top: 3px;
+            border-top: 1px dotted #ccc;
+            padding-top: 2px;
         }
 
         /* ===== DETALLE DE DEUDAS ===== */
         .deudas-container {
-            margin: 5px 0;
-            padding: 3px;
-            font-size: 8px;
+            margin: 8px 0;
+            font-size: 9px;
+            border: 1px dashed #999;
+            padding: 5px;
         }
         
         .deuda-item {
@@ -203,6 +215,11 @@
             justify-content: space-between;
             padding: 2px 0;
             border-bottom: 1px dotted #eee;
+        }
+        
+        .deuda-header {
+            font-weight: bold;
+            margin-bottom: 3px;
         }
 
         /* ===== CONTROLES NO IMPRIMIBLES ===== */
@@ -242,6 +259,7 @@
             <div class="size-13 bold">FACTURA #{{ ticket.id_factura }}</div>
             <div class="size-9">Emision: {{ ticket.hora_emision.strftime('%d/%m/%Y %H:%M:%S') }}</div>
             <div class="size-9">Atendido por: {{ ticket.usuario }}</div>
+            <div class="size-9">Ruta: {{ ticket.ruta }}</div>
             <div class="divider"></div>
         </div>
 
@@ -249,6 +267,8 @@
         <div class="size-9">
             <div><strong>Cliente:</strong> {{ ticket.cliente }}</div>
             <div><strong>RUC/Cedula:</strong> {{ ticket.ruc_cliente }}</div>
+            <div><strong>Teléfono:</strong> {{ ticket.cliente_detalles.telefono or 'N/A' }}</div>
+            <div><strong>Dirección:</strong> {{ ticket.cliente_detalles.direccion or 'N/A' }}</div>
             <div><strong>Tipo Venta:</strong> {{ ticket.tipo_venta }}</div>
             {% if ticket.observacion %}
             <div><strong>Observaciones:</strong> {{ ticket.observacion }}</div>
@@ -260,7 +280,7 @@
         <table>
             <thead>
                 <tr class="size-9 bold table-header">
-                    <th class="text-left" style="width: 40%">Descripcion</th>
+                    <th class="text-left" style="width: 40%">Descripción</th>
                     <th class="text-right" style="width: 15%">Cant</th>
                     <th class="text-right" style="width: 20%">P.Unit</th>
                     <th class="text-right" style="width: 25%">Total</th>
@@ -296,73 +316,67 @@
             </tr>
         </table>
 
-        <!-- SECCION DE CREDITO COMPLETA -->
-        {% if mostrar_seccion_credito %}
-        <div class="credito-container">
-            {% if mensaje_credito %}
-            <div class="credito-mensaje size-9">
-                {{ mensaje_credito }}
+        <!-- SECCIÓN DE SALDOS - SOLO SI HAY SALDO PENDIENTE -->
+        {% if nuevo_saldo_pendiente > 0 %}
+        <div class="saldos-container">
+            
+            <!-- Título de la sección -->
+            <div class="saldos-title">
+                ESTADO DE CUENTA
+            </div>
+            
+            <!-- Total de la venta -->
+            <div class="saldos-row">
+                <span>Total de la venta</span>
+                <span style="font-weight: bold;">{{ venta_realizada_formateada }}</span>
+            </div>
+            
+            <!-- Saldo Anterior (suma de cuentas por cobrar) -->
+            <div class="saldos-row">
+                <span>Saldo Anterior</span>
+                <span style="font-weight: bold;">{{ saldo_anterior_formateado }}</span>
+            </div>
+            
+            <!-- Saldo Total (línea con guiones) -->
+            <div class="saldos-total-row">
+                <span>saldo total ----</span>
+                <span>C$ {{ "{:,.2f}".format(saldo_total|float) }}</span>
+            </div>
+            
+            <!-- Abono (si existe) -->
+            {% if abono_cliente > 0 %}
+            <div class="saldos-abono-row">
+                <span>Abono --------</span>
+                <span style="font-weight: bold;">{{ abono_cliente_formateado }}</span>
             </div>
             {% endif %}
             
-            <!-- DESCRIPCION DE LA VENTA -->
-            <div class="credito-row">
-                <span class="credito-label">Descripcion de la venta:</span>
-                <span class="credito-value">FACTURA #{{ ticket.id_factura }}</span>
-            </div>
-            
-            <!-- TOTAL DE LA VENTA -->
-            <div class="credito-row">
-                <span class="credito-label">Total de la venta:</span>
-                <span class="credito-value">{{ ticket.total_formateado }}</span>
-            </div>
-            
-            <!-- SALDO PENDIENTE ANTERIOR (DEUDAS PREVIAS) -->
-            <div class="credito-row">
-                <span class="credito-label">Saldo pendiente anterior:</span>
-                <span class="credito-value">{{ saldo_anterior_formateado }}</span>
-            </div>
-            
-            <!-- ABONOS REALIZADOS - Línea única corregida -->
-            <div class="credito-row">
-                <span class="credito-label">Abonos realizados:</span>
-                <span class="credito-value">
-                    {% if abonos_esta_factura > 0 %}
-                        {{ abonos_esta_factura_formateado }}
-                    {% else %}
-                        C$ 0.00
-                    {% endif %}
+            <!-- Saldo Pendiente Final (de la tabla clientes) -->
+            <div class="saldos-final-row">
+                <span>Saldo pendiente</span>
+                <span style="color: {% if nuevo_saldo_pendiente > 0 %}#CC0000{% else %}#006600{% endif %};">
+                    {{ nuevo_saldo_pendiente_formateado }}
                 </span>
             </div>
             
-            <!-- TOTAL SALDO PENDIENTE ACTUAL -->
-            <div class="credito-row credito-total">
-                <span class="credito-label">TOTAL SALDO PENDIENTE:</span>
-                <span class="credito-value">{{ saldo_pendiente_formateado }}</span>
-            </div>
-            
-            <!-- PROXIMO VENCIMIENTO -->
-            {% if proximo_vencimiento %}
-            <div class="credito-row">
-                <span class="credito-label">Proximo vencimiento:</span>
-                <span class="credito-value">{{ proximo_vencimiento }}</span>
+            <!-- Mensaje adicional si hay abono -->
+            {% if abono_cliente > 0 and concepto_abono %}
+            <div class="abono-info">
+                <em>{{ concepto_abono }}</em>
+                {% if fecha_abono %} - {{ fecha_abono }}{% endif %}
             </div>
             {% endif %}
         </div>
+
         {% endif %}
 
         <!-- PIE DEL TICKET -->
-        <div class="text-center size-9">
-            <div class="bold">Gracias por su compra!</div>
+        <div class="text-center size-9" style="margin-top: 10px;">
+            <div class="bold">¡Gracias por su compra!</div>
             <div>Vuelva pronto</div>
-            <div style="margin-top: 10px;">
+            <div style="margin-top: 8px;">
                 <div>--- Original ---</div>
             </div>
-            {% if ticket.empresa.correo %}
-            <div class="size-8" style="margin-top: 5px;">
-                Email: {{ ticket.empresa.correo }}
-            </div>
-            {% endif %}
         </div>
     </div>
 
@@ -370,17 +384,17 @@
     <div class="no-print print-controls">
         <div class="btn-group" role="group">
             <button onclick="imprimirTicket()" class="btn btn-primary btn-sm">
-                Imprimir Ticket
+                🖨️ Imprimir Ticket
             </button>
             <button onclick="window.history.back()" class="btn btn-secondary btn-sm">
-                Cerrar
+                ⬅️ Cerrar
             </button>
             <a href="{{ url_for('vendedor_ventas') }}" class="btn btn-success btn-sm">
-                Volver a Ventas
+                📋 Volver a Ventas
             </a>
         </div>
-        <p class="size-10 mt-2">
-            <em>Nota: Los botones no apareceran en la impresion</em>
+        <p class="size-10 mt-2 text-muted">
+            <em>Presione Ctrl+P o use el botón Imprimir</em>
         </p>
     </div>
 
@@ -389,15 +403,17 @@
             window.print();
         }
 
+        // Auto-impresión si viene el parámetro
         document.addEventListener('DOMContentLoaded', function() {
             var urlParams = new URLSearchParams(window.location.search);
-            if (urlParams.has('autoPrint')) {
+            if (urlParams.has('autoPrint') && urlParams.get('autoPrint') == '1') {
                 setTimeout(function() {
                     window.print();
                 }, 500);
             }
         });
 
+        // Atajo de teclado Ctrl+P
         document.addEventListener('keydown', function(e) {
             if ((e.ctrlKey || e.metaKey) && e.key === 'p') {
                 e.preventDefault();

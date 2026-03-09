@@ -33,6 +33,11 @@
 
     <!-- Formulario Principal -->
     <form id="ventaForm" method="POST" action="{{ url_for('vendedor_venta_crear') }}">
+        <!-- Campos ocultos para abono -->
+        <input type="hidden" id="abono_monto" name="abono_monto" value="0">
+        <input type="hidden" id="abono_metodo_pago" name="abono_metodo_pago" value="">
+        <input type="hidden" id="procesar_abono" name="procesar_abono" value="0">
+        
         <div class="row">
             <!-- Columna Izquierda - Datos de la Venta -->
             <div class="col-md-4">
@@ -47,12 +52,18 @@
                             <select class="form-select" id="cliente" name="cliente" required>
                                 <option value="">Seleccione un cliente...</option>
                                 {% for cliente in clientes %}
-                                <option value="{{ cliente.ID_Cliente }}" data-nombre="{{ cliente.Nombre }}"
-                                    data-telefono="{{ cliente.Telefono or '' }}"
-                                    data-direccion="{{ cliente.Direccion or '' }}"
-                                    data-ruc="{{ cliente.RUC_CEDULA or '' }}" data-tipo="{{ cliente.tipo_cliente }}"
-                                    data-perfil="{{ cliente.perfil_cliente }}">
+                                <option value="{{ cliente.ID_Cliente }}" 
+                                        data-nombre="{{ cliente.Nombre }}"
+                                        data-telefono="{{ cliente.Telefono or '' }}"
+                                        data-direccion="{{ cliente.Direccion or '' }}"
+                                        data-ruc="{{ cliente.RUC_CEDULA or '' }}" 
+                                        data-tipo="{{ cliente.tipo_cliente }}"
+                                        data-perfil="{{ cliente.perfil_cliente }}"
+                                        data-saldo="{{ cliente.Saldo_Pendiente_Total }}">
                                     {{ cliente.Nombre }} - {{ cliente.RUC_CEDULA }} ({{ cliente.perfil_cliente }})
+                                    {% if cliente.Saldo_Pendiente_Total > 0 %}
+                                        - <span class="text-danger">Saldo: C$ {{ "{:,.2f}".format(cliente.Saldo_Pendiente_Total) }}</span>
+                                    {% endif %}
                                 </option>
                                 {% endfor %}
                             </select>
@@ -212,10 +223,13 @@
                                 <select class="form-select" id="producto_select">
                                     <option value="">Seleccione un producto</option>
                                     {% for prod in inventario %}
-                                    <option value="{{ prod.ID_Producto }}" data-nombre="{{ prod.Nombre }}"
-                                        data-codigo="{{ prod.COD_Producto }}" data-precio="{{ prod.Precio_Ruta }}"
-                                        data-stock="{{ prod.Stock_Disponible }}" data-unidad="{{ prod.Descripcion }}">
-                                        {{ prod.Nombre }} - Stock: {{ prod.Stock_Disponible }} {{ prod.Descripcion }}
+                                    <option value="{{ prod.ID_Producto }}" 
+                                            data-nombre="{{ prod.Nombre }}"
+                                            data-codigo="{{ prod.COD_Producto }}" 
+                                            data-precio="{{ prod.Precio_Ruta }}"
+                                            data-stock="{{ prod.Stock_Disponible }}" 
+                                            data-unidad="{{ prod.Unidad_Medida }}">
+                                        {{ prod.Nombre }} - Stock: {{ prod.Stock_Disponible }} {{ prod.Unidad_Medida }}
                                     </option>
                                     {% endfor %}
                                 </select>
@@ -378,6 +392,18 @@
                     </div>
                 </div>
 
+                <!-- Resumen de abono a aplicar -->
+                <div id="resumenAbonoModal" class="alert alert-success mt-3" style="display: none;">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <strong>Abono a aplicar:</strong> <span id="abonoModal" class="fw-bold text-success">C$ 0.00</span>
+                        </div>
+                        <div class="col-md-6">
+                            <strong>Método de pago:</strong> <span id="metodoPagoModal">Efectivo</span>
+                        </div>
+                    </div>
+                </div>
+
                 <div class="mt-3">
                     <h6 class="mb-3">Detalle de productos:</h6>
                     <div class="table-responsive">
@@ -451,7 +477,7 @@
                         </div>
 
                         <div class="d-flex justify-content-between mb-2">
-                            <span class="fw-bold">Nueva Venta (Crédito):</span>
+                            <span class="fw-bold">Nueva Venta:</span>
                             <span class="text-primary fw-bold" id="modalNuevaVenta">C$ 0.00</span>
                         </div>
 
@@ -561,13 +587,13 @@
                                 <td class="text-center">
                                     <span
                                         class="badge bg-{{ 'success' if prod.Stock_Disponible > 10 else 'warning' if prod.Stock_Disponible > 0 else 'danger' }}">
-                                        {{ prod.Stock_Disponible }} {{ prod.Descripcion }}
+                                        {{ prod.Stock_Disponible }} {{ prod.Unidad_Medida }}
                                     </span>
                                 </td>
                                 <td class="text-end">C$ {{ "%.2f"|format(prod.Precio_Ruta) }}</td>
                                 <td class="text-center">
                                     <button type="button" class="btn btn-sm btn-primary"
-                                        onclick="agregarDesdeInventario('{{ prod.ID_Producto }}', '{{ prod.Nombre }}', '{{ prod.COD_Producto }}', {{ prod.Precio_Ruta }}, {{ prod.Stock_Disponible }}, '{{ prod.Descripcion }}')">
+                                        onclick="agregarDesdeInventario('{{ prod.ID_Producto }}', '{{ prod.Nombre }}', '{{ prod.COD_Producto }}', {{ prod.Precio_Ruta }}, {{ prod.Stock_Disponible }}, '{{ prod.Unidad_Medida }}')">
                                         <i class="fas fa-plus me-1"></i>Agregar
                                     </button>
                                 </td>
@@ -589,6 +615,8 @@
     let saldoClienteActual = 0;
     let facturasPendientes = [];
     let productos = [];
+    let abonoSeleccionado = 0;
+    let metodoPagoSeleccionado = '';
 
     // Función segura para obtener elementos
     function getElement(id) {
@@ -635,6 +663,19 @@
                 if (data.success) {
                     saldoClienteActual = parseFloat(data.cliente.saldo_pendiente) || 0;
                     facturasPendientes = data.facturas_detalle || [];
+                    
+                    // Mostrar en el select el saldo
+                    const clienteSelect = getElement('cliente');
+                    if (clienteSelect) {
+                        const option = clienteSelect.options[clienteSelect.selectedIndex];
+                        if (option) {
+                            const saldoSpan = option.innerHTML.includes('Saldo:') ? 
+                                option.innerHTML : 
+                                option.innerHTML + ` - <span class="text-danger">Saldo: ${formatoCordoba(saldoClienteActual)}</span>`;
+                            option.innerHTML = saldoSpan;
+                        }
+                    }
+                    
                     saldoClienteActual > 0 ? mostrarAlertaSaldo(data) : ocultarAlertaSaldo();
                 } else {
                     ocultarAlertaSaldo();
@@ -654,47 +695,60 @@
         if (!saldoInfo) return;
 
         let html = `
-        <div class="alert alert-warning alert-dismissible fade show" role="alert">
-            <h5 class="alert-heading"><i class="fas fa-exclamation-triangle me-2"></i>Cliente con Saldo Pendiente</h5>
-            <div class="row">
-                <div class="col-md-6">
-                    <p><strong>Cliente:</strong> ${cliente.nombre}</p>
-                    <p><strong>Documento:</strong> ${cliente.ruc}</p>
-                </div>
-                <div class="col-md-6">
-                    <p><strong>Saldo Pendiente:</strong> <span class="text-danger fw-bold">${formatoCordoba(cliente.saldo_pendiente)}</span></p>
-                    <p><strong>Facturas Pendientes:</strong> ${cliente.facturas_pendientes}</p>
-                </div>
-            </div>`;
-
-        if (facturas.length > 0) {
-            html += `<div class="table-responsive mt-2"><table class="table table-sm table-bordered"><thead class="table-light"><tr><th>Documento</th><th>Fecha</th><th>Vencimiento</th><th>Días Vencido</th><th class="text-end">Monto</th><th class="text-end">Saldo</th></tr></thead><tbody>`;
-            facturas.forEach(f => {
-                const diasVencido = f.Dias_Vencido || 0;
-                const claseVencimiento = diasVencido > 0 ? 'text-danger fw-bold' : 'text-success';
-                html += `<tr><td>${f.Num_Documento}</td><td>${formatearFecha(f.Fecha)}</td><td>${formatearFecha(f.Fecha_Vencimiento)}</td><td class="${claseVencimiento}">${diasVencido > 0 ? diasVencido + ' días' : 'Al día'}</td><td class="text-end">${formatoCordoba(f.Monto_Movimiento)}</td><td class="text-end">${formatoCordoba(f.Saldo_Pendiente)}</td></tr>`;
-            });
-            html += `</tbody></table></div>`;
-        }
-
-        html += `<hr><div class="row">
-            <div class="col-md-6">
-                <p><strong>Total Nueva Venta:</strong> <span id="total-nueva-venta">C$ 0.00</span></p>
+        <div class="card mb-3 border-warning">
+            <div class="card-header bg-warning text-dark">
+                <h5 class="mb-0"><i class="fas fa-exclamation-triangle me-2"></i>Cliente con Saldo Pendiente</h5>
             </div>
-            <div class="col-md-6">
-                <p><strong>Total Pendiente con Nueva Venta:</strong> <span id="total-pendiente-con-nueva" class="text-danger fw-bold">${formatoCordoba(cliente.saldo_pendiente)}</span></p>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <p><strong>Cliente:</strong> ${cliente.nombre}</p>
+                        <p><strong>Documento:</strong> ${cliente.ruc}</p>
+                    </div>
+                    <div class="col-md-6">
+                        <p><strong>Saldo Pendiente:</strong> <span class="text-danger fw-bold">${formatoCordoba(cliente.saldo_pendiente)}</span></p>
+                    </div>
+                </div>
+                <hr>
+                <div class="table-responsive">
+                    <table class="table table-sm table-bordered">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Documento</th>
+                                <th>Fecha</th>
+                                <th>Vencimiento</th>
+                                <th>Días Vencido</th>
+                                <th class="text-end">Monto</th>
+                                <th class="text-end">Saldo</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${facturas.map(f => {
+                                const diasVencido = f.Dias_Vencido || 0;
+                                const claseVencimiento = diasVencido > 0 ? 'text-danger fw-bold' : 'text-success';
+                                return `<tr><td>${f.Num_Documento}</td><td>${formatearFecha(f.Fecha)}</td><td>${formatearFecha(f.Fecha_Vencimiento)}</td><td class="${claseVencimiento}">${diasVencido > 0 ? diasVencido + ' días' : 'Al día'}</td><td class="text-end">${formatoCordoba(f.Monto_Movimiento)}</td><td class="text-end">${formatoCordoba(f.Saldo_Pendiente)}</td></tr>`;
+                            }).join('')}
+                        </tbody>
+                    </table>
+                </div>
+                <div class="row mt-3">
+                    <div class="col-md-6">
+                        <p><strong>Total Nueva Venta:</strong> <span id="total-nueva-venta">C$ 0.00</span></p>
+                    </div>
+                    <div class="col-md-6">
+                        <p><strong>Total Pendiente con Nueva Venta:</strong> <span id="total-pendiente-con-nueva" class="text-danger fw-bold">${formatoCordoba(cliente.saldo_pendiente)}</span></p>
+                    </div>
+                </div>
             </div>
         </div>
-        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-        </div>`;
-        
+        `;
         saldoInfo.innerHTML = html;
-        
-        // Ahora que los elementos existen en el DOM, actualizamos sus valores
+
+        // Actualizar valores
         const totalVenta = calcularTotalVenta();
         const totalNuevaVenta = getElement('total-nueva-venta');
         const totalPendienteConNueva = getElement('total-pendiente-con-nueva');
-        
+
         if (totalNuevaVenta) totalNuevaVenta.textContent = formatoCordoba(totalVenta);
         if (totalPendienteConNueva) totalPendienteConNueva.textContent = formatoCordoba(saldoClienteActual + totalVenta);
     }
@@ -710,7 +764,6 @@
         const totalVenta = calcularTotalVenta();
         const totalPendiente = saldoClienteActual + totalVenta;
         
-        // Verificar si los elementos existen antes de actualizarlos
         const totalNuevaVenta = getElement('total-nueva-venta');
         const totalPendienteConNueva = getElement('total-pendiente-con-nueva');
         
@@ -732,7 +785,7 @@
     let datosVentaActual = { clienteId: null, totalVenta: 0, saldoAnterior: 0, productos: [] };
 
     function mostrarModalAbono(clienteId, saldoAnterior, totalVenta, facturas) {
-        datosVentaActual = { clienteId, totalVenta, saldoAnterior, productos };
+        datosVentaActual = { clienteId, totalVenta, saldoAnterior, productos: [...productos] };
 
         const modalSaldoAnterior = getElement('modalSaldoAnterior');
         const modalNuevaVenta = getElement('modalNuevaVenta');
@@ -839,71 +892,73 @@
         if (detalleAplicacion) detalleAplicacion.style.display = 'block';
     }
 
+    // NUEVA FUNCIÓN: Procesar abono (guarda datos en campos ocultos)
     function procesarVentaConAbono(montoAbono) {
         const metodoPago = getElement('modalMetodoPago')?.value || 1;
-
+        const metodoPagoText = getElement('modalMetodoPago')?.options[getElement('modalMetodoPago').selectedIndex]?.text || 'Efectivo';
+        
+        abonoSeleccionado = montoAbono;
+        metodoPagoSeleccionado = metodoPagoText;
+        
         Swal.fire({
-            title: 'Procesando abono...',
+            title: 'Procesando...',
             text: 'Por favor espere',
             allowOutsideClick: false,
             showConfirmButton: false,
             didOpen: () => Swal.showLoading()
         });
-
-        fetch('/api/vendedor/procesar_abono', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                id_cliente: datosVentaActual.clienteId,
-                monto_abono: montoAbono,
-                metodo_pago: metodoPago
-            })
-        })
-            .then(response => {
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
-                return response.json();
-            })
-            .then(data => {
-                if (data.success) {
-                    Swal.fire({
-                        icon: 'success',
-                        title: '¡Abono registrado!',
-                        html: `<p>Monto: ${formatoCordoba(montoAbono)}</p><p>Vuelto: ${formatoCordoba(data.vuelto || 0)}</p>`,
-                        timer: 2000,
-                        showConfirmButton: false
-                    }).then(() => {
-                        const modalElement = getElement('modalAbonoCredito');
-                        if (modalElement) {
-                            const modal = bootstrap.Modal.getInstance(modalElement);
-                            if (modal) modal.hide();
-                        }
-                        mostrarModalConfirmacionVenta();
-                    });
-                } else {
-                    Swal.fire({ icon: 'error', title: 'Error', text: data.error || 'Error al procesar abono' });
-                }
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                Swal.fire({ icon: 'error', title: 'Error de conexión', text: 'No se pudo conectar con el servidor' });
-            });
-    }
-
-    function mostrarModalConfirmacionVenta() {
-        if (!llenarResumenConfirmacion()) {
-            console.error('Error al llenar resumen');
-            return;
+        
+        // Guardar datos del abono en campos ocultos del formulario principal
+        const form = getElement('ventaForm');
+        
+        // Campo para monto del abono
+        let abonoField = getElement('abono_monto');
+        if (!abonoField) {
+            abonoField = document.createElement('input');
+            abonoField.type = 'hidden';
+            abonoField.name = 'abono_monto';
+            abonoField.id = 'abono_monto';
+            form.appendChild(abonoField);
         }
-
-        const modalElement = getElement('modalConfirmacionVenta');
+        abonoField.value = montoAbono;
+        
+        // Campo para método de pago del abono
+        let metodoPagoField = getElement('abono_metodo_pago');
+        if (!metodoPagoField) {
+            metodoPagoField = document.createElement('input');
+            metodoPagoField.type = 'hidden';
+            metodoPagoField.name = 'abono_metodo_pago';
+            metodoPagoField.id = 'abono_metodo_pago';
+            form.appendChild(metodoPagoField);
+        }
+        metodoPagoField.value = metodoPago;
+        
+        // Campo indicador de procesar abono
+        let procesarAbonoField = getElement('procesar_abono');
+        if (!procesarAbonoField) {
+            procesarAbonoField = document.createElement('input');
+            procesarAbonoField.type = 'hidden';
+            procesarAbonoField.name = 'procesar_abono';
+            procesarAbonoField.id = 'procesar_abono';
+            form.appendChild(procesarAbonoField);
+        } else {
+            procesarAbonoField.value = '1';
+        }
+        
+        Swal.close();
+        
+        // Cerrar modal de abono
+        const modalElement = getElement('modalAbonoCredito');
         if (modalElement) {
-            try {
-                const modalConfirmacion = new bootstrap.Modal(modalElement);
-                modalConfirmacion.show();
-            } catch (e) {
-                console.error('Error al mostrar modal:', e);
+            const modal = bootstrap.Modal.getInstance(modalElement);
+            if (modal) modal.hide();
+        }
+        
+        // Mostrar modal de confirmación de venta
+        if (llenarResumenConfirmacion()) {
+            const modalConfirmacion = getElement('modalConfirmacionVenta');
+            if (modalConfirmacion) {
+                new bootstrap.Modal(modalConfirmacion).show();
             }
         }
     }
@@ -1196,6 +1251,21 @@
             resumenSaldoModal.style.display = (tipoVenta.value === '2' && saldoClienteActual > 0) ? 'block' : 'none';
         }
 
+        // Mostrar información del abono si existe
+        const resumenAbonoModal = getElement('resumenAbonoModal');
+        const abonoModal = getElement('abonoModal');
+        const metodoPagoModal = getElement('metodoPagoModal');
+        
+        if (resumenAbonoModal && abonoModal && metodoPagoModal) {
+            if (abonoSeleccionado > 0) {
+                abonoModal.textContent = formatoCordoba(abonoSeleccionado);
+                metodoPagoModal.textContent = metodoPagoSeleccionado || 'Efectivo';
+                resumenAbonoModal.style.display = 'block';
+            } else {
+                resumenAbonoModal.style.display = 'none';
+            }
+        }
+
         const clienteSelect = getElement('cliente');
         const option = clienteSelect?.options[clienteSelect.selectedIndex];
         const clienteNombre = option?.dataset.nombre || '';
@@ -1277,6 +1347,9 @@
         const btnMostrarConfirmacion = getElement('btnMostrarConfirmacion');
         const btnConfirmarGuardar = getElement('btnConfirmarGuardar');
         const btnGuardarCliente = getElement('btnGuardarCliente');
+        const btnConfirmarConAbono = getElement('btnConfirmarConAbono');
+        const btnContinuarSinAbono = getElement('btnContinuarSinAbono');
+        const montoAbonoInput = getElement('modalMontoAbono');
 
         // Evento cliente change
         if (clienteSelect) {
@@ -1487,6 +1560,10 @@
                     const totalVenta = calcularTotalVenta();
                     mostrarModalAbono(clienteSelect.value, saldoClienteActual, totalVenta, facturasPendientes);
                 } else {
+                    // Reiniciar valores de abono
+                    abonoSeleccionado = 0;
+                    metodoPagoSeleccionado = '';
+                    
                     if (llenarResumenConfirmacion()) {
                         const modalElement = getElement('modalConfirmacionVenta');
                         if (modalElement) {
@@ -1540,18 +1617,20 @@
         }
 
         // Eventos modal abono
-        const montoAbonoInput = getElement('modalMontoAbono');
         if (montoAbonoInput) {
             montoAbonoInput.addEventListener('input', actualizarValoresDespuesAbono);
         }
 
-        const btnConfirmarConAbono = getElement('btnConfirmarConAbono');
         if (btnConfirmarConAbono) {
             btnConfirmarConAbono.addEventListener('click', function () {
                 const montoAbono = parseFloat(getElement('modalMontoAbono')?.value) || 0;
                 if (montoAbono > 0) {
                     procesarVentaConAbono(montoAbono);
                 } else {
+                    // Si el monto es 0, tratar como sin abono
+                    abonoSeleccionado = 0;
+                    metodoPagoSeleccionado = '';
+                    
                     const modalElement = getElement('modalAbonoCredito');
                     if (modalElement) {
                         const modal = bootstrap.Modal.getInstance(modalElement);
@@ -1567,14 +1646,24 @@
             });
         }
 
-        const btnContinuarSinAbono = getElement('btnContinuarSinAbono');
         if (btnContinuarSinAbono) {
             btnContinuarSinAbono.addEventListener('click', function () {
+                // Limpiar campos de abono
+                abonoSeleccionado = 0;
+                metodoPagoSeleccionado = '';
+                
+                const abonoField = getElement('abono_monto');
+                if (abonoField) abonoField.value = '0';
+                
+                const procesarAbonoField = getElement('procesar_abono');
+                if (procesarAbonoField) procesarAbonoField.value = '0';
+                
                 const modalElement = getElement('modalAbonoCredito');
                 if (modalElement) {
                     const modal = bootstrap.Modal.getInstance(modalElement);
                     if (modal) modal.hide();
                 }
+                
                 if (llenarResumenConfirmacion()) {
                     const modalConfirmacion = getElement('modalConfirmacionVenta');
                     if (modalConfirmacion) {
@@ -1593,7 +1682,8 @@
                     showAlert('warning', 'Nombre y RUC obligatorios');
                     return;
                 }
-                showAlert('success', 'Cliente registrado');
+                // Aquí iría la lógica para guardar el cliente via API
+                showAlert('success', 'Cliente registrado (simulado)');
                 const modalElement = getElement('nuevoClienteModal');
                 if (modalElement) {
                     const modal = bootstrap.Modal.getInstance(modalElement);
@@ -1766,11 +1856,9 @@
         0% {
             opacity: 1;
         }
-
         50% {
             opacity: 0.9;
         }
-
         100% {
             opacity: 1;
         }

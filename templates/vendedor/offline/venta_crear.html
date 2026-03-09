@@ -6,7 +6,7 @@
 {{ super() }}
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
 <style>
-    /* Estilos responsive globales */
+    /* Estilos responsive globales - mantén los estilos existentes */
     :root {
         --primary-gradient: linear-gradient(45deg, #667eea, #764ba2);
         --info-gradient: linear-gradient(45deg, #17a2b8, #138496);
@@ -14,7 +14,16 @@
         --dark-gradient: linear-gradient(45deg, #343a40, #23272b);
     }
 
-    /* Ajustes generales para móviles */
+    /* Nuevo estilo para indicador de datos del día */
+    .badge-dia {
+        background: linear-gradient(45deg, #28a745, #20c997);
+        color: white;
+        padding: 0.5rem 1rem;
+        border-radius: 50px;
+        font-size: 0.9rem;
+    }
+
+    /* Ajustes generales para móviles - mantén los existentes */
     @media (max-width: 768px) {
         .container-fluid {
             padding-left: 10px;
@@ -502,9 +511,16 @@
                     <li class="breadcrumb-item active" aria-current="page">Nueva Venta</li>
                 </ol>
             </nav>
-            <div class="alert alert-info mt-2 mb-0" id="offlineAlert">
-                <i class="fas fa-wifi-slash me-2"></i>
-                <span id="offlineMessage">Modo Offline - Las ventas se guardarán localmente</span>
+            <!-- NUEVO: Indicador de fecha del día -->
+            <div class="d-flex align-items-center gap-2 mt-2">
+                <div class="alert alert-info mt-2 mb-0" id="offlineAlert">
+                    <i class="fas fa-wifi-slash me-2"></i>
+                    <span id="offlineMessage">Modo Offline - Las ventas se guardarán localmente</span>
+                </div>
+                <span class="badge-dia" id="indicadorFecha">
+                    <i class="fas fa-calendar-day me-1"></i>
+                    <span id="fechaActual"></span>
+                </span>
             </div>
         </div>
         <div class="w-100 w-md-auto">
@@ -515,6 +531,27 @@
                 <button class="btn btn-outline-success flex-fill flex-md-grow-0" id="syncStatus" onclick="verEstadoSincronizacion()">
                     <i class="fas fa-sync me-1"></i> <span id="syncCount">0</span> pendientes
                 </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- NUEVO: Barra de información de sincronización del día -->
+    <div class="row mb-3">
+        <div class="col-12">
+            <div class="card bg-light">
+                <div class="card-body py-2">
+                    <div class="d-flex flex-wrap align-items-center justify-content-between">
+                        <div class="d-flex align-items-center gap-3">
+                            <span class="fw-bold"><i class="fas fa-database me-2"></i>Datos del día:</span>
+                            <span class="badge bg-primary" id="totalProductosDia">0 productos</span>
+                            <span class="badge bg-info" id="totalClientesDia">0 clientes</span>
+                            <span class="badge bg-success" id="totalVentasDia">0 ventas hoy</span>
+                        </div>
+                        <button class="btn btn-sm btn-outline-primary" onclick="forzarRecargaDatos()">
+                            <i class="fas fa-sync-alt me-1"></i> Recargar datos del día
+                        </button>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -1205,6 +1242,17 @@
     let sincronizacionEnProgreso = false;
     let timeoutSincronizacion = null;
     let datosVentaActual = { clienteId: null, totalVenta: 0, saldoAnterior: 0, facturasCliente: [] };
+    let fechaSincronizacion = null;
+
+    // ============================================
+    // CONFIGURACIÓN DE LIMPIEZA AUTOMÁTICA
+    // ============================================
+    const CONFIG_LIMPIEZA = {
+        DIAS_CONSERVAR: 1, // Conservar solo 1 día (24 horas)
+        HORAS_ENTRE_LIMPIEZAS: 24, // Ejecutar cada 24 horas
+        TIPOS_A_LIMPIAR: ['ventas_pendientes', 'abonos_pendientes', 'gastos_pendientes', 'cuentas_cobrar'],
+        DATOS_MAESTROS_A_CONSERVAR: ['productos', 'clientes', 'asignaciones', 'metadata'] // No limpiar estos
+    };
 
     // ============================================
     // FUNCIONES AUXILIARES
@@ -1254,6 +1302,290 @@
         });
     }
 
+    function mostrarFechaActual() {
+        const fechaSpan = getElement('fechaActual');
+        if (fechaSpan) {
+            const hoy = new Date();
+            const opciones = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+            fechaSpan.textContent = hoy.toLocaleDateString('es-ES', opciones);
+        }
+    }
+
+    function actualizarContadoresDia() {
+        const totalProductosDia = getElement('totalProductosDia');
+        const totalClientesDia = getElement('totalClientesDia');
+        const totalVentasDia = getElement('totalVentasDia');
+
+        if (totalProductosDia) {
+            totalProductosDia.textContent = `${productos.length} productos`;
+        }
+
+        if (totalClientesDia) {
+            totalClientesDia.textContent = `${clientes.length} clientes`;
+        }
+
+        const hoy = new Date().toISOString().split('T')[0];
+        const ventasHoy = operacionesPendientes.ventas.filter(v => {
+            const fechaVenta = new Date(v.fecha).toISOString().split('T')[0];
+            return fechaVenta === hoy;
+        }).length;
+
+        if (totalVentasDia) {
+            totalVentasDia.textContent = `${ventasHoy} ventas hoy`;
+        }
+    }
+
+    // ============================================
+    // SISTEMA DE LIMPIEZA AUTOMÁTICA
+    // ============================================
+    
+    /**
+     * Limpia datos antiguos (más de 24 horas) de IndexedDB
+     * Se ejecuta automáticamente sin intervención del usuario
+     */
+    async function limpiarDatosAntiguos() {
+        try {
+            console.log('🧹 Iniciando limpieza automática de datos antiguos...');
+            
+            // Calcular fecha límite (24 horas atrás)
+            const fechaLimite = new Date();
+            fechaLimite.setHours(fechaLimite.getHours() - 24);
+            
+            console.log(`📅 Eliminando datos anteriores a: ${fechaLimite.toLocaleString()}`);
+            
+            // Estadísticas de limpieza
+            const stats = {
+                ventas: 0,
+                abonos: 0,
+                gastos: 0,
+                cuentas: 0
+            };
+            
+            // Iniciar transacción de lectura/escritura
+            const tx = db.transaction(CONFIG_LIMPIEZA.TIPOS_A_LIMPIAR, 'readwrite');
+            
+            // 1. LIMPIAR VENTAS PENDIENTES ANTIGUAS
+            const ventasStore = tx.objectStore('ventas_pendientes');
+            const ventas = await new Promise((resolve, reject) => {
+                const request = ventasStore.getAll();
+                request.onsuccess = () => resolve(request.result || []);
+                request.onerror = reject;
+            });
+            
+            for (const venta of ventas) {
+                const fechaVenta = new Date(venta.fecha || venta.fecha_creacion || 0);
+                
+                // Si es más antigua que 24 horas y ya está sincronizada, eliminar
+                if (fechaVenta < fechaLimite) {
+                    if (venta.sincronizada) {
+                        await new Promise((resolve, reject) => {
+                            const request = ventasStore.delete(venta.id_temporal);
+                            request.onsuccess = resolve;
+                            request.onerror = reject;
+                        });
+                        stats.ventas++;
+                        console.log(`🗑️ Venta antigua eliminada: ${venta.id_temporal}`);
+                    }
+                }
+            }
+            
+            // 2. LIMPIAR ABONOS PENDIENTES ANTIGUOS
+            const abonosStore = tx.objectStore('abonos_pendientes');
+            const abonos = await new Promise((resolve, reject) => {
+                const request = abonosStore.getAll();
+                request.onsuccess = () => resolve(request.result || []);
+                request.onerror = reject;
+            });
+            
+            for (const abono of abonos) {
+                const fechaAbono = new Date(abono.fecha || abono.fecha_creacion || 0);
+                if (fechaAbono < fechaLimite && abono.sincronizada) {
+                    await new Promise((resolve, reject) => {
+                        const request = abonosStore.delete(abono.id_temporal);
+                        request.onsuccess = resolve;
+                        request.onerror = reject;
+                    });
+                    stats.abonos++;
+                    console.log(`🗑️ Abono antiguo eliminado: ${abono.id_temporal}`);
+                }
+            }
+            
+            // 3. LIMPIAR GASTOS PENDIENTES ANTIGUOS
+            const gastosStore = tx.objectStore('gastos_pendientes');
+            const gastos = await new Promise((resolve, reject) => {
+                const request = gastosStore.getAll();
+                request.onsuccess = () => resolve(request.result || []);
+                request.onerror = reject;
+            });
+            
+            for (const gasto of gastos) {
+                const fechaGasto = new Date(gasto.fecha || gasto.fecha_creacion || 0);
+                if (fechaGasto < fechaLimite && gasto.sincronizada) {
+                    await new Promise((resolve, reject) => {
+                        const request = gastosStore.delete(gasto.id_temporal);
+                        request.onsuccess = resolve;
+                        request.onerror = reject;
+                    });
+                    stats.gastos++;
+                    console.log(`🗑️ Gasto antiguo eliminado: ${gasto.id_temporal}`);
+                }
+            }
+            
+            // 4. LIMPIAR CUENTAS POR COBRAR TEMPORALES ANTIGUAS
+            const cuentasStore = tx.objectStore('cuentas_cobrar');
+            const cuentas = await new Promise((resolve, reject) => {
+                const request = cuentasStore.getAll();
+                request.onsuccess = () => resolve(request.result || []);
+                request.onerror = reject;
+            });
+            
+            for (const cuenta of cuentas) {
+                // Solo eliminar cuentas temporales (prefijo temp_) que sean antiguas
+                if (cuenta.ID_Movimiento && cuenta.ID_Movimiento.toString().startsWith('temp_')) {
+                    const fechaCreacion = new Date(cuenta.fecha_creacion || cuenta.Fecha || 0);
+                    if (fechaCreacion < fechaLimite) {
+                        await new Promise((resolve, reject) => {
+                            const request = cuentasStore.delete(cuenta.ID_Movimiento);
+                            request.onsuccess = resolve;
+                            request.onerror = reject;
+                        });
+                        stats.cuentas++;
+                        console.log(`🗑️ Cuenta temporal eliminada: ${cuenta.ID_Movimiento}`);
+                    }
+                }
+            }
+            
+            // Esperar a que termine la transacción
+            await new Promise((resolve, reject) => {
+                tx.oncomplete = resolve;
+                tx.onerror = reject;
+            });
+            
+            // Mostrar resumen en consola (sin molestar al usuario)
+            const totalEliminados = stats.ventas + stats.abonos + stats.gastos + stats.cuentas;
+            if (totalEliminados > 0) {
+                console.log(`✅ Limpieza automática completada:`, stats);
+            } else {
+                console.log('📊 No hay datos antiguos para limpiar');
+            }
+            
+            // Actualizar contadores después de la limpieza
+            await cargarOperacionesPendientes();
+            actualizarContadoresDia();
+            
+            return stats;
+            
+        } catch (error) {
+            console.error('❌ Error durante la limpieza automática:', error);
+            return null;
+        }
+    }
+
+    /**
+     * Limpieza específica después de sincronización
+     * Elimina datos ya sincronizados para liberar espacio
+     */
+    async function limpiarDespuesSincronizacion() {
+        try {
+            const tx = db.transaction(['ventas_pendientes', 'abonos_pendientes', 'gastos_pendientes'], 'readwrite');
+            
+            // Eliminar todas las ventas sincronizadas
+            const ventasStore = tx.objectStore('ventas_pendientes');
+            const ventas = await new Promise((resolve, reject) => {
+                const request = ventasStore.getAll();
+                request.onsuccess = () => resolve(request.result || []);
+                request.onerror = reject;
+            });
+            
+            for (const venta of ventas) {
+                if (venta.sincronizada) {
+                    await ventasStore.delete(venta.id_temporal);
+                }
+            }
+            
+            // Eliminar todos los abonos sincronizados
+            const abonosStore = tx.objectStore('abonos_pendientes');
+            const abonos = await new Promise((resolve, reject) => {
+                const request = abonosStore.getAll();
+                request.onsuccess = () => resolve(request.result || []);
+                request.onerror = reject;
+            });
+            
+            for (const abono of abonos) {
+                if (abono.sincronizada) {
+                    await abonosStore.delete(abono.id_temporal);
+                }
+            }
+            
+            // Eliminar todos los gastos sincronizados
+            const gastosStore = tx.objectStore('gastos_pendientes');
+            const gastos = await new Promise((resolve, reject) => {
+                const request = gastosStore.getAll();
+                request.onsuccess = () => resolve(request.result || []);
+                request.onerror = reject;
+            });
+            
+            for (const gasto of gastos) {
+                if (gasto.sincronizada) {
+                    await gastosStore.delete(gasto.id_temporal);
+                }
+            }
+            
+            console.log('🧹 Limpieza post-sincronización completada');
+            
+        } catch (error) {
+            console.error('Error en limpieza post-sincronización:', error);
+        }
+    }
+
+    /**
+     * Programa la limpieza automática cada 24 horas
+     */
+    function programarLimpiezaAutomatica() {
+        // Limpiar el intervalo anterior si existe
+        if (window.intervaloLimpieza) {
+            clearInterval(window.intervaloLimpieza);
+        }
+        
+        // Programar nuevo intervalo (cada 24 horas)
+        window.intervaloLimpieza = setInterval(() => {
+            console.log('⏰ Ejecutando limpieza programada (cada 24h)');
+            limpiarDatosAntiguos();
+        }, CONFIG_LIMPIEZA.HORAS_ENTRE_LIMPIEZAS * 60 * 60 * 1000); // Convertir horas a milisegundos
+        
+        console.log(`⏰ Limpieza automática programada cada ${CONFIG_LIMPIEZA.HORAS_ENTRE_LIMPIEZAS} horas`);
+    }
+
+    /**
+     * Verifica el espacio de almacenamiento usado (solo en consola)
+     */
+    async function verificarEspacioAlmacenamiento() {
+        try {
+            if (!navigator.storage || !navigator.storage.estimate) {
+                console.log('📊 API de estimación de almacenamiento no disponible');
+                return;
+            }
+            
+            const estimacion = await navigator.storage.estimate();
+            const usado = estimacion.usage || 0;
+            const total = estimacion.quota || 0;
+            const porcentaje = total > 0 ? (usado / total * 100).toFixed(1) : 0;
+            
+            console.log(`📊 Almacenamiento: ${(usado / 1024 / 1024).toFixed(2)} MB usado de ${(total / 1024 / 1024).toFixed(2)} MB (${porcentaje}%)`);
+            
+            // Solo advertir en consola si está cerca del límite
+            if (porcentaje > 80) {
+                console.warn(`⚠️ Almacenamiento al ${porcentaje}% de capacidad`);
+            }
+            
+            return { usado, total, porcentaje };
+            
+        } catch (error) {
+            console.error('Error verificando almacenamiento:', error);
+            return null;
+        }
+    }
+
     // ============================================
     // INDEXEDDB - INICIALIZACIÓN (VERSIÓN 4)
     // ============================================
@@ -1283,6 +1615,7 @@
                     const store = db.createObjectStore('cuentas_cobrar', { keyPath: 'ID_Movimiento' });
                     store.createIndex('cliente', 'ID_Cliente', { unique: false });
                     store.createIndex('estado', 'Estado', { unique: false });
+                    store.createIndex('fecha', 'Fecha', { unique: false });
                 }
 
                 if (!db.objectStoreNames.contains('ventas_pendientes')) {
@@ -1345,6 +1678,7 @@
             if (data.success) {
                 infoAsignacion = data.asignacion;
                 infoEmpresa = data.empresa;
+                fechaSincronizacion = data.fecha_sincronizacion || new Date().toISOString();
                 await guardarDatosEnIndexedDB(data);
                 showToast('success', 'Datos cargados', 'Datos sincronizados correctamente');
                 return true;
@@ -1408,9 +1742,8 @@
             }
 
             const clientStore = tx.objectStore('clientes');
-            if (data.clientes && Array.isArray(data.clientes)) {
-                clientStore.clear();
-                data.clientes.forEach(cliente => {
+            if (data.clientes_actualizados_hoy && Array.isArray(data.clientes_actualizados_hoy)) {
+                data.clientes_actualizados_hoy.forEach(cliente => {
                     clientStore.put({
                         ID_Cliente: cliente.ID_Cliente,
                         Nombre: cliente.Nombre,
@@ -1424,13 +1757,12 @@
                         fecha_sincronizacion: new Date().toISOString()
                     });
                 });
-                console.log(`✅ ${data.clientes.length} clientes guardados`);
+                console.log(`✅ ${data.clientes_actualizados_hoy.length} clientes actualizados hoy`);
             }
 
             const cxcStore = tx.objectStore('cuentas_cobrar');
-            if (data.cuentas_cobrar && Array.isArray(data.cuentas_cobrar)) {
-                cxcStore.clear();
-                data.cuentas_cobrar.forEach(cxc => {
+            if (data.cuentas_cobrar_dia && Array.isArray(data.cuentas_cobrar_dia)) {
+                data.cuentas_cobrar_dia.forEach(cxc => {
                     cxcStore.put({
                         ID_Movimiento: cxc.ID_Movimiento,
                         ID_Cliente: cxc.ID_Cliente,
@@ -1443,7 +1775,7 @@
                         fecha_sincronizacion: new Date().toISOString()
                     });
                 });
-                console.log(`✅ ${data.cuentas_cobrar.length} cuentas por cobrar guardadas`);
+                console.log(`✅ ${data.cuentas_cobrar_dia.length} cuentas por cobrar del día guardadas`);
             }
 
             const metaStore = tx.objectStore('metadata');
@@ -1466,6 +1798,7 @@
                 productos = request.result || [];
                 console.log(`✅ ${productos.length} productos cargados desde IndexedDB`);
                 llenarSelectProductos();
+                actualizarContadoresDia();
                 resolve();
             };
 
@@ -1486,6 +1819,7 @@
                 clientes = request.result || [];
                 console.log(`✅ ${clientes.length} clientes cargados`);
                 llenarSelectClientes();
+                actualizarContadoresDia();
                 resolve();
             };
 
@@ -1568,6 +1902,7 @@
             console.log(`📊 Operaciones pendientes: ${total} (V:${operacionesPendientes.ventas.length} A:${operacionesPendientes.abonos.length} G:${operacionesPendientes.gastos.length})`);
 
             actualizarContadorPendientes();
+            actualizarContadoresDia();
         } catch (error) {
             console.error('Error cargando operaciones pendientes:', error);
         }
@@ -2177,7 +2512,7 @@
     }
 
     // ============================================
-    // FUNCIÓN DE GUARDADO VENTA - CORREGIDA (SIN RECARGAR)
+    // FUNCIÓN DE GUARDADO VENTA
     // ============================================
     async function guardarVentaOffline() {
         const clienteSelect = getElement('cliente');
@@ -2287,9 +2622,6 @@
                 setTimeout(() => sincronizarTodo(), 1000);
             }
 
-            // ============================================
-            // LIMPIAR FORMULARIO SIN RECARGAR LA PÁGINA
-            // ============================================
             limpiarFormularioVenta();
             
             return true;
@@ -2301,9 +2633,6 @@
         }
     }
 
-    // ============================================
-    // NUEVA FUNCIÓN PARA LIMPIAR EL FORMULARIO
-    // ============================================
     function limpiarFormularioVenta() {
         productosVenta = [];
         actualizarTabla();
@@ -2376,9 +2705,6 @@
         console.log('🧹 Formulario limpiado, listo para nueva venta');
     }
 
-    // ============================================
-    // FUNCIÓN PARA CREAR CUENTA POR COBRAR TEMPORAL
-    // ============================================
     async function crearCuentaCobrarOffline(venta) {
         return new Promise((resolve, reject) => {
             const tx = db.transaction(['cuentas_cobrar'], 'readwrite');
@@ -2414,7 +2740,7 @@
     }
 
     // ============================================
-    // FUNCIÓN DE SINCRONIZACIÓN
+    // FUNCIÓN DE SINCRONIZACIÓN (MODIFICADA)
     // ============================================
     async function sincronizarTodo() {
         if (sincronizacionEnProgreso) {
@@ -2538,7 +2864,11 @@
                         body: JSON.stringify({
                             id_cliente: abono.id_cliente,
                             monto_abono: abono.monto_abono,
-                            facturas: abono.facturas
+                            facturas: abono.facturas.map(f => ({
+                                id_movimiento: f.id_movimiento,
+                                saldo_pendiente: f.saldo_pendiente,
+                                monto_aplicar: f.monto_aplicar
+                            }))
                         })
                     });
 
@@ -2610,6 +2940,14 @@
             }
             
             actualizarEstadoConexion();
+
+            // ============================================
+            // LIMPIEZA AUTOMÁTICA DESPUÉS DE SINCRONIZAR
+            // ============================================
+            if (exitosas > 0) {
+                await limpiarDespuesSincronizacion();
+                await verificarEspacioAlmacenamiento();
+            }
 
         } catch (error) {
             console.error('❌ Error en sincronización:', error);
@@ -3102,14 +3440,65 @@
         return true;
     }
 
+    window.forzarRecargaDatos = async function () {
+        if (!navigator.onLine) {
+            showAlert('warning', 'No hay conexión a internet');
+            return;
+        }
+
+        Swal.fire({
+            title: '¿Recargar datos?',
+            text: 'Se actualizarán los datos del día desde el servidor',
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonColor: '#3085d6',
+            confirmButtonText: 'Sí, recargar',
+            cancelButtonText: 'Cancelar'
+        }).then(async (result) => {
+            if (result.isConfirmed) {
+                showToast('info', 'Cargando', 'Obteniendo datos del día...');
+                const datosCargados = await cargarDatosIniciales();
+                if (datosCargados) {
+                    await Promise.all([
+                        cargarProductos(),
+                        cargarClientes(),
+                        cargarCuentasCobrar(),
+                        cargarAsignacion()
+                    ]);
+                    showAlert('success', '✅ Datos del día actualizados');
+                } else {
+                    showAlert('error', 'No se pudieron actualizar los datos');
+                }
+            }
+        });
+    };
+
     // ============================================
     // EVENTOS PRINCIPALES
     // ============================================
     document.addEventListener('DOMContentLoaded', async function () {
         console.log('🚀 Inicializando formulario offline');
 
+        mostrarFechaActual();
+
         try {
             await abrirBaseDatos();
+
+            // ============================================
+            // LIMPIEZA INMEDIATA AL INICIAR
+            // ============================================
+            console.log('🧹 Ejecutando limpieza inmediata al iniciar...');
+            await limpiarDatosAntiguos();
+            
+            // ============================================
+            // PROGRAMAR LIMPIEZA CADA 24 HORAS
+            // ============================================
+            programarLimpiezaAutomatica();
+            
+            // ============================================
+            // VERIFICAR ESPACIO DE ALMACENAMIENTO
+            // ============================================
+            await verificarEspacioAlmacenamiento();
 
             await Promise.all([
                 cargarProductos(),
@@ -3137,6 +3526,7 @@
 
             llenarTablaInventario();
             actualizarEstadoConexion();
+            actualizarContadoresDia();
 
             const clienteSelect = getElement('cliente');
             const productoSelect = getElement('producto_select');
