@@ -19138,11 +19138,270 @@ def api_offline_ticket_venta(id_venta):
 # ==================================
 # CLIENTES DE RUTA
 # ==================================
-
+@app.route('/vendedor/clientes', methods=['GET'])
+@vendedor_required
+def vendedor_clientes():
+    # Valores por defecto
+    clientes = []
+    rutas = []
+    page = 1
+    per_page = 20
+    total = 0
+    total_pages = 1
+    search_query = ""
+    
+    try:
+        page = request.args.get("page", 1, type=int)
+        search_query = request.args.get("q", "").strip()
+        id_empresa = session.get('id_empresa', 1)
+        id_usuario = current_user.id  # Obtener ID del vendedor actual
+        
+        with get_db_cursor() as cursor:
+            # Obtener las rutas activas asignadas al vendedor actual
+            cursor.execute("""
+                SELECT DISTINCT r.ID_Ruta, r.Nombre_Ruta 
+                FROM rutas r
+                INNER JOIN asignacion_vendedores av ON r.ID_Ruta = av.ID_Ruta
+                WHERE r.ID_Empresa = %s 
+                AND r.Estado = 'Activa'
+                AND av.ID_Usuario = %s
+                AND av.Estado = 'Activa'
+                AND (av.Fecha_Finalizacion IS NULL OR av.Fecha_Finalizacion >= CURDATE())
+                ORDER BY r.Nombre_Ruta
+            """, (id_empresa, id_usuario))
+            rutas_asignadas = cursor.fetchall()
+            
+            # Validar página
+            if page < 1:
+                page = 1
+            
+            offset = (page - 1) * per_page
+            
+            # Consulta base modificada - SOLO campos principales y clientes de rutas asignadas
+            base_query = """
+                SELECT c.ID_Cliente, c.Nombre, c.Telefono, c.Direccion, 
+                       c.Saldo_Pendiente_Total, r.Nombre_Ruta
+                FROM clientes c
+                INNER JOIN empresa e ON c.ID_Empresa = e.ID_Empresa
+                INNER JOIN rutas r ON c.ID_Ruta = r.ID_Ruta
+                INNER JOIN asignacion_vendedores av ON r.ID_Ruta = av.ID_Ruta
+                WHERE c.Estado = 'ACTIVO' 
+                AND c.ID_Empresa = %s
+                AND e.Estado = 'Activo'
+                AND r.Estado = 'Activa'
+                AND av.ID_Usuario = %s
+                AND av.Estado = 'Activa'
+                AND (av.Fecha_Finalizacion IS NULL OR av.Fecha_Finalizacion >= CURDATE())
+            """
+            params = [id_empresa, id_usuario]
+            
+            if search_query:
+                base_query += " AND (c.Nombre LIKE %s OR c.Telefono LIKE %s)"
+                search_param = f"%{search_query}%"
+                params.extend([search_param, search_param])
+            
+            # Contar total
+            count_query = """
+                SELECT COUNT(*) as total 
+                FROM clientes c
+                INNER JOIN empresa e ON c.ID_Empresa = e.ID_Empresa
+                INNER JOIN rutas r ON c.ID_Ruta = r.ID_Ruta
+                INNER JOIN asignacion_vendedores av ON r.ID_Ruta = av.ID_Ruta
+                WHERE c.Estado = 'ACTIVO' 
+                AND c.ID_Empresa = %s
+                AND e.Estado = 'Activo'
+                AND r.Estado = 'Activa'
+                AND av.ID_Usuario = %s
+                AND av.Estado = 'Activa'
+                AND (av.Fecha_Finalizacion IS NULL OR av.Fecha_Finalizacion >= CURDATE())
+            """
+            count_params = [id_empresa, id_usuario]
+            
+            if search_query:
+                count_query += " AND (c.Nombre LIKE %s OR c.Telefono LIKE %s)"
+                count_params.extend([search_param, search_param])
+            
+            cursor.execute(count_query, count_params)
+            total_result = cursor.fetchone()
+            total = total_result['total'] if total_result else 0
+            
+            # Calcular total de páginas
+            total_pages = (total + per_page - 1) // per_page if total > 0 else 1
+            
+            # Validar que la página no exceda el total
+            if page > total_pages and total_pages > 0:
+                page = total_pages
+                offset = (page - 1) * per_page
+            
+            # Obtener datos con paginación
+            if total > 0:
+                data_query = base_query + " ORDER BY c.Nombre LIMIT %s OFFSET %s"
+                params.extend([per_page, offset])
+                
+                cursor.execute(data_query, params)
+                clientes = cursor.fetchall()
+            
+    except Exception as e:
+        logging.error(f"Error en ruta /admin/catalog/client/clientes: {str(e)}", exc_info=True)
+        flash("Ocurrió un error al cargar los clientes. Por favor intenta nuevamente.", "danger")
+    
+    # Siempre retornamos el template, incluso si hay error
+    return render_template("vendedor/clientes/clientes.html", 
+                        clientes=clientes, 
+                        rutas=rutas_asignadas,  # Solo mostrar rutas asignadas al vendedor
+                        page=page,
+                        per_page=per_page,
+                        total=total,
+                        total_pages=total_pages,
+                        search=search_query)
 
 # ============================================
-# FACTURA DE VENTA/FACTURA CON VENTA Y SALDO PENDIENTE
+# GASTOS DE RUTA/COMPRAS (MANDO DE JEFE)
 # ============================================
+
+@app.route('/vendedor/gastos', methods=['GET', 'POST'])
+@vendedor_required
+def vendedor_gastos():
+    """
+    Ruta para gestionar los gastos de ruta/compras del vendedor durante su trayecto del dia.
+    """
+    
+    # Obtener el ID del usuario actual (asumiendo que está en sesión)
+    usuario_actual = current_user.id
+    
+    # Acceso a la base de datos
+    with get_db_cursor() as cursor:
+        
+        # Obtener la asignación activa del vendedor para hoy
+        cursor.execute("""
+            SELECT ID_Asignacion, ID_Ruta, Fecha_Asignacion 
+            FROM asignacion_vendedores 
+            WHERE ID_Usuario = %s 
+            AND DATE(Fecha_Asignacion) = CURDATE() 
+            AND Estado = 'ACTIVA'
+            ORDER BY Fecha_Asignacion DESC 
+            LIMIT 1
+        """, (usuario_actual,))
+        
+        asignacion = cursor.fetchone()
+        
+        if not asignacion:
+            flash('No tienes una ruta asignada para hoy', 'warning')
+            return redirect(url_for('vendedor_dashboard'))
+        
+        id_asignacion = asignacion['ID_Asignacion']
+        
+        # Procesar el formulario cuando es POST
+        if request.method == 'POST':
+            concepto = request.form.get('concepto', '').strip()
+            monto = request.form.get('monto', '').strip()
+            tipo_pago = request.form.get('tipo_pago', 'CONTADO')
+            
+            # Validaciones básicas
+            if not concepto or not monto:
+                flash('El concepto y el monto son obligatorios', 'error')
+                return redirect(url_for('vendedor_gastos'))
+            
+            try:
+                monto = float(monto)
+                if monto <= 0:
+                    flash('El monto debe ser mayor a cero', 'error')
+                    return redirect(url_for('vendedor_gastos'))
+            except ValueError:
+                flash('El monto debe ser un número válido', 'error')
+                return redirect(url_for('vendedor_gastos'))
+            
+            try:
+                # Obtener el saldo acumulado actual
+                cursor.execute("""
+                    SELECT Saldo_Acumulado 
+                    FROM movimientos_caja_ruta 
+                    WHERE ID_Asignacion = %s 
+                    AND Estado = 'ACTIVO'
+                    ORDER BY Fecha DESC 
+                    LIMIT 1
+                """, (id_asignacion,))
+                
+                ultimo_movimiento = cursor.fetchone()
+                saldo_anterior = ultimo_movimiento['Saldo_Acumulado'] if ultimo_movimiento else 0
+                
+                # Calcular nuevo saldo (el gasto resta del saldo)
+                nuevo_saldo = saldo_anterior - monto
+                
+                # Insertar el nuevo gasto
+                cursor.execute("""
+                    INSERT INTO movimientos_caja_ruta 
+                    (ID_Asignacion, ID_Usuario, Tipo, Concepto, Monto, Tipo_Pago, Saldo_Acumulado, Estado)
+                    VALUES (%s, %s, 'GASTO', %s, %s, %s, %s, 'ACTIVO')
+                """, (id_asignacion, usuario_actual, concepto, monto, tipo_pago, nuevo_saldo))
+                
+                # Confirmar la transacción
+                cursor.connection.commit()
+                
+                flash('Gasto registrado exitosamente', 'success')
+                
+            except Exception as e:
+                cursor.connection.rollback()
+                flash(f'Error al registrar el gasto: {str(e)}', 'error')
+                print(f"Error en vendedor_gastos POST: {e}")  # Para logging
+            
+            return redirect(url_for('vendedor_gastos'))
+        
+        # Para GET: obtener los gastos del día
+        try:
+            # Obtener todos los gastos del día para esta asignación
+            cursor.execute("""
+                SELECT m.ID_Movimiento, m.Concepto, m.Monto, m.Tipo_Pago, 
+                       DATE_FORMAT(m.Fecha, '%%H:%%i') as Hora,
+                       m.Saldo_Acumulado
+                FROM movimientos_caja_ruta m
+                WHERE m.ID_Asignacion = %s 
+                AND m.Tipo = 'GASTO'
+                AND m.Estado = 'ACTIVO'
+                AND DATE(m.Fecha) = CURDATE()
+                ORDER BY m.Fecha DESC
+            """, (id_asignacion,))
+            
+            gastos = cursor.fetchall()
+            
+            # Calcular total de gastos del día
+            cursor.execute("""
+                SELECT COALESCE(SUM(Monto), 0) as Total_Gastos
+                FROM movimientos_caja_ruta
+                WHERE ID_Asignacion = %s 
+                AND Tipo = 'GASTO'
+                AND Estado = 'ACTIVO'
+                AND DATE(Fecha) = CURDATE()
+            """, (id_asignacion,))
+            
+            total_gastos = cursor.fetchone()['Total_Gastos']
+            
+            # Obtener saldo actual
+            cursor.execute("""
+                SELECT Saldo_Acumulado
+                FROM movimientos_caja_ruta
+                WHERE ID_Asignacion = %s 
+                AND Estado = 'ACTIVO'
+                ORDER BY Fecha DESC
+                LIMIT 1
+            """, (id_asignacion,))
+            
+            saldo_actual = cursor.fetchone()
+            saldo_actual = saldo_actual['Saldo_Acumulado'] if saldo_actual else 0
+            
+        except Exception as e:
+            print(f"Error en vendedor_gastos GET: {e}")
+            gastos = []
+            total_gastos = 0
+            saldo_actual = 0
+            flash('Error al cargar los gastos', 'error')
+        
+        return render_template('vendedor/gastos.html', 
+                             gastos=gastos, 
+                             total_gastos=total_gastos,
+                             saldo_actual=saldo_actual,
+                             asignacion=asignacion)
+
 
 
 #Iniciar Aplicación
