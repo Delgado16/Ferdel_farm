@@ -15535,7 +15535,6 @@ def vendedor_movimiento_merma():
         try:
             productos = request.form.getlist('producto_id[]')
             cantidades = request.form.getlist('cantidad[]')
-            observacion = request.form.get('observacion', '')
             documento = request.form.get('documento_numero', '')
             
             with get_db_cursor(True) as cursor:
@@ -15629,8 +15628,8 @@ def vendedor_movimiento_merma():
                     INSERT INTO movimientos_ruta_cabecera 
                     (ID_Asignacion, ID_TipoMovimiento, ID_Usuario_Registra, 
                      Documento_Numero, Total_Productos, Total_Items, Total_Subtotal,
-                     ID_Empresa, Estado, Observacion)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 'ACTIVO', %s)
+                     ID_Empresa, Estado)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 'ACTIVO')
                 """, (
                     id_asignacion, 
                     ID_TIPO_MERMA, 
@@ -15640,7 +15639,6 @@ def vendedor_movimiento_merma():
                     total_items, 
                     total_subtotal,
                     id_empresa, 
-                    observacion
                 ))
                 
                 id_movimiento = cursor.lastrowid
@@ -15987,12 +15985,14 @@ def vendedor_ventas():
                     ventas.append(venta_dict)
             
             # Obtener fecha actual formateada para comparaciones
-            fecha_actual = datetime.now().strftime('%d/%m/%Y')
+            ahora = datetime.now()
+            fecha_actual = ahora.strftime('%d/%m/%Y')
             
         return render_template('vendedor/ventas/ventas.html', 
                              asignaciones=asignaciones,
                              ventas=ventas,
-                             fecha_actual=fecha_actual)
+                             fecha_actual=fecha_actual,
+                             now=ahora)
                              
     except Exception as e:
         print(f"Error en vendedor_ventas: {str(e)}")
@@ -16967,7 +16967,7 @@ def vendedor_venta_detalle(id_venta):
     """Ver detalle completo de una venta específica
     """
     try:
-        id_vendedor = current_user.id  # CORREGIDO: usar current_user.id en lugar de session.get
+        id_vendedor = current_user.id
         
         with get_db_cursor(True) as cursor:
             # Verificar que la venta pertenezca al vendedor actual
@@ -17017,57 +17017,37 @@ def vendedor_venta_detalle(id_venta):
                 INNER JOIN rutas r ON av.ID_Ruta = r.ID_Ruta
                 WHERE fr.ID_FacturaRuta = %s
             """, (id_venta,))
-            venta = dict(cursor.fetchone())  # Convertir a diccionario para poder modificarlo
             
-            if not venta:
+            venta_data = cursor.fetchone()
+            if not venta_data:
                 flash('Venta no encontrada', 'error')
                 return redirect(url_for('vendedor_ventas'))
             
-            # Formatear fechas manualmente
-            from datetime import datetime
+            # Convertir a diccionario
+            venta = dict(venta_data)
             
-            # Formatear Fecha
-            if venta.get('Fecha'):
-                if isinstance(venta['Fecha'], datetime):
-                    venta['Fecha'] = venta['Fecha'].strftime('%d/%m/%Y')
-                else:
-                    try:
-                        fecha_obj = datetime.strptime(str(venta['Fecha']), '%Y-%m-%d')
-                        venta['Fecha'] = fecha_obj.strftime('%d/%m/%Y')
-                    except:
-                        venta['Fecha'] = 'Fecha no disponible'
-            else:
-                venta['Fecha'] = 'Fecha no disponible'
             
-            # Formatear Fecha_Creacion
-            if venta.get('Fecha_Creacion'):
-                if isinstance(venta['Fecha_Creacion'], datetime):
-                    venta['Fecha_Creacion'] = venta['Fecha_Creacion'].strftime('%d/%m/%Y %H:%M')
-                else:
-                    try:
-                        fecha_obj = datetime.strptime(str(venta['Fecha_Creacion']), '%Y-%m-%d %H:%M:%S')
-                        venta['Fecha_Creacion'] = fecha_obj.strftime('%d/%m/%Y %H:%M')
-                    except:
-                        try:
-                            fecha_obj = datetime.strptime(str(venta['Fecha_Creacion']), '%Y-%m-%d')
-                            venta['Fecha_Creacion'] = fecha_obj.strftime('%d/%m/%Y %H:%M')
-                        except:
-                            venta['Fecha_Creacion'] = 'Fecha no disponible'
-            else:
-                venta['Fecha_Creacion'] = 'Fecha no disponible'
+            # Función helper para formatear fechas (opcional, para no repetir código)
+            def formatear_fecha(valor, formato_salida='%d/%m/%Y', incluir_hora=False):
+                if not valor:
+                    return 'Fecha no disponible'
+                
+                if isinstance(valor, datetime):
+                    return valor.strftime(formato_salida + (' %H:%M' if incluir_hora else ''))
+                
+                try:
+                    if incluir_hora:
+                        fecha_obj = datetime.strptime(str(valor), '%Y-%m-%d %H:%M:%S')
+                    else:
+                        fecha_obj = datetime.strptime(str(valor), '%Y-%m-%d')
+                    return fecha_obj.strftime(formato_salida + (' %H:%M' if incluir_hora else ''))
+                except:
+                    return 'Fecha no disponible'
             
-            # Formatear Fecha_Asignacion
-            if venta.get('Fecha_Asignacion'):
-                if isinstance(venta['Fecha_Asignacion'], datetime):
-                    venta['Fecha_Asignacion'] = venta['Fecha_Asignacion'].strftime('%d/%m/%Y')
-                else:
-                    try:
-                        fecha_obj = datetime.strptime(str(venta['Fecha_Asignacion']), '%Y-%m-%d')
-                        venta['Fecha_Asignacion'] = fecha_obj.strftime('%d/%m/%Y')
-                    except:
-                        venta['Fecha_Asignacion'] = 'Fecha no disponible'
-            else:
-                venta['Fecha_Asignacion'] = 'Fecha no disponible'
+            # Formatear fechas
+            venta['Fecha'] = formatear_fecha(venta.get('Fecha'))
+            venta['Fecha_Creacion'] = formatear_fecha(venta.get('Fecha_Creacion'), incluir_hora=True)
+            venta['Fecha_Asignacion'] = formatear_fecha(venta.get('Fecha_Asignacion'))
             
             # Obtener detalle de productos
             cursor.execute("""
@@ -17106,51 +17086,33 @@ def vendedor_venta_detalle(id_venta):
                     FROM cuentas_por_cobrar
                     WHERE Num_Documento = %s
                 """, (f"FAC-R{id_venta}",))
-                cuentas_cobrar = dict(cursor.fetchone()) if cursor.fetchone() else None
                 
-                # Formatear fecha de vencimiento
-                if cuentas_cobrar and cuentas_cobrar.get('Fecha_Vencimiento'):
-                    if isinstance(cuentas_cobrar['Fecha_Vencimiento'], datetime):
-                        cuentas_cobrar['Fecha_Vencimiento'] = cuentas_cobrar['Fecha_Vencimiento'].strftime('%d/%m/%Y')
-                    else:
-                        try:
-                            fecha_obj = datetime.strptime(str(cuentas_cobrar['Fecha_Vencimiento']), '%Y-%m-%d')
-                            cuentas_cobrar['Fecha_Vencimiento'] = fecha_obj.strftime('%d/%m/%Y')
-                        except:
-                            cuentas_cobrar['Fecha_Vencimiento'] = 'Fecha no disponible'
-                
-                # Obtener pagos realizados si existen
-                if cuentas_cobrar:
-                    cursor.execute("""
-                        SELECT pr.ID_Pago,
-                               pr.Fecha_Pago,
-                               pr.Monto_Pagado,
-                               mp.Nombre as Metodo_Pago,
-                               pr.Observacion
-                        FROM pagos_recibidos pr
-                        INNER JOIN metodos_pago mp ON pr.ID_MetodoPago = mp.ID_MetodoPago
-                        WHERE pr.ID_CuentaCobrar = %s
-                        ORDER BY pr.Fecha_Pago DESC
-                    """, (cuentas_cobrar['ID_Movimiento'],))
-                    pagos_data = cursor.fetchall()
+                cuenta_data = cursor.fetchone()
+                if cuenta_data:
+                    cuentas_cobrar = dict(cuenta_data)
+                    cuentas_cobrar['Fecha_Vencimiento'] = formatear_fecha(cuentas_cobrar.get('Fecha_Vencimiento'))
                     
-                    # Formatear fechas de pagos
-                    pagos = []
+                    # Obtener pagos realizados si existen
+                    cursor.execute("""
+                        SELECT p.ID_Pago,
+                               p.Fecha as Fecha_Pago,
+                               p.Monto as Monto_Pagado,
+                               mp.Nombre as Metodo_Pago,
+                               p.Comentarios as Observacion
+                        FROM pagos_cuentascobrar p
+                        INNER JOIN metodos_pago mp ON p.ID_MetodoPago = mp.ID_MetodoPago
+                        WHERE p.ID_Movimiento = %s
+                        ORDER BY p.Fecha DESC
+                    """, (cuentas_cobrar['ID_Movimiento'],))
+                    
+                    pagos_data = cursor.fetchall()
                     for pago in pagos_data:
                         pago_dict = dict(pago)
-                        if pago_dict.get('Fecha_Pago'):
-                            if isinstance(pago_dict['Fecha_Pago'], datetime):
-                                pago_dict['Fecha_Pago'] = pago_dict['Fecha_Pago'].strftime('%d/%m/%Y')
-                            else:
-                                try:
-                                    fecha_obj = datetime.strptime(str(pago_dict['Fecha_Pago']), '%Y-%m-%d')
-                                    pago_dict['Fecha_Pago'] = fecha_obj.strftime('%d/%m/%Y')
-                                except:
-                                    pago_dict['Fecha_Pago'] = 'Fecha no disponible'
+                        pago_dict['Fecha_Pago'] = formatear_fecha(pago_dict.get('Fecha_Pago'), incluir_hora=True)
                         pagos.append(pago_dict)
             
             # Obtener métodos de pago para el modal
-            cursor.execute("SELECT ID_MetodoPago, Nombre FROM metodos_pago ")
+            cursor.execute("SELECT ID_MetodoPago, Nombre FROM metodos_pago ORDER BY Nombre")
             metodos_pago = cursor.fetchall()
             
         return render_template('vendedor/ventas/venta_detalle.html',
@@ -17163,7 +17125,6 @@ def vendedor_venta_detalle(id_venta):
                              
     except Exception as e:
         print(f"Error en vendedor_venta_detalle: {str(e)}")
-        import traceback
         traceback.print_exc()
         flash(f'Error al cargar detalle: {str(e)}', 'error')
         return redirect(url_for('vendedor_ventas'))

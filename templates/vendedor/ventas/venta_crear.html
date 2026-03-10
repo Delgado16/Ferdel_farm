@@ -3,31 +3,42 @@
 {% block title %}Nueva Venta - {{ asignacion.Nombre_Ruta }}{% endblock %}
 
 {% block content %}
-<div class="container-fluid mt-4">
-    <!-- Encabezado con breadcrumb -->
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <div>
-            <h2><i class="fas fa-shopping-cart me-2"></i>Nueva Venta en Ruta</h2>
+<div class="container-fluid mt-2 mt-md-4 px-2 px-md-3">
+    <!-- ============================================ -->
+    <!-- ENCABEZADO RESPONSIVO                        -->
+    <!-- ============================================ -->
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center mb-3 mb-md-4">
+        <div class="mb-2 mb-md-0">
+            <h2 class="h3 h2-md">
+                <i class="fas fa-shopping-cart me-2 text-primary"></i>
+                Nueva Venta en Ruta
+            </h2>
             <nav aria-label="breadcrumb">
-                <ol class="breadcrumb">
-                    <li class="breadcrumb-item"><a href="{{ url_for('vendedor_dashboard') }}">Inicio</a></li>
-                    <li class="breadcrumb-item"><a href="{{ url_for('vendedor_ventas') }}">Ventas</a></li>
-                    <li class="breadcrumb-item active" aria-current="page">Nueva Venta - {{ asignacion.Nombre_Ruta }}
+                <ol class="breadcrumb mb-1">
+                    <li class="breadcrumb-item small">
+                        <a href="{{ url_for('vendedor_dashboard') }}">Inicio</a>
+                    </li>
+                    <li class="breadcrumb-item small">
+                        <a href="{{ url_for('vendedor_ventas') }}">Ventas</a>
+                    </li>
+                    <li class="breadcrumb-item active small" aria-current="page">
+                        Nueva Venta - {{ asignacion.Nombre_Ruta|truncate(20) }}
                     </li>
                 </ol>
             </nav>
-            <div class="alert alert-primary mt-2 mb-0">
+            <div class="alert alert-primary mt-2 mb-0 py-2">
                 <i class="fas fa-info-circle me-2"></i>
-                <strong>Venta en Ruta:</strong> Fecha: {{ fecha_actual }} | La venta afectará el inventario de la ruta
-                asignada.
+                <span class="small">
+                    <strong>Venta en Ruta:</strong> Fecha: {{ fecha_actual }} | La venta afectará el inventario de la ruta asignada.
+                </span>
             </div>
         </div>
-        <div>
-            <div class="btn-group">
-                <a href="{{ url_for('vendedor_ventas') }}" class="btn btn-outline-secondary">
-                    <i class="fas fa-arrow-left me-1"></i> Cancelar
-                </a>
-            </div>
+        <div class="mt-2 mt-md-0">
+            <a href="{{ url_for('vendedor_ventas') }}" class="btn btn-outline-secondary btn-sm">
+                <i class="fas fa-arrow-left me-1"></i> 
+                <span class="d-none d-sm-inline">Cancelar</span>
+                <span class="d-sm-none">Volver</span>
+            </a>
         </div>
     </div>
 
@@ -38,18 +49,26 @@
         <input type="hidden" id="abono_metodo_pago" name="abono_metodo_pago" value="">
         <input type="hidden" id="procesar_abono" name="procesar_abono" value="0">
         
-        <div class="row">
-            <!-- Columna Izquierda - Datos de la Venta -->
-            <div class="col-md-4">
-                <div class="card mb-4">
-                    <div class="card-header bg-primary text-white">
-                        <h5 class="mb-0"><i class="fas fa-info-circle me-2"></i>Datos de la Venta</h5>
+        <!-- Campo oculto para productos -->
+        <input type="hidden" id="productos" name="productos" value="[]">
+
+        <!-- ============================================ -->
+        <!-- COLUMNA IZQUIERDA - DATOS DE LA VENTA       -->
+        <!-- ============================================ -->
+        <div class="row g-2 g-md-3">
+            <div class="col-12 col-lg-4">
+                <div class="card mb-3">
+                    <div class="card-header bg-primary text-white py-2 py-md-3">
+                        <h5 class="mb-0 h6 h5-md">
+                            <i class="fas fa-info-circle me-2"></i>
+                            Datos de la Venta
+                        </h5>
                     </div>
-                    <div class="card-body">
+                    <div class="card-body p-2 p-md-3">
                         <!-- Cliente -->
                         <div class="mb-3">
-                            <label class="form-label fw-bold">Seleccionar Cliente:</label>
-                            <select class="form-select" id="cliente" name="cliente" required>
+                            <label class="form-label small fw-bold mb-1">Seleccionar Cliente:</label>
+                            <select class="form-select form-select-sm" id="cliente" name="cliente" required>
                                 <option value="">Seleccione un cliente...</option>
                                 {% for cliente in clientes %}
                                 <option value="{{ cliente.ID_Cliente }}" 
@@ -60,51 +79,38 @@
                                         data-tipo="{{ cliente.tipo_cliente }}"
                                         data-perfil="{{ cliente.perfil_cliente }}"
                                         data-saldo="{{ cliente.Saldo_Pendiente_Total }}">
-                                    {{ cliente.Nombre }} - {{ cliente.RUC_CEDULA }} ({{ cliente.perfil_cliente }})
+                                    {{ cliente.Nombre|truncate(30) }} - {{ cliente.RUC_CEDULA }}
                                     {% if cliente.Saldo_Pendiente_Total > 0 %}
                                         - <span class="text-danger">Saldo: C$ {{ "{:,.2f}".format(cliente.Saldo_Pendiente_Total) }}</span>
                                     {% endif %}
                                 </option>
                                 {% endfor %}
                             </select>
-                            <small class="text-muted">
-                                <i class="fas fa-info-circle me-1"></i>
-                                El precio se muestra según el inventario de ruta
-                            </small>
-                            <div class="mt-2">
-                                <a href="#" class="text-primary" data-bs-toggle="modal"
-                                    data-bs-target="#nuevoClienteModal">
+                            <div class="mt-1">
+                                <a href="#" class="small text-primary" data-bs-toggle="modal" data-bs-target="#nuevoClienteModal">
                                     <i class="fas fa-plus-circle me-1"></i> Registrar nuevo cliente
                                 </a>
                             </div>
                         </div>
 
-                        <!-- Información del cliente -->
-                        <div id="clienteInfo" class="p-3 bg-light rounded mb-3" style="display: none;">
-                            <div class="row">
-                                <div class="col-md-6">
-                                    <div class="mb-2">
-                                        <small class="text-muted d-block">Nombre:</small>
-                                        <span id="clienteNombre" class="fw-bold"></span>
-                                    </div>
-                                    <div class="mb-2">
-                                        <small class="text-muted d-block">Documento:</small>
-                                        <span id="clienteRUC" class="badge bg-dark"></span>
-                                    </div>
-                                    <div class="mb-2">
-                                        <small class="text-muted d-block">Teléfono:</small>
-                                        <span id="clienteTelefono"></span>
-                                    </div>
+                        <!-- Información del cliente (vista móvil) -->
+                        <div id="clienteInfo" class="p-2 bg-light rounded mb-3" style="display: none;">
+                            <div class="row g-1">
+                                <div class="col-6">
+                                    <small class="text-muted d-block">Nombre:</small>
+                                    <span id="clienteNombre" class="small fw-bold"></span>
                                 </div>
-                                <div class="col-md-6">
-                                    <div class="mb-2">
-                                        <small class="text-muted d-block">Dirección:</small>
-                                        <span id="clienteDireccion"></span>
-                                    </div>
-                                    <div class="mb-2">
-                                        <small class="text-muted d-block">Perfil:</small>
-                                        <span id="clientePerfil" class="badge bg-info"></span>
-                                    </div>
+                                <div class="col-6">
+                                    <small class="text-muted d-block">Documento:</small>
+                                    <span id="clienteRUC" class="badge bg-dark"></span>
+                                </div>
+                                <div class="col-6">
+                                    <small class="text-muted d-block">Teléfono:</small>
+                                    <span id="clienteTelefono" class="small"></span>
+                                </div>
+                                <div class="col-6">
+                                    <small class="text-muted d-block">Perfil:</small>
+                                    <span id="clientePerfil" class="badge bg-info"></span>
                                 </div>
                             </div>
                         </div>
@@ -114,89 +120,77 @@
 
                         <!-- Tipo de Venta -->
                         <div class="mb-3">
-                            <label class="form-label fw-bold">Tipo de Venta:</label>
-                            <div class="row">
-                                <div class="col-6">
-                                    <div class="form-check">
-                                        <input class="form-check-input" type="radio" name="tipo_venta" id="tipo_contado"
-                                            value="1" checked>
-                                        <label class="form-check-label" for="tipo_contado">
-                                            <span class="badge bg-success p-2">
-                                                <i class="fas fa-money-bill-wave me-1"></i>Contado
-                                            </span>
-                                        </label>
-                                    </div>
+                            <label class="form-label small fw-bold mb-1">Tipo de Venta:</label>
+                            <div class="d-flex gap-2">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="tipo_venta" id="tipo_contado" value="1" checked>
+                                    <label class="form-check-label small" for="tipo_contado">
+                                        <span class="badge bg-success">
+                                            <i class="fas fa-money-bill-wave me-1"></i>Contado
+                                        </span>
+                                    </label>
                                 </div>
-                                <div class="col-6">
-                                    <div class="form-check">
-                                        <input class="form-check-input" type="radio" name="tipo_venta" id="tipo_credito"
-                                            value="2">
-                                        <label class="form-check-label" for="tipo_credito">
-                                            <span class="badge bg-warning text-dark p-2">
-                                                <i class="fas fa-credit-card me-1"></i>Crédito
-                                            </span>
-                                        </label>
-                                    </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="tipo_venta" id="tipo_credito" value="2">
+                                    <label class="form-check-label small" for="tipo_credito">
+                                        <span class="badge bg-warning text-dark">
+                                            <i class="fas fa-credit-card me-1"></i>Crédito
+                                        </span>
+                                    </label>
                                 </div>
                             </div>
                         </div>
 
                         <!-- Observación -->
                         <div class="mb-3">
-                            <label class="form-label fw-bold">Observaciones:</label>
-                            <textarea class="form-control" id="observacion" name="observacion" rows="3"
+                            <label class="form-label small fw-bold mb-1">Observaciones:</label>
+                            <textarea class="form-control form-control-sm" id="observacion" name="observacion" rows="2"
                                 placeholder="Agregue notas adicionales..."></textarea>
                         </div>
 
                         <!-- Indicador de crédito -->
-                        <div id="indicadorCredito" class="alert alert-warning mb-3" style="display: none;">
+                        <div id="indicadorCredito" class="alert alert-warning py-2 mb-3" style="display: none;">
                             <div class="d-flex align-items-center">
-                                <div class="flex-shrink-0 me-3">
-                                    <i class="fas fa-exclamation-triangle fa-2x"></i>
-                                </div>
-                                <div class="flex-grow-1">
-                                    <h6 class="alert-heading mb-1">Venta a Crédito</h6>
-                                    <p class="mb-0 small">
-                                        Se generará un comprobante de crédito y se actualizará la cuenta del cliente.
-                                    </p>
-                                </div>
+                                <i class="fas fa-exclamation-triangle me-2"></i>
+                                <small>Venta a Crédito - Se generará comprobante de crédito.</small>
                             </div>
                         </div>
 
                         <!-- Resumen de la Venta -->
-                        <div class="bg-light p-3 rounded">
-                            <h6 class="mb-3">Resumen de la Venta</h6>
-                            <div class="d-flex justify-content-between mb-2">
-                                <span>Subtotal:</span>
-                                <span class="fw-bold" id="resumen_subtotal">C$ 0.00</span>
+                        <div class="bg-light p-2 rounded">
+                            <h6 class="mb-2 small fw-bold">Resumen de la Venta</h6>
+                            <div class="d-flex justify-content-between mb-1">
+                                <span class="small">Subtotal:</span>
+                                <span class="small fw-bold" id="resumen_subtotal">C$ 0.00</span>
                             </div>
-                            <hr>
-                            <div class="d-flex justify-content-between mb-3">
-                                <span class="h6">Total:</span>
-                                <span class="h5 text-success" id="resumen_total">C$ 0.00</span>
+                            <hr class="my-2">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <span class="small fw-bold">Total:</span>
+                                <span class="h6 text-success mb-0" id="resumen_total">C$ 0.00</span>
                             </div>
-                            <div class="d-grid">
-                                <button type="button" class="btn btn-primary btn-lg" id="btnMostrarConfirmacion">
-                                    <i class="fas fa-check-circle me-2"></i>Revisar y Confirmar Venta
-                                </button>
-                            </div>
+                            <button type="button" class="btn btn-primary btn-sm w-100 mt-2" id="btnMostrarConfirmacion">
+                                <i class="fas fa-check-circle me-2"></i>Revisar y Confirmar
+                            </button>
                         </div>
-
-                        <!-- Campo oculto para productos -->
-                        <input type="hidden" id="productos" name="productos" value="[]">
                     </div>
                 </div>
             </div>
 
-            <!-- Columna Derecha - Productos -->
-            <div class="col-md-8">
-                <!-- Búsqueda rápida de productos -->
-                <div class="card mb-4">
-                    <div class="card-header bg-info text-white">
-                        <h5 class="mb-0"><i class="fas fa-search me-2"></i>Búsqueda Rápida de Productos</h5>
+            <!-- ============================================ -->
+            <!-- COLUMNA DERECHA - PRODUCTOS                 -->
+            <!-- ============================================ -->
+            <div class="col-12 col-lg-8">
+                <!-- Búsqueda rápida -->
+                <div class="card mb-3">
+                    <div class="card-header bg-info text-white py-2">
+                        <h5 class="mb-0 h6">
+                            <i class="fas fa-search me-2"></i>
+                            <span class="d-none d-sm-inline">Búsqueda Rápida de Productos</span>
+                            <span class="d-sm-none">Buscar Productos</span>
+                        </h5>
                     </div>
-                    <div class="card-body">
-                        <div class="input-group">
+                    <div class="card-body p-2">
+                        <div class="input-group input-group-sm">
                             <input type="text" id="buscarProducto" class="form-control"
                                 placeholder="Buscar producto por nombre o código..." disabled>
                             <button class="btn btn-outline-primary" type="button" id="btnBuscarProducto" disabled>
@@ -204,23 +198,27 @@
                             </button>
                         </div>
                         <div id="resultadosBusqueda" class="mt-2" style="display: none;"></div>
-                        <small class="text-muted mt-2 d-block">
+                        <small class="text-muted mt-1 d-block">
                             <i class="fas fa-info-circle me-1"></i>
-                            Seleccione un cliente primero para habilitar la búsqueda
+                            Seleccione un cliente primero
                         </small>
                     </div>
                 </div>
 
                 <!-- Selector de Productos Manual -->
-                <div class="card mb-4">
-                    <div class="card-header bg-success text-white">
-                        <h5 class="mb-0"><i class="fas fa-box me-2"></i>Agregar Productos Manualmente</h5>
+                <div class="card mb-3">
+                    <div class="card-header bg-success text-white py-2">
+                        <h5 class="mb-0 h6">
+                            <i class="fas fa-box me-2"></i>
+                            <span class="d-none d-sm-inline">Agregar Productos Manualmente</span>
+                            <span class="d-sm-none">Agregar Producto</span>
+                        </h5>
                     </div>
-                    <div class="card-body">
-                        <div class="row g-3">
-                            <div class="col-md-6">
-                                <label class="form-label fw-bold">Producto</label>
-                                <select class="form-select" id="producto_select">
+                    <div class="card-body p-2">
+                        <div class="row g-2">
+                            <div class="col-12 col-sm-6">
+                                <label class="form-label small fw-bold mb-1">Producto</label>
+                                <select class="form-select form-select-sm" id="producto_select">
                                     <option value="">Seleccione un producto</option>
                                     {% for prod in inventario %}
                                     <option value="{{ prod.ID_Producto }}" 
@@ -229,29 +227,31 @@
                                             data-precio="{{ prod.Precio_Ruta }}"
                                             data-stock="{{ prod.Stock_Disponible }}" 
                                             data-unidad="{{ prod.Unidad_Medida }}">
-                                        {{ prod.Nombre }} - Stock: {{ prod.Stock_Disponible }} {{ prod.Unidad_Medida }}
+                                        {{ prod.Nombre|truncate(25) }} - Stock: {{ prod.Stock_Disponible }} {{ prod.Unidad_Medida }}
                                     </option>
                                     {% endfor %}
                                 </select>
                             </div>
-                            <div class="col-md-3">
-                                <label class="form-label fw-bold">Cantidad</label>
-                                <input type="number" class="form-control" id="cantidad" min="1" value="1">
+                            <div class="col-6 col-sm-3">
+                                <label class="form-label small fw-bold mb-1">Cantidad</label>
+                                <input type="number" class="form-control form-control-sm" id="cantidad" min="1" value="1">
                             </div>
-                            <div class="col-md-3">
-                                <label class="form-label fw-bold">Precio Unit.</label>
-                                <div class="input-group">
+                            <div class="col-6 col-sm-3">
+                                <label class="form-label small fw-bold mb-1">Precio Unit.</label>
+                                <div class="input-group input-group-sm">
                                     <span class="input-group-text">C$</span>
                                     <input type="number" class="form-control" id="precio" step="0.01" min="0">
                                 </div>
                             </div>
                             <div class="col-12">
-                                <button type="button" class="btn btn-primary" id="btnAgregarProducto">
-                                    <i class="fas fa-plus-circle me-2"></i>Agregar Producto
-                                </button>
-                                <button type="button" class="btn btn-outline-info" id="btnVerInventario">
-                                    <i class="fas fa-warehouse me-2"></i>Ver Inventario
-                                </button>
+                                <div class="d-flex gap-2">
+                                    <button type="button" class="btn btn-primary btn-sm flex-fill" id="btnAgregarProducto">
+                                        <i class="fas fa-plus-circle me-2"></i>Agregar
+                                    </button>
+                                    <button type="button" class="btn btn-outline-info btn-sm" id="btnVerInventario">
+                                        <i class="fas fa-warehouse me-2"></i>Ver Inventario
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -259,42 +259,50 @@
 
                 <!-- Tabla de Productos Agregados -->
                 <div class="card">
-                    <div class="card-header bg-dark text-white">
-                        <div class="d-flex justify-content-between align-items-center">
-                            <h5 class="mb-0"><i class="fas fa-list me-2"></i>Productos en la Venta</h5>
-                            <div>
-                                <span id="contadorProductos" class="badge bg-primary me-2">0 productos</span>
+                    <div class="card-header bg-dark text-white py-2">
+                        <div class="d-flex flex-column flex-sm-row justify-content-between align-items-start align-items-sm-center">
+                            <h5 class="mb-0 h6">
+                                <i class="fas fa-list me-2"></i>
+                                Productos en la Venta
+                            </h5>
+                            <div class="mt-1 mt-sm-0">
+                                <span id="contadorProductos" class="badge bg-primary me-1">0 productos</span>
                                 <span id="indicadorTotal" class="badge bg-success">Total: C$ 0.00</span>
                             </div>
                         </div>
                     </div>
-                    <div class="card-body">
-                        <div class="table-responsive">
-                            <table class="table table-hover" id="tablaProductos">
+                    <div class="card-body p-0">
+                        <!-- Vista móvil: Tarjetas de productos -->
+                        <div class="d-block d-lg-none" id="productosMovil">
+                            <!-- Se llenará con JavaScript -->
+                        </div>
+
+                        <!-- Vista desktop: Tabla de productos -->
+                        <div class="table-responsive d-none d-lg-block">
+                            <table class="table table-hover mb-0" id="tablaProductos">
                                 <thead class="table-light">
                                     <tr>
                                         <th width="50">#</th>
                                         <th>Producto</th>
-                                        <th width="120">Código</th>
-                                        <th width="200" class="text-center">Cantidad</th>
-                                        <th width="150" class="text-end">Precio Unit.</th>
-                                        <th width="150" class="text-end">Subtotal</th>
+                                        <th width="100">Código</th>
+                                        <th width="150" class="text-center">Cantidad</th>
+                                        <th width="120" class="text-end">Precio Unit.</th>
+                                        <th width="120" class="text-end">Subtotal</th>
                                         <th width="100" class="text-center">Acciones</th>
                                     </tr>
                                 </thead>
                                 <tbody id="productos_tbody">
                                     <tr id="fila_vacia">
                                         <td colspan="7" class="text-center text-muted py-4">
-                                            <i class="fas fa-box-open fa-3x mb-3"></i>
-                                            <p>No hay productos agregados a la venta</p>
+                                            <i class="fas fa-box-open fa-3x mb-2"></i>
+                                            <p class="small">No hay productos agregados</p>
                                         </td>
                                     </tr>
                                 </tbody>
                                 <tfoot id="tfootTotales" style="display: none;">
                                     <tr class="table-active">
-                                        <td colspan="5" class="text-end fw-bold">TOTAL:</td>
-                                        <td class="fw-bold text-success fs-5" id="total_tabla">C$ 0.00</td>
-                                        <td></td>
+                                        <td colspan="6" class="text-end fw-bold">TOTAL:</td>
+                                        <td class="fw-bold text-success" id="total_tabla">C$ 0.00</td>
                                     </tr>
                                 </tfoot>
                             </table>
@@ -306,43 +314,47 @@
     </form>
 </div>
 
+<!-- ============================================ -->
+<!-- MODALES - Versiones responsivas             -->
+<!-- ============================================ -->
+
 <!-- Modal Nuevo Cliente -->
 <div class="modal fade" id="nuevoClienteModal" tabindex="-1">
-    <div class="modal-dialog">
+    <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
-            <div class="modal-header bg-primary text-white">
-                <h5 class="modal-title">
+            <div class="modal-header bg-primary text-white py-2">
+                <h5 class="modal-title h6">
                     <i class="fas fa-user-plus me-2"></i>Registrar Nuevo Cliente
                 </h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
-            <div class="modal-body">
+            <div class="modal-body p-3">
                 <form id="formNuevoCliente">
                     <div class="mb-3">
-                        <label class="form-label fw-bold required">Nombre/Razón Social</label>
-                        <input type="text" class="form-control" id="cliente_nombre" required>
+                        <label class="form-label small fw-bold required">Nombre/Razón Social</label>
+                        <input type="text" class="form-control form-control-sm" id="cliente_nombre" required>
                     </div>
                     <div class="mb-3">
-                        <label class="form-label fw-bold required">RUC/Cédula</label>
-                        <input type="text" class="form-control" id="cliente_ruc" required>
+                        <label class="form-label small fw-bold required">RUC/Cédula</label>
+                        <input type="text" class="form-control form-control-sm" id="cliente_ruc" required>
                     </div>
                     <div class="mb-3">
-                        <label class="form-label fw-bold">Teléfono</label>
-                        <input type="text" class="form-control" id="cliente_telefono">
+                        <label class="form-label small fw-bold">Teléfono</label>
+                        <input type="text" class="form-control form-control-sm" id="cliente_telefono">
                     </div>
                     <div class="mb-3">
-                        <label class="form-label fw-bold">Dirección</label>
-                        <textarea class="form-control" id="cliente_direccion" rows="2"></textarea>
+                        <label class="form-label small fw-bold">Dirección</label>
+                        <textarea class="form-control form-control-sm" id="cliente_direccion" rows="2"></textarea>
                     </div>
-                    <div class="alert alert-info">
+                    <div class="alert alert-info py-2 small">
                         <i class="fas fa-info-circle me-2"></i>
-                        El cliente se creará con perfil por defecto "Mercado". Puede modificarlo después.
+                        El cliente se creará con perfil por defecto "Mercado".
                     </div>
                 </form>
             </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                <button type="button" class="btn btn-primary" id="btnGuardarCliente">
+            <div class="modal-footer py-2">
+                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary btn-sm" id="btnGuardarCliente">
                     <i class="fas fa-save me-2"></i>Guardar Cliente
                 </button>
             </div>
@@ -352,91 +364,72 @@
 
 <!-- Modal de Confirmación de Venta -->
 <div class="modal fade" id="modalConfirmacionVenta" tabindex="-1" data-bs-backdrop="static">
-    <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
         <div class="modal-content">
-            <div class="modal-header bg-primary text-white">
-                <h5 class="modal-title">
+            <div class="modal-header bg-primary text-white py-2">
+                <h5 class="modal-title h6">
                     <i class="fas fa-check-circle me-2"></i>Confirmar Venta
                 </h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
-            <div class="modal-body">
-                <div class="alert alert-info">
-                    <div class="d-flex align-items-center">
-                        <div class="flex-shrink-0 me-3">
-                            <i class="fas fa-info-circle fa-2x"></i>
-                        </div>
-                        <div class="flex-grow-1">
-                            <h6 class="alert-heading mb-1">Resumen de la venta</h6>
-                            <p class="mb-0">La venta se registrará y se descontará del inventario disponible en ruta.
-                            </p>
-                        </div>
+            <div class="modal-body p-3">
+                <div class="alert alert-info py-2 small">
+                    <div class="d-flex">
+                        <i class="fas fa-info-circle me-2 mt-1"></i>
+                        <span>La venta se registrará y se descontará del inventario disponible en ruta.</span>
                     </div>
                 </div>
 
                 <div id="resumenVenta"></div>
 
-                <!-- Resumen de saldo en modal de confirmación -->
-                <div id="resumenSaldoModal" class="alert alert-warning mt-3" style="display: none;">
-                    <div class="row">
-                        <div class="col-md-6">
-                            <strong>Saldo anterior:</strong> <span id="saldoAnteriorModal">C$ 0.00</span>
-                        </div>
-                        <div class="col-md-6">
-                            <strong>Nueva venta:</strong> <span id="nuevaVentaModal">C$ 0.00</span>
-                        </div>
-                        <div class="col-md-12 mt-2">
-                            <strong class="text-danger">Total a deber:</strong> <span id="totalPendienteModal"
-                                class="h5">C$ 0.00</span>
-                        </div>
+                <!-- Resumen de saldo en modal -->
+                <div id="resumenSaldoModal" class="alert alert-warning mt-2 py-2 small" style="display: none;">
+                    <div class="row g-1">
+                        <div class="col-6"><strong>Saldo anterior:</strong> <span id="saldoAnteriorModal">C$ 0.00</span></div>
+                        <div class="col-6"><strong>Nueva venta:</strong> <span id="nuevaVentaModal">C$ 0.00</span></div>
+                        <div class="col-12 mt-1"><strong class="text-danger">Total a deber:</strong> <span id="totalPendienteModal">C$ 0.00</span></div>
                     </div>
                 </div>
 
-                <!-- Resumen de abono a aplicar -->
-                <div id="resumenAbonoModal" class="alert alert-success mt-3" style="display: none;">
-                    <div class="row">
-                        <div class="col-md-6">
-                            <strong>Abono a aplicar:</strong> <span id="abonoModal" class="fw-bold text-success">C$ 0.00</span>
-                        </div>
-                        <div class="col-md-6">
-                            <strong>Método de pago:</strong> <span id="metodoPagoModal">Efectivo</span>
-                        </div>
+                <!-- Resumen de abono -->
+                <div id="resumenAbonoModal" class="alert alert-success mt-2 py-2 small" style="display: none;">
+                    <div class="row g-1">
+                        <div class="col-6"><strong>Abono:</strong> <span id="abonoModal">C$ 0.00</span></div>
+                        <div class="col-6"><strong>Método:</strong> <span id="metodoPagoModal">Efectivo</span></div>
                     </div>
                 </div>
 
-                <div class="mt-3">
-                    <h6 class="mb-3">Detalle de productos:</h6>
-                    <div class="table-responsive">
-                        <table class="table table-sm table-bordered" id="tablaResumenProductos">
-                            <thead class="table-light">
-                                <tr>
-                                    <th>#</th>
-                                    <th>Producto</th>
-                                    <th class="text-center">Cantidad</th>
-                                    <th class="text-end">Precio Unit.</th>
-                                    <th class="text-end">Subtotal</th>
-                                </tr>
-                            </thead>
-                            <tbody id="tbodyResumenProductos"></tbody>
-                            <tfoot>
-                                <tr class="table-active">
-                                    <td colspan="4" class="text-end fw-bold">TOTAL:</td>
-                                    <td class="text-end fw-bold text-success fs-5" id="totalResumen">C$ 0.00</td>
-                                </tr>
-                            </tfoot>
-                        </table>
-                    </div>
+                <!-- Detalle de productos -->
+                <h6 class="mt-3 mb-2 small fw-bold">Detalle de productos:</h6>
+                <div class="table-responsive">
+                    <table class="table table-sm table-bordered" id="tablaResumenProductos">
+                        <thead class="table-light">
+                            <tr>
+                                <th>#</th>
+                                <th>Producto</th>
+                                <th class="text-center">Cant.</th>
+                                <th class="text-end">P.Unit.</th>
+                                <th class="text-end">Subtotal</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tbodyResumenProductos"></tbody>
+                        <tfoot>
+                            <tr class="table-active">
+                                <td colspan="4" class="text-end fw-bold">TOTAL:</td>
+                                <td class="text-end fw-bold text-success" id="totalResumen">C$ 0.00</td>
+                            </tr>
+                        </tfoot>
+                    </table>
                 </div>
 
-                <div id="infoCreditoModal" class="alert alert-warning mt-3" style="display: none;">
+                <div id="infoCreditoModal" class="alert alert-warning mt-2 py-2 small" style="display: none;">
                     <i class="fas fa-exclamation-triangle me-2"></i>
-                    <strong>Venta a Crédito:</strong> Se generará un comprobante de crédito y se actualizará la cuenta
-                    del cliente.
+                    <strong>Venta a Crédito:</strong> Se generará un comprobante de crédito.
                 </div>
             </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                <button type="button" class="btn btn-success" id="btnConfirmarGuardar">
+            <div class="modal-footer py-2">
+                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-success btn-sm" id="btnConfirmarGuardar">
                     <i class="fas fa-check me-2"></i>Confirmar y Facturar
                 </button>
             </div>
@@ -446,112 +439,87 @@
 
 <!-- Modal de Abono para Clientes con Saldo Pendiente -->
 <div class="modal fade" id="modalAbonoCredito" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false">
-    <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
         <div class="modal-content">
-            <div class="modal-header bg-warning">
-                <h5 class="modal-title text-dark">
+            <div class="modal-header bg-warning py-2">
+                <h5 class="modal-title h6 text-dark">
                     <i class="fas fa-exclamation-triangle me-2"></i>Cliente con Saldo Pendiente
                 </h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
-            <div class="modal-body">
-                <div class="alert alert-info">
-                    <div class="d-flex align-items-center">
-                        <div class="flex-shrink-0 me-3">
-                            <i class="fas fa-info-circle fa-2x"></i>
-                        </div>
-                        <div class="flex-grow-1">
-                            <h6 class="alert-heading mb-1">Información de Crédito</h6>
-                            <p class="mb-0">El cliente tiene un saldo pendiente. Puede registrar un abono ahora.</p>
-                        </div>
+            <div class="modal-body p-3">
+                <div class="alert alert-info py-2 small">
+                    <div class="d-flex">
+                        <i class="fas fa-info-circle me-2 mt-1"></i>
+                        <span>El cliente tiene un saldo pendiente. Puede registrar un abono ahora.</span>
                     </div>
                 </div>
 
-                <div class="card mb-3">
-                    <div class="card-body">
-                        <h6 class="card-title border-bottom pb-2 mb-3">Resumen de Cuentas</h6>
-
-                        <div class="d-flex justify-content-between mb-2">
-                            <span class="fw-bold">Saldo Pendiente Anterior:</span>
-                            <span class="text-danger fw-bold" id="modalSaldoAnterior">C$ 0.00</span>
-                        </div>
-
-                        <div class="d-flex justify-content-between mb-2">
-                            <span class="fw-bold">Nueva Venta:</span>
-                            <span class="text-primary fw-bold" id="modalNuevaVenta">C$ 0.00</span>
-                        </div>
-
-                        <hr>
-
-                        <div class="d-flex justify-content-between mb-3">
-                            <span class="h6 fw-bold">Total a Deber:</span>
-                            <span class="h5 text-danger fw-bold" id="modalTotalDeber">C$ 0.00</span>
+                <div class="card mb-2">
+                    <div class="card-body p-2">
+                        <h6 class="small fw-bold border-bottom pb-1 mb-2">Resumen de Cuentas</h6>
+                        <div class="row g-1">
+                            <div class="col-6"><small class="text-muted">Saldo Pendiente Anterior:</small></div>
+                            <div class="col-6 text-end"><span class="text-danger fw-bold small" id="modalSaldoAnterior">C$ 0.00</span></div>
+                            <div class="col-6"><small class="text-muted">Nueva Venta:</small></div>
+                            <div class="col-6 text-end"><span class="text-primary fw-bold small" id="modalNuevaVenta">C$ 0.00</span></div>
+                            <hr class="my-1">
+                            <div class="col-6"><strong class="small">Total a Deber:</strong></div>
+                            <div class="col-6 text-end"><strong class="text-danger small" id="modalTotalDeber">C$ 0.00</strong></div>
                         </div>
 
                         <!-- Campo de Abono -->
-                        <div class="mb-3">
-                            <label class="form-label fw-bold">
+                        <div class="mt-2">
+                            <label class="form-label small fw-bold">
                                 <i class="fas fa-money-bill-wave me-1 text-success"></i>
                                 Abono a la deuda:
                             </label>
-                            <div class="input-group">
+                            <div class="input-group input-group-sm">
                                 <span class="input-group-text">C$</span>
-                                <input type="number" class="form-control form-control-lg" id="modalMontoAbono" min="0"
-                                    step="0.01" value="0.00" placeholder="Ingrese monto a abonar">
+                                <input type="number" class="form-control" id="modalMontoAbono" min="0"
+                                    step="0.01" value="0.00" placeholder="Monto a abonar">
                             </div>
-                            <small class="text-muted">
-                                <i class="fas fa-info-circle me-1"></i>
-                                El abono se distribuirá automáticamente entre las facturas más antiguas
-                            </small>
                         </div>
 
                         <!-- Método de Pago -->
-                        <div class="mb-3">
-                            <label class="form-label fw-bold">
+                        <div class="mt-2">
+                            <label class="form-label small fw-bold">
                                 <i class="fas fa-credit-card me-1 text-primary"></i>
                                 Método de Pago:
                             </label>
-                            <select class="form-select" id="modalMetodoPago">
+                            <select class="form-select form-select-sm" id="modalMetodoPago">
                                 {% for mp in metodos_pago %}
                                 <option value="{{ mp.ID_MetodoPago }}">{{ mp.Nombre }}</option>
                                 {% endfor %}
                             </select>
                         </div>
 
-                        <!-- Detalle de cómo se aplicará el abono -->
-                        <div id="detalleAplicacionAbono" class="mt-3 p-3 bg-light rounded" style="display: none;">
-                            <h6 class="mb-2">📊 Aplicación del abono:</h6>
-                            <div id="listaAplicacionAbono"></div>
+                        <!-- Aplicación del abono -->
+                        <div id="detalleAplicacionAbono" class="mt-2 p-2 bg-light rounded" style="display: none;">
+                            <h6 class="small fw-bold mb-1">📊 Aplicación del abono:</h6>
+                            <div id="listaAplicacionAbono" class="small"></div>
                         </div>
 
-                        <!-- Nuevos Totales después del Abono -->
-                        <div class="bg-light p-3 rounded mt-3">
-                            <h6 class="mb-3">Después del Abono:</h6>
-
-                            <div class="d-flex justify-content-between mb-2">
-                                <span>Nuevo Saldo Pendiente:</span>
-                                <span class="fw-bold" id="modalNuevoSaldo">C$ 0.00</span>
-                            </div>
-
-                            <div class="d-flex justify-content-between mb-2">
-                                <span>Total Nueva Venta:</span>
-                                <span class="fw-bold" id="modalNuevaVentaDespues">C$ 0.00</span>
-                            </div>
-
-                            <hr>
-
-                            <div class="d-flex justify-content-between">
-                                <span class="h6 fw-bold">Total Final a Deber:</span>
-                                <span class="h5 text-success fw-bold" id="modalTotalFinal">C$ 0.00</span>
+                        <!-- Nuevos Totales -->
+                        <div class="bg-light p-2 rounded mt-2">
+                            <h6 class="small fw-bold mb-2">Después del Abono:</h6>
+                            <div class="row g-1">
+                                <div class="col-6"><small>Nuevo Saldo Pendiente:</small></div>
+                                <div class="col-6 text-end"><span class="fw-bold small" id="modalNuevoSaldo">C$ 0.00</span></div>
+                                <div class="col-6"><small>Total Nueva Venta:</small></div>
+                                <div class="col-6 text-end"><span class="fw-bold small" id="modalNuevaVentaDespues">C$ 0.00</span></div>
+                                <hr class="my-1">
+                                <div class="col-6"><strong>Total Final a Deber:</strong></div>
+                                <div class="col-6 text-end"><strong class="text-success small" id="modalTotalFinal">C$ 0.00</strong></div>
                             </div>
                         </div>
                     </div>
                 </div>
             </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar Venta</button>
-                <button type="button" class="btn btn-success" id="btnConfirmarConAbono">Confirmar con Abono</button>
-                <button type="button" class="btn btn-primary" id="btnContinuarSinAbono">Continuar sin Abono</button>
+            <div class="modal-footer py-2">
+                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancelar Venta</button>
+                <button type="button" class="btn btn-success btn-sm" id="btnConfirmarConAbono">Confirmar con Abono</button>
+                <button type="button" class="btn btn-primary btn-sm" id="btnContinuarSinAbono">Continuar sin Abono</button>
             </div>
         </div>
     </div>
@@ -559,42 +527,41 @@
 
 <!-- Modal de Inventario -->
 <div class="modal fade" id="modalInventario" tabindex="-1">
-    <div class="modal-dialog modal-lg">
+    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
         <div class="modal-content">
-            <div class="modal-header bg-info text-white">
-                <h5 class="modal-title">
+            <div class="modal-header bg-info text-white py-2">
+                <h5 class="modal-title h6">
                     <i class="fas fa-warehouse me-2"></i>Inventario de Ruta
                 </h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
-            <div class="modal-body">
+            <div class="modal-body p-2">
                 <div class="table-responsive">
-                    <table class="table table-hover">
+                    <table class="table table-sm table-hover">
                         <thead class="table-light">
                             <tr>
                                 <th>Producto</th>
                                 <th>Código</th>
-                                <th class="text-center">Stock Disponible</th>
-                                <th class="text-end">Precio Ruta</th>
+                                <th class="text-center">Stock</th>
+                                <th class="text-end">Precio</th>
                                 <th class="text-center">Acción</th>
                             </tr>
                         </thead>
                         <tbody>
                             {% for prod in inventario %}
                             <tr>
-                                <td>{{ prod.Nombre }}</td>
-                                <td>{{ prod.COD_Producto }}</td>
+                                <td class="small">{{ prod.Nombre|truncate(20) }}</td>
+                                <td class="small">{{ prod.COD_Producto }}</td>
                                 <td class="text-center">
-                                    <span
-                                        class="badge bg-{{ 'success' if prod.Stock_Disponible > 10 else 'warning' if prod.Stock_Disponible > 0 else 'danger' }}">
+                                    <span class="badge bg-{{ 'success' if prod.Stock_Disponible > 10 else 'warning' if prod.Stock_Disponible > 0 else 'danger' }}">
                                         {{ prod.Stock_Disponible }} {{ prod.Unidad_Medida }}
                                     </span>
                                 </td>
-                                <td class="text-end">C$ {{ "%.2f"|format(prod.Precio_Ruta) }}</td>
+                                <td class="text-end small">C$ {{ "%.2f"|format(prod.Precio_Ruta) }}</td>
                                 <td class="text-center">
-                                    <button type="button" class="btn btn-sm btn-primary"
+                                    <button type="button" class="btn btn-sm btn-primary py-0" style="font-size: 0.7rem;"
                                         onclick="agregarDesdeInventario('{{ prod.ID_Producto }}', '{{ prod.Nombre }}', '{{ prod.COD_Producto }}', {{ prod.Precio_Ruta }}, {{ prod.Stock_Disponible }}, '{{ prod.Unidad_Medida }}')">
-                                        <i class="fas fa-plus me-1"></i>Agregar
+                                        <i class="fas fa-plus me-1"></i>
                                     </button>
                                 </td>
                             </tr>
@@ -607,31 +574,71 @@
     </div>
 </div>
 
-<!-- SweetAlert2 y Bootstrap JS -->
+<!-- Template para productos en vista móvil -->
+<template id="productoMovilTemplate">
+    <div class="producto-movil-card p-2 border-bottom">
+        <div class="d-flex justify-content-between align-items-start mb-1">
+            <div>
+                <span class="badge bg-secondary me-1 codigo-badge"></span>
+                <span class="badge bg-primary index-badge"></span>
+            </div>
+            <span class="fw-bold text-success subtotal-movil">C$ 0.00</span>
+        </div>
+        <h6 class="mb-1 nombre-producto"></h6>
+        <div class="row g-1">
+            <div class="col-5">
+                <small class="text-muted d-block">Cantidad</small>
+                <div class="input-group input-group-sm">
+                    <button class="btn btn-outline-secondary btn-menos" type="button">-</button>
+                    <input type="number" class="form-control text-center cantidad-movil" value="1" min="0.01" step="0.01">
+                    <button class="btn btn-outline-secondary btn-mas" type="button">+</button>
+                </div>
+                <small class="text-muted stock-movil"></small>
+            </div>
+            <div class="col-4">
+                <small class="text-muted d-block">Precio</small>
+                <div class="input-group input-group-sm">
+                    <span class="input-group-text">C$</span>
+                    <input type="number" class="form-control precio-movil" value="0.00" step="0.01" min="0">
+                </div>
+            </div>
+            <div class="col-3">
+                <small class="text-muted d-block">Acción</small>
+                <button class="btn btn-sm btn-danger w-100 btn-eliminar-movil">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+</template>
+
+<!-- SweetAlert2 -->
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
 <script>
-    // Variables globales
+    // ============================================
+    // VARIABLES GLOBALES
+    // ============================================
     let saldoClienteActual = 0;
     let facturasPendientes = [];
     let productos = [];
     let abonoSeleccionado = 0;
     let metodoPagoSeleccionado = '';
+    let productoMovilTemplate = null;
 
-    // Función segura para obtener elementos
+    // ============================================
+    // FUNCIONES DE UTILIDAD
+    // ============================================
     function getElement(id) {
-        const element = document.getElementById(id);
-        if (!element) console.warn(`Elemento '${id}' no encontrado`);
-        return element;
+        return document.getElementById(id);
     }
 
-    // Funciones de formato
     function formatoCordoba(valor) {
-        return 'C$ ' + parseFloat(valor || 0).toFixed(2).replace(/\d(?=(\d{3})+\.)/g, '$&,');
+        return 'C$ ' + parseFloat(valor || 0).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
     }
 
     function formatNumber(number) {
-        return parseFloat(number || 0).toFixed(2).replace(/\d(?=(\d{3})+\.)/g, '$&,');
+        return parseFloat(number || 0).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
     }
 
     function showToast(type, title, message) {
@@ -645,7 +652,7 @@
     function formatearFecha(fechaStr) {
         if (!fechaStr) return '';
         const fecha = new Date(fechaStr);
-        return fecha.toLocaleDateString('es-EC');
+        return fecha.toLocaleDateString('es-ES');
     }
 
     // ============================================
@@ -655,7 +662,7 @@
         if (!idCliente) { ocultarAlertaSaldo(); return; }
 
         const saldoInfo = getElement('saldo-info');
-        if (saldoInfo) saldoInfo.innerHTML = '<div class="alert alert-info text-center"><i class="fas fa-spinner fa-spin me-2"></i>Verificando saldo...</div>';
+        if (saldoInfo) saldoInfo.innerHTML = '<div class="alert alert-info text-center py-1"><i class="fas fa-spinner fa-spin me-2"></i><small>Verificando saldo...</small></div>';
 
         fetch(`/api/vendedor/verificar_saldo_cliente/${idCliente}`)
             .then(response => response.json())
@@ -663,19 +670,6 @@
                 if (data.success) {
                     saldoClienteActual = parseFloat(data.cliente.saldo_pendiente) || 0;
                     facturasPendientes = data.facturas_detalle || [];
-                    
-                    // Mostrar en el select el saldo
-                    const clienteSelect = getElement('cliente');
-                    if (clienteSelect) {
-                        const option = clienteSelect.options[clienteSelect.selectedIndex];
-                        if (option) {
-                            const saldoSpan = option.innerHTML.includes('Saldo:') ? 
-                                option.innerHTML : 
-                                option.innerHTML + ` - <span class="text-danger">Saldo: ${formatoCordoba(saldoClienteActual)}</span>`;
-                            option.innerHTML = saldoSpan;
-                        }
-                    }
-                    
                     saldoClienteActual > 0 ? mostrarAlertaSaldo(data) : ocultarAlertaSaldo();
                 } else {
                     ocultarAlertaSaldo();
@@ -695,62 +689,44 @@
         if (!saldoInfo) return;
 
         let html = `
-        <div class="card mb-3 border-warning">
-            <div class="card-header bg-warning text-dark">
-                <h5 class="mb-0"><i class="fas fa-exclamation-triangle me-2"></i>Cliente con Saldo Pendiente</h5>
+        <div class="card mb-2 border-warning">
+            <div class="card-header bg-warning py-1">
+                <h6 class="mb-0 small"><i class="fas fa-exclamation-triangle me-2"></i>Cliente con Saldo Pendiente</h6>
             </div>
-            <div class="card-body">
-                <div class="row">
-                    <div class="col-md-6">
-                        <p><strong>Cliente:</strong> ${cliente.nombre}</p>
-                        <p><strong>Documento:</strong> ${cliente.ruc}</p>
-                    </div>
-                    <div class="col-md-6">
-                        <p><strong>Saldo Pendiente:</strong> <span class="text-danger fw-bold">${formatoCordoba(cliente.saldo_pendiente)}</span></p>
-                    </div>
+            <div class="card-body p-2">
+                <div class="row g-1">
+                    <div class="col-6"><small><strong>Cliente:</strong> ${cliente.nombre}</small></div>
+                    <div class="col-6"><small><strong>Documento:</strong> ${cliente.ruc}</small></div>
+                    <div class="col-6"><small><strong>Saldo Pendiente:</strong></small></div>
+                    <div class="col-6 text-end"><small class="text-danger fw-bold">${formatoCordoba(cliente.saldo_pendiente)}</small></div>
                 </div>
-                <hr>
+                <hr class="my-1">
                 <div class="table-responsive">
-                    <table class="table table-sm table-bordered">
+                    <table class="table table-sm table-bordered small">
                         <thead class="table-light">
                             <tr>
                                 <th>Documento</th>
                                 <th>Fecha</th>
-                                <th>Vencimiento</th>
-                                <th>Días Vencido</th>
-                                <th class="text-end">Monto</th>
                                 <th class="text-end">Saldo</th>
                             </tr>
                         </thead>
                         <tbody>
-                            ${facturas.map(f => {
-                                const diasVencido = f.Dias_Vencido || 0;
-                                const claseVencimiento = diasVencido > 0 ? 'text-danger fw-bold' : 'text-success';
-                                return `<tr><td>${f.Num_Documento}</td><td>${formatearFecha(f.Fecha)}</td><td>${formatearFecha(f.Fecha_Vencimiento)}</td><td class="${claseVencimiento}">${diasVencido > 0 ? diasVencido + ' días' : 'Al día'}</td><td class="text-end">${formatoCordoba(f.Monto_Movimiento)}</td><td class="text-end">${formatoCordoba(f.Saldo_Pendiente)}</td></tr>`;
-                            }).join('')}
+                            ${facturas.slice(0, 3).map(f => `<tr><td>${f.Num_Documento}</td><td>${formatearFecha(f.Fecha)}</td><td class="text-end">${formatoCordoba(f.Saldo_Pendiente)}</td></tr>`).join('')}
+                            ${facturas.length > 3 ? `<tr><td colspan="3" class="text-center text-muted">... y ${facturas.length - 3} más</td></tr>` : ''}
                         </tbody>
                     </table>
                 </div>
-                <div class="row mt-3">
-                    <div class="col-md-6">
-                        <p><strong>Total Nueva Venta:</strong> <span id="total-nueva-venta">C$ 0.00</span></p>
-                    </div>
-                    <div class="col-md-6">
-                        <p><strong>Total Pendiente con Nueva Venta:</strong> <span id="total-pendiente-con-nueva" class="text-danger fw-bold">${formatoCordoba(cliente.saldo_pendiente)}</span></p>
-                    </div>
+                <div class="row g-1 mt-1">
+                    <div class="col-6"><small><strong>Total Nueva Venta:</strong></small></div>
+                    <div class="col-6 text-end"><small><span id="total-nueva-venta">C$ 0.00</span></small></div>
+                    <div class="col-6"><small><strong>Total Pendiente con Nueva:</strong></small></div>
+                    <div class="col-6 text-end"><small class="text-danger fw-bold"><span id="total-pendiente-con-nueva">${formatoCordoba(cliente.saldo_pendiente)}</span></small></div>
                 </div>
             </div>
         </div>
         `;
         saldoInfo.innerHTML = html;
-
-        // Actualizar valores
-        const totalVenta = calcularTotalVenta();
-        const totalNuevaVenta = getElement('total-nueva-venta');
-        const totalPendienteConNueva = getElement('total-pendiente-con-nueva');
-
-        if (totalNuevaVenta) totalNuevaVenta.textContent = formatoCordoba(totalVenta);
-        if (totalPendienteConNueva) totalPendienteConNueva.textContent = formatoCordoba(saldoClienteActual + totalVenta);
+        actualizarTotalesConSaldo();
     }
 
     function ocultarAlertaSaldo() {
@@ -762,21 +738,443 @@
 
     function actualizarTotalesConSaldo() {
         const totalVenta = calcularTotalVenta();
-        const totalPendiente = saldoClienteActual + totalVenta;
-        
         const totalNuevaVenta = getElement('total-nueva-venta');
         const totalPendienteConNueva = getElement('total-pendiente-con-nueva');
-        
-        if (totalNuevaVenta) {
-            totalNuevaVenta.textContent = formatoCordoba(totalVenta);
-        }
-        if (totalPendienteConNueva) {
-            totalPendienteConNueva.textContent = formatoCordoba(totalPendiente);
-        }
+        if (totalNuevaVenta) totalNuevaVenta.textContent = formatoCordoba(totalVenta);
+        if (totalPendienteConNueva) totalPendienteConNueva.textContent = formatoCordoba(saldoClienteActual + totalVenta);
     }
 
     function calcularTotalVenta() {
         return productos.reduce((total, prod) => total + (prod.cantidad * prod.precio), 0);
+    }
+
+    // ============================================
+    // FUNCIONES DE PRODUCTOS
+    // ============================================
+    function agregarProductoALista(producto) {
+        const index = productos.findIndex(p => p.id === producto.id);
+
+        if (index !== -1) {
+            const nuevaCantidad = productos[index].cantidad + producto.cantidad;
+            if (nuevaCantidad > productos[index].stock) {
+                showAlert('warning', `Stock insuficiente. Disponible: ${formatNumber(productos[index].stock)}`);
+                return;
+            }
+            productos[index].cantidad = nuevaCantidad;
+            productos[index].subtotal = productos[index].precio * nuevaCantidad;
+            showToast('info', 'Cantidad actualizada', `Cantidad actualizada a ${formatNumber(nuevaCantidad)}`);
+        } else {
+            productos.push({
+                id: producto.id,
+                codigo: producto.codigo,
+                nombre: producto.nombre,
+                cantidad: producto.cantidad,
+                precio: producto.precio,
+                stock: producto.stock,
+                unidad: producto.unidad,
+                subtotal: producto.precio * producto.cantidad
+            });
+            showToast('success', 'Producto agregado', `"${producto.nombre}" agregado`);
+        }
+
+        // Actualizar el campo oculto
+        const productosInput = getElement('productos');
+        if (productosInput) {
+            productosInput.value = JSON.stringify(productos);
+        }
+
+        actualizarVistasProductos();
+        actualizarResumen();
+        actualizarTotalesConSaldo();
+    }
+
+    window.agregarDesdeInventario = function (id, nombre, codigo, precio, stock, unidad) {
+        agregarProductoALista({
+            id: parseInt(id),
+            codigo: codigo,
+            nombre: nombre,
+            cantidad: 1,
+            precio: parseFloat(precio),
+            stock: stock,
+            unidad: unidad
+        });
+        const modalElement = getElement('modalInventario');
+        if (modalElement) {
+            const modal = bootstrap.Modal.getInstance(modalElement);
+            if (modal) modal.hide();
+        }
+    };
+
+    function actualizarVistasProductos() {
+        actualizarTablaDesktop();
+        actualizarVistaMovil();
+        actualizarContadores();
+    }
+
+    function actualizarTablaDesktop() {
+        const tablaBody = getElement('productos_tbody');
+        const tfootTotales = getElement('tfootTotales');
+        const totalTabla = getElement('total_tabla');
+
+        if (!tablaBody) return;
+
+        if (productos.length === 0) {
+            tablaBody.innerHTML = `
+                <tr id="fila_vacia">
+                    <td colspan="7" class="text-center text-muted py-4">
+                        <i class="fas fa-box-open fa-3x mb-2"></i>
+                        <p class="small">No hay productos agregados</p>
+                    </td>
+                </tr>`;
+            if (tfootTotales) tfootTotales.style.display = 'none';
+            return;
+        }
+
+        let html = '';
+        let total = 0;
+
+        productos.sort((a, b) => a.nombre.localeCompare(b.nombre));
+
+        productos.forEach((prod, index) => {
+            const subtotal = prod.cantidad * prod.precio;
+            total += subtotal;
+            html += `<tr>
+                <td>${index + 1}</td>
+                <td>
+                    <div class="small fw-bold">${prod.nombre}</div>
+                    <small class="text-muted">Unidad: ${prod.unidad}</small>
+                </td>
+                <td class="small">${prod.codigo}</td>
+                <td class="text-center">
+                    <div class="input-group input-group-sm" style="width: 120px; margin: 0 auto;">
+                        <button class="btn btn-outline-secondary" type="button" onclick="modificarCantidad(${index}, -1)"><i class="fas fa-minus"></i></button>
+                        <input type="number" class="form-control text-center cantidad-input" data-index="${index}" value="${prod.cantidad}" min="0.01" max="${prod.stock}" step="0.01" style="width: 50px;">
+                        <button class="btn btn-outline-secondary" type="button" onclick="modificarCantidad(${index}, 1)"><i class="fas fa-plus"></i></button>
+                    </div>
+                    <small class="text-muted">Stock: ${formatNumber(prod.stock)}</small>
+                </td>
+                <td class="text-end">
+                    <div class="input-group input-group-sm">
+                        <span class="input-group-text">C$</span>
+                        <input type="number" class="form-control text-end precio-input" data-index="${index}" value="${prod.precio.toFixed(2)}" min="0.01" step="0.01" style="width: 80px;">
+                    </div>
+                </td>
+                <td class="text-end fw-bold text-success small">${formatoCordoba(subtotal)}</td>
+                <td class="text-center">
+                    <button type="button" class="btn btn-sm btn-outline-info me-1" onclick="verStockDetalle(${prod.id})"><i class="fas fa-warehouse"></i></button>
+                    <button type="button" class="btn btn-sm btn-danger" onclick="event.preventDefault(); event.stopPropagation(); eliminarProducto(${index})">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </td>
+            </tr>`;
+        });
+
+        tablaBody.innerHTML = html;
+
+        // Event listeners
+        document.querySelectorAll('.cantidad-input').forEach(input => {
+            input.addEventListener('change', function () {
+                const index = parseInt(this.dataset.index);
+                actualizarCantidad(index, this.value);
+            });
+        });
+
+        document.querySelectorAll('.precio-input').forEach(input => {
+            input.addEventListener('change', function () {
+                const index = parseInt(this.dataset.index);
+                actualizarPrecio(index, this.value);
+            });
+        });
+
+        if (tfootTotales) {
+            tfootTotales.style.display = '';
+            if (totalTabla) totalTabla.textContent = formatoCordoba(total);
+        }
+    }
+
+    function actualizarVistaMovil() {
+        const container = document.getElementById('productosMovil');
+        if (!container) return;
+
+        if (productos.length === 0) {
+            container.innerHTML = `
+                <div class="text-center text-muted py-4">
+                    <i class="fas fa-box-open fa-2x mb-2"></i>
+                    <p class="small">No hay productos agregados</p>
+                </div>`;
+            return;
+        }
+
+        let html = '';
+        productos.forEach((prod, index) => {
+            html += `
+            <div class="producto-movil-card p-2 border-bottom" data-index="${index}">
+                <div class="d-flex justify-content-between align-items-start mb-1">
+                    <div>
+                        <span class="badge bg-secondary me-1">${prod.codigo}</span>
+                        <span class="badge bg-primary">${index + 1}</span>
+                    </div>
+                    <span class="fw-bold text-success small">${formatoCordoba(prod.cantidad * prod.precio)}</span>
+                </div>
+                <h6 class="mb-1 small fw-bold">${prod.nombre}</h6>
+                <div class="row g-1">
+                    <div class="col-5">
+                        <small class="text-muted d-block">Cantidad</small>
+                        <div class="input-group input-group-sm">
+                            <button class="btn btn-outline-secondary btn-menos" type="button" onclick="modificarCantidadMovil(${index}, -1)">-</button>
+                            <input type="number" class="form-control text-center cantidad-movil" value="${prod.cantidad}" min="0.01" max="${prod.stock}" step="0.01" onchange="actualizarCantidadMovil(${index}, this.value)">
+                            <button class="btn btn-outline-secondary btn-mas" type="button" onclick="modificarCantidadMovil(${index}, 1)">+</button>
+                        </div>
+                        <small class="text-muted d-block">Stock: ${formatNumber(prod.stock)}</small>
+                    </div>
+                    <div class="col-4">
+                        <small class="text-muted d-block">Precio</small>
+                        <div class="input-group input-group-sm">
+                            <span class="input-group-text">C$</span>
+                            <input type="number" class="form-control precio-movil" value="${prod.precio.toFixed(2)}" step="0.01" min="0" onchange="actualizarPrecioMovil(${index}, this.value)">
+                        </div>
+                    </div>
+                    <div class="col-3">
+                        <small class="text-muted d-block">Acción</small>
+                        <button class="btn btn-sm btn-danger w-100" onclick="event.preventDefault(); event.stopPropagation(); eliminarProductoMovil(${index})">
+                            <i class="fas fa-trash"></i> Eliminar
+                        </button>
+                    </div>
+                </div>
+            </div>`;
+        });
+        container.innerHTML = html;
+    }
+
+    function actualizarContadores() {
+        const contador = getElement('contadorProductos');
+        const indicadorTotal = getElement('indicadorTotal');
+        const total = calcularTotalVenta();
+
+        if (contador) {
+            contador.textContent = `${productos.length} producto${productos.length !== 1 ? 's' : ''}`;
+            contador.className = `badge ${productos.length > 0 ? 'bg-success' : 'bg-primary'} me-1`;
+        }
+        if (indicadorTotal) indicadorTotal.textContent = `Total: ${formatoCordoba(total)}`;
+    }
+
+    function actualizarResumen() {
+        const subtotal = calcularTotalVenta();
+        const resumenSubtotal = getElement('resumen_subtotal');
+        const resumenTotal = getElement('resumen_total');
+        if (resumenSubtotal) resumenSubtotal.textContent = formatoCordoba(subtotal);
+        if (resumenTotal) resumenTotal.textContent = formatoCordoba(subtotal);
+    }
+
+    function modificarCantidad(index, cambio) {
+        if (index < 0 || index >= productos.length) return;
+        const producto = productos[index];
+        const nuevaCantidad = producto.cantidad + cambio;
+        if (nuevaCantidad < 0.01) return;
+        if (nuevaCantidad > producto.stock) {
+            showAlert('warning', `Stock insuficiente. Disponible: ${formatNumber(producto.stock)}`);
+            return;
+        }
+        productos[index].cantidad = nuevaCantidad;
+        productos[index].subtotal = producto.precio * nuevaCantidad;
+        
+        const productosInput = getElement('productos');
+        if (productosInput) productosInput.value = JSON.stringify(productos);
+        
+        actualizarVistasProductos();
+        actualizarResumen();
+        actualizarTotalesConSaldo();
+    }
+
+    function modificarCantidadMovil(index, cambio) {
+        modificarCantidad(index, cambio);
+    }
+
+    function actualizarCantidad(index, nuevaCantidad) {
+        if (index < 0 || index >= productos.length) return;
+        nuevaCantidad = parseFloat(nuevaCantidad);
+        if (isNaN(nuevaCantidad) || nuevaCantidad < 0.01) nuevaCantidad = productos[index].cantidad;
+        if (nuevaCantidad > productos[index].stock) {
+            showAlert('warning', `Stock insuficiente. Disponible: ${formatNumber(productos[index].stock)}`);
+            nuevaCantidad = productos[index].cantidad;
+        }
+        productos[index].cantidad = nuevaCantidad;
+        productos[index].subtotal = productos[index].precio * nuevaCantidad;
+        
+        const productosInput = getElement('productos');
+        if (productosInput) productosInput.value = JSON.stringify(productos);
+        
+        actualizarVistasProductos();
+        actualizarResumen();
+        actualizarTotalesConSaldo();
+    }
+
+    function actualizarCantidadMovil(index, nuevaCantidad) {
+        actualizarCantidad(index, nuevaCantidad);
+    }
+
+    function actualizarPrecio(index, nuevoPrecio) {
+        if (index < 0 || index >= productos.length) return;
+        nuevoPrecio = parseFloat(nuevoPrecio);
+        if (isNaN(nuevoPrecio) || nuevoPrecio < 0.01) nuevoPrecio = productos[index].precio;
+        productos[index].precio = nuevoPrecio;
+        productos[index].subtotal = nuevoPrecio * productos[index].cantidad;
+        
+        const productosInput = getElement('productos');
+        if (productosInput) productosInput.value = JSON.stringify(productos);
+        
+        actualizarVistasProductos();
+        actualizarResumen();
+        actualizarTotalesConSaldo();
+    }
+
+    function actualizarPrecioMovil(index, nuevoPrecio) {
+        actualizarPrecio(index, nuevoPrecio);
+    }
+
+    // ============================================
+    // FUNCIÓN ELIMINAR PRODUCTO CORREGIDA
+    // ============================================
+    function eliminarProducto(index) {
+        // Prevenir cualquier evento por defecto
+        if (window.event) {
+            window.event.preventDefault();
+            window.event.stopPropagation();
+        }
+        
+        Swal.fire({
+            title: '¿Eliminar producto?',
+            text: `¿Eliminar ${productos[index].nombre}?`,
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonColor: '#d33',
+            confirmButtonText: 'Sí, eliminar',
+            cancelButtonText: 'Cancelar'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                productos.splice(index, 1);
+                const productosInput = getElement('productos');
+                if (productosInput) productosInput.value = JSON.stringify(productos);
+                actualizarVistasProductos();
+                actualizarResumen();
+                actualizarTotalesConSaldo();
+                showToast('success', 'Eliminado', 'Producto eliminado');
+            }
+        });
+    }
+
+    function eliminarProductoMovil(index) {
+        eliminarProducto(index);
+    }
+
+    function verStockDetalle(productoId) {
+        showAlert('info', 'Stock detallado', 'Funcionalidad en desarrollo');
+    }
+
+    // ============================================
+    // FUNCIONES DE CONFIRMACIÓN
+    // ============================================
+    function llenarResumenConfirmacion() {
+        const tipoVenta = document.querySelector('input[name="tipo_venta"]:checked');
+        if (!tipoVenta) return false;
+
+        const tipoVentaText = tipoVenta.value === '1' ? 'Contado' : 'Crédito';
+
+        const infoCreditoModal = getElement('infoCreditoModal');
+        if (infoCreditoModal) infoCreditoModal.style.display = tipoVenta.value === '2' ? 'block' : 'none';
+
+        const resumenSaldoModal = getElement('resumenSaldoModal');
+        const saldoAnteriorModal = getElement('saldoAnteriorModal');
+        const nuevaVentaModal = getElement('nuevaVentaModal');
+        const totalPendienteModal = getElement('totalPendienteModal');
+
+        if (resumenSaldoModal && saldoAnteriorModal && nuevaVentaModal && totalPendienteModal) {
+            const totalVenta = calcularTotalVenta();
+            saldoAnteriorModal.textContent = formatoCordoba(saldoClienteActual);
+            nuevaVentaModal.textContent = formatoCordoba(totalVenta);
+            totalPendienteModal.textContent = formatoCordoba(saldoClienteActual + totalVenta);
+            resumenSaldoModal.style.display = (tipoVenta.value === '2' && saldoClienteActual > 0) ? 'block' : 'none';
+        }
+
+        const resumenAbonoModal = getElement('resumenAbonoModal');
+        const abonoModal = getElement('abonoModal');
+        const metodoPagoModal = getElement('metodoPagoModal');
+        
+        if (resumenAbonoModal && abonoModal && metodoPagoModal) {
+            if (abonoSeleccionado > 0) {
+                abonoModal.textContent = formatoCordoba(abonoSeleccionado);
+                metodoPagoModal.textContent = metodoPagoSeleccionado || 'Efectivo';
+                resumenAbonoModal.style.display = 'block';
+            } else {
+                resumenAbonoModal.style.display = 'none';
+            }
+        }
+
+        const clienteSelect = getElement('cliente');
+        const option = clienteSelect?.options[clienteSelect.selectedIndex];
+        const clienteNombre = option?.dataset.nombre || '';
+        const clienteRUC = option?.dataset.ruc || '';
+        const clientePerfil = option?.dataset.perfil || 'Mercado';
+        const observacion = getElement('observacion')?.value || '';
+
+        const resumenVenta = getElement('resumenVenta');
+        if (resumenVenta) {
+            resumenVenta.innerHTML = `
+            <div class="row g-2 mb-2">
+                <div class="col-12 col-sm-6">
+                    <div class="card">
+                        <div class="card-body p-2">
+                            <h6 class="small fw-bold border-bottom pb-1 mb-2"><i class="fas fa-user me-2"></i>Datos del Cliente</h6>
+                            <div class="row g-1">
+                                <div class="col-5"><small>Cliente:</small></div>
+                                <div class="col-7"><small class="fw-bold">${clienteNombre}</small></div>
+                                <div class="col-5"><small>Documento:</small></div>
+                                <div class="col-7"><small>${clienteRUC}</small></div>
+                                <div class="col-5"><small>Perfil:</small></div>
+                                <div class="col-7"><span class="badge bg-info">${clientePerfil}</span></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-12 col-sm-6">
+                    <div class="card">
+                        <div class="card-body p-2">
+                            <h6 class="small fw-bold border-bottom pb-1 mb-2"><i class="fas fa-info-circle me-2"></i>Info Venta</h6>
+                            <div class="row g-1">
+                                <div class="col-5"><small>Ruta:</small></div>
+                                <div class="col-7"><small>{{ asignacion.Nombre_Ruta }}</small></div>
+                                <div class="col-5"><small>Fecha:</small></div>
+                                <div class="col-7"><small>{{ fecha_actual }}</small></div>
+                                <div class="col-5"><small>Tipo:</small></div>
+                                <div class="col-7"><span class="badge ${tipoVenta.value === '1' ? 'bg-success' : 'bg-warning text-dark'}">${tipoVentaText}</span></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>`;
+        }
+
+        const tbodyResumen = getElement('tbodyResumenProductos');
+        const totalResumen = getElement('totalResumen');
+        if (!tbodyResumen || !totalResumen) return false;
+
+        let htmlResumen = '';
+        let total = 0;
+
+        productos.forEach((prod, index) => {
+            total += prod.subtotal;
+            htmlResumen += `<tr>
+                <td class="small">${index + 1}</td>
+                <td class="small">${prod.nombre}<br><small class="text-muted">Código: ${prod.codigo}</small></td>
+                <td class="text-center small">${formatNumber(prod.cantidad)}</td>
+                <td class="text-end small">${formatoCordoba(prod.precio)}</td>
+                <td class="text-end fw-bold small">${formatoCordoba(prod.subtotal)}</td>
+            </tr>`;
+        });
+
+        tbodyResumen.innerHTML = htmlResumen;
+        totalResumen.textContent = formatoCordoba(total);
+        return true;
     }
 
     // ============================================
@@ -867,21 +1265,19 @@
             if (montoRestante <= 0) break;
             const saldo = parseFloat(factura.Saldo_Pendiente);
             const montoAplicar = Math.min(montoRestante, saldo);
-            const nuevoSaldo = saldo - montoAplicar;
             aplicacion.push({
                 documento: factura.Num_Documento,
-                saldo_anterior: saldo,
                 monto_aplicar: montoAplicar,
-                saldo_nuevo: nuevoSaldo,
-                estado: nuevoSaldo <= 0 ? 'Pagada' : 'Parcial'
+                estado: (saldo - montoAplicar) <= 0 ? 'Pagada' : 'Parcial'
             });
             montoRestante -= montoAplicar;
         }
 
         let html = '<div class="small">';
         aplicacion.forEach(item => {
-            const bgColor = item.estado === 'Pagada' ? 'bg-success text-white' : 'bg-warning';
-            html += `<div class="p-2 mb-2 ${bgColor} rounded"><strong>${item.documento}</strong><br>Saldo anterior: ${formatoCordoba(item.saldo_anterior)}<br>Abono: ${formatoCordoba(item.monto_aplicar)}<br>Nuevo saldo: ${formatoCordoba(item.saldo_nuevo)} ${item.estado === 'Pagada' ? ' ✅' : ' ⚠️'}</div>`;
+            html += `<div class="mb-1 p-1 ${item.estado === 'Pagada' ? 'bg-success text-white' : 'bg-warning'} rounded small">
+                <strong>${item.documento}</strong>: ${formatoCordoba(item.monto_aplicar)} ${item.estado === 'Pagada' ? '✅' : '⚠️'}
+            </div>`;
         });
         html += '</div>';
 
@@ -892,7 +1288,6 @@
         if (detalleAplicacion) detalleAplicacion.style.display = 'block';
     }
 
-    // NUEVA FUNCIÓN: Procesar abono (guarda datos en campos ocultos)
     function procesarVentaConAbono(montoAbono) {
         const metodoPago = getElement('modalMetodoPago')?.value || 1;
         const metodoPagoText = getElement('modalMetodoPago')?.options[getElement('modalMetodoPago').selectedIndex]?.text || 'Efectivo';
@@ -908,53 +1303,24 @@
             didOpen: () => Swal.showLoading()
         });
         
-        // Guardar datos del abono en campos ocultos del formulario principal
         const form = getElement('ventaForm');
+        const abonoField = getElement('abono_monto');
+        if (abonoField) abonoField.value = montoAbono;
         
-        // Campo para monto del abono
-        let abonoField = getElement('abono_monto');
-        if (!abonoField) {
-            abonoField = document.createElement('input');
-            abonoField.type = 'hidden';
-            abonoField.name = 'abono_monto';
-            abonoField.id = 'abono_monto';
-            form.appendChild(abonoField);
-        }
-        abonoField.value = montoAbono;
+        const metodoPagoField = getElement('abono_metodo_pago');
+        if (metodoPagoField) metodoPagoField.value = metodoPago;
         
-        // Campo para método de pago del abono
-        let metodoPagoField = getElement('abono_metodo_pago');
-        if (!metodoPagoField) {
-            metodoPagoField = document.createElement('input');
-            metodoPagoField.type = 'hidden';
-            metodoPagoField.name = 'abono_metodo_pago';
-            metodoPagoField.id = 'abono_metodo_pago';
-            form.appendChild(metodoPagoField);
-        }
-        metodoPagoField.value = metodoPago;
-        
-        // Campo indicador de procesar abono
-        let procesarAbonoField = getElement('procesar_abono');
-        if (!procesarAbonoField) {
-            procesarAbonoField = document.createElement('input');
-            procesarAbonoField.type = 'hidden';
-            procesarAbonoField.name = 'procesar_abono';
-            procesarAbonoField.id = 'procesar_abono';
-            form.appendChild(procesarAbonoField);
-        } else {
-            procesarAbonoField.value = '1';
-        }
+        const procesarAbonoField = getElement('procesar_abono');
+        if (procesarAbonoField) procesarAbonoField.value = '1';
         
         Swal.close();
         
-        // Cerrar modal de abono
         const modalElement = getElement('modalAbonoCredito');
         if (modalElement) {
             const modal = bootstrap.Modal.getInstance(modalElement);
             if (modal) modal.hide();
         }
         
-        // Mostrar modal de confirmación de venta
         if (llenarResumenConfirmacion()) {
             const modalConfirmacion = getElement('modalConfirmacionVenta');
             if (modalConfirmacion) {
@@ -964,373 +1330,78 @@
     }
 
     // ============================================
-    // FUNCIONES DE PRODUCTOS
+    // FUNCIONES DE BÚSQUEDA
     // ============================================
-    function agregarProductoALista(producto) {
-        const index = productos.findIndex(p => p.id === producto.id);
-
-        if (index !== -1) {
-            const nuevaCantidad = productos[index].cantidad + producto.cantidad;
-            if (nuevaCantidad > productos[index].stock) {
-                showAlert('warning', `Stock insuficiente. Disponible: ${formatNumber(productos[index].stock)}`);
-                return;
-            }
-            productos[index].cantidad = nuevaCantidad;
-            productos[index].subtotal = productos[index].precio * nuevaCantidad;
-            showToast('info', 'Cantidad actualizada', `Cantidad actualizada a ${formatNumber(nuevaCantidad)}`);
-        } else {
-            productos.push({
-                id: producto.id,
-                codigo: producto.codigo,
-                nombre: producto.nombre,
-                cantidad: producto.cantidad,
-                precio: producto.precio,
-                stock: producto.stock,
-                unidad: producto.unidad,
-                subtotal: producto.precio * producto.cantidad
-            });
-            showToast('success', 'Producto agregado', `"${producto.nombre}" agregado`);
-        }
-
-        // Actualizar el campo oculto
-        const productosInput = getElement('productos');
-        if (productosInput) {
-            productosInput.value = JSON.stringify(productos);
-        }
-
-        actualizarTabla();
-        actualizarResumen();
-        actualizarTotalesConSaldo();
-    }
-
-    window.agregarDesdeInventario = function (id, nombre, codigo, precio, stock, unidad) {
-        agregarProductoALista({
-            id: parseInt(id),
-            codigo: codigo,
-            nombre: nombre,
-            cantidad: 1,
-            precio: parseFloat(precio),
-            stock: stock,
-            unidad: unidad
-        });
-        const modalElement = getElement('modalInventario');
-        if (modalElement) {
-            const modal = bootstrap.Modal.getInstance(modalElement);
-            if (modal) modal.hide();
-        }
-    };
-
-    function actualizarTabla() {
-        const tablaBody = getElement('productos_tbody');
-        const tfootTotales = getElement('tfootTotales');
-        const contador = getElement('contadorProductos');
-        const indicadorTotal = getElement('indicadorTotal');
-        const totalTabla = getElement('total_tabla');
-
-        if (!tablaBody) return;
-
-        if (productos.length === 0) {
-            // Mostrar fila vacía si no hay productos
-            tablaBody.innerHTML = `
-                <tr id="fila_vacia">
-                    <td colspan="7" class="text-center text-muted py-4">
-                        <i class="fas fa-box-open fa-3x mb-3"></i>
-                        <p>No hay productos agregados a la venta</p>
-                    </td>
-                </tr>`;
-            
-            if (tfootTotales) tfootTotales.style.display = 'none';
-            if (indicadorTotal) indicadorTotal.textContent = 'Total: C$ 0.00';
-            if (contador) {
-                contador.textContent = '0 productos';
-                contador.className = 'badge bg-primary me-2';
-            }
+    function buscarProductos() {
+        const inputBuscar = getElement('buscarProducto');
+        if (!inputBuscar) return;
+        const termino = inputBuscar.value.trim();
+        if (termino.length < 2) {
+            showAlert('warning', 'Ingrese al menos 2 caracteres');
             return;
         }
 
-        let html = '';
-        let total = 0;
+        const resultadosDiv = getElement('resultadosBusqueda');
+        if (!resultadosDiv) return;
 
-        productos.sort((a, b) => a.nombre.localeCompare(b.nombre));
+        resultadosDiv.innerHTML = '<div class="spinner-border spinner-border-sm text-primary"></div>';
+        resultadosDiv.style.display = 'block';
 
-        productos.forEach((prod, index) => {
-            const subtotal = prod.cantidad * prod.precio;
-            total += subtotal;
-            html += `<tr>
-            <td>${index + 1}</td>
-            <td>
-                <div class="fw-bold">${prod.nombre}</div>
-                <small class="text-muted">Unidad: ${prod.unidad}</small>
-            </td>
-            <td>${prod.codigo}</td>
-            <td class="text-center">
-                <div class="input-group input-group-sm mx-auto" style="width: 150px;">
-                    <button class="btn btn-outline-secondary" type="button" onclick="modificarCantidad(${index}, -1)"><i class="fas fa-minus"></i></button>
-                    <input type="number" class="form-control text-center cantidad-input" data-index="${index}" value="${prod.cantidad}" min="0.01" max="${prod.stock}" step="0.01">
-                    <button class="btn btn-outline-secondary" type="button" onclick="modificarCantidad(${index}, 1)"><i class="fas fa-plus"></i></button>
-                </div>
-                <small class="text-muted">Stock: ${formatNumber(prod.stock)}</small>
-            </td>
-            <td class="text-end">
-                <div class="input-group input-group-sm">
-                    <span class="input-group-text">C$</span>
-                    <input type="number" class="form-control text-end precio-input" data-index="${index}" value="${prod.precio.toFixed(2)}" min="0.01" step="0.01">
-                </div>
-            </td>
-            <td class="text-end fw-bold text-success">${formatoCordoba(subtotal)}</td>
-            <td class="text-center">
-                <button type="button" class="btn btn-sm btn-outline-info me-1" onclick="verStockDetalle(${prod.id})"><i class="fas fa-warehouse"></i></button>
-                <button type="button" class="btn btn-sm btn-danger" onclick="eliminarProducto(${index})"><i class="fas fa-trash"></i></button>
-            </td>
-        </tr>`;
-        });
+        const productosEncontrados = Array.from(document.querySelectorAll('#producto_select option')).filter(opt => {
+            if (!opt.value) return false;
+            return opt.text.toLowerCase().includes(termino.toLowerCase());
+        }).slice(0, 5);
 
-        tablaBody.innerHTML = html;
-
-        // Agregar event listeners a los inputs
-        document.querySelectorAll('.cantidad-input').forEach(input => {
-            input.addEventListener('change', function () {
-                const index = parseInt(this.dataset.index);
-                actualizarCantidad(index, this.value);
-            });
-        });
-
-        document.querySelectorAll('.precio-input').forEach(input => {
-            input.addEventListener('change', function () {
-                const index = parseInt(this.dataset.index);
-                actualizarPrecio(index, this.value);
-            });
-        });
-
-        if (tfootTotales) {
-            tfootTotales.style.display = '';
-            if (totalTabla) totalTabla.textContent = formatoCordoba(total);
-        }
-        if (indicadorTotal) indicadorTotal.textContent = `Total: ${formatoCordoba(total)}`;
-        if (contador) {
-            contador.textContent = `${productos.length} producto${productos.length !== 1 ? 's' : ''}`;
-            contador.className = `badge ${productos.length > 0 ? 'bg-success' : 'bg-primary'} me-2`;
-        }
-        
-        // Actualizar el campo oculto con los productos
-        const productosInput = getElement('productos');
-        if (productosInput) {
-            productosInput.value = JSON.stringify(productos);
-        }
-    }
-
-    window.modificarCantidad = function (index, cambio) {
-        if (index < 0 || index >= productos.length) return;
-        const producto = productos[index];
-        const nuevaCantidad = producto.cantidad + cambio;
-        if (nuevaCantidad < 0.01) return;
-        if (nuevaCantidad > producto.stock) {
-            showAlert('warning', `Stock insuficiente. Disponible: ${formatNumber(producto.stock)}`);
+        if (productosEncontrados.length === 0) {
+            resultadosDiv.innerHTML = '<div class="alert alert-warning py-1">No se encontraron productos</div>';
             return;
         }
-        productos[index].cantidad = nuevaCantidad;
-        productos[index].subtotal = producto.precio * nuevaCantidad;
-        
-        // Actualizar el campo oculto
-        const productosInput = getElement('productos');
-        if (productosInput) {
-            productosInput.value = JSON.stringify(productos);
-        }
-        
-        actualizarTabla();
-        actualizarResumen();
-        actualizarTotalesConSaldo();
-    };
 
-    window.actualizarCantidad = function (index, nuevaCantidad) {
-        if (index < 0 || index >= productos.length) return;
-        nuevaCantidad = parseFloat(nuevaCantidad);
-        if (isNaN(nuevaCantidad) || nuevaCantidad < 0.01) nuevaCantidad = productos[index].cantidad;
-        if (nuevaCantidad > productos[index].stock) {
-            showAlert('warning', `Stock insuficiente. Disponible: ${formatNumber(productos[index].stock)}`);
-            nuevaCantidad = productos[index].cantidad;
-        }
-        productos[index].cantidad = nuevaCantidad;
-        productos[index].subtotal = productos[index].precio * nuevaCantidad;
-        
-        // Actualizar el campo oculto
-        const productosInput = getElement('productos');
-        if (productosInput) {
-            productosInput.value = JSON.stringify(productos);
-        }
-        
-        actualizarTabla();
-        actualizarResumen();
-        actualizarTotalesConSaldo();
-    };
-
-    window.actualizarPrecio = function (index, nuevoPrecio) {
-        if (index < 0 || index >= productos.length) return;
-        nuevoPrecio = parseFloat(nuevoPrecio);
-        if (isNaN(nuevoPrecio) || nuevoPrecio < 0.01) nuevoPrecio = productos[index].precio;
-        productos[index].precio = nuevoPrecio;
-        productos[index].subtotal = nuevoPrecio * productos[index].cantidad;
-        
-        // Actualizar el campo oculto
-        const productosInput = getElement('productos');
-        if (productosInput) {
-            productosInput.value = JSON.stringify(productos);
-        }
-        
-        actualizarTabla();
-        actualizarResumen();
-        actualizarTotalesConSaldo();
-    };
-
-    window.eliminarProducto = function (index) {
-        Swal.fire({
-            title: '¿Eliminar producto?',
-            text: `¿Eliminar ${productos[index].nombre}?`,
-            icon: 'question',
-            showCancelButton: true,
-            confirmButtonColor: '#d33',
-            confirmButtonText: 'Sí, eliminar',
-            cancelButtonText: 'Cancelar'
-        }).then((result) => {
-            if (result.isConfirmed) {
-                productos.splice(index, 1);
-                
-                // Actualizar el campo oculto
-                const productosInput = getElement('productos');
-                if (productosInput) {
-                    productosInput.value = JSON.stringify(productos);
-                }
-                
-                actualizarTabla();
-                actualizarResumen();
-                actualizarTotalesConSaldo();
-                showToast('success', 'Eliminado', 'Producto eliminado');
-            }
-        });
-    };
-
-    window.verStockDetalle = function (productoId) {
-        showAlert('info', 'Stock detallado', 'Funcionalidad en desarrollo');
-    };
-
-    function actualizarResumen() {
-        const subtotal = productos.reduce((sum, prod) => sum + (prod.cantidad * prod.precio), 0);
-        const resumenSubtotal = getElement('resumen_subtotal');
-        const resumenTotal = getElement('resumen_total');
-        if (resumenSubtotal) resumenSubtotal.textContent = formatoCordoba(subtotal);
-        if (resumenTotal) resumenTotal.textContent = formatoCordoba(subtotal);
-    }
-
-    // ============================================
-    // FUNCIONES DE CONFIRMACIÓN
-    // ============================================
-    function llenarResumenConfirmacion() {
-        const tipoVenta = document.querySelector('input[name="tipo_venta"]:checked');
-        if (!tipoVenta) {
-            console.error('No se encontró tipo de venta');
-            return false;
-        }
-
-        const tipoVentaText = tipoVenta.value === '1' ? 'Contado' : 'Crédito';
-
-        const infoCreditoModal = getElement('infoCreditoModal');
-        if (infoCreditoModal) {
-            infoCreditoModal.style.display = tipoVenta.value === '2' ? 'block' : 'none';
-        }
-
-        const resumenSaldoModal = getElement('resumenSaldoModal');
-        const saldoAnteriorModal = getElement('saldoAnteriorModal');
-        const nuevaVentaModal = getElement('nuevaVentaModal');
-        const totalPendienteModal = getElement('totalPendienteModal');
-
-        if (resumenSaldoModal && saldoAnteriorModal && nuevaVentaModal && totalPendienteModal) {
-            const totalVenta = calcularTotalVenta();
-            saldoAnteriorModal.textContent = formatoCordoba(saldoClienteActual);
-            nuevaVentaModal.textContent = formatoCordoba(totalVenta);
-            totalPendienteModal.textContent = formatoCordoba(saldoClienteActual + totalVenta);
-            resumenSaldoModal.style.display = (tipoVenta.value === '2' && saldoClienteActual > 0) ? 'block' : 'none';
-        }
-
-        // Mostrar información del abono si existe
-        const resumenAbonoModal = getElement('resumenAbonoModal');
-        const abonoModal = getElement('abonoModal');
-        const metodoPagoModal = getElement('metodoPagoModal');
-        
-        if (resumenAbonoModal && abonoModal && metodoPagoModal) {
-            if (abonoSeleccionado > 0) {
-                abonoModal.textContent = formatoCordoba(abonoSeleccionado);
-                metodoPagoModal.textContent = metodoPagoSeleccionado || 'Efectivo';
-                resumenAbonoModal.style.display = 'block';
-            } else {
-                resumenAbonoModal.style.display = 'none';
-            }
-        }
-
-        const clienteSelect = getElement('cliente');
-        const option = clienteSelect?.options[clienteSelect.selectedIndex];
-        const clienteNombre = option?.dataset.nombre || '';
-        const clienteRUC = option?.dataset.ruc || '';
-        const clientePerfil = option?.dataset.perfil || 'Mercado';
-        const observacion = getElement('observacion')?.value || '';
-
-        const resumenVenta = getElement('resumenVenta');
-        if (resumenVenta) {
-            resumenVenta.innerHTML = `
-            <div class="row g-3 mb-3">
-                <div class="col-md-6">
-                    <div class="card">
-                        <div class="card-body">
-                            <h6 class="card-title border-bottom pb-2 mb-3"><i class="fas fa-user me-2"></i>Datos del Cliente</h6>
-                            <p><strong>Cliente:</strong> ${clienteNombre}</p>
-                            <p><strong>Documento:</strong> ${clienteRUC}</p>
-                            <p><strong>Perfil:</strong> <span class="badge bg-info">${clientePerfil}</span></p>
-                        </div>
+        let html = '<div class="list-group small">';
+        productosEncontrados.forEach(opt => {
+            html += `<div class="list-group-item list-group-item-action p-2">
+                <div class="d-flex w-100 justify-content-between align-items-start">
+                    <div class="flex-grow-1">
+                        <div class="fw-bold small">${opt.dataset.nombre}</div>
+                        <small class="text-muted">Código: ${opt.dataset.codigo} | Stock: ${opt.dataset.stock}</small>
+                    </div>
+                    <div>
+                        <span class="fw-bold text-success me-2 small">${formatoCordoba(parseFloat(opt.dataset.precio))}</span>
+                        <button type="button" class="btn btn-sm btn-primary py-0" style="font-size: 0.7rem;" onclick="agregarProductoBusqueda('${opt.value}')">
+                            <i class="fas fa-plus"></i>
+                        </button>
                     </div>
                 </div>
-                <div class="col-md-6">
-                    <div class="card">
-                        <div class="card-body">
-                            <h6 class="card-title border-bottom pb-2 mb-3"><i class="fas fa-info-circle me-2"></i>Información de la Venta</h6>
-                            <p><strong>Ruta:</strong> {{ asignacion.Nombre_Ruta }}</p>
-                            <p><strong>Fecha:</strong> {{ fecha_actual }}</p>
-                            <p><strong>Tipo:</strong> <span class="badge ${tipoVenta.value === '1' ? 'bg-success' : 'bg-warning text-dark'}">${tipoVentaText}</span></p>
-                            <p><strong>Observaciones:</strong> ${observacion || 'Ninguna'}</p>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        `;
-        }
-
-        const tbodyResumen = getElement('tbodyResumenProductos');
-        const totalResumen = getElement('totalResumen');
-
-        if (!tbodyResumen || !totalResumen) return false;
-
-        let htmlResumen = '';
-        let total = 0;
-
-        productos.forEach((prod, index) => {
-            total += prod.subtotal;
-            htmlResumen += `<tr>
-            <td>${index + 1}</td>
-            <td>${prod.nombre}<br><small class="text-muted">Código: ${prod.codigo}</small></td>
-            <td class="text-center">${formatNumber(prod.cantidad)}</td>
-            <td class="text-end">${formatoCordoba(prod.precio)}</td>
-            <td class="text-end fw-bold">${formatoCordoba(prod.subtotal)}</td>
-        </tr>`;
+            </div>`;
         });
-
-        tbodyResumen.innerHTML = htmlResumen;
-        totalResumen.textContent = formatoCordoba(total);
-        return true;
+        html += '</div>';
+        resultadosDiv.innerHTML = html;
     }
+
+    window.agregarProductoBusqueda = function (productoId) {
+        const option = document.querySelector(`#producto_select option[value="${productoId}"]`);
+        if (option) {
+            agregarProductoALista({
+                id: parseInt(option.value),
+                codigo: option.dataset.codigo,
+                nombre: option.dataset.nombre,
+                cantidad: 1,
+                precio: parseFloat(option.dataset.precio),
+                stock: parseInt(option.dataset.stock),
+                unidad: option.dataset.unidad
+            });
+            const resultadosDiv = getElement('resultadosBusqueda');
+            if (resultadosDiv) resultadosDiv.style.display = 'none';
+            const inputBuscar = getElement('buscarProducto');
+            if (inputBuscar) inputBuscar.value = '';
+        }
+    };
 
     // ============================================
     // EVENTOS PRINCIPALES
     // ============================================
     document.addEventListener('DOMContentLoaded', function () {
-        console.log('🚀 Inicializando formulario');
+        console.log('🚀 Inicializando formulario responsive');
 
         // Elementos
         const clienteSelect = getElement('cliente');
@@ -1361,13 +1432,11 @@
                     const clienteNombre = getElement('clienteNombre');
                     const clienteRUC = getElement('clienteRUC');
                     const clienteTelefono = getElement('clienteTelefono');
-                    const clienteDireccion = getElement('clienteDireccion');
                     const clientePerfil = getElement('clientePerfil');
 
                     if (clienteNombre) clienteNombre.textContent = option.dataset.nombre || '';
                     if (clienteRUC) clienteRUC.textContent = option.dataset.ruc || '';
                     if (clienteTelefono) clienteTelefono.textContent = option.dataset.telefono || 'No especificado';
-                    if (clienteDireccion) clienteDireccion.textContent = option.dataset.direccion || 'No especificada';
                     if (clientePerfil) clientePerfil.textContent = option.dataset.perfil || 'Mercado';
 
                     if (infoDiv) infoDiv.style.display = 'block';
@@ -1413,24 +1482,13 @@
                 }
 
                 const option = productoSelect.options[productoSelect.selectedIndex];
-
-                if (!cantidadInput) {
-                    showAlert('warning', 'Error en campo cantidad');
-                    return;
-                }
-
-                const cantidad = parseFloat(cantidadInput.value);
+                const cantidad = parseFloat(cantidadInput?.value);
                 if (!cantidad || cantidad <= 0) {
                     showAlert('warning', 'Cantidad válida');
                     return;
                 }
 
-                if (!precioInput) {
-                    showAlert('warning', 'Error en campo precio');
-                    return;
-                }
-
-                const precio = parseFloat(precioInput.value);
+                const precio = parseFloat(precioInput?.value);
                 if (!precio || precio <= 0) {
                     showAlert('warning', 'Precio válido');
                     return;
@@ -1474,69 +1532,12 @@
         }
 
         // Evento buscar productos
-        function buscarProductos() {
-            if (!inputBuscar) return;
-            const termino = inputBuscar.value.trim();
-            if (termino.length < 2) {
-                showAlert('warning', 'Ingrese al menos 2 caracteres');
-                return;
-            }
-
-            const resultadosDiv = getElement('resultadosBusqueda');
-            if (!resultadosDiv) return;
-
-            resultadosDiv.innerHTML = '<div class="spinner-border text-primary"></div>';
-            resultadosDiv.style.display = 'block';
-
-            const productosEncontrados = Array.from(document.querySelectorAll('#producto_select option')).filter(opt => {
-                if (!opt.value) return false;
-                return opt.text.toLowerCase().includes(termino.toLowerCase());
-            }).slice(0, 5);
-
-            if (productosEncontrados.length === 0) {
-                resultadosDiv.innerHTML = '<div class="alert alert-warning">No se encontraron productos</div>';
-                return;
-            }
-
-            let html = '<div class="list-group">';
-            productosEncontrados.forEach(opt => {
-                html += `<div class="list-group-item list-group-item-action">
-                <div class="d-flex w-100 justify-content-between align-items-start">
-                    <div class="flex-grow-1">
-                        <h6 class="mb-1">${opt.dataset.nombre}</h6>
-                        <small class="text-muted">Código: ${opt.dataset.codigo} | Stock: <span class="badge bg-info">${formatNumber(parseInt(opt.dataset.stock))}</span></small>
-                    </div>
-                    <div>
-                        <span class="fw-bold text-success me-3">${formatoCordoba(parseFloat(opt.dataset.precio))}</span>
-                        <button type="button" class="btn btn-sm btn-primary" onclick="agregarProductoBusqueda('${opt.value}')"><i class="fas fa-plus"></i></button>
-                    </div>
-                </div>
-            </div>`;
-            });
-            html += '</div>';
-            resultadosDiv.innerHTML = html;
-        }
-
         if (btnBuscar) btnBuscar.addEventListener('click', buscarProductos);
         if (inputBuscar) {
             inputBuscar.addEventListener('keypress', function (e) {
                 if (e.key === 'Enter') { e.preventDefault(); buscarProductos(); }
             });
         }
-
-        window.agregarProductoBusqueda = function (productoId) {
-            const option = document.querySelector(`#producto_select option[value="${productoId}"]`);
-            if (option && productoSelect) {
-                productoSelect.value = productoId;
-                if (cantidadInput) cantidadInput.value = 1;
-                if (precioInput) precioInput.value = option.dataset.precio;
-                if (btnAgregar) btnAgregar.click();
-
-                const resultadosDiv = getElement('resultadosBusqueda');
-                if (resultadosDiv) resultadosDiv.style.display = 'none';
-                if (inputBuscar) inputBuscar.value = '';
-            }
-        };
 
         // Evento mostrar confirmación
         if (btnMostrarConfirmacion) {
@@ -1560,7 +1561,6 @@
                     const totalVenta = calcularTotalVenta();
                     mostrarModalAbono(clienteSelect.value, saldoClienteActual, totalVenta, facturasPendientes);
                 } else {
-                    // Reiniciar valores de abono
                     abonoSeleccionado = 0;
                     metodoPagoSeleccionado = '';
                     
@@ -1627,7 +1627,6 @@
                 if (montoAbono > 0) {
                     procesarVentaConAbono(montoAbono);
                 } else {
-                    // Si el monto es 0, tratar como sin abono
                     abonoSeleccionado = 0;
                     metodoPagoSeleccionado = '';
                     
@@ -1648,7 +1647,6 @@
 
         if (btnContinuarSinAbono) {
             btnContinuarSinAbono.addEventListener('click', function () {
-                // Limpiar campos de abono
                 abonoSeleccionado = 0;
                 metodoPagoSeleccionado = '';
                 
@@ -1682,7 +1680,7 @@
                     showAlert('warning', 'Nombre y RUC obligatorios');
                     return;
                 }
-                // Aquí iría la lógica para guardar el cliente via API
+                // Simulación de guardado
                 showAlert('success', 'Cliente registrado (simulado)');
                 const modalElement = getElement('nuevoClienteModal');
                 if (modalElement) {
@@ -1695,7 +1693,7 @@
         }
 
         // Inicialización
-        actualizarTabla();
+        actualizarVistasProductos();
         actualizarResumen();
         actualizarIndicadorCredito();
 
@@ -1703,251 +1701,267 @@
             verificarSaldoCliente(clienteSelect.value);
         }
 
-        console.log('✅ Formulario listo');
+        console.log('✅ Formulario responsive listo');
     });
 </script>
 
 <style>
-    .required:after {
-        content: " *";
-        color: red;
+    /* ============================================ */
+    /* ESTILOS RESPONSIVOS MEJORADOS                */
+    /* ============================================ */
+    
+    /* Ajustes generales */
+    .container-fluid {
+        max-width: 1400px;
     }
-
+    
     .card {
         border: none;
-        box-shadow: 0 0 20px rgba(0, 0, 0, 0.08);
-        margin-bottom: 20px;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+        margin-bottom: 15px;
     }
-
+    
     .card-header {
         font-weight: 600;
-        padding: 1rem 1.5rem;
+        padding: 0.5rem 1rem;
     }
-
+    
+    /* Gradientes para headers */
     .card-header.bg-primary {
         background: linear-gradient(45deg, #667eea, #764ba2);
     }
-
     .card-header.bg-info {
         background: linear-gradient(45deg, #17a2b8, #138496);
     }
-
     .card-header.bg-success {
         background: linear-gradient(45deg, #28a745, #20c997);
     }
-
     .card-header.bg-dark {
         background: linear-gradient(45deg, #343a40, #23272b);
     }
-
+    
+    /* Breadcrumb */
+    .breadcrumb {
+        background-color: transparent;
+        padding: 0.25rem 0;
+        margin-bottom: 0;
+    }
+    .breadcrumb-item a {
+        color: #667eea;
+        text-decoration: none;
+    }
+    .breadcrumb-item a:hover {
+        text-decoration: underline;
+    }
+    
+    /* Tablas */
     .table th {
         background-color: #f8f9fa;
         font-weight: 600;
+        font-size: 0.85rem;
     }
-
-    .table-hover tbody tr:hover {
-        background-color: rgba(102, 126, 234, 0.05);
+    .table td {
+        vertical-align: middle;
+        font-size: 0.85rem;
     }
-
+    
+    /* Badges */
     .badge {
-        font-size: 0.85em;
-        padding: 0.35em 0.65em;
-    }
-
-    .badge.bg-success {
-        background: linear-gradient(45deg, #28a745, #20c997) !important;
-    }
-
-    .badge.bg-primary {
-        background: linear-gradient(45deg, #667eea, #764ba2) !important;
-    }
-
-    .badge.bg-info {
-        background: linear-gradient(45deg, #17a2b8, #138496) !important;
-    }
-
-    .badge.bg-warning {
-        background: linear-gradient(45deg, #ffc107, #e0a800) !important;
-    }
-
-    .input-group-sm .form-control {
+        font-size: 0.75rem;
         padding: 0.25rem 0.5rem;
-        font-size: 0.875rem;
     }
-
-    .input-group-text {
-        background-color: #f8f9fa;
-        border-color: #dee2e6;
-        font-weight: 600;
+    
+    /* Input groups */
+    .input-group-sm .form-control,
+    .input-group-sm .input-group-text {
+        font-size: 0.8rem;
     }
-
-    #tablaProductos .input-group-sm {
-        width: 150px;
-        margin: 0 auto;
+    
+    /* Alertas */
+    .alert {
+        padding: 0.5rem;
+        margin-bottom: 0.5rem;
     }
-
-    #tablaProductos .input-group-sm input {
-        text-align: center;
+    .alert-primary {
+        background: linear-gradient(45deg, #667eea, #764ba2);
+        color: white;
     }
-
-    #clienteInfo {
-        border-left: 3px solid #667eea;
-        background-color: #f8f9fa !important;
+    
+    /* Botones */
+    .btn-sm {
+        font-size: 0.75rem;
     }
-
     .btn-primary {
         background: linear-gradient(45deg, #667eea, #764ba2);
         border: none;
     }
-
     .btn-primary:hover {
         background: linear-gradient(45deg, #5a6fd6, #6a4392);
         transform: translateY(-1px);
         box-shadow: 0 5px 15px rgba(102, 126, 234, 0.3);
     }
-
     .btn-success {
         background: linear-gradient(45deg, #28a745, #20c997);
         border: none;
     }
-
     .btn-success:hover {
         background: linear-gradient(45deg, #218838, #1ba87e);
-        transform: translateY(-1px);
         box-shadow: 0 5px 15px rgba(40, 167, 69, 0.3);
     }
-
-    .btn-info {
-        background: linear-gradient(45deg, #17a2b8, #138496);
-        border: none;
-        color: white;
+    
+    /* Información de cliente */
+    #clienteInfo {
+        border-left: 3px solid #667eea;
+        background-color: #f8f9fa;
     }
-
-    .btn-info:hover {
-        color: white;
-        transform: translateY(-1px);
-        box-shadow: 0 5px 15px rgba(23, 162, 184, 0.3);
-    }
-
-    .alert-primary {
-        background: linear-gradient(45deg, #667eea, #764ba2);
-        color: white;
-        border: none;
-    }
-
-    .alert-info {
-        background: linear-gradient(45deg, #17a2b8, #138496);
-        color: white;
-        border: none;
-    }
-
-    .alert-warning {
-        background: linear-gradient(45deg, #ffc107, #e0a800);
-        color: #212529;
-        border: none;
-    }
-
-    #saldo-info .alert-warning {
-        border-left: 4px solid #ffc107;
-        animation: pulse 2s infinite;
-    }
-
-    @keyframes pulse {
-        0% {
-            opacity: 1;
-        }
-        50% {
-            opacity: 0.9;
-        }
-        100% {
-            opacity: 1;
-        }
-    }
-
-    #indicadorCredito {
-        border-left: 4px solid #ffc107;
-        animation: pulse 2s infinite;
-    }
-
+    
+    /* Resultados de búsqueda */
     #resultadosBusqueda {
-        max-height: 300px;
+        max-height: 250px;
         overflow-y: auto;
         border: 1px solid #dee2e6;
         border-radius: 0.25rem;
-        padding: 10px;
+        padding: 0.5rem;
         background-color: #f8f9fa;
+        font-size: 0.85rem;
     }
-
-    .modal-header.bg-primary {
-        background: linear-gradient(45deg, #667eea, #764ba2);
-    }
-
-    #tablaResumenProductos th {
-        background-color: #e9ecef;
-        font-weight: 600;
-    }
-
-    .modal.fade .modal-dialog {
-        transform: scale(0.8);
-        transition: transform 0.2s ease-out;
-    }
-
-    .modal.show .modal-dialog {
-        transform: scale(1);
-    }
-
-    .breadcrumb {
-        background-color: transparent;
-        padding: 0.5rem 0;
-        margin-bottom: 0;
-    }
-
-    .breadcrumb-item a {
-        color: #667eea;
-        text-decoration: none;
-    }
-
-    #contadorProductos,
-    #indicadorTotal {
-        font-size: 0.9rem;
-        padding: 0.5rem 1rem;
-    }
-
-    .btn,
-    .card,
-    .badge,
-    .alert {
-        transition: all 0.3s ease;
-    }
-
+    
+    /* Scrollbar personalizado */
     ::-webkit-scrollbar {
-        width: 8px;
-        height: 8px;
+        width: 6px;
+        height: 6px;
     }
-
     ::-webkit-scrollbar-track {
         background: #f1f1f1;
-        border-radius: 4px;
+        border-radius: 3px;
     }
-
     ::-webkit-scrollbar-thumb {
         background: linear-gradient(45deg, #667eea, #764ba2);
-        border-radius: 4px;
+        border-radius: 3px;
     }
-
-    @media (max-width: 768px) {
+    
+    /* ============================================ */
+    /* VISTA MÓVIL (< 768px)                        */
+    /* ============================================ */
+    @media (max-width: 767.98px) {
+        .container-fluid {
+            padding-left: 8px;
+            padding-right: 8px;
+        }
+        
+        h2.h2-md {
+            font-size: 1.3rem;
+        }
+        
+        /* Tarjetas de productos en móvil */
+        .producto-movil-card {
+            background-color: white;
+            transition: background-color 0.2s ease;
+        }
+        .producto-movil-card:hover {
+            background-color: #f8f9fa;
+        }
+        .producto-movil-card .input-group-sm {
+            width: 100%;
+        }
+        .producto-movil-card .input-group-sm input {
+            height: 28px;
+            font-size: 0.7rem;
+        }
+        .producto-movil-card .btn-sm {
+            padding: 0.1rem 0.3rem;
+            font-size: 0.7rem;
+        }
+        
+        /* Badges en móvil */
+        .badge {
+            font-size: 0.65rem;
+        }
+        
+        /* Inputs en móvil */
+        .form-control-sm, .input-group-sm .form-control {
+            font-size: 0.7rem;
+        }
+        
+        /* Alertas en móvil */
+        .alert {
+            font-size: 0.75rem;
+        }
+        
+        /* Modales en móvil */
+        .modal-dialog {
+            margin: 0.5rem;
+        }
+        .modal-body {
+            padding: 0.75rem;
+        }
+    }
+    
+    /* ============================================ */
+    /* VISTA TABLET (768px - 991px)                 */
+    /* ============================================ */
+    @media (min-width: 768px) and (max-width: 991.98px) {
+        .container-fluid {
+            padding-left: 15px;
+            padding-right: 15px;
+        }
+        
+        .table {
+            font-size: 0.8rem;
+        }
+        
+        #tablaProductos .input-group-sm {
+            width: 100px;
+        }
+    }
+    
+    /* ============================================ */
+    /* VISTA DESKTOP (>= 992px)                     */
+    /* ============================================ */
+    @media (min-width: 992px) {
         #tablaProductos .input-group-sm {
             width: 120px;
         }
-
-        .btn-group {
-            display: flex;
-            flex-direction: column;
+        
+        .table th {
+            white-space: nowrap;
         }
-
-        .btn-group .btn {
-            margin-bottom: 0.5rem;
-        }
+    }
+    
+    /* Animaciones */
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(5px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+    .producto-movil-card {
+        animation: fadeIn 0.3s ease;
+    }
+    
+    /* Indicador de crédito */
+    #indicadorCredito {
+        border-left: 3px solid #ffc107;
+        animation: pulse 2s infinite;
+    }
+    @keyframes pulse {
+        0% { opacity: 1; }
+        50% { opacity: 0.8; }
+        100% { opacity: 1; }
+    }
+    
+    /* Botón de confirmación */
+    #btnMostrarConfirmacion {
+        transition: all 0.3s ease;
+    }
+    #btnMostrarConfirmacion:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+    }
+    
+    /* Campo requerido */
+    .required:after {
+        content: " *";
+        color: red;
+        font-weight: bold;
     }
 </style>
 {% endblock %}

@@ -3,59 +3,102 @@
 {% block title %}Detalle de Venta{% endblock %}
 
 {% block content %}
-<div class="container-fluid py-4">
-    <!-- Breadcrumb y acciones -->
-    <div class="row mb-4">
+<div class="container-fluid mt-2 mt-md-4 px-2 px-md-3 py-2 py-md-4">
+    <!-- ============================================ -->
+    <!-- BREADCRUMB RESPONSIVO                        -->
+    <!-- ============================================ -->
+    <div class="row mb-3 mb-md-4">
         <div class="col-12">
             <nav aria-label="breadcrumb">
-                <ol class="breadcrumb">
-                    <li class="breadcrumb-item"><a href="{{ url_for('vendedor_dashboard') }}">Dashboard</a></li>
-                    <li class="breadcrumb-item"><a href="{{ url_for('vendedor_ventas') }}">Ventas</a></li>
-                    <li class="breadcrumb-item active">Detalle de Venta #{{ venta.ID_FacturaRuta }}</li>
+                <ol class="breadcrumb mb-0">
+                    <li class="breadcrumb-item small">
+                        <a href="{{ url_for('vendedor_dashboard') }}">Dashboard</a>
+                    </li>
+                    <li class="breadcrumb-item small">
+                        <a href="{{ url_for('vendedor_ventas') }}">Ventas</a>
+                    </li>
+                    <li class="breadcrumb-item active small" aria-current="page">
+                        Detalle #{{ venta.ID_FacturaRuta }}
+                    </li>
                 </ol>
             </nav>
         </div>
     </div>
 
-    <!-- Cabecera de la venta -->
-    <div class="row mb-4">
-        <div class="col-md-8">
-            <h2 class="mb-0">
-                <i class="fas fa-file-invoice me-2"></i>Factura Ruta #{{ venta.ID_FacturaRuta }}
-                <span class="badge {% if venta.Estado == 'Activa' %}bg-success{% else %}bg-secondary{% endif %} ms-2">
-                    {{ venta.Estado }}
-                </span>
-                <span class="badge {% if venta.Credito_Contado == 1 %}bg-info{% else %}bg-warning{% endif %} ms-2">
-                    {{ venta.Tipo_Venta }}
-                </span>
-            </h2>
-            <p class="text-muted mt-2">
-                <i class="fas fa-calendar me-1"></i>Fecha: {{ venta.Fecha }} | 
+    <!-- ============================================ -->
+    <!-- CABECERA DE LA VENTA                         -->
+    <!-- ============================================ -->
+    <div class="row mb-3 mb-md-4">
+        <div class="col-12">
+            <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center">
+                <div class="mb-2 mb-md-0">
+                    <h2 class="h3 h2-md mb-1">
+                        <i class="fas fa-file-invoice me-2 text-primary"></i>
+                        Factura Ruta #{{ venta.ID_FacturaRuta }}
+                    </h2>
+                    <div class="d-flex flex-wrap gap-1 gap-md-2 mt-1">
+                        <span class="badge {% if venta.Estado == 'Activa' %}bg-success{% else %}bg-secondary{% endif %} p-2">
+                            {{ venta.Estado }}
+                        </span>
+                        <span class="badge {% if venta.Credito_Contado == 1 %}bg-info{% else %}bg-warning text-dark{% endif %} p-2">
+                            {{ venta.Tipo_Venta }}
+                        </span>
+                        <small class="text-muted d-block d-sm-inline mt-1 mt-sm-0">
+                            <i class="fas fa-calendar me-1"></i>{{ venta.Fecha }}
+                        </small>
+                    </div>
+                </div>
+                <div class="d-flex gap-2 w-100 w-md-auto">
+                    <a href="{{ url_for('vendedor_generar_ticket_ruta', id_venta=venta.ID_FacturaRuta, autoPrint=0) }}" 
+                       class="btn btn-primary btn-sm flex-fill flex-md-grow-0" target="_blank">
+                        <i class="fas fa-print me-1"></i> 
+                        <span class="d-none d-sm-inline">Imprimir Ticket</span>
+                        <span class="d-sm-none">Ticket</span>
+                    </a>
+                    <a href="{{ url_for('vendedor_ventas') }}" class="btn btn-outline-secondary btn-sm flex-fill flex-md-grow-0">
+                        <i class="fas fa-arrow-left me-1"></i> 
+                        <span class="d-none d-sm-inline">Volver</span>
+                        <span class="d-sm-none">Atrás</span>
+                    </a>
+                </div>
+            </div>
+            <p class="text-muted small mt-2 mb-0">
                 <i class="fas fa-clock me-1"></i>Registrado: {{ venta.Fecha_Creacion }}
             </p>
         </div>
-        <div class="col-md-4 text-end">
-            <a href="{{ url_for('vendedor_generar_ticket_ruta', id_venta=venta.ID_FacturaRuta, autoPrint=0) }}" 
-               class="btn btn-primary" target="_blank">
-                <i class="fas fa-print me-2"></i>Imprimir Ticket
-            </a>
-            <a href="{{ url_for('vendedor_ventas') }}" class="btn btn-outline-secondary">
-                <i class="fas fa-arrow-left me-2"></i>Volver
-            </a>
-        </div>
     </div>
 
-    <div class="row">
-        <!-- Información del cliente y vendedor -->
-        <div class="col-md-6 mb-4">
+    <!-- ============================================ -->
+    <!-- INFORMACIÓN DEL CLIENTE Y RUTA               -->
+    <!-- ============================================ -->
+    <div class="row g-2 g-md-3 mb-4">
+        <!-- Información del Cliente -->
+        <div class="col-12 col-md-6">
             <div class="card h-100 shadow-sm">
-                <div class="card-header bg-primary text-white">
-                    <h5 class="card-title mb-0">
-                        <i class="fas fa-user me-2"></i>Información del Cliente
+                <div class="card-header bg-primary text-white py-2 py-md-3">
+                    <h5 class="card-title mb-0 h6 h5-md">
+                        <i class="fas fa-user me-2"></i>
+                        <span class="d-none d-sm-inline">Información del Cliente</span>
+                        <span class="d-sm-none">Cliente</span>
                     </h5>
                 </div>
-                <div class="card-body">
-                    <table class="table table-sm table-borderless">
+                <div class="card-body p-2 p-md-3">
+                    <!-- Vista móvil en tarjetas -->
+                    <div class="d-block d-md-none">
+                        <div class="row g-1">
+                            <div class="col-5"><small class="text-muted">Cliente:</small></div>
+                            <div class="col-7"><span class="small fw-bold">{{ venta.Cliente }}</span></div>
+                            <div class="col-5"><small class="text-muted">RUC/Cédula:</small></div>
+                            <div class="col-7"><span class="small">{{ venta.RUC_CEDULA or 'N/A' }}</span></div>
+                            <div class="col-5"><small class="text-muted">Teléfono:</small></div>
+                            <div class="col-7"><span class="small">{{ venta.Telefono or 'N/A' }}</span></div>
+                            <div class="col-5"><small class="text-muted">Dirección:</small></div>
+                            <div class="col-7"><span class="small">{{ venta.Direccion or 'N/A' }}</span></div>
+                        </div>
+                    </div>
+                    
+                    <!-- Vista desktop en tabla -->
+                    <table class="table table-sm table-borderless d-none d-md-table">
                         <tr>
                             <th style="width: 120px;">Cliente:</th>
                             <td>{{ venta.Cliente }}</td>
@@ -77,15 +120,37 @@
             </div>
         </div>
 
-        <div class="col-md-6 mb-4">
+        <!-- Información de la Ruta -->
+        <div class="col-12 col-md-6">
             <div class="card h-100 shadow-sm">
-                <div class="card-header bg-success text-white">
-                    <h5 class="card-title mb-0">
-                        <i class="fas fa-truck me-2"></i>Información de la Ruta
+                <div class="card-header bg-success text-white py-2 py-md-3">
+                    <h5 class="card-title mb-0 h6 h5-md">
+                        <i class="fas fa-truck me-2"></i>
+                        <span class="d-none d-sm-inline">Información de la Ruta</span>
+                        <span class="d-sm-none">Ruta</span>
                     </h5>
                 </div>
-                <div class="card-body">
-                    <table class="table table-sm table-borderless">
+                <div class="card-body p-2 p-md-3">
+                    <!-- Vista móvil en tarjetas -->
+                    <div class="d-block d-md-none">
+                        <div class="row g-1">
+                            <div class="col-4"><small class="text-muted">Ruta:</small></div>
+                            <div class="col-8"><span class="small fw-bold">{{ venta.Nombre_Ruta }}</span></div>
+                            <div class="col-4"><small class="text-muted">Vendedor:</small></div>
+                            <div class="col-8"><span class="small">{{ venta.NombreCompleto or venta.Vendedor }}</span></div>
+                            <div class="col-4"><small class="text-muted">Fecha Ruta:</small></div>
+                            <div class="col-8"><span class="small">{{ venta.Fecha_Asignacion }}</span></div>
+                            {% if venta.Observacion %}
+                            <div class="col-12 mt-2">
+                                <small class="text-muted d-block">Observación:</small>
+                                <span class="small">{{ venta.Observacion }}</span>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                    <!-- Vista desktop en tabla -->
+                    <table class="table table-sm table-borderless d-none d-md-table">
                         <tr>
                             <th style="width: 120px;">Ruta:</th>
                             <td>{{ venta.Nombre_Ruta }}</td>
@@ -110,26 +175,57 @@
         </div>
     </div>
 
-    <!-- Detalle de productos -->
+    <!-- ============================================ -->
+    <!-- PRODUCTOS VENDIDOS                           -->
+    <!-- ============================================ -->
     <div class="row mb-4">
         <div class="col-12">
             <div class="card shadow-sm">
-                <div class="card-header bg-secondary text-white">
-                    <h5 class="card-title mb-0">
-                        <i class="fas fa-boxes me-2"></i>Productos Vendidos
+                <div class="card-header bg-secondary text-white py-2 py-md-3">
+                    <h5 class="card-title mb-0 h6 h5-md">
+                        <i class="fas fa-boxes me-2"></i>
+                        Productos Vendidos
+                        <span class="badge bg-light text-dark ms-2">{{ detalles|length }} items</span>
                     </h5>
                 </div>
                 <div class="card-body p-0">
-                    <div class="table-responsive">
+                    <!-- VISTA MÓVIL: Tarjetas de productos -->
+                    <div class="d-block d-lg-none">
+                        {% for item in detalles %}
+                        <div class="producto-card p-2 border-bottom">
+                            <div class="d-flex justify-content-between align-items-start mb-1">
+                                <div>
+                                    <span class="badge bg-secondary">{{ item.COD_Producto }}</span>
+                                    <span class="badge bg-info">{{ loop.index }}</span>
+                                </div>
+                                <span class="fw-bold text-success">$ {{ item.Total|round(2) }}</span>
+                            </div>
+                            <h6 class="mb-1 small fw-bold">{{ item.Producto }}</h6>
+                            <div class="row g-1">
+                                <div class="col-6">
+                                    <small class="text-muted d-block">Cantidad:</small>
+                                    <span class="fw-bold">{{ item.Cantidad|int }} {{ item.Unidad_Medida or 'U' }}</span>
+                                </div>
+                                <div class="col-6">
+                                    <small class="text-muted d-block">Precio Unit.:</small>
+                                    <span>$ {{ item.Precio|round(2) }}</span>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+
+                    <!-- VISTA DESKTOP: Tabla de productos -->
+                    <div class="table-responsive d-none d-lg-block">
                         <table class="table table-hover table-striped mb-0">
                             <thead class="table-light">
                                 <tr>
-                                    <th>#</th>
-                                    <th>Código</th>
+                                    <th width="50">#</th>
+                                    <th width="100">Código</th>
                                     <th>Producto</th>
-                                    <th class="text-center">Cantidad</th>
-                                    <th class="text-end">Precio Unit.</th>
-                                    <th class="text-end">Subtotal</th>
+                                    <th width="100" class="text-center">Cantidad</th>
+                                    <th width="120" class="text-end">Precio Unit.</th>
+                                    <th width="120" class="text-end">Subtotal</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -143,7 +239,7 @@
                                     </td>
                                     <td class="text-center">{{ item.Cantidad|int }}</td>
                                     <td class="text-end">$ {{ item.Precio|round(2) }}</td>
-                                    <td class="text-end">$ {{ item.Total|round(2) }}</td>
+                                    <td class="text-end fw-bold">$ {{ item.Total|round(2) }}</td>
                                 </tr>
                                 {% endfor %}
                             </tbody>
@@ -159,25 +255,66 @@
                             </tfoot>
                         </table>
                     </div>
+
+                    <!-- Resumen móvil -->
+                    <div class="d-block d-lg-none p-2 bg-light">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <span class="fw-bold">SUBTOTAL:</span>
+                            <span>$ {{ subtotal|round(2) }}</span>
+                        </div>
+                        <div class="d-flex justify-content-between align-items-center mt-1">
+                            <span class="fw-bold">TOTAL:</span>
+                            <span class="h6 text-success mb-0">$ {{ subtotal|round(2) }}</span>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
 
+    <!-- ============================================ -->
+    <!-- INFORMACIÓN DE CRÉDITO (si aplica)          -->
+    <!-- ============================================ -->
     {% if venta.Credito_Contado == 2 and cuentas_cobrar %}
-    <!-- Información de crédito -->
-    <div class="row mb-4">
-        <div class="col-md-6">
+    <div class="row g-2 g-md-3 mb-4">
+        <div class="col-12 col-md-6">
             <div class="card shadow-sm border-warning">
-                <div class="card-header bg-warning text-dark">
-                    <h5 class="card-title mb-0">
-                        <i class="fas fa-credit-card me-2"></i>Información del Crédito
+                <div class="card-header bg-warning text-dark py-2 py-md-3">
+                    <h5 class="card-title mb-0 h6 h5-md">
+                        <i class="fas fa-credit-card me-2"></i>
+                        Información del Crédito
                     </h5>
                 </div>
-                <div class="card-body">
-                    <table class="table table-sm">
+                <div class="card-body p-2 p-md-3">
+                    <!-- Vista móvil -->
+                    <div class="d-block d-md-none">
+                        <div class="row g-1">
+                            <div class="col-5"><small class="text-muted">Saldo Pendiente:</small></div>
+                            <div class="col-7">
+                                <span class="fw-bold {% if cuentas_cobrar.Saldo_Pendiente > 0 %}text-danger{% else %}text-success{% endif %}">
+                                    $ {{ cuentas_cobrar.Saldo_Pendiente|round(2) }}
+                                </span>
+                            </div>
+                            <div class="col-5"><small class="text-muted">Fecha Vencimiento:</small></div>
+                            <div class="col-7">
+                                <span>{{ cuentas_cobrar.Fecha_Vencimiento }}</span>
+                                {% if cuentas_cobrar.Dias_Vencidos > 0 %}
+                                <span class="badge bg-danger ms-1">Vencido {{ cuentas_cobrar.Dias_Vencidos }}d</span>
+                                {% endif %}
+                            </div>
+                            <div class="col-5"><small class="text-muted">Estado CXC:</small></div>
+                            <div class="col-7">
+                                <span class="badge {% if cuentas_cobrar.Estado_CXC == 'Pendiente' %}bg-warning{% elif cuentas_cobrar.Estado_CXC == 'Pagado' %}bg-success{% else %}bg-secondary{% endif %}">
+                                    {{ cuentas_cobrar.Estado_CXC }}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Vista desktop -->
+                    <table class="table table-sm d-none d-md-table">
                         <tr>
-                            <th>Saldo Pendiente:</th>
+                            <th style="width: 150px;">Saldo Pendiente:</th>
                             <td class="fw-bold {% if cuentas_cobrar.Saldo_Pendiente > 0 %}text-danger{% else %}text-success{% endif %}">
                                 $ {{ cuentas_cobrar.Saldo_Pendiente|round(2) }}
                             </td>
@@ -205,17 +342,38 @@
         </div>
 
         {% if pagos %}
-        <div class="col-md-6">
+        <div class="col-12 col-md-6">
             <div class="card shadow-sm">
-                <div class="card-header bg-info text-white">
-                    <h5 class="card-title mb-0">
-                        <i class="fas fa-history me-2"></i>Historial de Pagos
+                <div class="card-header bg-info text-white py-2 py-md-3">
+                    <h5 class="card-title mb-0 h6 h5-md">
+                        <i class="fas fa-history me-2"></i>
+                        <span class="d-none d-sm-inline">Historial de Pagos</span>
+                        <span class="d-sm-none">Pagos</span>
                     </h5>
                 </div>
                 <div class="card-body p-0">
-                    <div class="table-responsive">
+                    <!-- Vista móvil de pagos -->
+                    <div class="d-block d-md-none">
+                        {% for pago in pagos %}
+                        <div class="pago-card p-2 border-bottom">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div>
+                                    <span class="badge bg-success">$ {{ pago.Monto_Pagado|round(2) }}</span>
+                                    <small class="d-block text-muted">{{ pago.Fecha_Pago }}</small>
+                                </div>
+                                <small class="text-muted">{{ pago.Metodo_Pago }}</small>
+                            </div>
+                            {% if pago.Observacion %}
+                            <small class="text-muted d-block mt-1">{{ pago.Observacion }}</small>
+                            {% endif %}
+                        </div>
+                        {% endfor %}
+                    </div>
+
+                    <!-- Vista desktop de pagos -->
+                    <div class="table-responsive d-none d-md-block">
                         <table class="table table-sm table-hover mb-0">
-                            <thead>
+                            <thead class="table-light">
                                 <tr>
                                     <th>Fecha</th>
                                     <th>Método</th>
@@ -226,8 +384,8 @@
                             <tbody>
                                 {% for pago in pagos %}
                                 <tr>
-                                    <td>{{ pago.Fecha_Pago }}</td>
-                                    <td>{{ pago.Metodo_Pago }}</td>
+                                    <td class="small">{{ pago.Fecha_Pago }}</td>
+                                    <td class="small">{{ pago.Metodo_Pago }}</td>
                                     <td class="text-end fw-bold text-success">$ {{ pago.Monto_Pagado|round(2) }}</td>
                                     <td><small>{{ pago.Observacion or '-' }}</small></td>
                                 </tr>
@@ -242,47 +400,56 @@
     </div>
     {% endif %}
 
-    <!-- Botones de acción adicionales -->
+    <!-- ============================================ -->
+    <!-- BOTONES DE ACCIÓN ADICIONALES                -->
+    <!-- ============================================ -->
     <div class="row mt-3">
         <div class="col-12">
             <div class="card shadow-sm">
-                <div class="card-body">
-                    <a href="{{ url_for('vendedor_ventas') }}" class="btn btn-secondary">
-                        <i class="fas fa-arrow-left me-2"></i>Volver al Listado
-                    </a>
-                    {% if venta.Credito_Contado == 2 and cuentas_cobrar and cuentas_cobrar.Saldo_Pendiente > 0 %}
-                    <a href="#" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#modalPago">
-                        <i class="fas fa-dollar-sign me-2"></i>Registrar Pago
-                    </a>
-                    {% endif %}
+                <div class="card-body p-2 p-md-3">
+                    <div class="d-flex flex-column flex-sm-row gap-2">
+                        <a href="{{ url_for('vendedor_ventas') }}" class="btn btn-secondary btn-sm flex-fill flex-sm-grow-0">
+                            <i class="fas fa-arrow-left me-2"></i>Volver al Listado
+                        </a>
+                        {% if venta.Credito_Contado == 2 and cuentas_cobrar and cuentas_cobrar.Saldo_Pendiente > 0 %}
+                        <a href="#" class="btn btn-success btn-sm flex-fill flex-sm-grow-0" data-bs-toggle="modal" data-bs-target="#modalPago">
+                            <i class="fas fa-dollar-sign me-2"></i>Registrar Pago
+                        </a>
+                        {% endif %}
+                    </div>
                 </div>
             </div>
         </div>
     </div>
 </div>
 
-<!-- Modal para registrar pago -->
+<!-- ============================================ -->
+<!-- MODAL PARA REGISTRAR PAGO                    -->
+<!-- ============================================ -->
 {% if venta.Credito_Contado == 2 and cuentas_cobrar and cuentas_cobrar.Saldo_Pendiente > 0 %}
-<div class="modal fade" id="modalPago" tabindex="-1" aria-labelledby="modalPagoLabel" aria-hidden="true">
-    <div class="modal-dialog">
+<div class="modal fade" id="modalPago" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
-            <div class="modal-header bg-success text-white">
-                <h5 class="modal-title" id="modalPagoLabel">
+            <div class="modal-header bg-success text-white py-2">
+                <h5 class="modal-title h6" id="modalPagoLabel">
                     <i class="fas fa-dollar-sign me-2"></i>Registrar Pago
                 </h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
-            <form action="{{ url_for('vendedor_registrar_pago', id_venta=venta.ID_FacturaRuta) }}" method="POST">
-                <div class="modal-body">
+            <form action="#" method="POST">
+                <div class="modal-body p-3">
                     <div class="mb-3">
-                        <label for="monto" class="form-label">Monto a Pagar</label>
-                        <input type="number" name="monto" id="monto" class="form-control" 
-                               step="0.01" min="0.01" max="{{ cuentas_cobrar.Saldo_Pendiente }}" required>
+                        <label for="monto" class="form-label small fw-bold">Monto a Pagar</label>
+                        <div class="input-group input-group-sm">
+                            <span class="input-group-text">$</span>
+                            <input type="number" name="monto" id="monto" class="form-control" 
+                                   step="0.01" min="0.01" max="{{ cuentas_cobrar.Saldo_Pendiente }}" required>
+                        </div>
                         <small class="text-muted">Saldo pendiente: $ {{ cuentas_cobrar.Saldo_Pendiente|round(2) }}</small>
                     </div>
                     <div class="mb-3">
-                        <label for="metodo_pago" class="form-label">Método de Pago</label>
-                        <select name="metodo_pago" id="metodo_pago" class="form-select" required>
+                        <label for="metodo_pago" class="form-label small fw-bold">Método de Pago</label>
+                        <select name="metodo_pago" id="metodo_pago" class="form-select form-select-sm" required>
                             <option value="">Seleccione...</option>
                             {% for mp in metodos_pago %}
                             <option value="{{ mp.ID_MetodoPago }}">{{ mp.Nombre }}</option>
@@ -290,13 +457,13 @@
                         </select>
                     </div>
                     <div class="mb-3">
-                        <label for="observacion" class="form-label">Observación</label>
-                        <textarea name="observacion" id="observacion" class="form-control" rows="2" placeholder="Observación del pago (opcional)"></textarea>
+                        <label for="observacion" class="form-label small fw-bold">Observación</label>
+                        <textarea name="observacion" id="observacion" class="form-control form-control-sm" rows="2" placeholder="Observación del pago (opcional)"></textarea>
                     </div>
                 </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="submit" class="btn btn-success">Procesar Pago</button>
+                <div class="modal-footer py-2">
+                    <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-success btn-sm">Procesar Pago</button>
                 </div>
             </form>
         </div>
@@ -305,69 +472,61 @@
 {% endif %}
 
 <style>
+/* ============================================ */
+/* ESTILOS RESPONSIVOS MEJORADOS                */
+/* ============================================ */
+
+/* Ajustes generales */
 .card {
     border: none;
     border-radius: 10px;
     box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075) !important;
+    transition: all 0.3s ease;
+}
+.card:hover {
+    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15) !important;
 }
 .card-header {
     border-radius: 10px 10px 0 0 !important;
     font-weight: 500;
-    padding: 1rem 1.25rem;
 }
-.card-header.bg-primary {
-    background-color: #4e73df !important;
-}
-.card-header.bg-success {
-    background-color: #1cc88a !important;
-}
-.card-header.bg-secondary {
-    background-color: #858796 !important;
-}
-.card-header.bg-warning {
-    background-color: #f6c23e !important;
-    color: #fff !important;
-}
-.card-header.bg-info {
-    background-color: #36b9cc !important;
-}
-.table th {
-    font-weight: 500;
-    color: #495057;
-}
+
+/* Colores de headers */
+.card-header.bg-primary { background: linear-gradient(45deg, #4e73df, #224abe) !important; }
+.card-header.bg-success { background: linear-gradient(45deg, #1cc88a, #169b6b) !important; }
+.card-header.bg-secondary { background: linear-gradient(45deg, #858796, #6b6d7d) !important; }
+.card-header.bg-warning { background: linear-gradient(45deg, #f6c23e, #e0a800) !important; color: #fff !important; }
+.card-header.bg-info { background: linear-gradient(45deg, #36b9cc, #258391) !important; }
+
+/* Badges */
 .badge {
-    padding: 6px 10px;
+    padding: 0.4rem 0.6rem;
     font-size: 0.75rem;
     font-weight: 600;
 }
-.badge.bg-success {
-    background-color: #1cc88a !important;
-}
-.badge.bg-info {
-    background-color: #36b9cc !important;
-}
-.badge.bg-warning {
-    background-color: #f6c23e !important;
-    color: #fff !important;
-}
-.badge.bg-danger {
-    background-color: #e74a3b !important;
-}
+.badge.bg-success { background-color: #1cc88a !important; }
+.badge.bg-info { background-color: #36b9cc !important; }
+.badge.bg-warning { background-color: #f6c23e !important; color: #212529 !important; }
+.badge.bg-danger { background-color: #e74a3b !important; }
+
+/* Botones */
 .btn-primary {
-    background-color: #4e73df;
-    border-color: #4e73df;
+    background: linear-gradient(45deg, #4e73df, #224abe);
+    border: none;
 }
 .btn-primary:hover {
-    background-color: #2e59d9;
-    border-color: #2653d4;
+    background: linear-gradient(45deg, #2e59d9, #1e3a8a);
+    transform: translateY(-1px);
+    box-shadow: 0 5px 15px rgba(78, 115, 223, 0.3);
 }
 .btn-success {
-    background-color: #1cc88a;
-    border-color: #1cc88a;
+    background: linear-gradient(45deg, #1cc88a, #169b6b);
+    border: none;
 }
 .btn-success:hover {
-    background-color: #17a673;
-    border-color: #169b6b;
+    background: linear-gradient(45deg, #17a673, #13855c);
+    transform: translateY(-1px);
+    box-shadow: 0 5px 15px rgba(28, 200, 138, 0.3);
 }
 .btn-outline-secondary {
     color: #858796;
@@ -377,28 +536,178 @@
     background-color: #858796;
     border-color: #858796;
     color: #fff;
+    transform: translateY(-1px);
 }
-.table thead th {
-    border-bottom-width: 1px;
-    font-weight: 600;
-    color: #5a5c69;
+
+/* Breadcrumb */
+.breadcrumb {
+    background-color: transparent;
+    padding: 0.25rem 0;
+    margin-bottom: 0;
 }
-.table tfoot {
-    font-weight: 600;
+.breadcrumb-item a {
+    color: #4e73df;
+    text-decoration: none;
+}
+.breadcrumb-item a:hover {
+    text-decoration: underline;
+}
+
+/* Tablas */
+.table th {
+    font-weight: 500;
+    color: #495057;
+}
+.table td {
+    vertical-align: middle;
 }
 .table tfoot .text-primary {
     color: #4e73df !important;
 }
+
+/* ============================================ */
+/* VISTA MÓVIL (< 768px)                        */
+/* ============================================ */
+@media (max-width: 767.98px) {
+    .container-fluid {
+        padding-left: 8px;
+        padding-right: 8px;
+    }
+    
+    .h2-md {
+        font-size: 1.3rem;
+    }
+    
+    .h5-md {
+        font-size: 1rem;
+    }
+    
+    /* Tarjetas de productos */
+    .producto-card {
+        background-color: white;
+        transition: background-color 0.2s ease;
+        animation: fadeIn 0.3s ease;
+    }
+    .producto-card:hover {
+        background-color: #f8f9fa;
+    }
+    .producto-card .badge {
+        font-size: 0.65rem;
+        padding: 0.25rem 0.4rem;
+    }
+    
+    /* Tarjetas de pagos */
+    .pago-card {
+        background-color: white;
+        border-left: 3px solid #1cc88a;
+    }
+    
+    /* Ajustes de espaciado */
+    .btn-sm {
+        padding: 0.3rem 0.5rem;
+        font-size: 0.75rem;
+    }
+    
+    .small {
+        font-size: 0.7rem;
+    }
+    
+    /* Resumen de totales */
+    .bg-light {
+        background-color: #f8f9fc !important;
+        border-top: 2px solid #4e73df;
+    }
+}
+
+/* ============================================ */
+/* VISTA TABLET (768px - 991px)                 */
+/* ============================================ */
+@media (min-width: 768px) and (max-width: 991.98px) {
+    .container-fluid {
+        padding-left: 15px;
+        padding-right: 15px;
+    }
+    
+    .table {
+        font-size: 0.85rem;
+    }
+    
+    .table th, .table td {
+        padding: 0.5rem;
+    }
+    
+    .badge {
+        font-size: 0.7rem;
+    }
+}
+
+/* ============================================ */
+/* ANIMACIONES                                  */
+/* ============================================ */
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(5px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Modal personalizado */
 .modal-header.bg-success {
-    background-color: #1cc88a !important;
+    background: linear-gradient(45deg, #1cc88a, #169b6b) !important;
 }
 .btn-close-white {
     filter: invert(1) grayscale(100%) brightness(200%);
 }
+
+/* Tooltips en desktop */
+@media (min-width: 768px) {
+    [title] {
+        cursor: help;
+    }
+}
+
+/* Mejora visual para montos */
+.fs-5 {
+    font-size: 1.1rem;
+}
+.text-primary {
+    color: #4e73df !important;
+}
+.text-success {
+    color: #1cc88a !important;
+}
+.text-danger {
+    color: #e74a3b !important;
+}
+
+/* Bordes para cards de crédito */
+.border-warning {
+    border-left: 3px solid #f6c23e !important;
+}
+
+/* Scrollbars personalizados */
+::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 3px;
+}
+::-webkit-scrollbar-thumb {
+    background: linear-gradient(45deg, #4e73df, #224abe);
+    border-radius: 3px;
+}
 </style>
 
 <script>
-// Script para validar el monto máximo en el modal de pago
+// ============================================
+// SCRIPT PARA VALIDAR MONTO EN MODAL DE PAGO
+// ============================================
 document.addEventListener('DOMContentLoaded', function() {
     const modalPago = document.getElementById('modalPago');
     if (modalPago) {
@@ -411,8 +720,19 @@ document.addEventListener('DOMContentLoaded', function() {
                     if (valor > maxMonto) {
                         this.value = maxMonto;
                     }
+                    if (valor < 0) {
+                        this.value = 0;
+                    }
                 });
             }
+        });
+    }
+    
+    // Tooltips solo en desktop
+    if (window.innerWidth >= 768) {
+        const tooltipTriggerList = [].slice.call(document.querySelectorAll('[title]'));
+        tooltipTriggerList.map(function(tooltipTriggerEl) {
+            return new bootstrap.Tooltip(tooltipTriggerEl);
         });
     }
 });
