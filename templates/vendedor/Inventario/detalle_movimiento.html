@@ -3,38 +3,111 @@
 {% block title %}Detalle del Movimiento{% endblock %}
 
 {% block content %}
-<div class="container-fluid mt-4">
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <div>
-            <h2>
+<div class="container-fluid mt-2 mt-md-4 px-2 px-md-3">
+    <!-- ============================================ -->
+    <!-- ENCABEZADO                                   -->
+    <!-- ============================================ -->
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center mb-3 mb-md-4">
+        <div class="mb-2 mb-md-0">
+            <h2 class="h3 h2-md">
                 <i class="fas fa-file-alt text-primary me-2"></i>
-                Detalle del Movimiento #{{ movimiento.ID_Movimiento }}
+                Movimiento #{{ movimiento.ID_Movimiento }}
             </h2>
-            <p class="text-muted">
+            <p class="text-muted small mb-0">
                 Información completa del movimiento de inventario
             </p>
         </div>
-        <div>
-            <a href="{{ url_for('vendedor_movimientos_historial') }}" class="btn btn-outline-secondary">
-                <i class="fas fa-arrow-left me-1"></i> Volver al Historial
+        <div class="d-flex gap-2">
+            <a href="{{ url_for('vendedor_movimientos_historial') }}" class="btn btn-outline-secondary btn-sm btn-md">
+                <i class="fas fa-arrow-left me-1"></i> Volver
+                <span class="d-none d-sm-inline"></span>
             </a>
-            <button onclick="window.print()" class="btn btn-outline-primary ms-2">
-                <i class="fas fa-print me-1"></i> Imprimir
-            </button>
         </div>
     </div>
 
-    <div class="row">
-        <div class="col-md-7">
-            <div class="card mb-4">
-                <div class="card-header bg-primary text-white">
-                    <h5 class="mb-0">
+    <!-- ============================================ -->
+    <!-- INFORMACIÓN GENERAL - VERSIÓN RESPONSIVA    -->
+    <!-- ============================================ -->
+    <div class="row g-2 g-md-3 mb-4">
+        <div class="col-12 col-md-7">
+            <div class="card h-100">
+                <div class="card-header bg-primary text-white py-2 py-md-3">
+                    <h5 class="mb-0 h6 h5-md">
                         <i class="fas fa-info-circle me-2"></i>
                         Información General
                     </h5>
                 </div>
-                <div class="card-body">
-                    <table class="table table-sm table-borderless">
+                <div class="card-body p-2 p-md-3">
+                    <!-- Vista móvil: Tarjeta de información -->
+                    <div class="d-block d-md-none">
+                        <div class="row g-2">
+                            <div class="col-6">
+                                <div class="bg-light p-2 rounded">
+                                    <small class="text-muted d-block">ID Movimiento</small>
+                                    <strong>#{{ movimiento.ID_Movimiento }}</strong>
+                                </div>
+                            </div>
+                            <div class="col-6">
+                                <div class="bg-light p-2 rounded">
+                                    <small class="text-muted d-block">Documento</small>
+                                    <strong>{{ movimiento.Documento_Numero or 'N/A' }}</strong>
+                                </div>
+                            </div>
+                            <div class="col-12">
+                                <div class="bg-light p-2 rounded">
+                                    <small class="text-muted d-block">Tipo de Movimiento</small>
+                                    {% if movimiento.Tipo_Movimiento == 'ENTRADA BODEGA' %}
+                                    <span class="badge bg-success p-2 w-100">
+                                        <i class="fas fa-arrow-down me-1"></i> Entrada desde Bodega
+                                    </span>
+                                    {% elif movimiento.Tipo_Movimiento == 'DEVOLUCION BODEGA' %}
+                                    <span class="badge bg-warning text-dark p-2 w-100">
+                                        <i class="fas fa-arrow-up me-1"></i> Devolución a Bodega
+                                    </span>
+                                    {% elif movimiento.Tipo_Movimiento == 'MERMA' %}
+                                    <span class="badge bg-danger p-2 w-100">
+                                        <i class="fas fa-trash me-1"></i> Merma
+                                    </span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <div class="col-6">
+                                <div class="bg-light p-2 rounded">
+                                    <small class="text-muted d-block">Fecha</small>
+                                    <strong class="small">{{ movimiento.Fecha_Movimiento.strftime('%d/%m/%Y') }}</strong>
+                                </div>
+                            </div>
+                            <div class="col-6">
+                                <div class="bg-light p-2 rounded">
+                                    <small class="text-muted d-block">Hora</small>
+                                    <strong class="small">{{ movimiento.Fecha_Movimiento.strftime('%H:%M:%S') }}</strong>
+                                </div>
+                            </div>
+                            <div class="col-12">
+                                <div class="bg-light p-2 rounded">
+                                    <small class="text-muted d-block">Ruta</small>
+                                    <strong>{{ movimiento.Nombre_Ruta }}</strong>
+                                </div>
+                            </div>
+                            <div class="col-12">
+                                <div class="bg-light p-2 rounded">
+                                    <small class="text-muted d-block">Registrado por</small>
+                                    <strong>{{ movimiento.Usuario_Registra }}</strong>
+                                </div>
+                            </div>
+                            {% if movimiento.Observacion %}
+                            <div class="col-12">
+                                <div class="bg-light p-2 rounded">
+                                    <small class="text-muted d-block">Observación</small>
+                                    <p class="mb-0 small">{{ movimiento.Observacion }}</p>
+                                </div>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <!-- Vista desktop: Tabla -->
+                    <table class="table table-sm table-borderless d-none d-md-table">
                         <tr>
                             <th width="30%" class="text-muted">ID Movimiento:</th>
                             <td class="fw-bold">#{{ movimiento.ID_Movimiento }}</td>
@@ -84,64 +157,108 @@
             </div>
         </div>
 
-        <div class="col-md-5">
-            <div class="card mb-4">
-                <div class="card-header bg-success text-white">
-                    <h5 class="mb-0">
+        <div class="col-12 col-md-5">
+            <!-- Resumen del Movimiento -->
+            <div class="card mb-2 mb-md-3">
+                <div class="card-header bg-success text-white py-2 py-md-3">
+                    <h5 class="mb-0 h6 h5-md">
                         <i class="fas fa-chart-pie me-2"></i>
-                        Resumen del Movimiento
+                        Resumen
                     </h5>
                 </div>
-                <div class="card-body">
-                    <div class="row text-center">
-                        <div class="col-4 border-end">
-                            <h3 class="text-primary mb-0">{{ movimiento.Total_Productos }}</h3>
-                            <small class="text-muted">Productos</small>
-                        </div>
-                        <div class="col-4 border-end">
-                            <h3 class="text-primary mb-0">{{ movimiento.Total_Items }}</h3>
-                            <small class="text-muted">Items</small>
+                <div class="card-body p-2 p-md-3">
+                    <div class="row g-2 text-center">
+                        <div class="col-4">
+                            <div class="bg-light p-2 p-md-3 rounded">
+                                <h4 class="h5 h4-md text-primary mb-0">{{ movimiento.Total_Productos }}</h4>
+                                <small class="text-muted d-block d-md-inline">Productos</small>
+                            </div>
                         </div>
                         <div class="col-4">
-                            <h3 class="text-success mb-0">C${{ "%.2f"|format(movimiento.Total_Subtotal) }}</h3>
-                            <small class="text-muted">Total</small>
+                            <div class="bg-light p-2 p-md-3 rounded">
+                                <h4 class="h5 h4-md text-primary mb-0">{{ movimiento.Total_Items }}</h4>
+                                <small class="text-muted d-block d-md-inline">Items</small>
+                            </div>
+                        </div>
+                        <div class="col-4">
+                            <div class="bg-light p-2 p-md-3 rounded">
+                                <h4 class="h5 h4-md text-success mb-0">C${{ "%.2f"|format(movimiento.Total_Subtotal) }}</h4>
+                                <small class="text-muted d-block d-md-inline">Total</small>
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <div class="card mb-4">
-                <div class="card-header bg-secondary text-white">
-                    <h5 class="mb-0">
+            <!-- Información Adicional -->
+            <div class="card">
+                <div class="card-header bg-secondary text-white py-2 py-md-3">
+                    <h5 class="mb-0 h6 h5-md">
                         <i class="fas fa-tag me-2"></i>
-                        Información Adicional
+                        Info Adicional
                     </h5>
                 </div>
-                <div class="card-body">
-                    <table class="table table-sm table-borderless">
-                        <tr>
-                            <th class="text-muted">Estado:</th>
-                            <td><span class="badge bg-success">ACTIVO</span></td>
-                        </tr>
-                        <tr>
-                            <th class="text-muted">Tipo Letra:</th>
-                            <td>{{ movimiento.Tipo_Letra or 'N/A' }}</td>
-                        </tr>
-                    </table>
+                <div class="card-body p-2 p-md-3">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <span class="text-muted">Estado:</span>
+                        <span class="badge bg-success">ACTIVO</span>
+                    </div>
+                    <hr class="my-2">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <span class="text-muted">Tipo Letra:</span>
+                        <span>{{ movimiento.Tipo_Letra or 'N/A' }}</span>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
 
+    <!-- ============================================ -->
+    <!-- PRODUCTOS DEL MOVIMIENTO - VERSIÓN RESPONSIVA -->
+    <!-- ============================================ -->
     <div class="card">
-        <div class="card-header bg-dark text-white">
-            <h5 class="mb-0">
+        <div class="card-header bg-dark text-white py-2 py-md-3">
+            <h5 class="mb-0 h6 h5-md">
                 <i class="fas fa-list me-2"></i>
                 Productos del Movimiento
             </h5>
         </div>
         <div class="card-body p-0">
-            <div class="table-responsive">
+            {% if detalles %}
+            <!-- Vista móvil: Tarjetas de productos -->
+            <div class="d-block d-md-none">
+                {% for detalle in detalles %}
+                <div class="producto-detalle-card p-2 border-bottom">
+                    <div class="d-flex justify-content-between align-items-start mb-2">
+                        <div>
+                            <span class="badge bg-secondary">{{ detalle.COD_Producto }}</span>
+                            <span class="badge bg-info">{{ loop.index }}</span>
+                        </div>
+                        <span class="fw-bold text-success">C${{ "%.2f"|format(detalle.Subtotal) }}</span>
+                    </div>
+                    
+                    <h6 class="mb-2">{{ detalle.Producto }}</h6>
+                    
+                    <div class="row g-2">
+                        <div class="col-6">
+                            <div class="bg-light p-2 rounded">
+                                <small class="text-muted d-block">Cantidad</small>
+                                <span class="fw-bold">{{ "%.2f"|format(detalle.Cantidad) }} {{ detalle.Unidad }}</span>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="bg-light p-2 rounded">
+                                <small class="text-muted d-block">Precio Unit.</small>
+                                <span>C${{ "%.2f"|format(detalle.Precio_Unitario) }}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+
+            <!-- Vista desktop: Tabla de productos -->
+            <div class="table-responsive d-none d-md-block">
                 <table class="table table-bordered table-striped mb-0">
                     <thead class="table-light">
                         <tr>
@@ -160,7 +277,7 @@
                             <td><span class="badge bg-secondary">{{ detalle.COD_Producto }}</span></td>
                             <td>
                                 {{ detalle.Producto }}
-                                <small class="text-muted">({{ detalle.Unidad }})</small>
+                                <small class="text-muted d-block d-lg-inline">({{ detalle.Unidad }})</small>
                             </td>
                             <td class="text-center fw-bold">{{ "%.2f"|format(detalle.Cantidad) }}</td>
                             <td class="text-end">C${{ "%.2f"|format(detalle.Precio_Unitario) }}</td>
@@ -170,26 +287,45 @@
                     </tbody>
                     <tfoot class="table-info">
                         <tr>
-                            <td colspan="4" class="text-end fw-bold">TOTALES:</td>
+                            <td colspan="4" class="text-end fw-bold d-none d-lg-table-cell">TOTALES:</td>
+                            <td colspan="3" class="text-end fw-bold d-lg-none">TOTAL:</td>
                             <td class="text-end fw-bold">{{ detalles|length }} items</td>
                             <td class="text-end fw-bold">C${{ "%.2f"|format(movimiento.Total_Subtotal) }}</td>
                         </tr>
                     </tfoot>
                 </table>
             </div>
+
+            <!-- Resumen móvil de totales -->
+            <div class="d-block d-md-none p-2 bg-info bg-opacity-10">
+                <div class="d-flex justify-content-between align-items-center">
+                    <span class="fw-bold">Total Items:</span>
+                    <span class="badge bg-info p-2">{{ detalles|length }} productos</span>
+                </div>
+                <div class="d-flex justify-content-between align-items-center mt-1">
+                    <span class="fw-bold">Total Movimiento:</span>
+                    <span class="h5 text-success mb-0">C${{ "%.2f"|format(movimiento.Total_Subtotal) }}</span>
+                </div>
+            </div>
+            {% else %}
+            <div class="text-center py-4 py-md-5">
+                <i class="fas fa-box-open fa-2x fa-md-3x text-muted mb-2 mb-md-3"></i>
+                <p class="text-muted small mb-0">No hay productos en este movimiento</p>
+            </div>
+            {% endif %}
         </div>
-        <div class="card-footer bg-light">
+        <div class="card-footer bg-light py-2">
             <div class="row">
-                <div class="col-md-6">
-                    <small class="text-muted">
+                <div class="col-12 col-md-6">
+                    <small class="text-muted d-block d-md-inline">
                         <i class="fas fa-clock me-1"></i>
-                        Fecha de registro: {{ movimiento.Fecha_Movimiento.strftime('%d/%m/%Y %H:%M:%S') }}
+                        {{ movimiento.Fecha_Movimiento.strftime('%d/%m/%Y %H:%M:%S') }}
                     </small>
                 </div>
-                <div class="col-md-6 text-end">
-                    <small class="text-muted">
+                <div class="col-12 col-md-6 text-md-end mt-1 mt-md-0">
+                    <small class="text-muted d-block d-md-inline">
                         <i class="fas fa-user me-1"></i>
-                        Registrado por: {{ movimiento.Usuario_Registra }}
+                        {{ movimiento.Usuario_Registra }}
                     </small>
                 </div>
             </div>
@@ -197,32 +333,263 @@
     </div>
 </div>
 
-<style media="print">
+<style>
+/* Estilos responsive mejorados */
+@media (max-width: 767.98px) {
+    .container-fluid {
+        padding-left: 8px;
+        padding-right: 8px;
+    }
+    
+    /* Tarjetas de información en móvil */
+    .bg-light.p-2 {
+        background-color: #f8f9fa !important;
+        border: 1px solid #dee2e6;
+        margin-bottom: 4px;
+    }
+    
+    /* Tarjetas de productos en móvil */
+    .producto-detalle-card {
+        background-color: white;
+        transition: background-color 0.2s ease;
+    }
+    
+    .producto-detalle-card:hover {
+        background-color: #f8f9fa;
+    }
+    
+    .producto-detalle-card .bg-light {
+        background-color: #f8f9fa !important;
+        border: 1px solid #e9ecef;
+    }
+    
+    /* Badges en móvil */
+    .badge {
+        font-size: 0.7rem;
+        padding: 0.3rem 0.5rem;
+    }
+    
+    /* Ajustes de espaciado */
+    .h2-md {
+        font-size: 1.3rem;
+    }
+    
+    .h4-md {
+        font-size: 1.2rem;
+    }
+}
+
+/* Ajustes para tablets */
+@media (min-width: 768px) and (max-width: 991.98px) {
+    .table td, .table th {
+        padding: 0.5rem;
+        font-size: 0.9rem;
+    }
+    
+    .badge {
+        font-size: 0.8rem;
+    }
+}
+
+/* Estilos para impresión */
+@media print {
     .btn, .btn-group, footer, header, nav, .btn-outline-secondary, .btn-outline-primary {
         display: none !important;
     }
+    
     body {
         background: white;
-        padding: 20px;
+        padding: 15px;
+        font-size: 12pt;
     }
+    
     .card {
         border: 1px solid #000 !important;
         box-shadow: none !important;
+        page-break-inside: avoid;
     }
+    
     .badge {
         border: 1px solid #000 !important;
         color: #000 !important;
         background: #f0f0f0 !important;
     }
+    
+    .container-fluid {
+        padding: 0 !important;
+        margin: 0 !important;
+    }
+    
+    .table {
+        font-size: 10pt;
+    }
+    
+    .text-muted {
+        color: #333 !important;
+    }
+}
+
+/* Estilos generales */
+.card {
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    transition: all 0.3s ease;
+}
+
+.card:hover {
+    box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+}
+
+/* Mejora visual para los totales */
+.bg-info.bg-opacity-10 {
+    background-color: rgba(23, 162, 184, 0.1) !important;
+    border-top: 2px solid #17a2b8;
+}
+
+/* Tooltips en desktop */
+@media (min-width: 768px) {
+    [title] {
+        cursor: help;
+    }
+}
+
+/* Ajustes para móviles pequeños */
+@media (max-width: 575.98px) {
+    .btn-sm {
+        padding: 0.3rem 0.6rem;
+        font-size: 0.75rem;
+    }
+    
+    .badge {
+        font-size: 0.65rem;
+    }
+    
+    .small {
+        font-size: 0.7rem;
+    }
+    
+    .producto-detalle-card {
+        padding: 0.5rem !important;
+    }
+    
+    .bg-light.p-2 {
+        padding: 0.4rem !important;
+    }
+    
+    h6 {
+        font-size: 0.9rem;
+    }
+}
+
+/* Animación de entrada */
+.producto-detalle-card {
+    animation: slideIn 0.3s ease;
+}
+
+@keyframes slideIn {
+    from {
+        opacity: 0;
+        transform: translateX(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+/* Línea divisoria entre productos */
+.producto-detalle-card:not(:last-child) {
+    border-bottom: 1px solid #dee2e6 !important;
+}
+
+/* Estilo para la información adicional */
+.bg-secondary.text-white {
+    background-color: #6c757d !important;
+}
+
+/* Mejora visual para badges en móvil */
+@media (max-width: 767.98px) {
+    .badge.bg-info {
+        background-color: #17a2b8 !important;
+        color: white;
+    }
+    
+    .badge.bg-secondary {
+        background-color: #6c757d !important;
+        color: white;
+    }
+}
+
+/* Ajuste para el resumen en móvil */
+.bg-info.bg-opacity-10 {
+    padding: 0.75rem !important;
+}
+
+/* Hover en tarjetas de producto (desktop) */
+@media (min-width: 768px) {
+    .table tbody tr:hover {
+        background-color: rgba(23, 162, 184, 0.05);
+    }
+}
+
+/* Estilo para el footer del card */
+.card-footer {
+    border-top: 1px solid rgba(0,0,0,0.125);
+    background-color: #f8f9fa;
+}
+
+/* Mejora para la visualización de unidades */
+small.text-muted {
+    font-size: 0.8rem;
+}
+
+/* Ajuste para la tabla en tablets */
+@media (min-width: 768px) and (max-width: 991.98px) {
+    .table td:nth-child(3) small {
+        display: block !important;
+        margin-top: 2px;
+    }
+}
 </style>
 
 <script>
 // Inicializar tooltips
 document.addEventListener('DOMContentLoaded', function() {
-    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
-    var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
-        return new bootstrap.Tooltip(tooltipTriggerEl)
+    // Solo inicializar tooltips en desktop para mejor rendimiento
+    if (window.innerWidth >= 768) {
+        var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+        var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+            return new bootstrap.Tooltip(tooltipTriggerEl);
+        });
+    }
+    
+    // Agregar funcionalidad de zoom para impresión
+    window.addEventListener('beforeprint', function() {
+        document.body.style.zoom = '0.9';
     });
+    
+    window.addEventListener('afterprint', function() {
+        document.body.style.zoom = '1';
+    });
+});
+
+// Función para copiar información (útil en móviles)
+function copiarInformacion(texto) {
+    navigator.clipboard.writeText(texto).then(function() {
+        // Mostrar notificación (opcional)
+        alert('Información copiada al portapapeles');
+    }).catch(function() {
+        // Fallback para navegadores antiguos
+        prompt('Copia este texto:', texto);
+    });
+}
+
+// Detectar cambio de orientación en móviles
+window.addEventListener('orientationchange', function() {
+    // Pequeño retraso para permitir que el navegador actualice las dimensiones
+    setTimeout(function() {
+        // Recalcular cualquier elemento que necesite ajuste
+        location.reload(); // Opcional, solo si es necesario
+    }, 200);
 });
 </script>
 {% endblock %}

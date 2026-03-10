@@ -4,13 +4,7 @@ from flask_cors import CORS
 from flask_session import Session
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_login import LoginManager, login_user, login_required, logout_user, UserMixin, current_user
-from weasyprint import HTML
-from flask_limiter import Limiter
-from flask_limiter.util import get_remote_address
 from mysql.connector import Error, pooling
-from reportlab.lib.pagesizes import letter, A4
-from reportlab.pdfgen import canvas
-from reportlab.lib.utils import ImageReader
 from markupsafe import Markup
 import mysql.connector
 import functools
@@ -14998,7 +14992,7 @@ def vendedor_producto_detalle(id_producto):
             
             historial = cursor.fetchall()
             
-            return render_template('vendedor/producto_detalle.html',
+            return render_template('vendedor/inventario/producto_detalle.html',
                                  producto=producto,
                                  historial=historial,
                                  now=datetime.now(),
@@ -15113,7 +15107,7 @@ def vendedor_movimiento_entrada_bodega():
                 # ============================================
                 # 2. DEFINIR TIPO DE MOVIMIENTO (Traslado Entrada)
                 # ============================================
-                ID_TIPO_ENTRADA = 13  # Traslado Entrada
+                ID_TIPO_ENTRADA = 1  # Traslado Entrada
                 
                 # ============================================
                 # 3. PROCESAR PRODUCTOS Y CALCULAR TOTALES
@@ -15535,6 +15529,8 @@ def vendedor_movimiento_merma():
     Registra una salida por merma/pérdida de productos
     Usando ID_TipoMovimiento = 7 (Merma)
     """
+    id_empresa = session.get('id_empresa', 1)
+
     if request.method == 'POST':
         try:
             productos = request.form.getlist('producto_id[]')
@@ -15643,7 +15639,7 @@ def vendedor_movimiento_merma():
                     total_productos, 
                     total_items, 
                     total_subtotal,
-                    current_user.id_empresa, 
+                    id_empresa, 
                     observacion
                 ))
                 
