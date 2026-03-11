@@ -375,7 +375,7 @@ app.secret_key = os.environ.get("SECRET_KEY", secrets.token_hex(24))
 app.config["TEMPLATES_AUTO_RELOAD"] = True
 app.config["SESSION_PERMANENT"] = False
 app.config["SESSION_TYPE"] = "filesystem"
-app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(hours=1)
+app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(hours=12)
 Session(app)
 
 # Configuración de Flask-Login
@@ -15779,7 +15779,7 @@ def vendedor_movimientos_historial():
                 INNER JOIN catalogo_movimientos cm ON mrc.ID_TipoMovimiento = cm.ID_TipoMovimiento
                 INNER JOIN usuarios u ON mrc.ID_Usuario_Registra = u.ID_Usuario
                 WHERE mrc.ID_Asignacion = %s
-                AND mrc.ID_TipoMovimiento IN (7, 11, 13) -- MERMA, DEVOLUCION RUTA, TRASLADO ENTRADA
+                AND mrc.ID_TipoMovimiento IN (1, 2, 7, 11, 13) -- MERMA, DEVOLUCION RUTA, TRASLADO ENTRADA
                 ORDER BY mrc.Fecha_Movimiento DESC
             """, (asignacion['ID_Asignacion'],))
             
@@ -16158,6 +16158,17 @@ def vendedor_venta_crear():
                     flash('Debe agregar al menos un producto a la venta', 'error')
                     return redirect(request.url)
                 
+                # ===== OBTENER SALDO ANTERIOR DEL CLIENTE (ANTES DE LA VENTA) =====
+                cursor.execute("""
+                    SELECT COALESCE(Saldo_Pendiente_Total, 0) as Saldo_Anterior
+                    FROM clientes 
+                    WHERE ID_Cliente = %s AND ID_Empresa = %s
+                """, (int(id_cliente), asignacion['ID_Empresa']))
+                
+                saldo_anterior_cliente = cursor.fetchone()
+                saldo_anterior = float(saldo_anterior_cliente['Saldo_Anterior'] if saldo_anterior_cliente else 0)
+                print(f"💰 Saldo anterior del cliente {id_cliente}: {saldo_anterior}")
+                
                 # Validar stock
                 error_stock = False
                 productos_sin_stock = []
@@ -16185,17 +16196,17 @@ def vendedor_venta_crear():
                 for prod in productos:
                     total_venta += prod['cantidad'] * prod['precio']
                 
-                # ===== 1. INSERTAR FACTURA =====
+                # ===== 1. INSERTAR FACTURA (INCLUYENDO SALDO ANTERIOR) =====
                 cursor.execute("""
                     INSERT INTO facturacion_ruta 
                     (Fecha, ID_Cliente, ID_Asignacion, Credito_Contado, 
-                     Observacion, ID_Empresa, ID_Usuario_Creacion, Estado)
-                    VALUES (CURDATE(), %s, %s, %s, %s, %s, %s, 'Activa')
+                     Observacion, Saldo_Anterior_Cliente, ID_Empresa, ID_Usuario_Creacion, Estado)
+                    VALUES (CURDATE(), %s, %s, %s, %s, %s, %s, %s, 'Activa')
                 """, (int(id_cliente), asignacion['ID_Asignacion'], int(tipo_venta), 
-                      observacion, asignacion['ID_Empresa'], id_vendedor))
+                      observacion, saldo_anterior, asignacion['ID_Empresa'], id_vendedor))
                 
                 id_factura = cursor.lastrowid
-                print(f"✅ Factura de ruta creada con ID: {id_factura}")
+                print(f"✅ Factura de ruta creada con ID: {id_factura} (Saldo anterior guardado: {saldo_anterior})")
                 
                 # ===== 2. INSERTAR DETALLES Y ACTUALIZAR INVENTARIO =====
                 for prod in productos:
@@ -16447,16 +16458,15 @@ def vendedor_venta_crear():
                             
                     except Exception as e:
                         print(f"❌ Error al procesar abono: {str(e)}")
-                        import traceback
                         traceback.print_exc()
-                        raise  # Esto hará que toda la transacción se revierta
+                        raise
                 
                 print(f"✅ Venta {id_factura} procesada exitosamente")
                 
             # Fuera del context manager, los cambios ya están commiteados
             flash('Venta registrada exitosamente', 'success')
             
-            # Redirigir directamente al ticket con autoPrint
+            # Redirigir al ticket (ya no necesitamos pasar saldo_anterior por URL)
             return redirect(url_for('vendedor_generar_ticket_ruta', 
                                   id_venta=id_factura, 
                                   autoPrint=1))
@@ -16655,9 +16665,10 @@ def vendedor_generar_ticket_ruta(id_venta):
     """Generar ticket de venta de ruta con información de saldos"""
     try:
         id_vendedor = int(current_user.id)
+        auto_print = request.args.get('autoPrint', 0)
         
         with get_db_cursor() as cursor:
-            # Obtener datos de la venta de ruta
+            # Obtener datos de la venta de ruta (INCLUYENDO SALDO_ANTERIOR_CLIENTE)
             cursor.execute("""
                 SELECT 
                     fr.ID_FacturaRuta as ID_Factura,
@@ -16665,6 +16676,7 @@ def vendedor_generar_ticket_ruta(id_venta):
                     fr.Fecha_Creacion,
                     fr.Observacion,
                     fr.Credito_Contado,
+                    fr.Saldo_Anterior_Cliente,  -- ← NUEVO CAMPO
                     fr.ID_Usuario_Creacion,
                     c.ID_Cliente,
                     c.Nombre as Cliente,
@@ -16753,7 +16765,11 @@ def vendedor_generar_ticket_ruta(id_venta):
             mostrar_seccion_credito = False
             mensaje_credito = ""
             
-            # Obtener TODAS las cuentas por cobrar pendientes del cliente
+            # ===== USAR EL SALDO ANTERIOR GUARDADO EN LA FACTURA =====
+            saldo_anterior_total = float(factura['Saldo_Anterior_Cliente'] or 0)
+            print(f"📊 Usando saldo anterior guardado en factura: {saldo_anterior_total}")
+            
+            # Obtener TODAS las cuentas por cobrar pendientes del cliente (para mostrar en el ticket)
             cursor.execute("""
                 SELECT 
                     cxc.ID_Movimiento,
@@ -16778,11 +16794,6 @@ def vendedor_generar_ticket_ruta(id_venta):
             """, (factura['ID_Cliente'],))
             
             facturas_pendientes = cursor.fetchall()
-            
-            # Calcular el saldo anterior (suma de todas las cuentas por cobrar pendientes)
-            for fact in facturas_pendientes:
-                saldo = float(fact['Saldo_Pendiente'] or 0)
-                saldo_anterior_total += saldo
             
             # Obtener el abono que se realizó EN ESTA VENTA
             cursor.execute("""
@@ -16837,7 +16848,7 @@ def vendedor_generar_ticket_ruta(id_venta):
             nuevo_saldo_pendiente = float(factura['Saldo_Cliente_Actual'] or 0)
             
             # Determinar si mostrar sección de crédito
-            if facturas_pendientes or abono_cliente > 0:
+            if saldo_anterior_total > 0 or abono_cliente > 0 or factura['Credito_Contado'] == 2:
                 mostrar_seccion_credito = True
                 if factura['Credito_Contado'] == 2:
                     if saldo_anterior_total > 0:
@@ -16930,9 +16941,6 @@ def vendedor_generar_ticket_ruta(id_venta):
             # Calcular saldo total (venta + saldo anterior)
             saldo_total = venta_realizada + saldo_anterior_total
             
-            # Determinar auto impresión
-            auto_print = request.args.get('autoPrint', 0)
-            
             return render_template('vendedor/ventas/ticket_venta_ruta.html',
                                  ticket=ticket_data,
                                  mostrar_seccion_credito=mostrar_seccion_credito,
@@ -16944,7 +16952,7 @@ def vendedor_generar_ticket_ruta(id_venta):
                                  venta_realizada=venta_realizada,
                                  venta_realizada_formateada=venta_realizada_formateada,
                                  saldo_anterior=saldo_anterior_total,
-                                 saldo_anterior_formateado=saldo_anterior_formateado,  # Solo una vez
+                                 saldo_anterior_formateado=saldo_anterior_formateado,
                                  saldo_total=saldo_total,
                                  abono_cliente=abono_cliente,
                                  abono_cliente_formateado=abono_cliente_formateado,
@@ -19269,49 +19277,54 @@ def vendedor_gastos():
     # Obtener el ID del usuario actual (asumiendo que está en sesión)
     usuario_actual = current_user.id
     
-    # Acceso a la base de datos
-    with get_db_cursor() as cursor:
-        
-        # Obtener la asignación activa del vendedor para hoy
-        cursor.execute("""
-            SELECT ID_Asignacion, ID_Ruta, Fecha_Asignacion 
-            FROM asignacion_vendedores 
-            WHERE ID_Usuario = %s 
-            AND DATE(Fecha_Asignacion) = CURDATE() 
-            AND Estado = 'ACTIVA'
-            ORDER BY Fecha_Asignacion DESC 
-            LIMIT 1
-        """, (usuario_actual,))
-        
-        asignacion = cursor.fetchone()
-        
-        if not asignacion:
-            flash('No tienes una ruta asignada para hoy', 'warning')
-            return redirect(url_for('vendedor_dashboard'))
-        
-        id_asignacion = asignacion['ID_Asignacion']
-        
-        # Procesar el formulario cuando es POST
-        if request.method == 'POST':
-            concepto = request.form.get('concepto', '').strip()
-            monto = request.form.get('monto', '').strip()
-            tipo_pago = request.form.get('tipo_pago', 'CONTADO')
+    # Para GET y POST necesitamos la asignación activa primero
+    try:
+        with get_db_cursor() as cursor:
+            # Obtener la asignación activa del vendedor para hoy
+            cursor.execute("""
+                SELECT ID_Asignacion, ID_Ruta, Fecha_Asignacion 
+                FROM asignacion_vendedores 
+                WHERE ID_Usuario = %s 
+                AND DATE(Fecha_Asignacion) = CURDATE() 
+                AND Estado = 'ACTIVA'
+                ORDER BY Fecha_Asignacion DESC 
+                LIMIT 1
+            """, (usuario_actual,))
             
-            # Validaciones básicas
-            if not concepto or not monto:
-                flash('El concepto y el monto son obligatorios', 'error')
+            asignacion = cursor.fetchone()
+            
+            if not asignacion:
+                flash('No tienes una ruta asignada para hoy', 'warning')
+                return redirect(url_for('vendedor_dashboard'))
+            
+            id_asignacion = asignacion['ID_Asignacion']
+    except Exception as e:
+        flash(f'Error al verificar asignación: {str(e)}', 'error')
+        return redirect(url_for('vendedor_dashboard'))
+    
+    # Procesar el formulario cuando es POST
+    if request.method == 'POST':
+        concepto = request.form.get('concepto', '').strip()
+        monto = request.form.get('monto', '').strip()
+        tipo_pago = request.form.get('tipo_pago', 'CONTADO')
+        
+        # Validaciones básicas
+        if not concepto or not monto:
+            flash('El concepto y el monto son obligatorios', 'error')
+            return redirect(url_for('vendedor_gastos'))
+        
+        try:
+            monto = float(monto)
+            if monto <= 0:
+                flash('El monto debe ser mayor a cero', 'error')
                 return redirect(url_for('vendedor_gastos'))
-            
-            try:
-                monto = float(monto)
-                if monto <= 0:
-                    flash('El monto debe ser mayor a cero', 'error')
-                    return redirect(url_for('vendedor_gastos'))
-            except ValueError:
-                flash('El monto debe ser un número válido', 'error')
-                return redirect(url_for('vendedor_gastos'))
-            
-            try:
+        except ValueError:
+            flash('El monto debe ser un número válido', 'error')
+            return redirect(url_for('vendedor_gastos'))
+        
+        # Usamos get_db_cursor con commit=True para que haga commit automático
+        try:
+            with get_db_cursor(commit=True) as cursor:
                 # Obtener el saldo acumulado actual
                 cursor.execute("""
                     SELECT Saldo_Acumulado 
@@ -19323,7 +19336,12 @@ def vendedor_gastos():
                 """, (id_asignacion,))
                 
                 ultimo_movimiento = cursor.fetchone()
-                saldo_anterior = ultimo_movimiento['Saldo_Acumulado'] if ultimo_movimiento else 0
+                
+                # Convertir Decimal a float para la operación
+                if ultimo_movimiento and ultimo_movimiento['Saldo_Acumulado'] is not None:
+                    saldo_anterior = float(ultimo_movimiento['Saldo_Acumulado'])
+                else:
+                    saldo_anterior = 0.0
                 
                 # Calcular nuevo saldo (el gasto resta del saldo)
                 nuevo_saldo = saldo_anterior - monto
@@ -19335,20 +19353,17 @@ def vendedor_gastos():
                     VALUES (%s, %s, 'GASTO', %s, %s, %s, %s, 'ACTIVO')
                 """, (id_asignacion, usuario_actual, concepto, monto, tipo_pago, nuevo_saldo))
                 
-                # Confirmar la transacción
-                cursor.connection.commit()
-                
                 flash('Gasto registrado exitosamente', 'success')
-                
-            except Exception as e:
-                cursor.connection.rollback()
-                flash(f'Error al registrar el gasto: {str(e)}', 'error')
-                print(f"Error en vendedor_gastos POST: {e}")  # Para logging
             
-            return redirect(url_for('vendedor_gastos'))
+        except Exception as e:
+            flash(f'Error al registrar el gasto: {str(e)}', 'error')
+            print(f"Error en vendedor_gastos POST: {e}")
         
-        # Para GET: obtener los gastos del día
-        try:
+        return redirect(url_for('vendedor_gastos'))
+    
+    # Para GET: obtener los gastos del día
+    try:
+        with get_db_cursor() as cursor:
             # Obtener todos los gastos del día para esta asignación
             cursor.execute("""
                 SELECT m.ID_Movimiento, m.Concepto, m.Monto, m.Tipo_Pago, 
@@ -19364,6 +19379,13 @@ def vendedor_gastos():
             
             gastos = cursor.fetchall()
             
+            # Convertir Decimal a float para la plantilla
+            for gasto in gastos:
+                if gasto['Monto'] is not None:
+                    gasto['Monto'] = float(gasto['Monto'])
+                if gasto['Saldo_Acumulado'] is not None:
+                    gasto['Saldo_Acumulado'] = float(gasto['Saldo_Acumulado'])
+            
             # Calcular total de gastos del día
             cursor.execute("""
                 SELECT COALESCE(SUM(Monto), 0) as Total_Gastos
@@ -19375,6 +19397,7 @@ def vendedor_gastos():
             """, (id_asignacion,))
             
             total_gastos = cursor.fetchone()['Total_Gastos']
+            total_gastos = float(total_gastos) if total_gastos is not None else 0
             
             # Obtener saldo actual
             cursor.execute("""
@@ -19387,20 +19410,23 @@ def vendedor_gastos():
             """, (id_asignacion,))
             
             saldo_actual = cursor.fetchone()
-            saldo_actual = saldo_actual['Saldo_Acumulado'] if saldo_actual else 0
+            if saldo_actual and saldo_actual['Saldo_Acumulado'] is not None:
+                saldo_actual = float(saldo_actual['Saldo_Acumulado'])
+            else:
+                saldo_actual = 0
             
-        except Exception as e:
-            print(f"Error en vendedor_gastos GET: {e}")
-            gastos = []
-            total_gastos = 0
-            saldo_actual = 0
-            flash('Error al cargar los gastos', 'error')
-        
-        return render_template('vendedor/gastos.html', 
-                             gastos=gastos, 
-                             total_gastos=total_gastos,
-                             saldo_actual=saldo_actual,
-                             asignacion=asignacion)
+    except Exception as e:
+        print(f"Error en vendedor_gastos GET: {e}")
+        gastos = []
+        total_gastos = 0
+        saldo_actual = 0
+        flash('Error al cargar los gastos', 'error')
+    
+    return render_template('vendedor/gastos/gastos.html', 
+                         gastos=gastos, 
+                         total_gastos=total_gastos,
+                         saldo_actual=saldo_actual,
+                         asignacion=asignacion)
 
 
 
