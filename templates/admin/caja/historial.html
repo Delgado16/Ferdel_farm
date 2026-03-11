@@ -2,188 +2,675 @@
 
 {% block content %}
 <style>
+    /* ===== VARIABLES Y RESET ===== */
+    :root {
+        --primary: #0d6efd;
+        --success: #28a745;
+        --danger: #dc3545;
+        --info: #17a2b8;
+        --dark: #343a40;
+        --light: #f8f9fa;
+        --border-radius: 8px;
+        --box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        --transition: all 0.3s ease;
+    }
+
+    /* ===== ESTILOS DE IMPRESIÓN (mejorados) ===== */
     @media print {
-        .no-print, .card-header, .form-control, button, a, .alert, .btn {
+        .no-print, .card-header, .form-control, button, a, .alert, .btn, 
+        .fecha-badge, form, .d-flex.justify-content-between {
             display: none !important;
         }
         
         .card {
             border: none !important;
             box-shadow: none !important;
+            background: white !important;
+        }
+        
+        .card-body {
+            padding: 0 !important;
+        }
+        
+        .table {
+            width: 100% !important;
+            border-collapse: collapse !important;
         }
         
         .table th {
-            background-color: #f8f9fa !important;
+            background-color: #f2f2f2 !important;
             color: #000 !important;
             -webkit-print-color-adjust: exact;
             print-color-adjust: exact;
+            font-size: 10pt;
+            padding: 6px !important;
+        }
+        
+        .table td {
+            font-size: 9pt;
+            padding: 4px !important;
         }
         
         .badge {
             border: 1px solid #000 !important;
             color: #000 !important;
             background-color: transparent !important;
+            font-size: 8pt !important;
         }
         
         body {
             background-color: white !important;
+            font-size: 10pt;
         }
         
         .container-fluid {
             padding: 0 !important;
             margin: 0 !important;
+            width: 100% !important;
         }
         
         h5, h4, h6 {
             color: black !important;
         }
         
-        .table-secondary td {
-            background-color: #f8f9fa !important;
+        .text-success, .text-danger, .text-primary {
+            color: #000 !important;
+        }
+        
+        .bg-info, .bg-success, .bg-danger, .bg-primary {
+            background-color: transparent !important;
+            border: 1px solid #000 !important;
+            color: #000 !important;
+        }
+        
+        .card.text-white {
+            background: white !important;
+            color: black !important;
+            border: 1px solid #ddd !important;
+        }
+        
+        .card.text-white h6, .card.text-white h4 {
+            color: black !important;
         }
     }
-    
+
+    /* ===== BADGES DE FECHA ===== */
     .fecha-badge {
-        font-size: 0.85rem;
-        padding: 3px 8px;
+        font-size: clamp(0.75rem, 2vw, 0.85rem);
+        padding: clamp(4px, 1.5vw, 6px) clamp(6px, 2vw, 10px);
         border-radius: 4px;
         background-color: #e9ecef;
         color: #495057;
         text-decoration: none;
-        transition: all 0.2s;
+        transition: var(--transition);
         border: 1px solid #dee2e6;
+        display: inline-block;
+        margin: 2px;
+        white-space: nowrap;
     }
     
     .fecha-badge:hover {
         background-color: #dee2e6;
         transform: translateY(-1px);
     }
+    
+    .fecha-badge.active {
+        background-color: var(--primary);
+        color: white;
+        border-color: var(--primary);
+    }
+
+    /* ===== TARJETAS DE RESUMEN ===== */
+    .summary-card {
+        border-radius: var(--border-radius);
+        padding: clamp(12px, 3vw, 16px);
+        height: 100%;
+        transition: var(--transition);
+        color: white;
+    }
+    
+    .summary-card:hover {
+        transform: translateY(-2px);
+        box-shadow: var(--box-shadow);
+    }
+    
+    .summary-card h6 {
+        font-size: clamp(0.7rem, 2.2vw, 0.85rem);
+        margin-bottom: 5px;
+        opacity: 0.9;
+    }
+    
+    .summary-card h4 {
+        font-size: clamp(1rem, 4vw, 1.5rem);
+        margin: 0;
+        font-weight: 600;
+        font-family: 'Courier New', monospace;
+        word-break: break-word;
+    }
+    
+    .bg-info-gradient { background: linear-gradient(135deg, #17a2b8 0%, #138496 100%); }
+    .bg-success-gradient { background: linear-gradient(135deg, #28a745 0%, #218838 100%); }
+    .bg-danger-gradient { background: linear-gradient(135deg, #dc3545 0%, #c82333 100%); }
+    .bg-primary-gradient { background: linear-gradient(135deg, #0d6efd 0%, #0b5ed7 100%); }
+
+    /* ===== CONTENEDOR PRINCIPAL ===== */
+    .container-fluid {
+        padding: clamp(10px, 3vw, 20px);
+    }
+
+    /* ===== CARD PRINCIPAL ===== */
+    .card {
+        border-radius: 12px;
+        box-shadow: var(--box-shadow);
+        border: none;
+        overflow: hidden;
+    }
+
+    .card-header {
+        background: linear-gradient(135deg, var(--primary) 0%, #0b5ed7 100%);
+        color: white;
+        padding: clamp(12px, 3vw, 16px) clamp(15px, 4vw, 20px);
+        border-bottom: none;
+    }
+
+    .card-header h5 {
+        font-size: clamp(1rem, 4vw, 1.25rem);
+        margin: 0;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .card-body {
+        padding: clamp(15px, 4vw, 20px);
+    }
+
+    /* ===== FORMULARIO DE BÚSQUEDA ===== */
+    .search-form .form-label {
+        font-size: clamp(0.8rem, 2.5vw, 0.9rem);
+        font-weight: 600;
+        color: #495057;
+        margin-bottom: 4px;
+    }
+
+    .search-form .form-control {
+        height: clamp(35px, 6vw, 40px);
+        font-size: clamp(0.8rem, 2.5vw, 0.9rem);
+        border-radius: 6px;
+    }
+
+    .search-form .btn {
+        height: clamp(35px, 6vw, 40px);
+        font-size: clamp(0.8rem, 2.5vw, 0.9rem);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+    }
+
+    /* ===== CONTENEDOR DE FECHAS ===== */
+    .fechas-container {
+        max-height: clamp(60px, 15vh, 80px);
+        overflow-y: auto;
+        padding: 5px;
+        border: 1px solid #dee2e6;
+        border-radius: 6px;
+        background: white;
+        scrollbar-width: thin;
+    }
+    
+    .fechas-container::-webkit-scrollbar {
+        width: 4px;
+    }
+    
+    .fechas-container::-webkit-scrollbar-thumb {
+        background: #ccc;
+        border-radius: 4px;
+    }
+
+    /* ===== ALERTAS ===== */
+    .alert-info {
+        background: linear-gradient(135deg, #e8f4fd 0%, #d1e9fc 100%);
+        color: #055160;
+        border: none;
+        border-radius: 8px;
+        padding: clamp(12px, 3vw, 15px);
+        font-size: clamp(0.8rem, 2.5vw, 0.9rem);
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        align-items: center;
+    }
+    
+    .alert-info .badge {
+        font-size: clamp(0.7rem, 2.2vw, 0.8rem);
+        padding: clamp(4px, 1.5vw, 6px) clamp(6px, 2vw, 10px);
+    }
+
+    /* ===== TABLA RESPONSIVA ===== */
+    .table-responsive {
+        border-radius: 8px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        margin: 15px 0;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .table {
+        margin-bottom: 0;
+        min-width: 800px;
+        font-size: clamp(0.7rem, 2.2vw, 0.9rem);
+    }
+
+    .table thead th {
+        background: var(--dark);
+        color: white;
+        font-weight: 600;
+        font-size: clamp(0.7rem, 2.2vw, 0.85rem);
+        padding: clamp(8px, 2vw, 12px) clamp(6px, 1.5vw, 10px);
+        border: none;
+        white-space: nowrap;
+        vertical-align: middle;
+    }
+
+    .table tbody td {
+        padding: clamp(8px, 2vw, 12px) clamp(6px, 1.5vw, 10px);
+        vertical-align: middle;
+        border-bottom: 1px solid #dee2e6;
+    }
+
+    .table tfoot td {
+        padding: clamp(10px, 2.5vw, 15px) clamp(8px, 2vw, 12px);
+        background: var(--light);
+        font-weight: 600;
+    }
+
+    /* ===== BADGES EN TABLA ===== */
+    .table .badge {
+        font-size: clamp(0.65rem, 2vw, 0.75rem);
+        padding: clamp(3px, 1.2vw, 5px) clamp(4px, 1.5vw, 8px);
+        white-space: nowrap;
+    }
+
+    /* ===== FILAS DE TOTALES ===== */
+    .totales-container {
+        display: flex;
+        flex-wrap: wrap;
+        gap: clamp(8px, 2vw, 15px);
+        justify-content: flex-end;
+        align-items: center;
+    }
+
+    .total-item {
+        font-size: clamp(0.7rem, 2.2vw, 0.85rem);
+        padding: clamp(3px, 1.2vw, 5px) clamp(6px, 1.8vw, 10px);
+        border-radius: 4px;
+        background: white;
+        border: 1px solid #dee2e6;
+    }
+
+    /* ===== BOTONES DE ACCIÓN ===== */
+    .action-buttons {
+        display: flex;
+        flex-wrap: wrap;
+        gap: clamp(8px, 2vw, 12px);
+        justify-content: space-between;
+        align-items: center;
+        margin-top: 20px;
+    }
+
+    .btn {
+        padding: clamp(6px, 2vw, 8px) clamp(12px, 3vw, 16px);
+        font-size: clamp(0.8rem, 2.5vw, 0.9rem);
+        border-radius: 6px;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        transition: var(--transition);
+    }
+
+    .btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    }
+
+    .btn-sm {
+        padding: clamp(4px, 1.5vw, 6px) clamp(8px, 2.2vw, 12px);
+        font-size: clamp(0.7rem, 2.2vw, 0.8rem);
+    }
+
+    /* ===== ESTADOS VACÍOS ===== */
+    .empty-state {
+        padding: clamp(30px, 8vw, 50px) 15px;
+        text-align: center;
+    }
+
+    .empty-state i {
+        font-size: clamp(2rem, 8vw, 3rem);
+        color: #adb5bd;
+        margin-bottom: 15px;
+    }
+
+    .empty-state h5 {
+        font-size: clamp(1rem, 4vw, 1.25rem);
+        color: #6c757d;
+    }
+
+    .empty-state p {
+        font-size: clamp(0.8rem, 2.5vw, 0.9rem);
+        color: #adb5bd;
+    }
+
+    /* ===== BREAKPOINTS RESPONSIVOS ===== */
+
+    /* Móviles pequeños (< 576px) */
+    @media (max-width: 575.98px) {
+        .search-form .row {
+            margin: 0 -5px;
+        }
+        
+        .search-form [class*="col-"] {
+            padding: 0 5px;
+        }
+        
+        .card-header .d-flex {
+            flex-direction: column;
+            gap: 10px;
+        }
+        
+        .card-header h5 {
+            width: 100%;
+        }
+        
+        .card-header .btn-sm {
+            width: 100%;
+        }
+        
+        .alert-info {
+            flex-direction: column;
+            text-align: center;
+        }
+        
+        .alert-info > div {
+            width: 100%;
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 8px;
+        }
+        
+        .table {
+            min-width: 650px;
+        }
+        
+        .action-buttons {
+            flex-direction: column;
+        }
+        
+        .action-buttons > div {
+            width: 100%;
+            display: flex;
+            gap: 8px;
+        }
+        
+        .action-buttons .btn {
+            flex: 1;
+        }
+        
+        .totales-container {
+            flex-direction: column;
+            align-items: flex-start;
+        }
+        
+        .total-item {
+            width: 100%;
+            text-align: left;
+        }
+    }
+
+    /* Móviles medianos (576px - 767px) */
+    @media (min-width: 576px) and (max-width: 767.98px) {
+        .table {
+            min-width: 700px;
+        }
+        
+        .search-form .col-md-4,
+        .search-form .col-md-2 {
+            margin-bottom: 10px;
+        }
+    }
+
+    /* Tablets (768px - 991px) */
+    @media (min-width: 768px) and (max-width: 991.98px) {
+        .table {
+            min-width: 750px;
+        }
+        
+        .fechas-container {
+            max-height: 100px;
+        }
+    }
+
+    /* Dispositivos medianos (992px - 1199px) */
+    @media (min-width: 992px) and (max-width: 1199.98px) {
+        .fechas-container {
+            max-height: 120px;
+        }
+    }
+
+    /* Pantallas grandes (≥ 1200px) */
+    @media (min-width: 1200px) {
+        .container-fluid {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        
+        .table {
+            min-width: 100%;
+        }
+    }
+
+    /* ===== MEJORAS DE UX ===== */
+    input, select, textarea {
+        font-size: 16px !important; /* Previene zoom en iOS */
+    }
+
+    .btn:active {
+        transform: translateY(0);
+    }
+
+    .form-control:focus {
+        box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.25);
+    }
+
+    /* Scroll suave en iOS */
+    .fechas-container {
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .table-responsive {
+        -webkit-overflow-scrolling: touch;
+    }
+
+    /* Animaciones */
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(-10px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+
+    .card {
+        animation: fadeIn 0.3s ease-out;
+    }
+
+    /* Tooltips para fechas largas */
+    .fecha-badge {
+        position: relative;
+    }
+    
+    .fecha-badge[title] {
+        cursor: help;
+    }
+
+    /* Mejoras de accesibilidad */
+    .btn:focus-visible {
+        outline: 2px solid var(--primary);
+        outline-offset: 2px;
+    }
+
+    /* Estados hover en móviles */
+    @media (hover: hover) {
+        .fecha-badge:hover {
+            background-color: #dee2e6;
+        }
+        
+        .summary-card:hover {
+            transform: translateY(-2px);
+        }
+    }
 </style>
 
 <div class="container-fluid">
     <div class="row mb-4">
-        <div class="col-md-12">
+        <div class="col-12">
             <div class="card">
+                <!-- Header del Card -->
                 <div class="card-header">
-                    <div class="d-flex justify-content-between align-items-center">
+                    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
                         <h5 class="mb-0">
-                            <i class="fas fa-history me-2"></i>Historial de Caja
+                            <i class="fas fa-history me-2"></i>
+                            <span class="hide-mobile">Historial de Caja</span>
+                            <span class="show-mobile">Historial</span>
                         </h5>
-                        <a href="{{ url_for('admin_caja') }}" class="btn btn-sm btn-primary">
-                            <i class="fas fa-arrow-left me-1"></i> Volver a Caja
+                        <a href="{{ url_for('admin_caja') }}" class="btn btn-sm btn-light">
+                            <i class="fas fa-arrow-left me-1"></i>
+                            <span class="hide-mobile">Volver a Caja</span>
+                            <span class="show-mobile">Volver</span>
                         </a>
                     </div>
                 </div>
+
                 <div class="card-body">
-                    <!-- Selector de fecha -->
-                    <form method="GET" class="row g-3 mb-4 no-print">
-                        <div class="col-md-4">
-                            <label for="fecha" class="form-label">Seleccionar Fecha</label>
-                            <input type="date" 
-                                   class="form-control" 
-                                   id="fecha" 
-                                   name="fecha" 
-                                   value="{{ fecha }}"
-                                   max="{{ fecha_maxima }}">
-                        </div>
-                        <div class="col-md-2">
-                            <label class="form-label">&nbsp;</label>
-                            <button type="submit" class="btn btn-primary w-100">
-                                <i class="fas fa-search me-1"></i> Buscar
-                            </button>
-                        </div>
-                        <div class="col-md-2">
-                            <label class="form-label">&nbsp;</label>
-                            <a href="{{ url_for('admin_caja_historial') }}" class="btn btn-secondary w-100">
-                                <i class="fas fa-calendar-day me-1"></i> Hoy
-                            </a>
-                        </div>
-                        <div class="col-md-4">
-                            <label class="form-label">Otras fechas disponibles</label>
-                            <div class="d-flex flex-wrap gap-2">
-                                {% for fecha_item in fechas_disponibles %}
-                                    {% if fecha_item.fecha %}
-                                        {% set fecha_obj = fecha_item.fecha|string %}
-                                        <a href="{{ url_for('admin_caja_historial', fecha=fecha_obj) }}" 
-                                           class="fecha-badge {% if fecha == fecha_obj %}active{% endif %}">
-                                            {% if '-' in fecha_obj %}
-                                                {{ fecha_obj[-5:].replace('-', '/') }}
-                                            {% else %}
-                                                {{ fecha_obj }}
+                    <!-- Selector de fecha - Versión mejorada responsive -->
+                    <form method="GET" class="search-form no-print">
+                        <div class="row g-3 mb-4">
+                            <div class="col-12 col-sm-6 col-md-4">
+                                <label for="fecha" class="form-label">
+                                    <i class="fas fa-calendar-alt me-1"></i> Fecha
+                                </label>
+                                <input type="date" 
+                                       class="form-control" 
+                                       id="fecha" 
+                                       name="fecha" 
+                                       value="{{ fecha }}"
+                                       max="{{ fecha_maxima }}">
+                            </div>
+                            
+                            <div class="col-6 col-sm-3 col-md-2">
+                                <label class="form-label">&nbsp;</label>
+                                <button type="submit" class="btn btn-primary w-100">
+                                    <i class="fas fa-search"></i>
+                                    <span class="hide-mobile ms-1">Buscar</span>
+                                </button>
+                            </div>
+                            
+                            <div class="col-6 col-sm-3 col-md-2">
+                                <label class="form-label">&nbsp;</label>
+                                <a href="{{ url_for('admin_caja_historial') }}" class="btn btn-secondary w-100">
+                                    <i class="fas fa-calendar-day"></i>
+                                    <span class="hide-mobile ms-1">Hoy</span>
+                                </a>
+                            </div>
+                            
+                            <div class="col-12 col-md-4">
+                                <label class="form-label">
+                                    <i class="fas fa-history me-1"></i> Otras fechas
+                                </label>
+                                <div class="fechas-container">
+                                    <div class="d-flex flex-wrap gap-1">
+                                        {% for fecha_item in fechas_disponibles %}
+                                            {% if fecha_item.fecha %}
+                                                {% set fecha_obj = fecha_item.fecha|string %}
+                                                <a href="{{ url_for('admin_caja_historial', fecha=fecha_obj) }}" 
+                                                   class="fecha-badge {% if fecha == fecha_obj %}active{% endif %}"
+                                                   title="{{ fecha_obj }}">
+                                                    {% if '-' in fecha_obj %}
+                                                        {{ fecha_obj[-5:].replace('-', '/') }}
+                                                    {% else %}
+                                                        {{ fecha_obj[:5] }}
+                                                    {% endif %}
+                                                </a>
                                             {% endif %}
-                                        </a>
-                                    {% endif %}
-                                {% endfor %}
+                                        {% endfor %}
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </form>
-                    
-                    <!-- Resumen del día -->
-                    <div class="row mb-4">
-                        <div class="col-md-3">
-                            <div class="card text-white bg-info">
-                                <div class="card-body">
-                                    <h6 class="card-title">Fecha</h6>
-                                    <h4 class="card-text">{{ fecha_formateada }}</h4>
-                                </div>
+
+                    <!-- Resumen del día - Tarjetas mejoradas -->
+                    <div class="row g-3 mb-4">
+                        <div class="col-6 col-md-3">
+                            <div class="summary-card bg-info-gradient">
+                                <h6><i class="fas fa-calendar-day me-1"></i> Fecha</h6>
+                                <h4 class="text-truncate">{{ fecha_formateada[:10] }}</h4>
                             </div>
                         </div>
-                        <div class="col-md-3">
-                            <div class="card text-white bg-success">
-                                <div class="card-body">
-                                    <h6 class="card-title">Total Entradas</h6>
-                                    <h4 class="card-text">C$ {{ "{:,.2f}".format(entradas|default(0)|float) }}</h4>
-                                </div>
+                        <div class="col-6 col-md-3">
+                            <div class="summary-card bg-success-gradient">
+                                <h6><i class="fas fa-arrow-down me-1"></i> Entradas</h6>
+                                <h4>C$ {{ "{:,.0f}".format(entradas|default(0)|float) }}</h4>
                             </div>
                         </div>
-                        <div class="col-md-3">
-                            <div class="card text-white bg-danger">
-                                <div class="card-body">
-                                    <h6 class="card-title">Total Salidas</h6>
-                                    <h4 class="card-text">C$ {{ "{:,.2f}".format(salidas|default(0)|float) }}</h4>
-                                </div>
+                        <div class="col-6 col-md-3">
+                            <div class="summary-card bg-danger-gradient">
+                                <h6><i class="fas fa-arrow-up me-1"></i> Salidas</h6>
+                                <h4>C$ {{ "{:,.0f}".format(salidas|default(0)|float) }}</h4>
                             </div>
                         </div>
-                        <div class="col-md-3">
-                            <div class="card text-white bg-primary">
-                                <div class="card-body">
-                                    <h6 class="card-title">Saldo del Día</h6>
-                                    <h4 class="card-text">C$ {{ "{:,.2f}".format(saldo_dia|default(0)|float) }}</h4>
-                                </div>
+                        <div class="col-6 col-md-3">
+                            <div class="summary-card bg-primary-gradient">
+                                <h6><i class="fas fa-balance-scale me-1"></i> Saldo</h6>
+                                <h4>C$ {{ "{:,.0f}".format(saldo_dia|default(0)|float) }}</h4>
                             </div>
                         </div>
                     </div>
-                    
-                    <!-- Contador de movimientos -->
-                    <div class="alert alert-info d-flex justify-content-between align-items-center no-print">
-                        <span>
-                            <i class="fas fa-exchange-alt me-2"></i>
-                            <strong>{{ total|default(0) }}</strong> movimiento{{ 's' if total|default(0) != 1 else '' }} activo{{ 's' if total|default(0) != 1 else '' }}
-                            {% if total_anulados|default(0) > 0 %}
-                                y <strong>{{ total_anulados|default(0) }}</strong> anulado{{ 's' if total_anulados|default(0) != 1 else '' }}
-                            {% endif %}
-                        </span>
-                        <div>
-                            <span class="badge bg-success me-3">
-                                <i class="fas fa-arrow-down me-1"></i>C$ {{ "{:,.2f}".format(entradas|default(0)|float) }}
-                            </span>
-                            <span class="badge bg-danger">
-                                <i class="fas fa-arrow-up me-1"></i>C$ {{ "{:,.2f}".format(salidas|default(0)|float) }}
-                            </span>
+
+                    <!-- Contador de movimientos - Versión responsive -->
+                    <div class="alert alert-info no-print">
+                        <div class="d-flex flex-wrap align-items-center justify-content-between gap-2">
+                            <div class="d-flex align-items-center gap-2 flex-wrap">
+                                <i class="fas fa-exchange-alt"></i>
+                                <span>
+                                    <strong>{{ total|default(0) }}</strong> movimiento{{ 's' if total|default(0) != 1 else '' }}
+                                    {% if total_anulados|default(0) > 0 %}
+                                        <span class="d-none d-sm-inline">y</span>
+                                        <strong class="d-sm-inline">{{ total_anulados|default(0) }}</strong> anulado{{ 's' if total_anulados|default(0) != 1 else '' }}
+                                    {% endif %}
+                                </span>
+                            </div>
+                            <div class="d-flex gap-2">
+                                <span class="badge bg-success">
+                                    <i class="fas fa-arrow-down me-1"></i>
+                                    C$ {{ "{:,.0f}".format(entradas|default(0)|float) }}
+                                </span>
+                                <span class="badge bg-danger">
+                                    <i class="fas fa-arrow-up me-1"></i>
+                                    C$ {{ "{:,.0f}".format(salidas|default(0)|float) }}
+                                </span>
+                            </div>
                         </div>
                     </div>
-                    
-                    <!-- Tabla de movimientos -->
+
+                    <!-- Tabla de movimientos - Responsive -->
                     <div class="table-responsive">
                         <table class="table table-hover table-striped">
-                            <thead class="table-dark">
+                            <thead>
                                 <tr>
-                                    <th>Hora</th>
-                                    <th>Tipo</th>
-                                    <th>Descripción</th>
-                                    <th>Referencia</th>
-                                    <th>Estado</th>
-                                    <th class="text-end">Monto</th>
+                                    <th><i class="fas fa-clock me-1 d-none d-md-inline"></i> Hora</th>
+                                    <th><i class="fas fa-tag me-1 d-none d-md-inline"></i> Tipo</th>
+                                    <th><i class="fas fa-align-left me-1 d-none d-md-inline"></i> Descripción</th>
+                                    <th class="d-none d-md-table-cell"><i class="fas fa-file-alt me-1"></i> Ref.</th>
+                                    <th><i class="fas fa-circle me-1 d-none d-md-inline"></i> Estado</th>
+                                    <th class="text-end"><i class="fas fa-dollar-sign me-1 d-none d-md-inline"></i> Monto</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -191,8 +678,7 @@
                                     {% for mov in movimientos %}
                                     <tr class="{% if mov.Estado == 'ANULADO' %}table-secondary{% endif %}">
                                         <td>
-                                            <i class="fas fa-clock me-2 text-muted"></i>
-                                            {{ mov.Fecha|format_hora if mov.Fecha else '' }}
+                                            <span class="fw-bold">{{ mov.Fecha|format_hora if mov.Fecha else '--:--' }}</span>
                                         </td>
                                         <td>
                                             <span class="badge bg-{{ 'success' if mov.Tipo_Movimiento == 'ENTRADA' else 'danger' }}">
@@ -201,22 +687,23 @@
                                                 {% else %}
                                                 <i class="fas fa-arrow-up me-1"></i>
                                                 {% endif %}
-                                                {{ mov.Tipo_Movimiento }}
+                                                <span class="d-none d-sm-inline">{{ mov.Tipo_Movimiento }}</span>
                                             </span>
                                         </td>
-                                        <td>{{ mov.Descripcion if mov.Descripcion else '' }}
+                                        <td>
+                                            <span class="d-block d-sm-none">{{ mov.Descripcion|truncate(20) if mov.Descripcion else '' }}</span>
+                                            <span class="d-none d-sm-block">{{ mov.Descripcion|truncate(30) if mov.Descripcion else '' }}</span>
                                             {% if mov.ID_Factura %}
-                                                <br><small class="text-info">Factura #{{ mov.ID_Factura }}</small>
+                                                <small class="text-info d-block">Factura #{{ mov.ID_Factura }}</small>
                                             {% endif %}
                                             {% if mov.ID_Pagos_cxc %}
-                                                <br><small class="text-info">Pago CxC #{{ mov.ID_Pagos_cxc }}</small>
+                                                <small class="text-info d-block">Pago #{{ mov.ID_Pagos_cxc }}</small>
                                             {% endif %}
                                         </td>
-                                        <td>
+                                        <td class="d-none d-md-table-cell">
                                             {% if mov.Referencia_Documento %}
                                             <span class="badge bg-secondary">
-                                                <i class="fas fa-file-alt me-1"></i>
-                                                {{ mov.Referencia_Documento[:15] }}{% if mov.Referencia_Documento|length > 15 %}...{% endif %}
+                                                {{ mov.Referencia_Documento[:10] }}{% if mov.Referencia_Documento|length > 10 %}…{% endif %}
                                             </span>
                                             {% else %}
                                             <span class="text-muted">-</span>
@@ -226,60 +713,56 @@
                                             {% if mov.Estado == 'ANULADO' %}
                                             <span class="badge bg-danger">
                                                 <i class="fas fa-ban me-1"></i>
-                                                ANULADO
+                                                <span class="d-none d-sm-inline">ANULADO</span>
                                             </span>
                                             {% else %}
                                             <span class="badge bg-success">
                                                 <i class="fas fa-check me-1"></i>
-                                                ACTIVO
+                                                <span class="d-none d-sm-inline">ACTIVO</span>
                                             </span>
                                             {% endif %}
                                         </td>
-                                        <td class="text-end {{ 'text-success fw-bold' if mov.Tipo_Movimiento == 'ENTRADA' and mov.Estado != 'ANULADO' else 'text-danger fw-bold' if mov.Estado != 'ANULADO' else 'text-muted fw-bold' }}">
+                                        <td class="text-end {{ 'text-success fw-bold' if mov.Tipo_Movimiento == 'ENTRADA' and mov.Estado != 'ANULADO' else 'text-danger fw-bold' if mov.Estado != 'ANULADO' else 'text-muted' }}">
                                             {% if mov.Estado != 'ANULADO' %}
                                                 {% if mov.Tipo_Movimiento == 'ENTRADA' %}
-                                                <i class="fas fa-plus-circle me-1"></i>
+                                                <i class="fas fa-plus-circle me-1 d-none d-sm-inline"></i>
                                                 {% else %}
-                                                <i class="fas fa-minus-circle me-1"></i>
+                                                <i class="fas fa-minus-circle me-1 d-none d-sm-inline"></i>
                                                 {% endif %}
-                                            {% else %}
-                                            <i class="fas fa-ban me-1 text-danger"></i>
                                             {% endif %}
-                                            C$ {{ "{:,.2f}".format(mov.Monto|default(0)|float) }}
+                                            C$ {{ "{:,.0f}".format(mov.Monto|default(0)|float) }}
                                         </td>
                                     </tr>
                                     {% endfor %}
                                 {% else %}
-                                <tr>
-                                    <td colspan="6" class="text-center text-muted py-5">
-                                        <div class="py-4">
-                                            <i class="fas fa-inbox fa-3x mb-3"></i>
-                                            <h5>No hay movimientos registrados</h5>
-                                            <p class="mb-0">No se encontraron movimientos para la fecha {{ fecha_formateada }}</p>
-                                        </div>
-                                    </td>
-                                </tr>
+                                    <tr>
+                                        <td colspan="6" class="empty-state">
+                                            <i class="fas fa-inbox"></i>
+                                            <h5>No hay movimientos</h5>
+                                            <p>No se encontraron movimientos para {{ fecha_formateada }}</p>
+                                        </td>
+                                    </tr>
                                 {% endif %}
                             </tbody>
                             <tfoot class="table-active">
                                 <tr>
-                                    <td colspan="4"></td>
-                                    <td class="text-end fw-bold">TOTALES ACTIVOS:</td>
-                                    <td class="text-end fw-bold">
-                                        <div class="d-flex justify-content-end gap-3">
-                                            <span class="text-success">
+                                    <td colspan="4" class="d-none d-md-table-cell"></td>
+                                    <td colspan="2">
+                                        <div class="totales-container">
+                                            <span class="total-item text-success">
                                                 <i class="fas fa-arrow-down me-1"></i>
-                                                C$ {{ "{:,.2f}".format(entradas|default(0)|float) }}
+                                                <span class="d-none d-sm-inline">Entradas:</span>
+                                                C$ {{ "{:,.0f}".format(entradas|default(0)|float) }}
                                             </span>
-                                            <span class="text-danger">
+                                            <span class="total-item text-danger">
                                                 <i class="fas fa-arrow-up me-1"></i>
-                                                C$ {{ "{:,.2f}".format(salidas|default(0)|float) }}
+                                                <span class="d-none d-sm-inline">Salidas:</span>
+                                                C$ {{ "{:,.0f}".format(salidas|default(0)|float) }}
                                             </span>
-                                        </div>
-                                        <div class="d-flex justify-content-end mt-2">
-                                            <span class="text-primary">
+                                            <span class="total-item text-primary">
                                                 <i class="fas fa-balance-scale me-1"></i>
-                                                Saldo: C$ {{ "{:,.2f}".format(saldo_dia|default(0)|float) }}
+                                                <span class="d-none d-sm-inline">Saldo:</span>
+                                                C$ {{ "{:,.0f}".format(saldo_dia|default(0)|float) }}
                                             </span>
                                         </div>
                                     </td>
@@ -287,35 +770,42 @@
                             </tfoot>
                         </table>
                     </div>
-                    
-                    <!-- Información adicional -->
+
+                    <!-- Información adicional - Versión responsive -->
                     <div class="alert alert-light mt-3 no-print">
-                        <i class="fas fa-info-circle me-2"></i>
-                        <small>
-                            <strong>Estado de caja:</strong> 
-                            {% if estado == 'ABIERTA' %}
-                                <span class="badge bg-success">ABIERTA</span>
-                            {% elif estado == 'CERRADA' %}
-                                <span class="badge bg-secondary">CERRADA</span>
-                            {% else %}
-                                <span class="badge bg-warning">NO APERTURADA</span>
-                            {% endif %}
-                            • 
-                            <strong>Movimientos totales:</strong> {{ (total|default(0)) + (total_anulados|default(0)) }} 
-                            ({{ total|default(0) }} activos, {{ total_anulados|default(0) }} anulados)
-                        </small>
+                        <div class="d-flex flex-wrap align-items-center gap-2">
+                            <i class="fas fa-info-circle"></i>
+                            <small class="d-flex flex-wrap align-items-center gap-2">
+                                <span class="fw-bold">Estado:</span>
+                                {% if estado == 'ABIERTA' %}
+                                    <span class="badge bg-success">ABIERTA</span>
+                                {% elif estado == 'CERRADA' %}
+                                    <span class="badge bg-secondary">CERRADA</span>
+                                {% else %}
+                                    <span class="badge bg-warning">SIN APERTURA</span>
+                                {% endif %}
+                                <span class="d-none d-sm-inline">•</span>
+                                <span><span class="fw-bold">Total:</span> {{ (total|default(0)) + (total_anulados|default(0)) }} mov.</span>
+                            </small>
+                        </div>
                     </div>
-                    
-                    <!-- Botones de acción -->
-                    <div class="d-flex justify-content-between mt-4 no-print">
+
+                    <!-- Botones de acción - Versión responsive -->
+                    <div class="action-buttons no-print">
                         <div>
                             <button onclick="window.print()" class="btn btn-outline-primary">
-                                <i class="fas fa-print me-1"></i> Imprimir Reporte
+                                <i class="fas fa-print"></i>
+                                <span class="hide-mobile ms-1">Imprimir</span>
                             </button>
                         </div>
-                        <div>
+                        <div class="d-flex gap-2">
+                            <a href="{{ url_for('admin_caja_reporte') }}?fecha={{ fecha }}" class="btn btn-outline-success">
+                                <i class="fas fa-chart-bar"></i>
+                                <span class="hide-mobile ms-1">Reporte</span>
+                            </a>
                             <a href="{{ url_for('admin_caja') }}" class="btn btn-primary">
-                                <i class="fas fa-cash-register me-1"></i> Ir a Caja Principal
+                                <i class="fas fa-cash-register"></i>
+                                <span class="hide-mobile ms-1">Caja Principal</span>
                             </a>
                         </div>
                     </div>
@@ -325,9 +815,79 @@
     </div>
 </div>
 
+<!-- Estilos condicionales para móvil/escritorio -->
+<style>
+    /* Clases helper para responsive */
+    .show-mobile {
+        display: none;
+    }
+    
+    @media (max-width: 576px) {
+        .hide-mobile {
+            display: none !important;
+        }
+        .show-mobile {
+            display: inline-block !important;
+        }
+    }
+    
+    @media (min-width: 577px) {
+        .show-mobile {
+            display: none !important;
+        }
+    }
+    
+    /* Mejora para números grandes */
+    .summary-card h4 {
+        font-size: clamp(1rem, 4vw, 1.5rem);
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    
+    /* Tooltips personalizados */
+    .fecha-badge[title] {
+        position: relative;
+    }
+    
+    .fecha-badge[title]:hover::after {
+        content: attr(title);
+        position: absolute;
+        bottom: 100%;
+        left: 50%;
+        transform: translateX(-50%);
+        background: var(--dark);
+        color: white;
+        padding: 4px 8px;
+        border-radius: 4px;
+        font-size: 0.7rem;
+        white-space: nowrap;
+        z-index: 1000;
+        pointer-events: none;
+    }
+    
+    /* Scroll horizontal suave */
+    .fechas-container {
+        scrollbar-width: thin;
+        scrollbar-color: #ccc #f5f5f5;
+    }
+    
+    .fechas-container::-webkit-scrollbar {
+        height: 4px;
+    }
+    
+    .fechas-container::-webkit-scrollbar-track {
+        background: #f5f5f5;
+    }
+    
+    .fechas-container::-webkit-scrollbar-thumb {
+        background: #ccc;
+        border-radius: 4px;
+    }
+</style>
+
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // Establecer fecha máxima como hoy
+    // Configurar fecha máxima
     const hoy = new Date();
     const fechaMax = hoy.toISOString().split('T')[0];
     const fechaInput = document.getElementById('fecha');
@@ -335,13 +895,13 @@ document.addEventListener('DOMContentLoaded', function() {
     if (fechaInput) {
         fechaInput.max = fechaMax;
         
-        // Si no hay valor, establecer hoy
-        if (!fechaInput.value) {
+        // Si no hay valor o es inválido, establecer hoy
+        if (!fechaInput.value || fechaInput.value > fechaMax) {
             fechaInput.value = fechaMax;
         }
     }
     
-    // Mejorar visualización de los badges de fecha
+    // Resaltar badge activo
     const fechaBadges = document.querySelectorAll('.fecha-badge');
     fechaBadges.forEach(badge => {
         if (badge.classList.contains('active')) {
@@ -350,6 +910,33 @@ document.addEventListener('DOMContentLoaded', function() {
             badge.style.borderColor = '#0d6efd';
         }
     });
+    
+    // Validar fechas futuras
+    if (fechaInput) {
+        fechaInput.addEventListener('change', function() {
+            if (this.value > fechaMax) {
+                alert('❌ No puedes seleccionar una fecha futura');
+                this.value = fechaMax;
+            }
+        });
+    }
+    
+    // Mejorar experiencia táctil en móviles
+    if ('ontouchstart' in window) {
+        document.querySelectorAll('.fecha-badge').forEach(el => {
+            el.style.padding = '8px 12px';
+            el.style.margin = '4px';
+        });
+    }
+    
+    // Tooltips automáticos para fechas largas
+    document.querySelectorAll('.fecha-badge').forEach(badge => {
+        if (badge.textContent.length > 8 && !badge.getAttribute('title')) {
+            badge.setAttribute('title', badge.textContent);
+        }
+    });
+    
+    console.log('Historial de caja cargado - Versión responsiva');
 });
 </script>
 {% endblock %}
