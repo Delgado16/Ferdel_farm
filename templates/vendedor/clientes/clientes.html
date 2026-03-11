@@ -3,45 +3,55 @@
 {% block title %}Clientes - {{ super() }}{% endblock %}
 
 {% block content %}
-<div class="container-fluid py-4">
-    <!-- Encabezado -->
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <h1 class="h3 mb-0">
-            <i class="fas fa-users me-2"></i>Mis Clientes
-        </h1>
-        <div>
-            <span class="badge bg-primary fs-6">
-                Total: {{ total }} clientes
+<div class="container-fluid mt-2 mt-md-4 px-2 px-md-3 py-2 py-md-4">
+    <!-- ============================================ -->
+    <!-- ENCABEZADO RESPONSIVO                        -->
+    <!-- ============================================ -->
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center mb-3 mb-md-4">
+        <div class="mb-2 mb-md-0">
+            <h1 class="h3 h2-md mb-1">
+                <i class="fas fa-users me-2 text-primary"></i>Mis Clientes
+            </h1>
+            <p class="text-muted small mb-0">
+                <i class="fas fa-calendar me-2"></i>{{ fecha_actual }} | 
+                <i class="fas fa-list me-2 ms-2"></i>Gestión de clientes
+            </p>
+        </div>
+        <div class="mt-2 mt-md-0">
+            <span class="badge bg-primary fs-6 p-2">
+                <i class="fas fa-user-friends me-1"></i>Total: {{ total }} clientes
             </span>
         </div>
     </div>
 
-    <!-- Formulario de búsqueda y filtros -->
+    <!-- ============================================ -->
+    <!-- FORMULARIO DE BÚSQUEDA Y FILTROS RESPONSIVO  -->
+    <!-- ============================================ -->
     <div class="card shadow-sm mb-4">
-        <div class="card-body">
-            <form method="GET" action="{{ url_for('admin_clientes') }}" class="row g-3">
+        <div class="card-body p-3">
+            <form method="GET" action="{{ url_for('admin_clientes') }}" class="row g-2 g-md-3">
                 <!-- Campo de búsqueda -->
-                <div class="col-md-6">
-                    <div class="input-group">
+                <div class="col-12 col-md-6">
+                    <div class="input-group input-group-lg">
                         <span class="input-group-text bg-white">
                             <i class="fas fa-search text-muted"></i>
                         </span>
                         <input type="text" 
-                               class="form-control form-control-lg" 
+                               class="form-control" 
                                id="search" 
                                name="q" 
                                placeholder="Buscar por nombre o teléfono..."
                                value="{{ search if search else '' }}">
                         {% if search %}
-                        <a href="{{ url_for('admin_clientes') }}" class="btn btn-outline-secondary">
-                            <i class="fas fa-times"></i> Limpiar
+                        <a href="{{ url_for('admin_clientes') }}" class="btn btn-outline-secondary" title="Limpiar búsqueda">
+                            <i class="fas fa-times"></i>
                         </a>
                         {% endif %}
                     </div>
                 </div>
                 
-                <!-- Filtro por ruta (si tienes muchas rutas) -->
-                <div class="col-md-4">
+                <!-- Filtro por ruta -->
+                <div class="col-8 col-md-4">
                     <select class="form-select form-select-lg" id="ruta_filter" name="ruta">
                         <option value="">Todas las rutas</option>
                         {% for ruta in rutas %}
@@ -53,30 +63,90 @@
                     </select>
                 </div>
                 
-                <!-- Botones de acción -->
-                <div class="col-md-2 d-grid">
+                <!-- Botón de filtro -->
+                <div class="col-4 col-md-2 d-grid">
                     <button type="submit" class="btn btn-primary btn-lg">
-                        <i class="fas fa-filter me-2"></i>Filtrar
+                        <i class="fas fa-filter me-1 me-md-2"></i>
+                        <span class="d-none d-md-inline">Filtrar</span>
                     </button>
                 </div>
             </form>
         </div>
     </div>
 
-    <!-- Tabla de clientes -->
+    <!-- ============================================ -->
+    <!-- TABLA DE CLIENTES RESPONSIVA                 -->
+    <!-- ============================================ -->
     <div class="card shadow-sm">
         <div class="card-body p-0">
             {% if clientes and clientes|length > 0 %}
-            <div class="table-responsive">
+            <!-- VISTA MÓVIL: Tarjetas de clientes -->
+            <div class="d-block d-lg-none">
+                {% for cliente in clientes %}
+                <div class="cliente-card p-3 border-bottom">
+                    <div class="d-flex justify-content-between align-items-start mb-2">
+                        <div>
+                            <span class="badge bg-primary me-2">#{{ loop.index + (page-1)*per_page }}</span>
+                            <span class="fw-bold h6">{{ cliente.Nombre }}</span>
+                        </div>
+                        {% if cliente.Saldo_Pendiente_Total and cliente.Saldo_Pendiente_Total > 0 %}
+                        <span class="badge bg-danger">
+                            C${{ "{:,.2f}".format(cliente.Saldo_Pendiente_Total) }}
+                        </span>
+                        {% else %}
+                        <span class="badge bg-success">C$0.00</span>
+                        {% endif %}
+                    </div>
+
+                    <div class="row g-2">
+                        <div class="col-6">
+                            <small class="text-muted d-block">
+                                <i class="fas fa-phone-alt me-1"></i>Teléfono:
+                            </small>
+                            {% if cliente.Telefono %}
+                            <a href="tel:{{ cliente.Telefono }}" class="text-decoration-none small">
+                                {{ cliente.Telefono }}
+                            </a>
+                            {% else %}
+                            <span class="small text-muted">-</span>
+                            {% endif %}
+                        </div>
+                        <div class="col-6">
+                            <small class="text-muted d-block">
+                                <i class="fas fa-route me-1"></i>Ruta:
+                            </small>
+                            {% if cliente.Nombre_Ruta %}
+                            <span class="badge bg-info">
+                                {{ cliente.Nombre_Ruta }}
+                            </span>
+                            {% else %}
+                            <span class="small text-muted">-</span>
+                            {% endif %}
+                        </div>
+                        <div class="col-12">
+                            <small class="text-muted d-block">
+                                <i class="fas fa-map-marker-alt me-1"></i>Dirección:
+                            </small>
+                            <span class="small">
+                                {{ cliente.Direccion|truncate(60) if cliente.Direccion else '-' }}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+
+            <!-- VISTA DESKTOP: Tabla de clientes -->
+            <div class="table-responsive d-none d-lg-block">
                 <table class="table table-hover table-striped mb-0">
                     <thead class="table-light">
                         <tr>
-                            <th class="ps-4">#</th>
+                            <th class="ps-4" width="60">#</th>
                             <th>Nombre</th>
-                            <th>Teléfono</th>
-                            <th>Ruta</th>
+                            <th width="120">Teléfono</th>
+                            <th width="150">Ruta</th>
                             <th>Dirección</th>
-                            <th class="text-end pe-4">Saldo Pendiente</th>
+                            <th class="text-end pe-4" width="150">Saldo Pendiente</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -93,7 +163,7 @@
                                     {{ cliente.Telefono }}
                                 </a>
                                 {% else %}
-                                <span class="text-muted">-</span>
+                                <span class="text-muted small">-</span>
                                 {% endif %}
                             </td>
                             <td>
@@ -124,23 +194,26 @@
                 </table>
             </div>
 
-            <!-- Paginación -->
+            <!-- ============================================ -->
+            <!-- PAGINACIÓN RESPONSIVA                        -->
+            <!-- ============================================ -->
             {% if total_pages > 1 %}
-            <div class="card-footer bg-white">
-                <div class="d-flex justify-content-between align-items-center flex-wrap">
-                    <div class="mb-2 mb-sm-0">
-                        <span class="text-muted">
+            <div class="card-footer bg-white p-3">
+                <div class="d-flex flex-column flex-sm-row justify-content-between align-items-center gap-3">
+                    <div class="text-center text-sm-start">
+                        <span class="text-muted small">
                             Mostrando {{ ((page-1)*per_page) + 1 }} - 
                             {{ [page*per_page, total]|min }} de {{ total }} clientes
                         </span>
                     </div>
                     
                     <nav aria-label="Paginación de clientes">
-                        <ul class="pagination pagination-sm mb-0">
+                        <ul class="pagination pagination-sm flex-wrap justify-content-center mb-0">
                             <!-- Botón Anterior -->
                             <li class="page-item {% if page <= 1 %}disabled{% endif %}">
                                 <a class="page-link" 
-                                   href="{{ url_for('admin_clientes', page=page-1, q=search) if page > 1 else '#' }}">
+                                   href="{{ url_for('admin_clientes', page=page-1, q=search) if page > 1 else '#' }}"
+                                   aria-label="Anterior">
                                     <i class="fas fa-chevron-left"></i>
                                 </a>
                             </li>
@@ -164,7 +237,8 @@
                             <!-- Botón Siguiente -->
                             <li class="page-item {% if page >= total_pages %}disabled{% endif %}">
                                 <a class="page-link" 
-                                   href="{{ url_for('admin_clientes', page=page+1, q=search) if page < total_pages else '#' }}">
+                                   href="{{ url_for('admin_clientes', page=page+1, q=search) if page < total_pages else '#' }}"
+                                   aria-label="Siguiente">
                                     <i class="fas fa-chevron-right"></i>
                                 </a>
                             </li>
@@ -175,21 +249,23 @@
             {% endif %}
 
             {% else %}
-            <!-- Mensaje cuando no hay resultados -->
+            <!-- ============================================ -->
+            <!-- MENSAJE CUANDO NO HAY RESULTADOS            -->
+            <!-- ============================================ -->
             <div class="text-center py-5">
                 <div class="mb-3">
                     <i class="fas fa-users fa-4x text-muted opacity-50"></i>
                 </div>
-                <h5 class="text-muted">No se encontraron clientes</h5>
+                <h5 class="h6 h5-md text-muted">No se encontraron clientes</h5>
                 {% if search %}
-                <p class="text-muted mb-3">
+                <p class="text-muted small mb-3">
                     No hay resultados para "{{ search }}"
                 </p>
-                <a href="{{ url_for('admin_clientes') }}" class="btn btn-outline-primary">
+                <a href="{{ url_for('admin_clientes') }}" class="btn btn-outline-primary btn-sm">
                     <i class="fas fa-times me-2"></i>Limpiar búsqueda
                 </a>
                 {% else %}
-                <p class="text-muted">
+                <p class="text-muted small mb-0">
                     No tienes clientes asignados en este momento.
                 </p>
                 {% endif %}
@@ -200,44 +276,19 @@
 </div>
 {% endblock %}
 
-{% block scripts %}
-{{ super() }}
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    // Auto-submit al cambiar el filtro de ruta (opcional)
-    const rutaFilter = document.getElementById('ruta_filter');
-    if (rutaFilter) {
-        rutaFilter.addEventListener('change', function() {
-            this.form.submit();
-        });
-    }
-
-    // Validar que la búsqueda no esté vacía antes de enviar (opcional)
-    const searchForm = document.querySelector('form');
-    if (searchForm) {
-        searchForm.addEventListener('submit', function(e) {
-            const searchInput = document.getElementById('search');
-            if (searchInput.value.trim() === '') {
-                // Si la búsqueda está vacía, redirigir sin parámetros
-                e.preventDefault();
-                window.location.href = "{{ url_for('admin_clientes') }}";
-            }
-        });
-    }
-
-    // Tooltips (si usas Bootstrap 5)
-    const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
-    tooltipTriggerList.map(function(tooltipTriggerEl) {
-        return new bootstrap.Tooltip(tooltipTriggerEl);
-    });
-});
-</script>
-{% endblock %}
-
 {% block styles %}
 {{ super() }}
 <style>
-/* Estilos adicionales específicos para esta página */
+/* ============================================ */
+/* ESTILOS RESPONSIVOS MEJORADOS                */
+/* ============================================ */
+
+/* Variables */
+:root {
+    --primary-gradient: linear-gradient(135deg, #6a11cb 0%, #2575fc 100%);
+}
+
+/* Estilos base de tabla */
 .table > :not(caption) > * > * {
     padding: 1rem 0.5rem;
     vertical-align: middle;
@@ -245,11 +296,24 @@ document.addEventListener('DOMContentLoaded', function() {
 
 .pagination {
     margin-bottom: 0;
+    gap: 2px;
 }
 
 .page-link {
     padding: 0.375rem 0.75rem;
     font-size: 0.875rem;
+    border-radius: 6px;
+    transition: all 0.2s ease;
+}
+
+.page-link:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+
+.page-item.active .page-link {
+    background: var(--primary-gradient);
+    border-color: transparent;
 }
 
 .badge {
@@ -259,23 +323,528 @@ document.addEventListener('DOMContentLoaded', function() {
 
 /* Animación hover para filas */
 .table tbody tr {
-    transition: background-color 0.2s ease;
+    transition: background-color 0.2s ease, transform 0.2s ease;
 }
 
 .table tbody tr:hover {
-    background-color: rgba(0, 123, 255, 0.05) !important;
+    background-color: rgba(106, 17, 203, 0.05) !important;
+    transform: scale(1.002);
 }
 
-/* Responsive */
-@media (max-width: 768px) {
-    .table td:nth-child(4), .table th:nth-child(4),
-    .table td:nth-child(5), .table th:nth-child(5) {
-        display: none;
+/* ============================================ */
+/* VISTA MÓVIL (< 992px)                        */
+/* ============================================ */
+@media (max-width: 991.98px) {
+    .container-fluid {
+        padding-left: 8px;
+        padding-right: 8px;
     }
-    
-    .input-group {
+
+    .h2-md {
+        font-size: 1.5rem;
+    }
+
+    .h5-md {
+        font-size: 1rem;
+    }
+
+    /* Tarjetas de clientes */
+    .cliente-card {
+        background-color: white;
+        transition: all 0.3s ease;
+        animation: fadeIn 0.3s ease;
+        border-left: 3px solid transparent;
+    }
+
+    .cliente-card:hover {
+        background-color: #f8f9fa;
+        border-left-color: #6a11cb;
+        transform: translateX(2px);
+    }
+
+    .cliente-card .badge {
+        font-size: 0.7rem;
+        padding: 0.3rem 0.5rem;
+    }
+
+    .cliente-card .fw-bold {
+        font-size: 0.95rem;
+    }
+
+    /* Input group */
+    .input-group-lg {
         width: 100%;
     }
+
+    .input-group-lg .form-control,
+    .input-group-lg .btn {
+        font-size: 0.95rem;
+        padding: 0.5rem 0.75rem;
+    }
+
+    /* Botones */
+    .btn-lg {
+        font-size: 0.95rem;
+        padding: 0.5rem;
+    }
+
+    /* Badge de total */
+    .badge.fs-6 {
+        font-size: 0.9rem !important;
+        padding: 0.4rem 0.8rem;
+    }
+}
+
+/* ============================================ */
+/* VISTA TABLET (768px - 991px)                 */
+/* ============================================ */
+@media (min-width: 768px) and (max-width: 991.98px) {
+    .cliente-card .row {
+        margin-left: -5px;
+        margin-right: -5px;
+    }
+
+    .cliente-card [class*="col-"] {
+        padding-left: 5px;
+        padding-right: 5px;
+    }
+
+    .pagination-sm .page-link {
+        padding: 0.3rem 0.6rem;
+        font-size: 0.8rem;
+    }
+}
+
+/* ============================================ */
+/* VISTA PANTALLAS MUY PEQUEÑAS (< 576px)       */
+/* ============================================ */
+@media (max-width: 575.98px) {
+    .h2-md {
+        font-size: 1.3rem;
+    }
+
+    .cliente-card {
+        padding: 0.75rem !important;
+    }
+
+    .cliente-card .badge {
+        font-size: 0.65rem;
+    }
+
+    .cliente-card .small {
+        font-size: 0.7rem;
+    }
+
+    .input-group-lg .form-control,
+    .input-group-lg .btn {
+        font-size: 0.85rem;
+        padding: 0.4rem 0.6rem;
+    }
+
+    .badge.fs-6 {
+        font-size: 0.8rem !important;
+    }
+
+    .pagination-sm .page-link {
+        padding: 0.25rem 0.5rem;
+        font-size: 0.75rem;
+    }
+
+    /* Ajustar el grid de filtros */
+    .col-8, .col-4 {
+        padding-left: 3px;
+        padding-right: 3px;
+    }
+}
+
+/* ============================================ */
+/* VISTA DESKTOP (≥ 992px)                      */
+/* ============================================ */
+@media (min-width: 992px) {
+    .table th {
+        white-space: nowrap;
+        background-color: #f8fafc;
+    }
+
+    .table td {
+        font-size: 0.95rem;
+    }
+
+    .badge.bg-info {
+        white-space: nowrap;
+    }
+
+    .btn-lg {
+        padding: 0.75rem 1rem;
+        font-size: 1rem;
+    }
+}
+
+/* ============================================ */
+/* ANIMACIONES                                  */
+/* ============================================ */
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(5px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes slideIn {
+    from {
+        transform: translateX(-10px);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+.fade-in {
+    animation: fadeIn 0.3s ease;
+}
+
+/* ============================================ */
+/* MEJORAS DE UX                               */
+/* ============================================ */
+
+/* Tooltips solo en desktop */
+@media (min-width: 992px) {
+    [title] {
+        cursor: help;
+    }
+}
+
+/* Mejora touch targets en móvil */
+@media (max-width: 767.98px) {
+    .btn, 
+    .page-link,
+    .form-control,
+    .form-select,
+    .input-group-text {
+        min-height: 44px;
+    }
+
+    .btn-sm {
+        min-height: 38px;
+    }
+}
+
+/* Scrollbar personalizada */
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+    background: linear-gradient(135deg, #6a11cb, #2575fc);
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(135deg, #5a0bb0, #1e5fd6);
+}
+
+/* Estilo para enlaces de teléfono */
+a[href^="tel"] {
+    color: inherit;
+    text-decoration: none;
+    transition: color 0.2s ease;
+}
+
+a[href^="tel"]:hover {
+    color: #6a11cb;
+}
+
+/* Badge de saldo positivo */
+.badge.bg-danger {
+    background: linear-gradient(135deg, #dc3545, #c82333) !important;
+    box-shadow: 0 2px 5px rgba(220, 53, 69, 0.3);
+}
+
+.badge.bg-success {
+    background: linear-gradient(135deg, #28a745, #218838) !important;
+}
+
+.badge.bg-info {
+    background: linear-gradient(135deg, #17a2b8, #138496) !important;
+}
+
+/* Contenedor de tabla */
+.table-responsive {
+    border-radius: 0.5rem;
+}
+
+/* Efecto de gradiente en el botón primario */
+.btn-primary {
+    background: var(--primary-gradient);
+    border: none;
+    transition: all 0.3s ease;
+}
+
+.btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 15px rgba(106, 17, 203, 0.4);
+}
+
+/* Footer de paginación */
+.card-footer {
+    border-top: 1px solid rgba(0,0,0,0.05);
+    background-color: #fff;
+}
+
+/* Ajuste para el input de búsqueda */
+.input-group-text {
+    border-right: none;
+    background-color: white;
+}
+
+#search {
+    border-left: none;
+}
+
+#search:focus {
+    box-shadow: none;
+    border-color: #ced4da;
+}
+
+/* Mensaje de no resultados */
+.text-muted.opacity-50 {
+    opacity: 0.3 !important;
+}
+
+/* Ajustes para la paginación en móvil */
+@media (max-width: 576px) {
+    .pagination {
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 2px;
+    }
+    
+    .page-item {
+        margin: 2px;
+    }
+    
+    .page-link {
+        padding: 0.25rem 0.5rem;
+        font-size: 0.75rem;
+        min-width: 32px;
+        text-align: center;
+    }
+}
+
+/* ============================================ */
+/* SOPORTE PARA ORIENTACIÓN LANDSCAPE           */
+/* ============================================ */
+@media (max-width: 896px) and (orientation: landscape) {
+    .cliente-card .row {
+        max-height: none;
+    }
+    
+    .container-fluid {
+        padding-bottom: 20px;
+    }
+}
+
+/* ============================================ */
+/* MEJORA DE ACCESIBILIDAD                      */
+/* ============================================ */
+.visually-hidden:not(:focus):not(:active) {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    border: 0;
+    padding: 0;
+    white-space: nowrap;
+    clip-path: inset(100%);
+    clip: rect(0 0 0 0);
+    overflow: hidden;
+}
+
+/* Focus visible para teclado */
+*:focus-visible {
+    outline: 3px solid rgba(106, 17, 203, 0.5);
+    outline-offset: 2px;
+}
+
+/* ============================================ */
+/* TEMA OSCURO (OPCIONAL)                       */
+/* ============================================ */
+body.dark-theme .card {
+    background-color: #2d2d2d;
+    color: #e0e0e0;
+}
+
+body.dark-theme .table {
+    color: #e0e0e0;
+}
+
+body.dark-theme .table-light {
+    background-color: #3d3d3d;
+    color: #fff;
+}
+
+body.dark-theme .cliente-card {
+    background-color: #2d2d2d;
+    border-bottom-color: #3d3d3d !important;
+}
+
+body.dark-theme .cliente-card:hover {
+    background-color: #3d3d3d;
 }
 </style>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // ============================================
+    // AUTO-SUBMIT AL CAMBIAR FILTRO DE RUTA
+    // ============================================
+    const rutaFilter = document.getElementById('ruta_filter');
+    if (rutaFilter) {
+        rutaFilter.addEventListener('change', function() {
+            // Mostrar indicador de carga (opcional)
+            const submitBtn = document.querySelector('button[type="submit"]');
+            if (submitBtn) {
+                const originalText = submitBtn.innerHTML;
+                submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Filtrando...';
+                submitBtn.disabled = true;
+                
+                setTimeout(() => {
+                    this.form.submit();
+                }, 100);
+            } else {
+                this.form.submit();
+            }
+        });
+    }
+
+    // ============================================
+    // VALIDACIÓN DE BÚSQUEDA
+    // ============================================
+    const searchForm = document.querySelector('form');
+    const searchInput = document.getElementById('search');
+
+    if (searchForm && searchInput) {
+        searchForm.addEventListener('submit', function(e) {
+            if (searchInput.value.trim() === '') {
+                e.preventDefault();
+                window.location.href = "{{ url_for('admin_clientes') }}";
+            }
+        });
+
+        // Agregar botón de limpiar si no existe
+        if (!searchInput.value) {
+            const clearButton = searchForm.querySelector('.btn-outline-secondary');
+            if (clearButton) {
+                clearButton.style.display = 'none';
+            }
+        }
+    }
+
+    // ============================================
+    // TOOLTIPS (SOLO EN DESKTOP)
+    // ============================================
+    if (window.innerWidth >= 992) {
+        const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+        tooltipTriggerList.map(function(tooltipTriggerEl) {
+            return new bootstrap.Tooltip(tooltipTriggerEl, {
+                animation: true,
+                delay: { show: 500, hide: 100 }
+            });
+        });
+    }
+
+    // ============================================
+    // DETECTAR CAMBIO DE ORIENTACIÓN
+    // ============================================
+    let resizeTimeout;
+    window.addEventListener('resize', function() {
+        clearTimeout(resizeTimeout);
+        resizeTimeout = setTimeout(function() {
+            // Recalcular tooltips si es necesario
+            if (window.innerWidth >= 992) {
+                // Reinicializar tooltips
+            } else {
+                // Ocultar tooltips
+                const tooltips = document.querySelectorAll('.tooltip');
+                tooltips.forEach(tooltip => tooltip.remove());
+            }
+        }, 250);
+    });
+
+    // ============================================
+    // ANIMACIÓN DE ENTRADA PARA TARJETAS EN MÓVIL
+    // ============================================
+    const clienteCards = document.querySelectorAll('.cliente-card');
+    clienteCards.forEach((card, index) => {
+        card.style.animation = `fadeIn 0.3s ease ${index * 0.05}s forwards`;
+        card.style.opacity = '0';
+    });
+
+    // ============================================
+    // MOSTRAR/OCULTAR BOTÓN DE LIMPIAR
+    // ============================================
+    if (searchInput) {
+        searchInput.addEventListener('input', function() {
+            const clearButton = document.querySelector('.btn-outline-secondary');
+            if (clearButton) {
+                if (this.value.trim() === '') {
+                    clearButton.style.display = 'none';
+                } else {
+                    clearButton.style.display = 'inline-flex';
+                }
+            }
+        });
+    }
+
+    // ============================================
+    // FUNCIÓN PARA COPIAR TELÉFONO (OPCIONAL)
+    // ============================================
+    window.copiarTelefono = function(telefono) {
+        if (navigator.clipboard && window.isSecureContext) {
+            navigator.clipboard.writeText(telefono).then(() => {
+                // Mostrar notificación de éxito
+                const toast = document.createElement('div');
+                toast.className = 'alert alert-success alert-dismissible fade show position-fixed top-0 end-0 m-3';
+                toast.style.zIndex = '9999';
+                toast.innerHTML = `
+                    <i class="fas fa-check-circle me-2"></i>
+                    Teléfono copiado: ${telefono}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                `;
+                document.body.appendChild(toast);
+                setTimeout(() => toast.remove(), 3000);
+            }).catch(() => {
+                alert('Teléfono: ' + telefono);
+            });
+        } else {
+            alert('Teléfono: ' + telefono);
+        }
+    };
+
+    // ============================================
+    // LOG DE INFORMACIÓN
+    // ============================================
+    console.log('📊 Vista de clientes cargada:', {
+        totalClientes: {{ total }},
+        paginaActual: {{ page }},
+        totalPaginas: {{ total_pages }},
+        busqueda: '{{ search if search else "" }}'
+    });
+});
+</script>
 {% endblock %}
