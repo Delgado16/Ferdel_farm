@@ -667,328 +667,249 @@
     }
 
     // ============================================
-    // FUNCIONES PARA MODO OFFLINE
+    // FUNCIONES PARA SALDOS OFFLINE (NUEVAS)
     // ============================================
 
-    // Actualizar estado de conexión en UI
-    function actualizarEstadoConexion() {
-        const connectionStatus = getElement('connection-status');
-        const confirmacionMensaje = getElement('confirmacionMensajeConexion');
-        
-        if (navigator.onLine) {
-            if (connectionStatus) {
-                connectionStatus.innerHTML = '';
-            }
-            if (confirmacionMensaje) {
-                confirmacionMensaje.textContent = 'La venta se registrará y se descontará del inventario disponible en ruta.';
-            }
-        } else {
-            if (connectionStatus) {
-                connectionStatus.innerHTML = `
-                    <div class="alert alert-warning py-1 mb-0">
-                        <i class="fas fa-wifi-slash me-2"></i>
-                        <small>Modo sin conexión - La venta se guardará localmente</small>
-                    </div>
-                `;
-            }
-            if (confirmacionMensaje) {
-                confirmacionMensaje.textContent = '📱 MODO SIN CONEXIÓN: La venta se guardará localmente y se sincronizará cuando tenga internet.';
-            }
-        }
-    }
-
-    // Función para guardar venta en localStorage cuando no hay internet
-    function guardarVentaOffline(datosVenta) {
+    // Guardar saldos de clientes en localStorage
+    function guardarSaldosOffline(clientesData) {
         try {
-            // Obtener ventas pendientes existentes
-            const pendientes = JSON.parse(localStorage.getItem('ventas_pendientes') || '[]');
+            const saldosOffline = {};
             
-            // Agregar timestamp y ID temporal
-            const ventaOffline = {
-                ...datosVenta,
-                id_temporal: 'offline_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9),
-                fecha_intento: new Date().toISOString(),
-                sincronizado: false
-            };
-            
-            pendientes.push(ventaOffline);
-            localStorage.setItem('ventas_pendientes', JSON.stringify(pendientes));
-            
-            // Mostrar notificación
-            Swal.fire({
-                icon: 'success',
-                title: '📱 Venta guardada sin conexión',
-                html: `
-                    La venta se ha guardado localmente.<br>
-                    <strong>Total ventas pendientes: ${pendientes.length}</strong><br>
-                    Se sincronizará automáticamente cuando tengas internet.
-                `,
-                timer: 4000,
-                showConfirmButton: true,
-                confirmButtonText: 'Entendido'
+            clientesData.forEach(cliente => {
+                saldosOffline[cliente.ID_Cliente] = {
+                    id: cliente.ID_Cliente,
+                    nombre: cliente.Nombre,
+                    ruc: cliente.RUC_CEDULA,
+                    saldo: parseFloat(cliente.Saldo_Pendiente_Total) || 0,
+                    telefono: cliente.Telefono,
+                    direccion: cliente.Direccion,
+                    tipo: cliente.tipo_cliente,
+                    perfil: cliente.perfil_cliente,
+                    ultimaActualizacion: new Date().toISOString()
+                };
             });
             
-            console.log('✅ Venta guardada offline:', ventaOffline);
+            localStorage.setItem('saldos_clientes_offline', JSON.stringify(saldosOffline));
+            localStorage.setItem('saldos_ultima_sincronizacion', new Date().toISOString());
+            
+            console.log('✅ Saldos guardados offline:', Object.keys(saldosOffline).length, 'clientes');
             return true;
         } catch (error) {
-            console.error('Error guardando venta offline:', error);
-            Swal.fire({
-                icon: 'error',
-                title: 'Error',
-                text: 'No se pudo guardar la venta sin conexión'
-            });
+            console.error('Error guardando saldos offline:', error);
             return false;
         }
     }
 
-    // Función para enviar ventas pendientes
-    async function enviarVentasPendientes() {
-        const pendientes = JSON.parse(localStorage.getItem('ventas_pendientes') || '[]');
-        
-        if (pendientes.length === 0) {
-            verificarVentasPendientes(); // Ocultar indicador si no hay pendientes
-            return;
-        }
-        
-        console.log(`🔄 Intentando sincronizar ${pendientes.length} venta(s) pendiente(s)...`);
-        
-        // Mostrar indicador de sincronización
-        Swal.fire({
-            title: 'Sincronizando ventas...',
-            html: `Procesando 0 de ${pendientes.length}`,
-            allowOutsideClick: false,
-            showConfirmButton: false,
-            didOpen: () => {
-                Swal.showLoading();
+    // Cargar saldos desde localStorage
+    function cargarSaldosOffline() {
+        try {
+            const saldosOffline = localStorage.getItem('saldos_clientes_offline');
+            if (saldosOffline) {
+                return JSON.parse(saldosOffline);
             }
-        });
-        
-        let sincronizadas = 0;
-        let fallidas = 0;
-        const pendientesActualizadas = [];
-        
-        for (let i = 0; i < pendientes.length; i++) {
-            const venta = pendientes[i];
+        } catch (error) {
+            console.error('Error cargando saldos offline:', error);
+        }
+        return {};
+    }
+
+    // Obtener saldo de un cliente específico desde offline
+    function obtenerSaldoClienteOffline(idCliente) {
+        const saldos = cargarSaldosOffline();
+        return saldos[idCliente] || null;
+    }
+
+    // Actualizar saldo de un cliente después de una venta offline
+    function actualizarSaldoClienteOffline(idCliente, nuevoSaldo, infoVenta = {}) {
+        try {
+            const saldos = cargarSaldosOffline();
             
-            try {
-                // Actualizar mensaje
-                Swal.getHtmlContainer().innerHTML = `Procesando ${i + 1} de ${pendientes.length}`;
+            if (saldos[idCliente]) {
+                const saldoAnterior = saldos[idCliente].saldo;
+                saldos[idCliente].saldo = nuevoSaldo;
+                saldos[idCliente].ultimaActualizacion = new Date().toISOString();
                 
-                // Preparar datos para enviar
-                const formData = new FormData();
-                
-                // Agregar todos los campos del formulario
-                Object.keys(venta).forEach(key => {
-                    if (key !== 'id_temporal' && key !== 'fecha_intento' && key !== 'sincronizado') {
-                        formData.append(key, venta[key]);
-                    }
+                // Guardar historial de cambios
+                const historial = JSON.parse(localStorage.getItem('historial_saldos_offline') || '[]');
+                historial.push({
+                    clienteId: idCliente,
+                    clienteNombre: saldos[idCliente].nombre,
+                    fecha: new Date().toISOString(),
+                    saldoAnterior: saldoAnterior,
+                    saldoNuevo: nuevoSaldo,
+                    tipo: infoVenta.tipo || 'venta',
+                    montoVenta: infoVenta.montoVenta || 0,
+                    idVenta: infoVenta.idVenta || 'offline'
                 });
                 
-                // Enviar la venta
-                const response = await fetch('/vendedor/venta/crear', {
-                    method: 'POST',
-                    body: formData
-                });
+                // Mantener solo últimos 50 registros
+                if (historial.length > 50) historial.shift();
                 
-                if (response.ok) {
-                    sincronizadas++;
-                    console.log(`✅ Venta ${i + 1} sincronizada`);
-                } else {
-                    fallidas++;
-                    pendientesActualizadas.push(venta); // Mantener las fallidas
-                    console.error(`❌ Error en venta ${i + 1}:`, await response.text());
-                }
-            } catch (error) {
-                fallidas++;
-                pendientesActualizadas.push(venta);
-                console.error(`❌ Error enviando venta ${i + 1}:`, error);
+                localStorage.setItem('historial_saldos_offline', JSON.stringify(historial));
+                localStorage.setItem('saldos_clientes_offline', JSON.stringify(saldos));
+                
+                console.log(`✅ Saldo actualizado offline - Cliente ${idCliente}: ${saldoAnterior} → ${nuevoSaldo}`);
+                return true;
             }
+        } catch (error) {
+            console.error('Error actualizando saldo offline:', error);
         }
+        return false;
+    }
+
+    // Sincronizar saldos con el servidor
+    async function sincronizarSaldosConServidor() {
+        if (!navigator.onLine) return false;
         
-        // Actualizar localStorage
-        localStorage.setItem('ventas_pendientes', JSON.stringify(pendientesActualizadas));
-        
-        Swal.close();
-        
-        // Mostrar resumen
-        if (sincronizadas > 0) {
+        try {
+            console.log('🔄 Sincronizando saldos con servidor...');
+            
+            // Obtener todos los clientes con sus saldos actualizados
+            const response = await fetch('/api/clientes-con-saldos');
+            if (!response.ok) throw new Error('Error en respuesta del servidor');
+            
+            const clientes = await response.json();
+            
+            // Guardar en localStorage
+            guardarSaldosOffline(clientes);
+            
+            // Mostrar notificación
             Swal.fire({
                 icon: 'success',
-                title: '✅ Sincronización completada',
-                html: `
-                    <strong>${sincronizadas}</strong> venta(s) sincronizada(s) correctamente<br>
-                    ${fallidas > 0 ? `<span class="text-warning">${fallidas} pendiente(s) no se pudieron sincronizar</span>` : ''}
-                `,
-                timer: 5000,
-                showConfirmButton: true
+                title: '✅ Saldos sincronizados',
+                text: `Se actualizaron ${clientes.length} clientes`,
+                timer: 2000,
+                showConfirmButton: false,
+                position: 'top-end',
+                toast: true
             });
             
-            // Actualizar indicador
-            verificarVentasPendientes();
+            return true;
+        } catch (error) {
+            console.error('Error sincronizando saldos:', error);
+            
+            Swal.fire({
+                icon: 'warning',
+                title: '⚠️ Error de sincronización',
+                text: 'No se pudieron sincronizar los saldos. Usando datos locales.',
+                timer: 3000,
+                showConfirmButton: false,
+                position: 'top-end',
+                toast: true
+            });
+            
+            return false;
         }
     }
 
-    // Función para verificar y mostrar ventas pendientes
-    function verificarVentasPendientes() {
-        const pendientes = JSON.parse(localStorage.getItem('ventas_pendientes') || '[]');
-        const container = getElement('offline-indicator-container');
+    // Verificar si hay cambios en saldos pendientes de sincronizar
+    function verificarCambiosSaldosPendientes() {
+        const historial = JSON.parse(localStorage.getItem('historial_saldos_offline') || '[]');
+        const ultimaSync = localStorage.getItem('saldos_ultima_sincronizacion');
         
-        if (!container) return;
-        
-        if (pendientes.length > 0) {
-            container.innerHTML = `
-                <div class="offline-indicator">
-                    <div class="alert alert-warning mb-2 py-2 px-3">
-                        <div class="d-flex flex-column flex-sm-row align-items-start align-items-sm-center justify-content-between">
-                            <div class="mb-2 mb-sm-0">
-                                <i class="fas fa-cloud-upload-alt me-2"></i>
-                                <strong>${pendientes.length}</strong> venta(s) pendiente(s) de sincronizar
-                            </div>
-                            <div class="d-flex gap-2">
-                                <button class="btn btn-sm btn-primary" onclick="enviarVentasPendientes()">
-                                    <i class="fas fa-sync me-1"></i>Sincronizar ahora
-                                </button>
-                                <button class="btn btn-sm btn-outline-secondary" onclick="verDetallePendientes()">
-                                    <i class="fas fa-list me-1"></i>Ver detalle
-                                </button>
-                            </div>
+        if (historial.length > 0) {
+            const cambiosRecientes = historial.filter(c => 
+                new Date(c.fecha) > new Date(ultimaSync || 0)
+            );
+            
+            if (cambiosRecientes.length > 0) {
+                const indicador = document.getElementById('offline-indicator-container');
+                if (indicador) {
+                    indicador.innerHTML += `
+                        <div class="alert alert-info mt-2 py-1 small">
+                            <i class="fas fa-sync me-2"></i>
+                            ${cambiosRecientes.length} cambio(s) de saldo pendiente(s) de sincronizar
                         </div>
-                    </div>
-                </div>
-            `;
-        } else {
-            container.innerHTML = '';
-        }
-    }
-
-    // Función para ver detalle de ventas pendientes
-    function verDetallePendientes() {
-        const pendientes = JSON.parse(localStorage.getItem('ventas_pendientes') || '[]');
-        
-        let html = '<div class="small">';
-        pendientes.forEach((venta, index) => {
-            const fecha = new Date(venta.fecha_intento || venta.fecha_offline);
-            html += `
-                <div class="mb-2 p-2 border-bottom">
-                    <div class="d-flex justify-content-between">
-                        <strong>Venta #${index + 1}</strong>
-                        <small class="text-muted">${fecha.toLocaleString()}</small>
-                    </div>
-                    <div>Cliente: ${venta.cliente}</div>
-                    <div>Total: ${formatoCordoba(JSON.parse(venta.productos || '[]').reduce((sum, p) => sum + (p.cantidad * p.precio), 0))}</div>
-                    <div><small class="text-muted">Productos: ${JSON.parse(venta.productos || '[]').length}</small></div>
-                </div>
-            `;
-        });
-        html += '</div>';
-        
-        Swal.fire({
-            title: 'Ventas pendientes',
-            html: html,
-            width: '600px',
-            confirmButtonText: 'Cerrar'
-        });
-    }
-
-    // Función principal para manejar el envío del formulario
-    function manejarEnvioFormulario(event) {
-        event.preventDefault();
-        
-        const form = event.target;
-        
-        // Validar que haya productos
-        if (productos.length === 0) {
-            showAlert('warning', 'Agregue productos a la venta');
-            return;
-        }
-        
-        // Validar cliente seleccionado
-        const clienteSelect = getElement('cliente');
-        if (!clienteSelect || !clienteSelect.value) {
-            showAlert('warning', 'Seleccione un cliente');
-            return;
-        }
-        
-        // Verificar tipo de venta
-        const tipoVenta = document.querySelector('input[name="tipo_venta"]:checked');
-        if (!tipoVenta) {
-            showAlert('warning', 'Seleccione tipo de venta');
-            return;
-        }
-        
-        // Actualizar campo productos antes de enviar
-        const productosInput = getElement('productos');
-        if (productosInput) {
-            productosInput.value = JSON.stringify(productos);
-        }
-        
-        // Si hay conexión a internet, enviar normalmente
-        if (navigator.onLine) {
-            console.log('🌐 Hay conexión, enviando venta normalmente...');
-            form.submit();
-            return;
-        }
-        
-        // Si NO hay conexión, guardar localmente
-        console.log('📱 Sin conexión, guardando venta localmente...');
-        
-        // Recoger todos los datos del formulario
-        const formData = new FormData(form);
-        const datosVenta = {};
-        
-        formData.forEach((value, key) => {
-            datosVenta[key] = value;
-        });
-        
-        // Agregar productos explícitamente
-        datosVenta.productos = JSON.stringify(productos);
-        
-        // Agregar datos adicionales
-        datosVenta.tipo_venta = tipoVenta.value;
-        datosVenta.fecha_offline = new Date().toISOString();
-        
-        // Marcar como envío offline
-        const offlineSubmit = getElement('offline_submit');
-        if (offlineSubmit) offlineSubmit.value = '1';
-        
-        // Guardar en localStorage
-        if (guardarVentaOffline(datosVenta)) {
-            // Limpiar formulario
-            productos = [];
-            actualizarVistasProductos();
-            actualizarResumen();
-            form.reset();
-            
-            // Mostrar indicador de ventas pendientes
-            verificarVentasPendientes();
-            
-            // Cerrar modales abiertos
-            const modales = ['modalConfirmacionVenta', 'modalAbonoCredito'];
-            modales.forEach(id => {
-                const modal = getElement(id);
-                if (modal) {
-                    const modalInstance = bootstrap.Modal.getInstance(modal);
-                    if (modalInstance) modalInstance.hide();
+                    `;
                 }
-            });
+            }
+        }
+    }
+
+    // Función para mostrar saldo en el select de clientes (usando datos offline si es necesario)
+    function mostrarSaldoEnSelectCliente() {
+        const clienteSelect = document.getElementById('cliente');
+        if (!clienteSelect) return;
+        
+        const opciones = clienteSelect.options;
+        const saldosOffline = cargarSaldosOffline();
+        
+        for (let i = 0; i < opciones.length; i++) {
+            const option = opciones[i];
+            if (option.value) {
+                const clienteOffline = saldosOffline[option.value];
+                if (clienteOffline && clienteOffline.saldo > 0) {
+                    // Guardar el saldo en dataset para uso posterior
+                    option.dataset.saldoOffline = clienteOffline.saldo;
+                    
+                    // Actualizar texto del option para mostrar saldo
+                    if (!option.text.includes('Saldo:')) {
+                        option.text = `${option.text} - Saldo: C$ ${clienteOffline.saldo.toFixed(2)}`;
+                    }
+                }
+            }
         }
     }
 
     // ============================================
-    // FUNCIONES DE VERIFICACIÓN DE SALDO
+    // FUNCIONES DE VERIFICACIÓN DE SALDO (MODIFICADAS)
     // ============================================
     function verificarSaldoCliente(idCliente) {
         if (!idCliente) { ocultarAlertaSaldo(); return; }
 
-        const saldoInfo = getElement('saldo-info');
+        const saldoInfo = document.getElementById('saldo-info');
         if (saldoInfo) saldoInfo.innerHTML = '<div class="alert alert-info text-center py-1"><i class="fas fa-spinner fa-spin me-2"></i><small>Verificando saldo...</small></div>';
 
+        // Si estamos offline, usar datos locales
+        if (!navigator.onLine) {
+            console.log('📱 Modo offline: usando saldos guardados localmente');
+            const clienteOffline = obtenerSaldoClienteOffline(idCliente);
+            
+            if (clienteOffline && clienteOffline.saldo > 0) {
+                // Crear estructura similar a la respuesta del servidor
+                const dataOffline = {
+                    success: true,
+                    cliente: {
+                        id: clienteOffline.id,
+                        nombre: clienteOffline.nombre,
+                        ruc: clienteOffline.ruc,
+                        saldo_pendiente: clienteOffline.saldo
+                    },
+                    facturas_detalle: [] // No tenemos facturas offline
+                };
+                
+                saldoClienteActual = clienteOffline.saldo;
+                facturasPendientes = [];
+                mostrarAlertaSaldoOffline(dataOffline);
+            } else {
+                ocultarAlertaSaldo();
+            }
+            return;
+        }
+
+        // Si estamos online, consultar servidor
         fetch(`/api/vendedor/verificar_saldo_cliente/${idCliente}`)
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
                     saldoClienteActual = parseFloat(data.cliente.saldo_pendiente) || 0;
                     facturasPendientes = data.facturas_detalle || [];
+                    
+                    // Guardar en localStorage para uso offline
+                    const saldosOffline = cargarSaldosOffline();
+                    saldosOffline[idCliente] = {
+                        id: data.cliente.id,
+                        nombre: data.cliente.nombre,
+                        ruc: data.cliente.ruc,
+                        saldo: saldoClienteActual,
+                        telefono: data.cliente.telefono || '',
+                        direccion: data.cliente.direccion || '',
+                        tipo: data.cliente.tipo || '',
+                        perfil: data.cliente.perfil || 'Mercado',
+                        ultimaActualizacion: new Date().toISOString()
+                    };
+                    localStorage.setItem('saldos_clientes_offline', JSON.stringify(saldosOffline));
+                    
                     saldoClienteActual > 0 ? mostrarAlertaSaldo(data) : ocultarAlertaSaldo();
                 } else {
                     ocultarAlertaSaldo();
@@ -998,13 +919,30 @@
             .catch(error => {
                 console.error('Error:', error);
                 ocultarAlertaSaldo();
+                
+                // Si hay error de red, intentar con datos offline
+                const clienteOffline = obtenerSaldoClienteOffline(idCliente);
+                if (clienteOffline && clienteOffline.saldo > 0) {
+                    const dataOffline = {
+                        success: true,
+                        cliente: {
+                            id: clienteOffline.id,
+                            nombre: clienteOffline.nombre,
+                            ruc: clienteOffline.ruc,
+                            saldo_pendiente: clienteOffline.saldo
+                        },
+                        facturas_detalle: []
+                    };
+                    saldoClienteActual = clienteOffline.saldo;
+                    mostrarAlertaSaldoOffline(dataOffline);
+                }
             });
     }
 
     function mostrarAlertaSaldo(data) {
         const cliente = data.cliente;
         const facturas = data.facturas_detalle || [];
-        const saldoInfo = getElement('saldo-info');
+        const saldoInfo = document.getElementById('saldo-info');
         if (!saldoInfo) return;
 
         let html = `
@@ -1048,8 +986,38 @@
         actualizarTotalesConSaldo();
     }
 
+    function mostrarAlertaSaldoOffline(data) {
+        const cliente = data.cliente;
+        const saldoInfo = document.getElementById('saldo-info');
+        if (!saldoInfo) return;
+
+        saldoInfo.innerHTML = `
+        <div class="card mb-2 border-warning">
+            <div class="card-header bg-warning py-1">
+                <h6 class="mb-0 small">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    Cliente con Saldo Pendiente 
+                    <span class="badge bg-dark ms-2">📱 Modo offline</span>
+                </h6>
+            </div>
+            <div class="card-body p-2">
+                <div class="row g-1">
+                    <div class="col-6"><small><strong>Cliente:</strong> ${cliente.nombre}</small></div>
+                    <div class="col-6"><small><strong>Documento:</strong> ${cliente.ruc}</small></div>
+                    <div class="col-6"><small><strong>Saldo Pendiente:</strong></small></div>
+                    <div class="col-6 text-end"><small class="text-danger fw-bold">${formatoCordoba(cliente.saldo_pendiente)}</small></div>
+                </div>
+                <div class="alert alert-warning mt-2 py-1 small mb-0">
+                    <i class="fas fa-info-circle me-2"></i>
+                    Mostrando saldo guardado localmente
+                </div>
+            </div>
+        </div>
+        `;
+    }
+
     function ocultarAlertaSaldo() {
-        const saldoInfo = getElement('saldo-info');
+        const saldoInfo = document.getElementById('saldo-info');
         if (saldoInfo) saldoInfo.innerHTML = '';
         saldoClienteActual = 0;
         facturasPendientes = [];
@@ -1057,8 +1025,8 @@
 
     function actualizarTotalesConSaldo() {
         const totalVenta = calcularTotalVenta();
-        const totalNuevaVenta = getElement('total-nueva-venta');
-        const totalPendienteConNueva = getElement('total-pendiente-con-nueva');
+        const totalNuevaVenta = document.getElementById('total-nueva-venta');
+        const totalPendienteConNueva = document.getElementById('total-pendiente-con-nueva');
         if (totalNuevaVenta) totalNuevaVenta.textContent = formatoCordoba(totalVenta);
         if (totalPendienteConNueva) totalPendienteConNueva.textContent = formatoCordoba(saldoClienteActual + totalVenta);
     }
@@ -1097,7 +1065,7 @@
         }
 
         // Actualizar el campo oculto
-        const productosInput = getElement('productos');
+        const productosInput = document.getElementById('productos');
         if (productosInput) {
             productosInput.value = JSON.stringify(productos);
         }
@@ -1117,7 +1085,7 @@
             stock: stock,
             unidad: unidad
         });
-        const modalElement = getElement('modalInventario');
+        const modalElement = document.getElementById('modalInventario');
         if (modalElement) {
             const modal = bootstrap.Modal.getInstance(modalElement);
             if (modal) modal.hide();
@@ -1131,9 +1099,9 @@
     }
 
     function actualizarTablaDesktop() {
-        const tablaBody = getElement('productos_tbody');
-        const tfootTotales = getElement('tfootTotales');
-        const totalTabla = getElement('total_tabla');
+        const tablaBody = document.getElementById('productos_tbody');
+        const tfootTotales = document.getElementById('tfootTotales');
+        const totalTabla = document.getElementById('total_tabla');
 
         if (!tablaBody) return;
 
@@ -1266,8 +1234,8 @@
     }
 
     function actualizarContadores() {
-        const contador = getElement('contadorProductos');
-        const indicadorTotal = getElement('indicadorTotal');
+        const contador = document.getElementById('contadorProductos');
+        const indicadorTotal = document.getElementById('indicadorTotal');
         const total = calcularTotalVenta();
 
         if (contador) {
@@ -1279,8 +1247,8 @@
 
     function actualizarResumen() {
         const subtotal = calcularTotalVenta();
-        const resumenSubtotal = getElement('resumen_subtotal');
-        const resumenTotal = getElement('resumen_total');
+        const resumenSubtotal = document.getElementById('resumen_subtotal');
+        const resumenTotal = document.getElementById('resumen_total');
         if (resumenSubtotal) resumenSubtotal.textContent = formatoCordoba(subtotal);
         if (resumenTotal) resumenTotal.textContent = formatoCordoba(subtotal);
     }
@@ -1297,7 +1265,7 @@
         productos[index].cantidad = nuevaCantidad;
         productos[index].subtotal = producto.precio * nuevaCantidad;
         
-        const productosInput = getElement('productos');
+        const productosInput = document.getElementById('productos');
         if (productosInput) productosInput.value = JSON.stringify(productos);
         
         actualizarVistasProductos();
@@ -1320,7 +1288,7 @@
         productos[index].cantidad = nuevaCantidad;
         productos[index].subtotal = productos[index].precio * nuevaCantidad;
         
-        const productosInput = getElement('productos');
+        const productosInput = document.getElementById('productos');
         if (productosInput) productosInput.value = JSON.stringify(productos);
         
         actualizarVistasProductos();
@@ -1339,7 +1307,7 @@
         productos[index].precio = nuevoPrecio;
         productos[index].subtotal = nuevoPrecio * productos[index].cantidad;
         
-        const productosInput = getElement('productos');
+        const productosInput = document.getElementById('productos');
         if (productosInput) productosInput.value = JSON.stringify(productos);
         
         actualizarVistasProductos();
@@ -1352,7 +1320,7 @@
     }
 
     // ============================================
-    // FUNCIÓN ELIMINAR PRODUCTO CORREGIDA
+    // FUNCIÓN ELIMINAR PRODUCTO
     // ============================================
     function eliminarProducto(index) {
         // Prevenir cualquier evento por defecto
@@ -1372,7 +1340,7 @@
         }).then((result) => {
             if (result.isConfirmed) {
                 productos.splice(index, 1);
-                const productosInput = getElement('productos');
+                const productosInput = document.getElementById('productos');
                 if (productosInput) productosInput.value = JSON.stringify(productos);
                 actualizarVistasProductos();
                 actualizarResumen();
@@ -1391,6 +1359,351 @@
     }
 
     // ============================================
+    // FUNCIONES PARA MODO OFFLINE (VENTAS)
+    // ============================================
+
+    // Actualizar estado de conexión en UI
+    function actualizarEstadoConexion() {
+        const connectionStatus = document.getElementById('connection-status');
+        const confirmacionMensaje = document.getElementById('confirmacionMensajeConexion');
+        
+        if (navigator.onLine) {
+            if (connectionStatus) {
+                connectionStatus.innerHTML = '';
+            }
+            if (confirmacionMensaje) {
+                confirmacionMensaje.textContent = 'La venta se registrará y se descontará del inventario disponible en ruta.';
+            }
+        } else {
+            if (connectionStatus) {
+                connectionStatus.innerHTML = `
+                    <div class="alert alert-warning py-1 mb-0">
+                        <i class="fas fa-wifi-slash me-2"></i>
+                        <small>Modo sin conexión - La venta se guardará localmente</small>
+                    </div>
+                `;
+            }
+            if (confirmacionMensaje) {
+                confirmacionMensaje.textContent = '📱 MODO SIN CONEXIÓN: La venta se guardará localmente y se sincronizará cuando tenga internet.';
+            }
+        }
+    }
+
+    // Función para guardar venta en localStorage cuando no hay internet
+    function guardarVentaOffline(datosVenta) {
+        try {
+            // Obtener ventas pendientes existentes
+            const pendientes = JSON.parse(localStorage.getItem('ventas_pendientes') || '[]');
+            
+            // Calcular total de la venta
+            let totalVenta = 0;
+            try {
+                const productosVenta = JSON.parse(datosVenta.productos || '[]');
+                totalVenta = productosVenta.reduce((sum, p) => sum + (p.cantidad * p.precio), 0);
+            } catch (e) {
+                console.error('Error calculando total:', e);
+            }
+            
+            // Obtener tipo de venta
+            const tipoVenta = datosVenta.tipo_venta || '1';
+            const clienteId = datosVenta.cliente;
+            
+            // Si es venta a crédito, actualizar saldo local
+            if (tipoVenta === '2') {
+                const clienteOffline = obtenerSaldoClienteOffline(clienteId);
+                if (clienteOffline) {
+                    const nuevoSaldo = clienteOffline.saldo + totalVenta;
+                    actualizarSaldoClienteOffline(clienteId, nuevoSaldo, {
+                        tipo: 'venta_credito',
+                        montoVenta: totalVenta,
+                        idVenta: 'offline_' + Date.now()
+                    });
+                }
+            }
+            
+            // Agregar timestamp y ID temporal
+            const ventaOffline = {
+                ...datosVenta,
+                id_temporal: 'offline_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9),
+                fecha_intento: new Date().toISOString(),
+                sincronizado: false,
+                saldo_cliente_al_momento: obtenerSaldoClienteOffline(clienteId)?.saldo || 0
+            };
+            
+            pendientes.push(ventaOffline);
+            localStorage.setItem('ventas_pendientes', JSON.stringify(pendientes));
+            
+            // Mostrar notificación
+            Swal.fire({
+                icon: 'success',
+                title: '📱 Venta guardada sin conexión',
+                html: `
+                    La venta se ha guardado localmente.<br>
+                    <strong>Total ventas pendientes: ${pendientes.length}</strong><br>
+                    ${tipoVenta === '2' ? '<span class="text-warning">Venta a crédito - Saldo actualizado localmente</span><br>' : ''}
+                    Se sincronizará automáticamente cuando tengas internet.
+                `,
+                timer: 4000,
+                showConfirmButton: true,
+                confirmButtonText: 'Entendido'
+            });
+            
+            console.log('✅ Venta guardada offline:', ventaOffline);
+            return true;
+        } catch (error) {
+            console.error('Error guardando venta offline:', error);
+            Swal.fire({
+                icon: 'error',
+                title: 'Error',
+                text: 'No se pudo guardar la venta sin conexión'
+            });
+            return false;
+        }
+    }
+
+    // Función para enviar ventas pendientes
+    async function enviarVentasPendientes() {
+        const pendientes = JSON.parse(localStorage.getItem('ventas_pendientes') || '[]');
+        
+        if (pendientes.length === 0) {
+            verificarVentasPendientes(); // Ocultar indicador si no hay pendientes
+            return;
+        }
+        
+        console.log(`🔄 Intentando sincronizar ${pendientes.length} venta(s) pendiente(s)...`);
+        
+        // Mostrar indicador de sincronización
+        Swal.fire({
+            title: 'Sincronizando ventas...',
+            html: `Procesando 0 de ${pendientes.length}`,
+            allowOutsideClick: false,
+            showConfirmButton: false,
+            didOpen: () => {
+                Swal.showLoading();
+            }
+        });
+        
+        let sincronizadas = 0;
+        let fallidas = 0;
+        const pendientesActualizadas = [];
+        
+        for (let i = 0; i < pendientes.length; i++) {
+            const venta = pendientes[i];
+            
+            try {
+                // Actualizar mensaje
+                Swal.getHtmlContainer().innerHTML = `Procesando ${i + 1} de ${pendientes.length}`;
+                
+                // Preparar datos para enviar
+                const formData = new FormData();
+                
+                // Agregar todos los campos del formulario
+                Object.keys(venta).forEach(key => {
+                    if (key !== 'id_temporal' && key !== 'fecha_intento' && key !== 'sincronizado' && key !== 'saldo_cliente_al_momento') {
+                        formData.append(key, venta[key]);
+                    }
+                });
+                
+                // Enviar la venta
+                const response = await fetch('/vendedor/venta/crear', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                if (response.ok) {
+                    sincronizadas++;
+                    console.log(`✅ Venta ${i + 1} sincronizada`);
+                } else {
+                    fallidas++;
+                    pendientesActualizadas.push(venta); // Mantener las fallidas
+                    console.error(`❌ Error en venta ${i + 1}:`, await response.text());
+                }
+            } catch (error) {
+                fallidas++;
+                pendientesActualizadas.push(venta);
+                console.error(`❌ Error enviando venta ${i + 1}:`, error);
+            }
+        }
+        
+        // Actualizar localStorage
+        localStorage.setItem('ventas_pendientes', JSON.stringify(pendientesActualizadas));
+        
+        // Sincronizar saldos después de enviar ventas
+        await sincronizarSaldosConServidor();
+        
+        Swal.close();
+        
+        // Mostrar resumen
+        if (sincronizadas > 0) {
+            Swal.fire({
+                icon: 'success',
+                title: '✅ Sincronización completada',
+                html: `
+                    <strong>${sincronizadas}</strong> venta(s) sincronizada(s) correctamente<br>
+                    ${fallidas > 0 ? `<span class="text-warning">${fallidas} pendiente(s) no se pudieron sincronizar</span>` : ''}
+                `,
+                timer: 5000,
+                showConfirmButton: true
+            });
+            
+            // Actualizar indicador
+            verificarVentasPendientes();
+        }
+    }
+
+    // Función para verificar y mostrar ventas pendientes
+    function verificarVentasPendientes() {
+        const pendientes = JSON.parse(localStorage.getItem('ventas_pendientes') || '[]');
+        const container = document.getElementById('offline-indicator-container');
+        
+        if (!container) return;
+        
+        if (pendientes.length > 0) {
+            container.innerHTML = `
+                <div class="offline-indicator">
+                    <div class="alert alert-warning mb-2 py-2 px-3">
+                        <div class="d-flex flex-column flex-sm-row align-items-start align-items-sm-center justify-content-between">
+                            <div class="mb-2 mb-sm-0">
+                                <i class="fas fa-cloud-upload-alt me-2"></i>
+                                <strong>${pendientes.length}</strong> venta(s) pendiente(s) de sincronizar
+                            </div>
+                            <div class="d-flex gap-2">
+                                <button class="btn btn-sm btn-primary" onclick="enviarVentasPendientes()">
+                                    <i class="fas fa-sync me-1"></i>Sincronizar ahora
+                                </button>
+                                <button class="btn btn-sm btn-outline-secondary" onclick="verDetallePendientes()">
+                                    <i class="fas fa-list me-1"></i>Ver detalle
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        } else {
+            container.innerHTML = '';
+        }
+    }
+
+    // Función para ver detalle de ventas pendientes
+    function verDetallePendientes() {
+        const pendientes = JSON.parse(localStorage.getItem('ventas_pendientes') || '[]');
+        
+        let html = '<div class="small">';
+        pendientes.forEach((venta, index) => {
+            const fecha = new Date(venta.fecha_intento || venta.fecha_offline);
+            let totalVenta = 0;
+            try {
+                const productosVenta = JSON.parse(venta.productos || '[]');
+                totalVenta = productosVenta.reduce((sum, p) => sum + (p.cantidad * p.precio), 0);
+            } catch (e) {}
+            
+            html += `
+                <div class="mb-2 p-2 border-bottom">
+                    <div class="d-flex justify-content-between">
+                        <strong>Venta #${index + 1}</strong>
+                        <small class="text-muted">${fecha.toLocaleString()}</small>
+                    </div>
+                    <div>Cliente: ${venta.cliente}</div>
+                    <div>Total: ${formatoCordoba(totalVenta)}</div>
+                    <div><small class="text-muted">Productos: ${JSON.parse(venta.productos || '[]').length}</small></div>
+                </div>
+            `;
+        });
+        html += '</div>';
+        
+        Swal.fire({
+            title: 'Ventas pendientes',
+            html: html,
+            width: '600px',
+            confirmButtonText: 'Cerrar'
+        });
+    }
+
+    // Función principal para manejar el envío del formulario
+    function manejarEnvioFormulario(event) {
+        event.preventDefault();
+        
+        const form = event.target;
+        
+        // Validar que haya productos
+        if (productos.length === 0) {
+            showAlert('warning', 'Agregue productos a la venta');
+            return;
+        }
+        
+        // Validar cliente seleccionado
+        const clienteSelect = document.getElementById('cliente');
+        if (!clienteSelect || !clienteSelect.value) {
+            showAlert('warning', 'Seleccione un cliente');
+            return;
+        }
+        
+        // Verificar tipo de venta
+        const tipoVenta = document.querySelector('input[name="tipo_venta"]:checked');
+        if (!tipoVenta) {
+            showAlert('warning', 'Seleccione tipo de venta');
+            return;
+        }
+        
+        // Actualizar campo productos antes de enviar
+        const productosInput = document.getElementById('productos');
+        if (productosInput) {
+            productosInput.value = JSON.stringify(productos);
+        }
+        
+        // Si hay conexión a internet, enviar normalmente
+        if (navigator.onLine) {
+            console.log('🌐 Hay conexión, enviando venta normalmente...');
+            form.submit();
+            return;
+        }
+        
+        // Si NO hay conexión, guardar localmente
+        console.log('📱 Sin conexión, guardando venta localmente...');
+        
+        // Recoger todos los datos del formulario
+        const formData = new FormData(form);
+        const datosVenta = {};
+        
+        formData.forEach((value, key) => {
+            datosVenta[key] = value;
+        });
+        
+        // Agregar productos explícitamente
+        datosVenta.productos = JSON.stringify(productos);
+        
+        // Agregar datos adicionales
+        datosVenta.tipo_venta = tipoVenta.value;
+        datosVenta.fecha_offline = new Date().toISOString();
+        
+        // Marcar como envío offline
+        const offlineSubmit = document.getElementById('offline_submit');
+        if (offlineSubmit) offlineSubmit.value = '1';
+        
+        // Guardar en localStorage
+        if (guardarVentaOffline(datosVenta)) {
+            // Limpiar formulario
+            productos = [];
+            actualizarVistasProductos();
+            actualizarResumen();
+            form.reset();
+            
+            // Mostrar indicador de ventas pendientes
+            verificarVentasPendientes();
+            
+            // Cerrar modales abiertos
+            const modales = ['modalConfirmacionVenta', 'modalAbonoCredito'];
+            modales.forEach(id => {
+                const modal = document.getElementById(id);
+                if (modal) {
+                    const modalInstance = bootstrap.Modal.getInstance(modal);
+                    if (modalInstance) modalInstance.hide();
+                }
+            });
+        }
+    }
+
+    // ============================================
     // FUNCIONES DE CONFIRMACIÓN
     // ============================================
     function llenarResumenConfirmacion() {
@@ -1399,13 +1712,13 @@
 
         const tipoVentaText = tipoVenta.value === '1' ? 'Contado' : 'Crédito';
 
-        const infoCreditoModal = getElement('infoCreditoModal');
+        const infoCreditoModal = document.getElementById('infoCreditoModal');
         if (infoCreditoModal) infoCreditoModal.style.display = tipoVenta.value === '2' ? 'block' : 'none';
 
-        const resumenSaldoModal = getElement('resumenSaldoModal');
-        const saldoAnteriorModal = getElement('saldoAnteriorModal');
-        const nuevaVentaModal = getElement('nuevaVentaModal');
-        const totalPendienteModal = getElement('totalPendienteModal');
+        const resumenSaldoModal = document.getElementById('resumenSaldoModal');
+        const saldoAnteriorModal = document.getElementById('saldoAnteriorModal');
+        const nuevaVentaModal = document.getElementById('nuevaVentaModal');
+        const totalPendienteModal = document.getElementById('totalPendienteModal');
 
         if (resumenSaldoModal && saldoAnteriorModal && nuevaVentaModal && totalPendienteModal) {
             const totalVenta = calcularTotalVenta();
@@ -1415,9 +1728,9 @@
             resumenSaldoModal.style.display = (tipoVenta.value === '2' && saldoClienteActual > 0) ? 'block' : 'none';
         }
 
-        const resumenAbonoModal = getElement('resumenAbonoModal');
-        const abonoModal = getElement('abonoModal');
-        const metodoPagoModal = getElement('metodoPagoModal');
+        const resumenAbonoModal = document.getElementById('resumenAbonoModal');
+        const abonoModal = document.getElementById('abonoModal');
+        const metodoPagoModal = document.getElementById('metodoPagoModal');
         
         if (resumenAbonoModal && abonoModal && metodoPagoModal) {
             if (abonoSeleccionado > 0) {
@@ -1429,14 +1742,14 @@
             }
         }
 
-        const clienteSelect = getElement('cliente');
+        const clienteSelect = document.getElementById('cliente');
         const option = clienteSelect?.options[clienteSelect.selectedIndex];
         const clienteNombre = option?.dataset.nombre || '';
         const clienteRUC = option?.dataset.ruc || '';
         const clientePerfil = option?.dataset.perfil || 'Mercado';
-        const observacion = getElement('observacion')?.value || '';
+        const observacion = document.getElementById('observacion')?.value || '';
 
-        const resumenVenta = getElement('resumenVenta');
+        const resumenVenta = document.getElementById('resumenVenta');
         if (resumenVenta) {
             resumenVenta.innerHTML = `
             <div class="row g-2 mb-2">
@@ -1473,8 +1786,8 @@
             </div>`;
         }
 
-        const tbodyResumen = getElement('tbodyResumenProductos');
-        const totalResumen = getElement('totalResumen');
+        const tbodyResumen = document.getElementById('tbodyResumenProductos');
+        const totalResumen = document.getElementById('totalResumen');
         if (!tbodyResumen || !totalResumen) return false;
 
         let htmlResumen = '';
@@ -1504,10 +1817,10 @@
     function mostrarModalAbono(clienteId, saldoAnterior, totalVenta, facturas) {
         datosVentaActual = { clienteId, totalVenta, saldoAnterior, productos: [...productos] };
 
-        const modalSaldoAnterior = getElement('modalSaldoAnterior');
-        const modalNuevaVenta = getElement('modalNuevaVenta');
-        const modalTotalDeber = getElement('modalTotalDeber');
-        const montoAbonoInput = getElement('modalMontoAbono');
+        const modalSaldoAnterior = document.getElementById('modalSaldoAnterior');
+        const modalNuevaVenta = document.getElementById('modalNuevaVenta');
+        const modalTotalDeber = document.getElementById('modalTotalDeber');
+        const montoAbonoInput = document.getElementById('modalMontoAbono');
 
         if (modalSaldoAnterior) modalSaldoAnterior.textContent = formatoCordoba(saldoAnterior);
         if (modalNuevaVenta) modalNuevaVenta.textContent = formatoCordoba(totalVenta);
@@ -1520,12 +1833,12 @@
             montoAbonoInput.max = totalDeber;
         }
 
-        const detalleAplicacion = getElement('detalleAplicacionAbono');
+        const detalleAplicacion = document.getElementById('detalleAplicacionAbono');
         if (detalleAplicacion) detalleAplicacion.style.display = 'none';
 
         actualizarValoresDespuesAbono();
 
-        const modalElement = getElement('modalAbonoCredito');
+        const modalElement = document.getElementById('modalAbonoCredito');
         if (modalElement) {
             try {
                 const modal = new bootstrap.Modal(modalElement);
@@ -1537,7 +1850,7 @@
     }
 
     function actualizarValoresDespuesAbono() {
-        const montoAbonoInput = getElement('modalMontoAbono');
+        const montoAbonoInput = document.getElementById('modalMontoAbono');
         if (!montoAbonoInput) return;
 
         const montoAbono = parseFloat(montoAbonoInput.value) || 0;
@@ -1554,9 +1867,9 @@
         const nuevoSaldo = Math.max(0, saldoAnterior - abonoValido);
         const totalFinal = nuevoSaldo + nuevaVenta;
 
-        const modalNuevoSaldo = getElement('modalNuevoSaldo');
-        const modalNuevaVentaDespues = getElement('modalNuevaVentaDespues');
-        const modalTotalFinal = getElement('modalTotalFinal');
+        const modalNuevoSaldo = document.getElementById('modalNuevoSaldo');
+        const modalNuevaVentaDespues = document.getElementById('modalNuevaVentaDespues');
+        const modalTotalFinal = document.getElementById('modalTotalFinal');
 
         if (modalNuevoSaldo) modalNuevoSaldo.textContent = formatoCordoba(nuevoSaldo);
         if (modalNuevaVentaDespues) modalNuevaVentaDespues.textContent = formatoCordoba(nuevaVenta);
@@ -1565,7 +1878,7 @@
         if (abonoValido > 0 && facturasPendientes.length > 0) {
             mostrarAplicacionAbono(abonoValido);
         } else {
-            const detalleAplicacion = getElement('detalleAplicacionAbono');
+            const detalleAplicacion = document.getElementById('detalleAplicacionAbono');
             if (detalleAplicacion) detalleAplicacion.style.display = 'none';
         }
     }
@@ -1600,16 +1913,16 @@
         });
         html += '</div>';
 
-        const listaAplicacion = getElement('listaAplicacionAbono');
-        const detalleAplicacion = getElement('detalleAplicacionAbono');
+        const listaAplicacion = document.getElementById('listaAplicacionAbono');
+        const detalleAplicacion = document.getElementById('detalleAplicacionAbono');
 
         if (listaAplicacion) listaAplicacion.innerHTML = html;
         if (detalleAplicacion) detalleAplicacion.style.display = 'block';
     }
 
     function procesarVentaConAbono(montoAbono) {
-        const metodoPago = getElement('modalMetodoPago')?.value || 1;
-        const metodoPagoText = getElement('modalMetodoPago')?.options[getElement('modalMetodoPago').selectedIndex]?.text || 'Efectivo';
+        const metodoPago = document.getElementById('modalMetodoPago')?.value || 1;
+        const metodoPagoText = document.getElementById('modalMetodoPago')?.options[document.getElementById('modalMetodoPago').selectedIndex]?.text || 'Efectivo';
         
         abonoSeleccionado = montoAbono;
         metodoPagoSeleccionado = metodoPagoText;
@@ -1622,26 +1935,26 @@
             didOpen: () => Swal.showLoading()
         });
         
-        const form = getElement('ventaForm');
-        const abonoField = getElement('abono_monto');
+        const form = document.getElementById('ventaForm');
+        const abonoField = document.getElementById('abono_monto');
         if (abonoField) abonoField.value = montoAbono;
         
-        const metodoPagoField = getElement('abono_metodo_pago');
+        const metodoPagoField = document.getElementById('abono_metodo_pago');
         if (metodoPagoField) metodoPagoField.value = metodoPago;
         
-        const procesarAbonoField = getElement('procesar_abono');
+        const procesarAbonoField = document.getElementById('procesar_abono');
         if (procesarAbonoField) procesarAbonoField.value = '1';
         
         Swal.close();
         
-        const modalElement = getElement('modalAbonoCredito');
+        const modalElement = document.getElementById('modalAbonoCredito');
         if (modalElement) {
             const modal = bootstrap.Modal.getInstance(modalElement);
             if (modal) modal.hide();
         }
         
         if (llenarResumenConfirmacion()) {
-            const modalConfirmacion = getElement('modalConfirmacionVenta');
+            const modalConfirmacion = document.getElementById('modalConfirmacionVenta');
             if (modalConfirmacion) {
                 new bootstrap.Modal(modalConfirmacion).show();
             }
@@ -1652,7 +1965,7 @@
     // FUNCIONES DE BÚSQUEDA
     // ============================================
     function buscarProductos() {
-        const inputBuscar = getElement('buscarProducto');
+        const inputBuscar = document.getElementById('buscarProducto');
         if (!inputBuscar) return;
         const termino = inputBuscar.value.trim();
         if (termino.length < 2) {
@@ -1660,7 +1973,7 @@
             return;
         }
 
-        const resultadosDiv = getElement('resultadosBusqueda');
+        const resultadosDiv = document.getElementById('resultadosBusqueda');
         if (!resultadosDiv) return;
 
         resultadosDiv.innerHTML = '<div class="spinner-border spinner-border-sm text-primary"></div>';
@@ -1709,9 +2022,9 @@
                 stock: parseInt(option.dataset.stock),
                 unidad: option.dataset.unidad
             });
-            const resultadosDiv = getElement('resultadosBusqueda');
+            const resultadosDiv = document.getElementById('resultadosBusqueda');
             if (resultadosDiv) resultadosDiv.style.display = 'none';
-            const inputBuscar = getElement('buscarProducto');
+            const inputBuscar = document.getElementById('buscarProducto');
             if (inputBuscar) inputBuscar.value = '';
         }
     };
@@ -1720,29 +2033,47 @@
     // EVENTOS PRINCIPALES
     // ============================================
     document.addEventListener('DOMContentLoaded', function () {
-        console.log('🚀 Inicializando formulario responsive con soporte offline');
+        console.log('🚀 Inicializando formulario responsive con soporte offline y saldos');
 
         // Elementos
-        const clienteSelect = getElement('cliente');
-        const productoSelect = getElement('producto_select');
-        const cantidadInput = getElement('cantidad');
-        const precioInput = getElement('precio');
-        const btnAgregar = getElement('btnAgregarProducto');
-        const btnBuscar = getElement('btnBuscarProducto');
-        const inputBuscar = getElement('buscarProducto');
-        const btnVerInventario = getElement('btnVerInventario');
-        const tipoContado = getElement('tipo_contado');
-        const tipoCredito = getElement('tipo_credito');
-        const indicadorCredito = getElement('indicadorCredito');
-        const btnMostrarConfirmacion = getElement('btnMostrarConfirmacion');
-        const btnConfirmarGuardar = getElement('btnConfirmarGuardar');
-        const btnGuardarCliente = getElement('btnGuardarCliente');
-        const btnConfirmarConAbono = getElement('btnConfirmarConAbono');
-        const btnContinuarSinAbono = getElement('btnContinuarSinAbono');
-        const montoAbonoInput = getElement('modalMontoAbono');
+        const clienteSelect = document.getElementById('cliente');
+        const productoSelect = document.getElementById('producto_select');
+        const cantidadInput = document.getElementById('cantidad');
+        const precioInput = document.getElementById('precio');
+        const btnAgregar = document.getElementById('btnAgregarProducto');
+        const btnBuscar = document.getElementById('btnBuscarProducto');
+        const inputBuscar = document.getElementById('buscarProducto');
+        const btnVerInventario = document.getElementById('btnVerInventario');
+        const tipoContado = document.getElementById('tipo_contado');
+        const tipoCredito = document.getElementById('tipo_credito');
+        const indicadorCredito = document.getElementById('indicadorCredito');
+        const btnMostrarConfirmacion = document.getElementById('btnMostrarConfirmacion');
+        const btnConfirmarGuardar = document.getElementById('btnConfirmarGuardar');
+        const btnGuardarCliente = document.getElementById('btnGuardarCliente');
+        const btnConfirmarConAbono = document.getElementById('btnConfirmarConAbono');
+        const btnContinuarSinAbono = document.getElementById('btnContinuarSinAbono');
+        const montoAbonoInput = document.getElementById('modalMontoAbono');
+
+        // ===== NUEVO: Cargar saldos offline al inicio =====
+        const saldosOffline = cargarSaldosOffline();
+        console.log('📊 Saldos offline cargados:', Object.keys(saldosOffline).length, 'clientes');
+
+        // Mostrar saldos en el select si estamos offline
+        if (!navigator.onLine) {
+            mostrarSaldoEnSelectCliente();
+        }
+
+        // Sincronizar saldos si hay internet
+        if (navigator.onLine) {
+            setTimeout(sincronizarSaldosConServidor, 2000);
+        }
+
+        // Verificar cambios pendientes
+        verificarCambiosSaldosPendientes();
+        // =================================================
 
         // Configurar formulario para modo offline
-        const ventaForm = getElement('ventaForm');
+        const ventaForm = document.getElementById('ventaForm');
         if (ventaForm) {
             // Remover event listeners anteriores y agregar el nuevo
             ventaForm.removeEventListener('submit', ventaForm._offlineHandler);
@@ -1754,13 +2085,13 @@
         if (clienteSelect) {
             clienteSelect.addEventListener('change', function () {
                 const option = this.options[this.selectedIndex];
-                const infoDiv = getElement('clienteInfo');
+                const infoDiv = document.getElementById('clienteInfo');
 
                 if (option && option.value) {
-                    const clienteNombre = getElement('clienteNombre');
-                    const clienteRUC = getElement('clienteRUC');
-                    const clienteTelefono = getElement('clienteTelefono');
-                    const clientePerfil = getElement('clientePerfil');
+                    const clienteNombre = document.getElementById('clienteNombre');
+                    const clienteRUC = document.getElementById('clienteRUC');
+                    const clienteTelefono = document.getElementById('clienteTelefono');
+                    const clientePerfil = document.getElementById('clientePerfil');
 
                     if (clienteNombre) clienteNombre.textContent = option.dataset.nombre || '';
                     if (clienteRUC) clienteRUC.textContent = option.dataset.ruc || '';
@@ -1847,7 +2178,7 @@
         // Evento ver inventario
         if (btnVerInventario) {
             btnVerInventario.addEventListener('click', function () {
-                const modalElement = getElement('modalInventario');
+                const modalElement = document.getElementById('modalInventario');
                 if (modalElement) {
                     try {
                         const modal = new bootstrap.Modal(modalElement);
@@ -1893,7 +2224,7 @@
                     metodoPagoSeleccionado = '';
                     
                     if (llenarResumenConfirmacion()) {
-                        const modalElement = getElement('modalConfirmacionVenta');
+                        const modalElement = document.getElementById('modalConfirmacionVenta');
                         if (modalElement) {
                             try {
                                 const modalConfirmacion = new bootstrap.Modal(modalElement);
@@ -1913,7 +2244,7 @@
                 this.disabled = true;
                 this.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Procesando...';
 
-                const modalElement = getElement('modalConfirmacionVenta');
+                const modalElement = document.getElementById('modalConfirmacionVenta');
                 if (modalElement) {
                     try {
                         const modal = bootstrap.Modal.getInstance(modalElement);
@@ -1924,7 +2255,7 @@
                 }
 
                 // Aquí el formulario se enviará mediante el evento submit
-                const ventaForm = getElement('ventaForm');
+                const ventaForm = document.getElementById('ventaForm');
                 if (ventaForm) {
                     ventaForm.dispatchEvent(new Event('submit'));
                 } else {
@@ -1942,20 +2273,20 @@
 
         if (btnConfirmarConAbono) {
             btnConfirmarConAbono.addEventListener('click', function () {
-                const montoAbono = parseFloat(getElement('modalMontoAbono')?.value) || 0;
+                const montoAbono = parseFloat(document.getElementById('modalMontoAbono')?.value) || 0;
                 if (montoAbono > 0) {
                     procesarVentaConAbono(montoAbono);
                 } else {
                     abonoSeleccionado = 0;
                     metodoPagoSeleccionado = '';
                     
-                    const modalElement = getElement('modalAbonoCredito');
+                    const modalElement = document.getElementById('modalAbonoCredito');
                     if (modalElement) {
                         const modal = bootstrap.Modal.getInstance(modalElement);
                         if (modal) modal.hide();
                     }
                     if (llenarResumenConfirmacion()) {
-                        const modalConfirmacion = getElement('modalConfirmacionVenta');
+                        const modalConfirmacion = document.getElementById('modalConfirmacionVenta');
                         if (modalConfirmacion) {
                             new bootstrap.Modal(modalConfirmacion).show();
                         }
@@ -1969,20 +2300,20 @@
                 abonoSeleccionado = 0;
                 metodoPagoSeleccionado = '';
                 
-                const abonoField = getElement('abono_monto');
+                const abonoField = document.getElementById('abono_monto');
                 if (abonoField) abonoField.value = '0';
                 
-                const procesarAbonoField = getElement('procesar_abono');
+                const procesarAbonoField = document.getElementById('procesar_abono');
                 if (procesarAbonoField) procesarAbonoField.value = '0';
                 
-                const modalElement = getElement('modalAbonoCredito');
+                const modalElement = document.getElementById('modalAbonoCredito');
                 if (modalElement) {
                     const modal = bootstrap.Modal.getInstance(modalElement);
                     if (modal) modal.hide();
                 }
                 
                 if (llenarResumenConfirmacion()) {
-                    const modalConfirmacion = getElement('modalConfirmacionVenta');
+                    const modalConfirmacion = document.getElementById('modalConfirmacionVenta');
                     if (modalConfirmacion) {
                         new bootstrap.Modal(modalConfirmacion).show();
                     }
@@ -1993,20 +2324,20 @@
         // Evento nuevo cliente
         if (btnGuardarCliente) {
             btnGuardarCliente.addEventListener('click', function () {
-                const nombre = getElement('cliente_nombre')?.value.trim();
-                const ruc = getElement('cliente_ruc')?.value.trim();
+                const nombre = document.getElementById('cliente_nombre')?.value.trim();
+                const ruc = document.getElementById('cliente_ruc')?.value.trim();
                 if (!nombre || !ruc) {
                     showAlert('warning', 'Nombre y RUC obligatorios');
                     return;
                 }
                 // Simulación de guardado
                 showAlert('success', 'Cliente registrado (simulado)');
-                const modalElement = getElement('nuevoClienteModal');
+                const modalElement = document.getElementById('nuevoClienteModal');
                 if (modalElement) {
                     const modal = bootstrap.Modal.getInstance(modalElement);
                     if (modal) modal.hide();
                 }
-                const formNuevoCliente = getElement('formNuevoCliente');
+                const formNuevoCliente = document.getElementById('formNuevoCliente');
                 if (formNuevoCliente) formNuevoCliente.reset();
             });
         }
@@ -2026,6 +2357,9 @@
         window.addEventListener('online', function() {
             console.log('🌐 Conexión restablecida');
             actualizarEstadoConexion();
+            
+            // Sincronizar saldos al volver online
+            sincronizarSaldosConServidor();
             
             const pendientes = JSON.parse(localStorage.getItem('ventas_pendientes') || '[]');
             
@@ -2049,6 +2383,9 @@
             console.log('📱 Sin conexión');
             actualizarEstadoConexion();
             
+            // Mostrar saldos en select cuando vamos offline
+            mostrarSaldoEnSelectCliente();
+            
             Swal.fire({
                 icon: 'warning',
                 title: '📱 Sin conexión a internet',
@@ -2058,7 +2395,7 @@
             });
         });
 
-        console.log('✅ Formulario responsive con soporte offline listo');
+        console.log('✅ Formulario responsive con soporte offline y saldos listo');
     });
 </script>
 
