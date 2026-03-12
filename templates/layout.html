@@ -7,6 +7,9 @@
     <title>{% block title %}FerDel Sistema{% endblock %}</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.8.1/font/bootstrap-icons.css">
+    <!-- En el head de tu layout -->
+    <link rel="manifest" href="/static/manifest.json">
+    <meta name="apple-mobile-web-app-capable" content="yes">
     <style>
         :root {
             --primary-color: #6a11cb;
@@ -343,6 +346,7 @@
             from {
                 opacity: 0;
             }
+
             to {
                 opacity: 1;
             }
@@ -392,6 +396,20 @@
 </head>
 
 <body>
+
+    <div id="connection-status" style="
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        padding: 10px;
+        text-align: center;
+        font-weight: bold;
+        z-index: 9999;
+        display: none;
+        transition: all 0.3s;">
+    </div>
+
     {% if current_user.is_authenticated %}
     <!-- Overlay para móvil -->
     <div class="overlay" id="mainOverlay"></div>
@@ -487,7 +505,7 @@
                             href="{{ url_for('admin_pedidos_venta') }}">
                             <i class="bi bi-cart-check me-2"></i> Pedidos Clientes
                         </a>
-                        <a class="nav-link {% if request.endpoint == 'admin_rutas' %}active{% endif %}" 
+                        <a class="nav-link {% if request.endpoint == 'admin_rutas' %}active{% endif %}"
                             href="{{ url_for('admin_asignacion_rutas') }}">
                             <i class="bi bi-geo-alt me-2"></i> Rutas
                         </a>
@@ -652,7 +670,7 @@
                 <!-- Ventas / facturacion -->
                 <a class="nav-link {% if request.endpoint == 'vendedor_ventas' %}active{% endif %}"
                     href="{{ url_for('vendedor_ventas') }}">
-                    <i class="bi bi-receipt me-2"></i> <span>Ventas</span> 
+                    <i class="bi bi-receipt me-2"></i> <span>Ventas</span>
                 </a>
                 <!-- Cajada de efectivo -->
                 <a class="nav-link {% if request.endpoint == 'vendedor_caja' %}active{% endif %}"
@@ -683,12 +701,12 @@
 
             {% elif current_user.rol == 'Bodega' %}
             <div class="nav flex-column">
-                <a class="nav-link {% if request.endpoint == 'bodega_dashboard' %}active{% endif %}" 
+                <a class="nav-link {% if request.endpoint == 'bodega_dashboard' %}active{% endif %}"
                     href="{{ url_for('bodega_dashboard') }}">
                     <i class="bi bi-speedometer2 me-2"></i> <span>Dashboard</span>
                 </a>
                 <!-- Pedidos -->
-                <a class="nav-link {% if request.endpoint == 'admin_pedidos_venta' %}active{% endif %}" 
+                <a class="nav-link {% if request.endpoint == 'admin_pedidos_venta' %}active{% endif %}"
                     href="{{ url_for('admin_pedidos_venta') }}">
                     <i class="bi bi-cart-check me-2"></i> <span>Pedidos</span>
                 </a>
@@ -698,11 +716,12 @@
                     <i class="bi bi-receipt me-2"></i> <span>Ventas</span>
                 </a>
                 <!-- Inventario -->
-                <a class="nav-link {% if request.endpoint == 'jefe_bodega_inventario' %}active{% endif %}" href="{{ url_for('admin_historial_movimientos') }}">
+                <a class="nav-link {% if request.endpoint == 'jefe_bodega_inventario' %}active{% endif %}"
+                    href="{{ url_for('admin_historial_movimientos') }}">
                     <i class="bi bi-box me-2"></i> <span>Inventario</span>
                 </a>
                 <!-- Reportes Avanzados -->
-                <a class="nav-link {% if request.endpoint == 'bodega_reportes_avanzados' %}active{% endif %}" 
+                <a class="nav-link {% if request.endpoint == 'bodega_reportes_avanzados' %}active{% endif %}"
                     href="{{ url_for('bodega_reportes_avanzados') }}">
                     <i class="bi bi-bar-chart me-2"></i> <span>Reportes Avanzados</span>
                 </a>
@@ -913,6 +932,17 @@
                 }
             });
         });
+
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', function () {
+                navigator.serviceWorker.register('/static/sw.js').then(function (registration) {
+                    console.log('ServiceWorker registrado');
+                }, function (err) {
+                    console.log('Error registrando ServiceWorker:', err);
+                });
+            });
+        }
+
     </script>
     {% block extra_js %}{% endblock %}
 </body>

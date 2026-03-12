@@ -4,6 +4,9 @@
 
 {% block content %}
 <div class="container-fluid mt-2 mt-md-4 px-2 px-md-3">
+    <!-- Indicador de ventas pendientes offline -->
+    <div id="offline-indicator-container"></div>
+    
     <!-- ============================================ -->
     <!-- ENCABEZADO RESPONSIVO                        -->
     <!-- ============================================ -->
@@ -32,6 +35,15 @@
                     <strong>Venta en Ruta:</strong> Fecha: {{ fecha_actual }} | La venta afectará el inventario de la ruta asignada.
                 </span>
             </div>
+            <!-- Indicador de estado de conexión -->
+            <div id="connection-status" class="mt-2">
+                {% if not online %}
+                <div class="alert alert-warning py-1 mb-0">
+                    <i class="fas fa-wifi-slash me-2"></i>
+                    <small>Modo sin conexión - Las ventas se guardarán localmente</small>
+                </div>
+                {% endif %}
+            </div>
         </div>
         <div class="mt-2 mt-md-0">
             <a href="{{ url_for('vendedor_ventas') }}" class="btn btn-outline-secondary btn-sm">
@@ -44,13 +56,12 @@
 
     <!-- Formulario Principal -->
     <form id="ventaForm" method="POST" action="{{ url_for('vendedor_venta_crear') }}">
-        <!-- Campos ocultos para abono -->
+        <!-- Campos ocultos -->
         <input type="hidden" id="abono_monto" name="abono_monto" value="0">
         <input type="hidden" id="abono_metodo_pago" name="abono_metodo_pago" value="">
         <input type="hidden" id="procesar_abono" name="procesar_abono" value="0">
-        
-        <!-- Campo oculto para productos -->
         <input type="hidden" id="productos" name="productos" value="[]">
+        <input type="hidden" id="offline_submit" name="offline_submit" value="0">
 
         <!-- ============================================ -->
         <!-- COLUMNA IZQUIERDA - DATOS DE LA VENTA       -->
@@ -93,7 +104,7 @@
                             </div>
                         </div>
 
-                        <!-- Información del cliente (vista móvil) -->
+                        <!-- Información del cliente -->
                         <div id="clienteInfo" class="p-2 bg-light rounded mb-3" style="display: none;">
                             <div class="row g-1">
                                 <div class="col-6">
@@ -234,7 +245,7 @@
                             </div>
                             <div class="col-6 col-sm-3">
                                 <label class="form-label small fw-bold mb-1">Cantidad</label>
-                                <input type="number" class="form-control form-control-sm" id="cantidad" min="1" value="1">
+                                <input type="number" class="form-control form-control-sm" id="cantidad" min="0.01" step="0.01" value="1">
                             </div>
                             <div class="col-6 col-sm-3">
                                 <label class="form-label small fw-bold mb-1">Precio Unit.</label>
@@ -315,7 +326,7 @@
 </div>
 
 <!-- ============================================ -->
-<!-- MODALES - Versiones responsivas             -->
+<!-- MODALES                                      -->
 <!-- ============================================ -->
 
 <!-- Modal Nuevo Cliente -->
@@ -376,7 +387,7 @@
                 <div class="alert alert-info py-2 small">
                     <div class="d-flex">
                         <i class="fas fa-info-circle me-2 mt-1"></i>
-                        <span>La venta se registrará y se descontará del inventario disponible en ruta.</span>
+                        <span id="confirmacionMensajeConexion">La venta se registrará y se descontará del inventario disponible en ruta.</span>
                     </div>
                 </div>
 
@@ -653,6 +664,314 @@
         if (!fechaStr) return '';
         const fecha = new Date(fechaStr);
         return fecha.toLocaleDateString('es-ES');
+    }
+
+    // ============================================
+    // FUNCIONES PARA MODO OFFLINE
+    // ============================================
+
+    // Actualizar estado de conexión en UI
+    function actualizarEstadoConexion() {
+        const connectionStatus = getElement('connection-status');
+        const confirmacionMensaje = getElement('confirmacionMensajeConexion');
+        
+        if (navigator.onLine) {
+            if (connectionStatus) {
+                connectionStatus.innerHTML = '';
+            }
+            if (confirmacionMensaje) {
+                confirmacionMensaje.textContent = 'La venta se registrará y se descontará del inventario disponible en ruta.';
+            }
+        } else {
+            if (connectionStatus) {
+                connectionStatus.innerHTML = `
+                    <div class="alert alert-warning py-1 mb-0">
+                        <i class="fas fa-wifi-slash me-2"></i>
+                        <small>Modo sin conexión - La venta se guardará localmente</small>
+                    </div>
+                `;
+            }
+            if (confirmacionMensaje) {
+                confirmacionMensaje.textContent = '📱 MODO SIN CONEXIÓN: La venta se guardará localmente y se sincronizará cuando tenga internet.';
+            }
+        }
+    }
+
+    // Función para guardar venta en localStorage cuando no hay internet
+    function guardarVentaOffline(datosVenta) {
+        try {
+            // Obtener ventas pendientes existentes
+            const pendientes = JSON.parse(localStorage.getItem('ventas_pendientes') || '[]');
+            
+            // Agregar timestamp y ID temporal
+            const ventaOffline = {
+                ...datosVenta,
+                id_temporal: 'offline_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9),
+                fecha_intento: new Date().toISOString(),
+                sincronizado: false
+            };
+            
+            pendientes.push(ventaOffline);
+            localStorage.setItem('ventas_pendientes', JSON.stringify(pendientes));
+            
+            // Mostrar notificación
+            Swal.fire({
+                icon: 'success',
+                title: '📱 Venta guardada sin conexión',
+                html: `
+                    La venta se ha guardado localmente.<br>
+                    <strong>Total ventas pendientes: ${pendientes.length}</strong><br>
+                    Se sincronizará automáticamente cuando tengas internet.
+                `,
+                timer: 4000,
+                showConfirmButton: true,
+                confirmButtonText: 'Entendido'
+            });
+            
+            console.log('✅ Venta guardada offline:', ventaOffline);
+            return true;
+        } catch (error) {
+            console.error('Error guardando venta offline:', error);
+            Swal.fire({
+                icon: 'error',
+                title: 'Error',
+                text: 'No se pudo guardar la venta sin conexión'
+            });
+            return false;
+        }
+    }
+
+    // Función para enviar ventas pendientes
+    async function enviarVentasPendientes() {
+        const pendientes = JSON.parse(localStorage.getItem('ventas_pendientes') || '[]');
+        
+        if (pendientes.length === 0) {
+            verificarVentasPendientes(); // Ocultar indicador si no hay pendientes
+            return;
+        }
+        
+        console.log(`🔄 Intentando sincronizar ${pendientes.length} venta(s) pendiente(s)...`);
+        
+        // Mostrar indicador de sincronización
+        Swal.fire({
+            title: 'Sincronizando ventas...',
+            html: `Procesando 0 de ${pendientes.length}`,
+            allowOutsideClick: false,
+            showConfirmButton: false,
+            didOpen: () => {
+                Swal.showLoading();
+            }
+        });
+        
+        let sincronizadas = 0;
+        let fallidas = 0;
+        const pendientesActualizadas = [];
+        
+        for (let i = 0; i < pendientes.length; i++) {
+            const venta = pendientes[i];
+            
+            try {
+                // Actualizar mensaje
+                Swal.getHtmlContainer().innerHTML = `Procesando ${i + 1} de ${pendientes.length}`;
+                
+                // Preparar datos para enviar
+                const formData = new FormData();
+                
+                // Agregar todos los campos del formulario
+                Object.keys(venta).forEach(key => {
+                    if (key !== 'id_temporal' && key !== 'fecha_intento' && key !== 'sincronizado') {
+                        formData.append(key, venta[key]);
+                    }
+                });
+                
+                // Enviar la venta
+                const response = await fetch('/vendedor/venta/crear', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                if (response.ok) {
+                    sincronizadas++;
+                    console.log(`✅ Venta ${i + 1} sincronizada`);
+                } else {
+                    fallidas++;
+                    pendientesActualizadas.push(venta); // Mantener las fallidas
+                    console.error(`❌ Error en venta ${i + 1}:`, await response.text());
+                }
+            } catch (error) {
+                fallidas++;
+                pendientesActualizadas.push(venta);
+                console.error(`❌ Error enviando venta ${i + 1}:`, error);
+            }
+        }
+        
+        // Actualizar localStorage
+        localStorage.setItem('ventas_pendientes', JSON.stringify(pendientesActualizadas));
+        
+        Swal.close();
+        
+        // Mostrar resumen
+        if (sincronizadas > 0) {
+            Swal.fire({
+                icon: 'success',
+                title: '✅ Sincronización completada',
+                html: `
+                    <strong>${sincronizadas}</strong> venta(s) sincronizada(s) correctamente<br>
+                    ${fallidas > 0 ? `<span class="text-warning">${fallidas} pendiente(s) no se pudieron sincronizar</span>` : ''}
+                `,
+                timer: 5000,
+                showConfirmButton: true
+            });
+            
+            // Actualizar indicador
+            verificarVentasPendientes();
+        }
+    }
+
+    // Función para verificar y mostrar ventas pendientes
+    function verificarVentasPendientes() {
+        const pendientes = JSON.parse(localStorage.getItem('ventas_pendientes') || '[]');
+        const container = getElement('offline-indicator-container');
+        
+        if (!container) return;
+        
+        if (pendientes.length > 0) {
+            container.innerHTML = `
+                <div class="offline-indicator">
+                    <div class="alert alert-warning mb-2 py-2 px-3">
+                        <div class="d-flex flex-column flex-sm-row align-items-start align-items-sm-center justify-content-between">
+                            <div class="mb-2 mb-sm-0">
+                                <i class="fas fa-cloud-upload-alt me-2"></i>
+                                <strong>${pendientes.length}</strong> venta(s) pendiente(s) de sincronizar
+                            </div>
+                            <div class="d-flex gap-2">
+                                <button class="btn btn-sm btn-primary" onclick="enviarVentasPendientes()">
+                                    <i class="fas fa-sync me-1"></i>Sincronizar ahora
+                                </button>
+                                <button class="btn btn-sm btn-outline-secondary" onclick="verDetallePendientes()">
+                                    <i class="fas fa-list me-1"></i>Ver detalle
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        } else {
+            container.innerHTML = '';
+        }
+    }
+
+    // Función para ver detalle de ventas pendientes
+    function verDetallePendientes() {
+        const pendientes = JSON.parse(localStorage.getItem('ventas_pendientes') || '[]');
+        
+        let html = '<div class="small">';
+        pendientes.forEach((venta, index) => {
+            const fecha = new Date(venta.fecha_intento || venta.fecha_offline);
+            html += `
+                <div class="mb-2 p-2 border-bottom">
+                    <div class="d-flex justify-content-between">
+                        <strong>Venta #${index + 1}</strong>
+                        <small class="text-muted">${fecha.toLocaleString()}</small>
+                    </div>
+                    <div>Cliente: ${venta.cliente}</div>
+                    <div>Total: ${formatoCordoba(JSON.parse(venta.productos || '[]').reduce((sum, p) => sum + (p.cantidad * p.precio), 0))}</div>
+                    <div><small class="text-muted">Productos: ${JSON.parse(venta.productos || '[]').length}</small></div>
+                </div>
+            `;
+        });
+        html += '</div>';
+        
+        Swal.fire({
+            title: 'Ventas pendientes',
+            html: html,
+            width: '600px',
+            confirmButtonText: 'Cerrar'
+        });
+    }
+
+    // Función principal para manejar el envío del formulario
+    function manejarEnvioFormulario(event) {
+        event.preventDefault();
+        
+        const form = event.target;
+        
+        // Validar que haya productos
+        if (productos.length === 0) {
+            showAlert('warning', 'Agregue productos a la venta');
+            return;
+        }
+        
+        // Validar cliente seleccionado
+        const clienteSelect = getElement('cliente');
+        if (!clienteSelect || !clienteSelect.value) {
+            showAlert('warning', 'Seleccione un cliente');
+            return;
+        }
+        
+        // Verificar tipo de venta
+        const tipoVenta = document.querySelector('input[name="tipo_venta"]:checked');
+        if (!tipoVenta) {
+            showAlert('warning', 'Seleccione tipo de venta');
+            return;
+        }
+        
+        // Actualizar campo productos antes de enviar
+        const productosInput = getElement('productos');
+        if (productosInput) {
+            productosInput.value = JSON.stringify(productos);
+        }
+        
+        // Si hay conexión a internet, enviar normalmente
+        if (navigator.onLine) {
+            console.log('🌐 Hay conexión, enviando venta normalmente...');
+            form.submit();
+            return;
+        }
+        
+        // Si NO hay conexión, guardar localmente
+        console.log('📱 Sin conexión, guardando venta localmente...');
+        
+        // Recoger todos los datos del formulario
+        const formData = new FormData(form);
+        const datosVenta = {};
+        
+        formData.forEach((value, key) => {
+            datosVenta[key] = value;
+        });
+        
+        // Agregar productos explícitamente
+        datosVenta.productos = JSON.stringify(productos);
+        
+        // Agregar datos adicionales
+        datosVenta.tipo_venta = tipoVenta.value;
+        datosVenta.fecha_offline = new Date().toISOString();
+        
+        // Marcar como envío offline
+        const offlineSubmit = getElement('offline_submit');
+        if (offlineSubmit) offlineSubmit.value = '1';
+        
+        // Guardar en localStorage
+        if (guardarVentaOffline(datosVenta)) {
+            // Limpiar formulario
+            productos = [];
+            actualizarVistasProductos();
+            actualizarResumen();
+            form.reset();
+            
+            // Mostrar indicador de ventas pendientes
+            verificarVentasPendientes();
+            
+            // Cerrar modales abiertos
+            const modales = ['modalConfirmacionVenta', 'modalAbonoCredito'];
+            modales.forEach(id => {
+                const modal = getElement(id);
+                if (modal) {
+                    const modalInstance = bootstrap.Modal.getInstance(modal);
+                    if (modalInstance) modalInstance.hide();
+                }
+            });
+        }
     }
 
     // ============================================
@@ -1401,7 +1720,7 @@
     // EVENTOS PRINCIPALES
     // ============================================
     document.addEventListener('DOMContentLoaded', function () {
-        console.log('🚀 Inicializando formulario responsive');
+        console.log('🚀 Inicializando formulario responsive con soporte offline');
 
         // Elementos
         const clienteSelect = getElement('cliente');
@@ -1421,6 +1740,15 @@
         const btnConfirmarConAbono = getElement('btnConfirmarConAbono');
         const btnContinuarSinAbono = getElement('btnContinuarSinAbono');
         const montoAbonoInput = getElement('modalMontoAbono');
+
+        // Configurar formulario para modo offline
+        const ventaForm = getElement('ventaForm');
+        if (ventaForm) {
+            // Remover event listeners anteriores y agregar el nuevo
+            ventaForm.removeEventListener('submit', ventaForm._offlineHandler);
+            ventaForm._offlineHandler = manejarEnvioFormulario;
+            ventaForm.addEventListener('submit', ventaForm._offlineHandler);
+        }
 
         // Evento cliente change
         if (clienteSelect) {
@@ -1595,24 +1923,15 @@
                     }
                 }
 
-                Swal.fire({
-                    title: 'Procesando venta...',
-                    text: 'Por favor espere',
-                    allowOutsideClick: false,
-                    showConfirmButton: false,
-                    didOpen: () => Swal.showLoading()
-                });
-
-                setTimeout(() => {
-                    const ventaForm = getElement('ventaForm');
-                    if (ventaForm) {
-                        ventaForm.submit();
-                    } else {
-                        Swal.fire({ icon: 'error', title: 'Error', text: 'No se pudo enviar el formulario' });
-                        this.disabled = false;
-                        this.innerHTML = 'Confirmar y Facturar';
-                    }
-                }, 500);
+                // Aquí el formulario se enviará mediante el evento submit
+                const ventaForm = getElement('ventaForm');
+                if (ventaForm) {
+                    ventaForm.dispatchEvent(new Event('submit'));
+                } else {
+                    Swal.fire({ icon: 'error', title: 'Error', text: 'No se pudo enviar el formulario' });
+                    this.disabled = false;
+                    this.innerHTML = 'Confirmar y Facturar';
+                }
             });
         }
 
@@ -1696,12 +2015,50 @@
         actualizarVistasProductos();
         actualizarResumen();
         actualizarIndicadorCredito();
+        actualizarEstadoConexion();
+        verificarVentasPendientes();
 
         if (clienteSelect && clienteSelect.value) {
             verificarSaldoCliente(clienteSelect.value);
         }
 
-        console.log('✅ Formulario responsive listo');
+        // Eventos de conexión
+        window.addEventListener('online', function() {
+            console.log('🌐 Conexión restablecida');
+            actualizarEstadoConexion();
+            
+            const pendientes = JSON.parse(localStorage.getItem('ventas_pendientes') || '[]');
+            
+            if (pendientes.length > 0) {
+                Swal.fire({
+                    icon: 'info',
+                    title: '📶 Conexión restablecida',
+                    text: `Hay ${pendientes.length} venta(s) pendiente(s) de sincronizar. ¿Desea sincronizar ahora?`,
+                    showCancelButton: true,
+                    confirmButtonText: 'Sí, sincronizar',
+                    cancelButtonText: 'Después'
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        enviarVentasPendientes();
+                    }
+                });
+            }
+        });
+
+        window.addEventListener('offline', function() {
+            console.log('📱 Sin conexión');
+            actualizarEstadoConexion();
+            
+            Swal.fire({
+                icon: 'warning',
+                title: '📱 Sin conexión a internet',
+                text: 'Las ventas se guardarán localmente y se sincronizarán cuando recuperes la conexión.',
+                timer: 3000,
+                showConfirmButton: true
+            });
+        });
+
+        console.log('✅ Formulario responsive con soporte offline listo');
     });
 </script>
 
@@ -1838,6 +2195,29 @@
     ::-webkit-scrollbar-thumb {
         background: linear-gradient(45deg, #667eea, #764ba2);
         border-radius: 3px;
+    }
+    
+    /* Indicador offline */
+    .offline-indicator {
+        animation: slideDown 0.3s ease;
+        margin-bottom: 10px;
+    }
+    
+    @keyframes slideDown {
+        from {
+            transform: translateY(-100%);
+            opacity: 0;
+        }
+        to {
+            transform: translateY(0);
+            opacity: 1;
+        }
+    }
+    
+    .offline-indicator .alert {
+        border-radius: 8px;
+        border-left: 4px solid #ffc107;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
     }
     
     /* ============================================ */
