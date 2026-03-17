@@ -16067,19 +16067,61 @@ def vendedor_venta_crear():
                 """)
                 metodos_pago = cursor.fetchall()
                 
+                # ===== VERIFICACIÓN DE CAJA MEJORADA =====
                 # Verificar si hay caja abierta hoy
                 cursor.execute("""
-                    SELECT COUNT(*) as tiene_caja
+                    SELECT COUNT(*) as tiene_caja_hoy
                     FROM movimientos_caja_ruta 
                     WHERE ID_Asignacion = %s 
                     AND DATE(Fecha) = CURDATE() 
                     AND Tipo = 'APERTURA'
                     AND Estado = 'ACTIVO'
                 """, (asignacion['ID_Asignacion'],))
-                caja_abierta = cursor.fetchone()['tiene_caja'] > 0
+                tiene_caja_hoy = cursor.fetchone()['tiene_caja_hoy'] > 0
+                
+                # Verificar si hay una caja abierta de días anteriores SIN CIERRE
+                cursor.execute("""
+                    SELECT COUNT(*) as tiene_caja_activa
+                    FROM movimientos_caja_ruta m1
+                    WHERE m1.ID_Asignacion = %s 
+                    AND m1.Tipo = 'APERTURA'
+                    AND m1.Estado = 'ACTIVO'
+                    AND NOT EXISTS (
+                        SELECT 1 FROM movimientos_caja_ruta m2
+                        WHERE m2.ID_Asignacion = m1.ID_Asignacion
+                        AND m2.Tipo = 'CIERRE'
+                        AND m2.Fecha > m1.Fecha
+                        AND m2.Estado = 'ACTIVO'
+                    )
+                """, (asignacion['ID_Asignacion'],))
+                tiene_caja_activa = cursor.fetchone()['tiene_caja_activa'] > 0
+                
+                # También verificar el último movimiento del día para asegurar que no haya cierre
+                cursor.execute("""
+                    SELECT Tipo, Estado, DATE(Fecha) as Fecha_Movimiento
+                    FROM movimientos_caja_ruta 
+                    WHERE ID_Asignacion = %s 
+                    AND DATE(Fecha) = CURDATE()
+                    AND Estado = 'ACTIVO'
+                    ORDER BY Fecha DESC
+                    LIMIT 1
+                """, (asignacion['ID_Asignacion'],))
+                ultimo_movimiento_hoy = cursor.fetchone()
+                
+                # La caja está abierta si:
+                # 1. Hay una apertura hoy, O
+                # 2. Hay una apertura activa sin cierre de días anteriores, Y
+                # 3. El último movimiento de hoy NO es un CIERRE
+                caja_abierta = tiene_caja_hoy or (tiene_caja_activa and (not ultimo_movimiento_hoy or ultimo_movimiento_hoy['Tipo'] != 'CIERRE'))
                 
                 # Fecha actual para el template
                 fecha_actual = datetime.now().strftime('%d/%m/%Y')
+                
+                print(f"📊 Estado de caja - ID_Asignacion: {asignacion['ID_Asignacion']}")
+                print(f"  - Tiene caja hoy: {tiene_caja_hoy}")
+                print(f"  - Tiene caja activa sin cierre: {tiene_caja_activa}")
+                print(f"  - Último movimiento hoy: {ultimo_movimiento_hoy}")
+                print(f"  - Caja abierta: {caja_abierta}")
                 
             return render_template('vendedor/ventas/venta_crear.html',
                                  asignacion=asignacion,
@@ -16110,21 +16152,126 @@ def vendedor_venta_crear():
                     flash('No tienes una ruta activa asignada', 'warning')
                     return redirect(url_for('vendedor_dashboard'))
                 
-                # Verificar si hay caja abierta hoy
+                # ===== VERIFICACIÓN DE CAJA PARA POST =====
+                # Estrategia 1: Buscar apertura de hoy
                 cursor.execute("""
-                    SELECT ID_Movimiento 
+                    SELECT ID_Movimiento, Fecha, Saldo_Acumulado
                     FROM movimientos_caja_ruta 
                     WHERE ID_Asignacion = %s 
                     AND DATE(Fecha) = CURDATE() 
                     AND Tipo = 'APERTURA'
                     AND Estado = 'ACTIVO'
-                    ORDER BY Fecha DESC LIMIT 1
+                    ORDER BY Fecha DESC 
+                    LIMIT 1
                 """, (asignacion['ID_Asignacion'],))
                 caja = cursor.fetchone()
                 
+                # Estrategia 2: Si no hay apertura hoy, buscar la última apertura activa sin cierre
                 if not caja:
-                    flash('Debe abrir la caja antes de realizar ventas', 'warning')
+                    cursor.execute("""
+                        SELECT m1.ID_Movimiento, m1.Fecha, m1.Saldo_Acumulado
+                        FROM movimientos_caja_ruta m1
+                        WHERE m1.ID_Asignacion = %s 
+                        AND m1.Tipo = 'APERTURA'
+                        AND m1.Estado = 'ACTIVO'
+                        AND NOT EXISTS (
+                            SELECT 1 FROM movimientos_caja_ruta m2
+                            WHERE m2.ID_Asignacion = m1.ID_Asignacion
+                            AND m2.Tipo = 'CIERRE'
+                            AND m2.Fecha > m1.Fecha
+                            AND m2.Estado = 'ACTIVO'
+                        )
+                        ORDER BY m1.Fecha DESC
+                        LIMIT 1
+                    """, (asignacion['ID_Asignacion'],))
+                    caja = cursor.fetchone()
+                
+                # Estrategia 3: Verificar si hay algún movimiento hoy (para asegurar que no haya cierre)
+                if caja:
+                    cursor.execute("""
+                        SELECT Tipo
+                        FROM movimientos_caja_ruta 
+                        WHERE ID_Asignacion = %s 
+                        AND DATE(Fecha) = CURDATE()
+                        AND Estado = 'ACTIVO'
+                        ORDER BY Fecha DESC
+                        LIMIT 1
+                    """, (asignacion['ID_Asignacion'],))
+                    ultimo_hoy = cursor.fetchone()
+                    
+                    # Si el último movimiento de hoy es un CIERRE, la caja está cerrada
+                    if ultimo_hoy and ultimo_hoy['Tipo'] == 'CIERRE':
+                        caja = None
+                        print("⚠️ La caja fue cerrada hoy, no se pueden realizar ventas")
+                
+                # Si no hay caja válida, intentar crear una apertura automática
+                if not caja:
+                    print("⚠️ No se encontró caja abierta, intentando crear apertura automática...")
+                    
+                    # Verificar si ya existe una apertura hoy (por si acaso)
+                    cursor.execute("""
+                        SELECT ID_Movimiento
+                        FROM movimientos_caja_ruta 
+                        WHERE ID_Asignacion = %s 
+                        AND DATE(Fecha) = CURDATE() 
+                        AND Tipo = 'APERTURA'
+                        LIMIT 1
+                    """, (asignacion['ID_Asignacion'],))
+                    apertura_existente = cursor.fetchone()
+                    
+                    if apertura_existente:
+                        # Si existe pero estaba inactiva, reactivarla
+                        cursor.execute("""
+                            UPDATE movimientos_caja_ruta 
+                            SET Estado = 'ACTIVO'
+                            WHERE ID_Movimiento = %s
+                        """, (apertura_existente['ID_Movimiento'],))
+                        caja = apertura_existente
+                        print(f"✅ Apertura existente reactivada: {caja['ID_Movimiento']}")
+                    else:
+                        # Crear nueva apertura - VERSIÓN EFICIENTE CON TRY/EXCEPT
+                        try:
+                            # Formato correcto de Python para fecha/hora
+                            fecha_hora = datetime.now().strftime('%d/%m/%Y %H:%M')
+                            
+                            cursor.execute("""
+                                INSERT INTO movimientos_caja_ruta
+                                (ID_Asignacion, ID_Usuario, Tipo, Concepto, Monto, 
+                                 Tipo_Pago, Saldo_Acumulado, Estado)
+                                VALUES (%s, %s, 'APERTURA', %s, 0.00, NULL, 0.00, 'ACTIVO')
+                            """, (
+                                asignacion['ID_Asignacion'],
+                                id_vendedor,
+                                f"Apertura automática - {fecha_hora}"
+                            ))
+                            
+                            cursor.execute("SELECT LAST_INSERT_ID() as ID_Movimiento")
+                            caja = cursor.fetchone()
+                            print(f"✅ Apertura automática creada con ID: {caja['ID_Movimiento']}")
+                            
+                        except Exception as e:
+                            print(f"❌ Error en formato de fecha: {e}")
+                            # Fallback: sin fecha en el concepto
+                            cursor.execute("""
+                                INSERT INTO movimientos_caja_ruta
+                                (ID_Asignacion, ID_Usuario, Tipo, Concepto, Monto, 
+                                 Tipo_Pago, Saldo_Acumulado, Estado)
+                                VALUES (%s, %s, 'APERTURA', %s, 0.00, NULL, 0.00, 'ACTIVO')
+                            """, (
+                                asignacion['ID_Asignacion'],
+                                id_vendedor,
+                                "Apertura automática de caja"
+                            ))
+                            
+                            cursor.execute("SELECT LAST_INSERT_ID() as ID_Movimiento")
+                            caja = cursor.fetchone()
+                            print(f"✅ Apertura automática creada con ID (formato simple): {caja['ID_Movimiento']}")
+                
+                if not caja:
+                    flash('No se pudo verificar/crear la apertura de caja', 'error')
                     return redirect(url_for('vendedor_dashboard'))
+                
+                print(f"✅ Caja verificada - ID Movimiento: {caja['ID_Movimiento']}")
                 
                 # Procesar creación de venta
                 id_cliente = request.form.get('cliente')
@@ -16227,17 +16374,17 @@ def vendedor_venta_crear():
                     """, (prod['cantidad'], asignacion['ID_Asignacion'], prod['id']))
                 
                 # ===== 3. REGISTRO EN CAJA (VENTA) =====
-                # Calcular saldo actual de caja ANTES de insertar
+                # Calcular saldo actual de caja ANTES de insertar - AHORA USANDO TODOS LOS MOVIMIENTOS ACTIVOS
                 cursor.execute("""
                     SELECT COALESCE(SUM(CASE 
                         WHEN Tipo = 'GASTO' THEN -Monto 
+                        WHEN Tipo = 'CIERRE' THEN 0
                         ELSE Monto 
                     END), 0) as Saldo_Actual
                     FROM movimientos_caja_ruta 
                     WHERE ID_Asignacion = %s 
-                      AND DATE(Fecha) = CURDATE() 
-                      AND Tipo != 'CIERRE'
                       AND Estado = 'ACTIVO'
+                      AND Tipo != 'CIERRE'
                 """, (asignacion['ID_Asignacion'],))
                 
                 saldo_result = cursor.fetchone()
@@ -16363,9 +16510,8 @@ def vendedor_venta_crear():
                                 END), 0) as Saldo_Actual
                                 FROM movimientos_caja_ruta
                                 WHERE ID_Asignacion = %s 
-                                  AND DATE(Fecha) = CURDATE() 
-                                  AND Tipo != 'CIERRE'
                                   AND Estado = 'ACTIVO'
+                                  AND Tipo != 'CIERRE'
                             """, (asignacion['ID_Asignacion'],))
                             
                             saldo_result = cursor.fetchone()
@@ -16466,7 +16612,7 @@ def vendedor_venta_crear():
             # Fuera del context manager, los cambios ya están commiteados
             flash('Venta registrada exitosamente', 'success')
             
-            # Redirigir al ticket (ya no necesitamos pasar saldo_anterior por URL)
+            # Redirigir al ticket
             return redirect(url_for('vendedor_generar_ticket_ruta', 
                                   id_venta=id_factura, 
                                   autoPrint=1))
