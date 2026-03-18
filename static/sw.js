@@ -1,5 +1,5 @@
 // static/sw.js - Service Worker
-const CACHE_NAME = 'vendedor-cache-v3';
+const CACHE_NAME = 'vendedor-cache-v1';
 
 // SOLO las rutas que existen en tu app
 const urlsToCache = [
