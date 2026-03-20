@@ -17519,6 +17519,536 @@ def api_verificar_saldo_cliente(id_cliente):
             'error': str(e)
         }), 500
 
+# ============================================
+# ENDPOINTS PARA SINCRONIZACIÓN OFFLINE
+# ============================================
+
+@app.route('/api/vendedor/sincronizar_inventario', methods=['GET'])
+@vendedor_required
+def api_sincronizar_inventario():
+    """Sincronizar inventario de la ruta (solo cambios recientes)"""
+    try:
+        id_vendedor = int(current_user.id)
+        ultima_sincronizacion = request.args.get('ultima_sincronizacion')
+        
+        with get_db_cursor() as cursor:
+            # Obtener asignación activa
+            cursor.execute("""
+                SELECT ID_Asignacion, ID_Ruta, ID_Empresa
+                FROM asignacion_vendedores 
+                WHERE ID_Usuario = %s AND Estado = 'Activa'
+                LIMIT 1
+            """, (id_vendedor,))
+            asignacion = cursor.fetchone()
+            
+            if not asignacion:
+                return jsonify({'success': False, 'error': 'Sin ruta activa'}), 400
+            
+            # Construir consulta según si hay última sincronización
+            if ultima_sincronizacion:
+                # Solo productos con cambios desde la última sincronización
+                cursor.execute("""
+                    SELECT ir.ID_Producto, p.COD_Producto, p.Descripcion as Nombre,
+                           p.Precio_Ruta, ir.Cantidad as Stock_Disponible,
+                           um.Descripcion as Unidad_Medida, um.Abreviatura,
+                           p.ID_Categoria, c.Descripcion as Categoria,
+                           p.Estado as Producto_Estado,
+                           ir.Fecha_Actualizacion
+                    FROM inventario_ruta ir
+                    INNER JOIN productos p ON ir.ID_Producto = p.ID_Producto
+                    LEFT JOIN unidades_medida um ON p.Unidad_Medida = um.ID_Unidad
+                    LEFT JOIN categorias_producto c ON p.ID_Categoria = c.ID_Categoria
+                    WHERE ir.ID_Asignacion = %s 
+                      AND ir.Fecha_Actualizacion > %s
+                    ORDER BY p.Descripcion
+                """, (asignacion['ID_Asignacion'], ultima_sincronizacion))
+            else:
+                # Primera sincronización: todos los productos
+                cursor.execute("""
+                    SELECT ir.ID_Producto, p.COD_Producto, p.Descripcion as Nombre,
+                           p.Precio_Ruta, ir.Cantidad as Stock_Disponible,
+                           um.Descripcion as Unidad_Medida, um.Abreviatura,
+                           p.ID_Categoria, c.Descripcion as Categoria,
+                           p.Estado as Producto_Estado,
+                           ir.Fecha_Actualizacion
+                    FROM inventario_ruta ir
+                    INNER JOIN productos p ON ir.ID_Producto = p.ID_Producto
+                    LEFT JOIN unidades_medida um ON p.Unidad_Medida = um.ID_Unidad
+                    LEFT JOIN categorias_producto c ON p.ID_Categoria = c.ID_Categoria
+                    WHERE ir.ID_Asignacion = %s 
+                      AND p.Estado = 'activo'
+                    ORDER BY p.Descripcion
+                """, (asignacion['ID_Asignacion'],))
+            
+            inventario = cursor.fetchall()
+            
+            # Obtener la fecha de la última modificación para próxima sincronización
+            cursor.execute("""
+                SELECT MAX(Fecha_Actualizacion) as ultima_modificacion
+                FROM inventario_ruta
+                WHERE ID_Asignacion = %s
+            """, (asignacion['ID_Asignacion'],))
+            
+            ultima_modificacion = cursor.fetchone()
+            
+            return jsonify({
+                'success': True,
+                'inventario': inventario,
+                'ultima_modificacion': ultima_modificacion['ultima_modificacion'] if ultima_modificacion else None,
+                'asignacion_id': asignacion['ID_Asignacion'],
+                'ruta_id': asignacion['ID_Ruta']
+            })
+            
+    except Exception as e:
+        print(f"Error en api_sincronizar_inventario: {str(e)}")
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/vendedor/sincronizar_clientes_saldos', methods=['GET'])
+@vendedor_required
+def api_sincronizar_clientes_saldos():
+    """Sincronizar clientes y sus saldos pendientes"""
+    try:
+        id_vendedor = int(current_user.id)
+        ultima_sincronizacion = request.args.get('ultima_sincronizacion')
+        
+        with get_db_cursor() as cursor:
+            # Obtener asignación activa
+            cursor.execute("""
+                SELECT av.ID_Asignacion, av.ID_Ruta, av.ID_Empresa
+                FROM asignacion_vendedores av
+                WHERE av.ID_Usuario = %s AND av.Estado = 'Activa'
+                LIMIT 1
+            """, (id_vendedor,))
+            asignacion = cursor.fetchone()
+            
+            if not asignacion:
+                return jsonify({'success': False, 'error': 'Sin ruta activa'}), 400
+            
+            # Obtener clientes de la ruta
+            if ultima_sincronizacion:
+                cursor.execute("""
+                    SELECT c.ID_Cliente, c.Nombre, c.RUC_CEDULA, c.Telefono, 
+                           c.Direccion, c.tipo_cliente, c.perfil_cliente,
+                           COALESCE(c.Saldo_Pendiente_Total, 0) as Saldo_Pendiente_Total,
+                           c.Fecha_Ultimo_Movimiento, c.Fecha_Ultimo_Pago,
+                           c.Estado as Cliente_Estado,
+                           c.Fecha_Creacion
+                    FROM clientes c
+                    WHERE c.ID_Empresa = %s 
+                      AND c.Estado = 'ACTIVO'
+                      AND (c.ID_Ruta = %s OR c.ID_Ruta IS NULL)
+                      AND (c.Fecha_Ultimo_Movimiento > %s OR c.Fecha_Creacion > %s)
+                    ORDER BY c.Nombre
+                """, (asignacion['ID_Empresa'], asignacion['ID_Ruta'], 
+                      ultima_sincronizacion, ultima_sincronizacion))
+            else:
+                cursor.execute("""
+                    SELECT c.ID_Cliente, c.Nombre, c.RUC_CEDULA, c.Telefono, 
+                           c.Direccion, c.tipo_cliente, c.perfil_cliente,
+                           COALESCE(c.Saldo_Pendiente_Total, 0) as Saldo_Pendiente_Total,
+                           c.Fecha_Ultimo_Movimiento, c.Fecha_Ultimo_Pago,
+                           c.Estado as Cliente_Estado,
+                           c.Fecha_Creacion
+                    FROM clientes c
+                    WHERE c.ID_Empresa = %s 
+                      AND c.Estado = 'ACTIVO'
+                      AND (c.ID_Ruta = %s OR c.ID_Ruta IS NULL)
+                    ORDER BY c.Nombre
+                """, (asignacion['ID_Empresa'], asignacion['ID_Ruta']))
+            
+            clientes = cursor.fetchall()
+            
+            # Para cada cliente con saldo, obtener facturas pendientes
+            for cliente in clientes:
+                if cliente['Saldo_Pendiente_Total'] > 0:
+                    cursor.execute("""
+                        SELECT cxc.ID_Movimiento, cxc.Num_Documento, 
+                               cxc.Monto_Movimiento, cxc.Saldo_Pendiente,
+                               cxc.Fecha_Vencimiento,
+                               DATEDIFF(CURDATE(), cxc.Fecha_Vencimiento) as Dias_Vencido,
+                               DATE_FORMAT(cxc.Fecha_Vencimiento, '%%Y-%%m-%%d') as Fecha_Vencimiento_ISO
+                        FROM cuentas_por_cobrar cxc
+                        WHERE cxc.ID_Cliente = %s 
+                          AND cxc.Estado IN ('Pendiente', 'Vencida')
+                          AND cxc.Saldo_Pendiente > 0
+                        ORDER BY 
+                            CASE WHEN cxc.Fecha_Vencimiento < CURDATE() THEN 0 ELSE 1 END,
+                            cxc.Fecha_Vencimiento ASC
+                    """, (cliente['ID_Cliente'],))
+                    cliente['facturas_pendientes'] = cursor.fetchall()
+                else:
+                    cliente['facturas_pendientes'] = []
+            
+            # Obtener fecha de última modificación de clientes en la ruta
+            cursor.execute("""
+                SELECT MAX(GREATEST(
+                    COALESCE(c.Fecha_Ultimo_Movimiento, '1900-01-01'),
+                    COALESCE(c.Fecha_Creacion, '1900-01-01')
+                )) as ultima_modificacion
+                FROM clientes c
+                WHERE c.ID_Empresa = %s 
+                  AND (c.ID_Ruta = %s OR c.ID_Ruta IS NULL)
+            """, (asignacion['ID_Empresa'], asignacion['ID_Ruta']))
+            
+            ultima_modificacion = cursor.fetchone()
+            
+            return jsonify({
+                'success': True,
+                'clientes': clientes,
+                'ultima_modificacion': ultima_modificacion['ultima_modificacion'] if ultima_modificacion else None,
+                'asignacion_id': asignacion['ID_Asignacion']
+            })
+            
+    except Exception as e:
+        print(f"Error en api_sincronizar_clientes_saldos: {str(e)}")
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/vendedor/verificar_stock_venta', methods=['POST'])
+@vendedor_required
+def api_verificar_stock_venta():
+    """Verificar stock antes de sincronizar una venta offline"""
+    try:
+        data = request.get_json()
+        productos = data.get('productos', [])
+        id_asignacion = data.get('asignacion_id')
+        
+        with get_db_cursor() as cursor:
+            errores = []
+            for producto in productos:
+                cursor.execute("""
+                    SELECT ir.Cantidad, p.Descripcion
+                    FROM inventario_ruta ir
+                    INNER JOIN productos p ON ir.ID_Producto = p.ID_Producto
+                    WHERE ir.ID_Asignacion = %s AND ir.ID_Producto = %s
+                """, (id_asignacion, producto['id']))
+                
+                stock = cursor.fetchone()
+                if not stock or float(stock['Cantidad']) < float(producto['cantidad']):
+                    errores.append({
+                        'producto_id': producto['id'],
+                        'nombre': producto.get('nombre', stock['Descripcion'] if stock else 'Producto'),
+                        'stock_disponible': float(stock['Cantidad']) if stock else 0,
+                        'solicitado': float(producto['cantidad'])
+                    })
+            
+            if errores:
+                return jsonify({
+                    'success': False,
+                    'error': 'Stock insuficiente',
+                    'detalles': errores
+                }), 400
+            
+            return jsonify({'success': True})
+            
+    except Exception as e:
+        print(f"Error en api_verificar_stock_venta: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/vendedor/registrar_venta_offline', methods=['POST'])
+@vendedor_required
+def api_registrar_venta_offline():
+    """Endpoint específico para registrar ventas offline sincronizadas"""
+    try:
+        id_vendedor = int(current_user.id)
+        data = request.get_json()
+        
+        with get_db_cursor(commit=True) as cursor:
+            # Verificar asignación activa
+            cursor.execute("""
+                SELECT av.*, r.Nombre_Ruta, u.NombreUsuario as Nombre_Vendedor
+                FROM asignacion_vendedores av
+                INNER JOIN rutas r ON av.ID_Ruta = r.ID_Ruta
+                INNER JOIN usuarios u ON av.ID_Usuario = u.ID_Usuario
+                WHERE av.ID_Usuario = %s 
+                AND av.Estado = 'Activa'
+                LIMIT 1
+            """, (id_vendedor,))
+            asignacion = cursor.fetchone()
+            
+            if not asignacion:
+                return jsonify({'success': False, 'error': 'Sin ruta activa'}), 400
+            
+            # Verificar/crear caja
+            cursor.execute("""
+                SELECT ID_Movimiento, Saldo_Acumulado
+                FROM movimientos_caja_ruta 
+                WHERE ID_Asignacion = %s 
+                AND DATE(Fecha) = CURDATE() 
+                AND Tipo = 'APERTURA'
+                AND Estado = 'ACTIVO'
+            """, (asignacion['ID_Asignacion'],))
+            caja = cursor.fetchone()
+            
+            if not caja:
+                # Crear apertura automática
+                cursor.execute("""
+                    INSERT INTO movimientos_caja_ruta
+                    (ID_Asignacion, ID_Usuario, Tipo, Concepto, Monto, 
+                     Tipo_Pago, Saldo_Acumulado, Estado)
+                    VALUES (%s, %s, 'APERTURA', %s, 0.00, NULL, 0.00, 'ACTIVO')
+                """, (
+                    asignacion['ID_Asignacion'],
+                    id_vendedor,
+                    f"Apertura automática - {datetime.now().strftime('%d/%m/%Y %H:%M')}"
+                ))
+                
+                cursor.execute("SELECT LAST_INSERT_ID() as ID_Movimiento")
+                caja = cursor.fetchone()
+            
+            # Obtener saldo anterior del cliente
+            cursor.execute("""
+                SELECT COALESCE(Saldo_Pendiente_Total, 0) as Saldo_Anterior
+                FROM clientes 
+                WHERE ID_Cliente = %s
+            """, (int(data['cliente_id']),))
+            saldo_anterior = cursor.fetchone()['Saldo_Anterior']
+            
+            # Insertar factura
+            cursor.execute("""
+                INSERT INTO facturacion_ruta 
+                (Fecha, ID_Cliente, ID_Asignacion, Credito_Contado, 
+                 Observacion, Saldo_Anterior_Cliente, ID_Empresa, ID_Usuario_Creacion, Estado)
+                VALUES (CURDATE(), %s, %s, %s, %s, %s, %s, %s, 'Activa')
+            """, (
+                int(data['cliente_id']), 
+                asignacion['ID_Asignacion'], 
+                int(data['tipo_venta']),
+                data.get('observacion', ''),
+                saldo_anterior,
+                asignacion['ID_Empresa'],
+                id_vendedor
+            ))
+            
+            id_factura = cursor.lastrowid
+            
+            # Insertar detalles y actualizar inventario
+            total_venta = 0
+            for producto in data['productos']:
+                total_linea = float(producto['cantidad']) * float(producto['precio'])
+                total_venta += total_linea
+                
+                cursor.execute("""
+                    INSERT INTO detalle_facturacion_ruta
+                    (ID_FacturaRuta, ID_Producto, Cantidad, Precio, Total)
+                    VALUES (%s, %s, %s, %s, %s)
+                """, (id_factura, producto['id'], producto['cantidad'], 
+                      producto['precio'], total_linea))
+                
+                # Actualizar inventario
+                cursor.execute("""
+                    UPDATE inventario_ruta 
+                    SET Cantidad = Cantidad - %s
+                    WHERE ID_Asignacion = %s AND ID_Producto = %s
+                """, (producto['cantidad'], asignacion['ID_Asignacion'], producto['id']))
+            
+            # Registrar en caja según tipo de venta
+            if data['tipo_venta'] == '1':  # Contado
+                cursor.execute("""
+                    SELECT COALESCE(SUM(CASE 
+                        WHEN Tipo = 'GASTO' THEN -Monto 
+                        ELSE Monto 
+                    END), 0) as Saldo_Actual
+                    FROM movimientos_caja_ruta 
+                    WHERE ID_Asignacion = %s 
+                      AND Estado = 'ACTIVO'
+                      AND Tipo != 'CIERRE'
+                """, (asignacion['ID_Asignacion'],))
+                saldo_actual = float(cursor.fetchone()['Saldo_Actual'] or 0)
+                nuevo_saldo = saldo_actual + total_venta
+                
+                cursor.execute("""
+                    INSERT INTO movimientos_caja_ruta
+                    (ID_Asignacion, ID_Usuario, Tipo, Concepto, Monto, 
+                     Tipo_Pago, ID_FacturaRuta, ID_Cliente, Saldo_Acumulado, Estado)
+                    VALUES (%s, %s, 'VENTA', %s, %s, 'CONTADO', %s, %s, %s, 'ACTIVO')
+                """, (
+                    asignacion['ID_Asignacion'],
+                    id_vendedor,
+                    f"Venta Contado Factura #{id_factura}",
+                    total_venta,
+                    id_factura,
+                    int(data['cliente_id']),
+                    nuevo_saldo
+                ))
+            else:  # Crédito
+                # Crear cuenta por cobrar
+                fecha_vencimiento = (datetime.now() + timedelta(days=30)).strftime('%Y-%m-%d')
+                cursor.execute("""
+                    INSERT INTO cuentas_por_cobrar
+                    (Fecha, ID_Cliente, Num_Documento, Observacion, Fecha_Vencimiento,
+                     Tipo_Movimiento, Monto_Movimiento, ID_Empresa, Saldo_Pendiente,
+                     ID_FacturaRuta, ID_Usuario_Creacion, Estado)
+                    VALUES (CURDATE(), %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 'Pendiente')
+                """, (
+                    int(data['cliente_id']),
+                    f"FAC-R{id_factura}",
+                    data.get('observacion', ''),
+                    fecha_vencimiento,
+                    2,  # Tipo_Movimiento (2=Venta)
+                    total_venta,
+                    asignacion['ID_Empresa'],
+                    total_venta,
+                    id_factura,
+                    id_vendedor
+                ))
+                
+                # Actualizar saldo del cliente
+                cursor.execute("""
+                    UPDATE clientes 
+                    SET Saldo_Pendiente_Total = COALESCE(Saldo_Pendiente_Total, 0) + %s,
+                        Fecha_Ultimo_Movimiento = NOW(),
+                        ID_Ultima_Factura = %s
+                    WHERE ID_Cliente = %s
+                """, (total_venta, id_factura, int(data['cliente_id'])))
+            
+            # Procesar abono si existe
+            if data.get('procesar_abono') == '1' and float(data.get('abono_monto', 0)) > 0:
+                monto_abono = float(data['abono_monto'])
+                
+                # Obtener facturas pendientes del cliente
+                cursor.execute("""
+                    SELECT ID_Movimiento, Num_Documento, Saldo_Pendiente,
+                           Fecha_Vencimiento,
+                           CASE 
+                               WHEN Fecha_Vencimiento < CURDATE() THEN 1 
+                               ELSE 2 
+                           END as Prioridad
+                    FROM cuentas_por_cobrar
+                    WHERE ID_Cliente = %s 
+                      AND Estado IN ('Pendiente', 'Vencida')
+                      AND Saldo_Pendiente > 0
+                    ORDER BY Prioridad ASC, Fecha_Vencimiento ASC
+                """, (int(data['cliente_id']),))
+                
+                facturas_pendientes = cursor.fetchall()
+                
+                if facturas_pendientes:
+                    # Registrar movimiento de abono en caja
+                    cursor.execute("""
+                        SELECT COALESCE(SUM(CASE 
+                            WHEN Tipo = 'GASTO' THEN -Monto 
+                            ELSE Monto 
+                        END), 0) as Saldo_Actual
+                        FROM movimientos_caja_ruta
+                        WHERE ID_Asignacion = %s 
+                          AND Estado = 'ACTIVO'
+                          AND Tipo != 'CIERRE'
+                    """, (asignacion['ID_Asignacion'],))
+                    saldo_actual = float(cursor.fetchone()['Saldo_Actual'] or 0)
+                    nuevo_saldo_caja = saldo_actual + monto_abono
+                    
+                    cursor.execute("""
+                        INSERT INTO movimientos_caja_ruta
+                        (ID_Asignacion, ID_Usuario, Tipo, Concepto, Monto, 
+                         Tipo_Pago, ID_FacturaRuta, ID_Cliente, Saldo_Acumulado, Estado)
+                        VALUES (%s, %s, 'ABONO', %s, %s, %s, %s, %s, %s, 'ACTIVO')
+                    """, (
+                        asignacion['ID_Asignacion'],
+                        id_vendedor,
+                        f"Abono a cuenta - Factura #{id_factura}",
+                        monto_abono,
+                        'CONTADO' if data['tipo_venta'] == '1' else 'CREDITO',
+                        id_factura,
+                        int(data['cliente_id']),
+                        nuevo_saldo_caja
+                    ))
+                    
+                    id_movimiento_caja = cursor.lastrowid
+                    
+                    # Distribuir el abono
+                    monto_restante = monto_abono
+                    for factura in facturas_pendientes:
+                        if monto_restante <= 0:
+                            break
+                            
+                        saldo_factura = float(factura['Saldo_Pendiente'])
+                        monto_aplicar = min(monto_restante, saldo_factura)
+                        nuevo_saldo_factura = saldo_factura - monto_aplicar
+                        nuevo_estado = 'Pagada' if nuevo_saldo_factura <= 0 else 'Pendiente'
+                        
+                        cursor.execute("""
+                            UPDATE cuentas_por_cobrar
+                            SET Saldo_Pendiente = %s, 
+                                Estado = %s
+                            WHERE ID_Movimiento = %s
+                        """, (nuevo_saldo_factura, nuevo_estado, factura['ID_Movimiento']))
+                        
+                        cursor.execute("""
+                            INSERT INTO abonos_detalle
+                            (ID_Movimiento_Caja, ID_Asignacion, ID_Usuario, ID_Cliente, 
+                             ID_CuentaCobrar, Monto_Aplicado, Saldo_Anterior, Saldo_Nuevo)
+                            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                        """, (
+                            id_movimiento_caja,
+                            asignacion['ID_Asignacion'],
+                            id_vendedor,
+                            int(data['cliente_id']),
+                            factura['ID_Movimiento'],
+                            monto_aplicar,
+                            saldo_factura,
+                            nuevo_saldo_factura
+                        ))
+                        
+                        monto_restante -= monto_aplicar
+                    
+                    # Actualizar saldo del cliente
+                    cursor.execute("""
+                        UPDATE clientes 
+                        SET Saldo_Pendiente_Total = GREATEST(0, COALESCE(Saldo_Pendiente_Total, 0) - %s),
+                            Fecha_Ultimo_Pago = NOW()
+                        WHERE ID_Cliente = %s
+                    """, (monto_abono, int(data['cliente_id'])))
+            
+            return jsonify({
+                'success': True,
+                'id_venta': id_factura,
+                'ticket_url': url_for('vendedor_generar_ticket_ruta', id_venta=id_factura, autoPrint=1, _external=True)
+            })
+            
+    except Exception as e:
+        print(f"Error en api_registrar_venta_offline: {str(e)}")
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/vendedor/asignacion_actual', methods=['GET'])
+@vendedor_required
+def api_asignacion_actual():
+    """Obtener la asignación actual del vendedor"""
+    try:
+        id_vendedor = int(current_user.id)
+        
+        with get_db_cursor() as cursor:
+            cursor.execute("""
+                SELECT av.ID_Asignacion, av.ID_Ruta, av.ID_Empresa,
+                       r.Nombre_Ruta
+                FROM asignacion_vendedores av
+                INNER JOIN rutas r ON av.ID_Ruta = r.ID_Ruta
+                WHERE av.ID_Usuario = %s AND av.Estado = 'Activa'
+                LIMIT 1
+            """, (id_vendedor,))
+            
+            asignacion = cursor.fetchone()
+            
+            if not asignacion:
+                return jsonify({'success': False, 'error': 'Sin ruta activa'}), 400
+                
+            return jsonify({
+                'success': True,
+                'asignacion_id': asignacion['ID_Asignacion'],
+                'ruta_id': asignacion['ID_Ruta'],
+                'ruta_nombre': asignacion['Nombre_Ruta'],
+                'empresa_id': asignacion['ID_Empresa']
+            })
+            
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
 # =================================
 #  CAJA DE MOVIMIENTOS DE EFECTIVOS
 # =================================
