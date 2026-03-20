@@ -17519,6 +17519,10 @@ def api_verificar_saldo_cliente(id_cliente):
             'error': str(e)
         }), 500
 
+# =================================
+#  CAJA DE MOVIMIENTOS DE EFECTIVOS
+# =================================
+
 @app.route('/vendedor/caja/mis_movimientos', methods=['GET'])
 @vendedor_required
 def mis_movimientos_caja():
