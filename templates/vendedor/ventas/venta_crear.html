@@ -6,6 +6,10 @@
 <div class="container-fluid mt-2 mt-md-4 px-2 px-md-3">
     <!-- Indicador de ventas pendientes offline -->
     <div id="offline-indicator-container"></div>
+    <select id="usuario" class="form-select">
+        <option value="{{ current_user.username }}" data-usuario="{{ current_user.username }}" selected>{{ current_user.username }}
+        </option>
+    </select>
 
     <!-- ============================================ -->
     <!-- ENCABEZADO RESPONSIVO                        -->
@@ -723,58 +727,79 @@
     // ============================================
     // GENERAR VISTA PREVIA DE FACTURA OFFLINE - CORREGIDA
     // ============================================
-    function generarVistaPreviaOffline(venta, autoPrint = false) {
-        try {
-            const clienteSelect = getElement('cliente');
-            const option = clienteSelect?.options[clienteSelect.selectedIndex];
+// ============================================
+// GENERAR VISTA PREVIA DE FACTURA OFFLINE - CORREGIDA
+// ============================================
+function generarVistaPreviaOffline(venta, autoPrint = false) {
+    try {
+        const clienteSelect = getElement('cliente');
+        const option = clienteSelect?.options[clienteSelect.selectedIndex];
 
-            const empresa = {
-                nombre: 'FERDEL',
-                ruc: '123456789-0',
-                direccion: 'Dirección de la empresa',
-                telefono: '1234-5678',
-                logo: '/static/ferdel.png'
-            };
+        // CORRECCIÓN: Obtener datos del usuario del select
+        const usuarioSelect = getElement('usuario');
+        let nombreUsuario = 'VENDEDOR';
+        
+        // Verificar que usuarioSelect existe y tiene una opción seleccionada
+        if (usuarioSelect && usuarioSelect.selectedIndex >= 0) {
+            const userOption = usuarioSelect.options[usuarioSelect.selectedIndex];
+            // Obtener el nombre del usuario del atributo data-usuario o del texto de la opción
+            nombreUsuario = userOption.dataset.usuario || userOption.textContent || 'VENDEDOR';
+            console.log('Usuario seleccionado:', nombreUsuario); // Para depuración
+        } else {
+            console.warn('No se encontró el select de usuario o no hay opción seleccionada');
+        }
 
-            const cliente = {
-                id: venta.datos.cliente,
-                nombre: option?.dataset.nombre || 'Cliente',
-                ruc: option?.dataset.ruc || 'N/A',
-                telefono: option?.dataset.telefono || 'N/A',
-                direccion: option?.dataset.direccion || 'N/A'
-            };
+        // Datos de la empresa (puedes personalizarlos)
+        const empresa = {
+            nombre: 'FERDEL',
+            ruc: '123456789-0',
+            direccion: 'Dirección de la empresa',
+            telefono: '1234-5678',
+            logo: '/static/ferdel.png'
+        };
 
-            const fecha = new Date();
-            const fechaFormateada = fecha.toLocaleDateString('es-ES') + ' ' +
-                fecha.toLocaleTimeString('es-ES');
+        // Datos del cliente
+        const cliente = {
+            id: venta.datos.cliente,
+            nombre: option?.dataset.nombre || 'Cliente General',
+            ruc: option?.dataset.ruc || 'N/A',
+            telefono: option?.dataset.telefono || 'N/A',
+            direccion: option?.dataset.direccion || 'N/A'
+        };
 
-            const tipoVenta = venta.datos.tipo_venta === '1' ? 'CONTADO' : 'CRÉDITO';
+        const fecha = new Date();
+        const fechaFormateada = fecha.toLocaleDateString('es-ES') + ' ' +
+            fecha.toLocaleTimeString('es-ES');
 
-            const totalVenta = venta.datos.total;
-            const saldoAnterior = saldoClienteActual || 0;
-            const abono = parseFloat(venta.datos.abono_monto) || 0;
-            const saldoTotal = totalVenta + saldoAnterior;
-            const nuevoSaldo = Math.max(0, saldoTotal - abono);
+        const tipoVenta = venta.datos.tipo_venta === '1' ? 'CONTADO' : 'CRÉDITO';
 
-            const facturaId = venta.id.slice(-8).toUpperCase();
+        const totalVenta = venta.datos.total;
+        const saldoAnterior = saldoClienteActual || 0;
+        const abono = parseFloat(venta.datos.abono_monto) || 0;
+        const saldoTotal = totalVenta + saldoAnterior;
+        const nuevoSaldo = Math.max(0, saldoTotal - abono);
 
-            const productosHtml = venta.datos.productos.map(p => {
-                const subtotal = p.cantidad * p.precio;
-                return `
-                    <tr>
-                        <td class="text-left">
-                            <div class="product-desc" title="${p.nombre.replace(/"/g, '&quot;')}">
-                                ${p.nombre}
-                            </div>
-                            <div class="product-code">Cod: ${p.codigo}</div>
-                        </td>
-                        <td class="text-right">${p.cantidad}</td>
-                        <td class="text-right">C$ ${p.precio.toFixed(2)}</td>
-                        <td class="text-right">C$ ${subtotal.toFixed(2)}</td>
-                    </tr>`;
-            }).join('');
+        const facturaId = venta.id.slice(-8).toUpperCase();
 
-            const ticketHtml = `<!DOCTYPE html>
+        // Generar HTML de productos
+        const productosHtml = venta.datos.productos.map(p => {
+            const subtotal = p.cantidad * p.precio;
+            return `
+                <tr>
+                    <td class="text-left">
+                        <div class="product-desc" title="${p.nombre.replace(/"/g, '&quot;')}">
+                            ${p.nombre}
+                        </div>
+                        <div class="product-code">Cod: ${p.codigo}</div>
+                    </td>
+                    <td class="text-right">${p.cantidad}</td>
+                    <td class="text-right">C$ ${p.precio.toFixed(2)}</td>
+                    <td class="text-right">C$ ${subtotal.toFixed(2)}</td>
+                </tr>`;
+        }).join('');
+
+        // Template completo del ticket
+        const ticketHtml = `<!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
@@ -842,7 +867,7 @@
         <div class="text-center">
             <div class="size-13 bold">FACTURA #${facturaId}</div>
             <div class="size-9">Emision: ${fechaFormateada}</div>
-            <div class="size-9">Atendido por: VENDEDOR</div>
+            <div class="size-9">Atendido por: <strong>${nombreUsuario}</strong></div>
             <div class="divider"></div>
         </div>
         <div class="size-9" style="background: #f5f5f5; padding: 5px; border-radius: 3px;">
@@ -920,36 +945,35 @@
 </body>
 </html>`;
 
-            try {
-                const ventana = window.open('', '_blank');
-                if (!ventana) {
-                    Swal.fire({
-                        icon: 'warning',
-                        title: 'Popup bloqueado',
-                        text: 'Permite ventanas emergentes para ver la factura',
-                        confirmButtonText: 'Intentar de nuevo'
-                    }).then(() => {
-                        const newWindow = window.open('', '_blank', 'width=800,height=600');
-                        if (newWindow) {
-                            newWindow.document.write(ticketHtml);
-                            newWindow.document.close();
-                        }
-                    });
-                    return;
-                }
-                ventana.document.write(ticketHtml);
-                ventana.document.close();
-            } catch (error) {
-                console.error('Error al abrir ventana:', error);
-                showAlert('error', 'No se pudo abrir la ventana de factura');
+        try {
+            const ventana = window.open('', '_blank');
+            if (!ventana) {
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Popup bloqueado',
+                    text: 'Permite ventanas emergentes para ver la factura',
+                    confirmButtonText: 'Intentar de nuevo'
+                }).then(() => {
+                    const newWindow = window.open('', '_blank', 'width=800,height=600');
+                    if (newWindow) {
+                        newWindow.document.write(ticketHtml);
+                        newWindow.document.close();
+                    }
+                });
+                return;
             }
-
+            ventana.document.write(ticketHtml);
+            ventana.document.close();
         } catch (error) {
-            console.error('Error generando vista previa:', error);
-            showAlert('error', 'No se pudo generar la vista previa');
+            console.error('Error al abrir ventana:', error);
+            showAlert('error', 'No se pudo abrir la ventana de factura');
         }
-    }
 
+    } catch (error) {
+        console.error('Error generando vista previa:', error);
+        showAlert('error', 'No se pudo generar la vista previa');
+    }
+}
     // ============================================
     // FUNCIÓN PRINCIPAL DE ENVÍO
     // ============================================
@@ -1793,7 +1817,7 @@
                     </div>
                     <div class="col-4 col-sm-3">
                         <small class="text-muted d-block">Acción</small>
-                        <button class="btn btn-sm btn-danger w-100" onclick="event.preventDefault(); event.stopPropagation(); eliminarProductoMovil(${index})"><i class="fas fa-trash"></i></button>
+                        <button class="btn btn-sm btn-danger w-100" onclick="event.preventDefault(); event.stopPropagation(); eliminarProductoMovil(${index})"><i class="fas fa-trash">Quitar</i></button>
                     </div>
                 </div>
             </div>`;
