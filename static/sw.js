@@ -1,5 +1,5 @@
 // static/sw.js - Service Worker
-const CACHE_NAME = 'vendedor-cache-v1';
+const CACHE_NAME = 'vendedor-cache-v2';
 
 // SOLO las rutas que existen en tu app
 const urlsToCache = [
@@ -14,7 +14,10 @@ const urlsToCache = [
   '/vendedor/movimientos/historial',
   '/vendedor/movimientos/entrada-bodega',
   '/vendedor/movimientos/devolucion-bodega',
-  '/vendedor/movimientos/merma'
+  '/vendedor/movimientos/merma',
+  'static/icon/icon-192.png',
+  'static/ferdel.png'
+
 ];
 
 self.addEventListener('install', event => {

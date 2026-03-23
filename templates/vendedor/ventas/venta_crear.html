@@ -647,6 +647,7 @@
 
 <!-- SweetAlert2 y localForage -->
 <!-- SweetAlert2 y localForage -->
+<!-- SweetAlert2 y localForage -->
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script src="https://cdn.jsdelivr.net/npm/localforage@1.10.0/dist/localforage.min.js"></script>
 
@@ -771,13 +772,13 @@
             const productosHtml = venta.datos.productos.map(p => {
                 const subtotal = p.cantidad * p.precio;
                 return `
-                  <tr>
+                   <tr>
                     <td class="text-left">
                         <div class="product-desc" title="${p.nombre.replace(/"/g, '&quot;')}">
                             ${p.nombre}
                         </div>
                         <div class="product-code">Cod: ${p.codigo}</div>
-                     </td>
+                      </td>
                     <td class="text-right">${p.cantidad}</td>
                     <td class="text-right">C$ ${p.precio.toFixed(2)}</td>
                     <td class="text-right">C$ ${subtotal.toFixed(2)}</td>
@@ -1126,14 +1127,49 @@
         }
     }
 
+    function cargarInventarioDesdeSelect() {
+        const productoSelect = document.getElementById('producto_select');
+        if (!productoSelect) return;
+        
+        const opciones = Array.from(productoSelect.options);
+        const inventarioLocal = [];
+        
+        opciones.forEach(opt => {
+            if (opt.value) {
+                inventarioLocal.push({
+                    ID_Producto: parseInt(opt.value),
+                    Nombre: opt.dataset.nombre || opt.text.split(' - ')[0],
+                    COD_Producto: opt.dataset.codigo || '',
+                    Precio_Ruta: parseFloat(opt.dataset.precio) || 0,
+                    Stock_Disponible: parseInt(opt.dataset.stock) || 0,
+                    Unidad_Medida: opt.dataset.unidad || 'Und'
+                });
+            }
+        });
+        
+        if (inventarioLocal.length > 0) {
+            localforage.setItem('inventario_local', {
+                data: inventarioLocal,
+                ultima_sincronizacion: new Date().toISOString(),
+                ultima_modificacion: new Date().toISOString(),
+                version: '2.0',
+                es_fallback: true
+            });
+            actualizarInventarioEnUI(inventarioLocal);
+        }
+    }
+
     async function sincronizarDatosIniciales() {
         try {
             const metadata = await localforage.getItem('sync_metadata');
 
             if (!navigator.onLine) {
                 const inventarioLocal = await localforage.getItem('inventario_local');
-                if (inventarioLocal && inventarioLocal.data) {
+                if (inventarioLocal && inventarioLocal.data && inventarioLocal.data.length > 0) {
                     actualizarInventarioEnUI(inventarioLocal.data);
+                    showToast('info', 'Modo offline', 'Usando datos almacenados localmente');
+                } else {
+                    cargarInventarioDesdeSelect();
                 }
                 verificarVentasPendientes();
                 return true;
@@ -1148,64 +1184,95 @@
             });
 
             let progress = 0;
+            let inventarioActualizado = false;
 
-            const ultimaSyncInventario = metadata?.ultima_sync_inventario || null;
-            const urlInventario = ultimaSyncInventario
-                ? `/api/vendedor/sincronizar_inventario?ultima_sincronizacion=${encodeURIComponent(ultimaSyncInventario)}`
-                : '/api/vendedor/sincronizar_inventario';
-
-            const inventarioResponse = await fetch(urlInventario);
-            const inventarioData = await inventarioResponse.json();
-
-            if (inventarioData.success) {
-                await localforage.setItem('inventario_local', {
-                    data: inventarioData.inventario,
-                    ultima_sincronizacion: new Date().toISOString(),
-                    ultima_modificacion: inventarioData.ultima_modificacion,
-                    version: '2.0',
-                    asignacion_id: inventarioData.asignacion_id
+            try {
+                const inventarioResponse = await fetch('/api/vendedor/sincronizar_inventario', {
+                    method: 'GET',
+                    headers: { 'X-Requested-With': 'XMLHttpRequest' }
                 });
-                actualizarInventarioEnUI(inventarioData.inventario);
-                progress += 40;
-                const progressBar = document.getElementById('sync-progress-bar');
-                if (progressBar) { progressBar.style.width = progress + '%'; progressBar.textContent = progress + '%'; }
+
+                if (inventarioResponse.ok) {
+                    const inventarioData = await inventarioResponse.json();
+                    if (inventarioData && inventarioData.success) {
+                        await localforage.setItem('inventario_local', {
+                            data: inventarioData.inventario || [],
+                            ultima_sincronizacion: new Date().toISOString(),
+                            ultima_modificacion: inventarioData.ultima_modificacion || new Date().toISOString(),
+                            version: '2.0',
+                            asignacion_id: inventarioData.asignacion_id || null
+                        });
+                        actualizarInventarioEnUI(inventarioData.inventario || []);
+                        inventarioActualizado = true;
+                        progress += 50;
+                        const progressBar = document.getElementById('sync-progress-bar');
+                        if (progressBar) { 
+                            progressBar.style.width = progress + '%'; 
+                            progressBar.textContent = progress + '%'; 
+                        }
+                    }
+                }
+            } catch (error) {
+                console.warn('Error sincronizando inventario:', error);
+                const inventarioLocal = await localforage.getItem('inventario_local');
+                if (inventarioLocal && inventarioLocal.data && inventarioLocal.data.length > 0) {
+                    actualizarInventarioEnUI(inventarioLocal.data);
+                    inventarioActualizado = true;
+                } else {
+                    cargarInventarioDesdeSelect();
+                }
             }
 
-            const ultimaSyncClientes = metadata?.ultima_sync_clientes || null;
-            const urlClientes = ultimaSyncClientes
-                ? `/api/vendedor/sincronizar_clientes_saldos?ultima_sincronizacion=${encodeURIComponent(ultimaSyncClientes)}`
-                : '/api/vendedor/sincronizar_clientes_saldos';
-
-            const clientesResponse = await fetch(urlClientes);
-            const clientesData = await clientesResponse.json();
-
-            if (clientesData.success) {
-                const clientesMap = {};
-                clientesData.clientes.forEach(cliente => {
-                    clientesMap[cliente.ID_Cliente] = cliente;
+            try {
+                const clientesResponse = await fetch('/api/vendedor/sincronizar_clientes_saldos', {
+                    method: 'GET',
+                    headers: { 'X-Requested-With': 'XMLHttpRequest' }
                 });
-                await localforage.setItem('clientes_saldos', {
-                    data: clientesMap,
-                    lista: clientesData.clientes,
-                    ultima_sincronizacion: new Date().toISOString(),
-                    ultima_modificacion: clientesData.ultima_modificacion,
-                    version: '2.0'
-                });
-                progress += 40;
-                const progressBar = document.getElementById('sync-progress-bar');
-                if (progressBar) { progressBar.style.width = progress + '%'; progressBar.textContent = progress + '%'; }
+
+                if (clientesResponse.ok) {
+                    const clientesData = await clientesResponse.json();
+                    if (clientesData && clientesData.success) {
+                        const clientesMap = {};
+                        const clientesLista = clientesData.clientes || [];
+                        clientesLista.forEach(cliente => {
+                            if (cliente && cliente.ID_Cliente) {
+                                clientesMap[cliente.ID_Cliente] = cliente;
+                            }
+                        });
+                        await localforage.setItem('clientes_saldos', {
+                            data: clientesMap,
+                            lista: clientesLista,
+                            ultima_sincronizacion: new Date().toISOString(),
+                            ultima_modificacion: clientesData.ultima_modificacion || new Date().toISOString(),
+                            version: '2.0'
+                        });
+                        progress += 50;
+                        const progressBar = document.getElementById('sync-progress-bar');
+                        if (progressBar) { 
+                            progressBar.style.width = progress + '%'; 
+                            progressBar.textContent = progress + '%'; 
+                        }
+                    }
+                }
+            } catch (error) {
+                console.warn('Error sincronizando clientes:', error);
             }
 
             await localforage.setItem('sync_metadata', {
-                ultima_sync_inventario: inventarioData.ultima_modificacion,
-                ultima_sync_clientes: clientesData.ultima_modificacion,
+                ultima_sync_inventario: new Date().toISOString(),
+                ultima_sync_clientes: new Date().toISOString(),
                 ultima_sync_completa: new Date().toISOString(),
                 version: '2.0'
             });
 
             await new Promise(resolve => setTimeout(resolve, 500));
             Swal.close();
-            showToast('success', 'Sincronización completa', 'Datos actualizados correctamente');
+
+            if (inventarioActualizado) {
+                showToast('success', 'Sincronización completa', 'Datos actualizados correctamente');
+            } else {
+                showToast('warning', 'Sincronización parcial', 'Usando datos locales disponibles');
+            }
 
             const ventas = await localforage.getItem('ventas_offline') || [];
             const pendientes = ventas.filter(v => v.estado === 'pendiente');
@@ -1228,16 +1295,18 @@
             console.error('Error en sincronización inicial:', error);
             Swal.close();
             const inventarioLocal = await localforage.getItem('inventario_local');
-            if (inventarioLocal && inventarioLocal.data) {
+            if (inventarioLocal && inventarioLocal.data && inventarioLocal.data.length > 0) {
                 actualizarInventarioEnUI(inventarioLocal.data);
                 showToast('warning', 'Datos locales', 'Usando información almacenada localmente');
+            } else {
+                cargarInventarioDesdeSelect();
             }
             return false;
         }
     }
 
     // ============================================
-    // FUNCIÓN PRINCIPAL DE ENVÍO - CORREGIDA CON INVENTARIO OFFLINE
+    // FUNCIÓN PRINCIPAL DE ENVÍO - CORREGIDA
     // ============================================
     async function manejarEnvioFormulario(event) {
         event.preventDefault();
@@ -1433,6 +1502,7 @@
             const ventas = await localforage.getItem('ventas_offline') || [];
             ventas.push(venta);
             await localforage.setItem('ventas_offline', ventas);
+            verificarVentasPendientes();
             return true;
         } catch (error) {
             console.error('Error guardando venta:', error);
@@ -1475,62 +1545,13 @@
                 return;
             }
 
-            Swal.fire({
-                title: 'Verificando inventario...',
-                text: 'Validando stock disponible',
-                allowOutsideClick: false,
-                didOpen: () => Swal.showLoading()
-            });
-
-            const productosAgrupados = {};
-            pendientes.forEach(venta => {
-                venta.datos.productos.forEach(prod => {
-                    if (!productosAgrupados[prod.id]) {
-                        productosAgrupados[prod.id] = {
-                            id: prod.id,
-                            nombre: prod.nombre,
-                            cantidad_total: 0
-                        };
-                    }
-                    productosAgrupados[prod.id].cantidad_total += prod.cantidad;
-                });
-            });
-
-            const stockCheckResponse = await fetch('/api/vendedor/verificar_stock_venta', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ productos: Object.values(productosAgrupados) })
-            });
-
-            const stockResult = await stockCheckResponse.json();
-
-            if (!stockResult.success) {
-                Swal.close();
-                Swal.fire({
-                    icon: 'error',
-                    title: 'Stock insuficiente',
-                    html: `<div style="text-align: left;">
-                        <p>No se puede sincronizar. Stock insuficiente para:</p>
-                        ${stockResult.detalles.map(d => 
-                            `<div class="alert alert-warning py-1 mb-1"><strong>${d.nombre}</strong>: Disponible ${d.stock_disponible}, Necesario ${d.solicitado}</div>`
-                        ).join('')}
-                        <div class="alert alert-info mt-2 small">
-                            <i class="fas fa-info-circle"></i> Las ventas pendientes se mantendrán guardadas localmente.
-                        </div>
-                    </div>`,
-                    confirmButtonText: 'Aceptar'
-                });
-                sincronizando = false;
-                return;
-            }
-
-            Swal.close();
-
             const confirmar = await Swal.fire({
                 title: 'Sincronizar ventas',
                 html: `<p>Hay <strong>${pendientes.length}</strong> venta(s) pendiente(s).</p>
                        <p class="text-warning">Total: ${formatoCordoba(pendientes.reduce((sum, v) => sum + (v.datos?.total || 0), 0))}</p>
-                       <div class="alert alert-success mt-2"><i class="fas fa-check-circle"></i> Stock verificado correctamente.</div>`,
+                       <div class="alert alert-info mt-2">
+                           <i class="fas fa-info-circle"></i> Las ventas se sincronizarán con el servidor.
+                       </div>`,
                 icon: 'question',
                 showCancelButton: true,
                 confirmButtonText: '<i class="fas fa-sync"></i> Sincronizar',
@@ -1567,55 +1588,97 @@
                 const syncStatus = document.getElementById('sync-status');
                 const syncDetails = document.getElementById('sync-details');
 
-                if (progressBar) { progressBar.style.width = progress + '%'; progressBar.textContent = progress + '%'; }
-                if (syncStatus) { syncStatus.innerHTML = `<p><i class="fas fa-spinner fa-spin text-primary"></i> Procesando ${i + 1} de ${pendientes.length}</p><p class="fw-bold">Venta: ${formatoCordoba(venta.datos.total)}</p>`; }
+                if (progressBar) { 
+                    progressBar.style.width = progress + '%'; 
+                    progressBar.textContent = progress + '%'; 
+                }
+                if (syncStatus) { 
+                    syncStatus.innerHTML = `<p><i class="fas fa-spinner fa-spin text-primary"></i> Procesando ${i + 1} de ${pendientes.length}</p><p class="fw-bold">Venta: ${formatoCordoba(venta.datos?.total || 0)}</p>`; 
+                }
 
                 try {
-                    const ventaData = {
-                        cliente_id: venta.datos.cliente,
-                        tipo_venta: venta.datos.tipo_venta,
-                        observacion: venta.datos.observacion || '',
-                        productos: venta.datos.productos,
-                        abono_monto: venta.datos.abono_monto || '0',
-                        abono_metodo_pago: venta.datos.abono_metodo_pago || '',
-                        procesar_abono: venta.datos.procesar_abono || '0'
-                    };
+                    const formData = new FormData();
+                    formData.append('cliente', venta.datos?.cliente || '');
+                    formData.append('tipo_venta', venta.datos?.tipo_venta || '1');
+                    formData.append('observacion', venta.datos?.observacion || '');
+                    formData.append('productos', JSON.stringify(venta.datos?.productos || []));
+                    formData.append('abono_monto', venta.datos?.abono_monto || '0');
+                    formData.append('abono_metodo_pago', venta.datos?.abono_metodo_pago || '');
+                    formData.append('procesar_abono', venta.datos?.procesar_abono || '0');
 
-                    const response = await fetch('/api/vendedor/registrar_venta_offline', {
+                    const response = await fetch('/vendedor/venta/crear', {
                         method: 'POST',
-                        headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
-                        body: JSON.stringify(ventaData)
+                        body: formData,
+                        headers: { 'X-Requested-With': 'XMLHttpRequest' }
                     });
 
-                    const data = await response.json();
-
-                    if (data.success) {
-                        sincronizadas++;
-                        if (data.id_venta) {
+                    if (response.redirected) {
+                        const url = response.url;
+                        const match = url.match(/\/vendedor\/venta\/(\d+)\/ticket/);
+                        if (match) {
+                            const facturaId = match[1];
                             ticketsGenerados.push({
-                                id: data.id_venta,
-                                url: data.ticket_url || `/vendedor/venta/${data.id_venta}/ticket`,
-                                total: venta.datos.total,
+                                id: facturaId,
+                                url: url,
+                                total: venta.datos?.total || 0,
                                 fecha: venta.fecha_creacion
                             });
+                            sincronizadas++;
+                            
                             if (syncDetails) {
-                                syncDetails.innerHTML += `<div class="alert alert-success py-1 mb-1 small"><i class="fas fa-check-circle"></i> Venta #${data.id_venta} sincronizada - ${formatoCordoba(venta.datos.total)}</div>`;
+                                syncDetails.innerHTML += `<div class="alert alert-success py-1 mb-1 small"><i class="fas fa-check-circle"></i> Venta #${facturaId} sincronizada - ${formatoCordoba(venta.datos?.total || 0)}</div>`;
                                 syncDetails.scrollTop = syncDetails.scrollHeight;
                             }
+                            
+                            const ventaIndex = ventasActualizadas.findIndex(v => v.id === venta.id);
+                            if (ventaIndex !== -1) {
+                                ventasActualizadas[ventaIndex] = {
+                                    ...ventasActualizadas[ventaIndex],
+                                    estado: 'sincronizada',
+                                    factura_id: facturaId,
+                                    ticket_url: url,
+                                    fecha_sincronizacion: new Date().toISOString()
+                                };
+                            }
+                        } else {
+                            throw new Error('No se pudo obtener ID de factura');
                         }
-
-                        const ventaIndex = ventasActualizadas.findIndex(v => v.id === venta.id);
-                        if (ventaIndex !== -1) {
-                            ventasActualizadas[ventaIndex] = {
-                                ...ventasActualizadas[ventaIndex],
-                                estado: 'sincronizada',
-                                factura_id: data.id_venta,
-                                ticket_url: data.ticket_url,
-                                fecha_sincronizacion: new Date().toISOString()
-                            };
+                    } else if (response.ok) {
+                        try {
+                            const data = await response.json();
+                            if (data.id_venta) {
+                                ticketsGenerados.push({
+                                    id: data.id_venta,
+                                    url: `/vendedor/venta/${data.id_venta}/ticket`,
+                                    total: venta.datos?.total || 0,
+                                    fecha: venta.fecha_creacion
+                                });
+                                sincronizadas++;
+                                
+                                if (syncDetails) {
+                                    syncDetails.innerHTML += `<div class="alert alert-success py-1 mb-1 small"><i class="fas fa-check-circle"></i> Venta #${data.id_venta} sincronizada - ${formatoCordoba(venta.datos?.total || 0)}</div>`;
+                                    syncDetails.scrollTop = syncDetails.scrollHeight;
+                                }
+                                
+                                const ventaIndex = ventasActualizadas.findIndex(v => v.id === venta.id);
+                                if (ventaIndex !== -1) {
+                                    ventasActualizadas[ventaIndex] = {
+                                        ...ventasActualizadas[ventaIndex],
+                                        estado: 'sincronizada',
+                                        factura_id: data.id_venta,
+                                        ticket_url: `/vendedor/venta/${data.id_venta}/ticket`,
+                                        fecha_sincronizacion: new Date().toISOString()
+                                    };
+                                }
+                            } else {
+                                throw new Error('Respuesta sin ID de venta');
+                            }
+                        } catch (e) {
+                            throw new Error('Error al procesar respuesta del servidor');
                         }
                     } else {
-                        throw new Error(data.error || 'Error desconocido');
+                        const errorText = await response.text();
+                        throw new Error(`Error ${response.status}: ${errorText.substring(0, 100)}`);
                     }
 
                     await new Promise(resolve => setTimeout(resolve, 300));
@@ -1630,10 +1693,18 @@
             }
 
             const progressBar = document.getElementById('sync-progress-bar');
-            if (progressBar) { progressBar.style.width = '100%'; progressBar.textContent = '100%'; }
+            if (progressBar) { 
+                progressBar.style.width = '100%'; 
+                progressBar.textContent = '100%'; 
+            }
 
             await localforage.setItem('ventas_offline', ventasActualizadas);
-            await sincronizarDatosIniciales();
+            
+            try {
+                await sincronizarDatosIniciales();
+            } catch (syncError) {
+                console.warn('Error al sincronizar datos después de ventas:', syncError);
+            }
 
             Swal.close();
 
@@ -1652,6 +1723,20 @@
                 if (verTickets.isConfirmed && ticketsGenerados.length > 0) {
                     mostrarTicketsSincronizados(ticketsGenerados);
                 }
+            } else if (sincronizadas > 0) {
+                await Swal.fire({
+                    icon: 'success',
+                    title: '✅ Sincronización completada',
+                    text: `${sincronizadas} venta(s) sincronizada(s) correctamente.`,
+                    timer: 3000
+                });
+            } else if (fallidas > 0) {
+                await Swal.fire({
+                    icon: 'warning',
+                    title: '⚠️ Sincronización incompleta',
+                    text: `${fallidas} venta(s) no pudieron sincronizarse.`,
+                    timer: 3000
+                });
             }
 
             verificarVentasPendientes();
@@ -1927,7 +2012,7 @@
         const saldoInfo = getElement('saldo-info');
         if (!saldoInfo) return;
 
-        let html = `<div class="card mb-2 border-warning" style="border-width: 2px;"><div class="card-header bg-warning py-2"><h6 class="mb-0 small fw-bold"><i class="fas fa-exclamation-triangle me-2"></i>Cliente con Saldo Pendiente</h6></div><div class="card-body p-2"><div class="row g-2"><div class="col-6"><small><strong>Cliente:</strong> ${cliente.nombre}</small></div><div class="col-6"><small><strong>Documento:</strong> ${cliente.ruc}</small></div><div class="col-6"><small><strong>Saldo Pendiente:</strong></small></div><div class="col-6 text-end"><small class="text-danger fw-bold" style="font-size: 14px;">${formatoCordoba(cliente.saldo_pendiente)}</small></div></div><hr class="my-2"><div class="table-responsive" style="max-height: 150px; overflow-y: auto;"><table class="table table-sm table-bordered small"><thead class="table-light" style="position: sticky; top: 0;"> <tr><th>Documento</th><th>Fecha</th><th class="text-end">Saldo</th></tr> </thead><tbody>${facturas.map(f => `<tr><td>${f.Num_Documento}</td><td>${formatearFecha(f.Fecha)}</td><td class="text-end">${formatoCordoba(f.Saldo_Pendiente)}</td></tr>`).join('')}</tbody> </table></div><div class="row g-2 mt-2 p-2 bg-light rounded"><div class="col-6"><small><strong>Total Nueva Venta:</strong></small></div><div class="col-6 text-end"><small><span id="total-nueva-venta" class="fw-bold">C$ 0.00</span></small></div><div class="col-6"><small><strong>Total Pendiente con Nueva:</strong></small></div><div class="col-6 text-end"><small class="text-danger fw-bold" style="font-size: 14px;"><span id="total-pendiente-con-nueva">${formatoCordoba(cliente.saldo_pendiente)}</span></small></div></div></div></div>`;
+        let html = `<div class="card mb-2 border-warning" style="border-width: 2px;"><div class="card-header bg-warning py-2"><h6 class="mb-0 small fw-bold"><i class="fas fa-exclamation-triangle me-2"></i>Cliente con Saldo Pendiente</h6></div><div class="card-body p-2"><div class="row g-2"><div class="col-6"><small><strong>Cliente:</strong> ${cliente.nombre}</small></div><div class="col-6"><small><strong>Documento:</strong> ${cliente.ruc}</small></div><div class="col-6"><small><strong>Saldo Pendiente:</strong></small></div><div class="col-6 text-end"><small class="text-danger fw-bold" style="font-size: 14px;">${formatoCordoba(cliente.saldo_pendiente)}</small></div></div><hr class="my-2"><div class="table-responsive" style="max-height: 150px; overflow-y: auto;"><table class="table table-sm table-bordered small"><thead class="table-light" style="position: sticky; top: 0;">  <tr><th>Documento</th><th>Fecha</th><th class="text-end">Saldo</th></tr> </thead><tbody>${facturas.map(f => `<tr><td>${f.Num_Documento}</td><td>${formatearFecha(f.Fecha)}</td><td class="text-end">${formatoCordoba(f.Saldo_Pendiente)}</td></tr>`).join('')}</tbody> </table></div><div class="row g-2 mt-2 p-2 bg-light rounded"><div class="col-6"><small><strong>Total Nueva Venta:</strong></small></div><div class="col-6 text-end"><small><span id="total-nueva-venta" class="fw-bold">C$ 0.00</span></small></div><div class="col-6"><small><strong>Total Pendiente con Nueva:</strong></small></div><div class="col-6 text-end"><small class="text-danger fw-bold" style="font-size: 14px;"><span id="total-pendiente-con-nueva">${formatoCordoba(cliente.saldo_pendiente)}</span></small></div></div></div></div>`;
         saldoInfo.innerHTML = html;
         actualizarTotalesConSaldo();
     }
@@ -2012,7 +2097,7 @@
         if (!tablaBody) return;
 
         if (productos.length === 0) {
-            tablaBody.innerHTML = `<tr id="fila_vacia"><td colspan="7" class="text-center text-muted py-4"><i class="fas fa-box-open fa-3x mb-2"></i><p class="small">No hay productos agregados</p> </tr>`;
+            tablaBody.innerHTML = `<tr id="fila_vacia"><td colspan="7" class="text-center text-muted py-4"><i class="fas fa-box-open fa-3x mb-2"></i><p class="small">No hay productos agregados</p></tr>`;
             if (tfootTotales) tfootTotales.style.display = 'none';
             return;
         }
