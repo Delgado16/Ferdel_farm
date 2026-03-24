@@ -17604,7 +17604,6 @@ def api_sincronizar_inventario():
         traceback.print_exc()
         return jsonify({'success': False, 'error': str(e)}), 500
 
-
 @app.route('/api/vendedor/sincronizar_clientes_saldos', methods=['GET'])
 @vendedor_required
 def api_sincronizar_clientes_saldos():

@@ -29,6 +29,10 @@ self.addEventListener('install', event => {
       })
       .catch(error => {
         console.error('[Service Worker] Error en instalación:', error);
+        // Intentar cachear individualmente para identificar el error
+        urlsToCache.forEach(url => {
+          fetch(url).catch(e => console.error(`Error cacheando ${url}:`, e));
+        });
       })
   );
   // Activar inmediatamente
@@ -52,6 +56,7 @@ self.addEventListener('activate', event => {
   );
   // Tomar control de las páginas abiertas inmediatamente
   event.waitUntil(clients.claim());
+  console.log('[Service Worker] Activado y controlando clientes');
 });
 
 // Estrategia de caché para las peticiones
@@ -66,12 +71,12 @@ self.addEventListener('fetch', event => {
         .then(cachedResponse => {
           // Si está en caché, lo devolvemos
           if (cachedResponse) {
-            console.log('[Service Worker] Imagen desde caché:', url.pathname);
+            console.log('[Service Worker] ✅ Imagen desde caché:', url.pathname);
             return cachedResponse;
           }
           
           // Si no está en caché, vamos a la red
-          console.log('[Service Worker] Imagen desde red:', url.pathname);
+          console.log('[Service Worker] 🌐 Imagen desde red:', url.pathname);
           return fetch(request)
             .then(networkResponse => {
               // Verificar que sea una respuesta válida
@@ -84,6 +89,7 @@ self.addEventListener('fetch', event => {
               caches.open(CACHE_NAME)
                 .then(cache => {
                   cache.put(request, responseToCache);
+                  console.log('[Service Worker] 💾 Imagen guardada en caché:', url.pathname);
                 })
                 .catch(error => {
                   console.error('[Service Worker] Error guardando imagen en caché:', error);
@@ -92,9 +98,32 @@ self.addEventListener('fetch', event => {
               return networkResponse;
             })
             .catch(error => {
-              console.error('[Service Worker] Error fetching imagen:', error);
-              // Opcional: devolver una imagen por defecto si falla todo
-              // return caches.match('/static/img/placeholder.png');
+              console.error('[Service Worker] ❌ Error fetching imagen:', url.pathname, error);
+              // Para el logo, devolver un fallback visual
+              if (url.pathname.includes('ferdel.png')) {
+                console.log('[Service Worker] 🖼️ Usando fallback para logo');
+                return new Response(
+                  `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 120">
+                    <rect width="400" height="120" fill="#2c5e2e"/>
+                    <rect x="10" y="10" width="380" height="100" fill="#3c8c3c" rx="5"/>
+                    <text x="200" y="55" font-family="Arial" font-size="28" fill="white" text-anchor="middle" font-weight="bold">FERDEL</text>
+                    <text x="200" y="85" font-family="Arial" font-size="14" fill="#f0f0f0" text-anchor="middle">Granja Avícola</text>
+                    <text x="200" y="102" font-family="Arial" font-size="11" fill="#ffd966" text-anchor="middle">Sistema de Ventas</text>
+                  </svg>`,
+                  {
+                    headers: { 'Content-Type': 'image/svg+xml' }
+                  }
+                );
+              }
+              return new Response(
+                `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+                  <rect width="100" height="100" fill="#cccccc"/>
+                  <text x="50" y="55" font-family="Arial" font-size="14" fill="#666" text-anchor="middle">📷</text>
+                </svg>`,
+                {
+                  headers: { 'Content-Type': 'image/svg+xml' }
+                }
+              );
             });
         })
     );
@@ -120,7 +149,7 @@ self.addEventListener('fetch', event => {
         })
         .catch(() => {
           // Si falla la red, buscamos en caché
-          console.log('[Service Worker] API desde caché (offline):', url.pathname);
+          console.log('[Service Worker] 📦 API desde caché (offline):', url.pathname);
           return caches.match(request);
         })
     );
@@ -144,6 +173,7 @@ self.addEventListener('fetch', event => {
                   caches.open(CACHE_NAME)
                     .then(cache => {
                       cache.put(request, responseToCache);
+                      console.log('[Service Worker] 🔄 Revalidado:', url.pathname);
                     });
                 }
               })
@@ -165,6 +195,7 @@ self.addEventListener('fetch', event => {
               caches.open(CACHE_NAME)
                 .then(cache => {
                   cache.put(request, responseToCache);
+                  console.log('[Service Worker] 💾 Cacheado:', url.pathname);
                 });
               
               return networkResponse;
@@ -192,26 +223,48 @@ self.addEventListener('fetch', event => {
           return networkResponse;
         })
         .catch(() => {
-          console.log('[Service Worker] Recurso desde caché (offline):', url.pathname);
+          console.log('[Service Worker] 📦 Recurso desde caché (offline):', url.pathname);
           return caches.match(request);
         })
     );
   }
 });
 
-// Opcional: Mensajes desde la página principal
+// Mensajes desde la página principal
 self.addEventListener('message', event => {
   if (event.data && event.data.type === 'SKIP_WAITING') {
     self.skipWaiting();
+    console.log('[Service Worker] Skip waiting ejecutado');
   }
   
   // Permitir forzar limpieza de caché desde la app
   if (event.data && event.data.type === 'CLEAR_CACHE') {
     event.waitUntil(
       caches.delete(CACHE_NAME).then(() => {
-        console.log('[Service Worker] Caché eliminado manualmente');
-        event.ports[0].postMessage({ success: true });
+        console.log('[Service Worker] 🗑️ Caché eliminado manualmente');
+        if (event.ports && event.ports[0]) {
+          event.ports[0].postMessage({ success: true });
+        }
       })
     );
   }
+  
+  // Verificar si una imagen específica está en caché
+  if (event.data && event.data.type === 'CHECK_IMAGE_CACHE' && event.data.url) {
+    event.waitUntil(
+      caches.match(event.data.url).then(response => {
+        if (event.ports && event.ports[0]) {
+          event.ports[0].postMessage({ 
+            cached: !!response,
+            url: event.data.url 
+          });
+        }
+      })
+    );
+  }
+});
+
+// Evento para cuando el Service Worker se actualiza
+self.addEventListener('updatefound', () => {
+  console.log('[Service Worker] Nueva versión encontrada');
 });
