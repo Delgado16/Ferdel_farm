@@ -665,7 +665,254 @@ def admin_dashboard():
 @app.route('/vendedor/dashboard')
 @login_required
 def vendedor_dashboard():
-    return render_template('vendedor/dashboard.html')
+    # Obtener el ID del usuario logueado (asumiendo que está en session)
+    user_id = current_user.id
+    empresa_id = session.get('empresa_id', 1)
+    
+    if not user_id:
+        flash('Usuario no autenticado', 'danger')
+        return redirect(url_for('login'))
+    
+    with get_db_cursor() as cursor:
+        # 1. Obtener asignaciones activas del vendedor
+        cursor.execute("""
+            SELECT av.ID_Asignacion, av.ID_Ruta, r.Nombre_Ruta, av.Fecha_Asignacion,
+                   av.Estado, av.Hora_Inicio, av.Hora_Fin
+            FROM asignacion_vendedores av
+            JOIN rutas r ON av.ID_Ruta = r.ID_Ruta
+            WHERE av.ID_Usuario = %s 
+              AND av.Estado = 'Activa'
+              AND DATE(av.Fecha_Asignacion) = CURDATE()
+        """, (user_id,))
+        asignacion_activa = cursor.fetchone()
+        
+        # ID de asignación actual (si existe)
+        asignacion_id = asignacion_activa['ID_Asignacion'] if asignacion_activa else None
+        
+        # 2. Tarjeta: Ventas de Contado (Hoy) - EFECTIVO QUE ENTRA
+        cursor.execute("""
+            SELECT COALESCE(SUM(dfr.Total), 0) AS Total_Ventas_Contado_Hoy
+            FROM facturacion_ruta fr
+            JOIN detalle_facturacion_ruta dfr ON fr.ID_FacturaRuta = dfr.ID_FacturaRuta
+            WHERE fr.ID_Usuario_Creacion = %s
+              AND DATE(fr.Fecha) = CURDATE()
+              AND fr.Estado = 'Activa'
+              AND fr.Credito_Contado = 1
+        """, (user_id,))
+        result = cursor.fetchone()
+        total_ventas_contado_hoy = result['Total_Ventas_Contado_Hoy'] if result else 0
+        
+        # 3. Tarjeta: Ventas a Crédito (Hoy) - FIADO
+        cursor.execute("""
+            SELECT COALESCE(SUM(dfr.Total), 0) AS Total_Ventas_Credito_Hoy
+            FROM facturacion_ruta fr
+            JOIN detalle_facturacion_ruta dfr ON fr.ID_FacturaRuta = dfr.ID_FacturaRuta
+            WHERE fr.ID_Usuario_Creacion = %s
+              AND DATE(fr.Fecha) = CURDATE()
+              AND fr.Estado = 'Activa'
+              AND fr.Credito_Contado = 2
+        """, (user_id,))
+        result = cursor.fetchone()
+        total_ventas_credito_hoy = result['Total_Ventas_Credito_Hoy'] if result else 0
+        
+        # 4. Tarjeta: Total Ventas (Contado + Crédito)
+        total_ventas_hoy = total_ventas_contado_hoy + total_ventas_credito_hoy
+        
+        # 5. Tarjeta: Cobros Realizados (Hoy) - ABONOS A CRÉDITO
+        cursor.execute("""
+            SELECT COALESCE(SUM(ad.Monto_Aplicado), 0) AS Total_Cobrado_Hoy
+            FROM abonos_detalle ad
+            WHERE ad.ID_Usuario = %s
+              AND DATE(ad.Fecha) = CURDATE()
+        """, (user_id,))
+        result = cursor.fetchone()
+        total_cobrado_hoy = result['Total_Cobrado_Hoy'] if result else 0
+        
+        # 6. Tarjeta: Saldo de Caja (Actual) - SOLO CONTADO + COBROS - GASTOS
+        saldo_caja = 0
+        if asignacion_id:
+            cursor.execute("""
+                SELECT Saldo_Acumulado
+                FROM movimientos_caja_ruta
+                WHERE ID_Usuario = %s
+                  AND ID_Asignacion = %s
+                  AND Estado = 'ACTIVO'
+                ORDER BY Fecha DESC, ID_Movimiento DESC
+                LIMIT 1
+            """, (user_id, asignacion_id))
+            resultado_saldo = cursor.fetchone()
+            if resultado_saldo:
+                saldo_caja = resultado_saldo['Saldo_Acumulado']
+        
+        # 7. Tarjeta: Cobros por Vencer (Próximos 7 días) - CRÉDITOS SIN PAGAR
+        cursor.execute("""
+            SELECT COUNT(*) AS Cobros_Proximos,
+                   COALESCE(SUM(cxc.Saldo_Pendiente), 0) AS Monto_Proximo
+            FROM cuentas_por_cobrar cxc
+            JOIN clientes c ON cxc.ID_Cliente = c.ID_Cliente
+            WHERE c.ID_Ruta IN (
+                SELECT ID_Ruta FROM asignacion_vendedores 
+                WHERE ID_Usuario = %s AND Estado = 'Activa'
+            )
+              AND cxc.Estado = 'Pendiente'
+              AND cxc.Fecha_Vencimiento BETWEEN CURDATE() AND DATE_ADD(CURDATE(), INTERVAL 7 DAY)
+        """, (user_id,))
+        result = cursor.fetchone()
+        cobros_proximos = result['Cobros_Proximos'] if result else 0
+        monto_proximo = result['Monto_Proximo'] if result else 0
+        
+        # 8. Gráfico: Ventas Diarias (Últimos 30 días) - Separado por tipo
+        cursor.execute("""
+            SELECT 
+                DATE(fr.Fecha) as Dia,
+                COALESCE(SUM(CASE WHEN fr.Credito_Contado = 1 THEN dfr.Total ELSE 0 END), 0) as Ventas_Contado,
+                COALESCE(SUM(CASE WHEN fr.Credito_Contado = 2 THEN dfr.Total ELSE 0 END), 0) as Ventas_Credito,
+                COALESCE(SUM(dfr.Total), 0) as Total_Ventas
+            FROM facturacion_ruta fr
+            LEFT JOIN detalle_facturacion_ruta dfr ON fr.ID_FacturaRuta = dfr.ID_FacturaRuta
+            WHERE fr.ID_Usuario_Creacion = %s
+              AND fr.Fecha BETWEEN DATE_SUB(CURDATE(), INTERVAL 30 DAY) AND CURDATE()
+              AND fr.Estado = 'Activa'
+            GROUP BY DATE(fr.Fecha)
+            ORDER BY Dia
+        """, (user_id,))
+        ventas_diarias = cursor.fetchall()
+        
+        # Preparar datos para gráfico
+        ventas_fechas = [v['Dia'].strftime('%Y-%m-%d') for v in ventas_diarias] if ventas_diarias else []
+        ventas_contado = [float(v['Ventas_Contado']) for v in ventas_diarias] if ventas_diarias else []
+        ventas_credito = [float(v['Ventas_Credito']) for v in ventas_diarias] if ventas_diarias else []
+        
+        # 9. Gráfico: Top 5 Productos Más Vendidos
+        cursor.execute("""
+            SELECT p.Descripcion as Producto, SUM(dfr.Cantidad) as Cantidad_Total,
+                   SUM(dfr.Total) as Total_Vendido
+            FROM detalle_facturacion_ruta dfr
+            JOIN facturacion_ruta fr ON dfr.ID_FacturaRuta = fr.ID_FacturaRuta
+            JOIN productos p ON dfr.ID_Producto = p.ID_Producto
+            WHERE fr.ID_Usuario_Creacion = %s
+              AND fr.Fecha BETWEEN DATE_SUB(CURDATE(), INTERVAL 30 DAY) AND CURDATE()
+              AND fr.Estado = 'Activa'
+            GROUP BY p.Descripcion
+            ORDER BY Cantidad_Total DESC
+            LIMIT 5
+        """, (user_id,))
+        top_productos = cursor.fetchall()
+        
+        productos_nombres = [p['Producto'] for p in top_productos] if top_productos else []
+        productos_cantidades = [float(p['Cantidad_Total']) for p in top_productos] if top_productos else []
+        productos_totales = [float(p['Total_Vendido']) for p in top_productos] if top_productos else []
+        
+        # 10. Tabla: Clientes con Cartera Vencida
+        cursor.execute("""
+            SELECT c.ID_Cliente, c.Nombre, c.Telefono, cxc.Num_Documento, 
+                   cxc.Saldo_Pendiente, cxc.Fecha_Vencimiento,
+                   DATEDIFF(CURDATE(), cxc.Fecha_Vencimiento) as Dias_Vencido
+            FROM cuentas_por_cobrar cxc
+            JOIN clientes c ON cxc.ID_Cliente = c.ID_Cliente
+            WHERE c.ID_Ruta IN (
+                SELECT ID_Ruta FROM asignacion_vendedores 
+                WHERE ID_Usuario = %s AND Estado = 'Activa'
+            )
+              AND cxc.Estado = 'Pendiente'
+              AND cxc.Fecha_Vencimiento < CURDATE()
+            ORDER BY cxc.Fecha_Vencimiento ASC
+            LIMIT 10
+        """, (user_id,))
+        clientes_vencidos = cursor.fetchall()
+        
+        # 11. Tabla: Movimientos Recientes de Caja
+        movimientos_caja = []
+        if asignacion_id:
+            cursor.execute("""
+                SELECT ID_Movimiento, Fecha, Tipo, Concepto, Monto, Saldo_Acumulado
+                FROM movimientos_caja_ruta
+                WHERE ID_Usuario = %s
+                  AND ID_Asignacion = %s
+                  AND Estado = 'ACTIVO'
+                ORDER BY Fecha DESC
+                LIMIT 10
+            """, (user_id, asignacion_id))
+            movimientos_caja = cursor.fetchall()
+        
+        # 12. Tabla: Ventas Recientes (Con indicador de tipo)
+        cursor.execute("""
+            SELECT fr.ID_FacturaRuta, fr.Fecha, c.Nombre as Cliente, 
+                   fr.Credito_Contado,
+                   COALESCE(SUM(dfr.Total), 0) as Total_Venta,
+                   COUNT(dfr.ID_DetalleRuta) as Num_Productos
+            FROM facturacion_ruta fr
+            JOIN clientes c ON fr.ID_Cliente = c.ID_Cliente
+            LEFT JOIN detalle_facturacion_ruta dfr ON fr.ID_FacturaRuta = dfr.ID_FacturaRuta
+            WHERE fr.ID_Usuario_Creacion = %s
+              AND fr.Estado = 'Activa'
+            GROUP BY fr.ID_FacturaRuta, fr.Fecha, c.Nombre, fr.Credito_Contado
+            ORDER BY fr.Fecha_Creacion DESC
+            LIMIT 10
+        """, (user_id,))
+        ventas_recientes = cursor.fetchall()
+        
+        # 13. Resumen de Inventario en Ruta
+        inventario_ruta = []
+        if asignacion_id:
+            cursor.execute("""
+                SELECT p.ID_Producto, p.Descripcion, p.COD_Producto, 
+                       ir.Cantidad, p.Stock_Minimo,
+                       CASE 
+                           WHEN ir.Cantidad <= p.Stock_Minimo THEN 'critico'
+                           WHEN ir.Cantidad <= p.Stock_Minimo * 2 THEN 'bajo'
+                           ELSE 'ok' 
+                       END as Nivel_Stock,
+                       CASE 
+                           WHEN ir.Cantidad <= p.Stock_Minimo THEN 'Por debajo del mínimo' 
+                           WHEN ir.Cantidad <= p.Stock_Minimo * 2 THEN 'Stock bajo'
+                           ELSE 'OK' 
+                       END as Estado_Stock
+                FROM inventario_ruta ir
+                JOIN productos p ON ir.ID_Producto = p.ID_Producto
+                WHERE ir.ID_Asignacion = %s
+                ORDER BY Nivel_Stock ASC, p.Descripcion ASC
+                LIMIT 20
+            """, (asignacion_id,))
+            inventario_ruta = cursor.fetchall()
+        
+        # 14. Resumen de Cartera por Cobrar Total
+        cursor.execute("""
+            SELECT 
+                COUNT(*) as Total_Creditos,
+                COALESCE(SUM(Saldo_Pendiente), 0) as Total_Cartera,
+                COALESCE(AVG(Saldo_Pendiente), 0) as Promedio_Credito
+            FROM cuentas_por_cobrar cxc
+            JOIN clientes c ON cxc.ID_Cliente = c.ID_Cliente
+            WHERE c.ID_Ruta IN (
+                SELECT ID_Ruta FROM asignacion_vendedores 
+                WHERE ID_Usuario = %s AND Estado = 'Activa'
+            )
+              AND cxc.Estado = 'Pendiente'
+        """, (user_id,))
+        resumen_cartera = cursor.fetchone()
+        
+    return render_template('vendedor/dashboard.html',
+                         asignacion_activa=asignacion_activa,
+                         asignacion_id=asignacion_id,
+                         total_ventas_hoy=total_ventas_hoy,
+                         total_ventas_contado_hoy=total_ventas_contado_hoy,
+                         total_ventas_credito_hoy=total_ventas_credito_hoy,
+                         total_cobrado_hoy=total_cobrado_hoy,
+                         saldo_caja=saldo_caja,
+                         cobros_proximos=cobros_proximos,
+                         monto_proximo=monto_proximo,
+                         ventas_fechas=ventas_fechas,
+                         ventas_contado=ventas_contado,
+                         ventas_credito=ventas_credito,
+                         productos_nombres=productos_nombres,
+                         productos_cantidades=productos_cantidades,
+                         productos_totales=productos_totales,
+                         clientes_vencidos=clientes_vencidos,
+                         movimientos_caja=movimientos_caja,
+                         ventas_recientes=ventas_recientes,
+                         inventario_ruta=inventario_ruta,
+                         resumen_cartera=resumen_cartera)
 
 @app.route('/bodega/dashboard')
 @admin_or_bodega_required
@@ -7976,8 +8223,11 @@ def admin_cuentascobrar():
         # Obtener parámetro de filtro de la URL
         filtro_estado = request.args.get('estado', 'pendientes')
         
+        # Definir hoy al principio
+        hoy = datetime.now().date()
+        
         with get_db_cursor(True) as cursor:
-            # Construir la consulta base
+            # Construir la consulta base con ambos tipos de documentos
             query = """
                 SELECT 
                     c.ID_Movimiento,
@@ -7989,65 +8239,78 @@ def admin_cuentascobrar():
                     c.Monto_Movimiento,
                     c.Saldo_Pendiente,
                     c.ID_Factura,
-                    CONCAT('FAC-', LPAD(f.ID_Factura, 5, '0')) as NumeroFactura,
+                    c.ID_FacturaRuta,
+                    -- Número de documento según el tipo
+                    CASE 
+                        WHEN c.ID_Factura IS NOT NULL THEN CONCAT('FAC-', LPAD(f.ID_Factura, 5, '0'))
+                        WHEN c.ID_FacturaRuta IS NOT NULL THEN CONCAT('RUTA-', LPAD(fr.ID_FacturaRuta, 5, '0'))
+                        ELSE 'S/D'
+                    END as NumeroDocumento,
+                    -- Tipo de documento
+                    CASE 
+                        WHEN c.ID_Factura IS NOT NULL THEN 'Factura'
+                        WHEN c.ID_FacturaRuta IS NOT NULL THEN 'Factura Ruta'
+                        ELSE 'Sin documento'
+                    END as TipoDocumento,
                     e.Nombre_Empresa,
+                    c.Estado as EstadoDB,
+                    -- Calcular estado actual basado en saldo y fecha
                     CASE 
                         WHEN c.Saldo_Pendiente = 0 THEN 'Pagado'
                         WHEN c.Fecha_Vencimiento < CURDATE() AND c.Saldo_Pendiente > 0 THEN 'Vencido'
-                        ELSE 'Pendiente'
-                    END as Estado,
+                        WHEN c.Saldo_Pendiente > 0 THEN 'Pendiente'
+                        ELSE 'Desconocido'
+                    END as EstadoCalculado,
                     DATEDIFF(CURDATE(), c.Fecha_Vencimiento) as DiasVencido,
                     DATEDIFF(c.Fecha_Vencimiento, CURDATE()) as DiasRestantes,
-                    c.Estado as EstadoDB
+                    -- Información adicional de factura de ruta
+                    fr.Credito_Contado,
+                    fr.Observacion as ObservacionRuta,
+                    fr.Saldo_Anterior_Cliente
                 FROM Cuentas_Por_Cobrar c
                 LEFT JOIN clientes cl ON c.ID_Cliente = cl.ID_Cliente
                 LEFT JOIN facturacion f ON c.ID_Factura = f.ID_Factura
+                LEFT JOIN facturacion_ruta fr ON c.ID_FacturaRuta = fr.ID_FacturaRuta
                 LEFT JOIN empresa e ON c.ID_Empresa = e.ID_Empresa
-                WHERE 1=1
+                WHERE c.Estado != 'Anulada'  -- Excluir anuladas siempre
             """
             
             params = []
             
             # Aplicar filtros según el parámetro
             if filtro_estado == 'pagados':
-                query += " AND c.Saldo_Pendiente = 0 AND c.Estado IN ('Pagada')"
-            elif filtro_estado == 'todos':
-                query += " AND c.Estado IN ('Pendiente', 'Pagada', 'Vencida')"
+                query += " AND c.Saldo_Pendiente = 0"
             elif filtro_estado == 'vencidos':
                 query += " AND c.Fecha_Vencimiento < CURDATE() AND c.Saldo_Pendiente > 0"
-            else:  # Por defecto: pendientes
-                query += " AND c.Estado IN ('Pendiente', 'Vencida')"
+            elif filtro_estado == 'pendientes':
+                query += " AND c.Saldo_Pendiente > 0 AND c.Estado != 'Pagada'"
+            # 'todos' no necesita filtro adicional
             
-            # Ordenar de manera diferente según el filtro
+            # Ordenar según el filtro
             if filtro_estado == 'pendientes':
-                # Para pendientes: primero las pendientes normales, luego las vencidas
                 query += """
                     ORDER BY 
                         CASE 
-                            WHEN c.Fecha_Vencimiento >= CURDATE() AND c.Saldo_Pendiente > 0 THEN 1
-                            WHEN c.Fecha_Vencimiento < CURDATE() AND c.Saldo_Pendiente > 0 THEN 2
+                            WHEN c.Fecha_Vencimiento >= CURDATE() THEN 1  -- Pendientes normales
+                            WHEN c.Fecha_Vencimiento < CURDATE() THEN 2   -- Vencidas
                             ELSE 3
                         END,
                         c.Fecha_Vencimiento ASC,
                         c.Fecha DESC
                 """
             elif filtro_estado == 'vencidos':
-                # Para vencidos: ordenar por días de vencimiento (más viejos primero)
                 query += """
                     ORDER BY 
                         c.Fecha_Vencimiento ASC,
-                        DATEDIFF(CURDATE(), c.Fecha_Vencimiento) DESC,
-                        c.Fecha DESC
+                        DATEDIFF(CURDATE(), c.Fecha_Vencimiento) DESC
                 """
             elif filtro_estado == 'pagados':
-                # Para pagados: ordenar por fecha de pago (más recientes primero)
                 query += """
                     ORDER BY 
                         c.Fecha DESC,
                         c.ID_Movimiento DESC
                 """
             else:  # 'todos'
-                # Para todos: primero pendientes, luego vencidos, luego pagados
                 query += """
                     ORDER BY 
                         CASE 
@@ -8060,19 +8323,21 @@ def admin_cuentascobrar():
                         c.Fecha DESC
                 """
             
-            cursor.execute(query)
+            cursor.execute(query, params)
             cuentas = cursor.fetchall()
             
-            # Calcular totales solo de las cuentas filtradas
-            total_pendiente = sum(cuenta['Monto_Movimiento'] for cuenta in cuentas)
-            total_saldo = sum(cuenta['Saldo_Pendiente'] for cuenta in cuentas)
+            # Calcular totales
+            total_pendiente = sum(cuenta['Monto_Movimiento'] for cuenta in cuentas)  # Monto original
+            total_saldo = sum(cuenta['Saldo_Pendiente'] for cuenta in cuentas)      # Saldo actual
             
-            # Contadores para estadísticas
+            # Calcular estadísticas basadas en datos reales
             cuentas_pagadas = [c for c in cuentas if c['Saldo_Pendiente'] == 0]
-            cuentas_vencidas = [c for c in cuentas if c['Estado'] == 'Vencido']
-            cuentas_pendientes = [c for c in cuentas if c['Estado'] == 'Pendiente' and c['Saldo_Pendiente'] > 0]
-
-            hoy = datetime.now().date()
+            cuentas_vencidas = [c for c in cuentas if c['Fecha_Vencimiento'] and 
+                                c['Fecha_Vencimiento'] < hoy and 
+                                c['Saldo_Pendiente'] > 0]
+            cuentas_pendientes = [c for c in cuentas if c['Saldo_Pendiente'] > 0 and 
+                                  c['Fecha_Vencimiento'] and 
+                                  c['Fecha_Vencimiento'] >= hoy]
             
             return render_template('admin/ventas/cxcobrar/cuentas_cobrar.html',
                                  cuentas=cuentas,
@@ -17522,6 +17787,116 @@ def api_verificar_saldo_cliente(id_cliente):
 # ============================================
 # ENDPOINTS PARA SINCRONIZACIÓN OFFLINE
 # ============================================
+@app.route('/api/vendedor/verificar_saldo_cliente_offline/<int:id_cliente>', methods=['GET'])
+@vendedor_required
+def api_verificar_saldo_cliente_offline(id_cliente):
+    """
+    Versión simplificada para verificar un cliente específico offline.
+    Esta función es llamada cuando hay conexión para obtener datos actualizados.
+    """
+    try:
+        with get_db_cursor() as cursor:
+            # Obtener la empresa del vendedor desde su asignación activa
+            cursor.execute("""
+                SELECT r.ID_Empresa
+                FROM asignacion_vendedores av
+                INNER JOIN rutas r ON av.ID_Ruta = r.ID_Ruta
+                WHERE av.ID_Usuario = %s
+                AND av.Estado = 'Activa'
+                AND av.Fecha_Asignacion = CURDATE()
+                LIMIT 1
+            """, (current_user.id,))
+            
+            empresa = cursor.fetchone()
+            
+            if not empresa:
+                return jsonify({
+                    'success': False,
+                    'error': 'No tienes una asignación activa hoy'
+                }), 400
+            
+            # Obtener información completa del cliente
+            cursor.execute("""
+                SELECT 
+                    c.ID_Cliente,
+                    c.Nombre,
+                    c.RUC_CEDULA,
+                    c.Telefono,
+                    c.Direccion,
+                    c.Perfil,
+                    c.Email,
+                    COALESCE((
+                        SELECT SUM(Saldo_Pendiente) 
+                        FROM cuentas_por_cobrar 
+                        WHERE ID_Cliente = c.ID_Cliente 
+                        AND Estado IN ('Pendiente', 'Vencida')
+                    ), 0) as Saldo_Pendiente_Total,
+                    (
+                        SELECT COUNT(*) 
+                        FROM cuentas_por_cobrar 
+                        WHERE ID_Cliente = c.ID_Cliente 
+                        AND Estado IN ('Pendiente', 'Vencida')
+                    ) as Facturas_Pendientes
+                FROM clientes c
+                WHERE c.ID_Cliente = %s 
+                AND c.ID_Empresa = %s
+                AND c.Estado = 'ACTIVO'
+            """, (id_cliente, empresa['ID_Empresa']))
+            
+            cliente = cursor.fetchone()
+            
+            if not cliente:
+                return jsonify({
+                    'success': False,
+                    'error': 'Cliente no encontrado'
+                }), 404
+            
+            # Obtener facturas pendientes si tiene saldo
+            facturas_pendientes = []
+            if cliente['Saldo_Pendiente_Total'] > 0:
+                cursor.execute("""
+                    SELECT 
+                        c.ID_Movimiento,
+                        c.Fecha,
+                        c.Num_Documento,
+                        c.Monto_Movimiento,
+                        c.Saldo_Pendiente,
+                        c.Fecha_Vencimiento,
+                        DATEDIFF(CURDATE(), c.Fecha_Vencimiento) as Dias_Vencido,
+                        fr.ID_FacturaRuta,
+                        fr.Fecha as FechaFactura
+                    FROM cuentas_por_cobrar c
+                    LEFT JOIN facturacion_ruta fr ON c.ID_FacturaRuta = fr.ID_FacturaRuta
+                    WHERE c.ID_Cliente = %s 
+                    AND c.Estado IN ('Pendiente', 'Vencida')
+                    AND c.ID_FacturaRuta IS NOT NULL
+                    ORDER BY c.Fecha_Vencimiento ASC, c.Fecha ASC
+                    LIMIT 50
+                """, (id_cliente,))
+                facturas_pendientes = cursor.fetchall()
+            
+            return jsonify({
+                'success': True,
+                'cliente': {
+                    'id': cliente['ID_Cliente'],
+                    'nombre': cliente['Nombre'],
+                    'ruc': cliente['RUC_CEDULA'],
+                    'telefono': cliente['Telefono'],
+                    'direccion': cliente['Direccion'],
+                    'perfil': cliente['Perfil'],
+                    'email': cliente['Email'],
+                    'saldo_pendiente': float(cliente['Saldo_Pendiente_Total'] or 0),
+                    'facturas_pendientes': cliente['Facturas_Pendientes']
+                },
+                'facturas_detalle': facturas_pendientes
+            })
+            
+    except Exception as e:
+        print(f"Error en verificar saldo: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
 
 @app.route('/api/vendedor/sincronizar_inventario', methods=['GET'])
 @vendedor_required
@@ -17705,7 +18080,6 @@ def api_sincronizar_clientes_saldos():
         traceback.print_exc()
         return jsonify({'success': False, 'error': str(e)}), 500
 
-
 @app.route('/api/vendedor/verificar_stock_venta', methods=['POST'])
 @vendedor_required
 def api_verificar_stock_venta():
@@ -17746,7 +18120,6 @@ def api_verificar_stock_venta():
     except Exception as e:
         print(f"Error en api_verificar_stock_venta: {str(e)}")
         return jsonify({'success': False, 'error': str(e)}), 500
-
 
 @app.route('/api/vendedor/registrar_venta_offline', methods=['POST'])
 @vendedor_required
@@ -18013,7 +18386,6 @@ def api_registrar_venta_offline():
         print(f"Error en api_registrar_venta_offline: {str(e)}")
         traceback.print_exc()
         return jsonify({'success': False, 'error': str(e)}), 500
-
 
 @app.route('/api/vendedor/asignacion_actual', methods=['GET'])
 @vendedor_required

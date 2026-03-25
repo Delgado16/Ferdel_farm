@@ -1231,6 +1231,193 @@
         }
     }
 
+    // ============================================
+    // FUNCIONES DE CLIENTES OFFLINE
+    // ============================================
+    async function actualizarSelectClientes() {
+        try {
+            const clientesLocal = await localforage.getItem('clientes_saldos');
+            const clienteSelect = getElement('cliente');
+            
+            if (clientesLocal && clientesLocal.lista && clienteSelect) {
+                const valorActual = clienteSelect.value;
+                
+                while (clienteSelect.options.length > 1) {
+                    clienteSelect.remove(1);
+                }
+                
+                clientesLocal.lista.forEach(cliente => {
+                    const option = document.createElement('option');
+                    option.value = cliente.ID_Cliente;
+                    option.dataset.nombre = cliente.Nombre;
+                    option.dataset.ruc = cliente.RUC;
+                    option.dataset.telefono = cliente.Telefono || '';
+                    option.dataset.direccion = cliente.Direccion || '';
+                    option.dataset.perfil = cliente.Perfil || 'Mercado';
+                    option.textContent = `${cliente.Nombre} ${cliente.RUC ? `- ${cliente.RUC}` : ''}`;
+                    
+                    if (cliente.Saldo_Pendiente_Total > 0) {
+                        option.textContent += ` (Saldo: ${formatoCordoba(cliente.Saldo_Pendiente_Total)})`;
+                        option.style.fontWeight = 'bold';
+                        option.style.color = '#856404';
+                    }
+                    
+                    clienteSelect.appendChild(option);
+                });
+                
+                if (valorActual && Array.from(clienteSelect.options).some(opt => opt.value === valorActual)) {
+                    clienteSelect.value = valorActual;
+                    verificarSaldoCliente(valorActual);
+                }
+            }
+        } catch (error) {
+            console.error('Error actualizando select de clientes:', error);
+        }
+    }
+
+    async function actualizarClienteEnCache(clienteId, clienteData, facturasDetalle) {
+        try {
+            const clientesLocal = await localforage.getItem('clientes_saldos');
+            if (clientesLocal && clientesLocal.data) {
+                if (clientesLocal.data[clienteId]) {
+                    clientesLocal.data[clienteId] = {
+                        ...clientesLocal.data[clienteId],
+                        ...clienteData,
+                        Saldo_Pendiente_Total: clienteData.saldo_pendiente,
+                        facturas_detalle: facturasDetalle,
+                        ultima_actualizacion_online: new Date().toISOString()
+                    };
+                } else {
+                    clientesLocal.data[clienteId] = {
+                        ID_Cliente: clienteId,
+                        Nombre: clienteData.nombre,
+                        RUC: clienteData.ruc,
+                        Telefono: clienteData.telefono,
+                        Direccion: clienteData.direccion,
+                        Perfil: clienteData.perfil,
+                        Saldo_Pendiente_Total: clienteData.saldo_pendiente,
+                        facturas_detalle: facturasDetalle,
+                        ultima_actualizacion_online: new Date().toISOString()
+                    };
+                }
+                await localforage.setItem('clientes_saldos', clientesLocal);
+            }
+        } catch (error) {
+            console.error('Error actualizando caché de cliente:', error);
+        }
+    }
+
+    async function verificarSaldoCliente(idCliente) {
+        if (!idCliente) { ocultarAlertaSaldo(); return; }
+
+        const saldoInfo = getElement('saldo-info');
+        if (saldoInfo) saldoInfo.innerHTML = '<div class="alert alert-info text-center py-2"><i class="fas fa-spinner fa-spin me-2"></i><small>Verificando saldo...</small></div>';
+
+        try {
+            const clientesLocal = await localforage.getItem('clientes_saldos');
+            if (clientesLocal && clientesLocal.data && clientesLocal.data[idCliente]) {
+                const clienteLocal = clientesLocal.data[idCliente];
+                saldoClienteActual = parseFloat(clienteLocal.Saldo_Pendiente_Total) || 0;
+                facturasPendientes = clienteLocal.facturas_detalle || [];
+                
+                if (saldoClienteActual > 0) {
+                    mostrarAlertaSaldoLocal(clienteLocal);
+                } else {
+                    ocultarAlertaSaldo();
+                }
+            }
+
+            if (navigator.onLine) {
+                const response = await fetch(`/api/vendedor/verificar_saldo_cliente_offline/${idCliente}`, {
+                    headers: { 'X-Requested-With': 'XMLHttpRequest' }
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.success) {
+                        saldoClienteActual = parseFloat(data.cliente.saldo_pendiente) || 0;
+                        facturasPendientes = data.facturas_detalle || [];
+                        
+                        if (saldoClienteActual > 0) mostrarAlertaSaldo(data);
+                        else ocultarAlertaSaldo();
+                        
+                        await actualizarClienteEnCache(idCliente, data.cliente, data.facturas_detalle);
+                    }
+                }
+            } else if (!clientesLocal || !clientesLocal.data[idCliente]) {
+                ocultarAlertaSaldo();
+                if (saldoInfo) {
+                    saldoInfo.innerHTML = '<div class="alert alert-warning text-center py-2"><i class="fas fa-wifi-slash me-2"></i><small>Sin conexión - Datos de saldo no disponibles</small></div>';
+                    setTimeout(() => ocultarAlertaSaldo(), 3000);
+                }
+            }
+        } catch (error) {
+            console.error('Error verificando saldo:', error);
+            ocultarAlertaSaldo();
+        }
+    }
+
+    function mostrarAlertaSaldoLocal(cliente) {
+        const saldoInfo = getElement('saldo-info');
+        if (!saldoInfo) return;
+
+        let html = `<div class="card mb-2 border-warning" style="border-width: 2px;">
+            <div class="card-header bg-warning py-2">
+                <h6 class="mb-0 small fw-bold"><i class="fas fa-exclamation-triangle me-2"></i>Cliente con Saldo Pendiente</h6>
+            </div>
+            <div class="card-body p-2">
+                <div class="row g-2">
+                    <div class="col-6"><small><strong>Cliente:</strong> ${cliente.Nombre || cliente.nombre}</small></div>
+                    <div class="col-6"><small><strong>Documento:</strong> ${cliente.RUC || cliente.ruc}</small></div>
+                    <div class="col-6"><small><strong>Saldo Pendiente:</strong></small></div>
+                    <div class="col-6 text-end"><small class="text-danger fw-bold" style="font-size: 14px;">${formatoCordoba(saldoClienteActual)}</small></div>
+                </div>
+                <hr class="my-2">
+                <div class="row g-2 mt-2 p-2 bg-light rounded">
+                    <div class="col-6"><small><strong>Total Nueva Venta:</strong></small></div>
+                    <div class="col-6 text-end"><small><span id="total-nueva-venta" class="fw-bold">C$ 0.00</span></small></div>
+                    <div class="col-6"><small><strong>Total Pendiente con Nueva:</strong></small></div>
+                    <div class="col-6 text-end"><small class="text-danger fw-bold" style="font-size: 14px;"><span id="total-pendiente-con-nueva">${formatoCordoba(saldoClienteActual)}</span></small></div>
+                </div>
+                ${cliente.facturas_detalle && cliente.facturas_detalle.length > 0 ? `
+                <div class="mt-2">
+                    <small class="text-muted"><i class="fas fa-info-circle"></i> Datos de saldo obtenidos de caché local</small>
+                </div>` : ''}
+            </div>
+        </div>`;
+        saldoInfo.innerHTML = html;
+        actualizarTotalesConSaldo();
+    }
+
+    function mostrarAlertaSaldo(data) {
+        const cliente = data.cliente;
+        const facturas = data.facturas_detalle || [];
+        const saldoInfo = getElement('saldo-info');
+        if (!saldoInfo) return;
+
+        let html = `<div class="card mb-2 border-warning" style="border-width: 2px;"><div class="card-header bg-warning py-2"><h6 class="mb-0 small fw-bold"><i class="fas fa-exclamation-triangle me-2"></i>Cliente con Saldo Pendiente</h6></div><div class="card-body p-2"><div class="row g-2"><div class="col-6"><small><strong>Cliente:</strong> ${cliente.nombre}</small></div><div class="col-6"><small><strong>Documento:</strong> ${cliente.ruc}</small></div><div class="col-6"><small><strong>Saldo Pendiente:</strong></small></div><div class="col-6 text-end"><small class="text-danger fw-bold" style="font-size: 14px;">${formatoCordoba(cliente.saldo_pendiente)}</small></div></div><hr class="my-2"><div class="table-responsive" style="max-height: 150px; overflow-y: auto;"><table class="table table-sm table-bordered small"><thead class="table-light" style="position: sticky; top: 0;">  ermal<th>Documento</th><th>Fecha</th><th class="text-end">Saldo</th> </thead><tbody>${facturas.map(f => `<tr><td>${f.Num_Documento}</td><td>${formatearFecha(f.Fecha)}</td><td class="text-end">${formatoCordoba(f.Saldo_Pendiente)}</td></tr>`).join('')}</tbody> </table></div><div class="row g-2 mt-2 p-2 bg-light rounded"><div class="col-6"><small><strong>Total Nueva Venta:</strong></small></div><div class="col-6 text-end"><small><span id="total-nueva-venta" class="fw-bold">C$ 0.00</span></small></div><div class="col-6"><small><strong>Total Pendiente con Nueva:</strong></small></div><div class="col-6 text-end"><small class="text-danger fw-bold" style="font-size: 14px;"><span id="total-pendiente-con-nueva">${formatoCordoba(cliente.saldo_pendiente)}</span></small></div></div></div></div>`;
+        saldoInfo.innerHTML = html;
+        actualizarTotalesConSaldo();
+    }
+
+    function ocultarAlertaSaldo() {
+        const saldoInfo = getElement('saldo-info');
+        if (saldoInfo) saldoInfo.innerHTML = '';
+        saldoClienteActual = 0;
+        facturasPendientes = [];
+    }
+
+    function actualizarTotalesConSaldo() {
+        const totalVenta = calcularTotalVenta();
+        const totalNuevaVenta = getElement('total-nueva-venta');
+        const totalPendienteConNueva = getElement('total-pendiente-con-nueva');
+        if (totalNuevaVenta) totalNuevaVenta.textContent = formatoCordoba(totalVenta);
+        if (totalPendienteConNueva) totalPendienteConNueva.textContent = formatoCordoba(saldoClienteActual + totalVenta);
+    }
+
+    // ============================================
+    // FUNCIÓN PRINCIPAL DE SINCRONIZACIÓN
+    // ============================================
     async function sincronizarDatosIniciales() {
         try {
             const metadata = await localforage.getItem('sync_metadata');
@@ -1243,6 +1430,7 @@
                 } else {
                     cargarInventarioDesdeSelect();
                 }
+                await actualizarSelectClientes();
                 verificarVentasPendientes();
                 return true;
             }
@@ -1257,6 +1445,7 @@
 
             let progress = 0;
             let inventarioActualizado = false;
+            let clientesActualizados = false;
 
             try {
                 const inventarioResponse = await fetch('/api/vendedor/sincronizar_inventario', {
@@ -1314,10 +1503,14 @@
                         await localforage.setItem('clientes_saldos', {
                             data: clientesMap,
                             lista: clientesLista,
+                            empresa: clientesData.empresa,
+                            asignacion: clientesData.asignacion,
                             ultima_sincronizacion: new Date().toISOString(),
                             ultima_modificacion: clientesData.ultima_modificacion || new Date().toISOString(),
                             version: '2.0'
                         });
+                        await actualizarSelectClientes();
+                        clientesActualizados = true;
                         progress += 50;
                         const progressBar = document.getElementById('sync-progress-bar');
                         if (progressBar) { 
@@ -1328,6 +1521,7 @@
                 }
             } catch (error) {
                 console.warn('Error sincronizando clientes:', error);
+                await actualizarSelectClientes();
             }
 
             await localforage.setItem('sync_metadata', {
@@ -1340,10 +1534,12 @@
             await new Promise(resolve => setTimeout(resolve, 500));
             Swal.close();
 
-            if (inventarioActualizado) {
+            if (inventarioActualizado && clientesActualizados) {
                 showToast('success', 'Sincronización completa', 'Datos actualizados correctamente');
-            } else {
+            } else if (inventarioActualizado || clientesActualizados) {
                 showToast('warning', 'Sincronización parcial', 'Usando datos locales disponibles');
+            } else {
+                showToast('warning', 'Datos locales', 'Usando información almacenada localmente');
             }
 
             const ventas = await localforage.getItem('ventas_offline') || [];
@@ -1373,12 +1569,13 @@
             } else {
                 cargarInventarioDesdeSelect();
             }
+            await actualizarSelectClientes();
             return false;
         }
     }
 
     // ============================================
-    // FUNCIÓN PRINCIPAL DE ENVÍO - CORREGIDA
+    // FUNCIÓN PRINCIPAL DE ENVÍO
     // ============================================
     async function manejarEnvioFormulario(event) {
         event.preventDefault();
@@ -1561,6 +1758,7 @@
                 clientesLocal.data[clienteId].cambio_pendiente = true;
                 clientesLocal.data[clienteId].ultima_actualizacion_local = new Date().toISOString();
                 await localforage.setItem('clientes_saldos', clientesLocal);
+                await actualizarSelectClientes();
             }
             return true;
         } catch (error) {
@@ -2054,56 +2252,6 @@
         verificarVentasPendientes();
     }
 
-    function verificarSaldoCliente(idCliente) {
-        if (!idCliente) { ocultarAlertaSaldo(); return; }
-
-        const saldoInfo = getElement('saldo-info');
-        if (saldoInfo) saldoInfo.innerHTML = '<div class="alert alert-info text-center py-2"><i class="fas fa-spinner fa-spin me-2"></i><small>Verificando saldo...</small></div>';
-
-        fetch(`/api/vendedor/verificar_saldo_cliente/${idCliente}`)
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    saldoClienteActual = parseFloat(data.cliente.saldo_pendiente) || 0;
-                    facturasPendientes = data.facturas_detalle || [];
-                    if (saldoClienteActual > 0) mostrarAlertaSaldo(data);
-                    else ocultarAlertaSaldo();
-                } else {
-                    ocultarAlertaSaldo();
-                }
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                ocultarAlertaSaldo();
-            });
-    }
-
-    function mostrarAlertaSaldo(data) {
-        const cliente = data.cliente;
-        const facturas = data.facturas_detalle || [];
-        const saldoInfo = getElement('saldo-info');
-        if (!saldoInfo) return;
-
-        let html = `<div class="card mb-2 border-warning" style="border-width: 2px;"><div class="card-header bg-warning py-2"><h6 class="mb-0 small fw-bold"><i class="fas fa-exclamation-triangle me-2"></i>Cliente con Saldo Pendiente</h6></div><div class="card-body p-2"><div class="row g-2"><div class="col-6"><small><strong>Cliente:</strong> ${cliente.nombre}</small></div><div class="col-6"><small><strong>Documento:</strong> ${cliente.ruc}</small></div><div class="col-6"><small><strong>Saldo Pendiente:</strong></small></div><div class="col-6 text-end"><small class="text-danger fw-bold" style="font-size: 14px;">${formatoCordoba(cliente.saldo_pendiente)}</small></div></div><hr class="my-2"><div class="table-responsive" style="max-height: 150px; overflow-y: auto;"><table class="table table-sm table-bordered small"><thead class="table-light" style="position: sticky; top: 0;">  <tr><th>Documento</th><th>Fecha</th><th class="text-end">Saldo</th></tr> </thead><tbody>${facturas.map(f => `<tr><td>${f.Num_Documento}</td><td>${formatearFecha(f.Fecha)}</td><td class="text-end">${formatoCordoba(f.Saldo_Pendiente)}</td></tr>`).join('')}</tbody> </table></div><div class="row g-2 mt-2 p-2 bg-light rounded"><div class="col-6"><small><strong>Total Nueva Venta:</strong></small></div><div class="col-6 text-end"><small><span id="total-nueva-venta" class="fw-bold">C$ 0.00</span></small></div><div class="col-6"><small><strong>Total Pendiente con Nueva:</strong></small></div><div class="col-6 text-end"><small class="text-danger fw-bold" style="font-size: 14px;"><span id="total-pendiente-con-nueva">${formatoCordoba(cliente.saldo_pendiente)}</span></small></div></div></div></div>`;
-        saldoInfo.innerHTML = html;
-        actualizarTotalesConSaldo();
-    }
-
-    function ocultarAlertaSaldo() {
-        const saldoInfo = getElement('saldo-info');
-        if (saldoInfo) saldoInfo.innerHTML = '';
-        saldoClienteActual = 0;
-        facturasPendientes = [];
-    }
-
-    function actualizarTotalesConSaldo() {
-        const totalVenta = calcularTotalVenta();
-        const totalNuevaVenta = getElement('total-nueva-venta');
-        const totalPendienteConNueva = getElement('total-pendiente-con-nueva');
-        if (totalNuevaVenta) totalNuevaVenta.textContent = formatoCordoba(totalVenta);
-        if (totalPendienteConNueva) totalPendienteConNueva.textContent = formatoCordoba(saldoClienteActual + totalVenta);
-    }
-
     function agregarProductoALista(producto) {
         const index = productos.findIndex(p => p.id === producto.id);
 
@@ -2405,7 +2553,8 @@
 
         const resumenVenta = getElement('resumenVenta');
         if (resumenVenta) {
-            resumenVenta.innerHTML = `<div class="row g-2 mb-2"><div class="col-12 col-md-6"><div class="card h-100"><div class="card-body p-2"><h6 class="small fw-bold border-bottom pb-1 mb-2"><i class="fas fa-user me-2"></i>Datos del Cliente</h6><div class="row g-1"><div class="col-5"><small>Cliente:</small></div><div class="col-7"><small class="fw-bold">${clienteNombre}</small></div><div class="col-5"><small>Documento:</small></div><div class="col-7"><small>${clienteRUC}</small></div><div class="col-5"><small>Perfil:</small></div><div class="col-7"><span class="badge bg-info">${clientePerfil}</span></div></div></div></div></div><div class="col-12 col-md-6"><div class="card h-100"><div class="card-body p-2"><h6 class="small fw-bold border-bottom pb-1 mb-2"><i class="fas fa-info-circle me-2"></i>Info Venta</h6><div class="row g-1"><div class="col-5"><small>Ruta:</small></div><div class="col-7"><small>{{ asignacion.Nombre_Ruta }}</small></div><div class="col-5"><small>Fecha:</small></div><div class="col-7"><small>{{ fecha_actual }}</small></div><div class="col-5"><small>Tipo:</small></div><div class="col-7"><span class="badge ${tipoVenta.value === '1' ? 'bg-success' : 'bg-warning text-dark'}">${tipoVentaText}</span></div></div></div></div></div></div>`;
+            const fechaActual = new Date().toLocaleDateString('es-ES');
+            resumenVenta.innerHTML = `<div class="row g-2 mb-2"><div class="col-12 col-md-6"><div class="card h-100"><div class="card-body p-2"><h6 class="small fw-bold border-bottom pb-1 mb-2"><i class="fas fa-user me-2"></i>Datos del Cliente</h6><div class="row g-1"><div class="col-5"><small>Cliente:</small></div><div class="col-7"><small class="fw-bold">${clienteNombre}</small></div><div class="col-5"><small>Documento:</small></div><div class="col-7"><small>${clienteRUC}</small></div><div class="col-5"><small>Perfil:</small></div><div class="col-7"><span class="badge bg-info">${clientePerfil}</span></div></div></div></div></div><div class="col-12 col-md-6"><div class="card h-100"><div class="card-body p-2"><h6 class="small fw-bold border-bottom pb-1 mb-2"><i class="fas fa-info-circle me-2"></i>Info Venta</h6><div class="row g-1"><div class="col-5"><small>Ruta:</small></div><div class="col-7"><small>Ruta Actual</small></div><div class="col-5"><small>Fecha:</small></div><div class="col-7"><small>${fechaActual}</small></div><div class="col-5"><small>Tipo:</small></div><div class="col-7"><span class="badge ${tipoVenta.value === '1' ? 'bg-success' : 'bg-warning text-dark'}">${tipoVentaText}</span></div></div></div></div></div></div>`;
         }
 
         const tbodyResumen = getElement('tbodyResumenProductos');
@@ -3049,7 +3198,10 @@
             verificarVentasPendientes();
         });
 
-        setTimeout(() => sincronizarDatosIniciales(), 1000);
+        setTimeout(async () => {
+            await sincronizarDatosIniciales();
+            await actualizarSelectClientes();
+        }, 1000);
     });
 </script>
 

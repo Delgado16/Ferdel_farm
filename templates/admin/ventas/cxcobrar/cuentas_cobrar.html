@@ -4,7 +4,7 @@
 
 {% block content %}
 <div class="container-fluid py-4">
-    <!-- Encabezado con botón de volver -->
+    <!-- Encabezdo con botón de volver -->
     <div class="d-flex justify-content-between align-items-center mb-4">
         <h1>
             <i class="fas fa-file-invoice-dollar"></i> Cuentas por Cobrar
@@ -77,7 +77,7 @@
                         </div>
                     </div>
                     <small class="text-muted">
-                        En este filtro: {{ cuentas|selectattr('Estado', 'equalto', 'Vencido')|list|length }}
+                        En este filtro: {{ cuentas|selectattr('EstadoCalculado', 'equalto', 'Vencido')|list|length }}
                     </small>
                 </div>
             </div>
@@ -211,7 +211,7 @@
                             <th>ID</th>
                             <th>Cliente</th>
                             <th>Contacto</th>
-                            <th>Factura</th>
+                            <th>Documento</th>
                             <th class="text-end">Monto</th>
                             <th class="text-end">Saldo</th>
                             <th>Vencimiento</th>
@@ -251,21 +251,46 @@
                                 {% endif %}
                             </td>
                             
-                            <!-- Factura -->
+                            <!-- Documento (Factura) - CORREGIDO -->
                             <td>
-                                {% if cuenta.NumeroFactura %}
+                                {% if cuenta.NumeroDocumento and cuenta.NumeroDocumento != 'S/D' %}
                                     <div class="mb-1">
-                                        <span class="badge bg-info">
-                                            {{ cuenta.NumeroFactura }}
-                                        </span>
+                                        {% if cuenta.ID_Factura %}
+                                            <span class="badge bg-primary" style="font-size: 0.7rem;">
+                                                <i class="fas fa-file-invoice me-1"></i>FAC
+                                            </span>
+                                        {% elif cuenta.ID_FacturaRuta %}
+                                            <span class="badge bg-info" style="font-size: 0.7rem;">
+                                                <i class="fas fa-truck me-1"></i>RUTA
+                                            </span>
+                                        {% endif %}
+                                        <span class="fw-bold">{{ cuenta.NumeroDocumento }}</span>
                                     </div>
+                                    {% if cuenta.TipoDocumento %}
+                                        <small class="text-muted d-block">
+                                            {{ cuenta.TipoDocumento }}
+                                        </small>
+                                    {% endif %}
                                     {% if cuenta.Nombre_Empresa %}
-                                    <small class="text-muted d-block">
-                                        {{ cuenta.Nombre_Empresa|truncate(20) }}
-                                    </small>
+                                        <small class="text-muted d-block">
+                                            {{ cuenta.Nombre_Empresa|truncate(20) }}
+                                        </small>
+                                    {% endif %}
+                                    <!-- Mostrar tipo de crédito si es factura de ruta -->
+                                    {% if cuenta.ID_FacturaRuta and cuenta.Credito_Contado %}
+                                        <small class="badge {% if cuenta.Credito_Contado == 1 %}bg-success{% else %}bg-warning{% endif %} mt-1">
+                                            {% if cuenta.Credito_Contado == 1 %}Contado{% else %}Crédito{% endif %}
+                                        </small>
                                     {% endif %}
                                 {% else %}
-                                    <span class="text-muted">Sin factura</span>
+                                    <span class="text-muted">
+                                        <i class="fas fa-file-alt me-1"></i>Sin documento
+                                    </span>
+                                    {% if cuenta.ObservacionRuta %}
+                                        <small class="text-muted d-block">
+                                            {{ cuenta.ObservacionRuta|truncate(20) }}
+                                        </small>
+                                    {% endif %}
                                 {% endif %}
                             </td>
                             
@@ -294,7 +319,7 @@
                                     <div class="mb-1">
                                         {{ cuenta.Fecha_Vencimiento.strftime('%d/%m/%Y') }}
                                     </div>
-                                    {% if cuenta.Estado == 'Vencido' %}
+                                    {% if cuenta.EstadoCalculado == 'Vencido' %}
                                         <span class="badge bg-danger">
                                             Vencido: {{ cuenta.DiasVencido }} días
                                         </span>
@@ -308,20 +333,25 @@
                                 {% endif %}
                             </td>
                             
-                            <!-- Estado -->
+                            <!-- Estado - USANDO EstadoCalculado -->
                             <td class="text-center">
-                                {% if cuenta.Estado == 'Pagado' %}
+                                {% if cuenta.EstadoCalculado == 'Pagado' %}
                                     <span class="badge bg-success">
-                                        Pagado
+                                        <i class="fas fa-check-circle me-1"></i>Pagado
                                     </span>
-                                {% elif cuenta.Estado == 'Vencido' %}
+                                {% elif cuenta.EstadoCalculado == 'Vencido' %}
                                     <span class="badge bg-danger">
-                                        Vencido
+                                        <i class="fas fa-exclamation-triangle me-1"></i>Vencido
                                     </span>
                                 {% else %}
                                     <span class="badge bg-warning">
-                                        Pendiente
+                                        <i class="fas fa-clock me-1"></i>Pendiente
                                     </span>
+                                {% endif %}
+                                <!-- Mostrar estado original de la base de datos si es diferente -->
+                                {% if cuenta.EstadoDB and cuenta.EstadoDB != 'Pendiente' and cuenta.EstadoDB != 'Pagada' and cuenta.EstadoDB != 'Vencida' %}
+                                    <br>
+                                    <small class="text-muted">(DB: {{ cuenta.EstadoDB }})</small>
                                 {% endif %}
                             </td>
                             
