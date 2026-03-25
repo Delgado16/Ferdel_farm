@@ -1,5 +1,5 @@
 from venv import logger
-from flask import Flask, flash, render_template, redirect, send_file, url_for, abort, request, session, Response, jsonify, current_app, g
+from flask import Flask, flash, render_template, redirect, url_for, abort, request, session, Response, jsonify, current_app, g
 from flask_cors import CORS
 from flask_session import Session
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -17823,8 +17823,7 @@ def api_verificar_saldo_cliente_offline(id_cliente):
                     c.RUC_CEDULA,
                     c.Telefono,
                     c.Direccion,
-                    c.Perfil,
-                    c.Email,
+                    c.perfil_cliente,
                     COALESCE((
                         SELECT SUM(Saldo_Pendiente) 
                         FROM cuentas_por_cobrar 
@@ -17883,8 +17882,7 @@ def api_verificar_saldo_cliente_offline(id_cliente):
                     'ruc': cliente['RUC_CEDULA'],
                     'telefono': cliente['Telefono'],
                     'direccion': cliente['Direccion'],
-                    'perfil': cliente['Perfil'],
-                    'email': cliente['Email'],
+                    'perfil': cliente['perfil_cliente'],
                     'saldo_pendiente': float(cliente['Saldo_Pendiente_Total'] or 0),
                     'facturas_pendientes': cliente['Facturas_Pendientes']
                 },
