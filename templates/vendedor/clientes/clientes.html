@@ -1,245 +1,229 @@
 {% extends "layout.html" %}
 
-{% block title %}Clientes - {{ super() }}{% endblock %}
+{% block title %}Mis Clientes - {{ super() }}{% endblock %}
 
 {% block content %}
 <div class="container-fluid mt-2 mt-md-4 px-2 px-md-3 py-2 py-md-4">
-    <!-- ============================================ -->
-    <!-- ENCABEZADO RESPONSIVO                        -->
-    <!-- ============================================ -->
+    <!-- ENCABEZADO -->
     <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center mb-3 mb-md-4">
         <div class="mb-2 mb-md-0">
-            <h1 class="h3 h2-md mb-1">
-                <i class="fas fa-users me-2 text-primary"></i>Mis Clientes
+            <h1 class="h3 mb-1">
+                <i class="bi bi-people me-2 text-primary"></i>Mis Clientes
             </h1>
             <p class="text-muted small mb-0">
-                <i class="fas fa-calendar me-2"></i>{{ fecha_actual }} | 
-                <i class="fas fa-list me-2 ms-2"></i>Gestión de clientes
+                <i class="bi bi-calendar me-2"></i>{{ fecha_actual }} | 
+                <i class="bi bi-list me-2 ms-2"></i>Gestión de cobros
             </p>
         </div>
-        <div class="mt-2 mt-md-0">
+        <div>
             <span class="badge bg-primary fs-6 p-2">
-                <i class="fas fa-user-friends me-1"></i>Total: {{ total }} clientes
+                <i class="bi bi-people me-1"></i>Total: {{ total }} clientes
             </span>
         </div>
     </div>
 
-    <!-- ============================================ -->
-    <!-- FORMULARIO DE BÚSQUEDA Y FILTROS RESPONSIVO  -->
-    <!-- ============================================ -->
-    <div class="card shadow-sm mb-4">
+    <!-- FILTROS MEJORADOS -->
+    <div class="card shadow-sm mb-3 mb-md-4">
         <div class="card-body p-3">
-            <form method="GET" action="{{ url_for('admin_clientes') }}" class="row g-2 g-md-3">
-                <!-- Campo de búsqueda -->
+            <form method="GET" action="{{ url_for('vendedor_clientes') }}" class="row g-2 g-md-3">
                 <div class="col-12 col-md-6">
-                    <div class="input-group input-group-lg">
+                    <div class="input-group">
                         <span class="input-group-text bg-white">
-                            <i class="fas fa-search text-muted"></i>
+                            <i class="bi bi-search text-muted"></i>
                         </span>
                         <input type="text" 
                                class="form-control" 
-                               id="search" 
                                name="q" 
-                               placeholder="Buscar por nombre o teléfono..."
+                               placeholder="Buscar por nombre, teléfono o cédula..."
                                value="{{ search if search else '' }}">
                         {% if search %}
-                        <a href="{{ url_for('admin_clientes') }}" class="btn btn-outline-secondary" title="Limpiar búsqueda">
-                            <i class="fas fa-times"></i>
+                        <a href="{{ url_for('vendedor_clientes') }}" class="btn btn-outline-secondary">
+                            <i class="bi bi-x"></i>
                         </a>
                         {% endif %}
                     </div>
                 </div>
-                
-                <!-- Filtro por ruta -->
                 <div class="col-8 col-md-4">
-                    <select class="form-select form-select-lg" id="ruta_filter" name="ruta">
+                    <select class="form-select" name="ruta">
                         <option value="">Todas las rutas</option>
                         {% for ruta in rutas %}
-                        <option value="{{ ruta.ID_Ruta }}" 
-                                {% if request.args.get('ruta')|int == ruta.ID_Ruta %}selected{% endif %}>
+                        <option value="{{ ruta.ID_Ruta }}" {% if ruta_seleccionada|int == ruta.ID_Ruta %}selected{% endif %}>
                             {{ ruta.Nombre_Ruta }}
                         </option>
                         {% endfor %}
                     </select>
                 </div>
-                
-                <!-- Botón de filtro -->
                 <div class="col-4 col-md-2 d-grid">
-                    <button type="submit" class="btn btn-primary btn-lg">
-                        <i class="fas fa-filter me-1 me-md-2"></i>
-                        <span class="d-none d-md-inline">Filtrar</span>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-funnel me-1"></i> Filtrar
                     </button>
                 </div>
             </form>
         </div>
     </div>
 
-    <!-- ============================================ -->
-    <!-- TABLA DE CLIENTES RESPONSIVA                 -->
-    <!-- ============================================ -->
+    <!-- VISTA DE CLIENTES: CARDS EN MÓVIL / TABLA EN DESKTOP -->
     <div class="card shadow-sm">
         <div class="card-body p-0">
-            {% if clientes and clientes|length > 0 %}
-            <!-- VISTA MÓVIL: Tarjetas de clientes -->
-            <div class="d-block d-lg-none">
+            
+            <!-- VERSIÓN MÓVIL: CARDS -->
+            <div class="d-block d-md-none">
                 {% for cliente in clientes %}
-                <div class="cliente-card p-3 border-bottom">
-                    <div class="d-flex justify-content-between align-items-start mb-2">
-                        <div>
-                            <span class="badge bg-primary me-2">#{{ loop.index + (page-1)*per_page }}</span>
-                            <span class="fw-bold h6">{{ cliente.Nombre }}</span>
-                        </div>
-                        {% if cliente.Saldo_Pendiente_Total and cliente.Saldo_Pendiente_Total > 0 %}
-                        <span class="badge bg-danger">
-                            C${{ "{:,.2f}".format(cliente.Saldo_Pendiente_Total) }}
-                        </span>
-                        {% else %}
-                        <span class="badge bg-success">C$0.00</span>
-                        {% endif %}
-                    </div>
-
-                    <div class="row g-2">
-                        <div class="col-6">
-                            <small class="text-muted d-block">
-                                <i class="fas fa-phone-alt me-1"></i>Teléfono:
-                            </small>
-                            {% if cliente.Telefono %}
-                            <a href="tel:{{ cliente.Telefono }}" class="text-decoration-none small">
-                                {{ cliente.Telefono }}
-                            </a>
-                            {% else %}
-                            <span class="small text-muted">-</span>
-                            {% endif %}
-                        </div>
-                        <div class="col-6">
-                            <small class="text-muted d-block">
-                                <i class="fas fa-route me-1"></i>Ruta:
-                            </small>
-                            {% if cliente.Nombre_Ruta %}
-                            <span class="badge bg-info">
-                                {{ cliente.Nombre_Ruta }}
-                            </span>
-                            {% else %}
-                            <span class="small text-muted">-</span>
-                            {% endif %}
-                        </div>
-                        <div class="col-12">
-                            <small class="text-muted d-block">
-                                <i class="fas fa-map-marker-alt me-1"></i>Dirección:
-                            </small>
-                            <span class="small">
-                                {{ cliente.Direccion|truncate(60) if cliente.Direccion else '-' }}
-                            </span>
-                        </div>
-                    </div>
-                </div>
-                {% endfor %}
-            </div>
-
-            <!-- VISTA DESKTOP: Tabla de clientes -->
-            <div class="table-responsive d-none d-lg-block">
-                <table class="table table-hover table-striped mb-0">
-                    <thead class="table-light">
-                        <tr>
-                            <th class="ps-4" width="60">#</th>
-                            <th>Nombre</th>
-                            <th width="120">Teléfono</th>
-                            <th width="150">Ruta</th>
-                            <th>Dirección</th>
-                            <th class="text-end pe-4" width="150">Saldo Pendiente</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for cliente in clientes %}
-                        <tr>
-                            <td class="ps-4 fw-bold">{{ loop.index + (page-1)*per_page }}</td>
-                            <td>
-                                <div class="fw-semibold">{{ cliente.Nombre }}</div>
-                            </td>
-                            <td>
-                                {% if cliente.Telefono %}
-                                <a href="tel:{{ cliente.Telefono }}" class="text-decoration-none">
-                                    <i class="fas fa-phone-alt me-1 text-muted small"></i>
-                                    {{ cliente.Telefono }}
-                                </a>
-                                {% else %}
-                                <span class="text-muted small">-</span>
+                <div class="card border-0 border-bottom rounded-0">
+                    <div class="card-body p-3">
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <div class="flex-grow-1">
+                                <h6 class="mb-1 fw-bold">{{ cliente.Nombre }}</h6>
+                                {% if cliente.RUC_CEDULA %}
+                                <small class="text-muted d-block">
+                                    <i class="bi bi-card-text me-1"></i>{{ cliente.RUC_CEDULA }}
+                                </small>
                                 {% endif %}
-                            </td>
-                            <td>
-                                {% if cliente.Nombre_Ruta %}
-                                <span class="badge bg-info">
-                                    <i class="fas fa-route me-1"></i>{{ cliente.Nombre_Ruta }}
-                                </span>
-                                {% endif %}
-                            </td>
-                            <td>
-                                <span class="small">
-                                    <i class="fas fa-map-marker-alt me-1 text-muted"></i>
-                                    {{ cliente.Direccion|truncate(40) if cliente.Direccion else '-' }}
-                                </span>
-                            </td>
-                            <td class="text-end pe-4">
+                            </div>
+                            <div>
                                 {% if cliente.Saldo_Pendiente_Total and cliente.Saldo_Pendiente_Total > 0 %}
-                                <span class="fw-bold text-danger">
+                                <span class="fw-bold text-danger fs-5">
                                     C${{ "{:,.2f}".format(cliente.Saldo_Pendiente_Total) }}
                                 </span>
                                 {% else %}
-                                <span class="text-muted">C$0.00</span>
+                                <span class="text-muted fs-6">C$0.00</span>
                                 {% endif %}
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
-
-            <!-- ============================================ -->
-            <!-- PAGINACIÓN RESPONSIVA                        -->
-            <!-- ============================================ -->
-            {% if total_pages > 1 %}
-            <div class="card-footer bg-white p-3">
-                <div class="d-flex flex-column flex-sm-row justify-content-between align-items-center gap-3">
-                    <div class="text-center text-sm-start">
-                        <span class="text-muted small">
-                            Mostrando {{ ((page-1)*per_page) + 1 }} - 
-                            {{ [page*per_page, total]|min }} de {{ total }} clientes
-                        </span>
+                            </div>
+                        </div>
+                        
+                        <div class="row g-2 mb-2">
+                            {% if cliente.Telefono %}
+                            <div class="col-6">
+                                <small class="text-muted d-block">Teléfono</small>
+                                <a href="tel:{{ cliente.Telefono }}" class="text-decoration-none small">
+                                    <i class="bi bi-telephone me-1"></i>{{ cliente.Telefono }}
+                                </a>
+                            </div>
+                            {% endif %}
+                            
+                            {% if cliente.Nombre_Ruta %}
+                            <div class="col-6">
+                                <small class="text-muted d-block">Ruta</small>
+                                <span class="badge bg-info">{{ cliente.Nombre_Ruta }}</span>
+                            </div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="mt-2">
+                            {% if cliente.Saldo_Pendiente_Total and cliente.Saldo_Pendiente_Total > 0 %}
+                            <button class="btn btn-success w-100" 
+                                    onclick="abrirModalAbono({{ cliente.ID_Cliente }}, '{{ cliente.Nombre }}', {{ cliente.Saldo_Pendiente_Total }})">
+                                <i class="bi bi-cash-stack me-1"></i> Registrar Abono
+                            </button>
+                            {% else %}
+                            <div class="text-center">
+                                <span class="badge bg-success w-100 py-2">Pagado</span>
+                            </div>
+                            {% endif %}
+                        </div>
                     </div>
-                    
-                    <nav aria-label="Paginación de clientes">
-                        <ul class="pagination pagination-sm flex-wrap justify-content-center mb-0">
-                            <!-- Botón Anterior -->
+                </div>
+                {% else %}
+                <div class="text-center py-5">
+                    <i class="bi bi-people fs-1 text-muted mb-3 d-block"></i>
+                    <p class="mb-0 text-muted">No se encontraron clientes</p>
+                </div>
+                {% endfor %}
+            </div>
+            
+            <!-- VERSIÓN DESKTOP: TABLA -->
+            <div class="d-none d-md-block">
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th class="ps-4">#</th>
+                                <th>Nombre</th>
+                                <th>Teléfono</th>
+                                <th>Ruta</th>
+                                <th class="text-end pe-4">Saldo Pendiente</th>
+                                <th class="text-center">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for cliente in clientes %}
+                            <tr>
+                                <td class="ps-4 fw-bold">{{ loop.index + (page-1)*per_page }}</td>
+                                <td>
+                                    <strong>{{ cliente.Nombre }}</strong>
+                                    {% if cliente.RUC_CEDULA %}
+                                    <br><small class="text-muted">{{ cliente.RUC_CEDULA }}</small>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if cliente.Telefono %}
+                                    <a href="tel:{{ cliente.Telefono }}" class="text-decoration-none">
+                                        <i class="bi bi-telephone me-1 text-muted"></i>{{ cliente.Telefono }}
+                                    </a>
+                                    {% else %}
+                                    <span class="text-muted">-</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if cliente.Nombre_Ruta %}
+                                    <span class="badge bg-info">{{ cliente.Nombre_Ruta }}</span>
+                                    {% endif %}
+                                </td>
+                                <td class="text-end pe-4">
+                                    {% if cliente.Saldo_Pendiente_Total and cliente.Saldo_Pendiente_Total > 0 %}
+                                    <span class="fw-bold text-danger">
+                                        C${{ "{:,.2f}".format(cliente.Saldo_Pendiente_Total) }}
+                                    </span>
+                                    {% else %}
+                                    <span class="text-muted">C$0.00</span>
+                                    {% endif %}
+                                </td>
+                                <td class="text-center">
+                                    {% if cliente.Saldo_Pendiente_Total and cliente.Saldo_Pendiente_Total > 0 %}
+                                    <button class="btn btn-sm btn-success" 
+                                            onclick="abrirModalAbono({{ cliente.ID_Cliente }}, '{{ cliente.Nombre }}', {{ cliente.Saldo_Pendiente_Total }})">
+                                        <i class="bi bi-cash-stack me-1"></i> Abono
+                                    </button>
+                                    {% else %}
+                                    <span class="badge bg-success">Pagado</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="6" class="text-center py-4">
+                                    <i class="bi bi-people fs-1 text-muted mb-2"></i>
+                                    <p class="mb-0">No se encontraron clientes</p>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            
+            <!-- PAGINACIÓN MEJORADA -->
+            {% if total_pages > 1 %}
+            <div class="card-footer bg-white">
+                <div class="d-flex flex-column flex-sm-row justify-content-between align-items-center gap-2 py-2">
+                    <small class="text-muted text-center text-sm-start">
+                        Mostrando {{ ((page-1)*per_page) + 1 }} - {{ [page*per_page, total]|min }} de {{ total }} clientes
+                    </small>
+                    <nav>
+                        <ul class="pagination pagination-sm mb-0 flex-wrap justify-content-center">
                             <li class="page-item {% if page <= 1 %}disabled{% endif %}">
-                                <a class="page-link" 
-                                   href="{{ url_for('admin_clientes', page=page-1, q=search) if page > 1 else '#' }}"
-                                   aria-label="Anterior">
-                                    <i class="fas fa-chevron-left"></i>
+                                <a class="page-link" href="{{ url_for('vendedor_clientes', page=page-1, q=search, ruta=ruta_seleccionada) if page > 1 else '#' }}">
+                                    <i class="bi bi-chevron-left"></i>
                                 </a>
                             </li>
-
-                            <!-- Números de página -->
                             {% for p in range([1, page-2]|max, [total_pages, page+2]|min + 1) %}
-                                {% if p == 1 or p == total_pages or (p >= page-2 and p <= page+2) %}
                                 <li class="page-item {% if p == page %}active{% endif %}">
-                                    <a class="page-link" 
-                                       href="{{ url_for('admin_clientes', page=p, q=search) }}">
-                                        {{ p }}
-                                    </a>
+                                    <a class="page-link" href="{{ url_for('vendedor_clientes', page=p, q=search, ruta=ruta_seleccionada) }}">{{ p }}</a>
                                 </li>
-                                {% elif p == page-3 or p == page+3 %}
-                                <li class="page-item disabled">
-                                    <span class="page-link">...</span>
-                                </li>
-                                {% endif %}
                             {% endfor %}
-
-                            <!-- Botón Siguiente -->
                             <li class="page-item {% if page >= total_pages %}disabled{% endif %}">
-                                <a class="page-link" 
-                                   href="{{ url_for('admin_clientes', page=page+1, q=search) if page < total_pages else '#' }}"
-                                   aria-label="Siguiente">
-                                    <i class="fas fa-chevron-right"></i>
+                                <a class="page-link" href="{{ url_for('vendedor_clientes', page=page+1, q=search, ruta=ruta_seleccionada) if page < total_pages else '#' }}">
+                                    <i class="bi bi-chevron-right"></i>
                                 </a>
                             </li>
                         </ul>
@@ -247,604 +231,254 @@
                 </div>
             </div>
             {% endif %}
-
-            {% else %}
-            <!-- ============================================ -->
-            <!-- MENSAJE CUANDO NO HAY RESULTADOS            -->
-            <!-- ============================================ -->
-            <div class="text-center py-5">
-                <div class="mb-3">
-                    <i class="fas fa-users fa-4x text-muted opacity-50"></i>
-                </div>
-                <h5 class="h6 h5-md text-muted">No se encontraron clientes</h5>
-                {% if search %}
-                <p class="text-muted small mb-3">
-                    No hay resultados para "{{ search }}"
-                </p>
-                <a href="{{ url_for('admin_clientes') }}" class="btn btn-outline-primary btn-sm">
-                    <i class="fas fa-times me-2"></i>Limpiar búsqueda
-                </a>
-                {% else %}
-                <p class="text-muted small mb-0">
-                    No tienes clientes asignados en este momento.
-                </p>
-                {% endif %}
-            </div>
-            {% endif %}
         </div>
     </div>
 </div>
-{% endblock %}
 
-{% block styles %}
-{{ super() }}
-<style>
-/* ============================================ */
-/* ESTILOS RESPONSIVOS MEJORADOS                */
-/* ============================================ */
-
-/* Variables */
-:root {
-    --primary-gradient: linear-gradient(135deg, #6a11cb 0%, #2575fc 100%);
-}
-
-/* Estilos base de tabla */
-.table > :not(caption) > * > * {
-    padding: 1rem 0.5rem;
-    vertical-align: middle;
-}
-
-.pagination {
-    margin-bottom: 0;
-    gap: 2px;
-}
-
-.page-link {
-    padding: 0.375rem 0.75rem;
-    font-size: 0.875rem;
-    border-radius: 6px;
-    transition: all 0.2s ease;
-}
-
-.page-link:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-}
-
-.page-item.active .page-link {
-    background: var(--primary-gradient);
-    border-color: transparent;
-}
-
-.badge {
-    font-weight: 500;
-    padding: 0.5rem 0.75rem;
-}
-
-/* Animación hover para filas */
-.table tbody tr {
-    transition: background-color 0.2s ease, transform 0.2s ease;
-}
-
-.table tbody tr:hover {
-    background-color: rgba(106, 17, 203, 0.05) !important;
-    transform: scale(1.002);
-}
-
-/* ============================================ */
-/* VISTA MÓVIL (< 992px)                        */
-/* ============================================ */
-@media (max-width: 991.98px) {
-    .container-fluid {
-        padding-left: 8px;
-        padding-right: 8px;
-    }
-
-    .h2-md {
-        font-size: 1.5rem;
-    }
-
-    .h5-md {
-        font-size: 1rem;
-    }
-
-    /* Tarjetas de clientes */
-    .cliente-card {
-        background-color: white;
-        transition: all 0.3s ease;
-        animation: fadeIn 0.3s ease;
-        border-left: 3px solid transparent;
-    }
-
-    .cliente-card:hover {
-        background-color: #f8f9fa;
-        border-left-color: #6a11cb;
-        transform: translateX(2px);
-    }
-
-    .cliente-card .badge {
-        font-size: 0.7rem;
-        padding: 0.3rem 0.5rem;
-    }
-
-    .cliente-card .fw-bold {
-        font-size: 0.95rem;
-    }
-
-    /* Input group */
-    .input-group-lg {
-        width: 100%;
-    }
-
-    .input-group-lg .form-control,
-    .input-group-lg .btn {
-        font-size: 0.95rem;
-        padding: 0.5rem 0.75rem;
-    }
-
-    /* Botones */
-    .btn-lg {
-        font-size: 0.95rem;
-        padding: 0.5rem;
-    }
-
-    /* Badge de total */
-    .badge.fs-6 {
-        font-size: 0.9rem !important;
-        padding: 0.4rem 0.8rem;
-    }
-}
-
-/* ============================================ */
-/* VISTA TABLET (768px - 991px)                 */
-/* ============================================ */
-@media (min-width: 768px) and (max-width: 991.98px) {
-    .cliente-card .row {
-        margin-left: -5px;
-        margin-right: -5px;
-    }
-
-    .cliente-card [class*="col-"] {
-        padding-left: 5px;
-        padding-right: 5px;
-    }
-
-    .pagination-sm .page-link {
-        padding: 0.3rem 0.6rem;
-        font-size: 0.8rem;
-    }
-}
-
-/* ============================================ */
-/* VISTA PANTALLAS MUY PEQUEÑAS (< 576px)       */
-/* ============================================ */
-@media (max-width: 575.98px) {
-    .h2-md {
-        font-size: 1.3rem;
-    }
-
-    .cliente-card {
-        padding: 0.75rem !important;
-    }
-
-    .cliente-card .badge {
-        font-size: 0.65rem;
-    }
-
-    .cliente-card .small {
-        font-size: 0.7rem;
-    }
-
-    .input-group-lg .form-control,
-    .input-group-lg .btn {
-        font-size: 0.85rem;
-        padding: 0.4rem 0.6rem;
-    }
-
-    .badge.fs-6 {
-        font-size: 0.8rem !important;
-    }
-
-    .pagination-sm .page-link {
-        padding: 0.25rem 0.5rem;
-        font-size: 0.75rem;
-    }
-
-    /* Ajustar el grid de filtros */
-    .col-8, .col-4 {
-        padding-left: 3px;
-        padding-right: 3px;
-    }
-}
-
-/* ============================================ */
-/* VISTA DESKTOP (≥ 992px)                      */
-/* ============================================ */
-@media (min-width: 992px) {
-    .table th {
-        white-space: nowrap;
-        background-color: #f8fafc;
-    }
-
-    .table td {
-        font-size: 0.95rem;
-    }
-
-    .badge.bg-info {
-        white-space: nowrap;
-    }
-
-    .btn-lg {
-        padding: 0.75rem 1rem;
-        font-size: 1rem;
-    }
-}
-
-/* ============================================ */
-/* ANIMACIONES                                  */
-/* ============================================ */
-@keyframes fadeIn {
-    from {
-        opacity: 0;
-        transform: translateY(5px);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
-}
-
-@keyframes slideIn {
-    from {
-        transform: translateX(-10px);
-        opacity: 0;
-    }
-    to {
-        transform: translateX(0);
-        opacity: 1;
-    }
-}
-
-.fade-in {
-    animation: fadeIn 0.3s ease;
-}
-
-/* ============================================ */
-/* MEJORAS DE UX                               */
-/* ============================================ */
-
-/* Tooltips solo en desktop */
-@media (min-width: 992px) {
-    [title] {
-        cursor: help;
-    }
-}
-
-/* Mejora touch targets en móvil */
-@media (max-width: 767.98px) {
-    .btn, 
-    .page-link,
-    .form-control,
-    .form-select,
-    .input-group-text {
-        min-height: 44px;
-    }
-
-    .btn-sm {
-        min-height: 38px;
-    }
-}
-
-/* Scrollbar personalizada */
-::-webkit-scrollbar {
-    width: 8px;
-    height: 8px;
-}
-
-::-webkit-scrollbar-track {
-    background: #f1f1f1;
-    border-radius: 4px;
-}
-
-::-webkit-scrollbar-thumb {
-    background: linear-gradient(135deg, #6a11cb, #2575fc);
-    border-radius: 4px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-    background: linear-gradient(135deg, #5a0bb0, #1e5fd6);
-}
-
-/* Estilo para enlaces de teléfono */
-a[href^="tel"] {
-    color: inherit;
-    text-decoration: none;
-    transition: color 0.2s ease;
-}
-
-a[href^="tel"]:hover {
-    color: #6a11cb;
-}
-
-/* Badge de saldo positivo */
-.badge.bg-danger {
-    background: linear-gradient(135deg, #dc3545, #c82333) !important;
-    box-shadow: 0 2px 5px rgba(220, 53, 69, 0.3);
-}
-
-.badge.bg-success {
-    background: linear-gradient(135deg, #28a745, #218838) !important;
-}
-
-.badge.bg-info {
-    background: linear-gradient(135deg, #17a2b8, #138496) !important;
-}
-
-/* Contenedor de tabla */
-.table-responsive {
-    border-radius: 0.5rem;
-}
-
-/* Efecto de gradiente en el botón primario */
-.btn-primary {
-    background: var(--primary-gradient);
-    border: none;
-    transition: all 0.3s ease;
-}
-
-.btn-primary:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 15px rgba(106, 17, 203, 0.4);
-}
-
-/* Footer de paginación */
-.card-footer {
-    border-top: 1px solid rgba(0,0,0,0.05);
-    background-color: #fff;
-}
-
-/* Ajuste para el input de búsqueda */
-.input-group-text {
-    border-right: none;
-    background-color: white;
-}
-
-#search {
-    border-left: none;
-}
-
-#search:focus {
-    box-shadow: none;
-    border-color: #ced4da;
-}
-
-/* Mensaje de no resultados */
-.text-muted.opacity-50 {
-    opacity: 0.3 !important;
-}
-
-/* Ajustes para la paginación en móvil */
-@media (max-width: 576px) {
-    .pagination {
-        flex-wrap: wrap;
-        justify-content: center;
-        gap: 2px;
-    }
-    
-    .page-item {
-        margin: 2px;
-    }
-    
-    .page-link {
-        padding: 0.25rem 0.5rem;
-        font-size: 0.75rem;
-        min-width: 32px;
-        text-align: center;
-    }
-}
-
-/* ============================================ */
-/* SOPORTE PARA ORIENTACIÓN LANDSCAPE           */
-/* ============================================ */
-@media (max-width: 896px) and (orientation: landscape) {
-    .cliente-card .row {
-        max-height: none;
-    }
-    
-    .container-fluid {
-        padding-bottom: 20px;
-    }
-}
-
-/* ============================================ */
-/* MEJORA DE ACCESIBILIDAD                      */
-/* ============================================ */
-.visually-hidden:not(:focus):not(:active) {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    margin: -1px;
-    border: 0;
-    padding: 0;
-    white-space: nowrap;
-    clip-path: inset(100%);
-    clip: rect(0 0 0 0);
-    overflow: hidden;
-}
-
-/* Focus visible para teclado */
-*:focus-visible {
-    outline: 3px solid rgba(106, 17, 203, 0.5);
-    outline-offset: 2px;
-}
-
-/* ============================================ */
-/* TEMA OSCURO (OPCIONAL)                       */
-/* ============================================ */
-body.dark-theme .card {
-    background-color: #2d2d2d;
-    color: #e0e0e0;
-}
-
-body.dark-theme .table {
-    color: #e0e0e0;
-}
-
-body.dark-theme .table-light {
-    background-color: #3d3d3d;
-    color: #fff;
-}
-
-body.dark-theme .cliente-card {
-    background-color: #2d2d2d;
-    border-bottom-color: #3d3d3d !important;
-}
-
-body.dark-theme .cliente-card:hover {
-    background-color: #3d3d3d;
-}
-</style>
-{% endblock %}
-
-{% block scripts %}
-{{ super() }}
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    // ============================================
-    // AUTO-SUBMIT AL CAMBIAR FILTRO DE RUTA
-    // ============================================
-    const rutaFilter = document.getElementById('ruta_filter');
-    if (rutaFilter) {
-        rutaFilter.addEventListener('change', function() {
-            // Mostrar indicador de carga (opcional)
-            const submitBtn = document.querySelector('button[type="submit"]');
-            if (submitBtn) {
-                const originalText = submitBtn.innerHTML;
-                submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Filtrando...';
-                submitBtn.disabled = true;
+<!-- MODAL PARA ABONOS (MEJORADO) -->
+<div class="modal fade" id="modalAbono" tabindex="-1" aria-labelledby="modalAbonoLabel" aria-hidden="true" data-bs-backdrop="static">
+    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title" id="modalAbonoLabel">
+                    <i class="bi bi-cash-stack me-2"></i>Registrar Abono
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="card mb-3">
+                    <div class="card-body bg-light">
+                        <div class="row">
+                            <div class="col-12 col-sm-8 mb-2 mb-sm-0">
+                                <small class="text-muted">CLIENTE</small>
+                                <h5 id="modalClienteNombre" class="mb-0 mt-1">-</h5>
+                            </div>
+                            <div class="col-12 col-sm-4">
+                                <small class="text-muted">SALDO</small>
+                                <h4 id="modalSaldoPendiente" class="text-danger mb-0 mt-1">C$0.00</h4>
+                            </div>
+                        </div>
+                    </div>
+                </div>
                 
-                setTimeout(() => {
-                    this.form.submit();
-                }, 100);
-            } else {
-                this.form.submit();
-            }
-        });
-    }
+                <div class="mb-3">
+                    <label class="form-label fw-bold">Monto del Abono</label>
+                    <div class="input-group">
+                        <span class="input-group-text">C$</span>
+                        <input type="number" class="form-control form-control-lg" id="montoAbono" step="0.01" min="0.01" placeholder="0.00">
+                    </div>
+                </div>
+                
+                <div id="errorAbono" class="alert alert-danger" style="display:none"></div>
+                <div id="successAbono" class="alert alert-success" style="display:none"></div>
+            </div>
+            <div class="modal-footer flex-column flex-sm-row gap-2">
+                <button type="button" class="btn btn-secondary w-100 w-sm-auto" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-success w-100 w-sm-auto" id="btnProcesarAbono">
+                    <i class="bi bi-check-circle me-1"></i>Procesar Abono
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
 
-    // ============================================
-    // VALIDACIÓN DE BÚSQUEDA
-    // ============================================
-    const searchForm = document.querySelector('form');
-    const searchInput = document.getElementById('search');
+<script>
+// Script para manejar abonos (MEJORADO)
+console.log('=== INICIANDO SISTEMA DE ABONOS ===');
 
-    if (searchForm && searchInput) {
-        searchForm.addEventListener('submit', function(e) {
-            if (searchInput.value.trim() === '') {
-                e.preventDefault();
-                window.location.href = "{{ url_for('admin_clientes') }}";
-            }
-        });
+let clienteSeleccionado = null;
 
-        // Agregar botón de limpiar si no existe
-        if (!searchInput.value) {
-            const clearButton = searchForm.querySelector('.btn-outline-secondary');
-            if (clearButton) {
-                clearButton.style.display = 'none';
-            }
-        }
-    }
-
-    // ============================================
-    // TOOLTIPS (SOLO EN DESKTOP)
-    // ============================================
-    if (window.innerWidth >= 992) {
-        const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
-        tooltipTriggerList.map(function(tooltipTriggerEl) {
-            return new bootstrap.Tooltip(tooltipTriggerEl, {
-                animation: true,
-                delay: { show: 500, hide: 100 }
-            });
-        });
-    }
-
-    // ============================================
-    // DETECTAR CAMBIO DE ORIENTACIÓN
-    // ============================================
-    let resizeTimeout;
-    window.addEventListener('resize', function() {
-        clearTimeout(resizeTimeout);
-        resizeTimeout = setTimeout(function() {
-            // Recalcular tooltips si es necesario
-            if (window.innerWidth >= 992) {
-                // Reinicializar tooltips
-            } else {
-                // Ocultar tooltips
-                const tooltips = document.querySelectorAll('.tooltip');
-                tooltips.forEach(tooltip => tooltip.remove());
-            }
-        }, 250);
+// Función para formatear moneda correctamente
+function formatCurrency(value) {
+    const numero = parseFloat(value);
+    if (isNaN(numero)) return 'C$0.00';
+    
+    return 'C$' + numero.toLocaleString('es-NI', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
     });
+}
 
-    // ============================================
-    // ANIMACIÓN DE ENTRADA PARA TARJETAS EN MÓVIL
-    // ============================================
-    const clienteCards = document.querySelectorAll('.cliente-card');
-    clienteCards.forEach((card, index) => {
-        card.style.animation = `fadeIn 0.3s ease ${index * 0.05}s forwards`;
-        card.style.opacity = '0';
-    });
-
-    // ============================================
-    // MOSTRAR/OCULTAR BOTÓN DE LIMPIAR
-    // ============================================
-    if (searchInput) {
-        searchInput.addEventListener('input', function() {
-            const clearButton = document.querySelector('.btn-outline-secondary');
-            if (clearButton) {
-                if (this.value.trim() === '') {
-                    clearButton.style.display = 'none';
-                } else {
-                    clearButton.style.display = 'inline-flex';
-                }
-            }
-        });
+// Función para abrir modal
+window.abrirModalAbono = function(id, nombre, saldo) {
+    console.log('Abriendo modal para:', nombre, 'ID:', id, 'Saldo:', saldo);
+    
+    const modalClienteNombre = document.getElementById('modalClienteNombre');
+    const modalSaldoPendiente = document.getElementById('modalSaldoPendiente');
+    const montoAbono = document.getElementById('montoAbono');
+    const errorAbono = document.getElementById('errorAbono');
+    const successAbono = document.getElementById('successAbono');
+    
+    if (!modalClienteNombre || !modalSaldoPendiente) {
+        console.error('Elementos del modal no encontrados');
+        alert('Error: No se pudo cargar el modal. Por favor recargue la página.');
+        return;
     }
-
-    // ============================================
-    // FUNCIÓN PARA COPIAR TELÉFONO (OPCIONAL)
-    // ============================================
-    window.copiarTelefono = function(telefono) {
-        if (navigator.clipboard && window.isSecureContext) {
-            navigator.clipboard.writeText(telefono).then(() => {
-                // Mostrar notificación de éxito
-                const toast = document.createElement('div');
-                toast.className = 'alert alert-success alert-dismissible fade show position-fixed top-0 end-0 m-3';
-                toast.style.zIndex = '9999';
-                toast.innerHTML = `
-                    <i class="fas fa-check-circle me-2"></i>
-                    Teléfono copiado: ${telefono}
-                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                `;
-                document.body.appendChild(toast);
-                setTimeout(() => toast.remove(), 3000);
-            }).catch(() => {
-                alert('Teléfono: ' + telefono);
-            });
-        } else {
-            alert('Teléfono: ' + telefono);
-        }
+    
+    clienteSeleccionado = {
+        id: parseInt(id),
+        nombre: nombre,
+        saldo: parseFloat(saldo)
     };
+    
+    modalClienteNombre.textContent = nombre;
+    modalSaldoPendiente.textContent = formatCurrency(parseFloat(saldo));
+    
+    if (montoAbono) {
+        montoAbono.value = '';
+        montoAbono.max = parseFloat(saldo);
+        montoAbono.placeholder = `Monto máximo: ${formatCurrency(parseFloat(saldo))}`;
+    }
+    
+    if (errorAbono) errorAbono.style.display = 'none';
+    if (successAbono) successAbono.style.display = 'none';
+    
+    const modalElement = document.getElementById('modalAbono');
+    if (modalElement) {
+        const modal = new bootstrap.Modal(modalElement);
+        modal.show();
+        console.log('Modal mostrado correctamente');
+        
+        // Enfocar el campo de monto
+        setTimeout(() => {
+            if (montoAbono) montoAbono.focus();
+        }, 500);
+    } else {
+        console.error('Elemento modalAbono no encontrado');
+        alert('Error: No se encontró el modal');
+    }
+}
 
-    // ============================================
-    // LOG DE INFORMACIÓN
-    // ============================================
-    console.log('📊 Vista de clientes cargada:', {
-        totalClientes: {{ total }},
-        paginaActual: {{ page }},
-        totalPaginas: {{ total_pages }},
-        busqueda: '{{ search if search else "" }}'
-    });
+// Procesar abono
+async function procesarAbono() {
+    const montoInput = document.getElementById('montoAbono');
+    if (!montoInput) {
+        console.error('Campo monto no encontrado');
+        return;
+    }
+    
+    const monto = parseFloat(montoInput.value);
+    
+    if (!clienteSeleccionado) {
+        mostrarError('No hay cliente seleccionado');
+        return;
+    }
+    
+    if (isNaN(monto) || monto <= 0) {
+        mostrarError('Ingrese un monto válido mayor a 0');
+        montoInput.focus();
+        return;
+    }
+    
+    if (monto > clienteSeleccionado.saldo) {
+        mostrarError(`El monto no puede ser mayor a ${formatCurrency(clienteSeleccionado.saldo)}`);
+        montoInput.focus();
+        return;
+    }
+    
+    const btn = document.getElementById('btnProcesarAbono');
+    if (!btn) return;
+    
+    const originalText = btn.innerHTML;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Procesando...';
+    btn.disabled = true;
+    
+    try {
+        console.log('Enviando petición:', {
+            id_cliente: clienteSeleccionado.id,
+            monto_abono: monto
+        });
+        
+        const response = await fetch('/api/vendedor/procesar_abono', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                id_cliente: clienteSeleccionado.id,
+                monto_abono: monto
+            })
+        });
+        
+        const data = await response.json();
+        console.log('Respuesta API:', data);
+        
+        if (data.success) {
+            let detalleHtml = '';
+            if (data.detalle && data.detalle.length > 0) {
+                detalleHtml = '<div class="mt-3"><small><strong>Facturas aplicadas:</strong><br>';
+                data.detalle.forEach(item => {
+                    detalleHtml += `• ${item.factura}: ${formatCurrency(item.monto)} (${item.estado})<br>`;
+                });
+                detalleHtml += '</small></div>';
+            }
+            
+            mostrarExito(`✅ ${data.mensaje}<br>Monto: ${formatCurrency(data.monto_abono)}${detalleHtml}`);
+            btn.innerHTML = '<i class="bi bi-check-circle me-2"></i>Completado';
+            setTimeout(() => location.reload(), 2500);
+        } else {
+            mostrarError(data.error || 'Error al procesar el abono');
+            btn.innerHTML = originalText;
+            btn.disabled = false;
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        mostrarError('Error de conexión: ' + error.message);
+        btn.innerHTML = originalText;
+        btn.disabled = false;
+    }
+}
+
+function mostrarError(mensaje) {
+    const errorDiv = document.getElementById('errorAbono');
+    const successDiv = document.getElementById('successAbono');
+    
+    if (errorDiv) {
+        errorDiv.innerHTML = `<i class="bi bi-exclamation-triangle me-2"></i>${mensaje}`;
+        errorDiv.style.display = 'block';
+    }
+    if (successDiv) successDiv.style.display = 'none';
+    
+    setTimeout(() => {
+        if (errorDiv) errorDiv.style.display = 'none';
+    }, 5000);
+}
+
+function mostrarExito(mensaje) {
+    const successDiv = document.getElementById('successAbono');
+    const errorDiv = document.getElementById('errorAbono');
+    
+    if (successDiv) {
+        successDiv.innerHTML = `<i class="bi bi-check-circle me-2"></i>${mensaje}`;
+        successDiv.style.display = 'block';
+    }
+    if (errorDiv) errorDiv.style.display = 'none';
+}
+
+// Configurar eventos cuando el DOM esté listo
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('DOM cargado, configurando eventos...');
+    
+    const btnProcesar = document.getElementById('btnProcesarAbono');
+    if (btnProcesar) {
+        btnProcesar.addEventListener('click', procesarAbono);
+        console.log('✅ Botón procesar configurado');
+    } else {
+        console.error('❌ Botón procesar no encontrado');
+    }
+    
+    const montoInput = document.getElementById('montoAbono');
+    if (montoInput) {
+        montoInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                procesarAbono();
+            }
+        });
+        console.log('✅ Evento Enter configurado');
+    }
+    
+    console.log('✅ Sistema de abonos listo!');
 });
 </script>
 {% endblock %}

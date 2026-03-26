@@ -662,8 +662,6 @@ def admin_dashboard():
         flash(f"Error al cargar dashboard: {e}", "danger")
         return redirect(url_for('dashboard'))
 
-from datetime import datetime, date  # Asegúrate de tener esta importación
-
 @app.route('/vendedor/dashboard')
 @login_required
 def vendedor_dashboard():
@@ -18750,6 +18748,7 @@ def resumen_diario_vendedor():
 @app.route('/vendedor/clientes', methods=['GET'])
 @vendedor_required
 def vendedor_clientes():
+    
     # Valores por defecto
     clientes = []
     rutas = []
@@ -18758,12 +18757,14 @@ def vendedor_clientes():
     total = 0
     total_pages = 1
     search_query = ""
+    fecha_actual = datetime.now().strftime("%d/%m/%Y")
+    ruta_filtro = request.args.get("ruta", "")
     
     try:
         page = request.args.get("page", 1, type=int)
         search_query = request.args.get("q", "").strip()
         id_empresa = session.get('id_empresa', 1)
-        id_usuario = current_user.id  # Obtener ID del vendedor actual
+        id_usuario = current_user.id
         
         with get_db_cursor() as cursor:
             # Obtener las rutas activas asignadas al vendedor actual
@@ -18786,10 +18787,11 @@ def vendedor_clientes():
             
             offset = (page - 1) * per_page
             
-            # Consulta base modificada - SOLO campos principales y clientes de rutas asignadas
+            # Consulta base modificada
             base_query = """
                 SELECT c.ID_Cliente, c.Nombre, c.Telefono, c.Direccion, 
-                       c.Saldo_Pendiente_Total, r.Nombre_Ruta
+                       c.Saldo_Pendiente_Total, c.RUC_CEDULA,
+                       r.Nombre_Ruta, r.ID_Ruta
                 FROM clientes c
                 INNER JOIN empresa e ON c.ID_Empresa = e.ID_Empresa
                 INNER JOIN rutas r ON c.ID_Ruta = r.ID_Ruta
@@ -18804,10 +18806,16 @@ def vendedor_clientes():
             """
             params = [id_empresa, id_usuario]
             
+            # Filtrar por ruta si se seleccionó una
+            if ruta_filtro and ruta_filtro.isdigit():
+                base_query += " AND r.ID_Ruta = %s"
+                params.append(int(ruta_filtro))
+            
+            # Filtrar por búsqueda
             if search_query:
-                base_query += " AND (c.Nombre LIKE %s OR c.Telefono LIKE %s)"
+                base_query += " AND (c.Nombre LIKE %s OR c.Telefono LIKE %s OR c.RUC_CEDULA LIKE %s)"
                 search_param = f"%{search_query}%"
-                params.extend([search_param, search_param])
+                params.extend([search_param, search_param, search_param])
             
             # Contar total
             count_query = """
@@ -18826,9 +18834,13 @@ def vendedor_clientes():
             """
             count_params = [id_empresa, id_usuario]
             
+            if ruta_filtro and ruta_filtro.isdigit():
+                count_query += " AND r.ID_Ruta = %s"
+                count_params.append(int(ruta_filtro))
+            
             if search_query:
-                count_query += " AND (c.Nombre LIKE %s OR c.Telefono LIKE %s)"
-                count_params.extend([search_param, search_param])
+                count_query += " AND (c.Nombre LIKE %s OR c.Telefono LIKE %s OR c.RUC_CEDULA LIKE %s)"
+                count_params.extend([search_param, search_param, search_param])
             
             cursor.execute(count_query, count_params)
             total_result = cursor.fetchone()
@@ -18851,18 +18863,19 @@ def vendedor_clientes():
                 clientes = cursor.fetchall()
             
     except Exception as e:
-        logging.error(f"Error en ruta /admin/catalog/client/clientes: {str(e)}", exc_info=True)
+        logging.error(f"Error en ruta vendedor_clientes: {str(e)}", exc_info=True)
         flash("Ocurrió un error al cargar los clientes. Por favor intenta nuevamente.", "danger")
     
-    # Siempre retornamos el template, incluso si hay error
     return render_template("vendedor/clientes/clientes.html", 
                         clientes=clientes, 
-                        rutas=rutas_asignadas,  # Solo mostrar rutas asignadas al vendedor
+                        rutas=rutas_asignadas,
                         page=page,
                         per_page=per_page,
                         total=total,
                         total_pages=total_pages,
-                        search=search_query)
+                        search=search_query,
+                        fecha_actual=fecha_actual,
+                        ruta_seleccionada=ruta_filtro)
 
 # ============================================
 # GASTOS DE RUTA/COMPRAS (MANDO DE JEFE)
