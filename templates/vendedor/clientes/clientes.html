@@ -22,7 +22,7 @@
         </div>
     </div>
 
-    <!-- FILTROS MEJORADOS -->
+    <!-- FILTROS -->
     <div class="card shadow-sm mb-3 mb-md-4">
         <div class="card-body p-3">
             <form method="GET" action="{{ url_for('vendedor_clientes') }}" class="row g-2 g-md-3">
@@ -62,7 +62,7 @@
         </div>
     </div>
 
-    <!-- VISTA DE CLIENTES: CARDS EN MÓVIL / TABLA EN DESKTOP -->
+    <!-- VISTA DE CLIENTES -->
     <div class="card shadow-sm">
         <div class="card-body p-0">
             
@@ -112,7 +112,7 @@
                         <div class="mt-2">
                             {% if cliente.Saldo_Pendiente_Total and cliente.Saldo_Pendiente_Total > 0 %}
                             <button class="btn btn-success w-100" 
-                                    onclick="abrirModalAbono({{ cliente.ID_Cliente }}, '{{ cliente.Nombre }}', {{ cliente.Saldo_Pendiente_Total }})">
+                                    onclick="abrirModalAbono({{ cliente.ID_Cliente }}, '{{ cliente.Nombre|replace("'", "\\'") }}', {{ cliente.Saldo_Pendiente_Total }})">
                                 <i class="bi bi-cash-stack me-1"></i> Registrar Abono
                             </button>
                             {% else %}
@@ -181,7 +181,7 @@
                                 <td class="text-center">
                                     {% if cliente.Saldo_Pendiente_Total and cliente.Saldo_Pendiente_Total > 0 %}
                                     <button class="btn btn-sm btn-success" 
-                                            onclick="abrirModalAbono({{ cliente.ID_Cliente }}, '{{ cliente.Nombre }}', {{ cliente.Saldo_Pendiente_Total }})">
+                                            onclick="abrirModalAbono({{ cliente.ID_Cliente }}, '{{ cliente.Nombre|replace("'", "\\'") }}', {{ cliente.Saldo_Pendiente_Total }})">
                                         <i class="bi bi-cash-stack me-1"></i> Abono
                                     </button>
                                     {% else %}
@@ -202,7 +202,7 @@
                 </div>
             </div>
             
-            <!-- PAGINACIÓN MEJORADA -->
+            <!-- PAGINACIÓN -->
             {% if total_pages > 1 %}
             <div class="card-footer bg-white">
                 <div class="d-flex flex-column flex-sm-row justify-content-between align-items-center gap-2 py-2">
@@ -235,7 +235,7 @@
     </div>
 </div>
 
-<!-- MODAL PARA ABONOS (MEJORADO) -->
+<!-- MODAL PARA ABONOS CON MÉTODO DE PAGO -->
 <div class="modal fade" id="modalAbono" tabindex="-1" aria-labelledby="modalAbonoLabel" aria-hidden="true" data-bs-backdrop="static">
     <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
         <div class="modal-content">
@@ -269,6 +269,26 @@
                     </div>
                 </div>
                 
+                <!-- SELECTOR DE MÉTODO DE PAGO -->
+                <div class="mb-3">
+                    <label class="form-label fw-bold">
+                        <i class="bi bi-credit-card me-1"></i>Método de Pago
+                    </label>
+                    <select class="form-select form-select-lg" id="metodoPago" required>
+                        <option value="">Seleccione método de pago</option>
+                        {% if metodos_pago %}
+                            {% for metodo in metodos_pago %}
+                            <option value="{{ metodo.ID_MetodoPago }}">{{ metodo.Nombre }}</option>
+                            {% endfor %}
+                        {% else %}
+                            <option value="" disabled>No hay métodos de pago disponibles</option>
+                        {% endif %}
+                    </select>
+                    <div class="form-text">
+                        <i class="bi bi-info-circle me-1"></i>Seleccione cómo realizó el pago el cliente
+                    </div>
+                </div>
+                
                 <div id="errorAbono" class="alert alert-danger" style="display:none"></div>
                 <div id="successAbono" class="alert alert-success" style="display:none"></div>
             </div>
@@ -283,8 +303,9 @@
 </div>
 
 <script>
-// Script para manejar abonos (MEJORADO)
+// Script para manejar abonos CON MÉTODO DE PAGO
 console.log('=== INICIANDO SISTEMA DE ABONOS ===');
+console.log('Métodos de pago disponibles:', {{ metodos_pago|tojson|safe if metodos_pago else '[]' }});
 
 let clienteSeleccionado = null;
 
@@ -306,6 +327,7 @@ window.abrirModalAbono = function(id, nombre, saldo) {
     const modalClienteNombre = document.getElementById('modalClienteNombre');
     const modalSaldoPendiente = document.getElementById('modalSaldoPendiente');
     const montoAbono = document.getElementById('montoAbono');
+    const metodoPago = document.getElementById('metodoPago');
     const errorAbono = document.getElementById('errorAbono');
     const successAbono = document.getElementById('successAbono');
     
@@ -330,6 +352,11 @@ window.abrirModalAbono = function(id, nombre, saldo) {
         montoAbono.placeholder = `Monto máximo: ${formatCurrency(parseFloat(saldo))}`;
     }
     
+    // Resetear método de pago
+    if (metodoPago) {
+        metodoPago.value = '';
+    }
+    
     if (errorAbono) errorAbono.style.display = 'none';
     if (successAbono) successAbono.style.display = 'none';
     
@@ -349,15 +376,18 @@ window.abrirModalAbono = function(id, nombre, saldo) {
     }
 }
 
-// Procesar abono
+// Procesar abono con método de pago
 async function procesarAbono() {
     const montoInput = document.getElementById('montoAbono');
+    const metodoPagoSelect = document.getElementById('metodoPago');
+    
     if (!montoInput) {
         console.error('Campo monto no encontrado');
         return;
     }
     
     const monto = parseFloat(montoInput.value);
+    const idMetodoPago = metodoPagoSelect ? metodoPagoSelect.value : '';
     
     if (!clienteSeleccionado) {
         mostrarError('No hay cliente seleccionado');
@@ -376,6 +406,12 @@ async function procesarAbono() {
         return;
     }
     
+    if (!idMetodoPago) {
+        mostrarError('Por favor seleccione un método de pago');
+        metodoPagoSelect.focus();
+        return;
+    }
+    
     const btn = document.getElementById('btnProcesarAbono');
     if (!btn) return;
     
@@ -384,38 +420,54 @@ async function procesarAbono() {
     btn.disabled = true;
     
     try {
-        console.log('Enviando petición:', {
+        const requestData = {
             id_cliente: clienteSeleccionado.id,
-            monto_abono: monto
-        });
+            monto_abono: monto,
+            id_metodo_pago: parseInt(idMetodoPago)
+        };
+        
+        console.log('Enviando petición:', requestData);
         
         const response = await fetch('/api/vendedor/procesar_abono', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
             },
-            body: JSON.stringify({
-                id_cliente: clienteSeleccionado.id,
-                monto_abono: monto
-            })
+            body: JSON.stringify(requestData)
         });
         
         const data = await response.json();
         console.log('Respuesta API:', data);
         
         if (data.success) {
+            // Mostrar mensaje de éxito
             let detalleHtml = '';
             if (data.detalle && data.detalle.length > 0) {
-                detalleHtml = '<div class="mt-3"><small><strong>Facturas aplicadas:</strong><br>';
+                detalleHtml = '<div class="mt-2 small">';
                 data.detalle.forEach(item => {
-                    detalleHtml += `• ${item.factura}: ${formatCurrency(item.monto)} (${item.estado})<br>`;
+                    detalleHtml += `✓ Factura ${item.factura}: ${formatCurrency(item.monto)}<br>`;
                 });
-                detalleHtml += '</small></div>';
+                detalleHtml += '</div>';
             }
             
-            mostrarExito(`✅ ${data.mensaje}<br>Monto: ${formatCurrency(data.monto_abono)}${detalleHtml}`);
-            btn.innerHTML = '<i class="bi bi-check-circle me-2"></i>Completado';
-            setTimeout(() => location.reload(), 2500);
+            mostrarExito(`✅ ${data.mensaje}<br>Monto: ${formatCurrency(data.monto_abono)}<br>Método: ${data.metodo_pago || 'No especificado'}${detalleHtml}`);
+            
+            // Obtener el ID del abono
+            const idAbono = data.id_abono || data.id_movimiento;
+            console.log('ID para recibo:', idAbono);
+            
+            // Cerrar el modal
+            const modalElement = document.getElementById('modalAbono');
+            const modal = bootstrap.Modal.getInstance(modalElement);
+            if (modal) {
+                modal.hide();
+            }
+            
+            // 🔥 CAMBIO IMPORTANTE: Redirigir al recibo en lugar de recargar la página
+            setTimeout(() => {
+                window.location.href = `/vendedor/abono/${idAbono}/recibo?autoPrint=1`;
+            }, 1500);
+            
         } else {
             mostrarError(data.error || 'Error al procesar el abono');
             btn.innerHTML = originalText;
@@ -453,18 +505,21 @@ function mostrarExito(mensaje) {
         successDiv.style.display = 'block';
     }
     if (errorDiv) errorDiv.style.display = 'none';
+    
+    // Auto-ocultar después de 3 segundos
+    setTimeout(() => {
+        if (successDiv) successDiv.style.display = 'none';
+    }, 3000);
 }
 
-// Configurar eventos cuando el DOM esté listo
+// Configurar eventos
 document.addEventListener('DOMContentLoaded', function() {
     console.log('DOM cargado, configurando eventos...');
     
     const btnProcesar = document.getElementById('btnProcesarAbono');
     if (btnProcesar) {
         btnProcesar.addEventListener('click', procesarAbono);
-        console.log('✅ Botón procesar configurado');
-    } else {
-        console.error('❌ Botón procesar no encontrado');
+        console.log('Botón procesar configurado');
     }
     
     const montoInput = document.getElementById('montoAbono');
@@ -478,7 +533,15 @@ document.addEventListener('DOMContentLoaded', function() {
         console.log('✅ Evento Enter configurado');
     }
     
-    console.log('✅ Sistema de abonos listo!');
+    // Verificar si hay métodos de pago
+    const metodoPagoSelect = document.getElementById('metodoPago');
+    if (metodoPagoSelect && metodoPagoSelect.options.length <= 1) {
+        console.warn('⚠️ No hay métodos de pago disponibles en el select');
+    } else if (metodoPagoSelect) {
+        console.log(`✅ Métodos de pago disponibles: ${metodoPagoSelect.options.length - 1}`);
+    }
+    
+    console.log('✅ Sistema de abonos con métodos de pago listo!');
 });
 </script>
 {% endblock %}

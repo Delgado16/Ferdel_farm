@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Recibo de Abono #{{ ticket.id_abono }}</title>
+    <style>
+        @media print {
+            @page {
+                margin: 0;
+                size: 80mm auto;
+            }
+            body {
+                margin: 0;
+                padding: 0;
+                font-family: monospace;
+                font-size: 12px;
+                background: #fff;
+            }
+            .no-print {
+                display: none;
+            }
+            .ticket {
+                width: 80mm;
+                margin: 0;
+                padding: 5px;
+            }
+        }
+
+        body {
+            font-family: monospace;
+            font-size: 12px;
+            margin: 0;
+            padding: 10px;
+            background: #f0f0f0;
+        }
+
+        .ticket {
+            width: 80mm;
+            margin: 0 auto;
+            background: white;
+            padding: 10px;
+            border: 1px solid #ccc;
+        }
+
+        .text-center {
+            text-align: center;
+        }
+
+        .bold {
+            font-weight: bold;
+        }
+
+        .divider {
+            border-top: 1px dashed #000;
+            margin: 8px 0;
+        }
+
+        .double-divider {
+            border-top: 2px solid #000;
+            margin: 10px 0;
+        }
+
+        .saldo-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 5px 0;
+        }
+
+        .total-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-top: 2px solid #000;
+            margin-top: 5px;
+            font-weight: bold;
+            font-size: 14px;
+        }
+
+        .abono-row {
+            color: #2e7d32;
+            font-weight: bold;
+        }
+
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 3px 0;
+        }
+
+        .footer {
+            margin-top: 15px;
+            text-align: center;
+            font-size: 10px;
+        }
+
+        .btn {
+            background: #2e7d32;
+            color: white;
+            border: none;
+            padding: 8px 20px;
+            margin: 5px;
+            cursor: pointer;
+            border-radius: 4px;
+        }
+
+        .btn-secondary {
+            background: #666;
+        }
+
+        .metodo-pago {
+            background: #f0f0f0;
+            padding: 4px 8px;
+            border-radius: 3px;
+            display: inline-block;
+            font-size: 11px;
+        }
+    </style>
+</head>
+<body>
+    <div class="ticket">
+        <!-- ENCABEZADO EMPRESA -->
+        <div class="text-center">
+            <div class="bold">{{ ticket.empresa.nombre }}</div>
+            <div>RUC: {{ ticket.empresa.ruc }}</div>
+            <div>{{ ticket.empresa.direccion }}</div>
+            <div>Tel: {{ ticket.empresa.telefono }}</div>
+        </div>
+
+        <div class="double-divider"></div>
+
+        <!-- TÍTULO -->
+        <div class="text-center bold" style="font-size: 16px;">
+            RECIBO DE ABONO
+        </div>
+        <div class="text-center">N° {{ "%08d"|format(ticket.id_abono) }}</div>
+        <div class="text-center">{{ ticket.fecha }}</div>
+
+        <div class="divider"></div>
+
+        <!-- DATOS CLIENTE -->
+        <div class="info-row">
+            <span class="bold">Cliente:</span>
+            <span>{{ ticket.cliente }}</span>
+        </div>
+        <div class="info-row">
+            <span class="bold">RUC/Cédula:</span>
+            <span>{{ ticket.cliente_ruc }}</span>
+        </div>
+        
+        <!-- VENDEDOR QUIEN RECIBIÓ EL ABONO -->
+        <div class="info-row">
+            <span class="bold">Recibido por:</span>
+            <span>{{ ticket.vendedor }}</span>
+        </div>
+        <div class="info-row">
+            <span class="bold">Ruta:</span>
+            <span>{{ ticket.ruta }}</span>
+        </div>
+        
+        <!-- MÉTODO DE PAGO -->
+        <div class="info-row">
+            <span class="bold">Forma de Pago:</span>
+            <span><span class="metodo-pago">{{ ticket.metodo_pago }}</span></span>
+        </div>
+
+        <div class="divider"></div>
+
+        <!-- DETALLE DE ABONO - USANDO SALDO DE CLIENTES -->
+        <div class="saldo-row">
+            <span>Saldo Pendiente Consolidado</span>
+            <span>{{ ticket.saldo_anterior_formateado }}</span>
+        </div>
+        
+        <div class="saldo-row abono-row">
+            <span>Abono del Cliente</span>
+            <span>{{ ticket.monto_abono_formateado }}</span>
+        </div>
+        
+        <div class="divider"></div>
+        
+        <div class="total-row">
+            <span>Nuevo Saldo Pendiente</span>
+            <span>{{ ticket.nuevo_saldo_formateado }}</span>
+        </div>
+
+        <!-- PIE DEL RECIBO -->
+        <div class="footer">
+            <div class="bold">¡Gracias por su pago!</div>
+            <div>Este documento es un comprobante de abono</div>
+            <div class="divider"></div>
+            <div>--- Original: Cliente ---</div>
+        </div>
+    </div>
+
+    <!-- BOTONES (NO SE IMPRIMEN) -->
+    <div class="no-print text-center" style="margin-top: 15px;">
+        <button onclick="window.print()" class="btn">🖨️ Imprimir</button>
+        <button onclick="window.location.href='{{ url_for('vendedor_clientes') }}'" class="btn btn-secondary">📋 Volver</button>
+    </div>
+
+    <script>
+        // Auto-impresión
+        {% if ticket.auto_print %}
+        setTimeout(function() {
+            window.print();
+        }, 500);
+        {% endif %}
+        
+        // Atajo Ctrl+P
+        document.addEventListener('keydown', function(e) {
+            if ((e.ctrlKey || e.metaKey) && e.key === 'p') {
+                e.preventDefault();
+                window.print();
+            }
+        });
+    </script>
+</body>
+</html>
