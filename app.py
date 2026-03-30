@@ -19219,7 +19219,7 @@ def vendedor_gastos():
 
 #Iniciar Aplicación
 if __name__ == '__main__':
-    
+    # Estas líneas para crear carpetas están bien, déjalas
     os.makedirs('templates/admin', exist_ok=True)
     os.makedirs('templates/vendedor', exist_ok=True)
     os.makedirs('templates/bodega', exist_ok=True)
@@ -19228,4 +19228,9 @@ if __name__ == '__main__':
     print("🚀 Iniciando aplicación...")
     test_connection()
     
-    app.run(debug=True, host='0.0.0.0', port=5000)
+    # ✅ CAMBIO IMPORTANTE PARA RAILWAY
+    import os
+    port = int(os.environ.get('PORT', 5000))
+    debug_mode = os.environ.get('FLASK_DEBUG', 'False').lower() == 'true'
+    
+    app.run(debug=debug_mode, host='0.0.0.0', port=port)
