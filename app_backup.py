@@ -1670,6 +1670,7 @@ def admin_caja_historial():
         flash(f'❌ Error: {str(e)}', 'error')
         return redirect(url_for('admin_caja'))
 
+
 @app.route('/admin/caja/reporte')
 @admin_required
 @bitacora_decorator("REPORTE_CAJA")
