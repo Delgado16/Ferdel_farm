@@ -424,66 +424,21 @@
 <!-- SweetAlert2 para alertas -->
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
-{% endblock %}
-
-{% block scripts %}
 <script>
-$(document).ready(function() {
-    // Inicializar DataTable solo en desktop
-    if (window.innerWidth >= 992 && $('#tablaVentas tbody tr').length > 0) {
-        inicializarDataTable();
-    }
+// ============================================
+// VARIABLES GLOBALES
+// ============================================
+var fechaActualGlobal = "{{ fecha_actual }}";
 
-    // Mostrar/ocultar rango de fechas
-    $('#filtro_fecha').change(function() {
-        if ($(this).val() === 'personalizado') {
-            $('#rango_fechas').slideDown();
-        } else {
-            $('#rango_fechas').slideUp();
-            filtrarVentas();
-        }
-    });
-
-    // Calcular resumen inicial
-    calcularResumen();
-    actualizarContador();
-    
-    // Detectar cambio de orientación en móviles
-    window.addEventListener('orientationchange', function() {
-        setTimeout(function() {
-            if (window.innerWidth >= 992) {
-                if (!$.fn.DataTable.isDataTable('#tablaVentas')) {
-                    inicializarDataTable();
-                }
-            } else {
-                if ($.fn.DataTable.isDataTable('#tablaVentas')) {
-                    $('#tablaVentas').DataTable().destroy();
-                }
-            }
-        }, 200);
-    });
-});
-
-function inicializarDataTable() {
-    $('#tablaVentas').DataTable({
-        language: {
-            url: '//cdn.datatables.net/plug-ins/1.10.24/i18n/Spanish.json'
-        },
-        order: [[1, 'desc']],
-        pageLength: 10,
-        lengthMenu: [[10, 25, 50, -1], [10, 25, 50, "Todos"]],
-        columnDefs: [
-            { orderable: false, targets: [8] }  // Deshabilitar orden en acciones
-        ],
-        responsive: true
-    });
-}
+// ============================================
+// FUNCIONES GLOBALES - SIN JQUERY
+// ============================================
 
 function filtrarVentas() {
-    var fecha = $('#filtro_fecha').val();
-    var ruta = $('#filtro_ruta').val();
-    var fechaInicio = $('#fecha_inicio').val();
-    var fechaFin = $('#fecha_fin').val();
+    var fecha = document.getElementById('filtro_fecha').value;
+    var ruta = document.getElementById('filtro_ruta').value;
+    var fechaInicio = document.getElementById('fecha_inicio') ? document.getElementById('fecha_inicio').value : '';
+    var fechaFin = document.getElementById('fecha_fin') ? document.getElementById('fecha_fin').value : '';
 
     // Mostrar loading
     Swal.fire({
@@ -503,61 +458,82 @@ function filtrarVentas() {
         fechaFin = fechaFin.split('-').reverse().join('/');
     }
 
-    $.ajax({
-        url: "{{ url_for('api_filtrar_ventas') }}",
+    fetch("{{ url_for('api_filtrar_ventas') }}", {
         method: 'POST',
-        data: {
-            fecha: fecha,
-            ruta: ruta,
-            fecha_inicio: fechaInicio,
-            fecha_fin: fechaFin
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
         },
-        success: function(response) {
-            Swal.close();
-            if (response.success) {
-                actualizarVista(response.ventas);
-                actualizarResumen(response.ventas);
-            } else {
-                Swal.fire({
-                    icon: 'error',
-                    title: 'Error',
-                    text: response.error
-                });
-            }
-        },
-        error: function() {
-            Swal.close();
+        body: new URLSearchParams({
+            'fecha': fecha,
+            'ruta': ruta,
+            'fecha_inicio': fechaInicio,
+            'fecha_fin': fechaFin
+        })
+    })
+    .then(response => response.json())
+    .then(response => {
+        Swal.close();
+        if (response.success) {
+            actualizarVista(response.ventas);
+            actualizarResumen(response.ventas);
+        } else {
             Swal.fire({
                 icon: 'error',
                 title: 'Error',
-                text: 'Error al filtrar ventas'
+                text: response.error || 'Error al filtrar las ventas'
             });
         }
+    })
+    .catch(error => {
+        Swal.close();
+        Swal.fire({
+            icon: 'error',
+            title: 'Error de conexión',
+            text: 'No se pudo conectar con el servidor. Por favor, intente nuevamente.'
+        });
+        console.error('Error en filtrarVentas:', error);
     });
 }
 
 function actualizarVista(ventas) {
     // Actualizar contador
-    $('#contador_ventas').text(ventas.length);
+    var contadorElement = document.getElementById('contador_ventas');
+    if (contadorElement) contadorElement.textContent = ventas.length;
     
     if (ventas.length === 0) {
         // Mostrar mensaje de no resultados
-        if ($('.d-lg-none').length) {
-            $('.d-lg-none').html(`
-                <div class="text-center py-4">
-                    <i class="fas fa-search fa-2x text-muted mb-2"></i>
-                    <p class="text-muted small">No hay ventas para los filtros seleccionados</p>
-                </div>
-            `);
-        }
-        if ($('.d-none.d-lg-block').length) {
-            $('.d-none.d-lg-block').html(`
-                <div class="text-center py-4">
+        var movilContainer = document.querySelector('.d-block.d-lg-none');
+        if (movilContainer) {
+            movilContainer.innerHTML = `
+                <div class="text-center py-5">
                     <i class="fas fa-search fa-3x text-muted mb-3"></i>
-                    <p class="text-muted">No hay ventas para los filtros seleccionados</p>
+                    <p class="text-muted mb-0">No hay ventas para los filtros seleccionados</p>
+                    <small class="text-muted">Intente con otros criterios de búsqueda</small>
                 </div>
-            `);
+            `;
         }
+        
+        var desktopContainer = document.querySelector('.d-none.d-lg-block');
+        if (desktopContainer) {
+            desktopContainer.innerHTML = `
+                <div class="text-center py-5">
+                    <i class="fas fa-search fa-4x text-muted mb-3"></i>
+                    <p class="text-muted mb-0">No hay ventas para los filtros seleccionados</p>
+                    <small class="text-muted">Intente con otros criterios de búsqueda</small>
+                </div>
+            `;
+        }
+        
+        // Actualizar resumen a cero
+        var totalVentasEl = document.getElementById('total_ventas');
+        var totalMontoEl = document.getElementById('total_monto');
+        var totalContadoEl = document.getElementById('total_contado');
+        var totalCreditoEl = document.getElementById('total_credito');
+        
+        if (totalVentasEl) totalVentasEl.textContent = '0';
+        if (totalMontoEl) totalMontoEl.textContent = 'C$ 0.00';
+        if (totalContadoEl) totalContadoEl.textContent = 'C$ 0.00';
+        if (totalCreditoEl) totalCreditoEl.textContent = 'C$ 0.00';
         return;
     }
 
@@ -566,160 +542,200 @@ function actualizarVista(ventas) {
     
     // Actualizar vista desktop
     actualizarVistaDesktop(ventas);
-    
-    // Recalcular resumen
-    actualizarResumen(ventas);
 }
 
 function actualizarVistaMovil(ventas) {
-    var container = $('.d-block.d-lg-none');
-    if (!container.length) return;
+    var container = document.querySelector('.d-block.d-lg-none');
+    if (!container) {
+        // Si no existe el contenedor móvil, crearlo
+        var cardBody = document.querySelector('.card-body.p-0');
+        if (cardBody) {
+            var newContainer = document.createElement('div');
+            newContainer.className = 'd-block d-lg-none';
+            cardBody.prepend(newContainer);
+            container = newContainer;
+        }
+    }
     
-    container.empty();
+    if (!container) return;
+    container.innerHTML = '';
     
     ventas.forEach(function(v) {
         var tipoClass = v.Tipo_Venta === 'CONTADO' ? 'bg-success' : 'bg-warning text-dark';
         var tipoIcon = v.Tipo_Venta === 'CONTADO' ? 'fa-money-bill' : 'fa-clock';
         var estadoClass = v.Estado === 'Activa' ? 'bg-success' : 'bg-danger';
+        var tipoTexto = v.Tipo_Venta === 'CONTADO' ? 'Contado' : 'Crédito';
         
-        var card = `
-            <div class="venta-card p-2 border-bottom" 
-                 data-id="${v.ID_FacturaRuta}" 
-                 data-fecha="${v.Fecha}" 
-                 data-tipo="${v.Tipo_Venta}" 
-                 data-monto="${v.Total_Venta}">
-                
-                <div class="d-flex justify-content-between align-items-start mb-2">
-                    <div>
-                        <span class="fw-bold">#${v.ID_FacturaRuta}</span>
-                        <span class="badge ${tipoClass} ms-2">
-                            <i class="fas ${tipoIcon} me-1"></i> ${v.Tipo_Venta === 'CONTADO' ? 'Contado' : 'Crédito'}
-                        </span>
-                    </div>
-                    <span class="badge ${estadoClass}">${v.Estado}</span>
+        var card = document.createElement('div');
+        card.className = 'venta-card p-3 border-bottom';
+        card.setAttribute('data-id', v.ID_FacturaRuta);
+        card.setAttribute('data-fecha', v.Fecha);
+        card.setAttribute('data-tipo', v.Tipo_Venta);
+        card.setAttribute('data-monto', v.Total_Venta);
+        
+        card.innerHTML = `
+            <div class="d-flex justify-content-between align-items-start mb-2">
+                <div>
+                    <span class="fw-bold fs-6">#${v.ID_FacturaRuta}</span>
+                    <span class="badge ${tipoClass} ms-2">
+                        <i class="fas ${tipoIcon} me-1"></i> ${tipoTexto}
+                    </span>
                 </div>
-                
-                <div class="mb-2">
-                    <strong>${v.Cliente}</strong>
-                    ${v.Telefono ? '<br><small class="text-muted"><i class="fas fa-phone me-1"></i>' + v.Telefono + '</small>' : ''}
+                <span class="badge ${estadoClass}">${v.Estado}</span>
+            </div>
+            
+            <div class="mb-2">
+                <strong class="fs-6">${escapeHtml(v.Cliente)}</strong>
+                ${v.Telefono ? '<br><small class="text-muted"><i class="fas fa-phone me-1"></i>' + escapeHtml(v.Telefono) + '</small>' : ''}
+            </div>
+            
+            <div class="row g-2 mb-2">
+                <div class="col-5">
+                    <small class="text-muted d-block">Fecha/Hora</small>
+                    <span class="small">${v.Fecha} ${v.Hora}</span>
                 </div>
-                
-                <div class="row g-2 mb-2">
-                    <div class="col-5">
-                        <small class="text-muted d-block">Fecha/Hora</small>
-                        <span class="small">${v.Fecha} ${v.Hora}</span>
-                    </div>
-                    <div class="col-4">
-                        <small class="text-muted d-block">Ruta</small>
-                        <span class="badge bg-info">${v.Nombre_Ruta}</span>
-                    </div>
-                    <div class="col-3">
-                        <small class="text-muted d-block">Total</small>
-                        <strong class="text-success">C$ ${formatNumber(v.Total_Venta)}</strong>
-                    </div>
+                <div class="col-4">
+                    <small class="text-muted d-block">Ruta</small>
+                    <span class="badge bg-info">${escapeHtml(v.Nombre_Ruta)}</span>
                 </div>
-                
-                ${v.Saldo_Pendiente > 0 ? `
-                <div class="alert alert-danger py-1 px-2 mb-2 small">
-                    <i class="fas fa-exclamation-triangle me-1"></i>
-                    Saldo: C$ ${formatNumber(v.Saldo_Pendiente)}
-                </div>
-                ` : ''}
-                
-                <div class="d-flex gap-2">
-                    <a href="/vendedor/venta/${v.ID_FacturaRuta}/detalle" 
-                       class="btn btn-info btn-sm flex-fill">
-                        <i class="fas fa-eye me-1"></i> Ver
-                    </a>
-                    ${v.Estado === 'Activa' && v.Fecha === '{{ fecha_actual }}' ? `
-                    <button type="button" 
-                            class="btn btn-danger btn-sm flex-fill" 
-                            onclick="confirmarAnulacion(${v.ID_FacturaRuta})">
-                        <i class="fas fa-times me-1"></i> Anular
-                    </button>
-                    ` : ''}
+                <div class="col-3">
+                    <small class="text-muted d-block">Total</small>
+                    <strong class="text-success">C$ ${formatNumber(v.Total_Venta)}</strong>
                 </div>
             </div>
+            
+            ${v.Saldo_Pendiente > 0 ? `
+            <div class="alert alert-danger py-2 px-2 mb-2 small">
+                <i class="fas fa-exclamation-triangle me-1"></i>
+                Saldo pendiente: C$ ${formatNumber(v.Saldo_Pendiente)}
+            </div>
+            ` : ''}
+            
+            <div class="d-flex gap-2 mt-2">
+                <a href="/vendedor/venta/${v.ID_FacturaRuta}/detalle" 
+                   class="btn btn-info btn-sm flex-fill">
+                    <i class="fas fa-eye me-1"></i> Ver detalle
+                </a>
+                ${v.Estado === 'Activa' && v.Fecha === fechaActualGlobal ? `
+                <button type="button" 
+                        class="btn btn-danger btn-sm flex-fill" 
+                        onclick="confirmarAnulacion(${v.ID_FacturaRuta})">
+                    <i class="fas fa-times me-1"></i> Anular
+                </button>
+                ` : ''}
+            </div>
         `;
-        container.append(card);
+        container.appendChild(card);
     });
 }
 
 function actualizarVistaDesktop(ventas) {
-    var container = $('.d-none.d-lg-block');
-    if (!container.length) return;
-    
-    var tabla = container.find('#tablaVentas');
-    
-    // Destruir DataTable si existe
-    if ($.fn.DataTable.isDataTable('#tablaVentas')) {
-        $('#tablaVentas').DataTable().destroy();
+    var container = document.querySelector('.d-none.d-lg-block');
+    if (!container) {
+        // Si no existe el contenedor desktop, crearlo
+        var cardBody = document.querySelector('.card-body.p-0');
+        if (cardBody) {
+            var newContainer = document.createElement('div');
+            newContainer.className = 'd-none d-lg-block';
+            cardBody.appendChild(newContainer);
+            container = newContainer;
+        }
     }
     
-    var tbody = tabla.find('tbody');
-    tbody.empty();
+    if (!container) return;
+    
+    // Verificar si existe la tabla, si no, crearla
+    var tabla = document.getElementById('tablaVentas');
+    if (!tabla) {
+        container.innerHTML = `
+            <div class="table-responsive">
+                <table class="table table-bordered table-hover mb-0" id="tablaVentas" width="100%" cellspacing="0">
+                    <thead class="table-light">
+                        <tr>
+                            <th># Factura</th>
+                            <th>Fecha/Hora</th>
+                            <th>Cliente</th>
+                            <th>RUC/Cédula</th>
+                            <th>Ruta</th>
+                            <th class="text-end">Total</th>
+                            <th class="text-center">Tipo</th>
+                            <th class="text-center">Estado</th>
+                            <th class="text-center">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        `;
+        tabla = document.getElementById('tablaVentas');
+    }
+    
+    var tbody = tabla.querySelector('tbody');
+    if (!tbody) return;
+    tbody.innerHTML = '';
     
     ventas.forEach(function(v) {
         var tipoClass = v.Tipo_Venta === 'CONTADO' ? 'bg-success' : 'bg-warning text-dark';
         var tipoIcon = v.Tipo_Venta === 'CONTADO' ? 'fa-money-bill' : 'fa-clock';
         var estadoClass = v.Estado === 'Activa' ? 'bg-success' : 'bg-danger';
+        var tipoTexto = v.Tipo_Venta === 'CONTADO' ? 'Contado' : 'Crédito';
         
-        var row = `
-            <tr class="venta-row" 
-                data-id="${v.ID_FacturaRuta}" 
-                data-fecha="${v.Fecha}" 
-                data-tipo="${v.Tipo_Venta}" 
-                data-monto="${v.Total_Venta}">
-                <td class="fw-bold">#${v.ID_FacturaRuta}</td>
-                <td class="small">${v.Fecha}<br>${v.Hora}</td>
-                <td>
-                    <strong>${v.Cliente}</strong>
-                    ${v.Telefono ? '<br><small class="text-muted">' + v.Telefono + '</small>' : ''}
-                </td>
-                <td class="small">${v.RUC_CEDULA || 'N/A'}</td>
-                <td><span class="badge bg-info">${v.Nombre_Ruta}</span></td>
-                <td class="text-end">
-                    <strong class="text-success">C$ ${formatNumber(v.Total_Venta)}</strong>
-                    ${v.Saldo_Pendiente > 0 ? '<br><small class="text-danger">Saldo: C$ ' + formatNumber(v.Saldo_Pendiente) + '</small>' : ''}
-                </td>
-                <td class="text-center">
-                    <span class="badge ${tipoClass}">
-                        <i class="fas ${tipoIcon} me-1"></i> ${v.Tipo_Venta === 'CONTADO' ? 'Contado' : 'Crédito'}
-                    </span>
-                </td>
-                <td class="text-center">
-                    <span class="badge ${estadoClass}">${v.Estado}</span>
-                </td>
-                <td class="text-center">
-                    <div class="btn-group btn-group-sm">
-                        <a href="/vendedor/venta/${v.ID_FacturaRuta}/detalle" 
-                           class="btn btn-info" title="Ver detalle">
-                            <i class="fas fa-eye"></i>
-                        </a>
-                        ${v.Estado === 'Activa' && v.Fecha === '{{ fecha_actual }}' ? `
-                        <button type="button" 
-                                class="btn btn-danger" 
-                                onclick="confirmarAnulacion(${v.ID_FacturaRuta})"
-                                title="Anular venta">
-                            <i class="fas fa-times"></i>
-                        </button>
-                        ` : ''}
-                    </div>
-                </td>
-            </tr>
+        var row = tbody.insertRow();
+        row.className = 'venta-row';
+        row.setAttribute('data-id', v.ID_FacturaRuta);
+        row.setAttribute('data-fecha', v.Fecha);
+        row.setAttribute('data-tipo', v.Tipo_Venta);
+        row.setAttribute('data-monto', v.Total_Venta);
+        
+        row.innerHTML = `
+            <td class="fw-bold">#${v.ID_FacturaRuta}</td>
+            <td class="small">${v.Fecha}<br><small class="text-muted">${v.Hora}</small></td>
+            <td>
+                <strong>${escapeHtml(v.Cliente)}</strong>
+                ${v.Telefono ? '<br><small class="text-muted"><i class="fas fa-phone me-1"></i>' + escapeHtml(v.Telefono) + '</small>' : ''}
+            </td>
+            <td class="small">${escapeHtml(v.RUC_CEDULA || 'N/A')}</td>
+            <td><span class="badge bg-info">${escapeHtml(v.Nombre_Ruta)}</span></td>
+            <td class="text-end">
+                <strong class="text-success">C$ ${formatNumber(v.Total_Venta)}</strong>
+                ${v.Saldo_Pendiente > 0 ? '<br><small class="text-danger">Saldo: C$ ' + formatNumber(v.Saldo_Pendiente) + '</small>' : ''}
+            </td>
+            <td class="text-center">
+                <span class="badge ${tipoClass}">
+                    <i class="fas ${tipoIcon} me-1"></i> ${tipoTexto}
+                </span>
+            </td>
+            <td class="text-center">
+                <span class="badge ${estadoClass}">${v.Estado}</span>
+            </td>
+            <td class="text-center">
+                <div class="btn-group btn-group-sm">
+                    <a href="/vendedor/venta/${v.ID_FacturaRuta}/detalle" 
+                       class="btn btn-info" title="Ver detalle">
+                        <i class="fas fa-eye"></i>
+                    </a>
+                    ${v.Estado === 'Activa' && v.Fecha === fechaActualGlobal ? `
+                    <button type="button" 
+                            class="btn btn-danger" 
+                            onclick="confirmarAnulacion(${v.ID_FacturaRuta})"
+                            title="Anular venta">
+                        <i class="fas fa-times"></i>
+                    </button>
+                    ` : ''}
+                </div>
+            </td>
         `;
-        tbody.append(row);
     });
-    
-    // Reinicializar DataTable
-    inicializarDataTable();
 }
 
 function formatNumber(number) {
-    return new Intl.NumberFormat('es-PY', {
+    if (isNaN(number) || number === null || number === undefined) {
+        return '0.00';
+    }
+    return new Intl.NumberFormat('es-NI', {
         minimumFractionDigits: 2,
         maximumFractionDigits: 2
-    }).format(number);
+    }).format(parseFloat(number));
 }
 
 function actualizarResumen(ventas) {
@@ -739,10 +755,15 @@ function actualizarResumen(ventas) {
         }
     });
 
-    $('#total_ventas').text(totalVentas);
-    $('#total_monto').text('C$ ' + formatNumber(totalMonto));
-    $('#total_contado').text('C$ ' + formatNumber(totalContado));
-    $('#total_credito').text('C$ ' + formatNumber(totalCredito));
+    var totalVentasEl = document.getElementById('total_ventas');
+    var totalMontoEl = document.getElementById('total_monto');
+    var totalContadoEl = document.getElementById('total_contado');
+    var totalCreditoEl = document.getElementById('total_credito');
+    
+    if (totalVentasEl) totalVentasEl.textContent = totalVentas;
+    if (totalMontoEl) totalMontoEl.textContent = 'C$ ' + formatNumber(totalMonto);
+    if (totalContadoEl) totalContadoEl.textContent = 'C$ ' + formatNumber(totalContado);
+    if (totalCreditoEl) totalCreditoEl.textContent = 'C$ ' + formatNumber(totalCredito);
 }
 
 function calcularResumen() {
@@ -751,9 +772,10 @@ function calcularResumen() {
     var totalContado = 0;
     var totalCredito = 0;
 
-    $('.venta-row, .venta-card').each(function() {
-        var tipo = $(this).data('tipo');
-        var monto = parseFloat($(this).data('monto')) || 0;
+    var rows = document.querySelectorAll('.venta-row, .venta-card');
+    rows.forEach(function(element) {
+        var tipo = element.getAttribute('data-tipo');
+        var monto = parseFloat(element.getAttribute('data-monto')) || 0;
         
         totalVentas++;
         totalMonto += monto;
@@ -765,29 +787,140 @@ function calcularResumen() {
         }
     });
 
-    $('#total_ventas').text(totalVentas);
-    $('#total_monto').text('C$ ' + formatNumber(totalMonto));
-    $('#total_contado').text('C$ ' + formatNumber(totalContado));
-    $('#total_credito').text('C$ ' + formatNumber(totalCredito));
+    var totalVentasEl = document.getElementById('total_ventas');
+    var totalMontoEl = document.getElementById('total_monto');
+    var totalContadoEl = document.getElementById('total_contado');
+    var totalCreditoEl = document.getElementById('total_credito');
+    
+    if (totalVentasEl) totalVentasEl.textContent = totalVentas;
+    if (totalMontoEl) totalMontoEl.textContent = 'C$ ' + formatNumber(totalMonto);
+    if (totalContadoEl) totalContadoEl.textContent = 'C$ ' + formatNumber(totalContado);
+    if (totalCreditoEl) totalCreditoEl.textContent = 'C$ ' + formatNumber(totalCredito);
 }
 
 function actualizarContador() {
-    var total = $('.venta-row, .venta-card').length;
-    $('#contador_ventas').text(total);
+    var total = document.querySelectorAll('.venta-row, .venta-card').length;
+    var contadorElement = document.getElementById('contador_ventas');
+    if (contadorElement) contadorElement.textContent = total;
 }
 
 function confirmarAnulacion(idVenta) {
-    $('#formAnular').attr('action', '/vendedor/venta/' + idVenta + '/anular');
-    $('#modalAnular').modal('show');
+    var form = document.getElementById('formAnular');
+    if (form) {
+        form.action = '/vendedor/venta/' + idVenta + '/anular';
+    }
+    var modal = document.getElementById('modalAnular');
+    if (modal) {
+        var bsModal = new bootstrap.Modal(modal);
+        bsModal.show();
+    }
 }
 
-// Función para refrescar datos
+function escapeHtml(text) {
+    if (!text) return '';
+    var map = {
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#039;'
+    };
+    return String(text).replace(/[&<>"']/g, function(m) { return map[m]; });
+}
+
 function refrescarVentas() {
     filtrarVentas();
 }
 
-// Auto-refresh cada 5 minutos (opcional)
-setInterval(refrescarVentas, 300000);
+// ============================================
+// INICIALIZACIÓN - SIN JQUERY
+// ============================================
+document.addEventListener('DOMContentLoaded', function() {
+    // Mostrar/ocultar rango de fechas
+    var filtroFecha = document.getElementById('filtro_fecha');
+    if (filtroFecha) {
+        filtroFecha.addEventListener('change', function() {
+            var rangoFechas = document.getElementById('rango_fechas');
+            if (this.value === 'personalizado') {
+                if (rangoFechas) rangoFechas.style.display = 'block';
+            } else {
+                if (rangoFechas) rangoFechas.style.display = 'none';
+                filtrarVentas();
+            }
+        });
+    }
+    
+    // Inicializar DataTable si existe (solo si hay DataTables y es desktop)
+    if (typeof $.fn !== 'undefined' && $.fn.DataTable && window.innerWidth >= 992) {
+        var tabla = document.getElementById('tablaVentas');
+        if (tabla && tabla.querySelector('tbody tr')) {
+            inicializarDataTable();
+        }
+    }
+    
+    // Calcular resumen inicial
+    calcularResumen();
+    actualizarContador();
+    
+    // Detectar cambio de orientación en móviles
+    window.addEventListener('resize', function() {
+        setTimeout(function() {
+            if (window.innerWidth >= 992) {
+                if (typeof $.fn !== 'undefined' && $.fn.DataTable && document.getElementById('tablaVentas')) {
+                    var tabla = document.getElementById('tablaVentas');
+                    if (tabla && !$.fn.DataTable.isDataTable('#tablaVentas') && tabla.querySelector('tbody tr')) {
+                        inicializarDataTable();
+                    }
+                }
+            } else {
+                if (typeof $.fn !== 'undefined' && $.fn.DataTable && $.fn.DataTable.isDataTable('#tablaVentas')) {
+                    $('#tablaVentas').DataTable().destroy();
+                }
+            }
+        }, 200);
+    });
+});
+
+function inicializarDataTable() {
+    if (typeof $ !== 'undefined' && $.fn.DataTable && document.getElementById('tablaVentas')) {
+        var tabla = document.getElementById('tablaVentas');
+        if (tabla && tabla.querySelector('tbody tr')) {
+            $('#tablaVentas').DataTable({
+                language: {
+                    "sProcessing": "Procesando...",
+                    "sLengthMenu": "Mostrar _MENU_ registros",
+                    "sZeroRecords": "No se encontraron resultados",
+                    "sEmptyTable": "Ningún dato disponible en esta tabla",
+                    "sInfo": "Mostrando registros del _START_ al _END_ de un total de _TOTAL_ registros",
+                    "sInfoEmpty": "Mostrando registros del 0 al 0 de un total de 0 registros",
+                    "sInfoFiltered": "(filtrado de un total de _MAX_ registros)",
+                    "sInfoPostFix": "",
+                    "sSearch": "Buscar:",
+                    "sUrl": "",
+                    "sInfoThousands": ",",
+                    "sLoadingRecords": "Cargando...",
+                    "oPaginate": {
+                        "sFirst": "Primero",
+                        "sLast": "Último",
+                        "sNext": "Siguiente",
+                        "sPrevious": "Anterior"
+                    },
+                    "oAria": {
+                        "sSortAscending": ": Activar para ordenar la columna de manera ascendente",
+                        "sSortDescending": ": Activar para ordenar la columna de manera descendente"
+                    }
+                },
+                order: [[1, 'desc']],
+                pageLength: 10,
+                lengthMenu: [[10, 25, 50, -1], [10, 25, 50, "Todos"]],
+                columnDefs: [
+                    { orderable: false, targets: [8] }
+                ],
+                responsive: true
+            });
+        }
+    }
+}
 </script>
 
 <style>

@@ -16127,7 +16127,7 @@ def vendedor_movimiento_detalle(id_movimiento):
 @app.route('/vendedor/ventas')
 @vendedor_required
 def vendedor_ventas():
-    """Visualizar listado de ventas realizadas por el vendedor
+    """Visualizar listado de ventas realizadas por el vendedor (solo del día actual)
     """
     try:
         id_vendedor = current_user.id
@@ -16164,12 +16164,13 @@ def vendedor_ventas():
                     a_dict['Fecha_Asignacion'] = 'Fecha no disponible'
                 asignaciones.append(a_dict)
             
-            # Obtener ventas del vendedor
+            # Obtener ventas del día actual del vendedor
             ventas = []
             if asignaciones_raw:
                 ids_asignacion = [a['ID_Asignacion'] for a in asignaciones_raw]
                 placeholders = ','.join(['%s'] * len(ids_asignacion))
                 
+                # MODIFICACIÓN: Agregar filtro por fecha actual
                 cursor.execute(f"""
                     SELECT fr.ID_FacturaRuta, 
                            fr.Fecha,
@@ -16200,8 +16201,10 @@ def vendedor_ventas():
                     INNER JOIN rutas r ON av.ID_Ruta = r.ID_Ruta
                     LEFT JOIN detalle_facturacion_ruta dfr ON fr.ID_FacturaRuta = dfr.ID_FacturaRuta
                     WHERE fr.ID_Asignacion IN ({placeholders})
+                      AND DATE(fr.Fecha) = CURDATE()  -- AGREGADO: Filtro para ventas del día actual
                     GROUP BY fr.ID_FacturaRuta
                     ORDER BY fr.Fecha DESC, fr.ID_FacturaRuta DESC
+                    LIMIT 15
                 """, tuple(ids_asignacion))
                 ventas_raw = cursor.fetchall()
                 
@@ -16258,7 +16261,6 @@ def vendedor_ventas():
                              
     except Exception as e:
         print(f"Error en vendedor_ventas: {str(e)}")
-        import traceback
         traceback.print_exc()
         flash(f'Error al cargar ventas: {str(e)}', 'error')
         return redirect(url_for('vendedor_dashboard'))
@@ -17632,43 +17634,72 @@ def api_filtrar_ventas():
     """API para filtrar ventas por fecha y ruta
     """
     try:
-        id_vendedor = current_user.id  # CORREGIDO: usar current_user.id
+        id_vendedor = current_user.id
         fecha = request.form.get('fecha', 'hoy')
-        id_ruta = request.form.get('ruta')
+        id_ruta = request.form.get('ruta', '')
         fecha_inicio = request.form.get('fecha_inicio')
         fecha_fin = request.form.get('fecha_fin')
         
         with get_db_cursor(True) as cursor:
+            # Primero obtener las asignaciones del vendedor
+            cursor.execute("""
+                SELECT ID_Asignacion 
+                FROM asignacion_vendedores 
+                WHERE ID_Usuario = %s
+            """, (id_vendedor,))
+            asignaciones = cursor.fetchall()
+            
+            if not asignaciones:
+                return jsonify({'success': True, 'ventas': []})
+            
+            ids_asignacion = [a['ID_Asignacion'] for a in asignaciones]
+            placeholders = ','.join(['%s'] * len(ids_asignacion))
+            
             # Construir condición de fecha
             fecha_cond = ""
-            params = [id_vendedor]
+            params = list(ids_asignacion)
+            
+            from datetime import datetime, timedelta
             
             if fecha == 'hoy':
                 fecha_cond = "AND DATE(fr.Fecha) = CURDATE()"
             elif fecha == 'ayer':
-                fecha_cond = "AND DATE(fr.Fecha) = DATE_SUB(CURDATE(), INTERVAL 1 DAY)"
+                fecha_cond = "AND DATE(fr.Fecha) = CURDATE() - INTERVAL 1 DAY"
             elif fecha == 'semana':
-                fecha_cond = "AND fr.Fecha >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)"
+                fecha_cond = "AND fr.Fecha >= CURDATE() - INTERVAL 7 DAY"
             elif fecha == 'mes':
-                fecha_cond = "AND fr.Fecha >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)"
+                fecha_cond = "AND fr.Fecha >= CURDATE() - INTERVAL 30 DAY"
             elif fecha == 'personalizado' and fecha_inicio and fecha_fin:
-                fecha_cond = "AND fr.Fecha BETWEEN %s AND %s"
-                params.extend([fecha_inicio, fecha_fin])
+                try:
+                    # Convertir fechas de DD/MM/YYYY a YYYY-MM-DD para MySQL
+                    fecha_inicio_obj = datetime.strptime(fecha_inicio, '%d/%m/%Y')
+                    fecha_fin_obj = datetime.strptime(fecha_fin, '%d/%m/%Y')
+                    fecha_inicio_mysql = fecha_inicio_obj.strftime('%Y-%m-%d')
+                    fecha_fin_mysql = fecha_fin_obj.strftime('%Y-%m-%d')
+                    fecha_cond = "AND DATE(fr.Fecha) BETWEEN %s AND %s"
+                    params.append(fecha_inicio_mysql)
+                    params.append(fecha_fin_mysql)
+                except Exception as e:
+                    print(f"Error al parsear fechas: {e}")
+                    fecha_cond = "AND DATE(fr.Fecha) = CURDATE()"
             
             # Construir condición de ruta
             ruta_cond = ""
-            if id_ruta and id_ruta != 'todas':
-                ruta_cond = "AND fr.ID_Asignacion = %s"
-                params.append(id_ruta)
+            if id_ruta and id_ruta != '' and id_ruta != 'todas':
+                if int(id_ruta) in ids_asignacion:
+                    ruta_cond = "AND fr.ID_Asignacion = %s"
+                    params.append(id_ruta)
             
-            # Obtener ventas filtradas
-            cursor.execute(f"""
+            # MODIFICACIÓN: Cambiar DATE_FORMAT para retornar fecha en formato YYYY-MM-DD
+            # y luego formatear en Python para evitar problemas de escape
+            query = f"""
                 SELECT fr.ID_FacturaRuta, 
-                       DATE_FORMAT(fr.Fecha, '%%d/%%m/%%Y') as Fecha,
-                       DATE_FORMAT(fr.Fecha_Creacion, '%%H:%%i') as Hora,
+                       fr.Fecha as Fecha_Original,
+                       fr.Fecha_Creacion,
                        fr.Credito_Contado,
-                       fr.Estado,
-                       c.Nombre as Cliente,
+                       fr.Observacion, 
+                       fr.Estado, 
+                       c.Nombre as Cliente, 
                        c.RUC_CEDULA,
                        c.Telefono,
                        r.Nombre_Ruta,
@@ -17690,24 +17721,56 @@ def api_filtrar_ventas():
                 INNER JOIN asignacion_vendedores av ON fr.ID_Asignacion = av.ID_Asignacion
                 INNER JOIN rutas r ON av.ID_Ruta = r.ID_Ruta
                 LEFT JOIN detalle_facturacion_ruta dfr ON fr.ID_FacturaRuta = dfr.ID_FacturaRuta
-                WHERE av.ID_Usuario = %s {fecha_cond} {ruta_cond}
-                GROUP BY fr.ID_FacturaRuta
+                WHERE fr.ID_Asignacion IN ({placeholders})
+                {fecha_cond}
+                {ruta_cond}
+                GROUP BY fr.ID_FacturaRuta, fr.ID_FacturaRuta
                 ORDER BY fr.Fecha DESC, fr.ID_FacturaRuta DESC
-            """, tuple(params))
-            ventas = cursor.fetchall()
+            """
+            
+            cursor.execute(query, tuple(params))
+            ventas_raw = cursor.fetchall()
             
             # Formatear para JSON
             ventas_list = []
-            for v in ventas:
+            from datetime import datetime as dt
+            
+            for v in ventas_raw:
+                # Formatear fecha en Python (más confiable que DATE_FORMAT en MySQL)
+                fecha_formateada = ""
+                if v.get('Fecha_Original'):
+                    try:
+                        if isinstance(v['Fecha_Original'], dt):
+                            fecha_formateada = v['Fecha_Original'].strftime('%d/%m/%Y')
+                        else:
+                            fecha_obj = dt.strptime(str(v['Fecha_Original']), '%Y-%m-%d')
+                            fecha_formateada = fecha_obj.strftime('%d/%m/%Y')
+                    except:
+                        fecha_formateada = str(v['Fecha_Original'])
+                else:
+                    fecha_formateada = ""
+                
+                # Calcular hora desde Fecha_Creacion
+                hora = "00:00"
+                if v.get('Fecha_Creacion'):
+                    try:
+                        if isinstance(v['Fecha_Creacion'], dt):
+                            hora = v['Fecha_Creacion'].strftime('%H:%M')
+                        else:
+                            fecha_obj = dt.strptime(str(v['Fecha_Creacion']), '%Y-%m-%d %H:%M:%S')
+                            hora = fecha_obj.strftime('%H:%M')
+                    except:
+                        hora = "00:00"
+                
                 ventas_list.append({
                     'ID_FacturaRuta': v['ID_FacturaRuta'],
-                    'Fecha': v['Fecha'],
-                    'Hora': v['Hora'],
+                    'Fecha': fecha_formateada,  # Ahora en formato DD/MM/YYYY
+                    'Hora': hora,
                     'Cliente': v['Cliente'],
-                    'RUC_CEDULA': v['RUC_CEDULA'],
-                    'Telefono': v['Telefono'],
+                    'RUC_CEDULA': v['RUC_CEDULA'] or 'N/A',
+                    'Telefono': v['Telefono'] or '',
                     'Nombre_Ruta': v['Nombre_Ruta'],
-                    'Total_Venta': "${:,.2f}".format(float(v['Total_Venta'])),
+                    'Total_Venta': float(v['Total_Venta']),
                     'Tipo_Venta': v['Tipo_Venta'],
                     'Estado': v['Estado'],
                     'Saldo_Pendiente': float(v['Saldo_Pendiente']) if v['Saldo_Pendiente'] else 0
@@ -17716,7 +17779,8 @@ def api_filtrar_ventas():
             return jsonify({'success': True, 'ventas': ventas_list})
             
     except Exception as e:
-        print(f"Error en filtrar_ventas: {str(e)}")
+        print(f"Error en api_filtrar_ventas: {str(e)}")
+        traceback.print_exc()
         return jsonify({'success': False, 'error': str(e)})
 
 @app.route('/api/vendedor/verificar_saldo_cliente/<int:id_cliente>', methods=['GET'])
