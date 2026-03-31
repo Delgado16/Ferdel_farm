@@ -722,7 +722,7 @@
     // ============================================
     // GENERAR VISTA PREVIA DE FACTURA OFFLINE
     // ============================================
-    function generarVistaPreviaOffline(venta, autoPrint = false) {
+    function generarVistaPreviaOffline(venta, autoPrint = false, saldoAnteriorReal = null) {
         try {
             const clienteSelect = getElement('cliente');
             const option = clienteSelect?.options[clienteSelect.selectedIndex];
@@ -755,7 +755,10 @@
             const fechaFormateada = fecha.toLocaleDateString('es-ES') + ' ' + fecha.toLocaleTimeString('es-ES');
             const tipoVenta = venta.datos.tipo_venta === '1' ? 'CONTADO' : 'CRÉDITO';
             const totalVenta = venta.datos.total;
-            const saldoAnterior = saldoClienteActual || 0;
+            
+            // USAR EL SALDO ANTERIOR REAL (el que se pasó como parámetro o el calculado)
+            const saldoAnterior = saldoAnteriorReal !== null ? saldoAnteriorReal : (saldoClienteActual || 0);
+            
             const abono = parseFloat(venta.datos.abono_monto) || 0;
             const saldoTotal = totalVenta + saldoAnterior;
             const nuevoSaldo = Math.max(0, saldoTotal - abono);
@@ -1389,7 +1392,7 @@
         const saldoInfo = getElement('saldo-info');
         if (!saldoInfo) return;
 
-        let html = `<div class="card mb-2 border-warning" style="border-width: 2px;"><div class="card-header bg-warning py-2"><h6 class="mb-0 small fw-bold"><i class="fas fa-exclamation-triangle me-2"></i>Cliente con Saldo Pendiente</h6></div><div class="card-body p-2"><div class="row g-2"><div class="col-6"><small><strong>Cliente:</strong> ${cliente.nombre}</small></div><div class="col-6"><small><strong>Documento:</strong> ${cliente.ruc}</small></div><div class="col-6"><small><strong>Saldo Pendiente:</strong></small></div><div class="col-6 text-end"><small class="text-danger fw-bold" style="font-size: 14px;">${formatoCordoba(cliente.saldo_pendiente)}</small></div></div><hr class="my-2"><div class="table-responsive" style="max-height: 150px; overflow-y: auto;"><table class="table table-sm table-bordered small"><thead class="table-light" style="position: sticky; top: 0;"><th>Documento</th><th>Fecha</th><th class="text-end">Saldo</th> </thead><tbody>${facturas.map(f => `<tr><td>${f.Num_Documento}</td><td>${formatearFecha(f.Fecha)}</td><td class="text-end">${formatoCordoba(f.Saldo_Pendiente)}</td></tr>`).join('')}</tbody> </table></div><div class="row g-2 mt-2 p-2 bg-light rounded"><div class="col-6"><small><strong>Total Nueva Venta:</strong></small></div><div class="col-6 text-end"><small><span id="total-nueva-venta" class="fw-bold">C$ 0.00</span></small></div><div class="col-6"><small><strong>Total Pendiente con Nueva:</strong></small></div><div class="col-6 text-end"><small class="text-danger fw-bold" style="font-size: 14px;"><span id="total-pendiente-con-nueva">${formatoCordoba(cliente.saldo_pendiente)}</span></small></div></div></div></div>`;
+        let html = `<div class="card mb-2 border-warning" style="border-width: 2px;"><div class="card-header bg-warning py-2"><h6 class="mb-0 small fw-bold"><i class="fas fa-exclamation-triangle me-2"></i>Cliente con Saldo Pendiente</h6></div><div class="card-body p-2"><div class="row g-2"><div class="col-6"><small><strong>Cliente:</strong> ${cliente.nombre}</small></div><div class="col-6"><small><strong>Documento:</strong> ${cliente.ruc}</small></div><div class="col-6"><small><strong>Saldo Pendiente:</strong></small></div><div class="col-6 text-end"><small class="text-danger fw-bold" style="font-size: 14px;">${formatoCordoba(cliente.saldo_pendiente)}</small></div></div><hr class="my-2"><div class="table-responsive" style="max-height: 150px; overflow-y: auto;"><table class="table table-sm table-bordered small"><thead class="table-light" style="position: sticky; top: 0;"><th>Documento</th><th>Fecha</th><th class="text-end">Saldo</th> </thead><tbody>${facturas.map(f => `<td>${f.Num_Documento}</td><td>${formatearFecha(f.Fecha)}</td><td class="text-end">${formatoCordoba(f.Saldo_Pendiente)}</td></tr>`).join('')}</tbody> </table></div><div class="row g-2 mt-2 p-2 bg-light rounded"><div class="col-6"><small><strong>Total Nueva Venta:</strong></small></div><div class="col-6 text-end"><small><span id="total-nueva-venta" class="fw-bold">C$ 0.00</span></small></div><div class="col-6"><small><strong>Total Pendiente con Nueva:</strong></small></div><div class="col-6 text-end"><small class="text-danger fw-bold" style="font-size: 14px;"><span id="total-pendiente-con-nueva">${formatoCordoba(cliente.saldo_pendiente)}</span></small></div></div></div></div>`;
         saldoInfo.innerHTML = html;
         actualizarTotalesConSaldo();
     }
@@ -1407,6 +1410,58 @@
         const totalPendienteConNueva = getElement('total-pendiente-con-nueva');
         if (totalNuevaVenta) totalNuevaVenta.textContent = formatoCordoba(totalVenta);
         if (totalPendienteConNueva) totalPendienteConNueva.textContent = formatoCordoba(saldoClienteActual + totalVenta);
+    }
+
+    // ============================================
+    // FUNCIÓN ACTUALIZAR SALDOS LOCAL (CORREGIDA)
+    // ============================================
+    async function actualizarSaldosLocal(clienteId, montoAbono, totalNuevaVenta = 0) {
+        try {
+            const clientesLocal = await localforage.getItem('clientes_saldos');
+            if (!clientesLocal || !clientesLocal.data) return;
+
+            if (clientesLocal.data[clienteId]) {
+                // Obtener el saldo anterior del cliente
+                const saldoAnterior = parseFloat(clientesLocal.data[clienteId].Saldo_Pendiente_Total) || 0;
+                
+                // Calcular el nuevo saldo pendiente: (saldo anterior + nueva venta) - abono
+                const totalConNuevaVenta = saldoAnterior + totalNuevaVenta;
+                const nuevoSaldo = Math.max(0, totalConNuevaVenta - montoAbono);
+                
+                // Actualizar el saldo en la caché local
+                clientesLocal.data[clienteId].Saldo_Pendiente_Total = nuevoSaldo;
+                clientesLocal.data[clienteId].cambio_pendiente = true;
+                clientesLocal.data[clienteId].ultima_actualizacion_local = new Date().toISOString();
+                
+                // Si hay facturas pendientes, aplicar el abono a las facturas
+                if (clientesLocal.data[clienteId].facturas_detalle && montoAbono > 0) {
+                    let montoRestante = montoAbono;
+                    clientesLocal.data[clienteId].facturas_detalle = clientesLocal.data[clienteId].facturas_detalle.map(factura => {
+                        if (montoRestante <= 0) return factura;
+                        
+                        const saldoFactura = parseFloat(factura.Saldo_Pendiente) || 0;
+                        const montoAplicar = Math.min(montoRestante, saldoFactura);
+                        const nuevoSaldoFactura = saldoFactura - montoAplicar;
+                        
+                        montoRestante -= montoAplicar;
+                        
+                        return {
+                            ...factura,
+                            Saldo_Pendiente: nuevoSaldoFactura
+                        };
+                    });
+                }
+                
+                await localforage.setItem('clientes_saldos', clientesLocal);
+                await actualizarSelectClientes();
+                
+                console.log(`✅ Saldo actualizado localmente: Cliente ${clienteId}, Saldo anterior: ${saldoAnterior}, Nueva venta: ${totalNuevaVenta}, Abono: ${montoAbono}, Nuevo saldo: ${nuevoSaldo}`);
+            }
+            return true;
+        } catch (error) {
+            console.error('Error actualizando saldos local:', error);
+            return false;
+        }
     }
 
     // ============================================
@@ -1569,7 +1624,7 @@
     }
 
     // ============================================
-    // FUNCIÓN PRINCIPAL DE ENVÍO
+    // FUNCIÓN PRINCIPAL DE ENVÍO (CORREGIDA)
     // ============================================
     async function manejarEnvioFormulario(event) {
         event.preventDefault();
@@ -1664,8 +1719,13 @@
 
                 await actualizarInventarioLocal(productos);
                 
+                // CAPTURAR EL SALDO ANTERIOR ANTES DE ACTUALIZARLO
+                const saldoAnteriorReal = saldoClienteActual;
+                const totalVentaCalculada = calcularTotalVenta();
+                const nuevoSaldoCalculado = Math.max(0, (saldoAnteriorReal + totalVentaCalculada) - abonoSeleccionado);
+                
                 if (abonoSeleccionado > 0) {
-                    await actualizarSaldosLocal(clienteSelect.value, abonoSeleccionado);
+                    await actualizarSaldosLocal(clienteSelect.value, abonoSeleccionado, totalVentaCalculada);
                 }
 
                 const inventarioLocal = await localforage.getItem('inventario_local');
@@ -1679,6 +1739,9 @@
                     ticket_url: null,
                     asignacion_id: inventarioLocal?.asignacion_id || null,
                     productos_vendidos: productos.map(p => ({ id: p.id, cantidad: p.cantidad })),
+                    // GUARDAR EL SALDO ANTERIOR REAL PARA LA FACTURA
+                    saldo_anterior_real: saldoAnteriorReal,
+                    nuevo_saldo_calculado: nuevoSaldoCalculado,
                     datos: {
                         cliente: clienteSelect.value,
                         cliente_nombre: clienteSelect.options[clienteSelect.selectedIndex]?.dataset.nombre || '',
@@ -1688,7 +1751,7 @@
                             id: p.id, codigo: p.codigo, nombre: p.nombre,
                             cantidad: p.cantidad, precio: p.precio, subtotal: p.cantidad * p.precio
                         })),
-                        total: calcularTotalVenta(),
+                        total: totalVentaCalculada,
                         abono_monto: abonoSeleccionado > 0 ? abonoSeleccionado.toString() : '0',
                         abono_metodo_pago: metodoPagoSeleccionado || '',
                         procesar_abono: abonoSeleccionado > 0 ? '1' : '0'
@@ -1721,8 +1784,9 @@
                     customClass: { confirmButton: 'btn btn-primary mx-1', cancelButton: 'btn btn-secondary mx-1', denyButton: 'btn btn-success mx-1' }
                 });
 
-                if (result.isConfirmed) generarVistaPreviaOffline(ventaOffline, false);
-                else if (result.isDenied) generarVistaPreviaOffline(ventaOffline, true);
+                // PASAR EL SALDO ANTERIOR REAL A LA FUNCIÓN DE VISTA PREVIA
+                if (result.isConfirmed) generarVistaPreviaOffline(ventaOffline, false, ventaOffline.saldo_anterior_real);
+                else if (result.isDenied) generarVistaPreviaOffline(ventaOffline, true, ventaOffline.saldo_anterior_real);
 
                 resetearFormulario();
             }
@@ -1739,26 +1803,6 @@
             enviandoFormulario = false;
         }
         return false;
-    }
-
-    async function actualizarSaldosLocal(clienteId, montoAbono) {
-        try {
-            const clientesLocal = await localforage.getItem('clientes_saldos');
-            if (!clientesLocal || !clientesLocal.data) return;
-
-            if (clientesLocal.data[clienteId]) {
-                const nuevoSaldo = Math.max(0, parseFloat(clientesLocal.data[clienteId].Saldo_Pendiente_Total) - montoAbono);
-                clientesLocal.data[clienteId].Saldo_Pendiente_Total = nuevoSaldo;
-                clientesLocal.data[clienteId].cambio_pendiente = true;
-                clientesLocal.data[clienteId].ultima_actualizacion_local = new Date().toISOString();
-                await localforage.setItem('clientes_saldos', clientesLocal);
-                await actualizarSelectClientes();
-            }
-            return true;
-        } catch (error) {
-            console.error('Error actualizando saldos local:', error);
-            return false;
-        }
     }
 
     async function guardarVentaOffline(venta) {
@@ -2126,7 +2170,8 @@
             const ventas = await localforage.getItem('ventas_offline') || [];
             const venta = ventas.find(v => v.id === ventaId);
             if (!venta) { showAlert('error', 'Venta no encontrada'); return; }
-            generarVistaPreviaOffline(venta, false);
+            // PASAR EL SALDO ANTERIOR REAL ALMACENADO
+            generarVistaPreviaOffline(venta, false, venta.saldo_anterior_real);
         } catch (error) {
             console.error('Error:', error);
             showAlert('error', 'Error al generar factura');
@@ -2311,7 +2356,7 @@
         if (!tablaBody) return;
 
         if (productos.length === 0) {
-            tablaBody.innerHTML = `<tr id="fila_vacia"><td colspan="7" class="text-center text-muted py-4"><i class="fas fa-box-open fa-3x mb-2"></i><p class="small">No hay productos agregados</p></tr>`;
+            tablaBody.innerHTML = `<tr id="fila_vacia"><td colspan="7" class="text-center text-muted py-4"><i class="fas fa-box-open fa-3x mb-2"></i><p class="small">No hay productos agregados</p> </tr>`;
             if (tfootTotales) tfootTotales.style.display = 'none';
             return;
         }
@@ -2331,7 +2376,7 @@
                 <td class="text-end align-middle"><div class="input-group input-group-sm"><span class="input-group-text">C$</span><input type="number" class="form-control text-end precio-input" data-index="${index}" value="${prod.precio.toFixed(2)}" min="0.01" step="0.01" style="width: 90px;"></div></td>
                 <td class="text-end fw-bold text-success align-middle small">${formatoCordoba(subtotal)}</td>
                 <td class="text-center align-middle"><button type="button" class="btn btn-sm btn-outline-info me-1" onclick="verStockDetalle(${prod.id})" title="Ver detalle de stock"><i class="fas fa-warehouse"></i></button><button type="button" class="btn btn-sm btn-danger" onclick="event.preventDefault(); event.stopPropagation(); eliminarProducto(${index})" title="Eliminar producto"><i class="fas fa-trash"></i></button></td>
-            </tr>`;
+             </tr>`;
         });
 
         tablaBody.innerHTML = html;
