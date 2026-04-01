@@ -756,7 +756,6 @@
             const tipoVenta = venta.datos.tipo_venta === '1' ? 'CONTADO' : 'CRÉDITO';
             const totalVenta = venta.datos.total;
             
-            // USAR EL SALDO ANTERIOR REAL (el que se pasó como parámetro o el calculado)
             const saldoAnterior = saldoAnteriorReal !== null ? saldoAnteriorReal : (saldoClienteActual || 0);
             
             const abono = parseFloat(venta.datos.abono_monto) || 0;
@@ -764,27 +763,25 @@
             const nuevoSaldo = Math.max(0, saldoTotal - abono);
             const facturaId = venta.id.slice(-8).toUpperCase();
 
-            // Obtener concepto de abono (si existe)
-            const conceptoAbono = venta.datos.tipo_venta === '2' && abono > 0 ? 
+            const conceptoAbono = abono > 0 ? 
                 (abono >= totalVenta ? 'PAGO TOTAL DE LA VENTA' : 'ABONO A CUENTA') : '';
 
             const productosHtml = venta.datos.productos.map(p => {
                 const subtotal = p.cantidad * p.precio;
                 return `
-                    <tr>
+                     <tr>
                         <td class="text-left">
                             <div class="product-desc" title="${p.nombre.replace(/"/g, '&quot;')}">
                                 ${p.nombre.length > 30 ? p.nombre.substring(0, 30) + '...' : p.nombre}
                             </div>
                             ${p.codigo && p.codigo !== 'N/A' ? `<div class="product-code">Cod: ${p.codigo}</div>` : ''}
-                        </td>
+                         </td>
                         <td class="text-right">${p.cantidad}</td>
                         <td class="text-right">C$ ${p.precio.toFixed(2)}</td>
                         <td class="text-right">C$ ${subtotal.toFixed(2)}</td>
-                    </tr>`;
+                     </tr>`;
             }).join('');
 
-            // LOGO EN BASE64 INCORPORADO (fallback de emergencia)
             const LOGO_FALLBACK_BASE64 = `data:image/svg+xml;base64,${btoa(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 120">
                 <rect width="400" height="120" fill="#2c5e2e"/>
                 <rect x="10" y="10" width="380" height="100" fill="#3c8c3c" rx="5"/>
@@ -793,7 +790,6 @@
                 <text x="200" y="102" font-family="Arial" font-size="11" fill="#ffd966" text-anchor="middle">Sistema de Ventas</text>
             </svg>`)}`;
 
-            // Función para obtener el logo (prioridad: caché -> red -> fallback)
             const obtenerLogoUrl = async () => {
                 if ('caches' in window) {
                     try {
@@ -802,7 +798,6 @@
                         if (cachedResponse && cachedResponse.ok) {
                             const blob = await cachedResponse.blob();
                             const url = URL.createObjectURL(blob);
-                            console.log('✅ Logo cargado desde caché del Service Worker');
                             return url;
                         }
                     } catch (e) {
@@ -818,14 +813,12 @@
                     if (response.ok) {
                         const blob = await response.blob();
                         const url = URL.createObjectURL(blob);
-                        console.log('✅ Logo cargado desde red');
                         return url;
                     }
                 } catch (e) {
                     console.warn('No se pudo cargar desde red:', e);
                 }
 
-                console.log('⚠️ Usando logo fallback en Base64');
                 return LOGO_FALLBACK_BASE64;
             };
 
@@ -840,7 +833,6 @@
         <title>Ticket de Venta #${facturaId}</title>
         <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
         <style>
-            /* ===== ESTILOS PARA IMPRESIÓN ===== */
             @media print {
                 @page {
                     margin: 0;
@@ -873,8 +865,6 @@
                     page-break-inside: avoid;
                 }
             }
-
-            /* ===== ESTILOS GENERALES ===== */
             body {
                 font-family: 'Courier New', monospace, Arial, sans-serif;
                 font-size: 10px;
@@ -882,7 +872,6 @@
                 padding: 10px;
                 background: #f8f9fa;
             }
-
             .ticket-container {
                 width: 80mm;
                 max-width: 100%;
@@ -892,108 +881,81 @@
                 border: 1px solid #ddd;
                 box-shadow: 0 0 5px rgba(0,0,0,0.1);
             }
-
-            /* ===== UTILIDADES ===== */
             .text-center { text-align: center; }
             .text-right { text-align: right; }
             .text-left { text-align: left; }
             .bold { font-weight: bold; }
-            
             .divider {
                 border-top: 1px dashed #000;
                 margin: 5px 0;
                 padding-top: 5px;
             }
-            
             .double-divider {
                 border-top: 2px solid #000;
                 margin: 8px 0;
             }
-
-            /* ===== LOGO Y ENCABEZADO ===== */
             .logo-container {
                 text-align: center;
                 margin-bottom: 5px;
             }
-            
             .logo {
                 max-width: 100%;
                 height: auto;
                 max-height: 40px;
                 margin-bottom: 3px;
             }
-            
             .logo-text {
                 font-weight: bold;
                 font-size: 14px;
                 text-transform: uppercase;
                 margin-top: 5px;
             }
-
-            /* ===== TABLAS ===== */
             table {
                 width: 100%;
                 border-collapse: collapse;
                 margin: 0;
                 font-size: 9px;
             }
-            
             th, td {
                 padding: 2px 1px;
                 vertical-align: top;
                 line-height: 1.1;
             }
-            
             .table-header {
                 border-bottom: 1px dashed #000;
             }
-            
-            /* ===== TAMAÑOS DE TEXTO ===== */
             .size-9 { font-size: 9px; }
             .size-10 { font-size: 10px; }
             .size-11 { font-size: 11px; }
             .size-12 { font-size: 12px; }
             .size-13 { font-size: 13px; }
             .size-14 { font-size: 14px; }
-
-            /* ===== DETALLES DE PRODUCTOS ===== */
             .product-desc {
                 font-size: 9px;
                 line-height: 1.1;
                 word-break: break-word;
             }
-            
             .product-code {
                 font-size: 8px;
                 color: #666;
             }
-
-            /* ===== TOTALES ===== */
             .total-row {
                 border-top: 1px solid #000;
                 border-bottom: 2px solid #000;
                 font-weight: bold;
             }
-            
-            .subtotal-row {
-                border-top: 1px dashed #000;
-            }
-
-            /* ===== SECCION DE SALDOS - DISEÑO SOLICITADO ===== */
             .saldos-container {
                 margin: 10px 0;
                 padding: 8px;
                 border: 1px solid #000;
                 background: #fff;
             }
-            
             .saldos-row {
                 display: flex;
                 justify-content: space-between;
                 padding: 3px 0;
                 border-bottom: 1px dotted #ccc;
             }
-            
             .saldos-total-row {
                 display: flex;
                 justify-content: space-between;
@@ -1001,7 +963,6 @@
                 border-bottom: 1px dashed #000;
                 font-weight: bold;
             }
-            
             .saldos-abono-row {
                 display: flex;
                 justify-content: space-between;
@@ -1009,7 +970,6 @@
                 border-bottom: 1px dotted #ccc;
                 color: #006600;
             }
-            
             .saldos-final-row {
                 display: flex;
                 justify-content: space-between;
@@ -1019,7 +979,6 @@
                 font-weight: bold;
                 font-size: 12px;
             }
-            
             .saldos-title {
                 text-align: center;
                 font-weight: bold;
@@ -1028,7 +987,6 @@
                 border-bottom: 1px solid #000;
                 padding-bottom: 3px;
             }
-            
             .abono-info {
                 font-size: 8px;
                 text-align: right;
@@ -1037,39 +995,15 @@
                 border-top: 1px dotted #ccc;
                 padding-top: 2px;
             }
-
-            /* ===== DETALLE DE DEUDAS ===== */
-            .deudas-container {
-                margin: 8px 0;
-                font-size: 9px;
-                border: 1px dashed #999;
-                padding: 5px;
-            }
-            
-            .deuda-item {
-                display: flex;
-                justify-content: space-between;
-                padding: 2px 0;
-                border-bottom: 1px dotted #eee;
-            }
-            
-            .deuda-header {
-                font-weight: bold;
-                margin-bottom: 3px;
-            }
-
-            /* ===== CONTROLES NO IMPRIMIBLES ===== */
             .print-controls {
                 margin-top: 20px;
                 text-align: center;
             }
-            
             .btn-sm {
                 padding: 4px 8px;
                 font-size: 12px;
                 margin: 2px;
             }
-            
             .offline-badge {
                 background: #ffc107;
                 color: #000;
@@ -1079,36 +1013,20 @@
                 display: inline-block;
                 margin-bottom: 8px;
                 font-weight: bold;
-                box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-                animation: pulse 2s infinite;
             }
-            
-            @keyframes pulse {
-                0% { opacity: 1; }
-                50% { opacity: 0.8; }
-                100% { opacity: 1; }
-            }
-            
             @media (max-width: 480px) {
                 .ticket-container {
                     width: 100%;
                     padding: 8px;
                 }
-                .product-desc {
-                    max-width: 120px;
-                }
             }
         </style>
     </head>
     <body>
-        <!-- CONTENEDOR PRINCIPAL DEL TICKET -->
         <div class="ticket-container">
-            <!-- INDICADOR OFFLINE (NO IMPRIME) -->
             <div class="text-center no-print">
                 <span class="offline-badge"><i class="fas fa-cloud-upload-alt"></i> 📱 TICKET OFFLINE - SIN CONEXIÓN</span>
             </div>
-            
-            <!-- ENCABEZADO DE LA EMPRESA -->
             <div class="logo-container">
                 <img src="${logoUrl}" 
                      alt="Logo ${empresa.nombre}" 
@@ -1124,16 +1042,12 @@
                 <div class="size-9">Tel: ${empresa.telefono}</div>
                 <div class="double-divider"></div>
             </div>
-
-            <!-- INFORMACIÓN DE LA FACTURA -->
             <div class="text-center">
                 <div class="size-13 bold">FACTURA #${facturaId}</div>
                 <div class="size-9">Emision: ${fechaFormateada}</div>
                 <div class="size-9">Atendido por: <strong>${nombreUsuario}</strong></div>
                 <div class="divider"></div>
             </div>
-
-            <!-- DATOS DEL CLIENTE -->
             <div class="size-9" style="background: #f5f5f5; padding: 5px; border-radius: 3px;">
                 <div><strong>Cliente:</strong> ${cliente.nombre}</div>
                 <div><strong>RUC/Cedula:</strong> ${cliente.ruc}</div>
@@ -1143,8 +1057,6 @@
                 ${venta.datos.observacion ? `<div><strong>Observaciones:</strong> ${venta.datos.observacion}</div>` : ''}
             </div>
             <div class="divider"></div>
-
-            <!-- DETALLES DE PRODUCTOS -->
             <table>
                 <thead>
                     <tr class="size-9 bold table-header">
@@ -1158,52 +1070,34 @@
                     ${productosHtml}
                 </tbody>
             </table>
-
             <div class="double-divider"></div>
-
-            <!-- SECCIÓN DE SALDOS - SOLO SI HAY SALDO PENDIENTE -->
             ${nuevoSaldo > 0 ? `
             <div class="saldos-container">
-                <!-- Título de la sección -->
-                <div class="saldos-title">
-                    ESTADO DE CUENTA
-                </div>
-                
-                <!-- Total de la venta -->
+                <div class="saldos-title">ESTADO DE CUENTA</div>
                 <div class="saldos-row">
                     <span>Total de la venta</span>
                     <span style="font-weight: bold;">C$ ${totalVenta.toFixed(2)}</span>
                 </div>
-                
-                <!-- Saldo Anterior (suma de cuentas por cobrar) -->
                 <div class="saldos-row">
                     <span>Saldo Anterior</span>
                     <span style="font-weight: bold;">C$ ${saldoAnterior.toFixed(2)}</span>
                 </div>
-                
-                <!-- Saldo Total (línea con guiones) -->
                 <div class="saldos-total-row">
                     <span>saldo total ----</span>
                     <span>C$ ${saldoTotal.toFixed(2)}</span>
                 </div>
-                
-                <!-- Abono (si existe) -->
                 ${abono > 0 ? `
                 <div class="saldos-abono-row">
                     <span>Abono --------</span>
                     <span style="font-weight: bold;">C$ ${abono.toFixed(2)}</span>
                 </div>
                 ` : ''}
-                
-                <!-- Saldo Pendiente Final (de la tabla clientes) -->
                 <div class="saldos-final-row">
                     <span>Saldo pendiente</span>
                     <span style="color: ${nuevoSaldo > 0 ? '#CC0000' : '#006600'};">
                         C$ ${nuevoSaldo.toFixed(2)}
                     </span>
                 </div>
-                
-                <!-- Mensaje adicional si hay abono -->
                 ${abono > 0 && conceptoAbono ? `
                 <div class="abono-info">
                     <em>${conceptoAbono}</em> - ${fechaFormateada}
@@ -1211,7 +1105,6 @@
                 ` : ''}
             </div>
             ` : `
-            <!-- Si no hay saldo pendiente, se muestra el total normal -->
             <table class="size-10">
                 <tr class="total-row">
                     <td class="text-left size-11">TOTAL A PAGAR:</td>
@@ -1220,8 +1113,6 @@
                 </tr>
             </table>
             `}
-
-            <!-- PIE DEL TICKET -->
             <div class="text-center size-9" style="margin-top: 10px;">
                 <div class="bold">¡Gracias por su compra!</div>
                 <div>Vuelva pronto</div>
@@ -1230,8 +1121,6 @@
                 </div>
             </div>
         </div>
-
-        <!-- BOTONES DE CONTROL (NO SE IMPRIMEN) -->
         <div class="no-print print-controls">
             <div class="btn-group" role="group">
                 <button onclick="imprimirTicket()" class="btn btn-primary btn-sm">
@@ -1245,34 +1134,17 @@
                 <em>Presione Ctrl+P o use el botón Imprimir</em>
             </p>
         </div>
-
         <script>
             function imprimirTicket() {
                 window.print();
             }
-
-            // Auto-impresión si viene el parámetro
             document.addEventListener('DOMContentLoaded', function() {
                 if (${autoPrint}) {
-                    const badge = document.querySelector('.offline-badge');
-                    if (badge) {
-                        badge.style.backgroundColor = '#28a745';
-                        badge.innerHTML = '<i class="fas fa-check"></i> Preparando impresión...';
-                    }
                     setTimeout(function() {
                         window.print();
                     }, 800);
                 }
-                
-                // Verificar carga del logo
-                const logo = document.querySelector('.logo');
-                if (logo) {
-                    logo.onload = () => console.log('✅ Logo cargado exitosamente en la factura');
-                    logo.onerror = () => console.log('❌ Error: No se pudo cargar el logo en la factura');
-                }
             });
-
-            // Atajo de teclado Ctrl+P
             document.addEventListener('keydown', function(e) {
                 if ((e.ctrlKey || e.metaKey) && e.key === 'p') {
                     e.preventDefault();
@@ -1688,7 +1560,7 @@
         const saldoInfo = getElement('saldo-info');
         if (!saldoInfo) return;
 
-        let html = `<div class="card mb-2 border-warning" style="border-width: 2px;"><div class="card-header bg-warning py-2"><h6 class="mb-0 small fw-bold"><i class="fas fa-exclamation-triangle me-2"></i>Cliente con Saldo Pendiente</h6></div><div class="card-body p-2"><div class="row g-2"><div class="col-6"><small><strong>Cliente:</strong> ${cliente.nombre}</small></div><div class="col-6"><small><strong>Documento:</strong> ${cliente.ruc}</small></div><div class="col-6"><small><strong>Saldo Pendiente:</strong></small></div><div class="col-6 text-end"><small class="text-danger fw-bold" style="font-size: 14px;">${formatoCordoba(cliente.saldo_pendiente)}</small></div></div><hr class="my-2"><div class="table-responsive" style="max-height: 150px; overflow-y: auto;"><table class="table table-sm table-bordered small"><thead class="table-light" style="position: sticky; top: 0;"><th>Documento</th><th>Fecha</th><th class="text-end">Saldo</th> </thead><tbody>${facturas.map(f => `<tr><td>${f.Num_Documento}</td><td>${formatearFecha(f.Fecha)}</td><td class="text-end">${formatoCordoba(f.Saldo_Pendiente)}</td></tr>`).join('')}</tbody> </table></div><div class="row g-2 mt-2 p-2 bg-light rounded"><div class="col-6"><small><strong>Total Nueva Venta:</strong></small></div><div class="col-6 text-end"><small><span id="total-nueva-venta" class="fw-bold">C$ 0.00</span></small></div><div class="col-6"><small><strong>Total Pendiente con Nueva:</strong></small></div><div class="col-6 text-end"><small class="text-danger fw-bold" style="font-size: 14px;"><span id="total-pendiente-con-nueva">${formatoCordoba(cliente.saldo_pendiente)}</span></small></div></div></div></div>`;
+        let html = `<div class="card mb-2 border-warning" style="border-width: 2px;"><div class="card-header bg-warning py-2"><h6 class="mb-0 small fw-bold"><i class="fas fa-exclamation-triangle me-2"></i>Cliente con Saldo Pendiente</h6></div><div class="card-body p-2"><div class="row g-2"><div class="col-6"><small><strong>Cliente:</strong> ${cliente.nombre}</small></div><div class="col-6"><small><strong>Documento:</strong> ${cliente.ruc}</small></div><div class="col-6"><small><strong>Saldo Pendiente:</strong></small></div><div class="col-6 text-end"><small class="text-danger fw-bold" style="font-size: 14px;">${formatoCordoba(cliente.saldo_pendiente)}</small></div></div><hr class="my-2"><div class="table-responsive" style="max-height: 150px; overflow-y: auto;"><table class="table table-sm table-bordered small"><thead class="table-light" style="position: sticky; top: 0;"><th>Documento</th><th>Fecha</th><th class="text-end">Saldo</th> </thead><tbody>${facturas.map(f => `<tr><td>${f.Num_Documento}</td><td>${formatearFecha(f.Fecha)}</td><td class="text-end">${formatoCordoba(f.Saldo_Pendiente)}</td></tr>`).join('')}</tbody></table></div><div class="row g-2 mt-2 p-2 bg-light rounded"><div class="col-6"><small><strong>Total Nueva Venta:</strong></small></div><div class="col-6 text-end"><small><span id="total-nueva-venta" class="fw-bold">C$ 0.00</span></small></div><div class="col-6"><small><strong>Total Pendiente con Nueva:</strong></small></div><div class="col-6 text-end"><small class="text-danger fw-bold" style="font-size: 14px;"><span id="total-pendiente-con-nueva">${formatoCordoba(cliente.saldo_pendiente)}</span></small></div></div></div></div>`;
         saldoInfo.innerHTML = html;
         actualizarTotalesConSaldo();
     }
@@ -1709,7 +1581,7 @@
     }
 
     // ============================================
-    // FUNCIÓN ACTUALIZAR SALDOS LOCAL (CORREGIDA)
+    // FUNCIÓN ACTUALIZAR SALDOS LOCAL
     // ============================================
     async function actualizarSaldosLocal(clienteId, montoAbono, totalNuevaVenta = 0) {
         try {
@@ -1908,7 +1780,7 @@
     }
 
     // ============================================
-    // FUNCIÓN PRINCIPAL DE ENVÍO (CORREGIDA)
+    // FUNCIÓN PRINCIPAL DE ENVÍO
     // ============================================
     async function manejarEnvioFormulario(event) {
         event.preventDefault();
@@ -2006,8 +1878,6 @@
                 const saldoAnteriorReal = saldoClienteActual;
                 const totalVentaCalculada = calcularTotalVenta();
                 const nuevoSaldoCalculado = Math.max(0, (saldoAnteriorReal + totalVentaCalculada) - abonoSeleccionado);
-                
-                // NO actualizar saldo local aquí - se hará después de la factura
 
                 const inventarioLocal = await localforage.getItem('inventario_local');
                 
@@ -2071,7 +1941,6 @@
                     customClass: { confirmButton: 'btn btn-primary mx-1', cancelButton: 'btn btn-secondary mx-1', denyButton: 'btn btn-success mx-1' }
                 });
 
-                // Mostrar factura con saldo anterior real
                 if (result.isConfirmed) {
                     generarVistaPreviaOffline(ventaOffline, false, ventaOffline.saldo_anterior_real);
                     if (abonoSeleccionado > 0) {
@@ -2715,7 +2584,7 @@
         if (!tablaBody) return;
 
         if (productos.length === 0) {
-            tablaBody.innerHTML = `<tr id="fila_vacia"><td colspan="7" class="text-center text-muted py-4"><i class="fas fa-box-open fa-3x mb-2"></i><p class="small">No hay productos agregados</p>  </tr>`;
+            tablaBody.innerHTML = `<tr id="fila_vacia"><td colspan="7" class="text-center text-muted py-4"><i class="fas fa-box-open fa-3x mb-2"></i><p class="small">No hay productos agregados</p>   </tr>`;
             if (tfootTotales) tfootTotales.style.display = 'none';
             return;
         }
@@ -2735,7 +2604,7 @@
                 <td class="text-end align-middle"><div class="input-group input-group-sm"><span class="input-group-text">C$</span><input type="number" class="form-control text-end precio-input" data-index="${index}" value="${prod.precio.toFixed(2)}" min="0.01" step="0.01" style="width: 90px;"></div></td>
                 <td class="text-end fw-bold text-success align-middle small">${formatoCordoba(subtotal)}</td>
                 <td class="text-center align-middle"><button type="button" class="btn btn-sm btn-outline-info me-1" onclick="verStockDetalle(${prod.id})" title="Ver detalle de stock"><i class="fas fa-warehouse"></i></button><button type="button" class="btn btn-sm btn-danger" onclick="event.preventDefault(); event.stopPropagation(); eliminarProducto(${index})" title="Eliminar producto"><i class="fas fa-trash"></i></button></td>
-             </tr>`;
+              </tr>`;
         });
 
         tablaBody.innerHTML = html;
@@ -2907,6 +2776,9 @@
     function eliminarProductoMovil(index) { eliminarProducto(index); }
     function verStockDetalle(productoId) { showAlert('info', 'Stock detallado', 'Funcionalidad en desarrollo'); }
 
+    // ============================================
+    // FUNCIONES DE MODAL Y CONFIRMACIÓN (CORREGIDAS)
+    // ============================================
     function llenarResumenConfirmacion() {
         const tipoVenta = document.querySelector('input[name="tipo_venta"]:checked');
         if (!tipoVenta) return false;
@@ -2926,7 +2798,9 @@
             saldoAnteriorModal.textContent = formatoCordoba(saldoClienteActual);
             nuevaVentaModal.textContent = formatoCordoba(totalVenta);
             totalPendienteModal.textContent = formatoCordoba(saldoClienteActual + totalVenta);
-            resumenSaldoModal.style.display = (tipoVenta.value === '2' && saldoClienteActual > 0) ? 'block' : 'none';
+            
+            // CORRECCIÓN: Mostrar resumen de saldo SIEMPRE que haya saldo pendiente
+            resumenSaldoModal.style.display = (saldoClienteActual > 0) ? 'block' : 'none';
         }
 
         const resumenAbonoModal = getElement('resumenAbonoModal');
@@ -2964,7 +2838,7 @@
 
         productos.forEach((prod, index) => {
             total += prod.subtotal;
-            htmlResumen += `<tr><td class="small align-middle">${index + 1}</td><td class="small align-middle">${prod.nombre}<br><small class="text-muted">Código: ${prod.codigo}</small></td><td class="text-center small align-middle">${formatNumber(prod.cantidad)}</td><td class="text-end small align-middle">${formatoCordoba(prod.precio)}</td><td class="text-end fw-bold small align-middle text-success">${formatoCordoba(prod.subtotal)}</td></tr>`;
+            htmlResumen += ` <tr><td class="small align-middle">${index + 1}</td><td class="small align-middle">${prod.nombre}<br><small class="text-muted">Código: ${prod.codigo}</small></td><td class="text-center small align-middle">${formatNumber(prod.cantidad)}</td><td class="text-end small align-middle">${formatoCordoba(prod.precio)}</td><td class="text-end fw-bold small align-middle text-success">${formatoCordoba(prod.subtotal)}</td></tr>`;
         });
 
         tbodyResumen.innerHTML = htmlResumen;
@@ -2974,9 +2848,14 @@
 
     let datosVentaActual = { clienteId: null, totalVenta: 0, saldoAnterior: 0, productos: [] };
 
+    // CORRECCIÓN: Mostrar modal de abono siempre que haya saldo pendiente
     function mostrarModalAbono(clienteId, saldoAnterior, totalVenta, facturas) {
         datosVentaActual = { clienteId, totalVenta, saldoAnterior, productos: [...productos] };
-
+        
+        // Obtener el tipo de venta seleccionado para personalizar mensaje
+        const tipoVenta = document.querySelector('input[name="tipo_venta"]:checked');
+        const esCredito = tipoVenta && tipoVenta.value === '2';
+        
         const modalSaldoAnterior = getElement('modalSaldoAnterior');
         const modalNuevaVenta = getElement('modalNuevaVenta');
         const modalTotalDeber = getElement('modalTotalDeber');
@@ -2991,6 +2870,23 @@
         if (montoAbonoInput) {
             montoAbonoInput.value = '0.00';
             montoAbonoInput.max = totalDeber;
+        }
+        
+        // CORRECCIÓN: Personalizar mensaje según tipo de venta
+        const mensajeInfo = document.querySelector('#modalAbonoCredito .alert-info');
+        if (mensajeInfo) {
+            if (esCredito) {
+                mensajeInfo.innerHTML = `<div class="d-flex">
+                    <i class="fas fa-info-circle me-2 mt-1"></i>
+                    <span>Venta a Crédito con saldo pendiente. Puede registrar un abono a la deuda existente.</span>
+                </div>`;
+            } else {
+                mensajeInfo.innerHTML = `<div class="d-flex">
+                    <i class="fas fa-info-circle me-2 mt-1"></i>
+                    <span>El cliente tiene un saldo pendiente de ${formatoCordoba(saldoAnterior)}. 
+                    Aunque la venta actual es de contado, puede abonar a la deuda existente.</span>
+                </div>`;
+            }
         }
 
         const detalleAplicacion = getElement('detalleAplicacionAbono');
@@ -3214,7 +3110,7 @@
     // EVENTOS PRINCIPALES
     // ============================================
     document.addEventListener('DOMContentLoaded', function () {
-        console.log('🚀 Inicializando formulario con soporte offline');
+        console.log('🚀 Inicializando formulario con soporte offline y abono para contado');
 
         const clienteSelect = getElement('cliente');
         const productoSelect = getElement('producto_select');
@@ -3415,6 +3311,7 @@
             });
         }
 
+        // CORRECCIÓN PRINCIPAL: Mostrar modal de abono siempre que haya saldo pendiente
         if (btnMostrarConfirmacion) {
             btnMostrarConfirmacion.addEventListener('click', async function () {
                 if (productos.length === 0) {
@@ -3432,10 +3329,13 @@
                     return;
                 }
 
-                if (tipoVenta.value === '2' && saldoClienteActual > 0) {
+                // CORRECCIÓN: Mostrar modal de abono si el cliente TIENE SALDO PENDIENTE
+                // Independientemente del tipo de venta
+                if (saldoClienteActual > 0) {
                     const totalVenta = calcularTotalVenta();
                     mostrarModalAbono(clienteSelect.value, saldoClienteActual, totalVenta, facturasPendientes);
                 } else {
+                    // Cliente sin saldo pendiente, continuar normalmente
                     abonoSeleccionado = 0;
                     metodoPagoSeleccionado = '';
 
