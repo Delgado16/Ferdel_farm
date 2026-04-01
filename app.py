@@ -9568,61 +9568,95 @@ def procesar_carga_consolidada(id_pedido):
                 ))
             
             # ============================================
-            # 6. DISTRIBUIR A VENDEDORES (ENTRADA EN RUTAS)
+            # 6. DISTRIBUIR A VENDEDORES (CORREGIDO)
             # ============================================
+            # 6.1 Agrupar productos por vendedor
+            from collections import defaultdict
+            distribucion_por_vendedor = defaultdict(list)
+            
             for item in distribucion:
-                producto = productos_dict[item['id_producto']]
+                distribucion_por_vendedor[item['id_vendedor']].append({
+                    'id_producto': item['id_producto'],
+                    'cantidad': item['cantidad'],
+                    'precio': productos_dict[item['id_producto']]['Precio_Venta']
+                })
+            
+            # 6.2 Procesar cada vendedor (UNA cabecera por vendedor)
+            for id_vendedor, productos_vendedor in distribucion_por_vendedor.items():
+                # Calcular totales para este vendedor
+                total_items = sum([p['cantidad'] for p in productos_vendedor])  # Suma de cantidades
+                total_productos = len(productos_vendedor)  # Número de productos distintos
+                total_subtotal = sum([p['cantidad'] * p['precio'] for p in productos_vendedor])
                 
-                subtotal = item['cantidad'] * producto['Precio_Venta']
-                
+                # Insertar UNA cabecera por vendedor
                 cursor.execute("""
                     INSERT INTO movimientos_ruta_cabecera (
-                        ID_Asignacion, ID_TipoMovimiento, Fecha_Movimiento,
-                        ID_Usuario_Registra, Documento_Numero, ID_Pedido,
-                        Total_Productos, Total_Items, Total_Subtotal,
-                        ID_Empresa, Estado
+                        ID_Asignacion, 
+                        ID_TipoMovimiento, 
+                        Fecha_Movimiento,
+                        ID_Usuario_Registra, 
+                        Documento_Numero, 
+                        ID_Pedido,
+                        Total_Productos, 
+                        Total_Items, 
+                        Total_Subtotal,
+                        ID_Empresa, 
+                        Estado
                     )
-                    VALUES (%s, %s, NOW(), %s, %s, %s, %s, 1, %s, %s, 'ACTIVO')
+                    VALUES (%s, %s, NOW(), %s, %s, %s, %s, %s, %s, %s, 'ACTIVO')
                 """, (
-                    item['id_vendedor'],
+                    id_vendedor,
                     TRASLADO_ENTRADA,
                     current_user.id,
-                    f'CARGA-{id_pedido}',
+                    f'CARGA-{id_pedido}',  # Documento único por pedido
                     id_pedido,
-                    item['cantidad'],
-                    subtotal,
+                    total_productos,   # Cantidad de productos distintos
+                    total_items,       # Suma total de unidades
+                    total_subtotal,    # Suma total de subtotales
                     pedido['ID_Empresa']
                 ))
                 
                 movimiento_ruta_id = cursor.lastrowid
                 
-                cursor.execute("""
-                    INSERT INTO movimientos_ruta_detalle (
-                        ID_Movimiento, ID_Producto, Cantidad,
-                        Precio_Unitario, Subtotal
-                    )
-                    VALUES (%s, %s, %s, %s, %s)
-                """, (
-                    movimiento_ruta_id,
-                    item['id_producto'],
-                    item['cantidad'],
-                    producto['Precio_Venta'],
-                    subtotal
-                ))
+                # Insertar TODOS los detalles para este vendedor
+                for producto in productos_vendedor:
+                    subtotal = producto['cantidad'] * producto['precio']
+                    
+                    cursor.execute("""
+                        INSERT INTO movimientos_ruta_detalle (
+                            ID_Movimiento, 
+                            ID_Producto, 
+                            Cantidad,
+                            Precio_Unitario, 
+                            Subtotal
+                        )
+                        VALUES (%s, %s, %s, %s, %s)
+                    """, (
+                        movimiento_ruta_id,
+                        producto['id_producto'],
+                        producto['cantidad'],
+                        producto['precio'],
+                        subtotal
+                    ))
                 
-                cursor.execute("""
-                    INSERT INTO inventario_ruta (
-                        ID_Asignacion, ID_Producto, Cantidad, Fecha_Actualizacion
-                    )
-                    VALUES (%s, %s, %s, NOW())
-                    ON DUPLICATE KEY UPDATE
-                        Cantidad = Cantidad + VALUES(Cantidad),
-                        Fecha_Actualizacion = NOW()
-                """, (
-                    item['id_vendedor'],
-                    item['id_producto'],
-                    item['cantidad']
-                ))
+                # Actualizar inventario de ruta (sumar todas las cantidades de este vendedor)
+                for producto in productos_vendedor:
+                    cursor.execute("""
+                        INSERT INTO inventario_ruta (
+                            ID_Asignacion, 
+                            ID_Producto, 
+                            Cantidad, 
+                            Fecha_Actualizacion
+                        )
+                        VALUES (%s, %s, %s, NOW())
+                        ON DUPLICATE KEY UPDATE
+                            Cantidad = Cantidad + VALUES(Cantidad),
+                            Fecha_Actualizacion = NOW()
+                    """, (
+                        id_vendedor,
+                        producto['id_producto'],
+                        producto['cantidad']
+                    ))
             
             # ============================================
             # 7. ACTUALIZAR PEDIDO CONSOLIDADO
@@ -16008,12 +16042,17 @@ def vendedor_movimientos_historial():
             cursor.execute("""
                 SELECT 
                     av.ID_Asignacion,
-                    r.Nombre_Ruta
+                    av.ID_Ruta,
+                    r.Nombre_Ruta,
+                    av.ID_Empresa,
+                    av.Fecha_Asignacion,
+                    av.Fecha_Finalizacion
                 FROM asignacion_vendedores av
                 LEFT JOIN rutas r ON av.ID_Ruta = r.ID_Ruta
                 WHERE av.ID_Usuario = %s
                 AND av.Estado = 'Activa'
-                AND av.Fecha_Asignacion = CURDATE()
+                AND CURDATE() BETWEEN av.Fecha_Asignacion AND COALESCE(av.Fecha_Finalizacion, CURDATE())
+                ORDER BY av.Fecha_Asignacion DESC
                 LIMIT 1
             """, (current_user.id,))
             
@@ -16024,7 +16063,7 @@ def vendedor_movimientos_historial():
                 return redirect(url_for('vendedor_inventario'))
             
             # ============================================
-            # 2. OBTENER MOVIMIENTOS (EXCLUYENDO VENTAS)
+            # 2. OBTENER MOVIMIENTOS (CON CONVERSIÓN DE TIPOS)
             # ============================================
             cursor.execute("""
                 SELECT 
@@ -16033,26 +16072,77 @@ def vendedor_movimientos_historial():
                     cm.Letra as Tipo_Letra,
                     mrc.Fecha_Movimiento,
                     mrc.Documento_Numero,
-                    mrc.Total_Productos,
-                    mrc.Total_Items,
-                    mrc.Total_Subtotal,
-                    u.NombreUsuario as Usuario_Registra
+                    CAST(COALESCE(mrc.Total_Productos, 0) AS DECIMAL(12,2)) as Total_Productos,
+                    CAST(COALESCE(mrc.Total_Subtotal, 0) AS DECIMAL(12,2)) as Total_Subtotal,
+                    mrc.Estado,
+                    u.NombreUsuario as Usuario_Registra,
+                    CASE 
+                        WHEN mrc.ID_TipoMovimiento = 13 THEN 'Carga de Productos'
+                        WHEN mrc.ID_TipoMovimiento = 7 THEN 'Merma'
+                        WHEN mrc.ID_TipoMovimiento = 11 THEN 'Devolución'
+                        WHEN mrc.ID_TipoMovimiento = 1 THEN 'Compra'
+                        WHEN mrc.ID_TipoMovimiento = 2 THEN 'Venta'
+                        ELSE 'Otro'
+                    END as Descripcion_Detallada
                 FROM movimientos_ruta_cabecera mrc
-                INNER JOIN catalogo_movimientos cm ON mrc.ID_TipoMovimiento = cm.ID_TipoMovimiento
-                INNER JOIN usuarios u ON mrc.ID_Usuario_Registra = u.ID_Usuario
+                INNER JOIN catalogo_movimientos cm 
+                    ON mrc.ID_TipoMovimiento = cm.ID_TipoMovimiento
+                INNER JOIN usuarios u 
+                    ON mrc.ID_Usuario_Registra = u.ID_Usuario
                 WHERE mrc.ID_Asignacion = %s
-                AND mrc.ID_TipoMovimiento IN (1, 2, 7, 11, 13) -- MERMA, DEVOLUCION RUTA, TRASLADO ENTRADA
+                    AND mrc.ID_TipoMovimiento IN (1, 2, 7, 11, 13)
+                    AND mrc.Estado = 'ACTIVO'
                 ORDER BY mrc.Fecha_Movimiento DESC
             """, (asignacion['ID_Asignacion'],))
             
             movimientos = cursor.fetchall()
             
+            # Convertir valores numéricos a float para asegurar que lleguen como números a JavaScript
+            for mov in movimientos:
+                if 'Total_Productos' in mov:
+                    mov['Total_Productos'] = float(mov['Total_Productos']) if mov['Total_Productos'] else 0.0
+                if 'Total_Subtotal' in mov:
+                    mov['Total_Subtotal'] = float(mov['Total_Subtotal']) if mov['Total_Subtotal'] else 0.0
+            
+            # ============================================
+            # 3. RESUMEN SIMPLIFICADO (CON CONVERSIÓN)
+            # ============================================
+            cursor.execute("""
+                SELECT 
+                    CASE 
+                        WHEN mrc.ID_TipoMovimiento = 13 THEN 'Carga de Productos'
+                        WHEN mrc.ID_TipoMovimiento = 1 THEN 'Merma'
+                        WHEN mrc.ID_TipoMovimiento = 2 THEN 'Devolución'
+                        WHEN mrc.ID_TipoMovimiento = 7 THEN 'Traslado Interno'
+                        WHEN mrc.ID_TipoMovimiento = 11 THEN 'Ajuste de Inventario'
+                        ELSE cm.Descripcion
+                    END as Tipo_Movimiento,
+                    COUNT(*) as Cantidad_Movimientos,
+                    CAST(SUM(COALESCE(mrc.Total_Productos, 0)) AS DECIMAL(12,2)) as Total_Productos
+                FROM movimientos_ruta_cabecera mrc
+                INNER JOIN catalogo_movimientos cm ON mrc.ID_TipoMovimiento = cm.ID_TipoMovimiento
+                WHERE mrc.ID_Asignacion = %s
+                AND mrc.ID_TipoMovimiento IN (1, 2, 7, 11, 13)
+                AND mrc.Estado = 'ACTIVO'
+                GROUP BY Tipo_Movimiento
+                ORDER BY Cantidad_Movimientos DESC
+            """, (asignacion['ID_Asignacion'],))
+            
+            resumen_movimientos = cursor.fetchall()
+            
+            # Convertir valores del resumen
+            for res in resumen_movimientos:
+                if 'Total_Productos' in res:
+                    res['Total_Productos'] = float(res['Total_Productos']) if res['Total_Productos'] else 0.0
+            
             return render_template('vendedor/inventario/historial_movimientos.html',
                                  movimientos=movimientos,
+                                 resumen_movimientos=resumen_movimientos,
+                                 asignacion=asignacion,
                                  now=datetime.now())
                                  
     except Exception as e:
-        print(f"Error: {str(e)}")
+        print(f"Error en vendedor_movimientos_historial: {str(e)}")
         traceback.print_exc()
         flash(f'Error al cargar historial: {str(e)}', 'error')
         return redirect(url_for('vendedor_inventario'))
@@ -16074,7 +16164,17 @@ def vendedor_movimiento_detalle(id_movimiento):
                     cm.Descripcion as Tipo_Movimiento, 
                     cm.Letra as Tipo_Letra,
                     u.NombreUsuario as Usuario_Registra, 
-                    r.Nombre_Ruta
+                    r.Nombre_Ruta,
+                    av.ID_Ruta,
+                    av.ID_Usuario,
+                    CASE 
+                        WHEN mrc.ID_TipoMovimiento = 13 THEN 'Carga de Productos'
+                        WHEN mrc.ID_TipoMovimiento = 1 THEN 'Merma'
+                        WHEN mrc.ID_TipoMovimiento = 2 THEN 'Devolución'
+                        WHEN mrc.ID_TipoMovimiento = 7 THEN 'Traslado Interno'
+                        WHEN mrc.ID_TipoMovimiento = 11 THEN 'Ajuste de Inventario'
+                        ELSE cm.Descripcion
+                    END as Descripcion_Detallada
                 FROM movimientos_ruta_cabecera mrc
                 INNER JOIN asignacion_vendedores av ON mrc.ID_Asignacion = av.ID_Asignacion
                 INNER JOIN catalogo_movimientos cm ON mrc.ID_TipoMovimiento = cm.ID_TipoMovimiento
@@ -16082,12 +16182,13 @@ def vendedor_movimiento_detalle(id_movimiento):
                 LEFT JOIN rutas r ON av.ID_Ruta = r.ID_Ruta
                 WHERE mrc.ID_Movimiento = %s
                 AND av.ID_Usuario = %s
+                AND mrc.Estado = 'ACTIVO'
             """, (id_movimiento, current_user.id))
             
             movimiento = cursor.fetchone()
             
             if not movimiento:
-                flash('Movimiento no encontrado', 'error')
+                flash('Movimiento no encontrado o no tienes permiso para verlo', 'error')
                 return redirect(url_for('vendedor_movimientos_historial'))
             
             # ============================================
@@ -16095,31 +16196,70 @@ def vendedor_movimiento_detalle(id_movimiento):
             # ============================================
             cursor.execute("""
                 SELECT 
+                    mrd.ID_Detalle,
                     mrd.Cantidad,
                     mrd.Precio_Unitario,
                     mrd.Subtotal,
                     p.COD_Producto,
                     p.Descripcion as Producto,
-                    um.Abreviatura as Unidad
+                    um.Abreviatura as Unidad,
+                    mrd.ID_Detalle_Pedido,
+                    mrd.ID_Movimiento_Origen
                 FROM movimientos_ruta_detalle mrd
                 INNER JOIN productos p ON mrd.ID_Producto = p.ID_Producto
                 LEFT JOIN unidades_medida um ON p.Unidad_Medida = um.ID_Unidad
                 WHERE mrd.ID_Movimiento = %s
+                ORDER BY mrd.ID_Detalle
             """, (id_movimiento,))
             
             detalles = cursor.fetchall()
             
+            # ============================================
+            # 3. OBTENER INFORMACIÓN ADICIONAL DEL CLIENTE SI APLICA
+            # ============================================
+            cliente_info = None
+            if movimiento.get('ID_Cliente'):
+                cursor.execute("""
+                    SELECT ID_Cliente, Nombre, RUC, Direccion, Telefono
+                    FROM clientes 
+                    WHERE ID_Cliente = %s
+                """, (movimiento['ID_Cliente'],))
+                cliente_info = cursor.fetchone()
+            
+            # ============================================
+            # 4. OBTENER INFORMACIÓN DEL PEDIDO SI APLICA (CORREGIDO)
+            # ============================================
+            pedido_info = None
+            if movimiento.get('ID_Pedido'):
+                cursor.execute("""
+                    SELECT 
+                        p.ID_Pedido, 
+                        p.Fecha, 
+                        p.Estado as Estado_Pedido,
+                        p.Tipo_Entrega,
+                        p.Prioridad,
+                        p.Tipo_Pedido,
+                        p.Observacion,
+                        c.Nombre as Cliente_Nombre
+                    FROM pedidos p
+                    LEFT JOIN clientes c ON p.ID_Cliente = c.ID_Cliente
+                    WHERE p.ID_Pedido = %s
+                """, (movimiento['ID_Pedido'],))
+                pedido_info = cursor.fetchone()
+            
             return render_template('vendedor/inventario/detalle_movimiento.html',
                                  movimiento=movimiento,
                                  detalles=detalles,
+                                 cliente_info=cliente_info,
+                                 pedido_info=pedido_info,
                                  now=datetime.now())
                                  
     except Exception as e:
-        print(f"Error: {str(e)}")
+        print(f"Error en vendedor_movimiento_detalle: {str(e)}")
         traceback.print_exc()
         flash(f'Error al cargar detalle: {str(e)}', 'error')
         return redirect(url_for('vendedor_movimientos_historial'))
-
+    
 #ventas rutas
 # =============================================
 # RUTAS PARA VENTAS EN RUTA
@@ -17636,7 +17776,7 @@ def api_filtrar_ventas():
     try:
         id_vendedor = current_user.id
         fecha = request.form.get('fecha', 'hoy')
-        id_ruta = request.form.get('ruta', '')
+        id_ruta = request.form.get('ruta', '')  # Cambiado: valor por defecto vacío
         fecha_inicio = request.form.get('fecha_inicio')
         fecha_fin = request.form.get('fecha_fin')
         
@@ -17657,7 +17797,7 @@ def api_filtrar_ventas():
             
             # Construir condición de fecha
             fecha_cond = ""
-            params = list(ids_asignacion)
+            params = list(ids_asignacion)  # Iniciar con los IDs de asignación
             
             from datetime import datetime, timedelta
             
@@ -17686,15 +17826,15 @@ def api_filtrar_ventas():
             # Construir condición de ruta
             ruta_cond = ""
             if id_ruta and id_ruta != '' and id_ruta != 'todas':
+                # Validar que la ruta pertenezca al vendedor
                 if int(id_ruta) in ids_asignacion:
                     ruta_cond = "AND fr.ID_Asignacion = %s"
                     params.append(id_ruta)
             
-            # MODIFICACIÓN: Cambiar DATE_FORMAT para retornar fecha en formato YYYY-MM-DD
-            # y luego formatear en Python para evitar problemas de escape
+            # Consulta SQL
             query = f"""
                 SELECT fr.ID_FacturaRuta, 
-                       fr.Fecha as Fecha_Original,
+                       DATE_FORMAT(fr.Fecha, '%%d/%%m/%%Y') as Fecha,
                        fr.Fecha_Creacion,
                        fr.Credito_Contado,
                        fr.Observacion, 
@@ -17736,20 +17876,6 @@ def api_filtrar_ventas():
             from datetime import datetime as dt
             
             for v in ventas_raw:
-                # Formatear fecha en Python (más confiable que DATE_FORMAT en MySQL)
-                fecha_formateada = ""
-                if v.get('Fecha_Original'):
-                    try:
-                        if isinstance(v['Fecha_Original'], dt):
-                            fecha_formateada = v['Fecha_Original'].strftime('%d/%m/%Y')
-                        else:
-                            fecha_obj = dt.strptime(str(v['Fecha_Original']), '%Y-%m-%d')
-                            fecha_formateada = fecha_obj.strftime('%d/%m/%Y')
-                    except:
-                        fecha_formateada = str(v['Fecha_Original'])
-                else:
-                    fecha_formateada = ""
-                
                 # Calcular hora desde Fecha_Creacion
                 hora = "00:00"
                 if v.get('Fecha_Creacion'):
@@ -17764,13 +17890,13 @@ def api_filtrar_ventas():
                 
                 ventas_list.append({
                     'ID_FacturaRuta': v['ID_FacturaRuta'],
-                    'Fecha': fecha_formateada,  # Ahora en formato DD/MM/YYYY
+                    'Fecha': v['Fecha'],
                     'Hora': hora,
                     'Cliente': v['Cliente'],
                     'RUC_CEDULA': v['RUC_CEDULA'] or 'N/A',
                     'Telefono': v['Telefono'] or '',
                     'Nombre_Ruta': v['Nombre_Ruta'],
-                    'Total_Venta': float(v['Total_Venta']),
+                    'Total_Venta': float(v['Total_Venta']),  # Enviar como número, no como string formateado
                     'Tipo_Venta': v['Tipo_Venta'],
                     'Estado': v['Estado'],
                     'Saldo_Pendiente': float(v['Saldo_Pendiente']) if v['Saldo_Pendiente'] else 0

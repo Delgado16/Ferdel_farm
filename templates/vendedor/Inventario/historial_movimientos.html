@@ -14,7 +14,7 @@
                 Historial de Movimientos
             </h2>
             <p class="text-muted small mb-0">
-                Registro de entradas, devoluciones y mermas
+                Registro de entradas, devoluciones, mermas y ajustes
             </p>
         </div>
         <a href="{{ url_for('vendedor_inventario') }}" class="btn btn-outline-secondary btn-sm btn-md">
@@ -23,6 +23,45 @@
             <span class="d-sm-none">Volver</span>
         </a>
     </div>
+
+    <!-- ============================================ -->
+    <!-- RESUMEN DE MOVIMIENTOS                       -->
+    <!-- ============================================ -->
+    {% if resumen_movimientos %}
+    <div class="row g-2 mb-3">
+        {% for resumen in resumen_movimientos %}
+        <div class="col-6 col-md-3">
+            <div class="card text-center border-0 shadow-sm">
+                <div class="card-body p-2 p-md-3">
+                    {% if resumen.Tipo_Movimiento == 'Carga de Productos' %}
+                    <i class="fas fa-arrow-down text-success fa-2x mb-2"></i>
+                    <h6 class="mb-0 text-success">Entradas</h6>
+                    {% elif resumen.Tipo_Movimiento == 'Devolución' %}
+                    <i class="fas fa-arrow-up text-warning fa-2x mb-2"></i>
+                    <h6 class="mb-0 text-warning">Devoluciones</h6>
+                    {% elif resumen.Tipo_Movimiento == 'Merma' %}
+                    <i class="fas fa-trash text-danger fa-2x mb-2"></i>
+                    <h6 class="mb-0 text-danger">Mermas</h6>
+                    {% elif resumen.Tipo_Movimiento == 'Ajuste de Inventario' %}
+                    <i class="fas fa-adjust text-info fa-2x mb-2"></i>
+                    <h6 class="mb-0 text-info">Ajustes</h6>
+                    {% elif resumen.Tipo_Movimiento == 'Traslado Interno' %}
+                    <i class="fas fa-exchange-alt text-primary fa-2x mb-2"></i>
+                    <h6 class="mb-0 text-primary">Traslados</h6>
+                    {% endif %}
+                    <h4 class="mb-0">{{ resumen.Cantidad_Movimientos }}</h4>
+                    <small class="text-muted">movimientos</small>
+                    <div class="mt-1">
+                        <small class="text-muted">
+                            <i class="fas fa-boxes me-1"></i>{{ "%.0f"|format(resumen.Total_Productos) }} productos
+                        </small>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
 
     <!-- ============================================ -->
     <!-- FILTROS Y BÚSQUEDA                           -->
@@ -41,9 +80,11 @@
                 <div class="col-6 col-sm-3 col-md-2">
                     <select id="filtroTipo" class="form-select form-select-sm">
                         <option value="">Todos los tipos</option>
-                        <option value="ENTRADA BODEGA">Entradas</option>
-                        <option value="DEVOLUCION BODEGA">Devoluciones</option>
+                        <option value="CARGA">Entradas (Carga)</option>
+                        <option value="DEVOLUCION">Devoluciones</option>
                         <option value="MERMA">Mermas</option>
+                        <option value="AJUSTE">Ajustes</option>
+                        <option value="TRASLADO">Traslados</option>
                     </select>
                 </div>
                 <div class="col-6 col-sm-3 col-md-2">
@@ -85,62 +126,62 @@
             <!-- VISTA MÓVIL: Tarjetas -->
             <div class="d-block d-lg-none" id="movimientosMovil">
                 {% for mov in movimientos %}
-                <div class="movimiento-card p-2 border-bottom" data-tipo="{{ mov.Tipo_Movimiento }}" data-fecha="{{ mov.Fecha_Movimiento }}">
+                <div class="movimiento-card p-2 border-bottom">
                     <div class="d-flex justify-content-between align-items-start mb-2">
                         <div>
                             <span class="fw-bold">#{{ mov.ID_Movimiento }}</span>
                             <span class="badge ms-2 
-                                {% if mov.Tipo_Movimiento == 'ENTRADA BODEGA' %}bg-success
-                                {% elif mov.Tipo_Movimiento == 'DEVOLUCION BODEGA' %}bg-warning text-dark
-                                {% elif mov.Tipo_Movimiento == 'MERMA' %}bg-danger
+                                {% if mov.Descripcion_Detallada == 'Carga de Productos' %}bg-success
+                                {% elif mov.Descripcion_Detallada == 'Devolución' %}bg-warning text-dark
+                                {% elif mov.Descripcion_Detallada == 'Merma' %}bg-danger
+                                {% elif mov.Descripcion_Detallada == 'Ajuste de Inventario' %}bg-info
+                                {% elif mov.Descripcion_Detallada == 'Traslado Interno' %}bg-primary
                                 {% else %}bg-secondary{% endif %}">
-                                {% if mov.Tipo_Movimiento == 'ENTRADA BODEGA' %}
+                                {% if mov.Descripcion_Detallada == 'Carga de Productos' %}
                                     <i class="fas fa-arrow-down me-1"></i> Entrada
-                                {% elif mov.Tipo_Movimiento == 'DEVOLUCION BODEGA' %}
+                                {% elif mov.Descripcion_Detallada == 'Devolución' %}
                                     <i class="fas fa-arrow-up me-1"></i> Devolución
-                                {% elif mov.Tipo_Movimiento == 'MERMA' %}
+                                {% elif mov.Descripcion_Detallada == 'Merma' %}
                                     <i class="fas fa-trash me-1"></i> Merma
-                                {% else %}
-                                    {{ mov.Tipo_Movimiento }}
+                                {% elif mov.Descripcion_Detallada == 'Ajuste de Inventario' %}
+                                    <i class="fas fa-adjust me-1"></i> Ajuste
+                                {% elif mov.Descripcion_Detallada == 'Traslado Interno' %}
+                                    <i class="fas fa-exchange-alt me-1"></i> Traslado
                                 {% endif %}
                             </span>
                         </div>
-                        <small class="text-muted">{{ mov.Fecha_Movimiento.strftime('%d/%m/%Y %H:%M') }}</small>
+                        <small class="text-muted">{{ mov.Fecha_Movimiento.strftime('%d/%m/%Y %H:%M') if mov.Fecha_Movimiento else 'N/A' }}</small>
                     </div>
                     
                     <div class="row g-2 mb-2">
-                        <div class="col-4">
+                        <div class="col-6">
                             <small class="text-muted d-block">Documento</small>
                             <span class="small">{{ mov.Documento_Numero or 'N/A' }}</span>
                         </div>
-                        <div class="col-4">
+                        <div class="col-6">
                             <small class="text-muted d-block">Productos</small>
-                            <span class="small">{{ mov.Total_Productos }} items</span>
+                            <span class="small fw-bold">{{ "%.0f"|format(mov.Total_Productos) }} und.</span>
                         </div>
-                        <div class="col-4">
+                    </div>
+                    
+                    <div class="row g-2 mb-2">
+                        <div class="col-12">
                             <small class="text-muted d-block">Total</small>
-                            <span class="small fw-bold text-info">C${{ "%.2f"|format(mov.Total_Subtotal) }}</span>
+                            <span class="fw-bold text-info">C${{ "%.2f"|format(mov.Total_Subtotal|float if mov.Total_Subtotal else 0) }}</span>
                         </div>
                     </div>
                     
                     <div class="d-flex justify-content-between align-items-center">
                         <div>
                             <small class="text-muted">
-                                <i class="fas fa-user me-1"></i>{{ mov.Usuario_Registra }}
+                                <i class="fas fa-user me-1"></i>{{ mov.Usuario_Registra or 'N/A' }}
                             </small>
                         </div>
                         <div class="btn-group btn-group-sm">
                             <a href="{{ url_for('vendedor_movimiento_detalle', id_movimiento=mov.ID_Movimiento) }}" 
-                               class="btn btn-outline-info" title="Ver detalle">detalle
-                                <i class="fas fa-eye"></i>
+                               class="btn btn-outline-info" title="Ver detalle">
+                                <i class="fas fa-eye"></i> detalle
                             </a>
-                            {% if mov.Observacion %}
-                            <button type="button" class="btn btn-outline-secondary" 
-                                    onclick='verObservacion({{ mov.Observacion|tojson }})'
-                                    title="Ver observación">
-                                <i class="fas fa-comment"></i>
-                            </button>
-                            {% endif %}
                         </div>
                     </div>
                 </div>
@@ -157,7 +198,6 @@
                             <th>Tipo</th>
                             <th>Documento</th>
                             <th class="text-center">Productos</th>
-                            <th class="text-center">Items</th>
                             <th class="text-end">Total</th>
                             <th>Registrado por</th>
                             <th class="text-center">Acciones</th>
@@ -165,36 +205,41 @@
                     </thead>
                     <tbody>
                         {% for mov in movimientos %}
-                        <tr data-tipo="{{ mov.Tipo_Movimiento }}" data-fecha="{{ mov.Fecha_Movimiento }}">
+                        <tr>
                             <td class="fw-bold">#{{ mov.ID_Movimiento }}</td>
-                            <td class="small">{{ mov.Fecha_Movimiento.strftime('%d/%m/%Y %H:%M') }}</td>
+                            <td class="small">{{ mov.Fecha_Movimiento.strftime('%d/%m/%Y %H:%M') if mov.Fecha_Movimiento else 'N/A' }}</td>
                             <td>
-                                {% if mov.Tipo_Movimiento == 'ENTRADA BODEGA' %}
+                                {% if mov.Descripcion_Detallada == 'Carga de Productos' %}
                                 <span class="badge bg-success">
                                     <i class="fas fa-arrow-down me-1"></i> Entrada
                                 </span>
-                                {% elif mov.Tipo_Movimiento == 'DEVOLUCION BODEGA' %}
+                                {% elif mov.Descripcion_Detallada == 'Devolución' %}
                                 <span class="badge bg-warning text-dark">
                                     <i class="fas fa-arrow-up me-1"></i> Devolución
                                 </span>
-                                {% elif mov.Tipo_Movimiento == 'MERMA' %}
+                                {% elif mov.Descripcion_Detallada == 'Merma' %}
                                 <span class="badge bg-danger">
                                     <i class="fas fa-trash me-1"></i> Merma
                                 </span>
-                                {% else %}
-                                <span class="badge bg-secondary">{{ mov.Tipo_Movimiento }}</span>
+                                {% elif mov.Descripcion_Detallada == 'Ajuste de Inventario' %}
+                                <span class="badge bg-info">
+                                    <i class="fas fa-adjust me-1"></i> Ajuste
+                                </span>
+                                {% elif mov.Descripcion_Detallada == 'Traslado Interno' %}
+                                <span class="badge bg-primary">
+                                    <i class="fas fa-exchange-alt me-1"></i> Traslado
+                                </span>
                                 {% endif %}
                             </td>
                             <td class="small">{{ mov.Documento_Numero or 'N/A' }}</td>
-                            <td class="text-center">{{ mov.Total_Productos }}</td>
-                            <td class="text-center">{{ mov.Total_Items }}</td>
-                            <td class="fw-bold text-end text-info">C${{ "%.2f"|format(mov.Total_Subtotal) }}</td>
-                            <td class="small">{{ mov.Usuario_Registra }}</td>
+                            <td class="text-center fw-bold">{{ "%.0f"|format(mov.Total_Productos) }} und.</td>
+                            <td class="fw-bold text-end text-info">C${{ "%.2f"|format(mov.Total_Subtotal|float if mov.Total_Subtotal else 0) }}</td>
+                            <td class="small">{{ mov.Usuario_Registra or 'N/A' }}</td>
                             <td class="text-center">
                                 <div class="btn-group btn-group-sm">
                                     <a href="{{ url_for('vendedor_movimiento_detalle', id_movimiento=mov.ID_Movimiento) }}" 
-                                       class="btn btn-outline-info" title="Ver detalle">detalle
-                                        <i class="fas fa-eye"></i>
+                                       class="btn btn-outline-info" title="Ver detalle">
+                                        <i class="fas fa-eye"></i> detalle
                                     </a>
                                 </div>
                             </td>
@@ -234,27 +279,6 @@
     </div>
 </div>
 
-<!-- Modal para ver observación -->
-<div class="modal fade" id="observacionModal" tabindex="-1">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content">
-            <div class="modal-header bg-info text-white py-2">
-                <h6 class="modal-title">
-                    <i class="fas fa-comment me-2"></i>
-                    Observación del Movimiento
-                </h6>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body p-3">
-                <p id="observacionTexto" class="mb-0 small"></p>
-            </div>
-            <div class="modal-footer py-2">
-                <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Cerrar</button>
-            </div>
-        </div>
-    </div>
-</div>
-
 <script>
 // Configuración de paginación
 const itemsPorPagina = 10;
@@ -262,15 +286,22 @@ let paginaActual = 1;
 let movimientosFiltrados = [];
 let movimientosOriginales = [];
 
+// Función auxiliar para convertir a número
+function toNumber(value) {
+    if (value === null || value === undefined) return 0;
+    const num = parseFloat(value);
+    return isNaN(num) ? 0 : num;
+}
+
 document.addEventListener('DOMContentLoaded', function() {
     {% if movimientos %}
-    // Guardar movimientos originales
     movimientosOriginales = {{ movimientos|tojson }};
     movimientosFiltrados = [...movimientosOriginales];
     
     inicializarFiltros();
-    inicializarTooltips();
     actualizarPaginacion();
+    actualizarContadores();
+    actualizarVistas();
     {% endif %}
 });
 
@@ -279,26 +310,9 @@ function inicializarFiltros() {
     const filtroTipo = document.getElementById('filtroTipo');
     const filtroFecha = document.getElementById('filtroFecha');
     
-    if (buscador) {
-        buscador.addEventListener('keyup', function() {
-            paginaActual = 1;
-            aplicarFiltros();
-        });
-    }
-    
-    if (filtroTipo) {
-        filtroTipo.addEventListener('change', function() {
-            paginaActual = 1;
-            aplicarFiltros();
-        });
-    }
-    
-    if (filtroFecha) {
-        filtroFecha.addEventListener('change', function() {
-            paginaActual = 1;
-            aplicarFiltros();
-        });
-    }
+    if (buscador) buscador.addEventListener('keyup', () => { paginaActual = 1; aplicarFiltros(); });
+    if (filtroTipo) filtroTipo.addEventListener('change', () => { paginaActual = 1; aplicarFiltros(); });
+    if (filtroFecha) filtroFecha.addEventListener('change', () => { paginaActual = 1; aplicarFiltros(); });
 }
 
 function aplicarFiltros() {
@@ -306,40 +320,39 @@ function aplicarFiltros() {
     const tipoFiltro = document.getElementById('filtroTipo')?.value || '';
     const fechaFiltro = document.getElementById('filtroFecha')?.value || '';
     
-    // Filtrar movimientos
     movimientosFiltrados = movimientosOriginales.filter(mov => {
-        // Filtro de búsqueda
         const cumpleBusqueda = textoBusqueda === '' || 
             mov.ID_Movimiento.toString().includes(textoBusqueda) ||
             (mov.Documento_Numero && mov.Documento_Numero.toLowerCase().includes(textoBusqueda)) ||
             (mov.Usuario_Registra && mov.Usuario_Registra.toLowerCase().includes(textoBusqueda));
         
-        // Filtro de tipo
-        const cumpleTipo = tipoFiltro === '' || mov.Tipo_Movimiento === tipoFiltro;
+        let cumpleTipo = true;
+        if (tipoFiltro !== '') {
+            if (tipoFiltro === 'CARGA') cumpleTipo = mov.Descripcion_Detallada === 'Carga de Productos';
+            else if (tipoFiltro === 'DEVOLUCION') cumpleTipo = mov.Descripcion_Detallada === 'Devolución';
+            else if (tipoFiltro === 'MERMA') cumpleTipo = mov.Descripcion_Detallada === 'Merma';
+            else if (tipoFiltro === 'AJUSTE') cumpleTipo = mov.Descripcion_Detallada === 'Ajuste de Inventario';
+            else if (tipoFiltro === 'TRASLADO') cumpleTipo = mov.Descripcion_Detallada === 'Traslado Interno';
+        }
         
-        // Filtro de fecha
         let cumpleFecha = true;
-        if (fechaFiltro !== '') {
-            try {
-                const fechaMov = new Date(mov.Fecha_Movimiento);
-                const hoy = new Date();
-                hoy.setHours(0, 0, 0, 0);
-                
-                if (fechaFiltro === 'today') {
-                    const fechaMovDate = new Date(fechaMov);
-                    fechaMovDate.setHours(0, 0, 0, 0);
-                    cumpleFecha = fechaMovDate.getTime() === hoy.getTime();
-                } else if (fechaFiltro === 'week') {
-                    const semanaPasada = new Date(hoy);
-                    semanaPasada.setDate(hoy.getDate() - 7);
-                    cumpleFecha = fechaMov >= semanaPasada;
-                } else if (fechaFiltro === 'month') {
-                    const mesPasado = new Date(hoy);
-                    mesPasado.setMonth(hoy.getMonth() - 1);
-                    cumpleFecha = fechaMov >= mesPasado;
-                }
-            } catch (e) {
-                console.error('Error al procesar fecha:', e);
+        if (fechaFiltro !== '' && mov.Fecha_Movimiento) {
+            const fechaMov = new Date(mov.Fecha_Movimiento);
+            const hoy = new Date();
+            hoy.setHours(0, 0, 0, 0);
+            
+            if (fechaFiltro === 'today') {
+                const fechaMovDate = new Date(fechaMov);
+                fechaMovDate.setHours(0, 0, 0, 0);
+                cumpleFecha = fechaMovDate.getTime() === hoy.getTime();
+            } else if (fechaFiltro === 'week') {
+                const semanaPasada = new Date(hoy);
+                semanaPasada.setDate(hoy.getDate() - 7);
+                cumpleFecha = fechaMov >= semanaPasada;
+            } else if (fechaFiltro === 'month') {
+                const mesPasado = new Date(hoy);
+                mesPasado.setMonth(hoy.getMonth() - 1);
+                cumpleFecha = fechaMov >= mesPasado;
             }
         }
         
@@ -356,10 +369,7 @@ function actualizarVistas() {
     const fin = inicio + itemsPorPagina;
     const movimientosPagina = movimientosFiltrados.slice(inicio, fin);
     
-    // Actualizar vista móvil
     actualizarVistaMovil(movimientosPagina);
-    
-    // Actualizar vista desktop
     actualizarVistaDesktop(movimientosPagina);
 }
 
@@ -370,38 +380,54 @@ function actualizarVistaMovil(movimientos) {
     container.innerHTML = '';
     
     if (movimientos.length === 0) {
-        container.innerHTML = `
-            <div class="text-center py-4">
-                <i class="fas fa-search fa-2x text-muted mb-2"></i>
-                <p class="text-muted small mb-0">No se encontraron movimientos</p>
-            </div>
-        `;
+        container.innerHTML = `<div class="text-center py-4"><i class="fas fa-search fa-2x text-muted mb-2"></i><p class="text-muted small mb-0">No se encontraron movimientos</p></div>`;
         return;
     }
     
     movimientos.forEach(mov => {
-        const tipoClass = mov.Tipo_Movimiento === 'ENTRADA BODEGA' ? 'bg-success' :
-                         mov.Tipo_Movimiento === 'DEVOLUCION BODEGA' ? 'bg-warning text-dark' :
-                         mov.Tipo_Movimiento === 'MERMA' ? 'bg-danger' : 'bg-secondary';
+        let tipoClass = 'bg-secondary';
+        let tipoIcon = 'fa-history';
+        let tipoTexto = mov.Descripcion_Detallada || mov.Tipo_Movimiento;
         
-        const tipoIcon = mov.Tipo_Movimiento === 'ENTRADA BODEGA' ? 'fa-arrow-down' :
-                        mov.Tipo_Movimiento === 'DEVOLUCION BODEGA' ? 'fa-arrow-up' :
-                        mov.Tipo_Movimiento === 'MERMA' ? 'fa-trash' : 'fa-history';
+        if (mov.Descripcion_Detallada === 'Carga de Productos') { 
+            tipoClass = 'bg-success'; 
+            tipoIcon = 'fa-arrow-down'; 
+            tipoTexto = 'Entrada'; 
+        } else if (mov.Descripcion_Detallada === 'Devolución') { 
+            tipoClass = 'bg-warning text-dark'; 
+            tipoIcon = 'fa-arrow-up'; 
+            tipoTexto = 'Devolución'; 
+        } else if (mov.Descripcion_Detallada === 'Merma') { 
+            tipoClass = 'bg-danger'; 
+            tipoIcon = 'fa-trash'; 
+            tipoTexto = 'Merma'; 
+        } else if (mov.Descripcion_Detallada === 'Ajuste de Inventario') { 
+            tipoClass = 'bg-info'; 
+            tipoIcon = 'fa-adjust'; 
+            tipoTexto = 'Ajuste'; 
+        } else if (mov.Descripcion_Detallada === 'Traslado Interno') { 
+            tipoClass = 'bg-primary'; 
+            tipoIcon = 'fa-exchange-alt'; 
+            tipoTexto = 'Traslado'; 
+        }
         
-        const tipoTexto = mov.Tipo_Movimiento === 'ENTRADA BODEGA' ? 'Entrada' :
-                         mov.Tipo_Movimiento === 'DEVOLUCION BODEGA' ? 'Devolución' :
-                         mov.Tipo_Movimiento === 'MERMA' ? 'Merma' : mov.Tipo_Movimiento;
+        // Convertir valores a números correctamente
+        const totalProductos = toNumber(mov.Total_Productos);
+        const totalSubtotal = toNumber(mov.Total_Subtotal);
+        
+        // Formatear fecha
+        let fechaStr = 'N/A';
+        if (mov.Fecha_Movimiento) {
+            try {
+                const fecha = new Date(mov.Fecha_Movimiento);
+                fechaStr = fecha.toLocaleDateString() + ' ' + fecha.toLocaleTimeString();
+            } catch(e) {
+                fechaStr = mov.Fecha_Movimiento;
+            }
+        }
         
         const card = document.createElement('div');
         card.className = 'movimiento-card p-2 border-bottom';
-        
-        let fechaStr = '';
-        try {
-            fechaStr = new Date(mov.Fecha_Movimiento).toLocaleDateString();
-        } catch (e) {
-            fechaStr = mov.Fecha_Movimiento || '';
-        }
-        
         card.innerHTML = `
             <div class="d-flex justify-content-between align-items-start mb-2">
                 <div>
@@ -412,34 +438,27 @@ function actualizarVistaMovil(movimientos) {
                 </div>
                 <small class="text-muted">${fechaStr}</small>
             </div>
-            
             <div class="row g-2 mb-2">
-                <div class="col-4">
+                <div class="col-6">
                     <small class="text-muted d-block">Documento</small>
                     <span class="small">${mov.Documento_Numero || 'N/A'}</span>
                 </div>
-                <div class="col-4">
+                <div class="col-6">
                     <small class="text-muted d-block">Productos</small>
-                    <span class="small">${mov.Total_Productos || 0} items</span>
-                </div>
-                <div class="col-4">
-                    <small class="text-muted d-block">Total</small>
-                    <span class="small fw-bold text-info">C$${(mov.Total_Subtotal || 0).toFixed(2)}</span>
+                    <span class="small fw-bold">${totalProductos.toFixed(0)} und.</span>
                 </div>
             </div>
-            
+            <div class="mb-2">
+                <small class="text-muted d-block">Total</small>
+                <span class="fw-bold text-info">C$${totalSubtotal.toFixed(2)}</span>
+            </div>
             <div class="d-flex justify-content-between align-items-center">
-                <div>
-                    <small class="text-muted">
-                        <i class="fas fa-user me-1"></i>${mov.Usuario_Registra || 'N/A'}
-                    </small>
-                </div>
-                <div class="btn-group btn-group-sm">
-                    <a href="/vendedor/movimiento-detalle/${mov.ID_Movimiento}" 
-                       class="btn btn-outline-info" title="Ver detalle">detalle
-                        <i class="fas fa-eye"></i>
-                    </a>
-                </div>
+                <small class="text-muted">
+                    <i class="fas fa-user me-1"></i>${mov.Usuario_Registra || 'N/A'}
+                </small>
+                <a href="/vendedor/movimientos/detalle/${mov.ID_Movimiento}" class="btn btn-outline-info btn-sm">
+                    <i class="fas fa-eye"></i> detalle
+                </a>
             </div>
         `;
         container.appendChild(card);
@@ -456,30 +475,50 @@ function actualizarVistaDesktop(movimientos) {
     tbody.innerHTML = '';
     
     if (movimientos.length === 0) {
-        const fila = document.createElement('tr');
-        fila.innerHTML = '<td colspan="9" class="text-center py-4">No se encontraron movimientos</td>';
-        tbody.appendChild(fila);
+        tbody.innerHTML = '<tr><td colspan="8" class="text-center py-4">No se encontraron movimientos</td></tr>';
         return;
     }
     
     movimientos.forEach(mov => {
-        const tipoClass = mov.Tipo_Movimiento === 'ENTRADA BODEGA' ? 'bg-success' :
-                         mov.Tipo_Movimiento === 'DEVOLUCION BODEGA' ? 'bg-warning text-dark' :
-                         mov.Tipo_Movimiento === 'MERMA' ? 'bg-danger' : 'bg-secondary';
+        let tipoClass = 'bg-secondary';
+        let tipoIcon = 'fa-history';
+        let tipoTexto = mov.Descripcion_Detallada || mov.Tipo_Movimiento;
         
-        const tipoIcon = mov.Tipo_Movimiento === 'ENTRADA BODEGA' ? 'fa-arrow-down' :
-                        mov.Tipo_Movimiento === 'DEVOLUCION BODEGA' ? 'fa-arrow-up' :
-                        mov.Tipo_Movimiento === 'MERMA' ? 'fa-trash' : 'fa-history';
+        if (mov.Descripcion_Detallada === 'Carga de Productos') { 
+            tipoClass = 'bg-success'; 
+            tipoIcon = 'fa-arrow-down'; 
+            tipoTexto = 'Entrada'; 
+        } else if (mov.Descripcion_Detallada === 'Devolución') { 
+            tipoClass = 'bg-warning text-dark'; 
+            tipoIcon = 'fa-arrow-up'; 
+            tipoTexto = 'Devolución'; 
+        } else if (mov.Descripcion_Detallada === 'Merma') { 
+            tipoClass = 'bg-danger'; 
+            tipoIcon = 'fa-trash'; 
+            tipoTexto = 'Merma'; 
+        } else if (mov.Descripcion_Detallada === 'Ajuste de Inventario') { 
+            tipoClass = 'bg-info'; 
+            tipoIcon = 'fa-adjust'; 
+            tipoTexto = 'Ajuste'; 
+        } else if (mov.Descripcion_Detallada === 'Traslado Interno') { 
+            tipoClass = 'bg-primary'; 
+            tipoIcon = 'fa-exchange-alt'; 
+            tipoTexto = 'Traslado'; 
+        }
         
-        const tipoTexto = mov.Tipo_Movimiento === 'ENTRADA BODEGA' ? 'Entrada' :
-                         mov.Tipo_Movimiento === 'DEVOLUCION BODEGA' ? 'Devolución' :
-                         mov.Tipo_Movimiento === 'MERMA' ? 'Merma' : mov.Tipo_Movimiento;
+        // Convertir valores a números correctamente
+        const totalProductos = toNumber(mov.Total_Productos);
+        const totalSubtotal = toNumber(mov.Total_Subtotal);
         
-        let fechaStr = '';
-        try {
-            fechaStr = new Date(mov.Fecha_Movimiento).toLocaleString();
-        } catch (e) {
-            fechaStr = mov.Fecha_Movimiento || '';
+        // Formatear fecha
+        let fechaStr = 'N/A';
+        if (mov.Fecha_Movimiento) {
+            try {
+                const fecha = new Date(mov.Fecha_Movimiento);
+                fechaStr = fecha.toLocaleString();
+            } catch(e) {
+                fechaStr = mov.Fecha_Movimiento;
+            }
         }
         
         const fila = document.createElement('tr');
@@ -492,17 +531,13 @@ function actualizarVistaDesktop(movimientos) {
                 </span>
             </td>
             <td class="small">${mov.Documento_Numero || 'N/A'}</td>
-            <td class="text-center">${mov.Total_Productos || 0}</td>
-            <td class="text-center">${mov.Total_Items || 0}</td>
-            <td class="fw-bold text-end text-info">C$${(mov.Total_Subtotal || 0).toFixed(2)}</td>
+            <td class="text-center fw-bold">${totalProductos.toFixed(0)} und.</td>
+            <td class="fw-bold text-end text-info">C$${totalSubtotal.toFixed(2)}</td>
             <td class="small">${mov.Usuario_Registra || 'N/A'}</td>
             <td class="text-center">
-                <div class="btn-group btn-group-sm">
-                    <a href="/vendedor/movimiento-detalle/${mov.ID_Movimiento}" 
-                       class="btn btn-outline-info" title="Ver detalle"> detalle
-                        <i class="fas fa-eye"></i>
-                    </a>
-                </div>
+                <a href="/vendedor/movimientos/detalle/${mov.ID_Movimiento}" class="btn btn-outline-info btn-sm">
+                    <i class="fas fa-eye"></i> detalle
+                </a>
             </td>
         `;
         tbody.appendChild(fila);
@@ -510,17 +545,18 @@ function actualizarVistaDesktop(movimientos) {
 }
 
 function actualizarContadores() {
+    const total = movimientosFiltrados.length;
     const totalRegistros = document.getElementById('totalRegistros');
+    const totalMovimientosSpan = document.getElementById('totalMovimientos');
     const mostrandoDesde = document.getElementById('mostrandoDesde');
     const mostrandoHasta = document.getElementById('mostrandoHasta');
-    const totalMovimientos = document.getElementById('totalMovimientos');
     
-    if (totalRegistros) totalRegistros.textContent = movimientosFiltrados.length;
-    if (totalMovimientos) totalMovimientos.textContent = movimientosFiltrados.length + ' movimientos';
+    if (totalRegistros) totalRegistros.textContent = total;
+    if (totalMovimientosSpan) totalMovimientosSpan.textContent = total + ' movimientos';
     
-    if (movimientosFiltrados.length > 0) {
+    if (total > 0) {
         const inicio = (paginaActual - 1) * itemsPorPagina;
-        const fin = Math.min(inicio + itemsPorPagina, movimientosFiltrados.length);
+        const fin = Math.min(inicio + itemsPorPagina, total);
         if (mostrandoDesde) mostrandoDesde.textContent = inicio + 1;
         if (mostrandoHasta) mostrandoHasta.textContent = fin;
     } else {
@@ -535,320 +571,89 @@ function actualizarPaginacion() {
     const btnNext = document.getElementById('btnNext');
     const paginaActualSpan = document.getElementById('paginaActual');
     
-    if (paginaActualSpan) paginaActualSpan.textContent = paginaActual;
     if (btnPrev) btnPrev.disabled = paginaActual === 1;
     if (btnNext) btnNext.disabled = paginaActual === totalPaginas || totalPaginas === 0;
+    if (paginaActualSpan) paginaActualSpan.textContent = paginaActual;
 }
 
 function cambiarPagina(direccion) {
     const totalPaginas = Math.ceil(movimientosFiltrados.length / itemsPorPagina);
-    
     if (direccion === 'prev' && paginaActual > 1) {
         paginaActual--;
     } else if (direccion === 'next' && paginaActual < totalPaginas) {
         paginaActual++;
     }
-    
-    aplicarFiltros();
-}
-
-function verObservacion(observacion) {
-    const textoElement = document.getElementById('observacionTexto');
-    if (textoElement) {
-        textoElement.textContent = observacion;
-    }
-    
-    const modalElement = document.getElementById('observacionModal');
-    if (modalElement) {
-        try {
-            const modal = new bootstrap.Modal(modalElement);
-            modal.show();
-        } catch (e) {
-            console.error('Error al mostrar modal:', e);
-        }
-    }
-}
-
-function inicializarTooltips() {
-    if (typeof bootstrap !== 'undefined' && bootstrap.Tooltip) {
-        try {
-            const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
-            tooltipTriggerList.map(function(tooltipTriggerEl) {
-                return new bootstrap.Tooltip(tooltipTriggerEl);
-            });
-        } catch (e) {
-            console.error('Error al inicializar tooltips:', e);
-        }
-    }
+    actualizarVistas();
+    actualizarPaginacion();
+    actualizarContadores();
 }
 
 function exportarExcel() {
-    if (movimientosFiltrados.length === 0) {
-        alert('No hay movimientos para exportar');
-        return;
+    if (movimientosFiltrados.length === 0) { 
+        alert('No hay movimientos para exportar'); 
+        return; 
     }
     
-    try {
-        // Crear CSV
-        let csv = "ID,Fecha,Tipo,Documento,Productos,Items,Total,Usuario,Observación\n";
+    let csv = "ID,Fecha,Tipo,Documento,Productos,Total,Usuario\n";
+    movimientosFiltrados.forEach(mov => {
+        let tipoTexto = mov.Descripcion_Detallada || mov.Tipo_Movimiento;
+        if (tipoTexto === 'Carga de Productos') tipoTexto = 'Entrada';
+        else if (tipoTexto === 'Devolución') tipoTexto = 'Devolución';
+        else if (tipoTexto === 'Merma') tipoTexto = 'Merma';
+        else if (tipoTexto === 'Ajuste de Inventario') tipoTexto = 'Ajuste';
+        else if (tipoTexto === 'Traslado Interno') tipoTexto = 'Traslado';
         
-        movimientosFiltrados.forEach(mov => {
-            const tipoTexto = mov.Tipo_Movimiento === 'ENTRADA BODEGA' ? 'Entrada' :
-                             mov.Tipo_Movimiento === 'DEVOLUCION BODEGA' ? 'Devolución' :
-                             mov.Tipo_Movimiento === 'MERMA' ? 'Merma' : mov.Tipo_Movimiento;
-            
-            let fechaStr = '';
+        let fechaStr = '';
+        if (mov.Fecha_Movimiento) {
             try {
                 fechaStr = new Date(mov.Fecha_Movimiento).toLocaleString();
-            } catch (e) {
-                fechaStr = mov.Fecha_Movimiento || '';
+            } catch(e) {
+                fechaStr = mov.Fecha_Movimiento;
             }
-            
-            const fila = [
-                mov.ID_Movimiento,
-                fechaStr,
-                tipoTexto,
-                mov.Documento_Numero || 'N/A',
-                mov.Total_Productos || 0,
-                mov.Total_Items || 0,
-                (mov.Total_Subtotal || 0).toFixed(2),
-                mov.Usuario_Registra || 'N/A',
-                (mov.Observacion || '').replace(/,/g, ';').replace(/\n/g, ' ') // Reemplazar comas y saltos de línea
-            ];
-            
-            csv += fila.join(',') + '\n';
-        });
+        }
         
-        // Agregar BOM para UTF-8
-        const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = 'movimientos_' + new Date().toISOString().slice(0,10) + '.csv';
-        a.click();
-        window.URL.revokeObjectURL(url);
-    } catch (e) {
-        console.error('Error al exportar:', e);
-        alert('Error al exportar el archivo');
-    }
+        const totalProductos = toNumber(mov.Total_Productos);
+        const totalSubtotal = toNumber(mov.Total_Subtotal);
+        
+        const fila = [
+            mov.ID_Movimiento,
+            fechaStr,
+            tipoTexto,
+            (mov.Documento_Numero || 'N/A').replace(/,/g, ';'),
+            totalProductos.toFixed(0),
+            totalSubtotal.toFixed(2),
+            (mov.Usuario_Registra || 'N/A').replace(/,/g, ';')
+        ];
+        csv += fila.join(',') + '\n';
+    });
+    
+    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'movimientos_' + new Date().toISOString().slice(0,10) + '.csv';
+    a.click();
+    window.URL.revokeObjectURL(url);
 }
 </script>
 
 <style>
-/* Estilos responsive mejorados */
 @media (max-width: 991.98px) {
-    .container-fluid {
-        padding-left: 8px;
-        padding-right: 8px;
-    }
-    
-    /* Tarjetas de movimientos en móvil */
-    .movimiento-card {
-        background-color: white;
-        transition: background-color 0.2s ease;
-    }
-    
-    .movimiento-card:hover {
-        background-color: #f8f9fa;
-    }
-    
-    .movimiento-card:active {
-        background-color: #e9ecef;
-    }
-    
-    /* Badges en móvil */
-    .badge {
-        font-size: 0.7rem;
-        padding: 0.3rem 0.5rem;
-    }
-    
-    /* Botones de acción en móvil */
-    .btn-group-sm .btn {
-        padding: 0.25rem 0.5rem;
-    }
-    
-    /* Mejorar touch targets */
-    .btn-group-sm .btn i {
-        font-size: 1rem;
-    }
+    .container-fluid { padding-left: 8px; padding-right: 8px; }
+    .movimiento-card { background-color: white; transition: background-color 0.2s ease; }
+    .movimiento-card:hover { background-color: #f8f9fa; }
+    .badge { font-size: 0.7rem; padding: 0.3rem 0.5rem; }
 }
 
-/* Ajustes para tablets */
-@media (min-width: 768px) and (max-width: 991.98px) {
-    .movimiento-card .row {
-        margin-left: -5px;
-        margin-right: -5px;
-    }
-    
-    .movimiento-card [class*="col-"] {
-        padding-left: 5px;
-        padding-right: 5px;
-    }
-}
-
-/* Estilos para desktop */
-@media (min-width: 992px) {
-    .table td {
-        vertical-align: middle;
-        font-size: 0.9rem;
-    }
-    
-    .table th {
-        font-size: 0.85rem;
-        white-space: nowrap;
-    }
-}
-
-/* Estilos generales */
-.card {
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-}
-
-/* Filtros y búsqueda */
-.input-group-text {
-    background-color: white;
-    border-right: none;
-}
-
-#buscador {
-    border-left: none;
-}
-
-#buscador:focus {
-    box-shadow: none;
-    border-color: #ced4da;
-}
-
-/* Paginación */
-.btn-group-sm .btn-outline-secondary {
-    min-width: 35px;
-}
-
-#paginaActual {
-    cursor: default;
-    background-color: #e9ecef;
-}
-
-/* Tooltips */
-[data-bs-toggle="tooltip"] {
-    cursor: help;
-}
-
-/* Modal de observación */
-.modal-header {
-    border-bottom: 1px solid rgba(0,0,0,0.1);
-}
-
-.modal-footer {
-    border-top: 1px solid rgba(0,0,0,0.1);
-}
-
-/* Responsive para móviles pequeños */
-@media (max-width: 575.98px) {
-    .h2-md {
-        font-size: 1.3rem;
-    }
-    
-    .btn-sm {
-        padding: 0.3rem 0.6rem;
-        font-size: 0.75rem;
-    }
-    
-    .badge {
-        font-size: 0.65rem;
-    }
-    
-    .small {
-        font-size: 0.7rem;
-    }
-    
-    .movimiento-card {
-        padding: 0.5rem !important;
-    }
-}
-
-/* Animación de carga */
-.movimiento-card {
-    animation: fadeIn 0.3s ease;
-}
+.card { box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+.movimiento-card { animation: fadeIn 0.3s ease; border-left: 3px solid transparent; }
+.movimiento-card:has(.bg-success) { border-left-color: #28a745; }
+.movimiento-card:has(.bg-warning) { border-left-color: #ffc107; }
+.movimiento-card:has(.bg-danger) { border-left-color: #dc3545; }
 
 @keyframes fadeIn {
-    from {
-        opacity: 0;
-        transform: translateY(10px);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
-}
-
-/* Estilo para la exportación */
-.btn-outline-secondary:hover {
-    background-color: #6c757d;
-    color: white;
-}
-
-/* Contador de movimientos */
-#totalMovimientos {
-    font-size: 0.9rem;
-    padding: 0.4rem 0.8rem;
-}
-
-/* Indicador de filtros activos */
-select.form-select-sm {
-    cursor: pointer;
-}
-
-select.form-select-sm:focus {
-    border-color: #17a2b8;
-    box-shadow: 0 0 0 0.2rem rgba(23, 162, 184, 0.25);
-}
-
-/* Scroll suave */
-.movimiento-card {
-    scroll-margin-top: 10px;
-}
-
-/* Mejora visual para los totales */
-.text-info {
-    color: #17a2b8 !important;
-}
-
-/* Línea divisoria entre cards */
-.border-bottom:last-child {
-    border-bottom: none !important;
-}
-
-/* Hover en desktop */
-@media (min-width: 992px) {
-    .table-hover tbody tr:hover {
-        background-color: rgba(23, 162, 184, 0.05);
-    }
-}
-
-/* Mensaje cuando no hay resultados */
-.text-center.py-4 {
-    background-color: #f8f9fa;
-    border-radius: 4px;
-    margin: 1rem;
-}
-
-/* Mejora visual para las cards en móvil */
-.movimiento-card {
-    border-left: 3px solid transparent;
-}
-
-.movimiento-card:has(.bg-success) {
-    border-left-color: #28a745;
-}
-
-.movimiento-card:has(.bg-warning) {
-    border-left-color: #ffc107;
-}
-
-.movimiento-card:has(.bg-danger) {
-    border-left-color: #dc3545;
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
 }
 </style>
 {% endblock %}
