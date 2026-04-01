@@ -55,9 +55,9 @@
                         <i class="fas fa-calendar-alt me-1"></i> Rango:
                     </label>
                     <div class="d-flex gap-1">
-                        <input type="date" class="form-control form-control-sm" id="fecha_inicio" value="{{ fecha_actual.replace('/', '-') }}">
+                        <input type="date" class="form-control form-control-sm" id="fecha_inicio" value="{{ fecha_actual_iso }}">
                         <span class="mx-1 align-self-center">a</span>
-                        <input type="date" class="form-control form-control-sm" id="fecha_fin" value="{{ fecha_actual.replace('/', '-') }}">
+                        <input type="date" class="form-control form-control-sm" id="fecha_fin" value="{{ fecha_actual_iso }}">
                     </div>
                 </div>
                 
@@ -100,7 +100,7 @@
                                 Total Ventas
                             </div>
                             <div class="h5 h4-md mb-0 fw-bold text-gray-800" id="total_ventas">
-                                0
+                                {{ ventas|length }}
                             </div>
                         </div>
                         <div class="col-4 text-end">
@@ -121,7 +121,7 @@
                                 Total C$
                             </div>
                             <div class="h5 h4-md mb-0 fw-bold text-gray-800" id="total_monto">
-                                C$ 0.00
+                                C$ {{ "{:,.2f}".format(ventas|sum(attribute='Total_Venta')) if ventas else "0.00" }}
                             </div>
                         </div>
                         <div class="col-4 text-end">
@@ -142,7 +142,7 @@
                                 Contado
                             </div>
                             <div class="h5 h4-md mb-0 fw-bold text-gray-800" id="total_contado">
-                                C$ 0.00
+                                C$ {{ "{:,.2f}".format(ventas|selectattr('Tipo_Venta', 'equalto', 'CONTADO')|sum(attribute='Total_Venta')) if ventas else "0.00" }}
                             </div>
                         </div>
                         <div class="col-4 text-end">
@@ -163,7 +163,7 @@
                                 Crédito
                             </div>
                             <div class="h5 h4-md mb-0 fw-bold text-gray-800" id="total_credito">
-                                C$ 0.00
+                                C$ {{ "{:,.2f}".format(ventas|selectattr('Tipo_Venta', 'equalto', 'CRÉDITO')|sum(attribute='Total_Venta')) if ventas else "0.00" }}
                             </div>
                         </div>
                         <div class="col-4 text-end">
@@ -192,7 +192,7 @@
             <!-- VISTA MÓVIL: Tarjetas de ventas -->
             <div class="d-block d-lg-none">
                 {% for venta in ventas %}
-                <div class="venta-card p-2 border-bottom" 
+                <div class="venta-card p-3 border-bottom" 
                      data-id="{{ venta.ID_FacturaRuta }}" 
                      data-fecha="{{ venta.Fecha }}" 
                      data-tipo="{{ venta.Tipo_Venta }}" 
@@ -201,7 +201,7 @@
                     <!-- Cabecera de la tarjeta -->
                     <div class="d-flex justify-content-between align-items-start mb-2">
                         <div>
-                            <span class="fw-bold">#{{ venta.ID_FacturaRuta }}</span>
+                            <span class="fw-bold fs-6">#{{ venta.ID_FacturaRuta }}</span>
                             <span class="badge {% if venta.Tipo_Venta == 'CONTADO' %}bg-success{% else %}bg-warning text-dark{% endif %} ms-2">
                                 {% if venta.Tipo_Venta == 'CONTADO' %}
                                     <i class="fas fa-money-bill me-1"></i> Contado
@@ -217,7 +217,7 @@
                     
                     <!-- Información del cliente -->
                     <div class="mb-2">
-                        <strong>{{ venta.Cliente }}</strong>
+                        <strong class="fs-6">{{ venta.Cliente }}</strong>
                         {% if venta.Telefono %}
                         <br><small class="text-muted"><i class="fas fa-phone me-1"></i>{{ venta.Telefono }}</small>
                         {% endif %}
@@ -241,17 +241,17 @@
                     
                     <!-- Saldo pendiente si existe -->
                     {% if venta.Saldo_Pendiente > 0 %}
-                    <div class="alert alert-danger py-1 px-2 mb-2 small">
+                    <div class="alert alert-danger py-2 px-2 mb-2 small">
                         <i class="fas fa-exclamation-triangle me-1"></i>
-                        Saldo: C$ {{ "{:,.2f}".format(venta.Saldo_Pendiente) }}
+                        Saldo pendiente: C$ {{ "{:,.2f}".format(venta.Saldo_Pendiente) }}
                     </div>
                     {% endif %}
                     
                     <!-- Acciones -->
-                    <div class="d-flex gap-2">
+                    <div class="d-flex gap-2 mt-2">
                         <a href="{{ url_for('vendedor_venta_detalle', id_venta=venta.ID_FacturaRuta) }}" 
                            class="btn btn-info btn-sm flex-fill">
-                            <i class="fas fa-eye me-1"></i> Ver
+                            <i class="fas fa-eye me-1"></i> Ver detalle
                         </a>
                         {% if venta.Estado == 'Activa' and venta.Fecha == fecha_actual %}
                         <button type="button" 
@@ -269,7 +269,7 @@
             <div class="table-responsive d-none d-lg-block">
                 <table class="table table-bordered table-hover mb-0" id="tablaVentas" width="100%" cellspacing="0">
                     <thead class="table-light">
-                        <tr>
+                         <tr>
                             <th># Factura</th>
                             <th>Fecha/Hora</th>
                             <th>Cliente</th>
@@ -279,7 +279,7 @@
                             <th class="text-center">Tipo</th>
                             <th class="text-center">Estado</th>
                             <th class="text-center">Acciones</th>
-                        </tr>
+                         </tr>
                     </thead>
                     <tbody>
                         {% for venta in ventas %}
@@ -289,11 +289,11 @@
                             data-tipo="{{ venta.Tipo_Venta }}" 
                             data-monto="{{ venta.Total_Venta }}">
                             <td class="fw-bold">#{{ venta.ID_FacturaRuta }}</td>
-                            <td class="small">{{ venta.Fecha }}<br>{{ venta.Hora }}</td>
+                            <td class="small">{{ venta.Fecha }}<br><small class="text-muted">{{ venta.Hora }}</small></td>
                             <td>
                                 <strong>{{ venta.Cliente }}</strong>
                                 {% if venta.Telefono %}
-                                <br><small class="text-muted">{{ venta.Telefono }}</small>
+                                <br><small class="text-muted"><i class="fas fa-phone me-1"></i>{{ venta.Telefono }}</small>
                                 {% endif %}
                             </td>
                             <td class="small">{{ venta.RUC_CEDULA or 'N/A' }}</td>
@@ -431,7 +431,7 @@
 var fechaActualGlobal = "{{ fecha_actual }}";
 
 // ============================================
-// FUNCIONES GLOBALES - SIN JQUERY
+// FUNCIONES GLOBALES
 // ============================================
 
 function filtrarVentas() {
@@ -450,12 +450,14 @@ function filtrarVentas() {
         }
     });
 
-    // Convertir fechas de YYYY-MM-DD a DD/MM/YYYY para la comparación
-    if (fechaInicio) {
-        fechaInicio = fechaInicio.split('-').reverse().join('/');
+    // CONVERTIR fechas de YYYY-MM-DD a DD/MM/YYYY para el backend
+    if (fechaInicio && fechaInicio !== '') {
+        var partesInicio = fechaInicio.split('-');
+        fechaInicio = partesInicio[2] + '/' + partesInicio[1] + '/' + partesInicio[0];
     }
-    if (fechaFin) {
-        fechaFin = fechaFin.split('-').reverse().join('/');
+    if (fechaFin && fechaFin !== '') {
+        var partesFin = fechaFin.split('-');
+        fechaFin = partesFin[2] + '/' + partesFin[1] + '/' + partesFin[0];
     }
 
     fetch("{{ url_for('api_filtrar_ventas') }}", {
@@ -503,6 +505,8 @@ function actualizarVista(ventas) {
     if (ventas.length === 0) {
         // Mostrar mensaje de no resultados
         var movilContainer = document.querySelector('.d-block.d-lg-none');
+        var desktopContainer = document.querySelector('.d-none.d-lg-block');
+        
         if (movilContainer) {
             movilContainer.innerHTML = `
                 <div class="text-center py-5">
@@ -513,7 +517,6 @@ function actualizarVista(ventas) {
             `;
         }
         
-        var desktopContainer = document.querySelector('.d-none.d-lg-block');
         if (desktopContainer) {
             desktopContainer.innerHTML = `
                 <div class="text-center py-5">
@@ -525,15 +528,10 @@ function actualizarVista(ventas) {
         }
         
         // Actualizar resumen a cero
-        var totalVentasEl = document.getElementById('total_ventas');
-        var totalMontoEl = document.getElementById('total_monto');
-        var totalContadoEl = document.getElementById('total_contado');
-        var totalCreditoEl = document.getElementById('total_credito');
-        
-        if (totalVentasEl) totalVentasEl.textContent = '0';
-        if (totalMontoEl) totalMontoEl.textContent = 'C$ 0.00';
-        if (totalContadoEl) totalContadoEl.textContent = 'C$ 0.00';
-        if (totalCreditoEl) totalCreditoEl.textContent = 'C$ 0.00';
+        document.getElementById('total_ventas').textContent = '0';
+        document.getElementById('total_monto').textContent = 'C$ 0.00';
+        document.getElementById('total_contado').textContent = 'C$ 0.00';
+        document.getElementById('total_credito').textContent = 'C$ 0.00';
         return;
     }
 
@@ -546,18 +544,8 @@ function actualizarVista(ventas) {
 
 function actualizarVistaMovil(ventas) {
     var container = document.querySelector('.d-block.d-lg-none');
-    if (!container) {
-        // Si no existe el contenedor móvil, crearlo
-        var cardBody = document.querySelector('.card-body.p-0');
-        if (cardBody) {
-            var newContainer = document.createElement('div');
-            newContainer.className = 'd-block d-lg-none';
-            cardBody.prepend(newContainer);
-            container = newContainer;
-        }
-    }
-    
     if (!container) return;
+    
     container.innerHTML = '';
     
     ventas.forEach(function(v) {
@@ -631,17 +619,6 @@ function actualizarVistaMovil(ventas) {
 
 function actualizarVistaDesktop(ventas) {
     var container = document.querySelector('.d-none.d-lg-block');
-    if (!container) {
-        // Si no existe el contenedor desktop, crearlo
-        var cardBody = document.querySelector('.card-body.p-0');
-        if (cardBody) {
-            var newContainer = document.createElement('div');
-            newContainer.className = 'd-none d-lg-block';
-            cardBody.appendChild(newContainer);
-            container = newContainer;
-        }
-    }
-    
     if (!container) return;
     
     // Verificar si existe la tabla, si no, crearla
@@ -755,53 +732,10 @@ function actualizarResumen(ventas) {
         }
     });
 
-    var totalVentasEl = document.getElementById('total_ventas');
-    var totalMontoEl = document.getElementById('total_monto');
-    var totalContadoEl = document.getElementById('total_contado');
-    var totalCreditoEl = document.getElementById('total_credito');
-    
-    if (totalVentasEl) totalVentasEl.textContent = totalVentas;
-    if (totalMontoEl) totalMontoEl.textContent = 'C$ ' + formatNumber(totalMonto);
-    if (totalContadoEl) totalContadoEl.textContent = 'C$ ' + formatNumber(totalContado);
-    if (totalCreditoEl) totalCreditoEl.textContent = 'C$ ' + formatNumber(totalCredito);
-}
-
-function calcularResumen() {
-    var totalVentas = 0;
-    var totalMonto = 0;
-    var totalContado = 0;
-    var totalCredito = 0;
-
-    var rows = document.querySelectorAll('.venta-row, .venta-card');
-    rows.forEach(function(element) {
-        var tipo = element.getAttribute('data-tipo');
-        var monto = parseFloat(element.getAttribute('data-monto')) || 0;
-        
-        totalVentas++;
-        totalMonto += monto;
-        
-        if (tipo === 'CONTADO') {
-            totalContado += monto;
-        } else {
-            totalCredito += monto;
-        }
-    });
-
-    var totalVentasEl = document.getElementById('total_ventas');
-    var totalMontoEl = document.getElementById('total_monto');
-    var totalContadoEl = document.getElementById('total_contado');
-    var totalCreditoEl = document.getElementById('total_credito');
-    
-    if (totalVentasEl) totalVentasEl.textContent = totalVentas;
-    if (totalMontoEl) totalMontoEl.textContent = 'C$ ' + formatNumber(totalMonto);
-    if (totalContadoEl) totalContadoEl.textContent = 'C$ ' + formatNumber(totalContado);
-    if (totalCreditoEl) totalCreditoEl.textContent = 'C$ ' + formatNumber(totalCredito);
-}
-
-function actualizarContador() {
-    var total = document.querySelectorAll('.venta-row, .venta-card').length;
-    var contadorElement = document.getElementById('contador_ventas');
-    if (contadorElement) contadorElement.textContent = total;
+    document.getElementById('total_ventas').textContent = totalVentas;
+    document.getElementById('total_monto').textContent = 'C$ ' + formatNumber(totalMonto);
+    document.getElementById('total_contado').textContent = 'C$ ' + formatNumber(totalContado);
+    document.getElementById('total_credito').textContent = 'C$ ' + formatNumber(totalCredito);
 }
 
 function confirmarAnulacion(idVenta) {
@@ -828,12 +762,8 @@ function escapeHtml(text) {
     return String(text).replace(/[&<>"']/g, function(m) { return map[m]; });
 }
 
-function refrescarVentas() {
-    filtrarVentas();
-}
-
 // ============================================
-// INICIALIZACIÓN - SIN JQUERY
+// INICIALIZACIÓN
 // ============================================
 document.addEventListener('DOMContentLoaded', function() {
     // Mostrar/ocultar rango de fechas
@@ -850,77 +780,13 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
     
-    // Inicializar DataTable si existe (solo si hay DataTables y es desktop)
-    if (typeof $.fn !== 'undefined' && $.fn.DataTable && window.innerWidth >= 992) {
-        var tabla = document.getElementById('tablaVentas');
-        if (tabla && tabla.querySelector('tbody tr')) {
-            inicializarDataTable();
-        }
-    }
-    
-    // Calcular resumen inicial
-    calcularResumen();
-    actualizarContador();
-    
     // Detectar cambio de orientación en móviles
     window.addEventListener('resize', function() {
         setTimeout(function() {
-            if (window.innerWidth >= 992) {
-                if (typeof $.fn !== 'undefined' && $.fn.DataTable && document.getElementById('tablaVentas')) {
-                    var tabla = document.getElementById('tablaVentas');
-                    if (tabla && !$.fn.DataTable.isDataTable('#tablaVentas') && tabla.querySelector('tbody tr')) {
-                        inicializarDataTable();
-                    }
-                }
-            } else {
-                if (typeof $.fn !== 'undefined' && $.fn.DataTable && $.fn.DataTable.isDataTable('#tablaVentas')) {
-                    $('#tablaVentas').DataTable().destroy();
-                }
-            }
+            // Puedes agregar lógica adicional si es necesario
         }, 200);
     });
 });
-
-function inicializarDataTable() {
-    if (typeof $ !== 'undefined' && $.fn.DataTable && document.getElementById('tablaVentas')) {
-        var tabla = document.getElementById('tablaVentas');
-        if (tabla && tabla.querySelector('tbody tr')) {
-            $('#tablaVentas').DataTable({
-                language: {
-                    "sProcessing": "Procesando...",
-                    "sLengthMenu": "Mostrar _MENU_ registros",
-                    "sZeroRecords": "No se encontraron resultados",
-                    "sEmptyTable": "Ningún dato disponible en esta tabla",
-                    "sInfo": "Mostrando registros del _START_ al _END_ de un total de _TOTAL_ registros",
-                    "sInfoEmpty": "Mostrando registros del 0 al 0 de un total de 0 registros",
-                    "sInfoFiltered": "(filtrado de un total de _MAX_ registros)",
-                    "sInfoPostFix": "",
-                    "sSearch": "Buscar:",
-                    "sUrl": "",
-                    "sInfoThousands": ",",
-                    "sLoadingRecords": "Cargando...",
-                    "oPaginate": {
-                        "sFirst": "Primero",
-                        "sLast": "Último",
-                        "sNext": "Siguiente",
-                        "sPrevious": "Anterior"
-                    },
-                    "oAria": {
-                        "sSortAscending": ": Activar para ordenar la columna de manera ascendente",
-                        "sSortDescending": ": Activar para ordenar la columna de manera descendente"
-                    }
-                },
-                order: [[1, 'desc']],
-                pageLength: 10,
-                lengthMenu: [[10, 25, 50, -1], [10, 25, 50, "Todos"]],
-                columnDefs: [
-                    { orderable: false, targets: [8] }
-                ],
-                responsive: true
-            });
-        }
-    }
-}
 </script>
 
 <style>
@@ -1085,17 +951,6 @@ function inicializarDataTable() {
     [title] {
         cursor: help;
     }
-}
-
-/* Estilo para DataTables */
-.dataTables_wrapper {
-    padding: 0.5rem;
-}
-
-.dataTables_length select,
-.dataTables_filter input {
-    padding: 0.25rem 0.5rem;
-    font-size: 0.875rem;
 }
 
 /* Contador de ventas */

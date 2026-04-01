@@ -16346,7 +16346,6 @@ def vendedor_ventas():
                 ids_asignacion = [a['ID_Asignacion'] for a in asignaciones_raw]
                 placeholders = ','.join(['%s'] * len(ids_asignacion))
                 
-                # MODIFICACIÓN: Agregar filtro por fecha actual
                 cursor.execute(f"""
                     SELECT fr.ID_FacturaRuta, 
                            fr.Fecha,
@@ -16377,7 +16376,7 @@ def vendedor_ventas():
                     INNER JOIN rutas r ON av.ID_Ruta = r.ID_Ruta
                     LEFT JOIN detalle_facturacion_ruta dfr ON fr.ID_FacturaRuta = dfr.ID_FacturaRuta
                     WHERE fr.ID_Asignacion IN ({placeholders})
-                      AND DATE(fr.Fecha) = CURDATE()  -- AGREGADO: Filtro para ventas del día actual
+                      AND DATE(fr.Fecha) = CURDATE()
                     GROUP BY fr.ID_FacturaRuta
                     ORDER BY fr.Fecha DESC, fr.ID_FacturaRuta DESC
                     LIMIT 15
@@ -16428,11 +16427,13 @@ def vendedor_ventas():
             # Obtener fecha actual formateada para comparaciones
             ahora = datetime.now()
             fecha_actual = ahora.strftime('%d/%m/%Y')
+            fecha_actual_iso = ahora.strftime('%Y-%m-%d')  # Para inputs date
             
         return render_template('vendedor/ventas/ventas.html', 
                              asignaciones=asignaciones,
                              ventas=ventas,
                              fecha_actual=fecha_actual,
+                             fecha_actual_iso=fecha_actual_iso,  # IMPORTANTE: pasar esta variable
                              now=ahora)
                              
     except Exception as e:
@@ -17847,9 +17848,15 @@ def api_filtrar_ventas():
                 fecha_cond = "AND fr.Fecha >= CURDATE() - INTERVAL 30 DAY"
             elif fecha == 'personalizado' and fecha_inicio and fecha_fin:
                 try:
-                    # Convertir fechas de DD/MM/YYYY a YYYY-MM-DD para MySQL
-                    fecha_inicio_obj = datetime.strptime(fecha_inicio, '%d/%m/%Y')
-                    fecha_fin_obj = datetime.strptime(fecha_fin, '%d/%m/%Y')
+                    # Intentar parsear en DD/MM/YYYY primero
+                    try:
+                        fecha_inicio_obj = datetime.strptime(fecha_inicio, '%d/%m/%Y')
+                        fecha_fin_obj = datetime.strptime(fecha_fin, '%d/%m/%Y')
+                    except:
+                        # Si falla, intentar en YYYY-MM-DD
+                        fecha_inicio_obj = datetime.strptime(fecha_inicio, '%Y-%m-%d')
+                        fecha_fin_obj = datetime.strptime(fecha_fin, '%Y-%m-%d')
+                    
                     fecha_inicio_mysql = fecha_inicio_obj.strftime('%Y-%m-%d')
                     fecha_fin_mysql = fecha_fin_obj.strftime('%Y-%m-%d')
                     fecha_cond = "AND DATE(fr.Fecha) BETWEEN %s AND %s"
@@ -17863,9 +17870,12 @@ def api_filtrar_ventas():
             ruta_cond = ""
             if id_ruta and id_ruta != '' and id_ruta != 'todas':
                 # Validar que la ruta pertenezca al vendedor
-                if int(id_ruta) in ids_asignacion:
-                    ruta_cond = "AND fr.ID_Asignacion = %s"
-                    params.append(id_ruta)
+                try:
+                    if int(id_ruta) in ids_asignacion:
+                        ruta_cond = "AND fr.ID_Asignacion = %s"
+                        params.append(id_ruta)
+                except:
+                    pass
             
             # Consulta SQL
             query = f"""
@@ -17900,7 +17910,7 @@ def api_filtrar_ventas():
                 WHERE fr.ID_Asignacion IN ({placeholders})
                 {fecha_cond}
                 {ruta_cond}
-                GROUP BY fr.ID_FacturaRuta, fr.ID_FacturaRuta
+                GROUP BY fr.ID_FacturaRuta
                 ORDER BY fr.Fecha DESC, fr.ID_FacturaRuta DESC
             """
             
@@ -17932,7 +17942,7 @@ def api_filtrar_ventas():
                     'RUC_CEDULA': v['RUC_CEDULA'] or 'N/A',
                     'Telefono': v['Telefono'] or '',
                     'Nombre_Ruta': v['Nombre_Ruta'],
-                    'Total_Venta': float(v['Total_Venta']),  # Enviar como número, no como string formateado
+                    'Total_Venta': float(v['Total_Venta']),
                     'Tipo_Venta': v['Tipo_Venta'],
                     'Estado': v['Estado'],
                     'Saldo_Pendiente': float(v['Saldo_Pendiente']) if v['Saldo_Pendiente'] else 0
