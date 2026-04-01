@@ -1,27 +1,85 @@
-<!-- templates/admin/catalog/categorias/editar_categoria.html -->
 {% extends 'layout.html' %}
 
+{% block title %}Editar Categoría - FerDel{% endblock %}
+
 {% block content %}
-<div class="container-fluid">
-    <h1 class="h3 mb-4 text-gray-800">Editar Categoría</h1>
-    
+<div class="container-fluid py-4">
+    <!-- Encabezado con botón de volver -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1>
+            <i class="bi bi-pencil-square"></i> Editar Categoría
+        </h1>
+        <a href="{{ url_for('admin_categorias') }}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left"></i> Volver a Categorías
+        </a>
+    </div>
+
     <div class="row">
         <div class="col-lg-6">
             <div class="card shadow mb-4">
                 <div class="card-header py-3">
-                    <h6 class="m-0 font-weight-bold text-primary">Formulario de Edición</h6>
+                    <h6 class="m-0 font-weight-bold text-primary">
+                        <i class="bi bi-info-circle"></i> Formulario de Edición
+                    </h6>
                 </div>
                 <div class="card-body">
-                    <form method="POST" action="{{ url_for('admin_categorias_editar', id=categoria.ID_Categoria) }}">
-                        <div class="form-group">
-                            <label for="descripcion">Descripción de la Categoría *</label>
-                            <input type="text" class="form-control" id="descripcion" 
-                                   name="descripcion" value="{{ categoria.Descripcion }}"
-                                   required maxlength="255">
-                            <small class="form-text text-muted">Nombre descriptivo de la categoría</small>
+                    <form method="POST" action="{{ url_for('admin_categorias_editar', id=categoria.ID_Categoria) }}" id="editarCategoriaForm" novalidate>
+                        {% if csrf_token %}
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        {% endif %}
+                        
+                        <!-- ID de Categoría (solo visual) -->
+                        <div class="form-group mb-3">
+                            <label class="form-label">ID de Categoría</label>
+                            <input type="text" class="form-control" value="#{{ categoria.ID_Categoria }}" disabled readonly>
+                            <small class="form-text text-muted">El ID no se puede modificar</small>
                         </div>
                         
-                        <div class="form-group">
+                        <!-- Descripción -->
+                        <div class="form-group mb-3">
+                            <label for="descripcion" class="form-label">Descripción de la Categoría <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="descripcion" 
+                                   name="descripcion" value="{{ categoria.Descripcion }}"
+                                   required minlength="2" maxlength="255">
+                            <small class="form-text text-muted">Nombre descriptivo de la categoría (2-255 caracteres)</small>
+                            <div class="invalid-feedback">
+                                Por favor ingrese una descripción válida (2-255 caracteres).
+                            </div>
+                        </div>
+                        
+                        <!-- Campo de Estado -->
+                        <div class="form-group mb-3">
+                            <label for="estado" class="form-label">Estado</label>
+                            <select class="form-control" id="estado" name="estado" required>
+                                <option value="Activo" {% if categoria.Estado == 'Activo' %}selected{% endif %}>Activo</option>
+                                <option value="Inactivo" {% if categoria.Estado == 'Inactivo' %}selected{% endif %}>Inactivo</option>
+                            </select>
+                            <small class="form-text text-muted">
+                                {% if categoria.Estado == 'Activo' %}
+                                    <span class="text-success">
+                                        <i class="bi bi-check-circle-fill"></i> Categoría activa - disponible para productos
+                                    </span>
+                                {% else %}
+                                    <span class="text-danger">
+                                        <i class="bi bi-x-circle-fill"></i> Categoría inactiva - no disponible para productos
+                                    </span>
+                                {% endif %}
+                            </small>
+                        </div>
+                        
+                        <!-- Información adicional -->
+                        <div class="alert alert-info mb-3">
+                            <i class="bi bi-info-circle-fill"></i>
+                            <strong>Información:</strong>
+                            <ul class="mb-0 mt-2">
+                                <li>Las categorías inactivas no aparecerán en los selectores de productos.</li>
+                                <li>Los productos existentes con categorías inactivas mantendrán su categoría asignada.</li>
+                                <li>Puedes cambiar el estado en cualquier momento.</li>
+                            </ul>
+                        </div>
+                        
+                        <!-- Botones de acción -->
+                        <div class="form-group mt-4">
                             <button type="submit" class="btn btn-primary">
                                 <i class="fas fa-save"></i> Guardar Cambios
                             </button>
@@ -33,6 +91,303 @@
                 </div>
             </div>
         </div>
+        
+        <!-- Columna de información adicional -->
+        <div class="col-lg-6">
+            <div class="card shadow mb-4">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">
+                        <i class="bi bi-question-circle"></i> Información de Ayuda
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <h5><i class="bi bi-tags"></i> Sobre las categorías</h5>
+                    <p>Las categorías ayudan a organizar tus productos de manera eficiente.</p>
+                    
+                    <h6 class="mt-3"><i class="bi bi-check-circle"></i> Estado Activo</h6>
+                    <p>Las categorías activas están disponibles para ser asignadas a nuevos productos y aparecerán en los filtros de búsqueda.</p>
+                    
+                    <h6 class="mt-3"><i class="bi bi-x-circle"></i> Estado Inactivo</h6>
+                    <p>Las categorías inactivas no se mostrarán en los selectores de productos nuevos, pero los productos existentes que las usan seguirán funcionando correctamente.</p>
+                    
+                    <div class="alert alert-warning mt-3">
+                        <i class="bi bi-exclamation-triangle"></i>
+                        <strong>Nota:</strong> Si eliminas una categoría que tiene productos asociados, el sistema no permitirá la eliminación para mantener la integridad de los datos. En su lugar, te recomendamos desactivarla.
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Validación del formulario de edición
+    const editarForm = document.getElementById('editarCategoriaForm');
+    if (editarForm) {
+        editarForm.addEventListener('submit', function(event) {
+            if (!editarForm.checkValidity()) {
+                event.preventDefault();
+                event.stopPropagation();
+            }
+            editarForm.classList.add('was-validated');
+            
+            // Prevenir envío doble
+            const submitButton = this.querySelector('button[type="submit"]');
+            if (submitButton && editarForm.checkValidity()) {
+                submitButton.disabled = true;
+                const originalHTML = submitButton.innerHTML;
+                submitButton.innerHTML = '<i class="bi bi-hourglass-split"></i> Guardando cambios...';
+                
+                // Restaurar el botón después de 3 segundos en caso de error
+                setTimeout(() => {
+                    if (submitButton.disabled) {
+                        submitButton.disabled = false;
+                        submitButton.innerHTML = originalHTML;
+                    }
+                }, 3000);
+            }
+        });
+        
+        // Validación en tiempo real para la descripción
+        const descripcionInput = document.getElementById('descripcion');
+        if (descripcionInput) {
+            descripcionInput.addEventListener('input', function() {
+                if (this.value.length < 2) {
+                    this.setCustomValidity('La descripción debe tener al menos 2 caracteres');
+                } else if (this.value.length > 255) {
+                    this.setCustomValidity('La descripción no puede exceder los 255 caracteres');
+                } else {
+                    this.setCustomValidity('');
+                }
+            });
+        }
+        
+        // Mostrar mensaje de confirmación antes de salir sin guardar
+        let formModified = false;
+        const formInputs = editarForm.querySelectorAll('input, select, textarea');
+        formInputs.forEach(input => {
+            input.addEventListener('change', function() {
+                formModified = true;
+            });
+        });
+        
+        // Advertencia al intentar salir sin guardar
+        window.addEventListener('beforeunload', function(e) {
+            if (formModified) {
+                e.preventDefault();
+                e.returnValue = 'Tienes cambios sin guardar. ¿Estás seguro de que quieres salir?';
+                return e.returnValue;
+            }
+        });
+        
+        // Resetear el flag cuando se envía el formulario
+        editarForm.addEventListener('submit', function() {
+            formModified = false;
+        });
+    }
+    
+    // Cerrar automáticamente las alertas después de 5 segundos
+    setTimeout(function() {
+        const alerts = document.querySelectorAll('.alert:not(.alert-info):not(.alert-warning)');
+        alerts.forEach(function(alert) {
+            const bsAlert = bootstrap.Alert.getOrCreateInstance(alert);
+            setTimeout(function() {
+                bsAlert.close();
+            }, 5000);
+        });
+    }, 3000);
+});
+</script>
+
+<style>
+/* Estilos adicionales para la página de edición */
+.container-fluid {
+    max-width: 1400px;
+    margin: 0 auto;
+}
+
+.card {
+    border: none;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+}
+
+.card-header {
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    border-bottom: 1px solid #dee2e6;
+    padding: 1rem 1.5rem;
+}
+
+.card-header h6 {
+    margin: 0;
+    font-weight: 600;
+    color: #4a6fa5;
+}
+
+.card-body {
+    padding: 1.5rem;
+}
+
+.form-label {
+    font-weight: 600;
+    color: #495057;
+    margin-bottom: 0.5rem;
+}
+
+.form-control {
+    border: 1px solid #ced4da;
+    border-radius: 6px;
+    padding: 0.75rem;
+    transition: all 0.2s;
+}
+
+.form-control:focus {
+    border-color: #0d6efd;
+    box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+}
+
+.form-control:disabled {
+    background-color: #e9ecef;
+    cursor: not-allowed;
+}
+
+.form-text {
+    font-size: 0.85rem;
+    color: #6c757d;
+    margin-top: 0.25rem;
+}
+
+.invalid-feedback {
+    font-size: 0.875rem;
+}
+
+/* Estilos para botones */
+.btn {
+    border-radius: 6px;
+    padding: 0.5rem 1.25rem;
+    font-weight: 500;
+    transition: all 0.2s;
+    border-width: 1px;
+}
+
+.btn-primary {
+    background-color: #0d6efd;
+    border-color: #0d6efd;
+}
+
+.btn-primary:hover {
+    background-color: #0b5ed7;
+    border-color: #0a58ca;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(13, 110, 253, 0.25);
+}
+
+.btn-secondary {
+    background-color: #6c757d;
+    border-color: #6c757d;
+}
+
+.btn-secondary:hover {
+    background-color: #5c636a;
+    border-color: #565e64;
+    transform: translateY(-1px);
+}
+
+/* Estilos para alertas */
+.alert {
+    border: none;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    padding: 1rem 1.25rem;
+    margin-bottom: 1rem;
+}
+
+.alert-success {
+    background-color: #d1e7dd;
+    color: #0f5132;
+    border-left: 4px solid #198754;
+}
+
+.alert-danger {
+    background-color: #f8d7da;
+    color: #842029;
+    border-left: 4px solid #dc3545;
+}
+
+.alert-warning {
+    background-color: #fff3cd;
+    color: #664d03;
+    border-left: 4px solid #ffc107;
+}
+
+.alert-info {
+    background-color: #cff4fc;
+    color: #055160;
+    border-left: 4px solid #0dcaf0;
+}
+
+.alert .btn-close {
+    padding: 0.75rem;
+}
+
+/* Animación de carga */
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+.bi-hourglass-split {
+    animation: spin 1s linear infinite;
+    display: inline-block;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .container-fluid {
+        padding: 1rem;
+    }
+    
+    .d-flex {
+        flex-direction: column;
+        align-items: flex-start !important;
+    }
+    
+    .d-flex h1 {
+        margin-bottom: 1rem;
+        font-size: 1.5rem;
+    }
+    
+    .card-body {
+        padding: 1rem;
+    }
+    
+    .btn {
+        width: 100%;
+        margin-bottom: 0.5rem;
+    }
+    
+    .btn:last-child {
+        margin-bottom: 0;
+    }
+}
+
+/* Iconos en botones */
+.btn .bi, .btn .fas {
+    margin-right: 0.5rem;
+}
+
+/* Mejora visual para select */
+select.form-control {
+    cursor: pointer;
+}
+
+/* Transiciones suaves */
+.modal-backdrop {
+    transition: opacity 0.3s ease;
+}
+</style>
 {% endblock %}

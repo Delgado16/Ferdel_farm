@@ -19,18 +19,6 @@
         <i class="bi bi-plus-lg"></i> Nueva Categoría
     </button>
 
-    <!-- Mensajes flash -->
-    {% with messages = get_flashed_messages(with_categories=true) %}
-        {% if messages %}
-            {% for category, message in messages %}
-                <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
-                    {{ message }}
-                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                </div>
-            {% endfor %}
-        {% endif %}
-    {% endwith %}
-
     <!-- Tabla de categorías -->
     {% if categorias %}
     <div class="card shadow-sm">
@@ -38,9 +26,10 @@
             <div class="table-responsive">
                 <table class="table table-striped table-hover">
                     <thead class="table-dark">
-                        <tr>
+                        2
                             <th>ID</th>
                             <th>Descripción</th>
+                            <th>Estado</th>
                             <th class="text-center">Acciones</th>
                         </tr>
                     </thead>
@@ -49,15 +38,41 @@
                         <tr>
                             <td class="fw-bold">#{{ categoria.ID_Categoria }}</td>
                             <td>{{ categoria.Descripcion }}</td>
+                            <td>
+                                {% if categoria.Estado == 'Activo' %}
+                                    <span class="badge bg-success">Activo</span>
+                                {% else %}
+                                    <span class="badge bg-danger">Inactivo</span>
+                                {% endif %}
+                            </td>
                             <td class="text-center">
                                 <div class="btn-group btn-group-sm" role="group">
-                                    <!-- Botón Editar - Ahora redirige a página de edición -->
+                                    <!-- Botón Editar -->
                                     <a href="{{ url_for('admin_categorias_editar', id=categoria.ID_Categoria) }}" 
                                        class="btn btn-outline-primary">
                                         <i class="bi bi-pencil"></i> Editar
                                     </a>
                                     
-                                    <!-- Botón Eliminar - Mantenemos el formulario POST -->
+                                    <!-- Botón para cambiar estado -->
+                                    <form action="{{ url_for('admin_categorias_toggle_estado', id=categoria.ID_Categoria) }}" 
+                                          method="POST" class="d-inline-block ms-1">
+                                        {% if csrf_token %}
+                                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                        {% endif %}
+                                        <button type="submit" class="btn btn-outline-warning btn-cambiar-estado"
+                                                data-id="{{ categoria.ID_Categoria }}"
+                                                data-descripcion="{{ categoria.Descripcion }}"
+                                                data-estado="{{ categoria.Estado }}">
+                                            <i class="bi bi-arrow-repeat"></i>
+                                            {% if categoria.Estado == 'Activo' %}
+                                                Desactivar
+                                            {% else %}
+                                                Activar
+                                            {% endif %}
+                                        </button>
+                                    </form>
+                                    
+                                    <!-- Botón Eliminar -->
                                     <form action="{{ url_for('admin_categorias_eliminar', id=categoria.ID_Categoria) }}" 
                                           method="POST" class="d-inline-block ms-1">
                                         {% if csrf_token %}
@@ -111,6 +126,16 @@
                             Por favor ingrese una descripción válida (2-255 caracteres).
                         </div>
                     </div>
+                    
+                    <!-- Campo de Estado -->
+                    <div class="mb-3">
+                        <label for="estado" class="form-label">Estado</label>
+                        <select class="form-control" id="estado" name="estado" required>
+                            <option value="Activo" selected>Activo</option>
+                            <option value="Inactivo">Inactivo</option>
+                        </select>
+                        <div class="form-text">Define si la categoría estará disponible para usar en productos</div>
+                    </div>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
@@ -140,6 +165,11 @@ document.addEventListener('DOMContentLoaded', function() {
             if (form) {
                 form.reset();
                 form.classList.remove('was-validated');
+                // Resetear el estado al valor por defecto
+                const estadoSelect = document.getElementById('estado');
+                if (estadoSelect) {
+                    estadoSelect.value = 'Activo';
+                }
             }
         });
         
@@ -167,6 +197,43 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
     }
+    
+    // ============ MÓDULO DE CAMBIO DE ESTADO ============
+    
+    // Confirmación para cambio de estado
+    document.querySelectorAll('.btn-cambiar-estado').forEach(button => {
+        button.addEventListener('click', function(event) {
+            event.preventDefault(); // Prevenir envío inmediato
+            
+            const id = this.getAttribute('data-id');
+            const descripcion = this.getAttribute('data-descripcion');
+            const estadoActual = this.getAttribute('data-estado');
+            const nuevoEstado = estadoActual === 'Activo' ? 'Inactivo' : 'Activo';
+            const form = this.closest('form');
+            
+            // Crear diálogo de confirmación personalizado
+            const confirmacion = confirm(
+                `⚠️ ¿Estás seguro de ${estadoActual === 'Activo' ? 'desactivar' : 'activar'} esta categoría?\n\n` +
+                `ID: ${id}\n` +
+                `Descripción: "${descripcion}"\n` +
+                `Estado actual: ${estadoActual}\n` +
+                `Nuevo estado: ${nuevoEstado}\n\n` +
+                `${estadoActual === 'Activo' ? 'Al desactivarla, no estará disponible para nuevos productos.' : 'Al activarla, estará disponible para usar en productos.'}`
+            );
+            
+            if (confirmacion && form) {
+                // Prevenir envío doble
+                this.disabled = true;
+                const originalHTML = this.innerHTML;
+                this.innerHTML = '<i class="bi bi-hourglass-split"></i> Procesando...';
+                
+                // Enviar formulario después de la confirmación
+                setTimeout(() => {
+                    form.submit();
+                }, 100);
+            }
+        });
+    });
     
     // ============ MÓDULO DE ELIMINACIÓN ============
     
@@ -220,6 +287,22 @@ document.addEventListener('DOMContentLoaded', function() {
 .container-fluid {
     max-width: 1400px;
     margin: 0 auto;
+}
+
+/* Estilos para badges de estado */
+.badge {
+    padding: 0.5rem 0.75rem;
+    font-weight: 500;
+    font-size: 0.75rem;
+    border-radius: 6px;
+}
+
+.badge.bg-success {
+    background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+}
+
+.badge.bg-danger {
+    background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
 }
 
 /* Estilos para modales */
@@ -304,6 +387,18 @@ document.addEventListener('DOMContentLoaded', function() {
     background-color: #0d6efd;
     border-color: #0d6efd;
     color: white;
+    transform: translateY(-1px);
+}
+
+.btn-outline-warning {
+    color: #ffc107;
+    border-color: #ffc107;
+}
+
+.btn-outline-warning:hover {
+    background-color: #ffc107;
+    border-color: #ffc107;
+    color: #000;
     transform: translateY(-1px);
 }
 
@@ -466,6 +561,7 @@ document.addEventListener('DOMContentLoaded', function() {
     
     .d-flex h1 {
         margin-bottom: 1rem;
+        font-size: 1.5rem;
     }
     
     .btn-group {

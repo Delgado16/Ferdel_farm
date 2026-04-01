@@ -3114,7 +3114,7 @@ def admin_categorias():
     try:
         with get_db_cursor() as cursor: 
             cursor.execute("""
-                SELECT ID_Categoria, Descripcion 
+                SELECT ID_Categoria, Descripcion, Estado 
                 FROM categorias_producto 
                 ORDER BY ID_Categoria DESC
             """)
@@ -3132,6 +3132,7 @@ def admin_categorias():
 def admin_categorias_crear():
     try:
         descripcion = request.form.get('descripcion', '').strip()
+        estado = request.form.get('estado', 'Activo')  # Obtener estado del formulario
         
         if not descripcion:
             flash("La descripción es requerida", "danger")
@@ -3139,9 +3140,9 @@ def admin_categorias_crear():
         
         with get_db_cursor(commit=True) as cursor:
             cursor.execute("""
-                INSERT INTO categorias_producto (Descripcion) 
-                VALUES (%s)
-            """, (descripcion,))
+                INSERT INTO categorias_producto (Descripcion, Estado) 
+                VALUES (%s, %s)
+            """, (descripcion, estado))
             
         flash("Categoría creada exitosamente", "success")
     except Exception as e:
@@ -3159,7 +3160,7 @@ def admin_categorias_editar(id):
             # Mostrar formulario con datos actuales
             with get_db_cursor() as cursor:
                 cursor.execute("""
-                    SELECT ID_Categoria, Descripcion 
+                    SELECT ID_Categoria, Descripcion, Estado 
                     FROM categorias_producto 
                     WHERE ID_Categoria = %s
                 """, (id,))
@@ -3174,6 +3175,7 @@ def admin_categorias_editar(id):
         
         else:  # POST - procesar edición
             descripcion = request.form.get('descripcion', '').strip()
+            estado = request.form.get('estado', 'Activo')  # Obtener estado del formulario
             
             if not descripcion:
                 flash("La descripción es requerida", "danger")
@@ -3192,12 +3194,12 @@ def admin_categorias_editar(id):
                     flash("Categoría no encontrada", "danger")
                     return redirect(url_for('admin_categorias'))
                 
-                # Actualizar categoría
+                # Actualizar categoría incluyendo el estado
                 cursor.execute("""
                     UPDATE categorias_producto 
-                    SET Descripcion = %s 
+                    SET Descripcion = %s, Estado = %s 
                     WHERE ID_Categoria = %s
-                """, (descripcion, id))
+                """, (descripcion, estado, id))
             
             flash("Categoría actualizada exitosamente", "success")
             return redirect(url_for('admin_categorias'))
@@ -3215,26 +3217,27 @@ def admin_categorias_eliminar(id):
         with get_db_cursor(commit=True) as cursor:
             # Verificar si la categoría existe
             cursor.execute("""
-                SELECT ID_Categoria FROM categorias_producto 
+                SELECT ID_Categoria, Estado FROM categorias_producto 
                 WHERE ID_Categoria = %s
             """, (id,))
             
-            if not cursor.fetchone():
+            categoria = cursor.fetchone()
+            if not categoria:
                 flash("Categoría no encontrada", "warning")
                 return redirect(url_for('admin_categorias'))
             
-            # Eliminar la categoría
             cursor.execute("""
-                DELETE FROM categorias_producto 
+                UPDATE categorias_producto 
+                SET Estado = 'Inactivo' 
                 WHERE ID_Categoria = %s
             """, (id,))
             
             affected_rows = cursor.rowcount
             
         if affected_rows > 0:
-            flash("Categoría eliminada exitosamente", "success")
+            flash("Categoría desactivada exitosamente", "success")
         else:
-            flash("No se pudo eliminar la categoría", "warning")
+            flash("No se pudo desactivar la categoría", "warning")
             
     except Exception as e:
         logger.error(f"Error al eliminar categoría ID {id}: {str(e)}", exc_info=True)
@@ -3244,6 +3247,39 @@ def admin_categorias_eliminar(id):
             flash("No se puede eliminar la categoría porque tiene productos asociados", "danger")
         else:
             flash(f"Error al eliminar categoría: {str(e)}", "danger")
+    
+    return redirect(url_for('admin_categorias'))
+
+@app.route('/admin/catalog/categorias/toggle-estado/<int:id>', methods=['POST'])
+@admin_required
+@bitacora_decorator("CATEGORIAS_TOGGLE_ESTADO")
+def admin_categorias_toggle_estado(id):
+    try:
+        with get_db_cursor(commit=True) as cursor:
+            # Obtener estado actual
+            cursor.execute("""
+                SELECT Estado FROM categorias_producto 
+                WHERE ID_Categoria = %s
+            """, (id,))
+            
+            categoria = cursor.fetchone()
+            if not categoria:
+                flash("Categoría no encontrada", "warning")
+                return redirect(url_for('admin_categorias'))
+            
+            # Cambiar estado
+            nuevo_estado = 'Inactivo' if categoria['Estado'] == 'Activo' else 'Activo'
+            cursor.execute("""
+                UPDATE categorias_producto 
+                SET Estado = %s 
+                WHERE ID_Categoria = %s
+            """, (nuevo_estado, id))
+            
+        flash(f"Categoría {nuevo_estado.lower()} exitosamente", "success")
+        
+    except Exception as e:
+        logger.error(f"Error al cambiar estado de categoría {id}: {str(e)}", exc_info=True)
+        flash(f"Error al cambiar estado: {str(e)}", "danger")
     
     return redirect(url_for('admin_categorias'))
 
