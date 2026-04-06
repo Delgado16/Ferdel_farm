@@ -1,0 +1,227 @@
+{% extends "layout.html" %}
+
+{% block title %}Detalle Anticipo #{{ anticipo.ID_Anticipo }} - FerDel Sistema{% endblock %}
+
+{% block extra_css %}
+<style>
+    .detail-card {
+        border: none;
+        border-radius: 12px;
+        box-shadow: 0 0.25rem 1rem rgba(0, 0, 0, 0.08);
+        margin-bottom: 1.5rem;
+    }
+    .detail-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border-radius: 12px 12px 0 0;
+        padding: 1.5rem;
+    }
+    .info-row {
+        display: flex;
+        justify-content: space-between;
+        padding: 0.75rem 0;
+        border-bottom: 1px solid #e9ecef;
+    }
+    .info-row:last-child {
+        border-bottom: none;
+    }
+    .info-label {
+        font-weight: 600;
+        color: #6c757d;
+    }
+    .status-badge {
+        font-size: 1rem;
+        padding: 0.5rem 1rem;
+    }
+    .progress-custom {
+        height: 8px;
+        border-radius: 4px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="mb-3">
+        <a href="{{ url_for('admin_clientes_anticipos') }}" class="btn btn-secondary btn-sm">
+            <i class="bi bi-arrow-left"></i> Volver a Anticipos
+        </a>
+    </div>
+
+    <div class="detail-card">
+        <div class="detail-header">
+            <div class="d-flex justify-content-between align-items-center flex-wrap">
+                <div>
+                    <h3 class="mb-0">
+                        <i class="bi bi-cash-coin"></i> Anticipo #{{ anticipo.ID_Anticipo }}
+                    </h3>
+                    <p class="mb-0 opacity-75">Registrado el {{ anticipo.Fecha_Anticipo.strftime('%d/%m/%Y %H:%M') if anticipo.Fecha_Anticipo else '' }}</p>
+                </div>
+                <div>
+                    {% if anticipo.Estado == 'ACTIVO' %}
+                        <span class="badge bg-success status-badge">
+                            <i class="bi bi-check-circle-fill"></i> ACTIVO
+                        </span>
+                    {% elif anticipo.Estado == 'COMPLETADO' %}
+                        <span class="badge bg-info status-badge">
+                            <i class="bi bi-check2-circle"></i> COMPLETADO
+                        </span>
+                    {% else %}
+                        <span class="badge bg-danger status-badge">
+                            <i class="bi bi-x-circle-fill"></i> CANCELADO
+                        </span>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        
+        <div class="p-4">
+            <div class="row">
+                <div class="col-md-6">
+                    <h5 class="mb-3"><i class="bi bi-person"></i> Información del Cliente</h5>
+                    <div class="info-row">
+                        <span class="info-label">Nombre:</span>
+                        <span class="fw-bold">{{ anticipo.NombreCliente }}</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">RUC/Cédula:</span>
+                        <span>{{ anticipo.RUC_CEDULA or 'No registrado' }}</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">Teléfono:</span>
+                        <span>{{ anticipo.Telefono or 'No registrado' }}</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">Perfil:</span>
+                        <span class="badge bg-secondary">{{ anticipo.perfil_cliente }}</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">Saldo total anticipos:</span>
+                        <span class="fw-bold text-success">C${{ "{:,.2f}".format(anticipo.Cliente_Saldo_Anticipos or 0) }}</span>
+                    </div>
+                </div>
+                
+                <div class="col-md-6">
+                    <h5 class="mb-3"><i class="bi bi-box"></i> Información del Producto</h5>
+                    <div class="info-row">
+                        <span class="info-label">Producto:</span>
+                        <span class="fw-bold">{{ anticipo.NombreProducto }}</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">Código:</span>
+                        <span>{{ anticipo.COD_Producto or 'Sin código' }}</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">Precio actual:</span>
+                        <span>C${{ "{:,.2f}".format(anticipo.Precio_Actual or 0) }}</span>
+                    </div>
+                    {% if anticipo.Fecha_Vencimiento %}
+                    <div class="info-row">
+                        <span class="info-label">Fecha vencimiento:</span>
+                        <span>{{ anticipo.Fecha_Vencimiento.strftime('%d/%m/%Y %H:%M') if anticipo.Fecha_Vencimiento else '' }}</span>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <hr>
+            
+            <div class="row">
+                <div class="col-md-6">
+                    <h5 class="mb-3"><i class="bi bi-calculator"></i> Detalle del Anticipo</h5>
+                    <div class="info-row">
+                        <span class="info-label">Cajas pagadas:</span>
+                        <span class="fw-bold">{{ anticipo.Cantidad_Cajas }}</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">Cajas consumidas:</span>
+                        <span>{{ anticipo.Cajas_Consumidas }}</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">Cajas pendientes:</span>
+                        <span class="fw-bold text-warning">{{ anticipo.Cantidad_Cajas - anticipo.Cajas_Consumidas }}</span>
+                    </div>
+                    <div class="mt-2">
+                        {% set porcentaje = (anticipo.Cajas_Consumidas / anticipo.Cantidad_Cajas * 100) if anticipo.Cantidad_Cajas > 0 else 0 %}
+                        <small class="text-muted">Progreso de consumo</small>
+                        <div class="progress progress-custom">
+                            <div class="progress-bar bg-info" style="width: {{ porcentaje }}%"></div>
+                        </div>
+                        <small class="text-muted">{{ "%.1f"|format(porcentaje) }}% completado</small>
+                    </div>
+                </div>
+                
+                <div class="col-md-6">
+                    <h5 class="mb-3"><i class="bi bi-currency"></i> Información Financiera</h5>
+                    <div class="info-row">
+                        <span class="info-label">Monto pagado:</span>
+                        <span class="fw-bold text-success">C${{ "{:,.2f}".format(anticipo.Monto_Pagado) }}</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">Saldo restante:</span>
+                        <span class="fw-bold text-primary">C${{ "{:,.2f}".format(anticipo.Saldo_Restante) }}</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">Monto consumido:</span>
+                        <span>C${{ "{:,.2f}".format(anticipo.Monto_Pagado - anticipo.Saldo_Restante) }}</span>
+                    </div>
+                </div>
+            </div>
+            
+            {% if anticipo.Notas %}
+            <hr>
+            <div>
+                <h6><i class="bi bi-chat-text"></i> Notas</h6>
+                <p class="text-muted">{{ anticipo.Notas }}</p>
+            </div>
+            {% endif %}
+            
+            {% if anticipo.Estado == 'ACTIVO' %}
+            <div class="mt-4 d-flex justify-content-end">
+                <button type="button" class="btn btn-danger" onclick="cancelarAnticipo()">
+                    <i class="bi bi-x-circle"></i> Cancelar Anticipo
+                </button>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Modal para cancelar -->
+<div class="modal fade" id="cancelarModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-exclamation-triangle text-danger"></i> Cancelar Anticipo</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="POST" action="{{ url_for('admin_anticipo_cancelar', id_anticipo=anticipo.ID_Anticipo) }}">
+                <div class="modal-body">
+                    <p>¿Está seguro que desea cancelar el anticipo #{{ anticipo.ID_Anticipo }}?</p>
+                    <div class="alert alert-warning">
+                        <i class="bi bi-info-circle"></i>
+                        Esta acción restará <strong>C${{ "{:,.2f}".format(anticipo.Saldo_Restante) }}</strong> del saldo del cliente.
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Motivo de cancelación</label>
+                        <textarea name="motivo" class="form-control" rows="2" placeholder="Ingrese el motivo..." required></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+                    <button type="submit" class="btn btn-danger">Confirmar Cancelación</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function cancelarAnticipo() {
+    const modal = new bootstrap.Modal(document.getElementById('cancelarModal'));
+    modal.show();
+}
+</script>
+{% endblock %}

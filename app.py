@@ -8649,7 +8649,7 @@ def admin_clientes_anticipos():
 @admin_required
 @bitacora_decorator("CLIENTES-ANTICIPOS-NUEVO")
 def admin_anticipo_nuevo():
-    id_empresa = session.get('id_empresa',1 )
+    id_empresa = session.get('id_empresa', 1)
     if not id_empresa:
         flash('No se encontró información de la empresa', 'error')
         return redirect(url_for('admin_dashboard'))
@@ -8662,6 +8662,7 @@ def admin_anticipo_nuevo():
             monto_pagado = float(request.form.get('monto_pagado', 0))
             fecha_vencimiento = request.form.get('fecha_vencimiento')
             notas = request.form.get('notas', '')
+            precio_especial = request.form.get('precio_especial', '').strip()
             
             # Validaciones
             if not id_cliente or not id_producto:
@@ -8679,7 +8680,7 @@ def admin_anticipo_nuevo():
             with get_db_cursor() as cursor:
                 # Verificar que el cliente pertenece a la empresa
                 cursor.execute("""
-                    SELECT ID_Cliente, perfil_cliente, Anticipo_Activo
+                    SELECT ID_Cliente, perfil_cliente, tipo_cliente, Anticipo_Activo
                     FROM clientes 
                     WHERE ID_Cliente = %s AND ID_Empresa = %s AND Estado = 'ACTIVO'
                 """, (id_cliente, id_empresa))
@@ -8689,33 +8690,51 @@ def admin_anticipo_nuevo():
                     flash('Cliente no encontrado o no pertenece a su empresa', 'error')
                     return redirect(url_for('admin_anticipo_nuevo'))
                 
-                # Obtener precio del producto según perfil del cliente
+                # Obtener información del producto
                 cursor.execute("""
                     SELECT 
                         p.ID_Producto,
                         p.Descripcion,
-                        CASE 
-                            WHEN %s = 'Mayorista' THEN p.Precio_Mayorista
-                            WHEN %s = 'Ruta' THEN p.Precio_Ruta
-                            WHEN %s = 'Mercado' THEN p.Precio_Mercado
-                            ELSE p.Precio_Mercado
-                        END as Precio_Producto
+                        p.Precio_Mercado,
+                        p.Precio_Mayorista,
+                        p.Precio_Ruta
                     FROM productos p
                     WHERE p.ID_Producto = %s AND p.ID_Empresa = %s AND p.Estado = 'activo'
-                """, (cliente['perfil_cliente'], cliente['perfil_cliente'], 
-                      cliente['perfil_cliente'], id_producto, id_empresa))
+                """, (id_producto, id_empresa))
                 
                 producto = cursor.fetchone()
                 if not producto:
                     flash('Producto no encontrado o no pertenece a su empresa', 'error')
                     return redirect(url_for('admin_anticipo_nuevo'))
                 
-                precio_unitario = float(producto['Precio_Producto']) if producto['Precio_Producto'] else 0
+                # Determinar precio unitario según perfil del cliente
+                precio_unitario = 0
+                if cliente['tipo_cliente'] == 'Especial' and precio_especial:
+                    # Si es cliente especial y se ingresó precio especial
+                    try:
+                        precio_unitario = float(precio_especial)
+                    except ValueError:
+                        flash('Precio especial no válido', 'error')
+                        return redirect(url_for('admin_anticipo_nuevo'))
+                else:
+                    # Cliente normal: usar precio según perfil
+                    perfil = cliente['perfil_cliente']
+                    if perfil == 'Mayorista':
+                        precio_unitario = float(producto['Precio_Mayorista']) if producto['Precio_Mayorista'] else 0
+                    elif perfil == 'Ruta':
+                        precio_unitario = float(producto['Precio_Ruta']) if producto['Precio_Ruta'] else 0
+                    else:  # Mercado o por defecto
+                        precio_unitario = float(producto['Precio_Mercado']) if producto['Precio_Mercado'] else 0
+                
+                # Validar que el precio unitario no sea 0
+                if precio_unitario <= 0:
+                    flash('No se pudo determinar el precio del producto. Verifique la configuración.', 'error')
+                    return redirect(url_for('admin_anticipo_nuevo'))
                 
                 # Calcular saldo restante (inicialmente es el monto pagado)
                 saldo_restante = monto_pagado
                 
-                # Insertar anticipo (sin ID_Empresa porque la tabla no tiene ese campo)
+                # Insertar anticipo
                 cursor.execute("""
                     INSERT INTO anticipos_clientes 
                     (ID_Cliente, ID_Producto, Cantidad_Cajas, Cajas_Consumidas, 
@@ -8737,7 +8756,7 @@ def admin_anticipo_nuevo():
                     WHERE ID_Cliente = %s
                 """, (cantidad_cajas, monto_pagado, id_producto, id_cliente))
                 
-                flash(f'Anticipo registrado exitosamente. ID: {id_anticipo}', 'success')
+                flash(f'✅ Anticipo registrado exitosamente. ID: {id_anticipo}', 'success')
                 return redirect(url_for('admin_clientes_anticipos'))
                 
         except Exception as e:
@@ -8751,7 +8770,7 @@ def admin_anticipo_nuevo():
         with get_db_cursor(True) as cursor:
             # Obtener clientes activos de la empresa
             cursor.execute("""
-                SELECT ID_Cliente, Nombre, RUC_CEDULA, perfil_cliente, 
+                SELECT ID_Cliente, Nombre, RUC_CEDULA, perfil_cliente, tipo_cliente,
                        COALESCE(Saldo_Anticipos, 0) as Saldo_Anticipos, 
                        COALESCE(Limite_Anticipo_Cajas, 0) as Limite_Anticipo_Cajas
                 FROM clientes 

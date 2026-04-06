@@ -1,0 +1,314 @@
+{% extends "layout.html" %}
+
+{% block title %}Anticipos de Clientes - FerDel Sistema{% endblock %}
+
+{% block extra_css %}
+<style>
+    .anticipo-card {
+        transition: all 0.3s ease;
+        border-left: 4px solid;
+    }
+    .anticipo-activo {
+        border-left-color: #28a745;
+    }
+    .anticipo-completado {
+        border-left-color: #17a2b8;
+    }
+    .anticipo-cancelado {
+        border-left-color: #dc3545;
+    }
+    .estado-badge {
+        font-size: 0.75rem;
+        padding: 0.35rem 0.65rem;
+    }
+    .progress-small {
+        height: 6px;
+    }
+    .info-label {
+        font-size: 0.7rem;
+        text-transform: uppercase;
+        color: #6c757d;
+        letter-spacing: 0.5px;
+    }
+    .info-value {
+        font-size: 1rem;
+        font-weight: 600;
+    }
+    .table-anticipos {
+        font-size: 0.9rem;
+    }
+    .table-anticipos td, .table-anticipos th {
+        vertical-align: middle;
+    }
+    .filter-section {
+        background: white;
+        padding: 1rem;
+        border-radius: 10px;
+        margin-bottom: 1.5rem;
+        box-shadow: 0 0.15rem 0.5rem rgba(0, 0, 0, 0.05);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="form-container">
+        <div class="form-header">
+            <div>
+                <h4 class="mb-0">
+                    <i class="bi bi-cash-coin text-primary"></i> Anticipos de Clientes
+                </h4>
+                <p class="text-muted small mb-0">Gestión de anticipos pagados por clientes</p>
+            </div>
+            <div>
+                <a href="{{ url_for('admin_anticipo_nuevo') }}" class="btn btn-primary">
+                    <i class="bi bi-plus-circle me-2"></i>Nuevo Anticipo
+                </a>
+                <!-- Entregas de anticipo -->
+                <a href="#" class="btn btn-outline-secondary">
+                    <i class="bi bi-truck me-2"></i>Entregas
+                </a>
+            </div>
+        </div>
+
+        <!-- Filtros -->
+        <div class="filter-section">
+            <div class="row g-3 align-items-end">
+                <div class="col-md-3">
+                    <label class="form-label small">Estado</label>
+                    <select id="filterEstado" class="form-select">
+                        <option value="todos">Todos</option>
+                        <option value="ACTIVO">Activos</option>
+                        <option value="COMPLETADO">Completados</option>
+                        <option value="CANCELADO">Cancelados</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label small">Cliente</label>
+                    <input type="text" id="filterCliente" class="form-control" placeholder="Buscar cliente...">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label small">Fecha desde</label>
+                    <input type="date" id="filterFechaDesde" class="form-control">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label small">Fecha hasta</label>
+                    <input type="date" id="filterFechaHasta" class="form-control">
+                </div>
+            </div>
+        </div>
+
+        <!-- Tabla de anticipos -->
+        <div class="table-container">
+            <table class="table table-hover table-anticipos" id="tablaAnticipos">
+                <thead>
+                    <tr>
+                        <th style="width: 60px;">ID</th>
+                        <th>Fecha</th>
+                        <th>Cliente</th>
+                        <th>Producto</th>
+                        <th class="text-center">Cajas</th>
+                        <th class="text-center">Consumo</th>
+                        <th class="text-end">Monto Pagado</th>
+                        <th class="text-end">Saldo</th>
+                        <th class="text-center">Estado</th>
+                        <th class="text-center" style="width: 100px;">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for anticipo in anticipos %}
+                    <tr data-estado="{{ anticipo.Estado }}" data-cliente="{{ anticipo.NombreCliente|lower }}">
+                        <td class="fw-bold">{{ anticipo.ID_Anticipo }}</td>
+                        <td>
+                            <small>{{ anticipo.Fecha.strftime('%d/%m/%Y') if anticipo.Fecha else '' }}</small>
+                            {% if anticipo.Dias_Transcurridos > 30 and anticipo.Estado == 'ACTIVO' %}
+                            <i class="bi bi-exclamation-triangle-fill text-warning ms-1" title="Anticipo antiguo"></i>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <strong>{{ anticipo.NombreCliente }}</strong><br>
+                            <small class="text-muted">{{ anticipo.RUCCliente or 'Sin RUC' }}</small>
+                        </td>
+                        <td>
+                            {{ anticipo.NombreProducto }}<br>
+                            <small class="text-muted">{{ anticipo.COD_Producto or '' }}</small>
+                        </td>
+                        <td class="text-center">
+                            <span class="fw-bold">{{ anticipo.Cantidad_Cajas }}</span>
+                        </td>
+                        <td class="text-center">
+                            {% set porcentaje = (anticipo.Cajas_Consumidas / anticipo.Cantidad_Cajas * 100) if anticipo.Cantidad_Cajas > 0 else 0 %}
+                            <div class="d-flex flex-column align-items-center">
+                                <span>{{ anticipo.Cajas_Consumidas }}/{{ anticipo.Cantidad_Cajas }}</span>
+                                <div class="progress progress-small w-100" style="width: 80px;">
+                                    <div class="progress-bar bg-info" style="width: {{ porcentaje }}%"></div>
+                                </div>
+                            </div>
+                        </td>
+                        <td class="text-end">
+                            <strong>C${{ "{:,.2f}".format(anticipo.Monto) }}</strong>
+                        </td>
+                        <td class="text-end">
+                            <span class="fw-bold text-success">C${{ "{:,.2f}".format(anticipo.Saldo_Restante) }}</span>
+                        </td>
+                        <td class="text-center">
+                            {% if anticipo.Estado == 'ACTIVO' %}
+                                <span class="badge bg-success estado-badge">
+                                    <i class="bi bi-check-circle-fill me-1"></i>Activo
+                                </span>
+                            {% elif anticipo.Estado == 'COMPLETADO' %}
+                                <span class="badge bg-info estado-badge">
+                                    <i class="bi bi-check2-circle me-1"></i>Completado
+                                </span>
+                            {% else %}
+                                <span class="badge bg-danger estado-badge">
+                                    <i class="bi bi-x-circle-fill me-1"></i>Cancelado
+                                </span>
+                            {% endif %}
+                        </td>
+                        <td class="text-center">
+                            <div class="btn-group btn-group-sm">
+                                <a href="{{ url_for('admin_anticipo_detalle', id_anticipo=anticipo.ID_Anticipo) }}" 
+                                   class="btn btn-outline-info" title="Ver detalle">
+                                    <i class="bi bi-eye"></i>
+                                </a>
+                                {% if anticipo.Estado == 'ACTIVO' %}
+                                <button type="button" class="btn btn-outline-danger" title="Cancelar anticipo"
+                                        onclick="cancelarAnticipo({{ anticipo.ID_Anticipo }})">
+                                    <i class="bi bi-x-lg"></i>
+                                </button>
+                                {% endif %}
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        {% if not anticipos %}
+        <div class="text-center py-5">
+            <i class="bi bi-inbox fs-1 text-muted"></i>
+            <p class="text-muted mt-2">No hay anticipos registrados</p>
+            <a href="{{ url_for('admin_anticipo_nuevo') }}" class="btn btn-sm btn-primary">
+                <i class="bi bi-plus-circle"></i> Registrar primer anticipo
+            </a>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Modal para cancelar anticipo -->
+<div class="modal fade" id="cancelarModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-exclamation-triangle text-danger"></i> Cancelar Anticipo</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="cancelarForm" method="POST">
+                <div class="modal-body">
+                    <p>¿Está seguro que desea cancelar este anticipo?</p>
+                    <div class="alert alert-warning">
+                        <i class="bi bi-info-circle"></i>
+                        Se restará el saldo pendiente del cliente.
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Motivo de cancelación</label>
+                        <textarea name="motivo" class="form-control" rows="2" placeholder="Ingrese el motivo..."></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+                    <button type="submit" class="btn btn-danger">Confirmar Cancelación</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let anticipoIdToCancel = null;
+
+function cancelarAnticipo(id) {
+    anticipoIdToCancel = id;
+    const modal = new bootstrap.Modal(document.getElementById('cancelarModal'));
+    modal.show();
+}
+
+document.getElementById('cancelarForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    if (anticipoIdToCancel) {
+        const formData = new FormData(this);
+        fetch(`/admin/ventas/anticipos/cancelar/${anticipoIdToCancel}`, {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => {
+            if (response.ok) {
+                location.reload();
+            } else {
+                alert('Error al cancelar el anticipo');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Error al cancelar el anticipo');
+        });
+    }
+});
+
+// Filtros
+document.getElementById('filterEstado').addEventListener('change', filterTable);
+document.getElementById('filterCliente').addEventListener('keyup', filterTable);
+document.getElementById('filterFechaDesde').addEventListener('change', filterTable);
+document.getElementById('filterFechaHasta').addEventListener('change', filterTable);
+
+function filterTable() {
+    const estado = document.getElementById('filterEstado').value;
+    const cliente = document.getElementById('filterCliente').value.toLowerCase();
+    const fechaDesde = document.getElementById('filterFechaDesde').value;
+    const fechaHasta = document.getElementById('filterFechaHasta').value;
+    
+    const rows = document.querySelectorAll('#tablaAnticipos tbody tr');
+    
+    rows.forEach(row => {
+        let show = true;
+        
+        // Filtrar por estado
+        if (estado !== 'todos') {
+            const rowEstado = row.dataset.estado;
+            if (rowEstado !== estado) show = false;
+        }
+        
+        // Filtrar por cliente
+        if (cliente && show) {
+            const rowCliente = row.dataset.cliente;
+            if (!rowCliente.includes(cliente)) show = false;
+        }
+        
+        // Filtrar por fecha
+        if (fechaDesde && show) {
+            const fechaRow = row.cells[1].innerText.trim();
+            const fechaRowSplit = fechaRow.split('/');
+            const fechaObj = new Date(fechaRowSplit[2], fechaRowSplit[1]-1, fechaRowSplit[0]);
+            const fechaDesdeObj = new Date(fechaDesde);
+            if (fechaObj < fechaDesdeObj) show = false;
+        }
+        
+        if (fechaHasta && show) {
+            const fechaRow = row.cells[1].innerText.trim();
+            const fechaRowSplit = fechaRow.split('/');
+            const fechaObj = new Date(fechaRowSplit[2], fechaRowSplit[1]-1, fechaRowSplit[0]);
+            const fechaHastaObj = new Date(fechaHasta);
+            fechaHastaObj.setHours(23, 59, 59);
+            if (fechaObj > fechaHastaObj) show = false;
+        }
+        
+        row.style.display = show ? '' : 'none';
+    });
+}
+</script>
+{% endblock %}

@@ -1,0 +1,440 @@
+{% extends "layout.html" %}
+
+{% block title %}Nuevo Anticipo - FerDel Sistema{% endblock %}
+
+{% block extra_css %}
+<style>
+    .precio-card {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border-radius: 10px;
+        padding: 1rem;
+        margin-top: 1rem;
+    }
+    .info-cliente {
+        background-color: #f8f9fa;
+        border-radius: 10px;
+        padding: 1rem;
+    }
+    .calculo-item {
+        border-bottom: 1px solid #e9ecef;
+        padding: 0.75rem 0;
+    }
+    .calculo-item:last-child {
+        border-bottom: none;
+    }
+    .precio-especial-box {
+        background-color: #fff3cd;
+        border: 1px solid #ffc107;
+        border-radius: 8px;
+        padding: 1rem;
+        margin-top: 1rem;
+    }
+    .badge-especial {
+        background-color: #ffc107;
+        color: #856404;
+    }
+    .input-group-precio {
+        margin-top: 0.5rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="form-container">
+        <div class="form-header">
+            <div>
+                <h4 class="mb-0">
+                    <i class="bi bi-plus-circle text-primary"></i> Nuevo Anticipo de Cliente
+                </h4>
+                <p class="text-muted small mb-0">Registrar anticipo pagado por un cliente</p>
+            </div>
+            <div>
+                <a href="{{ url_for('admin_clientes_anticipos') }}" class="btn btn-secondary">
+                    <i class="bi bi-arrow-left me-2"></i>Volver
+                </a>
+            </div>
+        </div>
+
+        <form method="POST" id="formAnticipo">
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="mb-3">
+                        <label class="form-label required">Cliente</label>
+                        <select name="id_cliente" id="id_cliente" class="form-select" required>
+                            <option value="">Seleccione un cliente...</option>
+                            {% for cliente in clientes %}
+                            <option value="{{ cliente.ID_Cliente }}" 
+                                    data-perfil="{{ cliente.perfil_cliente }}"
+                                    data-tipo="{{ cliente.tipo_cliente }}"
+                                    data-saldo="{{ cliente.Saldo_Anticipos }}"
+                                    data-limite="{{ cliente.Limite_Anticipo_Cajas }}">
+                                {{ cliente.Nombre }} - {{ cliente.RUC_CEDULA or 'Sin RUC' }}
+                                {% if cliente.tipo_cliente == 'Especial' %}
+                                <span class="badge badge-especial ms-1">Especial</span>
+                                {% endif %}
+                                {% if cliente.Saldo_Anticipos > 0 %}
+                                (Ant. activo: ${{ "{:,.2f}".format(cliente.Saldo_Anticipos) }})
+                                {% endif %}
+                            </option>
+                            {% endfor %}
+                        </select>
+                        <div class="form-text">
+                            <i class="bi bi-info-circle"></i> Solo clientes activos de su empresa
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="mb-3">
+                        <label class="form-label required">Producto</label>
+                        <select name="id_producto" id="id_producto" class="form-select" required>
+                            <option value="">Seleccione un producto...</option>
+                            {% for producto in productos %}
+                            <option value="{{ producto.ID_Producto }}"
+                                    data-precio-mercado="{{ producto.Precio_Mercado }}"
+                                    data-precio-mayorista="{{ producto.Precio_Mayorista }}"
+                                    data-precio-ruta="{{ producto.Precio_Ruta }}">
+                                {{ producto.Descripcion }} - {{ producto.COD_Producto or 'Sin código' }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="col-md-4">
+                    <div class="mb-3">
+                        <label class="form-label required">Cantidad de Cajas</label>
+                        <input type="number" name="cantidad_cajas" id="cantidad_cajas" 
+                               class="form-control" step="1" min="1" required>
+                    </div>
+                </div>
+                <div class="col-md-8">
+                    <div class="mb-3">
+                        <label class="form-label required">Monto Pagado ($)</label>
+                        <input type="number" name="monto_pagado" id="monto_pagado" 
+                               class="form-control" step="0.01" min="0.01" required>
+                        <div class="form-text">
+                            <i class="bi bi-calculator"></i> 
+                            <span id="sugerenciaMonto">Ingrese cantidad y seleccione producto para ver sugerencia</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Sección de Precio Especial (solo para clientes especiales) -->
+            <div id="precioEspecialSection" style="display: none;">
+                <div class="precio-especial-box">
+                    <div class="d-flex align-items-center mb-2">
+                        <i class="bi bi-star-fill text-warning me-2"></i>
+                        <strong>Cliente Especial - Precio Personalizado</strong>
+                    </div>
+                    <p class="small text-muted mb-2">
+                        Este cliente tiene perfil "Especial". Puede ingresar un precio personalizado por caja.
+                        Deje en blanco para usar el precio según su perfil de ruta.
+                    </p>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <label class="form-label">Precio especial por caja ($)</label>
+                            <div class="input-group">
+                                <span class="input-group-text">$</span>
+                                <input type="number" name="precio_especial" id="precio_especial" 
+                                       class="form-control" step="0.01" min="0" 
+                                       placeholder="Ej: 25.50">
+                                <button type="button" class="btn btn-outline-secondary" id="btnAplicarPrecio">
+                                    <i class="bi bi-check-lg"></i> Aplicar
+                                </button>
+                            </div>
+                            <div class="form-text">
+                                <i class="bi bi-info-circle"></i> 
+                                <span id="precioReferencia"></span>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="alert alert-info small mb-0">
+                                <i class="bi bi-lightbulb"></i>
+                                <strong>Sugerencia:</strong> El precio especial se usará para calcular el valor por caja.
+                                Si deja vacío, se usará el precio según el perfil del cliente.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="mb-3">
+                        <label class="form-label">Fecha de Vencimiento</label>
+                        <input type="datetime-local" name="fecha_vencimiento" class="form-control">
+                    </div>
+                </div>
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label">Notas / Observaciones</label>
+                <textarea name="notas" class="form-control" rows="3" 
+                          placeholder="Información adicional sobre el anticipo..."></textarea>
+            </div>
+
+            <!-- Información de precios -->
+            <div class="info-cliente mt-3" id="infoPrecios" style="display: none;">
+                <div class="row align-items-center">
+                    <div class="col-md-6">
+                        <h6 class="mb-2"><i class="bi bi-tag"></i> Información de precios</h6>
+                        <div class="calculo-item">
+                            <small class="text-muted">Tipo cliente:</small>
+                            <strong id="tipoCliente">-</strong>
+                        </div>
+                        <div class="calculo-item">
+                            <small class="text-muted">Perfil:</small>
+                            <strong id="perfilCliente">-</strong>
+                        </div>
+                        <div class="calculo-item">
+                            <small class="text-muted">Precio unitario:</small>
+                            <strong id="precioUnitario">$0.00</strong>
+                            <span id="precioNota" class="small text-muted ms-2"></span>
+                        </div>
+                        <div class="calculo-item">
+                            <small class="text-muted">Valor por caja:</small>
+                            <strong id="valorPorCaja">$0.00</strong>
+                        </div>
+                        <div class="calculo-item">
+                            <small class="text-muted">Total cajas:</small>
+                            <strong id="totalCajas">0</strong>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="precio-card text-center">
+                            <small class="opacity-75">MONTO PAGADO</small>
+                            <h2 class="mb-0" id="montoMostrar">$0.00</h2>
+                            <small class="opacity-75">Valor del anticipo</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mt-4 d-flex justify-content-end gap-2">
+                <a href="{{ url_for('admin_clientes_anticipos') }}" class="btn btn-secondary">
+                    <i class="bi bi-x-circle"></i> Cancelar
+                </a>
+                <button type="submit" class="btn btn-primary">
+                    <i class="bi bi-save"></i> Guardar Anticipo
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let precioUnitarioActual = 0;
+
+document.getElementById('id_cliente').addEventListener('change', function() {
+    updatePrecio();
+    checkClienteEspecial();
+});
+
+document.getElementById('id_producto').addEventListener('change', updatePrecio);
+document.getElementById('cantidad_cajas').addEventListener('input', updateMontoMostrar);
+document.getElementById('monto_pagado').addEventListener('input', updateMontoMostrar);
+document.getElementById('precio_especial').addEventListener('input', function() {
+    if (this.value) {
+        aplicarPrecioEspecial();
+    }
+});
+
+document.getElementById('btnAplicarPrecio').addEventListener('click', function() {
+    const precioEspecial = document.getElementById('precio_especial').value;
+    if (precioEspecial && parseFloat(precioEspecial) > 0) {
+        aplicarPrecioEspecial();
+        flashMessage('Precio especial aplicado correctamente', 'success');
+    } else {
+        alert('Ingrese un precio especial válido');
+    }
+});
+
+function checkClienteEspecial() {
+    const clienteSelect = document.getElementById('id_cliente');
+    const precioEspecialSection = document.getElementById('precioEspecialSection');
+    
+    if (clienteSelect.value) {
+        const selectedOption = clienteSelect.options[clienteSelect.selectedIndex];
+        const tipoCliente = selectedOption.dataset.tipo;
+        
+        if (tipoCliente === 'Especial') {
+            precioEspecialSection.style.display = 'block';
+            // Mostrar precio de referencia según perfil
+            const perfil = selectedOption.dataset.perfil;
+            const productoSelect = document.getElementById('id_producto');
+            if (productoSelect.value) {
+                const productoOption = productoSelect.options[productoSelect.selectedIndex];
+                let precioReferencia = 0;
+                if (perfil === 'Mayorista') {
+                    precioReferencia = parseFloat(productoOption.dataset.precioMayorista) || 0;
+                } else if (perfil === 'Ruta') {
+                    precioReferencia = parseFloat(productoOption.dataset.precioRuta) || 0;
+                } else {
+                    precioReferencia = parseFloat(productoOption.dataset.precioMercado) || 0;
+                }
+                document.getElementById('precioReferencia').innerHTML = 
+                    `Precio según perfil (${perfil}): $${precioReferencia.toFixed(2)} por caja`;
+            }
+        } else {
+            precioEspecialSection.style.display = 'none';
+            document.getElementById('precio_especial').value = '';
+        }
+    } else {
+        precioEspecialSection.style.display = 'none';
+    }
+}
+
+function aplicarPrecioEspecial() {
+    const precioEspecial = parseFloat(document.getElementById('precio_especial').value);
+    const cantidad = parseInt(document.getElementById('cantidad_cajas').value) || 0;
+    
+    if (precioEspecial > 0 && cantidad > 0) {
+        const montoSugerido = precioEspecial * cantidad;
+        document.getElementById('monto_pagado').value = montoSugerido.toFixed(2);
+        document.getElementById('valorPorCaja').textContent = `$${precioEspecial.toFixed(2)}`;
+        document.getElementById('precioNota').innerHTML = '<span class="badge bg-warning text-dark">Precio especial</span>';
+        updateMontoMostrar();
+    }
+}
+
+function updatePrecio() {
+    const clienteSelect = document.getElementById('id_cliente');
+    const productoSelect = document.getElementById('id_producto');
+    const infoDiv = document.getElementById('infoPrecios');
+    
+    if (clienteSelect.value && productoSelect.value) {
+        const selectedOption = clienteSelect.options[clienteSelect.selectedIndex];
+        const perfil = selectedOption.dataset.perfil;
+        const tipoCliente = selectedOption.dataset.tipo;
+        
+        const productoOption = productoSelect.options[productoSelect.selectedIndex];
+        let precio = 0;
+        
+        // Verificar si se usará precio especial
+        const precioEspecial = document.getElementById('precio_especial').value;
+        const usarPrecioEspecial = (tipoCliente === 'Especial' && precioEspecial && parseFloat(precioEspecial) > 0);
+        
+        if (usarPrecioEspecial) {
+            precio = parseFloat(precioEspecial);
+            document.getElementById('precioNota').innerHTML = '<span class="badge bg-warning text-dark">Precio especial aplicado</span>';
+        } else {
+            if (perfil === 'Mayorista') {
+                precio = parseFloat(productoOption.dataset.precioMayorista) || 0;
+            } else if (perfil === 'Ruta') {
+                precio = parseFloat(productoOption.dataset.precioRuta) || 0;
+            } else {
+                precio = parseFloat(productoOption.dataset.precioMercado) || 0;
+            }
+            document.getElementById('precioNota').innerHTML = '';
+        }
+        
+        precioUnitarioActual = precio;
+        
+        document.getElementById('tipoCliente').textContent = tipoCliente;
+        document.getElementById('perfilCliente').textContent = perfil;
+        document.getElementById('precioUnitario').innerHTML = `$${precio.toFixed(2)}`;
+        
+        infoDiv.style.display = 'block';
+        
+        // Sugerir monto basado en precio y cantidad
+        const cantidad = parseInt(document.getElementById('cantidad_cajas').value) || 0;
+        if (cantidad > 0 && precio > 0) {
+            const montoSugerido = cantidad * precio;
+            document.getElementById('sugerenciaMonto').innerHTML = 
+                `Sugerencia: $${montoSugerido.toFixed(2)} (${cantidad} cajas x $${precio.toFixed(2)} por caja)`;
+            document.getElementById('valorPorCaja').textContent = `$${precio.toFixed(2)}`;
+            
+            // Solo auto-completar si el monto pagado está vacío o es 0
+            const montoPagado = document.getElementById('monto_pagado').value;
+            if (!montoPagado || parseFloat(montoPagado) === 0) {
+                document.getElementById('monto_pagado').value = montoSugerido.toFixed(2);
+            }
+        }
+        
+        updateMontoMostrar();
+    } else {
+        infoDiv.style.display = 'none';
+    }
+}
+
+function updateMontoMostrar() {
+    const cantidad = parseInt(document.getElementById('cantidad_cajas').value) || 0;
+    const monto = parseFloat(document.getElementById('monto_pagado').value) || 0;
+    
+    document.getElementById('totalCajas').textContent = cantidad;
+    document.getElementById('montoMostrar').textContent = `$${monto.toFixed(2)}`;
+    
+    // Calcular valor por caja real
+    if (cantidad > 0 && monto > 0) {
+        const valorPorCajaReal = monto / cantidad;
+        document.getElementById('valorPorCaja').innerHTML = `$${valorPorCajaReal.toFixed(2)}`;
+        
+        // Mostrar advertencia si hay diferencia significativa con el precio unitario
+        if (precioUnitarioActual > 0 && Math.abs(valorPorCajaReal - precioUnitarioActual) > 0.01) {
+            document.getElementById('precioNota').innerHTML = 
+                '<span class="badge bg-info">Precio modificado manualmente</span>';
+        }
+    }
+}
+
+// Función para mostrar mensajes flash-like
+function flashMessage(message, type) {
+    const alertDiv = document.createElement('div');
+    alertDiv.className = `alert alert-${type} alert-dismissible fade show position-fixed top-0 start-50 translate-middle-x mt-3`;
+    alertDiv.style.zIndex = '9999';
+    alertDiv.style.minWidth = '300px';
+    alertDiv.innerHTML = `
+        <div class="d-flex align-items-center">
+            <i class="bi bi-check-circle-fill me-2"></i>
+            <div>${message}</div>
+            <button type="button" class="btn-close ms-3" data-bs-dismiss="alert"></button>
+        </div>
+    `;
+    document.body.appendChild(alertDiv);
+    setTimeout(() => {
+        alertDiv.remove();
+    }, 3000);
+}
+
+// Validación antes de enviar
+document.getElementById('formAnticipo').addEventListener('submit', function(e) {
+    const cantidad = parseInt(document.getElementById('cantidad_cajas').value) || 0;
+    const monto = parseFloat(document.getElementById('monto_pagado').value) || 0;
+    const clienteSelect = document.getElementById('id_cliente');
+    const tipoCliente = clienteSelect.options[clienteSelect.selectedIndex]?.dataset.tipo;
+    const precioEspecial = document.getElementById('precio_especial').value;
+    
+    if (cantidad <= 0) {
+        e.preventDefault();
+        alert('La cantidad de cajas debe ser mayor a 0');
+        return false;
+    }
+    
+    if (monto <= 0) {
+        e.preventDefault();
+        alert('El monto pagado debe ser mayor a 0');
+        return false;
+    }
+    
+    // Validar precio especial para clientes especiales
+    if (tipoCliente === 'Especial' && precioEspecial && parseFloat(precioEspecial) <= 0) {
+        e.preventDefault();
+        alert('El precio especial debe ser mayor a 0');
+        return false;
+    }
+    
+    if (confirm('¿Confirmar registro del anticipo?')) {
+        return true;
+    }
+    e.preventDefault();
+    return false;
+});
+</script>
+{% endblock %}
