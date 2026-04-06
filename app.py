@@ -2964,7 +2964,6 @@ def admin_sucursales_clientes():
         return render_template("admin/catalog/client/sucursales_clientes.html", 
                              sucursales=[], clientes=[])
 
-# Ruta para crear nueva sucursal (POST)
 @app.route('/admin/catalog/client/sucursales/create', methods=['POST'])
 @admin_required
 @bitacora_decorator("CREAR_SUCURSAL")
@@ -3026,7 +3025,6 @@ def admin_sucursales_create():
     
     return redirect(url_for('admin_sucursales_clientes'))
 
-# Ruta para editar sucursal
 @app.route('/admin/catalog/client/sucursales/edit/<int:id_sucursal>', methods=['POST'])
 @admin_required
 @bitacora_decorator("EDITAR_SUCURSAL")
@@ -3076,7 +3074,6 @@ def admin_sucursales_edit(id_sucursal):
     
     return redirect(url_for('admin_sucursales_clientes'))
 
-# Ruta para eliminar/desactivar sucursal
 @app.route('/admin/catalog/client/sucursales/delete/<int:id_sucursal>')
 @admin_required
 @bitacora_decorator("ELIMINAR_SUCURSAL")
@@ -3106,7 +3103,6 @@ def admin_sucursales_delete(id_sucursal):
     
     return redirect(url_for('admin_sucursales_clientes'))
 
-# Ruta para obtener datos de una sucursal (para edición vía AJAX)
 @app.route('/admin/catalog/client/sucursales/get/<int:id_sucursal>')
 @admin_required
 def admin_sucursales_get(id_sucursal):
@@ -3128,7 +3124,6 @@ def admin_sucursales_get(id_sucursal):
     except Exception as e:
         logging.error(f"Error al obtener sucursal {id_sucursal}: {str(e)}")
         return jsonify({'success': False, 'error': str(e)})
-
 
 # CATALOGO PROVEEDORES
 @app.route('/admin/catalog/proveedor/proveedores', methods=['GET'])
@@ -8598,6 +8593,295 @@ def admin_anular_venta(id_factura):
             
             flash(error_msg, 'error')
             return redirect(url_for('admin_ventas_salidas'))
+
+# CLIENTES ANTICIPOS
+@app.route('/admin/ventas/anticipos/clientes-anticipos')
+@admin_required
+@bitacora_decorator("CLIENTES-ANTICIPOS")   
+def admin_clientes_anticipos():
+    try:
+        id_empresa = session.get('id_empresa', 1)
+        if not id_empresa:
+            flash('No se encontró información de la empresa', 'error')
+            return redirect(url_for('admin_dashboard'))
+            
+        with get_db_cursor(True) as cursor:
+            # Como anticipos_clientes no tiene ID_Empresa, debemos unir con clientes
+            cursor.execute("""
+                SELECT 
+                    a.ID_Anticipo,
+                    a.Fecha_Anticipo as Fecha,
+                    a.Monto_Pagado as Monto,
+                    a.Saldo_Restante,
+                    a.Cantidad_Cajas,
+                    a.Cajas_Consumidas,
+                    a.Estado,
+                    a.Notas as Observacion,
+                    c.Nombre as NombreCliente,
+                    c.RUC_CEDULA as RUCCliente,
+                    c.ID_Empresa,
+                    c.Saldo_Anticipos,
+                    c.Anticipo_Activo,
+                    c.Limite_Anticipo_Cajas,
+                    c.Cajas_Consumidas_Anticipo,
+                    p.Descripcion as NombreProducto,
+                    p.COD_Producto,
+                    e.Nombre_Empresa,
+                    DATEDIFF(NOW(), a.Fecha_Anticipo) as Dias_Transcurridos
+                FROM anticipos_clientes a
+                INNER JOIN clientes c ON a.ID_Cliente = c.ID_Cliente
+                INNER JOIN productos p ON a.ID_Producto = p.ID_Producto
+                LEFT JOIN empresa e ON c.ID_Empresa = e.ID_Empresa
+                WHERE c.ID_Empresa = %s
+                ORDER BY a.Fecha_Anticipo DESC, a.ID_Anticipo DESC
+            """, (id_empresa,))
+            anticipos = cursor.fetchall()
+            
+            return render_template('admin/ventas/anticipos/clientes_anticipos.html', 
+                                 anticipos=anticipos)
+    except Exception as e:
+        print(f"❌ Error obteniendo anticipos de clientes: {str(e)}")
+        traceback.print_exc()
+        flash('Error interno al obtener anticipos de clientes', 'error')
+        return redirect(url_for('admin_dashboard'))
+
+@app.route('/admin/ventas/anticipos/nuevo', methods=['GET', 'POST'])
+@admin_required
+@bitacora_decorator("CLIENTES-ANTICIPOS-NUEVO")
+def admin_anticipo_nuevo():
+    id_empresa = session.get('id_empresa',1 )
+    if not id_empresa:
+        flash('No se encontró información de la empresa', 'error')
+        return redirect(url_for('admin_dashboard'))
+    
+    if request.method == 'POST':
+        try:
+            id_cliente = request.form.get('id_cliente')
+            id_producto = request.form.get('id_producto')
+            cantidad_cajas = int(request.form.get('cantidad_cajas', 0))
+            monto_pagado = float(request.form.get('monto_pagado', 0))
+            fecha_vencimiento = request.form.get('fecha_vencimiento')
+            notas = request.form.get('notas', '')
+            
+            # Validaciones
+            if not id_cliente or not id_producto:
+                flash('Cliente y producto son requeridos', 'error')
+                return redirect(url_for('admin_anticipo_nuevo'))
+            
+            if cantidad_cajas <= 0:
+                flash('La cantidad de cajas debe ser mayor a 0', 'error')
+                return redirect(url_for('admin_anticipo_nuevo'))
+            
+            if monto_pagado <= 0:
+                flash('El monto pagado debe ser mayor a 0', 'error')
+                return redirect(url_for('admin_anticipo_nuevo'))
+            
+            with get_db_cursor() as cursor:
+                # Verificar que el cliente pertenece a la empresa
+                cursor.execute("""
+                    SELECT ID_Cliente, perfil_cliente, Anticipo_Activo
+                    FROM clientes 
+                    WHERE ID_Cliente = %s AND ID_Empresa = %s AND Estado = 'ACTIVO'
+                """, (id_cliente, id_empresa))
+                
+                cliente = cursor.fetchone()
+                if not cliente:
+                    flash('Cliente no encontrado o no pertenece a su empresa', 'error')
+                    return redirect(url_for('admin_anticipo_nuevo'))
+                
+                # Obtener precio del producto según perfil del cliente
+                cursor.execute("""
+                    SELECT 
+                        p.ID_Producto,
+                        p.Descripcion,
+                        CASE 
+                            WHEN %s = 'Mayorista' THEN p.Precio_Mayorista
+                            WHEN %s = 'Ruta' THEN p.Precio_Ruta
+                            WHEN %s = 'Mercado' THEN p.Precio_Mercado
+                            ELSE p.Precio_Mercado
+                        END as Precio_Producto
+                    FROM productos p
+                    WHERE p.ID_Producto = %s AND p.ID_Empresa = %s AND p.Estado = 'activo'
+                """, (cliente['perfil_cliente'], cliente['perfil_cliente'], 
+                      cliente['perfil_cliente'], id_producto, id_empresa))
+                
+                producto = cursor.fetchone()
+                if not producto:
+                    flash('Producto no encontrado o no pertenece a su empresa', 'error')
+                    return redirect(url_for('admin_anticipo_nuevo'))
+                
+                precio_unitario = float(producto['Precio_Producto']) if producto['Precio_Producto'] else 0
+                
+                # Calcular saldo restante (inicialmente es el monto pagado)
+                saldo_restante = monto_pagado
+                
+                # Insertar anticipo (sin ID_Empresa porque la tabla no tiene ese campo)
+                cursor.execute("""
+                    INSERT INTO anticipos_clientes 
+                    (ID_Cliente, ID_Producto, Cantidad_Cajas, Cajas_Consumidas, 
+                     Monto_Pagado, Saldo_Restante, Fecha_Anticipo, Fecha_Vencimiento, 
+                     Estado, Notas)
+                    VALUES (%s, %s, %s, 0, %s, %s, NOW(), %s, 'ACTIVO', %s)
+                """, (id_cliente, id_producto, cantidad_cajas, monto_pagado, 
+                      saldo_restante, fecha_vencimiento or None, notas))
+                
+                id_anticipo = cursor.lastrowid
+                
+                # Actualizar datos del cliente
+                cursor.execute("""
+                    UPDATE clientes 
+                    SET Anticipo_Activo = 1,
+                        Limite_Anticipo_Cajas = COALESCE(Limite_Anticipo_Cajas, 0) + %s,
+                        Saldo_Anticipos = COALESCE(Saldo_Anticipos, 0) + %s,
+                        Producto_Anticipado = %s
+                    WHERE ID_Cliente = %s
+                """, (cantidad_cajas, monto_pagado, id_producto, id_cliente))
+                
+                flash(f'Anticipo registrado exitosamente. ID: {id_anticipo}', 'success')
+                return redirect(url_for('admin_clientes_anticipos'))
+                
+        except Exception as e:
+            print(f"❌ Error registrando anticipo: {str(e)}")
+            traceback.print_exc()
+            flash('Error interno al registrar el anticipo', 'error')
+            return redirect(url_for('admin_anticipo_nuevo'))
+    
+    # GET - Mostrar formulario
+    try:
+        with get_db_cursor(True) as cursor:
+            # Obtener clientes activos de la empresa
+            cursor.execute("""
+                SELECT ID_Cliente, Nombre, RUC_CEDULA, perfil_cliente, 
+                       COALESCE(Saldo_Anticipos, 0) as Saldo_Anticipos, 
+                       COALESCE(Limite_Anticipo_Cajas, 0) as Limite_Anticipo_Cajas
+                FROM clientes 
+                WHERE ID_Empresa = %s AND Estado = 'ACTIVO'
+                ORDER BY Nombre
+            """, (id_empresa,))
+            clientes = cursor.fetchall()
+            
+            # Obtener productos activos de la empresa
+            cursor.execute("""
+                SELECT ID_Producto, Descripcion, COD_Producto, 
+                       COALESCE(Precio_Mercado, 0) as Precio_Mercado, 
+                       COALESCE(Precio_Mayorista, 0) as Precio_Mayorista, 
+                       COALESCE(Precio_Ruta, 0) as Precio_Ruta
+                FROM productos 
+                WHERE ID_Empresa = %s AND Estado = 'activo'
+                ORDER BY Descripcion
+            """, (id_empresa,))
+            productos = cursor.fetchall()
+            
+            return render_template('admin/ventas/anticipos/nuevo_anticipo.html',
+                                 clientes=clientes, productos=productos)
+    except Exception as e:
+        print(f"❌ Error cargando formulario: {str(e)}")
+        traceback.print_exc()
+        flash('Error cargando el formulario', 'error')
+        return redirect(url_for('admin_clientes_anticipos'))
+
+@app.route('/admin/ventas/anticipos/detalle/<int:id_anticipo>')
+@admin_required
+@bitacora_decorator("CLIENTES-ANTICIPOS-DETALLE")
+def admin_anticipo_detalle(id_anticipo):
+    try:
+        id_empresa = session.get('id_empresa',1)
+        
+        with get_db_cursor(True) as cursor:
+            cursor.execute("""
+                SELECT 
+                    a.*,
+                    c.Nombre as NombreCliente,
+                    c.RUC_CEDULA,
+                    c.Telefono,
+                    c.Direccion,
+                    c.perfil_cliente,
+                    c.Saldo_Anticipos as Cliente_Saldo_Anticipos,
+                    c.Limite_Anticipo_Cajas,
+                    c.Cajas_Consumidas_Anticipo,
+                    p.Descripcion as NombreProducto,
+                    p.COD_Producto,
+                    CASE 
+                        WHEN c.perfil_cliente = 'Mayorista' THEN p.Precio_Mayorista
+                        WHEN c.perfil_cliente = 'Ruta' THEN p.Precio_Ruta
+                        ELSE p.Precio_Mercado
+                    END as Precio_Actual
+                FROM anticipos_clientes a
+                INNER JOIN clientes c ON a.ID_Cliente = c.ID_Cliente
+                INNER JOIN productos p ON a.ID_Producto = p.ID_Producto
+                WHERE a.ID_Anticipo = %s AND c.ID_Empresa = %s
+            """, (id_anticipo, id_empresa))
+            
+            anticipo = cursor.fetchone()
+            
+            if not anticipo:
+                flash('Anticipo no encontrado', 'error')
+                return redirect(url_for('admin_clientes_anticipos'))
+            
+            return render_template('admin/ventas/anticipos/detalle_anticipo.html',
+                                 anticipo=anticipo)
+    except Exception as e:
+        print(f"❌ Error obteniendo detalle: {str(e)}")
+        traceback.print_exc()
+        flash('Error al obtener el detalle del anticipo', 'error')
+        return redirect(url_for('admin_clientes_anticipos'))
+
+@app.route('/admin/ventas/anticipos/cancelar/<int:id_anticipo>', methods=['POST'])
+@admin_required
+@bitacora_decorator("CLIENTES-ANTICIPOS-CANCELAR")
+def admin_anticipo_cancelar(id_anticipo):
+    try:
+        id_empresa = session.get('id_empresa', 1)
+        motivo = request.form.get('motivo', 'Cancelado por usuario')
+        
+        with get_db_cursor() as cursor:
+            # Obtener información del anticipo verificando empresa a través del cliente
+            cursor.execute("""
+                SELECT a.ID_Cliente, a.Cantidad_Cajas, a.Cajas_Consumidas, 
+                       a.Monto_Pagado, a.Saldo_Restante, a.Estado
+                FROM anticipos_clientes a
+                INNER JOIN clientes c ON a.ID_Cliente = c.ID_Cliente
+                WHERE a.ID_Anticipo = %s AND c.ID_Empresa = %s AND a.Estado = 'ACTIVO'
+            """, (id_anticipo, id_empresa))
+            
+            anticipo = cursor.fetchone()
+            
+            if not anticipo:
+                flash('Anticipo no encontrado o ya está cancelado/completado', 'error')
+                return redirect(url_for('admin_clientes_anticipos'))
+            
+            # Cancelar anticipo
+            cursor.execute("""
+                UPDATE anticipos_clientes 
+                SET Estado = 'CANCELADO', 
+                    Notas = CONCAT(COALESCE(Notas, ''), '\n[', NOW(), '] Cancelado: ', %s)
+                WHERE ID_Anticipo = %s
+            """, (motivo, id_anticipo))
+            
+            # Calcular cajas no consumidas
+            cajas_no_consumidas = anticipo['Cantidad_Cajas'] - anticipo['Cajas_Consumidas']
+            
+            # Actualizar datos del cliente (restar solo lo no consumido)
+            cursor.execute("""
+                UPDATE clientes 
+                SET Limite_Anticipo_Cajas = COALESCE(Limite_Anticipo_Cajas, 0) - %s,
+                    Saldo_Anticipos = COALESCE(Saldo_Anticipos, 0) - %s,
+                    Anticipo_Activo = CASE 
+                        WHEN (COALESCE(Limite_Anticipo_Cajas, 0) - %s) <= 0 THEN 0 
+                        ELSE 1 
+                    END
+                WHERE ID_Cliente = %s
+            """, (cajas_no_consumidas, anticipo['Monto_Pagado'], 
+                  cajas_no_consumidas, anticipo['ID_Cliente']))
+            
+            flash('Anticipo cancelado exitosamente', 'success')
+            return redirect(url_for('admin_clientes_anticipos'))
+            
+    except Exception as e:
+        print(f"❌ Error cancelando anticipo: {str(e)}")
+        traceback.print_exc()
+        flash('Error al cancelar el anticipo', 'error')
+        return redirect(url_for('admin_clientes_anticipos'))
 
 #CUENTAS POR COBRAR
 @app.route('/admin/ventas/cxcobrar/cuentas-por-cobrar')
