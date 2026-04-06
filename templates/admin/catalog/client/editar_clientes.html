@@ -26,6 +26,17 @@
         font-size: 1.8rem;
         font-weight: bold;
     }
+    .anticipo-card {
+        background: #f8f9fa;
+        border-radius: 8px;
+        padding: 15px;
+        margin-top: 10px;
+        border-left: 3px solid #28a745;
+    }
+    .progress-anticipo {
+        height: 8px;
+        border-radius: 4px;
+    }
 </style>
 {% endblock %}
 
@@ -208,6 +219,111 @@
                     <div class="form-text">Seleccione una ruta para la entrega de productos (opcional)</div>
                 </div>
 
+                <!-- ========================================== -->
+                <!-- SECCIÓN DE ANTICIPOS -->
+                <!-- ========================================== -->
+                <div class="col-12 mt-4">
+                    <hr class="my-3">
+                    <h5 class="mb-3">
+                        <i class="bi bi-cash-stack"></i> Configuración de Anticipos
+                        <small class="text-muted">(Opcional)</small>
+                    </h5>
+                </div>
+
+                <div class="col-md-3 mb-3">
+                    <div class="form-check form-switch mt-4">
+                        <input class="form-check-input" type="checkbox" id="anticipo_activo" name="anticipo_activo" value="1" 
+                               style="transform: scale(1.2);"
+                               {% if cliente.Anticipo_Activo %}checked{% endif %}>
+                        <label class="form-check-label fw-bold ms-2" for="anticipo_activo">
+                            Activar Anticipo
+                        </label>
+                        <div class="form-text small">Permite anticipos para este cliente</div>
+                    </div>
+                </div>
+
+                <div class="col-md-3 mb-3">
+                    <label for="limite_anticipo_cajas" class="form-label">Límite de Cajas</label>
+                    <input type="number" class="form-control" id="limite_anticipo_cajas" name="limite_anticipo_cajas" 
+                           value="{{ cliente.Limite_Anticipo_Cajas or 0 }}" min="0" step="1"
+                           placeholder="Número de cajas">
+                    <div class="form-text small">Máximo de cajas permitidas</div>
+                </div>
+
+                <div class="col-md-3 mb-3">
+                    <label for="saldo_anticipos" class="form-label">Saldo de Anticipos (C$)</label>
+                    <div class="input-group">
+                        <span class="input-group-text">C$</span>
+                        <input type="number" class="form-control" id="saldo_anticipos" name="saldo_anticipos" 
+                               value="{{ cliente.Saldo_Anticipos or 0 }}" min="0" step="0.01"
+                               placeholder="0.00">
+                    </div>
+                    <div class="form-text small">Monto disponible para anticipos</div>
+                </div>
+
+                <div class="col-md-3 mb-3">
+                    <label for="producto_anticipado" class="form-label">Producto Anticipado</label>
+                    <select class="form-select" id="producto_anticipado" name="producto_anticipado">
+                        <option value="">Sin producto asignado</option>
+                        {% for producto in productos %}
+                        <option value="{{ producto.ID_Producto }}" 
+                                {% if cliente.Producto_Anticipado == producto.ID_Producto %}selected{% endif %}>
+                            {{ producto.Nombre }} {% if producto.Codigo_Barras %}({{ producto.Codigo_Barras }}){% endif %}
+                        </option>
+                        {% endfor %}
+                    </select>
+                    <div class="form-text small">Producto asociado al anticipo</div>
+                </div>
+
+                <!-- Cajas Consumidas (visible solo si anticipo activo) -->
+                <div class="col-md-3 mb-3" id="cajas_consumidas_container" style="{% if not cliente.Anticipo_Activo %}display:none;{% endif %}">
+                    <label for="cajas_consumidas_anticipo" class="form-label">Cajas Consumidas</label>
+                    <input type="number" class="form-control" id="cajas_consumidas_anticipo" name="cajas_consumidas_anticipo" 
+                           value="{{ cliente.Cajas_Consumidas_Anticipo or 0 }}" min="0" step="1"
+                           placeholder="Cajas consumidas">
+                    <div class="form-text small">Cajas ya consumidas del anticipo</div>
+                </div>
+
+                <!-- Información adicional de anticipo (progreso) -->
+                {% if cliente.Anticipo_Activo and cliente.Limite_Anticipo_Cajas > 0 %}
+                <div class="col-12 mb-3">
+                    <div class="anticipo-card">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <small class="text-muted">
+                                <i class="bi bi-box-seam"></i> Progreso de consumo
+                            </small>
+                            <small class="text-muted">
+                                {{ cliente.Cajas_Consumidas_Anticipo or 0 }} de {{ cliente.Limite_Anticipo_Cajas }} cajas
+                                ({{ ((cliente.Cajas_Consumidas_Anticipo or 0) / cliente.Limite_Anticipo_Cajas * 100)|round }}%)
+                            </small>
+                        </div>
+                        <div class="progress progress-anticipo">
+                            <div class="progress-bar bg-success" 
+                                 role="progressbar" 
+                                 style="width: {{ ((cliente.Cajas_Consumidas_Anticipo or 0) / cliente.Limite_Anticipo_Cajas * 100)|round }}%"
+                                 aria-valuenow="{{ cliente.Cajas_Consumidas_Anticipo or 0 }}" 
+                                 aria-valuemin="0" 
+                                 aria-valuemax="{{ cliente.Limite_Anticipo_Cajas }}">
+                            </div>
+                        </div>
+                        {% if cliente.Saldo_Anticipos and cliente.Saldo_Anticipos > 0 %}
+                        <div class="mt-2">
+                            <small class="text-success">
+                                <i class="bi bi-cash"></i> Saldo disponible: C${{ "{:,.2f}".format(cliente.Saldo_Anticipos) }}
+                            </small>
+                        </div>
+                        {% endif %}
+                        {% if cliente.Nombre_Producto_Anticipado %}
+                        <div class="mt-1">
+                            <small class="text-info">
+                                <i class="bi bi-tag"></i> Producto: {{ cliente.Nombre_Producto_Anticipado }}
+                            </small>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endif %}
+
                 <!-- Botones -->
                 <div class="col-12 mt-4 pt-3 border-top">
                     <div class="d-flex justify-content-between align-items-center">
@@ -265,6 +381,14 @@
                 </div>
                 {% endif %}
                 
+                {% if cliente.Anticipo_Activo %}
+                <div class="alert alert-warning">
+                    <i class="bi bi-exclamation-triangle-fill"></i>
+                    <strong>¡Atención!</strong> Este cliente tiene anticipos activos.
+                    Al desactivarlo, los anticipos quedarán suspendidos.
+                </div>
+                {% endif %}
+                
                 <p class="text-danger small">
                     <i class="bi bi-info-circle"></i> Esta acción cambiará el estado del cliente a INACTIVO y no podrá ser seleccionado en nuevas operaciones.
                 </p>
@@ -300,6 +424,14 @@ document.addEventListener('DOMContentLoaded', function() {
     const telefonoInput = document.getElementById('telefono');
     const rucCedulaInput = document.getElementById('ruc_cedula');
     const estadoSelect = document.getElementById('estado');
+    
+    // Elementos de anticipo
+    const anticipoCheckboxEdit = document.getElementById('anticipo_activo');
+    const limiteCajasEdit = document.getElementById('limite_anticipo_cajas');
+    const saldoAnticiposEdit = document.getElementById('saldo_anticipos');
+    const productoAnticipadoEdit = document.getElementById('producto_anticipado');
+    const cajasConsumidasEdit = document.getElementById('cajas_consumidas_anticipo');
+    const cajasConsumidasContainer = document.getElementById('cajas_consumidas_container');
     
     // Validación de RUC/Cédula
     function validateRucCedula() {
@@ -349,43 +481,143 @@ document.addEventListener('DOMContentLoaded', function() {
         return true;
     }
     
+    // Función para habilitar/deshabilitar campos de anticipo
+    function toggleAnticipoFieldsEdit() {
+        const isActive = anticipoCheckboxEdit.checked;
+        
+        limiteCajasEdit.disabled = !isActive;
+        saldoAnticiposEdit.disabled = !isActive;
+        productoAnticipadoEdit.disabled = !isActive;
+        
+        if (cajasConsumidasContainer) {
+            cajasConsumidasContainer.style.display = isActive ? 'block' : 'none';
+        }
+        
+        if (!isActive) {
+            if (limiteCajasEdit) limiteCajasEdit.value = 0;
+            if (saldoAnticiposEdit) saldoAnticiposEdit.value = 0;
+            if (productoAnticipadoEdit) productoAnticipadoEdit.value = '';
+            if (cajasConsumidasEdit) cajasConsumidasEdit.value = 0;
+        }
+    }
+    
+    // Validación de anticipos
+    function validateAnticipoFieldsEdit() {
+        if (anticipoCheckboxEdit && anticipoCheckboxEdit.checked) {
+            const limite = parseInt(limiteCajasEdit.value) || 0;
+            const saldo = parseFloat(saldoAnticiposEdit.value) || 0;
+            const producto = productoAnticipadoEdit.value;
+            const cajasConsumidas = parseInt(cajasConsumidasEdit ? cajasConsumidasEdit.value : 0) || 0;
+            
+            if (limite === 0 && saldo === 0 && !producto) {
+                return '⚠️ Si activa anticipos, debe configurar al menos:\n- Límite de cajas\n- Saldo de anticipos\n- Producto anticipado';
+            }
+            
+            if (limite > 0 && cajasConsumidas > limite) {
+                return '⚠️ Las cajas consumidas no pueden superar el límite de cajas';
+            }
+        }
+        return null;
+    }
+    
     // Event listeners para validación en tiempo real
-    telefonoInput.addEventListener('input', validateTelefono);
-    rucCedulaInput.addEventListener('input', validateRucCedula);
-    estadoSelect.addEventListener('change', validateRucForEstado);
+    if (telefonoInput) telefonoInput.addEventListener('input', validateTelefono);
+    if (rucCedulaInput) rucCedulaInput.addEventListener('input', validateRucCedula);
+    if (estadoSelect) estadoSelect.addEventListener('change', validateRucForEstado);
+    
+    // Event listener para el checkbox de anticipo
+    if (anticipoCheckboxEdit) {
+        anticipoCheckboxEdit.addEventListener('change', toggleAnticipoFieldsEdit);
+        toggleAnticipoFieldsEdit(); // Inicializar estado
+    }
+    
+    // Validación de límite de cajas
+    if (limiteCajasEdit) {
+        limiteCajasEdit.addEventListener('change', function() {
+            if (this.value < 0) this.value = 0;
+            if (this.value > 999) this.value = 999;
+            
+            if (cajasConsumidasEdit && parseInt(cajasConsumidasEdit.value) > parseInt(this.value)) {
+                cajasConsumidasEdit.value = this.value;
+            }
+        });
+    }
+    
+    // Validación de cajas consumidas
+    if (cajasConsumidasEdit) {
+        cajasConsumidasEdit.addEventListener('change', function() {
+            if (this.value < 0) this.value = 0;
+            const limite = parseInt(limiteCajasEdit ? limiteCajasEdit.value : 0);
+            if (limite > 0 && parseInt(this.value) > limite) {
+                this.value = limite;
+                alert(`⚠️ Las cajas consumidas no pueden superar el límite de ${limite} cajas.`);
+            }
+        });
+    }
+    
+    // Validación de saldo de anticipos
+    if (saldoAnticiposEdit) {
+        saldoAnticiposEdit.addEventListener('change', function() {
+            if (this.value < 0) this.value = 0;
+        });
+    }
     
     // Validación del formulario de edición
-    editarForm.addEventListener('submit', function(event) {
-        const isTelefonoValid = validateTelefono();
-        const isRucCedulaValid = validateRucForEstado();
-        
-        if (!isTelefonoValid || !isRucCedulaValid || !editarForm.checkValidity()) {
-            event.preventDefault();
-            event.stopPropagation();
-        }
-        editarForm.classList.add('was-validated');
-    });
+    if (editarForm) {
+        editarForm.addEventListener('submit', function(event) {
+            // Validar anticipos
+            const anticipoError = validateAnticipoFieldsEdit();
+            if (anticipoError) {
+                event.preventDefault();
+                event.stopPropagation();
+                alert(anticipoError);
+                return false;
+            }
+            
+            const isTelefonoValid = validateTelefono();
+            const isRucCedulaValid = validateRucForEstado();
+            
+            if (!isTelefonoValid || !isRucCedulaValid || !editarForm.checkValidity()) {
+                event.preventDefault();
+                event.stopPropagation();
+            }
+            editarForm.classList.add('was-validated');
+        });
+    }
+    
+    // Mostrar advertencia si hay anticipo activo y se intenta desactivar el cliente
+    if (estadoSelect && anticipoCheckboxEdit) {
+        estadoSelect.addEventListener('change', function() {
+            if (this.value === 'INACTIVO' && anticipoCheckboxEdit.checked) {
+                const confirmDesactivar = confirm('⚠️ El cliente tiene anticipos activos.\n\n¿Está seguro que desea desactivar el cliente? Esto podría afectar los anticipos pendientes.');
+                if (!confirmDesactivar) {
+                    this.value = 'ACTIVO';
+                }
+            }
+        });
+    }
     
     // Auto-focus en el campo nombre
-    document.getElementById('nombre').focus();
-    // Mover cursor al final del texto
     const nombreInput = document.getElementById('nombre');
-    nombreInput.selectionStart = nombreInput.selectionEnd = nombreInput.value.length;
+    if (nombreInput) {
+        nombreInput.focus();
+        nombreInput.selectionStart = nombreInput.selectionEnd = nombreInput.value.length;
+    }
     
     // Validar RUC al cargar la página si está presente y activo
-    if (rucCedulaInput.value && estadoSelect.value === 'ACTIVO') {
+    if (rucCedulaInput && rucCedulaInput.value && estadoSelect && estadoSelect.value === 'ACTIVO') {
         validateRucCedula();
     }
     
     // Mostrar advertencia si el RUC ya existe para otro cliente activo
     {% if cliente.Estado == 'ACTIVO' and cliente.RUC_CEDULA %}
-    // Esta validación se haría en el servidor, pero podemos agregar una nota visual
     const rucNote = document.createElement('div');
     rucNote.className = 'form-text text-warning';
     rucNote.innerHTML = '<i class="bi bi-exclamation-triangle"></i> Si cambias este RUC/Cédula, asegúrate que no exista en otro cliente activo.';
-    rucCedulaInput.parentNode.insertBefore(rucNote, rucCedulaInput.nextSibling);
+    if (rucCedulaInput) {
+        rucCedulaInput.parentNode.insertBefore(rucNote, rucCedulaInput.nextSibling);
+    }
     {% endif %}
-    
 });
 
 // Función para mostrar toasts de notificación
@@ -417,7 +649,6 @@ function showToast(category, message) {
     const toast = new bootstrap.Toast(toastEl, { delay: 5000 });
     toast.show();
     
-    // Remover del DOM después de que se oculte
     toastEl.addEventListener('hidden.bs.toast', function () {
         toastContainer.remove();
     });

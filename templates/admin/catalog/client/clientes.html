@@ -24,6 +24,12 @@
         background: linear-gradient(45deg, #f8f9fa, #e9ecef);
         border-left: 4px solid #0d6efd;
     }
+    .anticipo-card {
+        background: #f8f9fa;
+        border-radius: 8px;
+        padding: 10px;
+        margin-top: 10px;
+    }
 </style>
 {% endblock %}
 
@@ -39,10 +45,15 @@
         </a>
     </div>
 
-    <!-- Botón crear cliente -->
-    <button class="btn btn-primary mb-3" data-bs-toggle="modal" data-bs-target="#crearClienteModal">
-        <i class="bi bi-plus-circle"></i> Agregar Nuevo Cliente
-    </button>
+    <!-- Botón crear cliente y sucursal -->
+    <div class="mb-3 d-flex gap-2">
+        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#crearClienteModal">
+            <i class="bi bi-plus-circle"></i> Agregar Nuevo Cliente
+        </button>   
+        <a class="btn btn-success" href="{{ url_for('admin_sucursales_clientes') }}">
+            <i class="bi bi-building"></i> Sucursal
+        </a>
+    </div>
 
     <!-- Formulario de búsqueda -->
     <div class="card mb-4">
@@ -97,6 +108,7 @@
                             <th>Perfil</th>
                             <th>Ruta</th>
                             <th>Saldo</th>
+                            <th>Anticipo</th>
                             <th>Estado</th>
                             <th class="text-center">Acciones</th>
                         </tr>
@@ -159,6 +171,28 @@
                                 </span>
                                 {% if cliente.Saldo_Pendiente_Total > 0 %}
                                 <i class="bi bi-exclamation-triangle text-warning ms-1" title="Saldo pendiente"></i>
+                                {% endif %}
+                            </td>
+                            <td class="align-middle">
+                                {% if cliente.Anticipo_Activo %}
+                                    <div class="d-flex flex-column">
+                                        <span class="badge bg-success mb-1">
+                                            <i class="bi bi-check-circle-fill"></i> Activo
+                                        </span>
+                                        <small class="text-muted">
+                                            <i class="bi bi-box"></i> {{ cliente.Cajas_Consumidas_Anticipo or 0 }}/{{ cliente.Limite_Anticipo_Cajas or 0 }} cajas<br>
+                                            <i class="bi bi-cash"></i> C${{ "{:,.2f}".format(cliente.Saldo_Anticipos or 0) }}
+                                        </small>
+                                        {% if cliente.Nombre_Producto_Anticipado %}
+                                            <small class="text-info">
+                                                <i class="bi bi-tag"></i> {{ cliente.Nombre_Producto_Anticipado }}
+                                            </small>
+                                        {% endif %}
+                                    </div>
+                                {% else %}
+                                    <span class="badge bg-secondary">
+                                        <i class="bi bi-x-circle"></i> Inactivo
+                                    </span>
                                 {% endif %}
                             </td>
                             <td>
@@ -357,6 +391,57 @@
                             <div class="form-text">Seleccione una ruta para la entrega de productos (opcional)</div>
                         </div>
                     </div>
+
+                    <!-- SECCIÓN DE ANTICIPOS -->
+                    <div class="row mt-3">
+                        <div class="col-12">
+                            <hr class="my-3">
+                            <h6 class="mb-3">
+                                <i class="bi bi-cash-stack"></i> Configuración de Anticipos
+                                <small class="text-muted">(Opcional)</small>
+                            </h6>
+                        </div>
+
+                        <div class="col-md-3 mb-3">
+                            <div class="form-check form-switch mt-4">
+                                <input class="form-check-input" type="checkbox" id="anticipo_activo" name="anticipo_activo" value="1" style="transform: scale(1.2);">
+                                <label class="form-check-label fw-bold ms-2" for="anticipo_activo">
+                                    Activar Anticipo
+                                </label>
+                                <div class="form-text small">Permite anticipos para este cliente</div>
+                            </div>
+                        </div>
+
+                        <div class="col-md-3 mb-3">
+                            <label for="limite_anticipo_cajas" class="form-label">Límite de Cajas</label>
+                            <input type="number" class="form-control" id="limite_anticipo_cajas" name="limite_anticipo_cajas" 
+                                   value="0" min="0" step="1"
+                                   placeholder="Número de cajas">
+                            <div class="form-text small">Máximo de cajas permitidas</div>
+                        </div>
+
+                        <div class="col-md-3 mb-3">
+                            <label for="saldo_anticipos" class="form-label">Saldo de Anticipos (C$)</label>
+                            <div class="input-group">
+                                <span class="input-group-text">C$</span>
+                                <input type="number" class="form-control" id="saldo_anticipos" name="saldo_anticipos" 
+                                       value="0" min="0" step="0.01"
+                                       placeholder="0.00">
+                            </div>
+                            <div class="form-text small">Monto disponible para anticipos</div>
+                        </div>
+
+                        <div class="col-md-3 mb-3">
+                            <label for="producto_anticipado" class="form-label">Producto Anticipado</label>
+                            <select class="form-select" id="producto_anticipado" name="producto_anticipado">
+                                <option value="">Sin producto asignado</option>
+                                {% for producto in productos %}
+                                <option value="{{ producto.ID_Producto }}">{{ producto.Nombre }} {% if producto.Codigo_Barras %}({{ producto.Codigo_Barras }}){% endif %}</option>
+                                {% endfor %}
+                            </select>
+                            <div class="form-text small">Producto asociado al anticipo</div>
+                        </div>
+                    </div>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
@@ -414,6 +499,47 @@ document.addEventListener('DOMContentLoaded', function() {
     const eliminarForm = document.getElementById('eliminarClienteForm');
     let clienteAEliminar = null;
     
+    // Elementos de anticipo
+    const anticipoCheckbox = document.getElementById('anticipo_activo');
+    const limiteCajas = document.getElementById('limite_anticipo_cajas');
+    const saldoAnticipos = document.getElementById('saldo_anticipos');
+    const productoAnticipado = document.getElementById('producto_anticipado');
+    
+    // Función para habilitar/deshabilitar campos de anticipo
+    function toggleAnticipoFields() {
+        const isActive = anticipoCheckbox.checked;
+        limiteCajas.disabled = !isActive;
+        saldoAnticipos.disabled = !isActive;
+        productoAnticipado.disabled = !isActive;
+        
+        if (!isActive) {
+            limiteCajas.value = 0;
+            saldoAnticipos.value = 0;
+            productoAnticipado.value = '';
+        }
+    }
+    
+    // Event listener para el checkbox de anticipo
+    if (anticipoCheckbox) {
+        anticipoCheckbox.addEventListener('change', toggleAnticipoFields);
+        toggleAnticipoFields(); // Inicializar estado
+    }
+    
+    // Validación de límite de cajas
+    if (limiteCajas) {
+        limiteCajas.addEventListener('change', function() {
+            if (this.value < 0) this.value = 0;
+            if (this.value > 999) this.value = 999;
+        });
+    }
+    
+    // Validación de saldo de anticipos
+    if (saldoAnticipos) {
+        saldoAnticipos.addEventListener('change', function() {
+            if (this.value < 0) this.value = 0;
+        });
+    }
+    
     // Validación de RUC/Cédula
     function validateRucCedula() {
         if (!rucCedulaInput.value) {
@@ -463,6 +589,20 @@ document.addEventListener('DOMContentLoaded', function() {
         const isTelefonoValid = validateTelefono();
         const isRucCedulaValid = validateRucCedula();
         
+        // Validación de anticipos
+        if (anticipoCheckbox && anticipoCheckbox.checked) {
+            const limite = parseInt(limiteCajas.value) || 0;
+            const saldo = parseFloat(saldoAnticipos.value) || 0;
+            const producto = productoAnticipado.value;
+            
+            if (limite === 0 && saldo === 0 && !producto) {
+                event.preventDefault();
+                event.stopPropagation();
+                alert('⚠️ Si activa anticipos, debe configurar al menos:\n- Límite de cajas\n- Saldo de anticipos\n- Producto anticipado');
+                return false;
+            }
+        }
+        
         if (!isTelefonoValid || !isRucCedulaValid || !crearForm.checkValidity()) {
             event.preventDefault();
             event.stopPropagation();
@@ -490,7 +630,6 @@ document.addEventListener('DOMContentLoaded', function() {
     // Formulario de eliminación
     if (eliminarForm) {
         eliminarForm.addEventListener('submit', function(event) {
-            // Validación adicional si es necesario
             if (!clienteAEliminar) {
                 event.preventDefault();
                 alert('Error: Cliente no especificado');
@@ -512,8 +651,14 @@ document.addEventListener('DOMContentLoaded', function() {
         const perfilClienteSelect = document.getElementById('perfil_cliente');
         const rutaSelect = document.getElementById('id_ruta');
         tipoClienteSelect.selectedIndex = 0;
-        perfilClienteSelect.value = "Mercado"; // Valor por defecto
+        perfilClienteSelect.value = "Mercado";
         rutaSelect.selectedIndex = 0;
+        
+        // Restablecer campos de anticipo
+        if (anticipoCheckbox) {
+            anticipoCheckbox.checked = false;
+            toggleAnticipoFields();
+        }
     });
     
     // Auto-focus en el campo nombre cuando se abre el modal
@@ -525,7 +670,6 @@ document.addEventListener('DOMContentLoaded', function() {
     const searchInput = document.querySelector('input[name="q"]');
     if (searchInput) {
         searchInput.focus();
-        // Mover cursor al final
         searchInput.selectionStart = searchInput.selectionEnd = searchInput.value.length;
     }
 });
@@ -559,7 +703,6 @@ function showToast(category, message) {
     const toast = new bootstrap.Toast(toastEl, { delay: 5000 });
     toast.show();
     
-    // Remover del DOM después de que se oculte
     toastEl.addEventListener('hidden.bs.toast', function () {
         toastContainer.remove();
     });

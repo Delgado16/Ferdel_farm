@@ -2371,7 +2371,6 @@ def editar_empresa(id):
         return redirect(url_for('admin_empresas'))
 
 # CATALOGO CLIENTES
-
 @app.route('/admin/catalog/client/clientes', methods=['GET'])
 @admin_required
 @bitacora_decorator("CLIENTES")
@@ -2379,6 +2378,7 @@ def admin_clientes():
     # Valores por defecto
     clientes = []
     rutas = []
+    productos = []
     page = 1
     per_page = 20
     total = 0
@@ -2401,23 +2401,37 @@ def admin_clientes():
             """, (id_empresa,))
             rutas = cursor.fetchall()
             
+            # Obtener productos activos para el selector de producto anticipado
+            cursor.execute("""
+                SELECT ID_Producto, Descripcion as Nombre
+                FROM productos 
+                WHERE ID_Empresa = %s 
+                AND Estado = 'Activo'
+                ORDER BY Descripcion
+            """, (id_empresa,))
+            productos = cursor.fetchall()
+            
             # Validar página
             if page < 1:
                 page = 1
             
             offset = (page - 1) * per_page
             
-            # Consulta base ACTUALIZADA con JOIN de rutas y todos los campos de clientes
+            # Consulta base ACTUALIZADA con todas las nuevas columnas de anticipos
             base_query = """
                 SELECT c.ID_Cliente, c.Nombre, c.Telefono, c.Direccion, c.RUC_CEDULA,
                        c.ID_Empresa, c.ID_Ruta, c.Saldo_Pendiente_Total,
                        c.Fecha_Ultimo_Movimiento, c.ID_Ultima_Factura, c.Fecha_Ultimo_Pago,
                        c.Estado, c.Fecha_Creacion, c.ID_Usuario_Creacion,
                        c.tipo_cliente, c.perfil_cliente,
-                       e.Nombre_Empresa, r.Nombre_Ruta
+                       c.Anticipo_Activo, c.Limite_Anticipo_Cajas, 
+                       c.Cajas_Consumidas_Anticipo, c.Saldo_Anticipos, c.Producto_Anticipado,
+                       e.Nombre_Empresa, r.Nombre_Ruta,
+                       p.Descripcion as Nombre_Producto_Anticipado, p.COD_Producto as Codigo_Producto_Anticipado
                 FROM clientes c
                 INNER JOIN empresa e ON c.ID_Empresa = e.ID_Empresa
                 LEFT JOIN rutas r ON c.ID_Ruta = r.ID_Ruta
+                LEFT JOIN productos p ON c.Producto_Anticipado = p.ID_Producto
                 WHERE c.Estado = 'ACTIVO' 
                 AND c.ID_Empresa = %s
                 AND e.Estado = 'Activo'
@@ -2472,12 +2486,12 @@ def admin_clientes():
     return render_template("admin/catalog/client/clientes.html", 
                         clientes=clientes, 
                         rutas=rutas,
+                        productos=productos,
                         page=page,
                         per_page=per_page,
                         total=total,
                         total_pages=total_pages,
                         search=search_query)
-
 
 @app.route('/admin/catalog/client/crear-cliente', methods=['POST'])
 @admin_required
@@ -2491,10 +2505,17 @@ def admin_crear_cliente():
         tipo_cliente = request.form.get("tipo_cliente", "Comun").strip()
         perfil_cliente = request.form.get("perfil_cliente", "Mercado").strip()
         id_ruta = request.form.get("id_ruta", "").strip()
+        
+        # NUEVOS CAMPOS DE ANTICIPO
+        anticipo_activo = request.form.get("anticipo_activo", "0").strip()
+        limite_anticipo_cajas = request.form.get("limite_anticipo_cajas", "0").strip()
+        saldo_anticipos = request.form.get("saldo_anticipos", "0").strip()
+        producto_anticipado = request.form.get("producto_anticipado", "").strip()
+        
         id_usuario = session.get('id_usuario', 1)
         id_empresa = session.get('id_empresa', 1)
 
-        # Validaciones
+        # Validaciones básicas
         if not nombre:
             flash("El nombre del cliente es obligatorio.", "danger")
             return redirect(url_for("admin_clientes"))
@@ -2506,6 +2527,33 @@ def admin_crear_cliente():
         if not id_usuario:
             flash("Error de autenticación. Por favor, inicie sesión nuevamente.", "danger")
             return redirect(url_for("admin_clientes"))
+        
+        # NUEVAS VALIDACIONES DE ANTICIPO
+        anticipo_activo = 1 if anticipo_activo == "1" else 0
+        
+        try:
+            limite_anticipo_cajas = int(limite_anticipo_cajas) if limite_anticipo_cajas else 0
+            if limite_anticipo_cajas < 0:
+                limite_anticipo_cajas = 0
+        except ValueError:
+            limite_anticipo_cajas = 0
+        
+        try:
+            saldo_anticipos = float(saldo_anticipos) if saldo_anticipos else 0
+            if saldo_anticipos < 0:
+                saldo_anticipos = 0
+        except ValueError:
+            saldo_anticipos = 0
+        
+        if producto_anticipado:
+            try:
+                producto_anticipado = int(producto_anticipado)
+                if producto_anticipado <= 0:
+                    producto_anticipado = None
+            except (ValueError, TypeError):
+                producto_anticipado = None
+        else:
+            producto_anticipado = None
         
         # Validar tipo de cliente
         if tipo_cliente not in ['Comun', 'Especial']:
@@ -2552,6 +2600,18 @@ def admin_crear_cliente():
                     flash("La ruta seleccionada no es válida o está inactiva.", "danger")
                     return redirect(url_for("admin_clientes"))
             
+            # Si se proporcionó un producto anticipado, verificar que existe
+            if producto_anticipado:
+                cursor.execute(
+                    """SELECT 1 FROM productos 
+                    WHERE ID_Producto = %s AND ID_Empresa = %s AND Estado = 'Activo'""",
+                    (producto_anticipado, id_empresa)
+                )
+                producto_valido = cursor.fetchone()
+                if not producto_valido:
+                    flash("El producto anticipado seleccionado no es válido.", "danger")
+                    return redirect(url_for("admin_clientes"))
+            
             # Verificar si el RUC/Cédula ya existe (solo si se proporcionó)
             if ruc_cedula:
                 cursor.execute(
@@ -2566,17 +2626,26 @@ def admin_crear_cliente():
                     flash("Ya existe un cliente con este RUC/Cédula", "danger")
                     return redirect(url_for("admin_clientes"))
 
-            # Insertar nuevo cliente con todos los campos
-            # NOTA: Saldo_Pendiente_Total siempre inicia en 0 y solo se modifica mediante facturación/pagos
+            # Validación adicional para anticipos activos
+            if anticipo_activo == 1:
+                if limite_anticipo_cajas == 0 and saldo_anticipos == 0 and not producto_anticipado:
+                    flash("Si activa anticipos, debe configurar al menos: límite de cajas, saldo o producto anticipado.", "danger")
+                    return redirect(url_for("admin_clientes"))
+
+            # Insertar nuevo cliente con todos los campos incluyendo anticipos
             cursor.execute("""
                 INSERT INTO clientes 
                 (Nombre, Telefono, Direccion, RUC_CEDULA, ID_Empresa, 
                  ID_Usuario_Creacion, tipo_cliente, perfil_cliente, ID_Ruta,
-                 Saldo_Pendiente_Total, Estado)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                 Saldo_Pendiente_Total, Estado,
+                 Anticipo_Activo, Limite_Anticipo_Cajas, Saldo_Anticipos, 
+                 Producto_Anticipado, Cajas_Consumidas_Anticipo)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             """, (nombre, telefono, direccion, ruc_cedula, id_empresa, 
                   id_usuario, tipo_cliente, perfil_cliente, id_ruta,
-                  0.00, 'ACTIVO'))
+                  0.00, 'ACTIVO',
+                  anticipo_activo, limite_anticipo_cajas, saldo_anticipos,
+                  producto_anticipado, 0))
             
             flash("Cliente agregado correctamente.", "success")
             
@@ -2585,7 +2654,6 @@ def admin_crear_cliente():
         flash("Error al guardar el cliente", "danger")
     
     return redirect(url_for("admin_clientes"))
-
 
 @app.route('/admin/catalog/client/editar-cliente/<int:id>', methods=['GET', 'POST'])
 @admin_required
@@ -2605,13 +2673,25 @@ def admin_editar_cliente(id):
             """, (id_empresa,))
             rutas = cursor.fetchall()
             
-            # Verificar que el cliente existe (sin filtrar por estado para poder reactivar)
+            # Obtener productos activos para el selector de producto anticipado
+            cursor.execute("""
+                SELECT ID_Producto, Descripcion, COD_Producto
+                FROM productos 
+                WHERE ID_Empresa = %s 
+                AND Estado = 'Activo'
+                ORDER BY Descripcion
+            """, (id_empresa,))
+            productos = cursor.fetchall()
+            
+            # Verificar que el cliente existe y obtener todos sus datos incluyendo anticipos
             cursor.execute(
                 """SELECT c.ID_Cliente, c.Nombre, c.Telefono, c.Direccion, c.RUC_CEDULA,
                           c.ID_Empresa, c.ID_Ruta, c.Saldo_Pendiente_Total,
                           c.Fecha_Ultimo_Movimiento, c.ID_Ultima_Factura, c.Fecha_Ultimo_Pago,
                           c.Estado, c.Fecha_Creacion, c.ID_Usuario_Creacion,
                           c.tipo_cliente, c.perfil_cliente,
+                          c.Anticipo_Activo, c.Limite_Anticipo_Cajas, 
+                          c.Cajas_Consumidas_Anticipo, c.Saldo_Anticipos, c.Producto_Anticipado,
                           r.Nombre_Ruta
                    FROM clientes c
                    INNER JOIN empresa e ON c.ID_Empresa = e.ID_Empresa
@@ -2631,7 +2711,9 @@ def admin_editar_cliente(id):
             # MÉTODO GET - Mostrar formulario
             if request.method == 'GET':
                 return render_template("admin/catalog/client/editar_clientes.html", 
-                                     cliente=cliente, rutas=rutas)
+                                     cliente=cliente, 
+                                     rutas=rutas,
+                                     productos=productos)
             
             # MÉTODO POST - Procesar formulario
             elif request.method == 'POST':
@@ -2643,16 +2725,24 @@ def admin_editar_cliente(id):
                 tipo_cliente = request.form.get("tipo_cliente", "Comun").strip()
                 perfil_cliente = request.form.get("perfil_cliente", "Mercado").strip()
                 id_ruta = request.form.get("id_ruta", "").strip()
+                
+                # NUEVOS CAMPOS DE ANTICIPO
+                anticipo_activo = request.form.get("anticipo_activo", "0").strip()
+                limite_anticipo_cajas = request.form.get("limite_anticipo_cajas", "0").strip()
+                saldo_anticipos = request.form.get("saldo_anticipos", "0").strip()
+                producto_anticipado = request.form.get("producto_anticipado", "").strip()
+                cajas_consumidas = request.form.get("cajas_consumidas_anticipo", "0").strip()
 
+                # Validaciones básicas
                 if not nombre:
                     flash("El nombre del cliente es obligatorio.", "danger")
                     return render_template("admin/catalog/client/editar_clientes.html", 
-                                         cliente=cliente, rutas=rutas)
+                                         cliente=cliente, rutas=rutas, productos=productos)
                 
                 if not telefono:
                     flash("El teléfono del cliente es obligatorio.", "danger")
                     return render_template("admin/catalog/client/editar_clientes.html", 
-                                         cliente=cliente, rutas=rutas)
+                                         cliente=cliente, rutas=rutas, productos=productos)
                 
                 # Validar estado
                 if estado not in ['ACTIVO', 'INACTIVO']:
@@ -2666,7 +2756,44 @@ def admin_editar_cliente(id):
                 if perfil_cliente not in ['Ruta', 'Mayorista', 'Mercado', 'Especial']:
                     perfil_cliente = 'Mercado'
                 
-                # Validar ID_Ruta (puede ser opcional)
+                # NUEVAS VALIDACIONES DE ANTICIPO
+                anticipo_activo = 1 if anticipo_activo == "1" else 0
+                
+                try:
+                    limite_anticipo_cajas = int(limite_anticipo_cajas) if limite_anticipo_cajas else 0
+                    if limite_anticipo_cajas < 0:
+                        limite_anticipo_cajas = 0
+                except ValueError:
+                    limite_anticipo_cajas = 0
+                
+                try:
+                    saldo_anticipos = float(saldo_anticipos) if saldo_anticipos else 0
+                    if saldo_anticipos < 0:
+                        saldo_anticipos = 0
+                except ValueError:
+                    saldo_anticipos = 0
+                
+                try:
+                    cajas_consumidas = int(cajas_consumidas) if cajas_consumidas else 0
+                    if cajas_consumidas < 0:
+                        cajas_consumidas = 0
+                    # Validar que no exceda el límite
+                    if cajas_consumidas > limite_anticipo_cajas and limite_anticipo_cajas > 0:
+                        cajas_consumidas = limite_anticipo_cajas
+                except ValueError:
+                    cajas_consumidas = 0
+                
+                if producto_anticipado:
+                    try:
+                        producto_anticipado = int(producto_anticipado)
+                        if producto_anticipado <= 0:
+                            producto_anticipado = None
+                    except (ValueError, TypeError):
+                        producto_anticipado = None
+                else:
+                    producto_anticipado = None
+                
+                # Validar ID_Ruta
                 if id_ruta:
                     try:
                         id_ruta = int(id_ruta)
@@ -2675,7 +2802,6 @@ def admin_editar_cliente(id):
                     except (ValueError, TypeError):
                         id_ruta = None
                         
-                    # Si se proporcionó una ruta, verificar que existe y pertenece a la empresa
                     if id_ruta:
                         cursor.execute(
                             """SELECT 1 FROM rutas 
@@ -2688,9 +2814,29 @@ def admin_editar_cliente(id):
                         if not ruta_valida:
                             flash("La ruta seleccionada no es válida o está inactiva.", "danger")
                             return render_template("admin/catalog/client/editar_clientes.html", 
-                                                 cliente=cliente, rutas=rutas)
+                                                 cliente=cliente, rutas=rutas, productos=productos)
                 else:
                     id_ruta = None
+                
+                # Validar producto anticipado
+                if producto_anticipado:
+                    cursor.execute(
+                        """SELECT 1 FROM productos 
+                        WHERE ID_Producto = %s AND ID_Empresa = %s AND Estado = 'Activo'""",
+                        (producto_anticipado, id_empresa)
+                    )
+                    producto_valido = cursor.fetchone()
+                    if not producto_valido:
+                        flash("El producto anticipado seleccionado no es válido.", "danger")
+                        return render_template("admin/catalog/client/editar_clientes.html", 
+                                             cliente=cliente, rutas=rutas, productos=productos)
+                
+                # Validación adicional para anticipos activos
+                if anticipo_activo == 1:
+                    if limite_anticipo_cajas == 0 and saldo_anticipos == 0 and not producto_anticipado:
+                        flash("Si activa anticipos, debe configurar al menos: límite de cajas, saldo o producto anticipado.", "danger")
+                        return render_template("admin/catalog/client/editar_clientes.html", 
+                                             cliente=cliente, rutas=rutas, productos=productos)
 
                 # Verificar si el RUC/Cédula ya existe en otro cliente activo
                 if ruc_cedula and estado == 'ACTIVO':
@@ -2706,10 +2852,9 @@ def admin_editar_cliente(id):
                     if ruc_existente:
                         flash("Ya existe otro cliente activo con este RUC/Cédula", "danger")
                         return render_template("admin/catalog/client/editar_clientes.html", 
-                                             cliente=cliente, rutas=rutas)
+                                             cliente=cliente, rutas=rutas, productos=productos)
 
-                # Actualizar cliente con todos los campos EXCEPTO Saldo_Pendiente_Total
-                # El saldo solo se modifica mediante facturación, pagos, notas de crédito, etc.
+                # UPDATE ACTUALIZADO con campos de anticipo
                 cursor.execute("""
                     UPDATE clientes 
                     SET Nombre = %s, 
@@ -2719,11 +2864,18 @@ def admin_editar_cliente(id):
                         Estado = %s,
                         tipo_cliente = %s,
                         perfil_cliente = %s,
-                        ID_Ruta = %s
+                        ID_Ruta = %s,
+                        Anticipo_Activo = %s,
+                        Limite_Anticipo_Cajas = %s,
+                        Saldo_Anticipos = %s,
+                        Producto_Anticipado = %s,
+                        Cajas_Consumidas_Anticipo = %s
                     WHERE ID_Cliente = %s 
                     AND ID_Empresa = %s
                 """, (nombre, telefono, direccion, ruc_cedula, estado, 
-                      tipo_cliente, perfil_cliente, id_ruta, id, id_empresa))
+                      tipo_cliente, perfil_cliente, id_ruta,
+                      anticipo_activo, limite_anticipo_cajas, saldo_anticipos,
+                      producto_anticipado, cajas_consumidas, id, id_empresa))
                 
                 # Registrar en bitácora
                 accion = "actualizado" if estado == 'ACTIVO' else "desactivado"
@@ -2736,9 +2888,7 @@ def admin_editar_cliente(id):
         flash("Error al procesar la solicitud", "danger")
         return redirect(url_for("admin_clientes"))
     
-    # Fallback en caso de que no se cumpla ninguna condición anterior
     return redirect(url_for("admin_clientes"))
-
 
 @app.route('/admin/catalog/client/eliminar-cliente/<int:id>', methods=['POST'])
 @admin_required
@@ -2776,6 +2926,209 @@ def admin_eliminar_cliente(id):
         flash("Error al eliminar el cliente", "danger")
     
     return redirect(url_for("admin_clientes"))
+
+# SUCURSALES DE CLIENTES
+@app.route('/admin/catalog/client/sucursales')
+@admin_required
+@bitacora_decorator("SUCURSALES_CLIENTES")
+def admin_sucursales_clientes():
+    try:
+        with get_db_cursor() as cursor:
+            # Obtener todas las sucursales activas con información de clientes
+            cursor.execute("""
+                SELECT s.ID_Sucursal, s.Nombre_Sucursal, s.Direccion, s.Telefono, 
+                       s.Encargado, s.Estado, s.Fecha_Creacion,
+                       s.ID_Cliente, c.Nombre as Nombre_Cliente
+                FROM sucursales s
+                INNER JOIN clientes c ON s.ID_Cliente = c.ID_Cliente
+                WHERE s.Estado = 'ACTIVO'
+                ORDER BY c.Nombre, s.Nombre_Sucursal
+            """)
+            sucursales = cursor.fetchall()
+            
+            # Obtener lista de clientes activos para el formulario
+            cursor.execute("""
+                SELECT ID_Cliente, Nombre, RUC_CEDULA, Direccion 
+                FROM clientes 
+                WHERE Estado = 'ACTIVO'
+                ORDER BY Nombre
+            """)
+            clientes = cursor.fetchall()
+            
+            return render_template("admin/catalog/client/sucursales_clientes.html", 
+                                 sucursales=sucursales, 
+                                 clientes=clientes)
+    except Exception as e:
+        logging.error(f"Error al cargar sucursales de clientes: {str(e)}")
+        flash("Error al cargar las sucursales de clientes", "danger")
+        return render_template("admin/catalog/client/sucursales_clientes.html", 
+                             sucursales=[], clientes=[])
+
+# Ruta para crear nueva sucursal (POST)
+@app.route('/admin/catalog/client/sucursales/create', methods=['POST'])
+@admin_required
+@bitacora_decorator("CREAR_SUCURSAL")
+def admin_sucursales_create():
+    try:
+        # Obtener datos del formulario
+        id_cliente = request.form.get('id_cliente')
+        nombre_sucursal = request.form.get('nombre_sucursal', '').strip().upper()
+        direccion = request.form.get('direccion', '').strip()
+        telefono = request.form.get('telefono', '').strip()
+        encargado = request.form.get('encargado', '').strip().upper()
+        
+        # Validaciones
+        if not id_cliente:
+            flash("Debe seleccionar un cliente", "warning")
+            return redirect(url_for('admin_sucursales_clientes'))
+        
+        if not nombre_sucursal:
+            flash("El nombre de la sucursal es obligatorio", "warning")
+            return redirect(url_for('admin_sucursales_clientes'))
+        
+        if len(nombre_sucursal) < 3:
+            flash("El nombre de la sucursal debe tener al menos 3 caracteres", "warning")
+            return redirect(url_for('admin_sucursales_clientes'))
+        
+        with get_db_cursor() as cursor:
+            # Verificar que el cliente existe y está activo
+            cursor.execute("""
+                SELECT ID_Cliente, Nombre FROM clientes 
+                WHERE ID_Cliente = %s AND Estado = 'ACTIVO'
+            """, (id_cliente,))
+            cliente = cursor.fetchone()
+            
+            if not cliente:
+                flash("El cliente seleccionado no existe o está inactivo", "danger")
+                return redirect(url_for('admin_sucursales_clientes'))
+            
+            # Verificar si ya existe una sucursal con el mismo nombre para ese cliente
+            cursor.execute("""
+                SELECT ID_Sucursal FROM sucursales 
+                WHERE ID_Cliente = %s AND Nombre_Sucursal = %s AND Estado = 'ACTIVO'
+            """, (id_cliente, nombre_sucursal))
+            
+            if cursor.fetchone():
+                flash(f"Ya existe una sucursal activa con el nombre '{nombre_sucursal}' para el cliente {cliente['Nombre']}", "warning")
+                return redirect(url_for('admin_sucursales_clientes'))
+            
+            # Insertar nueva sucursal
+            cursor.execute("""
+                INSERT INTO sucursales (ID_Cliente, Nombre_Sucursal, Direccion, Telefono, Encargado, Estado, Fecha_Creacion)
+                VALUES (%s, %s, %s, %s, %s, 'ACTIVO', %s)
+            """, (id_cliente, nombre_sucursal, direccion, telefono, encargado, datetime.now()))
+            
+            flash(f"Sucursal '{nombre_sucursal}' creada exitosamente para el cliente {cliente['Nombre']}", "success")
+            
+    except Exception as e:
+        logging.error(f"Error al crear sucursal: {str(e)}")
+        flash("Error al crear la sucursal. Por favor, intente nuevamente", "danger")
+    
+    return redirect(url_for('admin_sucursales_clientes'))
+
+# Ruta para editar sucursal
+@app.route('/admin/catalog/client/sucursales/edit/<int:id_sucursal>', methods=['POST'])
+@admin_required
+@bitacora_decorator("EDITAR_SUCURSAL")
+def admin_sucursales_edit(id_sucursal):
+    try:
+        # Obtener datos del formulario
+        nombre_sucursal = request.form.get('nombre_sucursal', '').strip().upper()
+        direccion = request.form.get('direccion', '').strip()
+        telefono = request.form.get('telefono', '').strip()
+        encargado = request.form.get('encargado', '').strip().upper()
+        
+        if not nombre_sucursal:
+            flash("El nombre de la sucursal es obligatorio", "warning")
+            return redirect(url_for('admin_sucursales_clientes'))
+        
+        with get_db_cursor() as cursor:
+            # Verificar que la sucursal existe
+            cursor.execute("SELECT ID_Sucursal, ID_Cliente, Nombre_Sucursal FROM sucursales WHERE ID_Sucursal = %s", (id_sucursal,))
+            sucursal = cursor.fetchone()
+            
+            if not sucursal:
+                flash("La sucursal no existe", "danger")
+                return redirect(url_for('admin_sucursales_clientes'))
+            
+            # Verificar si el nuevo nombre ya existe para el mismo cliente (excluyendo la sucursal actual)
+            cursor.execute("""
+                SELECT ID_Sucursal FROM sucursales 
+                WHERE ID_Cliente = %s AND Nombre_Sucursal = %s AND ID_Sucursal != %s AND Estado = 'ACTIVO'
+            """, (sucursal['ID_Cliente'], nombre_sucursal, id_sucursal))
+            
+            if cursor.fetchone():
+                flash(f"Ya existe otra sucursal con el nombre '{nombre_sucursal}' para este cliente", "warning")
+                return redirect(url_for('admin_sucursales_clientes'))
+            
+            # Actualizar sucursal
+            cursor.execute("""
+                UPDATE sucursales 
+                SET Nombre_Sucursal = %s, Direccion = %s, Telefono = %s, Encargado = %s
+                WHERE ID_Sucursal = %s
+            """, (nombre_sucursal, direccion, telefono, encargado, id_sucursal))
+            
+            flash("Sucursal actualizada exitosamente", "success")
+            
+    except Exception as e:
+        logging.error(f"Error al editar sucursal {id_sucursal}: {str(e)}")
+        flash("Error al actualizar la sucursal", "danger")
+    
+    return redirect(url_for('admin_sucursales_clientes'))
+
+# Ruta para eliminar/desactivar sucursal
+@app.route('/admin/catalog/client/sucursales/delete/<int:id_sucursal>')
+@admin_required
+@bitacora_decorator("ELIMINAR_SUCURSAL")
+def admin_sucursales_delete(id_sucursal):
+    try:
+        with get_db_cursor() as cursor:
+            # Obtener nombre de la sucursal antes de desactivar
+            cursor.execute("SELECT Nombre_Sucursal FROM sucursales WHERE ID_Sucursal = %s", (id_sucursal,))
+            sucursal = cursor.fetchone()
+            
+            if not sucursal:
+                flash("La sucursal no existe", "danger")
+                return redirect(url_for('admin_sucursales_clientes'))
+            
+            # Desactivar la sucursal
+            cursor.execute("""
+                UPDATE sucursales 
+                SET Estado = 'INACTIVO' 
+                WHERE ID_Sucursal = %s
+            """, (id_sucursal,))
+            
+            flash(f"Sucursal '{sucursal['Nombre_Sucursal']}' desactivada exitosamente", "success")
+            
+    except Exception as e:
+        logging.error(f"Error al eliminar sucursal {id_sucursal}: {str(e)}")
+        flash("Error al eliminar la sucursal", "danger")
+    
+    return redirect(url_for('admin_sucursales_clientes'))
+
+# Ruta para obtener datos de una sucursal (para edición vía AJAX)
+@app.route('/admin/catalog/client/sucursales/get/<int:id_sucursal>')
+@admin_required
+def admin_sucursales_get(id_sucursal):
+    try:
+        with get_db_cursor() as cursor:
+            cursor.execute("""
+                SELECT ID_Sucursal, ID_Cliente, Nombre_Sucursal, Direccion, 
+                       Telefono, Encargado, Estado
+                FROM sucursales 
+                WHERE ID_Sucursal = %s
+            """, (id_sucursal,))
+            
+            sucursal = cursor.fetchone()
+            if sucursal:
+                return jsonify({'success': True, 'data': sucursal})
+            else:
+                return jsonify({'success': False, 'error': 'Sucursal no encontrada'})
+                
+    except Exception as e:
+        logging.error(f"Error al obtener sucursal {id_sucursal}: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)})
+
 
 # CATALOGO PROVEEDORES
 @app.route('/admin/catalog/proveedor/proveedores', methods=['GET'])
@@ -2842,7 +3195,7 @@ def admin_proveedores():
                         total=total,
                         search=search_query)
     
-@app.route('/admin/catalog/proveedor/crear-proveedor', methods=['POST'])
+@app.route('/admin/catalog/proveedor/crear-proveedor', methods=['POST'])  
 @admin_required
 @bitacora_decorator("PROVEEDORES-CREAR")
 def admin_crear_proveedor():
@@ -6844,7 +7197,6 @@ def admin_crear_venta():
                             empresa=empresa_data if 'empresa_data' in locals() else None,
                             id_tipo_movimiento=id_tipo_movimiento if 'id_tipo_movimiento' in locals() else None)
 
-
 @app.route('/api/ventas/productos/cliente/<int:cliente_id>', methods=['GET'])
 def api_productos_por_cliente(cliente_id):
     """API para obtener productos visibles para un cliente específico con los 3 tipos de precio"""
@@ -10116,7 +10468,6 @@ def filtrar_pedidos():
     except Exception as e:
         flash(f"Error al filtrar pedidos: {e}", "error")
         return redirect(url_for('admin_pedidos_venta'))
-
 
 @app.route('/admin/ventas/pedido-venta/<int:id_pedido>')
 @admin_or_bodega_required

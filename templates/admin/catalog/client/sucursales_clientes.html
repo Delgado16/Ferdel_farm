@@ -1,0 +1,487 @@
+{% extends "layout.html" %}
+
+{% block title %}Gestión de Sucursales de Clientes{% endblock %}
+
+{% block extra_css %}
+<link href="https://cdn.datatables.net/1.11.5/css/dataTables.bootstrap5.min.css" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+<link href="https://cdn.jsdelivr.net/npm/select2-bootstrap-5-theme@1.3.0/dist/select2-bootstrap-5-theme.min.css"
+    rel="stylesheet" />
+<style>
+    .select2-container--bootstrap-5 .select2-selection {
+        min-height: calc(2.25rem + 2px);
+        border-radius: 0.375rem;
+    }
+
+    .table-sucursales {
+        width: 100% !important;
+    }
+
+    .btn-action-icon {
+        margin: 0 2px;
+    }
+
+    .card-header-gradient {
+        background: linear-gradient(135deg, #6a11cb 0%, #2575fc 100%);
+        color: white;
+    }
+
+    .card-header-gradient .card-title {
+        color: white;
+        font-weight: 600;
+    }
+
+    .card-header-gradient .btn-primary {
+        background-color: rgba(255, 255, 255, 0.2);
+        border-color: rgba(255, 255, 255, 0.3);
+    }
+
+    .card-header-gradient .btn-primary:hover {
+        background-color: rgba(255, 255, 255, 0.3);
+    }
+
+    .modal-header-gradient {
+        background: linear-gradient(135deg, #6a11cb 0%, #2575fc 100%);
+        color: white;
+    }
+
+    .modal-header-gradient .btn-close {
+        filter: brightness(0) invert(1);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <a href="{{ url_for('admin_clientes') }}" class="btn btn-outline-secondary">
+        <i class="bi bi-arrow-left"></i> Volver a Gestión de Clientes
+    </a>
+</div>
+
+<div class="container-fluid px-2 px-md-4">
+    <div class="row">
+        <div class="col-12">
+            <div class="form-container">
+                <div class="form-header">
+                    <h4 class="mb-0">
+                        <i class="bi bi-shop"></i> Sucursales de Clientes
+                    </h4>
+                    <button type="button" class="btn btn-primary" data-bs-toggle="modal"
+                        data-bs-target="#modalAgregarSucursal">
+                        <i class="bi bi-plus-circle"></i> Nueva Sucursal
+                    </button>
+                </div>
+
+                {% if sucursales %}
+                <div class="table-container">
+                    <table class="table table-hover table-sucursales" id="tablaSucursales">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Cliente</th>
+                                <th>Nombre Sucursal</th>
+                                <th>Dirección</th>
+                                <th>Teléfono</th>
+                                <th>Encargado</th>
+                                <th>Fecha Creación</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for sucursal in sucursales %}
+                            <tr>
+                                <td>{{ sucursal.ID_Sucursal }}</td>
+                                <td>{{ sucursal.Nombre_Cliente }}</td>
+                                <td>{{ sucursal.Nombre_Sucursal }}</td>
+                                <td>{{ sucursal.Direccion or '-' }}</td>
+                                <td>{{ sucursal.Telefono or '-' }}</td>
+                                <td>{{ sucursal.Encargado or '-' }}</td>
+                                <td>{{ sucursal.Fecha_Creacion.strftime('%d/%m/%Y %H:%M') if sucursal.Fecha_Creacion
+                                    else '-' }}</td>
+                                <td>
+                                    <button type="button" class="btn btn-sm btn-info btn-editar"
+                                        data-id="{{ sucursal.ID_Sucursal }}"
+                                        data-nombre="{{ sucursal.Nombre_Sucursal }}"
+                                        data-direccion="{{ sucursal.Direccion or '' }}"
+                                        data-telefono="{{ sucursal.Telefono or '' }}"
+                                        data-encargado="{{ sucursal.Encargado or '' }}" title="Editar sucursal">
+                                        <i class="bi bi-pencil-square"></i>
+                                    </button>
+                                    <button type="button" class="btn btn-sm btn-danger btn-eliminar"
+                                        data-id="{{ sucursal.ID_Sucursal }}"
+                                        data-nombre="{{ sucursal.Nombre_Sucursal }}" title="Desactivar sucursal">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="alert alert-info text-center">
+                    <i class="bi bi-info-circle"></i> No hay sucursales registradas.
+                    <button type="button" class="btn btn-link" data-bs-toggle="modal"
+                        data-bs-target="#modalAgregarSucursal">
+                        Haga clic aquí para agregar una
+                    </button>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Crear Nueva Sucursal -->
+<div class="modal fade" id="modalAgregarSucursal" tabindex="-1" aria-labelledby="modalAgregarLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header modal-header-gradient">
+                <h5 class="modal-title" id="modalAgregarLabel">
+                    <i class="bi bi-plus-circle"></i> Crear Nueva Sucursal
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
+                    aria-label="Close"></button>
+            </div>
+            <form action="{{ url_for('admin_sucursales_create') }}" method="POST" id="formCrearSucursal">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="id_cliente" class="form-label required-field">Cliente *</label>
+                        <select class="form-select select2" id="id_cliente" name="id_cliente" required>
+                            <option value="">-- Seleccione un cliente --</option>
+                            {% for cliente in clientes %}
+                            <option value="{{ cliente.ID_Cliente }}">{{ cliente.Nombre }} {% if cliente.RUC %} ({{
+                                cliente.RUC }}){% endif %}</option>
+                            {% endfor %}
+                        </select>
+                        <div class="form-text text-muted">Seleccione el cliente dueño de esta sucursal</div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="nombre_sucursal" class="form-label required-field">Nombre de la Sucursal *</label>
+                        <input type="text" class="form-control" id="nombre_sucursal" name="nombre_sucursal"
+                            placeholder="Ej: SUCURSAL CENTRO, SUCURSAL NORTE, etc." maxlength="255" required
+                            autocomplete="off">
+                        <div class="form-text text-muted">Nombre único para identificar esta sucursal (se guardará en
+                            mayúsculas)</div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="direccion" class="form-label">Dirección</label>
+                        <textarea class="form-control" id="direccion" name="direccion" rows="3"
+                            placeholder="Dirección completa de la sucursal" maxlength="500"></textarea>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="telefono" class="form-label">Teléfono</label>
+                            <input type="tel" class="form-control" id="telefono" name="telefono"
+                                placeholder="Ej: 123456789" maxlength="50">
+                            <div class="form-text text-muted">Número de contacto de la sucursal</div>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="encargado" class="form-label">Encargado</label>
+                            <input type="text" class="form-control" id="encargado" name="encargado"
+                                placeholder="Nombre del encargado" maxlength="255">
+                            <div class="form-text text-muted">Persona responsable de la sucursal</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="bi bi-x-circle"></i> Cancelar
+                    </button>
+                    <button type="submit" class="btn btn-primary" id="btnGuardar">
+                        <i class="bi bi-save"></i> Guardar Sucursal
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Editar Sucursal -->
+<div class="modal fade" id="modalEditarSucursal" tabindex="-1" aria-labelledby="modalEditarLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-info text-white">
+                <h5 class="modal-title" id="modalEditarLabel">
+                    <i class="bi bi-pencil-square"></i> Editar Sucursal
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
+                    aria-label="Close"></button>
+            </div>
+            <form id="formEditarSucursal" method="POST">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="edit_nombre_sucursal" class="form-label required-field">Nombre de la Sucursal
+                            *</label>
+                        <input type="text" class="form-control" id="edit_nombre_sucursal" name="nombre_sucursal"
+                            required maxlength="255" autocomplete="off">
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="edit_direccion" class="form-label">Dirección</label>
+                        <textarea class="form-control" id="edit_direccion" name="direccion" rows="3"
+                            maxlength="500"></textarea>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="edit_telefono" class="form-label">Teléfono</label>
+                            <input type="tel" class="form-control" id="edit_telefono" name="telefono" maxlength="50">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="edit_encargado" class="form-label">Encargado</label>
+                            <input type="text" class="form-control" id="edit_encargado" name="encargado"
+                                maxlength="255">
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="bi bi-x-circle"></i> Cancelar
+                    </button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-save"></i> Actualizar Sucursal
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Confirmar Eliminación -->
+<div class="modal fade" id="modalEliminarSucursal" tabindex="-1" aria-labelledby="modalEliminarLabel"
+    aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title" id="modalEliminarLabel">
+                    <i class="bi bi-exclamation-triangle"></i> Confirmar Desactivación
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
+                    aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>¿Está seguro que desea desactivar la sucursal <strong id="eliminar_nombre"></strong>?</p>
+                <div class="alert alert-warning">
+                    <i class="bi bi-info-circle"></i> Esta acción cambiará el estado de la sucursal a INACTIVO.
+                    La sucursal no se eliminará físicamente y podrá ser reactivada posteriormente.
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="bi bi-x-circle"></i> Cancelar
+                </button>
+                <a href="#" id="confirmarEliminar" class="btn btn-danger">
+                    <i class="bi bi-trash"></i> Desactivar Sucursal
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.datatables.net/1.11.5/js/jquery.dataTables.min.js"></script>
+<script src="https://cdn.datatables.net/1.11.5/js/dataTables.bootstrap5.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+<script>
+    $(document).ready(function () {
+        // Inicializar DataTable si hay datos
+        {% if sucursales %}
+        $('#tablaSucursales').DataTable({
+            language: {
+                url: '//cdn.datatables.net/plug-ins/1.11.5/i18n/es-ES.json'
+            },
+            order: [[1, 'asc'], [2, 'asc']],
+            pageLength: 10,
+            lengthMenu: [[10, 25, 50, -1], [10, 25, 50, "Todos"]],
+            responsive: true,
+            columnDefs: [
+                { orderable: false, targets: 7 }
+            ]
+        });
+        {% endif %}
+
+        // Inicializar Select2 para Bootstrap 5
+        $('#id_cliente').select2({
+            theme: 'bootstrap-5',
+            placeholder: '-- Seleccione un cliente --',
+            allowClear: true,
+            dropdownParent: $('#modalAgregarSucursal'),
+            width: '100%'
+        });
+
+        // Modal Editar
+        $('.btn-editar').on('click', function () {
+            var id = $(this).data('id');
+            var nombre = $(this).data('nombre');
+            var direccion = $(this).data('direccion');
+            var telefono = $(this).data('telefono');
+            var encargado = $(this).data('encargado');
+
+            $('#edit_nombre_sucursal').val(nombre);
+            $('#edit_direccion').val(direccion);
+            $('#edit_telefono').val(telefono);
+            $('#edit_encargado').val(encargado);
+
+            var url = "{{ url_for('admin_sucursales_edit', id_sucursal=0) }}".replace('0', id);
+            $('#formEditarSucursal').attr('action', url);
+
+            $('#modalEditarSucursal').modal('show');
+        });
+
+        // Modal Eliminar
+        $('.btn-eliminar').on('click', function () {
+            var id = $(this).data('id');
+            var nombre = $(this).data('nombre');
+
+            $('#eliminar_nombre').text(nombre);
+            var url = "{{ url_for('admin_sucursales_delete', id_sucursal=0) }}".replace('0', id);
+            $('#confirmarEliminar').attr('href', url);
+
+            $('#modalEliminarSucursal').modal('show');
+        });
+
+        // Validación del formulario de creación
+        $('#formCrearSucursal').on('submit', function (e) {
+            var cliente = $('#id_cliente').val();
+            var nombre = $('#nombre_sucursal').val().trim();
+
+            if (!cliente) {
+                e.preventDefault();
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Campo requerido',
+                    text: 'Por favor seleccione un cliente',
+                    confirmButtonColor: '#6a11cb'
+                });
+                return false;
+            }
+
+            if (!nombre) {
+                e.preventDefault();
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Campo requerido',
+                    text: 'Por favor ingrese el nombre de la sucursal',
+                    confirmButtonColor: '#6a11cb'
+                });
+                return false;
+            }
+
+            if (nombre.length < 3) {
+                e.preventDefault();
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Nombre muy corto',
+                    text: 'El nombre de la sucursal debe tener al menos 3 caracteres',
+                    confirmButtonColor: '#6a11cb'
+                });
+                return false;
+            }
+
+            // Deshabilitar el botón para evitar doble envío
+            $('#btnGuardar').prop('disabled', true).html('<i class="bi bi-hourglass-split"></i> Guardando...');
+            return true;
+        });
+
+        // Validación del formulario de edición
+        $('#formEditarSucursal').on('submit', function (e) {
+            var nombre = $('#edit_nombre_sucursal').val().trim();
+
+            if (!nombre) {
+                e.preventDefault();
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Campo requerido',
+                    text: 'Por favor ingrese el nombre de la sucursal',
+                    confirmButtonColor: '#6a11cb'
+                });
+                return false;
+            }
+
+            if (nombre.length < 3) {
+                e.preventDefault();
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Nombre muy corto',
+                    text: 'El nombre de la sucursal debe tener al menos 3 caracteres',
+                    confirmButtonColor: '#6a11cb'
+                });
+                return false;
+            }
+
+            return true;
+        });
+
+        // Convertir a mayúsculas mientras se escribe
+        $('#nombre_sucursal, #edit_nombre_sucursal, #encargado, #edit_encargado').on('input', function () {
+            $(this).val($(this).val().toUpperCase());
+        });
+
+        // Limpiar formulario al cerrar modal
+        $('#modalAgregarSucursal').on('hidden.bs.modal', function () {
+            $('#formCrearSucursal')[0].reset();
+            $('#id_cliente').val('').trigger('change');
+            $('#btnGuardar').prop('disabled', false).html('<i class="bi bi-save"></i> Guardar Sucursal');
+        });
+
+        // Mostrar mensajes flash con SweetAlert si es necesario
+        {% with messages = get_flashed_messages(with_categories = true) %}
+        {% for category, message in messages %}
+        {% if category == 'success' %}
+        Swal.fire({
+            icon: 'success',
+            title: 'Éxito',
+            text: '{{ message }}',
+            confirmButtonColor: '#6a11cb',
+            timer: 3000
+        });
+        {% elif category == 'danger' %}
+        Swal.fire({
+            icon: 'error',
+            title: 'Error',
+            text: '{{ message }}',
+            confirmButtonColor: '#6a11cb'
+        });
+        {% elif category == 'warning' %}
+        Swal.fire({
+            icon: 'warning',
+            title: 'Atención',
+            text: '{{ message }}',
+            confirmButtonColor: '#6a11cb'
+        });
+        {% endif %}
+        {% endfor %}
+        {% endwith %}
+    });
+</script>
+
+<style>
+    .required-field:after {
+        content: " *";
+        color: red;
+    }
+
+    .table-container {
+        overflow-x: auto;
+    }
+
+    @media (max-width: 768px) {
+        .table-sucursales {
+            font-size: 0.85rem;
+        }
+
+        .btn-sm {
+            padding: 0.2rem 0.4rem;
+            font-size: 0.75rem;
+        }
+    }
+</style>
+{% endblock %}
