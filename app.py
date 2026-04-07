@@ -8663,6 +8663,7 @@ def admin_anticipo_nuevo():
             fecha_vencimiento = request.form.get('fecha_vencimiento')
             notas = request.form.get('notas', '')
             precio_especial = request.form.get('precio_especial', '').strip()
+            calcular_precio_auto = request.form.get('calcular_precio_auto')
             
             # Validaciones
             if not id_cliente or not id_producto:
@@ -8690,14 +8691,12 @@ def admin_anticipo_nuevo():
                     flash('Cliente no encontrado o no pertenece a su empresa', 'error')
                     return redirect(url_for('admin_anticipo_nuevo'))
                 
-                # Obtener información del producto
+                # Obtener información del producto (solo para descripción, NO para el precio)
                 cursor.execute("""
                     SELECT 
                         p.ID_Producto,
                         p.Descripcion,
-                        p.Precio_Mercado,
-                        p.Precio_Mayorista,
-                        p.Precio_Ruta
+                        p.COD_Producto
                     FROM productos p
                     WHERE p.ID_Producto = %s AND p.ID_Empresa = %s AND p.Estado = 'activo'
                 """, (id_producto, id_empresa))
@@ -8707,42 +8706,88 @@ def admin_anticipo_nuevo():
                     flash('Producto no encontrado o no pertenece a su empresa', 'error')
                     return redirect(url_for('admin_anticipo_nuevo'))
                 
-                # Determinar precio unitario según perfil del cliente
+                # Determinar precio unitario según el perfil del cliente
                 precio_unitario = 0
-                if cliente['tipo_cliente'] == 'Especial' and precio_especial:
-                    # Si es cliente especial y se ingresó precio especial
-                    try:
+                perfil_cliente = cliente['perfil_cliente']
+                
+                # LÓGICA PRINCIPAL: Según el perfil del cliente
+                if perfil_cliente == 'Especial':
+                    # CLIENTE PERFIL ESPECIAL: El usuario ingresa el precio
+                    if calcular_precio_auto == 'on':
+                        # Calcular precio automáticamente: monto_pagado / cantidad_cajas
+                        precio_unitario = monto_pagado / cantidad_cajas
+                        flash(f'💰 Precio calculado automáticamente: ${precio_unitario:.2f} por caja (${monto_pagado:,.2f} / {cantidad_cajas} cajas)', 'info')
+                    elif precio_especial and float(precio_especial) > 0:
+                        # Usar precio especial ingresado manualmente
                         precio_unitario = float(precio_especial)
-                    except ValueError:
-                        flash('Precio especial no válido', 'error')
+                        flash(f'💰 Precio especial ingresado: ${precio_unitario:.2f} por caja', 'info')
+                    else:
+                        # Si no hay precio especial, calcular automáticamente como fallback
+                        precio_unitario = monto_pagado / cantidad_cajas
+                        flash(f'💰 Precio calculado automáticamente: ${precio_unitario:.2f} por caja', 'info')
+                    
+                    # Validar que el precio sea positivo
+                    if precio_unitario <= 0:
+                        flash('El precio por caja debe ser mayor a 0', 'error')
                         return redirect(url_for('admin_anticipo_nuevo'))
-                else:
-                    # Cliente normal: usar precio según perfil
-                    perfil = cliente['perfil_cliente']
-                    if perfil == 'Mayorista':
-                        precio_unitario = float(producto['Precio_Mayorista']) if producto['Precio_Mayorista'] else 0
-                    elif perfil == 'Ruta':
-                        precio_unitario = float(producto['Precio_Ruta']) if producto['Precio_Ruta'] else 0
-                    else:  # Mercado o por defecto
-                        precio_unitario = float(producto['Precio_Mercado']) if producto['Precio_Mercado'] else 0
+                        
+                elif perfil_cliente == 'Mayorista':
+                    # Obtener precio mayorista del producto
+                    cursor.execute("SELECT Precio_Mayorista FROM productos WHERE ID_Producto = %s", (id_producto,))
+                    precio_data = cursor.fetchone()
+                    precio_unitario = float(precio_data['Precio_Mayorista']) if precio_data and precio_data['Precio_Mayorista'] else 0
+                    
+                    if precio_unitario <= 0:
+                        flash('El producto no tiene precio mayorista configurado', 'error')
+                        return redirect(url_for('admin_anticipo_nuevo'))
+                    
+                    # Verificar que el monto corresponda
+                    monto_esperado = cantidad_cajas * precio_unitario
+                    if abs(monto_pagado - monto_esperado) > 0.01:
+                        flash(f'⚠️ Atención: El monto pagado (${monto_pagado:,.2f}) no corresponde con el precio mayorista (${monto_esperado:,.2f}). Se usará el monto ingresado.', 'warning')
+                        
+                elif perfil_cliente == 'Ruta':
+                    # Obtener precio ruta del producto
+                    cursor.execute("SELECT Precio_Ruta FROM productos WHERE ID_Producto = %s", (id_producto,))
+                    precio_data = cursor.fetchone()
+                    precio_unitario = float(precio_data['Precio_Ruta']) if precio_data and precio_data['Precio_Ruta'] else 0
+                    
+                    if precio_unitario <= 0:
+                        flash('El producto no tiene precio ruta configurado', 'error')
+                        return redirect(url_for('admin_anticipo_nuevo'))
+                    
+                    # Verificar que el monto corresponda
+                    monto_esperado = cantidad_cajas * precio_unitario
+                    if abs(monto_pagado - monto_esperado) > 0.01:
+                        flash(f'⚠️ Atención: El monto pagado (${monto_pagado:,.2f}) no corresponde con el precio ruta (${monto_esperado:,.2f}). Se usará el monto ingresado.', 'warning')
+                        
+                else:  # perfil_cliente == 'Mercado' o cualquier otro
+                    # Obtener precio mercado del producto
+                    cursor.execute("SELECT Precio_Mercado FROM productos WHERE ID_Producto = %s", (id_producto,))
+                    precio_data = cursor.fetchone()
+                    precio_unitario = float(precio_data['Precio_Mercado']) if precio_data and precio_data['Precio_Mercado'] else 0
+                    
+                    if precio_unitario <= 0:
+                        flash('El producto no tiene precio mercado configurado', 'error')
+                        return redirect(url_for('admin_anticipo_nuevo'))
+                    
+                    # Verificar que el monto corresponda
+                    monto_esperado = cantidad_cajas * precio_unitario
+                    if abs(monto_pagado - monto_esperado) > 0.01:
+                        flash(f'⚠️ Atención: El monto pagado (${monto_pagado:,.2f}) no corresponde con el precio mercado (${monto_esperado:,.2f}). Se usará el monto ingresado.', 'warning')
                 
-                # Validar que el precio unitario no sea 0
-                if precio_unitario <= 0:
-                    flash('No se pudo determinar el precio del producto. Verifique la configuración.', 'error')
-                    return redirect(url_for('admin_anticipo_nuevo'))
-                
-                # Calcular saldo restante (inicialmente es el monto pagado)
+                # Calcular saldo restante
                 saldo_restante = monto_pagado
                 
-                # Insertar anticipo
+                # Insertar anticipo con el precio unitario determinado
                 cursor.execute("""
                     INSERT INTO anticipos_clientes 
                     (ID_Cliente, ID_Producto, Cantidad_Cajas, Cajas_Consumidas, 
-                     Monto_Pagado, Saldo_Restante, Fecha_Anticipo, Fecha_Vencimiento, 
-                     Estado, Notas)
-                    VALUES (%s, %s, %s, 0, %s, %s, NOW(), %s, 'ACTIVO', %s)
+                     Monto_Pagado, Saldo_Restante, Precio_Unitario, Fecha_Anticipo, 
+                     Fecha_Vencimiento, Estado, Notas)
+                    VALUES (%s, %s, %s, 0, %s, %s, %s, NOW(), %s, 'ACTIVO', %s)
                 """, (id_cliente, id_producto, cantidad_cajas, monto_pagado, 
-                      saldo_restante, fecha_vencimiento or None, notas))
+                      saldo_restante, precio_unitario, fecha_vencimiento or None, notas))
                 
                 id_anticipo = cursor.lastrowid
                 
@@ -8756,7 +8801,7 @@ def admin_anticipo_nuevo():
                     WHERE ID_Cliente = %s
                 """, (cantidad_cajas, monto_pagado, id_producto, id_cliente))
                 
-                flash(f'✅ Anticipo registrado exitosamente. ID: {id_anticipo}', 'success')
+                flash(f'✅ Anticipo registrado exitosamente. ID: {id_anticipo} - Precio por caja: ${precio_unitario:.2f}', 'success')
                 return redirect(url_for('admin_clientes_anticipos'))
                 
         except Exception as e:
@@ -8901,6 +8946,289 @@ def admin_anticipo_cancelar(id_anticipo):
         traceback.print_exc()
         flash('Error al cancelar el anticipo', 'error')
         return redirect(url_for('admin_clientes_anticipos'))
+
+# ENTREGAS DE CLIENTES POR ANTICIPO
+
+@app.route('/admin/ventas/anticipos/entregas', methods=['GET', 'POST'])
+@admin_required
+@bitacora_decorator("CLIENTES-ANTICIPOS-ENTREGAS")
+def admin_anticipo_entregas():
+    """Visualizar y realizar entregas de productos con anticipos"""
+    
+    if request.method == 'POST':
+        try:
+            # Obtener datos del formulario
+            id_anticipo = request.form.get('id_anticipo')
+            cantidad_cajas = int(request.form.get('cantidad_cajas'))
+            id_sucursal = request.form.get('id_sucursal')
+            notas = request.form.get('notas', '')
+            
+            if not id_anticipo or not cantidad_cajas or not id_sucursal:
+                flash('Todos los campos son requeridos', 'error')
+                return redirect(request.url)
+            
+            # Obtener el ID del usuario actual (esto viene de Flask-Login)
+            # current_user.id debe mapear al campo ID_Usuario de tu tabla usuarios
+            id_usuario = current_user.id
+            
+            with get_db_cursor() as cursor:
+                # 1. Obtener información completa del anticipo y cliente
+                cursor.execute("""
+                    SELECT 
+                        a.ID_Anticipo, 
+                        a.ID_Cliente, 
+                        a.ID_Producto, 
+                        a.Cantidad_Cajas as Anticipo_Total_Cajas,
+                        a.Cajas_Consumidas as Anticipo_Cajas_Consumidas,
+                        a.Precio_Unitario,
+                        a.Monto_Pagado,
+                        a.Saldo_Restante,
+                        p.Descripcion as Nombre_Producto,
+                        c.Nombre as Nombre_Cliente,
+                        c.Telefono,
+                        c.Saldo_Anticipos as Cliente_Saldo_Anticipos,
+                        c.Cajas_Consumidas_Anticipo as Cliente_Cajas_Consumidas,
+                        c.Anticipo_Activo,
+                        c.Producto_Anticipado
+                    FROM anticipos_clientes a
+                    INNER JOIN clientes c ON a.ID_Cliente = c.ID_Cliente
+                    INNER JOIN productos p ON a.ID_Producto = p.ID_Producto
+                    WHERE a.ID_Anticipo = %s AND a.Estado = 'ACTIVO'
+                """, (id_anticipo,))
+                anticipo = cursor.fetchone()
+                
+                if not anticipo:
+                    flash('Anticipo no encontrado o inactivo', 'error')
+                    return redirect(request.url)
+                
+                # 2. Calcular cajas disponibles
+                cajas_disponibles_anticipo = anticipo['Anticipo_Total_Cajas'] - anticipo['Anticipo_Cajas_Consumidas']
+                
+                if cantidad_cajas > cajas_disponibles_anticipo:
+                    flash(f'⚠️ Cajas insuficientes en el anticipo de {anticipo["Nombre_Cliente"]}. Disponibles: {cajas_disponibles_anticipo}', 'error')
+                    return redirect(request.url)
+                
+                if cantidad_cajas <= 0:
+                    flash('La cantidad debe ser mayor a 0', 'error')
+                    return redirect(request.url)
+                
+                # 3. Calcular total
+                total = cantidad_cajas * float(anticipo['Precio_Unitario'])
+                
+                # 4. Registrar la entrega en tabla entregas (usando id_usuario)
+                cursor.execute("""
+                    INSERT INTO entregas 
+                    (ID_Cliente, ID_Sucursal, ID_Producto, Cantidad_Cajas, 
+                     Precio_Unitario, Total, Usa_Anticipo, ID_Anticipo, 
+                     ID_Usuario, Notas, Fecha_Entrega)
+                    VALUES (%s, %s, %s, %s, %s, %s, 1, %s, %s, %s, NOW())
+                """, (anticipo['ID_Cliente'], id_sucursal, anticipo['ID_Producto'], 
+                      cantidad_cajas, anticipo['Precio_Unitario'], total, 
+                      id_anticipo, id_usuario, notas))
+                
+                id_entrega = cursor.lastrowid
+                
+                # 5. Registrar en detalle_entregas
+                cursor.execute("""
+                    INSERT INTO detalle_entregas 
+                    (ID_Entrega, ID_Producto, Cantidad_Cajas, Precio_Unitario, 
+                     Total, Usa_Anticipo, ID_Anticipo)
+                    VALUES (%s, %s, %s, %s, %s, 1, %s)
+                """, (id_entrega, anticipo['ID_Producto'], cantidad_cajas, 
+                      anticipo['Precio_Unitario'], total, id_anticipo))
+                
+                # 6. Actualizar el anticipo (tabla anticipos_clientes)
+                nuevas_cajas_consumidas_anticipo = anticipo['Anticipo_Cajas_Consumidas'] + cantidad_cajas
+                nuevo_estado_anticipo = 'COMPLETADO' if nuevas_cajas_consumidas_anticipo >= anticipo['Anticipo_Total_Cajas'] else 'ACTIVO'
+                
+                # Calcular nuevo saldo restante del anticipo
+                nuevo_saldo_restante = (anticipo['Anticipo_Total_Cajas'] - nuevas_cajas_consumidas_anticipo) * float(anticipo['Precio_Unitario'])
+                
+                cursor.execute("""
+                    UPDATE anticipos_clientes 
+                    SET Cajas_Consumidas = %s, 
+                        Estado = %s,
+                        Saldo_Restante = %s
+                    WHERE ID_Anticipo = %s
+                """, (nuevas_cajas_consumidas_anticipo, nuevo_estado_anticipo, nuevo_saldo_restante, id_anticipo))
+                
+                # 7. ACTUALIZAR DATOS DEL CLIENTE (campos de anticipos)
+                nuevas_cajas_consumidas_cliente = anticipo['Cliente_Cajas_Consumidas'] + cantidad_cajas
+                nuevo_saldo_anticipos_cliente = float(anticipo['Cliente_Saldo_Anticipos']) - total
+                
+                # Verificar si el anticipo del cliente se ha completado
+                anticipo_cliente_completado = nuevas_cajas_consumidas_cliente >= anticipo['Anticipo_Total_Cajas']
+                nuevo_anticipo_activo = 0 if anticipo_cliente_completado else 1
+                
+                cursor.execute("""
+                    UPDATE clientes 
+                    SET Cajas_Consumidas_Anticipo = %s,
+                        Saldo_Anticipos = %s,
+                        Anticipo_Activo = %s,
+                        Fecha_Ultimo_Movimiento = NOW()
+                    WHERE ID_Cliente = %s
+                """, (nuevas_cajas_consumidas_cliente, nuevo_saldo_anticipos_cliente, 
+                      nuevo_anticipo_activo, anticipo['ID_Cliente']))
+                
+                # 8. Si el anticipo se completó, registrar en bitácora adicional (usando id_usuario)
+                if anticipo_cliente_completado:
+                    cursor.execute("""
+                        INSERT INTO bitacora (ID_Usuario, Accion, Tabla_Afectada, ID_Registro, Detalles, Fecha)
+                        VALUES (%s, 'ANTICIPO_COMPLETADO', 'clientes', %s, %s, NOW())
+                    """, (id_usuario, anticipo['ID_Cliente'], 
+                          f"Anticipo completado para el cliente {anticipo['Nombre_Cliente']}. Total cajas consumidas: {nuevas_cajas_consumidas_cliente}"))
+                
+                # Mensaje de éxito con nombre del cliente
+                flash(f'✅ Entrega registrada exitosamente!\n'
+                      f'👤 Cliente: {anticipo["Nombre_Cliente"]}\n'
+                      f'📦 Producto: {anticipo["Nombre_Producto"]}\n'
+                      f'📊 Cajas entregadas: {cantidad_cajas}\n'
+                      f'💰 Total: ${total:,.2f}\n'
+                      f'📦 Cajas restantes en anticipo: {cajas_disponibles_anticipo - cantidad_cajas}\n'
+                      f'💵 Saldo restante del anticipo: ${nuevo_saldo_restante:,.2f}', 'success')
+                
+                return redirect(url_for('admin_anticipo_entregas'))
+                
+        except ValueError as e:
+            flash(f'Error en el formato de los datos: {str(e)}', 'error')
+            return redirect(request.url)
+        except Exception as e:
+            flash(f'Error al registrar la entrega: {str(e)}', 'error')
+            return redirect(request.url)
+    
+    # Método GET - Mostrar la página con datos
+    try:
+        with get_db_cursor(True) as cursor:
+            # 1. Obtener anticipos activos disponibles para entregas (CON NOMBRE DEL CLIENTE)
+            cursor.execute("""
+                SELECT 
+                    a.ID_Anticipo,
+                    a.ID_Cliente,
+                    c.Nombre as Nombre_Cliente,
+                    c.Telefono,
+                    c.RUC_CEDULA,
+                    c.perfil_cliente,
+                    c.Saldo_Anticipos as Cliente_Saldo_Anticipos,
+                    c.Cajas_Consumidas_Anticipo as Cliente_Cajas_Consumidas,
+                    c.Anticipo_Activo,
+                    c.Limite_Anticipo_Cajas,
+                    a.ID_Producto,
+                    p.Descripcion as Nombre_Producto,
+                    p.COD_Producto,
+                    a.Cantidad_Cajas as Total_Cajas_Anticipo,
+                    a.Cajas_Consumidas as Cajas_Consumidas_Anticipo,
+                    (a.Cantidad_Cajas - a.Cajas_Consumidas) as Cajas_Disponibles,
+                    a.Precio_Unitario,
+                    a.Monto_Pagado,
+                    a.Saldo_Restante,
+                    DATE_FORMAT(a.Fecha_Anticipo, '%%d/%%m/%%Y') as Fecha_Anticipo_Formato,
+                    DATE_FORMAT(a.Fecha_Vencimiento, '%%d/%%m/%%Y') as Fecha_Vencimiento_Formato,
+                    DATEDIFF(a.Fecha_Vencimiento, CURDATE()) as Dias_Vencimiento,
+                    CASE 
+                        WHEN a.Fecha_Vencimiento < NOW() AND a.Estado = 'ACTIVO' THEN 'VENCIDO'
+                        WHEN a.Fecha_Vencimiento IS NOT NULL AND a.Fecha_Vencimiento < DATE_ADD(NOW(), INTERVAL 7 DAY) THEN 'PRÓXIMO_A_VENCER'
+                        ELSE 'VIGENTE'
+                    END as Estado_Vencimiento
+                FROM anticipos_clientes a
+                INNER JOIN clientes c ON a.ID_Cliente = c.ID_Cliente
+                INNER JOIN productos p ON a.ID_Producto = p.ID_Producto
+                WHERE a.Estado = 'ACTIVO' 
+                  AND a.Cajas_Consumidas < a.Cantidad_Cajas
+                  AND c.Anticipo_Activo = 1
+                ORDER BY c.Nombre, a.Fecha_Anticipo ASC
+            """)
+            anticipos_disponibles = cursor.fetchall()
+            
+            # 2. Obtener sucursales para el select
+            cursor.execute("""
+                SELECT s.ID_Sucursal, s.Nombre_Sucursal, s.Direccion, s.Encargado,
+                       c.Nombre as Nombre_Cliente, c.ID_Cliente
+                FROM sucursales s
+                INNER JOIN clientes c ON s.ID_Cliente = c.ID_Cliente
+                WHERE s.Estado = 'ACTIVO' AND c.Estado = 'ACTIVO'
+                ORDER BY c.Nombre, s.Nombre_Sucursal
+            """)
+            sucursales = cursor.fetchall()
+            
+            # 3. Obtener historial de entregas recientes (últimas 50) CON NOMBRE DEL CLIENTE
+            cursor.execute("""
+                SELECT 
+                    e.ID_Entrega,
+                    DATE_FORMAT(e.Fecha_Entrega, '%%d/%%m/%%Y %%H:%%i') as Fecha_Entrega_Formato,
+                    c.Nombre as Nombre_Cliente,
+                    c.Telefono as Cliente_Telefono,
+                    p.Descripcion as Nombre_Producto,
+                    e.Cantidad_Cajas,
+                    e.Precio_Unitario,
+                    e.Total,
+                    s.Nombre_Sucursal,
+                    e.Notas,
+                    e.Usa_Anticipo,
+                    a.ID_Anticipo,
+                    a.Saldo_Restante as Saldo_Restante_Anticipo,
+                    u.NombreUsuario,  -- Este campo viene de tu tabla usuarios
+                    c.Saldo_Anticipos as Cliente_Saldo_Actual
+                FROM entregas e
+                INNER JOIN clientes c ON e.ID_Cliente = c.ID_Cliente
+                INNER JOIN productos p ON e.ID_Producto = p.ID_Producto
+                INNER JOIN sucursales s ON e.ID_Sucursal = s.ID_Sucursal
+                LEFT JOIN anticipos_clientes a ON e.ID_Anticipo = a.ID_Anticipo
+                LEFT JOIN usuarios u ON e.ID_Usuario = u.ID_Usuario  -- Relación con ID_Usuario
+                WHERE e.Usa_Anticipo = 1
+                ORDER BY e.Fecha_Entrega DESC
+                LIMIT 50
+            """)
+            entregas_recientes = cursor.fetchall()
+            
+            # 4. Estadísticas resumidas
+            cursor.execute("""
+                SELECT 
+                    COUNT(DISTINCT e.ID_Entrega) as Total_Entregas_Hoy,
+                    COALESCE(SUM(e.Total), 0) as Monto_Total_Entregado_Hoy,
+                    COUNT(DISTINCT a.ID_Anticipo) as Anticipos_Activos,
+                    COALESCE(SUM(a.Cantidad_Cajas - a.Cajas_Consumidas), 0) as Cajas_Disponibles_Total,
+                    COUNT(DISTINCT c.ID_Cliente) as Clientes_Con_Anticipos,
+                    COALESCE(SUM(c.Saldo_Anticipos), 0) as Saldo_Total_Anticipos
+                FROM entregas e
+                RIGHT JOIN anticipos_clientes a ON e.ID_Anticipo = a.ID_Anticipo AND DATE(e.Fecha_Entrega) = CURDATE()
+                INNER JOIN clientes c ON a.ID_Cliente = c.ID_Cliente
+                WHERE a.Estado = 'ACTIVO'
+            """)
+            estadisticas = cursor.fetchone()
+            
+            # 5. Clientes con anticipos casi agotados (para alertas)
+            cursor.execute("""
+                SELECT 
+                    c.ID_Cliente,
+                    c.Nombre as Nombre_Cliente,
+                    c.Telefono,
+                    a.ID_Anticipo,
+                    p.Descripcion as Nombre_Producto,
+                    (a.Cantidad_Cajas - a.Cajas_Consumidas) as Cajas_Restantes,
+                    a.Precio_Unitario,
+                    a.Saldo_Restante,
+                    c.perfil_cliente
+                FROM anticipos_clientes a
+                INNER JOIN clientes c ON a.ID_Cliente = c.ID_Cliente
+                INNER JOIN productos p ON a.ID_Producto = p.ID_Producto
+                WHERE a.Estado = 'ACTIVO'
+                  AND (a.Cantidad_Cajas - a.Cajas_Consumidas) <= 5
+                  AND (a.Cantidad_Cajas - a.Cajas_Consumidas) > 0
+                ORDER BY Cajas_Restantes ASC
+                LIMIT 10
+            """)
+            anticipos_bajos = cursor.fetchall()
+            
+            return render_template('admin/ventas/anticipos/anticipos_entregas.html',
+                                 anticipos=anticipos_disponibles,
+                                 sucursales=sucursales,
+                                 entregas=entregas_recientes,
+                                 estadisticas=estadisticas,
+                                 anticipos_bajos=anticipos_bajos)
+                                 
+    except Exception as e:
+        flash(f'Error al cargar los datos: {str(e)}', 'error')
+        return redirect(url_for('admin_dashboard'))
 
 #CUENTAS POR COBRAR
 @app.route('/admin/ventas/cxcobrar/cuentas-por-cobrar')
