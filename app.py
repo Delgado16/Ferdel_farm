@@ -9121,8 +9121,8 @@ def admin_anticipo_entregas():
                     a.Precio_Unitario,
                     a.Monto_Pagado,
                     a.Saldo_Restante,
-                    DATE_FORMAT(a.Fecha_Anticipo, '%%d/%%m/%%Y') as Fecha_Anticipo_Formato,
-                    DATE_FORMAT(a.Fecha_Vencimiento, '%%d/%%m/%%Y') as Fecha_Vencimiento_Formato,
+                    DATE_FORMAT(a.Fecha_Anticipo, '%d/%m/%Y') as Fecha_Anticipo_Formato,
+                    DATE_FORMAT(a.Fecha_Vencimiento, '%d/%m/%Y') as Fecha_Vencimiento_Formato,
                     DATEDIFF(a.Fecha_Vencimiento, CURDATE()) as Dias_Vencimiento,
                     CASE 
                         WHEN a.Fecha_Vencimiento < NOW() AND a.Estado = 'ACTIVO' THEN 'VENCIDO'
@@ -9154,7 +9154,7 @@ def admin_anticipo_entregas():
             cursor.execute("""
                 SELECT 
                     e.ID_Entrega,
-                    DATE_FORMAT(e.Fecha_Entrega, '%%d/%%m/%%Y %%H:%%i') as Fecha_Entrega_Formato,
+                    DATE_FORMAT(e.Fecha_Entrega, '%d/%m/%Y %H:%i') as Fecha_Entrega_Formato,
                     c.Nombre as Nombre_Cliente,
                     c.Telefono as Cliente_Telefono,
                     p.Descripcion as Nombre_Producto,

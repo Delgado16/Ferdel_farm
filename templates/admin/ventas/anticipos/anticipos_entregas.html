@@ -42,7 +42,7 @@
             <div class="card bg-success text-white">
                 <div class="card-body">
                     <h5 class="card-title">Monto Entregado</h5>
-                    <h3>${{ "{:,.2f}".format(estadisticas.Monto_Total_Entregado_Hoy or 0) }}</h3>
+                    <h3>C${{ "{:,.2f}".format(estadisticas.Monto_Total_Entregado_Hoy or 0) }}</h3>
                     <small>Total en productos entregados hoy</small>
                 </div>
             </div>
@@ -77,7 +77,7 @@
                 <strong>👤 {{ a.Nombre_Cliente }}</strong> ({{ a.Telefono }}) - 
                 📦 {{ a.Nombre_Producto }}: 
                 <span class="badge bg-warning">{{ a.Cajas_Restantes }} cajas restantes</span>
-                💵 Saldo: ${{ "{:,.2f}".format(a.Saldo_Restante) }}
+                💵 Saldo: C${{ "{:,.2f}".format(a.Saldo_Restante) }}
                 <span class="badge bg-secondary">{{ a.perfil_cliente }}</span>
             </li>
             {% endfor %}
@@ -123,9 +123,8 @@
                                     data-cliente-id="{{ a.ID_Cliente }}">
                                 👤 <strong>{{ a.Nombre_Cliente }}</strong> 
                                 ({{ a.Telefono }}) - 
-                                📦 {{ a.Nombre_Producto }} 
+                                 {{ a.Nombre_Producto }} 
                                 | Disponible: <strong>{{ a.Cajas_Disponibles }}</strong> cajas
-                                | 💵 ${{ "{:,.2f}".format(a.Precio_Unitario) }}/caja
                                 {% if a.Estado_Vencimiento == 'PRÓXIMO_A_VENCER' %}
                                 | ⚠️ Próximo a vencer ({{ a.Dias_Vencimiento }} días)
                                 {% elif a.Estado_Vencimiento == 'VENCIDO' %}
@@ -183,8 +182,8 @@
                             📞 <strong>Teléfono:</strong> <span id="detalle_telefono"></span><br>
                             🏷️ <strong>Perfil:</strong> <span id="detalle_perfil"></span><br>
                             📦 <strong>Producto:</strong> <span id="detalle_producto"></span><br>
-                            💵 <strong>Precio unitario:</strong> $<span id="detalle_precio"></span><br>
-                            💰 <strong>Total a descontar del anticipo:</strong> $<span id="detalle_total"></span><br>
+                            💵 <strong>Precio unitario:</strong> C$<span id="detalle_precio"></span><br>
+                            💰 <strong>Total a descontar del anticipo:</strong> C$<span id="detalle_total"></span><br>
                             👨‍💼 <strong>Registrado por:</strong> {{ current_user.NombreUsuario if current_user.is_authenticated else 'Sistema' }}
                         </div>
                     </div>
@@ -240,8 +239,8 @@
                             <td>{{ e.Nombre_Sucursal }}</td>
                             <td>{{ e.Nombre_Producto }}</td>
                             <td class="text-center">{{ e.Cantidad_Cajas }}</td>
-                            <td class="text-end">${{ "{:,.2f}".format(e.Precio_Unitario) }}</td>
-                            <td class="text-end"><strong>${{ "{:,.2f}".format(e.Total) }}</strong></td>
+                            <td class="text-end">C${{ "{:,.2f}".format(e.Precio_Unitario) }}</td>
+                            <td class="text-end"><strong>C${{ "{:,.2f}".format(e.Total) }}</strong></td>
                             <td class="text-center">
                                 {% if e.ID_Anticipo %}
                                 <span class="badge bg-success">#{{ e.ID_Anticipo }}</span>
@@ -249,7 +248,7 @@
                                 <span class="badge bg-secondary">Pago normal</span>
                                 {% endif %}
                             </td>
-                            <td>{{ e.Nombre_Usuario or 'N/A' }}</td>
+                            <td>{{ e.NombreUsuario or 'N/A' }}</td>
                             <td>{{ e.Notas or '-' }}</td>
                         </tr>
                         {% else %}
@@ -376,8 +375,8 @@ document.addEventListener('DOMContentLoaded', function() {
               `Teléfono: ${clienteTelefono}\n` +
               `Producto: ${productoNombre}\n` +
               `Cajas disponibles: ${cajasMax}\n` +
-              `Precio unitario: $${precioUnitario.toFixed(2)}\n` +
-              `Valor total del anticipo: $${(cajasMax * precioUnitario).toFixed(2)}`);
+              `Precio unitario: C$${precioUnitario.toFixed(2)}\n` +
+              `Valor total del anticipo: C$${(cajasMax * precioUnitario).toFixed(2)}`);
     });
     
     // Cuando se ingresa la cantidad
