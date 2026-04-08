@@ -85,28 +85,14 @@
     </div>
     {% endif %}
 
-    <!-- Formulario de Nueva Entrega -->
+    <!-- Formulario de Nueva Entrega con Múltiples Sucursales -->
     <div class="card mb-4">
         <div class="card-header bg-primary text-white">
             <h5 class="mb-0"><i class="fas fa-plus-circle"></i> Registrar Nueva Entrega</h5>
         </div>
         <div class="card-body">
             <form method="POST" id="formEntrega" novalidate>
-                <!-- Mostrar ID del usuario que registra (solo lectura) -->
-                <div class="row mb-3">
-                    <div class="col-md-12">
-                        <div class="alert alert-secondary">
-                            <small>
-                                <i class="fas fa-info-circle"></i> 
-                                La entrega será registrada por: <strong>{{ current_user.NombreUsuario if current_user.is_authenticated else 'Usuario no identificado' }}</strong>
-                                {% if current_user.is_authenticated %}
-                                <span class="badge bg-primary">ID: {{ current_user.id }}</span>
-                                {% endif %}
-                            </small>
-                        </div>
-                    </div>
-                </div>
-
+                <!-- Selección de Anticipo y Bodega -->
                 <div class="row">
                     <div class="col-md-6 mb-3">
                         <label for="id_anticipo" class="form-label">Seleccionar Anticipo *</label>
@@ -123,8 +109,9 @@
                                     data-cliente-id="{{ a.ID_Cliente }}">
                                 👤 <strong>{{ a.Nombre_Cliente }}</strong> 
                                 ({{ a.Telefono }}) - 
-                                 {{ a.Nombre_Producto }} 
+                                📦 {{ a.Nombre_Producto }} 
                                 | Disponible: <strong>{{ a.Cajas_Disponibles }}</strong> cajas
+                                | 💵 C${{ "{:,.2f}".format(a.Precio_Unitario) }}/caja
                                 {% if a.Estado_Vencimiento == 'PRÓXIMO_A_VENCER' %}
                                 | ⚠️ Próximo a vencer ({{ a.Dias_Vencimiento }} días)
                                 {% elif a.Estado_Vencimiento == 'VENCIDO' %}
@@ -133,76 +120,114 @@
                             </option>
                             {% endfor %}
                         </select>
-                        <div class="invalid-feedback">
-                            Por favor seleccione un anticipo válido.
-                        </div>
                     </div>
                     
-                    <div class="col-md-3 mb-3">
-                        <label for="cantidad_cajas" class="form-label">Cantidad de Cajas *</label>
-                        <input type="number" name="cantidad_cajas" id="cantidad_cajas" 
-                               class="form-control" min="1" step="1" required>
-                        <small class="text-muted" id="cajas_disponibles"></small>
-                        <div class="invalid-feedback">
-                            Ingrese una cantidad válida entre 1 y el máximo disponible.
-                        </div>
-                    </div>
-                    
-                    <div class="col-md-3 mb-3">
-                        <label for="id_sucursal" class="form-label">Sucursal de Entrega *</label>
-                        <select name="id_sucursal" id="id_sucursal" class="form-select" required>
-                            <option value="">-- Seleccione sucursal --</option>
-                            {% for s in sucursales %}
-                            <option value="{{ s.ID_Sucursal }}" data-cliente-id="{{ s.ID_Cliente }}">
-                                👤 {{ s.Nombre_Cliente }} - 🏢 {{ s.Nombre_Sucursal }}
-                                {% if s.Direccion %} - 📍 {{ s.Direccion }}{% endif %}
+                    <div class="col-md-6 mb-3">
+                        <label for="id_bodega" class="form-label">Bodega de Salida *</label>
+                        <select name="id_bodega" id="id_bodega" class="form-select" required>
+                            <option value="">-- Seleccione bodega --</option>
+                            {% for b in bodegas %}
+                            <option value="{{ b.ID_Bodega }}">
+                                🏪 <strong>{{ b.Nombre }}</strong>
+                                {% if b.Ubicacion %} - 📍 {{ b.Ubicacion }}{% endif %}
+                                <span class="badge bg-success">activa</span>
                             </option>
                             {% endfor %}
                         </select>
-                        <div class="invalid-feedback">
-                            Por favor seleccione una sucursal de entrega.
-                        </div>
+                        <small class="text-muted">Seleccione la bodega desde donde sale el producto</small>
                     </div>
                 </div>
-                
-                <div class="row">
-                    <div class="col-md-12 mb-3">
-                        <label for="notas" class="form-label">Notas (Opcional)</label>
-                        <textarea name="notas" id="notas" class="form-control" rows="2" 
-                                  placeholder="Agregar notas sobre la entrega..."></textarea>
-                    </div>
-                </div>
-                
-                <!-- Detalle de la entrega (se muestra dinámicamente) -->
-                <div class="row mb-3" id="detalle_entrega" style="display: none;">
+
+                <!-- Información del Anticipo Seleccionado -->
+                <div class="row mb-3" id="detalle_anticipo" style="display: none;">
                     <div class="col-md-12">
                         <div class="alert alert-info">
-                            <strong><i class="fas fa-info-circle"></i> Detalle de la entrega:</strong><br>
-                            👤 <strong>Cliente:</strong> <span id="detalle_cliente"></span><br>
-                            📞 <strong>Teléfono:</strong> <span id="detalle_telefono"></span><br>
-                            🏷️ <strong>Perfil:</strong> <span id="detalle_perfil"></span><br>
-                            📦 <strong>Producto:</strong> <span id="detalle_producto"></span><br>
-                            💵 <strong>Precio unitario:</strong> C$<span id="detalle_precio"></span><br>
-                            💰 <strong>Total a descontar del anticipo:</strong> C$<span id="detalle_total"></span><br>
-                            👨‍💼 <strong>Registrado por:</strong> {{ current_user.NombreUsuario if current_user.is_authenticated else 'Sistema' }}
+                            <strong><i class="fas fa-info-circle"></i> Información del Anticipo:</strong><br>
+                            👤 <strong>Cliente:</strong> <span id="info_cliente"></span><br>
+                            📞 <strong>Teléfono:</strong> <span id="info_telefono"></span><br>
+                            🏷️ <strong>Perfil:</strong> <span id="info_perfil"></span><br>
+                            📦 <strong>Producto:</strong> <span id="info_producto"></span><br>
+                            💵 <strong>Precio unitario:</strong> C$<span id="info_precio"></span><br>
+                            📦 <strong>Cajas disponibles:</strong> <span id="info_cajas_disponibles"></span><br>
+                            💰 <strong>Saldo restante:</strong> C$<span id="info_saldo"></span>
                         </div>
                     </div>
                 </div>
-                
-                <!-- Botones de acción -->
-                <div class="row">
+
+                <!-- Múltiples Entregas -->
+                <div class="row mb-3">
                     <div class="col-md-12">
-                        <button type="submit" class="btn btn-success btn-lg" id="btnSubmit">
-                            <i class="fas fa-check-circle"></i> Registrar Entrega
-                        </button>
-                        <button type="reset" class="btn btn-secondary btn-lg" id="btnReset">
-                            <i class="fas fa-eraser"></i> Limpiar
-                        </button>
-                        <button type="button" class="btn btn-info btn-lg" id="btnVerificar">
-                            <i class="fas fa-search"></i> Verificar Anticipo
+                        <label class="form-label fw-bold">Detalle de Entregas por Sucursal *</label>
+                        <div id="entregasContainer">
+                            <div class="row entrega-item mb-2 p-2 border rounded">
+                                <div class="col-md-5">
+                                    <label class="form-label small">Sucursal</label>
+                                    <select name="sucursales[]" class="form-select form-select-sm" required>
+                                        <option value="">-- Seleccione sucursal --</option>
+                                        {% for s in sucursales %}
+                                        <option value="{{ s.ID_Sucursal }}" data-cliente-id="{{ s.ID_Cliente }}">
+                                            👤 {{ s.Nombre_Cliente }} - 🏢 {{ s.Nombre_Sucursal }}
+                                            {% if s.Direccion %} - 📍 {{ s.Direccion }}{% endif %}
+                                        </option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label small">Cantidad de Cajas</label>
+                                    <input type="number" name="cantidades[]" class="form-control form-control-sm" 
+                                           placeholder="Cajas" min="1" step="1" required>
+                                </div>
+                                <div class="col-md-2">
+                                    <label class="form-label small">Subtotal</label>
+                                    <input type="text" class="form-control form-control-sm subtotal" 
+                                           readonly placeholder="C$0.00">
+                                </div>
+                                <div class="col-md-2 d-flex align-items-end">
+                                    <button type="button" class="btn btn-danger btn-sm w-100" onclick="eliminarEntrega(this)">
+                                        <i class="fas fa-trash"></i> Eliminar
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        <button type="button" class="btn btn-secondary btn-sm mt-2" onclick="agregarEntrega()">
+                            <i class="fas fa-plus"></i> Agregar otra sucursal
                         </button>
                     </div>
                 </div>
+
+                <!-- Resumen y Notas -->
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <div class="card bg-light">
+                            <div class="card-body">
+                                <h6>Resumen de Entregas</h6>
+                                <table class="table table-sm">
+                                    <tr>
+                                        <td><strong>Total Cajas:</strong></td>
+                                        <td class="text-end"><span id="resumen_total_cajas">0</span></td>
+                                    </tr>
+                                    <tr>
+                                        <td><strong>Total Monto:</strong></td>
+                                        <td class="text-end"><strong>C$<span id="resumen_total_monto">0.00</span></strong></td>
+                                    </tr>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-6 mb-3">
+                        <label for="notas" class="form-label">Notas Generales (Opcional)</label>
+                        <textarea name="notas" id="notas" class="form-control" rows="3" 
+                                  placeholder="Agregar notas generales sobre las entregas..."></textarea>
+                    </div>
+                </div>
+                
+                <button type="submit" class="btn btn-success btn-lg" id="btnSubmit">
+                    <i class="fas fa-check-circle"></i> Procesar Todas las Entregas
+                </button>
+                <button type="reset" class="btn btn-secondary btn-lg">
+                    <i class="fas fa-eraser"></i> Limpiar
+                </button>
             </form>
         </div>
     </div>
@@ -263,239 +288,266 @@
     </div>
 </div>
 
-<!-- JavaScript para cálculo dinámico y validaciones -->
+<!-- JavaScript -->
 <script>
+let precioUnitarioActual = 0;
+let cajasDisponiblesActual = 0;
+let anticipoSeleccionado = false;
+
 document.addEventListener('DOMContentLoaded', function() {
     const selectAnticipo = document.getElementById('id_anticipo');
-    const inputCantidad = document.getElementById('cantidad_cajas');
-    const selectSucursal = document.getElementById('id_sucursal');
-    const cajasDisponiblesSpan = document.getElementById('cajas_disponibles');
-    const detalleDiv = document.getElementById('detalle_entrega');
-    const btnSubmit = document.getElementById('btnSubmit');
-    const btnReset = document.getElementById('btnReset');
-    const btnVerificar = document.getElementById('btnVerificar');
-    const form = document.getElementById('formEntrega');
-    
-    let cajasMax = 0;
-    let precioUnitario = 0;
-    let productoNombre = '';
-    let clienteNombre = '';
-    let clienteTelefono = '';
-    let clientePerfil = '';
-    let clienteId = '';
-    let formSubmitted = false;
+    const selectBodega = document.getElementById('id_bodega');
+    const detalleAnticipo = document.getElementById('detalle_anticipo');
     
     // Cuando se selecciona un anticipo
     selectAnticipo.addEventListener('change', function() {
         const selectedOption = this.options[this.selectedIndex];
         if (this.value) {
-            cajasMax = parseInt(selectedOption.dataset.cajas) || 0;
-            precioUnitario = parseFloat(selectedOption.dataset.precio) || 0;
-            productoNombre = selectedOption.dataset.producto || '';
-            clienteNombre = selectedOption.dataset.cliente || '';
-            clienteTelefono = selectedOption.dataset.clienteTelefono || '';
-            clientePerfil = selectedOption.dataset.clientePerfil || '';
-            clienteId = selectedOption.dataset.clienteId || '';
+            precioUnitarioActual = parseFloat(selectedOption.dataset.precio) || 0;
+            cajasDisponiblesActual = parseInt(selectedOption.dataset.cajas) || 0;
             
-            cajasDisponiblesSpan.textContent = `Máximo disponible: ${cajasMax} cajas`;
-            inputCantidad.max = cajasMax;
-            inputCantidad.value = '';
-            inputCantidad.disabled = false;
+            // Mostrar información del anticipo
+            document.getElementById('info_cliente').textContent = selectedOption.dataset.cliente || '';
+            document.getElementById('info_telefono').textContent = selectedOption.dataset.clienteTelefono || '';
+            document.getElementById('info_perfil').textContent = selectedOption.dataset.clientePerfil || '';
+            document.getElementById('info_producto').textContent = selectedOption.dataset.producto || '';
+            document.getElementById('info_precio').textContent = precioUnitarioActual.toFixed(2);
+            document.getElementById('info_cajas_disponibles').textContent = cajasDisponiblesActual;
+            document.getElementById('info_saldo').textContent = (cajasDisponiblesActual * precioUnitarioActual).toFixed(2);
+            detalleAnticipo.style.display = 'block';
             
             // Filtrar sucursales por cliente
+            const clienteId = selectedOption.dataset.clienteId;
             filtrarSucursalesPorCliente(clienteId);
             
-            // Mostrar detalle con información del cliente
-            document.getElementById('detalle_cliente').textContent = clienteNombre;
-            document.getElementById('detalle_telefono').textContent = clienteTelefono;
-            document.getElementById('detalle_perfil').textContent = clientePerfil;
-            document.getElementById('detalle_producto').textContent = productoNombre;
-            document.getElementById('detalle_precio').textContent = precioUnitario.toFixed(2);
-            detalleDiv.style.display = 'block';
+            // Habilitar bodega
+            selectBodega.disabled = false;
+            anticipoSeleccionado = true;
+            
+            // Actualizar subtotales
+            actualizarTodosSubtotales();
         } else {
-            cajasDisponiblesSpan.textContent = '';
-            inputCantidad.disabled = true;
-            detalleDiv.style.display = 'none';
-            // Mostrar todas las sucursales
+            detalleAnticipo.style.display = 'none';
+            selectBodega.disabled = true;
+            anticipoSeleccionado = false;
             mostrarTodasSucursales();
         }
-        actualizarTotal();
     });
     
-    // Filtrar sucursales por cliente
-    function filtrarSucursalesPorCliente(clienteId) {
-        const options = selectSucursal.options;
-        let tieneOpciones = false;
-        
-        for (let i = 0; i < options.length; i++) {
-            const option = options[i];
+    selectBodega.disabled = true;
+});
+
+function filtrarSucursalesPorCliente(clienteId) {
+    const selects = document.querySelectorAll('select[name="sucursales[]"]');
+    selects.forEach(select => {
+        for (let i = 0; i < select.options.length; i++) {
+            const option = select.options[i];
             if (option.value) {
                 const optionClienteId = option.dataset.clienteId;
                 if (optionClienteId == clienteId) {
                     option.style.display = '';
-                    tieneOpciones = true;
                 } else {
                     option.style.display = 'none';
                 }
             }
         }
-        
-        // Resetear selección
-        selectSucursal.value = '';
-        
-        if (!tieneOpciones) {
-            const emptyOption = document.createElement('option');
-            emptyOption.value = '';
-            emptyOption.textContent = '-- No hay sucursales disponibles para este cliente --';
-            emptyOption.disabled = true;
-            selectSucursal.appendChild(emptyOption);
+        if (select.options.length > 0 && select.options[0].value === '') {
+            select.value = '';
         }
-    }
+    });
+}
+
+function mostrarTodasSucursales() {
+    const selects = document.querySelectorAll('select[name="sucursales[]"]');
+    selects.forEach(select => {
+        for (let i = 0; i < select.options.length; i++) {
+            if (select.options[i].value) {
+                select.options[i].style.display = '';
+            }
+        }
+    });
+}
+
+function agregarEntrega() {
+    const container = document.getElementById('entregasContainer');
+    const sucursalesHTML = generarSucursalesOptions();
     
-    // Mostrar todas las sucursales
-    function mostrarTodasSucursales() {
-        const options = selectSucursal.options;
-        for (let i = 0; i < options.length; i++) {
-            const option = options[i];
-            if (option.value) {
-                option.style.display = '';
+    const template = `
+        <div class="row entrega-item mb-2 p-2 border rounded">
+            <div class="col-md-5">
+                <label class="form-label small">Sucursal</label>
+                <select name="sucursales[]" class="form-select form-select-sm" required onchange="actualizarSubtotal(this)">
+                    ${sucursalesHTML}
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label small">Cantidad de Cajas</label>
+                <input type="number" name="cantidades[]" class="form-control form-control-sm" 
+                       placeholder="Cajas" min="1" step="1" required oninput="actualizarSubtotal(this)">
+            </div>
+            <div class="col-md-2">
+                <label class="form-label small">Subtotal</label>
+                <input type="text" class="form-control form-control-sm subtotal" 
+                       readonly placeholder="C$0.00">
+            </div>
+            <div class="col-md-2 d-flex align-items-end">
+                <button type="button" class="btn btn-danger btn-sm w-100" onclick="eliminarEntrega(this)">
+                    <i class="fas fa-trash"></i> Eliminar
+                </button>
+            </div>
+        </div>
+    `;
+    
+    container.insertAdjacentHTML('beforeend', template);
+    
+    // Aplicar filtro de cliente si hay anticipo seleccionado
+    if (anticipoSeleccionado) {
+        const clienteId = document.getElementById('id_anticipo').selectedOptions[0]?.dataset.clienteId;
+        if (clienteId) {
+            const nuevoSelect = container.lastElementChild.querySelector('select[name="sucursales[]"]');
+            for (let i = 0; i < nuevoSelect.options.length; i++) {
+                const option = nuevoSelect.options[i];
+                if (option.value) {
+                    const optionClienteId = option.dataset.clienteId;
+                    option.style.display = optionClienteId == clienteId ? '' : 'none';
+                }
             }
         }
     }
+}
+
+function generarSucursalesOptions() {
+    let options = '<option value="">-- Seleccione sucursal --</option>';
+    {% for s in sucursales %}
+    options += `<option value="{{ s.ID_Sucursal }}" data-cliente-id="{{ s.ID_Cliente }}">
+        👤 {{ s.Nombre_Cliente }} - 🏢 {{ s.Nombre_Sucursal }}
+        {% if s.Direccion %} - 📍 {{ s.Direccion }}{% endif %}
+    </option>`;
+    {% endfor %}
+    return options;
+}
+
+function actualizarSubtotal(element) {
+    const row = element.closest('.entrega-item');
+    const cantidadInput = row.querySelector('input[name="cantidades[]"]');
+    const subtotalInput = row.querySelector('.subtotal');
     
-    // Verificar anticipo
-    btnVerificar.addEventListener('click', function() {
-        if (!selectAnticipo.value) {
-            alert('❌ Por favor seleccione un anticipo primero');
+    const cantidad = parseInt(cantidadInput.value) || 0;
+    const subtotal = cantidad * precioUnitarioActual;
+    subtotalInput.value = `C$${subtotal.toFixed(2)}`;
+    
+    actualizarResumen();
+}
+
+function actualizarTodosSubtotales() {
+    const rows = document.querySelectorAll('.entrega-item');
+    rows.forEach(row => {
+        const cantidadInput = row.querySelector('input[name="cantidades[]"]');
+        const subtotalInput = row.querySelector('.subtotal');
+        const cantidad = parseInt(cantidadInput.value) || 0;
+        const subtotal = cantidad * precioUnitarioActual;
+        subtotalInput.value = `C$${subtotal.toFixed(2)}`;
+    });
+    actualizarResumen();
+}
+
+function actualizarResumen() {
+    let totalCajas = 0;
+    let totalMonto = 0;
+    
+    const rows = document.querySelectorAll('.entrega-item');
+    rows.forEach(row => {
+        const cantidad = parseInt(row.querySelector('input[name="cantidades[]"]').value) || 0;
+        totalCajas += cantidad;
+        totalMonto += cantidad * precioUnitarioActual;
+    });
+    
+    document.getElementById('resumen_total_cajas').textContent = totalCajas;
+    document.getElementById('resumen_total_monto').textContent = totalMonto.toFixed(2);
+    
+    // Validar contra cajas disponibles
+    if (anticipoSeleccionado && totalCajas > cajasDisponiblesActual) {
+        document.getElementById('resumen_total_cajas').style.color = 'red';
+        document.getElementById('resumen_total_monto').style.color = 'red';
+    } else {
+        document.getElementById('resumen_total_cajas').style.color = '';
+        document.getElementById('resumen_total_monto').style.color = '';
+    }
+}
+
+function eliminarEntrega(button) {
+    const row = button.closest('.entrega-item');
+    row.remove();
+    actualizarResumen();
+}
+
+// Validar formulario antes de enviar
+document.getElementById('formEntrega').addEventListener('submit', function(e) {
+    const selectAnticipo = document.getElementById('id_anticipo');
+    const selectBodega = document.getElementById('id_bodega');
+    const rows = document.querySelectorAll('.entrega-item');
+    
+    if (!selectAnticipo.value) {
+        e.preventDefault();
+        alert('❌ Por favor seleccione un anticipo');
+        return false;
+    }
+    
+    if (!selectBodega.value) {
+        e.preventDefault();
+        alert('❌ Por favor seleccione una bodega');
+        return false;
+    }
+    
+    let totalCajas = 0;
+    let tieneError = false;
+    
+    rows.forEach((row, index) => {
+        const select = row.querySelector('select[name="sucursales[]"]');
+        const cantidad = row.querySelector('input[name="cantidades[]"]');
+        
+        if (!select.value) {
+            alert(`❌ Fila ${index + 1}: Por favor seleccione una sucursal`);
+            e.preventDefault();
+            tieneError = true;
             return;
         }
         
-        alert(`✅ Información del Anticipo:\n\n` +
-              `Cliente: ${clienteNombre}\n` +
-              `Teléfono: ${clienteTelefono}\n` +
-              `Producto: ${productoNombre}\n` +
-              `Cajas disponibles: ${cajasMax}\n` +
-              `Precio unitario: C$${precioUnitario.toFixed(2)}\n` +
-              `Valor total del anticipo: C$${(cajasMax * precioUnitario).toFixed(2)}`);
-    });
-    
-    // Cuando se ingresa la cantidad
-    inputCantidad.addEventListener('input', function() {
-        actualizarTotal();
+        if (!cantidad.value || parseInt(cantidad.value) <= 0) {
+            alert(`❌ Fila ${index + 1}: Por favor ingrese una cantidad válida`);
+            e.preventDefault();
+            tieneError = true;
+            return;
+        }
         
-        // Validar cantidad
-        let cantidad = parseInt(this.value);
-        if (cantidad > cajasMax) {
-            this.value = cajasMax;
-            alert(`⚠️ La cantidad no puede superar las ${cajasMax} cajas disponibles para ${clienteNombre}`);
-        }
-        if (cantidad < 1 && this.value !== '') {
-            this.value = 1;
-        }
-        actualizarTotal();
-        
-        // Validar si hay sucursal seleccionada
-        if (selectSucursal.value && this.value) {
-            btnSubmit.disabled = false;
-        } else {
-            btnSubmit.disabled = true;
-        }
+        totalCajas += parseInt(cantidad.value);
     });
     
-    // Validar selección de sucursal
-    selectSucursal.addEventListener('change', function() {
-        if (this.value && inputCantidad.value && selectAnticipo.value) {
-            btnSubmit.disabled = false;
-        } else {
-            btnSubmit.disabled = true;
-        }
-    });
+    if (tieneError) return false;
     
-    function actualizarTotal() {
-        let cantidad = parseInt(inputCantidad.value) || 0;
-        let total = cantidad * precioUnitario;
-        document.getElementById('detalle_total').textContent = total.toFixed(2);
+    if (totalCajas === 0) {
+        e.preventDefault();
+        alert('❌ Debe agregar al menos una entrega');
+        return false;
     }
     
-    // Reset del formulario
-    btnReset.addEventListener('click', function() {
-        setTimeout(function() {
-            detalleDiv.style.display = 'none';
-            cajasDisponiblesSpan.textContent = '';
-            inputCantidad.disabled = true;
-            btnSubmit.disabled = true;
-            formSubmitted = false;
-            selectSucursal.value = '';
-            mostrarTodasSucursales();
-        }, 100);
-    });
+    if (totalCajas > cajasDisponiblesActual) {
+        e.preventDefault();
+        alert(`❌ El total de cajas (${totalCajas}) supera las cajas disponibles (${cajasDisponiblesActual})`);
+        return false;
+    }
     
-    // Validar formulario antes de enviar
-    form.addEventListener('submit', function(e) {
-        // Prevenir envíos duplicados
-        if (formSubmitted) {
-            e.preventDefault();
-            alert('⏳ El formulario ya fue enviado. Por favor espere...');
-            return false;
-        }
-        
-        // Validar anticipo
-        if (!selectAnticipo.value) {
-            e.preventDefault();
-            alert('❌ Por favor seleccione un anticipo');
-            selectAnticipo.focus();
-            return false;
-        }
-        
-        // Validar cantidad
-        if (!inputCantidad.value || parseInt(inputCantidad.value) <= 0) {
-            e.preventDefault();
-            alert('❌ Por favor ingrese una cantidad válida');
-            inputCantidad.focus();
-            return false;
-        }
-        
-        // Validar máximo de cajas
-        if (parseInt(inputCantidad.value) > cajasMax) {
-            e.preventDefault();
-            alert(`❌ La cantidad no puede superar las ${cajasMax} cajas disponibles para ${clienteNombre}`);
-            inputCantidad.focus();
-            return false;
-        }
-        
-        // Validar sucursal
-        if (!selectSucursal.value) {
-            e.preventDefault();
-            alert('❌ Por favor seleccione una sucursal');
-            selectSucursal.focus();
-            return false;
-        }
-        
-        // Confirmar entrega con detalles completos
-        const confirmacion = confirm(`✅ Confirmar entrega\n\n` +
-                      `👤 Cliente: ${clienteNombre}\n` +
-                      `📞 Teléfono: ${clienteTelefono}\n` +
-                      `📦 Producto: ${productoNombre}\n` +
-                      `📊 Cantidad: ${inputCantidad.value} cajas\n` +
-                      `💰 Total a descontar: $${document.getElementById('detalle_total').textContent}\n` +
-                      `🏢 Sucursal: ${selectSucursal.options[selectSucursal.selectedIndex].text}\n` +
-                      `👨‍💼 Registrado por: {{ current_user.NombreUsuario if current_user.is_authenticated else 'Sistema' }}\n\n` +
-                      `¿Desea continuar con la entrega?`);
-        
-        if (confirmacion) {
-            formSubmitted = true;
-            btnSubmit.disabled = true;
-            btnSubmit.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Procesando...';
-            return true;
-        } else {
-            e.preventDefault();
-            return false;
-        }
-    });
+    const cliente = document.getElementById('info_cliente').textContent;
+    const producto = document.getElementById('info_producto').textContent;
+    const totalMonto = document.getElementById('resumen_total_monto').textContent;
     
-    // Inicializar estado del botón submit
-    btnSubmit.disabled = true;
-    inputCantidad.disabled = true;
+    return confirm(`✅ Confirmar entregas múltiples\n\n` +
+                  `👤 Cliente: ${cliente}\n` +
+                  `📦 Producto: ${producto}\n` +
+                  `📊 Total cajas: ${totalCajas}\n` +
+                  `💰 Total monto: C$${totalMonto}\n` +
+                  `🏪 Sucursales a entregar: ${rows.length}\n\n` +
+                  `¿Desea procesar todas las entregas?`);
 });
 </script>
 
@@ -513,21 +565,22 @@ document.addEventListener('DOMContentLoaded', function() {
     .btn-lg {
         margin-right: 10px;
     }
+    .entrega-item {
+        background-color: #f8f9fa;
+        transition: all 0.3s;
+    }
+    .entrega-item:hover {
+        background-color: #e9ecef;
+    }
     select option {
         padding: 8px;
     }
     .alert-warning ul li {
         margin-bottom: 8px;
     }
-    .form-select:disabled, .form-control:disabled {
+    .subtotal {
         background-color: #e9ecef;
-    }
-    .invalid-feedback {
-        display: none;
-    }
-    .was-validated .form-control:invalid ~ .invalid-feedback,
-    .was-validated .form-select:invalid ~ .invalid-feedback {
-        display: block;
+        font-weight: bold;
     }
 </style>
 {% endblock %}
