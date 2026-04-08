@@ -8953,20 +8953,62 @@ def admin_anticipo_cancelar(id_anticipo):
 @admin_required
 @bitacora_decorator("CLIENTES-ANTICIPOS-ENTREGAS")
 def admin_anticipo_entregas():
-    """Visualizar y realizar entregas de productos con anticipos"""
+    """Visualizar y realizar entregas de productos con anticipos (múltiples sucursales)"""
     
     if request.method == 'POST':
         try:
             # Obtener datos del formulario
             id_anticipo = request.form.get('id_anticipo')
-            cantidad_cajas = int(request.form.get('cantidad_cajas'))
-            id_sucursal = request.form.get('id_sucursal')
             id_bodega = request.form.get('id_bodega')
             notas = request.form.get('notas', '')
             
-            if not id_anticipo or not cantidad_cajas or not id_sucursal or not id_bodega:
-                flash('Todos los campos son requeridos', 'error')
+            # Obtener arreglos de sucursales y cantidades
+            sucursales = request.form.getlist('sucursales[]')
+            cantidades = request.form.getlist('cantidades[]')
+            
+            # Validar datos básicos
+            if not id_anticipo:
+                flash('❌ Por favor seleccione un anticipo', 'error')
                 return redirect(request.url)
+            
+            if not id_bodega:
+                flash('❌ Por favor seleccione una bodega', 'error')
+                return redirect(request.url)
+            
+            if not sucursales or not cantidades:
+                flash('❌ Debe agregar al menos una entrega', 'error')
+                return redirect(request.url)
+            
+            # Validar que los arreglos tengan la misma longitud
+            if len(sucursales) != len(cantidades):
+                flash('❌ Error en los datos de entregas', 'error')
+                return redirect(request.url)
+            
+            # Validar que haya al menos una entrega válida
+            entregas_validas = []
+            for i in range(len(sucursales)):
+                sucursal_id = sucursales[i]
+                cantidad_str = cantidades[i]
+                
+                if not sucursal_id or not cantidad_str:
+                    continue
+                
+                try:
+                    cantidad = int(cantidad_str)
+                    if cantidad > 0:
+                        entregas_validas.append({
+                            'sucursal_id': int(sucursal_id),
+                            'cantidad': cantidad
+                        })
+                except ValueError:
+                    continue
+            
+            if len(entregas_validas) == 0:
+                flash('❌ No hay entregas válidas para procesar', 'error')
+                return redirect(request.url)
+            
+            # Calcular total de cajas
+            total_cajas = sum(e['cantidad'] for e in entregas_validas)
             
             # Obtener el ID del usuario actual
             id_usuario = current_user.id
@@ -9014,7 +9056,14 @@ def admin_anticipo_entregas():
                     flash('Bodega no encontrada o inactiva', 'error')
                     return redirect(request.url)
                 
-                # 3. VERIFICAR EXISTENCIAS EN LA BODEGA
+                # 3. Verificar cajas disponibles en el anticipo
+                cajas_disponibles_antes = anticipo['Anticipo_Total_Cajas'] - anticipo['Anticipo_Cajas_Consumidas']
+                
+                if total_cajas > cajas_disponibles_antes:
+                    flash(f'⚠️ Cajas insuficientes en el anticipo. Disponibles: {cajas_disponibles_antes}, Solicitadas: {total_cajas}', 'error')
+                    return redirect(request.url)
+                
+                # 4. Verificar inventario en bodega
                 cursor.execute("""
                     SELECT Existencias
                     FROM inventario_bodega
@@ -9023,35 +9072,22 @@ def admin_anticipo_entregas():
                 inventario = cursor.fetchone()
                 
                 if not inventario:
-                    flash(f'⚠️ El producto {anticipo["Nombre_Producto"]} no tiene inventario registrado en la bodega {bodega["Nombre"]}', 'error')
+                    flash(f'⚠️ El producto {anticipo["Nombre_Producto"]} no tiene inventario en la bodega {bodega["Nombre"]}', 'error')
                     return redirect(request.url)
                 
                 existencias_actuales = float(inventario['Existencias'])
                 
-                if cantidad_cajas > existencias_actuales:
-                    flash(f'⚠️ Existencias insuficientes en bodega. Disponibles: {existencias_actuales} cajas de {anticipo["Nombre_Producto"]}', 'error')
+                if total_cajas > existencias_actuales:
+                    flash(f'⚠️ Existencias insuficientes. Disponibles: {existencias_actuales} cajas', 'error')
                     return redirect(request.url)
                 
-                # 4. Usar el tipo de movimiento específico para anticipos (ID 14)
+                # 5. Calcular precio y total
+                precio_unitario = float(anticipo['Precio_Unitario'])
+                total_monto = total_cajas * precio_unitario
+                
+                # 6. REGISTRAR MOVIMIENTO DE INVENTARIO
                 id_tipo_movimiento = 14  # Salida por Anticipo Cliente
-                
-                # 5. Calcular cajas disponibles ANTES de la entrega
-                cajas_disponibles_antes = anticipo['Anticipo_Total_Cajas'] - anticipo['Anticipo_Cajas_Consumidas']
-                
-                if cantidad_cajas > cajas_disponibles_antes:
-                    flash(f'⚠️ Cajas insuficientes en el anticipo de {anticipo["Nombre_Cliente"]}. Disponibles: {cajas_disponibles_antes}', 'error')
-                    return redirect(request.url)
-                
-                if cantidad_cajas <= 0:
-                    flash('La cantidad debe ser mayor a 0', 'error')
-                    return redirect(request.url)
-                
-                # 6. Calcular total usando el precio del anticipo
-                precio_unitario_anticipo = float(anticipo['Precio_Unitario'])
-                total = cantidad_cajas * precio_unitario_anticipo
-                
-                # 7. REGISTRAR MOVIMIENTO DE INVENTARIO (SALIDA POR ANTICIPO - ID 14)
-                observacion_movimiento = f"Salida por anticipo - Cliente: {anticipo['Nombre_Cliente']} - Anticipo #{id_anticipo} - Sucursal ID: {id_sucursal} - Bodega: {bodega['Nombre']} - Producto: {anticipo['Nombre_Producto']} - Cajas: {cantidad_cajas} - Precio Unitario: ${precio_unitario_anticipo:.2f}"
+                observacion_movimiento = f"Salida por anticipo - Cliente: {anticipo['Nombre_Cliente']} - Anticipo #{id_anticipo} - Bodega: {bodega['Nombre']} - Producto: {anticipo['Nombre_Producto']} - Total Cajas: {total_cajas}"
                 if notas:
                     observacion_movimiento += f" - Notas: {notas}"
                 
@@ -9065,54 +9101,46 @@ def admin_anticipo_entregas():
                 
                 id_movimiento = cursor.lastrowid
                 
-                # 8. REGISTRAR DETALLE DEL MOVIMIENTO DE INVENTARIO
+                # 7. REGISTRAR DETALLE DEL MOVIMIENTO DE INVENTARIO
                 cursor.execute("""
                     INSERT INTO detalle_movimientos_inventario 
                     (ID_Movimiento, ID_Producto, Cantidad, Precio_Unitario, 
                      Subtotal, ID_Usuario_Creacion, Fecha_Creacion)
                     VALUES (%s, %s, %s, %s, %s, %s, NOW())
-                """, (id_movimiento, anticipo['ID_Producto'], cantidad_cajas, 
-                      precio_unitario_anticipo, total, id_usuario))
+                """, (id_movimiento, anticipo['ID_Producto'], total_cajas, 
+                      precio_unitario, total_monto, id_usuario))
                 
-                # 9. DESCOTAR INVENTARIO DE LA BODEGA
-                nuevas_existencias = existencias_actuales - cantidad_cajas
-                cursor.execute("""
-                    UPDATE inventario_bodega 
-                    SET Existencias = %s
-                    WHERE ID_Bodega = %s AND ID_Producto = %s
-                """, (nuevas_existencias, id_bodega, anticipo['ID_Producto']))
+                # 8. REGISTRAR CADA ENTREGA POR SUCURSAL
+                ids_entregas = []
+                for entrega in entregas_validas:
+                    cursor.execute("""
+                        INSERT INTO entregas 
+                        (ID_Cliente, ID_Sucursal, ID_Producto, Cantidad_Cajas, 
+                         Precio_Unitario, Total, Usa_Anticipo, ID_Anticipo, 
+                         ID_Usuario, Notas, Fecha_Entrega)
+                        VALUES (%s, %s, %s, %s, %s, %s, 1, %s, %s, %s, NOW())
+                    """, (anticipo['ID_Cliente'], entrega['sucursal_id'], anticipo['ID_Producto'], 
+                          entrega['cantidad'], precio_unitario, entrega['cantidad'] * precio_unitario, 
+                          id_anticipo, id_usuario, notas))
+                    
+                    id_entrega = cursor.lastrowid
+                    ids_entregas.append(id_entrega)
+                    
+                    # Registrar detalle de cada entrega
+                    cursor.execute("""
+                        INSERT INTO detalle_entregas 
+                        (ID_Entrega, ID_Producto, Cantidad_Cajas, Precio_Unitario, 
+                         Total, Usa_Anticipo, ID_Anticipo)
+                        VALUES (%s, %s, %s, %s, %s, 1, %s)
+                    """, (id_entrega, anticipo['ID_Producto'], entrega['cantidad'], 
+                          precio_unitario, entrega['cantidad'] * precio_unitario, id_anticipo))
                 
-                # 10. Registrar la entrega en tabla entregas
-                cursor.execute("""
-                    INSERT INTO entregas 
-                    (ID_Cliente, ID_Sucursal, ID_Producto, Cantidad_Cajas, 
-                     Precio_Unitario, Total, Usa_Anticipo, ID_Anticipo, 
-                     ID_Usuario, Notas, Fecha_Entrega)
-                    VALUES (%s, %s, %s, %s, %s, %s, 1, %s, %s, %s, NOW())
-                """, (anticipo['ID_Cliente'], id_sucursal, anticipo['ID_Producto'], 
-                      cantidad_cajas, precio_unitario_anticipo, total, 
-                      id_anticipo, id_usuario, notas))
+                # 9. ACTUALIZAR EL ANTICIPO
+                nuevas_cajas_consumidas = anticipo['Anticipo_Cajas_Consumidas'] + total_cajas
+                cajas_restantes = anticipo['Anticipo_Total_Cajas'] - nuevas_cajas_consumidas
+                nuevo_saldo_restante = cajas_restantes * precio_unitario
                 
-                id_entrega = cursor.lastrowid
-                
-                # 11. Registrar en detalle_entregas
-                cursor.execute("""
-                    INSERT INTO detalle_entregas 
-                    (ID_Entrega, ID_Producto, Cantidad_Cajas, Precio_Unitario, 
-                     Total, Usa_Anticipo, ID_Anticipo)
-                    VALUES (%s, %s, %s, %s, %s, 1, %s)
-                """, (id_entrega, anticipo['ID_Producto'], cantidad_cajas, 
-                      precio_unitario_anticipo, total, id_anticipo))
-                
-                # 12. ACTUALIZAR EL ANTICIPO
-                nuevas_cajas_consumidas_anticipo = anticipo['Anticipo_Cajas_Consumidas'] + cantidad_cajas
-                cajas_restantes = anticipo['Anticipo_Total_Cajas'] - nuevas_cajas_consumidas_anticipo
-                nuevo_saldo_restante = cajas_restantes * precio_unitario_anticipo
-                
-                if nuevas_cajas_consumidas_anticipo >= anticipo['Anticipo_Total_Cajas']:
-                    nuevo_estado_anticipo = 'COMPLETADO'
-                else:
-                    nuevo_estado_anticipo = 'ACTIVO'
+                nuevo_estado = 'COMPLETADO' if nuevas_cajas_consumidas >= anticipo['Anticipo_Total_Cajas'] else 'ACTIVO'
                 
                 cursor.execute("""
                     UPDATE anticipos_clientes 
@@ -9120,11 +9148,11 @@ def admin_anticipo_entregas():
                         Estado = %s,
                         Saldo_Restante = %s
                     WHERE ID_Anticipo = %s
-                """, (nuevas_cajas_consumidas_anticipo, nuevo_estado_anticipo, nuevo_saldo_restante, id_anticipo))
+                """, (nuevas_cajas_consumidas, nuevo_estado, nuevo_saldo_restante, id_anticipo))
                 
-                # 13. ACTUALIZAR DATOS DEL CLIENTE
-                nuevas_cajas_consumidas_cliente = anticipo['Cliente_Cajas_Consumidas'] + cantidad_cajas
-                nuevo_saldo_anticipos_cliente = float(anticipo['Cliente_Saldo_Anticipos']) - total
+                # 10. ACTUALIZAR DATOS DEL CLIENTE
+                nuevas_cajas_consumidas_cliente = anticipo['Cliente_Cajas_Consumidas'] + total_cajas
+                nuevo_saldo_anticipos_cliente = float(anticipo['Cliente_Saldo_Anticipos']) - total_monto
                 
                 anticipo_cliente_completado = nuevas_cajas_consumidas_cliente >= anticipo['Anticipo_Total_Cajas']
                 nuevo_anticipo_activo = 0 if anticipo_cliente_completado else 1
@@ -9139,7 +9167,15 @@ def admin_anticipo_entregas():
                 """, (nuevas_cajas_consumidas_cliente, nuevo_saldo_anticipos_cliente, 
                       nuevo_anticipo_activo, anticipo['ID_Cliente']))
                 
-                # 14. Si el anticipo se completó, registrar en bitácora
+                # 11. DESCOTAR INVENTARIO DE LA BODEGA
+                nuevas_existencias = existencias_actuales - total_cajas
+                cursor.execute("""
+                    UPDATE inventario_bodega 
+                    SET Existencias = %s
+                    WHERE ID_Bodega = %s AND ID_Producto = %s
+                """, (nuevas_existencias, id_bodega, anticipo['ID_Producto']))
+                
+                # 12. Si el anticipo se completó, registrar en bitácora
                 if anticipo_cliente_completado:
                     cursor.execute("""
                         INSERT INTO bitacora (ID_Usuario, Accion, Tabla_Afectada, ID_Registro, Detalles, Fecha)
@@ -9148,17 +9184,14 @@ def admin_anticipo_entregas():
                           f"Anticipo completado para el cliente {anticipo['Nombre_Cliente']}. Total cajas consumidas: {nuevas_cajas_consumidas_cliente}"))
                 
                 # Mensaje de éxito
-                flash(f'✅ Entrega registrada exitosamente!\n'
+                flash(f'✅ {len(ids_entregas)} entregas registradas exitosamente!\n'
                       f'👤 Cliente: {anticipo["Nombre_Cliente"]}\n'
                       f'📦 Producto: {anticipo["Nombre_Producto"]}\n'
-                      f'📊 Cajas entregadas: {cantidad_cajas}\n'
-                      f'💰 Precio unitario (anticipo): ${precio_unitario_anticipo:,.2f}\n'
-                      f'💵 Total descontado: ${total:,.2f}\n'
+                      f'📊 Total cajas entregadas: {total_cajas}\n'
+                      f'💰 Monto total descontado: C${total_monto:,.2f}\n'
                       f'📦 Cajas restantes en anticipo: {cajas_restantes}\n'
-                      f'💵 Saldo restante del anticipo: ${nuevo_saldo_restante:,.2f}\n'
-                      f'🏪 Bodega: {bodega["Nombre"]}\n'
-                      f'📦 Existencias actuales en bodega: {nuevas_existencias:.2f} cajas\n'
-                      f'📝 Movimiento de inventario #: {id_movimiento}', 'success')
+                      f'💵 Saldo restante: C${nuevo_saldo_restante:,.2f}\n'
+                      f'🏪 Bodega: {bodega["Nombre"]}', 'success')
                 
                 return redirect(url_for('admin_anticipo_entregas'))
                 
@@ -9320,6 +9353,7 @@ def admin_anticipo_entregas():
     except Exception as e:
         flash(f'Error al cargar los datos: {str(e)}', 'error')
         return redirect(url_for('admin_dashboard'))
+
 
 #CUENTAS POR COBRAR
 @app.route('/admin/ventas/cxcobrar/cuentas-por-cobrar')
