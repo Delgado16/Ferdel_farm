@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Comprobante de Entregas - Anticipo #{{ anticipo.ID_Anticipo }}</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        @media print {
+            @page {
+                margin: 0;
+                size: 80mm auto;
+            }
+            body {
+                margin: 0;
+                padding: 0;
+                font-family: 'Courier New', monospace, Arial, sans-serif;
+                font-size: 10px !important;
+                line-height: 1.2;
+                color: #000;
+                background: #fff;
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+            }
+            .no-print {
+                display: none !important;
+            }
+            .ticket-container {
+                width: 80mm !important;
+                max-width: 80mm !important;
+                margin: 0 auto !important;
+                padding: 5px !important;
+                border: none !important;
+                box-shadow: none !important;
+                page-break-inside: avoid;
+            }
+        }
+
+        body {
+            font-family: 'Courier New', monospace, Arial, sans-serif;
+            font-size: 10px;
+            margin: 0;
+            padding: 10px;
+            background: #f8f9fa;
+        }
+
+        .ticket-container {
+            width: 80mm;
+            margin: 0 auto;
+            background: white;
+            padding: 10px;
+            border: 1px solid #ddd;
+            box-shadow: 0 0 5px rgba(0,0,0,0.1);
+        }
+
+        .text-center { text-align: center; }
+        .text-right { text-align: right; }
+        .text-left { text-align: left; }
+        .bold { font-weight: bold; }
+        
+        .divider {
+            border-top: 1px dashed #000;
+            margin: 5px 0;
+            padding-top: 5px;
+        }
+        
+        .double-divider {
+            border-top: 2px solid #000;
+            margin: 8px 0;
+        }
+
+        .logo-container {
+            text-align: center;
+            margin-bottom: 5px;
+        }
+        
+        .logo {
+            max-width: 100%;
+            height: auto;
+            max-height: 40px;
+            margin-bottom: 3px;
+        }
+        
+        .logo-text {
+            font-weight: bold;
+            font-size: 14px;
+            text-transform: uppercase;
+            margin-top: 5px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 0;
+            font-size: 9px;
+        }
+        
+        th, td {
+            padding: 4px 2px;
+            vertical-align: top;
+            line-height: 1.2;
+        }
+        
+        .table-header {
+            border-bottom: 1px solid #000;
+        }
+        
+        .table-footer {
+            border-top: 1px solid #000;
+            font-weight: bold;
+        }
+
+        .alert-pendiente {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            padding: 8px;
+            margin: 8px 0;
+            border-radius: 4px;
+            font-size: 9px;
+        }
+        
+        .alert-completado {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            padding: 8px;
+            margin: 8px 0;
+            border-radius: 4px;
+            font-size: 9px;
+            color: #155724;
+        }
+        
+        .alert-info {
+            background: #d1ecf1;
+            border: 1px solid #bee5eb;
+            padding: 8px;
+            margin: 8px 0;
+            border-radius: 4px;
+            font-size: 9px;
+            color: #0c5460;
+        }
+
+        .size-8 { font-size: 8px; }
+        .size-9 { font-size: 9px; }
+        .size-10 { font-size: 10px; }
+        .size-11 { font-size: 11px; }
+        .size-12 { font-size: 12px; }
+        .size-13 { font-size: 13px; }
+        .size-14 { font-size: 14px; }
+        .size-18 { font-size: 18px; }
+
+        .pendiente-number {
+            font-size: 20px;
+            font-weight: bold;
+            color: #856404;
+        }
+        
+        .entregado-number {
+            font-size: 20px;
+            font-weight: bold;
+            color: #155724;
+        }
+
+        .print-controls {
+            margin-top: 20px;
+            text-align: center;
+        }
+        
+        .btn-sm {
+            padding: 4px 8px;
+            font-size: 12px;
+            margin: 2px;
+        }
+        
+        details summary {
+            cursor: pointer;
+            margin: 5px 0;
+        }
+        
+        details summary:hover {
+            color: #667eea;
+        }
+    </style>
+</head>
+<body>
+    <div class="ticket-container">
+        <!-- ENCABEZADO -->
+        <div class="logo-container">
+            <img src="{{ url_for('static', filename='ferdel.png') }}" 
+                 alt="Logo" class="logo"
+                 onerror="this.style.display='none'; document.getElementById('logo-text').style.display='block';">
+            <div id="logo-text" class="logo-text" style="display: none;">
+                {{ empresa.Nombre_Empresa if empresa else 'SISTEMA DE VENTAS' }}
+            </div>
+            <div class="size-10 bold">{{ empresa.Nombre_Empresa if empresa else 'SISTEMA DE VENTAS' }}</div>
+            <div class="size-9">RUC: {{ empresa.RUC if empresa else '000-000-000' }}</div>
+            <div class="size-9">{{ empresa.Direccion if empresa else 'Dirección no registrada' }}</div>
+            <div class="size-9">Tel: {{ empresa.Telefono if empresa else '000-0000' }}</div>
+            <div class="double-divider"></div>
+        </div>
+
+        <!-- TIPO DE DOCUMENTO -->
+        <div class="text-center">
+            <div class="size-13 bold">COMPROBANTE DE ENTREGAS</div>
+            <div class="size-9">Emisión: {{ fecha_actual.strftime('%d/%m/%Y %H:%M:%S') }}</div>
+            <div class="size-9">Atendido por: {{ entregas[0].Registrado_Por if entregas else 'Sistema' }}</div>
+            <div class="divider"></div>
+        </div>
+
+        <!-- DATOS DEL CLIENTE -->
+        <div class="size-9">
+            <div><strong>Cliente:</strong> {{ anticipo.Nombre_Cliente }}</div>
+            <div><strong>RUC/Cédula:</strong> {{ anticipo.RUC_CEDULA or 'No registra' }}</div>
+            <div><strong>Teléfono:</strong> {{ anticipo.Telefono or 'No registra' }}</div>
+            <div><strong>Dirección:</strong> {{ anticipo.Direccion_Cliente or 'No registra' }}</div>
+        </div>
+        <div class="divider"></div>
+
+        <!-- INFORMACIÓN DEL PRODUCTO -->
+        <div class="size-9">
+            <div><strong>Producto:</strong> {{ anticipo.Nombre_Producto }}</div>
+            <div><strong>Código:</strong> {{ anticipo.COD_Producto or 'N/A' }}</div>
+        </div>
+        <div class="divider"></div>
+
+        <!-- SUCURSALES ATENDIDAS Y TOTALES CONSOLIDADOS -->
+        <div class="size-9 bold text-center">SUCURSALES ATENDIDAS</div>
+        
+        <table>
+            <thead>
+                <tr class="size-9 bold table-header">
+                    <th class="text-left">Sucursal</th>
+                    <th class="text-right">Cajas</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for sucursal in sucursales_consolidadas %}
+                <tr>
+                    <td class="text-left">{{ sucursal.nombre }}</td>
+                    <td class="text-right bold">{{ sucursal.total }} cajas</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+            <tfoot>
+                <tr class="table-footer">
+                    <td class="text-left bold">TOTAL ENTREGADO</td>
+                    <td class="text-right bold">{{ total_cajas_rango }} cajas</td>
+                </tr>
+            </tfoot>
+        </table>
+
+        <div class="divider"></div>
+
+        <!-- RESUMEN CONSOLIDADO DEL ANTICIPO -->
+        <div class="alert-info">
+            <div class="text-center bold size-10">RESUMEN DEL ANTICIPO</div>
+            <div class="divider" style="margin: 3px 0;"></div>
+            <div style="display: flex; justify-content: space-between;">
+                <span>Total entregado:</span>
+                <span class="bold">{{ anticipo.Cajas_Consumidas }} cajas</span>
+            </div>
+            <div style="display: flex; justify-content: space-between;">
+                <span>Pendiente por entregar:</span>
+                <span class="bold">{{ cajas_pendientes }} cajas</span>
+            </div>
+        </div>
+
+        <!-- NOTAS -->
+        {% if notas_entregas %}
+        <div class="size-8">
+            <strong>Notas:</strong> {{ notas_entregas }}
+        </div>
+        <div class="divider"></div>
+        {% endif %}
+
+        <!-- PIE DEL TICKET -->
+        <div class="text-center size-9">
+            <div class="bold">¡Gracias por su preferencia!</div>
+            <div style="margin-top: 8px;">
+                <div>--- Comprobante de Entregas ---</div>
+            </div>
+            <div class="size-8">
+                Este documento consolida las entregas realizadas
+            </div>
+        </div>
+    </div>
+
+    <!-- BOTONES DE CONTROL -->
+    <div class="no-print print-controls">
+        <div class="btn-group" role="group">
+            <button onclick="imprimirTicket()" class="btn btn-primary btn-sm">
+                🖨️ Imprimir
+            </button>
+            <button onclick="window.history.back()" class="btn btn-secondary btn-sm">
+                ⬅️ Volver
+            </button>
+            <a href="{{ url_for('admin_anticipo_entregas') }}" class="btn btn-success btn-sm">
+                📋 Entregas
+            </a>
+        </div>
+    </div>
+
+    <script>
+        function imprimirTicket() {
+            window.print();
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            var logo = document.querySelector('.logo');
+            if (logo) {
+                if (logo.complete && logo.naturalHeight === 0) {
+                    document.getElementById('logo-text').style.display = 'block';
+                }
+                logo.onerror = function() {
+                    document.getElementById('logo-text').style.display = 'block';
+                };
+            }
+            
+            var urlParams = new URLSearchParams(window.location.search);
+            if (urlParams.has('autoPrint')) {
+                setTimeout(function() {
+                    window.print();
+                }, 500);
+            }
+        });
+
+        document.addEventListener('keydown', function(e) {
+            if ((e.ctrlKey || e.metaKey) && e.key === 'p') {
+                e.preventDefault();
+                imprimirTicket();
+            }
+        });
+    </script>
+</body>
+</html>
