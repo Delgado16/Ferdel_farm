@@ -1,0 +1,553 @@
+{% extends "layout.html" %}
+
+{% block title %}Proforma de Entregas - Lista de Anticipos{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col">
+            <h2 class="text-primary">
+                <i class="fas fa-file-alt"></i> Proforma de Entregas
+            </h2>
+            <p class="text-muted">Seleccione un anticipo para ver su historial completo de entregas</p>
+        </div>
+    </div>
+
+    <!-- Tarjeta de selección -->
+    <div class="card">
+        <div class="card-header bg-primary text-white">
+            <h5 class="mb-0"><i class="fas fa-search"></i> Seleccionar Anticipo</h5>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-4">
+                    <label class="form-label">Buscar anticipo:</label>
+                    <input type="text" id="buscador" class="form-control" placeholder="Buscar por cliente, producto o ID...">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Filtrar por estado:</label>
+                    <select id="filtroEstado" class="form-select">
+                        <option value="todos">Todos</option>
+                        <option value="ACTIVO">Activos</option>
+                        <option value="COMPLETADO">Completados</option>
+                        <option value="CANCELADO">Cancelados</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Filtrar por fecha:</label>
+                    <select id="filtroFecha" class="form-select">
+                        <option value="todas">Todas las entregas</option>
+                        <option value="hoy">Solo hoy</option>
+                        <option value="rango">Rango personalizado</option>
+                    </select>
+                </div>
+                <div class="col-md-2 d-flex align-items-end">
+                    <button onclick="limpiarFiltros()" class="btn btn-secondary w-100">
+                        <i class="fas fa-eraser"></i> Limpiar
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Filtros de rango (ocultos por defecto) -->
+            <div class="row mt-3" id="rangoFechas" style="display: none;">
+                <div class="col-md-4">
+                    <label class="form-label">Fecha Inicio:</label>
+                    <input type="date" id="fechaInicio" class="form-control">
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Fecha Fin:</label>
+                    <input type="date" id="fechaFin" class="form-control">
+                </div>
+                <div class="col-md-4 d-flex align-items-end">
+                    <button onclick="aplicarRango()" class="btn btn-primary w-100">
+                        <i class="fas fa-calendar-alt"></i> Aplicar rango
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Lista de anticipos -->
+    <div class="card mt-4">
+        <div class="card-header bg-secondary text-white">
+            <h5 class="mb-0"><i class="fas fa-list"></i> Anticipos disponibles</h5>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover" id="tablaAnticipos">
+                    <thead class="table-light">
+                        <tr>
+                            <th>ID</th>
+                            <th>Cliente</th>
+                            <th>Teléfono</th>
+                            <th>Producto</th>
+                            <th>Total</th>
+                            <th>Entregadas</th>
+                            <th>Pendientes</th>
+                            <th>Fecha</th>
+                            <th>Estado</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for a in anticipos %}
+                        <tr data-id="{{ a.ID_Anticipo }}" 
+                            data-estado="{{ a.Estado }}" 
+                            data-cliente="{{ a.Nombre_Cliente|lower }}" 
+                            data-producto="{{ a.Nombre_Producto|lower }}">
+                            <td><strong>#{{ a.ID_Anticipo }}</strong>
+                            <td>{{ a.Nombre_Cliente }}
+                            <td>{{ a.Telefono or '-' }}
+                            <td>{{ a.Nombre_Producto }}
+                            <td class="text-center">{{ a.Total_Cajas }}
+                            <td class="text-center">{{ a.Cajas_Consumidas }}
+                            <td class="text-center">
+                                {% if a.Cajas_Pendientes > 0 %}
+                                <span class="badge bg-warning">{{ a.Cajas_Pendientes }}</span>
+                                {% else %}
+                                <span class="badge bg-success">0</span>
+                                {% endif %}
+                            
+                            <td class="text-center">{{ a.Fecha_Formato }}
+                            <td class="text-center">
+                                {% if a.Estado == 'ACTIVO' %}
+                                <span class="badge bg-success">Activo</span>
+                                {% elif a.Estado == 'COMPLETADO' %}
+                                <span class="badge bg-info">Completado</span>
+                                {% else %}
+                                <span class="badge bg-danger">Cancelado</span>
+                                {% endif %}
+                            
+                            <td class="text-center">
+                                <button class="btn btn-sm btn-primary" onclick="verProforma({{ a.ID_Anticipo }})">
+                                    <i class="fas fa-eye"></i> Vista previa
+                                </button>
+                                <a href="{{ url_for('proforma_anticipo_api', id_anticipo=a.ID_Anticipo) }}" 
+                                   target="_blank" class="btn btn-sm btn-success">
+                                    <i class="fas fa-print"></i> Imprimir
+                                </a>
+                            
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL PARA VISTA PREVIA DE PROFORMA -->
+<div class="modal fade" id="proformaModal" tabindex="-1" aria-labelledby="proformaModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title" id="proformaModalLabel">
+                    <i class="fas fa-file-alt"></i> Vista previa de Proforma
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body" id="proformaModalBody">
+                <div class="text-center p-5">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Cargando...</span>
+                    </div>
+                    <p class="mt-2">Cargando proforma...</p>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+                <button type="button" class="btn btn-success" id="btnImprimirModal">
+                    <i class="fas fa-print"></i> Imprimir
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .table-hover tbody tr:hover {
+        background-color: #f5f5f5;
+        cursor: pointer;
+    }
+    
+    .proforma-preview {
+        font-family: 'Courier New', monospace;
+        font-size: 11px;
+        max-width: 100%;
+        overflow-x: auto;
+    }
+    
+    .proforma-preview .header {
+        text-align: center;
+        margin-bottom: 15px;
+    }
+    
+    .proforma-preview .logo-container {
+        text-align: center;
+        margin-bottom: 10px;
+    }
+    
+    .proforma-preview .logo {
+        max-width: 80px;
+        max-height: 60px;
+        margin-bottom: 5px;
+    }
+    
+    .proforma-preview .empresa-nombre {
+        font-size: 16px;
+        font-weight: bold;
+    }
+    
+    .proforma-preview .divider {
+        border-top: 1px dashed #000;
+        margin: 8px 0;
+    }
+    
+    .proforma-preview table {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 10px 0;
+    }
+    
+    .proforma-preview th, .proforma-preview td {
+        border: 1px solid #ddd;
+        padding: 5px;
+        text-align: left;
+    }
+    
+    .proforma-preview th {
+        background: #f0f0f0;
+    }
+    
+    .proforma-preview .text-center {
+        text-align: center;
+    }
+    
+    .proforma-preview .text-right {
+        text-align: right;
+    }
+    
+    .proforma-preview .badge-pendiente {
+        background: #fff3cd;
+        padding: 10px;
+        margin: 10px 0;
+        border-radius: 5px;
+    }
+</style>
+
+<script>
+    let anticipoSeleccionado = null;
+    let filtroActual = 'todas';
+    let fechaInicioActual = null;
+    let fechaFinActual = null;
+    
+    // Función para obtener la URL del logo (base64 o ruta estática)
+    const LOGO_URL = "{{ url_for('static', filename='ferdel.png') }}";
+    const LOGO_BASE64 = null; // Si tienes el logo en base64, ponlo aquí
+    
+    // Función para generar el HTML del logo
+    function generarLogoHTML() {
+        return `
+            <div class="logo-container">
+                <img src="${LOGO_URL}" 
+                     alt="Logo" 
+                     class="logo"
+                     onerror="this.style.display='none'; this.parentElement.querySelector('.logo-text').style.display='block';">
+                <div class="logo-text" style="display: none; font-weight: bold; font-size: 14px;">
+                    SISTEMA DE VENTAS
+                </div>
+            </div>
+        `;
+    }
+    
+    // Mostrar/ocultar filtros de rango
+    document.getElementById('filtroFecha').addEventListener('change', function() {
+        const rangoDiv = document.getElementById('rangoFechas');
+        if (this.value === 'rango') {
+            rangoDiv.style.display = 'flex';
+        } else {
+            rangoDiv.style.display = 'none';
+            filtroActual = this.value;
+            if (anticipoSeleccionado) {
+                verProforma(anticipoSeleccionado);
+            }
+        }
+    });
+    
+    function aplicarRango() {
+        const fechaInicio = document.getElementById('fechaInicio').value;
+        const fechaFin = document.getElementById('fechaFin').value;
+        
+        if (!fechaInicio || !fechaFin) {
+            alert('❌ Por favor seleccione ambas fechas');
+            return;
+        }
+        
+        filtroActual = 'rango';
+        fechaInicioActual = fechaInicio;
+        fechaFinActual = fechaFin;
+        
+        if (anticipoSeleccionado) {
+            verProforma(anticipoSeleccionado);
+        }
+    }
+    
+    function verProforma(idAnticipo) {
+        anticipoSeleccionado = idAnticipo;
+        
+        // Construir URL con filtros
+        let url = `/admin/ventas/anticipos/proforma/api/${idAnticipo}?filtro=${filtroActual}`;
+        if (filtroActual === 'rango' && fechaInicioActual && fechaFinActual) {
+            url += `&fecha_inicio=${fechaInicioActual}&fecha_fin=${fechaFinActual}`;
+        }
+        
+        // Mostrar modal
+        const modal = new bootstrap.Modal(document.getElementById('proformaModal'));
+        modal.show();
+        
+        // Mostrar loading
+        document.getElementById('proformaModalBody').innerHTML = `
+            <div class="text-center p-5">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Cargando...</span>
+                </div>
+                <p class="mt-2">Cargando proforma del anticipo #${idAnticipo}...</p>
+            </div>
+        `;
+        
+        // Cargar datos
+        fetch(url)
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    mostrarProforma(data);
+                } else {
+                    document.getElementById('proformaModalBody').innerHTML = `
+                        <div class="alert alert-danger">
+                            <i class="fas fa-exclamation-triangle"></i> ${data.error || 'Error al cargar la proforma'}
+                        </div>
+                    `;
+                }
+            })
+            .catch(error => {
+                document.getElementById('proformaModalBody').innerHTML = `
+                    <div class="alert alert-danger">
+                        <i class="fas fa-exclamation-triangle"></i> Error al cargar la proforma: ${error}
+                    </div>
+                `;
+            });
+    }
+    
+    function mostrarProforma(data) {
+        const logoHTML = generarLogoHTML();
+        
+        const html = `
+            <div class="proforma-preview">
+                <!-- ENCABEZADO CON LOGO -->
+                ${logoHTML}
+                <div class="header">
+                    <div class="empresa-nombre">${data.empresa.nombre}</div>
+                    <div>RUC: ${data.empresa.ruc}</div>
+                    <div>${data.empresa.direccion}</div>
+                    <div>Tel: ${data.empresa.telefono}</div>
+                    <div class="divider"></div>
+                    <div class="empresa-nombre"> PROFORMA DE ENTREGAS</div>
+                    <div>${data.titulo_rango}</div>
+                    <div class="divider"></div>
+                </div>
+                
+                <!-- DATOS DEL CLIENTE -->
+                <div>
+                    <strong> CLIENTE</strong><br>
+                    Nombre: ${data.anticipo.cliente}<br>
+                    RUC/Cédula: ${data.anticipo.ruc}<br>
+                    Teléfono: ${data.anticipo.telefono}<br>
+                    Dirección: ${data.anticipo.direccion}<br>
+                    Perfil: ${data.anticipo.perfil}
+                </div>
+                <div class="divider"></div>
+                
+                <!-- PRODUCTO -->
+                <div>
+                    <strong> PRODUCTO</strong><br>
+                    Producto: ${data.anticipo.producto}<br>
+                    Código: ${data.anticipo.codigo}<br>
+                    Total contratado: ${data.anticipo.total_contratado} cajas<br>
+                    Fecha anticipo: ${data.anticipo.fecha_anticipo}
+                </div>
+                <div class="divider"></div>
+                
+                <!-- TABLA DE ENTREGAS -->
+                <strong> HISTORIAL DE ENTREGAS</strong>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Fecha</th>
+                            <th>Hora</th>
+                            <th>Sucursal</th>
+                            <th>Cantidad</th>
+                            <th>Registrado por</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${data.entregas.map((e, index) => `
+                            <tr>
+                                <td>${index + 1}</td>
+                                <td>${e.fecha}</td>
+                                <td>${e.hora}</td>
+                                <td>${e.sucursal}</td>
+                                <td class="text-center">${e.cantidad} cjs</td>
+                                <td>${e.registrado_por}</td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+                
+                <!-- RESUMEN POR SUCURSAL -->
+                <div>
+                    <strong> RESUMEN POR SUCURSAL</strong>
+                    <table>
+                        ${data.sucursales_consolidadas.map(s => `
+                            <tr>
+                                <td>${s.nombre}</td>
+                                <td class="text-right"><strong>${s.total}</strong> cajas</td>
+                            </tr>
+                        `).join('')}
+                        <tr style="border-top: 1px solid #000;">
+                            <td><strong>TOTAL ENTREGADO</strong></td>
+                            <td class="text-right"><strong>${data.total_cajas} cajas</strong></td>
+                        </tr>
+                    </table>
+                </div>
+                <div class="divider"></div>
+                
+                <!-- ESTADO DEL ANTICIPO -->
+                <div class="badge-pendiente">
+                    <strong> ESTADO DEL ANTICIPO</strong><br>
+                    Total contratado: ${data.anticipo.total_contratado} cajas<br>
+                    Total entregado: ${data.anticipo.total_entregado} cajas<br>
+                    Pendiente: ${data.anticipo.pendiente} cajas<br>
+                    Avance: ${data.anticipo.porcentaje}%
+                    ${data.anticipo.pendiente === 0 ? '<br><span class="text-success">✅ Anticipo completado</span>' : ''}
+                </div>
+                
+                <div class="divider"></div>
+                
+                <!-- PIE -->
+                <div class="text-center">
+                    <div>¡Gracias por su preferencia!</div>
+                    <div>--- Comprobante de Entregas ---</div>
+                    <div class="size-8">Documento generado el ${data.fecha_actual}</div>
+                </div>
+            </div>
+        `;
+        
+        document.getElementById('proformaModalBody').innerHTML = html;
+        
+        // Configurar botón de impresión
+        document.getElementById('btnImprimirModal').onclick = () => {
+            const printWindow = window.open('', '_blank');
+            printWindow.document.write(`
+                <html>
+                <head>
+                    <title>Proforma - Anticipo #${data.anticipo.id}</title>
+                    <style>
+                        body {
+                            font-family: 'Courier New', monospace;
+                            font-size: 11px;
+                            padding: 20px;
+                            margin: 0;
+                        }
+                        .header { text-align: center; margin-bottom: 15px; }
+                        .logo-container { text-align: center; margin-bottom: 10px; }
+                        .logo { max-width: 80px; max-height: 60px; }
+                        .empresa-nombre { font-size: 16px; font-weight: bold; }
+                        .divider { border-top: 1px dashed #000; margin: 8px 0; }
+                        table { width: 100%; border-collapse: collapse; margin: 10px 0; }
+                        th, td { border: 1px solid #ddd; padding: 5px; text-align: left; }
+                        th { background: #f0f0f0; }
+                        .text-center { text-align: center; }
+                        .text-right { text-align: right; }
+                        .badge-pendiente { background: #fff3cd; padding: 10px; margin: 10px 0; border-radius: 5px; }
+                        @media print {
+                            body { margin: 0; padding: 0; }
+                            .no-print { display: none; }
+                        }
+                    </style>
+                </head>
+                <body>
+                    ${html}
+                </body>
+                </html>
+            `);
+            printWindow.document.close();
+            printWindow.print();
+        };
+    }
+    
+    // Buscador
+    document.getElementById('buscador').addEventListener('keyup', function() {
+        const busqueda = this.value.toLowerCase();
+        const filtroEstado = document.getElementById('filtroEstado').value;
+        const filas = document.querySelectorAll('#tablaAnticipos tbody tr');
+        
+        filas.forEach(fila => {
+            const cliente = fila.dataset.cliente || '';
+            const producto = fila.dataset.producto || '';
+            const id = fila.dataset.id || '';
+            const estado = fila.dataset.estado || '';
+            
+            const cumpleBusqueda = cliente.includes(busqueda) || producto.includes(busqueda) || id.includes(busqueda);
+            const cumpleEstado = filtroEstado === 'todos' || estado === filtroEstado;
+            
+            fila.style.display = (cumpleBusqueda && cumpleEstado) ? '' : 'none';
+        });
+    });
+    
+    // Filtro por estado
+    document.getElementById('filtroEstado').addEventListener('change', function() {
+        const busqueda = document.getElementById('buscador').value.toLowerCase();
+        const filtroEstado = this.value;
+        const filas = document.querySelectorAll('#tablaAnticipos tbody tr');
+        
+        filas.forEach(fila => {
+            const cliente = fila.dataset.cliente || '';
+            const producto = fila.dataset.producto || '';
+            const id = fila.dataset.id || '';
+            const estado = fila.dataset.estado || '';
+            
+            const cumpleBusqueda = cliente.includes(busqueda) || producto.includes(busqueda) || id.includes(busqueda);
+            const cumpleEstado = filtroEstado === 'todos' || estado === filtroEstado;
+            
+            fila.style.display = (cumpleBusqueda && cumpleEstado) ? '' : 'none';
+        });
+    });
+    
+    function limpiarFiltros() {
+        document.getElementById('buscador').value = '';
+        document.getElementById('filtroEstado').value = 'todos';
+        document.getElementById('filtroFecha').value = 'todas';
+        document.getElementById('rangoFechas').style.display = 'none';
+        document.getElementById('fechaInicio').value = '';
+        document.getElementById('fechaFin').value = '';
+        filtroActual = 'todas';
+        fechaInicioActual = null;
+        fechaFinActual = null;
+        
+        const filas = document.querySelectorAll('#tablaAnticipos tbody tr');
+        filas.forEach(fila => fila.style.display = '');
+    }
+    
+    // Hacer clic en la fila para ver proforma
+    document.querySelectorAll('#tablaAnticipos tbody tr').forEach(fila => {
+        fila.addEventListener('click', function(e) {
+            if (e.target.tagName !== 'BUTTON' && e.target.tagName !== 'A') {
+                const id = this.dataset.id;
+                if (id) verProforma(id);
+            }
+        });
+    });
+</script>
+{% endblock %}

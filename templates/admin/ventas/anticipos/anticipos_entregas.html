@@ -4,12 +4,22 @@
 
 {% block content %}
 <div class="container-fluid py-4">
-    <!-- Header -->
+    <!-- Header con botones de acción -->
     <div class="row mb-4">
         <div class="col">
-            <h2 class="text-primary">
+            <h2 class="text-primary d-inline-block">
                 <i class="fas fa-truck"></i> Entregas con Anticipos
             </h2>
+            <div class="float-end">
+                <a href="{{ url_for('proforma_anticipos_lista') }}" 
+                   class="btn btn-warning" 
+                   target="_blank">
+                    <i class="fas fa-file-alt"></i> 📋 Proforma de Entregas
+                </a>
+                <button type="button" class="btn btn-info" onclick="window.print()">
+                    <i class="fas fa-print"></i> Imprimir
+                </button>
+            </div>
             <p class="text-muted">Gestión de entregas de productos utilizando anticipos de clientes</p>
         </div>
     </div>
@@ -79,6 +89,9 @@
                 <span class="badge bg-warning">{{ a.Cajas_Restantes }} cajas restantes</span>
                 💵 Saldo: C${{ "{:,.2f}".format(a.Saldo_Restante) }}
                 <span class="badge bg-secondary">{{ a.perfil_cliente }}</span>
+                <button class="btn btn-sm btn-outline-primary ms-2" onclick="verProformaAnticipo({{ a.ID_Anticipo }})">
+                    <i class="fas fa-eye"></i> Ver Proforma
+                </button>
             </li>
             {% endfor %}
         </ul>
@@ -88,7 +101,12 @@
     <!-- Formulario de Nueva Entrega con Múltiples Sucursales -->
     <div class="card mb-4">
         <div class="card-header bg-primary text-white">
-            <h5 class="mb-0"><i class="fas fa-plus-circle"></i> Registrar Nueva Entrega</h5>
+            <h5 class="mb-0">
+                <i class="fas fa-plus-circle"></i> Registrar Nueva Entrega
+                <button type="button" class="btn btn-sm btn-light float-end" onclick="verProformaAnticipoSeleccionado()" id="btnVerProforma" style="display: none;">
+                    <i class="fas fa-file-alt"></i> Ver Proforma del Anticipo
+                </button>
+            </h5>
         </div>
         <div class="card-body">
             <form method="POST" id="formEntrega" novalidate>
@@ -255,6 +273,7 @@
                             <th>Anticipo ID</th>
                             <th>Registrado por</th>
                             <th>Notas</th>
+                            <th>Acciones</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -277,10 +296,17 @@
                             </td>
                             <td>{{ e.NombreUsuario or 'N/A' }}</td>
                             <td>{{ e.Notas or '-' }}</td>
+                            <td class="text-center">
+                                {% if e.ID_Anticipo %}
+                                <button class="btn btn-sm btn-outline-info" onclick="verProformaAnticipo({{ e.ID_Anticipo }})" title="Ver Proforma">
+                                    <i class="fas fa-file-alt"></i>
+                                </button>
+                                {% endif %}
+                            </td>
                         </tr>
                         {% else %}
                         <tr>
-                            <td colspan="11" class="text-center">No hay entregas registradas</td>
+                            <td colspan="12" class="text-center">No hay entregas registradas</td>
                         </tr>
                         {% endfor %}
                     </tbody>
@@ -290,21 +316,134 @@
     </div>
 </div>
 
-<!-- JavaScript -->
+<!-- MODAL PARA VISTA PREVIA DE PROFORMA -->
+<div class="modal fade" id="proformaModal" tabindex="-1" aria-labelledby="proformaModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title" id="proformaModalLabel">
+                    <i class="fas fa-file-alt"></i> Proforma de Entregas
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body" id="proformaModalBody">
+                <div class="text-center p-5">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Cargando...</span>
+                    </div>
+                    <p class="mt-2">Cargando proforma...</p>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+                <button type="button" class="btn btn-success" id="btnImprimirModal">
+                    <i class="fas fa-print"></i> Imprimir Proforma
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .table-responsive {
+        overflow-x: auto;
+    }
+    .badge {
+        font-size: 0.9em;
+        padding: 5px 10px;
+    }
+    .card {
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .btn-lg {
+        margin-right: 10px;
+    }
+    .entrega-item {
+        background-color: #f8f9fa;
+        transition: all 0.3s;
+    }
+    .entrega-item:hover {
+        background-color: #e9ecef;
+    }
+    select option {
+        padding: 8px;
+    }
+    .alert-warning ul li {
+        margin-bottom: 8px;
+    }
+    
+    /* Estilos para la proforma dentro del modal */
+    .proforma-preview {
+        font-family: 'Courier New', monospace;
+        font-size: 11px;
+        max-width: 100%;
+        overflow-x: auto;
+    }
+    
+    .proforma-preview .header {
+        text-align: center;
+        margin-bottom: 15px;
+    }
+    
+    .proforma-preview .empresa-nombre {
+        font-size: 16px;
+        font-weight: bold;
+    }
+    
+    .proforma-preview .divider {
+        border-top: 1px dashed #000;
+        margin: 8px 0;
+    }
+    
+    .proforma-preview table {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 10px 0;
+    }
+    
+    .proforma-preview th, .proforma-preview td {
+        border: 1px solid #ddd;
+        padding: 5px;
+        text-align: left;
+    }
+    
+    .proforma-preview th {
+        background: #f0f0f0;
+    }
+    
+    .proforma-preview .text-center {
+        text-align: center;
+    }
+    
+    .proforma-preview .text-right {
+        text-align: right;
+    }
+    
+    .proforma-preview .badge-pendiente {
+        background: #fff3cd;
+        padding: 10px;
+        margin: 10px 0;
+        border-radius: 5px;
+    }
+</style>
+
 <script>
 let precioUnitarioActual = 0;
 let cajasDisponiblesActual = 0;
 let anticipoSeleccionado = false;
+let anticipoIdActual = null;
 
 document.addEventListener('DOMContentLoaded', function() {
     const selectAnticipo = document.getElementById('id_anticipo');
     const selectBodega = document.getElementById('id_bodega');
     const detalleAnticipo = document.getElementById('detalle_anticipo');
+    const btnVerProforma = document.getElementById('btnVerProforma');
     
     // Cuando se selecciona un anticipo
     selectAnticipo.addEventListener('change', function() {
         const selectedOption = this.options[this.selectedIndex];
         if (this.value) {
+            anticipoIdActual = this.value;
             precioUnitarioActual = parseFloat(selectedOption.dataset.precio) || 0;
             cajasDisponiblesActual = parseInt(selectedOption.dataset.cajas) || 0;
             
@@ -319,6 +458,9 @@ document.addEventListener('DOMContentLoaded', function() {
             document.getElementById('info_cajas_pendientes').textContent = cajasDisponiblesActual;
             detalleAnticipo.style.display = 'block';
             
+            // Mostrar botón de ver proforma
+            btnVerProforma.style.display = 'inline-block';
+            
             // Filtrar sucursales por cliente
             const clienteId = selectedOption.dataset.clienteId;
             filtrarSucursalesPorCliente(clienteId);
@@ -330,9 +472,11 @@ document.addEventListener('DOMContentLoaded', function() {
             // Actualizar resumen
             actualizarResumen();
         } else {
+            anticipoIdActual = null;
             detalleAnticipo.style.display = 'none';
             selectBodega.disabled = true;
             anticipoSeleccionado = false;
+            btnVerProforma.style.display = 'none';
             mostrarTodasSucursales();
             actualizarResumen();
         }
@@ -340,6 +484,198 @@ document.addEventListener('DOMContentLoaded', function() {
     
     selectBodega.disabled = true;
 });
+
+function verProformaAnticipo(idAnticipo) {
+    if (!idAnticipo) {
+        idAnticipo = anticipoIdActual;
+    }
+    if (!idAnticipo) {
+        alert('❌ Por favor seleccione un anticipo primero');
+        return;
+    }
+    
+    // Mostrar modal con loading
+    const modal = new bootstrap.Modal(document.getElementById('proformaModal'));
+    modal.show();
+    
+    document.getElementById('proformaModalBody').innerHTML = `
+        <div class="text-center p-5">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Cargando...</span>
+            </div>
+            <p class="mt-2">Cargando proforma del anticipo #${idAnticipo}...</p>
+        </div>
+    `;
+    
+    // Cargar datos
+    fetch(`/admin/ventas/anticipos/proforma/api/${idAnticipo}?filtro=todas`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                mostrarProformaEnModal(data);
+            } else {
+                document.getElementById('proformaModalBody').innerHTML = `
+                    <div class="alert alert-danger">
+                        <i class="fas fa-exclamation-triangle"></i> ${data.error || 'Error al cargar la proforma'}
+                    </div>
+                `;
+            }
+        })
+        .catch(error => {
+            document.getElementById('proformaModalBody').innerHTML = `
+                <div class="alert alert-danger">
+                    <i class="fas fa-exclamation-triangle"></i> Error al cargar la proforma: ${error}
+                </div>
+            `;
+        });
+}
+
+function verProformaAnticipoSeleccionado() {
+    verProformaAnticipo(anticipoIdActual);
+}
+
+function mostrarProformaEnModal(data) {
+    const html = `
+        <div class="proforma-preview">
+            <!-- ENCABEZADO -->
+            <div class="header">
+                <div class="empresa-nombre">${data.empresa.nombre}</div>
+                <div>RUC: ${data.empresa.ruc}</div>
+                <div>${data.empresa.direccion}</div>
+                <div>Tel: ${data.empresa.telefono}</div>
+                <div class="divider"></div>
+                <div class="empresa-nombre">📋 PROFORMA DE ENTREGAS</div>
+                <div>Anticipo #${data.anticipo.id}</div>
+                <div>${data.titulo_rango}</div>
+                <div class="divider"></div>
+            </div>
+            
+            <!-- DATOS DEL CLIENTE -->
+            <div>
+                <strong>👤 CLIENTE</strong><br>
+                Nombre: ${data.anticipo.cliente}<br>
+                RUC/Cédula: ${data.anticipo.ruc}<br>
+                Teléfono: ${data.anticipo.telefono}<br>
+                Dirección: ${data.anticipo.direccion}<br>
+                Perfil: ${data.anticipo.perfil}
+            </div>
+            <div class="divider"></div>
+            
+            <!-- PRODUCTO -->
+            <div>
+                <strong>📦 PRODUCTO</strong><br>
+                Producto: ${data.anticipo.producto}<br>
+                Código: ${data.anticipo.codigo}<br>
+                Total contratado: ${data.anticipo.total_contratado} cajas<br>
+                Fecha anticipo: ${data.anticipo.fecha_anticipo}
+            </div>
+            <div class="divider"></div>
+            
+            <!-- TABLA DE ENTREGAS -->
+            <strong>📋 HISTORIAL DE ENTREGAS</strong>
+            <table>
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Fecha</th>
+                        <th>Hora</th>
+                        <th>Sucursal</th>
+                        <th>Cantidad</th>
+                        <th>Registrado por</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${data.entregas.map((e, index) => `
+                        <tr>
+                            <td>${index + 1}</td>
+                            <td>${e.fecha}</td>
+                            <td>${e.hora}</td>
+                            <td>${e.sucursal}</td>
+                            <td class="text-center">${e.cantidad} cjs</td>
+                            <td>${e.registrado_por}</td>
+                        </tr>
+                    `).join('')}
+                </tbody>
+            </table>
+            
+            <!-- RESUMEN POR SUCURSAL -->
+            <div>
+                <strong>📊 RESUMEN POR SUCURSAL</strong>
+                <table>
+                    ${data.sucursales_consolidadas.map(s => `
+                        <tr>
+                            <td>${s.nombre}</td>
+                            <td class="text-right"><strong>${s.total}</strong> cajas</td>
+                        </tr>
+                    `).join('')}
+                    <tr style="border-top: 1px solid #000;">
+                        <td><strong>TOTAL ENTREGADO</strong></td>
+                        <td class="text-right"><strong>${data.total_cajas} cajas</strong></td>
+                    </tr>
+                </table>
+            </div>
+            <div class="divider"></div>
+            
+            <!-- ESTADO DEL ANTICIPO -->
+            <div class="badge-pendiente">
+                <strong>📈 ESTADO DEL ANTICIPO</strong><br>
+                Total contratado: ${data.anticipo.total_contratado} cajas<br>
+                Total entregado: ${data.anticipo.total_entregado} cajas<br>
+                Pendiente: ${data.anticipo.pendiente} cajas<br>
+                Avance: ${data.anticipo.porcentaje}%
+                ${data.anticipo.pendiente === 0 ? '<br><span class="text-success">✅ Anticipo completado</span>' : ''}
+            </div>
+            
+            <div class="divider"></div>
+            
+            <!-- PIE -->
+            <div class="text-center">
+                <div>¡Gracias por su preferencia!</div>
+                <div>--- Comprobante de Entregas ---</div>
+                <div class="size-8">Documento generado el ${data.fecha_actual}</div>
+            </div>
+        </div>
+    `;
+    
+    document.getElementById('proformaModalBody').innerHTML = html;
+    
+    // Configurar botón de impresión
+    document.getElementById('btnImprimirModal').onclick = () => {
+        const printWindow = window.open('', '_blank');
+        printWindow.document.write(`
+            <html>
+            <head>
+                <title>Proforma - Anticipo #${data.anticipo.id}</title>
+                <style>
+                    body {
+                        font-family: 'Courier New', monospace;
+                        font-size: 11px;
+                        padding: 20px;
+                        margin: 0;
+                    }
+                    .header { text-align: center; margin-bottom: 15px; }
+                    .empresa-nombre { font-size: 16px; font-weight: bold; }
+                    .divider { border-top: 1px dashed #000; margin: 8px 0; }
+                    table { width: 100%; border-collapse: collapse; margin: 10px 0; }
+                    th, td { border: 1px solid #ddd; padding: 5px; text-align: left; }
+                    th { background: #f0f0f0; }
+                    .text-center { text-align: center; }
+                    .text-right { text-align: right; }
+                    .badge-pendiente { background: #fff3cd; padding: 10px; margin: 10px 0; border-radius: 5px; }
+                    @media print {
+                        body { margin: 0; padding: 0; }
+                    }
+                </style>
+            </head>
+            <body>
+                ${html}
+            </body>
+            </html>
+        `);
+        printWindow.document.close();
+        printWindow.print();
+    };
+}
 
 function filtrarSucursalesPorCliente(clienteId) {
     const selects = document.querySelectorAll('select[name="sucursales[]"]');
@@ -399,7 +735,6 @@ function agregarEntrega() {
     
     container.insertAdjacentHTML('beforeend', template);
     
-    // Aplicar filtro de cliente si hay anticipo seleccionado
     if (anticipoSeleccionado) {
         const clienteId = document.getElementById('id_anticipo').selectedOptions[0]?.dataset.clienteId;
         if (clienteId) {
@@ -445,7 +780,6 @@ function actualizarResumen() {
     document.getElementById('resumen_total_monto').textContent = totalMonto.toFixed(2);
     document.getElementById('info_cajas_pendientes').textContent = cajasRestantes >= 0 ? cajasRestantes : 0;
     
-    // Validar contra cajas disponibles
     const resumenCajas = document.getElementById('resumen_total_cajas');
     const resumenRestantes = document.getElementById('resumen_cajas_restantes');
     
@@ -466,7 +800,6 @@ function eliminarEntrega(button) {
     actualizarResumen();
 }
 
-// Validar formulario antes de enviar
 document.getElementById('formEntrega').addEventListener('submit', function(e) {
     const selectAnticipo = document.getElementById('id_anticipo');
     const selectBodega = document.getElementById('id_bodega');
@@ -537,33 +870,4 @@ document.getElementById('formEntrega').addEventListener('submit', function(e) {
                   `¿Desea procesar todas las entregas?`);
 });
 </script>
-
-<style>
-    .table-responsive {
-        overflow-x: auto;
-    }
-    .badge {
-        font-size: 0.9em;
-        padding: 5px 10px;
-    }
-    .card {
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-    }
-    .btn-lg {
-        margin-right: 10px;
-    }
-    .entrega-item {
-        background-color: #f8f9fa;
-        transition: all 0.3s;
-    }
-    .entrega-item:hover {
-        background-color: #e9ecef;
-    }
-    select option {
-        padding: 8px;
-    }
-    .alert-warning ul li {
-        margin-bottom: 8px;
-    }
-</style>
 {% endblock %}
