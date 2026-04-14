@@ -1,4 +1,5 @@
 # ===== INICIO - MODIFICACIONES PARA PYTHON 3.13 Y RENDER =====
+import os
 import sys
 import warnings
 import collections.abc
@@ -32,7 +33,6 @@ import traceback
 import json
 from decimal import Decimal
 import logging
-import os
 import secrets
 from dotenv import load_dotenv
 import contextlib
@@ -42,45 +42,33 @@ app = Flask(__name__)
 app.config['CORS_HEADERS'] = 'Content-Type'
 CORS(app)
 
-# ===== CONFIGURACIÓN DE BASE DE DATOS MEJORADA PARA RENDER =====
-def get_db_config():
-    """Retorna configuración según el entorno"""
-    base_config = {
-        'user': os.environ.get('DB_USER', 'avnadmin'),
-        'password': os.environ.get('DB_PASSWORD', ''),
-        'host': os.environ.get('DB_HOST', 'mysql-ferdel-pruebadoce46-eadc.c.aivencloud.com'),
-        'port': int(os.environ.get('DB_PORT', 28375)),
-        'database': os.environ.get('DB_NAME', 'db_ferdel'),
-        'pool_name': 'ferdel_pool',
-        'pool_size': int(os.environ.get('DB_POOL_SIZE', 3)),  # Reducido para free tier
-        'pool_reset_session': True,
-        'autocommit': True,
-        'connect_timeout': 30,
-        'use_pure': True,  # Importante para compatibilidad
-        'charset': 'utf8mb4',
-        'collation': 'utf8mb4_general_ci'
-    }
-    
-    # Configuración SSL según entorno
-    if IS_RENDER:
-        # En Render: SSL simplificado
-        base_config['use_ssl'] = True
-        base_config['ssl_verify_cert'] = False  # Temporal para pruebas
-        base_config['ssl_verify_identity'] = False
-        print("🔒 Configuración SSL para Render activada")
-    else:
-        # Desarrollo local
-        ssl_ca_path = os.environ.get('SSL_CA_PATH', r'C:\Users\ferza\Downloads\ca.pem')
-        if os.path.exists(ssl_ca_path):
-            base_config['ssl_ca'] = ssl_ca_path
-            print("🔒 Configuración SSL local activada")
-        else:
-            print("⚠️ No se encontró certificado SSL, usando conexión sin SSL")
-    
-    return base_config
+# ===== CONFIGURACIÓN SIMPLIFICADA DE BASE DE DATOS (SIN SSL) =====
+DB_CONFIG = {
+    'user': os.environ.get('DB_USER', 'avnadmin'),
+    'password': os.environ.get('DB_PASSWORD', ''),
+    'host': os.environ.get('DB_HOST', 'mysql-ferdel-pruebadoce46-eadc.c.aivencloud.com'),
+    'port': int(os.environ.get('DB_PORT', 28375)),
+    'database': os.environ.get('DB_NAME', 'db_ferdel'),
+    'pool_name': 'ferdel_pool',
+    'pool_size': int(os.environ.get('DB_POOL_SIZE', 3)),
+    'pool_reset_session': True,
+    'autocommit': True,
+    'connect_timeout': 30,
+    'use_pure': True,
+    'charset': 'utf8mb4',
+    'collation': 'utf8mb4_general_ci'
+}
 
-# Usar la configuración mejorada
-DB_CONFIG = get_db_config()
+# Imprimir configuración (sin mostrar contraseña)
+print("📋 Configuración de BD (SIN SSL):")
+print(f"   Host: {DB_CONFIG['host']}:{DB_CONFIG['port']}")
+print(f"   Database: {DB_CONFIG['database']}")
+print(f"   User: {DB_CONFIG['user']}")
+print(f"   Pool Size: {DB_CONFIG['pool_size']}")
+
+# Inicializar connection_pool
+connection_pool = None
+pool_lock = threading.Lock()
 
 # Inicializar connection_pool
 connection_pool = None
