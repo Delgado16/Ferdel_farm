@@ -1,3 +1,19 @@
+# ===== INICIO - MODIFICACIONES PARA PYTHON 3.13 Y RENDER =====
+import sys
+import warnings
+import collections.abc
+
+# Solución para Python 3.13
+if not hasattr(collections, 'Iterable'):
+    collections.Iterable = collections.abc.Iterable
+
+# Suprimir warnings de deprecación
+warnings.filterwarnings('ignore', category=DeprecationWarning)
+
+# Detectar si estamos en producción (Render)
+IS_RENDER = os.environ.get('RENDER', False)
+# ===== FIN DE MODIFICACIONES =====
+
 from venv import logger
 from flask import Flask, flash, render_template, redirect, url_for, abort, request, session, Response, jsonify, current_app, g
 from flask_cors import CORS
@@ -25,19 +41,46 @@ load_dotenv()
 app = Flask(__name__)
 app.config['CORS_HEADERS'] = 'Content-Type'
 CORS(app)
-# Configuración de la base de datos
-DB_CONFIG = {
-    'user': os.environ.get('DB_USER', 'root'),
-    'password': os.environ.get('DB_PASSWORD', 'admin'),
-    'host': os.environ.get('DB_HOST', 'localhost'),
-    'port': int(os.environ.get('DB_PORT', 3306)),
-    'database': os.environ.get('DB_NAME', 'db_ferdel'),
-    'pool_name': 'ferdel_pool',
-    'pool_size': int(os.environ.get('DB_POOL_SIZE', 10)),
-    'pool_reset_session': True,
-    'autocommit': True,
-    'connect_timeout': 30
-}
+
+# ===== CONFIGURACIÓN DE BASE DE DATOS MEJORADA PARA RENDER =====
+def get_db_config():
+    """Retorna configuración según el entorno"""
+    base_config = {
+        'user': os.environ.get('DB_USER', 'avnadmin'),
+        'password': os.environ.get('DB_PASSWORD', ''),
+        'host': os.environ.get('DB_HOST', 'mysql-ferdel-pruebadoce46-eadc.c.aivencloud.com'),
+        'port': int(os.environ.get('DB_PORT', 28375)),
+        'database': os.environ.get('DB_NAME', 'db_ferdel'),
+        'pool_name': 'ferdel_pool',
+        'pool_size': int(os.environ.get('DB_POOL_SIZE', 3)),  # Reducido para free tier
+        'pool_reset_session': True,
+        'autocommit': True,
+        'connect_timeout': 30,
+        'use_pure': True,  # Importante para compatibilidad
+        'charset': 'utf8mb4',
+        'collation': 'utf8mb4_general_ci'
+    }
+    
+    # Configuración SSL según entorno
+    if IS_RENDER:
+        # En Render: SSL simplificado
+        base_config['use_ssl'] = True
+        base_config['ssl_verify_cert'] = False  # Temporal para pruebas
+        base_config['ssl_verify_identity'] = False
+        print("🔒 Configuración SSL para Render activada")
+    else:
+        # Desarrollo local
+        ssl_ca_path = os.environ.get('SSL_CA_PATH', r'C:\Users\ferza\Downloads\ca.pem')
+        if os.path.exists(ssl_ca_path):
+            base_config['ssl_ca'] = ssl_ca_path
+            print("🔒 Configuración SSL local activada")
+        else:
+            print("⚠️ No se encontró certificado SSL, usando conexión sin SSL")
+    
+    return base_config
+
+# Usar la configuración mejorada
+DB_CONFIG = get_db_config()
 
 # Inicializar connection_pool
 connection_pool = None
@@ -52,10 +95,10 @@ def init_pool():
         try:
             with pool_lock:
                 connection_pool = mysql.connector.pooling.MySQLConnectionPool(**DB_CONFIG)
-            print("Conexión a la base de datos establecida correctamente.")
+            print("✅ Conexión a la base de datos establecida correctamente.")
             return True
         except Error as e:
-            print(f"Intentos {attempt + 1} fallados: {e}")
+            print(f"❌ Intento {attempt + 1} fallado: {e}")
             if attempt < max_retries - 1:
                 time.sleep(2*(attempt + 1))  # Espera exponencial
     return False
@@ -74,19 +117,19 @@ def get_db():
                 config_simple = {k: v for k, v in DB_CONFIG.items() 
                                if k not in ['pool_name', 'pool_size','pool_reset_session']}
                 g.db = mysql.connector.connect(**config_simple)
-            print("Conexión a BD establecida")
+            print("✅ Conexión a BD establecida")
             
         except pooling.PoolError as e:
-            print(f"Pool agotado, usando conexion directa: {e}")
+            print(f"⚠️ Pool agotado, usando conexion directa: {e}")
             try:
                 config_simple = {k: v for k, v in DB_CONFIG.items()
                                 if k not in ['pool_name','pool_size','pool_reset_session']}
                 g.db = mysql.connector.connect(**config_simple)
             except Error as fallback_error:
-                print(f"Fallback tambien fallo: {fallback_error}")
+                print(f"❌ Fallback tambien fallo: {fallback_error}")
                 g.db = None
         except Error as e:
-            print(f"Error al conectar a la BD: {e}")
+            print(f"❌ Error al conectar a la BD: {e}")
             g.db = None
     return g.db
 
@@ -98,11 +141,11 @@ def close_db(exception):
         try:
             if db.is_connected():
                 db.close()
-                print("Conexión a BD cerrada")
+                print("🔒 Conexión a BD cerrada")
             else:
-                print("Conexion ya estaba cerrada")
+                print("ℹ️ Conexion ya estaba cerrada")
         except Error as e:
-            print(f"Error al cerrar conexión: {e}")
+            print(f"❌ Error al cerrar conexión: {e}")
 
 @contextlib.contextmanager
 def get_db_cursor(commit=False):
@@ -114,7 +157,7 @@ def get_db_cursor(commit=False):
     cursor = None
     try:
         if not db.is_connected():
-            print("Reconectando...")
+            print("🔄 Reconectando...")
             db.reconnect(attempts=1, delay=0)
     
         cursor = db.cursor(dictionary=True)
@@ -122,23 +165,23 @@ def get_db_cursor(commit=False):
         
         if commit:
             db.commit()
-            print("Cambios confirmados en la BD")
+            print("✅ Cambios confirmados en la BD")
 
     except Exception as e:
-        print(f"Error en operacion de BD: {e}")
+        print(f"❌ Error en operacion de BD: {e}")
         if commit:
             try:
                 db.rollback()
-                print("Rollback realizado en la BD")
+                print("🔄 Rollback realizado en la BD")
             except:
-                print("Error al hacer rollback")
+                print("❌ Error al hacer rollback")
         raise e
 
     finally:
         if cursor:
             try:
                 cursor.close()
-                print("Cursor cerrado")
+                print("🔒 Cursor cerrado")
             except:
                 pass
 
@@ -169,6 +212,7 @@ def diagnose_db():
     print(f"   DB_USER: {os.environ.get('DB_USER')}")
     print(f"   DB_NAME: {os.environ.get('DB_NAME')}")
     print(f"   DB_HOST: {os.environ.get('DB_HOST')}")
+    print(f"   RENDER: {IS_RENDER}")
     
     # 1. Verificar conexión
     conn = get_db()
@@ -203,7 +247,7 @@ def diagnose_db():
             cursor.execute("SELECT COUNT(*) as count FROM usuarios")
             count_result = cursor.fetchone()
             user_count = count_result['count'] if count_result else 0
-            print(f"👥 Usuarios en sistema: {user_count}")
+            print(f"👥 usuarios en sistema: {user_count}")
             
             # 6. Mostrar algunos usuarios de ejemplo
             if user_count > 0:
@@ -212,19 +256,18 @@ def diagnose_db():
                 print("👤 Ejemplo de usuarios:")
                 for user in sample_users:
                     print(f"   - {user['ID_Usuario']}: {user['NombreUsuario']} ({user['Estado']})")
-                    print(f"     Contraseña: {user['Contraseña']}")
+                    print(f"     Contraseña: {user['Contraseña'][:20]}...")  # Mostrar solo parte
+        else:
+            print("❌ Tabla 'usuarios' no encontrada")
         
-        # 7. Verificar tabla Roles
-        if 'Roles' in table_names:
-            cursor.execute("SELECT * FROM Roles")
+        # 7. Verificar tabla roles
+        if 'roles' in table_names:
+            cursor.execute("SELECT * FROM roles")
             roles = cursor.fetchall()
-            print("🎭 Roles disponibles:")
+            print("🎭 roles disponibles:")
             for role in roles:
                 print(f"   - {role['ID_Rol']}: {role['Nombre_Rol']}")
         
-        else:
-            print("❌ Tabla 'usuarios' no encontrada")
-            
         cursor.close()
         return True
         
@@ -244,8 +287,8 @@ def verify_credentials_debug(username, password):
             # Consulta case-insensitive para estado
             query = """
                 SELECT u.ID_Usuario, u.NombreUsuario, u.Contraseña, r.Nombre_Rol, u.Estado
-                FROM Usuarios u 
-                JOIN Roles r ON u.ID_Rol = r.ID_Rol 
+                FROM usuarios u 
+                JOIN roles r ON u.ID_Rol = r.ID_Rol 
                 WHERE u.NombreUsuario = %s AND UPPER(u.Estado) = 'ACTIVO'
             """
             print(f"📝 Ejecutando query: {query}")
@@ -255,12 +298,12 @@ def verify_credentials_debug(username, password):
             user_data = cursor.fetchone()
             
             if user_data:
-                print(f" Usuario encontrado en BD:")
+                print(f"✅ Usuario encontrado en BD:")
                 print(f"   ID: {user_data['ID_Usuario']}")
                 print(f"   Nombre: {user_data['NombreUsuario']}")
                 print(f"   Rol: {user_data['Nombre_Rol']}")
                 print(f"   Estado: {user_data['Estado']}")
-                print(f"   Hash contraseña: {user_data['Contraseña']}")
+                print(f"   Hash contraseña: {user_data['Contraseña'][:20]}...")
                 
                 # Verificar si la contraseña está hasheada
                 is_hashed = user_data['Contraseña'].startswith(('scrypt:', 'pbkdf2:', 'bcrypt:'))
@@ -309,11 +352,11 @@ def registrar_bitacora(id_usuario=None, modulo=None, accion=None, ip_acceso=None
                 VALUES (%s, %s, %s, %s)
             """, (id_usuario, modulo, accion, ip_acceso))
             
-            print(f"Bitácora registrada: {modulo} - {accion} - Usuario: {id_usuario}")
+            print(f"📝 Bitácora registrada: {modulo} - {accion} - Usuario: {id_usuario}")
             return True
             
     except Exception as e:
-        print(f"Error al registrar en bitácora: {e}")
+        print(f"❌ Error al registrar en bitácora: {e}")
         return False
 
 def bitacora_decorator(modulo):
@@ -396,8 +439,8 @@ def load_user(user_id):
         with get_db_cursor() as cursor:
             cursor.execute(""" 
                 SELECT u.ID_Usuario, u.NombreUsuario, r.Nombre_Rol
-                FROM Usuarios u
-                JOIN Roles r ON u.ID_Rol = r.ID_Rol
+                FROM usuarios u
+                JOIN roles r ON u.ID_Rol = r.ID_Rol
                 WHERE u.ID_Usuario = %s AND UPPER(u.Estado) = 'ACTIVO'
             """, (user_id,))
             user_data = cursor.fetchone()
@@ -440,7 +483,53 @@ def admin_or_bodega_required(f):
         return f(*args, **kwargs)
     return decorated_function
 
-# Rutas de autenticaciones y autorizaciones
+# ===== ENDPOINTS DE DIAGNÓSTICO (útiles para producción) =====
+@app.route('/health')
+def health_check():
+    """Endpoint para monitoreo en Render"""
+    status = {
+        'status': 'healthy',
+        'timestamp': datetime.now().isoformat(),
+        'environment': 'render' if IS_RENDER else 'development',
+        'database': False
+    }
+    
+    # Probar base de datos
+    try:
+        with get_db_cursor() as cursor:
+            cursor.execute("SELECT 1")
+            status['database'] = True
+    except Exception as e:
+        status['database'] = False
+        status['error'] = str(e)
+        status['status'] = 'unhealthy'
+    
+    return jsonify(status)
+
+@app.route('/debug-db')
+def debug_db():
+    """Diagnóstico rápido de BD"""
+    try:
+        with get_db_cursor() as cursor:
+            cursor.execute("SELECT DATABASE() as db, VERSION() as version, NOW() as current_time")
+            result = cursor.fetchone()
+            return jsonify({
+                'connected': True,
+                'database': result['db'],
+                'mysql_version': result['version'],
+                'server_time': result['current_time'].isoformat() if result['current_time'] else None,
+                'render_env': IS_RENDER,
+                'pool_size': DB_CONFIG.get('pool_size')
+            })
+    except Exception as e:
+        return jsonify({
+            'connected': False,
+            'error': str(e),
+            'error_type': type(e).__name__,
+            'render_env': IS_RENDER
+        }), 500
+
+# ===== RUTAS DE AUTENTICACIONES Y AUTORIZACIONES =====
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if current_user.is_authenticated:
@@ -452,7 +541,7 @@ def login():
         username = request.form.get("username", "").strip()
         password = request.form.get("password", "")
         
-        print(f"\n Intento de login - Usuario: '{username}', Contraseña: '{password}'")
+        print(f"\n🔐 Intento de login - Usuario: '{username}'")
         
         if not username:
             flash("El nombre de usuario es requerido", "danger")
@@ -468,16 +557,13 @@ def login():
             flash("La contraseña debe tener al menos 4 caracteres", "danger")
             return render_template('login.html')
         
-        # Debug: verificar credenciales con logging detallado
-        credentials_valid = verify_credentials_debug(username, password)
-        
         try:
             with get_db_cursor() as cursor:
                 # Consulta case-insensitive para estado
                 cursor.execute("""
                     SELECT u.ID_Usuario, u.NombreUsuario, u.Contraseña, r.Nombre_Rol 
-                    FROM Usuarios u 
-                    JOIN Roles r ON u.ID_Rol = r.ID_Rol 
+                    FROM usuarios u 
+                    JOIN roles r ON u.ID_Rol = r.ID_Rol 
                     WHERE u.NombreUsuario = %s AND UPPER(u.Estado) = 'ACTIVO' AND r.Estado = 'Activo'
                 """, (username,))
                 
@@ -491,11 +577,11 @@ def login():
                             user = User(user_data['ID_Usuario'], user_data['NombreUsuario'], user_data['Nombre_Rol'])
                             login_user(user)
                             registrar_login_exitoso(username, user_data['ID_Usuario'])
-                            print(f"Usuario {username} ha iniciado sesión - Rol: {user_data['Nombre_Rol']}")
+                            print(f"✅ Usuario {username} ha iniciado sesión - Rol: {user_data['Nombre_Rol']}")
                             flash(f"¡Bienvenido {user.username}!", "success")
                             return redirect(url_for('dashboard'))
                         else:
-                            print("Contraseña incorrecta (hash)")
+                            print("❌ Contraseña incorrecta (hash)")
                             registrar_login_fallido(username, "contraseña incorrecta")
                             flash("Credenciales incorrectas. Por favor verifique sus datos.", "danger")
                     else:
@@ -504,20 +590,20 @@ def login():
                             user = User(user_data['ID_Usuario'], user_data['NombreUsuario'], user_data['Nombre_Rol'])
                             login_user(user)
                             registrar_login_exitoso(username, user_data['ID_Usuario'])
-                            print(f"Usuario {username} ha iniciado sesión (texto plano) - Rol: {user_data['Nombre_Rol']}")
+                            print(f"✅ Usuario {username} ha iniciado sesión (texto plano) - Rol: {user_data['Nombre_Rol']}")
                             flash(f"¡Bienvenido {user.username}!", "success")
                             return redirect(url_for('dashboard'))
                         else:
-                            print("Contraseña incorrecta (texto plano)")
+                            print("❌ Contraseña incorrecta (texto plano)")
                             registrar_login_fallido(username, "contraseña incorrecta")
                             flash("Credenciales incorrectas. Por favor verifique sus datos.", "danger")
                 else:
-                    print("Usuario no encontrado o inactivo")
-                    registrar_login_fallido(username, "contraseña no encontrado o inactivo")
+                    print("❌ Usuario no encontrado o inactivo")
+                    registrar_login_fallido(username, "usuario no encontrado o inactivo")
                     flash("Credenciales incorrectas o usuario inactivo.", "danger")
                 
         except Exception as e:
-            print(f"Error en login: {e}")
+            print(f"❌ Error en login: {e}")
             registrar_login_fallido(username, f"Error del sistema: {e}")
             flash("Error interno del sistema. Intente más tarde.", "danger")
         
@@ -532,7 +618,7 @@ def reset_admin():
         with get_db_cursor() as cursor:
             # Resetear a texto plano temporalmente
             cursor.execute("""
-                UPDATE Usuarios 
+                UPDATE usuarios 
                 SET Estado = 'Activo', 
                     Contraseña = 'Admin123$'
                 WHERE ID_Usuario = 2
@@ -561,11 +647,11 @@ def fix_admin():
     try:
         with get_db_cursor() as cursor:
             # 1. Corregir estado (case-insensitive)
-            cursor.execute("UPDATE Usuarios SET Estado = 'Activo' WHERE ID_Usuario = 2")
+            cursor.execute("UPDATE usuarios SET Estado = 'Activo' WHERE ID_Usuario = 2")
             
             # 2. Crear hash válido para la contraseña
             hashed_password = generate_password_hash('Admin123$')
-            cursor.execute("UPDATE Usuarios SET Contraseña = %s WHERE ID_Usuario = 2", (hashed_password,))
+            cursor.execute("UPDATE usuarios SET Contraseña = %s WHERE ID_Usuario = 2", (hashed_password,))
             
             print("✅ Usuario admin corregido:")
             print(f"   - Estado: Activo")
@@ -590,10 +676,10 @@ def check_users():
     """Ruta temporal para ver todos los usuarios - ELIMINAR DESPUÉS"""
     try:
         with get_db_cursor() as cursor:
-            cursor.execute("SELECT ID_Usuario, NombreUsuario, Estado, Contraseña FROM Usuarios")
+            cursor.execute("SELECT ID_Usuario, NombreUsuario, Estado, Contraseña FROM usuarios")
             users = cursor.fetchall()
             
-            result = "<h1>👥 Usuarios en el sistema</h1>"
+            result = "<h1>👥 usuarios en el sistema</h1>"
             for user in users:
                 result += f"""
                 <div style='border: 1px solid #ccc; padding: 10px; margin: 10px;'>
@@ -654,7 +740,7 @@ def admin_dashboard():
     
     try:
         with get_db_cursor() as cursor:
-            cursor.execute("SELECT COUNT(*) as count FROM Usuarios WHERE UPPER(Estado) = 'ACTIVO'")
+            cursor.execute("SELECT COUNT(*) as count FROM usuarios WHERE UPPER(Estado) = 'ACTIVO'")
             usuarios_count = cursor.fetchone()['count']
             
             return render_template('admin/dashboard.html', usuarios_count=usuarios_count)
@@ -803,7 +889,7 @@ def vendedor_dashboard():
         productos_cantidades = [float(p['Cantidad_Total']) for p in top_productos] if top_productos else []
         productos_totales = [float(p['Total_Vendido']) for p in top_productos] if top_productos else []
         
-        # 10. Tabla: Clientes con Cartera Vencida
+        # 10. Tabla: clientes con Cartera Vencida
         cursor.execute("""
             SELECT c.ID_Cliente, c.Nombre, c.Telefono, cxc.Num_Documento, 
                    cxc.Saldo_Pendiente, cxc.Fecha_Vencimiento,
@@ -1745,7 +1831,7 @@ def admin_roles():
     """Listar todos los roles"""
     try:
         with get_db_cursor() as cursor:
-            cursor.execute("SELECT * FROM Roles ORDER BY Estado DESC, ID_Rol")
+            cursor.execute("SELECT * FROM roles ORDER BY Estado DESC, ID_Rol")
             roles = cursor.fetchall()
             return render_template('admin/catalog/rol/roles.html', roles=roles)
     except Exception as e:
@@ -1766,7 +1852,7 @@ def crear_rol():
         
         # Validar si el rol ya existe
         with get_db_cursor() as cursor:
-            cursor.execute("SELECT ID_Rol FROM Roles WHERE Nombre_Rol = %s", (nombre_rol.strip(),))
+            cursor.execute("SELECT ID_Rol FROM roles WHERE Nombre_Rol = %s", (nombre_rol.strip(),))
             if cursor.fetchone():
                 flash("Ya existe un rol con ese nombre", "warning")
                 return redirect(url_for('admin_roles'))
@@ -1774,7 +1860,7 @@ def crear_rol():
         # Crear el nuevo rol
         with get_db_cursor(commit=True) as cursor:
             cursor.execute(
-                "INSERT INTO Roles (Nombre_Rol, Estado) VALUES (%s, 'Activo')",
+                "INSERT INTO roles (Nombre_Rol, Estado) VALUES (%s, 'Activo')",
                 (nombre_rol.strip(),)
             )
         
@@ -1801,7 +1887,7 @@ def editar_rol(id_rol):
         
         # Validar si el rol existe
         with get_db_cursor() as cursor:
-            cursor.execute("SELECT Nombre_Rol FROM Roles WHERE ID_Rol = %s", (id_rol,))
+            cursor.execute("SELECT Nombre_Rol FROM roles WHERE ID_Rol = %s", (id_rol,))
             rol_existente = cursor.fetchone()
             
             if not rol_existente:
@@ -1810,7 +1896,7 @@ def editar_rol(id_rol):
             
             # Validar si el nuevo nombre ya existe en otro rol
             cursor.execute(
-                "SELECT ID_Rol FROM Roles WHERE Nombre_Rol = %s AND ID_Rol != %s", 
+                "SELECT ID_Rol FROM roles WHERE Nombre_Rol = %s AND ID_Rol != %s", 
                 (nombre_rol.strip(), id_rol)
             )
             if cursor.fetchone():
@@ -1820,7 +1906,7 @@ def editar_rol(id_rol):
         # Actualizar el rol
         with get_db_cursor(commit=True) as cursor:
             cursor.execute(
-                "UPDATE Roles SET Nombre_Rol = %s, Estado = %s WHERE ID_Rol = %s",
+                "UPDATE roles SET Nombre_Rol = %s, Estado = %s WHERE ID_Rol = %s",
                 (nombre_rol.strip(), estado, id_rol)
             )
         
@@ -1840,7 +1926,7 @@ def cambiar_estado_rol(id_rol):
     try:
         with get_db_cursor() as cursor:
             # Primero obtenemos el estado actual
-            cursor.execute("SELECT Estado, Nombre_Rol FROM Roles WHERE ID_Rol = %s", (id_rol,))
+            cursor.execute("SELECT Estado, Nombre_Rol FROM roles WHERE ID_Rol = %s", (id_rol,))
             rol = cursor.fetchone()
             
             if not rol:
@@ -1852,7 +1938,7 @@ def cambiar_estado_rol(id_rol):
             nombre_rol = rol['Nombre_Rol']
             
             cursor.execute(
-                "UPDATE Roles SET Estado = %s WHERE ID_Rol = %s",
+                "UPDATE roles SET Estado = %s WHERE ID_Rol = %s",
                 (nuevo_estado, id_rol)
             )
         
@@ -1873,7 +1959,7 @@ def eliminar_rol(id_rol):
     try:
         with get_db_cursor() as cursor:
             # Verificar si el rol existe
-            cursor.execute("SELECT Estado, Nombre_Rol FROM Roles WHERE ID_Rol = %s", (id_rol,))
+            cursor.execute("SELECT Estado, Nombre_Rol FROM roles WHERE ID_Rol = %s", (id_rol,))
             rol = cursor.fetchone()
             
             if not rol:
@@ -1886,7 +1972,7 @@ def eliminar_rol(id_rol):
                 return redirect(url_for('admin_roles'))
             
             # Verificar si hay usuarios asociados al rol
-            cursor.execute("SELECT COUNT(*) as count FROM Usuarios WHERE ID_Rol = %s", (id_rol,))
+            cursor.execute("SELECT COUNT(*) as count FROM usuarios WHERE ID_Rol = %s", (id_rol,))
             usuarios_asociados = cursor.fetchone()['count']
             
             if usuarios_asociados > 0:
@@ -1895,7 +1981,7 @@ def eliminar_rol(id_rol):
         
         # Si pasa las validaciones, eliminar
         with get_db_cursor(commit=True) as cursor:
-            cursor.execute("DELETE FROM Roles WHERE ID_Rol = %s", (id_rol,))
+            cursor.execute("DELETE FROM roles WHERE ID_Rol = %s", (id_rol,))
         
         flash(f"Rol '{rol['Nombre_Rol']}' eliminado exitosamente", "success")
         return redirect(url_for('admin_roles'))
@@ -1912,16 +1998,16 @@ def admin_usuarios():
     try:
         with get_db_cursor() as cursor:
             cursor.execute("""
-                SELECT u.*, r.Nombre_Rol as Rol, e.Nombre_Empresa FROM Usuarios u
-                JOIN Roles r ON u.ID_Rol = r.ID_Rol
+                SELECT u.*, r.Nombre_Rol as Rol, e.Nombre_Empresa FROM usuarios u
+                JOIN roles r ON u.ID_Rol = r.ID_Rol
                 JOIN Empresa e ON u.ID_Empresa = e.ID_Empresa
             """)
             usuarios = cursor.fetchall()
             
-            cursor.execute("SELECT * FROM Roles")
+            cursor.execute("SELECT * FROM roles")
             roles = cursor.fetchall()
             
-            cursor.execute("SELECT * FROM Empresa")
+            cursor.execute("SELECT * FROM empresa")
             empresas = cursor.fetchall()
             
             return render_template('admin/catalog/usuarios.html', usuarios=usuarios, roles=roles, empresas=empresas)
@@ -1947,7 +2033,7 @@ def crear_usuario():
     try:
         with get_db_cursor() as cursor:
             cursor.execute("""
-                INSERT INTO Usuarios (NombreUsuario, Contraseña, ID_Rol, ID_Empresa, Estado)
+                INSERT INTO usuarios (NombreUsuario, Contraseña, ID_Rol, ID_Empresa, Estado)
                 VALUES (%s, %s, %s, %s, 'Activo')
             """, (username, hashed_password, rol_id, empresa_id))
             registrar_bitacora(modulo="USUARIOS", accion=f"CREAR_USUARUI: {username}")
@@ -1966,8 +2052,8 @@ def editar_usuario(user_id):
                 # Obtener datos del usuario a editar
                 cursor.execute("""
                     SELECT u.*, r.Nombre_Rol as Rol, e.Nombre_Empresa 
-                    FROM Usuarios u
-                    JOIN Roles r ON u.ID_Rol = r.ID_Rol
+                    FROM usuarios u
+                    JOIN roles r ON u.ID_Rol = r.ID_Rol
                     JOIN Empresa e ON u.ID_Empresa = e.ID_Empresa
                     WHERE u.ID_Usuario = %s
                 """, (user_id,))
@@ -1978,10 +2064,10 @@ def editar_usuario(user_id):
                     return redirect(url_for('admin_usuarios'))
                 
                 # Obtener roles y empresas para el formulario
-                cursor.execute("SELECT * FROM Roles")
+                cursor.execute("SELECT * FROM roles")
                 roles = cursor.fetchall()
                 
-                cursor.execute("SELECT * FROM Empresa")
+                cursor.execute("SELECT * FROM empresa")
                 empresas = cursor.fetchall()
                 
                 return render_template('admin/catalog/editar_usuario.html', 
@@ -2027,7 +2113,7 @@ def editar_usuario(user_id):
                 update_values.append(user_id)
                 
                 # Ejecutar la actualización
-                query = f"UPDATE Usuarios SET {', '.join(update_fields)} WHERE ID_Usuario = %s"
+                query = f"UPDATE usuarios SET {', '.join(update_fields)} WHERE ID_Usuario = %s"
                 cursor.execute(query, update_values)
                 
                 flash("Usuario actualizado exitosamente", "success")
@@ -2274,7 +2360,7 @@ def admin_empresas():
         with get_db_cursor() as cursor:
             cursor.execute("""
                 SELECT ID_Empresa, Nombre_Empresa, Direccion, Telefono, Estado, RUC 
-                FROM Empresa 
+                FROM empresa 
                 ORDER BY Nombre_Empresa
             """)
             empresas = cursor.fetchall()
@@ -3148,7 +3234,7 @@ def admin_proveedores():
             # Consulta base
             base_query = """
                 SELECT p.*, e.Nombre_Empresa
-                FROM Proveedores p
+                FROM proveedores p
                 INNER JOIN empresa e ON p.ID_Empresa = e.ID_Empresa
                 WHERE p.Estado = 'ACTIVO' AND p.ID_Empresa = %s
             """
@@ -3160,7 +3246,7 @@ def admin_proveedores():
                 params.extend([search_param, search_param, search_param])
             
             # Contar total
-            count_query = "SELECT COUNT(*) as total FROM Proveedores p WHERE p.Estado = 'ACTIVO' AND p.ID_Empresa = %s"
+            count_query = "SELECT COUNT(*) as total FROM proveedores p WHERE p.Estado = 'ACTIVO' AND p.ID_Empresa = %s"
             count_params = [id_empresa]
             
             if search_query:
@@ -3211,7 +3297,7 @@ def admin_crear_proveedor():
             # Verificar si el RUC/Cédula ya existe (solo si se proporcionó)
             if ruc_cedula:
                 cursor.execute(
-                    "SELECT 1 FROM Proveedores WHERE RUC_CEDULA = %s AND ID_Empresa = %s AND Estado = 'ACTIVO'", 
+                    "SELECT 1 FROM proveedores WHERE RUC_CEDULA = %s AND ID_Empresa = %s AND Estado = 'ACTIVO'", 
                     (ruc_cedula, id_empresa)
                 )
                 existe = cursor.fetchone()
@@ -3241,7 +3327,7 @@ def admin_editar_proveedor(id):
         with get_db_cursor() as cursor:
             cursor.execute("""
                            SELECT p.* 
-                           FROM Proveedores p
+                           FROM proveedores p
                            INNER JOIN empresa e ON p.ID_Empresa = e.ID_Empresa
                            WHERE p.ID_Proveedor = %s AND p.ID_Empresa = %s AND e.Estado = 'Activo'
                            """, (id, id_empresa))
@@ -3270,7 +3356,7 @@ def admin_editar_proveedor(id):
                 # Verificar si el RUC/Cédula ya existe en otro proveedor activo
                 if ruc_cedula and estado == 'ACTIVO':
                     cursor.execute(
-                        "SELECT 1 FROM Proveedores WHERE RUC_CEDULA = %s AND ID_Proveedor != %s AND ID_Empresa = %s AND Estado = 'ACTIVO'",
+                        "SELECT 1 FROM proveedores WHERE RUC_CEDULA = %s AND ID_Proveedor != %s AND ID_Empresa = %s AND Estado = 'ACTIVO'",
                         (ruc_cedula, id, id_empresa)
                     )
                     ruc_existente = cursor.fetchone()
@@ -3309,7 +3395,7 @@ def admin_eliminar_probeedor(id):
             #verificar que el proveedor pertenece a la emprsa
             cursor.execute("""
                            SELECT p.*
-                           FROM Proveedores p
+                           FROM proveedores p
                            INNER JOIN empresa e On p.ID_Empresa = e.ID_Empresa
                            WHERE p.ID_Proveedor = %s AND p.ID_Empresa = %s AND p.Estado = 'ACTIVO' AND e.Estado = 'Activo'
                            """, (id, id_empresa)
@@ -3371,7 +3457,7 @@ def admin_crear_unidad_medida():
         try:
             with get_db_cursor(commit=True) as cursor:
                 cursor.execute("""
-                    INSERT INTO Unidades_Medida (Descripcion, Abreviatura)
+                    INSERT INTO unidades_medida (Descripcion, Abreviatura)
                     VALUES (%s, %s)
                 """, (descripcion, abreviatura))
                 
@@ -3401,7 +3487,7 @@ def admin_editar_unidad_medida(id):
                     return redirect(url_for('admin_unidades_medidas'))
                 
                 cursor.execute("""
-                    UPDATE Unidades_Medida
+                    UPDATE unidades_medida
                     SET Descripcion = %s, Abreviatura = %s
                     WHERE ID_Unidad = %s
                     """, (descripcion, abreviatura, id))
@@ -3414,7 +3500,7 @@ def admin_editar_unidad_medida(id):
                 #obtener datos actuales
                 cursor.execute("""
                     SELECT ID_Unidad, Descripcion, Abreviatura
-                    FROM Unidades_Medida
+                    FROM unidades_medida
                     WHERE ID_Unidad = %s
                     """, (id,))
                 
@@ -3762,7 +3848,7 @@ def admin_movimientos_inventario():
     try:
         with get_db_cursor(commit=True) as cursor:
             cursor.execute("""
-                SELECT * FROM Catalogo_Movimientos ORDER BY ID_TipoMovimiento""")
+                SELECT * FROM catalogo_movimientos ORDER BY ID_TipoMovimiento""")
             movimientos = cursor.fetchall()
             return render_template('admin/catalog/movimientos/movimientos_inventario.html', 
                                  movimientos=movimientos)
@@ -3785,7 +3871,7 @@ def admin_crear_movimiento():
         
         with get_db_cursor(commit=True) as cursor:
             cursor.execute(
-                "INSERT INTO Catalogo_Movimientos (Descripcion, Adicion, Letra) VALUES (%s, %s, %s)",
+                "INSERT INTO catalogo_movimientos (Descripcion, Adicion, Letra) VALUES (%s, %s, %s)",
                 (descripcion, adicion, letra)
             )
             
@@ -3812,7 +3898,7 @@ def admin_editar_movimiento(id):
             
             with get_db_cursor(commit=True) as cursor:
                 cursor.execute(
-                    "UPDATE Catalogo_Movimientos SET Descripcion = %s, Adicion = %s, Letra = %s WHERE ID_TipoMovimiento = %s",
+                    "UPDATE catalogo_movimientos SET Descripcion = %s, Adicion = %s, Letra = %s WHERE ID_TipoMovimiento = %s",
                     (descripcion, adicion, letra, id)
                 )
                 
@@ -3821,7 +3907,7 @@ def admin_editar_movimiento(id):
         
         # GET - Cargar datos del movimiento
         with get_db_cursor(commit=True) as cursor:
-            cursor.execute("SELECT * FROM Catalogo_Movimientos WHERE ID_TipoMovimiento = %s", (id,))
+            cursor.execute("SELECT * FROM catalogo_movimientos WHERE ID_TipoMovimiento = %s", (id,))
             movimiento = cursor.fetchone()
             
             if not movimiento:
@@ -3841,7 +3927,7 @@ def admin_eliminar_movimiento(id):
     try:
         with get_db_cursor(commit=True) as cursor:
             # Verificar si el movimiento existe
-            cursor.execute("SELECT * FROM Catalogo_Movimientos WHERE ID_TipoMovimiento = %s", (id,))
+            cursor.execute("SELECT * FROM catalogo_movimientos WHERE ID_TipoMovimiento = %s", (id,))
             movimiento = cursor.fetchone()
             
             if not movimiento:
@@ -3849,7 +3935,7 @@ def admin_eliminar_movimiento(id):
                 return redirect(url_for('admin_movimientos_inventario'))
             
             # Eliminar el movimiento
-            cursor.execute("DELETE FROM Catalogo_Movimientos WHERE ID_TipoMovimiento = %s", (id,))
+            cursor.execute("DELETE FROM catalogo_movimientos WHERE ID_TipoMovimiento = %s", (id,))
             
         flash("Movimiento de inventario eliminado exitosamente", "success")
         
@@ -4271,14 +4357,14 @@ def admin_bodega():
             # Obtener bodegas con información de empresa
             cursor.execute("""
                 SELECT b.*, e.Nombre_Empresa 
-                FROM Bodegas b
+                FROM bodegas b
                 INNER JOIN Empresa e ON b.ID_Empresa = e.ID_Empresa
                 ORDER BY b.ID_Bodega DESC
             """)
             bodegas = cursor.fetchall()
             
             # Obtener lista de empresas para el modal de creación
-            cursor.execute("SELECT ID_Empresa, Nombre_Empresa FROM Empresa WHERE Estado = 'Activo' ORDER BY Nombre_Empresa")
+            cursor.execute("SELECT ID_Empresa, Nombre_Empresa FROM empresa WHERE Estado = 'Activo' ORDER BY Nombre_Empresa")
             empresas = cursor.fetchall()
             
             return render_template('admin/bodega/bodega.html', 
@@ -4307,7 +4393,7 @@ def admin_bodega_crear():
         
         with get_db_cursor(commit=True) as cursor:
             cursor.execute("""
-                INSERT INTO Bodegas (Nombre, Ubicacion, ID_Empresa) 
+                INSERT INTO bodegas (Nombre, Ubicacion, ID_Empresa) 
                 VALUES (%s, %s, %s)
             """, (nombre, ubicacion, id_empresa))
 
@@ -4337,7 +4423,7 @@ def admin_editar_bodega(id):
         try:
             with get_db_cursor(commit=True) as cursor:
                 cursor.execute(
-                    "UPDATE Bodegas SET Nombre = %s, Ubicacion = %s, Estado = %s, ID_Empresa = %s WHERE ID_Bodega = %s",
+                    "UPDATE bodegas SET Nombre = %s, Ubicacion = %s, Estado = %s, ID_Empresa = %s WHERE ID_Bodega = %s",
                     (nombre, ubicacion, estado, id_empresa, id)
                 )
                 flash("Bodega actualizada exitosamente", "success")
@@ -4350,7 +4436,7 @@ def admin_editar_bodega(id):
     try:
         with get_db_cursor() as cursor:
             # Obtener datos de la bodega
-            cursor.execute("SELECT * FROM Bodegas WHERE ID_Bodega = %s", (id,))
+            cursor.execute("SELECT * FROM bodegas WHERE ID_Bodega = %s", (id,))
             bodega = cursor.fetchone()
             
             if not bodega:
@@ -4358,7 +4444,7 @@ def admin_editar_bodega(id):
                 return redirect(url_for('admin_bodega'))
             
             # Obtener lista de empresas para el dropdown
-            cursor.execute("SELECT ID_Empresa, Nombre_Empresa FROM Empresa WHERE Estado = 'Activo' ORDER BY Nombre_Empresa")
+            cursor.execute("SELECT ID_Empresa, Nombre_Empresa FROM empresa WHERE Estado = 'Activo' ORDER BY Nombre_Empresa")
             empresas = cursor.fetchall()
             
             return render_template('admin/bodega/editar_bodega.html', 
@@ -4400,13 +4486,13 @@ def admin_productos():
                     p.Usuario_Creador,
                     u.NombreUsuario as Usuario_Creador_Nombre,
                     p.Stock_Minimo,
-                    (SELECT COUNT(*) FROM Inventario_Bodega ib2 WHERE ib2.ID_Producto = p.ID_Producto) as Bodegas_Con_Stock
-                FROM Productos p
-                LEFT JOIN Unidades_Medida um ON p.Unidad_Medida = um.ID_Unidad
+                    (SELECT COUNT(*) FROM inventario_bodega ib2 WHERE ib2.ID_Producto = p.ID_Producto) as bodegas_Con_Stock
+                FROM productos p
+                LEFT JOIN unidades_medida um ON p.Unidad_Medida = um.ID_Unidad
                 LEFT JOIN categorias_producto cp ON p.ID_Categoria = cp.ID_Categoria
                 LEFT JOIN empresa e ON p.ID_Empresa = e.ID_Empresa
                 LEFT JOIN usuarios u ON p.Usuario_Creador = u.ID_Usuario
-                LEFT JOIN Inventario_Bodega ib ON p.ID_Producto = ib.ID_Producto
+                LEFT JOIN inventario_bodega ib ON p.ID_Producto = ib.ID_Producto
                 WHERE p.Estado = 'activo'
             """
             
@@ -4456,7 +4542,7 @@ def admin_productos():
                         'Usuario_Creador': producto[16],
                         'Usuario_Creador_Nombre': producto[17],
                         'Stock_Minimo': producto[18],
-                        'Bodegas_Con_Stock': producto[19]
+                        'bodegas_Con_Stock': producto[19]
                     })
             
             # Obtener todas las categorías para el filtro
@@ -4464,7 +4550,7 @@ def admin_productos():
             categorias = cursor.fetchall()
             
             # Resto de las consultas...
-            cursor.execute("SELECT ID_Unidad, Descripcion, Abreviatura FROM Unidades_Medida")
+            cursor.execute("SELECT ID_Unidad, Descripcion, Abreviatura FROM unidades_medida")
             unidades = cursor.fetchall()
             
             cursor.execute("SELECT ID_Empresa, Nombre_Empresa FROM empresa WHERE Estado = 'Activo'")
@@ -4472,7 +4558,7 @@ def admin_productos():
             
             cursor.execute("""
                 SELECT b.ID_Bodega, b.Nombre, b.ID_Empresa, e.Nombre_Empresa 
-                FROM Bodegas b 
+                FROM bodegas b 
                 JOIN empresa e ON b.ID_Empresa = e.ID_Empresa 
                 WHERE b.Estado = 'activa'
                 ORDER BY e.Nombre_Empresa, b.Nombre
@@ -4584,7 +4670,7 @@ def admin_crear_producto():
             
             # Verificar que la bodega existe y está activa
             cursor.execute("""
-                SELECT ID_Bodega, ID_Empresa FROM Bodegas 
+                SELECT ID_Bodega, ID_Empresa FROM bodegas 
                 WHERE ID_Bodega = %s AND Estado = 'activa'
             """, (id_bodega,))
             
@@ -4612,7 +4698,7 @@ def admin_crear_producto():
 
             # Verificar si el código de producto ya existe
             if cod_producto:
-                cursor.execute("SELECT ID_Producto FROM Productos WHERE COD_Producto = %s", (cod_producto,))
+                cursor.execute("SELECT ID_Producto FROM productos WHERE COD_Producto = %s", (cod_producto,))
                 if cursor.fetchone():
                     flash('El código de producto ya existe', 'error')
                     return redirect(url_for('admin_productos'))
@@ -4620,7 +4706,7 @@ def admin_crear_producto():
                 # Generar código automático si no se proporciona
                 cursor.execute("""
                     SELECT COALESCE(MAX(CAST(COD_Producto AS UNSIGNED)), 0) + 1 
-                    FROM Productos 
+                    FROM productos 
                     WHERE COD_Producto REGEXP '^[0-9]+$'
                 """)
                 result = cursor.fetchone()
@@ -4650,9 +4736,9 @@ def admin_crear_producto():
             producto_id = cursor.lastrowid
             print(f"DEBUG: Producto creado con ID: {producto_id}")
 
-            # Insertar en Inventario_Bodega con la cantidad inicial
+            # Insertar en inventario_bodega con la cantidad inicial
             cursor.execute("""
-                INSERT INTO Inventario_Bodega (ID_Bodega, ID_Producto, Existencias)
+                INSERT INTO inventario_bodega (ID_Bodega, ID_Producto, Existencias)
                 VALUES (%s, %s, %s)
                 ON DUPLICATE KEY UPDATE Existencias = Existencias + VALUES(Existencias)
             """, (id_bodega, producto_id, cantidad_inicial))
@@ -4741,7 +4827,7 @@ def admin_editar_producto(id_producto):
                 # Verificar si el código de producto ya existe en otro producto
                 if cod_producto:
                     cursor.execute("""
-                        SELECT ID_Producto FROM Productos 
+                        SELECT ID_Producto FROM productos 
                         WHERE COD_Producto = %s AND ID_Producto != %s
                     """, (cod_producto, id_producto))
                     if cursor.fetchone():
@@ -4749,7 +4835,7 @@ def admin_editar_producto(id_producto):
                         return redirect(url_for('admin_editar_producto', id_producto=id_producto))
 
                 # Verificar que las referencias existan
-                cursor.execute("SELECT ID_Unidad FROM Unidades_Medida WHERE ID_Unidad = %s", (unidad_medida,))
+                cursor.execute("SELECT ID_Unidad FROM unidades_medida WHERE ID_Unidad = %s", (unidad_medida,))
                 if not cursor.fetchone():
                     flash('La unidad de medida seleccionada no existe', 'error')
                     return redirect(url_for('admin_editar_producto', id_producto=id_producto))
@@ -4825,12 +4911,12 @@ def admin_editar_producto(id_producto):
                         u.NombreUsuario as Usuario_Creador_Nombre,
                         p.Stock_Minimo,
                         COALESCE(SUM(ib.Existencias), 0) as Existencias_Totales
-                    FROM Productos p
-                    LEFT JOIN Unidades_Medida um ON p.Unidad_Medida = um.ID_Unidad
+                    FROM productos p
+                    LEFT JOIN unidades_medida um ON p.Unidad_Medida = um.ID_Unidad
                     LEFT JOIN categorias_producto cp ON p.ID_Categoria = cp.ID_Categoria
                     LEFT JOIN empresa e ON p.ID_Empresa = e.ID_Empresa
                     LEFT JOIN usuarios u ON p.Usuario_Creador = u.ID_Usuario
-                    LEFT JOIN Inventario_Bodega ib ON p.ID_Producto = ib.ID_Producto
+                    LEFT JOIN inventario_bodega ib ON p.ID_Producto = ib.ID_Producto
                     WHERE p.ID_Producto = %s
                     GROUP BY p.ID_Producto, p.COD_Producto, p.Descripcion, p.Unidad_Medida,
                              um.Descripcion, um.Abreviatura, p.Estado, p.ID_Categoria,
@@ -4878,7 +4964,7 @@ def admin_editar_producto(id_producto):
                 cursor.execute("SELECT ID_Categoria, Descripcion FROM categorias_producto")
                 categorias = cursor.fetchall()
                 
-                cursor.execute("SELECT ID_Unidad, Descripcion, Abreviatura FROM Unidades_Medida")
+                cursor.execute("SELECT ID_Unidad, Descripcion, Abreviatura FROM unidades_medida")
                 unidades = cursor.fetchall()
                 
                 cursor.execute("SELECT ID_Empresa, Nombre_Empresa FROM empresa WHERE Estado = 'Activo'")
@@ -4891,9 +4977,9 @@ def admin_editar_producto(id_producto):
                         b.Nombre as Nombre_Bodega,
                         e.Nombre_Empresa,
                         COALESCE(ib.Existencias, 0) as Existencias
-                    FROM Bodegas b
+                    FROM bodegas b
                     JOIN empresa e ON b.ID_Empresa = e.ID_Empresa
-                    LEFT JOIN Inventario_Bodega ib ON b.ID_Bodega = ib.ID_Bodega AND ib.ID_Producto = %s
+                    LEFT JOIN inventario_bodega ib ON b.ID_Bodega = ib.ID_Bodega AND ib.ID_Producto = %s
                     WHERE b.Estado = 'activa'
                     ORDER BY e.Nombre_Empresa, b.Nombre
                 """, (id_producto,))
@@ -4986,7 +5072,7 @@ def admin_compras_entradas():
                     END as Estado,
                     COALESCE(detalle.Total_Productos, 0) as Total_Productos,
                     COALESCE(detalle.Total_Compra, 0) as Total_Compra
-                FROM Movimientos_Inventario mi
+                FROM movimientos_inventario mi
                 LEFT JOIN Proveedores p ON mi.ID_Proveedor = p.ID_Proveedor
                 LEFT JOIN bodegas b ON mi.ID_Bodega = b.ID_Bodega
                 LEFT JOIN catalogo_movimientos cm ON mi.ID_TipoMovimiento = cm.ID_TipoMovimiento
@@ -4996,7 +5082,7 @@ def admin_compras_entradas():
                         ID_Movimiento,
                         COUNT(*) as Total_Productos,
                         SUM(COALESCE(Subtotal, 0)) as Total_Compra
-                    FROM Detalle_Movimientos_Inventario
+                    FROM detalle_movimientos_inventario
                     GROUP BY ID_Movimiento
                 ) detalle ON mi.ID_Movimiento = detalle.ID_Movimiento
                 WHERE (cm.Adicion = 'ENTRADA' OR cm.Letra = 'E')
@@ -5009,9 +5095,9 @@ def admin_compras_entradas():
             cursor.execute("""
                 SELECT 
                     COALESCE(SUM(dmi.Subtotal), 0) as Capital_Total
-                FROM Movimientos_Inventario mi
+                FROM movimientos_inventario mi
                 INNER JOIN catalogo_movimientos cm ON mi.ID_TipoMovimiento = cm.ID_TipoMovimiento
-                INNER JOIN Detalle_Movimientos_Inventario dmi ON mi.ID_Movimiento = dmi.ID_Movimiento
+                INNER JOIN detalle_movimientos_inventario dmi ON mi.ID_Movimiento = dmi.ID_Movimiento
                 WHERE mi.Estado = 'Activa'
                     AND (cm.Adicion = 'ENTRADA' OR cm.Letra = 'E')
                     AND (cm.Descripcion LIKE '%compra%' OR cm.Descripcion LIKE '%COMPRA%')
@@ -5023,9 +5109,9 @@ def admin_compras_entradas():
             cursor.execute("""
                 SELECT 
                     COALESCE(SUM(dmi.Subtotal), 0) as Capital_Contado
-                FROM Movimientos_Inventario mi
+                FROM movimientos_inventario mi
                 INNER JOIN catalogo_movimientos cm ON mi.ID_TipoMovimiento = cm.ID_TipoMovimiento
-                INNER JOIN Detalle_Movimientos_Inventario dmi ON mi.ID_Movimiento = dmi.ID_Movimiento
+                INNER JOIN detalle_movimientos_inventario dmi ON mi.ID_Movimiento = dmi.ID_Movimiento
                 WHERE mi.Estado = 'Activa'
                     AND mi.Tipo_Compra = 'CONTADO'
                     AND (cm.Adicion = 'ENTRADA' OR cm.Letra = 'E')
@@ -5038,9 +5124,9 @@ def admin_compras_entradas():
             cursor.execute("""
                 SELECT 
                     COALESCE(SUM(dmi.Subtotal), 0) as Capital_Credito
-                FROM Movimientos_Inventario mi
+                FROM movimientos_inventario mi
                 INNER JOIN catalogo_movimientos cm ON mi.ID_TipoMovimiento = cm.ID_TipoMovimiento
-                INNER JOIN Detalle_Movimientos_Inventario dmi ON mi.ID_Movimiento = dmi.ID_Movimiento
+                INNER JOIN detalle_movimientos_inventario dmi ON mi.ID_Movimiento = dmi.ID_Movimiento
                 WHERE mi.Estado = 'Activa'
                     AND mi.Tipo_Compra = 'CREDITO'
                     AND (cm.Adicion = 'ENTRADA' OR cm.Letra = 'E')
@@ -5102,7 +5188,7 @@ def admin_crear_compra():
             id_empresa = session.get('id_empresa', 1)
             
             with get_db_cursor(True) as cursor:  
-                cursor.execute("SELECT ID_Proveedor, Nombre FROM Proveedores WHERE Estado = 'ACTIVO' ORDER BY Nombre")
+                cursor.execute("SELECT ID_Proveedor, Nombre FROM proveedores WHERE Estado = 'ACTIVO' ORDER BY Nombre")
                 proveedores = cursor.fetchall()
                 
                 cursor.execute("SELECT ID_Bodega, Nombre FROM bodegas WHERE Estado = 'activa'")
@@ -5203,7 +5289,7 @@ def admin_crear_compra():
                 
                 # Insertar movimiento principal
                 cursor.execute("""
-                    INSERT INTO Movimientos_Inventario (
+                    INSERT INTO movimientos_inventario (
                         ID_TipoMovimiento, N_Factura_Externa, Fecha, ID_Proveedor, 
                         Tipo_Compra, Observacion, ID_Empresa, ID_Bodega, 
                         ID_Usuario_Creacion, ID_Usuario_Modificacion, Estado
@@ -5245,9 +5331,9 @@ def admin_crear_compra():
                         id_usuario
                     ))
                     
-                    # Actualizar Inventario_Bodega (existencias por bodega)
+                    # Actualizar inventario_bodega (existencias por bodega)
                     cursor.execute("""
-                        SELECT ID_Producto FROM Inventario_Bodega 
+                        SELECT ID_Producto FROM inventario_bodega 
                         WHERE ID_Bodega = %s AND ID_Producto = %s
                     """, (id_bodega, producto['id_producto']))
                     
@@ -5256,14 +5342,14 @@ def admin_crear_compra():
                     if existing_record:
                         # Actualizar existencias si ya existe
                         cursor.execute("""
-                            UPDATE Inventario_Bodega 
+                            UPDATE inventario_bodega 
                             SET Existencias = Existencias + %s 
                             WHERE ID_Bodega = %s AND ID_Producto = %s
                         """, (producto['cantidad'], id_bodega, producto['id_producto']))
                     else:
                         # Insertar nuevo registro si no existe
                         cursor.execute("""
-                            INSERT INTO Inventario_Bodega (ID_Bodega, ID_Producto, Existencias)
+                            INSERT INTO inventario_bodega (ID_Bodega, ID_Producto, Existencias)
                             VALUES (%s, %s, %s)
                         """, (id_bodega, producto['id_producto'], producto['cantidad']))
                 
@@ -5275,7 +5361,7 @@ def admin_crear_compra():
                             fecha_vencimiento = (fecha_compra + timedelta(days=30)).strftime('%Y-%m-%d')
                         
                         cursor.execute("""
-                            INSERT INTO Cuentas_Por_Pagar (
+                            INSERT INTO cuentas_por_pagar (
                                 ID_Movimiento, Fecha, ID_Proveedor, Num_Documento, Observacion,
                                 Fecha_Vencimiento, Tipo_Movimiento, Monto_Movimiento, ID_Empresa,
                                 Saldo_Pendiente, ID_Usuario_Creacion, Estado
@@ -5518,15 +5604,15 @@ def admin_anular_compra(id_movimiento):
                         cm.Letra,
                         (
                             SELECT COUNT(*) 
-                            FROM Detalle_Movimientos_Inventario 
+                            FROM detalle_movimientos_inventario 
                             WHERE ID_Movimiento = mi.ID_Movimiento
                         ) as Total_Productos,
                         (
                             SELECT SUM(COALESCE(Subtotal, 0))
-                            FROM Detalle_Movimientos_Inventario 
+                            FROM detalle_movimientos_inventario 
                             WHERE ID_Movimiento = mi.ID_Movimiento
                         ) as Total_Compra
-                    FROM Movimientos_Inventario mi
+                    FROM movimientos_inventario mi
                     LEFT JOIN Proveedores p ON mi.ID_Proveedor = p.ID_Proveedor
                     LEFT JOIN bodegas b ON mi.ID_Bodega = b.ID_Bodega
                     LEFT JOIN catalogo_movimientos cm ON mi.ID_TipoMovimiento = cm.ID_TipoMovimiento
@@ -5579,10 +5665,10 @@ def admin_anular_compra(id_movimiento):
                             dmi.Costo_Unitario,
                             dmi.Subtotal,
                             COALESCE(ib.Existencias, 0) as Stock_Actual
-                        FROM Detalle_Movimientos_Inventario dmi
+                        FROM detalle_movimientos_inventario dmi
                         INNER JOIN Productos p ON dmi.ID_Producto = p.ID_Producto
                         LEFT JOIN inventario_bodega ib ON ib.ID_Producto = p.ID_Producto 
-                            AND ib.ID_Bodega = (SELECT ID_Bodega FROM Movimientos_Inventario WHERE ID_Movimiento = %s)
+                            AND ib.ID_Bodega = (SELECT ID_Bodega FROM movimientos_inventario WHERE ID_Movimiento = %s)
                         WHERE dmi.ID_Movimiento = %s
                         ORDER BY p.Descripcion
                     """, (id_movimiento, id_movimiento))
@@ -5664,9 +5750,9 @@ def admin_anular_compra(id_movimiento):
                         cm.Adicion as Tipo_Movimiento_Adicion,
                         cm.Letra as Tipo_Movimiento_Letra,
                         (SELECT SUM(Subtotal) 
-                         FROM Detalle_Movimientos_Inventario 
+                         FROM detalle_movimientos_inventario 
                          WHERE ID_Movimiento = mi.ID_Movimiento) as Total_Compra
-                    FROM Movimientos_Inventario mi
+                    FROM movimientos_inventario mi
                     LEFT JOIN catalogo_movimientos cm ON mi.ID_TipoMovimiento = cm.ID_TipoMovimiento
                     WHERE mi.ID_Movimiento = %s
                     FOR UPDATE
@@ -5706,7 +5792,7 @@ def admin_anular_compra(id_movimiento):
                         p.COD_Producto,
                         p.Descripcion,
                         p.Unidad_Medida
-                    FROM Detalle_Movimientos_Inventario dmi
+                    FROM detalle_movimientos_inventario dmi
                     INNER JOIN Productos p ON dmi.ID_Producto = p.ID_Producto
                     WHERE dmi.ID_Movimiento = %s
                 """, (id_movimiento,))
@@ -5797,7 +5883,7 @@ def admin_anular_compra(id_movimiento):
                     
                     # Crear movimiento de salida (contramovimiento)
                     cursor.execute("""
-                        INSERT INTO Movimientos_Inventario (
+                        INSERT INTO movimientos_inventario (
                             ID_TipoMovimiento,
                             N_Factura_Externa,
                             Fecha,
@@ -5835,7 +5921,7 @@ def admin_anular_compra(id_movimiento):
                     # Registrar detalles de salida
                     for detalle in detalles:
                         cursor.execute("""
-                            INSERT INTO Detalle_Movimientos_Inventario (
+                            INSERT INTO detalle_movimientos_inventario (
                                 ID_Movimiento,
                                 ID_Producto,
                                 Cantidad,
@@ -5865,7 +5951,7 @@ def admin_anular_compra(id_movimiento):
                     nueva_observacion = nueva_observacion[:65530] + "..."
                 
                 cursor.execute("""
-                    UPDATE Movimientos_Inventario 
+                    UPDATE movimientos_inventario 
                     SET Estado = 'Anulada',
                         ID_Usuario_Modificacion = %s,
                         Fecha_Modificacion = NOW(),
@@ -5955,9 +6041,9 @@ def admin_detalle_compra_completo(id_movimiento):
                      WHERE ID_Movimiento = mi.ID_Movimiento) as Total_Compra,
                     (SELECT COUNT(*) FROM detalle_movimientos_inventario 
                      WHERE ID_Movimiento = mi.ID_Movimiento) as Total_Productos
-                FROM Movimientos_Inventario mi
+                FROM movimientos_inventario mi
                 LEFT JOIN Proveedores p ON mi.ID_Proveedor = p.ID_Proveedor
-                LEFT JOIN Bodegas b ON mi.ID_Bodega = b.ID_Bodega
+                LEFT JOIN bodegas b ON mi.ID_Bodega = b.ID_Bodega
                 LEFT JOIN usuarios u ON mi.ID_Usuario_Creacion = u.ID_Usuario
                 LEFT JOIN usuarios u_mod ON mi.ID_Usuario_Modificacion = u_mod.ID_Usuario
                 WHERE mi.ID_Movimiento = %s
@@ -5985,7 +6071,7 @@ def admin_detalle_compra_completo(id_movimiento):
                     um.Abreviatura as Simbolo_Medida
                 FROM detalle_movimientos_inventario dmi
                 INNER JOIN Productos p ON dmi.ID_Producto = p.ID_Producto
-                LEFT JOIN Unidades_Medida um ON p.Unidad_Medida = um.ID_Unidad
+                LEFT JOIN unidades_medida um ON p.Unidad_Medida = um.ID_Unidad
                 LEFT JOIN inventario_bodega ib ON dmi.ID_Producto = ib.ID_Producto 
                     AND ib.ID_Bodega = %s
                 WHERE dmi.ID_Movimiento = %s
@@ -6001,7 +6087,7 @@ def admin_detalle_compra_completo(id_movimiento):
                     Fecha_Vencimiento,
                     Monto_Movimiento,
                     Saldo_Pendiente
-                FROM Cuentas_Por_Pagar 
+                FROM cuentas_por_pagar 
                 WHERE ID_Movimiento = %s
             """, (id_movimiento,))
             
@@ -6052,7 +6138,7 @@ def admin_cuentas_por_pagar():
                     cpp.Estado,
                     u.NombreUsuario as Usuario_Creacion,
                     DATEDIFF(cpp.Fecha_Vencimiento, CURDATE()) as dias_vencimiento
-                FROM Cuentas_Por_Pagar cpp
+                FROM cuentas_por_pagar cpp
                 LEFT JOIN Proveedores p ON cpp.ID_Proveedor = p.ID_Proveedor
                 LEFT JOIN usuarios u ON cpp.ID_Usuario_Creacion = u.ID_Usuario
                 WHERE 1=1
@@ -6125,7 +6211,7 @@ def registrar_pago_cuenta():
                             cpp.Num_Documento,
                             cpp.Monto_Movimiento,
                             cpp.Estado  -- NUEVO: Incluir el campo Estado
-                        FROM Cuentas_Por_Pagar cpp
+                        FROM cuentas_por_pagar cpp
                         LEFT JOIN Proveedores p ON cpp.ID_Proveedor = p.ID_Proveedor
                         WHERE cpp.ID_Cuenta = %s
                         AND cpp.Estado = 'Pendiente'  -- NUEVO: Solo cuentas pendientes
@@ -6162,7 +6248,7 @@ def registrar_pago_cuenta():
                         cpp.Monto_Movimiento,
                         cpp.Estado,  -- NUEVO: Incluir el campo Estado
                         cpp.ID_Movimiento  -- Para referencia
-                    FROM Cuentas_Por_Pagar cpp
+                    FROM cuentas_por_pagar cpp
                     LEFT JOIN Proveedores p ON cpp.ID_Proveedor = p.ID_Proveedor
                     WHERE cpp.ID_Cuenta = %s
                 """, (id_cuenta,))
@@ -6208,7 +6294,7 @@ def registrar_pago_cuenta():
                 
                 # Actualizar saldo pendiente y estado en la cuenta
                 cursor.execute("""
-                    UPDATE Cuentas_Por_Pagar 
+                    UPDATE cuentas_por_pagar 
                     SET Saldo_Pendiente = %s,
                         Estado = %s  -- NUEVO: Actualizar el estado
                     WHERE ID_Cuenta = %s
@@ -6595,9 +6681,9 @@ def admin_ventas_salidas():
                     mi.Estado as Estado_Movimiento,
                     b.Nombre as Bodega,
                     cm.Descripcion as Tipo_Movimiento,
-                    (SELECT COUNT(*) FROM Detalle_Facturacion df 
+                    (SELECT COUNT(*) FROM detalle_facturacion df 
                      WHERE df.ID_Factura = f.ID_Factura) as Total_Productos,
-                    COALESCE((SELECT SUM(Total) FROM Detalle_Facturacion df 
+                    COALESCE((SELECT SUM(Total) FROM detalle_facturacion df 
                      WHERE df.ID_Factura = f.ID_Factura), 0) as Total_Venta,
                     CASE 
                         WHEN f.Credito_Contado = 1 THEN 'CRÉDITO'
@@ -6615,19 +6701,19 @@ def admin_ventas_salidas():
                         WHEN f.Estado = 'Anulada' THEN 'badge-danger'
                         ELSE 'badge-secondary'
                     END as Estado_Clase,
-                    (SELECT COUNT(*) FROM Cuentas_Por_Cobrar cpc 
+                    (SELECT COUNT(*) FROM cuentas_por_cobrar cpc 
                      WHERE cpc.ID_Factura = f.ID_Factura 
                      AND cpc.Estado IN ('Pendiente', 'Vencida')) as Tiene_Credito_Pendiente
-                FROM Facturacion f
-                LEFT JOIN Clientes c ON f.IDCliente = c.ID_Cliente
+                FROM facturacion f
+                LEFT JOIN clientes c ON f.IDCliente = c.ID_Cliente
                 LEFT JOIN usuarios u ON f.ID_Usuario_Creacion = u.ID_Usuario
                 -- Obtener solo el movimiento más reciente para cada factura
                 LEFT JOIN (
                     SELECT mi1.*
-                    FROM Movimientos_Inventario mi1
+                    FROM movimientos_inventario mi1
                     INNER JOIN (
                         SELECT ID_Factura_Venta, MAX(Fecha_Creacion) as Ultima_Fecha
-                        FROM Movimientos_Inventario 
+                        FROM movimientos_inventario 
                         WHERE ID_Factura_Venta IS NOT NULL
                         GROUP BY ID_Factura_Venta
                     ) mi2 ON mi1.ID_Factura_Venta = mi2.ID_Factura_Venta 
@@ -6648,8 +6734,8 @@ def admin_ventas_salidas():
                     f.Estado,
                     COUNT(*) as cantidad,
                     COALESCE(SUM(df.Total), 0) as total_monto
-                FROM Facturacion f
-                LEFT JOIN Detalle_Facturacion df ON f.ID_Factura = df.ID_Factura
+                FROM facturacion f
+                LEFT JOIN detalle_facturacion df ON f.ID_Factura = df.ID_Factura
                 GROUP BY f.Estado
             """)
             estadisticas_estado = cursor.fetchall()
@@ -6894,7 +6980,7 @@ def admin_crear_venta():
                 
                 # 1. Crear factura
                 cursor.execute("""
-                    INSERT INTO Facturacion (
+                    INSERT INTO facturacion (
                         Fecha, IDCliente, Credito_Contado, Observacion, 
                         ID_Empresa, ID_Usuario_Creacion
                     )
@@ -6978,7 +7064,7 @@ def admin_crear_venta():
                     
                     # Insertar detalle de facturación
                     cursor.execute("""
-                        INSERT INTO Detalle_Facturacion (
+                        INSERT INTO detalle_facturacion (
                             ID_Factura, ID_Producto, Cantidad, Costo, Total
                         )
                         VALUES (%s, %s, %s, %s, %s)
@@ -7029,7 +7115,7 @@ def admin_crear_venta():
                         
                         # Registrar separador
                         cursor.execute("""
-                            INSERT INTO Detalle_Facturacion (
+                            INSERT INTO detalle_facturacion (
                                 ID_Factura, ID_Producto, Cantidad, Costo, Total
                             )
                             VALUES (%s, %s, %s, 0, 0)
@@ -7040,14 +7126,14 @@ def admin_crear_venta():
                         warning_msg = f'Stock insuficiente de separadores. Necesarios: {separadores_totales}, Disponibles: {stock_actual_separadores}'
                         print(f"  ⚠️ {warning_msg}")
                         cursor.execute("""
-                            UPDATE Facturacion 
+                            UPDATE facturacion 
                             SET Observacion = CONCAT(COALESCE(Observacion, ''), ' | [ADVERTENCIA: ', %s, ']')
                             WHERE ID_Factura = %s
                         """, (warning_msg, id_factura))
                 
                 # 4. Registrar movimiento de inventario
                 cursor.execute("""
-                    INSERT INTO Movimientos_Inventario (
+                    INSERT INTO movimientos_inventario (
                         ID_TipoMovimiento, ID_Bodega, Fecha, Tipo_Compra,
                         Observacion, ID_Empresa, ID_Usuario_Creacion, Estado,
                         ID_Factura_Venta
@@ -7113,7 +7199,7 @@ def admin_crear_venta():
                 # 7. Manejar crédito o contado
                 if tipo_venta == 'credito':
                     cursor.execute("""
-                        INSERT INTO Cuentas_Por_Cobrar (
+                        INSERT INTO cuentas_por_cobrar (
                             Fecha, ID_Cliente, Num_Documento, Observacion,
                             Fecha_Vencimiento, Tipo_Movimiento, Monto_Movimiento,
                             ID_Empresa, Saldo_Pendiente, ID_Factura, ID_Usuario_Creacion
@@ -7134,7 +7220,7 @@ def admin_crear_venta():
                 
                 if tipo_venta == 'contado':
                     cursor.execute("""
-                        INSERT INTO Caja_Movimientos (
+                        INSERT INTO caja_movimientos (
                             Fecha, Tipo_Movimiento, Descripcion, Monto, 
                             ID_Factura, ID_Usuario, Referencia_Documento
                         )
@@ -7597,8 +7683,8 @@ def admin_generar_ticket(id_factura):
                         WHEN f.Credito_Contado = 1 THEN 'CRÉDITO'
                         ELSE 'CONTADO'
                     END as Tipo_Venta_Formateado
-                FROM Facturacion f
-                LEFT JOIN Clientes c ON f.IDCliente = c.ID_Cliente
+                FROM facturacion f
+                LEFT JOIN clientes c ON f.IDCliente = c.ID_Cliente
                 LEFT JOIN usuarios u ON f.ID_Usuario_Creacion = u.ID_Usuario
                 LEFT JOIN empresa e ON f.ID_Empresa = e.ID_Empresa
                 WHERE f.ID_Factura = %s
@@ -7620,7 +7706,7 @@ def admin_generar_ticket(id_factura):
                     COALESCE(p.COD_Producto, 'N/A') as COD_Producto,
                     COALESCE(p.Descripcion, 'PRODUCTO ELIMINADO') as Producto,
                     cat.Descripcion as Categoria
-                FROM Detalle_Facturacion df
+                FROM detalle_facturacion df
                 LEFT JOIN Productos p ON df.ID_Producto = p.ID_Producto
                 LEFT JOIN categorias_producto cat ON p.ID_Categoria = cat.ID_Categoria
                 WHERE df.ID_Factura = %s
@@ -7642,7 +7728,7 @@ def admin_generar_ticket(id_factura):
                     mi.ID_Movimiento,
                     b.Nombre as Bodega,
                     cm.Descripcion as Tipo_Movimiento
-                FROM Movimientos_Inventario mi
+                FROM movimientos_inventario mi
                 LEFT JOIN bodegas b ON mi.ID_Bodega = b.ID_Bodega
                 LEFT JOIN catalogo_movimientos cm ON mi.ID_TipoMovimiento = cm.ID_TipoMovimiento
                 WHERE mi.ID_Factura_Venta = %s
@@ -7654,7 +7740,7 @@ def admin_generar_ticket(id_factura):
                 SELECT 
                     Saldo_Pendiente,
                     Fecha_Vencimiento
-                FROM Cuentas_Por_Cobrar 
+                FROM cuentas_por_cobrar 
                 WHERE ID_Factura = %s AND Saldo_Pendiente > 0
             """, (id_factura,))
             cuenta_cobrar = cursor.fetchone()
@@ -7759,7 +7845,7 @@ def admin_detalles_venta(id_factura):
                     -- Obtener tipo de movimiento si existe
                     cm.Descripcion as Tipo_Movimiento
                 FROM facturacion f
-                LEFT JOIN Clientes c ON f.IDCliente = c.ID_Cliente
+                LEFT JOIN clientes c ON f.IDCliente = c.ID_Cliente
                 LEFT JOIN usuarios u ON f.ID_Usuario_Creacion = u.ID_Usuario
                 LEFT JOIN empresa e ON f.ID_Empresa = e.ID_Empresa
                 LEFT JOIN movimientos_inventario mi ON mi.ID_Factura_Venta = f.ID_Factura
@@ -7831,7 +7917,7 @@ def admin_detalles_venta(id_factura):
                     COALESCE(SUM(Saldo_Pendiente), 0) as Saldo_Pendiente_Total,
                     GROUP_CONCAT(Num_Documento SEPARATOR ', ') as Documentos_Credito,
                     MAX(Fecha_Vencimiento) as Fecha_Vencimiento_Max
-                FROM Cuentas_Por_Cobrar 
+                FROM cuentas_por_cobrar 
                 WHERE ID_Factura = %s 
                   AND Saldo_Pendiente > 0
                   AND Estado = 1
@@ -7850,10 +7936,10 @@ def admin_detalles_venta(id_factura):
                         Observacion,
                         Forma_Pago,
                         Numero_Comprobante
-                    FROM Pagos_Cuentas_Cobrar
+                    FROM pagos_cuentascobrar
                     WHERE ID_Cuenta_Cobrar IN (
                         SELECT ID_Cuenta_Cobrar 
-                        FROM Cuentas_Por_Cobrar 
+                        FROM cuentas_por_cobrar 
                         WHERE ID_Factura = %s
                     )
                     ORDER BY Fecha_Pago DESC
@@ -8527,7 +8613,7 @@ def admin_anular_venta(id_factura):
                     except Exception as e:
                         print(f"❌ Error al anular cuenta por cobrar #{venta['id_cuenta_cobrar']}: {e}")
                 
-                # 10. VERIFICACIÓN FINAL DEL ESTADO DE CAJA_MOVIMIENTOS
+                # 10. VERIFICACIÓN FINAL DEL ESTADO DE cAJA_mOVIMIENTOS
                 cursor.execute("""
                     SELECT 
                         COUNT(*) as total_movimientos,
@@ -9302,7 +9388,7 @@ def admin_anticipo_entregas():
                     COALESCE(SUM(e.Total), 0) as Monto_Total_Entregado_Hoy,
                     COUNT(DISTINCT a.ID_Anticipo) as Anticipos_Activos,
                     COALESCE(SUM(a.Cantidad_Cajas - a.Cajas_Consumidas), 0) as Cajas_Disponibles_Total,
-                    COUNT(DISTINCT c.ID_Cliente) as Clientes_Con_Anticipos,
+                    COUNT(DISTINCT c.ID_Cliente) as clientes_Con_Anticipos,
                     COALESCE(SUM(c.Saldo_Anticipos), 0) as Saldo_Total_Anticipos
                 FROM entregas e
                 RIGHT JOIN anticipos_clientes a ON e.ID_Anticipo = a.ID_Anticipo AND DATE(e.Fecha_Entrega) = CURDATE()
@@ -9744,7 +9830,7 @@ def admin_cuentascobrar():
                     fr.Credito_Contado,
                     fr.Observacion as ObservacionRuta,
                     fr.Saldo_Anterior_Cliente
-                FROM Cuentas_Por_Cobrar c
+                FROM cuentas_por_cobrar c
                 LEFT JOIN clientes cl ON c.ID_Cliente = cl.ID_Cliente
                 LEFT JOIN facturacion f ON c.ID_Factura = f.ID_Factura
                 LEFT JOIN facturacion_ruta fr ON c.ID_FacturaRuta = fr.ID_FacturaRuta
@@ -9890,7 +9976,7 @@ def admin_registrar_pago(id_movimiento):
                     SELECT c.Saldo_Pendiente, c.ID_Cliente, c.Monto_Movimiento, 
                            cl.Nombre as NombreCliente, c.Num_Documento,
                            c.ID_Factura, c.Estado
-                    FROM Cuentas_Por_Cobrar c
+                    FROM cuentas_por_cobrar c
                     LEFT JOIN clientes cl ON c.ID_Cliente = cl.ID_Cliente
                     WHERE c.ID_Movimiento = %s
                 """, (id_movimiento,))
@@ -9924,7 +10010,7 @@ def admin_registrar_pago(id_movimiento):
                 
                 # Registrar pago - convertir a float para la base de datos
                 cursor.execute("""
-                    INSERT INTO Pagos_CuentasCobrar 
+                    INSERT INTO pagos_cuentascobrar 
                     (ID_Movimiento, Monto, ID_MetodoPago, Comentarios, Detalles_Metodo, ID_Usuario_Creacion)
                     VALUES (%s, %s, %s, %s, %s, %s)
                 """, (
@@ -9951,7 +10037,7 @@ def admin_registrar_pago(id_movimiento):
                     # Si hay saldo pendiente, verificar si está vencida
                     cursor.execute("""
                         SELECT Fecha_Vencimiento 
-                        FROM Cuentas_Por_Cobrar 
+                        FROM cuentas_por_cobrar 
                         WHERE ID_Movimiento = %s
                     """, (id_movimiento,))
                     fecha_vencimiento = cursor.fetchone()['Fecha_Vencimiento']
@@ -9964,9 +10050,9 @@ def admin_registrar_pago(id_movimiento):
                     else:
                         nuevo_estado = "Pendiente"
                 
-                # Actualizar saldo pendiente Y estado en la tabla Cuentas_Por_Cobrar
+                # Actualizar saldo pendiente Y estado en la tabla cuentas_por_cobrar
                 cursor.execute("""
-                    UPDATE Cuentas_Por_Cobrar 
+                    UPDATE cuentas_por_cobrar 
                     SET Saldo_Pendiente = %s,
                         Estado = %s
                     WHERE ID_Movimiento = %s
@@ -9978,7 +10064,7 @@ def admin_registrar_pago(id_movimiento):
                     num_documento = resultado['Num_Documento'] if resultado['Num_Documento'] else f'CXC-{id_movimiento:05d}'
                     
                     cursor.execute("""
-                        INSERT INTO Caja_Movimientos (
+                        INSERT INTO caja_movimientos (
                             Fecha, Tipo_Movimiento, Descripcion, Monto, 
                             ID_Pagos_cxc, ID_Usuario, Referencia_Documento
                         )
@@ -9995,7 +10081,7 @@ def admin_registrar_pago(id_movimiento):
                 # Guardar detalles del método de pago en comentarios adicionales si existe
                 if detalles_metodo.strip():
                     cursor.execute("""
-                        UPDATE Pagos_CuentasCobrar 
+                        UPDATE pagos_cuentascobrar 
                         SET Comentarios = CONCAT(COALESCE(Comentarios, ''), 
                             CASE WHEN COALESCE(Comentarios, '') != '' THEN ' | ' ELSE '' END,
                             'Detalles: ', %s)
@@ -10035,7 +10121,7 @@ def admin_registrar_pago(id_movimiento):
                     cl.Direccion as DireccionCliente,
                     cl.RUC_CEDULA,
                     e.Nombre_Empresa
-                FROM Cuentas_Por_Cobrar c
+                FROM cuentas_por_cobrar c
                 LEFT JOIN clientes cl ON c.ID_Cliente = cl.ID_Cliente
                 LEFT JOIN empresa e ON c.ID_Empresa = e.ID_Empresa
                 WHERE c.ID_Movimiento = %s
@@ -10127,10 +10213,10 @@ def admin_detalle_cuentacobrar(id_movimiento):
                         THEN DATEDIFF(CURDATE(), c.Fecha_Vencimiento)
                         ELSE 0
                     END as DiasVencido
-                FROM Cuentas_Por_Cobrar c
+                FROM cuentas_por_cobrar c
                 LEFT JOIN clientes cl ON c.ID_Cliente = cl.ID_Cliente
                 LEFT JOIN empresa e ON c.ID_Empresa = e.ID_Empresa
-                LEFT JOIN Facturacion f ON c.ID_Factura = f.ID_Factura
+                LEFT JOIN facturacion f ON c.ID_Factura = f.ID_Factura
                 LEFT JOIN usuarios u ON c.ID_Usuario_Creacion = u.ID_Usuario
                 WHERE c.ID_Movimiento = %s
             """, (id_movimiento,))
@@ -10233,7 +10319,7 @@ def admin_detalle_cuentacobrar(id_movimiento):
                     p.Fecha,  -- Fecha sin formatear
                     COALESCE(mp.Nombre, 'Método no disponible') as MetodoPago,
                     COALESCE(u.NombreUsuario, 'Usuario no disponible') as UsuarioRegistro
-                FROM Pagos_CuentasCobrar p
+                FROM pagos_cuentascobrar p
                 LEFT JOIN metodos_pago mp ON p.ID_MetodoPago = mp.ID_MetodoPago
                 LEFT JOIN usuarios u ON p.ID_Usuario_Creacion = u.ID_Usuario
                 WHERE p.ID_Movimiento = %s
@@ -10733,7 +10819,7 @@ def nuevo_pedido_consolidado():
                     r.ID_Ruta,
                     r.Nombre_Ruta,
                     r.Descripcion,
-                    COUNT(c.ID_Cliente) as Total_Clientes
+                    COUNT(c.ID_Cliente) as Total_clientes
                 FROM rutas r
                 LEFT JOIN clientes c ON r.ID_Ruta = c.ID_Ruta AND c.Estado = 'ACTIVO'
                 WHERE r.Estado = 'Activa'
@@ -12117,7 +12203,7 @@ def admin_procesar_venta_pedido(id_pedido):
                     observacion_completa += f" | {observacion_adicional}"
                 
                 cursor.execute("""
-                    INSERT INTO Facturacion (
+                    INSERT INTO facturacion (
                         Fecha, IDCliente, Credito_Contado, Observacion, 
                         ID_Empresa, ID_Usuario_Creacion
                     )
@@ -12151,7 +12237,7 @@ def admin_procesar_venta_pedido(id_pedido):
                     
                     # Insertar detalle de facturación
                     cursor.execute("""
-                        INSERT INTO Detalle_Facturacion (
+                        INSERT INTO detalle_facturacion (
                             ID_Factura, ID_Producto, Cantidad, Costo, Total
                         )
                         VALUES (%s, %s, %s, %s, %s)
@@ -12203,7 +12289,7 @@ def admin_procesar_venta_pedido(id_pedido):
                         
                         # Registrar separador en detalle de factura (costo 0)
                         cursor.execute("""
-                            INSERT INTO Detalle_Facturacion (
+                            INSERT INTO detalle_facturacion (
                                 ID_Factura, ID_Producto, Cantidad, Costo, Total
                             )
                             VALUES (%s, %s, %s, 0, 0)
@@ -12215,14 +12301,14 @@ def admin_procesar_venta_pedido(id_pedido):
                 
                 # 5. Actualizar observación de factura si hubo advertencia
                 cursor.execute("""
-                    UPDATE Facturacion 
+                    UPDATE facturacion 
                     SET Observacion = %s
                     WHERE ID_Factura = %s
                 """, (observacion_completa, id_factura))
                 
                 # 6. Registrar movimiento de inventario (VENTA)
                 cursor.execute("""
-                    INSERT INTO Movimientos_Inventario (
+                    INSERT INTO movimientos_inventario (
                         ID_TipoMovimiento, ID_Bodega, Fecha, Tipo_Compra,
                         Observacion, ID_Empresa, ID_Usuario_Creacion, Estado,
                         ID_Factura_Venta
@@ -12285,7 +12371,7 @@ def admin_procesar_venta_pedido(id_pedido):
                 # 9. Si es crédito, crear cuenta por cobrar
                 if tipo_venta == 'credito':
                     cursor.execute("""
-                        INSERT INTO Cuentas_Por_Cobrar (
+                        INSERT INTO cuentas_por_cobrar (
                             Fecha, ID_Cliente, Num_Documento, Observacion,
                             Fecha_Vencimiento, Tipo_Movimiento, Monto_Movimiento,
                             ID_Empresa, Saldo_Pendiente, ID_Factura, ID_Usuario_Creacion
@@ -12306,7 +12392,7 @@ def admin_procesar_venta_pedido(id_pedido):
                 # 10. Si es CONTADO, registrar entrada en caja
                 if tipo_venta == 'contado':
                     cursor.execute("""
-                        INSERT INTO Caja_Movimientos (
+                        INSERT INTO caja_movimientos (
                             Fecha, Tipo_Movimiento, Descripcion, Monto, 
                             ID_Factura, ID_Usuario, Referencia_Documento
                         )
@@ -13914,9 +14000,9 @@ def admin_inventario_dashboard():
                         WHERE p2.Estado = 'activo' AND p2.ID_Empresa = %s
                     ), 0) as Promedio_Stock_Minimo,
                     
-                    -- Bodegas
+                    -- bodegas
                     (SELECT COUNT(*) FROM bodegas 
-                     WHERE Estado = 'activa' AND ID_Empresa = %s) as Total_Bodegas
+                     WHERE Estado = 'activa' AND ID_Empresa = %s) as Total_bodegas
                     
             """, (id_empresa, id_empresa, id_empresa, id_empresa, id_empresa, 
                   id_empresa, id_empresa, id_empresa, id_empresa))
@@ -14545,7 +14631,7 @@ def admin_procesar_entrada():
         with get_db_cursor() as cursor:
             # Obtener ID de empresa del usuario o usar valor por defecto
             cursor.execute("""
-                SELECT ID_Empresa FROM Usuarios WHERE ID_Usuario = %s
+                SELECT ID_Empresa FROM usuarios WHERE ID_Usuario = %s
             """, (user_id,))
             
             usuario_data = cursor.fetchone()
@@ -14773,7 +14859,7 @@ def admin_procesar_salida():
         with get_db_cursor() as cursor:
             # Obtener ID de empresa del usuario
             cursor.execute("""
-                SELECT ID_Empresa FROM Usuarios WHERE ID_Usuario = %s
+                SELECT ID_Empresa FROM usuarios WHERE ID_Usuario = %s
             """, (user_id,))
             
             usuario_data = cursor.fetchone()
@@ -14912,7 +14998,7 @@ def admin_procesar_salida():
                         nombre_cliente = cliente_data['Nombre'] if cliente_data else f'Cliente ID: {id_cliente}'
                         
                         cursor.execute("""
-                            INSERT INTO Caja_Movimientos (
+                            INSERT INTO caja_movimientos (
                                 Fecha, Tipo_Movimiento, Descripcion, Monto, 
                                 ID_Factura, ID_Usuario, Referencia_Documento
                             )
@@ -15140,7 +15226,7 @@ def admin_procesar_transferencia():
             id_bodega_origen = int(id_bodega_origen)
             id_bodega_destino = int(id_bodega_destino)
         except ValueError:
-            flash("Bodegas inválidas", 'error')
+            flash("bodegas inválidas", 'error')
             return redirect(url_for('admin_nueva_transferencia_form'))
         
         if id_bodega_origen == id_bodega_destino:
@@ -15613,7 +15699,7 @@ def admin_reportes_movimientos():
             cursor.execute("SELECT * FROM catalogo_movimientos ORDER BY Descripcion")
             tipos_movimiento = cursor.fetchall()
             
-            # Bodegas para filtro
+            # bodegas para filtro
             cursor.execute("SELECT * FROM bodegas WHERE Estado = 1 ORDER BY Nombre")
             bodegas = cursor.fetchall()
             
@@ -15674,7 +15760,7 @@ def admin_reportes_movimientos():
                        um.Descripcion as Unidad_Medida,
                        (SELECT COUNT(*) FROM inventario_bodega 
                         WHERE ID_Producto = p.ID_Producto 
-                        AND Existencias > 0) as Bodegas_Con_Stock
+                        AND Existencias > 0) as bodegas_Con_Stock
                 FROM productos p
                 LEFT JOIN inventario_bodega ib ON p.ID_Producto = ib.ID_Producto
                 LEFT JOIN unidades_medida um ON p.Unidad_Medida = um.ID_Unidad
@@ -20225,7 +20311,7 @@ def mis_movimientos_caja():
             # Estadísticas - CORREGIDO con COALESCE
             cursor.execute("""
                 SELECT 
-                    COALESCE(COUNT(DISTINCT ID_Cliente), 0) as Clientes_Atendidos,
+                    COALESCE(COUNT(DISTINCT ID_Cliente), 0) as clientes_Atendidos,
                     COALESCE(COUNT(CASE WHEN Tipo = 'VENTA' THEN 1 END), 0) as Total_Ventas,
                     COALESCE(COUNT(CASE WHEN Tipo = 'ABONO' THEN 1 END), 0) as Total_Abonos_Dia,
                     COALESCE(COUNT(CASE WHEN Tipo = 'GASTO' THEN 1 END), 0) as Total_Gastos_Dia
@@ -20258,7 +20344,7 @@ def mis_movimientos_caja():
             
             # Estadísticas seguras
             estadisticas_seguras = {
-                'clientes_atendidos': int(estadisticas['Clientes_Atendidos'] or 0),
+                'clientes_atendidos': int(estadisticas['clientes_Atendidos'] or 0),
                 'total_ventas': int(estadisticas['Total_Ventas'] or 0),
                 'total_abonos_dia': int(estadisticas['Total_Abonos_Dia'] or 0),
                 'total_gastos_dia': int(estadisticas['Total_Gastos_Dia'] or 0)
@@ -20459,7 +20545,7 @@ def resumen_diario_vendedor():
                     SUM(CASE WHEN m.Tipo = 'VENTA' AND m.Tipo_Pago = 'CREDITO' THEN 1 ELSE 0 END) as Ventas_Credito,
                     COUNT(DISTINCT CASE WHEN m.Tipo = 'ABONO' THEN m.ID_Movimiento END) as Cantidad_Abonos,
                     SUM(CASE WHEN m.Tipo = 'ABONO' THEN m.Monto ELSE 0 END) as Total_Abonado,
-                    COUNT(DISTINCT CASE WHEN m.Tipo = 'ABONO' THEN m.ID_Cliente END) as Clientes_Abonaron,
+                    COUNT(DISTINCT CASE WHEN m.Tipo = 'ABONO' THEN m.ID_Cliente END) as clientes_Abonaron,
                     SUM(CASE WHEN m.Tipo = 'GASTO' THEN m.Monto ELSE 0 END) as Total_Gastos
                 FROM movimientos_caja_ruta m
                 INNER JOIN asignacion_vendedores av ON m.ID_Asignacion = av.ID_Asignacion
@@ -20894,22 +20980,31 @@ def vendedor_gastos():
                          saldo_actual=saldo_actual,
                          asignacion=asignacion)
 
-
-
-#Iniciar Aplicación
+# ===== INICIO DE LA APLICACIÓN =====
 if __name__ == '__main__':
-    # Estas líneas para crear carpetas están bien, déjalas
+    # Crear carpetas necesarias
     os.makedirs('templates/admin', exist_ok=True)
     os.makedirs('templates/vendedor', exist_ok=True)
     os.makedirs('templates/bodega', exist_ok=True)
     
     # Ejecutar diagnóstico al iniciar
     print("🚀 Iniciando aplicación...")
+    print(f"📡 Entorno: {'RENDER' if IS_RENDER else 'DESARROLLO'}")
     test_connection()
     
-    # ✅ CAMBIO IMPORTANTE PARA RAILWAY
-    import os
-    port = int(os.environ.get('PORT', 5000))
-    debug_mode = os.environ.get('FLASK_DEBUG', 'False').lower() == 'true'
+    # Configuración para producción (Render) o desarrollo
+    if IS_RENDER:
+        # Configuración para Render
+        port = int(os.environ.get('PORT', 10000))
+        debug_mode = False
+        print(f"🏃 Ejecutando en Render - Puerto: {port}")
+        print(f"🔗 URL: https://{os.environ.get('RENDER_EXTERNAL_HOSTNAME', 'localhost')}")
+    else:
+        # Configuración para desarrollo local
+        port = int(os.environ.get('PORT', 5000))
+        debug_mode = os.environ.get('FLASK_DEBUG', 'True').lower() == 'true'
+        print(f"💻 Ejecutando en modo desarrollo - Puerto: {port}")
+        print(f"🔗 URL: http://localhost:{port}")
     
+    # Iniciar la aplicación
     app.run(debug=debug_mode, host='0.0.0.0', port=port)
