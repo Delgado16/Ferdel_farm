@@ -70,10 +70,6 @@ print(f"   Pool Size: {DB_CONFIG['pool_size']}")
 connection_pool = None
 pool_lock = threading.Lock()
 
-# Inicializar connection_pool
-connection_pool = None
-pool_lock = threading.Lock()
-
 def init_pool():
     """Inicializar el pool con reintentos automaticos"""
     global connection_pool
