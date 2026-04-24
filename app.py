@@ -44,27 +44,17 @@ CORS(app)
 
 # ===== CONFIGURACIÓN SIMPLIFICADA DE BASE DE DATOS (SIN SSL) =====
 DB_CONFIG = {
-    'user': os.environ.get('DB_USER', 'avnadmin'),
-    'password': os.environ.get('DB_PASSWORD', ''),
-    'host': os.environ.get('DB_HOST', 'mysql-ferdel-pruebadoce46-eadc.c.aivencloud.com'),
-    'port': int(os.environ.get('DB_PORT', 28375)),
+    'user': os.environ.get('DB_USER', 'root'),
+    'password': os.environ.get('DB_PASSWORD', 'admin'),
+    'host': os.environ.get('DB_HOST', 'localhost'),
+    'port': int(os.environ.get('DB_PORT', 3306)),
     'database': os.environ.get('DB_NAME', 'db_ferdel'),
     'pool_name': 'ferdel_pool',
-    'pool_size': int(os.environ.get('DB_POOL_SIZE', 3)),
+    'pool_size': int(os.environ.get('DB_POOL_SIZE', 10)),
     'pool_reset_session': True,
     'autocommit': True,
-    'connect_timeout': 30,
-    'use_pure': True,
-    'charset': 'utf8mb4',
-    'collation': 'utf8mb4_general_ci'
+    'connect_timeout': 30
 }
-
-# Imprimir configuración (sin mostrar contraseña)
-print("📋 Configuración de BD (SIN SSL):")
-print(f"   Host: {DB_CONFIG['host']}:{DB_CONFIG['port']}")
-print(f"   Database: {DB_CONFIG['database']}")
-print(f"   User: {DB_CONFIG['user']}")
-print(f"   Pool Size: {DB_CONFIG['pool_size']}")
 
 # Inicializar connection_pool
 connection_pool = None
@@ -721,13 +711,291 @@ def dashboard():
 @app.route('/admin/dashboard')
 @login_required
 def admin_dashboard():
-    
     try:
         with get_db_cursor() as cursor:
+            # ============================================
+            # 1. MÉTRICAS PRINCIPALES (KPIs)
+            # ============================================
+            
+            # Usuarios activos
             cursor.execute("SELECT COUNT(*) as count FROM usuarios WHERE UPPER(Estado) = 'ACTIVO'")
             usuarios_count = cursor.fetchone()['count']
             
-            return render_template('admin/dashboard.html', usuarios_count=usuarios_count)
+            # Empresas activas
+            cursor.execute("SELECT COUNT(*) as count FROM empresa WHERE Estado = 'Activo'")
+            empresas_count = cursor.fetchone()['count']
+            
+            # Ventas de hoy
+            cursor.execute("""
+                SELECT COALESCE(SUM(Ventas_Totales), 0) AS Total_Ventas_Hoy
+                FROM (
+                    SELECT SUM(df.Total) AS Ventas_Totales 
+                    FROM detalle_facturacion df
+                    INNER JOIN facturacion fac ON df.ID_Factura = fac.ID_Factura
+                    WHERE DATE(fac.Fecha_Creacion) = CURDATE() AND fac.Estado = 'Activa'
+                    UNION ALL
+                    SELECT SUM(dfr.Total) AS Ventas_Totales 
+                    FROM detalle_facturacion_ruta dfr
+                    INNER JOIN facturacion_ruta facr ON dfr.ID_FacturaRuta = facr.ID_FacturaRuta
+                    WHERE DATE(facr.Fecha_Creacion) = CURDATE() AND facr.Estado = 'Activa'
+                ) AS Ventas
+            """)
+            ventas_hoy = cursor.fetchone()['Total_Ventas_Hoy'] or 0
+            
+            # Cobros de hoy
+            cursor.execute("""
+                SELECT COALESCE(SUM(Monto_Cobrado), 0) AS Total_Cobrado_Hoy
+                FROM (
+                    -- Abonos directos desde abonos_detalle
+                    SELECT Monto_Aplicado AS Monto_Cobrado
+                    FROM abonos_detalle
+                    WHERE DATE(Fecha) = CURDATE()
+                    
+                    UNION ALL
+                    
+                    -- Pagos registrados en cuentas por cobrar
+                    SELECT pc.Monto AS Monto_Cobrado
+                    FROM pagos_cuentascobrar pc
+                    INNER JOIN cuentas_por_cobrar cxc ON pc.ID_Movimiento = cxc.ID_Movimiento
+                    WHERE DATE(pc.Fecha) = CURDATE()
+                    AND cxc.Estado != 'Anulada'
+                ) AS Cobros
+            """)
+            cobros_hoy = cursor.fetchone()['Total_Cobrado_Hoy'] or 0
+            
+            # Saldo pendiente total en cartera
+            cursor.execute("""
+                SELECT COALESCE(SUM(Saldo_Pendiente), 0) AS Saldo_Total_Pendiente
+                FROM cuentas_por_cobrar
+                WHERE Estado IN ('Pendiente', 'Vencida')
+            """)
+            saldo_pendiente = cursor.fetchone()['Saldo_Total_Pendiente'] or 0
+            
+            # Facturas vencidas
+            cursor.execute("""
+                SELECT COUNT(*) as count
+                FROM cuentas_por_cobrar
+                WHERE Estado = 'Vencida' AND Saldo_Pendiente > 0
+            """)
+            facturas_vencidas = cursor.fetchone()['count'] or 0
+            
+            # Productos con stock bajo
+            cursor.execute("""
+                SELECT COUNT(*) as count
+                FROM inventario_bodega ib
+                INNER JOIN productos p ON ib.ID_Producto = p.ID_Producto
+                WHERE ib.Existencias <= p.Stock_Minimo
+            """)
+            productos_bajo_stock = cursor.fetchone()['count'] or 0
+            
+            # ============================================
+            # 2. VENTAS DEL MES (para gráfico de líneas)
+            # ============================================
+            cursor.execute("""
+                SELECT 
+                    DAY(fac.Fecha_Creacion) AS Dia,
+                    COALESCE(SUM(df.Total), 0) AS Total_Vendido
+                FROM facturacion fac
+                INNER JOIN detalle_facturacion df ON fac.ID_Factura = df.ID_Factura
+                WHERE MONTH(fac.Fecha_Creacion) = MONTH(CURDATE()) 
+                  AND YEAR(fac.Fecha_Creacion) = YEAR(CURDATE())
+                  AND fac.Estado = 'Activa'
+                GROUP BY DAY(fac.Fecha_Creacion)
+                ORDER BY Dia ASC
+            """)
+            ventas_mes = cursor.fetchall()
+            
+            # ============================================
+            # 3. TOP CLIENTES DEUDORES
+            # ============================================
+            cursor.execute("""
+                SELECT 
+                    c.Nombre AS Cliente,
+                    c.Telefono,
+                    COALESCE(SUM(cxc.Saldo_Pendiente), 0) AS Deuda_Total
+                FROM cuentas_por_cobrar cxc
+                INNER JOIN clientes c ON cxc.ID_Cliente = c.ID_Cliente
+                WHERE cxc.Estado IN ('Pendiente', 'Vencida')
+                GROUP BY c.ID_Cliente
+                ORDER BY Deuda_Total DESC
+                LIMIT 5
+            """)
+            top_clientes = cursor.fetchall()
+            
+            # ============================================
+            # 4. PRODUCTOS CON STOCK BAJO
+            # ============================================
+            cursor.execute("""
+                SELECT 
+                    p.Descripcion AS Producto,
+                    p.COD_Producto,
+                    ib.Existencias AS Stock_Actual,
+                    p.Stock_Minimo,
+                    (p.Stock_Minimo - ib.Existencias) AS Faltante
+                FROM inventario_bodega ib
+                INNER JOIN productos p ON ib.ID_Producto = p.ID_Producto
+                WHERE ib.Existencias <= p.Stock_Minimo
+                ORDER BY ib.Existencias ASC
+                LIMIT 10
+            """)
+            productos_stock = cursor.fetchall()
+            
+            # ============================================
+            # 5. GASTOS DEL MES POR CATEGORÍA
+            # ============================================
+            cursor.execute("""
+                SELECT 
+                    tg.Nombre AS Tipo_Gasto,
+                    COALESCE(SUM(gg.Monto), 0) AS Total_Gastado
+                FROM gastos_generales gg
+                INNER JOIN tipos_gasto tg ON gg.ID_Tipo_Gasto = tg.ID_Tipo_Gasto
+                WHERE MONTH(gg.Fecha) = MONTH(CURDATE()) 
+                  AND YEAR(gg.Fecha) = YEAR(CURDATE())
+                  AND gg.Estado = 'Activo'
+                GROUP BY tg.ID_Tipo_Gasto
+                ORDER BY Total_Gastado DESC
+                LIMIT 5
+            """)
+            gastos_mes = cursor.fetchall()
+            
+            # ============================================
+            # 6. VENTAS POR VENDEDOR (día actual)
+            # ============================================
+            cursor.execute("""
+                SELECT 
+                    u.NombreUsuario AS Vendedor,
+                    COUNT(DISTINCT fr.ID_FacturaRuta) AS Facturas,
+                    COALESCE(SUM(dfr.Total), 0) AS Total_Vendido
+                FROM facturacion_ruta fr
+                INNER JOIN detalle_facturacion_ruta dfr ON fr.ID_FacturaRuta = dfr.ID_FacturaRuta
+                INNER JOIN asignacion_vendedores av ON fr.ID_Asignacion = av.ID_Asignacion
+                INNER JOIN usuarios u ON av.ID_Usuario = u.ID_Usuario
+                WHERE DATE(fr.Fecha_Creacion) = CURDATE() AND fr.Estado = 'Activa'
+                GROUP BY u.ID_Usuario
+                ORDER BY Total_Vendido DESC
+                LIMIT 5
+            """)
+            ventas_vendedores = cursor.fetchall()
+            
+            # ============================================
+            # 7. RUTAS ACTIVAS
+            # ============================================
+            cursor.execute("""
+                SELECT 
+                    r.Nombre_Ruta AS Ruta,
+                    u.NombreUsuario AS Vendedor,
+                    v.Placa AS Vehiculo,
+                    av.Estado
+                FROM asignacion_vendedores av
+                INNER JOIN rutas r ON av.ID_Ruta = r.ID_Ruta
+                INNER JOIN usuarios u ON av.ID_Usuario = u.ID_Usuario
+                LEFT JOIN vehiculos v ON av.ID_Vehiculo = v.ID_Vehiculo
+                WHERE av.Estado = 'Activa'
+            """)
+            rutas_activas = cursor.fetchall()
+            
+            # ============================================
+            # 8. VENTAS ÚLTIMOS 7 DÍAS (tendencia)
+            # ============================================
+            cursor.execute("""
+                SELECT 
+                    DATE(fac.Fecha_Creacion) AS Fecha,
+                    COALESCE(SUM(df.Total), 0) AS Total_Vendido
+                FROM facturacion fac
+                INNER JOIN detalle_facturacion df ON fac.ID_Factura = df.ID_Factura
+                WHERE fac.Fecha_Creacion >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)
+                  AND fac.Estado = 'Activa'
+                GROUP BY DATE(fac.Fecha_Creacion)
+                ORDER BY Fecha ASC
+            """)
+            ventas_7dias = cursor.fetchall()
+            
+            # ============================================
+            # 9. RESUMEN DE CAJA (movimientos del día)
+            # ============================================
+            cursor.execute("""
+                SELECT 
+                    Tipo,
+                    COUNT(*) as Cantidad,
+                    COALESCE(SUM(Monto), 0) as Total
+                FROM movimientos_caja_ruta
+                WHERE DATE(Fecha) = CURDATE() AND Estado = 'ACTIVO'
+                GROUP BY Tipo
+            """)
+            movimientos_caja = cursor.fetchall()
+            
+            # ============================================
+            # 10. PRÓXIMOS VENCIMIENTOS (7 días)
+            # ============================================
+            cursor.execute("""
+                SELECT 
+                    c.Nombre AS Cliente,
+                    cxc.Num_Documento,
+                    cxc.Fecha_Vencimiento,
+                    cxc.Saldo_Pendiente
+                FROM cuentas_por_cobrar cxc
+                INNER JOIN clientes c ON cxc.ID_Cliente = c.ID_Cliente
+                WHERE cxc.Fecha_Vencimiento BETWEEN CURDATE() AND DATE_ADD(CURDATE(), INTERVAL 7 DAY)
+                  AND cxc.Estado = 'Pendiente'
+                  AND cxc.Saldo_Pendiente > 0
+                ORDER BY cxc.Fecha_Vencimiento ASC
+                LIMIT 5
+            """)
+            proximos_vencimientos = cursor.fetchall()
+            
+            # ============================================
+            # PREPARAR DATOS PARA GRÁFICOS (JSON)
+            # ============================================
+            import json
+            
+            # Datos para gráfico de ventas del mes
+            ventas_mes_data = {
+                'dias': [v['Dia'] for v in ventas_mes],
+                'totales': [float(v['Total_Vendido']) for v in ventas_mes]
+            }
+            
+            # Datos para gráfico de tendencia 7 días
+            ventas_7dias_data = {
+                'fechas': [v['Fecha'].strftime('%d/%m') for v in ventas_7dias],
+                'totales': [float(v['Total_Vendido']) for v in ventas_7dias]
+            }
+            
+            # Datos para gráfico de gastos
+            gastos_mes_data = {
+                'categorias': [g['Tipo_Gasto'] for g in gastos_mes],
+                'montos': [float(g['Total_Gastado']) for g in gastos_mes]
+            }
+            
+            # Datos para gráfico de métodos de pago
+            metodos_pago_data = {}
+            for mov in movimientos_caja:
+                if mov['Tipo'] == 'VENTA':
+                    metodos_pago_data[mov['Tipo']] = float(mov['Total'])
+
+            now = datetime.now()
+            
+            return render_template('admin/dashboard.html',
+                                 # KPIs
+                                 usuarios_count=usuarios_count,
+                                 empresas_count=empresas_count,
+                                 ventas_hoy=ventas_hoy,
+                                 cobros_hoy=cobros_hoy,
+                                 saldo_pendiente=saldo_pendiente,
+                                 facturas_vencidas=facturas_vencidas,
+                                 productos_bajo_stock=productos_bajo_stock,
+                                 # Tablas
+                                 top_clientes=top_clientes,
+                                 productos_stock=productos_stock,
+                                 ventas_vendedores=ventas_vendedores,
+                                 rutas_activas=rutas_activas,
+                                 movimientos_caja=movimientos_caja,
+                                 proximos_vencimientos=proximos_vencimientos,
+                                 # Datos para gráficos
+                                 ventas_mes_json=json.dumps(ventas_mes_data),
+                                 ventas_7dias_json=json.dumps(ventas_7dias_data),
+                                 gastos_mes_json=json.dumps(gastos_mes_data),
+                                 now=now)
+                                 
     except Exception as e:
         flash(f"Error al cargar dashboard: {e}", "danger")
         return redirect(url_for('dashboard'))
@@ -3928,7 +4196,420 @@ def admin_eliminar_movimiento(id):
     
     return redirect(url_for('admin_movimientos_inventario'))
 
-#RUTAS
+# CATALOGO TIPOS DE GASTOS
+# ========== GESTIÓN DE TIPOS DE GASTO ==========
+
+@app.route('/admin/gastos/tipos', methods=['GET'])
+@admin_required
+@bitacora_decorator("VER_TIPOS_GASTO")
+def admin_tipos_gasto():
+    """Listar todos los tipos de gasto"""
+    try:
+        id_empresa = session.get('id_empresa', 1)
+        
+        with get_db_cursor(True) as cursor:
+            cursor.execute("""
+                SELECT ID_Tipo_Gasto, Nombre, Descripcion, Origen, 
+                       ID_Categoria_Inventario, Estado
+                FROM tipos_gasto 
+                WHERE ID_Empresa = %s
+                ORDER BY Nombre
+            """, [id_empresa])
+            tipos_gasto = cursor.fetchall()
+            
+        return render_template(
+            'admin/catalog/gastos/tipos_gasto.html',
+            tipos_gasto=tipos_gasto,
+            titulo="Tipos de Gastos"
+        )
+        
+    except Exception as e:
+        app.logger.error(f"Error al listar tipos de gasto: {str(e)}")
+        flash(f'Error: {str(e)}', 'error')
+        return redirect(url_for('admin_gastos_operativos'))
+
+
+@app.route('/admin/gastos/tipos/crear', methods=['GET', 'POST'])
+@admin_required
+@bitacora_decorator("CREAR_TIPO_GASTO")
+def crear_tipo_gasto():
+    """Crear nuevo tipo de gasto"""
+    try:
+        id_empresa = session.get('id_empresa', 1)
+        
+        with get_db_cursor(True) as cursor:
+            # Obtener categorías de inventario para el select
+            cursor.execute("""
+                SELECT ID_Categoria, Descripcion 
+                FROM categorias_producto 
+                WHERE Estado = 'Activo'
+                ORDER BY Descripcion
+            """)
+            categorias_inventario = cursor.fetchall()
+            
+            if request.method == 'POST':
+                nombre = request.form.get('nombre')
+                descripcion = request.form.get('descripcion')
+                origen = request.form.get('origen')
+                id_categoria_inventario = request.form.get('id_categoria_inventario') or None
+                estado = request.form.get('estado', 'Activo')
+                
+                if not nombre:
+                    flash('El nombre del tipo de gasto es requerido', 'error')
+                    return redirect(url_for('crear_tipo_gasto'))
+                
+                if origen == 'INVENTARIO' and not id_categoria_inventario:
+                    flash('Debe seleccionar una categoría de inventario', 'error')
+                    return redirect(url_for('crear_tipo_gasto'))
+                
+                # Verificar si ya existe
+                cursor.execute("""
+                    SELECT ID_Tipo_Gasto FROM tipos_gasto 
+                    WHERE Nombre = %s AND ID_Empresa = %s
+                """, [nombre, id_empresa])
+                existe = cursor.fetchone()
+                
+                if existe:
+                    flash('Ya existe un tipo de gasto con ese nombre', 'error')
+                    return redirect(url_for('crear_tipo_gasto'))
+                
+                cursor.execute("""
+                    INSERT INTO tipos_gasto (Nombre, Descripcion, Origen, ID_Categoria_Inventario, Estado, ID_Empresa)
+                    VALUES (%s, %s, %s, %s, %s, %s)
+                """, [nombre, descripcion, origen, id_categoria_inventario, estado, id_empresa])
+                
+                flash(f'Tipo de gasto "{nombre}" creado exitosamente', 'success')
+                return redirect(url_for('admin_tipos_gasto'))
+            
+            return render_template(
+                'admin/catalog/gastos/tipo_gasto_form.html',
+                tipo=None,
+                categorias_inventario=categorias_inventario,
+                titulo="Crear Tipo de Gasto"
+            )
+            
+    except Exception as e:
+        app.logger.error(f"Error al crear tipo de gasto: {str(e)}")
+        flash(f'Error: {str(e)}', 'error')
+        return redirect(url_for('admin_tipos_gasto'))
+
+
+@app.route('/admin/gastos/tipos/editar/<int:id_tipo>', methods=['GET', 'POST'])
+@admin_required
+@bitacora_decorator("EDITAR_TIPO_GASTO")
+def editar_tipo_gasto(id_tipo):
+    """Editar tipo de gasto existente"""
+    try:
+        id_empresa = session.get('id_empresa', 1)
+        
+        with get_db_cursor(True) as cursor:
+            cursor.execute("""
+                SELECT ID_Tipo_Gasto, Nombre, Descripcion, Origen, 
+                       ID_Categoria_Inventario, Estado
+                FROM tipos_gasto 
+                WHERE ID_Tipo_Gasto = %s AND ID_Empresa = %s
+            """, [id_tipo, id_empresa])
+            tipo = cursor.fetchone()
+            
+            if not tipo:
+                flash('Tipo de gasto no encontrado', 'error')
+                return redirect(url_for('admin_tipos_gasto'))
+            
+            # Obtener categorías de inventario
+            cursor.execute("""
+                SELECT ID_Categoria, Descripcion 
+                FROM categorias_producto 
+                WHERE Estado = 'Activo'
+                ORDER BY Descripcion
+            """)
+            categorias_inventario = cursor.fetchall()
+            
+            if request.method == 'POST':
+                nombre = request.form.get('nombre')
+                descripcion = request.form.get('descripcion')
+                origen = request.form.get('origen')
+                id_categoria_inventario = request.form.get('id_categoria_inventario') or None
+                estado = request.form.get('estado')
+                
+                if not nombre:
+                    flash('El nombre del tipo de gasto es requerido', 'error')
+                    return redirect(url_for('editar_tipo_gasto', id_tipo=id_tipo))
+                
+                if origen == 'INVENTARIO' and not id_categoria_inventario:
+                    flash('Debe seleccionar una categoría de inventario', 'error')
+                    return redirect(url_for('editar_tipo_gasto', id_tipo=id_tipo))
+                
+                cursor.execute("""
+                    UPDATE tipos_gasto 
+                    SET Nombre = %s, Descripcion = %s, Origen = %s, 
+                        ID_Categoria_Inventario = %s, Estado = %s
+                    WHERE ID_Tipo_Gasto = %s AND ID_Empresa = %s
+                """, [nombre, descripcion, origen, id_categoria_inventario, estado, id_tipo, id_empresa])
+                
+                flash(f'Tipo de gasto "{nombre}" actualizado exitosamente', 'success')
+                return redirect(url_for('admin_tipos_gasto'))
+            
+            return render_template(
+                'admin/catalog/gastos/tipo_gasto_form.html',
+                tipo=tipo,
+                categorias_inventario=categorias_inventario,
+                titulo="Editar Tipo de Gasto"
+            )
+            
+    except Exception as e:
+        app.logger.error(f"Error al editar tipo de gasto: {str(e)}")
+        flash(f'Error: {str(e)}', 'error')
+        return redirect(url_for('admin_tipos_gasto'))
+
+
+@app.route('/admin/gastos/tipos/eliminar/<int:id_tipo>', methods=['POST'])
+@admin_required
+@bitacora_decorator("ELIMINAR_TIPO_GASTO")
+def eliminar_tipo_gasto(id_tipo):
+    """Eliminar (desactivar) tipo de gasto"""
+    try:
+        id_empresa = session.get('id_empresa', 1)
+        
+        with get_db_cursor(True) as cursor:
+            # Verificar si tiene subcategorías asociadas
+            cursor.execute("""
+                SELECT COUNT(*) as total FROM subcategorias_gasto 
+                WHERE ID_Tipo_Gasto = %s
+            """, [id_tipo])
+            subcategorias = cursor.fetchone()
+            
+            if subcategorias['total'] > 0:
+                flash(f'No se puede eliminar: tiene {subcategorias["total"]} subcategorías asociadas', 'error')
+                return redirect(url_for('admin_tipos_gasto'))
+            
+            # Desactivar en lugar de eliminar
+            cursor.execute("""
+                UPDATE tipos_gasto 
+                SET Estado = 'Inactivo'
+                WHERE ID_Tipo_Gasto = %s AND ID_Empresa = %s
+            """, [id_tipo, id_empresa])
+            
+            flash('Tipo de gasto desactivado exitosamente', 'success')
+            
+    except Exception as e:
+        app.logger.error(f"Error al eliminar tipo de gasto: {str(e)}")
+        flash(f'Error: {str(e)}', 'error')
+    
+    return redirect(url_for('admin_tipos_gasto'))
+
+# ========== GESTIÓN DE SUBCATEGORÍAS ==========
+
+@app.route('/admin/gastos/subcategorias', methods=['GET'])
+@admin_required
+@bitacora_decorator("VER_SUBCATEGORIAS")
+def admin_subcategorias():
+    """Listar todas las subcategorías"""
+    try:
+        id_empresa = session.get('id_empresa', 1)
+        tipo_filtro = request.args.get('tipo', '')
+        
+        with get_db_cursor(True) as cursor:
+            query = """
+                SELECT sg.ID_Subcategoria, sg.Nombre, sg.Descripcion, sg.Estado,
+                       tg.Nombre as tipo_gasto_nombre, tg.ID_Tipo_Gasto
+                FROM subcategorias_gasto sg
+                INNER JOIN tipos_gasto tg ON sg.ID_Tipo_Gasto = tg.ID_Tipo_Gasto
+                WHERE tg.ID_Empresa = %s
+            """
+            params = [id_empresa]
+            
+            if tipo_filtro:
+                query += " AND tg.ID_Tipo_Gasto = %s"
+                params.append(tipo_filtro)
+            
+            query += " ORDER BY tg.Nombre, sg.Nombre"
+            
+            cursor.execute(query, params)
+            subcategorias = cursor.fetchall()
+            
+            # Obtener tipos de gasto para el filtro
+            cursor.execute("""
+                SELECT ID_Tipo_Gasto, Nombre 
+                FROM tipos_gasto 
+                WHERE ID_Empresa = %s AND Estado = 'Activo'
+                ORDER BY Nombre
+            """, [id_empresa])
+            tipos_gasto = cursor.fetchall()
+            
+        return render_template(
+            'admin/catalog/gastos/subcategorias.html',
+            subcategorias=subcategorias,
+            tipos_gasto=tipos_gasto,
+            tipo_filtro=tipo_filtro,
+            titulo="Subcategorías de Gastos"
+        )
+        
+    except Exception as e:
+        app.logger.error(f"Error al listar subcategorías: {str(e)}")
+        flash(f'Error: {str(e)}', 'error')
+        return redirect(url_for('admin_gastos_operativos'))
+
+
+@app.route('/admin/gastos/subcategorias/crear', methods=['GET', 'POST'])
+@admin_required
+@bitacora_decorator("CREAR_SUBCATEGORIA")
+def crear_subcategoria():
+    """Crear nueva subcategoría"""
+    try:
+        id_empresa = session.get('id_empresa', 1)
+        
+        with get_db_cursor(True) as cursor:
+            cursor.execute("""
+                SELECT ID_Tipo_Gasto, Nombre 
+                FROM tipos_gasto 
+                WHERE ID_Empresa = %s AND Estado = 'Activo'
+                ORDER BY Nombre
+            """, [id_empresa])
+            tipos_gasto = cursor.fetchall()
+            
+            if request.method == 'POST':
+                id_tipo_gasto = request.form.get('id_tipo_gasto')
+                nombre = request.form.get('nombre')
+                descripcion = request.form.get('descripcion')
+                estado = request.form.get('estado', 'Activo')
+                
+                if not id_tipo_gasto:
+                    flash('Debe seleccionar un tipo de gasto', 'error')
+                    return redirect(url_for('crear_subcategoria'))
+                
+                if not nombre:
+                    flash('El nombre de la subcategoría es requerido', 'error')
+                    return redirect(url_for('crear_subcategoria'))
+                
+                # Verificar si ya existe
+                cursor.execute("""
+                    SELECT ID_Subcategoria FROM subcategorias_gasto 
+                    WHERE ID_Tipo_Gasto = %s AND Nombre = %s
+                """, [id_tipo_gasto, nombre])
+                existe = cursor.fetchone()
+                
+                if existe:
+                    flash('Ya existe una subcategoría con ese nombre para este tipo de gasto', 'error')
+                    return redirect(url_for('crear_subcategoria'))
+                
+                cursor.execute("""
+                    INSERT INTO subcategorias_gasto (ID_Tipo_Gasto, Nombre, Descripcion, Estado)
+                    VALUES (%s, %s, %s, %s)
+                """, [id_tipo_gasto, nombre, descripcion, estado])
+                
+                flash(f'Subcategoría "{nombre}" creada exitosamente', 'success')
+                return redirect(url_for('admin_subcategorias'))
+            
+            return render_template(
+                'admin/catalog/gastos/subcategoria_form.html',
+                subcategoria=None,
+                tipos_gasto=tipos_gasto,
+                titulo="Crear Subcategoría"
+            )
+            
+    except Exception as e:
+        app.logger.error(f"Error al crear subcategoría: {str(e)}")
+        flash(f'Error: {str(e)}', 'error')
+        return redirect(url_for('admin_subcategorias'))
+
+
+@app.route('/admin/gastos/subcategorias/editar/<int:id_sub>', methods=['GET', 'POST'])
+@admin_required
+@bitacora_decorator("EDITAR_SUBCATEGORIA")
+def editar_subcategoria(id_sub):
+    """Editar subcategoría existente"""
+    try:
+        id_empresa = session.get('id_empresa', 1)
+        
+        with get_db_cursor(True) as cursor:
+            cursor.execute("""
+                SELECT sg.*, tg.ID_Tipo_Gasto, tg.Nombre as tipo_nombre
+                FROM subcategorias_gasto sg
+                INNER JOIN tipos_gasto tg ON sg.ID_Tipo_Gasto = tg.ID_Tipo_Gasto
+                WHERE sg.ID_Subcategoria = %s AND tg.ID_Empresa = %s
+            """, [id_sub, id_empresa])
+            subcategoria = cursor.fetchone()
+            
+            if not subcategoria:
+                flash('Subcategoría no encontrada', 'error')
+                return redirect(url_for('admin_subcategorias'))
+            
+            cursor.execute("""
+                SELECT ID_Tipo_Gasto, Nombre 
+                FROM tipos_gasto 
+                WHERE ID_Empresa = %s AND Estado = 'Activo'
+                ORDER BY Nombre
+            """, [id_empresa])
+            tipos_gasto = cursor.fetchall()
+            
+            if request.method == 'POST':
+                id_tipo_gasto = request.form.get('id_tipo_gasto')
+                nombre = request.form.get('nombre')
+                descripcion = request.form.get('descripcion')
+                estado = request.form.get('estado')
+                
+                if not nombre:
+                    flash('El nombre de la subcategoría es requerido', 'error')
+                    return redirect(url_for('editar_subcategoria', id_sub=id_sub))
+                
+                cursor.execute("""
+                    UPDATE subcategorias_gasto 
+                    SET ID_Tipo_Gasto = %s, Nombre = %s, Descripcion = %s, Estado = %s
+                    WHERE ID_Subcategoria = %s
+                """, [id_tipo_gasto, nombre, descripcion, estado, id_sub])
+                
+                flash(f'Subcategoría "{nombre}" actualizada exitosamente', 'success')
+                return redirect(url_for('admin_subcategorias'))
+            
+            return render_template(
+                'admin/catalog/gastos/subcategoria_form.html',
+                subcategoria=subcategoria,
+                tipos_gasto=tipos_gasto,
+                titulo="Editar Subcategoría"
+            )
+            
+    except Exception as e:
+        app.logger.error(f"Error al editar subcategoría: {str(e)}")
+        flash(f'Error: {str(e)}', 'error')
+        return redirect(url_for('admin_subcategorias'))
+
+
+@app.route('/admin/gastos/subcategorias/eliminar/<int:id_sub>', methods=['POST'])
+@admin_required
+@bitacora_decorator("ELIMINAR_SUBCATEGORIA")
+def eliminar_subcategoria(id_sub):
+    """Eliminar (desactivar) subcategoría"""
+    try:
+        id_empresa = session.get('id_empresa', 1)
+        
+        with get_db_cursor(True) as cursor:
+            # Verificar si tiene gastos asociados
+            cursor.execute("""
+                SELECT COUNT(*) as total FROM gastos_generales 
+                WHERE ID_Subcategoria = %s AND ID_Empresa = %s
+            """, [id_sub, id_empresa])
+            gastos = cursor.fetchone()
+            
+            if gastos['total'] > 0:
+                flash(f'No se puede eliminar: tiene {gastos["total"]} gastos asociados', 'error')
+                return redirect(url_for('admin_subcategorias'))
+            
+            # Desactivar en lugar de eliminar
+            cursor.execute("""
+                UPDATE subcategorias_gasto 
+                SET Estado = 'Inactivo'
+                WHERE ID_Subcategoria = %s
+            """, [id_sub])
+            
+            flash('Subcategoría desactivada exitosamente', 'success')
+            
+    except Exception as e:
+        app.logger.error(f"Error al eliminar subcategoría: {str(e)}")
+        flash(f'Error: {str(e)}', 'error')
+    
+    return redirect(url_for('admin_subcategorias'))
+
+#### RUTAS #####
 @app.route('/admin/rutas', methods=['GET'])
 @admin_required
 @bitacora_decorator("RUTAS")
@@ -4330,6 +5011,204 @@ def eliminar_ruta():
         print(f"ERROR en eliminar_ruta: {str(e)}")
         flash(f"Error al eliminar ruta: {str(e)}", "danger")
         return redirect(url_for('admin_rutas')) 
+
+## Facturas de ventas ##
+@app.route('/admin/facturas/ventas', methods=['GET'])
+@admin_required
+@bitacora_decorator("FACTURAS_VENTAS")
+def admin_facturas_ventas():
+    try:
+        # Obtener parámetros de filtro
+        filtro = request.args.get('filtro', 'mes')
+        fecha_inicio = request.args.get('fecha_inicio', '')
+        fecha_fin = request.args.get('fecha_fin', '')
+        
+        with get_db_cursor() as cursor:
+            # Construir condición WHERE según el filtro
+            where_condition_ruta = ""
+            where_condition_local = ""
+            params = []
+            
+            if filtro == 'hoy':
+                where_condition_ruta = "AND fr.Fecha = CURDATE()"
+                where_condition_local = "AND f.Fecha = CURDATE()"
+            elif filtro == 'ayer':
+                where_condition_ruta = "AND fr.Fecha = DATE_SUB(CURDATE(), INTERVAL 1 DAY)"
+                where_condition_local = "AND f.Fecha = DATE_SUB(CURDATE(), INTERVAL 1 DAY)"
+            elif filtro == 'semana':
+                where_condition_ruta = "AND fr.Fecha >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)"
+                where_condition_local = "AND f.Fecha >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)"
+            elif filtro == 'mes':
+                where_condition_ruta = "AND fr.Fecha BETWEEN DATE_FORMAT(CURDATE(), '%Y-%m-01') AND LAST_DAY(CURDATE())"
+                where_condition_local = "AND f.Fecha BETWEEN DATE_FORMAT(CURDATE(), '%Y-%m-01') AND LAST_DAY(CURDATE())"
+            elif filtro == 'rango' and fecha_inicio and fecha_fin:
+                where_condition_ruta = "AND fr.Fecha BETWEEN %s AND %s"
+                where_condition_local = "AND f.Fecha BETWEEN %s AND %s"
+                params = [fecha_inicio, fecha_fin]
+            
+            # 1. Consulta para ventas de RUTA (todas las rutas)
+            query_rutas = f"""
+                SELECT 
+                    'RUTA' AS tipo,
+                    r.Nombre_Ruta AS entidad,
+                    COALESCE(
+                        (SELECT u.NombreUsuario 
+                         FROM asignacion_vendedores av2 
+                         INNER JOIN usuarios u ON av2.ID_Usuario = u.ID_Usuario
+                         WHERE av2.ID_Ruta = r.ID_Ruta 
+                         ORDER BY av2.Fecha_Asignacion DESC 
+                         LIMIT 1),
+                        'Sin asignar'
+                    ) AS vendedor,
+                    COUNT(DISTINCT fr.ID_FacturaRuta) AS total_facturas,
+                    COALESCE(SUM(dfr.Total), 0) AS total_vendido,
+                    MAX(fr.Fecha) AS ultima_fecha,
+                    r.Estado AS estado_ruta
+                FROM rutas r
+                LEFT JOIN asignacion_vendedores av ON r.ID_Ruta = av.ID_Ruta
+                LEFT JOIN facturacion_ruta fr ON av.ID_Asignacion = fr.ID_Asignacion 
+                    AND fr.Estado = 'Activa'
+                    {where_condition_ruta}
+                LEFT JOIN detalle_facturacion_ruta dfr ON fr.ID_FacturaRuta = dfr.ID_FacturaRuta
+                GROUP BY r.ID_Ruta, r.Nombre_Ruta, r.Estado
+                ORDER BY total_vendido DESC
+            """
+            
+            # 2. Consulta para ventas de LOCAL
+            query_local = f"""
+                SELECT 
+                    'LOCAL' AS tipo,
+                    'Local General' AS entidad,
+                    u.NombreUsuario AS vendedor,
+                    COUNT(DISTINCT f.ID_Factura) AS total_facturas,
+                    COALESCE(SUM(df.Total), 0) AS total_vendido,
+                    MAX(f.Fecha) AS ultima_fecha,
+                    'Activo' AS estado_ruta
+                FROM facturacion f
+                INNER JOIN usuarios u ON f.ID_Usuario_Creacion = u.ID_Usuario
+                LEFT JOIN detalle_facturacion df ON f.ID_Factura = df.ID_Factura
+                WHERE f.Estado = 'Activa'
+                    {where_condition_local}
+                GROUP BY u.ID_Usuario
+                ORDER BY total_vendido DESC
+            """
+            
+            # 3. Consulta para evolución de ventas (por día)
+            query_evolucion_ruta = f"""
+                SELECT 
+                    fr.Fecha,
+                    SUM(dfr.Total) AS total_dia
+                FROM facturacion_ruta fr
+                INNER JOIN detalle_facturacion_ruta dfr ON fr.ID_FacturaRuta = dfr.ID_FacturaRuta
+                WHERE fr.Estado = 'Activa'
+                    {where_condition_ruta.replace('fr.Fecha =', 'fr.Fecha =') if where_condition_ruta else ''}
+                GROUP BY fr.Fecha
+                ORDER BY fr.Fecha
+            """
+            
+            query_evolucion_local = f"""
+                SELECT 
+                    f.Fecha,
+                    SUM(df.Total) AS total_dia
+                FROM facturacion f
+                INNER JOIN detalle_facturacion df ON f.ID_Factura = df.ID_Factura
+                WHERE f.Estado = 'Activa'
+                    {where_condition_local.replace('f.Fecha =', 'f.Fecha =') if where_condition_local else ''}
+                GROUP BY f.Fecha
+                ORDER BY f.Fecha
+            """
+            
+            # 4. Top 5 vendedores
+            query_top_vendedores = f"""
+                (SELECT 
+                    u.NombreUsuario AS vendedor,
+                    SUM(dfr.Total) AS total_vendido,
+                    'RUTA' AS origen
+                FROM facturacion_ruta fr
+                INNER JOIN detalle_facturacion_ruta dfr ON fr.ID_FacturaRuta = dfr.ID_FacturaRuta
+                INNER JOIN asignacion_vendedores av ON fr.ID_Asignacion = av.ID_Asignacion
+                INNER JOIN usuarios u ON av.ID_Usuario = u.ID_Usuario
+                WHERE fr.Estado = 'Activa'
+                    {where_condition_ruta}
+                GROUP BY u.ID_Usuario)
+                
+                UNION ALL
+                
+                (SELECT 
+                    u.NombreUsuario AS vendedor,
+                    SUM(df.Total) AS total_vendido,
+                    'LOCAL' AS origen
+                FROM facturacion f
+                INNER JOIN detalle_facturacion df ON f.ID_Factura = df.ID_Factura
+                INNER JOIN usuarios u ON f.ID_Usuario_Creacion = u.ID_Usuario
+                WHERE f.Estado = 'Activa'
+                    {where_condition_local}
+                GROUP BY u.ID_Usuario)
+                
+                ORDER BY total_vendido DESC
+                LIMIT 5
+            """
+            
+            # Ejecutar consultas
+            cursor.execute(query_rutas, params)
+            ventas_rutas = cursor.fetchall()
+            
+            cursor.execute(query_local, params)
+            ventas_local = cursor.fetchall()
+            
+            cursor.execute(query_evolucion_ruta, params if 'BETWEEN' in where_condition_ruta else [])
+            evolucion_ruta = cursor.fetchall()
+            
+            cursor.execute(query_evolucion_local, params if 'BETWEEN' in where_condition_local else [])
+            evolucion_local = cursor.fetchall()
+            
+            cursor.execute(query_top_vendedores, params + params if 'BETWEEN' in where_condition_ruta else params)
+            top_vendedores = cursor.fetchall()
+            
+            # Unir resultados
+            ventas = list(ventas_rutas) + list(ventas_local)
+            
+            # Calcular totales
+            total_facturas = sum(v.get('total_facturas') or 0 for v in ventas)
+            total_vendido = sum(v.get('total_vendido') or 0 for v in ventas)
+            total_rutas = sum(v.get('total_vendido') or 0 for v in ventas if v.get('tipo') == 'RUTA')
+            total_local = sum(v.get('total_vendido') or 0 for v in ventas if v.get('tipo') == 'LOCAL')
+            
+            # Preparar datos para gráficos
+            fechas = sorted(set([e['Fecha'] for e in evolucion_ruta] + [e['Fecha'] for e in evolucion_local]))
+            datos_ruta = []
+            datos_local = []
+            
+            for fecha in fechas:
+                ruta_valor = next((e['total_dia'] for e in evolucion_ruta if e['Fecha'] == fecha), 0)
+                local_valor = next((e['total_dia'] for e in evolucion_local if e['Fecha'] == fecha), 0)
+                datos_ruta.append(float(ruta_valor))
+                datos_local.append(float(local_valor))
+            
+            # Datos para gráfico de torta (Ruta vs Local)
+            torta_data = [float(total_rutas), float(total_local)]
+            
+            return render_template(
+                'admin/ventas/facturas_ventas.html',
+                ventas=ventas,
+                total_facturas=total_facturas,
+                total_vendido=total_vendido,
+                total_rutas=total_rutas,
+                total_local=total_local,
+                filtro_actual=filtro,
+                fecha_inicio=fecha_inicio,
+                fecha_fin=fecha_fin,
+                fechas_grafico=[f.strftime('%Y-%m-%d') if hasattr(f, 'strftime') else str(f) for f in fechas],
+                datos_ruta_grafico=datos_ruta,
+                datos_local_grafico=datos_local,
+                torta_data=torta_data,
+                top_vendedores=top_vendedores
+            )
+            
+    except Exception as e:
+        flash(f"Error al cargar ventas: {str(e)}", "danger")
+        return redirect(url_for('admin_dashboard'))
+
 
 # MODULO BODEGA
 @app.route('/admin/bodega', methods=['GET'])
@@ -6372,248 +7251,385 @@ def historial_pagos_cuenta(id_cuenta):
 @bitacora_decorator("GASTOS")
 def admin_gastos_operativos():
     try:
-        # Obtener parámetros de la solicitud
-        periodo = request.args.get('periodo', 'mensual')  # 'mensual' o 'semanal'
-        fecha_inicio = request.args.get('fecha_inicio', '')
-        fecha_fin = request.args.get('fecha_fin', '')
-        categoria_id = request.args.get('categoria_id', '')
+        # ========== PARÁMETROS DE FILTRO ==========
+        filtro_periodo = request.args.get('filtro_periodo', 'dia')
+        fecha_especifica = request.args.get('fecha', datetime.now().strftime('%Y-%m-%d'))
+        semana_num = request.args.get('semana', str(datetime.now().isocalendar()[1]))
+        anio_semana = request.args.get('anio_semana', datetime.now().strftime('%Y'))
+        mes_filtro = request.args.get('mes', datetime.now().strftime('%Y-%m'))
+        anio_filtro = request.args.get('anio', datetime.now().strftime('%Y'))
         
-        # Establecer fechas por defecto si no se proporcionan
-        if not fecha_inicio:
-            fecha_inicio = (datetime.now() - timedelta(days=30)).strftime('%Y-%m-%d')
-        if not fecha_fin:
-            fecha_fin = datetime.now().strftime('%Y-%m-%d')
+        # Filtros adicionales
+        tipo_gasto_id = request.args.get('tipo_gasto', '')
+        origen = request.args.get('origen', '')
+        proveedor_id = request.args.get('proveedor', '')
+        
+        id_empresa = session.get('id_empresa', 1)
         
         with get_db_cursor(True) as cursor:
-            # 1. GASTOS TOTALES POR COMPRAS (INVENTARIO)
-            if periodo == 'semanal':
-                query_compras = """
-                SELECT 
-                    CONCAT('Semana ', semana, ' - ', anio) AS periodo,
-                    categoria,
-                    'COMPRAS' AS tipo_gasto,
-                    total,
-                    cantidad_movimientos,
-                    cantidad_items
-                FROM (
-                    SELECT 
-                        WEEK(mi.Fecha, 1) AS semana,
-                        YEAR(mi.Fecha) AS anio,
-                        cp.Descripcion AS categoria,
-                        COALESCE(SUM(dmi.Cantidad * dmi.Costo_Unitario), 0) AS total,
-                        COUNT(DISTINCT mi.ID_Movimiento) AS cantidad_movimientos,
-                        COALESCE(SUM(dmi.Cantidad), 0) AS cantidad_items
-                    FROM categorias_producto cp
-                    INNER JOIN productos p ON cp.ID_Categoria = p.ID_Categoria
-                    INNER JOIN detalle_movimientos_inventario dmi ON p.ID_Producto = dmi.ID_Producto
-                    INNER JOIN movimientos_inventario mi ON dmi.ID_Movimiento = mi.ID_Movimiento
-                    WHERE mi.Estado = 'Activa'
-                        AND mi.ID_TipoMovimiento = 1  -- Compras
-                        AND mi.N_Factura_Externa IS NOT NULL
-                        AND mi.Fecha BETWEEN %s AND %s
-                        AND (%s = '' OR cp.ID_Categoria = %s)
-                    GROUP BY 
-                        WEEK(mi.Fecha, 1),
-                        YEAR(mi.Fecha),
-                        cp.ID_Categoria,
-                        cp.Descripcion
-                    HAVING total > 0
-                ) AS subquery
-                ORDER BY anio DESC, semana DESC, total DESC
-                """
-            else:  # mensual
-                query_compras = """
-                SELECT 
-                    mes_anio AS periodo,
-                    categoria,
-                    'COMPRAS' AS tipo_gasto,
-                    total,
-                    cantidad_movimientos,
-                    cantidad_items
-                FROM (
-                    SELECT 
-                        DATE_FORMAT(mi.Fecha, '%%Y-%%m') AS mes_anio,
-                        cp.Descripcion AS categoria,
-                        COALESCE(SUM(dmi.Cantidad * dmi.Costo_Unitario), 0) AS total,
-                        COUNT(DISTINCT mi.ID_Movimiento) AS cantidad_movimientos,
-                        COALESCE(SUM(dmi.Cantidad), 0) AS cantidad_items
-                    FROM categorias_producto cp
-                    INNER JOIN productos p ON cp.ID_Categoria = p.ID_Categoria
-                    INNER JOIN detalle_movimientos_inventario dmi ON p.ID_Producto = dmi.ID_Producto
-                    INNER JOIN movimientos_inventario mi ON dmi.ID_Movimiento = mi.ID_Movimiento
-                    WHERE mi.Estado = 'Activa'
-                        AND mi.ID_TipoMovimiento = 1  -- Compras
-                        AND mi.N_Factura_Externa IS NOT NULL
-                        AND mi.Fecha BETWEEN %s AND %s
-                        AND (%s = '' OR cp.ID_Categoria = %s)
-                    GROUP BY 
-                        DATE_FORMAT(mi.Fecha, '%%Y-%%m'),
-                        cp.ID_Categoria,
-                        cp.Descripcion
-                    HAVING total > 0
-                ) AS subquery
-                ORDER BY periodo DESC, total DESC
-                """
             
-            params_compras = [fecha_inicio, fecha_fin, categoria_id, categoria_id]
-            cursor.execute(query_compras, params_compras)
-            gastos_compras = cursor.fetchall()
+            # ========== 1. VERIFICAR QUÉ CAMPOS EXISTEN EN LA VISTA ==========
+            cursor.execute("""
+                SELECT COLUMN_NAME 
+                FROM INFORMATION_SCHEMA.COLUMNS 
+                WHERE TABLE_NAME = 'vista_gastos_unificados'
+            """)
+            columnas_existentes = [row['COLUMN_NAME'] for row in cursor.fetchall()]
             
-            # 2. RESÚMEN GENERAL DE GASTOS (SOLO COMPRAS)
-            query_resumen = """
+            # Construir SELECT dinámicamente
+            select_fields = ['origen', 'tipo_gasto', 'subcategoria', 'fecha', 'monto', 'factura', 'proveedor', 'vehiculo', 'id_gasto']
+            
+            if 'id_proveedor' in columnas_existentes:
+                select_fields.append('id_proveedor')
+            else:
+                select_fields.append('NULL as id_proveedor')
+            
+            if 'id_categoria_inv' in columnas_existentes:
+                select_fields.append('id_categoria_inv')
+            
+            query_base = f"""
+            SELECT {', '.join(select_fields)}
+            FROM vista_gastos_unificados
+            WHERE ID_Empresa = %s
+            """
+            
+            params = [id_empresa]
+            fecha_inicio_semana = None
+            fecha_fin_semana = None
+            
+            # Filtro de período
+            if filtro_periodo == 'dia':
+                query_base += " AND fecha = %s"
+                params.append(fecha_especifica)
+                titulo_periodo = f"Gastos del día {datetime.strptime(fecha_especifica, '%Y-%m-%d').strftime('%d/%m/%Y')}"
+                
+            elif filtro_periodo == 'semana':
+                año = int(anio_semana)
+                semana = int(semana_num)
+                fecha_inicio_semana = datetime.strptime(f'{año}-W{semana}-1', '%Y-W%W-%w').date()
+                fecha_fin_semana = fecha_inicio_semana + timedelta(days=6)
+                query_base += " AND fecha BETWEEN %s AND %s"
+                params.extend([fecha_inicio_semana, fecha_fin_semana])
+                titulo_periodo = f"Gastos de la semana {semana_num} ({fecha_inicio_semana.strftime('%d/%m')} - {fecha_fin_semana.strftime('%d/%m/%Y')})"
+                
+            elif filtro_periodo == 'mes':
+                año, mes = mes_filtro.split('-')
+                query_base += " AND YEAR(fecha) = %s AND MONTH(fecha) = %s"
+                params.extend([año, mes])
+                nombre_mes = datetime(int(año), int(mes), 1).strftime('%B %Y')
+                titulo_periodo = f"Gastos de {nombre_mes}"
+                
+            elif filtro_periodo == 'acumulado':
+                query_base += " AND YEAR(fecha) = %s AND fecha <= CURDATE()"
+                params.append(anio_filtro)
+                titulo_periodo = f"Gastos Acumulados {anio_filtro} (Enero - {datetime.now().strftime('%B')})"
+                
+            elif filtro_periodo == 'anual':
+                query_base += " AND YEAR(fecha) = %s"
+                params.append(anio_filtro)
+                titulo_periodo = f"Gastos del año {anio_filtro}"
+                
+            elif filtro_periodo == 'todo':
+                query_base += " AND fecha >= '2020-01-01'"
+                titulo_periodo = "TODOS LOS GASTOS (Histórico completo)"
+            
+            # Filtros adicionales
+            if tipo_gasto_id and tipo_gasto_id.isdigit():
+                query_base += " AND id_tipo = %s"
+                params.append(int(tipo_gasto_id))
+            
+            if origen:
+                query_base += " AND origen = %s"
+                params.append(origen)
+            
+            if proveedor_id and proveedor_id.isdigit() and 'id_proveedor' in columnas_existentes:
+                query_base += " AND id_proveedor = %s"
+                params.append(int(proveedor_id))
+            
+            # Orden
+            query_base += " ORDER BY fecha DESC, monto DESC"
+            
+            cursor.execute(query_base, params)
+            resultados = cursor.fetchall()
+            
+            # Calcular total del período
+            total_periodo = sum(float(r['monto'] or 0) for r in resultados)
+            
+            # ========== 2. TOTALES ACUMULADOS ==========
+            query_totales = """
             SELECT 
-                'COMPRAS_INVENTARIO' AS tipo,
-                COALESCE(SUM(dmi.Cantidad * dmi.Costo_Unitario), 0) AS total,
-                COUNT(DISTINCT mi.ID_Movimiento) AS cantidad
+                'total_compras' AS concepto,
+                COALESCE(SUM(dmi.Cantidad * dmi.Costo_Unitario), 0) AS total
             FROM movimientos_inventario mi
-            INNER JOIN detalle_movimientos_inventario dmi ON mi.ID_Movimiento = dmi.ID_Movimiento
-            WHERE mi.Estado = 'Activa'
-                AND mi.ID_TipoMovimiento = 1
-                AND mi.N_Factura_Externa IS NOT NULL
-                AND mi.Fecha BETWEEN %s AND %s
+            LEFT JOIN detalle_movimientos_inventario dmi ON mi.ID_Movimiento = dmi.ID_Movimiento
+            WHERE mi.Estado = 'Activa' AND mi.ID_TipoMovimiento = 1 AND mi.ID_Empresa = %s
             
             UNION ALL
             
             SELECT 
-                'TOTAL_ITEMS' AS tipo,
-                COALESCE(SUM(dmi.Cantidad), 0) AS total,
-                COUNT(DISTINCT dmi.ID_Producto) AS cantidad
-            FROM movimientos_inventario mi
-            INNER JOIN detalle_movimientos_inventario dmi ON mi.ID_Movimiento = dmi.ID_Movimiento
-            WHERE mi.Estado = 'Activa'
-                AND mi.ID_TipoMovimiento = 1
-                AND mi.N_Factura_Externa IS NOT NULL
-                AND mi.Fecha BETWEEN %s AND %s
+                'total_gastos' AS concepto,
+                COALESCE(SUM(gg.Monto), 0) AS total
+            FROM gastos_generales gg
+            WHERE gg.Estado = 'Activo' AND gg.ID_Empresa = %s
             """
-            cursor.execute(query_resumen, [fecha_inicio, fecha_fin, fecha_inicio, fecha_fin])
-            resumen_gastos = cursor.fetchall()
+            cursor.execute(query_totales, [id_empresa, id_empresa])
+            totales_acumulados = {row['concepto']: float(row['total'] or 0) for row in cursor.fetchall()}
             
-            # 3. GASTOS POR CATEGORÍA (PARA GRÁFICO)
-            query_categorias = """
-            WITH total_general AS (
-                SELECT COALESCE(SUM(dmi2.Cantidad * dmi2.Costo_Unitario), 0) AS total_general
-                FROM movimientos_inventario mi2
-                INNER JOIN detalle_movimientos_inventario dmi2 ON mi2.ID_Movimiento = dmi2.ID_Movimiento
-                WHERE mi2.Estado = 'Activa'
-                    AND mi2.ID_TipoMovimiento = 1
-                    AND mi2.Fecha BETWEEN %s AND %s
-            )
-            SELECT 
-                cp.Descripcion AS categoria,
-                COALESCE(SUM(dmi.Cantidad * dmi.Costo_Unitario), 0) AS total,
-                ROUND(
-                    COALESCE(SUM(dmi.Cantidad * dmi.Costo_Unitario), 0) * 100 / 
-                    NULLIF((SELECT total_general FROM total_general), 0)
-                , 2) AS porcentaje
-            FROM categorias_producto cp
-            LEFT JOIN productos p ON cp.ID_Categoria = p.ID_Categoria
-            LEFT JOIN detalle_movimientos_inventario dmi ON p.ID_Producto = dmi.ID_Producto
-            LEFT JOIN movimientos_inventario mi ON dmi.ID_Movimiento = mi.ID_Movimiento
-                AND mi.Estado = 'Activa'
-                AND mi.ID_TipoMovimiento = 1
-                AND mi.Fecha BETWEEN %s AND %s
-            GROUP BY cp.ID_Categoria, cp.Descripcion
-            HAVING total > 0
-            ORDER BY total DESC
-            LIMIT 10
-            """
-            cursor.execute(query_categorias, [fecha_inicio, fecha_fin, fecha_inicio, fecha_fin])
-            gastos_por_categoria = cursor.fetchall()
+            # ========== 3. LISTAS PARA FILTROS ==========
             
-            # 4. EVOLUCIÓN MENSUAL DE GASTOS
-            query_evolucion = """
-            SELECT 
-                DATE_FORMAT(mi.Fecha, '%%Y-%%m') AS mes,
-                COALESCE(SUM(dmi.Cantidad * dmi.Costo_Unitario), 0) AS total_compras,
-                COUNT(DISTINCT mi.ID_Movimiento) AS cantidad_compras
-            FROM movimientos_inventario mi
-            INNER JOIN detalle_movimientos_inventario dmi ON mi.ID_Movimiento = dmi.ID_Movimiento
-            WHERE mi.Estado = 'Activa'
-                AND mi.ID_TipoMovimiento = 1
-                AND mi.Fecha BETWEEN DATE_SUB(%s, INTERVAL 11 MONTH) AND %s
-            GROUP BY DATE_FORMAT(mi.Fecha, '%%Y-%%m')
-            ORDER BY DATE_FORMAT(mi.Fecha, '%%Y-%%m')
-            """
-            cursor.execute(query_evolucion, [fecha_inicio, fecha_fin])
-            evolucion_gastos = cursor.fetchall()
-            
-            # 5. OBTENER LISTA DE CATEGORÍAS PARA EL FILTRO
+            # Tipos de gasto disponibles
             cursor.execute("""
-                SELECT ID_Categoria, Descripcion 
-                FROM categorias_producto 
-                ORDER BY Descripcion
-            """)
-            categorias = cursor.fetchall()
+                SELECT DISTINCT id_tipo, tipo_gasto 
+                FROM vista_gastos_unificados 
+                WHERE ID_Empresa = %s AND tipo_gasto IS NOT NULL
+                ORDER BY tipo_gasto
+            """, [id_empresa])
+            tipos_gasto_disponibles = cursor.fetchall()
             
-            # 6. OBTENER PROVEEDORES CON MAYORES GASTOS
-            query_proveedores = """
-            SELECT 
-                pr.Nombre AS proveedor,
-                COALESCE(SUM(dmi.Cantidad * dmi.Costo_Unitario), 0) AS total,
-                COUNT(DISTINCT mi.ID_Movimiento) AS facturas
-            FROM proveedores pr
-            LEFT JOIN movimientos_inventario mi ON pr.ID_Proveedor = mi.ID_Proveedor
-                AND mi.Estado = 'Activa'
-                AND mi.ID_TipoMovimiento = 1
-                AND mi.Fecha BETWEEN %s AND %s
-            LEFT JOIN detalle_movimientos_inventario dmi ON mi.ID_Movimiento = dmi.ID_Movimiento
-            GROUP BY pr.ID_Proveedor, pr.Nombre
-            HAVING total > 0
-            ORDER BY total DESC
-            LIMIT 10
-            """
-            cursor.execute(query_proveedores, [fecha_inicio, fecha_fin])
-            top_proveedores = cursor.fetchall()
+            # Proveedores disponibles
+            if 'id_proveedor' in columnas_existentes:
+                cursor.execute("""
+                    SELECT DISTINCT id_proveedor, proveedor 
+                    FROM vista_gastos_unificados 
+                    WHERE ID_Empresa = %s AND proveedor IS NOT NULL
+                    ORDER BY proveedor
+                """, [id_empresa])
+                proveedores_lista = cursor.fetchall()
+            else:
+                proveedores_lista = []
             
-            # 7. ULTIMAS COMPRAS REGISTRADAS - CORREGIDO
-            query_ultimas_compras = """
-            SELECT 
-                mi.ID_Movimiento,
-                mi.N_Factura_Externa,
-                DATE_FORMAT(mi.Fecha, '%%d/%%m/%%Y') AS fecha,
-                pr.Nombre AS proveedor,
-                COALESCE(SUM(dmi.Cantidad * dmi.Costo_Unitario), 0) AS total,
-                COUNT(dmi.ID_Detalle_Movimiento) AS items  -- CORREGIDO AQUÍ
-            FROM movimientos_inventario mi
-            LEFT JOIN proveedores pr ON mi.ID_Proveedor = pr.ID_Proveedor
-            LEFT JOIN detalle_movimientos_inventario dmi ON mi.ID_Movimiento = dmi.ID_Movimiento
-            WHERE mi.Estado = 'Activa'
-                AND mi.ID_TipoMovimiento = 1
-                AND mi.Fecha BETWEEN %s AND %s
-            GROUP BY mi.ID_Movimiento, mi.N_Factura_Externa, mi.Fecha, pr.Nombre
-            ORDER BY mi.Fecha DESC
-            LIMIT 10
-            """
-            cursor.execute(query_ultimas_compras, [fecha_inicio, fecha_fin])
-            ultimas_compras = cursor.fetchall()
-            
-            # Calcular totales
-            total_compras = sum([item['total'] for item in gastos_compras])
-            # Para total_general, tomamos solo el primer resultado del resumen (compras)
-            total_general = resumen_gastos[0]['total'] if resumen_gastos else 0
+            años_disponibles = range(2020, datetime.now().year + 2)
+            semanas_disponibles = range(1, 54)
             
             return render_template(
                 'admin/gastos/gastos_operativos.html',
-                gastos_compras=gastos_compras,
-                resumen_gastos=resumen_gastos,
-                gastos_por_categoria=gastos_por_categoria,
-                evolucion_gastos=evolucion_gastos,
-                categorias=categorias,
-                top_proveedores=top_proveedores,
-                ultimas_compras=ultimas_compras,
-                periodo=periodo,
-                fecha_inicio=fecha_inicio,
-                fecha_fin=fecha_fin,
-                categoria_id=categoria_id,
-                total_compras=total_compras,
-                total_general=total_general,
-                titulo="Gastos Operativos"
+                # Filtros actuales
+                filtro_periodo=filtro_periodo,
+                fecha_especifica=fecha_especifica,
+                semana_num=semana_num,
+                anio_semana=anio_semana,
+                mes_filtro=mes_filtro,
+                anio_filtro=anio_filtro,
+                tipo_gasto_id=tipo_gasto_id,
+                origen=origen,
+                proveedor_id=proveedor_id,
+                # Datos principales
+                resultados=resultados,
+                total_periodo=total_periodo,
+                titulo_periodo=titulo_periodo,
+                totales_acumulados=totales_acumulados,
+                # Listas para filtros
+                tipos_gasto_disponibles=tipos_gasto_disponibles,
+                proveedores_lista=proveedores_lista,
+                años_disponibles=años_disponibles,
+                semanas_disponibles=semanas_disponibles,
+                titulo="Control de Gastos - Compras + Gastos Generales"
             )
             
     except Exception as e:
         app.logger.error(f"Error en gastos operativos: {str(e)}")
-        flash(f'Error al cargar los gastos operativos: {str(e)}', 'error')
+        flash(f'Error al cargar los gastos: {str(e)}', 'error')
         return redirect(url_for('admin_dashboard'))
+
+@app.route('/admin/gastos/registrar', methods=['GET', 'POST'])
+@admin_required
+@bitacora_decorator("REGISTRO_GASTO")
+def registrar_gasto():
+    try:
+        id_empresa = session.get('id_empresa', 1)
+        id_usuario = current_user.id
+        
+        with get_db_cursor(True) as cursor:
+            # Obtener listas para selects
+            cursor.execute("""
+                SELECT ID_Tipo_Gasto, Nombre 
+                FROM tipos_gasto 
+                WHERE Estado = 'Activo' AND ID_Empresa = %s
+                ORDER BY Nombre
+            """, [id_empresa])
+            tipos_gasto = cursor.fetchall()
+            
+            cursor.execute("""
+                SELECT ID_Proveedor, Nombre 
+                FROM proveedores 
+                WHERE Estado = 'ACTIVO'
+                ORDER BY Nombre
+            """)
+            proveedores = cursor.fetchall()
+            
+            cursor.execute("""
+                SELECT ID_Vehiculo, Placa, Marca, Modelo 
+                FROM vehiculos 
+                WHERE ID_Empresa = %s AND Estado != 'Inactivo'
+                ORDER BY Placa
+            """, [id_empresa])
+            vehiculos = cursor.fetchall()
+            
+            if request.method == 'POST':
+                id_tipo_gasto = request.form.get('id_tipo_gasto')
+                id_subcategoria = request.form.get('id_subcategoria') or None
+                fecha = request.form.get('fecha')
+                monto = request.form.get('monto')
+                descripcion = request.form.get('descripcion')
+                n_factura = request.form.get('n_factura') or None
+                id_proveedor = request.form.get('id_proveedor') or None
+                id_vehiculo = request.form.get('id_vehiculo') or None
+                metodo_pago = request.form.get('metodo_pago')
+                # observaciones = request.form.get('observaciones') or None  # ELIMINADO
+                
+                # Validaciones
+                if not id_tipo_gasto:
+                    flash('Debe seleccionar un tipo de gasto', 'error')
+                    return redirect(url_for('registrar_gasto'))
+                
+                if not fecha:
+                    flash('Debe ingresar una fecha', 'error')
+                    return redirect(url_for('registrar_gasto'))
+                
+                if not monto or float(monto) <= 0:
+                    flash('Debe ingresar un monto válido', 'error')
+                    return redirect(url_for('registrar_gasto'))
+                
+                # Insertar gasto (SIN Observaciones)
+                cursor.execute("""
+                    INSERT INTO gastos_generales (
+                        ID_Tipo_Gasto, ID_Subcategoria, Fecha, Monto, Descripcion,
+                        N_Factura, ID_Proveedor, ID_Vehiculo, Metodo_Pago, 
+                        ID_Empresa, ID_Usuario_Registro
+                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                """, (
+                    id_tipo_gasto, id_subcategoria, fecha, monto, descripcion,
+                    n_factura, id_proveedor, id_vehiculo, metodo_pago,
+                    id_empresa, id_usuario
+                ))
+                
+                id_gasto = cursor.lastrowid
+                
+                # Si es gasto de vehículo, registrar detalle adicional
+                if id_vehiculo:
+                    kilometraje = request.form.get('kilometraje') or None
+                    tipo_mantenimiento = request.form.get('tipo_mantenimiento') or None
+                    taller = request.form.get('taller') or None
+                    
+                    cursor.execute("""
+                        INSERT INTO gastos_vehiculo_detalle (
+                            ID_Gasto, ID_Vehiculo, Kilometraje, Tipo_Mantenimiento, Taller
+                        ) VALUES (%s, %s, %s, %s, %s)
+                    """, (id_gasto, id_vehiculo, kilometraje, tipo_mantenimiento, taller))
+                
+                flash(f'Gasto registrado exitosamente. Total: C${float(monto):,.2f}', 'success')
+                return redirect(url_for('admin_gastos_operativos'))
+            
+            return render_template(
+                'admin/gastos/registrar_gastos.html',
+                tipos_gasto=tipos_gasto,
+                proveedores=proveedores,
+                vehiculos=vehiculos,
+                hoy=datetime.now().strftime('%Y-%m-%d'),
+                titulo="Registrar Nuevo Gasto"
+            )
+            
+    except Exception as e:
+        app.logger.error(f"Error al registrar gasto: {str(e)}")
+        flash(f'Error al registrar gasto: {str(e)}', 'error')
+        return redirect(url_for('admin_gastos_operativos'))
+
+@app.route('/admin/gastos/get_subcategorias', methods=['GET'])
+@admin_required
+def get_subcategorias():
+    try:
+        id_tipo_gasto = request.args.get('id_tipo_gasto')
+        
+        with get_db_cursor(True) as cursor:
+            cursor.execute("""
+                SELECT ID_Subcategoria, Nombre 
+                FROM subcategorias_gasto 
+                WHERE ID_Tipo_Gasto = %s AND Estado = 'Activo'
+                ORDER BY Nombre
+            """, [id_tipo_gasto])
+            subcategorias = cursor.fetchall()
+            
+        return jsonify({'success': True, 'subcategorias': subcategorias})
+        
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+@app.route('/admin/gastos/ver/<int:id_gasto>', methods=['GET'])
+@admin_required
+def ver_gasto(id_gasto):
+    try:
+        id_empresa = session.get('id_empresa', 1)
+        
+        with get_db_cursor(True) as cursor:
+            cursor.execute("""
+                SELECT 
+                    gg.*,
+                    tg.Nombre AS tipo_gasto_nombre,
+                    sg.Nombre AS subcategoria_nombre,
+                    pr.Nombre AS proveedor_nombre,
+                    v.Placa AS vehiculo_placa,
+                    u.NombreUsuario AS usuario_registro_nombre
+                FROM gastos_generales gg
+                LEFT JOIN tipos_gasto tg ON gg.ID_Tipo_Gasto = tg.ID_Tipo_Gasto
+                LEFT JOIN subcategorias_gasto sg ON gg.ID_Subcategoria = sg.ID_Subcategoria
+                LEFT JOIN proveedores pr ON gg.ID_Proveedor = pr.ID_Proveedor
+                LEFT JOIN vehiculos v ON gg.ID_Vehiculo = v.ID_Vehiculo
+                LEFT JOIN usuarios u ON gg.ID_Usuario_Registro = u.ID_Usuario
+                WHERE gg.ID_Gasto = %s AND gg.ID_Empresa = %s
+            """, [id_gasto, id_empresa])
+            gasto = cursor.fetchone()
+            
+            if not gasto:
+                flash('Gasto no encontrado', 'error')
+                return redirect(url_for('admin_gastos_operativos'))
+            
+            # Obtener detalle de vehículo si aplica
+            detalle_vehiculo = None
+            if gasto['ID_Vehiculo']:
+                cursor.execute("""
+                    SELECT * FROM gastos_vehiculo_detalle WHERE ID_Gasto = %s
+                """, [id_gasto])
+                detalle_vehiculo = cursor.fetchone()
+            
+            return render_template(
+                'admin/gastos/ver_gasto.html',
+                gasto=gasto,
+                detalle_vehiculo=detalle_vehiculo,
+                titulo="Detalle del Gasto"
+            )
+            
+    except Exception as e:
+        app.logger.error(f"Error al ver gasto: {str(e)}")
+        flash(f'Error: {str(e)}', 'error')
+        return redirect(url_for('admin_gastos_operativos'))
+
+@app.route('/admin/gastos/anular/<int:id_gasto>', methods=['POST'])
+@admin_required
+@bitacora_decorator("ANULAR_GASTO")
+def anular_gasto(id_gasto):
+    try:
+        id_empresa = session.get('id_empresa', 1)
+        id_usuario = session.get('ID_Usuario', 1)
+        
+        with get_db_cursor(True) as cursor:
+            cursor.execute("""
+                UPDATE gastos_generales 
+                SET Estado = 'Anulado', 
+                    ID_Usuario_Registro = %s,
+                    Observaciones = CONCAT(IFNULL(Observaciones, ''), ' [ANULADO por usuario ', %s, ']')
+                WHERE ID_Gasto = %s AND ID_Empresa = %s
+            """, [id_usuario, id_usuario, id_gasto, id_empresa])
+            
+            if cursor.rowcount == 0:
+                flash('No se pudo anular el gasto', 'error')
+            else:
+                flash('Gasto anulado correctamente', 'success')
+                
+    except Exception as e:
+        app.logger.error(f"Error al anular gasto: {str(e)}")
+        flash(f'Error: {str(e)}', 'error')
+    
+    return redirect(url_for('admin_gastos_operativos'))
 
 #MODULO VENTAS
 @app.route('/admin/ventas/ventas-salidas', methods=['GET'])
@@ -6622,7 +7638,7 @@ def admin_gastos_operativos():
 def admin_ventas_salidas():
     fecha_str = request.args.get('fecha')
     estado_filtro = request.args.get('estado', 'todas').upper()
-    tipo_filtro = request.args.get('tipo', '').upper()  # Nuevo filtro para tipo de venta
+    tipo_filtro = request.args.get('tipo', '').upper()
     
     try:
         fecha = datetime.strptime(fecha_str, '%Y-%m-%d').date() if fecha_str else datetime.now().date()
@@ -6674,7 +7690,6 @@ def admin_ventas_salidas():
                         WHEN f.Credito_Contado = 0 THEN 'CONTADO'
                         ELSE 'CONTADO'
                     END as Tipo_Venta_Formateado,
-                    -- Estado formateado para mostrar (usando factura, no movimiento)
                     CASE 
                         WHEN f.Estado = 'Activa' THEN 'ACTIVA'
                         WHEN f.Estado = 'Anulada' THEN 'ANULADA'
@@ -6685,13 +7700,13 @@ def admin_ventas_salidas():
                         WHEN f.Estado = 'Anulada' THEN 'badge-danger'
                         ELSE 'badge-secondary'
                     END as Estado_Clase,
+                    -- Usar la estructura correcta de cuentas_por_cobrar
                     (SELECT COUNT(*) FROM cuentas_por_cobrar cpc 
                      WHERE cpc.ID_Factura = f.ID_Factura 
                      AND cpc.Estado IN ('Pendiente', 'Vencida')) as Tiene_Credito_Pendiente
                 FROM facturacion f
                 LEFT JOIN clientes c ON f.IDCliente = c.ID_Cliente
                 LEFT JOIN usuarios u ON f.ID_Usuario_Creacion = u.ID_Usuario
-                -- Obtener solo el movimiento más reciente para cada factura
                 LEFT JOIN (
                     SELECT mi1.*
                     FROM movimientos_inventario mi1
@@ -6711,8 +7726,92 @@ def admin_ventas_salidas():
             """, tuple(params))
             ventas = cursor.fetchall()
             
-            # Resto del código se mantiene igual...
-            # Obtener estadísticas por estado para mostrar en los filtros (usando factura)
+            # ========== CONSULTAS DE RESUMEN FINANCIERO ==========
+            
+            # **CONSULTA 1: Ventas TOTALES (Contado + Crédito) de TODAS las ventas ACTIVAS**
+            cursor.execute("""
+                SELECT 
+                    COALESCE(SUM(df.Total), 0) as Ventas_Totales
+                FROM facturacion f
+                INNER JOIN detalle_facturacion df ON f.ID_Factura = df.ID_Factura
+                WHERE f.Estado = 'Activa'
+            """)
+            resultado_ventas_total = cursor.fetchone()
+            ventas_totales = resultado_ventas_total['Ventas_Totales'] if resultado_ventas_total else 0.0
+            
+            # **CONSULTA 2: Ventas SOLO AL CONTADO**
+            cursor.execute("""
+                SELECT 
+                    COALESCE(SUM(df.Total), 0) as Ventas_Contado
+                FROM facturacion f
+                INNER JOIN detalle_facturacion df ON f.ID_Factura = df.ID_Factura
+                WHERE f.Estado = 'Activa'
+                    AND f.Credito_Contado = 0
+            """)
+            resultado_ventas_contado = cursor.fetchone()
+            ventas_contado_total = resultado_ventas_contado['Ventas_Contado'] if resultado_ventas_contado else 0.0
+            
+            # **CONSULTA 3: Ventas en CRÉDITO (total facturado a crédito)**
+            cursor.execute("""
+                SELECT 
+                    COALESCE(SUM(df.Total), 0) as Ventas_Credito
+                FROM facturacion f
+                INNER JOIN detalle_facturacion df ON f.ID_Factura = df.ID_Factura
+                WHERE f.Estado = 'Activa'
+                    AND f.Credito_Contado = 1
+            """)
+            resultado_ventas_credito = cursor.fetchone()
+            ventas_credito_total = resultado_ventas_credito['Ventas_Credito'] if resultado_ventas_credito else 0.0
+            
+            # **CONSULTA 4: Créditos pendientes de cobrar (usando Saldo_Pendiente)**
+            cursor.execute("""
+                SELECT 
+                    COALESCE(SUM(cpc.Saldo_Pendiente), 0) as Creditos_Pendientes
+                FROM cuentas_por_cobrar cpc
+                INNER JOIN facturacion f ON cpc.ID_Factura = f.ID_Factura
+                WHERE cpc.Estado IN ('Pendiente', 'Vencida')
+                    AND f.Estado = 'Activa'
+            """)
+            resultado_creditos_pendientes = cursor.fetchone()
+            creditos_pendientes = resultado_creditos_pendientes['Creditos_Pendientes'] if resultado_creditos_pendientes else 0.0
+            
+            # **CONSULTA 5: Créditos ya cobrados (Pagadas)**
+            # Nota: Para saber cuánto se ha cobrado, calculamos Monto_Movimiento - Saldo_Pendiente
+            cursor.execute("""
+                SELECT 
+                    COALESCE(SUM(cpc.Monto_Movimiento - cpc.Saldo_Pendiente), 0) as Creditos_Cobrados
+                FROM cuentas_por_cobrar cpc
+                INNER JOIN facturacion f ON cpc.ID_Factura = f.ID_Factura
+                WHERE cpc.Estado = 'Pagada'
+                    AND f.Estado = 'Activa'
+            """)
+            resultado_creditos_cobrados = cursor.fetchone()
+            creditos_cobrados = resultado_creditos_cobrados['Creditos_Cobrados'] if resultado_creditos_cobrados else 0.0
+            
+            # Alternativa: Si quieres calcular todos los cobrados (incluyendo pagos parciales)
+            cursor.execute("""
+                SELECT 
+                    COALESCE(SUM(cpc.Monto_Movimiento - cpc.Saldo_Pendiente), 0) as Total_Cobrado
+                FROM cuentas_por_cobrar cpc
+                INNER JOIN facturacion f ON cpc.ID_Factura = f.ID_Factura
+                WHERE f.Estado = 'Activa'
+                    AND cpc.Saldo_Pendiente = 0
+            """)
+            resultado_total_cobrado = cursor.fetchone()
+            total_cobrado = resultado_total_cobrado['Total_Cobrado'] if resultado_total_cobrado else 0.0
+            
+            # **VALIDACIÓN: Verificar que contado + crédito = total**
+            suma_contado_credito = ventas_contado_total + ventas_credito_total
+            diferencia = abs(ventas_totales - suma_contado_credito)
+            if diferencia > 0.01:
+                print(f"⚠️ ADVERTENCIA: Discrepancia en ventas detectada")
+                print(f"   Total BD: {ventas_totales}, Contado: {ventas_contado_total}, Crédito: {ventas_credito_total}")
+                print(f"   Suma manual: {suma_contado_credito}, Diferencia: {diferencia}")
+                ventas_totales = suma_contado_credito
+            
+            # ========== ESTADÍSTICAS PARA LAS VENTAS MOSTRADAS (LIMIT 100) ==========
+            
+            # Obtener estadísticas por estado para mostrar en los filtros
             cursor.execute("""
                 SELECT 
                     f.Estado,
@@ -6724,31 +7823,53 @@ def admin_ventas_salidas():
             """)
             estadisticas_estado = cursor.fetchall()
             
-            # Calcular estadísticas de forma segura
-            total_ventas = len(ventas)
-            ventas_contado = sum(1 for v in ventas if v.get('Credito_Contado') == 0)
-            ventas_credito = sum(1 for v in ventas if v.get('Credito_Contado') == 1)
-            ventas_activas = sum(1 for v in ventas if v.get('Estado_Factura') == 'Activa')
-            ventas_anuladas = sum(1 for v in ventas if v.get('Estado_Factura') == 'Anulada')
+            # Calcular estadísticas SOLO para las ventas mostradas en la tabla
+            total_ventas_mostradas = len(ventas)
+            monto_total_mostradas = 0.0
+            ventas_contado_mostradas = 0
+            ventas_credito_mostradas = 0
+            ventas_activas_mostradas = 0
+            ventas_anuladas_mostradas = 0
             
-            # Manejar valores None en Total_Venta
-            monto_total = 0
-            for v in ventas:
-                total_venta = v.get('Total_Venta')
+            for venta in ventas:
+                total_venta = venta.get('Total_Venta')
                 if total_venta is not None:
                     try:
-                        monto_total += float(total_venta)
+                        monto_total_mostradas += float(total_venta)
                     except (TypeError, ValueError):
-                        monto_total += 0
+                        pass
+                
+                if venta.get('Credito_Contado') == 0:
+                    ventas_contado_mostradas += 1
+                elif venta.get('Credito_Contado') == 1:
+                    ventas_credito_mostradas += 1
+                
+                if venta.get('Estado_Factura') == 'Activa':
+                    ventas_activas_mostradas += 1
+                elif venta.get('Estado_Factura') == 'Anulada':
+                    ventas_anuladas_mostradas += 1
             
             return render_template('admin/ventas/ventas_salidas.html', 
+                                 # Datos de la tabla
                                  ventas=ventas,
-                                 total_ventas=total_ventas,
-                                 ventas_contado=ventas_contado,
-                                 ventas_credito=ventas_credito,
-                                 ventas_activas=ventas_activas,
-                                 ventas_anuladas=ventas_anuladas,
-                                 monto_total=monto_total,
+                                 
+                                 # Estadísticas de las ventas MOSTRADAS
+                                 total_ventas=total_ventas_mostradas,
+                                 ventas_contado=ventas_contado_mostradas,
+                                 ventas_credito=ventas_credito_mostradas,
+                                 ventas_activas=ventas_activas_mostradas,
+                                 ventas_anuladas=ventas_anuladas_mostradas,
+                                 monto_total=monto_total_mostradas,
+                                 
+                                 # Resumen financiero TOTAL
+                                 ventas_totales=ventas_totales,
+                                 ventas_contado_total=ventas_contado_total,
+                                 ventas_credito_total=ventas_credito_total,
+                                 creditos_pendientes=creditos_pendientes,
+                                 creditos_cobrados=creditos_cobrados,
+                                 total_cobrado=total_cobrado,
+                                 
+                                 # Filtros
                                  estado_filtro=estado_filtro,
                                  tipo_filtro=tipo_filtro, 
                                  estadisticas_estado=estadisticas_estado)
@@ -6792,7 +7913,7 @@ def admin_crear_venta():
             
             id_tipo_movimiento = tipo_movimiento['ID_TipoMovimiento']
             
-            # ✅ MODIFICADO: Obtener clientes con su perfil y ruta
+            # Obtener clientes con su perfil y saldo pendiente
             cursor.execute("""
                 SELECT 
                     c.ID_Cliente, 
@@ -6800,6 +7921,7 @@ def admin_crear_venta():
                     c.RUC_CEDULA, 
                     c.tipo_cliente,
                     c.perfil_cliente,
+                    c.Saldo_Pendiente_Total,
                     r.Nombre_Ruta
                 FROM clientes c
                 LEFT JOIN rutas r ON c.ID_Ruta = r.ID_Ruta
@@ -6825,7 +7947,7 @@ def admin_crear_venta():
             """)
             categorias = cursor.fetchall()
             
-            # ✅ MODIFICADO: Obtener productos con los 3 tipos de precio
+            # Obtener productos con los 3 tipos de precio
             cursor.execute("""
                 SELECT 
                     p.ID_Producto, 
@@ -6851,22 +7973,23 @@ def admin_crear_venta():
             cursor.execute("SELECT Nombre_Empresa, RUC, Direccion, Telefono FROM empresa WHERE ID_Empresa = %s", (id_empresa,))
             empresa_data = cursor.fetchone()
 
-        # Si es POST, procesar el formulario CON PRECIOS SEGÚN PERFIL
+        # Si es POST, procesar el formulario
         if request.method == 'POST':
-            print("📨 Iniciando procesamiento de venta con precios por perfil de cliente...")
+            print("📨 Iniciando procesamiento de venta...")
             
             # Obtener datos del formulario
             id_cliente = request.form.get('id_cliente','').strip()
             tipo_venta = request.form.get('tipo_venta')
             observacion = request.form.get('observacion', '')
+            realizar_abono = request.form.get('realizar_abono') == 'on'
+            monto_abono = float(request.form.get('monto_abono', 0)) if realizar_abono else 0
             
             # Obtener productos del formulario
             productos_ids = request.form.getlist('producto_id[]')
             cantidades = request.form.getlist('cantidad[]')
-            precios = request.form.getlist('precio[]')  # NUEVO: Precios enviados desde el frontend
-            # Los precios ya vienen calculados desde el frontend según el perfil
+            precios = request.form.getlist('precio[]')
             
-            print(f"Datos recibidos - Cliente: {id_cliente}, Tipo: {tipo_venta}")
+            print(f"Datos recibidos - Cliente: {id_cliente}, Tipo: {tipo_venta}, Abono: {realizar_abono} (C${monto_abono:,.2f})")
             print(f"Productos recibidos: {len(productos_ids)}")
             
             # Validaciones básicas
@@ -6893,12 +8016,24 @@ def admin_crear_venta():
                                     categorias=categorias,
                                     empresa=empresa_data,
                                     id_tipo_movimiento=id_tipo_movimiento)
+            
+            if realizar_abono and monto_abono <= 0:
+                error_msg = 'Debe ingresar un monto de abono válido'
+                print(f"❌ {error_msg}")
+                flash(error_msg, 'error')
+                return render_template('admin/ventas/crear_venta.html',
+                                    clientes=clientes,
+                                    bodega_principal=bodega_principal,
+                                    productos=productos,
+                                    categorias=categorias,
+                                    empresa=empresa_data,
+                                    id_tipo_movimiento=id_tipo_movimiento)
 
             # Usar otro contexto para la transacción de la venta
             with get_db_cursor(True) as cursor:
-                # ✅ Obtener perfil del cliente
+                # Obtener perfil del cliente y saldo actual
                 cursor.execute("""
-                    SELECT tipo_cliente, perfil_cliente, Nombre
+                    SELECT tipo_cliente, perfil_cliente, Nombre, Saldo_Pendiente_Total
                     FROM clientes 
                     WHERE ID_Cliente = %s
                 """, (id_cliente,))
@@ -6910,11 +8045,33 @@ def admin_crear_venta():
                 tipo_cliente = cliente_data['tipo_cliente']
                 perfil_cliente = cliente_data['perfil_cliente']
                 nombre_cliente = cliente_data['Nombre']
+                saldo_actual_cliente = float(cliente_data['Saldo_Pendiente_Total'] or 0)
                 
                 print(f"👤 Cliente: {nombre_cliente}")
                 print(f"📊 Perfil: {perfil_cliente} | Tipo: {tipo_cliente}")
+                print(f"💰 Saldo actual del cliente: C${saldo_actual_cliente:,.2f}")
                 
-                # ✅ Validar visibilidad de productos (como ya lo tienes)
+                # VERIFICAR ESTADO DE CUENTA (facturas pendientes)
+                cursor.execute("""
+                    SELECT 
+                        COUNT(*) as facturas_pendientes,
+                        COALESCE(SUM(Saldo_Pendiente), 0) as total_pendiente
+                    FROM cuentas_por_cobrar 
+                    WHERE ID_Cliente = %s 
+                    AND Estado IN ('Pendiente', 'Vencida')
+                    AND Saldo_Pendiente > 0
+                    AND ID_Factura IS NOT NULL
+                """, (id_cliente,))
+                
+                estado_cuenta = cursor.fetchone()
+                facturas_pendientes = estado_cuenta['facturas_pendientes'] or 0
+                total_pendiente = float(estado_cuenta['total_pendiente'] or 0)
+                
+                if facturas_pendientes > 0:
+                    print(f"📋 Cliente tiene {facturas_pendientes} factura(s) pendiente(s) por C${total_pendiente:,.2f}")
+                    observacion = f"{observacion} | Cliente tiene {facturas_pendientes} factura(s) pendiente(s) por C${total_pendiente:,.2f}"
+                
+                # Validar visibilidad de productos
                 productos_invalidos = []
                 for i, producto_id in enumerate(productos_ids):
                     cantidad = float(cantidades[i]) if cantidades[i] else 0
@@ -6972,7 +8129,7 @@ def admin_crear_venta():
                 """, (
                     id_cliente,
                     1 if tipo_venta == 'credito' else 0,
-                    f"{observacion} | Perfil: {perfil_cliente}",
+                    observacion,
                     id_empresa,
                     id_usuario
                 ))
@@ -7016,22 +8173,6 @@ def admin_crear_venta():
                     
                     if not producto_data:
                         raise Exception(f"Producto con ID {id_producto} no encontrado")
-                    
-                    # Verificar que el precio corresponda al perfil
-                    precio_esperado = None
-                    if perfil_cliente == 'Ruta':
-                        precio_esperado = producto_data['Precio_Ruta']
-                    elif perfil_cliente == 'Mayorista':
-                        precio_esperado = producto_data['Precio_Mayorista']
-                    elif perfil_cliente == 'Mercado':
-                        precio_esperado = producto_data['Precio_Mercado']
-                    else:
-                        precio_esperado = producto_data['Precio_Mercado']  # Default
-                    
-                    # Pequeña tolerancia para diferencias de redondeo
-
-                    
-                    print(f"  Producto: {producto_data['Descripcion']} | Precio {perfil_cliente}: C${precio}")
                     
                     # Verificar stock
                     cursor.execute("""
@@ -7181,7 +8322,26 @@ def admin_crear_venta():
                     ))
                 
                 # 7. Manejar crédito o contado
+                monto_abono_aplicado = 0
+                
                 if tipo_venta == 'credito':
+                    # Actualizar saldo pendiente del cliente
+                    nuevo_saldo = saldo_actual_cliente + total_venta
+                    
+                    cursor.execute("""
+                        UPDATE clientes 
+                        SET Saldo_Pendiente_Total = %s,
+                            Fecha_Ultimo_Movimiento = NOW(),
+                            ID_Ultima_Factura = %s
+                        WHERE ID_Cliente = %s
+                    """, (nuevo_saldo, id_factura, id_cliente))
+                    
+                    print(f"💰 Actualizando saldo del cliente:")
+                    print(f"   Saldo anterior: C${saldo_actual_cliente:,.2f}")
+                    print(f"   + Monto venta: C${total_venta:,.2f}")
+                    print(f"   = Nuevo saldo: C${nuevo_saldo:,.2f}")
+                    
+                    # Insertar registro en cuentas por cobrar
                     cursor.execute("""
                         INSERT INTO cuentas_por_cobrar (
                             Fecha, ID_Cliente, Num_Documento, Observacion,
@@ -7201,8 +8361,62 @@ def admin_crear_venta():
                         id_usuario
                     ))
                     print(f"💳 Cuenta por cobrar creada")
+                    
+                    # Si hay abono, aplicarlo después de crear la cuenta por cobrar
+                    if realizar_abono and monto_abono > 0:
+                        print(f"💵 Procesando abono de C${monto_abono:,.2f}...")
+                        
+                        # Obtener facturas pendientes del cliente (incluyendo la que acabamos de crear)
+                        cursor.execute("""
+                            SELECT ID_Movimiento, Num_Documento, Saldo_Pendiente,
+                                   Fecha_Vencimiento
+                            FROM cuentas_por_cobrar
+                            WHERE ID_Cliente = %s 
+                              AND Estado IN ('Pendiente', 'Vencida')
+                              AND Saldo_Pendiente > 0
+                              AND ID_Factura IS NOT NULL
+                            ORDER BY Fecha_Vencimiento ASC, Fecha ASC
+                        """, (id_cliente,))
+                        
+                        facturas_abono = cursor.fetchall()
+                        
+                        if facturas_abono:
+                            monto_restante_abono = monto_abono
+                            
+                            for factura in facturas_abono:
+                                if monto_restante_abono <= 0:
+                                    break
+                                
+                                saldo_factura = float(factura['Saldo_Pendiente'])
+                                monto_aplicar = min(monto_restante_abono, saldo_factura)
+                                nuevo_saldo_factura = saldo_factura - monto_aplicar
+                                nuevo_estado = 'Pagada' if nuevo_saldo_factura <= 0.01 else 'Pendiente'
+                                
+                                # Actualizar la factura
+                                cursor.execute("""
+                                    UPDATE cuentas_por_cobrar
+                                    SET Saldo_Pendiente = %s, 
+                                        Estado = %s
+                                    WHERE ID_Movimiento = %s
+                                """, (nuevo_saldo_factura, nuevo_estado, factura['ID_Movimiento']))
+                                
+                                monto_restante_abono -= monto_aplicar
+                                monto_abono_aplicado += monto_aplicar
+                                
+                                print(f"  Abono aplicado a {factura['Num_Documento']}: C${monto_aplicar:,.2f}")
+                            
+                            # Actualizar saldo total del cliente después del abono
+                            if monto_abono_aplicado > 0:
+                                cursor.execute("""
+                                    UPDATE clientes 
+                                    SET Saldo_Pendiente_Total = Saldo_Pendiente_Total - %s,
+                                        Fecha_Ultimo_Pago = NOW()
+                                    WHERE ID_Cliente = %s
+                                """, (monto_abono_aplicado, id_cliente))
+                                
+                                print(f"💰 Saldo del cliente actualizado después del abono: -C${monto_abono_aplicado:,.2f}")
                 
-                if tipo_venta == 'contado':
+                elif tipo_venta == 'contado':
                     cursor.execute("""
                         INSERT INTO caja_movimientos (
                             Fecha, Tipo_Movimiento, Descripcion, Monto, 
@@ -7217,8 +8431,67 @@ def admin_crear_venta():
                         f'FAC-{id_factura:05d}'
                     ))
                     print(f"💰 Entrada en caja registrada")
+                    
+                    # Si es contado y hay abono, procesarlo también
+                    if realizar_abono and monto_abono > 0:
+                        print(f"💵 Procesando abono de C${monto_abono:,.2f} en venta de contado...")
+                        
+                        cursor.execute("""
+                            SELECT ID_Movimiento, Num_Documento, Saldo_Pendiente
+                            FROM cuentas_por_cobrar
+                            WHERE ID_Cliente = %s 
+                              AND Estado IN ('Pendiente', 'Vencida')
+                              AND Saldo_Pendiente > 0
+                              AND ID_Factura IS NOT NULL
+                            ORDER BY Fecha_Vencimiento ASC, Fecha ASC
+                        """, (id_cliente,))
+                        
+                        facturas_abono = cursor.fetchall()
+                        
+                        if facturas_abono:
+                            monto_restante_abono = monto_abono
+                            
+                            for factura in facturas_abono:
+                                if monto_restante_abono <= 0:
+                                    break
+                                
+                                saldo_factura = float(factura['Saldo_Pendiente'])
+                                monto_aplicar = min(monto_restante_abono, saldo_factura)
+                                nuevo_saldo_factura = saldo_factura - monto_aplicar
+                                nuevo_estado = 'Pagada' if nuevo_saldo_factura <= 0.01 else 'Pendiente'
+                                
+                                cursor.execute("""
+                                    UPDATE cuentas_por_cobrar
+                                    SET Saldo_Pendiente = %s, 
+                                        Estado = %s
+                                    WHERE ID_Movimiento = %s
+                                """, (nuevo_saldo_factura, nuevo_estado, factura['ID_Movimiento']))
+                                
+                                monto_restante_abono -= monto_aplicar
+                                monto_abono_aplicado += monto_aplicar
+                                
+                                print(f"  Abono aplicado a {factura['Num_Documento']}: C${monto_aplicar:,.2f}")
+                            
+                            if monto_abono_aplicado > 0:
+                                cursor.execute("""
+                                    UPDATE clientes 
+                                    SET Saldo_Pendiente_Total = GREATEST(0, Saldo_Pendiente_Total - %s),
+                                        Fecha_Ultimo_Pago = NOW()
+                                    WHERE ID_Cliente = %s
+                                """, (monto_abono_aplicado, id_cliente))
+                                
+                                print(f"💰 Saldo del cliente actualizado después del abono: -C${monto_abono_aplicado:,.2f}")
                 
+                # Construir mensaje de éxito
                 success_msg = f'✅ Venta {perfil_cliente} creada! Factura #{id_factura} - Total: C${total_venta:,.2f}'
+                
+                if tipo_venta == 'credito':
+                    nuevo_saldo_final = saldo_actual_cliente + total_venta - monto_abono_aplicado
+                    success_msg += f' - Saldo cliente: C${nuevo_saldo_final:,.2f}'
+                
+                if monto_abono_aplicado > 0:
+                    success_msg += f' - Abono aplicado: C${monto_abono_aplicado:,.2f}'
+                
                 print(f"🎯 {success_msg}")
                 flash(success_msg, 'success')
                 
@@ -7230,6 +8503,9 @@ def admin_crear_venta():
                     'perfil_cliente': perfil_cliente,
                     'cajillas_huevos': total_cajillas_huevos,
                     'separadores': separadores_totales,
+                    'abono_aplicado': monto_abono_aplicado,
+                    'facturas_pendientes': facturas_pendientes,
+                    'total_pendiente': total_pendiente,
                     'redirect_url': url_for('admin_generar_ticket', id_factura=id_factura)
                 })
         
@@ -7261,6 +8537,54 @@ def admin_crear_venta():
                             categorias=categorias if 'categorias' in locals() else [],
                             empresa=empresa_data if 'empresa_data' in locals() else None,
                             id_tipo_movimiento=id_tipo_movimiento if 'id_tipo_movimiento' in locals() else None)
+
+@app.route('/admin/api/facturas_pendientes_cliente/<int:id_cliente>', methods=['GET'])
+@admin_or_bodega_required
+def api_facturas_pendientes_cliente(id_cliente):
+    """API para obtener las facturas pendientes de un cliente"""
+    try:
+        id_empresa = session.get('id_empresa', 1)
+        
+        with get_db_cursor() as cursor:
+            cursor.execute("""
+                SELECT 
+                    cxc.Num_Documento as documento,
+                    DATE_FORMAT(cxc.Fecha, '%d/%m/%Y') as fecha,
+                    DATE_FORMAT(cxc.Fecha_Vencimiento, '%d/%m/%Y') as vencimiento,
+                    cxc.Monto_Movimiento as monto_original,
+                    cxc.Saldo_Pendiente as saldo,
+                    DATEDIFF(CURDATE(), cxc.Fecha_Vencimiento) as dias_vencido
+                FROM cuentas_por_cobrar cxc
+                INNER JOIN clientes c ON cxc.ID_Cliente = c.ID_Cliente
+                WHERE cxc.ID_Cliente = %s 
+                AND c.ID_Empresa = %s
+                AND cxc.Estado IN ('Pendiente', 'Vencida')
+                AND cxc.Saldo_Pendiente > 0.01
+                AND cxc.ID_Factura IS NOT NULL
+                ORDER BY cxc.Fecha_Vencimiento ASC, cxc.Fecha ASC
+            """, (id_cliente, id_empresa))
+            
+            facturas = cursor.fetchall()
+            
+            facturas_list = []
+            for f in facturas:
+                facturas_list.append({
+                    'documento': f['documento'],
+                    'fecha': f['fecha'],
+                    'vencimiento': f['vencimiento'],
+                    'monto_original': float(f['monto_original']),
+                    'saldo': float(f['saldo']),
+                    'dias_vencido': f['dias_vencido'] if f['dias_vencido'] else 0
+                })
+            
+            return jsonify({
+                'success': True,
+                'facturas': facturas_list
+            })
+            
+    except Exception as e:
+        print(f"Error: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 @app.route('/api/ventas/productos/cliente/<int:cliente_id>', methods=['GET'])
 def api_productos_por_cliente(cliente_id):
@@ -9916,13 +11240,27 @@ def admin_registrar_pago(id_movimiento):
             # Obtener el nombre del método de pago para validaciones
             metodo_pago_nombre = ''
             with get_db_cursor(True) as cursor:
-                cursor.execute("SELECT Nombre FROM Metodos_Pago WHERE ID_MetodoPago = %s", (id_metodo_pago,))
+                cursor.execute("SELECT Nombre FROM metodos_pago WHERE ID_MetodoPago = %s", (id_metodo_pago,))
                 resultado = cursor.fetchone()
                 if resultado:
-                    metodo_pago_nombre = resultado['Nombre'].upper()
+                    metodo_pago_nombre = resultado['Nombre'].upper().strip()
+                else:
+                    flash("❌ Método de pago no válido")
+                    return redirect(url_for('admin_registrar_pago', id_movimiento=id_movimiento))
+            
+            # Normalizar nombres para comparación (eliminar acentos y espacios)
+            import unicodedata
+            def normalize_text(text):
+                text = text.upper().strip()
+                # Eliminar acentos
+                text = ''.join(c for c in unicodedata.normalize('NFD', text) if unicodedata.category(c) != 'Mn')
+                return text
+            
+            metodo_normalizado = normalize_text(metodo_pago_nombre)
             
             # Validar detalles según el método de pago
-            if metodo_pago_nombre in ['EFECTIVO', 'CASH', 'CONTADO']:
+            # EFECTIVO o equivalentes
+            if metodo_normalizado in ['EFECTIVO', 'CASH', 'CONTADO', 'EFECTIVO/CONTADO']:
                 if detalles_metodo:
                     try:
                         # Extraer cantidad recibida del string
@@ -9939,19 +11277,22 @@ def admin_registrar_pago(id_movimiento):
                         print(f"Error procesando detalles de efectivo: {e}")
                         # Continuar con el procesamiento aunque haya error en el parseo
             
-            elif metodo_pago_nombre in ['TRANSFERENCIA', 'DEPÓSITO', 'DEPOSITO', 'TRANSFERENCIA BANCARIA', 'DEPOSITO BANCARIO']:
+            # TRANSFERENCIA o DEPÓSITO
+            elif metodo_normalizado in ['TRANSFERENCIA', 'DEPOSITO', 'TRANSFERENCIA BANCARIA', 'DEPOSITO BANCARIO', 'TRANSFERENCIA/DEPOSITO']:
                 if not detalles_metodo.strip():
                     flash("❌ Para pagos por transferencia/depósito debe proporcionar el número de transacción o referencia")
                     return redirect(url_for('admin_registrar_pago', id_movimiento=id_movimiento))
             
-            elif metodo_pago_nombre in ['CHEQUE']:
+            # CHEQUE
+            elif metodo_normalizado in ['CHEQUE', 'CHEQUES']:
                 if not detalles_metodo.strip():
-                    flash("❌ Para pagos con cheque debe proporcionar los detalles del cheque")
+                    flash("❌ Para pagos con cheque debe proporcionar los detalles del cheque (número, banco, etc.)")
                     return redirect(url_for('admin_registrar_pago', id_movimiento=id_movimiento))
             
-            elif 'TARJETA' in metodo_pago_nombre:
+            # TARJETA (cualquier tipo)
+            elif 'TARJETA' in metodo_normalizado or metodo_normalizado in ['CREDITO', 'DEBITO', 'VISA', 'MASTERCARD']:
                 if not detalles_metodo.strip():
-                    flash("❌ Para pagos con tarjeta debe proporcionar los detalles de la transacción")
+                    flash("❌ Para pagos con tarjeta debe proporcionar los detalles de la transacción (autorización, último dígitos, etc.)")
                     return redirect(url_for('admin_registrar_pago', id_movimiento=id_movimiento))
             
             with get_db_cursor(True) as cursor:
@@ -9982,14 +11323,15 @@ def admin_registrar_pago(id_movimiento):
                 
                 # Asegurar que saldo_actual sea Decimal
                 saldo_actual = Decimal(str(resultado['Saldo_Pendiente']))
+                id_cliente = resultado['ID_Cliente']
                 
                 # Validaciones con Decimal
                 if monto_pago <= Decimal('0'):
-                    flash("El monto del pago debe ser mayor a cero")
+                    flash("❌ El monto del pago debe ser mayor a cero")
                     return redirect(url_for('admin_registrar_pago', id_movimiento=id_movimiento))
                 
                 if monto_pago > saldo_actual:
-                    flash(f"El monto del pago (${monto_pago:,.2f}) no puede ser mayor al saldo pendiente (${saldo_actual:,.2f})")
+                    flash(f"❌ El monto del pago (${monto_pago:,.2f}) no puede ser mayor al saldo pendiente (${saldo_actual:,.2f})")
                     return redirect(url_for('admin_registrar_pago', id_movimiento=id_movimiento))
                 
                 # Registrar pago - convertir a float para la base de datos
@@ -10042,9 +11384,41 @@ def admin_registrar_pago(id_movimiento):
                     WHERE ID_Movimiento = %s
                 """, (float(nuevo_saldo), nuevo_estado, id_movimiento))
                 
+                # ==============================================
+                # ACTUALIZAR SALDO PENDIENTE CONSOLIDADO DEL CLIENTE
+                # ==============================================
+                # Primero, obtener el saldo pendiente actual del cliente
+                cursor.execute("""
+                    SELECT Saldo_Pendiente_Total 
+                    FROM clientes 
+                    WHERE ID_Cliente = %s
+                """, (id_cliente,))
+                cliente_data = cursor.fetchone()
+                
+                if cliente_data:
+                    saldo_cliente_actual = Decimal(str(cliente_data['Saldo_Pendiente_Total']))
+                    nuevo_saldo_cliente = saldo_cliente_actual - monto_pago
+                    
+                    # Actualizar el saldo pendiente total del cliente
+                    cursor.execute("""
+                        UPDATE clientes 
+                        SET Saldo_Pendiente_Total = %s,
+                            Fecha_Ultimo_Pago = NOW()
+                        WHERE ID_Cliente = %s
+                    """, (float(nuevo_saldo_cliente), id_cliente))
+                    
+                    print(f"💰 Saldo del cliente #{id_cliente} actualizado: {float(saldo_cliente_actual):,.2f} → {float(nuevo_saldo_cliente):,.2f}")
+                    
+                    # Verificar si el cliente quedó con saldo cero
+                    if nuevo_saldo_cliente == Decimal('0'):
+                        print(f"✅ Cliente #{id_cliente} ha cancelado todas sus deudas")
+                        flash(f"🎉 ¡Excelente! El cliente {resultado['NombreCliente']} ha cancelado TODAS sus deudas pendientes.")
+                else:
+                    print(f"⚠️ Cliente #{id_cliente} no encontrado al actualizar saldo pendiente total")
+                
                 # Verificar si el método de pago es EFECTIVO y registrar en caja
-                if metodo_pago_nombre in ['EFECTIVO', 'CASH', 'CONTADO']:
-                    nombre_cliente = resultado['NombreCliente'] if resultado['NombreCliente'] else f'Cliente ID: {resultado["ID_Cliente"]}'
+                if metodo_normalizado in ['EFECTIVO', 'CASH', 'CONTADO', 'EFECTIVO/CONTADO']:
+                    nombre_cliente = resultado['NombreCliente'] if resultado['NombreCliente'] else f'Cliente ID: {id_cliente}'
                     num_documento = resultado['Num_Documento'] if resultado['Num_Documento'] else f'CXC-{id_movimiento:05d}'
                     
                     cursor.execute("""
@@ -10071,14 +11445,14 @@ def admin_registrar_pago(id_movimiento):
                             'Detalles: ', %s)
                         WHERE ID_Pago = %s
                     """, (detalles_metodo[:200], id_pago))
-                    
+                
                 # Mensaje final según el estado
                 if nuevo_estado == "Pagada":
-                    flash(f" PAGO COMPLETO REGISTRADO. La cuenta ha sido marcada como PAGADA. Monto: C${float(monto_pago):,.2f}")
+                    flash(f"✅ PAGO COMPLETO REGISTRADO. La cuenta ha sido marcada como PAGADA. Monto: C${float(monto_pago):,.2f}")
                     if detalles_metodo:
                         flash(f"📝 Detalles del pago: {detalles_metodo}")
                 else:
-                    flash(f"Pago de ${float(monto_pago):,.2f} registrado exitosamente. Saldo restante: C${float(nuevo_saldo):,.2f} - Estado: {nuevo_estado}")
+                    flash(f"✅ Pago de ${float(monto_pago):,.2f} registrado exitosamente. Saldo restante de esta cuenta: C${float(nuevo_saldo):,.2f} - Estado: {nuevo_estado}")
                     if detalles_metodo:
                         flash(f"📝 Detalles del pago: {detalles_metodo}")
                     
@@ -10104,6 +11478,7 @@ def admin_registrar_pago(id_movimiento):
                     cl.Telefono as TelefonoCliente,
                     cl.Direccion as DireccionCliente,
                     cl.RUC_CEDULA,
+                    cl.Saldo_Pendiente_Total as Saldo_Total_Cliente,
                     e.Nombre_Empresa
                 FROM cuentas_por_cobrar c
                 LEFT JOIN clientes cl ON c.ID_Cliente = cl.ID_Cliente
@@ -10131,9 +11506,11 @@ def admin_registrar_pago(id_movimiento):
                 cuenta['Saldo_Pendiente'] = float(cuenta['Saldo_Pendiente'])
             if cuenta['Monto_Movimiento']:
                 cuenta['Monto_Movimiento'] = float(cuenta['Monto_Movimiento'])
+            if cuenta.get('Saldo_Total_Cliente'):
+                cuenta['Saldo_Total_Cliente'] = float(cuenta['Saldo_Total_Cliente'])
             
             # Métodos de pago disponibles
-            cursor.execute("SELECT ID_MetodoPago, Nombre FROM Metodos_Pago ORDER BY Nombre")
+            cursor.execute("SELECT ID_MetodoPago, Nombre FROM metodos_pago ORDER BY Nombre")
             metodos_pago = cursor.fetchall()
             
             # Pasar la fecha actual para comparar vencimientos
@@ -10290,53 +11667,100 @@ def admin_detalle_cuentacobrar(id_movimiento):
             print(f"Fecha Factura Formateada: {cuenta['FechaFactura_Formateada']}")
             print("=" * 60)
             
-            # HISTORIAL DE PAGOS
+            # ==================================================
+            # HISTORIAL UNIFICADO (PAGOS + ABONOS)
+            # ==================================================
             cursor.execute("""
                 SELECT 
-                    p.ID_Pago,
+                    'pago' as tipo_registro,
+                    p.ID_Pago as id_registro,
                     p.ID_Movimiento,
                     p.Monto,
                     p.ID_MetodoPago,
-                    p.Comentarios,
+                    p.Comentarios as Descripcion,
                     p.Detalles_Metodo,
                     p.ID_Usuario_Creacion,
-                    p.Fecha,  -- Fecha sin formatear
+                    p.Fecha,
                     COALESCE(mp.Nombre, 'Método no disponible') as MetodoPago,
-                    COALESCE(u.NombreUsuario, 'Usuario no disponible') as UsuarioRegistro
+                    COALESCE(u.NombreUsuario, 'Usuario no disponible') as UsuarioRegistro,
+                    NULL as Saldo_Anterior,
+                    NULL as Saldo_Nuevo,
+                    NULL as ID_Movimiento_Caja,
+                    NULL as ID_Asignacion,
+                    NULL as ID_Cliente_Abono
                 FROM pagos_cuentascobrar p
                 LEFT JOIN metodos_pago mp ON p.ID_MetodoPago = mp.ID_MetodoPago
                 LEFT JOIN usuarios u ON p.ID_Usuario_Creacion = u.ID_Usuario
                 WHERE p.ID_Movimiento = %s
-                ORDER BY p.Fecha DESC
-            """, (id_movimiento,))
-            
-            pagos_raw = cursor.fetchall()
-            
-            # FORMATEAR FECHAS DE PAGOS
-            pagos = []
-            for pago in pagos_raw:
-                pago_dict = dict(pago)
-                fecha_pago = pago_dict['Fecha']
                 
-                # Formatear fecha completa
-                if fecha_pago:
-                    if hasattr(fecha_pago, 'strftime'):
-                        pago_dict['FechaFormateada'] = fecha_pago.strftime('%d/%m/%Y %H:%M')
-                        pago_dict['FechaSolo'] = fecha_pago.strftime('%d/%m/%Y')
+                UNION ALL
+                
+                SELECT 
+                    'abono' as tipo_registro,
+                    a.ID_Detalle as id_registro,
+                    a.ID_CuentaCobrar as ID_Movimiento,
+                    a.Monto_Aplicado as Monto,
+                    NULL as ID_MetodoPago,
+                    CONCAT('Abono registrado en caja/ruta. ID Mov Caja: ', COALESCE(a.ID_Movimiento_Caja, 0)) as Descripcion,
+                    NULL as Detalles_Metodo,
+                    a.ID_Usuario as ID_Usuario_Creacion,
+                    a.Fecha,
+                    'Abono en ruta' as MetodoPago,
+                    COALESCE(u2.NombreUsuario, 'Usuario no disponible') as UsuarioRegistro,
+                    a.Saldo_Anterior,
+                    a.Saldo_Nuevo,
+                    a.ID_Movimiento_Caja,
+                    a.ID_Asignacion,
+                    a.ID_Cliente
+                FROM abonos_detalle a
+                LEFT JOIN usuarios u2 ON a.ID_Usuario = u2.ID_Usuario
+                WHERE a.ID_CuentaCobrar = %s
+                
+                ORDER BY Fecha DESC
+            """, (id_movimiento, id_movimiento))
+            
+            historial_raw = cursor.fetchall()
+            
+            # FORMATEAR FECHAS Y PROCESAR HISTORIAL UNIFICADO
+            historial = []
+            for registro in historial_raw:
+                registro_dict = dict(registro)
+                fecha_reg = registro_dict['Fecha']
+                
+                # Formatear fecha
+                if fecha_reg:
+                    if hasattr(fecha_reg, 'strftime'):
+                        registro_dict['FechaFormateada'] = fecha_reg.strftime('%d/%m/%Y %H:%M')
+                        registro_dict['FechaSolo'] = fecha_reg.strftime('%d/%m/%Y')
                     else:
-                        pago_dict['FechaFormateada'] = formatear_fecha(fecha_pago) + ' 00:00'
-                        pago_dict['FechaSolo'] = formatear_fecha(fecha_pago)
+                        registro_dict['FechaFormateada'] = formatear_fecha(fecha_reg) + ' 00:00'
+                        registro_dict['FechaSolo'] = formatear_fecha(fecha_reg)
                 else:
-                    pago_dict['FechaFormateada'] = 'Fecha no disponible'
-                    pago_dict['FechaSolo'] = 'N/A'
+                    registro_dict['FechaFormateada'] = 'Fecha no disponible'
+                    registro_dict['FechaSolo'] = 'N/A'
                 
-                pagos.append(pago_dict)
+                # Configurar tipo de registro para mostrar en template
+                if registro_dict['tipo_registro'] == 'abono':
+                    registro_dict['TipoDisplay'] = '💵 Abono en ruta'
+                    registro_dict['MontoFormateado'] = f"{float(registro_dict['Monto']):,.2f}"
+                    registro_dict['Icono'] = 'bi-cash-stack'
+                    registro_dict['ColorBadge'] = 'success'
+                else:
+                    registro_dict['TipoDisplay'] = '💰 Pago registrado'
+                    registro_dict['MontoFormateado'] = f"{float(registro_dict['Monto']):,.2f}"
+                    registro_dict['Icono'] = 'bi-credit-card'
+                    registro_dict['ColorBadge'] = 'primary'
+                
+                historial.append(registro_dict)
             
-            # CÁLCULOS FINANCIEROS
+            # ==================================================
+            # CÁLCULOS FINANCIEROS CON DATOS UNIFICADOS
+            # ==================================================
             monto_movimiento = Decimal(str(cuenta['Monto_Movimiento'])) if cuenta['Monto_Movimiento'] else Decimal('0')
             saldo_pendiente = Decimal(str(cuenta['Saldo_Pendiente'])) if cuenta['Saldo_Pendiente'] else Decimal('0')
             
-            total_pagado = sum(Decimal(str(pago['Monto'])) for pago in pagos) if pagos else Decimal('0')
+            # Sumar tanto pagos como abonos
+            total_pagado = sum(Decimal(str(reg['Monto'])) for reg in historial) if historial else Decimal('0')
             
             # Validar consistencia
             saldo_teorico = monto_movimiento - total_pagado
@@ -10347,30 +11771,46 @@ def admin_detalle_cuentacobrar(id_movimiento):
             total_abonado = monto_movimiento - saldo_pendiente
             porcentaje_pagado = (total_abonado / monto_movimiento * 100) if monto_movimiento > 0 else 0
             
-            # Obtener primer y último pago
-            primer_pago = pagos[-1] if pagos and len(pagos) > 0 else None
-            ultimo_pago = pagos[0] if pagos and len(pagos) > 0 else None
+            # Obtener primer y último pago/abono
+            primer_registro = historial[-1] if historial and len(historial) > 0 else None
+            ultimo_registro = historial[0] if historial and len(historial) > 0 else None
+            
+            # Separar pagos y abonos para estadísticas específicas (opcional)
+            solo_pagos = [reg for reg in historial if reg['tipo_registro'] == 'pago']
+            solo_abonos = [reg for reg in historial if reg['tipo_registro'] == 'abono']
+            
+            total_pagos = sum(Decimal(str(reg['Monto'])) for reg in solo_pagos) if solo_pagos else Decimal('0')
+            total_abonos = sum(Decimal(str(reg['Monto'])) for reg in solo_abonos) if solo_abonos else Decimal('0')
             
             # Preparar datos para template
             datos_template = {
                 'cuenta': cuenta,
-                'pagos': pagos,
+                'historial': historial,  # NUEVO: historial unificado
+                'pagos': solo_pagos,  # Mantenido por compatibilidad
+                'abonos': solo_abonos,  # NUEVO: solo abonos
                 'total_pagado': float(total_pagado),
                 'total_abonado': float(total_abonado),
+                'total_pagos': float(total_pagos),
+                'total_abonos': float(total_abonos),
                 'porcentaje_pagado': round(float(porcentaje_pagado), 2),
                 'tiene_inconsistencia': tiene_inconsistencia,
                 'diferencia': float(diferencia),
-                'primer_pago': primer_pago,
-                'ultimo_pago': ultimo_pago,
+                'primer_registro': primer_registro,
+                'ultimo_registro': ultimo_registro,
+                'primer_pago': primer_registro if primer_registro and primer_registro['tipo_registro'] == 'pago' else None,
+                'ultimo_pago': ultimo_registro if ultimo_registro and ultimo_registro['tipo_registro'] == 'pago' else None,
                 'monto_movimiento_formateado': float(monto_movimiento),
                 'saldo_pendiente_formateado': float(saldo_pendiente),
-                'saldo_teorico': float(saldo_teorico)
+                'saldo_teorico': float(saldo_teorico),
+                'cantidad_pagos': len(solo_pagos),
+                'cantidad_abonos': len(solo_abonos),
+                'cantidad_total_movimientos': len(historial)
             }
             
             return render_template('admin/ventas/cxcobrar/detalle_cuenta.html', **datos_template)
                                  
     except Exception as e:
-        flash(f" Error al cargar detalle de cuenta: {str(e)}", "error")
+        flash(f"❌ Error al cargar detalle de cuenta: {str(e)}", "error")
         traceback.print_exc()
         return redirect(url_for('admin_cuentascobrar'))
 
@@ -15535,7 +16975,6 @@ def verificar_transferencia(id_movimiento):
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-
 @app.route('/api/inventario/productos-bodega/<int:id_bodega>')
 @admin_or_bodega_required
 def api_productos_bodega_con_stock(id_bodega):
@@ -16353,6 +17792,7 @@ def procesar_asignacion(asignacion_raw):
 def procesar_lista_asignaciones(asignaciones_raw):
     """Procesa una lista de asignaciones"""
     return [procesar_asignacion(a) for a in asignaciones_raw if a]
+
 # ==============================================
 # RUTAS PARA VENDEDORES
 # ==============================================
@@ -17612,7 +19052,7 @@ def vendedor_movimientos_historial():
                 return redirect(url_for('vendedor_inventario'))
             
             # ============================================
-            # 2. OBTENER MOVIMIENTOS (CON CONVERSIÓN DE TIPOS)
+            # 2. OBTENER MOVIMIENTOS (CON Total_Items)
             # ============================================
             cursor.execute("""
                 SELECT 
@@ -17623,6 +19063,7 @@ def vendedor_movimientos_historial():
                     mrc.Documento_Numero,
                     CAST(COALESCE(mrc.Total_Productos, 0) AS DECIMAL(12,2)) as Total_Productos,
                     CAST(COALESCE(mrc.Total_Subtotal, 0) AS DECIMAL(12,2)) as Total_Subtotal,
+                    COALESCE(mrc.Total_Items, 0) as Total_Items,
                     mrc.Estado,
                     u.NombreUsuario as Usuario_Registra,
                     CASE 
@@ -17646,24 +19087,26 @@ def vendedor_movimientos_historial():
             
             movimientos = cursor.fetchall()
             
-            # Convertir valores numéricos a float para asegurar que lleguen como números a JavaScript
+            # Convertir valores numéricos
             for mov in movimientos:
                 if 'Total_Productos' in mov:
                     mov['Total_Productos'] = float(mov['Total_Productos']) if mov['Total_Productos'] else 0.0
                 if 'Total_Subtotal' in mov:
                     mov['Total_Subtotal'] = float(mov['Total_Subtotal']) if mov['Total_Subtotal'] else 0.0
+                if 'Total_Items' in mov:
+                    mov['Total_Items'] = int(mov['Total_Items']) if mov['Total_Items'] else 0
             
             # ============================================
-            # 3. RESUMEN SIMPLIFICADO (CON CONVERSIÓN)
+            # 3. RESUMEN SIMPLIFICADO
             # ============================================
             cursor.execute("""
                 SELECT 
                     CASE 
                         WHEN mrc.ID_TipoMovimiento = 13 THEN 'Carga de Productos'
-                        WHEN mrc.ID_TipoMovimiento = 1 THEN 'Merma'
-                        WHEN mrc.ID_TipoMovimiento = 2 THEN 'Devolución'
-                        WHEN mrc.ID_TipoMovimiento = 7 THEN 'Traslado Interno'
-                        WHEN mrc.ID_TipoMovimiento = 11 THEN 'Ajuste de Inventario'
+                        WHEN mrc.ID_TipoMovimiento = 1 THEN 'Compra'
+                        WHEN mrc.ID_TipoMovimiento = 2 THEN 'Venta'
+                        WHEN mrc.ID_TipoMovimiento = 7 THEN 'Merma'
+                        WHEN mrc.ID_TipoMovimiento = 11 THEN 'Devolución'
                         ELSE cm.Descripcion
                     END as Tipo_Movimiento,
                     COUNT(*) as Cantidad_Movimientos,
@@ -17703,112 +19146,244 @@ def vendedor_movimiento_detalle(id_movimiento):
     Muestra el detalle de un movimiento específico
     """
     try:
+        print(f"\n=== DEPURACIÓN DETALLE MOVIMIENTO ===")
+        print(f"ID Movimiento solicitado: {id_movimiento}")
+        print(f"Usuario actual ID: {current_user.id}")
+        print(f"Usuario actual nombre: {current_user.username if hasattr(current_user, 'username') else 'N/A'}")
+        
         with get_db_cursor(True) as cursor:
             # ============================================
-            # 1. VERIFICAR MOVIMIENTO Y OBTENER DATOS
+            # PRUEBA 1: Verificar si el movimiento existe
             # ============================================
+            print("\n--- PRUEBA 1: Verificar existencia del movimiento ---")
+            cursor.execute("""
+                SELECT ID_Movimiento, ID_Asignacion, Estado, ID_TipoMovimiento
+                FROM movimientos_ruta_cabecera 
+                WHERE ID_Movimiento = %s
+            """, (id_movimiento,))
+            
+            movimiento_raw = cursor.fetchone()
+            
+            if not movimiento_raw:
+                print(f"ERROR: El movimiento {id_movimiento} NO existe en la base de datos")
+                flash(f'Movimiento #{id_movimiento} no existe en el sistema', 'error')
+                return redirect(url_for('vendedor_movimientos_historial'))
+            
+            print(f"Movimiento encontrado: ID={movimiento_raw['ID_Movimiento']}, Asignacion={movimiento_raw['ID_Asignacion']}, Estado={movimiento_raw['Estado']}")
+            
+            # ============================================
+            # PRUEBA 2: Verificar la asignación del movimiento
+            # ============================================
+            print("\n--- PRUEBA 2: Verificar asignación del movimiento ---")
             cursor.execute("""
                 SELECT 
-                    mrc.*, 
-                    cm.Descripcion as Tipo_Movimiento, 
-                    cm.Letra as Tipo_Letra,
-                    u.NombreUsuario as Usuario_Registra, 
-                    r.Nombre_Ruta,
-                    av.ID_Ruta,
+                    av.ID_Asignacion,
                     av.ID_Usuario,
+                    av.Estado as Estado_Asignacion,
+                    u.NombreUsuario
+                FROM asignacion_vendedores av
+                LEFT JOIN usuarios u ON av.ID_Usuario = u.ID_Usuario
+                WHERE av.ID_Asignacion = %s
+            """, (movimiento_raw['ID_Asignacion'],))
+            
+            asignacion_mov = cursor.fetchone()
+            
+            if not asignacion_mov:
+                print(f"ERROR: La asignación {movimiento_raw['ID_Asignacion']} NO existe")
+                flash('El movimiento no tiene una asignación válida', 'error')
+                return redirect(url_for('vendedor_movimientos_historial'))
+            
+            print(f"Asignación encontrada: ID={asignacion_mov['ID_Asignacion']}, Usuario={asignacion_mov['ID_Usuario']}, Estado={asignacion_mov['Estado_Asignacion']}")
+            print(f"¿Coincide con usuario actual? {asignacion_mov['ID_Usuario'] == current_user.id}")
+            
+            # ============================================
+            # PRUEBA 3: Verificar asignación activa del vendedor actual
+            # ============================================
+            print("\n--- PRUEBA 3: Verificar asignación activa del vendedor ---")
+            cursor.execute("""
+                SELECT 
+                    ID_Asignacion, 
+                    ID_Ruta, 
+                    Estado,
+                    Fecha_Asignacion,
+                    Fecha_Finalizacion
+                FROM asignacion_vendedores 
+                WHERE ID_Usuario = %s 
+                AND Estado = 'Activa'
+                AND CURDATE() BETWEEN Fecha_Asignacion AND COALESCE(Fecha_Finalizacion, CURDATE())
+                ORDER BY Fecha_Asignacion DESC
+                LIMIT 1
+            """, (current_user.id,))
+            
+            asignacion_activa = cursor.fetchone()
+            
+            if asignacion_activa:
+                print(f"Asignación activa encontrada: ID={asignacion_activa['ID_Asignacion']}, Ruta={asignacion_activa['ID_Ruta']}")
+            else:
+                print("No se encontró asignación activa para el vendedor actual")
+            
+            # ============================================
+            # CONSULTA FINAL CON PERMISOS FLEXIBLES
+            # ============================================
+            print("\n--- CONSULTA FINAL: Obteniendo datos completos ---")
+            
+            # Construir condición de permisos
+            condiciones = []
+            params = [id_movimiento]
+            
+            condiciones.append("av.ID_Usuario = %s")
+            params.append(current_user.id)
+            
+            condiciones.append("mrc.ID_Usuario_Registra = %s")
+            params.append(current_user.id)
+            
+            if asignacion_activa:
+                condiciones.append("mrc.ID_Asignacion = %s")
+                params.append(asignacion_activa['ID_Asignacion'])
+            
+            where_permisos = " OR ".join(condiciones)
+            
+            query = f"""
+                SELECT 
+                    mrc.ID_Movimiento,
+                    mrc.ID_Asignacion,
+                    mrc.ID_TipoMovimiento,
+                    mrc.Fecha_Movimiento,
+                    mrc.Documento_Numero,
+                    mrc.Total_Productos,
+                    mrc.Total_Subtotal,
+                    mrc.Total_Items,
+                    mrc.Estado,
+                    mrc.ID_Cliente,
+                    mrc.ID_Pedido,
+                    cm.Descripcion as Tipo_Movimiento_Desc,
+                    cm.Letra as Tipo_Letra,
+                    u.NombreUsuario as Usuario_Registra,
+                    r.Nombre_Ruta,
+                    av.ID_Ruta as Ruta_Asignada,
+                    av.ID_Usuario as ID_Vendedor_Asignado,
+                    fr.Credito_Contado,
                     CASE 
                         WHEN mrc.ID_TipoMovimiento = 13 THEN 'Carga de Productos'
-                        WHEN mrc.ID_TipoMovimiento = 1 THEN 'Merma'
-                        WHEN mrc.ID_TipoMovimiento = 2 THEN 'Devolución'
-                        WHEN mrc.ID_TipoMovimiento = 7 THEN 'Traslado Interno'
-                        WHEN mrc.ID_TipoMovimiento = 11 THEN 'Ajuste de Inventario'
+                        WHEN mrc.ID_TipoMovimiento = 1 THEN 'Compra'
+                        WHEN mrc.ID_TipoMovimiento = 2 THEN 'Venta'
+                        WHEN mrc.ID_TipoMovimiento = 7 THEN 'Merma'
+                        WHEN mrc.ID_TipoMovimiento = 11 THEN 'Devolución'
                         ELSE cm.Descripcion
-                    END as Descripcion_Detallada
+                    END as Descripcion_Detallada,
+                    CAST(COALESCE(mrc.Total_Productos, 0) AS DECIMAL(12,2)) as Total_Productos_Num,
+                    CAST(COALESCE(mrc.Total_Subtotal, 0) AS DECIMAL(12,2)) as Total_Subtotal_Num
                 FROM movimientos_ruta_cabecera mrc
-                INNER JOIN asignacion_vendedores av ON mrc.ID_Asignacion = av.ID_Asignacion
                 INNER JOIN catalogo_movimientos cm ON mrc.ID_TipoMovimiento = cm.ID_TipoMovimiento
                 INNER JOIN usuarios u ON mrc.ID_Usuario_Registra = u.ID_Usuario
+                LEFT JOIN asignacion_vendedores av ON mrc.ID_Asignacion = av.ID_Asignacion
                 LEFT JOIN rutas r ON av.ID_Ruta = r.ID_Ruta
+                LEFT JOIN facturacion_ruta fr ON mrc.ID_Movimiento = fr.ID_Movimiento
                 WHERE mrc.ID_Movimiento = %s
-                AND av.ID_Usuario = %s
                 AND mrc.Estado = 'ACTIVO'
-            """, (id_movimiento, current_user.id))
+                AND ({where_permisos})
+            """
             
+            print(f"Query ejecutada: {query}")
+            print(f"Parámetros: {params}")
+            
+            cursor.execute(query, params)
             movimiento = cursor.fetchone()
             
             if not movimiento:
+                print("ERROR: No se encontró el movimiento con los permisos actuales")
                 flash('Movimiento no encontrado o no tienes permiso para verlo', 'error')
                 return redirect(url_for('vendedor_movimientos_historial'))
             
+            print(f"Movimiento encontrado exitosamente: #{movimiento['ID_Movimiento']}")
+            
+            # Convertir valores numéricos
+            movimiento['Total_Productos'] = float(movimiento['Total_Productos_Num']) if movimiento.get('Total_Productos_Num') else 0
+            movimiento['Total_Subtotal'] = float(movimiento['Total_Subtotal_Num']) if movimiento.get('Total_Subtotal_Num') else 0
+            
             # ============================================
-            # 2. OBTENER DETALLES DEL MOVIMIENTO
+            # OBTENER DETALLES DEL MOVIMIENTO
             # ============================================
+            print("\n--- Obteniendo detalles del movimiento ---")
             cursor.execute("""
                 SELECT 
                     mrd.ID_Detalle,
                     mrd.Cantidad,
                     mrd.Precio_Unitario,
                     mrd.Subtotal,
+                    mrd.ID_Producto,
                     p.COD_Producto,
-                    p.Descripcion as Producto,
-                    um.Abreviatura as Unidad,
-                    mrd.ID_Detalle_Pedido,
-                    mrd.ID_Movimiento_Origen
+                    p.Descripcion as Producto_Nombre,
+                    um.Abreviatura as Unidad_Medida,
+                    CAST(COALESCE(mrd.Cantidad, 0) AS DECIMAL(12,2)) as Cantidad_Num,
+                    CAST(COALESCE(mrd.Precio_Unitario, 0) AS DECIMAL(12,2)) as Precio_Unitario_Num,
+                    CAST(COALESCE(mrd.Subtotal, 0) AS DECIMAL(12,2)) as Subtotal_Num
                 FROM movimientos_ruta_detalle mrd
                 INNER JOIN productos p ON mrd.ID_Producto = p.ID_Producto
                 LEFT JOIN unidades_medida um ON p.Unidad_Medida = um.ID_Unidad
                 WHERE mrd.ID_Movimiento = %s
-                ORDER BY mrd.ID_Detalle
+                ORDER BY mrd.ID_Detalle ASC
             """, (id_movimiento,))
             
             detalles = cursor.fetchall()
+            print(f"Detalles encontrados: {len(detalles)}")
+            
+            # Convertir valores numéricos en detalles
+            for detalle in detalles:
+                detalle['Cantidad'] = float(detalle['Cantidad_Num']) if detalle.get('Cantidad_Num') else 0
+                detalle['Precio_Unitario'] = float(detalle['Precio_Unitario_Num']) if detalle.get('Precio_Unitario_Num') else 0
+                detalle['Subtotal'] = float(detalle['Subtotal_Num']) if detalle.get('Subtotal_Num') else 0
+                
+                # Limpiar campos temporales
+                if 'Cantidad_Num' in detalle:
+                    del detalle['Cantidad_Num']
+                if 'Precio_Unitario_Num' in detalle:
+                    del detalle['Precio_Unitario_Num']
+                if 'Subtotal_Num' in detalle:
+                    del detalle['Subtotal_Num']
             
             # ============================================
-            # 3. OBTENER INFORMACIÓN ADICIONAL DEL CLIENTE SI APLICA
+            # OBTENER INFORMACIÓN DEL CLIENTE
             # ============================================
             cliente_info = None
-            if movimiento.get('ID_Cliente'):
+            if movimiento.get('ID_Cliente') and movimiento['ID_Cliente']:
                 cursor.execute("""
-                    SELECT ID_Cliente, Nombre, RUC, Direccion, Telefono
-                    FROM clientes 
-                    WHERE ID_Cliente = %s
+                    SELECT ID_Cliente, Nombre, RUC_CEDULA as RUC, Direccion, Telefono
+                    FROM clientes WHERE ID_Cliente = %s
                 """, (movimiento['ID_Cliente'],))
                 cliente_info = cursor.fetchone()
+                print(f"Cliente encontrado: {cliente_info['Nombre'] if cliente_info else 'No'}")
             
             # ============================================
-            # 4. OBTENER INFORMACIÓN DEL PEDIDO SI APLICA (CORREGIDO)
+            # OBTENER INFORMACIÓN DE LA ASIGNACIÓN
             # ============================================
-            pedido_info = None
-            if movimiento.get('ID_Pedido'):
+            asignacion_info = None
+            if movimiento.get('ID_Asignacion'):
                 cursor.execute("""
-                    SELECT 
-                        p.ID_Pedido, 
-                        p.Fecha, 
-                        p.Estado as Estado_Pedido,
-                        p.Tipo_Entrega,
-                        p.Prioridad,
-                        p.Tipo_Pedido,
-                        p.Observacion,
-                        c.Nombre as Cliente_Nombre
-                    FROM pedidos p
-                    LEFT JOIN clientes c ON p.ID_Cliente = c.ID_Cliente
-                    WHERE p.ID_Pedido = %s
-                """, (movimiento['ID_Pedido'],))
-                pedido_info = cursor.fetchone()
+                    SELECT av.ID_Asignacion, av.Fecha_Asignacion, av.Fecha_Finalizacion,
+                           av.Estado as Estado_Asignacion, r.Nombre_Ruta, u.NombreUsuario as Vendedor_Nombre
+                    FROM asignacion_vendedores av
+                    LEFT JOIN rutas r ON av.ID_Ruta = r.ID_Ruta
+                    LEFT JOIN usuarios u ON av.ID_Usuario = u.ID_Usuario
+                    WHERE av.ID_Asignacion = %s
+                """, (movimiento['ID_Asignacion'],))
+                asignacion_info = cursor.fetchone()
+            
+            print("=== DEPURACIÓN COMPLETADA ===\n")
             
             return render_template('vendedor/inventario/detalle_movimiento.html',
                                  movimiento=movimiento,
                                  detalles=detalles,
                                  cliente_info=cliente_info,
-                                 pedido_info=pedido_info,
+                                 asignacion_info=asignacion_info,
                                  now=datetime.now())
                                  
     except Exception as e:
         print(f"Error en vendedor_movimiento_detalle: {str(e)}")
         traceback.print_exc()
-        flash(f'Error al cargar detalle: {str(e)}', 'error')
+        flash(f'Error al cargar detalle del movimiento: {str(e)}', 'error')
         return redirect(url_for('vendedor_movimientos_historial'))
-    
+
 #ventas rutas
 # =============================================
 # RUTAS PARA VENTAS EN RUTA
@@ -17955,10 +19530,11 @@ def vendedor_ventas():
         flash(f'Error al cargar ventas: {str(e)}', 'error')
         return redirect(url_for('vendedor_dashboard'))
 
+
 @app.route('/vendedor/venta/crear', methods=['GET', 'POST'])
 @vendedor_required
 def vendedor_venta_crear():
-    """Crear una nueva venta en ruta con integración a caja y abonos"""
+    """Crear una nueva venta en ruta con integración a caja, abonos y movimientos"""
     try:
         id_vendedor = int(current_user.id)
         id_empresa = session.get('empresa_id', 1)
@@ -18279,10 +19855,12 @@ def vendedor_venta_crear():
                     flash(f'Stock insuficiente para: {", ".join(productos_sin_stock)}', 'error')
                     return redirect(request.url)
                 
-                # Calcular total de la venta
+                # Calcular total de la venta y subtotales
                 total_venta = 0
+                total_items = 0
                 for prod in productos:
                     total_venta += prod['cantidad'] * prod['precio']
+                    total_items += prod['cantidad']
                 
                 # ===== 1. INSERTAR FACTURA (INCLUYENDO SALDO ANTERIOR) =====
                 cursor.execute("""
@@ -18296,16 +19874,57 @@ def vendedor_venta_crear():
                 id_factura = cursor.lastrowid
                 print(f"✅ Factura de ruta creada con ID: {id_factura} (Saldo anterior guardado: {saldo_anterior})")
                 
-                # ===== 2. INSERTAR DETALLES Y ACTUALIZAR INVENTARIO =====
+                ID_TIPO_MOVIMIENTO_VENTA = 2  
+                
+                documento_numero = f"VEN-{id_factura}" 
+                
+                cursor.execute("""
+                    INSERT INTO movimientos_ruta_cabecera
+                    (ID_Asignacion, ID_TipoMovimiento, Fecha_Movimiento, ID_Usuario_Registra,
+                     Documento_Numero, ID_Cliente, Total_Productos, Total_Items,
+                     Total_Subtotal, ID_Empresa, Estado)
+                    VALUES (%s, %s, NOW(), %s, %s, %s, %s, %s, %s, %s, 'ACTIVO')
+                """, (
+                    asignacion['ID_Asignacion'],      # ID_Asignacion
+                    ID_TIPO_MOVIMIENTO_VENTA,         # ID_TipoMovimiento
+                    id_vendedor,                      # ID_Usuario_Registra
+                    documento_numero,                 # Documento_Numero
+                    int(id_cliente),                  # ID_Cliente
+                    total_venta,                      # Total_Productos (monto total)
+                    total_items,                      # Total_Items (cantidad total de productos)
+                    total_venta,                      # Total_Subtotal (subtotal)
+                    asignacion['ID_Empresa'],         # ID_Empresa
+                ))
+                
+                id_movimiento_cabecera = cursor.lastrowid
+                print(f"✅ Movimiento registrado en cabecera con ID: {id_movimiento_cabecera}")
+                
+                # ===== 3. INSERTAR DETALLES EN movimientos_ruta_detalle Y ACTUALIZAR INVENTARIO =====
                 for prod in productos:
                     total_linea = prod['cantidad'] * prod['precio']
                     
+                    # Insertar en detalle de facturación
                     cursor.execute("""
                         INSERT INTO detalle_facturacion_ruta
                         (ID_FacturaRuta, ID_Producto, Cantidad, Precio, Total)
                         VALUES (%s, %s, %s, %s, %s)
                     """, (id_factura, prod['id'], prod['cantidad'], 
                           prod['precio'], total_linea))
+                    
+                    # Insertar en movimientos_ruta_detalle
+                    cursor.execute("""
+                        INSERT INTO movimientos_ruta_detalle
+                        (ID_Movimiento, ID_Producto, Cantidad, Precio_Unitario, Subtotal)
+                        VALUES (%s, %s, %s, %s, %s)
+                    """, (
+                        id_movimiento_cabecera,   # ID_Movimiento
+                        prod['id'],               # ID_Producto
+                        prod['cantidad'],         # Cantidad
+                        prod['precio'],           # Precio_Unitario
+                        total_linea               # Subtotal
+                    ))
+                    
+                    print(f"  - Detalle producto {prod['id']}: {prod['cantidad']} x {prod['precio']} = {total_linea}")
                     
                     # Actualizar inventario de ruta
                     cursor.execute("""
@@ -18314,7 +19933,9 @@ def vendedor_venta_crear():
                         WHERE ID_Asignacion = %s AND ID_Producto = %s
                     """, (prod['cantidad'], asignacion['ID_Asignacion'], prod['id']))
                 
-                # ===== 3. REGISTRO EN CAJA (SOLO PARA VENTAS DE CONTADO) =====
+                print(f"✅ {len(productos)} productos registrados en detalle de movimientos")
+                
+                # ===== 4. REGISTRO EN CAJA (SOLO PARA VENTAS DE CONTADO) =====
                 if tipo_venta == '1':  # CONTADO
                     # Calcular saldo actual de caja ANTES de insertar
                     cursor.execute("""
@@ -18351,10 +19972,17 @@ def vendedor_venta_crear():
                     
                     print(f"✅ Movimiento en caja registrado: +{total_venta}")
                     
+                    # Actualizar el monto efectivo en la cabecera del movimiento
+                    cursor.execute("""
+                        UPDATE movimientos_ruta_cabecera
+                        SET Monto_Efectivo = %s
+                        WHERE ID_Movimiento = %s
+                    """, (total_venta, id_movimiento_cabecera))
+                    
                 else:  # CREDITO - NO SE REGISTRA NADA EN CAJA
                     print(f"✅ Venta a crédito #{id_factura} registrada SIN movimiento de caja (como debe ser)")
                 
-                # ===== 4. CREAR CUENTA POR COBRAR (si es crédito) =====
+                # ===== 5. CREAR CUENTA POR COBRAR (si es crédito) =====
                 if tipo_venta == '2':  # Crédito
                     try:
                         fecha_vencimiento = (datetime.now() + timedelta(days=30)).strftime('%Y-%m-%d')
@@ -18400,12 +20028,12 @@ def vendedor_venta_crear():
                         traceback.print_exc()
                         raise
                 
-                # ===== 5. PROCESAR ABONO (DESPUÉS DE LA FACTURA) =====
+                # ===== 6. PROCESAR ABONO (DESPUÉS DE LA FACTURA) =====
                 if procesar_abono and abono_monto > 0:
                     try:
                         print(f"💰 Procesando abono de {abono_monto} para cliente {id_cliente}")
                         
-                        # 5.1 Obtener facturas pendientes del cliente
+                        # 6.1 Obtener facturas pendientes del cliente
                         cursor.execute("""
                             SELECT ID_Movimiento, Num_Documento, Saldo_Pendiente,
                                    Fecha_Vencimiento,
@@ -18425,7 +20053,7 @@ def vendedor_venta_crear():
                         if not facturas_pendientes:
                             print("⚠️ No hay facturas pendientes para aplicar el abono")
                         else:
-                            # 5.2 Calcular saldo actual de caja para el abono
+                            # 6.2 Calcular saldo actual de caja para el abono
                             cursor.execute("""
                                 SELECT COALESCE(SUM(CASE 
                                     WHEN Tipo = 'GASTO' THEN -Monto 
@@ -18441,7 +20069,7 @@ def vendedor_venta_crear():
                             saldo_actual_abono = float(saldo_result['Saldo_Actual'] if saldo_result else 0)
                             nuevo_saldo_caja = saldo_actual_abono + abono_monto
                             
-                            # 5.3 Registrar movimiento de abono en caja (SÍ porque es efectivo real)
+                            # 6.3 Registrar movimiento de abono en caja (SÍ porque es efectivo real)
                             cursor.execute("""
                                 INSERT INTO movimientos_caja_ruta
                                 (ID_Asignacion, ID_Usuario, Tipo, Concepto, Monto, 
@@ -18460,7 +20088,7 @@ def vendedor_venta_crear():
                             
                             id_movimiento_caja = cursor.lastrowid
                             
-                            # 5.4 Distribuir el abono entre las facturas pendientes
+                            # 6.4 Distribuir el abono entre las facturas pendientes
                             monto_restante = abono_monto
                             monto_aplicado = 0
                             
@@ -18504,7 +20132,7 @@ def vendedor_venta_crear():
                                 monto_restante -= monto_aplicar
                                 monto_aplicado += monto_aplicar
                             
-                            # 5.5 Actualizar saldo del cliente
+                            # 6.5 Actualizar saldo del cliente
                             cursor.execute("""
                                 UPDATE clientes 
                                 SET Saldo_Pendiente_Total = GREATEST(0, COALESCE(Saldo_Pendiente_Total, 0) - %s),
@@ -18522,6 +20150,7 @@ def vendedor_venta_crear():
                         raise
                 
                 print(f"✅ Venta {id_factura} procesada exitosamente")
+                print(f"✅ Movimiento cabecera {id_movimiento_cabecera} registrado con {len(productos)} detalles")
                 
             # Fuera del context manager, los cambios ya están commiteados
             flash('Venta registrada exitosamente', 'success')
@@ -18536,6 +20165,7 @@ def vendedor_venta_crear():
         traceback.print_exc()
         flash(f'Error al procesar la venta: {str(e)}', 'error')
         return redirect(url_for('vendedor_ventas'))
+
 
 @app.route('/api/vendedor/procesar_abono', methods=['POST'])
 @vendedor_required

@@ -14,7 +14,7 @@
                 Historial de Movimientos
             </h2>
             <p class="text-muted small mb-0">
-                Registro de entradas, devoluciones, mermas y ajustes
+                Registro de entradas, compras, ventas, devoluciones y mermas
             </p>
         </div>
         <a href="{{ url_for('vendedor_inventario') }}" class="btn btn-outline-secondary btn-sm btn-md">
@@ -33,21 +33,25 @@
         <div class="col-6 col-md-3">
             <div class="card text-center border-0 shadow-sm">
                 <div class="card-body p-2 p-md-3">
-                    {% if resumen.Tipo_Movimiento == 'Carga de Productos' %}
+                    {% set tipo_normalizado = resumen.Tipo_Movimiento|lower %}
+                    {% if 'carga' in tipo_normalizado %}
                     <i class="fas fa-arrow-down text-success fa-2x mb-2"></i>
                     <h6 class="mb-0 text-success">Entradas</h6>
-                    {% elif resumen.Tipo_Movimiento == 'Devolución' %}
+                    {% elif 'devolucion' in tipo_normalizado %}
                     <i class="fas fa-arrow-up text-warning fa-2x mb-2"></i>
                     <h6 class="mb-0 text-warning">Devoluciones</h6>
-                    {% elif resumen.Tipo_Movimiento == 'Merma' %}
+                    {% elif 'merma' in tipo_normalizado %}
                     <i class="fas fa-trash text-danger fa-2x mb-2"></i>
                     <h6 class="mb-0 text-danger">Mermas</h6>
-                    {% elif resumen.Tipo_Movimiento == 'Ajuste de Inventario' %}
-                    <i class="fas fa-adjust text-info fa-2x mb-2"></i>
-                    <h6 class="mb-0 text-info">Ajustes</h6>
-                    {% elif resumen.Tipo_Movimiento == 'Traslado Interno' %}
-                    <i class="fas fa-exchange-alt text-primary fa-2x mb-2"></i>
-                    <h6 class="mb-0 text-primary">Traslados</h6>
+                    {% elif 'compra' in tipo_normalizado %}
+                    <i class="fas fa-shopping-cart text-primary fa-2x mb-2"></i>
+                    <h6 class="mb-0 text-primary">Compras</h6>
+                    {% elif 'venta' in tipo_normalizado %}
+                    <i class="fas fa-chart-line text-success fa-2x mb-2"></i>
+                    <h6 class="mb-0 text-success">Ventas</h6>
+                    {% else %}
+                    <i class="fas fa-exchange-alt text-info fa-2x mb-2"></i>
+                    <h6 class="mb-0 text-info">{{ resumen.Tipo_Movimiento }}</h6>
                     {% endif %}
                     <h4 class="mb-0">{{ resumen.Cantidad_Movimientos }}</h4>
                     <small class="text-muted">movimientos</small>
@@ -81,10 +85,10 @@
                     <select id="filtroTipo" class="form-select form-select-sm">
                         <option value="">Todos los tipos</option>
                         <option value="CARGA">Entradas (Carga)</option>
+                        <option value="COMPRA">Compras</option>
+                        <option value="VENTA">Ventas</option>
                         <option value="DEVOLUCION">Devoluciones</option>
                         <option value="MERMA">Mermas</option>
-                        <option value="AJUSTE">Ajustes</option>
-                        <option value="TRASLADO">Traslados</option>
                     </select>
                 </div>
                 <div class="col-6 col-sm-3 col-md-2">
@@ -132,21 +136,21 @@
                             <span class="fw-bold">#{{ mov.ID_Movimiento }}</span>
                             <span class="badge ms-2 
                                 {% if mov.Descripcion_Detallada == 'Carga de Productos' %}bg-success
+                                {% elif mov.Descripcion_Detallada == 'Compra' %}bg-primary
+                                {% elif mov.Descripcion_Detallada == 'Venta' %}bg-success
                                 {% elif mov.Descripcion_Detallada == 'Devolución' %}bg-warning text-dark
                                 {% elif mov.Descripcion_Detallada == 'Merma' %}bg-danger
-                                {% elif mov.Descripcion_Detallada == 'Ajuste de Inventario' %}bg-info
-                                {% elif mov.Descripcion_Detallada == 'Traslado Interno' %}bg-primary
                                 {% else %}bg-secondary{% endif %}">
                                 {% if mov.Descripcion_Detallada == 'Carga de Productos' %}
                                     <i class="fas fa-arrow-down me-1"></i> Entrada
+                                {% elif mov.Descripcion_Detallada == 'Compra' %}
+                                    <i class="fas fa-shopping-cart me-1"></i> Compra
+                                {% elif mov.Descripcion_Detallada == 'Venta' %}
+                                    <i class="fas fa-chart-line me-1"></i> Venta
                                 {% elif mov.Descripcion_Detallada == 'Devolución' %}
                                     <i class="fas fa-arrow-up me-1"></i> Devolución
                                 {% elif mov.Descripcion_Detallada == 'Merma' %}
                                     <i class="fas fa-trash me-1"></i> Merma
-                                {% elif mov.Descripcion_Detallada == 'Ajuste de Inventario' %}
-                                    <i class="fas fa-adjust me-1"></i> Ajuste
-                                {% elif mov.Descripcion_Detallada == 'Traslado Interno' %}
-                                    <i class="fas fa-exchange-alt me-1"></i> Traslado
                                 {% endif %}
                             </span>
                         </div>
@@ -160,7 +164,13 @@
                         </div>
                         <div class="col-6">
                             <small class="text-muted d-block">Productos</small>
-                            <span class="small fw-bold">{{ "%.0f"|format(mov.Total_Productos) }} und.</span>
+                            <span class="small fw-bold">
+                                {% if mov.Total_Items > 0 %}
+                                    {{ "%.0f"|format(mov.Total_Items) }} productos
+                                {% else %}
+                                    {{ "%.0f"|format(mov.Total_Productos) }} und.
+                                {% endif %}
+                            </span>
                         </div>
                     </div>
                     
@@ -213,6 +223,14 @@
                                 <span class="badge bg-success">
                                     <i class="fas fa-arrow-down me-1"></i> Entrada
                                 </span>
+                                {% elif mov.Descripcion_Detallada == 'Compra' %}
+                                <span class="badge bg-primary">
+                                    <i class="fas fa-shopping-cart me-1"></i> Compra
+                                </span>
+                                {% elif mov.Descripcion_Detallada == 'Venta' %}
+                                <span class="badge bg-success">
+                                    <i class="fas fa-chart-line me-1"></i> Venta
+                                </span>
                                 {% elif mov.Descripcion_Detallada == 'Devolución' %}
                                 <span class="badge bg-warning text-dark">
                                     <i class="fas fa-arrow-up me-1"></i> Devolución
@@ -221,18 +239,24 @@
                                 <span class="badge bg-danger">
                                     <i class="fas fa-trash me-1"></i> Merma
                                 </span>
-                                {% elif mov.Descripcion_Detallada == 'Ajuste de Inventario' %}
-                                <span class="badge bg-info">
-                                    <i class="fas fa-adjust me-1"></i> Ajuste
-                                </span>
-                                {% elif mov.Descripcion_Detallada == 'Traslado Interno' %}
-                                <span class="badge bg-primary">
-                                    <i class="fas fa-exchange-alt me-1"></i> Traslado
+                                {% else %}
+                                <span class="badge bg-secondary">
+                                    <i class="fas fa-tag me-1"></i> {{ mov.Descripcion_Detallada }}
                                 </span>
                                 {% endif %}
                             </td>
                             <td class="small">{{ mov.Documento_Numero or 'N/A' }}</td>
-                            <td class="text-center fw-bold">{{ "%.0f"|format(mov.Total_Productos) }} und.</td>
+                            <td class="text-center fw-bold">
+                                {% if mov.Total_Items > 0 %}
+                                    <span class="badge bg-info">
+                                        {{ "%.0f"|format(mov.Total_Items) }} productos
+                                    </span>
+                                {% else %}
+                                    <span class="badge bg-secondary">
+                                        {{ "%.0f"|format(mov.Total_Productos) }} und.
+                                    </span>
+                                {% endif %}
+                            </td>
                             <td class="fw-bold text-end text-info">C${{ "%.2f"|format(mov.Total_Subtotal|float if mov.Total_Subtotal else 0) }}</td>
                             <td class="small">{{ mov.Usuario_Registra or 'N/A' }}</td>
                             <td class="text-center">
@@ -272,7 +296,7 @@
             <div class="text-center py-4 py-md-5">
                 <i class="fas fa-box-open fa-2x fa-md-3x text-muted mb-2 mb-md-3"></i>
                 <h5 class="h6 h5-md text-muted">No hay movimientos registrados</h5>
-                <p class="text-muted small">Realiza entradas, devoluciones o mermas para ver el historial.</p>
+                <p class="text-muted small">Realiza entradas, compras, ventas, devoluciones o mermas para ver el historial.</p>
             </div>
             {% endif %}
         </div>
@@ -297,6 +321,11 @@ document.addEventListener('DOMContentLoaded', function() {
     {% if movimientos %}
     movimientosOriginales = {{ movimientos|tojson }};
     movimientosFiltrados = [...movimientosOriginales];
+    
+    console.log('Movimientos cargados:', movimientosOriginales.length);
+    if (movimientosOriginales.length > 0) {
+        console.log('Primer movimiento ID:', movimientosOriginales[0].ID_Movimiento);
+    }
     
     inicializarFiltros();
     actualizarPaginacion();
@@ -329,10 +358,10 @@ function aplicarFiltros() {
         let cumpleTipo = true;
         if (tipoFiltro !== '') {
             if (tipoFiltro === 'CARGA') cumpleTipo = mov.Descripcion_Detallada === 'Carga de Productos';
+            else if (tipoFiltro === 'COMPRA') cumpleTipo = mov.Descripcion_Detallada === 'Compra';
+            else if (tipoFiltro === 'VENTA') cumpleTipo = mov.Descripcion_Detallada === 'Venta';
             else if (tipoFiltro === 'DEVOLUCION') cumpleTipo = mov.Descripcion_Detallada === 'Devolución';
             else if (tipoFiltro === 'MERMA') cumpleTipo = mov.Descripcion_Detallada === 'Merma';
-            else if (tipoFiltro === 'AJUSTE') cumpleTipo = mov.Descripcion_Detallada === 'Ajuste de Inventario';
-            else if (tipoFiltro === 'TRASLADO') cumpleTipo = mov.Descripcion_Detallada === 'Traslado Interno';
         }
         
         let cumpleFecha = true;
@@ -377,22 +406,30 @@ function actualizarVistaMovil(movimientos) {
     const container = document.getElementById('movimientosMovil');
     if (!container) return;
     
-    container.innerHTML = '';
-    
     if (movimientos.length === 0) {
         container.innerHTML = `<div class="text-center py-4"><i class="fas fa-search fa-2x text-muted mb-2"></i><p class="text-muted small mb-0">No se encontraron movimientos</p></div>`;
         return;
     }
     
+    container.innerHTML = '';
+    
     movimientos.forEach(mov => {
         let tipoClass = 'bg-secondary';
-        let tipoIcon = 'fa-history';
-        let tipoTexto = mov.Descripcion_Detallada || mov.Tipo_Movimiento;
+        let tipoIcon = 'fa-tag';
+        let tipoTexto = mov.Descripcion_Detallada || 'Otro';
         
         if (mov.Descripcion_Detallada === 'Carga de Productos') { 
             tipoClass = 'bg-success'; 
             tipoIcon = 'fa-arrow-down'; 
             tipoTexto = 'Entrada'; 
+        } else if (mov.Descripcion_Detallada === 'Compra') { 
+            tipoClass = 'bg-primary'; 
+            tipoIcon = 'fa-shopping-cart'; 
+            tipoTexto = 'Compra'; 
+        } else if (mov.Descripcion_Detallada === 'Venta') { 
+            tipoClass = 'bg-success'; 
+            tipoIcon = 'fa-chart-line'; 
+            tipoTexto = 'Venta'; 
         } else if (mov.Descripcion_Detallada === 'Devolución') { 
             tipoClass = 'bg-warning text-dark'; 
             tipoIcon = 'fa-arrow-up'; 
@@ -401,21 +438,12 @@ function actualizarVistaMovil(movimientos) {
             tipoClass = 'bg-danger'; 
             tipoIcon = 'fa-trash'; 
             tipoTexto = 'Merma'; 
-        } else if (mov.Descripcion_Detallada === 'Ajuste de Inventario') { 
-            tipoClass = 'bg-info'; 
-            tipoIcon = 'fa-adjust'; 
-            tipoTexto = 'Ajuste'; 
-        } else if (mov.Descripcion_Detallada === 'Traslado Interno') { 
-            tipoClass = 'bg-primary'; 
-            tipoIcon = 'fa-exchange-alt'; 
-            tipoTexto = 'Traslado'; 
         }
         
-        // Convertir valores a números correctamente
         const totalProductos = toNumber(mov.Total_Productos);
         const totalSubtotal = toNumber(mov.Total_Subtotal);
+        const totalItems = mov.Total_Items || 0;
         
-        // Formatear fecha
         let fechaStr = 'N/A';
         if (mov.Fecha_Movimiento) {
             try {
@@ -425,6 +453,8 @@ function actualizarVistaMovil(movimientos) {
                 fechaStr = mov.Fecha_Movimiento;
             }
         }
+        
+        const detalleUrl = `/vendedor/movimientos/detalle/${mov.ID_Movimiento}`;
         
         const card = document.createElement('div');
         card.className = 'movimiento-card p-2 border-bottom';
@@ -445,7 +475,9 @@ function actualizarVistaMovil(movimientos) {
                 </div>
                 <div class="col-6">
                     <small class="text-muted d-block">Productos</small>
-                    <span class="small fw-bold">${totalProductos.toFixed(0)} und.</span>
+                    <span class="small fw-bold">
+                        ${totalItems > 0 ? totalItems.toFixed(0) + ' productos' : totalProductos.toFixed(0) + ' und.'}
+                    </span>
                 </div>
             </div>
             <div class="mb-2">
@@ -456,7 +488,7 @@ function actualizarVistaMovil(movimientos) {
                 <small class="text-muted">
                     <i class="fas fa-user me-1"></i>${mov.Usuario_Registra || 'N/A'}
                 </small>
-                <a href="/vendedor/movimientos/detalle/${mov.ID_Movimiento}" class="btn btn-outline-info btn-sm">
+                <a href="${detalleUrl}" class="btn btn-outline-info btn-sm">
                     <i class="fas fa-eye"></i> detalle
                 </a>
             </div>
@@ -481,13 +513,21 @@ function actualizarVistaDesktop(movimientos) {
     
     movimientos.forEach(mov => {
         let tipoClass = 'bg-secondary';
-        let tipoIcon = 'fa-history';
-        let tipoTexto = mov.Descripcion_Detallada || mov.Tipo_Movimiento;
+        let tipoIcon = 'fa-tag';
+        let tipoTexto = mov.Descripcion_Detallada || 'Otro';
         
         if (mov.Descripcion_Detallada === 'Carga de Productos') { 
             tipoClass = 'bg-success'; 
             tipoIcon = 'fa-arrow-down'; 
             tipoTexto = 'Entrada'; 
+        } else if (mov.Descripcion_Detallada === 'Compra') { 
+            tipoClass = 'bg-primary'; 
+            tipoIcon = 'fa-shopping-cart'; 
+            tipoTexto = 'Compra'; 
+        } else if (mov.Descripcion_Detallada === 'Venta') { 
+            tipoClass = 'bg-success'; 
+            tipoIcon = 'fa-chart-line'; 
+            tipoTexto = 'Venta'; 
         } else if (mov.Descripcion_Detallada === 'Devolución') { 
             tipoClass = 'bg-warning text-dark'; 
             tipoIcon = 'fa-arrow-up'; 
@@ -496,21 +536,12 @@ function actualizarVistaDesktop(movimientos) {
             tipoClass = 'bg-danger'; 
             tipoIcon = 'fa-trash'; 
             tipoTexto = 'Merma'; 
-        } else if (mov.Descripcion_Detallada === 'Ajuste de Inventario') { 
-            tipoClass = 'bg-info'; 
-            tipoIcon = 'fa-adjust'; 
-            tipoTexto = 'Ajuste'; 
-        } else if (mov.Descripcion_Detallada === 'Traslado Interno') { 
-            tipoClass = 'bg-primary'; 
-            tipoIcon = 'fa-exchange-alt'; 
-            tipoTexto = 'Traslado'; 
         }
         
-        // Convertir valores a números correctamente
         const totalProductos = toNumber(mov.Total_Productos);
         const totalSubtotal = toNumber(mov.Total_Subtotal);
+        const totalItems = mov.Total_Items || 0;
         
-        // Formatear fecha
         let fechaStr = 'N/A';
         if (mov.Fecha_Movimiento) {
             try {
@@ -520,6 +551,8 @@ function actualizarVistaDesktop(movimientos) {
                 fechaStr = mov.Fecha_Movimiento;
             }
         }
+        
+        const detalleUrl = `/vendedor/movimientos/detalle/${mov.ID_Movimiento}`;
         
         const fila = document.createElement('tr');
         fila.innerHTML = `
@@ -531,11 +564,15 @@ function actualizarVistaDesktop(movimientos) {
                 </span>
             </td>
             <td class="small">${mov.Documento_Numero || 'N/A'}</td>
-            <td class="text-center fw-bold">${totalProductos.toFixed(0)} und.</td>
+            <td class="text-center fw-bold">
+                <span class="badge ${totalItems > 0 ? 'bg-info' : 'bg-secondary'}">
+                    ${totalItems > 0 ? totalItems.toFixed(0) + ' productos' : totalProductos.toFixed(0) + ' und.'}
+                </span>
+            </td>
             <td class="fw-bold text-end text-info">C$${totalSubtotal.toFixed(2)}</td>
             <td class="small">${mov.Usuario_Registra || 'N/A'}</td>
             <td class="text-center">
-                <a href="/vendedor/movimientos/detalle/${mov.ID_Movimiento}" class="btn btn-outline-info btn-sm">
+                <a href="${detalleUrl}" class="btn btn-outline-info btn-sm">
                     <i class="fas fa-eye"></i> detalle
                 </a>
             </td>
@@ -596,12 +633,8 @@ function exportarExcel() {
     
     let csv = "ID,Fecha,Tipo,Documento,Productos,Total,Usuario\n";
     movimientosFiltrados.forEach(mov => {
-        let tipoTexto = mov.Descripcion_Detallada || mov.Tipo_Movimiento;
+        let tipoTexto = mov.Descripcion_Detallada || '';
         if (tipoTexto === 'Carga de Productos') tipoTexto = 'Entrada';
-        else if (tipoTexto === 'Devolución') tipoTexto = 'Devolución';
-        else if (tipoTexto === 'Merma') tipoTexto = 'Merma';
-        else if (tipoTexto === 'Ajuste de Inventario') tipoTexto = 'Ajuste';
-        else if (tipoTexto === 'Traslado Interno') tipoTexto = 'Traslado';
         
         let fechaStr = '';
         if (mov.Fecha_Movimiento) {
@@ -614,13 +647,14 @@ function exportarExcel() {
         
         const totalProductos = toNumber(mov.Total_Productos);
         const totalSubtotal = toNumber(mov.Total_Subtotal);
+        const totalItems = mov.Total_Items || 0;
         
         const fila = [
             mov.ID_Movimiento,
             fechaStr,
             tipoTexto,
             (mov.Documento_Numero || 'N/A').replace(/,/g, ';'),
-            totalProductos.toFixed(0),
+            totalItems > 0 ? totalItems.toFixed(0) + ' productos' : totalProductos.toFixed(0) + ' und.',
             totalSubtotal.toFixed(2),
             (mov.Usuario_Registra || 'N/A').replace(/,/g, ';')
         ];
@@ -650,6 +684,7 @@ function exportarExcel() {
 .movimiento-card:has(.bg-success) { border-left-color: #28a745; }
 .movimiento-card:has(.bg-warning) { border-left-color: #ffc107; }
 .movimiento-card:has(.bg-danger) { border-left-color: #dc3545; }
+.movimiento-card:has(.bg-primary) { border-left-color: #007bff; }
 
 @keyframes fadeIn {
     from { opacity: 0; transform: translateY(10px); }

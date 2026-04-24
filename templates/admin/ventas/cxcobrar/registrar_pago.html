@@ -49,6 +49,32 @@
                         </div>
                     </div>
                     
+                    <!-- NUEVO: Saldo Pendiente Consolidado del Cliente -->
+                    <div class="row mt-2">
+                        <div class="col-12">
+                            <div class="alert alert-warning mb-0 py-2">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <i class="fas fa-chart-line fa-lg mr-2"></i>
+                                        <strong>SALDO TOTAL DEL CLIENTE:</strong>
+                                    </div>
+                                    <div>
+                                        <span class="font-weight-bold" style="font-size: 1.1rem; color: #856404;">
+                                            C${{ "%.2f"|format(cuenta.Saldo_Total_Cliente) if cuenta.Saldo_Total_Cliente else "0.00" }}
+                                        </span>
+                                    </div>
+                                </div>
+                                <small class="text-muted">
+                                    <i class="fas fa-info-circle"></i> 
+                                    Este es el saldo pendiente TOTAL que el cliente tiene en todas sus cuentas por cobrar.
+                                    {% if cuenta.Saldo_Total_Cliente and cuenta.Saldo_Total_Cliente > cuenta.Saldo_Pendiente %}
+                                    <span class="text-danger">⚠️ El cliente tiene más cuentas pendientes además de esta.</span>
+                                    {% endif %}
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+                    
                     <!-- Barra de progreso del pago -->
                     <div class="row mt-3">
                         <div class="col-12">
@@ -94,7 +120,7 @@
                                    required placeholder="0.00" style="font-size: 1.2rem;"
                                    value="{{ "%.2f"|format(cuenta.Saldo_Pendiente) if cuenta.Saldo_Pendiente > 0 else '' }}">
                             <small class="form-text text-muted">
-                                Saldo disponible: <span class="font-weight-bold text-danger">C${{ "%.2f"|format(cuenta.Saldo_Pendiente) }}</span>
+                                Saldo disponible de esta cuenta: <span class="font-weight-bold text-danger">C${{ "%.2f"|format(cuenta.Saldo_Pendiente) }}</span>
                             </small>
                         </div>
 
@@ -158,7 +184,8 @@
                         <h6><i class="fas fa-info-circle"></i> Notas:</h6>
                         <ul class="mb-0 pl-3">
                             <li>El pago se registrará inmediatamente</li>
-                            <li>El saldo pendiente se actualizará automáticamente</li>
+                            <li>El saldo pendiente de esta cuenta se actualizará automáticamente</li>
+                            <li><strong class="text-warning">El saldo TOTAL del cliente también se actualizará</strong></li>
                             <li>Se generará un comprobante en el historial</li>
                             <li>Los pagos en efectivo se registrarán en caja</li>
                         </ul>
@@ -168,15 +195,21 @@
                         <h6 class="font-weight-bold">Datos Actuales:</h6>
                         <table class="table table-sm table-borderless">
                             <tr>
-                                <td>Monto Original:</td>
+                                <td>Monto Original Esta Cuenta:</td>
                                 <td class="text-right font-weight-bold">C${{ "%.2f"|format(cuenta.Monto_Movimiento) }}</td>
                             </tr>
                             <tr>
-                                <td>Saldo Pendiente:</td>
+                                <td>Saldo Pendiente Esta Cuenta:</td>
                                 <td class="text-right font-weight-bold text-danger">C${{ "%.2f"|format(cuenta.Saldo_Pendiente) }}</td>
                             </tr>
+                            <tr class="table-warning">
+                                <td>Saldo TOTAL Cliente:</td>
+                                <td class="text-right font-weight-bold" style="color: #856404;">
+                                    C${{ "%.2f"|format(cuenta.Saldo_Total_Cliente) if cuenta.Saldo_Total_Cliente else "0.00" }}
+                                </td>
+                            </tr>
                             <tr>
-                                <td>Pagado:</td>
+                                <td>Pagado Esta Cuenta:</td>
                                 <td class="text-right font-weight-bold text-success">
                                     C${{ "%.2f"|format(cuenta.Monto_Movimiento - cuenta.Saldo_Pendiente) }}
                                 </td>
@@ -188,8 +221,20 @@
                     <div class="border-top pt-3 mt-3">
                         <h6 class="font-weight-bold">Después del Pago:</h6>
                         <div id="simulacionSaldo" class="mt-2 p-2 bg-light rounded">
-                            <p class="mb-1">Nuevo saldo: <span id="nuevoSaldo" class="font-weight-bold">C${{ "%.2f"|format(cuenta.Saldo_Pendiente) }}</span></p>
-                            <p class="mb-0">Estado: <span id="nuevoEstado" class="badge badge-warning">Pendiente</span></p>
+                            <p class="mb-1">
+                                <strong>Saldo de esta cuenta:</strong> 
+                                <span id="nuevoSaldo" class="font-weight-bold">C${{ "%.2f"|format(cuenta.Saldo_Pendiente) }}</span>
+                            </p>
+                            <p class="mb-1">
+                                <strong>Saldo TOTAL del cliente:</strong>
+                                <span id="nuevoSaldoTotalCliente" class="font-weight-bold">
+                                    C${{ "%.2f"|format(cuenta.Saldo_Total_Cliente) if cuenta.Saldo_Total_Cliente else "0.00" }}
+                                </span>
+                            </p>
+                            <p class="mb-0">
+                                <strong>Estado:</strong> 
+                                <span id="nuevoEstado" class="badge badge-warning">Pendiente</span>
+                            </p>
                         </div>
                     </div>
 
@@ -254,8 +299,10 @@ document.addEventListener('DOMContentLoaded', function() {
     const resumenDetalles = document.getElementById('resumenDetalles');
     const resumenDetallesContenido = document.getElementById('resumenDetallesContenido');
     const saldoMaximo = parseFloat({{ cuenta.Saldo_Pendiente }});
+    const saldoTotalCliente = parseFloat({{ cuenta.Saldo_Total_Cliente if cuenta.Saldo_Total_Cliente else 0 }});
     const form = document.getElementById('formPago');
     const nuevoSaldoSpan = document.getElementById('nuevoSaldo');
+    const nuevoSaldoTotalClienteSpan = document.getElementById('nuevoSaldoTotalCliente');
     const nuevoEstadoSpan = document.getElementById('nuevoEstado');
     
     // Configuraciones por tipo de método de pago
@@ -732,14 +779,19 @@ document.addEventListener('DOMContentLoaded', function() {
     function actualizarSimulacion() {
         let montoPago = parseFloat(montoInput.value) || 0;
         let nuevoSaldo = saldoMaximo - montoPago;
+        let nuevoSaldoTotalCliente = saldoTotalCliente - montoPago;
         
         // Asegurar que no sea negativo
         if (nuevoSaldo < 0) {
             nuevoSaldo = 0;
         }
+        if (nuevoSaldoTotalCliente < 0) {
+            nuevoSaldoTotalCliente = 0;
+        }
         
         // Actualizar display del nuevo saldo
         nuevoSaldoSpan.textContent = 'C$' + nuevoSaldo.toFixed(2);
+        nuevoSaldoTotalClienteSpan.textContent = 'C$' + nuevoSaldoTotalCliente.toFixed(2);
         
         // Actualizar estado
         if (nuevoSaldo === 0) {
@@ -760,6 +812,13 @@ document.addEventListener('DOMContentLoaded', function() {
             nuevoSaldoSpan.className = 'font-weight-bold text-danger';
         } else {
             nuevoSaldoSpan.className = 'font-weight-bold text-danger';
+        }
+        
+        // Cambiar color del saldo total del cliente
+        if (nuevoSaldoTotalCliente === 0) {
+            nuevoSaldoTotalClienteSpan.className = 'font-weight-bold text-success';
+        } else if (nuevoSaldoTotalCliente > 0) {
+            nuevoSaldoTotalClienteSpan.className = 'font-weight-bold text-warning';
         }
     }
     
@@ -890,17 +949,24 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // Confirmación final
         const nuevoSaldo = saldoMaximo - monto;
+        const nuevoSaldoTotal = saldoTotalCliente - monto;
         const estadoFinal = nuevoSaldo === 0 ? 'PAGADA' : 'PENDIENTE';
         
         let confirmMessage = `¿Está seguro de registrar este pago?\n\n` +
                             `Método: ${metodoSeleccionado.textContent}\n` +
                             `Monto del pago: C$${monto.toFixed(2)}\n` +
-                            `Saldo anterior: C$${saldoMaximo.toFixed(2)}\n` +
-                            `Nuevo saldo: C$${nuevoSaldo.toFixed(2)}\n` +
+                            `Saldo anterior de esta cuenta: C$${saldoMaximo.toFixed(2)}\n` +
+                            `Nuevo saldo de esta cuenta: C$${nuevoSaldo.toFixed(2)}\n` +
+                            `Saldo TOTAL del cliente antes: C$${saldoTotalCliente.toFixed(2)}\n` +
+                            `Saldo TOTAL del cliente después: C$${nuevoSaldoTotal.toFixed(2)}\n` +
                             `Estado final: ${estadoFinal}`;
         
         if (detalles) {
             confirmMessage += `\n\nDetalles del pago:\n${detalles}`;
+        }
+        
+        if (nuevoSaldoTotal === 0) {
+            confirmMessage += `\n\n🎉 ¡IMPORTANTE! Con este pago, el cliente LIQUIDA TODAS sus deudas pendientes.`;
         }
         
         if (!confirm(confirmMessage)) {

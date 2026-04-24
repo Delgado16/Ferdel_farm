@@ -1,0 +1,111 @@
+<!-- templates/admin/gastos/tipos_gasto.html -->
+{% extends "layout.html" %}
+{% block title %}Tipos de Gastos - FerDel Sistema{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="form-container">
+        <div class="form-header">
+            <h4><i class="bi bi-tags"></i> {{ titulo }}</h4>
+            <div>
+                <a href="{{ url_for('admin_subcategorias') }}" class="btn btn-success btn-action">
+                    <i class="bi bi-list"></i> Subcategorias
+                </a>
+                <a href="{{ url_for('crear_tipo_gasto') }}" class="btn btn-success btn-action">
+                    <i class="bi bi-plus-circle"></i> Nuevo Tipo
+                </a>
+                <a href="{{ url_for('admin_gastos_operativos') }}" class="btn btn-secondary btn-action">
+                    <i class="bi bi-arrow-left"></i> Volver
+                </a>
+            </div>
+        </div>
+
+        <div class="table-container">
+            <table class="table table-hover" id="tablaTipos">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Nombre</th>
+                        <th>Origen</th>
+                        <th>Descripción</th>
+                        <th>Estado</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for tipo in tipos_gasto %}
+                    <tr>
+                        <td>{{ tipo.ID_Tipo_Gasto }}</td>
+                        <td><strong>{{ tipo.Nombre }}</strong></td>
+                        <td>
+                            {% if tipo.Origen == 'INVENTARIO' %}
+                            <span class="badge bg-info">📦 Inventario</span>
+                            {% else %}
+                            <span class="badge bg-primary">💸 Gasto Directo</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ tipo.Descripcion or '-' }}</td>
+                        <td>
+                            <span
+                                class="badge {% if tipo.Estado == 'Activo' %}bg-success{% else %}bg-secondary{% endif %}">
+                                {{ tipo.Estado }}
+                            </span>
+                        </td>
+                        <td>
+                            <a href="{{ url_for('editar_tipo_gasto', id_tipo=tipo.ID_Tipo_Gasto) }}"
+                                class="btn btn-sm btn-warning">
+                                <i class="bi bi-pencil"></i>
+                            </a>
+                            <button type="button" class="btn btn-sm btn-danger" data-bs-toggle="modal"
+                                data-bs-target="#modalEliminar{{ tipo.ID_Tipo_Gasto }}">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </td>
+                    </tr>
+
+                    <!-- Modal Eliminar -->
+                    <div class="modal fade" id="modalEliminar{{ tipo.ID_Tipo_Gasto }}" tabindex="-1">
+                        <div class="modal-dialog">
+                            <div class="modal-content">
+                                <div class="modal-header">
+                                    <h5 class="modal-title">Confirmar Desactivación</h5>
+                                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                </div>
+                                <div class="modal-body">
+                                    <p>¿Está seguro que desea desactivar el tipo de gasto <strong>{{ tipo.Nombre
+                                            }}</strong>?</p>
+                                    <p class="text-warning">Los gastos existentes no se verán afectados, pero no se
+                                        podrán crear nuevos con este tipo.</p>
+                                </div>
+                                <div class="modal-footer">
+                                    <form method="POST"
+                                        action="{{ url_for('eliminar_tipo_gasto', id_tipo=tipo.ID_Tipo_Gasto) }}">
+                                        <button type="button" class="btn btn-secondary"
+                                            data-bs-dismiss="modal">Cancelar</button>
+                                        <button type="submit" class="btn btn-danger">Desactivar</button>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    $(document).ready(function () {
+        $('#tablaTipos').DataTable({
+            language: {
+                url: '//cdn.datatables.net/plug-ins/1.13.6/i18n/es-ES.json'
+            },
+            order: [[0, 'asc']],
+            pageLength: 25
+        });
+    });
+</script>
+{% endblock %}

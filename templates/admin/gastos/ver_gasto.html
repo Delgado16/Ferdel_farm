@@ -1,0 +1,258 @@
+<!-- templates/admin/gastos/ver_gasto.html -->
+{% extends "layout.html" %}
+{% block title %}Detalle de Gasto - FerDel Sistema{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="form-container">
+        <div class="form-header">
+            <h4><i class="bi bi-eye"></i> Detalle del Gasto</h4>
+            <div>
+                <a href="{{ url_for('admin_gastos_operativos') }}" class="btn btn-secondary btn-action">
+                    <i class="bi bi-arrow-left"></i> Volver
+                </a>
+                {% if gasto.Estado == 'Activo' %}
+                <button type="button" class="btn btn-danger btn-action" data-bs-toggle="modal" data-bs-target="#modalAnular">
+                    <i class="bi bi-trash"></i> Anular
+                </button>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header bg-light">
+                        <strong><i class="bi bi-info-circle"></i> Información General</strong>
+                    </div>
+                    <div class="card-body">
+                        <table class="table table-bordered mb-0">
+                            <tr>
+                                <th style="width: 40%">ID Gasto:</th>
+                                <td>{{ gasto.ID_Gasto }}</td>
+                            </tr>
+                            <tr>
+                                <th>Fecha:</th>
+                                <td>{{ gasto.Fecha.strftime('%d/%m/%Y') if gasto.Fecha else gasto.Fecha }}</td>
+                            </tr>
+                            <tr>
+                                <th>Tipo de Gasto:</th>
+                                <td><strong>{{ gasto.tipo_gasto_nombre }}</strong></td>
+                            </tr>
+                            <tr>
+                                <th>Subcategoría:</th>
+                                <td>{{ gasto.subcategoria_nombre or '-' }}</td>
+                            </tr>
+                            <tr>
+                                <th>Monto:</th>
+                                <td class="text-success fw-bold">C$ {{ "{:,.2f}".format(gasto.Monto) }}</td>
+                            </tr>
+                            <tr>
+                                <th>Método de Pago:</th>
+                                <td>
+                                    {% if gasto.Metodo_Pago == 'EFECTIVO' %}
+                                        <i class="bi bi-cash"></i> Efectivo
+                                    {% elif gasto.Metodo_Pago == 'TRANSFERENCIA' %}
+                                        <i class="bi bi-bank"></i> Transferencia
+                                    {% elif gasto.Metodo_Pago == 'TARJETA' %}
+                                        <i class="bi bi-credit-card"></i> Tarjeta
+                                    {% elif gasto.Metodo_Pago == 'CHEQUE' %}
+                                        <i class="bi bi-file-text"></i> Cheque
+                                    {% else %}
+                                        {{ gasto.Metodo_Pago }}
+                                    {% endif %}
+                                </td>
+                            </tr>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header bg-light">
+                        <strong><i class="bi bi-building"></i> Información Adicional</strong>
+                    </div>
+                    <div class="card-body">
+                        <table class="table table-bordered mb-0">
+                            <tr>
+                                <th style="width: 40%">N° Factura:</th>
+                                <td>{{ gasto.N_Factura or '-' }}</td>
+                            </tr>
+                            <tr>
+                                <th>Proveedor:</th>
+                                <td>{{ gasto.proveedor_nombre or '-' }}</td>
+                            </tr>
+                            <tr>
+                                <th>Vehículo:</th>
+                                <td>
+                                    {% if gasto.vehiculo_placa %}
+                                        <i class="bi bi-truck"></i> {{ gasto.vehiculo_placa }}
+                                    {% else %}
+                                        -
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            <tr>
+                                <th>Estado:</th>
+                                <td>
+                                    <span class="badge {% if gasto.Estado == 'Activo' %}bg-success{% else %}bg-danger{% endif %}">
+                                        {{ gasto.Estado }}
+                                    </span>
+                                </td>
+                            </tr>
+                            <tr>
+                                <th>Registrado por:</th>
+                                <td>{{ gasto.usuario_registro_nombre or '-' }}</td>
+                            </tr>
+                            <tr>
+                                <th>Fecha Registro:</th>
+                                <td>{{ gasto.Fecha_Registro.strftime('%d/%m/%Y %H:%M') if gasto.Fecha_Registro else '-' }}</td>
+                            </tr>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Detalle de Vehículo (si aplica) -->
+        {% if detalle_vehiculo %}
+        <div class="row mt-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header bg-light">
+                        <strong><i class="bi bi-truck"></i> Detalle del Vehículo</strong>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-bordered mb-0">
+                                <tr>
+                                    <th style="width: 40%">Kilometraje:</th>
+                                    <td>{{ detalle_vehiculo.Kilometraje or '-' }} km</td>
+                                </tr>
+                                <tr>
+                                    <th>Tipo de Mantenimiento:</th>
+                                    <td>
+                                        {% if detalle_vehiculo.Tipo_Mantenimiento == 'PREVENTIVO' %}
+                                            <i class="bi bi-wrench"></i> Preventivo
+                                        {% elif detalle_vehiculo.Tipo_Mantenimiento == 'CORRECTIVO' %}
+                                            <i class="bi bi-tools"></i> Correctivo
+                                        {% elif detalle_vehiculo.Tipo_Mantenimiento == 'REPARACION' %}
+                                            <i class="bi bi-hammer"></i> Reparación
+                                        {% elif detalle_vehiculo.Tipo_Mantenimiento == 'LLANTAS' %}
+                                            <i class="bi bi-circle"></i> Llantas
+                                        {% elif detalle_vehiculo.Tipo_Mantenimiento == 'COMBUSTIBLE' %}
+                                            <i class="bi bi-fuel-pump"></i> Combustible
+                                        {% else %}
+                                            {{ detalle_vehiculo.Tipo_Mantenimiento or '-' }}
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <th>Taller / Estación:</th>
+                                    <td>{{ detalle_vehiculo.Taller or '-' }}</td>
+                                </tr>
+                                <tr>
+                                    <th>Próximo Mantenimiento KM:</th>
+                                    <td>{{ detalle_vehiculo.Proxima_Mantenimiento_KM or '-' }} km</td>
+                                </tr>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Descripción -->
+        <div class="row mt-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header bg-light">
+                        <strong><i class="bi bi-file-text"></i> Descripción</strong>
+                    </div>
+                    <div class="card-body">
+                        {{ gasto.Descripcion or 'Sin descripción' }}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Observaciones -->
+        <div class="row mt-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header bg-light">
+                        <strong><i class="bi bi-chat"></i> Observaciones</strong>
+                    </div>
+                    <div class="card-body">
+                        {{ gasto.Observaciones or 'Sin observaciones' }}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Comprobante (si existe) -->
+        {% if gasto.Comprobante %}
+        <div class="row mt-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header bg-light">
+                        <strong><i class="bi bi-paperclip"></i> Comprobante</strong>
+                    </div>
+                    <div class="card-body">
+                        <a href="{{ url_for('static', filename='uploads/' + gasto.Comprobante) }}" target="_blank" class="btn btn-info">
+                            <i class="bi bi-download"></i> Ver Comprobante
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Modal para anular -->
+<div class="modal fade" id="modalAnular" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Confirmar Anulación</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>¿Está seguro que desea anular este gasto?</p>
+                <div class="alert alert-warning">
+                    <i class="bi bi-exclamation-triangle"></i>
+                    <strong>Gasto:</strong> {{ gasto.tipo_gasto_nombre }}<br>
+                    <strong>Monto:</strong> C${{ "{:,.2f}".format(gasto.Monto) }}<br>
+                    <strong>Fecha:</strong> {{ gasto.Fecha.strftime('%d/%m/%Y') if gasto.Fecha else gasto.Fecha }}
+                </div>
+                <p class="text-danger mt-2">
+                    <i class="bi bi-exclamation-circle"></i> 
+                    <strong>Esta acción no se puede deshacer.</strong>
+                </p>
+            </div>
+            <div class="modal-footer">
+                <form method="POST" action="{{ url_for('anular_gasto', id_gasto=gasto.ID_Gasto) }}">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-danger">
+                        <i class="bi bi-trash"></i> Sí, Anular
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+$(document).ready(function() {
+    // Auto-cerrar alertas después de 5 segundos
+    setTimeout(function() {
+        $('.alert').alert('close');
+    }, 5000);
+});
+</script>
+{% endblock %}

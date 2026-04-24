@@ -4,47 +4,599 @@
 
 {% block content %}
 <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
-    <h1 class="h2">Panel de Administración</h1>
+    <h1 class="h2">
+        <i class="bi bi-speedometer2"></i> Panel de Administración
+    </h1>
+    <div class="btn-toolbar mb-2 mb-md-0">
+        <div class="btn-group me-2">
+            <button type="button" class="btn btn-sm btn-outline-primary" onclick="window.location.reload()">
+                <i class="bi bi-arrow-repeat"></i> Actualizar
+            </button>
+            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="window.print()">
+                <i class="bi bi-printer"></i> Imprimir
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- ============================================ -->
+<!-- KPI CARDS - MÉTRICAS PRINCIPALES -->
+<!-- ============================================ -->
+<div class="row mb-4">
+    <div class="col-md-3 mb-3">
+        <div class="card bg-gradient-primary text-white h-100 border-0 shadow-sm">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="card-subtitle mb-2 text-white-50">
+                            <i class="bi bi-cart3"></i> Ventas Hoy
+                        </h6>
+                        <h2 class="card-title mb-0">C${{ "{:,.0f}".format(ventas_hoy) }}</h2>
+                        <small class="text-white-50">Total facturado</small>
+                    </div>
+                    <i class="bi bi-cart3 fs-1 opacity-50"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3 mb-3">
+        <div class="card bg-gradient-success text-white h-100 border-0 shadow-sm">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="card-subtitle mb-2 text-white-50">
+                            <i class="bi bi-cash-stack"></i> Cobros Hoy
+                        </h6>
+                        <h2 class="card-title mb-0">C${{ "{:,.0f}".format(cobros_hoy) }}</h2>
+                        <small class="text-white-50">Abonos recibidos</small>
+                    </div>
+                    <i class="bi bi-cash-stack fs-1 opacity-50"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3 mb-3">
+        <div class="card bg-gradient-warning text-dark h-100 border-0 shadow-sm">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="card-subtitle mb-2 text-dark-50">
+                            <i class="bi bi-credit-card-2-back"></i> Cartera Total
+                        </h6>
+                        <h2 class="card-title mb-0">C${{ "{:,.0f}".format(saldo_pendiente) }}</h2>
+                        <small class="text-dark-50">
+                            <i class="bi bi-flag"></i> {{ facturas_vencidas }} vencidas
+                        </small>
+                    </div>
+                    <i class="bi bi-credit-card-2-back fs-1 opacity-50"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3 mb-3">
+        <div class="card bg-gradient-danger text-white h-100 border-0 shadow-sm">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="card-subtitle mb-2 text-white-50">
+                            <i class="bi bi-exclamation-triangle"></i> Stock Crítico
+                        </h6>
+                        <h2 class="card-title mb-0">{{ productos_bajo_stock }}</h2>
+                        <small class="text-white-50">Productos por reabastecer</small>
+                    </div>
+                    <i class="bi bi-box-seam fs-1 opacity-50"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ============================================ -->
+<!-- GRÁFICOS PRINCIPALES -->
+<!-- ============================================ -->
+<div class="row">
+    <!-- Gráfico de Ventas del Mes -->
+    <div class="col-md-8 mb-4">
+        <div class="card shadow-sm">
+            <div class="card-header bg-white">
+                <i class="bi bi-graph-up text-primary"></i>
+                <strong>Ventas del Mes Actual</strong>
+                <small class="text-muted float-end">{{ now.year }}-{{ now.month }}</small>
+            </div>
+            <div class="card-body">
+                <canvas id="ventasMesChart" height="300"></canvas>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Top Clientes Deudores -->
+    <div class="col-md-4 mb-4">
+        <div class="card shadow-sm h-100">
+            <div class="card-header bg-white">
+                <i class="bi bi-trophy text-warning"></i>
+                <strong>Top Clientes Deudores</strong>
+            </div>
+            <div class="card-body p-0">
+                <div class="list-group list-group-flush">
+                    {% for cliente in top_clientes %}
+                    <div class="list-group-item">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <strong>{{ cliente.Cliente }}</strong><br>
+                                <small class="text-muted">
+                                    <i class="bi bi-telephone"></i> {{ cliente.Telefono or 'Sin teléfono' }}
+                                </small>
+                            </div>
+                            <span class="badge bg-warning rounded-pill">
+                                C${{ "{:,.0f}".format(cliente.Deuda_Total) }}
+                            </span>
+                        </div>
+                    </div>
+                    {% else %}
+                    <div class="list-group-item text-center text-muted">
+                        <i class="bi bi-check-circle"></i> No hay clientes con deuda pendiente
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ============================================ -->
+<!-- TABLAS DE CONTROL -->
+<!-- ============================================ -->
+<div class="row">
+    <!-- Productos con Stock Bajo -->
+    <div class="col-md-6 mb-4">
+        <div class="card shadow-sm h-100">
+            <div class="card-header bg-white">
+                <i class="bi bi-box-seam text-danger"></i>
+                <strong>Productos con Stock Bajo</strong>
+                <span class="badge bg-danger float-end">{{ productos_stock|length }}</span>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-sm table-hover mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Producto</th>
+                                <th>Código</th>
+                                <th>Stock</th>
+                                <th>Mínimo</th>
+                                <th>Faltante</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for producto in productos_stock %}
+                            <tr>
+                                <td>{{ producto.Producto[:30] }}{% if producto.Producto|length > 30 %}...{% endif %}</td>
+                                <td><small>{{ producto.COD_Producto or 'N/A' }}</small></td>
+                                <td class="text-danger"><strong>{{ "%.0f"|format(producto.Stock_Actual) }}</strong></td>
+                                <td>{{ "%.0f"|format(producto.Stock_Minimo) }}</td>
+                                <td class="text-warning">{{ "%.0f"|format(producto.Faltante) }}</td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="5" class="text-center text-muted">
+                                    <i class="bi bi-check-circle text-success"></i> Todos los productos tienen stock suficiente
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Ventas por Vendedor -->
+    <div class="col-md-6 mb-4">
+        <div class="card shadow-sm h-100">
+            <div class="card-header bg-white">
+                <i class="bi bi-people text-success"></i>
+                <strong>Ventas del Día por Vendedor</strong>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-sm table-hover mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th><i class="bi bi-person"></i> Vendedor</th>
+                                <th><i class="bi bi-receipt"></i> Facturas</th>
+                                <th><i class="bi bi-cash"></i> Total Vendido</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for vendedor in ventas_vendedores %}
+                            <tr>
+                                <td><strong>{{ vendedor.Vendedor }}</strong></td>
+                                <td>{{ vendedor.Facturas }}</td>
+                                <td class="text-success fw-bold">C${{ "{:,.0f}".format(vendedor.Total_Vendido) }}</td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="3" class="text-center text-muted">
+                                    <i class="bi bi-info-circle"></i> No hay ventas registradas hoy
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
 
 <div class="row">
+    <!-- Gastos del Mes (Gráfico) -->
+    <div class="col-md-6 mb-4">
+        <div class="card shadow-sm">
+            <div class="card-header bg-white">
+                <i class="bi bi-pie-chart text-info"></i>
+                <strong>Gastos por Categoría</strong>
+                <small class="text-muted float-end">Mes actual</small>
+            </div>
+            <div class="card-body">
+                <canvas id="gastosMesChart" height="250"></canvas>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Próximos Vencimientos -->
+    <div class="col-md-6 mb-4">
+        <div class="card shadow-sm h-100">
+            <div class="card-header bg-white">
+                <i class="bi bi-calendar-exclamation text-warning"></i>
+                <strong>Próximos Vencimientos</strong>
+                <small class="text-muted float-end">Próximos 7 días</small>
+            </div>
+            <div class="card-body p-0">
+                <div class="list-group list-group-flush">
+                    {% for vencimiento in proximos_vencimientos %}
+                    <div class="list-group-item">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <strong>{{ vencimiento.Cliente }}</strong><br>
+                                <small>
+                                    <i class="bi bi-file-text"></i> {{ vencimiento.Num_Documento }}<br>
+                                    <i class="bi bi-calendar"></i> Vence: {{ vencimiento.Fecha_Vencimiento.strftime('%d/%m/%Y') }}
+                                </small>
+                            </div>
+                            <span class="badge bg-danger rounded-pill">
+                                C${{ "{:,.0f}".format(vencimiento.Saldo_Pendiente) }}
+                            </span>
+                        </div>
+                    </div>
+                    {% else %}
+                    <div class="list-group-item text-center text-muted">
+                        <i class="bi bi-check-circle text-success"></i> No hay vencimientos próximos
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <!-- Rutas Activas -->
+    <div class="col-md-6 mb-4">
+        <div class="card shadow-sm">
+            <div class="card-header bg-white">
+                <i class="bi bi-truck text-primary"></i>
+                <strong>Rutas Activas Hoy</strong>
+            </div>
+            <div class="card-body p-0">
+                <div class="list-group list-group-flush">
+                    {% for ruta in rutas_activas %}
+                    <div class="list-group-item">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <strong><i class="bi bi-geo-alt"></i> {{ ruta.Ruta }}</strong><br>
+                                <small>
+                                    <i class="bi bi-person"></i> {{ ruta.Vendedor }}<br>
+                                    <i class="bi bi-truck"></i> {{ ruta.Vehiculo or 'Sin vehículo' }}
+                                </small>
+                            </div>
+                            <span class="badge bg-success rounded-pill">
+                                <i class="bi bi-check-circle"></i> {{ ruta.Estado }}
+                            </span>
+                        </div>
+                    </div>
+                    {% else %}
+                    <div class="list-group-item text-center text-muted">
+                        <i class="bi bi-info-circle"></i> No hay rutas activas actualmente
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Resumen de Caja -->
+    <div class="col-md-6 mb-4">
+        <div class="card shadow-sm">
+            <div class="card-header bg-white">
+                <i class="bi bi-calculator text-success"></i>
+                <strong>Resumen de Caja (Hoy)</strong>
+            </div>
+            <div class="card-body">
+                <div class="row text-center">
+                    {% for movimiento in movimientos_caja %}
+                    <div class="col-6 mb-3">
+                        <div class="border rounded p-2">
+                            <small class="text-muted">{{ movimiento.Tipo }}</small>
+                            <h5 class="mb-0">{{ movimiento.Cantidad }}</h5>
+                            <small class="text-success">C${{ "{:,.0f}".format(movimiento.Total) }}</small>
+                        </div>
+                    </div>
+                    {% else %}
+                    <div class="col-12 text-center text-muted">
+                        No hay movimientos de caja registrados hoy
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ============================================ -->
+<!-- CARDS DE ACCESO RÁPIDO -->
+<!-- ============================================ -->
+<div class="row mt-2">
     <div class="col-md-4 mb-4">
-        <div class="card dashboard-card bg-primary text-white">
+        <div class="card dashboard-card bg-primary text-white border-0 shadow-sm">
             <div class="card-body">
                 <div class="d-flex align-items-center">
                     <div class="flex-grow-1">
-                        <h5 class="card-title">Usuarios</h5>
-                        <p class="card-text">Activos en el sistema</p>
+                        <h5 class="card-title">
+                            <i class="bi bi-people"></i> Usuarios
+                        </h5>
+                        <h2 class="display-6">{{ usuarios_count }}</h2>
+                        <p class="card-text mb-0">Activos en el sistema</p>
                     </div>
                     <div class="flex-shrink-0">
                         <i class="bi bi-people display-4 opacity-50"></i>
                     </div>
                 </div>
             </div>
-            <div class="card-footer bg-transparent">
-                <a href="{{ url_for('admin_usuarios') }}" class="text-white stretched-link">Gestionar usuarios</a>
+            <div class="card-footer bg-transparent border-0">
+                <a href="{{ url_for('admin_usuarios') }}" class="text-white stretched-link text-decoration-none">
+                    Gestionar usuarios <i class="bi bi-arrow-right"></i>
+                </a>
             </div>
         </div>
     </div>
 
     <div class="col-md-4 mb-4">
-        <div class="card dashboard-card bg-success text-white">
+        <div class="card dashboard-card bg-success text-white border-0 shadow-sm">
             <div class="card-body">
                 <div class="d-flex align-items-center">
                     <div class="flex-grow-1">
-                        <h5 class="card-title">Empresas</h5>
-                        <h2 class="card-text">{{ empresas_count }}</h2>
-                        <p class="card-text">Empresas registradas</p>
+                        <h5 class="card-title">
+                            <i class="bi bi-building"></i> Empresas
+                        </h5>
+                        <h2 class="display-6">{{ empresas_count }}</h2>
+                        <p class="card-text mb-0">Empresas registradas</p>
                     </div>
                     <div class="flex-shrink-0">
                         <i class="bi bi-building display-4 opacity-50"></i>
                     </div>
                 </div>
             </div>
-            <div class="card-footer bg-transparent">
-                <a href="#" class="text-white stretched-link">Gestionar empresas</a>
+            <div class="card-footer bg-transparent border-0">
+                <a href="#" class="text-white stretched-link text-decoration-none">
+                    Gestionar empresas <i class="bi bi-arrow-right"></i>
+                </a>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4 mb-4">
+        <div class="card dashboard-card bg-info text-white border-0 shadow-sm">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="flex-grow-1">
+                        <h5 class="card-title">
+                            <i class="bi bi-file-earmark-bar-graph"></i> Reportes
+                        </h5>
+                        <p class="card-text mb-0">Generar reportes ejecutivos</p>
+                        <small class="text-white-50">Exportar a PDF/Excel</small>
+                    </div>
+                    <div class="flex-shrink-0">
+                        <i class="bi bi-file-earmark-bar-graph display-4 opacity-50"></i>
+                    </div>
+                </div>
+            </div>
+            <div class="card-footer bg-transparent border-0">
+                <a href="#" class="text-white stretched-link text-decoration-none">
+                    Ver reportes <i class="bi bi-arrow-right"></i>
+                </a>
             </div>
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    // ============================================
+    // GRÁFICO DE VENTAS DEL MES
+    // ============================================
+    const ventasMesData = {{ ventas_mes_json | safe }};
+    if(ventasMesData.dias.length > 0) {
+        const ctxVentas = document.getElementById('ventasMesChart').getContext('2d');
+        new Chart(ctxVentas, {
+            type: 'line',
+            data: {
+                labels: ventasMesData.dias,
+                datasets: [{
+                    label: 'Ventas del Mes (C$)',
+                    data: ventasMesData.totales,
+                    borderColor: 'rgb(59, 130, 246)',
+                    backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                    borderWidth: 3,
+                    tension: 0.4,
+                    fill: true,
+                    pointBackgroundColor: 'rgb(59, 130, 246)',
+                    pointBorderColor: '#fff',
+                    pointBorderWidth: 2,
+                    pointRadius: 4,
+                    pointHoverRadius: 6
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: true,
+                plugins: {
+                    legend: {
+                        position: 'top',
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                return 'Ventas: C$' + context.raw.toLocaleString('es-CO');
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            callback: function(value) {
+                                return 'C$' + value.toLocaleString('es-CO');
+                            }
+                        },
+                        title: {
+                            display: true,
+                            text: 'Monto en Pesos (C$)'
+                        }
+                    },
+                    x: {
+                        title: {
+                            display: true,
+                            text: 'Día del Mes'
+                        }
+                    }
+                }
+            }
+        });
+    } else {
+        document.getElementById('ventasMesChart').parentElement.innerHTML = '<div class="alert alert-info text-center">No hay datos de ventas para el mes actual</div>';
+    }
+    
+    // ============================================
+    // GRÁFICO DE GASTOS DEL MES
+    // ============================================
+    const gastosMesData = {{ gastos_mes_json | safe }};
+    if(gastosMesData.categorias.length > 0) {
+        const ctxGastos = document.getElementById('gastosMesChart').getContext('2d');
+        new Chart(ctxGastos, {
+            type: 'doughnut',
+            data: {
+                labels: gastosMesData.categorias,
+                datasets: [{
+                    data: gastosMesData.montos,
+                    backgroundColor: [
+                        'rgb(255, 99, 132)',
+                        'rgb(54, 162, 235)',
+                        'rgb(255, 205, 86)',
+                        'rgb(75, 192, 192)',
+                        'rgb(153, 102, 255)'
+                    ],
+                    borderWidth: 2,
+                    borderColor: '#fff'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: true,
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                const label = context.label || '';
+                                const value = context.raw || 0;
+                                const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                const percentage = ((value / total) * 100).toFixed(1);
+                                return `${label}: C$${value.toLocaleString('es-CO')} (${percentage}%)`;
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    } else {
+        document.getElementById('gastosMesChart').parentElement.innerHTML = '<div class="alert alert-info text-center">No hay datos de gastos para el mes actual</div>';
+    }
+</script>
+
+<style>
+    /* Estilos adicionales */
+    .bg-gradient-primary {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    }
+    .bg-gradient-success {
+        background: linear-gradient(135deg, #84fab0 0%, #8fd3f4 100%);
+    }
+    .bg-gradient-warning {
+        background: linear-gradient(135deg, #ffe259 0%, #ffa751 100%);
+    }
+    .bg-gradient-danger {
+        background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%);
+    }
+    .dashboard-card {
+        transition: transform 0.2s, box-shadow 0.2s;
+        cursor: pointer;
+        border-radius: 15px;
+        overflow: hidden;
+    }
+    .dashboard-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 10px 25px rgba(0,0,0,0.2) !important;
+    }
+    .card {
+        border-radius: 12px;
+        overflow: hidden;
+    }
+    .card-header {
+        border-bottom: 2px solid #f0f0f0;
+        font-weight: 600;
+    }
+    .list-group-item {
+        transition: background-color 0.2s;
+    }
+    .list-group-item:hover {
+        background-color: #f8f9fa;
+    }
+    .table th {
+        font-weight: 600;
+        font-size: 0.8rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    .badge {
+        font-weight: 500;
+        padding: 5px 10px;
+    }
+    @media print {
+        .btn-toolbar, .dashboard-card .card-footer {
+            display: none;
+        }
+        .card {
+            break-inside: avoid;
+        }
+    }
+</style>
 {% endblock %}
