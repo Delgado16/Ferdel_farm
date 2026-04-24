@@ -44,21 +44,32 @@ CORS(app)
 
 # ===== CONFIGURACIÓN SIMPLIFICADA DE BASE DE DATOS (SIN SSL) =====
 DB_CONFIG = {
-    'user': os.environ.get('DB_USER', 'root'),
-    'password': os.environ.get('DB_PASSWORD', 'admin'),
-    'host': os.environ.get('DB_HOST', 'localhost'),
-    'port': int(os.environ.get('DB_PORT', 3306)),
+    'user': os.environ.get('DB_USER', 'avnadmin'),
+    'password': os.environ.get('DB_PASSWORD', ''),
+    'host': os.environ.get('DB_HOST', 'mysql-ferdel-pruebadoce46-eadc.c.aivencloud.com'),
+    'port': int(os.environ.get('DB_PORT', 28375)),
     'database': os.environ.get('DB_NAME', 'db_ferdel'),
     'pool_name': 'ferdel_pool',
-    'pool_size': int(os.environ.get('DB_POOL_SIZE', 10)),
+    'pool_size': int(os.environ.get('DB_POOL_SIZE', 3)),
     'pool_reset_session': True,
     'autocommit': True,
-    'connect_timeout': 30
+    'connect_timeout': 30,
+    'use_pure': True,
+    'charset': 'utf8mb4',
+    'collation': 'utf8mb4_general_ci'
 }
+
+# Imprimir configuración (sin mostrar contraseña)
+print("📋 Configuración de BD (SIN SSL):")
+print(f"   Host: {DB_CONFIG['host']}:{DB_CONFIG['port']}")
+print(f"   Database: {DB_CONFIG['database']}")
+print(f"   User: {DB_CONFIG['user']}")
+print(f"   Pool Size: {DB_CONFIG['pool_size']}")
 
 # Inicializar connection_pool
 connection_pool = None
 pool_lock = threading.Lock()
+
 
 def init_pool():
     """Inicializar el pool con reintentos automaticos"""
