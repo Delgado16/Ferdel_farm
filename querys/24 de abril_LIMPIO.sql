@@ -1599,7 +1599,7 @@ DROP TABLE IF EXISTS `usuarios`;
 CREATE TABLE `usuarios` (
   `ID_Usuario` int NOT NULL AUTO_INCREMENT,
   `NombreUsuario` varchar(255) NOT NULL,
-  `ContraseÃ±a` varchar(255) NOT NULL,
+  `Contraseña` varchar(255) NOT NULL,
   `ID_Rol` int DEFAULT NULL,
   `Estado` enum('ACTIVO','INACTIVO','BLOQUEADO','PENDIENTE') DEFAULT 'ACTIVO',
   `Fecha_Creacion` date DEFAULT (curdate()),
