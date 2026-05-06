@@ -829,21 +829,6 @@ CREATE TABLE `vehiculos` (
   KEY `ID_Empresa` (`ID_Empresa`),
   CONSTRAINT `vehiculos_ibfk_1` FOREIGN KEY (`ID_Empresa`) REFERENCES `empresa` (`ID_Empresa`)
 ) ENGINE=InnoDB AUTO_INCREMENT=5 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
-/*!40101 SET character_set_client = @saved_cs_client */;
-
---
--- Dumping data for table `vehiculos`
---
-
-LOCK TABLES `vehiculos` WRITE;
-/*!40000 ALTER TABLE `vehiculos` DISABLE KEYS */;
-INSERT INTO `vehiculos` VALUES (1,'GR 123678','Nissan','Patrol',2000,'En Ruta',1,'2026-01-29 14:09:18','2026-10-27','Gasolina'),(2,'MY-789523','Mitsubishi','Lancer',2000,'Disponible',1,'2026-01-30 08:36:59','2026-08-28','Gasolina'),(3,'GR-782541','Toyota ','HIACE',2012,'Disponible',1,'2026-02-03 15:30:47','2026-06-26','Gasolina'),(4,'MY-369852','Hyundai','Cross',2015,'Disponible',1,'2026-02-04 10:33:42','2026-05-30','Gasolina');
-/*!40000 ALTER TABLE `vehiculos` ENABLE KEYS */;
-UNLOCK TABLES;
-
---
--- Temporary view structure for view `vista_gastos_unificados`
---
 
 DROP TABLE IF EXISTS `vista_gastos_unificados`;
 /*!50001 DROP VIEW IF EXISTS `vista_gastos_unificados`*/;

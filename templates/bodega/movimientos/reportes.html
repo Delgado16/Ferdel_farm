@@ -1,0 +1,422 @@
+{% extends "layout.html" %}
+
+{% block title %}Reportes de Movimientos{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="h3 mb-0 text-gray-800">
+            <i class="fas fa-chart-bar me-2"></i>Reportes de Movimientos
+        </h1>
+        <div>
+            <a href="{{ url_for('bodega.bodega_historial_movimientos') }}" class="btn btn-secondary">
+                <i class="fas fa-arrow-left me-1"></i> Volver
+            </a>
+        </div>
+    </div>
+
+    <!-- Estadísticas del Mes -->
+    <div class="row mb-4">
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-primary shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">
+                                Total Movimientos (Mes)
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800 format-number">
+                                {{ estadisticas.total_movimientos or 0 }}
+                            </div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-history fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-success shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-success text-uppercase mb-1">
+                                Entradas (Mes)
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800 format-number">
+                                {{ estadisticas.entradas or 0 }}
+                            </div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-sign-in-alt fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-danger shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-danger text-uppercase mb-1">
+                                Salidas (Mes)
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800 format-number">
+                                {{ estadisticas.salidas or 0 }}
+                            </div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-sign-out-alt fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-warning shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">
+                                Transferencias (Mes)
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800 format-number">
+                                {{ estadisticas.transferencias or 0 }}
+                            </div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-exchange-alt fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Reporte Filtrado -->
+        <div class="col-lg-8">
+            <div class="card shadow mb-4">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">
+                        <i class="fas fa-filter me-1"></i>Generar Reporte Filtrado
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <form method="POST" action="{{ url_for('bodega.bodega_reporte_filtrado') }}">
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label class="form-label">Fecha Desde</label>
+                                <input type="date" name="fecha_inicio" class="form-control" id="fecha_inicio">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Fecha Hasta</label>
+                                <input type="date" name="fecha_fin" class="form-control" id="fecha_fin">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Tipo de Movimiento</label>
+                                <select name="id_tipo_movimiento" class="form-select">
+                                    <option value="todos">Todos los tipos</option>
+                                    {% for tipo in tipos_movimiento %}
+                                    <option value="{{ tipo.ID_TipoMovimiento }}">
+                                        {{ tipo.Descripcion }}
+                                    </option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Bodega</label>
+                                <select name="id_bodega" class="form-select">
+                                    <option value="todas">Todas las bodegas</option>
+                                    {% for bodega in bodegas %}
+                                    <option value="{{ bodega.ID_Bodega }}">
+                                        {{ bodega.Nombre }}
+                                    </option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-12">
+                                <button type="submit" class="btn btn-primary w-100">
+                                    <i class="fas fa-file-alt me-1"></i> Generar Reporte
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Últimos Movimientos -->
+            <div class="card shadow">
+                <div class="card-header py-3 d-flex justify-content-between align-items-center">
+                    <h6 class="m-0 font-weight-bold text-primary">
+                        <i class="fas fa-history me-1"></i>Últimos Movimientos
+                    </h6>
+                    <a href="{{ url_for('bodega.bodega_historial_movimientos') }}" class="btn btn-sm btn-primary">
+                        Ver Todos
+                    </a>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-sm table-hover">
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Fecha</th>
+                                    <th>Tipo</th>
+                                    <th>Bodega</th>
+                                    <th>Productos</th>
+                                    <th>Total</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for mov in ultimos_movimientos %}
+                                <tr>
+                                    <td>
+                                        <a href="{{ url_for('bodega.bodega_detalle_movimiento', id_movimiento=mov.ID_Movimiento) }}">
+                                            #{{ mov.ID_Movimiento }}
+                                        </a>
+                                    </td>
+                                    <td>{{ mov.Fecha }}</td>
+                                    <td>
+                                        <span class="badge 
+                                            {% if mov.Letra == 'E' %}bg-success
+                                            {% elif mov.Letra == 'S' %}bg-danger
+                                            {% else %}bg-warning{% endif %}">
+                                            {{ mov.Tipo }}
+                                        </span>
+                                    </td>
+                                    <td>{{ mov.Bodega_Origen }}</td>
+                                    <td class="format-number">{{ mov.Productos or 0 }}</td>
+                                    <td class="format-currency">C${{ "%.2f"|format(mov.Total_Costo or 0) }}</td>
+                                </tr>
+                                {% else %}
+                                <tr>
+                                    <td colspan="6" class="text-center text-muted py-3">
+                                        No hay movimientos recientes
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Productos con Stock Bajo -->
+        <div class="col-lg-4">
+            <div class="card shadow mb-4">
+                <div class="card-header py-3 bg-warning text-dark">
+                    <h6 class="m-0 font-weight-bold">
+                        <i class="fas fa-exclamation-triangle me-1"></i>Productos con Stock Bajo
+                    </h6>
+                </div>
+                <div class="card-body">
+                    {% if productos_stock_bajo %}
+                    <div class="list-group">
+                        {% for producto in productos_stock_bajo %}
+                        <div class="list-group-item list-group-item-action">
+                            <div class="d-flex w-100 justify-content-between">
+                                <h6 class="mb-1">{{ producto.Descripcion }}</h6>
+                                <small class="text-danger format-stock">
+                                    {{ producto.Existencias_Totales }} / {{ producto.Stock_Minimo }}
+                                </small>
+                            </div>
+                            <p class="mb-1">
+                                <small>Código: {{ producto.COD_Producto or 'N/A' }}</small>
+                            </p>
+                            <small class="text-muted">
+                                {{ producto.Unidad_Medida }}
+                                {% if producto.Bodegas_Con_Stock %}
+                                | Bodegas con stock: <span class="format-number">{{ producto.Bodegas_Con_Stock }}</span>
+                                {% endif %}
+                            </small>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="text-center py-4">
+                        <i class="fas fa-check-circle fa-2x text-success mb-3"></i>
+                        <p class="text-muted">Todos los productos tienen stock suficiente</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Estadísticas Financieras -->
+            <div class="card shadow">
+                <div class="card-header py-3 bg-info text-white">
+                    <h6 class="m-0 font-weight-bold">
+                        <i class="fas fa-chart-line me-1"></i>Estadísticas Financieras (Mes)
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="text-center mb-3">
+                        <div class="h4 font-weight-bold text-primary format-currency">
+                            C${{ "%.2f"|format(estadisticas.total_ventas or 0) }}
+                        </div>
+                        <small class="text-muted">Total Ventas</small>
+                    </div>
+                    
+                    <div class="text-center mb-3">
+                        <div class="h4 font-weight-bold text-success format-currency">
+                            C${{ "%.2f"|format(estadisticas.total_compras or 0) }}
+                        </div>
+                        <small class="text-muted">Total Compras</small>
+                    </div>
+                    
+                    <hr>
+                    
+                    <div class="text-center">
+                        {% set diferencia = (estadisticas.total_ventas or 0) - (estadisticas.total_compras or 0) %}
+                        <div class="h4 font-weight-bold 
+                            {% if diferencia > 0 %}text-success{% else %}text-danger{% endif %} format-currency">
+                            C${{ "%.2f"|format(diferencia) }}
+                        </div>
+                        <small class="text-muted">Diferencia (Ventas - Compras)</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- JavaScript Vanilla para formato de números -->
+<script>
+// Esperar a que toda la página esté completamente cargada
+window.addEventListener('DOMContentLoaded', function() {
+    console.log('DOM cargado - Iniciando formato de números');
+    
+    // Configurar fechas por defecto
+    const hoy = new Date();
+    const primerDiaMes = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
+    
+    // Formatear fechas como YYYY-MM-DD
+    function formatDate(date) {
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    }
+    
+    const fechaInicioInput = document.getElementById('fecha_inicio');
+    const fechaFinInput = document.getElementById('fecha_fin');
+    
+    if (fechaInicioInput) {
+        fechaInicioInput.value = formatDate(primerDiaMes);
+    }
+    
+    if (fechaFinInput) {
+        fechaFinInput.value = formatDate(hoy);
+    }
+    
+    // Función para agregar separadores de miles a números
+    function formatNumberWithCommas(num) {
+        if (num === null || num === undefined || num === '') return '0';
+        
+        // Convertir a string y limpiar
+        let numStr = String(num).trim();
+        
+        // Remover cualquier símbolo de moneda o caracter no numérico excepto punto decimal
+        numStr = numStr.replace(/[^0-9.]/g, '');
+        
+        // Intentar convertir a número
+        let number = parseFloat(numStr);
+        
+        if (isNaN(number)) {
+            return '0';
+        }
+        
+        // Verificar si es un número entero
+        const isInteger = Number.isInteger(number) || number % 1 === 0;
+        
+        if (isInteger) {
+            // Para enteros, no mostrar decimales
+            return number.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+        } else {
+            // Para decimales, mostrar 2 decimales
+            return number.toFixed(2).replace(/\d(?=(\d{3})+\.)/g, '$&,');
+        }
+    }
+    
+    // Función para formatear moneda (C$)
+    function formatCurrency(value) {
+        if (!value) return 'C$0.00';
+        
+        let numStr = String(value).trim();
+        // Remover C$ si existe
+        numStr = numStr.replace('C$', '');
+        
+        const number = parseFloat(numStr.replace(/[^0-9.]/g, ''));
+        
+        if (isNaN(number)) {
+            return 'C$0.00';
+        }
+        
+        // Siempre mostrar 2 decimales para moneda
+        return 'C$' + number.toFixed(2).replace(/\d(?=(\d{3})+\.)/g, '$&,');
+    }
+    
+    // Función para formatear stock (existencias / mínimo)
+    function formatStock(value) {
+        if (!value) return '0 / 0';
+        
+        const parts = String(value).split('/');
+        if (parts.length === 2) {
+            const existencias = parseFloat(parts[0].trim().replace(/[^0-9.]/g, ''));
+            const minimo = parseFloat(parts[1].trim().replace(/[^0-9.]/g, ''));
+            
+            if (!isNaN(existencias) && !isNaN(minimo)) {
+                // Formatear ambos números sin decimales
+                const existenciasFormatted = existencias.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+                const minimoFormatted = minimo.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+                return `${existenciasFormatted} / ${minimoFormatted}`;
+            }
+        }
+        
+        // Si no se puede dividir por /, formatear como número simple
+        return formatNumberWithCommas(value);
+    }
+    
+    // Aplicar formato a todos los elementos con clase format-number
+    const numberElements = document.querySelectorAll('.format-number');
+    console.log(`Encontrados ${numberElements.length} elementos con clase format-number`);
+    
+    numberElements.forEach(function(element, index) {
+        const originalText = element.textContent.trim();
+        console.log(`Elemento ${index + 1}: "${originalText}"`);
+        const formattedText = formatNumberWithCommas(originalText);
+        element.textContent = formattedText;
+    });
+    
+    // Aplicar formato a todos los elementos con clase format-currency
+    const currencyElements = document.querySelectorAll('.format-currency');
+    console.log(`Encontrados ${currencyElements.length} elementos con clase format-currency`);
+    
+    currencyElements.forEach(function(element, index) {
+        const originalText = element.textContent.trim();
+        console.log(`Elemento moneda ${index + 1}: "${originalText}"`);
+        const formattedText = formatCurrency(originalText);
+        element.textContent = formattedText;
+    });
+    
+    // Aplicar formato a todos los elementos con clase format-stock
+    const stockElements = document.querySelectorAll('.format-stock');
+    console.log(`Encontrados ${stockElements.length} elementos con clase format-stock`);
+    
+    stockElements.forEach(function(element, index) {
+        const originalText = element.textContent.trim();
+        console.log(`Elemento stock ${index + 1}: "${originalText}"`);
+        const formattedText = formatStock(originalText);
+        element.textContent = formattedText;
+    });
+    
+    console.log('Formato de números completado');
+});
+</script>
+{% endblock %}

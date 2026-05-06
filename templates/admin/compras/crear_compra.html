@@ -679,7 +679,7 @@
                     </div>
                 </div>
 
-                <!-- Productos - VERSIÓN SIMPLIFICADA (SIN PRECIO DE VENTA) -->
+                <!-- Productos -->
                 <div class="form-section">
                     <div class="d-flex justify-content-between align-items-center mb-3">
                         <h4 class="section-title mb-0"><i class="fas fa-boxes me-2"></i>Productos</h4>
@@ -760,11 +760,64 @@ let filtroCategoriaActual = 0;
 let productosEnCache = [];
 
 // ============================================
+// CONFIGURACIÓN DE RUTAS - DETECCIÓN AUTOMÁTICA
+// ============================================
+// El sistema probará ambas opciones y usará la que funcione
+let RUTA_BASE = '/admin'; // Valor por defecto
+
+async function detectarRutaCorrecta() {
+    console.log('🔍 Detectando ruta correcta del servidor...');
+    
+    const opciones = ['/admin', ''];
+    
+    for (const base of opciones) {
+        const url = base + '/compras/productos-por-categoria/0';
+        console.log(`📤 Probando: ${url}`);
+        
+        try {
+            const response = await fetch(url, {
+                method: 'GET',
+                headers: {
+                    'Accept': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            });
+            
+            if (response.ok) {
+                console.log(`✅ Ruta correcta encontrada: ${base}/compras/`);
+                RUTA_BASE = base;
+                return base;
+            }
+        } catch (error) {
+            console.log(`❌ Falló: ${url}`);
+        }
+    }
+    
+    console.warn('⚠️ Usando ruta por defecto: /admin/compras/');
+    return '/admin';
+}
+
+function getRuta(tipo, parametro = '') {
+    const rutas = {
+        'crear': `${RUTA_BASE}/compras/compras-entradas/crear`,
+        'productos': `${RUTA_BASE}/compras/productos-por-categoria/${parametro}`,
+        'existencias': `${RUTA_BASE}/compras/verificar-existencias/${parametro}`,
+        'listado': `${RUTA_BASE}/compras/compras-entradas`
+    };
+    return rutas[tipo] || rutas['listado'];
+}
+
+// ============================================
 // FUNCIONES DE INICIALIZACIÓN
 // ============================================
 
-// Establecer fecha actual por defecto
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', async function() {
+    console.log('🚀 Inicializando formulario de compra...');
+    
+    // Detectar ruta correcta primero
+    await detectarRutaCorrecta();
+    console.log('✅ Usando ruta base:', RUTA_BASE);
+    
     const today = new Date().toISOString().split('T')[0];
     document.getElementById('fecha').value = today;
     
@@ -778,9 +831,12 @@ document.addEventListener('DOMContentLoaded', function() {
     // Controlar visibilidad de fecha de vencimiento para crédito
     document.getElementById('tipo_compra').addEventListener('change', function() {
         const fechaVencimientoGroup = document.getElementById('fecha_vencimiento_group');
+        const creditoInfo = document.querySelector('.credito-info');
+        
         if (this.value === 'CREDITO') {
             fechaVencimientoGroup.style.display = 'block';
-            // Establecer fecha de vencimiento por defecto (30 días)
+            if (creditoInfo) creditoInfo.style.display = 'block';
+            
             const fechaCompra = document.getElementById('fecha').value;
             if (fechaCompra) {
                 const fechaVencimiento = new Date(fechaCompra);
@@ -788,18 +844,17 @@ document.addEventListener('DOMContentLoaded', function() {
                 document.getElementById('fecha_vencimiento').value = fechaVencimiento.toISOString().split('T')[0];
             }
             
-            // Validar que haya proveedor seleccionado
             const proveedor = document.getElementById('id_proveedor').value;
             if (!proveedor) {
                 mostrarAlerta('warning', '⚠️ Advertencia', 'Para compras a crédito debe seleccionar un proveedor');
             }
         } else {
             fechaVencimientoGroup.style.display = 'none';
+            if (creditoInfo) creditoInfo.style.display = 'none';
             document.getElementById('id_proveedor').classList.remove('is-invalid');
         }
     });
 
-    // Actualizar fecha de vencimiento cuando cambia la fecha de compra
     document.getElementById('fecha').addEventListener('change', function() {
         if (document.getElementById('tipo_compra').value === 'CREDITO') {
             const fechaVencimiento = new Date(this.value);
@@ -808,20 +863,33 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
-    // Validar proveedor cuando se selecciona crédito
     document.getElementById('id_proveedor').addEventListener('change', function() {
         if (document.getElementById('tipo_compra').value === 'CREDITO' && !this.value) {
             mostrarAlerta('warning', '⚠️ Advertencia', 'Para compras a crédito debe seleccionar un proveedor');
         }
     });
 
-    // Eventos para el modal de confirmación
+    // Eventos para el modal
     document.getElementById('closeConfirmModal').addEventListener('click', cerrarModalConfirmacion);
     document.getElementById('cancelConfirm').addEventListener('click', cerrarModalConfirmacion);
     document.getElementById('confirmProceed').addEventListener('click', confirmarCompra);
 
-    // Agregar primera fila de producto y cargar productos
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape' && document.getElementById('confirmModal').classList.contains('show')) {
+            cerrarModalConfirmacion();
+        }
+    });
+
+    document.getElementById('confirmModal').addEventListener('click', function(e) {
+        if (e.target === this) {
+            cerrarModalConfirmacion();
+        }
+    });
+
+    // Agregar primera fila de producto
     agregarProducto();
+    
+    console.log('✅ Formulario inicializado correctamente');
 });
 
 // ============================================
@@ -831,7 +899,6 @@ document.addEventListener('DOMContentLoaded', function() {
 function mostrarModalConfirmacion() {
     console.log('📋 Preparando modal de confirmación...');
     
-    // Obtener datos del formulario
     const fecha = document.getElementById('fecha').value;
     const bodegaSelect = document.getElementById('id_bodega');
     const bodega = bodegaSelect.options[bodegaSelect.selectedIndex]?.text || 'No seleccionada';
@@ -841,41 +908,40 @@ function mostrarModalConfirmacion() {
     const totalProductos = document.getElementById('total-productos').textContent;
     const totalPagar = document.getElementById('total-compra').textContent;
     
-    // Actualizar información en el modal
-    document.getElementById('confirm-fecha').textContent = fecha ? new Date(fecha).toLocaleDateString('es-ES') : 'No definida';
+    document.getElementById('confirm-fecha').textContent = fecha ? new Date(fecha + 'T00:00:00').toLocaleDateString('es-ES', {year: 'numeric', month: 'long', day: 'numeric'}) : 'No definida';
     document.getElementById('confirm-bodega').textContent = bodega;
     document.getElementById('confirm-tipo-compra').textContent = tipoCompra;
     document.getElementById('confirm-proveedor').textContent = proveedor;
     document.getElementById('confirm-total-productos').textContent = totalProductos;
     document.getElementById('confirm-total-pagar').textContent = totalPagar;
     
-    // Obtener y mostrar productos
     const productList = document.getElementById('confirm-product-list');
     productList.innerHTML = '';
     
     const productosCards = document.querySelectorAll('.product-card');
     let productosValidos = 0;
     
-    productosCards.forEach((tarjeta, index) => {
+    productosCards.forEach((tarjeta) => {
         const select = tarjeta.querySelector('.producto-select');
         const cantidad = tarjeta.querySelector('.cantidad');
         const costo = tarjeta.querySelector('.costo');
         const subtotal = tarjeta.querySelector('.subtotal');
         
-        if (select.value && parseFloat(cantidad.value) > 0 && parseFloat(costo.value) > 0) {
+        if (select && select.value && cantidad && parseFloat(cantidad.value) > 0 && costo && parseFloat(costo.value) > 0) {
             productosValidos++;
             
             const productoNombre = select.options[select.selectedIndex]?.text || 'Producto no identificado';
             const productoDiv = document.createElement('div');
             productoDiv.className = 'confirm-product-item';
             
-            const subtotalNumeric = parseNumericFromDatasetOrString(subtotal.dataset.value || subtotal.value);
+            const subtotalNumeric = subtotal && subtotal.dataset.value ? parseFloat(subtotal.dataset.value) : (parseFloat(cantidad.value) * parseFloat(costo.value));
+            
             productoDiv.innerHTML = `
                 <div class="confirm-product-name">${productoNombre.split(' - ')[0]}</div>
                 <div class="confirm-product-details">
                     <span>${cantidad.value} ${tarjeta.querySelector('.input-group-text')?.textContent || 'und'}</span>
-                    <span>${formatCurrency(parseFloat(costo.value || 0))}</span>
-                    <span class="fw-bold">${formatCurrency(subtotalNumeric)}</span>
+                    <span>C$ ${parseFloat(costo.value).toFixed(2)}</span>
+                    <span class="fw-bold">C$ ${subtotalNumeric.toFixed(2)}</span>
                 </div>
             `;
             
@@ -883,7 +949,6 @@ function mostrarModalConfirmacion() {
         }
     });
     
-    // Mostrar mensaje si no hay productos válidos
     if (productosValidos === 0) {
         const mensajeDiv = document.createElement('div');
         mensajeDiv.className = 'confirm-product-item text-center text-muted';
@@ -891,21 +956,18 @@ function mostrarModalConfirmacion() {
         productList.appendChild(mensajeDiv);
     }
     
-    // Mostrar el modal
     document.getElementById('confirmModal').classList.add('show');
-    document.body.style.overflow = 'hidden'; // Prevenir scroll del fondo
+    document.body.style.overflow = 'hidden';
     
-    console.log('✅ Modal de confirmación mostrado');
+    console.log('✅ Modal mostrado con ' + productosValidos + ' productos');
 }
 
 function cerrarModalConfirmacion() {
     document.getElementById('confirmModal').classList.remove('show');
-    document.body.style.overflow = 'auto'; // Restaurar scroll
-    console.log('❌ Modal de confirmación cerrado');
+    document.body.style.overflow = 'auto';
 }
 
 function confirmarCompra() {
-    console.log('✅ Confirmación aceptada, procesando compra...');
     cerrarModalConfirmacion();
     procesarCompra();
 }
@@ -914,103 +976,89 @@ function confirmarCompra() {
 // FUNCIONES DE FILTRADO DE PRODUCTOS
 // ============================================
 
-// APLICAR FILTRO POR CATEGORÍA
 async function aplicarFiltroCategoria() {
     const categoriaSelect = document.getElementById('filtro_categoria');
     const idCategoria = categoriaSelect.value;
     const nombreCategoria = categoriaSelect.options[categoriaSelect.selectedIndex].text;
     
     try {
-        // Mostrar loading
         const btnFiltro = document.getElementById('btn-aplicar-filtro');
         const originalText = btnFiltro.innerHTML;
         btnFiltro.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> Cargando...';
         btnFiltro.disabled = true;
 
-        console.log(`🔍 Aplicando filtro para categoría: ${idCategoria} - ${nombreCategoria}`);
+        const url = getRuta('productos', idCategoria);
+        console.log(`🔍 Cargando productos desde: ${url}`);
         
-        const url = `/admin/compras/productos-por-categoria/${idCategoria}`;
-        console.log(`📤 URL solicitada: ${url}`);
-        
-        const response = await fetch(url);
+        const response = await fetch(url, {
+            method: 'GET',
+            headers: {
+                'Accept': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        });
         
         if (!response.ok) {
-            throw new Error(`Error HTTP: ${response.status} - ${response.statusText}`);
+            const errorText = await response.text();
+            console.error('❌ Error del servidor:', errorText.substring(0, 300));
+            throw new Error(`Error HTTP: ${response.status}. URL: ${url}`);
+        }
+        
+        const contentType = response.headers.get('content-type');
+        if (!contentType || !contentType.includes('application/json')) {
+            const text = await response.text();
+            console.error('❌ No es JSON:', text.substring(0, 200));
+            throw new Error('El servidor no devolvió JSON. Verifica que la ruta del backend sea correcta.');
         }
         
         const productosRecibidos = await response.json();
-        console.log('📥 Datos recibidos:', productosRecibidos);
         
         if (productosRecibidos.error) {
             throw new Error(productosRecibidos.error);
         }
 
+        if (!Array.isArray(productosRecibidos)) {
+            throw new Error('Formato de datos inesperado');
+        }
+
         productosEnCache = productosRecibidos;
         filtroCategoriaActual = idCategoria;
         
-        console.log(`✅ Productos en caché: ${productosRecibidos.length} productos`);
+        console.log(`✅ ${productosRecibidos.length} productos cargados`);
         
-        // Actualizar TODOS los selects de productos
+        // Actualizar todos los selects existentes
         const selectsProductos = document.querySelectorAll('.producto-select');
-        console.log(`🔄 Actualizando ${selectsProductos.length} selects de productos`);
         
         selectsProductos.forEach((select, index) => {
-            const productoSeleccionado = select.value;
-            
-            // Guardar el valor seleccionado actualmente
-            const opcionSeleccionada = select.options[select.selectedIndex];
-            const textoSeleccionado = opcionSeleccionada ? opcionSeleccionada.text : '';
-            
-            // Actualizar el select con los nuevos productos
+            const valorAnterior = select.value;
             actualizarSelectConProductos(select, productosRecibidos);
             
-            // Restaurar la selección anterior si existía
-            if (productoSeleccionado) {
-                const opcionExistente = Array.from(select.options).find(
-                    option => option.value === productoSeleccionado
-                );
-                
-                if (opcionExistente) {
-                    select.value = productoSeleccionado;
-                    
-                    // Disparar evento de cambio para actualizar información del producto
-                    setTimeout(() => {
-                        const evento = new Event('change');
-                        select.dispatchEvent(evento);
-                    }, 100);
-                    
-                    console.log(`✅ Select ${index + 1}: Selección restaurada (${productoSeleccionado})`);
-                } else {
-                    // El producto seleccionado ya no está disponible en el filtro
-                    console.log(`⚠️ Select ${index + 1}: Producto "${textoSeleccionado}" no disponible en filtro`);
-                    select.value = '';
-                    mostrarAlerta('warning', '⚠️ Producto no disponible', 
-                        `El producto "${textoSeleccionado}" ya no está disponible con el filtro actual. Por favor seleccione otro.`);
+            if (valorAnterior) {
+                const existe = Array.from(select.options).some(opt => opt.value === valorAnterior);
+                if (existe) {
+                    select.value = valorAnterior;
+                    setTimeout(() => select.dispatchEvent(new Event('change')), 100);
                 }
             }
         });
         
-        // Mostrar información del filtro
+        // Mostrar info del filtro
         const filtroInfo = document.getElementById('filtro-info');
         const filtroActual = document.getElementById('filtro-actual');
         
         if (idCategoria === '0') {
             filtroInfo.style.display = 'none';
-            filtroActual.textContent = 'Todas las categorías';
         } else {
             filtroInfo.style.display = 'block';
             filtroActual.textContent = nombreCategoria;
         }
         
-        // Mostrar mensaje informativo
-        mostrarAlerta('success', '✅ Filtro aplicado', 
-            `Mostrando ${productosRecibidos.length} productos de: ${nombreCategoria}`);
+        mostrarAlerta('success', '✅ Filtro aplicado', `${productosRecibidos.length} productos de: ${nombreCategoria}`);
         
     } catch (error) {
-        console.error('❌ Error al aplicar filtro:', error);
-        mostrarAlerta('danger', '❌ Error', `No se pudieron cargar los productos: ${error.message}`);
+        console.error('❌ Error:', error);
+        mostrarAlerta('danger', '❌ Error', error.message);
     } finally {
-        // Restaurar botón
         const btnFiltro = document.getElementById('btn-aplicar-filtro');
         btnFiltro.innerHTML = '<i class="fas fa-filter me-1"></i>Aplicar Filtro';
         btnFiltro.disabled = false;
@@ -1018,49 +1066,43 @@ async function aplicarFiltroCategoria() {
 }
 
 function actualizarSelectConProductos(select, productos) {
-    // Guardar el valor seleccionado actualmente
-    const valorSeleccionado = select.value;
+    if (!select || !Array.isArray(productos)) return;
     
-    // Limpiar opciones actuales
+    const valorAnterior = select.value;
     select.innerHTML = '<option value="" disabled selected>Seleccionar producto...</option>';
     
-    // Agregar nuevos productos
     productos.forEach(producto => {
         const option = document.createElement('option');
         option.value = producto.id;
         
-        // Formatear mejor la información
         const stock = producto.existencias || 0;
-        const stockText = stock === 0 ? 'SIN STOCK' : `${stock} ${producto.simbolo_medida || ''}`;
+        const simbolo = producto.simbolo_medida || '';
+        const stockText = stock === 0 ? 'SIN STOCK' : `${stock} ${simbolo}`;
         
         option.textContent = `${producto.descripcion} (${producto.codigo}) - Stock: ${stockText}`;
         option.dataset.codigo = producto.codigo;
         option.dataset.existencias = stock;
         option.dataset.categoria = producto.id_categoria;
         option.dataset.unidad = producto.unidad_medida || '';
-        option.dataset.simbolo = producto.simbolo_medida || '';
+        option.dataset.simbolo = simbolo;
         
         select.appendChild(option);
     });
     
-    // Restaurar la selección anterior si existe
-    if (valorSeleccionado) {
-        select.value = valorSeleccionado;
+    if (valorAnterior) {
+        select.value = valorAnterior;
     }
 }
 
 function limpiarFiltro() {
-    console.log('🧹 Limpiando filtro...');
     document.getElementById('filtro_categoria').value = '0';
     document.getElementById('filtro-info').style.display = 'none';
     filtroCategoriaActual = 0;
-    
-    // Aplicar filtro "todas las categorías"
     aplicarFiltroCategoria();
 }
 
 // ============================================
-// FUNCIONES DE GESTIÓN DE PRODUCTOS (VERSIÓN SIMPLIFICADA)
+// FUNCIONES DE GESTIÓN DE PRODUCTOS
 // ============================================
 
 function agregarProducto() {
@@ -1076,7 +1118,6 @@ function agregarProducto() {
                 </button>
             </div>
             <div class="product-grid">
-                <!-- Producto -->
                 <div>
                     <label class="form-label required-field">Producto</label>
                     <select class="form-select form-select-sm producto-select" name="productos[]" required 
@@ -1088,7 +1129,6 @@ function agregarProducto() {
                     <small class="text-muted" id="producto-info-${contadorProductos}" style="display: none;"></small>
                 </div>
                 
-                <!-- Cantidad -->
                 <div>
                     <label class="form-label required-field">Cantidad</label>
                     <div class="input-group input-group-sm">
@@ -1100,7 +1140,6 @@ function agregarProducto() {
                     <div class="invalid-feedback">Ingrese una cantidad válida</div>
                 </div>
                 
-                <!-- Costo Unitario (único precio necesario) -->
                 <div>
                     <label class="form-label required-field">Costo Unitario (C$)</label>
                     <div class="input-group input-group-sm">
@@ -1110,10 +1149,8 @@ function agregarProducto() {
                                onchange="calcularSubtotal(${contadorProductos})">
                     </div>
                     <div class="invalid-feedback">Ingrese un costo válido</div>
-                    <small class="text-muted"></small>
                 </div>
                 
-                <!-- Subtotal -->
                 <div>
                     <label class="form-label">Subtotal</label>
                     <div class="input-group input-group-sm">
@@ -1122,56 +1159,52 @@ function agregarProducto() {
                     </div>
                 </div>
             </div>
-            <!-- Información de stock -->
             <small class="text-muted stock-info" id="stock-info-${contadorProductos}" style="display: none; margin-top: 0.5rem;"></small>
         </div>
     `;
     
     document.getElementById('productos-container').insertAdjacentHTML('beforeend', productoHTML);
     
-    // Inicializar el select con productos
     const nuevoSelect = document.getElementById(`producto-card-${contadorProductos}`).querySelector('.producto-select');
     
-    // Si hay productos en caché, usarlos
     if (productosEnCache.length > 0) {
-        console.log(`📦 Usando caché para nuevo select (${productosEnCache.length} productos)`);
         actualizarSelectConProductos(nuevoSelect, productosEnCache);
     } else {
-        console.log('🔄 Cargando productos iniciales...');
-        // Cargar todos los productos
         aplicarFiltroCategoria();
     }
     
     actualizarTotales();
     actualizarMensajeProductos();
     
-    // Desplazarse a la nueva tarjeta en móviles
     if (window.innerWidth <= 768) {
-        document.getElementById(`producto-card-${contadorProductos}`).scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        setTimeout(() => {
+            document.getElementById(`producto-card-${contadorProductos}`).scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }, 100);
     }
 }
 
 function eliminarProducto(id) {
-    console.log(`🗑️ Eliminando producto ${id}`);
     const tarjeta = document.getElementById(`producto-card-${id}`);
     if (tarjeta) {
-        // Verificar que quede al menos un producto
         const totalProductos = document.querySelectorAll('.product-card').length;
         if (totalProductos <= 1) {
             mostrarAlerta('warning', '⚠️ Advertencia', 'Debe haber al menos un producto en la compra');
             return;
         }
         
-        tarjeta.remove();
-        productos = productos.filter(p => p.id !== id);
-        actualizarTotales();
-        actualizarMensajeProductos();
+        tarjeta.style.opacity = '0';
+        tarjeta.style.transform = 'translateX(50px)';
+        tarjeta.style.transition = 'all 0.3s ease';
         
-        mostrarAlerta('info', '🗑️ Producto eliminado', 'El producto ha sido removido de la compra');
+        setTimeout(() => {
+            tarjeta.remove();
+            productos = productos.filter(p => p.id !== id);
+            actualizarTotales();
+            actualizarMensajeProductos();
+        }, 300);
     }
 }
 
-// ACTUALIZACIÓN EN TIEMPO REAL AL SELECCIONAR PRODUCTO
 async function actualizarInfoProducto(id) {
     const tarjeta = document.getElementById(`producto-card-${id}`);
     if (!tarjeta) return;
@@ -1180,64 +1213,54 @@ async function actualizarInfoProducto(id) {
     const productoInfo = document.getElementById(`producto-info-${id}`);
     const stockInfo = document.getElementById(`stock-info-${id}`);
     const unidadSimbolo = document.getElementById(`unidad-simbolo-${id}`);
-    const costoInput = tarjeta.querySelector('.costo');
-    const cantidadInput = tarjeta.querySelector('.cantidad');
-    
-    console.log(`🔄 Actualizando info para producto ${id}: ${select.value}`);
     
     if (select.value && select.selectedOptions[0].dataset) {
         const dataset = select.selectedOptions[0].dataset;
         
         try {
-            // Actualizar símbolo de unidad de medida
             if (unidadSimbolo && dataset.simbolo) {
                 unidadSimbolo.textContent = dataset.simbolo || 'und';
             }
             
-            // Actualizar información del producto
             if (productoInfo) {
-                productoInfo.innerHTML = `<span class="text-primary">${dataset.codigo}</span>`;
+                productoInfo.innerHTML = `<span class="text-primary">Código: ${dataset.codigo}</span>`;
                 productoInfo.style.display = 'block';
             }
             
-            // Verificar existencias actuales usando la API
             const data = await obtenerExistenciasActuales(select.value);
             
-            if (data.error) {
-                throw new Error(data.error);
+            if (!data.error) {
+                const existenciasActual = data.existencias;
+                const unidad = data.unidad_medida || dataset.unidad || 'unidades';
+                
+                let stockClass = 'stock-good';
+                let stockIcon = '✅';
+                let stockText = `Stock actual: ${existenciasActual} ${unidad}`;
+                
+                if (existenciasActual === 0) {
+                    stockClass = 'stock-danger';
+                    stockIcon = '⚠️';
+                    stockText = `Sin stock: ${existenciasActual} ${unidad}`;
+                } else if (existenciasActual <= 5) {
+                    stockClass = 'stock-low';
+                    stockIcon = '⚠️';
+                    stockText = `Stock muy bajo: ${existenciasActual} ${unidad}`;
+                } else if (existenciasActual <= 15) {
+                    stockClass = 'stock-medium';
+                    stockIcon = '📊';
+                    stockText = `Stock moderado: ${existenciasActual} ${unidad}`;
+                }
+                
+                if (stockInfo) {
+                    stockInfo.innerHTML = `<span class="${stockClass}">${stockIcon} ${stockText}</span>`;
+                    stockInfo.style.display = 'block';
+                }
             }
             
-            const existenciasActual = data.existencias;
-            const unidad = data.unidad_medida || 'unidades';
-            
-            console.log(`📊 Stock actual: ${existenciasActual} ${unidad}`);
-            
-            // Mostrar información de stock
-            let stockClass = 'stock-good';
-            let stockIcon = '✅';
-            let stockText = `Stock actual: ${existenciasActual} ${unidad}`;
-            
-            if (existenciasActual === 0) {
-                stockClass = 'stock-danger';
-                stockIcon = '⚠️';
-                stockText = `Sin stock: ${existenciasActual} ${unidad}`;
-            } else if (existenciasActual <= 5) {
-                stockClass = 'stock-low';
-                stockIcon = '⚠️';
-                stockText = `Stock muy bajo: ${existenciasActual} ${unidad}`;
-            } else if (existenciasActual <= 15) {
-                stockClass = 'stock-medium';
-                stockIcon = '📊';
-                stockText = `Stock moderado: ${existenciasActual} ${unidad}`;
-            }
-            
-            if (stockInfo) {
-                stockInfo.innerHTML = `<span class="${stockClass}">${stockIcon} ${stockText}</span>`;
-                stockInfo.style.display = 'block';
-            }
+            calcularSubtotal(id);
             
         } catch (error) {
-            console.error('❌ Error en actualización tiempo real:', error);
+            console.error('❌ Error:', error);
             if (stockInfo) {
                 stockInfo.innerHTML = `<span class="stock-danger">❌ Error al verificar existencias</span>`;
                 stockInfo.style.display = 'block';
@@ -1246,6 +1269,7 @@ async function actualizarInfoProducto(id) {
     } else {
         if (productoInfo) productoInfo.style.display = 'none';
         if (stockInfo) stockInfo.style.display = 'none';
+        if (unidadSimbolo) unidadSimbolo.textContent = 'und';
     }
 }
 
@@ -1257,43 +1281,36 @@ function formatCurrency(number) {
     return 'C$ ' + num.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
 }
 
-function parseNumericFromDatasetOrString(value) {
-    if (value === undefined || value === null) return 0;
-    // Si viene como dataset (string sin formato) ya debería ser numérico
-    if (typeof value === 'number') return value;
-    // Eliminar cualquier carácter no numérico salvo punto y guión
-    const cleaned = String(value).replace(/[^0-9.-]+/g, '');
-    const n = parseFloat(cleaned);
-    return isNaN(n) ? 0 : n;
-}
-
 function calcularSubtotal(id) {
     const tarjeta = document.getElementById(`producto-card-${id}`);
     if (!tarjeta) return;
     
-    const cantidad = parseFloat(tarjeta.querySelector('.cantidad').value) || 0;
-    const costo = parseFloat(tarjeta.querySelector('.costo').value) || 0;
+    const cantidadInput = tarjeta.querySelector('.cantidad');
+    const costoInput = tarjeta.querySelector('.costo');
+    
+    if (!cantidadInput || !costoInput) return;
+    
+    const cantidad = parseFloat(cantidadInput.value) || 0;
+    const costo = parseFloat(costoInput.value) || 0;
     const subtotal = cantidad * costo;
 
     const subtotalInput = tarjeta.querySelector('.subtotal');
     if (subtotalInput) {
-        // Guardar valor numérico en dataset y mostrar formato legible
         subtotalInput.dataset.value = subtotal.toFixed(2);
         subtotalInput.value = formatCurrency(subtotal);
     }
     
     actualizarTotales();
-    
-    console.log(`🧮 Subtotal producto ${id}: ${cantidad} x ${costo} = ${subtotal.toFixed(2)}`);
 }
 
 function actualizarTotales() {
     let totalCompra = 0;
     let totalProductos = 0;
+    
     document.querySelectorAll('.product-card').forEach(producto => {
         const subtotalInput = producto.querySelector('.subtotal');
-        if (subtotalInput) {
-            const valor = parseNumericFromDatasetOrString(subtotalInput.dataset.value || subtotalInput.value);
+        if (subtotalInput && subtotalInput.dataset.value) {
+            const valor = parseFloat(subtotalInput.dataset.value) || 0;
             if (valor > 0) {
                 totalCompra += valor;
                 totalProductos++;
@@ -1304,8 +1321,6 @@ function actualizarTotales() {
     document.getElementById('total-compra').textContent = formatCurrency(totalCompra);
     document.getElementById('subtotal').textContent = formatCurrency(totalCompra);
     document.getElementById('total-productos').textContent = totalProductos;
-    
-    console.log(`💰 Total compra: C$ ${totalCompra.toFixed(2)}, Productos: ${totalProductos}`);
 }
 
 function actualizarMensajeProductos() {
@@ -1325,17 +1340,21 @@ function actualizarMensajeProductos() {
 // FUNCIONES DE API
 // ============================================
 
-// VERIFICACIÓN DE EXISTENCIAS EN TIEMPO REAL
 async function obtenerExistenciasActuales(idProducto) {
     try {
-        console.log(`🔍 Verificando existencias para producto ${idProducto}...`);
-        const url = `/admin/compras/verificar-existencias/${idProducto}`;
+        const url = getRuta('existencias', idProducto);
+        console.log(`🔍 Verificando existencias: ${url}`);
         
-        const response = await fetch(url);
+        const response = await fetch(url, {
+            method: 'GET',
+            headers: {
+                'Accept': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        });
         
         if (!response.ok) {
-            const errorText = await response.text();
-            throw new Error(`Error HTTP ${response.status}: ${errorText}`);
+            throw new Error(`Error HTTP ${response.status}`);
         }
         
         const data = await response.json();
@@ -1344,10 +1363,9 @@ async function obtenerExistenciasActuales(idProducto) {
             throw new Error(data.error);
         }
         
-        console.log(`✅ Existencias obtenidas: ${data.existencias} unidades`);
         return data;
     } catch (error) {
-        console.error('❌ Error obteniendo existencias en tiempo real:', error);
+        console.error('❌ Error:', error);
         return { existencias: 0, error: error.message };
     }
 }
@@ -1362,6 +1380,7 @@ function mostrarAlerta(tipo, titulo, mensaje) {
     
     const alerta = document.createElement('div');
     alerta.className = `alert alert-${tipo} alert-dismissible fade show alert-flotante`;
+    alerta.role = 'alert';
     alerta.innerHTML = `
         <strong>${titulo}</strong> ${mensaje}
         <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
@@ -1370,19 +1389,19 @@ function mostrarAlerta(tipo, titulo, mensaje) {
     
     setTimeout(() => {
         if (alerta.parentNode) {
-            alerta.remove();
+            alerta.classList.remove('show');
+            setTimeout(() => alerta.remove(), 300);
         }
     }, 5000);
 }
 
 // ============================================
-// VALIDACIÓN Y ENVÍO DE FORMULARIO (ACTUALIZADAS)
+// VALIDACIÓN Y ENVÍO DE FORMULARIO
 // ============================================
 
-// VALIDACIÓN BÁSICA PARA COMPRAS
 function validarCompraBasica() {
-    console.log('🔍 Validando formulario...');
     let valido = true;
+    let primerError = null;
     
     const camposRequeridos = [
         { id: 'fecha', nombre: 'Fecha de compra' },
@@ -1392,177 +1411,165 @@ function validarCompraBasica() {
     
     camposRequeridos.forEach(campo => {
         const elemento = document.getElementById(campo.id);
-        if (!elemento.value) {
-            elemento.classList.add("is-invalid");
+        if (!elemento || !elemento.value) {
+            if (elemento) {
+                elemento.classList.add("is-invalid");
+                if (!primerError) primerError = elemento;
+            }
             mostrarAlerta('warning', '⚠️ Campo requerido', `${campo.nombre} es obligatorio`);
             valido = false;
-            console.log(`❌ Campo requerido vacío: ${campo.nombre}`);
         } else {
             elemento.classList.remove("is-invalid");
         }
     });
 
-    // Validar productos
     const tarjetas = document.querySelectorAll(".product-card");
-    console.log(`📦 Productos en tarjetas: ${tarjetas.length}`);
     
     if (tarjetas.length === 0) {
-        mostrarAlerta('danger', '❌ Error!', 'Debe agregar al menos un producto a la compra.');
+        mostrarAlerta('danger', '❌ Error!', 'Debe agregar al menos un producto.');
         return false;
     }
     
-    // Validar que haya al menos un producto con cantidad > 0 y costo > 0
     let hayProductosValidos = false;
-    tarjetas.forEach((tarjeta, index) => {
+    tarjetas.forEach((tarjeta) => {
         const select = tarjeta.querySelector(".producto-select");
         const cantidad = tarjeta.querySelector(".cantidad");
         const costo = tarjeta.querySelector(".costo");
         
+        if (!select || !cantidad || !costo) return;
+        
         const cantidadVal = parseFloat(cantidad.value) || 0;
         const costoVal = parseFloat(costo.value) || 0;
         
+        select.classList.remove("is-invalid");
+        cantidad.classList.remove("is-invalid");
+        costo.classList.remove("is-invalid");
+        
         if (select.value && cantidadVal > 0 && costoVal > 0) {
             hayProductosValidos = true;
-            select.classList.remove("is-invalid");
-            cantidad.classList.remove("is-invalid");
-            costo.classList.remove("is-invalid");
-            console.log(`✅ Producto ${index + 1}: válido`);
         } else {
-            console.log(`❌ Producto ${index + 1}: inválido`, {
-                select: select.value,
-                cantidad: cantidadVal,
-                costo: costoVal
-            });
-            if (!select.value) select.classList.add("is-invalid");
-            if (cantidadVal <= 0) cantidad.classList.add("is-invalid");
-            if (costoVal <= 0) costo.classList.add("is-invalid");
+            if (!select.value) {
+                select.classList.add("is-invalid");
+                if (!primerError) primerError = select;
+            }
+            if (cantidadVal <= 0) {
+                cantidad.classList.add("is-invalid");
+                if (!primerError) primerError = cantidad;
+            }
+            if (costoVal <= 0) {
+                costo.classList.add("is-invalid");
+                if (!primerError) primerError = costo;
+            }
         }
     });
     
     if (!hayProductosValidos) {
-        mostrarAlerta('danger', '❌ Error!', 'Debe agregar al menos un producto con cantidad y costo válidos.');
+        mostrarAlerta('danger', '❌ Error!', 'Agregue al menos un producto con cantidad y costo válidos.');
         valido = false;
     }
     
-    // Validación específica para crédito
     const tipoCompra = document.getElementById('tipo_compra').value;
     const idProveedor = document.getElementById('id_proveedor').value;
     
     if (tipoCompra === 'CREDITO' && !idProveedor) {
-        mostrarAlerta('warning', '⚠️ Proveedor requerido', 'Para compras a crédito debe seleccionar un proveedor');
+        mostrarAlerta('warning', '⚠️ Proveedor requerido', 'Para compras a crédito seleccione un proveedor');
         document.getElementById('id_proveedor').classList.add('is-invalid');
+        if (!primerError) primerError = document.getElementById('id_proveedor');
         valido = false;
     }
     
-    if (!valido) {
-        // Desplazarse al primer error
-        const primerError = document.querySelector(".is-invalid");
-        if (primerError) {
-            primerError.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    if (tipoCompra === 'CREDITO') {
+        const fechaVencimiento = document.getElementById('fecha_vencimiento').value;
+        const fechaCompra = document.getElementById('fecha').value;
+        
+        if (!fechaVencimiento) {
+            mostrarAlerta('warning', '⚠️ Fecha requerida', 'Especifique fecha de vencimiento');
+            document.getElementById('fecha_vencimiento').classList.add('is-invalid');
+            if (!primerError) primerError = document.getElementById('fecha_vencimiento');
+            valido = false;
+        } else if (fechaCompra && fechaVencimiento < fechaCompra) {
+            mostrarAlerta('warning', '⚠️ Fecha inválida', 'Fecha de vencimiento no puede ser anterior a la compra');
+            document.getElementById('fecha_vencimiento').classList.add('is-invalid');
+            if (!primerError) primerError = document.getElementById('fecha_vencimiento');
+            valido = false;
         }
-    } else {
-        console.log('✅ Validación exitosa');
+    }
+    
+    if (!valido && primerError) {
+        setTimeout(() => {
+            primerError.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            primerError.focus();
+        }, 100);
     }
     
     return valido;
 }
 
-// PROCESAR COMPRA (ACTUALIZADO - SIN PRECIO DE VENTA)
 function procesarCompra() {
     console.log('🚀 Procesando compra...');
     const formData = new FormData();
 
-    // Agregar campos EXACTAMENTE como los espera el backend
     formData.append('fecha', document.getElementById('fecha').value);
-    formData.append('n_factura_externa', document.getElementById('n_factura_externa').value);
-    formData.append('id_proveedor', document.getElementById('id_proveedor').value);
+    formData.append('n_factura_externa', document.getElementById('n_factura_externa').value || '');
+    formData.append('id_proveedor', document.getElementById('id_proveedor').value || '');
     formData.append('tipo_compra', document.getElementById('tipo_compra').value);
     formData.append('id_bodega', document.getElementById('id_bodega').value);
-    formData.append('observacion', document.getElementById('observacion').value);
+    formData.append('observacion', document.getElementById('observacion').value || '');
     formData.append('id_usuario_creacion', document.getElementById('id_usuario_creacion').value);
     
-    console.log('📋 Datos generales:', {
-        fecha: document.getElementById('fecha').value,
-        proveedor: document.getElementById('id_proveedor').value,
-        tipo_compra: document.getElementById('tipo_compra').value,
-        bodega: document.getElementById('id_bodega').value
-    });
-    
-    // Si es crédito, agregar fecha de vencimiento
     if (document.getElementById('tipo_compra').value === 'CREDITO') {
         const fechaVencimiento = document.getElementById('fecha_vencimiento').value;
         if (fechaVencimiento) {
             formData.append('fecha_vencimiento', fechaVencimiento);
-            console.log('📅 Fecha vencimiento crédito:', fechaVencimiento);
         }
     }
     
-    // Campos de productos - AHORA SOLO CON PRODUCTO, CANTIDAD Y COSTO
     const productoElements = document.querySelectorAll('.product-card');
     let productosValidos = 0;
     
-    console.log(`📦 Procesando ${productoElements.length} productos...`);
-    
-    productoElements.forEach((item, index) => {
+    productoElements.forEach((item) => {
         const select = item.querySelector('.producto-select');
         const cantidad = item.querySelector('.cantidad');
         const costo = item.querySelector('.costo');
         
+        if (!select || !cantidad || !costo) return;
+        
         const productoId = select.value;
-        const cantidadVal = parseFloat(cantidad.value);
-        const costoVal = parseFloat(costo.value);
+        const cantidadVal = parseFloat(cantidad.value) || 0;
+        const costoVal = parseFloat(costo.value) || 0;
         
         if (productoId && cantidadVal > 0 && costoVal > 0) {
-            
-            // AGREGAR SOLO LOS CAMPOS QUE EL BACKEND ESPERA
             formData.append('productos[]', productoId);
             formData.append('cantidades[]', cantidadVal.toFixed(4));
             formData.append('costos_unitarios[]', costoVal.toFixed(2));
-            
             productosValidos++;
-            
-            console.log(`✅ Producto ${index + 1}:`, {
-                id: productoId,
-                cantidad: cantidadVal.toFixed(4),
-                costo: costoVal.toFixed(2),
-                subtotal: (cantidadVal * costoVal).toFixed(2)
-            });
         }
     });
 
-    // Validaciones críticas
     if (productosValidos === 0) {
         mostrarAlerta('danger', '❌ Error!', 'Debe agregar al menos un producto válido');
         return;
     }
 
-    const tipoCompra = document.getElementById('tipo_compra').value;
-    const idProveedor = document.getElementById('id_proveedor').value;
-    
-    if (tipoCompra === 'CREDITO' && !idProveedor) {
-        mostrarAlerta('danger', '❌ Error!', 'Para compras a crédito debe seleccionar un proveedor');
-        document.getElementById('id_proveedor').focus();
-        return;
-    }
-
-    // Mostrar loading
     const submitBtn = document.querySelector('#formCompra button[type="submit"]');
     const originalText = submitBtn.innerHTML;
     submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> Procesando...';
     submitBtn.disabled = true;
 
-    console.log('📤 Enviando datos al servidor...');
+    const url = getRuta('crear');
+    console.log('📤 Enviando a:', url);
     
-    // ENVIAR A LA RUTA CORRECTA
-    fetch("/admin/compras/compras-entradas/crear", {
+    fetch(url, {
         method: 'POST',
-        body: formData
+        body: formData,
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest'
+        }
     })
     .then(response => {
-        console.log('📥 Respuesta del servidor:', response.status, response.statusText);
+        console.log('📥 Respuesta:', response.status);
         
         if (response.redirected) {
-            console.log('🔄 Redireccionando a:', response.url);
             window.location.href = response.url;
             return null;
         }
@@ -1572,53 +1579,33 @@ function procesarCompra() {
     .then(text => {
         if (text === null) return;
         
-        try {
-            const resultado = JSON.parse(text);
-            console.log('📊 Resultado JSON:', resultado);
-            
-            if (resultado.error) {
-                throw new Error(resultado.error);
-            }
-            mostrarAlerta('success', '✅ Éxito', resultado.message || 'Compra creada exitosamente');
-            
-            // Redirigir después de 2 segundos
-            setTimeout(() => {
-                window.location.href = "/admin/compras/compras-entradas";
-            }, 2000);
-            
-        } catch (e) {
-            // Si no es JSON, puede ser HTML de error
-            console.error('❌ Error parsing response:', e);
-            if (text.includes('error') || text.includes('Error')) {
-                throw new Error('Error del servidor al procesar la compra');
-            }
-            // Intentar manejar la redirección
-            window.location.href = "/admin/compras/compras-entradas";
-        }
+        console.log('✅ Compra procesada');
+        mostrarAlerta('success', '✅ Éxito', 'Compra creada exitosamente');
+        
+        setTimeout(() => {
+            window.location.href = getRuta('listado');
+        }, 1500);
     })
     .catch(error => {
-        console.error('❌ Error completo:', error);
+        console.error('❌ Error:', error);
         mostrarAlerta('danger', '❌ Error!', error.message || 'Error al procesar la compra');
-        
-        // Restaurar botón
         submitBtn.innerHTML = originalText;
         submitBtn.disabled = false;
     });
 }
 
-// ENVIAR FORMULARIO CON VALIDACIÓN
-document.getElementById('formCompra').addEventListener('submit', async function(e) {
+document.getElementById('formCompra').addEventListener('submit', function(e) {
     e.preventDefault();
-    console.log('📝 Enviando formulario...');
+    console.log('📝 Validando formulario...');
     
-    // Validación síncrona primero
     if (!validarCompraBasica()) {
         console.log('❌ Validación fallida');
-        return;
+        return false;
     }
 
-    // Mostrar modal de confirmación en lugar del confirm() básico
+    console.log('✅ Mostrando modal de confirmación');
     mostrarModalConfirmacion();
+    return false;
 });
 </script>
 {% endblock %}

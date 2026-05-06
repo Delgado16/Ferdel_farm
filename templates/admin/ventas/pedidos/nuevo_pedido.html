@@ -10,8 +10,8 @@
             <h2><i class="fas fa-plus-circle me-2"></i>Nuevo Pedido</h2>
             <nav aria-label="breadcrumb">
                 <ol class="breadcrumb">
-                    <li class="breadcrumb-item"><a href="{{ url_for('admin_dashboard') }}">Inicio</a></li>
-                    <li class="breadcrumb-item"><a href="{{ url_for('admin_pedidos_venta') }}">Pedidos</a></li>
+                    <li class="breadcrumb-item"><a href="{{ url_for('admin.admin_dashboard') }}">Inicio</a></li>
+                    <li class="breadcrumb-item"><a href="{{ url_for('admin.admin_pedidos_venta') }}">Pedidos</a></li>
                     <li class="breadcrumb-item active" aria-current="page">Nuevo Pedido Individual</li>
                 </ol>
             </nav>
@@ -22,10 +22,10 @@
         </div>
         <div>
             <div class="btn-group">
-                <a href="{{ url_for('admin_pedidos_venta') }}" class="btn btn-outline-secondary">
+                <a href="{{ url_for('admin.admin_pedidos_venta') }}" class="btn btn-outline-secondary">
                     <i class="fas fa-arrow-left me-1"></i> Cancelar
                 </a>
-                <a href="{{ url_for('nuevo_pedido_consolidado') }}" class="btn btn-outline-info">
+                <a href="{{ url_for('admin.nuevo_pedido_consolidado') }}" class="btn btn-outline-info">
                     <i class="fas fa-layer-group me-1"></i> Ir a Pedido Consolidado
                 </a>
             </div>
@@ -278,7 +278,7 @@
                                 <button type="button" class="btn btn-secondary" onclick="window.history.back()">
                                     <i class="fas fa-times me-1"></i> Cancelar
                                 </button>
-                                <a href="{{ url_for('nuevo_pedido_consolidado') }}" class="btn btn-outline-info ms-2">
+                                <a href="{{ url_for('admin.nuevo_pedido_consolidado') }}" class="btn btn-outline-info ms-2">
                                     <i class="fas fa-layer-group me-1"></i> Crear Pedido Consolidado
                                 </a>
                             </div>
@@ -388,6 +388,18 @@ let tipoClienteActual = null;
 let perfilClienteActual = null;
 
 // ============================================
+// URLs DE API - Generadas con url_for
+// ============================================
+const API_URLS = {
+    categoriasVisibles: "{{ url_for('admin.obtener_categorias_visibles') }}",
+    productosCategoria: "{{ url_for('admin.obtener_productos_categoria') }}",
+    buscarProductos: "{{ url_for('admin.buscar_productos') }}",
+    stockProducto: "{{ url_for('admin.obtener_stock_producto', producto_id=999999) }}".replace('999999', ''),
+    crearPedido: "{{ url_for('admin.crear_pedido') }}",
+    verPedido: "{{ url_for('admin.ver_pedido', id_pedido=999999) }}".replace('999999', '')
+};
+
+// ============================================
 // FUNCIONES DE UTILIDAD
 // ============================================
 
@@ -447,6 +459,7 @@ function getPerfilBadge(perfil) {
 // ============================================
 document.addEventListener('DOMContentLoaded', function() {
     console.log('🚀 Inicializando formulario de pedido individual');
+    console.log('🔗 API URLs configuradas:', API_URLS);
     
     // Configurar fecha actual por defecto
     const fechaInput = document.getElementById('fechaPedido');
@@ -739,7 +752,7 @@ function deshabilitarBusquedaProductos() {
 }
 
 // ============================================
-// FUNCIONES DE CATEGORÍAS
+// FUNCIONES DE CATEGORÍAS (CORREGIDAS)
 // ============================================
 
 function cargarCategoriasDisponibles(tipoCliente) {
@@ -766,7 +779,8 @@ function cargarCategoriasDisponibles(tipoCliente) {
     
     container.innerHTML = '<div class="spinner-border text-primary" role="status"><span class="visually-hidden">Cargando...</span></div>';
     
-    const url = `/admin/ventas/obtener-categorias-visibles?tipo_cliente=${encodeURIComponent(tipoCliente)}`;
+    // CORREGIDO: Usar API_URLS en lugar de URL fija
+    const url = `${API_URLS.categoriasVisibles}?tipo_cliente=${encodeURIComponent(tipoCliente)}`;
     console.log('🔍 URL categorías:', url);
     
     fetch(url)
@@ -820,7 +834,7 @@ function cargarCategoriasDisponibles(tipoCliente) {
 }
 
 // ============================================
-// FUNCIONES DE PRODUCTOS
+// FUNCIONES DE PRODUCTOS (CORREGIDAS)
 // ============================================
 
 function cargarProductosCategoria(categoriaId, categoriaNombre) {
@@ -862,12 +876,16 @@ function cargarProductosCategoria(categoriaId, categoriaNombre) {
             </div>
         </div>`;
     
-    const url = `/admin/ventas/obtener-productos-categoria?categoria_id=${categoriaId}&tipo_cliente=${encodeURIComponent(tipoClienteActual)}&perfil_cliente=${encodeURIComponent(perfilClienteActual)}`;
+    // CORREGIDO: Usar API_URLS en lugar de URL fija
+    const url = `${API_URLS.productosCategoria}?categoria_id=${categoriaId}&tipo_cliente=${encodeURIComponent(tipoClienteActual)}&perfil_cliente=${encodeURIComponent(perfilClienteActual)}`;
     console.log('🔍 URL productos:', url);
     
     fetch(url)
         .then(response => {
             console.log('📥 Response status productos:', response.status);
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
             return response.json();
         })
         .then(data => {
@@ -902,6 +920,10 @@ function cargarProductosCategoria(categoriaId, categoriaNombre) {
                 const col = document.createElement('div');
                 col.className = 'col-md-6 col-lg-4 mb-3';
                 
+                // Escapar correctamente para onclick
+                const productoJSON = JSON.stringify(producto).replace(/'/g, "&#39;").replace(/"/g, '&quot;');
+                const productoNombreEscapado = producto.nombre.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+                
                 col.innerHTML = `
                     <div class="card h-100">
                         <div class="card-body">
@@ -920,12 +942,12 @@ function cargarProductosCategoria(categoriaId, categoriaNombre) {
                                 </div>
                                 <div>
                                     <button type="button" class="btn btn-sm btn-outline-info me-1" 
-                                            onclick="verStockProducto(${producto.id}, '${producto.nombre.replace(/'/g, "\\'")}')"
+                                            onclick="verStockProducto(${producto.id}, '${productoNombreEscapado}')"
                                             title="Ver stock por bodega">
                                         <i class="fas fa-warehouse"></i>
                                     </button>
                                     <button type="button" class="btn btn-sm btn-primary" 
-                                            onclick="agregarProducto(${JSON.stringify(producto).replace(/"/g, '&quot;')})">
+                                            onclick="agregarProducto(${productoJSON})">
                                         <i class="fas fa-plus me-1"></i> Agregar
                                     </button>
                                 </div>
@@ -950,7 +972,7 @@ function cerrarProductosCategoria() {
 }
 
 // ============================================
-// BÚSQUEDA DE PRODUCTOS
+// BÚSQUEDA DE PRODUCTOS (CORREGIDA)
 // ============================================
 
 function buscarProductos() {
@@ -971,10 +993,11 @@ function buscarProductos() {
     const resultadosDiv = document.getElementById('resultadosBusqueda');
     if (!resultadosDiv) return;
     
-    resultadosDiv.innerHTML = '<div class="spinner-border text-primary" role="status"><span class="visually-hidden">Buscando...</span></div>';
+    resultadosDiv.innerHTML = '<div class="text-center"><div class="spinner-border text-primary" role="status"><span class="visually-hidden">Buscando...</span></div></div>';
     resultadosDiv.style.display = 'block';
     
-    const url = `/admin/ventas/buscar-productos?q=${encodeURIComponent(termino)}&tipo_cliente=${encodeURIComponent(tipoClienteActual)}&perfil_cliente=${encodeURIComponent(perfilClienteActual)}`;
+    // CORREGIDO: Usar API_URLS en lugar de URL fija
+    const url = `${API_URLS.buscarProductos}?q=${encodeURIComponent(termino)}&tipo_cliente=${encodeURIComponent(tipoClienteActual)}&perfil_cliente=${encodeURIComponent(perfilClienteActual)}`;
     console.log('🔍 Buscando productos URL:', url);
     
     fetch(url)
@@ -1005,6 +1028,9 @@ function buscarProductos() {
             
             let html = '<div class="list-group">';
             productos.forEach(producto => {
+                const productoJSON = JSON.stringify(producto).replace(/'/g, "&#39;").replace(/"/g, '&quot;');
+                const productoNombreEscapado = producto.nombre.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+                
                 html += `
                     <div class="list-group-item list-group-item-action">
                         <div class="d-flex w-100 justify-content-between align-items-start">
@@ -1022,12 +1048,12 @@ function buscarProductos() {
                                         <span class="fw-bold text-success me-3">${formatCurrency(producto.precio)}</span>
                                         <span class="badge ${badgeInfo.clase} me-2">${badgeInfo.texto}</span>
                                         <button type="button" class="btn btn-sm btn-outline-info" 
-                                                onclick="verStockProducto(${producto.id}, '${producto.nombre.replace(/'/g, "\\'")}')"
+                                                onclick="verStockProducto(${producto.id}, '${productoNombreEscapado}')"
                                                 title="Ver stock por bodega">
                                             <i class="fas fa-warehouse"></i>
                                         </button>
                                         <button type="button" class="btn btn-sm btn-primary ms-1" 
-                                                onclick="agregarProductoDesdeBusqueda(${JSON.stringify(producto).replace(/"/g, '&quot;')})">
+                                                onclick="agregarProducto(${productoJSON})">
                                             <i class="fas fa-plus me-1"></i> Agregar
                                         </button>
                                     </div>
@@ -1055,7 +1081,7 @@ function agregarProductoDesdeBusqueda(producto) {
 }
 
 // ============================================
-// STOCK
+// STOCK (CORREGIDO)
 // ============================================
 
 function verStockProducto(productoId, productoNombre) {
@@ -1066,11 +1092,17 @@ function verStockProducto(productoId, productoNombre) {
     const modalProducto = document.getElementById('modalProductoNombre');
     if (modalProducto) modalProducto.textContent = productoNombre;
     
-    const url = `/admin/ventas/obtener-stock-producto/${productoId}`;
+    // CORREGIDO: Usar API_URLS en lugar de URL fija
+    const url = `${API_URLS.stockProducto}${productoId}`;
     console.log('📊 Ver stock URL:', url);
     
     fetch(url)
-        .then(response => response.json())
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.json();
+        })
         .then(data => {
             console.log('📦 Datos de stock:', data);
             
@@ -1090,6 +1122,7 @@ function verStockProducto(productoId, productoNombre) {
                 <div class="mb-3">
                     <p><strong>Código:</strong> ${data.codigo || 'N/A'}</p>
                     <p><strong>Stock Total:</strong> <span class="badge bg-success fs-6">${formatNumber(data.stock_total)}</span></p>
+                    <p><strong>Precio ${perfilClienteActual || 'Actual'}:</strong> <span class="badge bg-primary fs-6">${formatCurrency(data.precios?.[perfilClienteActual?.toLowerCase()] || 0)}</span></p>
                 </div>`;
             
             if (data.bodegas && data.bodegas.length > 0) {
@@ -1134,7 +1167,7 @@ function verStockProducto(productoId, productoNombre) {
                 contenidoStock.innerHTML = `
                     <div class="alert alert-danger">
                         <i class="fas fa-exclamation-triangle me-2"></i>
-                        Error al cargar el stock del producto
+                        Error al cargar el stock del producto: ${error.message}
                     </div>`;
             }
         });
@@ -1204,6 +1237,8 @@ function actualizarTablaProductos() {
     if (productosSeleccionados.length === 0) {
         if (filaVacia) filaVacia.style.display = '';
         if (tfoot) tfoot.style.display = 'none';
+        actualizarContadorProductos();
+        validarFormulario();
         return;
     }
     
@@ -1463,7 +1498,7 @@ function validarYConfirmarPedido() {
 }
 
 // ============================================
-// GUARDAR PEDIDO
+// GUARDAR PEDIDO (CORREGIDO)
 // ============================================
 function guardarPedido() {
     const btnGuardar = document.getElementById('btnConfirmarGuardar');
@@ -1499,23 +1534,30 @@ function guardarPedido() {
     
     console.log('📤 Enviando pedido:', datosPedido);
     
-    fetch('/admin/ventas/crear-pedido', {
+    // CORREGIDO: Usar API_URLS en lugar de URL fija
+    fetch(API_URLS.crearPedido, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
         },
         body: JSON.stringify(datosPedido)
     })
-    .then(response => response.json())
+    .then(response => {
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return response.json();
+    })
     .then(data => {
         console.log('📥 Respuesta del servidor:', data);
         
         if (modal) modal.hide();
         
         if (data.success) {
-            showToast('success', 'Pedido creado', `Pedido #${data.pedido_id} creado exitosamente con perfil ${data.perfil_cliente}`);
+            showToast('success', 'Pedido creado', `Pedido #${data.pedido_id} creado exitosamente con perfil ${data.perfil_cliente || perfilClienteActual}`);
             setTimeout(() => {
-                window.location.href = `/admin/ventas/pedido-venta/${data.pedido_id}`;
+                // CORREGIDO: Usar API_URLS en lugar de URL fija
+                window.location.href = API_URLS.verPedido + data.pedido_id;
             }, 1500);
         } else {
             showAlert('error', data.message || 'Error al crear el pedido');
@@ -1526,7 +1568,7 @@ function guardarPedido() {
     .catch(error => {
         console.error('❌ Error:', error);
         if (modal) modal.hide();
-        showAlert('error', 'Error al conectar con el servidor');
+        showAlert('error', 'Error al conectar con el servidor: ' + error.message);
         btnGuardar.disabled = false;
         btnGuardar.innerHTML = '<i class="fas fa-save me-1"></i> Confirmar y Guardar';
     });
@@ -1539,8 +1581,14 @@ function showAlert(type, message) {
     const alertDiv = document.createElement('div');
     alertDiv.className = `alert alert-${type} alert-dismissible fade show position-fixed`;
     alertDiv.style.cssText = 'top: 20px; right: 20px; z-index: 1055; max-width: 400px;';
+    
+    let icon = 'fa-info-circle';
+    if (type === 'success') icon = 'fa-check-circle';
+    else if (type === 'warning') icon = 'fa-exclamation-triangle';
+    else if (type === 'error' || type === 'danger') icon = 'fa-exclamation-circle';
+    
     alertDiv.innerHTML = `
-        <i class="fas ${type === 'success' ? 'fa-check-circle' : type === 'warning' ? 'fa-exclamation-triangle' : 'fa-exclamation-circle'} me-2"></i>
+        <i class="fas ${icon} me-2"></i>
         ${message}
         <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
     `;
@@ -1549,7 +1597,8 @@ function showAlert(type, message) {
     
     setTimeout(() => {
         if (alertDiv.parentNode) {
-            alertDiv.remove();
+            alertDiv.classList.remove('show');
+            setTimeout(() => alertDiv.remove(), 300);
         }
     }, 5000);
 }

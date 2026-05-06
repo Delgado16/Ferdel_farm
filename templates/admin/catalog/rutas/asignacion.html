@@ -29,7 +29,7 @@
     <div class="modal fade" id="crearAsignacionModal" tabindex="-1" aria-labelledby="crearAsignacionModalLabel" aria-hidden="true">
         <div class="modal-dialog modal-lg">
             <div class="modal-content">
-                <form id="formCrearAsignacion" action="{{ url_for('crear_asignacion_ruta') }}" method="POST">
+                <form id="formCrearAsignacion" action="{{ url_for('admin.crear_asignacion_ruta') }}" method="POST">
                     <div class="modal-header bg-primary text-white">
                         <h5 class="modal-title" id="crearAsignacionModalLabel">
                             <i class="bi bi-plus-circle"></i> Nueva Asignación
@@ -308,14 +308,14 @@
 
                                 {% if asignacion.Estado_Asignacion == 'Activa' %}
                                 <!-- Botón Editar -->
-                                <a href="{{ url_for('editar_asignacion_ruta', id=asignacion.ID_Asignacion) }}" 
+                                <a href="{{ url_for('admin.editar_asignacion_ruta', id=asignacion.ID_Asignacion) }}" 
                                    class="btn btn-outline-warning me-1"
                                    title="Editar Asignación">
                                     <i class="bi bi-pencil"></i>
                                 </a>
                                 
                                 <!-- Botón Finalizar -->
-                                <a href="{{ url_for('finalizar_asignacion_ruta', id=asignacion.ID_Asignacion) }}" 
+                                <a href="{{ url_for('admin.finalizar_asignacion_ruta', id=asignacion.ID_Asignacion) }}" 
                                    class="btn btn-outline-success me-1 btn-finalizar-directo"
                                    title="Finalizar Asignación">
                                     <i class="bi bi-flag-fill"></i>
@@ -323,7 +323,7 @@
 
                                 {% elif asignacion.Estado_Asignacion == 'Suspendida' %}
                                 <!-- Para asignaciones suspendidas, solo mostrar editar -->
-                                <a href="{{ url_for('editar_asignacion_ruta', id=asignacion.ID_Asignacion) }}" 
+                                <a href="{{ url_for('admin.editar_asignacion_ruta', id=asignacion.ID_Asignacion) }}" 
                                    class="btn btn-outline-warning me-1"
                                    title="Editar Asignación">
                                     <i class="bi bi-pencil"></i>
@@ -434,7 +434,7 @@
 <div class="modal fade" id="eliminarAsignacionModal" tabindex="-1" aria-labelledby="eliminarAsignacionModalLabel" aria-hidden="true">
     <div class="modal-dialog">
         <div class="modal-content">
-            <form method="POST" action="{{ url_for('eliminar_asignacion_ruta', id=0) }}" id="formEliminarAsignacion">
+            <form method="POST" action="{{ url_for('admin.eliminar_asignacion_ruta', id=0) }}" id="formEliminarAsignacion">
                 <div class="modal-header bg-danger text-white">
                     <h5 class="modal-title" id="eliminarAsignacionModalLabel">
                         <i class="bi bi-exclamation-triangle"></i> Confirmar Eliminación
@@ -744,7 +744,7 @@ $(document).ready(function() {
         console.log('Solicitando eliminación de asignación:', {asignacionId, vendedor, ruta});
         
         // Actualizar la acción del formulario con el ID correcto
-        var formAction = "{{ url_for('eliminar_asignacion_ruta', id=0) }}".replace('/0', '/' + asignacionId);
+        var formAction = "{{ url_for('admin.eliminar_asignacion_ruta', id=0) }}".replace('/0', '/' + asignacionId);
         $('#formEliminarAsignacion').attr('action', formAction);
         
         // Llenar el modal de eliminar con los datos
@@ -891,7 +891,7 @@ $(document).ready(function() {
 
         // Hacer petición AJAX a la API de disponibilidad
         $.ajax({
-            url: "{{ url_for('api_disponibilidad_asignaciones') }}",
+            url: "{{ url_for('admin.api_disponibilidad_asignaciones') }}",
             method: 'GET',
             data: {
                 fecha: fecha

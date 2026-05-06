@@ -1,0 +1,206 @@
+{% extends "layout.html" %}
+
+{% block title %}Estado de Resultados - FerDel{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">
+        <i class="bi bi-pie-chart"></i> Estado de Resultados
+    </h1>
+    <div class="btn-toolbar mb-2 mb-md-0">
+        <div class="btn-group">
+            <a href="{{ url_for('admin.reporte_estado_resultados', mes=mes_actual, formato='csv') }}" 
+               class="btn btn-sm btn-success">
+                <i class="bi bi-file-earmark-spreadsheet"></i> Exportar CSV
+            </a>
+            <a href="{{ url_for('admin.reporte_estado_resultados', mes=mes_actual, formato='json') }}" 
+               class="btn btn-sm btn-info">
+                <i class="bi bi-file-earmark-code"></i> Exportar JSON
+            </a>
+            <button class="btn btn-sm btn-secondary" onclick="window.print()">
+                <i class="bi bi-printer"></i> Imprimir
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Selector de Mes -->
+<div class="card shadow-sm mb-4">
+    <div class="card-header bg-light">
+        <i class="bi bi-calendar-month"></i> <strong>Seleccionar Período</strong>
+    </div>
+    <div class="card-body">
+        <form method="GET" action="{{ url_for('admin.reporte_estado_resultados') }}" class="row g-3">
+            <div class="col-md-4">
+                <label class="form-label">Mes a analizar</label>
+                <select name="mes" class="form-select">
+                    {% for mes in meses_disponibles %}
+                    <option value="{{ mes.mes }}" {% if mes_actual == mes.mes %}selected{% endif %}>
+                        {{ mes.mes }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-4 d-flex align-items-end">
+                <button type="submit" class="btn btn-primary">
+                    <i class="bi bi-search"></i> Generar Reporte
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Tarjetas de Resultados -->
+<div class="row mb-4">
+    <div class="col-md-4 mb-3">
+        <div class="card bg-success text-white">
+            <div class="card-body">
+                <h6 class="card-title">Total Ingresos</h6>
+                <h2>C${{ "{:,.0f}".format(total_ingresos) }}</h2>
+                <small>Ventas + Cobros del período</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4 mb-3">
+        <div class="card bg-danger text-white">
+            <div class="card-body">
+                <h6 class="card-title">Total Gastos</h6>
+                <h2>C${{ "{:,.0f}".format(total_gastos) }}</h2>
+                <small>Gastos operativos del período</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4 mb-3">
+        <div class="card {% if utilidad >= 0 %}bg-primary{% else %}bg-dark{% endif %} text-white">
+            <div class="card-body">
+                <h6 class="card-title">Utilidad Neta</h6>
+                <h2>C${{ "{:,.0f}".format(utilidad) }}</h2>
+                <small>Margen: {{ "%.1f"|format(margen) }}%</small>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Estado de Resultados Detallado -->
+<div class="row">
+    <div class="col-md-6">
+        <div class="card shadow-sm">
+            <div class="card-header bg-success text-white">
+                <i class="bi bi-cash-stack"></i> <strong>INGRESOS</strong>
+            </div>
+            <div class="card-body p-0">
+                <table class="table table-hover mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Concepto</th>
+                            <th class="text-end">Monto</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in resultados if item.Tipo == 'INGRESOS' %}
+                        <tr>
+                            <td>{{ item.Concepto }}</td>
+                            <td class="text-end text-success fw-bold">C${{ "{:,.0f}".format(item.Monto) }}</td>
+                        </tr>
+                        {% endfor %}
+                        <tr class="table-success">
+                            <td><strong>TOTAL INGRESOS</strong></td>
+                            <td class="text-end fw-bold">C${{ "{:,.0f}".format(total_ingresos) }}</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-6">
+        <div class="card shadow-sm">
+            <div class="card-header bg-danger text-white">
+                <i class="bi bi-receipt"></i> <strong>GASTOS</strong>
+            </div>
+            <div class="card-body p-0">
+                <table class="table table-hover mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Concepto</th>
+                            <th class="text-end">Monto</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in resultados if item.Tipo == 'GASTOS' %}
+                        <tr>
+                            <td>{{ item.Concepto }}</td>
+                            <td class="text-end text-danger fw-bold">C${{ "{:,.0f}".format(item.Monto) }}</td>
+                        </tr>
+                        {% endfor %}
+                        <tr class="table-danger">
+                            <td><strong>TOTAL GASTOS</strong></td>
+                            <td class="text-end fw-bold">C${{ "{:,.0f}".format(total_gastos) }}</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Resumen Final -->
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card {% if utilidad >= 0 %}bg-primary{% else %}bg-danger{% endif %} text-white">
+            <div class="card-body text-center">
+                <h4 class="mb-2">RESULTADO DEL PERÍODO</h4>
+                <h1 class="display-4">
+                    {% if utilidad >= 0 %}
+                        Utilidad: C${{ "{:,.0f}".format(utilidad) }}
+                    {% else %}
+                        Pérdida: C${{ "{:,.0f}".format(utilidad|abs) }}
+                    {% endif %}
+                </h1>
+                <p class="mb-0">
+                    Margen de ganancia: <strong>{{ "%.2f"|format(margen) }}%</strong>
+                    {% if margen < 10 and total_ingresos > 0 %}
+                        <span class="badge bg-warning text-dark">Margen bajo - Revisar costos</span>
+                    {% elif margen > 30 %}
+                        <span class="badge bg-success">Excelente margen</span>
+                    {% endif %}
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Análisis y Recomendaciones -->
+<div class="card mt-4">
+    <div class="card-header bg-info text-white">
+        <i class="bi bi-graph-up"></i> <strong>Análisis Ejecutivo</strong>
+    </div>
+    <div class="card-body">
+        <div class="row">
+            <div class="col-md-6">
+                <h6><i class="bi bi-bar-chart"></i> Indicadores Clave</h6>
+                <ul class="list-unstyled">
+                    <li>• Ratio Ingresos/Gastos: {{ "%.2f"|format(total_ingresos/total_gastos if total_gastos > 0 else 0) }}</li>
+                    <li>• Eficiencia Operativa: {{ "%.1f"|format((total_gastos/total_ingresos)*100 if total_ingresos > 0 else 0) }}%</li>
+                    <li>• Punto de equilibrio estimado: C${{ "{:,.0f}".format(total_gastos/(1-(total_gastos/total_ingresos)) if total_ingresos > total_gastos else total_gastos) }}</li>
+                </ul>
+            </div>
+            <div class="col-md-6">
+                <h6><i class="bi bi-lightbulb"></i> Recomendaciones</h6>
+                <ul class="list-unstyled">
+                    {% if margen < 15 %}
+                    <li class="text-warning">⚠️ Considere revisar precios o reducir costos operativos</li>
+                    {% endif %}
+                    {% if utilidad < 0 %}
+                    <li class="text-danger">⚠️ El negocio está operando con pérdidas. Revise urgente la estructura de costos</li>
+                    {% endif %}
+                    {% if total_gastos > total_ingresos * 0.8 %}
+                    <li class="text-info">💡 Los gastos representan más del 80% de los ingresos. Busque optimizar procesos</li>
+                    {% endif %}
+                    <li class="text-success">✅ Mantenga un control estricto de gastos y monitoree la rotación de inventario</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

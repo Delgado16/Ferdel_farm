@@ -1,0 +1,270 @@
+{% extends "layout.html" %}
+
+{% block title %}Reporte de Ventas - FerDel{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">
+        <i class="bi bi-graph-up"></i> Reporte de Ventas
+    </h1>
+    <div class="btn-toolbar mb-2 mb-md-0">
+        <div class="btn-group">
+            <a href="{{ url_for('admin.reporte_ventas', fecha_inicio=fecha_inicio, fecha_fin=fecha_fin, tipo_venta=tipo_venta, vendedor_id=vendedor_id, formato='csv') }}" 
+               class="btn btn-sm btn-success">
+                <i class="bi bi-file-earmark-spreadsheet"></i> Exportar CSV
+            </a>
+            <a href="{{ url_for('admin.reporte_ventas', fecha_inicio=fecha_inicio, fecha_fin=fecha_fin, tipo_venta=tipo_venta, vendedor_id=vendedor_id, formato='json') }}" 
+               class="btn btn-sm btn-info">
+                <i class="bi bi-file-earmark-code"></i> Exportar JSON
+            </a>
+            <button class="btn btn-sm btn-secondary" onclick="window.print()">
+                <i class="bi bi-printer"></i> Imprimir
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Filtros -->
+<div class="card shadow-sm mb-4">
+    <div class="card-header bg-light">
+        <i class="bi bi-funnel"></i> <strong>Filtros</strong>
+    </div>
+    <div class="card-body">
+        <form method="GET" action="{{ url_for('admin.reporte_ventas') }}" class="row g-3">
+            <div class="col-md-3">
+                <label class="form-label">Fecha Inicio</label>
+                <input type="date" name="fecha_inicio" class="form-control" value="{{ fecha_inicio }}">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Fecha Fin</label>
+                <input type="date" name="fecha_fin" class="form-control" value="{{ fecha_fin }}">
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">Tipo Venta</label>
+                <select name="tipo_venta" class="form-select">
+                    <option value="todos" {% if tipo_venta == 'todos' %}selected{% endif %}>Todos</option>
+                    <option value="contado" {% if tipo_venta == 'contado' %}selected{% endif %}>Contado</option>
+                    <option value="credito" {% if tipo_venta == 'credito' %}selected{% endif %}>Crédito</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">Vendedor</label>
+                <select name="vendedor_id" class="form-select">
+                    <option value="">Todos</option>
+                    {% for v in vendedores %}
+                    <option value="{{ v.ID_Usuario }}" {% if vendedor_id|int == v.ID_Usuario %}selected{% endif %}>
+                        {{ v.NombreUsuario }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2 d-flex align-items-end">
+                <button type="submit" class="btn btn-primary w-100">
+                    <i class="bi bi-search"></i> Filtrar
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Tarjetas de Resumen General -->
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="card bg-primary text-white">
+            <div class="card-body">
+                <h6 class="card-title">Total Facturas</h6>
+                <h3>{{ resumen.Total_Facturas|default(0) }}</h3>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-success text-white">
+            <div class="card-body">
+                <h6 class="card-title">Clientes Atendidos</h6>
+                <h3>{{ resumen.Clientes_Atendidos|default(0) }}</h3>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-warning text-dark">
+            <div class="card-body">
+                <h6 class="card-title">Monto Total</h6>
+                <h3>C${{ "{:,.0f}".format(resumen.Monto_Total|default(0)) }}</h3>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-info text-white">
+            <div class="card-body">
+                <h6 class="card-title">Ticket Promedio</h6>
+                <h3>C${{ "{:,.0f}".format(resumen.Ticket_Promedio|default(0)) }}</h3>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Tarjetas de Resumen por Origen (NORMAL vs RUTA) -->
+<div class="row mb-4">
+    <div class="col-md-6">
+        <div class="card border-primary">
+            <div class="card-header bg-primary text-white">
+                <i class="bi bi-building"></i> <strong>Ventas Normales</strong>
+            </div>
+            <div class="card-body">
+                {% set normal = resumen_origen|selectattr('Origen', 'eq', 'NORMAL')|first if resumen_origen else None %}
+                {% if normal %}
+                <div class="row text-center">
+                    <div class="col-6">
+                        <h5>Facturas</h5>
+                        <h3>{{ normal.Cantidad|default(0) }}</h3>
+                    </div>
+                    <div class="col-6">
+                        <h5>Total</h5>
+                        <h3 class="text-primary">C${{ "{:,.0f}".format(normal.Total|default(0)) }}</h3>
+                    </div>
+                </div>
+                {% else %}
+                <div class="text-center text-muted">
+                    <i class="bi bi-info-circle"></i> No hay ventas normales en el período
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card border-success">
+            <div class="card-header bg-success text-white">
+                <i class="bi bi-truck"></i> <strong>Ventas de Ruta</strong>
+            </div>
+            <div class="card-body">
+                {% set ruta = resumen_origen|selectattr('Origen', 'eq', 'RUTA')|first if resumen_origen else None %}
+                {% if ruta %}
+                <div class="row text-center">
+                    <div class="col-6">
+                        <h5>Facturas</h5>
+                        <h3>{{ ruta.Cantidad|default(0) }}</h3>
+                    </div>
+                    <div class="col-6">
+                        <h5>Total</h5>
+                        <h3 class="text-success">C${{ "{:,.0f}".format(ruta.Total|default(0)) }}</h3>
+                    </div>
+                </div>
+                {% else %}
+                <div class="text-center text-muted">
+                    <i class="bi bi-info-circle"></i> No hay ventas de ruta en el período
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Tabla de Ventas -->
+<div class="card shadow-sm">
+    <div class="card-header bg-white">
+        <i class="bi bi-table"></i> <strong>Detalle de Ventas</strong>
+        <span class="badge bg-secondary float-end">{{ ventas|length }} registros</span>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>Fecha</th>
+                        <th>Origen</th>
+                        <th>Tipo</th>
+                        <th>Vendedor</th>
+                        <th>Cliente</th>
+                        <th>Factura #</th>
+                        <th>Items</th>
+                        <th>Cantidad</th>
+                        <th class="text-end">Total</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for venta in ventas %}
+                    <tr>
+                        <td>{{ venta.Fecha.strftime('%d/%m/%Y') if venta.Fecha else '-' }}</td>
+                        <td>
+                            <span class="badge {% if venta.Origen == 'NORMAL' %}bg-primary{% else %}bg-success{% endif %}">
+                                <i class="bi {% if venta.Origen == 'NORMAL' %}bi-building{% else %}bi-truck{% endif %}"></i>
+                                {{ venta.Origen }}
+                            </span>
+                        </td>
+                        <td>
+                            <span class="badge {% if venta.Tipo_Venta == 'CONTADO' %}bg-success{% else %}bg-warning text-dark{% endif %}">
+                                {{ venta.Tipo_Venta }}
+                            </span>
+                        </td>
+                        <td>{{ venta.Vendedor or '-' }}</td>
+                        <td>{{ venta.Cliente }}</td>
+                        <td>
+                            <code>{{ venta.Factura_Numero or 'N/A' }}</code>
+                        </td>
+                        <td>{{ "%.0f"|format(venta.Items) }}</td>
+                        <td>{{ "%.0f"|format(venta.Cantidad_Total) }}</td>
+                        <td class="text-end fw-bold">C${{ "{:,.0f}".format(venta.Total_Venta) }}</td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="9" class="text-center text-muted py-4">
+                            <i class="bi bi-inbox fs-1"></i><br>
+                            No hay ventas en el período seleccionado
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+                <tfoot class="table-light">
+                    <tr>
+                        <td colspan="8" class="text-end fw-bold">TOTAL GENERAL:</td>
+                        <td class="text-end fw-bold">C${{ "{:,.0f}".format(ventas|sum(attribute='Total_Venta')) }}</td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Resumen por Tipo de Venta (Contado vs Crédito) -->
+{% set ventas_contado = ventas|selectattr('Tipo_Venta', 'eq', 'CONTADO')|list %}
+{% set ventas_credito = ventas|selectattr('Tipo_Venta', 'eq', 'CREDITO')|list %}
+{% if ventas_contado or ventas_credito %}
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card shadow-sm">
+            <div class="card-header bg-light">
+                <i class="bi bi-pie-chart"></i> <strong>Resumen por Tipo de Venta</strong>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="alert alert-success mb-0">
+                            <strong><i class="bi bi-cash"></i> Ventas de Contado:</strong>
+                            C${{ "{:,.0f}".format(ventas_contado|sum(attribute='Total_Venta')) }}
+                            ({{ ventas_contado|length }} facturas)
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="alert alert-warning mb-0">
+                            <strong><i class="bi bi-credit-card"></i> Ventas a Crédito:</strong>
+                            C${{ "{:,.0f}".format(ventas_credito|sum(attribute='Total_Venta')) }}
+                            ({{ ventas_credito|length }} facturas)
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Tooltips para los badges
+    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
+    var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl)
+    })
+</script>
+{% endblock %}

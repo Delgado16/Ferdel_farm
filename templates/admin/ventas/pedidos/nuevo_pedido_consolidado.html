@@ -10,8 +10,8 @@
             <h2><i class="fas fa-layer-group me-2"></i>Nuevo Pedido Consolidado</h2>
             <nav aria-label="breadcrumb">
                 <ol class="breadcrumb">
-                    <li class="breadcrumb-item"><a href="{{ url_for('admin_dashboard') }}">Inicio</a></li>
-                    <li class="breadcrumb-item"><a href="{{ url_for('admin_pedidos_venta') }}">Pedidos</a></li>
+                    <li class="breadcrumb-item"><a href="{{ url_for('admin.admin_dashboard') }}">Inicio</a></li>
+                    <li class="breadcrumb-item"><a href="{{ url_for('admin.admin_pedidos_venta') }}">Pedidos</a></li>
                     <li class="breadcrumb-item active" aria-current="page">Nuevo Pedido Consolidado</li>
                 </ol>
             </nav>
@@ -22,7 +22,7 @@
             </div>
         </div>
         <div>
-            <a href="{{ url_for('admin_pedidos_venta') }}" class="btn btn-outline-secondary">
+            <a href="{{ url_for('admin.admin_pedidos_venta') }}" class="btn btn-outline-secondary">
                 <i class="fas fa-arrow-left me-1"></i> Cancelar
             </a>
         </div>
@@ -79,7 +79,7 @@
                                             data-total-clientes="{{ ruta.Total_Clientes }}">
                                         {{ ruta.Nombre_Ruta }}
                                         {% if ruta.Descripcion %} - {{ ruta.Descripcion }}{% endif %}
-                                        <span class="badge bg-info">{{ ruta.Total_Clientes }} clientes</span>
+                                        ({{ ruta.Total_Clientes }} clientes)
                                     </option>
                                     {% endfor %}
                                 </select>
@@ -212,7 +212,7 @@
                                         <tr>
                                             <th width="50">#</th>
                                             <th>Producto</th>
-                                            <th width="120">Tipo Precio</th> <!-- NUEVA COLUMNA -->
+                                            <th width="120">Tipo Precio</th>
                                             <th width="150">Precio Unitario</th>
                                             <th width="150">Cantidad Total</th>
                                             <th width="150">Subtotal</th>
@@ -318,7 +318,7 @@
                                     <th>Producto</th>
                                     <th class="text-center">Cantidad Total</th>
                                     <th class="text-end">Precio Unit.</th>
-                                    <th class="text-center">Tipo Precio</th> <!-- NUEVA COLUMNA -->
+                                    <th class="text-center">Tipo Precio</th>
                                     <th class="text-end">Subtotal</th>
                                 </tr>
                             </thead>
@@ -348,6 +348,18 @@
 </div>
 
 <script>
+// ============================================
+// URLs DE API - Generadas con url_for para evitar errores de ruta
+// ============================================
+const API_URLS = {
+    categoriasVisibles: "{{ url_for('admin.obtener_categorias_visibles') }}",
+    productosCategoria: "{{ url_for('admin.obtener_productos_categoria') }}",
+    buscarProductos: "{{ url_for('admin.buscar_productos') }}",
+    stockProducto: "{{ url_for('admin.obtener_stock_producto', producto_id=999999) }}".replace('999999', ''),
+    guardarPedido: "{{ url_for('admin.nuevo_pedido_consolidado') }}",
+    verPedido: "{{ url_for('admin.ver_pedido', id_pedido=999999) }}".replace('999999', '')
+};
+
 // Variables globales
 let productosSeleccionados = [];
 // Para consolidados, siempre usar tipo_cliente 'Comun' y perfil 'Ruta'
@@ -386,15 +398,9 @@ function getIconoPrioridad(prioridad) {
     }
 }
 
-// Función para badge de precio (siempre Ruta para consolidados)
-function getPrecioRutaBadge() {
-    return {
-        clase: 'bg-primary',
-        texto: 'Precio Ruta'
-    };
-}
-
 document.addEventListener('DOMContentLoaded', function() {
+    console.log('API URLs configuradas:', API_URLS);
+    
     // Configurar fecha actual
     const fechaInput = document.getElementById('fechaPedido');
     if (fechaInput && !fechaInput.value) {
@@ -476,7 +482,7 @@ function mostrarInfoRuta() {
     if (select.value) {
         const descripcion = option.getAttribute('data-descripcion') || 'Sin descripción';
         const totalClientes = option.getAttribute('data-total-clientes') || '0';
-        const nombreRuta = option.text.split(' - ')[0];
+        const nombreRuta = option.text.split('(')[0].trim();
         
         let html = `
             <h6 class="mb-3">
@@ -518,8 +524,13 @@ function cargarCategoriasConsolidado() {
     const container = document.getElementById('categoriasContainer');
     container.innerHTML = '<div class="spinner-border text-primary" role="status"><span class="visually-hidden">Cargando...</span></div>';
     
-    fetch(`/admin/ventas/obtener-categorias-visibles?tipo_cliente=${tipoClienteActual}`)
-        .then(response => response.json())
+    fetch(`${API_URLS.categoriasVisibles}?tipo_cliente=${tipoClienteActual}`)
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`Error HTTP: ${response.status}`);
+            }
+            return response.json();
+        })
         .then(data => {
             if (data.error) {
                 container.innerHTML = `<div class="alert alert-danger">${data.error}</div>`;
@@ -549,8 +560,12 @@ function cargarCategoriasConsolidado() {
             document.getElementById('productosContainer').style.display = 'block';
         })
         .catch(error => {
-            console.error('Error:', error);
-            container.innerHTML = `<div class="alert alert-danger">Error al cargar categorías</div>`;
+            console.error('Error al cargar categorías:', error);
+            container.innerHTML = `
+                <div class="alert alert-danger">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    Error al cargar categorías: ${error.message}
+                </div>`;
         });
 }
 
@@ -580,13 +595,18 @@ function cargarProductosCategoria(categoriaId, categoriaNombre) {
         </div>`;
     
     // Para consolidados, forzar perfil_cliente = 'Ruta'
-    fetch(`/admin/ventas/obtener-productos-categoria?categoria_id=${categoriaId}&tipo_cliente=${tipoClienteActual}&perfil_cliente=${perfilClienteActual}`)
-        .then(response => response.json())
+    fetch(`${API_URLS.productosCategoria}?categoria_id=${categoriaId}&tipo_cliente=${tipoClienteActual}&perfil_cliente=${perfilClienteActual}`)
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`Error HTTP: ${response.status}`);
+            }
+            return response.json();
+        })
         .then(data => {
             const grid = document.getElementById(`productosGrid-${categoriaId}`);
             
             if (data.error) {
-                grid.innerHTML = `<div class="alert alert-danger">${data.error}</div>`;
+                grid.innerHTML = `<div class="col-12"><div class="alert alert-danger">${data.error}</div></div>`;
                 return;
             }
             
@@ -606,7 +626,9 @@ function cargarProductosCategoria(categoriaId, categoriaNombre) {
                 const col = document.createElement('div');
                 col.className = 'col-md-6 col-lg-4 mb-3';
                 
-                // Para consolidados, siempre mostrar precio de ruta con badge
+                const productoJSON = JSON.stringify(producto).replace(/'/g, "&#39;").replace(/"/g, '&quot;');
+                const productoNombreEscapado = producto.nombre.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+                
                 col.innerHTML = `
                     <div class="card h-100 border-primary">
                         <div class="card-header bg-light py-2">
@@ -627,12 +649,12 @@ function cargarProductosCategoria(categoriaId, categoriaNombre) {
                                 </div>
                                 <div>
                                     <button type="button" class="btn btn-sm btn-outline-info me-1" 
-                                            onclick="verStockProducto(${producto.id}, '${producto.nombre.replace(/'/g, "\\'")}')"
+                                            onclick="verStockProducto(${producto.id}, '${productoNombreEscapado}')"
                                             title="Ver stock por bodega">
                                         <i class="fas fa-warehouse"></i>
                                     </button>
                                     <button type="button" class="btn btn-sm btn-primary" 
-                                            onclick="agregarProducto(${JSON.stringify(producto).replace(/"/g, '&quot;')})">
+                                            onclick="agregarProducto(${productoJSON})">
                                         <i class="fas fa-plus me-1"></i> Agregar
                                     </button>
                                 </div>
@@ -643,9 +665,9 @@ function cargarProductosCategoria(categoriaId, categoriaNombre) {
             });
         })
         .catch(error => {
-            console.error('Error:', error);
+            console.error('Error al cargar productos:', error);
             const grid = document.getElementById(`productosGrid-${categoriaId}`);
-            grid.innerHTML = `<div class="alert alert-danger">Error al cargar productos</div>`;
+            grid.innerHTML = `<div class="col-12"><div class="alert alert-danger">Error al cargar productos: ${error.message}</div></div>`;
         });
 }
 
@@ -664,12 +686,17 @@ function buscarProductos() {
     }
     
     const resultadosDiv = document.getElementById('resultadosBusqueda');
-    resultadosDiv.innerHTML = '<div class="spinner-border text-primary" role="status"><span class="visually-hidden">Buscando...</span></div>';
+    resultadosDiv.innerHTML = '<div class="text-center"><div class="spinner-border text-primary" role="status"><span class="visually-hidden">Buscando...</span></div></div>';
     resultadosDiv.style.display = 'block';
     
     // Para consolidados, siempre enviar perfil_cliente = 'Ruta'
-    fetch(`/admin/ventas/buscar-productos?q=${encodeURIComponent(termino)}&tipo_cliente=${tipoClienteActual}&perfil_cliente=${perfilClienteActual}`)
-        .then(response => response.json())
+    fetch(`${API_URLS.buscarProductos}?q=${encodeURIComponent(termino)}&tipo_cliente=${tipoClienteActual}&perfil_cliente=${perfilClienteActual}`)
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`Error HTTP: ${response.status}`);
+            }
+            return response.json();
+        })
         .then(productos => {
             if (productos.length === 0) {
                 resultadosDiv.innerHTML = `
@@ -682,6 +709,9 @@ function buscarProductos() {
             
             let html = '<div class="list-group">';
             productos.forEach(producto => {
+                const productoJSON = JSON.stringify(producto).replace(/'/g, "&#39;").replace(/"/g, '&quot;');
+                const productoNombreEscapado = producto.nombre.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+                
                 html += `
                     <div class="list-group-item list-group-item-action">
                         <div class="d-flex w-100 justify-content-between align-items-start">
@@ -699,12 +729,12 @@ function buscarProductos() {
                                         <span class="fw-bold text-success me-3">${formatCurrency(producto.precio)}</span>
                                         <span class="badge bg-primary me-2">Precio Ruta</span>
                                         <button type="button" class="btn btn-sm btn-outline-info" 
-                                                onclick="verStockProducto(${producto.id}, '${producto.nombre.replace(/'/g, "\\'")}')"
+                                                onclick="verStockProducto(${producto.id}, '${productoNombreEscapado}')"
                                                 title="Ver stock por bodega">
                                             <i class="fas fa-warehouse"></i>
                                         </button>
                                         <button type="button" class="btn btn-sm btn-primary ms-1" 
-                                                onclick="agregarProductoDesdeBusqueda(${JSON.stringify(producto).replace(/"/g, '&quot;')})">
+                                                onclick="agregarProducto(${productoJSON})">
                                             <i class="fas fa-plus me-1"></i> Agregar
                                         </button>
                                     </div>
@@ -717,8 +747,8 @@ function buscarProductos() {
             resultadosDiv.innerHTML = html;
         })
         .catch(error => {
-            console.error('Error:', error);
-            resultadosDiv.innerHTML = '<div class="alert alert-danger">Error al buscar productos</div>';
+            console.error('Error al buscar productos:', error);
+            resultadosDiv.innerHTML = `<div class="alert alert-danger">Error al buscar productos: ${error.message}</div>`;
         });
 }
 
@@ -735,8 +765,13 @@ function verStockProducto(productoId, productoNombre) {
     const modal = new bootstrap.Modal(document.getElementById('modalStockDetalle'));
     document.getElementById('modalProductoNombre').textContent = productoNombre;
     
-    fetch(`/admin/ventas/obtener-stock-producto/${productoId}`)
-        .then(response => response.json())
+    fetch(`${API_URLS.stockProducto}${productoId}`)
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`Error HTTP: ${response.status}`);
+            }
+            return response.json();
+        })
         .then(data => {
             if (data.error) {
                 document.getElementById('contenidoStock').innerHTML = `
@@ -791,11 +826,11 @@ function verStockProducto(productoId, productoNombre) {
             document.getElementById('contenidoStock').innerHTML = html;
         })
         .catch(error => {
-            console.error('Error:', error);
+            console.error('Error al cargar stock:', error);
             document.getElementById('contenidoStock').innerHTML = `
                 <div class="alert alert-danger">
                     <i class="fas fa-exclamation-triangle me-2"></i>
-                    Error al cargar el stock del producto
+                    Error al cargar el stock del producto: ${error.message}
                 </div>`;
         });
     
@@ -809,21 +844,11 @@ function mostrarIndicadorPrioridad(prioridad) {
     const indicador = document.getElementById('indicadorPrioridad');
     if (prioridad === 'Urgente') {
         indicador.style.display = 'block';
-        const alert = indicador.querySelector('.alert');
-        const icono = alert.querySelector('i');
-        const titulo = alert.querySelector('.alert-heading');
-        const descripcion = alert.querySelector('p');
-        
-        icono.className = getIconoPrioridad(prioridad) + ' fa-2x';
-        alert.className = 'alert alert-danger alert-dismissible fade show';
-        titulo.textContent = 'Pedido Urgente';
-        descripcion.innerHTML = `Este pedido consolidado será marcado como <strong class="text-uppercase">${prioridad}</strong> y tendrá prioridad máxima en el procesamiento y entrega.`;
     } else {
         indicador.style.display = 'none';
     }
 }
 
-// MODIFICADA: Agregar producto con badge de Precio Ruta
 function agregarProducto(producto) {
     const index = productosSeleccionados.findIndex(p => p.id === producto.id);
     
@@ -873,6 +898,8 @@ function actualizarTablaProductos() {
     if (productosSeleccionados.length === 0) {
         if (filaVacia) filaVacia.style.display = '';
         tfoot.style.display = 'none';
+        actualizarContadorProductos();
+        validarFormulario();
         return;
     }
     
@@ -1038,7 +1065,7 @@ function validarYConfirmarPedido() {
     const prioridadIcono = getIconoPrioridad(prioridad);
     
     const selectRuta = document.getElementById('selectRuta');
-    const rutaNombre = selectRuta.options[selectRuta.selectedIndex].text.split(' - ')[0];
+    const rutaNombre = selectRuta.options[selectRuta.selectedIndex].text.split('(')[0].trim();
     const totalClientes = selectRuta.options[selectRuta.selectedIndex].getAttribute('data-total-clientes') || '0';
     const descripcion = selectRuta.options[selectRuta.selectedIndex].getAttribute('data-descripcion') || '';
     
@@ -1124,21 +1151,26 @@ function guardarPedido() {
         }))
     };
     
-    fetch('/admin/ventas/nuevo-pedido-consolidado', {
+    fetch(API_URLS.guardarPedido, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
         },
         body: JSON.stringify(datosPedido)
     })
-    .then(response => response.json())
+    .then(response => {
+        if (!response.ok) {
+            throw new Error(`Error HTTP: ${response.status}`);
+        }
+        return response.json();
+    })
     .then(data => {
         modal.hide();
         
         if (data.success) {
             showToast('success', 'Pedido consolidado creado', `Pedido consolidado #${data.pedido_id} creado exitosamente`);
             setTimeout(() => {
-                window.location.href = `/admin/ventas/pedido-venta/${data.pedido_id}`;
+                window.location.href = API_URLS.verPedido + data.pedido_id;
             }, 1500);
         } else {
             showAlert('error', data.message || 'Error al crear el pedido consolidado');
@@ -1149,7 +1181,7 @@ function guardarPedido() {
     .catch(error => {
         console.error('Error:', error);
         modal.hide();
-        showAlert('error', 'Error al conectar con el servidor');
+        showAlert('error', 'Error al conectar con el servidor: ' + error.message);
         btnGuardar.disabled = false;
         btnGuardar.innerHTML = '<i class="fas fa-save me-1"></i> Confirmar y Guardar';
     });
@@ -1162,14 +1194,25 @@ function showAlert(type, message) {
     const alertDiv = document.createElement('div');
     alertDiv.className = `alert alert-${type} alert-dismissible fade show position-fixed`;
     alertDiv.style.cssText = 'top: 20px; right: 20px; z-index: 1055; max-width: 400px;';
+    
+    let icon = 'fa-info-circle';
+    if (type === 'success') icon = 'fa-check-circle';
+    else if (type === 'warning') icon = 'fa-exclamation-triangle';
+    else if (type === 'error' || type === 'danger') icon = 'fa-exclamation-circle';
+    
     alertDiv.innerHTML = `
-        <i class="fas ${type === 'success' ? 'fa-check-circle' : type === 'warning' ? 'fa-exclamation-triangle' : 'fa-exclamation-circle'} me-2"></i>
+        <i class="fas ${icon} me-2"></i>
         ${message.replace(/\n/g, '<br>')}
         <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
     `;
     
     document.body.appendChild(alertDiv);
-    setTimeout(() => { if (alertDiv.parentNode) alertDiv.remove(); }, 5000);
+    setTimeout(() => { 
+        if (alertDiv.parentNode) {
+            alertDiv.classList.remove('show');
+            setTimeout(() => alertDiv.remove(), 300);
+        }
+    }, 5000);
 }
 
 function showToast(type, title, message) {
@@ -1189,7 +1232,9 @@ function showToast(type, title, message) {
     document.body.appendChild(toast);
     const bsToast = new bootstrap.Toast(toast);
     bsToast.show();
-    toast.addEventListener('hidden.bs.toast', function() { if (toast.parentNode) toast.remove(); });
+    toast.addEventListener('hidden.bs.toast', function() { 
+        if (toast.parentNode) toast.remove(); 
+    });
 }
 </script>
 

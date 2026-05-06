@@ -1,0 +1,182 @@
+{% extends "layout.html" %}
+
+{% block title %}Reporte de Inventario - FerDel{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">
+        <i class="bi bi-box-seam"></i> Reporte de Inventario y Stock
+    </h1>
+    <div class="btn-toolbar mb-2 mb-md-0">
+        <div class="btn-group">
+            <a href="{{ url_for('admin.reporte_inventario', categoria_id=categoria_id, stock_status=stock_status, formato='csv') }}" 
+               class="btn btn-sm btn-success">
+                <i class="bi bi-file-earmark-spreadsheet"></i> Exportar CSV
+            </a>
+            <a href="{{ url_for('admin.reporte_inventario', categoria_id=categoria_id, stock_status=stock_status, formato='json') }}" 
+               class="btn btn-sm btn-info">
+                <i class="bi bi-file-earmark-code"></i> Exportar JSON
+            </a>
+            <button class="btn btn-sm btn-secondary" onclick="window.print()">
+                <i class="bi bi-printer"></i> Imprimir
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Filtros -->
+<div class="card shadow-sm mb-4">
+    <div class="card-header bg-light">
+        <i class="bi bi-funnel"></i> <strong>Filtros de Inventario</strong>
+    </div>
+    <div class="card-body">
+        <form method="GET" action="{{ url_for('admin.reporte_inventario') }}" class="row g-3">
+            <div class="col-md-4">
+                <label class="form-label">Categoría</label>
+                <select name="categoria_id" class="form-select">
+                    <option value="">Todas las categorías</option>
+                    {% for cat in categorias %}
+                    <option value="{{ cat.id_categoria }}" {% if categoria_id|int == cat.id_categoria %}selected{% endif %}>
+                        {{ cat.descripcion }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">Estado de Stock</label>
+                <select name="stock_status" class="form-select">
+                    <option value="todos" {% if stock_status == 'todos' %}selected{% endif %}>Todos</option>
+                    <option value="critico" {% if stock_status == 'critico' %}selected{% endif %}>Stock Crítico (bajo mínimo)</option>
+                    <option value="minimo" {% if stock_status == 'minimo' %}selected{% endif %}>Stock Mínimo</option>
+                    <option value="normal" {% if stock_status == 'normal' %}selected{% endif %}>Stock Normal</option>
+                </select>
+            </div>
+            <div class="col-md-4 d-flex align-items-end">
+                <button type="submit" class="btn btn-primary w-100">
+                    <i class="bi bi-search"></i> Filtrar
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Tarjetas de Resumen -->
+<div class="row mb-4">
+    <div class="col-md-3 mb-3">
+        <div class="card bg-primary text-white">
+            <div class="card-body">
+                <h6 class="card-title">Total Productos</h6>
+                <h3>{{ resumen.Total_Productos|default(0) }}</h3>
+                <small>Activos en inventario</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3 mb-3">
+        <div class="card bg-danger text-white">
+            <div class="card-body">
+                <h6 class="card-title">Stock Crítico</h6>
+                <h3>{{ resumen.Stock_Critico|default(0) }}</h3>
+                <small>Productos bajo mínimo</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3 mb-3">
+        <div class="card bg-warning text-dark">
+            <div class="card-body">
+                <h6 class="card-title">Stock Cero</h6>
+                <h3>{{ resumen.Stock_Cero|default(0) }}</h3>
+                <small>Productos agotados</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3 mb-3">
+        <div class="card bg-success text-white">
+            <div class="card-body">
+                <h6 class="card-title">Valor Inventario</h6>
+                <h3>C${{ "{:,.0f}".format(resumen.Valor_Inventario|default(0)) }}</h3>
+                <small>Valor total en bodega</small>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Tabla de Inventario -->
+<div class="card shadow-sm">
+    <div class="card-header bg-white">
+        <i class="bi bi-table"></i> <strong>Detalle de Productos</strong>
+        <span class="badge bg-primary float-end">{{ inventario|length }} productos</span>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>Código</th>
+                        <th>Producto</th>
+                        <th>Categoría</th>
+                        <th>Stock Actual</th>
+                        <th>Stock Mínimo</th>
+                        <th>Estado Stock</th>
+                        <th>Precio Mercado</th>
+                        <th>Precio Mayorista</th>
+                        <th>Vendido (30 días)</th>
+                        <th>Valor Inventario</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in inventario %}
+                    <tr class="{% if item.Estado_Stock == 'STOCK BAJO' %}table-danger{% elif item.Estado_Stock == 'STOCK MINIMO' %}table-warning{% endif %}">
+                        <td><code>{{ item.Codigo or '-' }}</code></td>
+                        <td><strong>{{ item.Producto }}</strong></td>
+                        <td>{{ item.Categoria }}</td>
+                        <td>
+                            <span class="fw-bold {% if item.Stock_Actual <= item.Stock_Minimo %}text-danger{% endif %}">
+                                {{ "%.0f"|format(item.Stock_Actual) }}
+                            </span>
+                        </td>
+                        <td>{{ "%.0f"|format(item.Stock_Minimo) }}</td>
+                        <td>
+                            <span class="badge {% if item.Estado_Stock == 'STOCK BAJO' %}bg-danger{% elif item.Estado_Stock == 'STOCK MINIMO' %}bg-warning{% else %}bg-success{% endif %}">
+                                {{ item.Estado_Stock }}
+                            </span>
+                        </td>
+                        <td>C${{ "{:,.0f}".format(item.Precio_Mercado or 0) }}</td>
+                        <td>C${{ "{:,.0f}".format(item.Precio_Mayorista or 0) }}</td>
+                        <td>
+                            {% if item.Vendido_Ultimo_Mes > 0 %}
+                                {{ "%.0f"|format(item.Vendido_Ultimo_Mes) }} unidades
+                            {% else %}
+                                <span class="text-muted">Sin ventas</span>
+                            {% endif %}
+                        </td>
+                        <td>C${{ "{:,.0f}".format((item.Stock_Actual or 0) * (item.Precio_Mercado or 0)) }}</td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="10" class="text-center text-muted">
+                            <i class="bi bi-box"></i> No hay productos que coincidan con los filtros
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+                <tfoot class="table-light">
+                    <tr>
+                        <td colspan="9" class="text-end fw-bold">VALOR TOTAL INVENTARIO:</td>
+                        <td class="fw-bold">C${{ "{:,.0f}".format(inventario|sum(attribute='Stock_Actual') * inventario|sum(attribute='Precio_Mercado')) }}</td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Productos con Stock Crítico - Alertas -->
+{% set productos_criticos = inventario|selectattr('Estado_Stock', 'eq', 'STOCK BAJO')|list %}
+{% if productos_criticos|length > 0 %}
+<div class="alert alert-danger mt-4">
+    <i class="bi bi-exclamation-octagon"></i>
+    <strong>¡Atención!</strong> Hay <strong>{{ productos_criticos|length }} productos</strong> con stock crítico.
+    <a href="#" class="alert-link">Revisar lista de productos por reabastecer</a>
+</div>
+{% endif %}
+{% endblock %}
