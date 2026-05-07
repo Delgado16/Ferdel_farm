@@ -10128,7 +10128,6 @@ def crear_rol():
         flash(f"Error al crear rol: {str(e)}", "danger")
         return redirect(url_for('admin.admin_roles'))
 
-
 @admin_bp.route('/admin/roles/editar/<int:id_rol>', methods=['POST'])
 @admin_required
 @bitacora_decorator("EDITAR_ROL")
@@ -10174,7 +10173,6 @@ def editar_rol(id_rol):
         flash(f"Error al actualizar rol: {str(e)}", "danger")
         return redirect(url_for('admin.admin_roles'))
 
-
 @admin_bp.route('/admin/roles/cambiar_estado/<int:id_rol>', methods=['POST'])
 @admin_required
 @bitacora_decorator("CAMBIAR_ESTADO_ROL")
@@ -10206,7 +10204,6 @@ def cambiar_estado_rol(id_rol):
     except Exception as e:
         flash(f"Error al cambiar estado: {str(e)}", "danger")
         return redirect(url_for('admin.admin_roles'))
-
 
 @admin_bp.route('/admin/roles/eliminar/<int:id_rol>', methods=['POST'])
 @admin_required
@@ -12233,7 +12230,6 @@ def admin_tipos_gasto():
         flash(f'Error: {str(e)}', 'error')
         return redirect(url_for('admin.admin_gastos_operativos'))
 
-
 @admin_bp.route('/admin/gastos/tipos/crear', methods=['GET', 'POST'])
 @admin_required
 @bitacora_decorator("CREAR_TIPO_GASTO")
@@ -13015,7 +13011,6 @@ def eliminar_ruta():
         print(f"ERROR en eliminar_ruta: {str(e)}")
         flash(f"Error al eliminar ruta: {str(e)}", "danger")
         return redirect(url_for('admin.admin_rutas')) 
-
 
 @admin_bp.route('/admin/bodega', methods=['GET'])
 @admin_required

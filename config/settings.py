@@ -12,7 +12,7 @@ DEBUG = os.environ.get('DEBUG', 'False') == 'True'
 SECRET_KEY = os.environ.get("SECRET_KEY", "dev-secret-key-change-in-production")
 RENDER_ENV = os.environ.get('RENDER', False)
 
-# ===== CONFIGURACIÓN DE BASE DE DATOS =====
+# ===== CONFIGURACIÓN SIMPLIFICADA DE BASE DE DATOS (SIN SSL) =====
 DB_CONFIG = {
     'user': os.environ.get('DB_USER', 'root'),
     'password': os.environ.get('DB_PASSWORD', 'admin'),

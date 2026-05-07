@@ -51,3 +51,14 @@ def admin_or_bodega_required(f):
             abort(403)  # No autorizado
         return f(*args, **kwargs)
     return decorated_function
+
+def admin_or_vendedor_required(f):
+    """Decorador para requerir rol de Administrador o Vendedor"""
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if not current_user.is_authenticated:
+            abort(401)  # No autenticado
+        if current_user.rol not in ['Administrador', 'Vendedor']:
+            abort(403)  # No autorizado
+        return f(*args, **kwargs)
+    return decorated_function

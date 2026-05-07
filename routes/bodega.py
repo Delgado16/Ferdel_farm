@@ -648,7 +648,7 @@ def obtener_existencias_producto(id_producto):
 
 # 4. NUEVA SALIDA (Venta/Consumo)
 @bodega_bp.route('/bodega/movimientos/salida/nueva')
-@bodega_required
+@admin_or_bodega_required
 def bodega_nueva_salida_form():
     """Mostrar formulario para nueva salida (venta/consumo)"""
     try:
@@ -714,7 +714,7 @@ def bodega_nueva_salida_form():
 
 # 5. PROCESAR SALIDA
 @bodega_bp.route('/bodega/movimientos/salida/procesar', methods=['POST'])
-@bodega_required
+@admin_or_bodega_required
 @bitacora_decorator("PROCESAR-SALIDA")
 def bodega_procesar_salida():
     """Procesar nueva salida (venta/consumo/ajuste negativo)"""
@@ -1083,7 +1083,7 @@ def api_productos_stock_bodega():
 
 # 6. FORMULARIO TRANSFERENCIA
 @bodega_bp.route('/bodega/movimientos/transferencia/nueva')
-@bodega_required
+@admin_or_bodega_required
 def bodega_nueva_transferencia_form():
     """Mostrar formulario para transferencia entre bodegas"""
     try:
@@ -1115,7 +1115,7 @@ def bodega_nueva_transferencia_form():
 
 # 2. PROCESAR TRANSFERENCIA (CON TS Y TE SEPARADOS)
 @bodega_bp.route('/bodega/movimientos/transferencia/procesar', methods=['POST'])
-@bodega_required
+@admin_or_bodega_required
 @bitacora_decorator("PROCESAR-TRANSFERENCIA")
 def bodega_procesar_transferencia():
     """Procesar transferencia entre bodegas - Crea TS (salida) y TE (entrada) separados"""
@@ -1998,7 +1998,7 @@ def bodega_imprimir_movimiento(id_movimiento):
 ## MODULO BODEGA
 # REPORTES AVANZADOS
 @bodega_bp.route('/bodega/movimientos/reportes/avanzados', methods=['GET', 'POST'])
-@admin_or_bodega_required
+@bodega_required
 def bodega_reportes_avanzados():
     """Mostrar reportes avanzados de movimientos"""
     try:
@@ -2207,7 +2207,6 @@ def bodega_reportes_avanzados():
     except Exception as e:
         flash(f"Error al cargar reportes: {str(e)}", 'error')
         return redirect(url_for('bodega.bodega_historial_movimientos'))
-
 
 @bodega_bp.route('/movimientos')
 @admin_or_bodega_required
