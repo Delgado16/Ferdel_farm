@@ -8259,7 +8259,6 @@ def api_asignaciones_vendedor(id_vendedor):
     except Exception as e:
         return jsonify({'error': str(e)}), 500
     
-
 @admin_bp.route('/admin/facturas/ventas', methods=['GET'])
 @admin_required
 @bitacora_decorator("FACTURAS_VENTAS")
@@ -8269,6 +8268,9 @@ def admin_facturas_ventas():
         filtro = request.args.get('filtro', 'mes')
         fecha_inicio = request.args.get('fecha_inicio', '')
         fecha_fin = request.args.get('fecha_fin', '')
+        vista = request.args.get('vista', 'general')  # general, vendedores, detalle_vendedor, detalle_factura
+        id_vendedor = request.args.get('id_vendedor', '')
+        estado_factura = request.args.get('estado', 'todas')  # todas, activas, anuladas
         
         with get_db_cursor() as cursor:
             # Construir condición WHERE según el filtro
@@ -8293,169 +8295,831 @@ def admin_facturas_ventas():
                 where_condition_local = "AND f.Fecha BETWEEN %s AND %s"
                 params = [fecha_inicio, fecha_fin]
             
-            # 1. Consulta para ventas de RUTA (todas las rutas)
-            query_rutas = f"""
-                SELECT 
-                    'RUTA' AS tipo,
-                    r.Nombre_Ruta AS entidad,
-                    COALESCE(
-                        (SELECT u.NombreUsuario 
-                         FROM asignacion_vendedores av2 
-                         INNER JOIN usuarios u ON av2.ID_Usuario = u.ID_Usuario
-                         WHERE av2.ID_Ruta = r.ID_Ruta 
-                         ORDER BY av2.Fecha_Asignacion DESC 
-                         LIMIT 1),
-                        'Sin asignar'
-                    ) AS vendedor,
-                    COUNT(DISTINCT fr.ID_FacturaRuta) AS total_facturas,
-                    COALESCE(SUM(dfr.Total), 0) AS total_vendido,
-                    MAX(fr.Fecha) AS ultima_fecha,
-                    r.Estado AS estado_ruta
-                FROM rutas r
-                LEFT JOIN asignacion_vendedores av ON r.ID_Ruta = av.ID_Ruta
-                LEFT JOIN facturacion_ruta fr ON av.ID_Asignacion = fr.ID_Asignacion 
-                    AND fr.Estado = 'Activa'
-                    {where_condition_ruta}
-                LEFT JOIN detalle_facturacion_ruta dfr ON fr.ID_FacturaRuta = dfr.ID_FacturaRuta
-                GROUP BY r.ID_Ruta, r.Nombre_Ruta, r.Estado
-                ORDER BY total_vendido DESC
-            """
-            
-            # 2. Consulta para ventas de LOCAL
-            query_local = f"""
-                SELECT 
-                    'LOCAL' AS tipo,
-                    'Local General' AS entidad,
-                    u.NombreUsuario AS vendedor,
-                    COUNT(DISTINCT f.ID_Factura) AS total_facturas,
-                    COALESCE(SUM(df.Total), 0) AS total_vendido,
-                    MAX(f.Fecha) AS ultima_fecha,
-                    'Activo' AS estado_ruta
-                FROM facturacion f
-                INNER JOIN usuarios u ON f.ID_Usuario_Creacion = u.ID_Usuario
-                LEFT JOIN detalle_facturacion df ON f.ID_Factura = df.ID_Factura
-                WHERE f.Estado = 'Activa'
-                    {where_condition_local}
-                GROUP BY u.ID_Usuario
-                ORDER BY total_vendido DESC
-            """
-            
-            # 3. Consulta para evolución de ventas (por día)
-            query_evolucion_ruta = f"""
-                SELECT 
-                    fr.Fecha,
-                    SUM(dfr.Total) AS total_dia
-                FROM facturacion_ruta fr
-                INNER JOIN detalle_facturacion_ruta dfr ON fr.ID_FacturaRuta = dfr.ID_FacturaRuta
-                WHERE fr.Estado = 'Activa'
-                    {where_condition_ruta.replace('fr.Fecha =', 'fr.Fecha =') if where_condition_ruta else ''}
-                GROUP BY fr.Fecha
-                ORDER BY fr.Fecha
-            """
-            
-            query_evolucion_local = f"""
-                SELECT 
-                    f.Fecha,
-                    SUM(df.Total) AS total_dia
-                FROM facturacion f
-                INNER JOIN detalle_facturacion df ON f.ID_Factura = df.ID_Factura
-                WHERE f.Estado = 'Activa'
-                    {where_condition_local.replace('f.Fecha =', 'f.Fecha =') if where_condition_local else ''}
-                GROUP BY f.Fecha
-                ORDER BY f.Fecha
-            """
-            
-            # 4. Top 5 vendedores
-            query_top_vendedores = f"""
-                (SELECT 
-                    u.NombreUsuario AS vendedor,
-                    SUM(dfr.Total) AS total_vendido,
-                    'RUTA' AS origen
-                FROM facturacion_ruta fr
-                INNER JOIN detalle_facturacion_ruta dfr ON fr.ID_FacturaRuta = dfr.ID_FacturaRuta
-                INNER JOIN asignacion_vendedores av ON fr.ID_Asignacion = av.ID_Asignacion
-                INNER JOIN usuarios u ON av.ID_Usuario = u.ID_Usuario
-                WHERE fr.Estado = 'Activa'
-                    {where_condition_ruta}
-                GROUP BY u.ID_Usuario)
+            # ============ VISTA GENERAL ============
+            if vista == 'general':
+                # 1. Consulta para ventas de RUTA (todas las rutas)
+                query_rutas = f"""
+                    SELECT 
+                        'RUTA' AS tipo,
+                        r.Nombre_Ruta AS entidad,
+                        r.ID_Ruta,
+                        COALESCE(
+                            (SELECT u.NombreUsuario 
+                             FROM asignacion_vendedores av2 
+                             INNER JOIN usuarios u ON av2.ID_Usuario = u.ID_Usuario
+                             WHERE av2.ID_Ruta = r.ID_Ruta 
+                             ORDER BY av2.Fecha_Asignacion DESC 
+                             LIMIT 1),
+                            'Sin asignar'
+                        ) AS vendedor,
+                        COALESCE(
+                            (SELECT u.ID_Usuario 
+                             FROM asignacion_vendedores av2 
+                             INNER JOIN usuarios u ON av2.ID_Usuario = u.ID_Usuario
+                             WHERE av2.ID_Ruta = r.ID_Ruta 
+                             ORDER BY av2.Fecha_Asignacion DESC 
+                             LIMIT 1),
+                            NULL
+                        ) AS id_vendedor,
+                        r.Estado AS estado_ruta,
+                        COUNT(DISTINCT fr.ID_FacturaRuta) AS total_facturas,
+                        COALESCE(SUM(dfr.Total), 0) AS total_vendido,
+                        SUM(CASE WHEN fr.Estado = 'Anulada' THEN 1 ELSE 0 END) AS facturas_anuladas,
+                        MAX(fr.Fecha) AS ultima_fecha
+                    FROM rutas r
+                    LEFT JOIN asignacion_vendedores av ON r.ID_Ruta = av.ID_Ruta
+                    LEFT JOIN facturacion_ruta fr ON av.ID_Asignacion = fr.ID_Asignacion 
+                        {where_condition_ruta}
+                    LEFT JOIN detalle_facturacion_ruta dfr ON fr.ID_FacturaRuta = dfr.ID_FacturaRuta
+                    GROUP BY r.ID_Ruta, r.Nombre_Ruta, r.Estado
+                    ORDER BY total_vendido DESC
+                """
                 
-                UNION ALL
+                # 2. Consulta para ventas de LOCAL
+                query_local = f"""
+                    SELECT 
+                        'LOCAL' AS tipo,
+                        'Local General' AS entidad,
+                        NULL AS ID_Ruta,
+                        u.NombreUsuario AS vendedor,
+                        u.ID_Usuario AS id_vendedor,
+                        'Activo' AS estado_ruta,
+                        COUNT(DISTINCT f.ID_Factura) AS total_facturas,
+                        COALESCE(SUM(df.Total), 0) AS total_vendido,
+                        SUM(CASE WHEN f.Estado = 'Anulada' THEN 1 ELSE 0 END) AS facturas_anuladas,
+                        MAX(f.Fecha) AS ultima_fecha
+                    FROM facturacion f
+                    INNER JOIN usuarios u ON f.ID_Usuario_Creacion = u.ID_Usuario
+                    LEFT JOIN detalle_facturacion df ON f.ID_Factura = df.ID_Factura
+                    WHERE f.Estado = 'Activa'
+                        {where_condition_local}
+                    GROUP BY u.ID_Usuario
+                    ORDER BY total_vendido DESC
+                """
                 
-                (SELECT 
-                    u.NombreUsuario AS vendedor,
-                    SUM(df.Total) AS total_vendido,
-                    'LOCAL' AS origen
-                FROM facturacion f
-                INNER JOIN detalle_facturacion df ON f.ID_Factura = df.ID_Factura
-                INNER JOIN usuarios u ON f.ID_Usuario_Creacion = u.ID_Usuario
-                WHERE f.Estado = 'Activa'
-                    {where_condition_local}
-                GROUP BY u.ID_Usuario)
+                # 3. Consulta para evolución de ventas (por día)
+                query_evolucion_ruta = f"""
+                    SELECT 
+                        fr.Fecha,
+                        SUM(dfr.Total) AS total_dia
+                    FROM facturacion_ruta fr
+                    INNER JOIN detalle_facturacion_ruta dfr ON fr.ID_FacturaRuta = dfr.ID_FacturaRuta
+                    WHERE fr.Estado = 'Activa'
+                        {where_condition_ruta}
+                    GROUP BY fr.Fecha
+                    ORDER BY fr.Fecha
+                """
                 
-                ORDER BY total_vendido DESC
-                LIMIT 5
-            """
+                query_evolucion_local = f"""
+                    SELECT 
+                        f.Fecha,
+                        SUM(df.Total) AS total_dia
+                    FROM facturacion f
+                    INNER JOIN detalle_facturacion df ON f.ID_Factura = df.ID_Factura
+                    WHERE f.Estado = 'Activa'
+                        {where_condition_local}
+                    GROUP BY f.Fecha
+                    ORDER BY f.Fecha
+                """
+                
+                # 4. Top 5 vendedores
+                query_top_vendedores = f"""
+                    (SELECT 
+                        u.NombreUsuario AS vendedor,
+                        u.ID_Usuario AS id_vendedor,
+                        SUM(dfr.Total) AS total_vendido,
+                        'RUTA' AS origen
+                    FROM facturacion_ruta fr
+                    INNER JOIN detalle_facturacion_ruta dfr ON fr.ID_FacturaRuta = dfr.ID_FacturaRuta
+                    INNER JOIN asignacion_vendedores av ON fr.ID_Asignacion = av.ID_Asignacion
+                    INNER JOIN usuarios u ON av.ID_Usuario = u.ID_Usuario
+                    WHERE fr.Estado = 'Activa'
+                        {where_condition_ruta}
+                    GROUP BY u.ID_Usuario)
+                    
+                    UNION ALL
+                    
+                    (SELECT 
+                        u.NombreUsuario AS vendedor,
+                        u.ID_Usuario AS id_vendedor,
+                        SUM(df.Total) AS total_vendido,
+                        'LOCAL' AS origen
+                    FROM facturacion f
+                    INNER JOIN detalle_facturacion df ON f.ID_Factura = df.ID_Factura
+                    INNER JOIN usuarios u ON f.ID_Usuario_Creacion = u.ID_Usuario
+                    WHERE f.Estado = 'Activa'
+                        {where_condition_local}
+                    GROUP BY u.ID_Usuario)
+                    
+                    ORDER BY total_vendido DESC
+                    LIMIT 5
+                """
+                
+                # Ejecutar consultas
+                cursor.execute(query_rutas, params)
+                ventas_rutas = cursor.fetchall()
+                
+                cursor.execute(query_local, params)
+                ventas_local = cursor.fetchall()
+                
+                cursor.execute(query_evolucion_ruta, params if 'BETWEEN' in where_condition_ruta else [])
+                evolucion_ruta = cursor.fetchall()
+                
+                cursor.execute(query_evolucion_local, params if 'BETWEEN' in where_condition_local else [])
+                evolucion_local = cursor.fetchall()
+                
+                cursor.execute(query_top_vendedores, params + params if 'BETWEEN' in where_condition_ruta else params)
+                top_vendedores = cursor.fetchall()
+                
+                # Unir resultados
+                ventas = list(ventas_rutas) + list(ventas_local)
+                
+                # Calcular totales
+                total_facturas = sum(v.get('total_facturas') or 0 for v in ventas)
+                total_vendido = sum(v.get('total_vendido') or 0 for v in ventas)
+                total_rutas = sum(v.get('total_vendido') or 0 for v in ventas if v.get('tipo') == 'RUTA')
+                total_local = sum(v.get('total_vendido') or 0 for v in ventas if v.get('tipo') == 'LOCAL')
+                total_anuladas = sum(v.get('facturas_anuladas') or 0 for v in ventas)
+                
+                # Preparar datos para gráficos
+                fechas = sorted(set([e['Fecha'] for e in evolucion_ruta] + [e['Fecha'] for e in evolucion_local]))
+                datos_ruta = []
+                datos_local = []
+                
+                for fecha in fechas:
+                    ruta_valor = next((e['total_dia'] for e in evolucion_ruta if e['Fecha'] == fecha), 0)
+                    local_valor = next((e['total_dia'] for e in evolucion_local if e['Fecha'] == fecha), 0)
+                    datos_ruta.append(float(ruta_valor))
+                    datos_local.append(float(local_valor))
+                
+                # Datos para gráfico de torta (Ruta vs Local)
+                torta_data = [float(total_rutas), float(total_local)]
+                
+                return render_template(
+                    'admin/ventas/facturas_ventas.html',
+                    vista_actual='general',
+                    ventas=ventas,
+                    ventas_local=ventas_local,
+                    total_facturas=total_facturas,
+                    total_vendido=total_vendido,
+                    total_rutas=total_rutas,
+                    total_local=total_local,
+                    total_anuladas=total_anuladas,
+                    filtro_actual=filtro,
+                    fecha_inicio=fecha_inicio,
+                    fecha_fin=fecha_fin,
+                    fechas_grafico=[f.strftime('%Y-%m-%d') if hasattr(f, 'strftime') else str(f) for f in fechas],
+                    datos_ruta_grafico=datos_ruta,
+                    datos_local_grafico=datos_local,
+                    torta_data=torta_data,
+                    top_vendedores=top_vendedores
+                )
             
-            # Ejecutar consultas
-            cursor.execute(query_rutas, params)
-            ventas_rutas = cursor.fetchall()
+            # ============ VISTA VENDEDORES ASIGNADOS ============
+            elif vista == 'vendedores':
+                # Preparar parámetros separados para cada consulta
+                params_ruta = [session.get('empresa_id',1)]
+                params_local = [session.get('empresa_id',1)]
+                
+                if params and len(params) > 0:
+                    params_ruta.extend(params)
+                    params_local.extend(params)
+                
+                # Construir las condiciones WHERE con formato adecuado
+                where_condition_ruta_formatted = where_condition_ruta + " " if where_condition_ruta else ""
+                where_condition_local_formatted = where_condition_local + " " if where_condition_local else ""
+                
+                # 1. Vendedores de RUTA con sus asignaciones
+                query_vendedores_ruta = """
+                    SELECT 
+                        'RUTA' AS tipo_vendedor,
+                        u.ID_Usuario,
+                        u.NombreUsuario AS vendedor,
+                        r.Nombre_Ruta AS ruta_asignada,
+                        av.ID_Asignacion,
+                        av.Fecha_Asignacion,
+                        av.Fecha_Finalizacion,
+                        av.Estado AS estado_asignacion,
+                        av.Hora_Inicio,
+                        av.Hora_Fin,
+                        v.Placa AS vehiculo_placa,
+                        v.Marca AS vehiculo_marca,
+                        COUNT(DISTINCT fr.ID_FacturaRuta) AS total_facturas,
+                        COALESCE(SUM(dfr.Total), 0) AS total_vendido,
+                        SUM(CASE WHEN fr.Estado = 'Activa' THEN 1 ELSE 0 END) AS facturas_activas,
+                        SUM(CASE WHEN fr.Estado = 'Anulada' THEN 1 ELSE 0 END) AS facturas_anuladas,
+                        MAX(fr.Fecha) AS ultima_venta
+                    FROM usuarios u
+                    INNER JOIN asignacion_vendedores av ON u.ID_Usuario = av.ID_Usuario
+                    INNER JOIN rutas r ON av.ID_Ruta = r.ID_Ruta
+                    LEFT JOIN vehiculos v ON av.ID_Vehiculo = v.ID_Vehiculo
+                    LEFT JOIN facturacion_ruta fr ON av.ID_Asignacion = fr.ID_Asignacion
+                        """ + where_condition_ruta_formatted + """
+                    LEFT JOIN detalle_facturacion_ruta dfr ON fr.ID_FacturaRuta = dfr.ID_FacturaRuta
+                    WHERE u.ID_Empresa = %s
+                        AND u.ID_Rol = (SELECT ID_Rol FROM roles WHERE Nombre_Rol = 'Vendedor' LIMIT 1)
+                    GROUP BY u.ID_Usuario, av.ID_Asignacion, r.ID_Ruta, v.ID_Vehiculo
+                    ORDER BY total_vendido DESC, u.NombreUsuario
+                """
+                
+                # 2. Vendedores de LOCAL
+                query_vendedores_local = """
+                    SELECT 
+                        'LOCAL' AS tipo_vendedor,
+                        u.ID_Usuario,
+                        u.NombreUsuario AS vendedor,
+                        'Local General' AS ruta_asignada,
+                        NULL AS ID_Asignacion,
+                        NULL AS Fecha_Asignacion,
+                        NULL AS Fecha_Finalizacion,
+                        'Activa' AS estado_asignacion,
+                        NULL AS Hora_Inicio,
+                        NULL AS Hora_Fin,
+                        NULL AS vehiculo_placa,
+                        NULL AS vehiculo_marca,
+                        COUNT(DISTINCT f.ID_Factura) AS total_facturas,
+                        COALESCE(SUM(df.Total), 0) AS total_vendido,
+                        SUM(CASE WHEN f.Estado = 'Activa' THEN 1 ELSE 0 END) AS facturas_activas,
+                        SUM(CASE WHEN f.Estado = 'Anulada' THEN 1 ELSE 0 END) AS facturas_anuladas,
+                        MAX(f.Fecha) AS ultima_venta
+                    FROM usuarios u
+                    INNER JOIN facturacion f ON u.ID_Usuario = f.ID_Usuario_Creacion
+                    LEFT JOIN detalle_facturacion df ON f.ID_Factura = df.ID_Factura
+                    WHERE u.ID_Empresa = %s
+                        AND u.ID_Rol = (SELECT ID_Rol FROM roles WHERE Nombre_Rol = 'Vendedor' LIMIT 1)
+                        """ + where_condition_local_formatted + """
+                    GROUP BY u.ID_Usuario
+                    ORDER BY total_vendido DESC, u.NombreUsuario
+                """
+                
+                # Ejecutar consultas con parámetros correctos
+                cursor.execute(query_vendedores_ruta, params_ruta)
+                vendedores_ruta = cursor.fetchall()
+                
+                cursor.execute(query_vendedores_local, params_local)
+                vendedores_local = cursor.fetchall()
+                
+                # Estadísticas generales
+                total_vendedores_ruta = len(vendedores_ruta)
+                total_vendedores_local = len(vendedores_local)
+                total_vendido_ruta = sum(v.get('total_vendido') or 0 for v in vendedores_ruta)
+                total_vendido_local = sum(v.get('total_vendido') or 0 for v in vendedores_local)
+                total_anuladas = sum(v.get('facturas_anuladas') or 0 for v in vendedores_ruta + vendedores_local)
+                
+                return render_template(
+                    'admin/ventas/facturas_ventas.html',
+                    vista_actual='vendedores',
+                    vendedores_ruta=vendedores_ruta,
+                    vendedores_local=vendedores_local,
+                    total_vendedores_ruta=total_vendedores_ruta,
+                    total_vendedores_local=total_vendedores_local,
+                    total_vendido_ruta=total_vendido_ruta,
+                    total_vendido_local=total_vendido_local,
+                    total_anuladas=total_anuladas,
+                    filtro_actual=filtro,
+                    fecha_inicio=fecha_inicio,
+                    fecha_fin=fecha_fin
+                )
             
-            cursor.execute(query_local, params)
-            ventas_local = cursor.fetchall()
+            # ============ VISTA DETALLE DE VENDEDOR ============
+            elif vista == 'detalle_vendedor' and id_vendedor:
+                # Verificar que el vendedor existe
+                cursor.execute("""
+                    SELECT u.ID_Usuario, u.NombreUsuario, u.Estado,
+                           r.Nombre_Rol
+                    FROM usuarios u
+                    INNER JOIN roles r ON u.ID_Rol = r.ID_Rol
+                    WHERE u.ID_Usuario = %s AND u.ID_Empresa = %s
+                """, (id_vendedor, session.get('empresa_id',1)))
+                
+                vendedor = cursor.fetchone()
+                if not vendedor:
+                    flash("Vendedor no encontrado", "danger")
+                    return redirect(url_for('admin.admin_facturas_ventas', vista='vendedores'))
+                
+                # Condición de estado para facturas
+                estado_ruta = ""
+                estado_local = ""
+                if estado_factura == 'activas':
+                    estado_ruta = "AND fr.Estado = 'Activa'"
+                    estado_local = "AND f.Estado = 'Activa'"
+                elif estado_factura == 'anuladas':
+                    estado_ruta = "AND fr.Estado = 'Anulada'"
+                    estado_local = "AND f.Estado = 'Anulada'"
+                
+                # Preparar parámetros
+                params_ruta_vendedor = [id_vendedor, session.get('empresa_id',1 )]
+                params_local_vendedor = [id_vendedor, session.get('empresa_id',1 )]
+                
+                if params and len(params) > 0:
+                    params_ruta_vendedor.extend(params)
+                    params_local_vendedor.extend(params)
+                
+                # Ventas de RUTA del vendedor
+                query_ventas_ruta = f"""
+                    SELECT 
+                        'RUTA' AS tipo_venta,
+                        fr.ID_FacturaRuta AS id_factura,
+                        fr.Fecha,
+                        fr.Estado,
+                        fr.Credito_Contado,
+                        fr.Observacion,
+                        fr.Fecha_Creacion,
+                        fr.ID_Pedido,
+                        c.Nombre as Nombre_Cliente,
+                        c.ID_Cliente,
+                        r.Nombre_Ruta,
+                        COUNT(dfr.ID_DetalleRuta) AS cantidad_productos,
+                        COALESCE(SUM(dfr.Total), 0) AS total_factura
+                    FROM facturacion_ruta fr
+                    INNER JOIN asignacion_vendedores av ON fr.ID_Asignacion = av.ID_Asignacion
+                    INNER JOIN clientes c ON fr.ID_Cliente = c.ID_Cliente
+                    INNER JOIN rutas r ON av.ID_Ruta = r.ID_Ruta
+                    LEFT JOIN detalle_facturacion_ruta dfr ON fr.ID_FacturaRuta = dfr.ID_FacturaRuta
+                    WHERE av.ID_Usuario = %s 
+                        AND fr.ID_Empresa = %s
+                        {where_condition_ruta}
+                        {estado_ruta}
+                    GROUP BY fr.ID_FacturaRuta
+                    ORDER BY fr.Fecha DESC, fr.Fecha_Creacion DESC
+                """
+                
+                # Ventas de LOCAL del vendedor
+                query_ventas_local = f"""
+                    SELECT 
+                        'LOCAL' AS tipo_venta,
+                        f.ID_Factura AS id_factura,
+                        f.Fecha,
+                        f.Estado,
+                        f.Credito_Contado,
+                        f.Observacion,
+                        f.Fecha_Creacion,
+                        f.ID_Pedido,
+                        c.Nombre as Nombre_Cliente,
+                        c.ID_Cliente,
+                        'Local General' AS Nombre_Ruta,
+                        COUNT(df.ID_Detalle) AS cantidad_productos,
+                        COALESCE(SUM(df.Total), 0) AS total_factura
+                    FROM facturacion f
+                    LEFT JOIN clientes c ON f.IDCliente = c.ID_Cliente
+                    LEFT JOIN detalle_facturacion df ON f.ID_Factura = df.ID_Factura
+                    WHERE f.ID_Usuario_Creacion = %s 
+                        AND f.ID_Empresa = %s
+                        {where_condition_local}
+                        {estado_local}
+                    GROUP BY f.ID_Factura
+                    ORDER BY f.Fecha DESC, f.Fecha_Creacion DESC
+                """
+                
+                # Ejecutar consultas
+                cursor.execute(query_ventas_ruta, params_ruta_vendedor)
+                ventas_ruta_vendedor = cursor.fetchall()
+                
+                cursor.execute(query_ventas_local, params_local_vendedor)
+                ventas_local_vendedor = cursor.fetchall()
+                
+                # Combinar y ordenar
+                todas_ventas = list(ventas_ruta_vendedor) + list(ventas_local_vendedor)
+                todas_ventas.sort(key=lambda x: (x['Fecha'] is None, str(x['Fecha']) if x['Fecha'] else ''), reverse=True)
+                
+                # Estadísticas
+                total_ventas = len(todas_ventas)
+                total_ventas_activas = sum(1 for v in todas_ventas if v['Estado'] == 'Activa')
+                total_ventas_anuladas = sum(1 for v in todas_ventas if v['Estado'] == 'Anulada')
+                total_monto = sum(v['total_factura'] or 0 for v in todas_ventas)
+                total_monto_activo = sum(v['total_factura'] or 0 for v in todas_ventas if v['Estado'] == 'Activa')
+                
+                return render_template(
+                    'admin/ventas/facturas_ventas.html',
+                    vista_actual='detalle_vendedor',
+                    vendedor=vendedor,
+                    ventas_vendedor=todas_ventas,
+                    total_ventas=total_ventas,
+                    total_ventas_activas=total_ventas_activas,
+                    total_ventas_anuladas=total_ventas_anuladas,
+                    total_monto=total_monto,
+                    total_monto_activo=total_monto_activo,
+                    filtro_actual=filtro,
+                    estado_actual=estado_factura,
+                    fecha_inicio=fecha_inicio,
+                    fecha_fin=fecha_fin
+                )
             
-            cursor.execute(query_evolucion_ruta, params if 'BETWEEN' in where_condition_ruta else [])
-            evolucion_ruta = cursor.fetchall()
+            # ============ VISTA DETALLE DE FACTURA ============
+            elif vista == 'detalle_factura':
+                id_factura = request.args.get('id_factura', '')
+                tipo_factura = request.args.get('tipo', 'ruta')
+                id_vendedor_retorno = request.args.get('id_vendedor', '')
+                
+                if not id_factura:
+                    flash("ID de factura requerido", "danger")
+                    return redirect(url_for('admin.admin_facturas_ventas'))
+                
+                if tipo_factura == 'ruta':
+                    # Cabecera de factura de ruta
+                    cursor.execute("""
+                        SELECT 
+                            fr.*,
+                            u.NombreUsuario as vendedor,
+                            u.ID_Usuario as id_vendedor,
+                            c.Nombre as Nombre_Cliente,
+                            c.Direccion as direccion_cliente,
+                            c.Telefono as telefono_cliente,
+                            r.Nombre_Ruta,
+                            av.Fecha_Asignacion,
+                            v.Placa as vehiculo
+                        FROM facturacion_ruta fr
+                        INNER JOIN asignacion_vendedores av ON fr.ID_Asignacion = av.ID_Asignacion
+                        INNER JOIN usuarios u ON av.ID_Usuario = u.ID_Usuario
+                        INNER JOIN clientes c ON fr.ID_Cliente = c.ID_Cliente
+                        INNER JOIN rutas r ON av.ID_Ruta = r.ID_Ruta
+                        LEFT JOIN vehiculos v ON av.ID_Vehiculo = v.ID_Vehiculo
+                        WHERE fr.ID_FacturaRuta = %s AND fr.ID_Empresa = %s
+                    """, (id_factura, session.get('empresa_id',1)))
+                    factura_detalle = cursor.fetchone()
+                    
+                    # Detalle de productos
+                    cursor.execute("""
+                        SELECT 
+                            dfr.*,
+                            p.Descripcion AS Nombre_Producto,
+                            p.COD_Producto as Codigo_Producto,
+                            p.Unidad_Medida
+                        FROM detalle_facturacion_ruta dfr
+                        INNER JOIN productos p ON dfr.ID_Producto = p.ID_Producto
+                        WHERE dfr.ID_FacturaRuta = %s
+                    """, (id_factura,))
+                    detalles_factura = cursor.fetchall()
+                    
+                else:  # local
+                    cursor.execute("""
+                        SELECT 
+                            f.*,
+                            u.NombreUsuario as vendedor,
+                            u.ID_Usuario as id_vendedor,
+                            c.Nombre as Nombre_Cliente,
+                            c.Direccion as direccion_cliente,
+                            c.Telefono as telefono_cliente
+                        FROM facturacion f
+                        INNER JOIN usuarios u ON f.ID_Usuario_Creacion = u.ID_Usuario
+                        LEFT JOIN clientes c ON f.IDCliente = c.ID_Cliente
+                        WHERE f.ID_Factura = %s AND f.ID_Empresa = %s
+                    """, (id_factura, session.get('empresa_id',1)))
+                    factura_detalle = cursor.fetchone()
+                    
+                    cursor.execute("""
+                        SELECT 
+                            df.*,
+                            p.Descripcion AS Nombre_Producto,
+                            p.COD_Producto as Codigo_Producto,
+                            p.Unidad_Medida
+                        FROM detalle_facturacion df
+                        INNER JOIN productos p ON df.ID_Producto = p.ID_Producto
+                        WHERE df.ID_Factura = %s
+                    """, (id_factura,))
+                    detalles_factura = cursor.fetchall()
+                
+                if not factura_detalle:
+                    flash("Factura no encontrada", "danger")
+                    return redirect(url_for('admin.admin_facturas_ventas'))
+                
+                # Verificar si ya fue anulada y obtener info
+                anulacion_info = None
+                if factura_detalle['Estado'] == 'Anulada':
+                    cursor.execute("""
+                        SELECT la.*, u.NombreUsuario as nombre_usuario_anula
+                        FROM log_anulaciones la
+                        INNER JOIN usuarios u ON la.ID_Usuario_Anula = u.ID_Usuario
+                        WHERE la.ID_Factura = %s AND la.Tipo = %s
+                        ORDER BY la.Fecha_Anulacion DESC
+                        LIMIT 1
+                    """, (id_factura, tipo_factura))
+                    anulacion_info = cursor.fetchone()
+                
+                # Total de la factura
+                total_factura = sum(d['Total'] or 0 for d in detalles_factura)
+                
+                return render_template(
+                    'admin/ventas/facturas_ventas.html',
+                    vista_actual='detalle_factura',
+                    factura_detalle=factura_detalle,
+                    detalles_factura=detalles_factura,
+                    tipo_factura=tipo_factura,
+                    total_factura=total_factura,
+                    anulacion_info=anulacion_info,
+                    id_vendedor=id_vendedor_retorno,
+                    filtro_actual=filtro,
+                    estado_actual=estado_factura
+                )
             
-            cursor.execute(query_evolucion_local, params if 'BETWEEN' in where_condition_local else [])
-            evolucion_local = cursor.fetchall()
-            
-            cursor.execute(query_top_vendedores, params + params if 'BETWEEN' in where_condition_ruta else params)
-            top_vendedores = cursor.fetchall()
-            
-            # Unir resultados
-            ventas = list(ventas_rutas) + list(ventas_local)
-            
-            # Calcular totales
-            total_facturas = sum(v.get('total_facturas') or 0 for v in ventas)
-            total_vendido = sum(v.get('total_vendido') or 0 for v in ventas)
-            total_rutas = sum(v.get('total_vendido') or 0 for v in ventas if v.get('tipo') == 'RUTA')
-            total_local = sum(v.get('total_vendido') or 0 for v in ventas if v.get('tipo') == 'LOCAL')
-            
-            # Preparar datos para gráficos
-            fechas = sorted(set([e['Fecha'] for e in evolucion_ruta] + [e['Fecha'] for e in evolucion_local]))
-            datos_ruta = []
-            datos_local = []
-            
-            for fecha in fechas:
-                ruta_valor = next((e['total_dia'] for e in evolucion_ruta if e['Fecha'] == fecha), 0)
-                local_valor = next((e['total_dia'] for e in evolucion_local if e['Fecha'] == fecha), 0)
-                datos_ruta.append(float(ruta_valor))
-                datos_local.append(float(local_valor))
-            
-            # Datos para gráfico de torta (Ruta vs Local)
-            torta_data = [float(total_rutas), float(total_local)]
-            
-            return render_template(
-                'admin/ventas/facturas_ventas.html',
-                ventas=ventas,
-                total_facturas=total_facturas,
-                total_vendido=total_vendido,
-                total_rutas=total_rutas,
-                total_local=total_local,
-                filtro_actual=filtro,
-                fecha_inicio=fecha_inicio,
-                fecha_fin=fecha_fin,
-                fechas_grafico=[f.strftime('%Y-%m-%d') if hasattr(f, 'strftime') else str(f) for f in fechas],
-                datos_ruta_grafico=datos_ruta,
-                datos_local_grafico=datos_local,
-                torta_data=torta_data,
-                top_vendedores=top_vendedores
-            )
+            # Vista por defecto
+            return redirect(url_for('admin.admin_facturas_ventas', vista='general'))
             
     except Exception as e:
         flash(f"Error al cargar ventas: {str(e)}", "danger")
         return redirect(url_for('admin.admin_dashboard'))
 
+@admin_bp.route('/admin/factura/anular', methods=['POST'])
+@admin_required
+@bitacora_decorator("FACTURA_ANULAR")
+def admin_anular_factura():
+    """
+    Anular una factura, anular su movimiento y devolver productos al inventario
+    """
+    try:
+        # Obtener datos
+        if request.is_json:
+            data = request.get_json()
+        else:
+            data = request.form
+        
+        if not data:
+            return jsonify({'success': False, 'message': 'No se recibieron datos'}), 400
+        
+        id_factura = data.get('id_factura')
+        tipo = data.get('tipo', 'ruta')
+        motivo = data.get('motivo', '').strip()
+        id_vendedor = data.get('id_vendedor', '')
+        
+        # Validaciones
+        if not id_factura:
+            return jsonify({'success': False, 'message': 'ID de factura requerido'}), 400
+        if not motivo:
+            return jsonify({'success': False, 'message': 'Debe proporcionar un motivo de anulación'}), 400
+        if len(motivo) < 10:
+            return jsonify({'success': False, 'message': 'El motivo debe tener al menos 10 caracteres'}), 400
+        
+        try:
+            id_factura = int(id_factura)
+        except ValueError:
+            return jsonify({'success': False, 'message': 'ID de factura inválido'}), 400
+        
+        with get_db_cursor() as cursor:
+            user_id = current_user.id
+            empresa_id = session.get('empresa_id', 1)
+            
+            if not user_id or not empresa_id:
+                return jsonify({'success': False, 'message': 'Sesión inválida'}), 401
+            
+            # Obtener datos de la factura
+            if tipo == 'ruta':
+                cursor.execute("""
+                    SELECT fr.ID_FacturaRuta, fr.Estado, fr.ID_Asignacion, fr.ID_Movimiento, fr.ID_Pedido,
+                           av.ID_Vehiculo, av.ID_Ruta
+                    FROM facturacion_ruta fr
+                    INNER JOIN asignacion_vendedores av ON fr.ID_Asignacion = av.ID_Asignacion
+                    WHERE fr.ID_FacturaRuta = %s AND fr.ID_Empresa = %s
+                """, (id_factura, empresa_id))
+                factura = cursor.fetchone()
+                
+                if not factura:
+                    return jsonify({'success': False, 'message': 'Factura de ruta #{} no encontrada'.format(id_factura)}), 404
+                
+                cursor.execute("""
+                    SELECT dfr.ID_Producto, dfr.Cantidad, dfr.Costo, dfr.Precio, dfr.Total,
+                           dfr.ID_Detalle_Movimiento,
+                           p.Descripcion as Nombre_Producto, p.COD_Producto as Codigo_Producto
+                    FROM detalle_facturacion_ruta dfr
+                    INNER JOIN productos p ON dfr.ID_Producto = p.ID_Producto
+                    WHERE dfr.ID_FacturaRuta = %s
+                """, (id_factura,))
+                detalles = cursor.fetchall()
+            else:
+                cursor.execute("""
+                    SELECT f.ID_Factura, f.Estado, f.IDCliente, f.ID_Pedido
+                    FROM facturacion f
+                    WHERE f.ID_Factura = %s AND f.ID_Empresa = %s
+                """, (id_factura, empresa_id))
+                factura = cursor.fetchone()
+                
+                if not factura:
+                    return jsonify({'success': False, 'message': 'Factura de local #{} no encontrada'.format(id_factura)}), 404
+                
+                cursor.execute("""
+                    SELECT df.ID_Producto, df.Cantidad, df.Costo, df.Total,
+                           p.Descripcion as Nombre_Producto, p.COD_Producto as Codigo_Producto
+                    FROM detalle_facturacion df
+                    INNER JOIN productos p ON df.ID_Producto = p.ID_Producto
+                    WHERE df.ID_Factura = %s
+                """, (id_factura,))
+                detalles = cursor.fetchall()
+            
+            if factura['Estado'] == 'Anulada':
+                return jsonify({'success': False, 'message': 'Esta factura ya está anulada'}), 400
+            
+            if not detalles:
+                return jsonify({'success': False, 'message': 'La factura no tiene productos registrados'}), 400
+            
+            # Iniciar transacción
+            cursor.execute("START TRANSACTION")
+            
+            try:
+                motivo_completo = '[ANULADA {}] {}'.format(datetime.now().strftime("%Y-%m-%d %H:%M:%S"), motivo)
+                
+                # ============ 1. ANULAR LA FACTURA ============
+                if tipo == 'ruta':
+                    cursor.execute("""
+                        UPDATE facturacion_ruta 
+                        SET Estado = 'Anulada', Observacion = CONCAT(IFNULL(Observacion, ''), '\n', %s)
+                        WHERE ID_FacturaRuta = %s AND ID_Empresa = %s
+                    """, (motivo_completo, id_factura, empresa_id))
+                else:
+                    cursor.execute("""
+                        UPDATE facturacion 
+                        SET Estado = 'Anulada', Observacion = CONCAT(IFNULL(Observacion, ''), '\n', %s)
+                        WHERE ID_Factura = %s AND ID_Empresa = %s
+                    """, (motivo_completo, id_factura, empresa_id))
+                
+                # ============ 2. ANULAR MOVIMIENTO Y DEVOLVER INVENTARIO ============
+                if tipo == 'ruta':
+                    # Anular movimiento de ruta si existe
+                    if factura.get('ID_Movimiento'):
+                        cursor.execute("""
+                            UPDATE movimientos_ruta_cabecera 
+                            SET Estado = 'ANULADO', Motivo_Anulacion = %s, 
+                                Fecha_Anulacion = NOW(), ID_Usuario_Anula = %s
+                            WHERE ID_Movimiento = %s AND Estado = 'ACTIVO'
+                        """, (motivo, user_id, factura['ID_Movimiento']))
+                    
+                    # Devolver al inventario de ruta
+                    for detalle in detalles:
+                        id_producto = detalle['ID_Producto']
+                        cantidad = float(detalle['Cantidad'])
+                        
+                        cursor.execute("""
+                            SELECT Cantidad FROM inventario_ruta 
+                            WHERE ID_Asignacion = %s AND ID_Producto = %s
+                        """, (factura['ID_Asignacion'], id_producto))
+                        inv = cursor.fetchone()
+                        
+                        if inv:
+                            cursor.execute("""
+                                UPDATE inventario_ruta SET Cantidad = Cantidad + %s, Fecha_Actualizacion = NOW()
+                                WHERE ID_Asignacion = %s AND ID_Producto = %s
+                            """, (cantidad, factura['ID_Asignacion'], id_producto))
+                        else:
+                            cursor.execute("""
+                                INSERT INTO inventario_ruta (ID_Asignacion, ID_Producto, Cantidad, Fecha_Actualizacion)
+                                VALUES (%s, %s, %s, NOW())
+                            """, (factura['ID_Asignacion'], id_producto, cantidad))
+                    
+                    # Si tiene vehículo, también devolver a bodega
+                    if factura.get('ID_Vehiculo'):
+                        cursor.execute("""
+                            SELECT ID_Bodega, Nombre FROM bodegas 
+                            WHERE ID_Empresa = %s AND Estado = 'Activa' LIMIT 1
+                        """, (empresa_id,))
+                        bodega = cursor.fetchone()
+                        
+                        if bodega:
+                            for detalle in detalles:
+                                id_producto = detalle['ID_Producto']
+                                cantidad = float(detalle['Cantidad'])
+                                
+                                cursor.execute("""
+                                    SELECT Existencias FROM inventario_bodega 
+                                    WHERE ID_Bodega = %s AND ID_Producto = %s
+                                """, (bodega['ID_Bodega'], id_producto))
+                                inv_bodega = cursor.fetchone()
+                                
+                                if inv_bodega:
+                                    cursor.execute("""
+                                        UPDATE inventario_bodega SET Existencias = Existencias + %s
+                                        WHERE ID_Bodega = %s AND ID_Producto = %s
+                                    """, (cantidad, bodega['ID_Bodega'], id_producto))
+                                else:
+                                    cursor.execute("""
+                                        INSERT INTO inventario_bodega (ID_Bodega, ID_Producto, Existencias)
+                                        VALUES (%s, %s, %s)
+                                    """, (bodega['ID_Bodega'], id_producto, cantidad))
+                
+                else:
+                    # LOCAL: Buscar movimiento de inventario relacionado a esta factura
+                    cursor.execute("""
+                        SELECT ID_Movimiento, ID_Bodega, Estado 
+                        FROM movimientos_inventario 
+                        WHERE ID_Factura_Venta = %s AND ID_Empresa = %s AND Estado = 'Activa'
+                        LIMIT 1
+                    """, (id_factura, empresa_id))
+                    movimiento_original = cursor.fetchone()
+                    
+                    if movimiento_original:
+                        # Anular el movimiento original
+                        cursor.execute("""
+                            UPDATE movimientos_inventario 
+                            SET Estado = 'Anulada', Fecha_Modificacion = NOW(), ID_Usuario_Modificacion = %s,
+                                Observacion = CONCAT(IFNULL(Observacion, ''), 
+                                    '\n[ANULADO POR ANULACION DE FACTURA #', %s, ' - ', %s, ']')
+                            WHERE ID_Movimiento = %s
+                        """, (user_id, id_factura, motivo, movimiento_original['ID_Movimiento']))
+                        
+                        # Obtener detalle del movimiento original para saber qué productos y cantidades
+                        cursor.execute("""
+                            SELECT ID_Producto, Cantidad 
+                            FROM detalle_movimientos_inventario 
+                            WHERE ID_Movimiento = %s
+                        """, (movimiento_original['ID_Movimiento'],))
+                        detalle_mov = cursor.fetchall()
+                        
+                        # Devolver al inventario de bodega
+                        id_bodega = movimiento_original['ID_Bodega']
+                        
+                        for dm in detalle_mov:
+                            cursor.execute("""
+                                SELECT Existencias FROM inventario_bodega 
+                                WHERE ID_Bodega = %s AND ID_Producto = %s
+                            """, (id_bodega, dm['ID_Producto']))
+                            inv_bodega = cursor.fetchone()
+                            
+                            if inv_bodega:
+                                cursor.execute("""
+                                    UPDATE inventario_bodega SET Existencias = Existencias + %s
+                                    WHERE ID_Bodega = %s AND ID_Producto = %s
+                                """, (float(dm['Cantidad']), id_bodega, dm['ID_Producto']))
+                            else:
+                                cursor.execute("""
+                                    INSERT INTO inventario_bodega (ID_Bodega, ID_Producto, Existencias)
+                                    VALUES (%s, %s, %s)
+                                """, (id_bodega, dm['ID_Producto'], float(dm['Cantidad'])))
+                    else:
+                        # Si no hay movimiento, devolver usando los detalles de la factura
+                        cursor.execute("""
+                            SELECT ID_Bodega, Nombre FROM bodegas 
+                            WHERE ID_Empresa = %s AND Estado = 'Activa' LIMIT 1
+                        """, (empresa_id,))
+                        bodega = cursor.fetchone()
+                        
+                        if not bodega:
+                            raise Exception("No se encontró una bodega activa")
+                        
+                        for detalle in detalles:
+                            id_producto = detalle['ID_Producto']
+                            cantidad = float(detalle['Cantidad'])
+                            
+                            cursor.execute("""
+                                SELECT Existencias FROM inventario_bodega 
+                                WHERE ID_Bodega = %s AND ID_Producto = %s
+                            """, (bodega['ID_Bodega'], id_producto))
+                            inv_bodega = cursor.fetchone()
+                            
+                            if inv_bodega:
+                                cursor.execute("""
+                                    UPDATE inventario_bodega SET Existencias = Existencias + %s
+                                    WHERE ID_Bodega = %s AND ID_Producto = %s
+                                """, (cantidad, bodega['ID_Bodega'], id_producto))
+                            else:
+                                cursor.execute("""
+                                    INSERT INTO inventario_bodega (ID_Bodega, ID_Producto, Existencias)
+                                    VALUES (%s, %s, %s)
+                                """, (bodega['ID_Bodega'], id_producto, cantidad))
+                
+                # ============ 3. CANCELAR PEDIDO SI EXISTE ============
+                if factura.get('ID_Pedido'):
+                    cursor.execute("""
+                        UPDATE pedidos SET Estado = 'Cancelado',
+                            Observacion = CONCAT(IFNULL(Observacion, ''), 
+                                '[CANCELADO POR ANULACION DE FACTURA #', %s, ']')
+                        WHERE ID_Pedido = %s
+                    """, (id_factura, factura['ID_Pedido']))
+                
+                # ============ 4. REGISTRAR EN LOG ============
+                cursor.execute("""
+                    INSERT INTO log_anulaciones (ID_Factura, Tipo, Motivo, ID_Usuario_Anula, Fecha_Anulacion, ID_Empresa)
+                    VALUES (%s, %s, %s, %s, NOW(), %s)
+                """, (id_factura, tipo, motivo, user_id, empresa_id))
+                
+                cursor.execute("COMMIT")
+                
+                # Mensaje de éxito
+                total_cantidad = sum(float(d['Cantidad']) for d in detalles)
+                total_monto = sum(float(d['Total']) for d in detalles if d['Total'])
+                
+                if tipo == 'ruta':
+                    mensaje = 'Factura de ruta #{} anulada. {} unidades devueltas al inventario de ruta.'.format(
+                        id_factura, total_cantidad)
+                else:
+                    mensaje = 'Factura de local #{} anulada. {} unidades devueltas a bodega. Monto: C${:,.2f}'.format(
+                        id_factura, total_cantidad, total_monto)
+                
+                if id_vendedor:
+                    redirect_url = url_for('admin.admin_facturas_ventas', vista='detalle_vendedor',
+                                          id_vendedor=id_vendedor, filtro=request.args.get('filtro', 'mes'))
+                else:
+                    redirect_url = url_for('admin.admin_facturas_ventas', vista='general',
+                                          filtro=request.args.get('filtro', 'mes'))
+                
+                return jsonify({'success': True, 'message': mensaje, 'redirect': redirect_url})
+                
+            except Exception as e:
+                cursor.execute("ROLLBACK")
+                raise e
+                
+    except Exception as e:
+        print("Error al anular factura: {}".format(str(e)))
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'message': 'Error al anular factura: {}'.format(str(e))}), 500
+    
 # MODULO DE COMPRAS #
 @admin_bp.route('/admin/compras/compras-entradas', methods=['GET'])
 @admin_required
