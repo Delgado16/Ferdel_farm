@@ -130,7 +130,7 @@
                     <div class="row no-gutters align-items-center">
                         <div class="col mr-2">
                             <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">Total Ventas</div>
-                            <div class="h5 mb-0 font-weight-bold">C${{ "{:,.2f}".format(total_vendido|default(0)) }}</div>
+                            <div class="h5 mb-0 font-weight-bold">C${{ "{:,.2f}".format((total_vendido|default(0))|float) }}</div>
                         </div>
                         <div class="col-auto"><i class="fas fa-dollar-sign fa-2x text-gray-300 stats-icon"></i></div>
                     </div>
@@ -143,7 +143,7 @@
                     <div class="row no-gutters align-items-center">
                         <div class="col mr-2">
                             <div class="text-xs font-weight-bold text-success text-uppercase mb-1">Ventas Rutas</div>
-                            <div class="h5 mb-0 font-weight-bold">C${{ "{:,.2f}".format(total_rutas|default(0)) }}</div>
+                            <div class="h5 mb-0 font-weight-bold">C${{ "{:,.2f}".format((total_rutas|default(0))|float) }}</div>
                         </div>
                         <div class="col-auto"><i class="fas fa-truck fa-2x text-gray-300 stats-icon"></i></div>
                     </div>
@@ -156,7 +156,7 @@
                     <div class="row no-gutters align-items-center">
                         <div class="col mr-2">
                             <div class="text-xs font-weight-bold text-info text-uppercase mb-1">Ventas Local</div>
-                            <div class="h5 mb-0 font-weight-bold">C${{ "{:,.2f}".format(total_local|default(0)) }}</div>
+                            <div class="h5 mb-0 font-weight-bold">C${{ "{:,.2f}".format((total_local|default(0))|float) }}</div>
                         </div>
                         <div class="col-auto"><i class="fas fa-store fa-2x text-gray-300 stats-icon"></i></div>
                     </div>
@@ -191,8 +191,8 @@
                 <div class="card-body">
                     <div class="chart-container"><canvas id="distribucionChart"></canvas></div>
                     <div class="text-center mt-3">
-                        <span class="badge bg-primary p-2 me-2">Rutas: {{ "%.1f"|format(total_rutas/total_vendido*100 if total_vendido > 0 else 0) }}%</span>
-                        <span class="badge bg-success p-2">Local: {{ "%.1f"|format(total_local/total_vendido*100 if total_vendido > 0 else 0) }}%</span>
+                        <span class="badge bg-primary p-2 me-2">Rutas: {{ "%.1f"|format(((total_rutas|default(0))|float)/(total_vendido|default(0)|float)*100 if (total_vendido|default(0)|float) > 0 else 0) }}%</span>
+                        <span class="badge bg-success p-2">Local: {{ "%.1f"|format(((total_local|default(0))|float)/(total_vendido|default(0)|float)*100 if (total_vendido|default(0)|float) > 0 else 0) }}%</span>
                     </div>
                 </div>
             </div>
@@ -215,13 +215,13 @@
                             <div class="h1 text-primary">{{ ventas|selectattr('tipo', 'equalto', 'RUTA')|list|length }}</div>
                             <div class="text-gray-500">Rutas Activas</div>
                             <hr>
-                            <div class="h5 text-success">C${{ "{:,.2f}".format(total_rutas|default(0)) }}</div>
+                            <div class="h5 text-success">C${{ "{:,.2f}".format((total_rutas|default(0))|float) }}</div>
                         </div>
                         <div class="col-6 text-center">
                             <div class="h1 text-info">{{ ventas_local|length }}</div>
                             <div class="text-gray-500">Vendedores Local</div>
                             <hr>
-                            <div class="h5 text-success">C${{ "{:,.2f}".format(total_local|default(0)) }}</div>
+                            <div class="h5 text-success">C${{ "{:,.2f}".format((total_local|default(0))|float) }}</div>
                         </div>
                     </div>
                 </div>
@@ -239,9 +239,14 @@
                 <table class="table table-bordered table-hover" width="100%">
                     <thead class="table-dark">
                         <tr>
-                            <th>Tipo</th><th>Ruta / Local</th><th>Vendedor</th><th>Estado</th>
-                            <th class="text-center">Facturas</th><th class="text-end">Total Vendido</th>
-                            <th>Última Venta</th><th>Acciones</th>
+                            <th>Tipo</th>
+                            <th>Ruta / Local</th>
+                            <th>Vendedor</th>
+                            <th>Estado</th>
+                            <th class="text-center">Facturas</th>
+                            <th class="text-end">Total Vendido</th>
+                            <th>Última Venta</th>
+                            <th>Acciones</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -259,7 +264,7 @@
                                 {% else %}<span class="badge bg-success">Activo</span>{% endif %}
                             </td>
                             <td class="text-center">{{ venta.total_facturas|default(0) }}</td>
-                            <td class="text-end text-success fw-bold">C${{ "{:,.2f}".format(venta.total_vendido|default(0)) }}</td>
+                            <td class="text-end text-success fw-bold">C${{ "{:,.2f}".format((venta.total_vendido|default(0))|float) }}</td>
                             <td>{% if venta.ultima_fecha %}{{ venta.ultima_fecha.strftime('%d/%m/%Y') if venta.ultima_fecha is not string else venta.ultima_fecha }}{% else %}<span class="text-muted">Sin ventas</span>{% endif %}</td>
                             <td>
                                 {% if venta.id_vendedor %}
@@ -282,7 +287,7 @@
     <div class="row">
         <div class="col-xl-3 col-md-6 mb-4"><div class="card border-left-primary shadow h-100 py-2 card-stats"><div class="card-body"><div class="text-xs font-weight-bold text-primary text-uppercase mb-1">Vendedores Ruta</div><div class="h5 mb-0">{{ total_vendedores_ruta|default(0) }}</div></div></div></div>
         <div class="col-xl-3 col-md-6 mb-4"><div class="card border-left-success shadow h-100 py-2 card-stats"><div class="card-body"><div class="text-xs font-weight-bold text-success text-uppercase mb-1">Vendedores Local</div><div class="h5 mb-0">{{ total_vendedores_local|default(0) }}</div></div></div></div>
-        <div class="col-xl-3 col-md-6 mb-4"><div class="card border-left-info shadow h-100 py-2 card-stats"><div class="card-body"><div class="text-xs font-weight-bold text-info text-uppercase mb-1">Total Vendido Rutas</div><div class="h5 mb-0">C${{ "{:,.2f}".format(total_vendido_ruta|default(0)) }}</div></div></div></div>
+        <div class="col-xl-3 col-md-6 mb-4"><div class="card border-left-info shadow h-100 py-2 card-stats"><div class="card-body"><div class="text-xs font-weight-bold text-info text-uppercase mb-1">Total Vendido Rutas</div><div class="h5 mb-0">C${{ "{:,.2f}".format((total_vendido_ruta|default(0))|float) }}</div></div></div></div>
         <div class="col-xl-3 col-md-6 mb-4"><div class="card border-left-warning shadow h-100 py-2 card-stats"><div class="card-body"><div class="text-xs font-weight-bold text-warning text-uppercase mb-1">Facturas Anuladas</div><div class="h5 mb-0">{{ total_anuladas|default(0) }}</div></div></div></div>
     </div>
 
@@ -291,7 +296,19 @@
         <div class="card-body">
             <div class="table-responsive">
                 <table class="table table-bordered table-hover">
-                    <thead class="table-dark"><tr><th>Vendedor</th><th>Ruta Asignada</th><th>Vehículo</th><th>Estado</th><th class="text-center">Activas</th><th class="text-center">Anuladas</th><th class="text-end">Total</th><th>Última</th><th>Acciones</th></tr></thead>
+                    <thead class="table-dark">
+                        <tr>
+                            <th>Vendedor</th>
+                            <th>Ruta Asignada</th>
+                            <th>Vehículo</th>
+                            <th>Estado</th>
+                            <th class="text-center">Activas</th>
+                            <th class="text-center">Anuladas</th>
+                            <th class="text-end">Total</th>
+                            <th>Última</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
                     <tbody>
                         {% for vendedor in vendedores_ruta %}
                         <tr>
@@ -301,7 +318,7 @@
                             <td><span class="badge {% if vendedor.estado_asignacion == 'Activa' %}bg-success{% else %}bg-warning{% endif %}">{{ vendedor.estado_asignacion }}</span></td>
                             <td class="text-center">{{ vendedor.facturas_activas|default(0) }}</td>
                             <td class="text-center">{{ vendedor.facturas_anuladas|default(0) }}</td>
-                            <td class="text-end text-success fw-bold">C${{ "{:,.2f}".format(vendedor.total_vendido|default(0)) }}</td>
+                            <td class="text-end text-success fw-bold">C${{ "{:,.2f}".format((vendedor.total_vendido|default(0))|float) }}</td>
                             <td>{% if vendedor.ultima_venta %}{{ vendedor.ultima_venta.strftime('%d/%m/%Y') if vendedor.ultima_venta is not string else vendedor.ultima_venta }}{% else %}<span class="text-muted">Sin ventas</span>{% endif %}</td>
                             <td><a href="{{ url_for('admin.admin_facturas_ventas', vista='detalle_vendedor', id_vendedor=vendedor.ID_Usuario, filtro=filtro_actual) }}" class="btn btn-sm btn-info"><i class="fas fa-eye"></i> Ver Ventas</a></td>
                         </tr>
@@ -319,14 +336,23 @@
         <div class="card-body">
             <div class="table-responsive">
                 <table class="table table-bordered table-hover">
-                    <thead class="table-dark"><tr><th>Vendedor</th><th class="text-center">Activas</th><th class="text-center">Anuladas</th><th class="text-end">Total</th><th>Última</th><th>Acciones</th></tr></thead>
+                    <thead class="table-dark">
+                        <tr>
+                            <th>Vendedor</th>
+                            <th class="text-center">Activas</th>
+                            <th class="text-center">Anuladas</th>
+                            <th class="text-end">Total</th>
+                            <th>Última</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
                     <tbody>
                         {% for vendedor in vendedores_local %}
                         <tr>
                             <td><strong>{{ vendedor.vendedor }}</strong></td>
                             <td class="text-center">{{ vendedor.facturas_activas|default(0) }}</td>
                             <td class="text-center">{{ vendedor.facturas_anuladas|default(0) }}</td>
-                            <td class="text-end text-success fw-bold">C${{ "{:,.2f}".format(vendedor.total_vendido|default(0)) }}</td>
+                            <td class="text-end text-success fw-bold">C${{ "{:,.2f}".format((vendedor.total_vendido|default(0))|float) }}</td>
                             <td>{% if vendedor.ultima_venta %}{{ vendedor.ultima_venta.strftime('%d/%m/%Y') if vendedor.ultima_venta is not string else vendedor.ultima_venta }}{% else %}<span class="text-muted">Sin ventas</span>{% endif %}</td>
                             <td><a href="{{ url_for('admin.admin_facturas_ventas', vista='detalle_vendedor', id_vendedor=vendedor.ID_Usuario, filtro=filtro_actual) }}" class="btn btn-sm btn-info"><i class="fas fa-eye"></i> Ver Ventas</a></td>
                         </tr>
@@ -346,7 +372,7 @@
         <div class="col-xl-3 col-md-6 mb-4"><div class="card border-left-primary shadow h-100 py-2"><div class="card-body"><div class="text-xs font-weight-bold text-primary text-uppercase mb-1">Total Facturas</div><div class="h5 mb-0">{{ total_ventas|default(0) }}</div></div></div></div>
         <div class="col-xl-3 col-md-6 mb-4"><div class="card border-left-success shadow h-100 py-2"><div class="card-body"><div class="text-xs font-weight-bold text-success text-uppercase mb-1">Activas</div><div class="h5 mb-0">{{ total_ventas_activas|default(0) }}</div></div></div></div>
         <div class="col-xl-3 col-md-6 mb-4"><div class="card border-left-danger shadow h-100 py-2"><div class="card-body"><div class="text-xs font-weight-bold text-danger text-uppercase mb-1">Anuladas</div><div class="h5 mb-0">{{ total_ventas_anuladas|default(0) }}</div></div></div></div>
-        <div class="col-xl-3 col-md-6 mb-4"><div class="card border-left-warning shadow h-100 py-2"><div class="card-body"><div class="text-xs font-weight-bold text-warning text-uppercase mb-1">Monto Activo</div><div class="h5 mb-0">C${{ "{:,.2f}".format(total_monto_activo|default(0)) }}</div></div></div></div>
+        <div class="col-xl-3 col-md-6 mb-4"><div class="card border-left-warning shadow h-100 py-2"><div class="card-body"><div class="text-xs font-weight-bold text-warning text-uppercase mb-1">Monto Activo</div><div class="h5 mb-0">C${{ "{:,.2f}".format((total_monto_activo|default(0))|float) }}</div></div></div></div>
     </div>
 
     <div class="card shadow mb-4">
@@ -354,7 +380,19 @@
         <div class="card-body">
             <div class="table-responsive">
                 <table class="table table-bordered table-hover">
-                    <thead class="table-dark"><tr><th>Tipo</th><th>Factura #</th><th>Fecha</th><th>Cliente</th><th>Ruta</th><th class="text-center">Prod.</th><th class="text-end">Total</th><th>Estado</th><th>Acciones</th></tr></thead>
+                    <thead class="table-dark">
+                        <tr>
+                            <th>Tipo</th>
+                            <th>Factura #</th>
+                            <th>Fecha</th>
+                            <th>Cliente</th>
+                            <th>Ruta</th>
+                            <th class="text-center">Prod.</th>
+                            <th class="text-end">Total</th>
+                            <th>Estado</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
                     <tbody>
                         {% for venta in ventas_vendedor %}
                         <tr class="{% if venta.Estado == 'Anulada' %}factura-anulada{% endif %}">
@@ -364,7 +402,7 @@
                             <td>{{ venta.Nombre_Cliente }}</td>
                             <td>{{ venta.Nombre_Ruta }}</td>
                             <td class="text-center">{{ venta.cantidad_productos }}</td>
-                            <td class="text-end fw-bold">C${{ "{:,.2f}".format(venta.total_factura) }}</td>
+                            <td class="text-end fw-bold">C${{ "{:,.2f}".format((venta.total_factura|default(0))|float) }}</td>
                             <td><span class="badge {% if venta.Estado == 'Activa' %}bg-success{% else %}bg-danger{% endif %}">{{ venta.Estado }}</span></td>
                             <td><a href="{{ url_for('admin.admin_facturas_ventas', vista='detalle_factura', id_factura=venta.id_factura, tipo=venta.tipo_venta|lower, id_vendedor=vendedor.ID_Usuario, filtro=filtro_actual, estado=estado_actual) }}" class="btn btn-sm btn-outline-info"><i class="fas fa-search"></i> Detalle</a></td>
                         </tr>
@@ -391,12 +429,35 @@
                         <tr><th class="text-muted">Fecha:</th><td>{{ factura_detalle.Fecha.strftime('%d/%m/%Y') if factura_detalle.Fecha is not string else factura_detalle.Fecha }}</td></tr>
                         <tr><th class="text-muted">Vendedor:</th><td>{{ factura_detalle.vendedor }}</td></tr>
                         <tr><th class="text-muted">Cliente:</th><td>{{ factura_detalle.Nombre_Cliente }}</td></tr>
-                        {% if factura_detalle.direccion_cliente %}<tr><th class="text-muted">Dirección:</th><td>{{ factura_detalle.direccion_cliente }}</td></tr>{% endif %}
-                        {% if tipo_factura == 'ruta' %}<tr><th class="text-muted">Ruta:</th><td>{{ factura_detalle.Nombre_Ruta }}</td></tr>{% endif %}
-                        {% if factura_detalle.vehiculo %}<tr><th class="text-muted">Vehículo:</th><td>{{ factura_detalle.vehiculo }}</td></tr>{% endif %}
-                        <tr><th class="text-muted">Tipo:</th><td><span class="badge {% if factura_detalle.Credito_Contado == 0 %}bg-info{% else %}bg-warning{% endif %}">{{ 'Contado' if factura_detalle.Credito_Contado == 0 else 'Crédito' }}</span></td></tr>
-                        <tr><th class="text-muted">Total:</th><td class="h5 text-success">C${{ "{:,.2f}".format(total_factura) }}</td></tr>
-                        {% if factura_detalle.Observacion %}<tr><th class="text-muted">Observación:</th><td><small>{{ factura_detalle.Observacion }}</small></td></tr>{% endif %}
+                        {% if factura_detalle.direccion_cliente %} wax<th class="text-muted">Dirección:</th><td>{{ factura_detalle.direccion_cliente }}</td></tr>{% endif %}
+                        {% if tipo_factura == 'ruta' %} wax<th class="text-muted">Ruta:</th><td>{{ factura_detalle.Nombre_Ruta }}</td></tr>{% endif %}
+                        {% if factura_detalle.vehiculo %} wax<th class="text-muted">Vehículo:</th><td>{{ factura_detalle.vehiculo }}</td></tr>{% endif %}
+                        <tr>
+                            <th class="text-muted">Tipo:</th>
+                            <td>
+                                {% if tipo_factura == 'ruta' %}
+                                    {# Factura de RUTA: 1=Contado, 2=Crédito #}
+                                    {% if factura_detalle.Credito_Contado == 1 %}
+                                        <span class="badge bg-info">Contado</span>
+                                    {% elif factura_detalle.Credito_Contado == 2 %}
+                                        <span class="badge bg-warning">Crédito</span>
+                                    {% else %}
+                                        <span class="badge bg-secondary">No especificado</span>
+                                    {% endif %}
+                                {% else %}
+                                    {# Factura de LOCAL: 0=Contado, 1=Crédito #}
+                                    {% if factura_detalle.Credito_Contado == 0 %}
+                                        <span class="badge bg-info">Contado</span>
+                                    {% elif factura_detalle.Credito_Contado == 1 %}
+                                        <span class="badge bg-warning">Crédito</span>
+                                    {% else %}
+                                        <span class="badge bg-secondary">No especificado</span>
+                                    {% endif %}
+                                {% endif %}
+                            </td>
+                        </tr>
+                        <tr><th class="text-muted">Total:</th><td class="h5 text-success">C${{ "{:,.2f}".format((total_factura|default(0))|float) }}</td></tr>
+                        {% if factura_detalle.Observacion %} wax<th class="text-muted">Observación:</th><td><small>{{ factura_detalle.Observacion }}</small></td></tr>{% endif %}
                     </table>
                     
                     {% if anulacion_info %}
@@ -422,20 +483,34 @@
                 <div class="card-body">
                     <div class="table-responsive">
                         <table class="table table-bordered">
-                            <thead class="table-light"><tr><th>Código</th><th>Producto</th><th class="text-end">Cantidad</th><th class="text-end">Precio</th><th class="text-end">Costo</th><th class="text-end">Total</th></tr></thead>
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Código</th>
+                                    <th>Producto</th>
+                                    <th class="text-end">Cantidad</th>
+                                    <th class="text-end">Precio</th>
+                                    <th class="text-end">Costo</th>
+                                    <th class="text-end">Total</th>
+                                </tr>
+                            </thead>
                             <tbody>
                                 {% for detalle in detalles_factura %}
                                 <tr>
                                     <td>{{ detalle.Codigo_Producto }}</td>
                                     <td>{{ detalle.Nombre_Producto }}</td>
                                     <td class="text-end">{{ detalle.Cantidad }}</td>
-                                    <td class="text-end">C${{ "{:,.2f}".format(detalle.Precio|default(0)) }}</td>
-                                    <td class="text-end">C${{ "{:,.2f}".format(detalle.Costo|default(0)) }}</td>
-                                    <td class="text-end fw-bold">C${{ "{:,.2f}".format(detalle.Total|default(0)) }}</td>
+                                    <td class="text-end">C${{ "{:,.2f}".format((detalle.Precio|default(0))|float) }}</td>
+                                    <td class="text-end">C${{ "{:,.2f}".format((detalle.Costo|default(0))|float) }}</td>
+                                    <td class="text-end fw-bold">C${{ "{:,.2f}".format((detalle.Total|default(0))|float) }}</td>
                                 </tr>
                                 {% endfor %}
                             </tbody>
-                            <tfoot class="table-light"><tr><td colspan="5" class="text-end fw-bold">TOTAL:</td><td class="text-end fw-bold text-success h6">C${{ "{:,.2f}".format(total_factura) }}</td></tr></tfoot>
+                            <tfoot class="table-light">
+                                <tr>
+                                    <td colspan="5" class="text-end fw-bold">TOTAL:</td>
+                                    <td class="text-end fw-bold text-success h6">C${{ "{:,.2f}".format((total_factura|default(0))|float) }}</td>
+                                </tr>
+                            </tfoot>
                         </table>
                     </div>
                 </div>

@@ -298,11 +298,12 @@ def bodega_historial_movimientos():
         
         # Filtros
         tipo_filtro = request.args.get('tipo', 'todos')
+        estado_filtro = request.args.get('estado', 'todas')  # 'todas', 'Activa', 'Anulada'
         fecha_inicio = request.args.get('fecha_inicio', '')
         fecha_fin = request.args.get('fecha_fin', '')
         
         with get_db_cursor(True) as cursor:
-            # Construir consulta base CORREGIDA
+            # Consulta base CORREGIDA - Sin filtro fijo de estado
             query = """
                 SELECT mi.*, 
                        cm.Descripcion as Tipo_Movimiento_Descripcion,
@@ -322,19 +323,26 @@ def bodega_historial_movimientos():
                 LEFT JOIN proveedores p ON mi.ID_Proveedor = p.ID_Proveedor 
                     AND p.ID_Empresa = mi.ID_Empresa  -- IMPORTANTE: filtrar por misma empresa
                 LEFT JOIN usuarios u ON mi.ID_Usuario_Creacion = u.ID_Usuario
-                WHERE mi.Estado = 1
+                WHERE 1=1
             """
             
             count_query = """
                 SELECT COUNT(*) as total
                 FROM movimientos_inventario mi
-                WHERE mi.Estado = 1
+                WHERE 1=1
             """
             
             params = []
             count_params = []
             
-            # Aplicar filtros
+            # Aplicar filtro de estado (NUEVO)
+            if estado_filtro != 'todas':
+                query += " AND mi.Estado = %s"
+                count_query += " AND mi.Estado = %s"
+                params.append(estado_filtro)
+                count_params.append(estado_filtro)
+            
+            # Aplicar filtros existentes
             if tipo_filtro != 'todos':
                 query += " AND mi.ID_TipoMovimiento = %s"
                 count_query += " AND mi.ID_TipoMovimiento = %s"
@@ -375,6 +383,7 @@ def bodega_historial_movimientos():
                                  movimientos=movimientos,
                                  tipos_movimiento=tipos_movimiento,
                                  tipo_filtro=tipo_filtro,
+                                 estado_filtro=estado_filtro,  # NUEVO: pasar estado al template
                                  fecha_inicio=fecha_inicio,
                                  fecha_fin=fecha_fin,
                                  page=page,

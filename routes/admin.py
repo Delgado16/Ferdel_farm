@@ -8434,27 +8434,27 @@ def admin_facturas_ventas():
                 # Unir resultados
                 ventas = list(ventas_rutas) + list(ventas_local)
                 
-                # Calcular totales
-                total_facturas = sum(v.get('total_facturas') or 0 for v in ventas)
-                total_vendido = sum(v.get('total_vendido') or 0 for v in ventas)
-                total_rutas = sum(v.get('total_vendido') or 0 for v in ventas if v.get('tipo') == 'RUTA')
-                total_local = sum(v.get('total_vendido') or 0 for v in ventas if v.get('tipo') == 'LOCAL')
-                total_anuladas = sum(v.get('facturas_anuladas') or 0 for v in ventas)
-                
+                # Calcular totales asegurando que nunca sean None
+                total_facturas = float(sum(v.get('total_facturas') or 0 for v in ventas) or 0)
+                total_vendido = float(sum(v.get('total_vendido') or 0 for v in ventas) or 0)
+                total_rutas = float(sum(v.get('total_vendido') or 0 for v in ventas if v.get('tipo') == 'RUTA') or 0)
+                total_local = float(sum(v.get('total_vendido') or 0 for v in ventas if v.get('tipo') == 'LOCAL') or 0)
+                total_anuladas = float(sum(v.get('facturas_anuladas') or 0 for v in ventas) or 0)
+
                 # Preparar datos para gráficos
                 fechas = sorted(set([e['Fecha'] for e in evolucion_ruta] + [e['Fecha'] for e in evolucion_local]))
                 datos_ruta = []
                 datos_local = []
-                
+
                 for fecha in fechas:
-                    ruta_valor = next((e['total_dia'] for e in evolucion_ruta if e['Fecha'] == fecha), 0)
-                    local_valor = next((e['total_dia'] for e in evolucion_local if e['Fecha'] == fecha), 0)
-                    datos_ruta.append(float(ruta_valor))
-                    datos_local.append(float(local_valor))
-                
+                    ruta_valor = next((e['total_dia'] if e['total_dia'] is not None else 0 for e in evolucion_ruta if e['Fecha'] == fecha), 0)
+                    local_valor = next((e['total_dia'] if e['total_dia'] is not None else 0 for e in evolucion_local if e['Fecha'] == fecha), 0)
+                    datos_ruta.append(float(ruta_valor or 0))
+                    datos_local.append(float(local_valor or 0))
+
                 # Datos para gráfico de torta (Ruta vs Local)
-                torta_data = [float(total_rutas), float(total_local)]
-                
+                torta_data = [float(total_rutas or 0), float(total_local or 0)]
+
                 return render_template(
                     'admin/ventas/facturas_ventas.html',
                     vista_actual='general',
@@ -8608,25 +8608,25 @@ def admin_facturas_ventas():
                     estado_local = "AND f.Estado = 'Anulada'"
                 
                 # Preparar parámetros
-                params_ruta_vendedor = [id_vendedor, session.get('empresa_id',1 )]
-                params_local_vendedor = [id_vendedor, session.get('empresa_id',1 )]
+                params_ruta_vendedor = [id_vendedor, session.get('empresa_id',1)]
+                params_local_vendedor = [id_vendedor, session.get('empresa_id',1)]
                 
                 if params and len(params) > 0:
                     params_ruta_vendedor.extend(params)
                     params_local_vendedor.extend(params)
                 
-                # Ventas de RUTA del vendedor
+                # Ventas de RUTA del vendedor - CORREGIDO para manejar fechas NULL
                 query_ventas_ruta = f"""
                     SELECT 
                         'RUTA' AS tipo_venta,
                         fr.ID_FacturaRuta AS id_factura,
-                        fr.Fecha,
+                        COALESCE(fr.Fecha, fr.Fecha_Creacion, '1900-01-01') AS Fecha,
                         fr.Estado,
                         fr.Credito_Contado,
                         fr.Observacion,
                         fr.Fecha_Creacion,
                         fr.ID_Pedido,
-                        c.Nombre as Nombre_Cliente,
+                        COALESCE(c.Nombre, 'Cliente sin nombre') as Nombre_Cliente,
                         c.ID_Cliente,
                         r.Nombre_Ruta,
                         COUNT(dfr.ID_DetalleRuta) AS cantidad_productos,
@@ -8641,21 +8641,21 @@ def admin_facturas_ventas():
                         {where_condition_ruta}
                         {estado_ruta}
                     GROUP BY fr.ID_FacturaRuta
-                    ORDER BY fr.Fecha DESC, fr.Fecha_Creacion DESC
+                    ORDER BY COALESCE(fr.Fecha, fr.Fecha_Creacion, '1900-01-01') DESC, fr.Fecha_Creacion DESC
                 """
                 
-                # Ventas de LOCAL del vendedor
+                # Ventas de LOCAL del vendedor - CORREGIDO para manejar fechas NULL
                 query_ventas_local = f"""
                     SELECT 
                         'LOCAL' AS tipo_venta,
                         f.ID_Factura AS id_factura,
-                        f.Fecha,
+                        COALESCE(f.Fecha, f.Fecha_Creacion, '1900-01-01') AS Fecha,
                         f.Estado,
                         f.Credito_Contado,
                         f.Observacion,
                         f.Fecha_Creacion,
                         f.ID_Pedido,
-                        c.Nombre as Nombre_Cliente,
+                        COALESCE(c.Nombre, 'Cliente sin nombre') as Nombre_Cliente,
                         c.ID_Cliente,
                         'Local General' AS Nombre_Ruta,
                         COUNT(df.ID_Detalle) AS cantidad_productos,
@@ -8668,7 +8668,7 @@ def admin_facturas_ventas():
                         {where_condition_local}
                         {estado_local}
                     GROUP BY f.ID_Factura
-                    ORDER BY f.Fecha DESC, f.Fecha_Creacion DESC
+                    ORDER BY COALESCE(f.Fecha, f.Fecha_Creacion, '1900-01-01') DESC, f.Fecha_Creacion DESC
                 """
                 
                 # Ejecutar consultas
@@ -8678,9 +8678,8 @@ def admin_facturas_ventas():
                 cursor.execute(query_ventas_local, params_local_vendedor)
                 ventas_local_vendedor = cursor.fetchall()
                 
-                # Combinar y ordenar
+                # Combinar todas las ventas
                 todas_ventas = list(ventas_ruta_vendedor) + list(ventas_local_vendedor)
-                todas_ventas.sort(key=lambda x: (x['Fecha'] is None, str(x['Fecha']) if x['Fecha'] else ''), reverse=True)
                 
                 # Estadísticas
                 total_ventas = len(todas_ventas)
@@ -8824,7 +8823,8 @@ def admin_facturas_ventas():
 @bitacora_decorator("FACTURA_ANULAR")
 def admin_anular_factura():
     """
-    Anular una factura, anular su movimiento y devolver productos al inventario
+    Anular una factura y devolver productos al inventario
+    Lógica: MODIFICA el movimiento original, NO crea uno nuevo
     """
     try:
         # Obtener datos
@@ -8861,11 +8861,17 @@ def admin_anular_factura():
             if not user_id or not empresa_id:
                 return jsonify({'success': False, 'message': 'Sesión inválida'}), 401
             
-            # Obtener datos de la factura
+            # ============ OBTENER DATOS DE LA FACTURA ============
             if tipo == 'ruta':
                 cursor.execute("""
-                    SELECT fr.ID_FacturaRuta, fr.Estado, fr.ID_Asignacion, fr.ID_Movimiento, fr.ID_Pedido,
-                           av.ID_Vehiculo, av.ID_Ruta
+                    SELECT 
+                        fr.ID_FacturaRuta,
+                        fr.Estado,
+                        fr.ID_Asignacion,
+                        fr.ID_Movimiento,
+                        fr.ID_Pedido,
+                        av.ID_Vehiculo,
+                        av.ID_Ruta
                     FROM facturacion_ruta fr
                     INNER JOIN asignacion_vendedores av ON fr.ID_Asignacion = av.ID_Asignacion
                     WHERE fr.ID_FacturaRuta = %s AND fr.ID_Empresa = %s
@@ -8876,17 +8882,27 @@ def admin_anular_factura():
                     return jsonify({'success': False, 'message': 'Factura de ruta #{} no encontrada'.format(id_factura)}), 404
                 
                 cursor.execute("""
-                    SELECT dfr.ID_Producto, dfr.Cantidad, dfr.Costo, dfr.Precio, dfr.Total,
-                           dfr.ID_Detalle_Movimiento,
-                           p.Descripcion as Nombre_Producto, p.COD_Producto as Codigo_Producto
+                    SELECT 
+                        dfr.ID_Producto,
+                        dfr.Cantidad,
+                        dfr.Costo,
+                        dfr.Precio,
+                        dfr.Total,
+                        p.Descripcion as Nombre_Producto,
+                        p.COD_Producto as Codigo_Producto
                     FROM detalle_facturacion_ruta dfr
                     INNER JOIN productos p ON dfr.ID_Producto = p.ID_Producto
                     WHERE dfr.ID_FacturaRuta = %s
                 """, (id_factura,))
                 detalles = cursor.fetchall()
+                
             else:
                 cursor.execute("""
-                    SELECT f.ID_Factura, f.Estado, f.IDCliente, f.ID_Pedido
+                    SELECT 
+                        f.ID_Factura,
+                        f.Estado,
+                        f.IDCliente,
+                        f.ID_Pedido
                     FROM facturacion f
                     WHERE f.ID_Factura = %s AND f.ID_Empresa = %s
                 """, (id_factura, empresa_id))
@@ -8896,8 +8912,13 @@ def admin_anular_factura():
                     return jsonify({'success': False, 'message': 'Factura de local #{} no encontrada'.format(id_factura)}), 404
                 
                 cursor.execute("""
-                    SELECT df.ID_Producto, df.Cantidad, df.Costo, df.Total,
-                           p.Descripcion as Nombre_Producto, p.COD_Producto as Codigo_Producto
+                    SELECT 
+                        df.ID_Producto,
+                        df.Cantidad,
+                        df.Costo,
+                        df.Total,
+                        p.Descripcion as Nombre_Producto,
+                        p.COD_Producto as Codigo_Producto
                     FROM detalle_facturacion df
                     INNER JOIN productos p ON df.ID_Producto = p.ID_Producto
                     WHERE df.ID_Factura = %s
@@ -8910,7 +8931,7 @@ def admin_anular_factura():
             if not detalles:
                 return jsonify({'success': False, 'message': 'La factura no tiene productos registrados'}), 400
             
-            # Iniciar transacción
+            # ============ INICIAR TRANSACCIÓN ============
             cursor.execute("START TRANSACTION")
             
             try:
@@ -8920,24 +8941,28 @@ def admin_anular_factura():
                 if tipo == 'ruta':
                     cursor.execute("""
                         UPDATE facturacion_ruta 
-                        SET Estado = 'Anulada', Observacion = CONCAT(IFNULL(Observacion, ''), '\n', %s)
+                        SET Estado = 'Anulada', 
+                            Observacion = CONCAT(IFNULL(Observacion, ''), '\n', %s)
                         WHERE ID_FacturaRuta = %s AND ID_Empresa = %s
                     """, (motivo_completo, id_factura, empresa_id))
                 else:
                     cursor.execute("""
                         UPDATE facturacion 
-                        SET Estado = 'Anulada', Observacion = CONCAT(IFNULL(Observacion, ''), '\n', %s)
+                        SET Estado = 'Anulada', 
+                            Observacion = CONCAT(IFNULL(Observacion, ''), '\n', %s)
                         WHERE ID_Factura = %s AND ID_Empresa = %s
                     """, (motivo_completo, id_factura, empresa_id))
                 
-                # ============ 2. ANULAR MOVIMIENTO Y DEVOLVER INVENTARIO ============
+                # ============ 2. PROCESAR MOVIMIENTO E INVENTARIO ============
                 if tipo == 'ruta':
                     # Anular movimiento de ruta si existe
                     if factura.get('ID_Movimiento'):
                         cursor.execute("""
                             UPDATE movimientos_ruta_cabecera 
-                            SET Estado = 'ANULADO', Motivo_Anulacion = %s, 
-                                Fecha_Anulacion = NOW(), ID_Usuario_Anula = %s
+                            SET Estado = 'ANULADO', 
+                                Motivo_Anulacion = %s, 
+                                Fecha_Anulacion = NOW(), 
+                                ID_Usuario_Anula = %s
                             WHERE ID_Movimiento = %s AND Estado = 'ACTIVO'
                         """, (motivo, user_id, factura['ID_Movimiento']))
                     
@@ -8954,12 +8979,14 @@ def admin_anular_factura():
                         
                         if inv:
                             cursor.execute("""
-                                UPDATE inventario_ruta SET Cantidad = Cantidad + %s, Fecha_Actualizacion = NOW()
+                                UPDATE inventario_ruta 
+                                SET Cantidad = Cantidad + %s, Fecha_Actualizacion = NOW()
                                 WHERE ID_Asignacion = %s AND ID_Producto = %s
                             """, (cantidad, factura['ID_Asignacion'], id_producto))
                         else:
                             cursor.execute("""
-                                INSERT INTO inventario_ruta (ID_Asignacion, ID_Producto, Cantidad, Fecha_Actualizacion)
+                                INSERT INTO inventario_ruta 
+                                (ID_Asignacion, ID_Producto, Cantidad, Fecha_Actualizacion)
                                 VALUES (%s, %s, %s, NOW())
                             """, (factura['ID_Asignacion'], id_producto, cantidad))
                     
@@ -8984,110 +9011,109 @@ def admin_anular_factura():
                                 
                                 if inv_bodega:
                                     cursor.execute("""
-                                        UPDATE inventario_bodega SET Existencias = Existencias + %s
+                                        UPDATE inventario_bodega 
+                                        SET Existencias = Existencias + %s
                                         WHERE ID_Bodega = %s AND ID_Producto = %s
                                     """, (cantidad, bodega['ID_Bodega'], id_producto))
                                 else:
                                     cursor.execute("""
-                                        INSERT INTO inventario_bodega (ID_Bodega, ID_Producto, Existencias)
+                                        INSERT INTO inventario_bodega 
+                                        (ID_Bodega, ID_Producto, Existencias)
                                         VALUES (%s, %s, %s)
                                     """, (bodega['ID_Bodega'], id_producto, cantidad))
                 
                 else:
-                    # LOCAL: Buscar movimiento de inventario relacionado a esta factura
+                    # ============ LOCAL: MODIFICAR MOVIMIENTO ORIGINAL ============
+                    # Buscar el movimiento original
                     cursor.execute("""
-                        SELECT ID_Movimiento, ID_Bodega, Estado 
+                        SELECT ID_Movimiento, ID_Bodega, Estado, ID_TipoMovimiento
                         FROM movimientos_inventario 
-                        WHERE ID_Factura_Venta = %s AND ID_Empresa = %s AND Estado = 'Activa'
+                        WHERE ID_Factura_Venta = %s AND ID_Empresa = %s 
+                        AND (Estado = 'Activa' OR Estado = 'ACTIVA')
+                        ORDER BY ID_Movimiento DESC
                         LIMIT 1
                     """, (id_factura, empresa_id))
                     movimiento_original = cursor.fetchone()
                     
-                    if movimiento_original:
-                        # Anular el movimiento original
-                        cursor.execute("""
-                            UPDATE movimientos_inventario 
-                            SET Estado = 'Anulada', Fecha_Modificacion = NOW(), ID_Usuario_Modificacion = %s,
-                                Observacion = CONCAT(IFNULL(Observacion, ''), 
-                                    '\n[ANULADO POR ANULACION DE FACTURA #', %s, ' - ', %s, ']')
-                            WHERE ID_Movimiento = %s
-                        """, (user_id, id_factura, motivo, movimiento_original['ID_Movimiento']))
+                    if not movimiento_original:
+                        raise Exception("No se encontró el movimiento de inventario original para la factura #{}".format(id_factura))
+                    
+                    id_movimiento_original = movimiento_original['ID_Movimiento']
+                    id_bodega = movimiento_original['ID_Bodega']
+                    
+                    # MODIFICAR el movimiento original - cambiar tipo a ANULACIÓN (10) y estado a 'Anulada'
+                    observacion_anulacion = 'ANULADA - Factura #{} - Motivo: {}'.format(id_factura, motivo)
+                    
+                    cursor.execute("""
+                        UPDATE movimientos_inventario 
+                        SET ID_TipoMovimiento = 10,
+                            Estado = 'Anulada',
+                            Observacion = %s,
+                            Fecha_Modificacion = NOW(),
+                            ID_Usuario_Modificacion = %s
+                        WHERE ID_Movimiento = %s
+                    """, (observacion_anulacion, user_id, id_movimiento_original))
+                    
+                    # ELIMINAR detalles anteriores del movimiento
+                    cursor.execute("""
+                        DELETE FROM detalle_movimientos_inventario 
+                        WHERE ID_Movimiento = %s
+                    """, (id_movimiento_original,))
+                    
+                    # INSERTAR nuevos detalles en el MISMO movimiento (como devolución)
+                    for detalle in detalles:
+                        id_producto = detalle['ID_Producto']
+                        cantidad = float(detalle['Cantidad'])
+                        costo = float(detalle['Costo']) if detalle['Costo'] else 0
+                        costo_unitario = costo / cantidad if cantidad > 0 else 0
+                        total = float(detalle['Total']) if detalle['Total'] else 0
                         
-                        # Obtener detalle del movimiento original para saber qué productos y cantidades
                         cursor.execute("""
-                            SELECT ID_Producto, Cantidad 
-                            FROM detalle_movimientos_inventario 
-                            WHERE ID_Movimiento = %s
-                        """, (movimiento_original['ID_Movimiento'],))
-                        detalle_mov = cursor.fetchall()
+                            INSERT INTO detalle_movimientos_inventario 
+                            (ID_Movimiento, ID_Producto, Cantidad, Costo_Unitario, 
+                             Precio_Unitario, Subtotal, ID_Usuario_Creacion, Fecha_Creacion)
+                            VALUES (%s, %s, %s, %s, %s, %s, %s, NOW())
+                        """, (id_movimiento_original, id_producto, cantidad, 
+                              costo_unitario, costo_unitario, total, user_id))
                         
                         # Devolver al inventario de bodega
-                        id_bodega = movimiento_original['ID_Bodega']
-                        
-                        for dm in detalle_mov:
-                            cursor.execute("""
-                                SELECT Existencias FROM inventario_bodega 
-                                WHERE ID_Bodega = %s AND ID_Producto = %s
-                            """, (id_bodega, dm['ID_Producto']))
-                            inv_bodega = cursor.fetchone()
-                            
-                            if inv_bodega:
-                                cursor.execute("""
-                                    UPDATE inventario_bodega SET Existencias = Existencias + %s
-                                    WHERE ID_Bodega = %s AND ID_Producto = %s
-                                """, (float(dm['Cantidad']), id_bodega, dm['ID_Producto']))
-                            else:
-                                cursor.execute("""
-                                    INSERT INTO inventario_bodega (ID_Bodega, ID_Producto, Existencias)
-                                    VALUES (%s, %s, %s)
-                                """, (id_bodega, dm['ID_Producto'], float(dm['Cantidad'])))
-                    else:
-                        # Si no hay movimiento, devolver usando los detalles de la factura
                         cursor.execute("""
-                            SELECT ID_Bodega, Nombre FROM bodegas 
-                            WHERE ID_Empresa = %s AND Estado = 'Activa' LIMIT 1
-                        """, (empresa_id,))
-                        bodega = cursor.fetchone()
+                            SELECT Existencias FROM inventario_bodega 
+                            WHERE ID_Bodega = %s AND ID_Producto = %s
+                        """, (id_bodega, id_producto))
+                        inv_bodega = cursor.fetchone()
                         
-                        if not bodega:
-                            raise Exception("No se encontró una bodega activa")
-                        
-                        for detalle in detalles:
-                            id_producto = detalle['ID_Producto']
-                            cantidad = float(detalle['Cantidad'])
-                            
+                        if inv_bodega:
                             cursor.execute("""
-                                SELECT Existencias FROM inventario_bodega 
+                                UPDATE inventario_bodega 
+                                SET Existencias = Existencias + %s
                                 WHERE ID_Bodega = %s AND ID_Producto = %s
-                            """, (bodega['ID_Bodega'], id_producto))
-                            inv_bodega = cursor.fetchone()
-                            
-                            if inv_bodega:
-                                cursor.execute("""
-                                    UPDATE inventario_bodega SET Existencias = Existencias + %s
-                                    WHERE ID_Bodega = %s AND ID_Producto = %s
-                                """, (cantidad, bodega['ID_Bodega'], id_producto))
-                            else:
-                                cursor.execute("""
-                                    INSERT INTO inventario_bodega (ID_Bodega, ID_Producto, Existencias)
-                                    VALUES (%s, %s, %s)
-                                """, (bodega['ID_Bodega'], id_producto, cantidad))
+                            """, (cantidad, id_bodega, id_producto))
+                        else:
+                            cursor.execute("""
+                                INSERT INTO inventario_bodega 
+                                (ID_Bodega, ID_Producto, Existencias)
+                                VALUES (%s, %s, %s)
+                            """, (id_bodega, id_producto, cantidad))
                 
                 # ============ 3. CANCELAR PEDIDO SI EXISTE ============
                 if factura.get('ID_Pedido'):
                     cursor.execute("""
-                        UPDATE pedidos SET Estado = 'Cancelado',
+                        UPDATE pedidos 
+                        SET Estado = 'Cancelado',
                             Observacion = CONCAT(IFNULL(Observacion, ''), 
-                                '[CANCELADO POR ANULACION DE FACTURA #', %s, ']')
+                                '\n[CANCELADO POR ANULACION DE FACTURA #', %s, ']')
                         WHERE ID_Pedido = %s
                     """, (id_factura, factura['ID_Pedido']))
                 
                 # ============ 4. REGISTRAR EN LOG ============
                 cursor.execute("""
-                    INSERT INTO log_anulaciones (ID_Factura, Tipo, Motivo, ID_Usuario_Anula, Fecha_Anulacion, ID_Empresa)
+                    INSERT INTO log_anulaciones 
+                    (ID_Factura, Tipo, Motivo, ID_Usuario_Anula, Fecha_Anulacion, ID_Empresa)
                     VALUES (%s, %s, %s, %s, NOW(), %s)
                 """, (id_factura, tipo, motivo, user_id, empresa_id))
                 
+                # ============ CONFIRMAR ============
                 cursor.execute("COMMIT")
                 
                 # Mensaje de éxito
@@ -9095,11 +9121,11 @@ def admin_anular_factura():
                 total_monto = sum(float(d['Total']) for d in detalles if d['Total'])
                 
                 if tipo == 'ruta':
-                    mensaje = 'Factura de ruta #{} anulada. {} unidades devueltas al inventario de ruta.'.format(
+                    mensaje = 'Factura de ruta #{} anulada. {} unidades devueltas al inventario.'.format(
                         id_factura, total_cantidad)
                 else:
-                    mensaje = 'Factura de local #{} anulada. {} unidades devueltas a bodega. Monto: C${:,.2f}'.format(
-                        id_factura, total_cantidad, total_monto)
+                    mensaje = 'Factura de local #{} anulada. Movimiento #{} modificado. {} unidades devueltas. Monto: C${:,.2f}'.format(
+                        id_factura, id_movimiento_original, total_cantidad, total_monto)
                 
                 if id_vendedor:
                     redirect_url = url_for('admin.admin_facturas_ventas', vista='detalle_vendedor',

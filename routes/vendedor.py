@@ -2069,7 +2069,7 @@ def vendedor_ventas():
         flash(f'Error al cargar ventas: {str(e)}', 'error')
         return redirect(url_for('vendedor.vendedor_dashboard'))
 
-@vendedor_bp.route('/vendedor/venta/crear', methods=['GET', 'POST'])
+@vendedor_bp.route('/venta/crear', methods=['GET', 'POST'])
 @vendedor_required
 def vendedor_venta_crear():
     """Crear una nueva venta en ruta con integración a caja, abonos y movimientos"""
