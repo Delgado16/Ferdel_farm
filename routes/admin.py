@@ -14361,7 +14361,7 @@ def admin_activar_producto(id_producto):
     try:
         with get_db_cursor(commit=True) as cursor:
             cursor.execute("""
-                UPDATE Productos 
+                UPDATE productos 
                 SET Estado = 'activo'
                 WHERE ID_Producto = %s
             """, (id_producto,))
@@ -14383,7 +14383,7 @@ def admin_desactivar_producto(id_producto):
     try:
         with get_db_cursor(commit=True) as cursor:
             cursor.execute("""
-                UPDATE Productos 
+                UPDATE productos 
                 SET Estado = 'inactivo'
                 WHERE ID_Producto = %s
             """, (id_producto,))
