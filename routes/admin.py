@@ -13712,7 +13712,7 @@ def admin_bodega():
             cursor.execute("""
                 SELECT b.*, e.Nombre_Empresa 
                 FROM bodegas b
-                INNER JOIN Empresa e ON b.ID_Empresa = e.ID_Empresa
+                INNER JOIN empresa e ON b.ID_Empresa = e.ID_Empresa
                 ORDER BY b.ID_Bodega DESC
             """)
             bodegas = cursor.fetchall()
@@ -13922,7 +13922,7 @@ def admin_productos():
             return render_template('admin/bodega/producto/productos.html', 
                                  productos=productos_list,
                                  categorias=categorias,
-                                 categorias_filtro=categorias,  # Para el filtro
+                                 categorias_filtro=categorias, 
                                  categoria_seleccionada=categoria_filtro,
                                  unidades=unidades,
                                  empresas=empresas,

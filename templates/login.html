@@ -2,12 +2,19 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FerDel - Sistema de Gestión</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <title>FerDel Sistema - Iniciar Sesión</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+
+    <!-- FAVICON - Logo en la pestaña del navegador -->
+    <link rel="icon" type="image/png" href="{{ url_for('static', filename='ferdel.png') }}">
+    <link rel="shortcut icon" type="image/png" href="{{ url_for('static', filename='ferdel.png') }}">
+    
     <style>
         :root {
+            --primary-color: #6a11cb;
+            --secondary-color: #2575fc;
             --primary-dark: #0a0f1c;
             --secondary-dark: #1a2332;
             --accent-color: #4e73df;
@@ -31,14 +38,14 @@
         
         .login-container {
             width: 100%;
-            max-width: 420px;
+            max-width: 450px;
         }
         
         .login-card {
-            background: rgba(26, 35, 50, 0.7);
+            background: rgba(26, 35, 50, 0.8);
             backdrop-filter: blur(10px);
             border: 1px solid var(--border-color);
-            border-radius: 16px;
+            border-radius: 20px;
             box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
             overflow: hidden;
         }
@@ -47,15 +54,30 @@
             padding: 2.5rem;
         }
         
+        /* Logo en el login */
+        .login-logo {
+            text-align: center;
+            margin-bottom: 1.5rem;
+        }
+        
+        .login-logo img {
+            width: 80px;
+            height: 80px;
+            border-radius: 20px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+            margin-bottom: 1rem;
+        }
+        
         .card-title {
             color: var(--text-light);
             font-weight: 700;
             margin-bottom: 0.5rem;
+            font-size: 1.8rem;
         }
         
         .card-title i {
-            color: var(--accent-color);
-            font-size: 1.8rem;
+            color: var(--primary-color);
+            font-size: 2rem;
             margin-right: 0.5rem;
         }
         
@@ -66,12 +88,14 @@
         .form-label {
             color: var(--text-light);
             font-weight: 500;
+            margin-bottom: 0.5rem;
         }
         
         .input-group-text {
             background: rgba(255, 255, 255, 0.08);
             border: 1px solid var(--border-color);
             color: var(--text-muted);
+            border-radius: 10px 0 0 10px;
         }
         
         .form-control {
@@ -79,27 +103,29 @@
             border: 1px solid var(--border-color);
             color: var(--text-light);
             padding: 0.75rem;
+            border-radius: 0 10px 10px 0;
         }
         
         .form-control:focus {
             background: rgba(255, 255, 255, 0.1);
-            border-color: var(--accent-color);
-            box-shadow: 0 0 0 0.25rem rgba(78, 115, 223, 0.25);
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 0.25rem rgba(106, 17, 203, 0.25);
             color: var(--text-light);
         }
         
         .btn-primary {
-            background: linear-gradient(to right, var(--accent-color) 0%, #7a8fe8 100%);
+            background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
             border: none;
             padding: 0.75rem;
             font-weight: 600;
             transition: all 0.3s;
+            border-radius: 10px;
         }
         
         .btn-primary:hover {
-            background: linear-gradient(to right, var(--accent-hover) 0%, #657bd8 100%);
+            background: linear-gradient(135deg, var(--secondary-color) 0%, var(--primary-color) 100%);
             transform: translateY(-2px);
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+            box-shadow: 0 4px 15px rgba(106, 17, 203, 0.3);
         }
         
         .alert {
@@ -107,8 +133,22 @@
             border: 1px solid var(--border-color);
             color: var(--text-light);
             backdrop-filter: blur(5px);
+            border-radius: 10px;
         }
         
+        .alert-info {
+            border-left: 4px solid var(--primary-color);
+        }
+        
+        .alert-danger {
+            border-left: 4px solid #dc3545;
+        }
+        
+        .alert-success {
+            border-left: 4px solid #28a745;
+        }
+        
+        /* Estrellas animadas */
         .stars {
             position: fixed;
             top: 0;
@@ -127,8 +167,54 @@
         }
         
         @keyframes twinkle {
-            0%, 100% { opacity: 0.2; }
-            50% { opacity: 1; }
+            0%, 100% { opacity: 0.2; transform: scale(1); }
+            50% { opacity: 1; transform: scale(1.2); }
+        }
+        
+        /* Footer */
+        .login-footer {
+            text-align: center;
+            margin-top: 1.5rem;
+            padding-top: 1rem;
+            border-top: 1px solid var(--border-color);
+            font-size: 0.8rem;
+            color: var(--text-muted);
+        }
+        
+        /* Responsive */
+        @media (max-width: 576px) {
+            .login-container {
+                max-width: 95%;
+            }
+            
+            .card-body {
+                padding: 1.5rem;
+            }
+            
+            .login-logo img {
+                width: 60px;
+                height: 60px;
+            }
+            
+            .card-title {
+                font-size: 1.5rem;
+            }
+        }
+        
+        /* Animación de entrada */
+        .login-card {
+            animation: fadeInUp 0.6s ease-out;
+        }
+        
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
         }
     </style>
 </head>
@@ -138,42 +224,76 @@
     
     <div class="login-container">
         <div class="login-card card">
-            <div class="card-body p-4">
-                <div class="text-center mb-4">
+            <div class="card-body">
+                <!-- Logo visible en el login -->
+                <div class="login-logo">
+                    <img src="{{ url_for('static', filename='ferdel.png') }}" alt="FerDel Logo">
                     <h2 class="card-title">
-                        <i class="bi bi-building text-primary"></i> FerDel
+                        <i ></i> FerDel
                     </h2>
-                    <p class="text-muted">Sistema de Gestión</p>
+                    <p class="text-muted">Sistema de Gestión Integral</p>
                 </div>
 
-                <!-- Simulación de mensajes flash (para demostración) -->
-                <div class="alert alert-info alert-dismissible fade show" role="alert">
-                    Bienvenido al sistema FerDel
-                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                </div>
+                <!-- Mensajes Flash -->
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                    <div class="alert alert-{{ category if category != 'message' else 'info' }} alert-dismissible fade show" role="alert">
+                        <div class="d-flex align-items-center">
+                            <i class="bi {% if category == 'success' %}bi-check-circle-fill{% elif category == 'danger' %}bi-exclamation-circle-fill{% elif category == 'warning' %}bi-exclamation-triangle-fill{% else %}bi-info-circle-fill{% endif %} me-2"></i>
+                            <div>{{ message }}</div>
+                        </div>
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="alert alert-info alert-dismissible fade show" role="alert">
+                        <i class="bi bi-info-circle-fill me-2"></i>
+                        Ingrese sus credenciales para acceder al sistema
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
+                {% endif %}
+                {% endwith %}
 
-                <form method="POST" action="#">
+                <form method="POST" action="{{ url_for('auth.login') }}">
+                    <!-- Protección CSRF si usas Flask-WTF -->
+                    {% if form %}
+                        {{ form.hidden_tag() }}
+                    {% endif %}
+                    
                     <div class="mb-3">
-                        <label for="username" class="form-label">Usuario</label>
+                        <label for="username" class="form-label">
+                            <i class="bi bi-person-circle"></i> Usuario
+                        </label>
                         <div class="input-group">
                             <span class="input-group-text"><i class="bi bi-person"></i></span>
-                            <input type="text" class="form-control" id="username" name="username" required autofocus>
+                            <input type="text" class="form-control" id="username" name="username" 
+                                   placeholder="Ingrese su usuario" required autofocus>
                         </div>
                     </div>
-                    <div class="mb-3">
-                        <label for="password" class="form-label">Contraseña</label>
+                    
+                    <div class="mb-4">
+                        <label for="password" class="form-label">
+                            <i class="bi bi-key"></i> Contraseña
+                        </label>
                         <div class="input-group">
                             <span class="input-group-text"><i class="bi bi-lock"></i></span>
-                            <input type="password" class="form-control" id="password" name="password" required>
+                            <input type="password" class="form-control" id="password" name="password" 
+                                   placeholder="Ingrese su contraseña" required>
                         </div>
                     </div>
+                    
                     <div class="d-grid">
-                        <button type="submit" class="btn btn-primary">Iniciar Sesión</button>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-box-arrow-in-right me-2"></i>Iniciar Sesión
+                        </button>
                     </div>
                 </form>
 
-                <div class="text-center mt-3">
-                    <small class="text-muted">Sistema de gestión integral FerDel</small>
+                <div class="login-footer">
+                    <small>
+                        <i class="bi bi-building"></i> FerDel Sistema v1.0
+                    </small>
                 </div>
             </div>
         </div>
@@ -184,25 +304,33 @@
         // Crear efecto de estrellas
         document.addEventListener('DOMContentLoaded', function() {
             const starsContainer = document.getElementById('stars');
-            const starsCount = 150;
+            const starsCount = 200;
             
             for (let i = 0; i < starsCount; i++) {
                 const star = document.createElement('div');
                 star.classList.add('star');
                 
-                const size = Math.random() * 2;
+                const size = Math.random() * 2.5 + 0.5;
                 star.style.width = `${size}px`;
                 star.style.height = `${size}px`;
                 
                 star.style.left = `${Math.random() * 100}%`;
                 star.style.top = `${Math.random() * 100}%`;
                 
-                star.style.animationDuration = `${Math.random() * 3 + 2}s`;
-                star.style.animationDelay = `${Math.random() * 2}s`;
+                star.style.animationDuration = `${Math.random() * 4 + 1}s`;
+                star.style.animationDelay = `${Math.random() * 3}s`;
                 
                 starsContainer.appendChild(star);
             }
         });
+        
+        // Auto-cerrar alertas después de 5 segundos
+        setTimeout(() => {
+            document.querySelectorAll('.alert').forEach(alert => {
+                const bsAlert = new bootstrap.Alert(alert);
+                bsAlert.close();
+            });
+        }, 5000);
     </script>
 </body>
 </html>

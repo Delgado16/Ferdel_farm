@@ -1,0 +1,148 @@
+{% extends "layout.html" %}
+
+{% block title %}Historial - {{ vendedor.NombreUsuario }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Navegación -->
+    <div class="mb-3">
+        <a href="{{ url_for('bodega.inventario_vendedores') }}" class="btn btn-secondary">
+            <i class="fas fa-arrow-left"></i> Volver
+        </a>
+        <a href="{{ url_for('bodega.inventario_vendedor_detalle', id_usuario=vendedor.ID_Usuario) }}" class="btn btn-info">
+            <i class="fas fa-boxes"></i> Ver Inventario
+        </a>
+    </div>
+
+    <!-- Datos del Vendedor -->
+    <div class="card mb-4">
+        <div class="card-header bg-primary text-white">
+            <h3 class="mb-0">
+                <i class="fas fa-history"></i> 
+                Historial: {{ vendedor.NombreUsuario }}
+            </h3>
+        </div>
+        <div class="card-body">
+            <p><strong>Ruta:</strong> {{ vendedor.Nombre_Ruta or 'No asignada' }} | 
+               <strong>Asignación:</strong> #{{ vendedor.ID_Asignacion }} | 
+               <strong>Desde:</strong> {{ vendedor.Fecha_Asignacion.strftime('%d/%m/%Y') if vendedor.Fecha_Asignacion else 'N/A' }}</p>
+        </div>
+    </div>
+
+    <!-- Resumen de Movimientos -->
+    {% if resumen %}
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card bg-info text-white text-center">
+                <div class="card-body">
+                    <h6>Total Movimientos</h6>
+                    <h2>{{ resumen.Total_Movimientos }}</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-success text-white text-center">
+                <div class="card-body">
+                    <h6>Entradas</h6>
+                    <h2>{{ resumen.Total_Entradas|int if resumen.Total_Entradas else 0 }}</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-danger text-white text-center">
+                <div class="card-body">
+                    <h6>Salidas</h6>
+                    <h2>{{ resumen.Total_Salidas|int if resumen.Total_Salidas else 0 }}</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-dark text-white text-center">
+                <div class="card-body">
+                    <h6>Neto</h6>
+                    <h2>{{ ((resumen.Total_Entradas or 0) - (resumen.Total_Salidas or 0))|int }}</h2>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Tabla de Movimientos -->
+    <div class="card">
+        <div class="card-header bg-dark text-white">
+            <h4 class="mb-0">Últimos Movimientos</h4>
+        </div>
+        <div class="card-body table-responsive">
+            {% if movimientos %}
+            <table class="table table-sm table-hover" id="tablaHistorial">
+                <thead class="thead-light">
+                    <tr>
+                        <th>Fecha/Hora</th>
+                        <th>Tipo</th>
+                        <th>Documento</th>
+                        <th>Cliente</th>
+                        <th>Producto</th>
+                        <th>Cantidad</th>
+                        <th>Precio</th>
+                        <th>Subtotal</th>
+                        <th>Total Venta</th>
+                        <th>Registrado Por</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for mov in movimientos %}
+                    <tr class="{{ 'table-success' if mov.Impacto == '+' else 'table-danger' if mov.Impacto == '-' else '' }}">
+                        <td>
+                            <small>{{ mov.Fecha_Movimiento.strftime('%d/%m/%Y') }}</small><br>
+                            <strong>{{ mov.Fecha_Movimiento.strftime('%H:%M') }}</strong>
+                        </td>
+                        <td>
+                            <span class="badge badge-{{ 'success' if mov.Impacto == '+' else 'danger' }}">
+                                {{ mov.Simbolo }} {{ mov.Tipo_Movimiento }}
+                            </span>
+                        </td>
+                        <td><small>{{ mov.Documento_Numero or '-' }}</small></td>
+                        <td><small>{{ mov.Nombre_Cliente or '-' }}</small></td>
+                        <td>
+                            <small class="text-muted">{{ mov.COD_Producto }}</small><br>
+                            {{ mov.Producto }}
+                        </td>
+                        <td>
+                            <strong class="text-{{ 'success' if mov.Impacto == '+' else 'danger' }}">
+                                {{ mov.Impacto }}{{ mov.Cantidad|int }}
+                            </strong>
+                            <small>{{ mov.Unidad_Medida }}</small>
+                        </td>
+                        <td>${{ "%.2f"|format(mov.Precio_Unitario) }}</td>
+                        <td>${{ "%.2f"|format(mov.Subtotal) }}</td>
+                        <td>${{ "%.2f"|format(mov.Total_Venta) }}</td>
+                        <td><small>{{ mov.Registrado_Por }}</small></td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <div class="text-center py-5">
+                <i class="fas fa-history fa-4x text-muted mb-3"></i>
+                <h5>Sin movimientos</h5>
+                <p>No se encontraron movimientos registrados para esta asignación.</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+$(document).ready(function() {
+    $('#tablaHistorial').DataTable({
+        language: { url: '//cdn.datatables.net/plug-ins/1.10.25/i18n/Spanish.json' },
+        pageLength: 25,
+        order: [[0, 'desc']],
+        dom: 'Bfrtip',
+        buttons: ['copy', 'csv', 'excel', 'pdf', 'print']
+    });
+});
+</script>
+{% endblock %}

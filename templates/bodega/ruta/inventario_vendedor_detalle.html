@@ -1,0 +1,167 @@
+{% extends "layout.html" %}
+
+{% block title %}Inventario - {{ vendedor.NombreUsuario }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Navegación -->
+    <div class="mb-3">
+        <a href="{{ url_for('bodega.inventario_vendedores') }}" class="btn btn-secondary">
+            <i class="fas fa-arrow-left"></i> Volver
+        </a>
+        <a href="{{ url_for('bodega.historial_vendedor', id_usuario=vendedor.ID_Usuario) }}" class="btn btn-primary">
+            <i class="fas fa-history"></i> Ver Historial
+        </a>
+    </div>
+
+    <!-- Datos del Vendedor -->
+    <div class="card mb-4">
+        <div class="card-header bg-primary text-white">
+            <h3 class="mb-0">
+                <i class="fas fa-boxes"></i> 
+                Inventario: {{ vendedor.NombreUsuario }}
+                <span class="badge badge-light float-right">Asignación #{{ vendedor.ID_Asignacion }}</span>
+            </h3>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-3">
+                    <p><strong>Ruta:</strong> {{ vendedor.Nombre_Ruta or 'No asignada' }}</p>
+                </div>
+                <div class="col-md-3">
+                    <p><strong>Vehículo:</strong> {{ vendedor.Vehiculo or 'No asignado' }}</p>
+                </div>
+                <div class="col-md-3">
+                    <p><strong>Horario:</strong> {{ vendedor.Hora_Inicio or '--:--' }} - {{ vendedor.Hora_Fin or '--:--' }}</p>
+                </div>
+                <div class="col-md-3">
+                    <p><strong>Asignado desde:</strong> {{ vendedor.Fecha_Asignacion.strftime('%d/%m/%Y') if vendedor.Fecha_Asignacion else 'N/A' }}</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- KPIs -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card bg-primary text-white text-center">
+                <div class="card-body">
+                    <h6>Productos</h6>
+                    <h2>{{ resumen.Productos_Diferentes if resumen else 0 }}</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-success text-white text-center">
+                <div class="card-body">
+                    <h6>Unidades Totales</h6>
+                    <h2>{{ resumen.Total_Unidades|int if resumen else 0 }}</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-info text-white text-center">
+                <div class="card-body">
+                    <h6>Valor Inventario</h6>
+                    <h2>${{ "%.2f"|format(resumen.Valor_Inventario if resumen else 0) }}</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-warning text-center">
+                <div class="card-body">
+                    <h6>Movimientos</h6>
+                    <h2>{{ total_movimientos }}</h2>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tabla de Inventario -->
+    <div class="card">
+        <div class="card-header bg-dark text-white">
+            <h4 class="mb-0">Stock Actual en Ruta</h4>
+        </div>
+        <div class="card-body table-responsive">
+            {% if inventario %}
+            <table class="table table-striped table-hover" id="tablaInventario">
+                <thead class="thead-light">
+                    <tr>
+                        <th>Código</th>
+                        <th>Producto</th>
+                        <th>Unidad</th>
+                        <th>Stock Actual</th>
+                        <th>Stock Mínimo</th>
+                        <th>Precio Venta</th>
+                        <th>Valor Total</th>
+                        <th>Última Actualización</th>
+                        <th>Estado</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in inventario %}
+                    <tr>
+                        <td><code>{{ item.COD_Producto }}</code></td>
+                        <td>{{ item.Producto }}</td>
+                        <td>{{ item.Unidad_Medida }}</td>
+                        <td>
+                            {% if item.Stock_Actual > item.Stock_Minimo * 2 %}
+                                <span class="badge badge-success font-size-100">{{ item.Stock_Actual|int }}</span>
+                            {% elif item.Stock_Actual > item.Stock_Minimo %}
+                                <span class="badge badge-warning font-size-100">{{ item.Stock_Actual|int }}</span>
+                            {% else %}
+                                <span class="badge badge-danger font-size-100">{{ item.Stock_Actual|int }}</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ item.Stock_Minimo|int }}</td>
+                        <td>${{ "%.2f"|format(item.Precio_Venta) }}</td>
+                        <td><strong>${{ "%.2f"|format(item.Valor_Total) }}</strong></td>
+                        <td><small>{{ item.Fecha_Actualizacion.strftime('%d/%m/%Y %H:%M') if item.Fecha_Actualizacion else 'N/A' }}</small></td>
+                        <td>
+                            {% if item.Stock_Actual > item.Stock_Minimo * 2 %}
+                                <span class="badge badge-success">Abastecido</span>
+                            {% elif item.Stock_Actual > item.Stock_Minimo %}
+                                <span class="badge badge-warning">Medio</span>
+                            {% else %}
+                                <span class="badge badge-danger">Crítico</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+                <tfoot class="bg-light font-weight-bold">
+                    <tr>
+                        <td colspan="3">Totales:</td>
+                        <td>{{ inventario|sum(attribute='Stock_Actual')|int }}</td>
+                        <td></td>
+                        <td></td>
+                        <td>${{ "%.2f"|format(inventario|sum(attribute='Valor_Total')) }}</td>
+                        <td colspan="2"></td>
+                    </tr>
+                </tfoot>
+            </table>
+            {% else %}
+            <div class="text-center py-5">
+                <i class="fas fa-box-open fa-4x text-muted mb-3"></i>
+                <h5>Sin inventario</h5>
+                <p>Este vendedor no tiene productos asignados en su ruta actual.</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+$(document).ready(function() {
+    $('#tablaInventario').DataTable({
+        language: { url: '//cdn.datatables.net/plug-ins/1.10.25/i18n/Spanish.json' },
+        pageLength: 25,
+        order: [[1, 'asc']],
+        dom: 'Bfrtip',
+        buttons: ['copy', 'csv', 'excel', 'pdf', 'print']
+    });
+});
+</script>
+{% endblock %}

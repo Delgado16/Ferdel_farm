@@ -3,10 +3,11 @@ Blueprint de rutas del personal de bodega (dashboard, inventario, movimientos)
 """
 from datetime import datetime, timedelta
 from decimal import Decimal
+from io import BytesIO
 import json
 import traceback
 
-from flask import Blueprint, jsonify, render_template, flash, redirect, request, session, url_for
+from flask import Blueprint, jsonify, render_template, flash, redirect, request, send_file, session, url_for
 from flask_login import login_required, current_user
 from config.database import get_db_cursor
 from auth.decorators import bodega_required, admin_or_bodega_required
@@ -1470,7 +1471,7 @@ def verificar_transferencia(id_movimiento):
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-@bodega_bp.route('/api/inventario/productos-bodega/<int:id_bodega>')
+@bodega_bp.route('/bodega/api/inventario/productos-bodega/<int:id_bodega>')
 @admin_or_bodega_required
 def api_productos_bodega_con_stock(id_bodega):
     """Obtener productos con stock en una bodega específica"""
@@ -2244,3 +2245,208 @@ def bodega_listar_movimientos():
     except Exception as e:
         flash(f"Error al cargar movimientos: {e}", "danger")
         return redirect(url_for('bodega.bodega_dashboard'))
+
+## INVENTARIO DE VENDEDORES ##
+@bodega_bp.route('/inventario-vendedores')
+@admin_or_bodega_required
+def inventario_vendedores():
+    try:
+        with get_db_cursor() as cursor:
+            # Obtener vendedores activos con asignación activa
+            cursor.execute("""
+                SELECT 
+                    u.ID_Usuario,
+                    u.NombreUsuario AS Vendedor,
+                    u.Estado AS Estado_Usuario,
+                    av.ID_Asignacion,
+                    rut.Nombre_Ruta,
+                    av.Fecha_Asignacion,
+                    av.Hora_Inicio,
+                    av.Hora_Fin,
+                    v.Placa AS Vehiculo,
+                    av.Estado AS Estado_Asignacion,
+                    COUNT(ir.ID_Producto) AS Total_Productos,
+                    COALESCE(SUM(ir.Cantidad), 0) AS Total_Unidades
+                FROM usuarios u
+                INNER JOIN roles r ON u.ID_Rol = r.ID_Rol
+                INNER JOIN asignacion_vendedores av ON u.ID_Usuario = av.ID_Usuario
+                LEFT JOIN rutas rut ON av.ID_Ruta = rut.ID_Ruta
+                LEFT JOIN vehiculos v ON av.ID_Vehiculo = v.ID_Vehiculo
+                LEFT JOIN inventario_ruta ir ON av.ID_Asignacion = ir.ID_Asignacion
+                WHERE r.Nombre_Rol = 'Vendedor'
+                    AND u.Estado = 'ACTIVO'
+                    AND av.Estado = 'Activa'
+                    AND u.ID_Empresa = %s
+                GROUP BY u.ID_Usuario, u.NombreUsuario, u.Estado, av.ID_Asignacion, 
+                         rut.Nombre_Ruta, av.Fecha_Asignacion, av.Hora_Inicio, 
+                         av.Hora_Fin, v.Placa, av.Estado
+                ORDER BY u.NombreUsuario
+            """, (session.get('id_empresa', 1),))
+            vendedores = cursor.fetchall()
+        
+        return render_template('bodega/ruta/inventario_vendedores.html', vendedores=vendedores)
+    except Exception as e:
+        flash(f"Error al cargar vendedores: {e}", "danger")
+        return redirect(url_for('bodega.bodega_dashboard'))
+    
+@bodega_bp.route('/inventario-vendedor/<int:id_usuario>')
+@admin_or_bodega_required
+def inventario_vendedor_detalle(id_usuario):
+    try:
+        with get_db_cursor() as cursor:
+            # Datos del vendedor y su asignación activa
+            cursor.execute("""
+                SELECT 
+                    u.ID_Usuario,
+                    u.NombreUsuario,
+                    r.Nombre_Rol,
+                    av.ID_Asignacion,
+                    rut.Nombre_Ruta,
+                    av.Fecha_Asignacion,
+                    av.Hora_Inicio,
+                    av.Hora_Fin,
+                    v.Placa AS Vehiculo
+                FROM usuarios u
+                INNER JOIN roles r ON u.ID_Rol = r.ID_Rol
+                LEFT JOIN asignacion_vendedores av ON u.ID_Usuario = av.ID_Usuario 
+                    AND av.Estado = 'Activa'
+                LEFT JOIN rutas rut ON av.ID_Ruta = rut.ID_Ruta
+                LEFT JOIN vehiculos v ON av.ID_Vehiculo = v.ID_Vehiculo
+                WHERE u.ID_Usuario = %s AND u.ID_Empresa = %s
+            """, (id_usuario, session.get('id_empresa', 1)))
+            vendedor = cursor.fetchone()
+            
+            if not vendedor:
+                flash("Vendedor no encontrado", "warning")
+                return redirect(url_for('bodega.inventario_vendedores'))
+            
+            # Inventario actual desde la tabla inventario_ruta
+            cursor.execute("""
+                SELECT 
+                    p.ID_Producto,
+                    p.COD_Producto,
+                    p.Descripcion AS Producto,
+                    um.Descripcion AS Unidad_Medida,
+                    p.Precio_Mercado AS Precio_Venta,
+                    ir.Cantidad AS Stock_Actual,
+                    p.Stock_Minimo,
+                    (ir.Cantidad * p.Precio_Mercado) AS Valor_Total,
+                    ir.Fecha_Actualizacion
+                FROM inventario_ruta ir
+                INNER JOIN productos p ON ir.ID_Producto = p.ID_Producto
+                LEFT JOIN unidades_medida um ON p.Unidad_Medida = um.ID_Unidad
+                WHERE ir.ID_Asignacion = %s AND ir.Cantidad > 0 AND p.Estado = 'activo'
+                ORDER BY p.Descripcion
+            """, (vendedor['ID_Asignacion'],))
+            inventario = cursor.fetchall()
+            
+            # Resumen del inventario
+            cursor.execute("""
+                SELECT 
+                    COUNT(*) AS Productos_Diferentes,
+                    COALESCE(SUM(ir.Cantidad), 0) AS Total_Unidades,
+                    COALESCE(SUM(ir.Cantidad * p.Precio_Mercado), 0) AS Valor_Inventario
+                FROM inventario_ruta ir
+                INNER JOIN productos p ON ir.ID_Producto = p.ID_Producto
+                WHERE ir.ID_Asignacion = %s AND ir.Cantidad > 0
+            """, (vendedor['ID_Asignacion'],))
+            resumen = cursor.fetchone()
+            
+            # Contar movimientos totales
+            cursor.execute("""
+                SELECT COUNT(*) AS Total_Movimientos
+                FROM movimientos_ruta_cabecera
+                WHERE ID_Asignacion = %s AND Estado = 'ACTIVO'
+            """, (vendedor['ID_Asignacion'],))
+            total_mov = cursor.fetchone()
+        
+        return render_template('bodega/ruta/inventario_vendedor_detalle.html', 
+                             vendedor=vendedor, 
+                             inventario=inventario,
+                             resumen=resumen,
+                             total_movimientos=total_mov['Total_Movimientos'] if total_mov else 0)
+    except Exception as e:
+        flash(f"Error al cargar inventario: {e}", "danger")
+        return redirect(url_for('bodega.inventario_vendedores'))
+
+@bodega_bp.route('/historial-vendedor/<int:id_usuario>')
+@admin_or_bodega_required
+def historial_vendedor(id_usuario):
+    try:
+        with get_db_cursor() as cursor:
+            # Obtener la asignación activa del vendedor
+            cursor.execute("""
+                SELECT 
+                    u.ID_Usuario,
+                    u.NombreUsuario,
+                    av.ID_Asignacion,
+                    rut.Nombre_Ruta,
+                    av.Fecha_Asignacion
+                FROM usuarios u
+                INNER JOIN roles r ON u.ID_Rol = r.ID_Rol
+                LEFT JOIN asignacion_vendedores av ON u.ID_Usuario = av.ID_Usuario 
+                    AND av.Estado = 'Activa'
+                LEFT JOIN rutas rut ON av.ID_Ruta = rut.ID_Ruta
+                WHERE u.ID_Usuario = %s AND u.ID_Empresa = %s
+            """, (id_usuario, session.get('id_empresa', 1)))
+            vendedor = cursor.fetchone()
+            
+            if not vendedor:
+                flash("Vendedor no encontrado", "warning")
+                return redirect(url_for('bodega.inventario_vendedores'))
+            
+            # Historial de movimientos de la asignación
+            cursor.execute("""
+                SELECT 
+                    mrc.ID_Movimiento,
+                    mrc.Fecha_Movimiento,
+                    cm.Descripcion AS Tipo_Movimiento,
+                    cm.Adicion AS Impacto,
+                    cm.Letra AS Simbolo,
+                    mrc.Documento_Numero,
+                    c.Nombre_Cliente,
+                    p.COD_Producto,
+                    p.Descripcion AS Producto,
+                    mrd.Cantidad,
+                    mrd.Precio_Unitario,
+                    mrd.Subtotal,
+                    um.Descripcion AS Unidad_Medida,
+                    mrc.Total_Productos AS Total_Venta,
+                    mrc.Monto_Efectivo,
+                    u_reg.NombreUsuario AS Registrado_Por
+                FROM movimientos_ruta_cabecera mrc
+                INNER JOIN movimientos_ruta_detalle mrd ON mrc.ID_Movimiento = mrd.ID_Movimiento
+                INNER JOIN catalogo_movimientos cm ON mrc.ID_TipoMovimiento = cm.ID_TipoMovimiento
+                INNER JOIN productos p ON mrd.ID_Producto = p.ID_Producto
+                LEFT JOIN unidades_medida um ON p.Unidad_Medida = um.ID_Unidad
+                LEFT JOIN clientes c ON mrc.ID_Cliente = c.ID_Cliente
+                LEFT JOIN usuarios u_reg ON mrc.ID_Usuario_Registra = u_reg.ID_Usuario
+                WHERE mrc.ID_Asignacion = %s 
+                    AND mrc.Estado = 'ACTIVO'
+                ORDER BY mrc.Fecha_Movimiento DESC, mrc.ID_Movimiento DESC
+                LIMIT 200
+            """, (vendedor['ID_Asignacion'],))
+            movimientos = cursor.fetchall()
+            
+            # Resumen de movimientos
+            cursor.execute("""
+                SELECT 
+                    COUNT(*) AS Total_Movimientos,
+                    SUM(CASE WHEN cm.Adicion = '+' THEN mrd.Cantidad ELSE 0 END) AS Total_Entradas,
+                    SUM(CASE WHEN cm.Adicion = '-' THEN mrd.Cantidad ELSE 0 END) AS Total_Salidas,
+                    SUM(CASE WHEN cm.Adicion = '+' THEN mrd.Subtotal ELSE 0 END) AS Monto_Entradas,
+                    SUM(CASE WHEN cm.Adicion = '-' THEN mrd.Subtotal ELSE 0 END) AS Monto_Salidas
+                FROM movimientos_ruta_cabecera mrc
+                INNER JOIN movimientos_ruta_detalle mrd ON mrc.ID_Movimiento = mrd.ID_Movimiento
+                INNER JOIN catalogo_movimientos cm ON mrc.ID_TipoMovimiento = cm.ID_TipoMovimiento
+                WHERE mrc.ID_Asignacion = %s AND mrc.Estado = 'ACTIVO'
+            """, (vendedor['ID_Asignacion'],))
+            resumen_mov = cursor.fetchone()
+        
+        return render_template('bodega/ruta/historial_vendedor.html',
+                             vendedor=vendedor,
+                             movimientos=movimientos,
+                             resumen=resumen_mov)
+    except Exception as e:
+        flash(f"Error al cargar historial: {e}", "danger")
+        return redirect(url_for('bodega.inventario_vendedores'))

@@ -36,18 +36,8 @@
                             <div class="col-md-6">
                                 <label class="form-label">Tipo de Movimiento</label>
                                 <select class="form-select" disabled>
-                                    <option selected>
-                                        {% if tipo_movimiento %}
-                                            {{ tipo_movimiento.Descripcion }}
-                                        {% else %}
-                                            Traslado entre Bodegas
-                                        {% endif %}
-                                    </option>
+                                    <option selected>Traslado entre Bodegas</option>
                                 </select>
-                                {% if tipo_movimiento %}
-                                <input type="hidden" name="id_tipo_movimiento" 
-                                       value="{{ tipo_movimiento.ID_TipoMovimiento }}">
-                                {% endif %}
                             </div>
                             
                             <div class="col-md-6">
@@ -217,7 +207,7 @@
                         </li>
                     </ul>
                     
-                    <!-- Botón para depuración (opcional, puedes eliminarlo después) -->
+                    <!-- Botón para depuración -->
                     <div class="mt-3 pt-2 border-top">
                         <button type="button" class="btn btn-sm btn-outline-info" onclick="depurarDatos()">
                             <i class="fas fa-bug me-1"></i> Depurar Datos
@@ -230,11 +220,22 @@
 </div>
 
 <script>
+// ✅ CORRECCIÓN 1: Definir la URL base de la API usando url_for de Flask
+const API_PRODUCTOS_URL = "{{ url_for('bodega.api_productos_bodega_con_stock', id_bodega=0) }}";
+
+// ✅ CORRECCIÓN 2: Función para obtener la URL con el ID específico
+function getProductosBodegaUrl(bodegaId) {
+    return API_PRODUCTOS_URL.replace('/0', `/${bodegaId}`);
+}
+
 let productosTransferencia = [];
 let productosDisponibles = [];
 
 // Inicializar
 document.addEventListener('DOMContentLoaded', function() {
+    console.log('✅ Página cargada');
+    console.log('📡 API URL base:', API_PRODUCTOS_URL);
+    
     // Fecha actual
     const fechaInput = document.querySelector('input[name="fecha"]');
     if (!fechaInput.value) {
@@ -296,7 +297,7 @@ function actualizarEstado() {
     }
 }
 
-// Cargar productos de bodega
+// ✅ CORRECCIÓN 3: Cargar productos de bodega con la URL corregida
 function cargarProductosBodega() {
     const bodegaId = document.getElementById('select-bodega-origen').value;
     const lista = document.getElementById('lista-productos-bodega');
@@ -315,7 +316,6 @@ function cargarProductosBodega() {
                 <p class="mb-0">Seleccione una bodega origen</p>
             </div>
         `;
-        
         buscarInput.disabled = true;
         btnBuscar.disabled = true;
         buscarInput.value = '';
@@ -335,10 +335,20 @@ function cargarProductosBodega() {
     buscarInput.disabled = false;
     btnBuscar.disabled = false;
     
-    // API call
-    fetch(`/api/inventario/productos-bodega/${bodegaId}`)
-        .then(response => response.json())
+    // ✅ CORRECCIÓN: Usar la URL corregida
+    const apiUrl = getProductosBodegaUrl(bodegaId);
+    console.log('📡 Llamando a API:', apiUrl);
+    
+    fetch(apiUrl)
+        .then(response => {
+            console.log('📡 Status:', response.status);
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+            return response.json();
+        })
         .then(data => {
+            console.log('📦 Datos recibidos:', data);
             productosDisponibles = Array.isArray(data) ? data : (data.productos || []);
             
             if (productosDisponibles.length === 0) {
@@ -355,11 +365,12 @@ function cargarProductosBodega() {
             actualizarEstado();
         })
         .catch(error => {
-            console.error('Error:', error);
+            console.error('❌ Error:', error);
             lista.innerHTML = `
                 <div class="text-center text-danger p-4">
                     <i class="fas fa-exclamation-circle fa-2x mb-3"></i>
                     <p class="mb-0">Error al cargar productos</p>
+                    <small class="text-muted">${error.message}</small>
                 </div>
             `;
             actualizarEstado();
@@ -401,10 +412,10 @@ function mostrarProductos(productos) {
                style="cursor: pointer;">
                 <div class="d-flex justify-content-between align-items-start">
                     <div class="flex-grow-1">
-                        <h6 class="mb-1">${producto.Descripcion}</h6>
+                        <h6 class="mb-1">${escapeHtml(producto.Descripcion)}</h6>
                         <p class="mb-1">
-                            <small class="text-muted">${producto.COD_Producto || 'Sin código'}</small><br>
-                            <small class="text-muted">${producto.Categoria_Descripcion || ''}</small>
+                            <small class="text-muted">${escapeHtml(producto.COD_Producto || 'Sin código')}</small><br>
+                            <small class="text-muted">${escapeHtml(producto.Categoria_Descripcion || '')}</small>
                         </p>
                     </div>
                     <div class="text-end ms-2">
@@ -416,6 +427,14 @@ function mostrarProductos(productos) {
     });
     
     lista.innerHTML = html;
+}
+
+// Función para escapar HTML y prevenir XSS
+function escapeHtml(text) {
+    if (!text) return '';
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
 }
 
 // Obtener productos agregados
@@ -481,8 +500,8 @@ function agregarProducto(producto = null) {
             <input type="hidden" class="id-producto-transferencia" 
                    value="${producto.ID_Producto}">
             <div>
-                <strong>${producto.Descripcion}</strong><br>
-                <small class="text-muted">${producto.COD_Producto || ''}</small>
+                <strong>${escapeHtml(producto.Descripcion)}</strong><br>
+                <small class="text-muted">${escapeHtml(producto.COD_Producto || '')}</small>
             </div>
         </td>
         <td class="text-center">
@@ -531,6 +550,7 @@ function actualizarCantidad(filaId, cantidad) {
     // Validar límites
     if (cantidadNum <= 0) {
         cantidadNum = 0.001;
+        document.querySelector(`#${filaId} .cantidad-producto`).value = cantidadNum.toFixed(3);
     }
     
     if (cantidadNum > stock) {
@@ -581,6 +601,8 @@ function actualizarResumen() {
     
     // IMPORTANTE: Stringify para enviar como JSON
     document.getElementById('productos-json').value = JSON.stringify(productosData);
+    
+    console.log('📦 JSON actualizado:', productosData);
 }
 
 // Habilitar botón guardar
@@ -628,32 +650,33 @@ function validarBodegas() {
 
 // DEPURACIÓN: Función para ver datos actuales
 function depurarDatos() {
-    console.log('🔍 DEPURACIÓN DE DATOS:');
-    console.log('Array productosTransferencia:', productosTransferencia);
+    console.log('=== DEPURACIÓN DE DATOS ===');
+    console.log('Productos en transferencia:', productosTransferencia);
     console.log('JSON a enviar:', document.getElementById('productos-json').value);
-    console.log('Parseado:', JSON.parse(document.getElementById('productos-json').value));
     
-    // Mostrar en alerta también
     const data = JSON.parse(document.getElementById('productos-json').value);
-    alert(`Depuración:\n\nProductos: ${data.length}\nJSON: ${JSON.stringify(data, null, 2)}`);
+    console.log('Parseado:', data);
+    
+    // Mostrar en alerta
+    alert(`Depuración:\n\nProductos: ${data.length}\nPrimer producto: ${JSON.stringify(data[0], null, 2)}`);
 }
 
-// Validar formulario
+// ✅ CORRECCIÓN 4: Validar formulario antes de enviar
 document.getElementById('formTransferencia').addEventListener('submit', function(e) {
     e.preventDefault();
     
-    console.log('🚀 Validando formulario...');
+    console.log('=== VALIDANDO FORMULARIO ===');
     
     // 1. Validar bodegas
     if (!validarBodegas()) {
         alert('Las bodegas deben ser diferentes');
-        return false;
+        return;
     }
     
     // 2. Validar que haya productos
     if (productosTransferencia.length === 0) {
         alert('Agregue al menos un producto');
-        return false;
+        return;
     }
     
     // 3. Validar stock
@@ -673,26 +696,42 @@ document.getElementById('formTransferencia').addEventListener('submit', function
     
     if (!stockOk) {
         alert(`❌ Stock insuficiente:\n\n${mensajeError}`);
-        return false;
+        return;
     }
     
     // 4. Asegurar que el campo JSON esté actualizado
     actualizarResumen();
     
-    // 5. Mostrar resumen y confirmar
-    const origenText = document.getElementById('select-bodega-origen').selectedOptions[0].text;
-    const destinoText = document.getElementById('select-bodega-destino').selectedOptions[0].text;
+    // 5. Verificar que el JSON no esté vacío
+    const productosJson = document.getElementById('productos-json').value;
+    const productos = JSON.parse(productosJson);
+    
+    if (productos.length === 0) {
+        alert('No hay productos para transferir');
+        return;
+    }
+    
+    // 6. Mostrar resumen y confirmar
+    const origenSelect = document.getElementById('select-bodega-origen');
+    const destinoSelect = document.getElementById('select-bodega-destino');
+    const origenText = origenSelect.options[origenSelect.selectedIndex]?.text || 'Origen';
+    const destinoText = destinoSelect.options[destinoSelect.selectedIndex]?.text || 'Destino';
     const totalUnidades = productosTransferencia.reduce((sum, p) => sum + parseFloat(p.cantidad), 0);
     
-    const resumen = `¿Confirmar transferencia?\n\n` +
+    const resumen = `✅ ¿Confirmar transferencia?\n\n` +
                    `📦 Productos: ${productosTransferencia.length}\n` +
                    `📊 Unidades: ${totalUnidades.toFixed(3)}\n` +
                    `📍 De: ${origenText}\n` +
                    `🏁 A: ${destinoText}`;
     
     if (confirm(resumen)) {
-        console.log('✅ Enviando formulario...');
-        console.log('📤 Datos enviados:', JSON.parse(document.getElementById('productos-json').value));
+        console.log('📤 Enviando formulario...');
+        console.log('📤 Datos a enviar:', {
+            fecha: document.querySelector('input[name="fecha"]').value,
+            id_bodega_origen: document.getElementById('select-bodega-origen').value,
+            id_bodega_destino: document.getElementById('select-bodega-destino').value,
+            productos: productos
+        });
         
         // Enviar formulario
         this.submit();

@@ -18,8 +18,11 @@
         :root {
             --primary-color: #6a11cb;
             --secondary-color: #2575fc;
-            --sidebar-width: 250px;
+            --sidebar-width: 260px;
             --sidebar-collapsed-width: 70px;
+            --sidebar-bg: #1a1e24;
+            --sidebar-hover: #2c3138;
+            --sidebar-active: #0d6efd;
         }
 
         body {
@@ -35,8 +38,9 @@
             left: 0;
             right: 0;
             z-index: 1030;
-            height: 56px;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            height: 60px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            background: linear-gradient(135deg, var(--sidebar-bg) 0%, #2c3138 100%);
         }
 
         .navbar-brand {
@@ -50,7 +54,7 @@
             margin-right: 0.5rem;
         }
 
-        /* Botón de hamburguesa - visible solo en móviles */
+        /* Botón de hamburguesa */
         .navbar-toggler {
             border: none;
             padding: 0.25rem 0.5rem;
@@ -61,18 +65,52 @@
             outline: none;
         }
 
-        /* Sidebar */
+        /* SIDEBAR MEJORADO */
         .sidebar {
             position: fixed;
-            top: 56px;
+            top: 60px;
             left: 0;
-            height: calc(100vh - 56px);
-            background-color: #343a40;
+            height: calc(100vh - 60px);
+            background-color: var(--sidebar-bg);
             color: white;
             width: var(--sidebar-width);
-            transition: all 0.3s ease;
+            transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
             z-index: 1020;
             overflow-y: auto;
+            overflow-x: hidden;
+            box-shadow: 2px 0 10px rgba(0, 0, 0, 0.1);
+        }
+
+        /* Sidebar Logo */
+        .sidebar-logo {
+            padding: 1rem;
+            text-align: center;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            margin-bottom: 1rem;
+        }
+
+        .sidebar-logo img {
+            width: 45px;
+            height: 45px;
+            border-radius: 10px;
+            transition: all 0.3s;
+        }
+
+        .sidebar-logo span {
+            display: inline-block;
+            margin-left: 10px;
+            font-weight: 600;
+            font-size: 1.1rem;
+            vertical-align: middle;
+        }
+
+        .sidebar.collapsed .sidebar-logo span {
+            display: none;
+        }
+
+        .sidebar.collapsed .sidebar-logo img {
+            width: 35px;
+            height: 35px;
         }
 
         /* Estado normal en escritorio */
@@ -86,12 +124,18 @@
                 width: var(--sidebar-collapsed-width);
             }
 
-            .sidebar.collapsed .nav-link span:not(.submenu-toggle) {
+            .sidebar.collapsed .nav-link span:not(.submenu-toggle):not(.badge) {
                 display: none;
             }
 
             .sidebar.collapsed .nav-link {
                 justify-content: center;
+                padding: 0.75rem 0;
+            }
+
+            .sidebar.collapsed .nav-link i {
+                margin-right: 0 !important;
+                font-size: 1.3rem;
             }
 
             .sidebar.collapsed .submenu-toggle {
@@ -101,9 +145,13 @@
             .sidebar.collapsed .has-submenu.active .submenu {
                 display: none;
             }
+
+            .sidebar.collapsed .sidebar-footer {
+                display: none;
+            }
         }
 
-        /* Estado en móviles - oculto por defecto */
+        /* Estado en móviles */
         @media (max-width: 767.98px) {
             .sidebar {
                 left: 0;
@@ -112,34 +160,80 @@
                 max-width: 85%;
                 transition: transform 0.3s ease;
                 z-index: 1045;
-                box-shadow: 2px 0 5px rgba(0, 0, 0, 0.2);
+                box-shadow: 2px 0 15px rgba(0, 0, 0, 0.3);
             }
 
             .sidebar.show {
                 transform: translateX(0);
             }
+
+            .sidebar.collapsed {
+                width: 280px;
+            }
+            
+            .sidebar.collapsed .nav-link span:not(.submenu-toggle) {
+                display: inline-block;
+            }
+            
+            .sidebar.collapsed .nav-link {
+                justify-content: flex-start;
+                padding: 0.75rem 1rem;
+            }
+
+            .sidebar.collapsed .nav-link i {
+                margin-right: 0.75rem !important;
+            }
+        }
+
+        /* Navegación */
+        .sidebar .nav {
+            flex-direction: column;
+            padding: 0 0.5rem;
         }
 
         .sidebar .nav-link {
-            color: rgba(255, 255, 255, 0.8);
-            padding: 0.75rem 1rem;
+            color: rgba(255, 255, 255, 0.75);
+            padding: 0.7rem 0.8rem;
             display: flex;
             align-items: center;
             transition: all 0.2s;
             white-space: nowrap;
-            border-radius: 0.375rem;
-            margin: 0 0.5rem;
-            width: calc(100% - 1rem);
+            border-radius: 0.5rem;
+            margin-bottom: 0.25rem;
+            position: relative;
+            gap: 0.75rem;
+        }
+
+        .sidebar .nav-link i {
+            font-size: 1.2rem;
+            min-width: 24px;
+            text-align: center;
         }
 
         .sidebar .nav-link:hover {
             color: white;
-            background-color: rgba(255, 255, 255, 0.1);
+            background-color: var(--sidebar-hover);
         }
 
         .sidebar .nav-link.active {
             color: white;
-            background-color: rgba(255, 255, 255, 0.2);
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            box-shadow: 0 2px 5px rgba(106, 17, 203, 0.3);
+        }
+
+        /* Submenús */
+        .sidebar .has-submenu {
+            position: relative;
+        }
+
+        .submenu-toggle {
+            transition: transform 0.2s;
+            margin-left: auto;
+            font-size: 0.8rem;
+        }
+
+        .sidebar .has-submenu.active > .nav-link .submenu-toggle {
+            transform: rotate(90deg);
         }
 
         .sidebar .submenu {
@@ -147,68 +241,116 @@
             max-height: 0;
             overflow: hidden;
             transition: max-height 0.3s ease;
-            margin-left: 1rem;
-            margin-right: 0.5rem;
-            width: calc(100% - 1.5rem);
+            margin-left: 1.8rem;
         }
 
         .sidebar .submenu.show {
-            max-height: 500px;
+            max-height: 800px;
         }
 
         .sidebar .submenu .nav-link {
-            padding: 0.6rem 1rem 0.6rem 2rem;
-            font-size: 0.9rem;
+            padding: 0.6rem 0.8rem;
+            font-size: 0.85rem;
             position: relative;
             margin-left: 0;
+            gap: 0.6rem;
+        }
+
+        .sidebar .submenu .nav-link i {
+            font-size: 0.9rem;
+            min-width: 20px;
         }
 
         .sidebar .submenu .nav-link::before {
             content: "";
             position: absolute;
-            left: 0.5rem;
+            left: -0.5rem;
             top: 50%;
-            width: 5px;
-            height: 5px;
-            background: rgba(255, 255, 255, 0.5);
+            width: 4px;
+            height: 4px;
+            background: rgba(255, 255, 255, 0.4);
             border-radius: 50%;
             transform: translateY(-50%);
         }
 
-        .sidebar .has-submenu.active .submenu-toggle {
-            transform: rotate(90deg);
+        .sidebar .submenu .nav-link.active::before {
+            background: white;
+            width: 6px;
+            height: 6px;
         }
 
-        .sidebar-toggle {
-            background: none;
-            border: none;
-            color: white;
+        /* Footer del sidebar */
+        .sidebar-footer {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            padding: 1rem;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            font-size: 0.75rem;
+            background-color: var(--sidebar-bg);
+        }
+
+        .sidebar-footer .user-info {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .sidebar-footer .user-avatar-small {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.8rem;
+            font-weight: bold;
+        }
+
+        .sidebar.collapsed .sidebar-footer {
+            display: none;
+        }
+
+        /* Botón toggle del sidebar (escritorio) */
+        .sidebar-toggle-btn {
+            position: fixed;
+            left: var(--sidebar-width);
+            top: 70px;
+            z-index: 1021;
+            background: white;
+            border: 1px solid #dee2e6;
+            border-radius: 0 8px 8px 0;
+            padding: 6px 8px;
             cursor: pointer;
-            font-size: 1.2rem;
-            padding: 0.5rem;
-            border-radius: 0.375rem;
+            transition: left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.1);
         }
 
-        .sidebar-toggle:hover {
-            background-color: rgba(255, 255, 255, 0.1);
+        .sidebar-toggle-btn:hover {
+            background-color: #f8f9fa;
         }
 
-        /* Estilo para elementos de submenú activos */
-        .sidebar .submenu .nav-link.active {
-            background-color: rgba(255, 255, 255, 0.15);
-            border-left: 3px solid #fff;
+        .sidebar.collapsed ~ .sidebar-toggle-btn {
+            left: var(--sidebar-collapsed-width);
+        }
+
+        @media (max-width: 767.98px) {
+            .sidebar-toggle-btn {
+                display: none;
+            }
         }
 
         /* Main Content */
         .main-content {
             padding: 20px;
-            transition: margin-left 0.3s ease;
+            transition: margin-left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
             margin-left: var(--sidebar-width);
-            margin-top: 56px;
-            min-height: calc(100vh - 56px);
+            margin-top: 60px;
+            min-height: calc(100vh - 60px);
         }
 
-        /* En móviles, el contenido ocupa todo el ancho */
         @media (max-width: 767.98px) {
             .main-content {
                 margin-left: 0;
@@ -218,10 +360,6 @@
 
         .main-content.expanded {
             margin-left: var(--sidebar-collapsed-width);
-        }
-
-        .main-content.full-width {
-            margin-left: 0;
         }
 
         /* Overlay para móviles */
@@ -254,21 +392,12 @@
 
         /* Responsive */
         @media (max-width: 767.98px) {
-
-            /* Evitar scroll en body cuando el overlay está activo */
             body.sidebar-open {
                 overflow: hidden;
             }
-
-            /* Aumentamos el área de toque para móviles */
-            .sidebar .nav-link {
-                padding: 0.8rem 1rem;
-                margin: 0 0.25rem;
-                width: calc(100% - 0.5rem);
-            }
         }
 
-        /* --- MEJORAS PARA FORMULARIOS RESPONSIVOS --- */
+        /* Formularios */
         .form-container {
             background: white;
             border-radius: 10px;
@@ -384,7 +513,6 @@
             from {
                 opacity: 0;
             }
-
             to {
                 opacity: 1;
             }
@@ -401,21 +529,22 @@
             z-index: 1035;
         }
 
+        /* Scrollbar personalizado */
         .sidebar::-webkit-scrollbar {
-            width: 5px;
+            width: 4px;
         }
 
         .sidebar::-webkit-scrollbar-track {
-            background: rgba(255, 255, 255, 0.1);
+            background: rgba(255, 255, 255, 0.05);
         }
 
         .sidebar::-webkit-scrollbar-thumb {
-            background: rgba(255, 255, 255, 0.3);
-            border-radius: 3px;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 4px;
         }
 
         .sidebar::-webkit-scrollbar-thumb:hover {
-            background: rgba(255, 255, 255, 0.5);
+            background: rgba(255, 255, 255, 0.3);
         }
 
         .user-avatar {
@@ -431,14 +560,35 @@
         }
 
         @media (max-width: 576px) {
-
-            input,
-            select,
-            textarea,
-            .form-control,
-            .form-select {
+            input, select, textarea, .form-control, .form-select {
                 font-size: 16px !important;
             }
+        }
+
+        /* Tooltip para sidebar colapsado */
+        [data-tooltip] {
+            position: relative;
+        }
+
+        [data-tooltip]:before {
+            content: attr(data-tooltip);
+            position: absolute;
+            left: 100%;
+            top: 50%;
+            transform: translateY(-50%);
+            background: rgba(0, 0, 0, 0.85);
+            color: white;
+            padding: 5px 10px;
+            border-radius: 5px;
+            font-size: 0.8rem;
+            white-space: nowrap;
+            z-index: 1060;
+            display: none;
+            margin-left: 10px;
+        }
+
+        .sidebar.collapsed .nav-link[data-tooltip]:hover:before {
+            display: block;
         }
     </style>
     {% block extra_css %}{% endblock %}
@@ -463,20 +613,17 @@
     <!-- Overlay para móvil -->
     <div class="overlay" id="mainOverlay"></div>
 
-    <!-- Navbar para usuarios autenticados -->
-    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+    <!-- Navbar -->
+    <nav class="navbar navbar-expand-lg navbar-dark">
         <div class="container-fluid">
-            <!-- Botón hamburguesa para móviles - AHORA SÍ VISIBLE -->
             <button class="navbar-toggler d-md-none" type="button" id="mobileSidebarToggle" aria-label="Abrir menú">
                 <span class="navbar-toggler-icon"></span>
             </button>
 
-            <!-- Logo y nombre -->
             <a class="navbar-brand mx-auto mx-md-2" href="{{ url_for('main.dashboard') }}">
                 <i class="bi bi-building"></i>FerDel Sistema
             </a>
 
-            <!-- Dropdown de usuario -->
             <ul class="navbar-nav ms-auto">
                 <li class="nav-item dropdown">
                     <a class="nav-link dropdown-toggle d-flex align-items-center px-3" href="#" id="userDropdown"
@@ -493,12 +640,9 @@
                                 <small class="text-muted">Rol: {{ current_user.rol }}</small>
                             </div>
                         </li>
+                        <li><hr class="dropdown-divider"></li>
                         <li>
-                            <hr class="dropdown-divider">
-                        </li>
-                        <li>
-                            <a class="dropdown-item d-flex align-items-center text-danger"
-                                href="{{ url_for('auth.logout') }}">
+                            <a class="dropdown-item d-flex align-items-center text-danger" href="{{ url_for('auth.logout') }}">
                                 <i class="bi bi-box-arrow-right me-2"></i>Cerrar Sesión
                             </a>
                         </li>
@@ -510,279 +654,269 @@
 
     <!-- Sidebar -->
     <div class="sidebar" id="mainSidebar">
-        <div class="pt-3">
+        <div class="sidebar-logo">
+            <img src="{{ url_for('static', filename='ferdel.png') }}" alt="Logo">
+            <span>FerDel Sistema</span>
+        </div>
+
+        <div class="nav flex-column">
             {% if current_user.rol == 'Administrador' %}
-            <div class="nav flex-column">
                 <!-- Dashboard -->
-                <a class="nav-link {% if request.endpoint == 'admin_dashboard' %}active{% endif %}"
-                    href="{{ url_for('admin.admin_dashboard') }}">
-                    <i class="bi bi-speedometer2 me-2"></i> <span>Dashboard</span>  
+                <a class="nav-link {% if request.endpoint == 'admin_dashboard' %}active{% endif %}" 
+                   href="{{ url_for('admin.admin_dashboard') }}" data-tooltip="Dashboard">
+                    <i class="bi bi-speedometer2"></i> <span>Dashboard</span>
                 </a>
 
                 <!-- Caja de movimientos -->
-                <div class="has-submenu {% if 'caja' in request.endpoint %} active {% endif %}">
-                    <a class="nav-link submenu-toggle-btn" href="#caja-submenu">
-                        <i class="bi bi-cash-stack me-2"></i> <span>Caja de Movimientos</span>
+                <div class="has-submenu {% if 'caja' in request.endpoint %}active{% endif %}">
+                    <a class="nav-link submenu-toggle-btn" href="#caja-submenu" data-tooltip="Caja de Movimientos">
+                        <i class="bi bi-cash-stack"></i> <span>Caja de Movimientos</span>
                         <i class="bi bi-chevron-right submenu-toggle ms-auto"></i>
                     </a>
                     <div class="submenu {% if 'caja' in request.endpoint %}show{% endif %}" id="caja-submenu">
                         <a class="nav-link {% if request.endpoint == 'admin.admin_caja' %}active{% endif %}"
-                            href="{{ url_for('admin.admin_caja') }}">
-                            <i class="bi bi-list-ul me-2"></i> Movimientos de Caja
+                           href="{{ url_for('admin.admin_caja') }}">
+                            <i class="bi bi-list-ul"></i> Movimientos de Caja
                         </a>
                     </div>
                 </div>
 
-                <!-- Ventas con submenú -->
-                <div
-                    class="has-submenu {% if 'admin.admin_ventas_salidas' in request.endpoint or 'admin.admin_cuentascobrar' in request.endpoint %}active{% endif %}">
-                    <a class="nav-link submenu-toggle-btn" href="#ventas-submenu">
-                        <i class="bi bi-cart4 me-2"></i> <span>Ventas</span>
+                <!-- Ventas -->
+                <div class="has-submenu {% if 'ventas' in request.endpoint or 'cuentascobrar' in request.endpoint %}active{% endif %}">
+                    <a class="nav-link submenu-toggle-btn" href="#ventas-submenu" data-tooltip="Ventas">
+                        <i class="bi bi-cart4"></i> <span>Ventas</span>
                         <i class="bi bi-chevron-right submenu-toggle ms-auto"></i>
                     </a>
-                    <div class="submenu {% if 'admin.admin_ventas_salidas' in request.endpoint or 'admin.admin_cuentascobrar' in request.endpoint %}show{% endif %}"
-                        id="ventas-submenu">
+                    <div class="submenu {% if 'ventas' in request.endpoint or 'cuentascobrar' in request.endpoint %}show{% endif %}" id="ventas-submenu">
                         <a class="nav-link {% if request.endpoint == 'admin.admin_ventas_salidas' %}active{% endif %}"
-                            href="{{ url_for('admin.admin_ventas_salidas') }}">
-                            <i class="bi bi-list-ul me-2"></i> Ventas
+                           href="{{ url_for('admin.admin_ventas_salidas') }}">
+                            <i class="bi bi-list-ul"></i> Ventas
                         </a>
-                        <!--Clientes anticipos-->
                         <a class="nav-link {% if request.endpoint == 'admin.admin_clientes_anticipos' %}active{% endif %}"
-                            href="{{ url_for('admin.admin_clientes_anticipos') }}">
-                            <i class="bi bi-cash-coin me-2"></i> Anticipos Clientes
+                           href="{{ url_for('admin.admin_clientes_anticipos') }}">
+                            <i class="bi bi-cash-coin"></i> Anticipos Clientes
                         </a>
                         <a class="nav-link {% if request.endpoint == 'admin.admin_cuentascobrar' %}active{% endif %}"
-                            href="{{ url_for('admin.admin_cuentascobrar') }}">
-                            <i class="bi bi-wallet2 me-2"></i> Cuentas por Cobrar
+                           href="{{ url_for('admin.admin_cuentascobrar') }}">
+                            <i class="bi bi-wallet2"></i> Cuentas por Cobrar
                         </a>
                         <a class="nav-link {% if request.endpoint == 'admin.admin_pedidos_venta' %}active{% endif %}"
-                            href="{{ url_for('admin.admin_pedidos_venta') }}">
-                            <i class="bi bi-cart-check me-2"></i> Pedidos Clientes
+                           href="{{ url_for('admin.admin_pedidos_venta') }}">
+                            <i class="bi bi-cart-check"></i> Pedidos Clientes
                         </a>
-                        <a class="nav-link {% if request.endpoint == 'admin.admin_rutas' %}active{% endif %}"
-                            href="{{ url_for('admin.admin_asignacion_rutas') }}">
-                            <i class="bi bi-geo-alt me-2"></i> Rutas
+                        <a class="nav-link {% if request.endpoint == 'admin.admin_asignacion_rutas' %}active{% endif %}"
+                           href="{{ url_for('admin.admin_asignacion_rutas') }}">
+                            <i class="bi bi-geo-alt"></i> Rutas
                         </a>
                         <a class="nav-link {% if request.endpoint == 'admin.admin_facturas_ventas' %}active{% endif %}"
-                            href="{{  url_for('admin.admin_facturas_ventas') }}">
-                            <i class="bi bi-receipt me-2"></i> Facturas de Ventas
+                           href="{{ url_for('admin.admin_facturas_ventas') }}">
+                            <i class="bi bi-receipt"></i> Facturas de Ventas
                         </a>
                     </div>
                 </div>
 
-                <!-- Compras con submenú -->
-                <div
-                    class="has-submenu {% if 'admin.admin_compras_entradas' in request.endpoint or 'admin.admin_cuentas_por_pagar' in request.endpoint %}active{% endif %}">
-                    <a class="nav-link submenu-toggle-btn" href="#compras-submenu">
-                        <i class="bi bi-tags me-2"></i> <span>Compras</span>
+                <!-- Compras -->
+                <div class="has-submenu {% if 'compras' in request.endpoint or 'cuentas_por_pagar' in request.endpoint %}active{% endif %}">
+                    <a class="nav-link submenu-toggle-btn" href="#compras-submenu" data-tooltip="Compras">
+                        <i class="bi bi-tags"></i> <span>Compras</span>
                         <i class="bi bi-chevron-right submenu-toggle ms-auto"></i>
                     </a>
-                    <div class="submenu {% if 'admin.admin_compras_entradas' in request.endpoint or 'admin.admin_cuentas_por_pagar' in request.endpoint %}show{% endif %}"
-                        id="compras-submenu">
+                    <div class="submenu {% if 'compras' in request.endpoint or 'cuentas_por_pagar' in request.endpoint %}show{% endif %}" id="compras-submenu">
                         <a class="nav-link {% if request.endpoint == 'admin.admin_compras_entradas' %}active{% endif %}"
-                            href="{{ url_for('admin.admin_compras_entradas') }}">
-                            <i class="bi bi-list-ul me-2"></i> Compras
+                           href="{{ url_for('admin.admin_compras_entradas') }}">
+                            <i class="bi bi-list-ul"></i> Compras
                         </a>
                         <a class="nav-link {% if request.endpoint == 'admin.admin_cuentas_por_pagar' %}active{% endif %}"
-                            href="{{ url_for('admin.admin_cuentas_por_pagar') }}">
-                            <i class="bi bi-wallet2 me-2"></i> Cuentas por Pagar
+                           href="{{ url_for('admin.admin_cuentas_por_pagar') }}">
+                            <i class="bi bi-wallet2"></i> Cuentas por Pagar
                         </a>
                         <a class="nav-link {% if request.endpoint == 'admin.admin_gastos_operativos' %}active{% endif %}"
-                            href="{{ url_for('admin.admin_gastos_operativos') }}">
-                            <i class="bi bi-file-earmark-text me-2"></i> Gastos
+                           href="{{ url_for('admin.admin_gastos_operativos') }}">
+                            <i class="bi bi-file-earmark-text"></i> Gastos
                         </a>
                     </div>
                 </div>
 
-                <!-- Catálogos con submenú -->
-                <div
-                    class="has-submenu {% if 'admin.admin_usuarios' in request.endpoint or 'admin.admin_empresas' in request.endpoint or 'admin.admin_clientes' in request.endpoint or 'admin.admin_proveedores' in request.endpoint or 'admin.admin_unidades_medidas' in request.endpoint or 'admin.admin_categorias' in request.endpoint or 'admin.admin_metodos_pago' in request.endpoint or 'admin.admin_movimientos_inventario' in request.endpoint %}active{% endif %}">
-                    <a class="nav-link submenu-toggle-btn" href="#catalogos-submenu">
-                        <i class="bi bi-collection me-2"></i> <span>Catálogos</span>
+                <!-- Catálogos -->
+                <div class="has-submenu {% if 'usuarios' in request.endpoint or 'empresas' in request.endpoint or 'clientes' in request.endpoint %}active{% endif %}">
+                    <a class="nav-link submenu-toggle-btn" href="#catalogos-submenu" data-tooltip="Catálogos">
+                        <i class="bi bi-collection"></i> <span>Catálogos</span>
                         <i class="bi bi-chevron-right submenu-toggle ms-auto"></i>
                     </a>
-                    <div class="submenu {% if 'admin.admin_usuarios' in request.endpoint or 'admin.admin_empresas' in request.endpoint or 'admin.admin_clientes' in request.endpoint or 'admin.admin_proveedores' in request.endpoint or 'admin.admin_unidades_medidas' in request.endpoint or 'admin.admin_categorias' in request.endpoint or 'admin.admin_metodos_pago' in request.endpoint or 'admin.admin_movimientos_inventario' in request.endpoint %}show{% endif %}"
-                        id="catalogos-submenu">
+                    <div class="submenu {% if 'usuarios' in request.endpoint or 'empresas' in request.endpoint %}show{% endif %}" id="catalogos-submenu">
                         <a class="nav-link {% if request.endpoint == 'admin.admin_roles' %}active{% endif %}"
-                            href="{{ url_for('admin.admin_roles') }}">
-                            <i class="bi bi-shield-lock me-2"></i> Roles
+                           href="{{ url_for('admin.admin_roles') }}">
+                            <i class="bi bi-shield-lock"></i> Roles
                         </a>
                         <a class="nav-link {% if request.endpoint == 'admin.admin_usuarios' %}active{% endif %}"
-                            href="{{ url_for('admin.admin_usuarios') }}">
-                            <i class="bi bi-people me-2"></i> Usuarios
+                           href="{{ url_for('admin.admin_usuarios') }}">
+                            <i class="bi bi-people"></i> Usuarios
                         </a>
                         <a class="nav-link {% if request.endpoint == 'admin.admin_empresas' %}active{% endif %}"
-                            href="{{ url_for('admin.admin_empresas') }}">
-                            <i class="bi bi-building me-2"></i> Empresas
+                           href="{{ url_for('admin.admin_empresas') }}">
+                            <i class="bi bi-building"></i> Empresas
                         </a>
                         <a class="nav-link {% if request.endpoint == 'admin.admin_clientes' %}active{% endif %}"
-                            href="{{ url_for('admin.admin_clientes') }}">
-                            <i class="bi bi-people me-2"></i> Clientes
+                           href="{{ url_for('admin.admin_clientes') }}">
+                            <i class="bi bi-people"></i> Clientes
                         </a>
                         <a class="nav-link {% if request.endpoint == 'admin.admin_proveedores' %}active{% endif %}"
-                            href="{{ url_for('admin.admin_proveedores') }}">
-                            <i class="bi bi-people me-2"></i> Proveedores
+                           href="{{ url_for('admin.admin_proveedores') }}">
+                            <i class="bi bi-people"></i> Proveedores
                         </a>
                         <a class="nav-link {% if request.endpoint == 'admin.admin_unidades_medidas' %}active{% endif %}"
-                            href="{{ url_for('admin.admin_unidades_medidas') }}">
-                            <i class="bi bi-rulers me-2"></i> Unidades de Medida
+                           href="{{ url_for('admin.admin_unidades_medidas') }}">
+                            <i class="bi bi-rulers"></i> Unidades de Medida
                         </a>
                         <a class="nav-link {% if request.endpoint == 'admin.admin_categorias' %}active{% endif %}"
-                            href="{{ url_for('admin.admin_categorias') }}">
-                            <i class="bi bi-tags me-2"></i> Categorías de Productos
+                           href="{{ url_for('admin.admin_categorias') }}">
+                            <i class="bi bi-tags"></i> Categorías de Productos
                         </a>
                         <a class="nav-link {% if request.endpoint == 'admin.admin_metodos_pago' %}active{% endif %}"
-                            href="{{ url_for('admin.admin_metodos_pago') }}">
-                            <i class="bi bi-credit-card me-2"></i> Métodos de Pago
+                           href="{{ url_for('admin.admin_metodos_pago') }}">
+                            <i class="bi bi-credit-card"></i> Métodos de Pago
                         </a>
                         <a class="nav-link {% if request.endpoint == 'admin.admin_movimientos_inventario' %}active{% endif %}"
-                            href="{{ url_for('admin.admin_movimientos_inventario') }}">
-                            <i class="bi bi-arrow-left-right me-2"></i> Movimientos de Inventario
+                           href="{{ url_for('admin.admin_movimientos_inventario') }}">
+                            <i class="bi bi-arrow-left-right"></i> Movimientos de Inventario
                         </a>
                         <a class="nav-link {% if request.endpoint == 'admin.admin_rutas' %}active{% endif %}"
-                            href="{{ url_for('admin.admin_rutas') }}">
-                            <i class="bi bi-geo-alt me-2"></i> Rutas
+                           href="{{ url_for('admin.admin_rutas') }}">
+                            <i class="bi bi-geo-alt"></i> Rutas
                         </a>
                         <a class="nav-link {% if request.endpoint == 'admin.admin_vehiculos' %}active{% endif %}"
-                            href="{{ url_for('admin.admin_vehiculos') }}">
-                            <i class="bi bi-truck me-2"></i> Vehículos
+                           href="{{ url_for('admin.admin_vehiculos') }}">
+                            <i class="bi bi-truck"></i> Vehículos
                         </a>
                         <a class="nav-link {% if request.endpoint == 'admin.admin_tipos_gasto' %}active{% endif %}"
-                            href="{{ url_for('admin.admin_tipos_gasto') }}">
-                            <i class="bi bi-list-ul me-2"></i> Tipos de Gastos
+                           href="{{ url_for('admin.admin_tipos_gasto') }}">
+                            <i class="bi bi-list-ul"></i> Tipos de Gastos
                         </a>
                     </div>
                 </div>
 
-                <!-- Productos con submenú -->
+                <!-- Productos -->
                 <div class="has-submenu {% if 'admin.admin_productos' in request.endpoint %}active{% endif %}">
-                    <a class="nav-link submenu-toggle-btn" href="#productos-submenu">
-                        <i class="bi bi-tags me-2"></i> <span>Productos</span>
+                    <a class="nav-link submenu-toggle-btn" href="#productos-submenu" data-tooltip="Productos">
+                        <i class="bi bi-tags"></i> <span>Productos</span>
                         <i class="bi bi-chevron-right submenu-toggle ms-auto"></i>
                     </a>
-                    <div class="submenu {% if 'admin.admin_productos' in request.endpoint %}show{% endif %}"
-                        id="productos-submenu">
+                    <div class="submenu {% if 'admin.admin_productos' in request.endpoint %}show{% endif %}" id="productos-submenu">
                         <a class="nav-link {% if request.endpoint == 'admin.admin_productos' %}active{% endif %}"
-                            href="{{ url_for('admin.admin_productos') }}">
-                            <i class="bi bi-list-ul me-2"></i> Gestión de Productos
+                           href="{{ url_for('admin.admin_productos') }}">
+                            <i class="bi bi-list-ul"></i> Gestión de Productos
                         </a>
                     </div>
                 </div>
 
-                <!-- Bodega e Inventario con submenú -->
-                <div
-                    class="has-submenu {% if 'admin.admin_bodega' in request.endpoint or 'admin.admin_historial_movimientos' in request.endpoint %}active{% endif %}">
-                    <a class="nav-link submenu-toggle-btn" href="#bodega-submenu">
-                        <i class="bi bi-house-door me-2"></i> <span>Bodega e Inventario</span>
+                <!-- Bodega e Inventario -->
+                <div class="has-submenu {% if 'bodega' in request.endpoint %}active{% endif %}">
+                    <a class="nav-link submenu-toggle-btn" href="#bodega-submenu" data-tooltip="Bodega e Inventario">
+                        <i class="bi bi-house-door"></i> <span>Bodega e Inventario</span>
                         <i class="bi bi-chevron-right submenu-toggle ms-auto"></i>
                     </a>
-                    <div class="submenu {% if 'admin.admin_bodega' in request.endpoint or 'admin.admin_historial_movimientos' in request.endpoint %}show{% endif %}"
-                        id="bodega-submenu">
+                    <div class="submenu {% if 'bodega' in request.endpoint %}show{% endif %}" id="bodega-submenu">
                         <a class="nav-link {% if request.endpoint == 'admin.admin_bodega' %}active{% endif %}"
-                            href="{{ url_for('admin.admin_bodega') }}">
-                            <i class="bi bi-building me-2"></i> Bodegas
+                           href="{{ url_for('admin.admin_bodega') }}">
+                            <i class="bi bi-building"></i> Bodegas
                         </a>
-                        <a class="nav-link {% if request.endpoint == 'admin.admin_inventario_bodega' %}active{% endif %}"
-                            href="{{ url_for('bodega.bodega_dashboard') }}">
-                            <i class="bi bi-clipboard-data me-2"></i> Inventario
+                        <a class="nav-link {% if request.endpoint == 'bodega.bodega_dashboard' %}active{% endif %}"
+                           href="{{ url_for('bodega.bodega_dashboard') }}">
+                            <i class="bi bi-clipboard-data"></i> Inventario
                         </a>
-                        <a class="nav-link {% if request.endpoint == 'admin.admin_historial_movimientos' %}active{% endif %}"
-                            href="{{ url_for('bodega.bodega_historial_movimientos') }}">
-                            <i class="bi bi-arrow-left-right me-2"></i> Movimientos
+                        <a class="nav-link {% if request.endpoint == 'bodega.bodega_historial_movimientos' %}active{% endif %}"
+                           href="{{ url_for('bodega.bodega_historial_movimientos') }}">
+                            <i class="bi bi-arrow-left-right"></i> Movimientos
                         </a>
                     </div>
                 </div>
 
-                <!-- Herramientas con submenú -->
-                <div class="has-submenu {% if 'admin_bitacora' in request.endpoint %}active{% endif %}">
-                    <a class="nav-link submenu-toggle-btn" href="#herramientas-submenu">
-                        <i class="bi bi-tools me-2"></i> <span>Herramientas</span>
+                <!-- Herramientas -->
+                <div class="has-submenu {% if 'bitacora' in request.endpoint or 'config' in request.endpoint %}active{% endif %}">
+                    <a class="nav-link submenu-toggle-btn" href="#herramientas-submenu" data-tooltip="Herramientas">
+                        <i class="bi bi-tools"></i> <span>Herramientas</span>
                         <i class="bi bi-chevron-right submenu-toggle ms-auto"></i>
                     </a>
-                    <div class="submenu {% if 'admin_bitacora' in request.endpoint %}show{% endif %}"
-                        id="herramientas-submenu">
+                    <div class="submenu {% if 'bitacora' in request.endpoint or 'config' in request.endpoint %}show{% endif %}" id="herramientas-submenu">
                         <a class="nav-link {% if request.endpoint == 'admin.admin_bitacora' %}active{% endif %}"
-                            href="{{ url_for('admin.admin_bitacora') }}">
-                            <i class="bi bi-clipboard-check me-2"></i> Bitácora
+                           href="{{ url_for('admin.admin_bitacora') }}">
+                            <i class="bi bi-clipboard-check"></i> Bitácora
                         </a>
                         <a class="nav-link {% if request.endpoint == 'admin.config_visibilidad' %}active{% endif %}"
-                            href="{{ url_for('admin.config_visibilidad') }}">
-                            <i class="bi bi-gear me-2"></i> Configuración de Clientes
+                           href="{{ url_for('admin.config_visibilidad') }}">
+                            <i class="bi bi-gear"></i> Configuración de Clientes
                         </a>
                     </div>
                 </div>
 
-            </div>
-
             {% elif current_user.rol == 'Vendedor' %}
-            <div class="nav flex-column">
                 <a class="nav-link {% if request.endpoint == 'vendedor.vendedor_dashboard' %}active{% endif %}"
-                    href="{{ url_for('vendedor.vendedor_dashboard') }}">
-                    <i class="bi bi-speedometer2 me-2"></i> <span>Dashboard</span>
+                   href="{{ url_for('vendedor.vendedor_dashboard') }}" data-tooltip="Dashboard">
+                    <i class="bi bi-speedometer2"></i> <span>Dashboard</span>
                 </a>
                 <a class="nav-link {% if request.endpoint == 'vendedor.vendedor_ventas' %}active{% endif %}"
-                    href="{{ url_for('vendedor.vendedor_ventas') }}">
-                    <i class="bi bi-receipt me-2"></i> <span>Ventas</span>
+                   href="{{ url_for('vendedor.vendedor_ventas') }}" data-tooltip="Ventas">
+                    <i class="bi bi-receipt"></i> <span>Ventas</span>
                 </a>
-                <a class="nav-link {% if request.endpoint == 'vendedor.vendedor_caja' %}active{% endif %}"
-                    href="{{ url_for('vendedor.mis_movimientos_caja') }}">
-                    <i class="bi bi-cash-stack me-2"></i> <span>Caja de Efectivo</span>
+                <a class="nav-link {% if request.endpoint == 'vendedor.mis_movimientos_caja' %}active{% endif %}"
+                   href="{{ url_for('vendedor.mis_movimientos_caja') }}" data-tooltip="Caja de Efectivo">
+                    <i class="bi bi-cash-stack"></i> <span>Caja de Efectivo</span>
                 </a>
-                <a class="nav-link {% if request.endpoint == 'vendedor_mis_rutas' %}active{% endif %}"
-                    href="{{ url_for('vendedor.vendedor_mis_rutas') }}">
-                    <i class="bi bi-signpost me-2"></i> <span>Mi Ruta</span>
+                <a class="nav-link {% if request.endpoint == 'vendedor.vendedor_mis_rutas' %}active{% endif %}"
+                   href="{{ url_for('vendedor.vendedor_mis_rutas') }}" data-tooltip="Mi Ruta">
+                    <i class="bi bi-signpost"></i> <span>Mi Ruta</span>
                 </a>
-                <a class="nav-link {% if request.endpoint == 'vendedor_clientes' %}active{% endif %}"
-                    href="{{ url_for('vendedor.vendedor_clientes') }}">
-                    <i class="bi bi-people me-2"></i> <span>Clientes</span>
+                <a class="nav-link {% if request.endpoint == 'vendedor.vendedor_clientes' %}active{% endif %}"
+                   href="{{ url_for('vendedor.vendedor_clientes') }}" data-tooltip="Clientes">
+                    <i class="bi bi-people"></i> <span>Clientes</span>
                 </a>
-                <a class="nav-link {% if request.endpoint == 'vendedor_inventario' %}active{% endif %}"
-                    href="{{ url_for('vendedor.vendedor_inventario') }}">
-                    <i class="bi bi-box-seam me-2"></i> <span>Inventario Ruta</span>
+                <a class="nav-link {% if request.endpoint == 'vendedor.vendedor_inventario' %}active{% endif %}"
+                   href="{{ url_for('vendedor.vendedor_inventario') }}" data-tooltip="Inventario Ruta">
+                    <i class="bi bi-box-seam"></i> <span>Inventario Ruta</span>
                 </a>
-                <a class="nav-link {% if request.endpoint == 'vendedor_gastos' %}active{% endif %}"
-                    href="{{ url_for('vendedor.vendedor_gastos') }}">
-                    <i class="bi bi-file-earmark-text me-2"></i> <span>Gastos</span>
+                <a class="nav-link {% if request.endpoint == 'vendedor.vendedor_gastos' %}active{% endif %}"
+                   href="{{ url_for('vendedor.vendedor_gastos') }}" data-tooltip="Gastos">
+                    <i class="bi bi-file-earmark-text"></i> <span>Gastos</span>
                 </a>
-            </div>
 
             {% elif current_user.rol == 'Bodega' %}
-            <div class="nav flex-column">
                 <a class="nav-link {% if request.endpoint == 'bodega.bodega_dashboard' %}active{% endif %}"
-                    href="{{ url_for('bodega.bodega_dashboard') }}">
-                    <i class="bi bi-speedometer2 me-2"></i> <span>Dashboard</span>
+                   href="{{ url_for('bodega.bodega_dashboard') }}" data-tooltip="Dashboard">
+                    <i class="bi bi-speedometer2"></i> <span>Dashboard</span>
                 </a>
                 <a class="nav-link {% if request.endpoint == 'admin.admin_pedidos_venta' %}active{% endif %}"
-                    href="{{ url_for('admin.admin_pedidos_venta') }}">
-                    <i class="bi bi-cart-check me-2"></i> <span>Pedidos</span>
+                   href="{{ url_for('admin.admin_pedidos_venta') }}" data-tooltip="Pedidos">
+                    <i class="bi bi-cart-check"></i> <span>Pedidos</span>
                 </a>
                 <a class="nav-link {% if request.endpoint == 'admin.admin_crear_venta' %}active{% endif %}"
-                    href="{{url_for('admin.admin_crear_venta')}}">
-                    <i class="bi bi-receipt me-2"></i> <span>Ventas</span>
+                   href="{{ url_for('admin.admin_crear_venta') }}" data-tooltip="Ventas">
+                    <i class="bi bi-receipt"></i> <span>Ventas</span>
                 </a>
-                <a class="nav-link {% if request.endpoint == 'jefe_bodega_inventario' %}active{% endif %}"
-                    href="{{ url_for('bodega.bodega_historial_movimientos') }}">
-                    <i class="bi bi-box me-2"></i> <span>Inventario</span>
+                <a class="nav-link {% if request.endpoint == 'bodega.bodega_historial_movimientos' %}active{% endif %}"
+                   href="{{ url_for('bodega.bodega_historial_movimientos') }}" data-tooltip="Inventario">
+                    <i class="bi bi-box"></i> <span>Inventario</span>
                 </a>
-                <a class="nav-link {% if request.endpoint == 'bodega_reportes_avanzados' %}active{% endif %}"
-                    href="{{ url_for('bodega.bodega_reportes_avanzados') }}">
-                    <i class="bi bi-bar-chart me-2"></i> <span>Reportes Avanzados</span>
+                <a class="nav-link {% if request.endpoint == 'bodega.bodega_reportes_avanzados' %}active{% endif %}"
+                   href="{{ url_for('bodega.bodega_reportes_avanzados') }}" data-tooltip="Reportes Avanzados">
+                    <i class="bi bi-bar-chart"></i> <span>Reportes Avanzados</span>
                 </a>
-            </div>
             {% endif %}
         </div>
     </div>
 
+    <!-- Botón para colapsar/expandir sidebar -->
+    <div class="sidebar-toggle-btn" id="sidebarToggleBtn">
+        <i class="bi bi-chevron-left" id="toggleIcon"></i>
+    </div>
+
     <!-- Main content -->
     <main class="main-content" id="mainContent">
-        <!-- Mensajes Flash -->
         {% with messages = get_flashed_messages(with_categories=true) %}
         {% if messages %}
         {% for category, message in messages %}
         <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
             <div class="d-flex align-items-center">
-                <i
-                    class="bi {% if category == 'success' %}bi-check-circle-fill{% elif category == 'danger' %}bi-exclamation-circle-fill{% elif category == 'warning' %}bi-exclamation-triangle-fill{% else %}bi-info-circle-fill{% endif %} me-2"></i>
+                <i class="bi {% if category == 'success' %}bi-check-circle-fill{% elif category == 'danger' %}bi-exclamation-circle-fill{% elif category == 'warning' %}bi-exclamation-triangle-fill{% else %}bi-info-circle-fill{% endif %} me-2"></i>
                 <div>{{ message }}</div>
             </div>
             <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
@@ -791,14 +925,14 @@
         {% endif %}
         {% endwith %}
 
-        <!-- Contenido principal -->
         {% block content %}{% endblock %}
     </main>
 
     {% else %}
-    <!-- Contenido para usuarios no autenticados -->
+    <!-- Usuarios no autenticados -->
     <div class="d-flex justify-content-center align-items-center" style="height: 100vh;">
         <div class="text-center">
+            <img src="{{ url_for('static', filename='ferdel.png') }}" alt="Logo" style="width: 80px; margin-bottom: 20px;">
             <h4><i class="bi bi-building"></i> FerDel Sistema</h4>
             <p class="text-muted">Por favor, inicie sesión para continuar</p>
             <a href="{{ url_for('auth.login') }}" class="btn btn-primary">
@@ -808,7 +942,6 @@
     </div>
     {% endif %}
 
-    <!-- En layout.html, antes de tu script -->
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
 
@@ -817,14 +950,26 @@
             const sidebar = document.getElementById('mainSidebar');
             const overlay = document.getElementById('mainOverlay');
             const mobileToggle = document.getElementById('mobileSidebarToggle');
+            const sidebarToggleBtn = document.getElementById('sidebarToggleBtn');
+            const toggleIcon = document.getElementById('toggleIcon');
+            const mainContent = document.getElementById('mainContent');
             let isMobileMenuOpen = false;
 
-            // Función para detectar móvil
+            // Recuperar estado del sidebar
+            const sidebarCollapsed = localStorage.getItem('sidebarCollapsed') === 'true';
+            if (sidebarCollapsed && window.innerWidth >= 768) {
+                sidebar.classList.add('collapsed');
+                mainContent.classList.add('expanded');
+                if (toggleIcon) {
+                    toggleIcon.classList.remove('bi-chevron-left');
+                    toggleIcon.classList.add('bi-chevron-right');
+                }
+            }
+
             function isMobile() {
                 return window.innerWidth < 768;
             }
 
-            // Función para abrir menú móvil
             function openMobileMenu() {
                 if (!sidebar || !overlay) return;
                 sidebar.classList.add('show');
@@ -833,7 +978,6 @@
                 isMobileMenuOpen = true;
             }
 
-            // Función para cerrar menú móvil
             function closeMobileMenu() {
                 if (!sidebar || !overlay) return;
                 sidebar.classList.remove('show');
@@ -842,7 +986,7 @@
                 isMobileMenuOpen = false;
             }
 
-            // Toggle menú móvil
+            // Toggle móvil
             if (mobileToggle) {
                 mobileToggle.addEventListener('click', function (e) {
                     e.preventDefault();
@@ -855,7 +999,27 @@
                 });
             }
 
-            // Cerrar menú al hacer clic en overlay
+            // Toggle escritorio
+            if (sidebarToggleBtn) {
+                sidebarToggleBtn.addEventListener('click', function () {
+                    if (isMobile()) return;
+                    
+                    sidebar.classList.toggle('collapsed');
+                    mainContent.classList.toggle('expanded');
+                    
+                    if (sidebar.classList.contains('collapsed')) {
+                        toggleIcon.classList.remove('bi-chevron-left');
+                        toggleIcon.classList.add('bi-chevron-right');
+                        localStorage.setItem('sidebarCollapsed', 'true');
+                    } else {
+                        toggleIcon.classList.remove('bi-chevron-right');
+                        toggleIcon.classList.add('bi-chevron-left');
+                        localStorage.setItem('sidebarCollapsed', 'false');
+                    }
+                });
+            }
+
+            // Cerrar overlay
             if (overlay) {
                 overlay.addEventListener('click', function () {
                     if (isMobile() && isMobileMenuOpen) {
@@ -864,24 +1028,19 @@
                 });
             }
 
-            // Cerrar menú al hacer clic en enlaces (solo en móvil)
+            // Cerrar menú al navegar (móvil)
             if (sidebar) {
-                const navLinks = sidebar.querySelectorAll('.nav-link');
+                const navLinks = sidebar.querySelectorAll('.nav-link:not(.submenu-toggle-btn)');
                 navLinks.forEach(link => {
-                    link.addEventListener('click', function (e) {
-                        // Si es un enlace que navega (no es un toggle de submenú)
-                        if (this.getAttribute('href') && this.getAttribute('href') !== '#' && !this.classList.contains('submenu-toggle-btn')) {
-                            if (isMobile() && isMobileMenuOpen) {
-                                setTimeout(() => {
-                                    closeMobileMenu();
-                                }, 150);
-                            }
+                    link.addEventListener('click', function () {
+                        if (isMobile() && isMobileMenuOpen && this.getAttribute('href') && this.getAttribute('href') !== '#') {
+                            setTimeout(() => closeMobileMenu(), 150);
                         }
                     });
                 });
             }
 
-            // Manejar submenús
+            // Submenús
             const submenuToggles = document.querySelectorAll('.submenu-toggle-btn');
             submenuToggles.forEach(button => {
                 button.addEventListener('click', function (e) {
@@ -893,6 +1052,16 @@
                     const parent = this.closest('.has-submenu');
 
                     if (targetMenu && parent) {
+                        if (isMobile()) {
+                            document.querySelectorAll('.has-submenu.active').forEach(item => {
+                                if (item !== parent) {
+                                    item.classList.remove('active');
+                                    const sub = item.querySelector('.submenu');
+                                    if (sub) sub.classList.remove('show');
+                                }
+                            });
+                        }
+                        
                         parent.classList.toggle('active');
                         targetMenu.classList.toggle('show');
                     }
@@ -900,25 +1069,30 @@
             });
 
             // Auto-cerrar alertas
-            const alerts = document.querySelectorAll('.alert');
-            alerts.forEach(alert => {
+            document.querySelectorAll('.alert').forEach(alert => {
                 setTimeout(() => {
                     const bsAlert = new bootstrap.Alert(alert);
                     bsAlert.close();
                 }, 5000);
             });
 
-            // Cerrar menú con ESC
+            // Cerrar con ESC
             document.addEventListener('keydown', function (e) {
                 if (e.key === 'Escape' && isMobileMenuOpen) {
                     closeMobileMenu();
                 }
             });
 
-            // Manejar cambio de tamaño de pantalla
+            // Redimensionar
             function handleResize() {
                 if (!isMobile() && isMobileMenuOpen) {
                     closeMobileMenu();
+                }
+                
+                if (!isMobile() && sidebar.classList.contains('collapsed')) {
+                    mainContent.classList.add('expanded');
+                } else if (!isMobile() && !sidebar.classList.contains('collapsed')) {
+                    mainContent.classList.remove('expanded');
                 }
             }
 
@@ -931,7 +1105,7 @@
             window.addEventListener('load', function () {
                 navigator.serviceWorker.register('/static/sw.js').then(function (registration) {
                     console.log('ServiceWorker registrado');
-                }, function (err) {
+                }).catch(function (err) {
                     console.log('Error registrando ServiceWorker:', err);
                 });
             });

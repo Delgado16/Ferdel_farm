@@ -1,0 +1,86 @@
+{% extends "layout.html" %}
+
+{% block title %}Vendedores Activos{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h2><i class="fas fa-users"></i> Vendedores Activos</h2>
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb mb-0">
+                <li class="breadcrumb-item"><a href="{{ url_for('bodega.bodega_dashboard') }}">Bodega</a></li>
+                <li class="breadcrumb-item active">Vendedores</li>
+            </ol>
+        </nav>
+    </div>
+
+    {% if vendedores %}
+    <div class="row">
+        {% for vend in vendedores %}
+        <div class="col-xl-4 col-lg-6 col-md-6 mb-4">
+            <div class="card h-100 shadow-sm">
+                <div class="card-header bg-primary text-white">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">
+                            <i class="fas fa-user-circle"></i> {{ vend.Vendedor }}
+                        </h5>
+                        <span class="badge badge-light">#{{ vend.ID_Asignacion }}</span>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <p class="mb-1">
+                            <strong><i class="fas fa-route"></i> Ruta:</strong> {{ vend.Nombre_Ruta }}
+                        </p>
+                        <p class="mb-1">
+                            <strong><i class="fas fa-truck"></i> Vehículo:</strong> {{ vend.Vehiculo or 'No asignado' }}
+                        </p>
+                        <p class="mb-1">
+                            <strong><i class="fas fa-calendar"></i> Desde:</strong> {{ vend.Fecha_Asignacion.strftime('%d/%m/%Y') if vend.Fecha_Asignacion else 'N/A' }}
+                        </p>
+                        <p class="mb-1">
+                            <strong><i class="fas fa-clock"></i> Horario:</strong> {{ vend.Hora_Inicio or '--:--' }} - {{ vend.Hora_Fin or '--:--' }}
+                        </p>
+                    </div>
+                    
+                    <hr>
+                    
+                    <div class="row text-center mb-3">
+                        <div class="col-6">
+                            <h3 class="text-primary mb-0">{{ vend.Total_Productos }}</h3>
+                            <small class="text-muted">Productos</small>
+                        </div>
+                        <div class="col-6">
+                            <h3 class="text-success mb-0">{{ vend.Total_Unidades|int }}</h3>
+                            <small class="text-muted">Unidades</small>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-6">
+                            <a href="{{ url_for('bodega.inventario_vendedor_detalle', id_usuario=vend.ID_Usuario) }}" 
+                               class="btn btn-info btn-block">
+                                <i class="fas fa-boxes"></i> Inventario
+                            </a>
+                        </div>
+                        <div class="col-6">
+                            <a href="{{ url_for('bodega.historial_vendedor', id_usuario=vend.ID_Usuario) }}" 
+                               class="btn btn-primary btn-block">
+                                <i class="fas fa-history"></i> Historial
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="alert alert-info text-center py-5">
+        <i class="fas fa-user-slash fa-4x mb-3"></i>
+        <h4>No hay vendedores activos</h4>
+        <p>No se encontraron vendedores con asignación activa.</p>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
