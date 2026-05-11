@@ -9229,7 +9229,7 @@ def admin_compras_entradas():
                         ELSE 'CONTADO'
                     END as Tipo_Compra_Formateado
                 FROM movimientos_inventario mi
-                LEFT JOIN Proveedores p ON mi.ID_Proveedor = p.ID_Proveedor
+                LEFT JOIN proveedores p ON mi.ID_Proveedor = p.ID_Proveedor
                 LEFT JOIN bodegas b ON mi.ID_Bodega = b.ID_Bodega
                 LEFT JOIN catalogo_movimientos cm ON mi.ID_TipoMovimiento = cm.ID_TipoMovimiento
                 LEFT JOIN usuarios u ON mi.ID_Usuario_Creacion = u.ID_Usuario
@@ -9822,7 +9822,7 @@ def admin_anular_compra(id_movimiento):
                             WHERE ID_Movimiento = mi.ID_Movimiento
                         ), 0) as Total_Compra
                     FROM movimientos_inventario mi
-                    LEFT JOIN Proveedores p ON mi.ID_Proveedor = p.ID_Proveedor
+                    LEFT JOIN proveedores p ON mi.ID_Proveedor = p.ID_Proveedor
                     LEFT JOIN bodegas b ON mi.ID_Bodega = b.ID_Bodega
                     WHERE mi.ID_Movimiento = %s
                 """, (id_movimiento,))
@@ -10043,7 +10043,7 @@ def admin_detalle_compra_completo(id_movimiento):
                     (SELECT COUNT(*) FROM detalle_movimientos_inventario 
                      WHERE ID_Movimiento = mi.ID_Movimiento) as Total_Productos
                 FROM movimientos_inventario mi
-                LEFT JOIN Proveedores p ON mi.ID_Proveedor = p.ID_Proveedor
+                LEFT JOIN proveedores p ON mi.ID_Proveedor = p.ID_Proveedor
                 LEFT JOIN bodegas b ON mi.ID_Bodega = b.ID_Bodega
                 LEFT JOIN usuarios u ON mi.ID_Usuario_Creacion = u.ID_Usuario
                 LEFT JOIN usuarios u_mod ON mi.ID_Usuario_Modificacion = u_mod.ID_Usuario
@@ -10140,7 +10140,7 @@ def admin_cuentas_por_pagar():
                     u.NombreUsuario as Usuario_Creacion,
                     DATEDIFF(cpp.Fecha_Vencimiento, CURDATE()) as dias_vencimiento
                 FROM cuentas_por_pagar cpp
-                LEFT JOIN Proveedores p ON cpp.ID_Proveedor = p.ID_Proveedor
+                LEFT JOIN proveedores p ON cpp.ID_Proveedor = p.ID_Proveedor
                 LEFT JOIN usuarios u ON cpp.ID_Usuario_Creacion = u.ID_Usuario
                 WHERE 1=1
             """
@@ -10213,7 +10213,7 @@ def registrar_pago_cuenta():
                             cpp.Monto_Movimiento,
                             cpp.Estado  -- NUEVO: Incluir el campo Estado
                         FROM cuentas_por_pagar cpp
-                        LEFT JOIN Proveedores p ON cpp.ID_Proveedor = p.ID_Proveedor
+                        LEFT JOIN proveedores p ON cpp.ID_Proveedor = p.ID_Proveedor
                         WHERE cpp.ID_Cuenta = %s
                         AND cpp.Estado = 'Pendiente'  -- NUEVO: Solo cuentas pendientes
                     """, (id_cuenta,))
@@ -10250,7 +10250,7 @@ def registrar_pago_cuenta():
                         cpp.Estado,  -- NUEVO: Incluir el campo Estado
                         cpp.ID_Movimiento  -- Para referencia
                     FROM cuentas_por_pagar cpp
-                    LEFT JOIN Proveedores p ON cpp.ID_Proveedor = p.ID_Proveedor
+                    LEFT JOIN proveedores p ON cpp.ID_Proveedor = p.ID_Proveedor
                     WHERE cpp.ID_Cuenta = %s
                 """, (id_cuenta,))
                 
@@ -10335,7 +10335,7 @@ def historial_pagos_cuenta(id_cuenta):
                     cpp.Saldo_Pendiente,
                     cpp.Estado
                 FROM cuentas_por_pagar cpp
-                LEFT JOIN Proveedores p ON cpp.ID_Proveedor = p.ID_Proveedor
+                LEFT JOIN proveedores p ON cpp.ID_Proveedor = p.ID_Proveedor
                 WHERE cpp.ID_Cuenta = %s
             """, (id_cuenta,))
             
@@ -12251,7 +12251,7 @@ def admin_crear_proveedor():
 
             # Insertar nuevo proveedor
             cursor.execute("""
-                INSERT INTO Proveedores (Nombre, Telefono, Direccion, RUC_CEDULA, ID_Empresa, ID_Usuario_Creacion)
+                INSERT INTO proveedores (Nombre, Telefono, Direccion, RUC_CEDULA, ID_Empresa, ID_Usuario_Creacion)
                 VALUES (%s, %s, %s, %s, %s, %s)
             """, (nombre, telefono, direccion, ruc_cedula, id_empresa, id_usuario))
             
@@ -12311,7 +12311,7 @@ def admin_editar_proveedor(id):
                 
                 # Actualizar proveedor
                 cursor.execute("""
-                               UPDATE Proveedores 
+                               UPDATE proveedores 
                                SET Nombre = %s, Telefono = %s, Direccion = %s, RUC_CEDULA = %s, Estado = %s
                                WHERE ID_Proveedor = %s AND ID_Empresa = %s
                                """, (nombre, telefono, direccion, ruc_cedula, estado, id, id_empresa))
@@ -12353,7 +12353,7 @@ def admin_eliminar_probeedor(id):
 
             #Eliminar (cambiar estado a INACTIVO)
             cursor.execute("""
-                           UPDATE Proveedores SET Estado = 'INACTIVO' 
+                           UPDATE proveedores SET Estado = 'INACTIVO' 
                            WHERE ID_Proveedor = %s AND ID_Empresa = %s
                            """, (id, id_empresa)
                            )
