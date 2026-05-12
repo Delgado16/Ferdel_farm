@@ -633,10 +633,12 @@
     let productos = [];
     let abonoSeleccionado = 0;
     let metodoPagoSeleccionado = '';
+    let idMetodoPagoSeleccionado = null;
     let productoMovilTemplate = null;
     let enviandoFormulario = false;
     let sincronizando = false;
     let tipoVentaActual = '1';
+    let metodosPagoLista = [];
 
     // ============================================
     // FUNCIONES DE UTILIDAD
@@ -689,6 +691,76 @@
 
     function calcularTotalVenta() {
         return productos.reduce((total, prod) => total + (prod.cantidad * prod.precio), 0);
+    }
+
+    // ============================================
+    // FUNCIONES DE ABONO CON LA NUEVA API
+    // ============================================
+
+    // Cargar métodos de pago disponibles
+    async function cargarMetodosPago() {
+        try {
+            const response = await fetch('/vendedor/api/vendedor/metodos_pago');
+            if (response.ok) {
+                const data = await response.json();
+                if (data.success) {
+                    metodosPagoLista = data.metodos_pago;
+                    console.log('✅ Métodos de pago cargados:', metodosPagoLista);
+                }
+            }
+        } catch (error) {
+            console.error('Error cargando métodos de pago:', error);
+            // Fallback: métodos por defecto
+            metodosPagoLista = [
+                { ID_MetodoPago: 1, Nombre: 'Efectivo' },
+                { ID_MetodoPago: 2, Nombre: 'Transferencia' },
+                { ID_MetodoPago: 3, Nombre: 'Depósito' },
+                { ID_MetodoPago: 4, Nombre: 'Productos' }
+            ];
+        }
+    }
+
+    // Función para procesar abono con la nueva API
+    async function procesarAbonoAPI(clienteId, montoAbono, idMetodoPago) {
+        try {
+            console.log('📤 Procesando abono con API:', { clienteId, montoAbono, idMetodoPago });
+            
+            const response = await fetch('/vendedor/api/vendedor/procesar_abono', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    id_cliente: clienteId,
+                    monto_abono: montoAbono,
+                    id_metodo_pago: idMetodoPago
+                })
+            });
+            
+            const data = await response.json();
+            console.log('📥 Respuesta API:', data);
+            
+            if (data.success) {
+                return {
+                    success: true,
+                    id_abono: data.id_abono,
+                    metodo_pago: data.metodo_pago,
+                    registro_caja: data.registro_caja,
+                    monto_aplicado: data.monto_aplicado
+                };
+            } else {
+                return {
+                    success: false,
+                    error: data.error || 'Error al procesar abono'
+                };
+            }
+        } catch (error) {
+            console.error('❌ Error en API de abono:', error);
+            return {
+                success: false,
+                error: error.message
+            };
+        }
     }
 
     // ============================================
@@ -747,11 +819,11 @@
                                 ${p.nombre.length > 30 ? p.nombre.substring(0, 30) + '...' : p.nombre}
                             </div>
                             ${p.codigo && p.codigo !== 'N/A' ? `<div class="product-code">Cod: ${p.codigo}</div>` : ''}
-                        </td>
+                         </td>
                         <td class="text-right">${p.cantidad}</td>
                         <td class="text-right">C$ ${p.precio.toFixed(2)}</td>
                         <td class="text-right">C$ ${subtotal.toFixed(2)}</td>
-                       </tr>`;
+                      </tr>`;
             }).join('');
 
             const LOGO_FALLBACK_BASE64 = `data:image/svg+xml;base64,${btoa(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 120">
@@ -1535,7 +1607,7 @@
         const saldoInfo = getElement('saldo-info');
         if (!saldoInfo) return;
 
-        let html = `<div class="card mb-2 border-warning" style="border-width: 2px;"><div class="card-header bg-warning py-2"><h6 class="mb-0 small fw-bold"><i class="fas fa-exclamation-triangle me-2"></i>Cliente con Saldo Pendiente</h6></div><div class="card-body p-2"><div class="row g-2"><div class="col-6"><small><strong>Cliente:</strong> ${cliente.nombre}</small></div><div class="col-6"><small><strong>Documento:</strong> ${cliente.ruc}</small></div><div class="col-6"><small><strong>Saldo Pendiente:</strong></small></div><div class="col-6 text-end"><small class="text-danger fw-bold" style="font-size: 14px;">${formatoCordoba(cliente.saldo_pendiente)}</small></div></div><hr class="my-2"><div class="table-responsive" style="max-height: 150px; overflow-y: auto;"><table class="table table-sm table-bordered small"><thead class="table-light" style="position: sticky; top: 0;"><th>Documento</th><th>Fecha</th><th class="text-end">Saldo</th> </thead><tbody>${facturas.map(f => `<tr><td class="small">${f.Num_Documento}</td><td class="small">${formatearFecha(f.Fecha)}</td><td class="text-end small">${formatoCordoba(f.Saldo_Pendiente)}</td>`).join('')}</tbody></table></div><div class="row g-2 mt-2 p-2 bg-light rounded"><div class="col-6"><small><strong>Total Nueva Venta:</strong></small></div><div class="col-6 text-end"><small><span id="total-nueva-venta" class="fw-bold">C$ 0.00</span></small></div><div class="col-6"><small><strong>Total Pendiente con Nueva:</strong></small></div><div class="col-6 text-end"><small class="text-danger fw-bold" style="font-size: 14px;"><span id="total-pendiente-con-nueva">${formatoCordoba(cliente.saldo_pendiente)}</span></small></div></div></div></div>`;
+        let html = `<div class="card mb-2 border-warning" style="border-width: 2px;"><div class="card-header bg-warning py-2"><h6 class="mb-0 small fw-bold"><i class="fas fa-exclamation-triangle me-2"></i>Cliente con Saldo Pendiente</h6></div><div class="card-body p-2"><div class="row g-2"><div class="col-6"><small><strong>Cliente:</strong> ${cliente.nombre}</small></div><div class="col-6"><small><strong>Documento:</strong> ${cliente.ruc}</small></div><div class="col-6"><small><strong>Saldo Pendiente:</strong></small></div><div class="col-6 text-end"><small class="text-danger fw-bold" style="font-size: 14px;">${formatoCordoba(cliente.saldo_pendiente)}</small></div></div><hr class="my-2"><div class="table-responsive" style="max-height: 150px; overflow-y: auto;"><table class="table table-sm table-bordered small"><thead class="table-light" style="position: sticky; top: 0;"><th>Documento</th><th>Fecha</th><th class="text-end">Saldo</th> </thead><tbody>${facturas.map(f => `<tr><td class="small">${f.Num_Documento}</td><td class="small">${formatearFecha(f.Fecha)}</td><td class="text-end small">${formatoCordoba(f.Saldo_Pendiente)}</td>`).join('')}</tbody></tr></div><div class="row g-2 mt-2 p-2 bg-light rounded"><div class="col-6"><small><strong>Total Nueva Venta:</strong></small></div><div class="col-6 text-end"><small><span id="total-nueva-venta" class="fw-bold">C$ 0.00</span></small></div><div class="col-6"><small><strong>Total Pendiente con Nueva:</strong></small></div><div class="col-6 text-end"><small class="text-danger fw-bold" style="font-size: 14px;"><span id="total-pendiente-con-nueva">${formatoCordoba(cliente.saldo_pendiente)}</span></small></div></div></div></div>`;
         saldoInfo.innerHTML = html;
         actualizarTotalesConSaldo();
     }
@@ -1763,6 +1835,360 @@
     }
 
     // ============================================
+    // FUNCIONES DE MODAL Y CONFIRMACIÓN DE ABONO
+    // ============================================
+    let datosVentaActual = { clienteId: null, totalVenta: 0, saldoAnterior: 0, productos: [] };
+
+    function mostrarModalAbono(clienteId, saldoAnterior, totalVenta, facturas) {
+        datosVentaActual = { clienteId, totalVenta, saldoAnterior, productos: [...productos] };
+
+        const tipoVenta = document.querySelector('input[name="tipo_venta"]:checked');
+        const esContado = tipoVenta && tipoVenta.value === '1';
+
+        const modalSaldoAnterior = getElement('modalSaldoAnterior');
+        const modalNuevaVenta = getElement('modalNuevaVenta');
+        const modalTotalDeber = getElement('modalTotalDeber');
+        const montoAbonoInput = getElement('modalMontoAbono');
+        const metodoPagoSelect = getElement('modalMetodoPago');
+
+        const filaNuevaVenta = document.getElementById('filaNuevaVenta');
+        const filaTotalDeber = document.getElementById('filaTotalDeber');
+
+        if (modalSaldoAnterior) modalSaldoAnterior.textContent = formatoCordoba(saldoAnterior);
+        if (modalNuevaVenta) modalNuevaVenta.textContent = formatoCordoba(totalVenta);
+
+        let totalDeber;
+        if (esContado) {
+            totalDeber = saldoAnterior;
+            if (filaNuevaVenta) filaNuevaVenta.style.display = 'none';
+            if (filaTotalDeber) filaTotalDeber.style.display = 'none';
+            const modalTitle = document.querySelector('#modalAbonoCredito .modal-title');
+            if (modalTitle) modalTitle.innerHTML = '<i class="fas fa-money-bill-wave me-2"></i>Abono a Saldo Pendiente';
+        } else {
+            totalDeber = saldoAnterior + totalVenta;
+            if (filaNuevaVenta) filaNuevaVenta.style.display = 'flex';
+            if (filaTotalDeber) filaTotalDeber.style.display = 'flex';
+            const modalTitle = document.querySelector('#modalAbonoCredito .modal-title');
+            if (modalTitle) modalTitle.innerHTML = '<i class="fas fa-money-bill-wave me-2"></i>Registrar Abono';
+        }
+
+        if (modalTotalDeber) modalTotalDeber.textContent = formatoCordoba(totalDeber);
+
+        if (montoAbonoInput) {
+            montoAbonoInput.value = '0.00';
+            montoAbonoInput.max = totalDeber;
+            montoAbonoInput.placeholder = `Máximo: ${formatoCordoba(totalDeber)}`;
+        }
+
+        // Cargar métodos de pago en el select
+        if (metodoPagoSelect && metodosPagoLista.length > 0) {
+            metodoPagoSelect.innerHTML = '<option value="">Seleccione método de pago</option>';
+            metodosPagoLista.forEach(metodo => {
+                const option = document.createElement('option');
+                option.value = metodo.ID_MetodoPago;
+                option.textContent = metodo.Nombre;
+                metodoPagoSelect.appendChild(option);
+            });
+        }
+
+        const mensajeInfo = document.querySelector('#modalAbonoCredito .alert-info');
+        if (mensajeInfo) {
+            if (esContado) {
+                mensajeInfo.innerHTML = `<div class="d-flex">
+                <i class="fas fa-info-circle me-2 mt-1"></i>
+                <span>Venta al <strong>Contado</strong>. El abono se aplicará SOLO al saldo pendiente del cliente.</span>
+            </div>`;
+            } else {
+                mensajeInfo.innerHTML = `<div class="d-flex">
+                <i class="fas fa-info-circle me-2 mt-1"></i>
+                <span>Venta a <strong>Crédito</strong>. El abono se aplicará a la deuda total (Saldo anterior + Venta actual).</span>
+            </div>`;
+            }
+        }
+
+        const detalleAplicacion = getElement('detalleAplicacionAbono');
+        if (detalleAplicacion) detalleAplicacion.style.display = 'none';
+        
+        if (montoAbonoInput) {
+            montoAbonoInput.removeEventListener('input', actualizarValoresDespuesAbono);
+            montoAbonoInput.addEventListener('input', actualizarValoresDespuesAbono);
+        }
+
+        actualizarValoresDespuesAbono();
+
+        const modalElement = getElement('modalAbonoCredito');
+        if (modalElement) {
+            try {
+                const modal = new bootstrap.Modal(modalElement, { backdrop: 'static', keyboard: false });
+                modal.show();
+                const modalBody = modalElement.querySelector('.modal-body');
+                if (modalBody) { modalBody.style.maxHeight = '60vh'; modalBody.style.overflowY = 'auto'; }
+            } catch (e) {
+                console.error('Error al mostrar modal:', e);
+            }
+        }
+    }
+
+    function actualizarValoresDespuesAbono() {
+        const montoAbonoInput = getElement('modalMontoAbono');
+        if (!montoAbonoInput) return;
+
+        const montoAbono = parseFloat(montoAbonoInput.value) || 0;
+        const saldoAnterior = datosVentaActual.saldoAnterior;
+        const nuevaVenta = datosVentaActual.totalVenta;
+        const tipoVenta = document.querySelector('input[name="tipo_venta"]:checked');
+        const esContado = tipoVenta && tipoVenta.value === '1';
+
+        let totalDeber;
+        if (esContado) {
+            totalDeber = saldoAnterior;
+        } else {
+            totalDeber = saldoAnterior + nuevaVenta;
+        }
+
+        if (montoAbono > totalDeber) {
+            montoAbonoInput.value = totalDeber.toFixed(2);
+            showToast('warning', 'Abono máximo', `El abono no puede exceder ${formatoCordoba(totalDeber)}`);
+        }
+
+        const abonoValido = Math.min(montoAbono || 0, totalDeber);
+
+        let nuevoSaldo;
+        let totalFinal;
+
+        if (esContado) {
+            nuevoSaldo = Math.max(0, saldoAnterior - abonoValido);
+            totalFinal = nuevoSaldo;
+        } else {
+            nuevoSaldo = Math.max(0, (saldoAnterior + nuevaVenta) - abonoValido);
+            totalFinal = nuevoSaldo;
+        }
+
+        const modalNuevoSaldo = getElement('modalNuevoSaldo');
+        const modalNuevaVentaDespues = getElement('modalNuevaVentaDespues');
+        const modalTotalFinal = getElement('modalTotalFinal');
+
+        if (modalNuevoSaldo) modalNuevoSaldo.textContent = formatoCordoba(nuevoSaldo);
+
+        const filaNuevaVentaDespues = document.getElementById('filaNuevaVentaDespues');
+        const labelTotalFinal = document.getElementById('labelTotalFinal');
+
+        if (esContado) {
+            if (modalNuevaVentaDespues && modalNuevaVentaDespues.closest('.saldos-row')) {
+                modalNuevaVentaDespues.closest('.saldos-row').style.display = 'none';
+            }
+            if (filaNuevaVentaDespues) filaNuevaVentaDespues.style.display = 'none';
+            if (labelTotalFinal) labelTotalFinal.textContent = 'Nuevo Saldo Pendiente:';
+            if (modalTotalFinal) modalTotalFinal.textContent = formatoCordoba(totalFinal);
+        } else {
+            if (modalNuevaVentaDespues && modalNuevaVentaDespues.closest('.saldos-row')) {
+                modalNuevaVentaDespues.closest('.saldos-row').style.display = 'flex';
+            }
+            if (filaNuevaVentaDespues) filaNuevaVentaDespues.style.display = 'flex';
+            if (modalTotalFinal) modalTotalFinal.textContent = formatoCordoba(totalFinal);
+            if (labelTotalFinal) labelTotalFinal.textContent = 'Total Final a Deber:';
+        }
+
+        // Mostrar aplicación del abono a facturas
+        if (abonoValido > 0 && facturasPendientes.length > 0 && !esContado) {
+            mostrarAplicacionAbono(abonoValido);
+        } else {
+            const detalleAplicacion = getElement('detalleAplicacionAbono');
+            if (detalleAplicacion) detalleAplicacion.style.display = 'none';
+        }
+    }
+
+    function mostrarAplicacionAbono(montoAbono) {
+        let montoRestante = montoAbono;
+        let aplicacion = [];
+
+        const facturasOrdenadas = [...facturasPendientes].sort((a, b) => {
+            if (a.Dias_Vencido > 0 && b.Dias_Vencido <= 0) return -1;
+            if (a.Dias_Vencido <= 0 && b.Dias_Vencido > 0) return 1;
+            return new Date(a.Fecha_Vencimiento) - new Date(b.Fecha_Vencimiento);
+        });
+
+        for (let factura of facturasOrdenadas) {
+            if (montoRestante <= 0) break;
+            const saldo = parseFloat(factura.Saldo_Pendiente);
+            const montoAplicar = Math.min(montoRestante, saldo);
+            aplicacion.push({
+                documento: factura.Num_Documento,
+                monto_aplicar: montoAplicar,
+                estado: (saldo - montoAplicar) <= 0 ? 'Pagada' : 'Parcial'
+            });
+            montoRestante -= montoAplicar;
+        }
+
+        let html = '<div class="small" style="max-height: 150px; overflow-y: auto;">';
+        aplicacion.forEach(item => {
+            html += `<div class="mb-1 p-2 ${item.estado === 'Pagada' ? 'bg-success text-white' : 'bg-warning'} rounded small">
+                <strong>${item.documento}</strong>: ${formatoCordoba(item.monto_aplicar)} ${item.estado === 'Pagada' ? '✅' : '⚠️'}
+            </div>`;
+        });
+        html += '</div>';
+
+        const listaAplicacion = getElement('listaAplicacionAbono');
+        const detalleAplicacion = getElement('detalleAplicacionAbono');
+
+        if (listaAplicacion) listaAplicacion.innerHTML = html;
+        if (detalleAplicacion) detalleAplicacion.style.display = 'block';
+    }
+
+    // Función para procesar venta con abono (usa la nueva API)
+    async function procesarVentaConAbono(montoAbono) {
+        const metodoPagoSelect = getElement('modalMetodoPago');
+        const idMetodoPago = metodoPagoSelect ? parseInt(metodoPagoSelect.value) : null;
+        const metodoPagoText = metodoPagoSelect ? metodoPagoSelect.options[metodoPagoSelect.selectedIndex]?.text : 'Efectivo';
+
+        if (!idMetodoPago) {
+            showAlert('warning', 'Seleccione un método de pago');
+            return;
+        }
+
+        if (montoAbono <= 0) {
+            showAlert('warning', 'Ingrese un monto de abono válido');
+            return;
+        }
+
+        // Mostrar loading
+        Swal.fire({
+            title: 'Procesando abono...',
+            text: 'Por favor espere',
+            allowOutsideClick: false,
+            showConfirmButton: false,
+            didOpen: () => Swal.showLoading()
+        });
+
+        try {
+            // Llamar a la API de abono
+            const resultado = await procesarAbonoAPI(
+                datosVentaActual.clienteId,
+                montoAbono,
+                idMetodoPago
+            );
+
+            Swal.close();
+
+            if (resultado.success) {
+                abonoSeleccionado = montoAbono;
+                metodoPagoSeleccionado = resultado.metodo_pago;
+                idMetodoPagoSeleccionado = idMetodoPago;
+
+                // Actualizar campos del formulario
+                const abonoField = getElement('abono_monto');
+                if (abonoField) abonoField.value = montoAbono;
+
+                const metodoPagoField = getElement('abono_metodo_pago');
+                if (metodoPagoField) metodoPagoField.value = idMetodoPago;
+
+                const procesarAbonoField = getElement('procesar_abono');
+                if (procesarAbonoField) procesarAbonoField.value = '1';
+
+                // Mostrar mensaje de éxito
+                let mensajeExito = `Abono de ${formatoCordoba(montoAbono)} registrado correctamente.`;
+                if (!resultado.registro_caja) {
+                    mensajeExito += `\n⚠️ Este pago NO afectó su caja física (${resultado.metodo_pago}).`;
+                }
+                showToast('success', 'Abono registrado', mensajeExito);
+
+                // Cerrar modal de abono
+                const modalElement = getElement('modalAbonoCredito');
+                if (modalElement) {
+                    const modal = bootstrap.Modal.getInstance(modalElement);
+                    if (modal) modal.hide();
+                }
+
+                // Actualizar saldo local del cliente
+                await actualizarSaldosLocal(datosVentaActual.clienteId, montoAbono, datosVentaActual.totalVenta, tipoVentaActual);
+
+                // Mostrar confirmación de venta
+                if (llenarResumenConfirmacion()) {
+                    const modalConfirmacion = getElement('modalConfirmacionVenta');
+                    if (modalConfirmacion) {
+                        const modal = new bootstrap.Modal(modalConfirmacion, { backdrop: 'static' });
+                        modal.show();
+                        const modalBody = modalConfirmacion.querySelector('.modal-body');
+                        if (modalBody) { modalBody.style.maxHeight = '60vh'; modalBody.style.overflowY = 'auto'; }
+                    }
+                }
+            } else {
+                showAlert('error', `Error al registrar abono: ${resultado.error}`);
+            }
+        } catch (error) {
+            Swal.close();
+            console.error('Error en procesarVentaConAbono:', error);
+            showAlert('error', `Error al procesar: ${error.message}`);
+        }
+    }
+
+    function llenarResumenConfirmacion() {
+        const tipoVenta = document.querySelector('input[name="tipo_venta"]:checked');
+        if (!tipoVenta) return false;
+
+        const tipoVentaText = tipoVenta.value === '1' ? 'Contado' : 'Crédito';
+
+        const infoCreditoModal = getElement('infoCreditoModal');
+        if (infoCreditoModal) infoCreditoModal.style.display = tipoVenta.value === '2' ? 'block' : 'none';
+
+        const resumenSaldoModal = getElement('resumenSaldoModal');
+        const saldoAnteriorModal = getElement('saldoAnteriorModal');
+        const nuevaVentaModal = getElement('nuevaVentaModal');
+        const totalPendienteModal = getElement('totalPendienteModal');
+
+        if (resumenSaldoModal && saldoAnteriorModal && nuevaVentaModal && totalPendienteModal) {
+            const totalVenta = calcularTotalVenta();
+            saldoAnteriorModal.textContent = formatoCordoba(saldoClienteActual);
+            nuevaVentaModal.textContent = formatoCordoba(totalVenta);
+            totalPendienteModal.textContent = formatoCordoba(saldoClienteActual + totalVenta);
+
+            resumenSaldoModal.style.display = (saldoClienteActual > 0) ? 'block' : 'none';
+        }
+
+        const resumenAbonoModal = getElement('resumenAbonoModal');
+        const abonoModal = getElement('abonoModal');
+        const metodoPagoModal = getElement('metodoPagoModal');
+
+        if (resumenAbonoModal && abonoModal && metodoPagoModal) {
+            if (abonoSeleccionado > 0) {
+                abonoModal.textContent = formatoCordoba(abonoSeleccionado);
+                metodoPagoModal.textContent = metodoPagoSeleccionado || 'Efectivo';
+                resumenAbonoModal.style.display = 'block';
+            } else {
+                resumenAbonoModal.style.display = 'none';
+            }
+        }
+
+        const clienteSelect = getElement('cliente');
+        const option = clienteSelect?.options[clienteSelect.selectedIndex];
+        const clienteNombre = option?.dataset.nombre || '';
+        const clienteRUC = option?.dataset.ruc || '';
+        const clientePerfil = option?.dataset.perfil || 'Mercado';
+
+        const resumenVenta = getElement('resumenVenta');
+        if (resumenVenta) {
+            const fechaActual = new Date().toLocaleDateString('es-ES');
+            resumenVenta.innerHTML = `<div class="row g-2 mb-2"><div class="col-12 col-md-6"><div class="card h-100"><div class="card-body p-2"><h6 class="small fw-bold border-bottom pb-1 mb-2"><i class="fas fa-user me-2"></i>Datos del Cliente</h6><div class="row g-1"><div class="col-5"><small>Cliente:</small></div><div class="col-7"><small class="fw-bold">${clienteNombre}</small></div><div class="col-5"><small>Documento:</small></div><div class="col-7"><small>${clienteRUC}</small></div><div class="col-5"><small>Perfil:</small></div><div class="col-7"><span class="badge bg-info">${clientePerfil}</span></div></div></div></div></div><div class="col-12 col-md-6"><div class="card h-100"><div class="card-body p-2"><h6 class="small fw-bold border-bottom pb-1 mb-2"><i class="fas fa-info-circle me-2"></i>Info Venta</h6><div class="row g-1"><div class="col-5"><small>Ruta:</small></div><div class="col-7"><small>Ruta Actual</small></div><div class="col-5"><small>Fecha:</small></div><div class="col-7"><small>${fechaActual}</small></div><div class="col-5"><small>Tipo:</small></div><div class="col-7"><span class="badge ${tipoVenta.value === '1' ? 'bg-success' : 'bg-warning text-dark'}">${tipoVentaText}</span></div></div></div></div></div></div>`;
+        }
+
+        const tbodyResumen = getElement('tbodyResumenProductos');
+        const totalResumen = getElement('totalResumen');
+        if (!tbodyResumen || !totalResumen) return false;
+
+        let htmlResumen = '';
+        let total = 0;
+
+        productos.forEach((prod, index) => {
+            total += prod.subtotal;
+            htmlResumen += `<tr><td class="small align-middle text-center">${index + 1}</td><td class="small align-middle">${prod.nombre}<br><small class="text-muted">Código: ${prod.codigo}</small></td><td class="text-center small align-middle">${formatNumber(prod.cantidad)}</td><td class="text-end small align-middle">${formatoCordoba(prod.precio)}</td><td class="text-end fw-bold small align-middle text-success">${formatoCordoba(prod.subtotal)}</td></tr>`;
+        });
+
+        tbodyResumen.innerHTML = htmlResumen;
+        totalResumen.textContent = formatoCordoba(total);
+        return true;
+    }
+
+    // ============================================
     // FUNCIÓN PRINCIPAL DE ENVÍO
     // ============================================
     async function manejarEnvioFormulario(event) {
@@ -1901,7 +2327,7 @@
                         })),
                         total: totalVentaCalculada,
                         abono_monto: abonoSeleccionado > 0 ? abonoSeleccionado.toString() : '0',
-                        abono_metodo_pago: metodoPagoSeleccionado || '',
+                        abono_metodo_pago: idMetodoPagoSeleccionado || '',
                         procesar_abono: abonoSeleccionado > 0 ? '1' : '0'
                     }
                 };
@@ -2490,6 +2916,7 @@
         productos = [];
         abonoSeleccionado = 0;
         metodoPagoSeleccionado = '';
+        idMetodoPagoSeleccionado = null;
         enviandoFormulario = false;
 
         actualizarVistasProductos();
@@ -2584,7 +3011,7 @@
         if (!tablaBody) return;
 
         if (productos.length === 0) {
-            tablaBody.innerHTML = `<tr id="fila_vacia"><td colspan="7" class="text-center text-muted py-4"><i class="fas fa-box-open fa-2x mb-2 d-block"></i><small>No hay productos agregados</small>    </tr>`;
+            tablaBody.innerHTML = `<tr id="fila_vacia"><td colspan="7" class="text-center text-muted py-4"><i class="fas fa-box-open fa-2x mb-2 d-block"></i><small>No hay productos agregados</small>    </table>`;
             if (tfootTotales) tfootTotales.style.display = 'none';
             return;
         }
@@ -2779,294 +3206,24 @@
 
     function eliminarProductoMovil(index) { eliminarProducto(index); }
 
-    // ============================================
-    // FUNCIONES DE MODAL Y CONFIRMACIÓN
-    // ============================================
-    function llenarResumenConfirmacion() {
-        const tipoVenta = document.querySelector('input[name="tipo_venta"]:checked');
-        if (!tipoVenta) return false;
+    function actualizarEstadoConexion() {
+        const connectionStatus = getElement('connection-status');
+        const confirmacionMensaje = getElement('confirmacionMensajeConexion');
 
-        const tipoVentaText = tipoVenta.value === '1' ? 'Contado' : 'Crédito';
-
-        const infoCreditoModal = getElement('infoCreditoModal');
-        if (infoCreditoModal) infoCreditoModal.style.display = tipoVenta.value === '2' ? 'block' : 'none';
-
-        const resumenSaldoModal = getElement('resumenSaldoModal');
-        const saldoAnteriorModal = getElement('saldoAnteriorModal');
-        const nuevaVentaModal = getElement('nuevaVentaModal');
-        const totalPendienteModal = getElement('totalPendienteModal');
-
-        if (resumenSaldoModal && saldoAnteriorModal && nuevaVentaModal && totalPendienteModal) {
-            const totalVenta = calcularTotalVenta();
-            saldoAnteriorModal.textContent = formatoCordoba(saldoClienteActual);
-            nuevaVentaModal.textContent = formatoCordoba(totalVenta);
-            totalPendienteModal.textContent = formatoCordoba(saldoClienteActual + totalVenta);
-
-            resumenSaldoModal.style.display = (saldoClienteActual > 0) ? 'block' : 'none';
-        }
-
-        const resumenAbonoModal = getElement('resumenAbonoModal');
-        const abonoModal = getElement('abonoModal');
-        const metodoPagoModal = getElement('metodoPagoModal');
-
-        if (resumenAbonoModal && abonoModal && metodoPagoModal) {
-            if (abonoSeleccionado > 0) {
-                abonoModal.textContent = formatoCordoba(abonoSeleccionado);
-                metodoPagoModal.textContent = metodoPagoSeleccionado || 'Efectivo';
-                resumenAbonoModal.style.display = 'block';
-            } else {
-                resumenAbonoModal.style.display = 'none';
+        if (navigator.onLine) {
+            if (connectionStatus) {
+                connectionStatus.innerHTML = `<div class="alert alert-success py-1 mb-0" style="border-radius: 20px;"><i class="fas fa-wifi me-2"></i><small><strong>Conectado</strong> - Las ventas se registrarán en línea</small></div>`;
             }
-        }
-
-        const clienteSelect = getElement('cliente');
-        const option = clienteSelect?.options[clienteSelect.selectedIndex];
-        const clienteNombre = option?.dataset.nombre || '';
-        const clienteRUC = option?.dataset.ruc || '';
-        const clientePerfil = option?.dataset.perfil || 'Mercado';
-
-        const resumenVenta = getElement('resumenVenta');
-        if (resumenVenta) {
-            const fechaActual = new Date().toLocaleDateString('es-ES');
-            resumenVenta.innerHTML = `<div class="row g-2 mb-2"><div class="col-12 col-md-6"><div class="card h-100"><div class="card-body p-2"><h6 class="small fw-bold border-bottom pb-1 mb-2"><i class="fas fa-user me-2"></i>Datos del Cliente</h6><div class="row g-1"><div class="col-5"><small>Cliente:</small></div><div class="col-7"><small class="fw-bold">${clienteNombre}</small></div><div class="col-5"><small>Documento:</small></div><div class="col-7"><small>${clienteRUC}</small></div><div class="col-5"><small>Perfil:</small></div><div class="col-7"><span class="badge bg-info">${clientePerfil}</span></div></div></div></div></div><div class="col-12 col-md-6"><div class="card h-100"><div class="card-body p-2"><h6 class="small fw-bold border-bottom pb-1 mb-2"><i class="fas fa-info-circle me-2"></i>Info Venta</h6><div class="row g-1"><div class="col-5"><small>Ruta:</small></div><div class="col-7"><small>Ruta Actual</small></div><div class="col-5"><small>Fecha:</small></div><div class="col-7"><small>${fechaActual}</small></div><div class="col-5"><small>Tipo:</small></div><div class="col-7"><span class="badge ${tipoVenta.value === '1' ? 'bg-success' : 'bg-warning text-dark'}">${tipoVentaText}</span></div></div></div></div></div></div>`;
-        }
-
-        const tbodyResumen = getElement('tbodyResumenProductos');
-        const totalResumen = getElement('totalResumen');
-        if (!tbodyResumen || !totalResumen) return false;
-
-        let htmlResumen = '';
-        let total = 0;
-
-        productos.forEach((prod, index) => {
-            total += prod.subtotal;
-            htmlResumen += `<tr><td class="small align-middle text-center">${index + 1}</td><td class="small align-middle">${prod.nombre}<br><small class="text-muted">Código: ${prod.codigo}</small></td><td class="text-center small align-middle">${formatNumber(prod.cantidad)}</td><td class="text-end small align-middle">${formatoCordoba(prod.precio)}</td><td class="text-end fw-bold small align-middle text-success">${formatoCordoba(prod.subtotal)}</td></tr>`;
-        });
-
-        tbodyResumen.innerHTML = htmlResumen;
-        totalResumen.textContent = formatoCordoba(total);
-        return true;
-    }
-
-    let datosVentaActual = { clienteId: null, totalVenta: 0, saldoAnterior: 0, productos: [] };
-
-    function mostrarModalAbono(clienteId, saldoAnterior, totalVenta, facturas) {
-        datosVentaActual = { clienteId, totalVenta, saldoAnterior, productos: [...productos] };
-
-        const tipoVenta = document.querySelector('input[name="tipo_venta"]:checked');
-        const esContado = tipoVenta && tipoVenta.value === '1';
-
-        const modalSaldoAnterior = getElement('modalSaldoAnterior');
-        const modalNuevaVenta = getElement('modalNuevaVenta');
-        const modalTotalDeber = getElement('modalTotalDeber');
-        const montoAbonoInput = getElement('modalMontoAbono');
-
-        const filaNuevaVenta = document.getElementById('filaNuevaVenta');
-        const filaTotalDeber = document.getElementById('filaTotalDeber');
-
-        if (modalSaldoAnterior) modalSaldoAnterior.textContent = formatoCordoba(saldoAnterior);
-        if (modalNuevaVenta) modalNuevaVenta.textContent = formatoCordoba(totalVenta);
-
-        let totalDeber;
-        if (esContado) {
-            totalDeber = saldoAnterior;
-            if (filaNuevaVenta) filaNuevaVenta.style.display = 'none';
-            if (filaTotalDeber) filaTotalDeber.style.display = 'none';
-            const modalTitle = document.querySelector('#modalAbonoCredito .modal-title');
-            if (modalTitle) modalTitle.innerHTML = '<i class="fas fa-money-bill-wave me-2"></i>Abono a Saldo Pendiente';
-        } else {
-            totalDeber = saldoAnterior + totalVenta;
-            if (filaNuevaVenta) filaNuevaVenta.style.display = 'flex';
-            if (filaTotalDeber) filaTotalDeber.style.display = 'flex';
-            const modalTitle = document.querySelector('#modalAbonoCredito .modal-title');
-            if (modalTitle) modalTitle.innerHTML = '<i class="fas fa-money-bill-wave me-2"></i>Registrar Abono';
-        }
-
-        if (modalTotalDeber) modalTotalDeber.textContent = formatoCordoba(totalDeber);
-
-        if (montoAbonoInput) {
-            montoAbonoInput.value = '0.00';
-            montoAbonoInput.max = totalDeber;
-            montoAbonoInput.placeholder = `Máximo: ${formatoCordoba(totalDeber)}`;
-        }
-
-        const mensajeInfo = document.querySelector('#modalAbonoCredito .alert-info');
-        if (mensajeInfo) {
-            if (esContado) {
-                mensajeInfo.innerHTML = `<div class="d-flex">
-                <i class="fas fa-info-circle me-2 mt-1"></i>
-                <span>Venta al <strong>Contado</strong>. El abono se aplicará SOLO al saldo pendiente del cliente. La venta actual se paga por separado.</span>
-            </div>`;
-            } else {
-                mensajeInfo.innerHTML = `<div class="d-flex">
-                <i class="fas fa-info-circle me-2 mt-1"></i>
-                <span>Venta a <strong>Crédito</strong>. El abono se aplicará a la deuda total (Saldo anterior + Venta actual).</span>
-            </div>`;
+            if (confirmacionMensaje) {
+                confirmacionMensaje.innerHTML = '<i class="fas fa-check-circle text-success me-2"></i>La venta se registrará y se descontará del inventario disponible en ruta.';
             }
-        }
-
-        const detalleAplicacion = getElement('detalleAplicacionAbono');
-        if (detalleAplicacion) detalleAplicacion.style.display = 'none';
-
-        actualizarValoresDespuesAbono();
-
-        const modalElement = getElement('modalAbonoCredito');
-        if (modalElement) {
-            try {
-                const modal = new bootstrap.Modal(modalElement, { backdrop: 'static', keyboard: false });
-                modal.show();
-                const modalBody = modalElement.querySelector('.modal-body');
-                if (modalBody) { modalBody.style.maxHeight = '60vh'; modalBody.style.overflowY = 'auto'; }
-            } catch (e) {
-                console.error('Error al mostrar modal:', e);
+            verificarVentasPendientes();
+        } else {
+            if (connectionStatus) {
+                connectionStatus.innerHTML = `<div class="alert alert-warning py-1 mb-0" style="border-radius: 20px;"><i class="fas fa-wifi-slash me-2"></i><small><strong>Modo sin conexión</strong> - Las ventas se guardarán localmente</small></div>`;
             }
-        }
-    }
-
-    function actualizarValoresDespuesAbono() {
-        const montoAbonoInput = getElement('modalMontoAbono');
-        if (!montoAbonoInput) return;
-
-        const montoAbono = parseFloat(montoAbonoInput.value) || 0;
-        const saldoAnterior = datosVentaActual.saldoAnterior;
-        const nuevaVenta = datosVentaActual.totalVenta;
-        const tipoVenta = document.querySelector('input[name="tipo_venta"]:checked');
-        const esContado = tipoVenta && tipoVenta.value === '1';
-
-        let totalDeber;
-        if (esContado) {
-            totalDeber = saldoAnterior;
-        } else {
-            totalDeber = saldoAnterior + nuevaVenta;
-        }
-
-        if (montoAbono > totalDeber) {
-            montoAbonoInput.value = totalDeber.toFixed(2);
-            showToast('warning', 'Abono máximo', `El abono no puede exceder ${formatoCordoba(totalDeber)}`);
-        }
-
-        const abonoValido = Math.min(montoAbono, totalDeber);
-
-        let nuevoSaldo;
-        let totalFinal;
-
-        if (esContado) {
-            nuevoSaldo = Math.max(0, saldoAnterior - abonoValido);
-            totalFinal = nuevoSaldo;
-            console.log('CONTADO - Saldo anterior:', saldoAnterior, 'Abono:', abonoValido, 'Nuevo saldo:', nuevoSaldo);
-        } else {
-            nuevoSaldo = Math.max(0, (saldoAnterior + nuevaVenta) - abonoValido);
-            totalFinal = nuevoSaldo;
-            console.log('CRÉDITO - Saldo anterior:', saldoAnterior, 'Nueva venta:', nuevaVenta, 'Abono:', abonoValido, 'Nuevo saldo:', nuevoSaldo);
-        }
-
-        const modalNuevoSaldo = getElement('modalNuevoSaldo');
-        const modalNuevaVentaDespues = getElement('modalNuevaVentaDespues');
-        const modalTotalFinal = getElement('modalTotalFinal');
-
-        if (modalNuevoSaldo) modalNuevoSaldo.textContent = formatoCordoba(nuevoSaldo);
-
-        const filaNuevaVentaDespues = document.getElementById('filaNuevaVentaDespues');
-        const labelTotalFinal = document.getElementById('labelTotalFinal');
-
-        if (esContado) {
-            if (modalNuevaVentaDespues && modalNuevaVentaDespues.closest('.saldos-row')) {
-                modalNuevaVentaDespues.closest('.saldos-row').style.display = 'none';
-            }
-            if (filaNuevaVentaDespues) filaNuevaVentaDespues.style.display = 'none';
-            if (labelTotalFinal) labelTotalFinal.textContent = 'Nuevo Saldo Pendiente:';
-            if (modalTotalFinal) modalTotalFinal.textContent = formatoCordoba(totalFinal);
-        } else {
-            if (modalNuevaVentaDespues && modalNuevaVentaDespues.closest('.saldos-row')) {
-                modalNuevaVentaDespues.closest('.saldos-row').style.display = 'flex';
-            }
-            if (filaNuevaVentaDespues) filaNuevaVentaDespues.style.display = 'flex';
-            if (modalTotalFinal) modalTotalFinal.textContent = formatoCordoba(totalFinal);
-            if (labelTotalFinal) labelTotalFinal.textContent = 'Total Final a Deber:';
-        }
-
-        if (abonoValido > 0 && facturasPendientes.length > 0 && !esContado) {
-            mostrarAplicacionAbono(abonoValido);
-        } else {
-            const detalleAplicacion = getElement('detalleAplicacionAbono');
-            if (detalleAplicacion) detalleAplicacion.style.display = 'none';
-        }
-    }
-
-    function mostrarAplicacionAbono(montoAbono) {
-        let montoRestante = montoAbono;
-        let aplicacion = [];
-
-        const facturasOrdenadas = [...facturasPendientes].sort((a, b) => {
-            if (a.Dias_Vencido > 0 && b.Dias_Vencido <= 0) return -1;
-            if (a.Dias_Vencido <= 0 && b.Dias_Vencido > 0) return 1;
-            return new Date(a.Fecha_Vencimiento) - new Date(b.Fecha_Vencimiento);
-        });
-
-        for (let factura of facturasOrdenadas) {
-            if (montoRestante <= 0) break;
-            const saldo = parseFloat(factura.Saldo_Pendiente);
-            const montoAplicar = Math.min(montoRestante, saldo);
-            aplicacion.push({
-                documento: factura.Num_Documento,
-                monto_aplicar: montoAplicar,
-                estado: (saldo - montoAplicar) <= 0 ? 'Pagada' : 'Parcial'
-            });
-            montoRestante -= montoAplicar;
-        }
-
-        let html = '<div class="small" style="max-height: 150px; overflow-y: auto;">';
-        aplicacion.forEach(item => {
-            html += `<div class="mb-1 p-2 ${item.estado === 'Pagada' ? 'bg-success text-white' : 'bg-warning'} rounded small"><strong>${item.documento}</strong>: ${formatoCordoba(item.monto_aplicar)} ${item.estado === 'Pagada' ? '✅' : '⚠️'}</div>`;
-        });
-        html += '</div>';
-
-        const listaAplicacion = getElement('listaAplicacionAbono');
-        const detalleAplicacion = getElement('detalleAplicacionAbono');
-
-        if (listaAplicacion) listaAplicacion.innerHTML = html;
-        if (detalleAplicacion) detalleAplicacion.style.display = 'block';
-    }
-
-    function procesarVentaConAbono(montoAbono) {
-        const metodoPago = getElement('modalMetodoPago')?.value || 1;
-        const metodoPagoText = getElement('modalMetodoPago')?.options[getElement('modalMetodoPago').selectedIndex]?.text || 'Efectivo';
-
-        abonoSeleccionado = montoAbono;
-        metodoPagoSeleccionado = metodoPagoText;
-
-        const tipoVentaSeleccionado = document.querySelector('input[name="tipo_venta"]:checked');
-        if (tipoVentaSeleccionado) {
-            tipoVentaActual = tipoVentaSeleccionado.value;
-        }
-
-        Swal.fire({ title: 'Procesando...', text: 'Por favor espere', allowOutsideClick: false, showConfirmButton: false, didOpen: () => Swal.showLoading() });
-
-        const form = getElement('ventaForm');
-        const abonoField = getElement('abono_monto');
-        if (abonoField) abonoField.value = montoAbono;
-
-        const metodoPagoField = getElement('abono_metodo_pago');
-        if (metodoPagoField) metodoPagoField.value = metodoPago;
-
-        const procesarAbonoField = getElement('procesar_abono');
-        if (procesarAbonoField) procesarAbonoField.value = '1';
-
-        Swal.close();
-
-        const modalElement = getElement('modalAbonoCredito');
-        if (modalElement) {
-            const modal = bootstrap.Modal.getInstance(modalElement);
-            if (modal) modal.hide();
-        }
-
-        if (llenarResumenConfirmacion()) {
-            const modalConfirmacion = getElement('modalConfirmacionVenta');
-            if (modalConfirmacion) {
-                const modal = new bootstrap.Modal(modalConfirmacion, { backdrop: 'static' });
-                modal.show();
-                const modalBody = modalConfirmacion.querySelector('.modal-body');
-                if (modalBody) { modalBody.style.maxHeight = '60vh'; modalBody.style.overflowY = 'auto'; }
+            if (confirmacionMensaje) {
+                confirmacionMensaje.innerHTML = '<i class="fas fa-cloud-upload-alt text-warning me-2"></i>📱 MODO SIN CONEXIÓN: Las ventas se guardarán localmente y se sincronizará cuando tenga internet.';
             }
         }
     }
@@ -3141,33 +3298,14 @@
         }
     };
 
-    function actualizarEstadoConexion() {
-        const connectionStatus = getElement('connection-status');
-        const confirmacionMensaje = getElement('confirmacionMensajeConexion');
-
-        if (navigator.onLine) {
-            if (connectionStatus) {
-                connectionStatus.innerHTML = `<div class="alert alert-success py-1 mb-0" style="border-radius: 20px;"><i class="fas fa-wifi me-2"></i><small><strong>Conectado</strong> - Las ventas se registrarán en línea</small></div>`;
-            }
-            if (confirmacionMensaje) {
-                confirmacionMensaje.innerHTML = '<i class="fas fa-check-circle text-success me-2"></i>La venta se registrará y se descontará del inventario disponible en ruta.';
-            }
-            verificarVentasPendientes();
-        } else {
-            if (connectionStatus) {
-                connectionStatus.innerHTML = `<div class="alert alert-warning py-1 mb-0" style="border-radius: 20px;"><i class="fas fa-wifi-slash me-2"></i><small><strong>Modo sin conexión</strong> - Las ventas se guardarán localmente</small></div>`;
-            }
-            if (confirmacionMensaje) {
-                confirmacionMensaje.innerHTML = '<i class="fas fa-cloud-upload-alt text-warning me-2"></i>📱 MODO SIN CONEXIÓN: Las ventas se guardarán localmente y se sincronizará cuando tenga internet.';
-            }
-        }
-    }
-
     // ============================================
     // EVENTOS PRINCIPALES
     // ============================================
     document.addEventListener('DOMContentLoaded', function () {
-        console.log('🚀 Inicializando formulario con soporte offline y abono para contado');
+        console.log('🚀 Inicializando formulario con soporte offline y abono API');
+
+        // Cargar métodos de pago
+        cargarMetodosPago();
 
         const clienteSelect = getElement('cliente');
         const productoSelect = getElement('producto_select');
@@ -3385,6 +3523,8 @@
                     showAlert('warning', 'Seleccione tipo de venta');
                     return;
                 }
+
+                tipoVentaActual = tipoVenta.value;
 
                 if (saldoClienteActual > 0) {
                     const totalVenta = calcularTotalVenta();

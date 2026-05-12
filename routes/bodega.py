@@ -2404,7 +2404,7 @@ def historial_vendedor(id_usuario):
                     cm.Adicion AS Impacto,
                     cm.Letra AS Simbolo,
                     mrc.Documento_Numero,
-                    c.Nombre_Cliente,
+                    c.Nombre as Nombre_Cliente,
                     p.COD_Producto,
                     p.Descripcion AS Producto,
                     mrd.Cantidad,

@@ -2784,52 +2784,60 @@ def api_procesar_abono():
             if not facturas:
                 return jsonify({'success': False, 'error': 'No hay facturas pendientes para este cliente'}), 400
             
-            # 4. Calcular saldo actual de caja
-            cursor.execute("""
-                SELECT COALESCE(SUM(CASE 
-                    WHEN Tipo = 'GASTO' THEN -Monto 
-                    ELSE Monto 
-                END), 0) as Saldo_Actual
-                FROM movimientos_caja_ruta
-                WHERE ID_Asignacion = %s 
-                  AND DATE(Fecha) = CURDATE() 
-                  AND Tipo != 'CIERRE'
-                  AND Estado = 'ACTIVO'
-            """, (asignacion['ID_Asignacion'],))
+            # ==============================================
+            # REGISTRO EN CAJA - SOLO PARA EFECTIVO (ID=1)
+            # ==============================================
+            id_movimiento_caja = None
+            nuevo_saldo = None
             
-            saldo_result = cursor.fetchone()
-            saldo_actual = float(saldo_result['Saldo_Actual'] if saldo_result else 0)
-            nuevo_saldo = saldo_actual + monto_abono
-            
-            # 5. Registrar movimiento en caja CON EL ID_METODOPAGO
-            concepto = f"Abono de cliente - Monto: C${monto_abono:,.2f} - Pago: {nombre_metodo_pago}"
-            
-            print(f"💵 Insertando movimiento: ID_MetodoPago={id_metodo_pago}, Monto={monto_abono}")
-            
-            try:
+            if id_metodo_pago == 1:  # SOLO efectivo
+                # Calcular saldo actual de caja
                 cursor.execute("""
-                    INSERT INTO movimientos_caja_ruta
-                    (ID_Asignacion, ID_Usuario, Tipo, Concepto, Monto, 
-                     Tipo_Pago, ID_Cliente, Saldo_Acumulado, Estado, ID_MetodoPago)
-                    VALUES (%s, %s, 'ABONO', %s, %s, NULL, %s, %s, 'ACTIVO', %s)
-                """, (
-                    asignacion['ID_Asignacion'],
-                    id_vendedor,
-                    concepto,
-                    monto_abono,
-                    int(id_cliente),
-                    nuevo_saldo,
-                    id_metodo_pago  # ← GUARDAMOS EL ID DEL MÉTODO DE PAGO
-                ))
+                    SELECT COALESCE(SUM(CASE 
+                        WHEN Tipo = 'GASTO' THEN -Monto 
+                        ELSE Monto 
+                    END), 0) as Saldo_Actual
+                    FROM movimientos_caja_ruta
+                    WHERE ID_Asignacion = %s 
+                      AND DATE(Fecha) = CURDATE() 
+                      AND Tipo != 'CIERRE'
+                      AND Estado = 'ACTIVO'
+                """, (asignacion['ID_Asignacion'],))
                 
-                id_movimiento_caja = cursor.lastrowid
-                print(f"✅ Movimiento de caja insertado: ID={id_movimiento_caja}, ID_MetodoPago={id_metodo_pago}")
+                saldo_result = cursor.fetchone()
+                saldo_actual = float(saldo_result['Saldo_Actual'] if saldo_result else 0)
+                nuevo_saldo = saldo_actual + monto_abono
                 
-            except Exception as e:
-                print(f"❌ Error al insertar en movimientos_caja_ruta: {e}")
-                raise Exception(f"Error al registrar movimiento de caja: {str(e)}")
+                # Registrar movimiento en caja
+                concepto = f"Abono de cliente - Monto: C${monto_abono:,.2f} - Pago: {nombre_metodo_pago}"
+                
+                try:
+                    cursor.execute("""
+                        INSERT INTO movimientos_caja_ruta
+                        (ID_Asignacion, ID_Usuario, Tipo, Concepto, Monto, 
+                         Tipo_Pago, ID_Cliente, Saldo_Acumulado, Estado, ID_MetodoPago)
+                        VALUES (%s, %s, 'ABONO', %s, %s, NULL, %s, %s, 'ACTIVO', %s)
+                    """, (
+                        asignacion['ID_Asignacion'],
+                        id_vendedor,
+                        concepto,
+                        monto_abono,
+                        int(id_cliente),
+                        nuevo_saldo,
+                        id_metodo_pago
+                    ))
+                    
+                    id_movimiento_caja = cursor.lastrowid
+                    print(f"✅ Movimiento de caja registrado (EFECTIVO): ID={id_movimiento_caja}")
+                    
+                except Exception as e:
+                    print(f"❌ Error al insertar en movimientos_caja_ruta: {e}")
+                    raise Exception(f"Error al registrar movimiento de caja: {str(e)}")
+            else:
+                # No es efectivo - NO se registra en caja
+                print(f"⚠️ Método '{nombre_metodo_pago}' (ID={id_metodo_pago}) - NO se registra en caja")
             
-            # 6. Distribuir el abono entre las facturas
+            # 4. Distribuir el abono entre las facturas
             monto_restante = monto_abono
             detalle_abono = []
             monto_aplicado = 0
@@ -2852,45 +2860,33 @@ def api_procesar_abono():
                     WHERE ID_Movimiento = %s
                 """, (nuevo_saldo_factura, nuevo_estado, factura['ID_Movimiento']))
                 
-                # Insertar en abonos_detalle con el método de pago
+                # Insertar en abonos_detalle (VERSIÓN CORREGIDA - sin Metodo_Pago_Nombre)
                 try:
                     cursor.execute("""
-                        SELECT COUNT(*) as count 
-                        FROM information_schema.tables 
-                        WHERE table_schema = DATABASE()
-                        AND table_name = 'abonos_detalle'
-                    """)
-                    table_exists = cursor.fetchone()['count'] > 0
+                        INSERT INTO abonos_detalle
+                        (ID_Movimiento_Caja, ID_Asignacion, ID_Usuario, ID_Cliente, 
+                         ID_CuentaCobrar, Monto_Aplicado, Saldo_Anterior, Saldo_Nuevo,
+                         ID_MetodoPago)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    """, (
+                        id_movimiento_caja,      # Puede ser NULL para no-efectivo
+                        asignacion['ID_Asignacion'],
+                        id_vendedor,
+                        int(id_cliente),
+                        factura['ID_Movimiento'],
+                        monto_aplicar,
+                        saldo_factura,
+                        nuevo_saldo_factura,
+                        id_metodo_pago           # Solo el ID del método
+                    ))
                     
-                    if table_exists:
-                        cursor.execute("""
-                            INSERT INTO abonos_detalle
-                            (ID_Movimiento_Caja, ID_Asignacion, ID_Usuario, ID_Cliente, 
-                             ID_CuentaCobrar, Monto_Aplicado, Saldo_Anterior, Saldo_Nuevo,
-                             ID_MetodoPago, Metodo_Pago_Nombre)
-                            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-                        """, (
-                            id_movimiento_caja,
-                            asignacion['ID_Asignacion'],
-                            id_vendedor,
-                            int(id_cliente),
-                            factura['ID_Movimiento'],
-                            monto_aplicar,
-                            saldo_factura,
-                            nuevo_saldo_factura,
-                            id_metodo_pago,
-                            nombre_metodo_pago
-                        ))
-                        
-                        ultimo_id_abono = cursor.lastrowid
-                        print(f"✅ Detalle de abono insertado para factura {factura['Num_Documento']}")
-                    else:
-                        print(f"⚠️ Tabla abonos_detalle no existe, omitiendo inserción")
-                        ultimo_id_abono = id_movimiento_caja
+                    ultimo_id_abono = cursor.lastrowid
+                    print(f"✅ Detalle de abono insertado para factura {factura['Num_Documento']} (ID_MetodoPago={id_metodo_pago})")
                     
                 except Exception as e:
-                    print(f"⚠️ No se pudo insertar en abonos_detalle: {e}")
-                    ultimo_id_abono = id_movimiento_caja
+                    print(f"❌ Error al insertar en abonos_detalle: {e}")
+                    # Si falla, intentar al menos guardar el ID del movimiento de caja
+                    ultimo_id_abono = id_movimiento_caja if id_movimiento_caja else 0
                 
                 detalle_abono.append({
                     'factura': factura['Num_Documento'],
@@ -2903,7 +2899,7 @@ def api_procesar_abono():
                 monto_restante -= monto_aplicar
                 monto_aplicado += monto_aplicar
             
-            # 7. Actualizar saldo del cliente
+            # 5. Actualizar saldo del cliente
             cursor.execute("""
                 UPDATE clientes 
                 SET Saldo_Pendiente_Total = GREATEST(0, COALESCE(Saldo_Pendiente_Total, 0) - %s),
@@ -2914,12 +2910,13 @@ def api_procesar_abono():
             print(f"✅ Abono procesado: Monto={monto_aplicado}, Cliente={id_cliente}")
             
             # ID para el recibo
-            id_abono_para_recibo = ultimo_id_abono if ultimo_id_abono else id_movimiento_caja
+            id_abono_para_recibo = ultimo_id_abono if ultimo_id_abono else (id_movimiento_caja if id_movimiento_caja else 0)
             
-            return jsonify({
+            # Preparar respuesta
+            respuesta = {
                 'success': True,
                 'mensaje': 'Abono procesado correctamente',
-                'id_movimiento': id_movimiento_caja,
+                'id_movimiento': id_movimiento_caja if id_movimiento_caja else 0,
                 'id_abono': id_abono_para_recibo,
                 'id_metodo_pago': id_metodo_pago,
                 'metodo_pago': nombre_metodo_pago,
@@ -2929,11 +2926,18 @@ def api_procesar_abono():
                 'monto_aplicado': monto_aplicado,
                 'vuelto': monto_restante,
                 'detalle': detalle_abono,
-                'nuevo_saldo_caja': nuevo_saldo
-            })
+                'registro_caja': id_metodo_pago == 1,
+            }
+            
+            # Solo incluir nuevo_saldo_caja si fue efectivo
+            if id_metodo_pago == 1:
+                respuesta['nuevo_saldo_caja'] = nuevo_saldo
+            
+            return jsonify(respuesta)
             
     except Exception as e:
         print(f"❌ Error en api_procesar_abono: {str(e)}")
+        import traceback
         traceback.print_exc()
         return jsonify({'success': False, 'error': f'Error interno: {str(e)}'}), 500
 
@@ -4820,31 +4824,31 @@ def vendedor_clientes():
         flash('Error al cargar clientes', 'error')
         return redirect(url_for('vendedor.vendedor_dashboard'))
 
-@vendedor_bp.route('/vendedor/abono/<int:id_abono>/recibo')
+@vendedor_bp.route('/abono/<int:id_abono>/recibo')
 @vendedor_required
 def vendedor_recibo_abono(id_abono):
-    """Generar recibo de abono simplificado con saldo de clientes"""
+    """Generar recibo de abono con método de pago (para efectivo y no-efectivo)"""
     try:
         id_vendedor = int(current_user.id)
         auto_print = request.args.get('autoPrint', 0)
         
+        print(f"🔍 Buscando abono ID: {id_abono} para vendedor ID: {id_vendedor}")
+        
         with get_db_cursor() as cursor:
-            # PRIMERO: Buscar en abonos_detalle
+            # Buscar en abonos_detalle con JOIN a metodos_pago
             cursor.execute("""
                 SELECT 
                     ad.ID_Detalle as id_abono,
                     ad.Monto_Aplicado,
                     ad.Fecha,
+                    ad.ID_MetodoPago,
+                    mp.Nombre as metodo_pago_nombre,
                     c.ID_Cliente,
                     c.Nombre as cliente_nombre,
                     c.RUC_CEDULA as cliente_ruc,
                     c.Saldo_Pendiente_Total as saldo_actual_cliente,
                     u.NombreUsuario as vendedor_nombre,
                     r.Nombre_Ruta as ruta_nombre,
-                    mc.Concepto as movimiento_concepto,
-                    mc.Tipo_Pago as tipo_pago,
-                    mc.ID_MetodoPago,
-                    mp.Nombre as metodo_pago_nombre,
                     e.Nombre_Empresa as empresa_nombre,
                     e.RUC as empresa_ruc,
                     e.Direccion as empresa_direccion,
@@ -4854,33 +4858,31 @@ def vendedor_recibo_abono(id_abono):
                 INNER JOIN usuarios u ON ad.ID_Usuario = u.ID_Usuario
                 INNER JOIN asignacion_vendedores av ON ad.ID_Asignacion = av.ID_Asignacion
                 INNER JOIN rutas r ON av.ID_Ruta = r.ID_Ruta
-                INNER JOIN movimientos_caja_ruta mc ON ad.ID_Movimiento_Caja = mc.ID_Movimiento
-                LEFT JOIN metodos_pago mp ON mc.ID_MetodoPago = mp.ID_MetodoPago
                 INNER JOIN empresa e ON av.ID_Empresa = e.ID_Empresa
+                LEFT JOIN metodos_pago mp ON ad.ID_MetodoPago = mp.ID_MetodoPago
                 WHERE ad.ID_Detalle = %s
                 AND ad.ID_Usuario = %s
             """, (id_abono, id_vendedor))
             
             abono = cursor.fetchone()
+            print(f"📊 Resultado búsqueda en abonos_detalle: {abono is not None}")
             
-            # Si no encuentra en abonos_detalle, buscar directamente en movimientos_caja_ruta
+            # Si no encuentra, buscar como backup en movimientos_caja_ruta (para abonos antiguos)
             if not abono:
-                print(f"Buscando en movimientos_caja_ruta para ID: {id_abono}")
+                print(f"🔍 Buscando en movimientos_caja_ruta como backup...")
                 cursor.execute("""
                     SELECT 
                         mc.ID_Movimiento as id_abono,
                         mc.Monto as Monto_Aplicado,
                         mc.Fecha,
+                        mc.ID_MetodoPago,
+                        mp.Nombre as metodo_pago_nombre,
                         c.ID_Cliente,
                         c.Nombre as cliente_nombre,
                         c.RUC_CEDULA as cliente_ruc,
                         c.Saldo_Pendiente_Total as saldo_actual_cliente,
                         u.NombreUsuario as vendedor_nombre,
                         r.Nombre_Ruta as ruta_nombre,
-                        mc.Concepto as movimiento_concepto,
-                        mc.Tipo_Pago as tipo_pago,
-                        mc.ID_MetodoPago,
-                        mp.Nombre as metodo_pago_nombre,
                         e.Nombre_Empresa as empresa_nombre,
                         e.RUC as empresa_ruc,
                         e.Direccion as empresa_direccion,
@@ -4898,59 +4900,76 @@ def vendedor_recibo_abono(id_abono):
                 """, (id_abono, id_vendedor))
                 
                 abono = cursor.fetchone()
+                print(f"📊 Resultado búsqueda backup: {abono is not None}")
             
             if not abono:
+                print(f"❌ Abono {id_abono} no encontrado para vendedor {id_vendedor}")
                 flash('Abono no encontrado', 'error')
                 return redirect(url_for('vendedor.vendedor_clientes'))
+            
+            # Obtener método de pago
+            metodo_pago = abono.get('metodo_pago_nombre')
+            if not metodo_pago:
+                # Si no tiene nombre, buscar por ID
+                if abono.get('ID_MetodoPago'):
+                    cursor.execute("SELECT Nombre FROM metodos_pago WHERE ID_MetodoPago = %s", (abono['ID_MetodoPago'],))
+                    metodo_obj = cursor.fetchone()
+                    if metodo_obj:
+                        metodo_pago = metodo_obj['Nombre']
+            
+            if not metodo_pago:
+                metodo_pago = 'NO ESPECIFICADO'
+            
+            print(f"✅ Método de pago: {metodo_pago}")
             
             # Calcular datos
             monto_abono = float(abono['Monto_Aplicado'])
             saldo_actual = float(abono['saldo_actual_cliente'])
             saldo_anterior = saldo_actual + monto_abono
             
-            # Obtener el nombre del método de pago
-            metodo_pago = abono.get('metodo_pago_nombre')
-            if not metodo_pago:
-                # Si no hay método de pago guardado, usar el Tipo_Pago
-                tipo_pago = abono.get('tipo_pago') or 'CONTADO'
-                metodo_pago = {
-                    'CONTADO': 'EFECTIVO',
-                    'CREDITO': 'CRÉDITO'
-                }.get(tipo_pago, tipo_pago)
-            
-            # Formatear fecha correctamente
+            # Formatear fecha
             fecha_abono = abono['Fecha']
             if isinstance(fecha_abono, str):
                 from datetime import datetime
-                fecha_abono = datetime.strptime(fecha_abono, '%Y-%m-%d %H:%M:%S')
+                try:
+                    fecha_abono = datetime.strptime(fecha_abono, '%Y-%m-%d %H:%M:%S')
+                except:
+                    try:
+                        fecha_abono = datetime.strptime(fecha_abono, '%Y-%m-%d')
+                    except:
+                        fecha_abono = datetime.now()
             
-            # Datos para el template - COINCIDIENDO CON EL TEMPLATE
+            # Generar número de recibo
+            numero_recibo = f"REC-{fecha_abono.strftime('%Y%m%d')}-{abono['id_abono']:05d}"
+            
+            # Datos para el template
             ticket_data = {
+                'numero_recibo': numero_recibo,
                 'id_abono': abono['id_abono'],
                 'fecha': fecha_abono.strftime('%d/%m/%Y %H:%M:%S'),
                 'cliente': abono['cliente_nombre'],
                 'cliente_ruc': abono['cliente_ruc'] or 'N/A',
                 'vendedor': abono['vendedor_nombre'],
                 'ruta': abono['ruta_nombre'],
-                'concepto': abono['movimiento_concepto'],
                 'metodo_pago': metodo_pago,
-                'saldo_anterior_formateado': f"C$ {saldo_anterior:,.2f}",
-                'monto_abono_formateado': f"C$ {monto_abono:,.2f}",
-                'nuevo_saldo_formateado': f"C$ {saldo_actual:,.2f}",
+                'saldo_anterior_formateado': f"C${saldo_anterior:,.2f}",
+                'monto_abono_formateado': f"C${monto_abono:,.2f}",
+                'nuevo_saldo_formateado': f"C${saldo_actual:,.2f}",
                 'empresa': {
                     'nombre': abono['empresa_nombre'],
                     'ruc': abono['empresa_ruc'],
                     'direccion': abono['empresa_direccion'] or '',
-                    'telefono': abono['empresa_telefono'] or ''
+                    'telefono': abono['empresa_telefono'] or '',
+                    'logo': '/static/ferdel.png'
                 },
                 'auto_print': auto_print
             }
             
+            print(f"✅ Recibo generado exitosamente para abono {id_abono}")
             return render_template('vendedor/clientes/recibo_abono.html', ticket=ticket_data)
                              
     except Exception as e:
-        print(f"Error en recibo: {str(e)}")
-        import traceback
+        print(f"❌ Error en recibo: {str(e)}")
         traceback.print_exc()
         flash('Error al generar recibo', 'error')
         return redirect(url_for('vendedor.vendedor_clientes'))
