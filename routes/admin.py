@@ -62,12 +62,14 @@ def admin_dashboard():
             cursor.execute("""
                 SELECT COALESCE(SUM(Monto_Cobrado), 0) AS Total_Cobrado_Hoy
                 FROM (
+                    -- Abonos directos desde abonos_detalle
                     SELECT Monto_Aplicado AS Monto_Cobrado
                     FROM abonos_detalle
                     WHERE DATE(Fecha) = CURDATE()
                     
                     UNION ALL
                     
+                    -- Pagos registrados en cuentas por cobrar
                     SELECT pc.Monto AS Monto_Cobrado
                     FROM pagos_cuentascobrar pc
                     INNER JOIN cuentas_por_cobrar cxc ON pc.ID_Movimiento = cxc.ID_Movimiento
@@ -173,8 +175,94 @@ def admin_dashboard():
             gastos_mes = cursor.fetchall()
             
             # ============================================
+            # 6. VENTAS POR VENDEDOR (día actual)
+            # ============================================
+            cursor.execute("""
+                SELECT 
+                    u.NombreUsuario AS Vendedor,
+                    COUNT(DISTINCT fr.ID_FacturaRuta) AS Facturas,
+                    COALESCE(SUM(dfr.Total), 0) AS Total_Vendido
+                FROM facturacion_ruta fr
+                INNER JOIN detalle_facturacion_ruta dfr ON fr.ID_FacturaRuta = dfr.ID_FacturaRuta
+                INNER JOIN asignacion_vendedores av ON fr.ID_Asignacion = av.ID_Asignacion
+                INNER JOIN usuarios u ON av.ID_Usuario = u.ID_Usuario
+                WHERE DATE(fr.Fecha_Creacion) = CURDATE() AND fr.Estado = 'Activa'
+                GROUP BY u.ID_Usuario
+                ORDER BY Total_Vendido DESC
+                LIMIT 5
+            """)
+            ventas_vendedores = cursor.fetchall()
+            
+            # ============================================
+            # 7. RUTAS ACTIVAS
+            # ============================================
+            cursor.execute("""
+                SELECT 
+                    r.Nombre_Ruta AS Ruta,
+                    u.NombreUsuario AS Vendedor,
+                    v.Placa AS Vehiculo,
+                    av.Estado
+                FROM asignacion_vendedores av
+                INNER JOIN rutas r ON av.ID_Ruta = r.ID_Ruta
+                INNER JOIN usuarios u ON av.ID_Usuario = u.ID_Usuario
+                LEFT JOIN vehiculos v ON av.ID_Vehiculo = v.ID_Vehiculo
+                WHERE av.Estado = 'Activa'
+            """)
+            rutas_activas = cursor.fetchall()
+            
+            # ============================================
+            # 8. VENTAS ÚLTIMOS 7 DÍAS (tendencia)
+            # ============================================
+            cursor.execute("""
+                SELECT 
+                    DATE(fac.Fecha_Creacion) AS Fecha,
+                    COALESCE(SUM(df.Total), 0) AS Total_Vendido
+                FROM facturacion fac
+                INNER JOIN detalle_facturacion df ON fac.ID_Factura = df.ID_Factura
+                WHERE fac.Fecha_Creacion >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)
+                  AND fac.Estado = 'Activa'
+                GROUP BY DATE(fac.Fecha_Creacion)
+                ORDER BY Fecha ASC
+            """)
+            ventas_7dias = cursor.fetchall()
+            
+            # ============================================
+            # 9. RESUMEN DE CAJA (movimientos del día)
+            # ============================================
+            cursor.execute("""
+                SELECT 
+                    Tipo,
+                    COUNT(*) as Cantidad,
+                    COALESCE(SUM(Monto), 0) as Total
+                FROM movimientos_caja_ruta
+                WHERE DATE(Fecha) = CURDATE() AND Estado = 'ACTIVO'
+                GROUP BY Tipo
+            """)
+            movimientos_caja = cursor.fetchall()
+            
+            # ============================================
+            # 10. PRÓXIMOS VENCIMIENTOS (7 días)
+            # ============================================
+            cursor.execute("""
+                SELECT 
+                    c.Nombre AS Cliente,
+                    cxc.Num_Documento,
+                    cxc.Fecha_Vencimiento,
+                    cxc.Saldo_Pendiente
+                FROM cuentas_por_cobrar cxc
+                INNER JOIN clientes c ON cxc.ID_Cliente = c.ID_Cliente
+                WHERE cxc.Fecha_Vencimiento BETWEEN CURDATE() AND DATE_ADD(CURDATE(), INTERVAL 7 DAY)
+                  AND cxc.Estado = 'Pendiente'
+                  AND cxc.Saldo_Pendiente > 0
+                ORDER BY cxc.Fecha_Vencimiento ASC
+                LIMIT 5
+            """)
+            proximos_vencimientos = cursor.fetchall()
+            
+            # ============================================
             # PREPARAR DATOS PARA GRÁFICOS (JSON)
             # ============================================
+            import json
             
             # Datos para gráfico de ventas del mes
             ventas_mes_data = {
@@ -182,11 +270,23 @@ def admin_dashboard():
                 'totales': [float(v['Total_Vendido']) for v in ventas_mes]
             }
             
+            # Datos para gráfico de tendencia 7 días
+            ventas_7dias_data = {
+                'fechas': [v['Fecha'].strftime('%d/%m') for v in ventas_7dias],
+                'totales': [float(v['Total_Vendido']) for v in ventas_7dias]
+            }
+            
             # Datos para gráfico de gastos
             gastos_mes_data = {
                 'categorias': [g['Tipo_Gasto'] for g in gastos_mes],
                 'montos': [float(g['Total_Gastado']) for g in gastos_mes]
             }
+            
+            # Datos para gráfico de métodos de pago
+            metodos_pago_data = {}
+            for mov in movimientos_caja:
+                if mov['Tipo'] == 'VENTA':
+                    metodos_pago_data[mov['Tipo']] = float(mov['Total'])
 
             now = datetime.now()
             
@@ -202,8 +302,13 @@ def admin_dashboard():
                                  # Tablas
                                  top_clientes=top_clientes,
                                  productos_stock=productos_stock,
+                                 ventas_vendedores=ventas_vendedores,
+                                 rutas_activas=rutas_activas,
+                                 movimientos_caja=movimientos_caja,
+                                 proximos_vencimientos=proximos_vencimientos,
                                  # Datos para gráficos
                                  ventas_mes_json=json.dumps(ventas_mes_data),
+                                 ventas_7dias_json=json.dumps(ventas_7dias_data),
                                  gastos_mes_json=json.dumps(gastos_mes_data),
                                  now=now)
                                  
