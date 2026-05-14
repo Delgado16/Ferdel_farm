@@ -312,29 +312,21 @@
 
 <script>
 // ============================================
-// SISTEMA DE ABONOS CON MÉTODO DE PAGO CONDICIONAL
+// SISTEMA DE ABONOS SIN MENSAJES EMERGENTES
 // ============================================
-
-console.log('=== INICIANDO SISTEMA DE ABONOS ===');
-console.log('Métodos de pago disponibles:', {{ metodos_pago|tojson|safe if metodos_pago else '[]' }});
 
 let clienteSeleccionado = null;
 
-// Función para formatear moneda correctamente
 function formatCurrency(value) {
     const numero = parseFloat(value);
     if (isNaN(numero)) return 'C$0.00';
-    
     return 'C$' + numero.toLocaleString('es-NI', {
         minimumFractionDigits: 2,
         maximumFractionDigits: 2
     });
 }
 
-// Función para abrir modal
 window.abrirModalAbono = function(id, nombre, saldo) {
-    console.log('Abriendo modal para:', nombre, 'ID:', id, 'Saldo:', saldo);
-    
     const modalClienteNombre = document.getElementById('modalClienteNombre');
     const modalSaldoPendiente = document.getElementById('modalSaldoPendiente');
     const montoAbono = document.getElementById('montoAbono');
@@ -346,7 +338,6 @@ window.abrirModalAbono = function(id, nombre, saldo) {
     
     if (!modalClienteNombre || !modalSaldoPendiente) {
         console.error('Elementos del modal no encontrados');
-        alert('Error: No se pudo cargar el modal. Por favor recargue la página.');
         return;
     }
     
@@ -367,16 +358,8 @@ window.abrirModalAbono = function(id, nombre, saldo) {
         }
     }
     
-    // Resetear método de pago
-    if (metodoPago) {
-        metodoPago.value = '';
-    }
-    
-    // Ocultar info adicional
-    if (infoAdicional) {
-        infoAdicional.style.display = 'none';
-    }
-    
+    if (metodoPago) metodoPago.value = '';
+    if (infoAdicional) infoAdicional.style.display = 'none';
     if (errorAbono) errorAbono.style.display = 'none';
     if (successAbono) successAbono.style.display = 'none';
     
@@ -384,92 +367,55 @@ window.abrirModalAbono = function(id, nombre, saldo) {
     if (modalElement) {
         const modal = new bootstrap.Modal(modalElement);
         modal.show();
-        console.log('Modal mostrado correctamente');
-        
-        // Enfocar el campo de monto
         setTimeout(() => {
             if (montoAbono) montoAbono.focus();
         }, 500);
-    } else {
-        console.error('Elemento modalAbono no encontrado');
-        alert('Error: No se encontró el modal');
     }
 }
 
-// Mostrar información según el método de pago seleccionado
 function mostrarInfoMetodoPago(metodoId, metodoNombre) {
     const infoAdicional = document.getElementById('infoAdicional');
     const infoAdicionalTexto = document.getElementById('infoAdicionalTexto');
     
     if (!infoAdicional || !infoAdicionalTexto) return;
     
-    // Limpiar clases previas
     infoAdicional.classList.remove('alert-info', 'alert-warning', 'alert-success');
     
     switch(parseInt(metodoId)) {
-        case 1: // EFECTIVO
+        case 1:
             infoAdicional.classList.add('alert-success');
-            infoAdicionalTexto.innerHTML = `
-                <strong>💰 Pago en EFECTIVO</strong><br>
-                ✅ Este pago SE REGISTRARÁ en su caja del día.<br>
-                ✅ Debe recibir el dinero físico del cliente.<br>
-                ✅ El saldo de caja se actualizará automáticamente.
-            `;
+            infoAdicionalTexto.innerHTML = `<strong>💰 Pago en EFECTIVO</strong><br>✅ Este pago SE REGISTRARÁ en su caja del día.`;
             infoAdicional.style.display = 'block';
             break;
-            
-        case 2: // TRANSFERENCIA
+        case 2:
             infoAdicional.classList.add('alert-info');
-            infoAdicionalTexto.innerHTML = `
-                <strong>🏦 Pago por TRANSFERENCIA</strong><br>
-                ⚠️ Este pago NO se registrará en su caja física.<br>
-                ✅ Verifique que el cliente haya realizado la transferencia.<br>
-                ✅ El abono se registrará y reducirá la deuda del cliente.
-            `;
+            infoAdicionalTexto.innerHTML = `<strong>🏦 Pago por TRANSFERENCIA</strong><br>⚠️ Este pago NO se registrará en su caja física.`;
             infoAdicional.style.display = 'block';
             break;
-            
-        case 3: // DEPÓSITO
+        case 3:
             infoAdicional.classList.add('alert-info');
-            infoAdicionalTexto.innerHTML = `
-                <strong>🏦 Pago por DEPÓSITO</strong><br>
-                ⚠️ Este pago NO se registrará en su caja física.<br>
-                ✅ Solicite el comprobante de depósito al cliente.<br>
-                ✅ El abono se registrará y reducirá la deuda del cliente.
-            `;
+            infoAdicionalTexto.innerHTML = `<strong>🏦 Pago por DEPÓSITO</strong><br>⚠️ Este pago NO se registrará en su caja física.`;
             infoAdicional.style.display = 'block';
             break;
-            
-        case 4: // PRODUCTOS
+        case 4:
             infoAdicional.classList.add('alert-warning');
-            infoAdicionalTexto.innerHTML = `
-                <strong>📦 Pago con PRODUCTOS</strong><br>
-                ⚠️ Este pago NO se registrará en su caja física.<br>
-                ✅ Registre los productos recibidos en el sistema.<br>
-                ✅ El valor del producto se aplicará como abono.
-            `;
+            infoAdicionalTexto.innerHTML = `<strong>📦 Pago con PRODUCTOS</strong><br>⚠️ Este pago NO se registrará en su caja física.`;
             infoAdicional.style.display = 'block';
             break;
-            
         default:
             infoAdicional.style.display = 'none';
             break;
     }
 }
 
-// Procesar abono con método de pago (condicional)
 async function procesarAbono() {
     const montoInput = document.getElementById('montoAbono');
     const metodoPagoSelect = document.getElementById('metodoPago');
     
-    if (!montoInput) {
-        console.error('Campo monto no encontrado');
-        return;
-    }
+    if (!montoInput) return;
     
     const monto = parseFloat(montoInput.value);
     const idMetodoPago = metodoPagoSelect ? metodoPagoSelect.value : '';
-    const metodoNombre = metodoPagoSelect ? metodoPagoSelect.options[metodoPagoSelect.selectedIndex]?.text : '';
     
     if (!clienteSeleccionado) {
         mostrarError('No hay cliente seleccionado');
@@ -494,31 +440,6 @@ async function procesarAbono() {
         return;
     }
     
-    // Confirmación según el método de pago
-    let confirmMessage = '';
-    let necesitaConfirmacion = false;
-    
-    if (parseInt(idMetodoPago) === 1) { // Efectivo
-        confirmMessage = `💰 Confirmar abono de ${formatCurrency(monto)} en EFECTIVO\n\n✅ Este monto se Registrará en su caja del día.\n✅ Asegúrese de recibir el dinero físico.\n\n¿Desea continuar?`;
-        necesitaConfirmacion = true;
-    } else if (parseInt(idMetodoPago) === 2) { // Transferencia
-        confirmMessage = `🏦 Confirmar abono de ${formatCurrency(monto)} por TRANSFERENCIA\n\n⚠️ Este pago NO afectará su caja física.\n✅ Verifique que el cliente realizó la transferencia.\n\n¿Desea continuar?`;
-        necesitaConfirmacion = true;
-    } else if (parseInt(idMetodoPago) === 3) { // Depósito
-        confirmMessage = `🏦 Confirmar abono de ${formatCurrency(monto)} por DEPÓSITO\n\n⚠️ Este pago NO afectará su caja física.\n✅ Solicite el comprobante de depósito.\n\n¿Desea continuar?`;
-        necesitaConfirmacion = true;
-    } else if (parseInt(idMetodoPago) === 4) { // Productos
-        confirmMessage = `📦 Confirmar abono de ${formatCurrency(monto)} con PRODUCTOS\n\n⚠️ Este pago NO afectará su caja física.\n✅ Registre los productos recibidos.\n\n¿Desea continuar?`;
-        necesitaConfirmacion = true;
-    }
-    
-    if (necesitaConfirmacion) {
-        if (!confirm(confirmMessage)) {
-            console.log('Abono cancelado por el usuario');
-            return;
-        }
-    }
-    
     const btn = document.getElementById('btnProcesarAbono');
     if (!btn) return;
     
@@ -533,8 +454,6 @@ async function procesarAbono() {
             id_metodo_pago: parseInt(idMetodoPago)
         };
         
-        console.log('Enviando petición:', requestData);
-        
         const response = await fetch('/vendedor/api/vendedor/procesar_abono', {
             method: 'POST',
             headers: {
@@ -544,10 +463,8 @@ async function procesarAbono() {
         });
         
         const data = await response.json();
-        console.log('Respuesta API:', data);
         
         if (data.success) {
-            // Mostrar mensaje de éxito con información específica
             let detalleHtml = '';
             let mensajeAdicional = '';
             
@@ -559,27 +476,20 @@ async function procesarAbono() {
                 detalleHtml += '</div>';
             }
             
-            // Mensaje según si se registró en caja o no
             if (data.registro_caja) {
                 mensajeAdicional = `<br><strong class="text-success">💰 Este abono SE REGISTRÓ en su caja del día</strong>`;
             } else {
                 mensajeAdicional = `<br><strong class="text-info">ℹ️ Este abono NO afectó su caja física</strong>`;
             }
             
-            mostrarExito(`✅ ${data.mensaje}<br>Monto: ${formatCurrency(data.monto_abono)}<br>Método: ${data.metodo_pago || metodoNombre}${mensajeAdicional}${detalleHtml}`);
+            mostrarExito(`✅ ${data.mensaje}<br>Monto: ${formatCurrency(data.monto_abono)}<br>Método: ${data.metodo_pago}${mensajeAdicional}${detalleHtml}`);
             
-            // Obtener el ID del abono
             const idAbono = data.id_abono || data.id_movimiento;
-            console.log('ID para recibo:', idAbono);
             
-            // Cerrar el modal
             const modalElement = document.getElementById('modalAbono');
             const modal = bootstrap.Modal.getInstance(modalElement);
-            if (modal) {
-                modal.hide();
-            }
+            if (modal) modal.hide();
             
-            // Redirigir al recibo
             setTimeout(() => {
                 window.location.href = `/vendedor/abono/${idAbono}/recibo?autoPrint=1`;
             }, 2000);
@@ -607,7 +517,6 @@ function mostrarError(mensaje) {
     }
     if (successDiv) successDiv.style.display = 'none';
     
-    // Auto-ocultar después de 5 segundos
     setTimeout(() => {
         if (errorDiv) errorDiv.style.display = 'none';
     }, 5000);
@@ -624,11 +533,7 @@ function mostrarExito(mensaje) {
     if (errorDiv) errorDiv.style.display = 'none';
 }
 
-// Configurar eventos
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('DOM cargado, configurando eventos...');
-    
-    // Evento para mostrar info cuando cambia el método de pago
     const metodoPagoSelect = document.getElementById('metodoPago');
     if (metodoPagoSelect) {
         metodoPagoSelect.addEventListener('change', function() {
@@ -641,13 +546,11 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (infoAdicional) infoAdicional.style.display = 'none';
             }
         });
-        console.log('✅ Evento cambio de método configurado');
     }
     
     const btnProcesar = document.getElementById('btnProcesarAbono');
     if (btnProcesar) {
         btnProcesar.addEventListener('click', procesarAbono);
-        console.log('✅ Botón procesar configurado');
     }
     
     const montoInput = document.getElementById('montoAbono');
@@ -658,9 +561,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 procesarAbono();
             }
         });
-        console.log('✅ Evento Enter configurado');
         
-        // Validación en tiempo real del monto
         montoInput.addEventListener('input', function() {
             if (clienteSeleccionado) {
                 const valor = parseFloat(this.value);
@@ -672,15 +573,6 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
     }
-    
-    // Verificar si hay métodos de pago
-    if (metodoPagoSelect && metodoPagoSelect.options.length <= 1) {
-        console.warn('⚠️ No hay métodos de pago disponibles en el select');
-    } else if (metodoPagoSelect) {
-        console.log(`✅ Métodos de pago disponibles: ${metodoPagoSelect.options.length - 1}`);
-    }
-    
-    console.log('✅ Sistema de abonos con métodos de pago condicional listo!');
 });
 </script>
 {% endblock %}

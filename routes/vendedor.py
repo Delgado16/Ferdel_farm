@@ -4974,6 +4974,150 @@ def vendedor_recibo_abono(id_abono):
         flash('Error al generar recibo', 'error')
         return redirect(url_for('vendedor.vendedor_clientes'))
 
+@vendedor_bp.route('/vendedor/abonos')
+@vendedor_required
+def vendedor_abonos():
+    """Muestra los abonos realizados por el vendedor con opción a generar recibo y filtros"""
+    try:
+        id_vendedor = int(current_user.id)
+        
+        # Obtener parámetros de filtro desde la URL
+        fecha_desde = request.args.get('fecha_desde', '')
+        fecha_hasta = request.args.get('fecha_hasta', '')
+        metodo_pago = request.args.get('metodo_pago', '')
+        cliente = request.args.get('cliente', '')
+        
+        print("=== DEBUG INFO ===")
+        print(f"ID Vendedor: {id_vendedor}")
+        print(f"Fecha Desde: {fecha_desde}")
+        print(f"Fecha Hasta: {fecha_hasta}")
+        print(f"Metodo Pago: {metodo_pago}")
+        print(f"Cliente: {cliente}")
+        
+        with get_db_cursor() as cursor:
+            # PRIMERO: Verificar conexión y tabla
+            cursor.execute("SELECT COUNT(*) as total FROM abonos_detalle WHERE ID_Usuario = %s", (id_vendedor,))
+            count_result = cursor.fetchone()
+            print(f"Total abonos en tabla: {count_result}")
+            
+            # Consulta MUY SIMPLE para probar
+            query_simple = """
+                SELECT * FROM abonos_detalle WHERE ID_Usuario = %s
+            """
+            print(f"Query simple: {query_simple}")
+            print(f"Params simple: {(id_vendedor,)}")
+            
+            cursor.execute(query_simple, (id_vendedor,))
+            resultados_simple = cursor.fetchall()
+            print(f"Resultados consulta simple: {len(resultados_simple)}")
+            
+            # Consulta completa
+            query = """
+                SELECT 
+                    ad.ID_Detalle,
+                    c.Nombre AS Nombre_Cliente,
+                    c.RUC_CEDULA,
+                    c.Telefono,
+                    ad.Monto_Aplicado,
+                    ad.Fecha,
+                    ad.Saldo_Anterior,
+                    ad.Saldo_Nuevo,
+                    mp.Nombre AS Metodo_Pago,
+                    r.Nombre_Ruta
+                FROM abonos_detalle ad
+                INNER JOIN clientes c ON ad.ID_Cliente = c.ID_Cliente
+                INNER JOIN metodos_pago mp ON ad.ID_MetodoPago = mp.ID_MetodoPago
+                INNER JOIN asignacion_vendedores av ON ad.ID_Asignacion = av.ID_Asignacion
+                INNER JOIN rutas r ON av.ID_Ruta = r.ID_Ruta
+                WHERE ad.ID_Usuario = %s
+            """
+            
+            params = [id_vendedor]
+            print(f"\nParams iniciales: {params}")
+            
+            if fecha_desde and fecha_desde.strip():
+                query += " AND DATE(ad.Fecha) >= %s"
+                params.append(fecha_desde)
+                print(f"Agregado filtro fecha_desde, params: {params}")
+            
+            if fecha_hasta and fecha_hasta.strip():
+                query += " AND DATE(ad.Fecha) <= %s"
+                params.append(fecha_hasta)
+                print(f"Agregado filtro fecha_hasta, params: {params}")
+            
+            if metodo_pago and metodo_pago.strip():
+                query += " AND ad.ID_MetodoPago = %s"
+                params.append(int(metodo_pago))
+                print(f"Agregado filtro metodo_pago, params: {params}")
+            
+            if cliente and cliente.strip():
+                query += " AND c.Nombre LIKE %s"
+                params.append(f'%{cliente}%')
+                print(f"Agregado filtro cliente, params: {params}")
+            
+            query += " ORDER BY ad.Fecha DESC"
+            
+            print(f"\nQuery final: {query}")
+            print(f"Params finales: {params}")
+            print(f"Número de params: {len(params)}")
+            
+            # Ejecutar consulta
+            cursor.execute(query, tuple(params))
+            abonos = cursor.fetchall()
+            
+            print(f"Abonos encontrados: {len(abonos)}")
+            
+            # Si no hay abonos, mostrar mensaje
+            if not abonos:
+                print("No se encontraron abonos para este vendedor")
+            
+            # Obtener métodos de pago
+            cursor.execute("SELECT ID_MetodoPago, Nombre FROM metodos_pago ORDER BY Nombre")
+            metodos_pago = cursor.fetchall()
+            
+            # Resumen por método de pago
+            resumen_pagos = []
+            if abonos:
+                query_resumen = """
+                    SELECT 
+                        mp.Nombre AS Metodo_Pago,
+                        COUNT(*) AS Cantidad,
+                        SUM(ad.Monto_Aplicado) AS Total
+                    FROM abonos_detalle ad
+                    INNER JOIN metodos_pago mp ON ad.ID_MetodoPago = mp.ID_MetodoPago
+                    WHERE ad.ID_Usuario = %s
+                    GROUP BY mp.Nombre
+                """
+                cursor.execute(query_resumen, (id_vendedor,))
+                resumen_pagos = cursor.fetchall()
+            
+            # Estadísticas
+            estadisticas = {
+                'Total_Abonos': len(abonos),
+                'Monto_Total': sum(abono['Monto_Aplicado'] for abono in abonos) if abonos else 0,
+                'Promedio_Abono': (sum(abono['Monto_Aplicado'] for abono in abonos) / len(abonos)) if abonos else 0,
+                'Primera_Fecha': abonos[-1]['Fecha'] if abonos else None,
+                'Ultima_Fecha': abonos[0]['Fecha'] if abonos else None
+            }
+            
+            return render_template('vendedor/clientes/abonos.html', 
+                                 abonos=abonos,
+                                 metodos_pago=metodos_pago,
+                                 resumen_pagos=resumen_pagos,
+                                 estadisticas=estadisticas,
+                                 filtros={
+                                     'fecha_desde': fecha_desde,
+                                     'fecha_hasta': fecha_hasta,
+                                     'metodo_pago': metodo_pago,
+                                     'cliente': cliente
+                                 })
+            
+    except Exception as e:
+        print(f"Error en vendedor_abonos: {str(e)}")
+        traceback.print_exc()
+        flash('Error al cargar los abonos. Por favor, intente nuevamente.', 'error')
+        return redirect(url_for('vendedor.vendedor_dashboard'))
+
 # ============================================
 # GASTOS DE RUTA/COMPRAS (MANDO DE JEFE)
 # ============================================

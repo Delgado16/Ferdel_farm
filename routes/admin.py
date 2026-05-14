@@ -562,10 +562,11 @@ def admin_caja_cerrar():
         flash(f'❌ Error: {str(e)}', 'error')
         return redirect(url_for('admin.admin_caja'))
 
+#Error al anular movimiento#
 @admin_bp.route('/admin/caja/anular/<int:id_movimiento>', methods=['POST'])
 @admin_required
 def admin_caja_anular(id_movimiento):
-    """Anula un movimiento creando un contramovimiento compensatorio"""
+    """Anula un movimiento (no crea compensación)"""
     try:
         motivo = request.form.get('motivo', '').strip()
         
@@ -577,7 +578,7 @@ def admin_caja_anular(id_movimiento):
         with get_db_cursor(True) as cursor:
             # Obtener el movimiento a anular
             cursor.execute("""
-                SELECT Tipo_Movimiento, Descripcion, Monto, Estado
+                SELECT Tipo_Movimiento, Descripcion, Monto, Estado, ID_Usuario
                 FROM caja_movimientos 
                 WHERE ID_Movimiento = %s
             """, (id_movimiento,))
@@ -599,29 +600,15 @@ def admin_caja_anular(id_movimiento):
                 flash('❌ No se puede anular apertura o cierre de caja', 'error')
                 return redirect(url_for('admin.admin_caja'))
             
-            # Determinar tipo contrario para el contramovimiento
-            tipo_contrario = 'SALIDA' if mov['Tipo_Movimiento'] == 'ENTRADA' else 'ENTRADA'
-            
-            # Crear contramovimiento (compensación)
-            cursor.execute("""
-                INSERT INTO caja_movimientos 
-                (Fecha, Tipo_Movimiento, Descripcion, Monto, ID_Usuario,
-                 Referencia_Documento, Movimiento_Origen, Estado)
-                VALUES (NOW(), %s, %s, %s, %s, 'ANULACION', %s, 'ACTIVO')
-            """, (tipo_contrario, 
-                  f"Anulación: {mov['Descripcion']}", 
-                  mov['Monto'], 
-                  current_user.id,
-                  id_movimiento))
-            
-            # Marcar movimiento original como ANULADO
+            # Marcar como anulado y actualizar descripción con el motivo
             cursor.execute("""
                 UPDATE caja_movimientos 
                 SET Estado = 'ANULADO',
                     Fecha_Anulacion = NOW(),
-                    ID_Usuario_Anula = %s
+                    ID_Usuario_Anula = %s,
+                    Descripcion = CONCAT('[ANULADO] ', Descripcion, ' (Motivo: ', %s, ')')
                 WHERE ID_Movimiento = %s
-            """, (current_user.id, id_movimiento))
+            """, (current_user.id, motivo, id_movimiento))
             
             flash('✅ Movimiento anulado correctamente', 'success')
             return redirect(url_for('admin.admin_caja'))
