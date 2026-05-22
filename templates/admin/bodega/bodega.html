@@ -1,23 +1,310 @@
 {% extends "layout.html" %}
 
-{% block content %}
-<div class="container-fluid">
-    <!-- Encabezado de la página -->
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <h1 class="h3 mb-0 text-gray-800">Gestión de Bodegas</h1>
-        <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#crearBodegaModal">
-            <i class="fas fa-plus-circle mr-2"></i>Nueva Bodega
-        </button>
-    </div>
+{% block title %}Gestión de Bodegas{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Estilos profesionales y sobrios - Mismo estilo consistente */
+    .stats-card {
+        background: white;
+        border-radius: 8px;
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+        border: 1px solid #e5e7eb;
+        transition: all 0.2s;
+        position: relative;
+    }
     
-    <!-- Tabla de bodegas -->
-    <div class="card shadow mb-4">
-        <div class="card-header py-3">
-            <h6 class="m-0 font-weight-bold text-primary">Lista de Bodegas</h6>
+    .stats-card:hover {
+        box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+    }
+    
+    .stats-number {
+        font-size: 2rem;
+        font-weight: 600;
+        margin-bottom: 0.5rem;
+        color: #1f2937;
+    }
+    
+    .stats-label {
+        font-size: 0.85rem;
+        color: #6b7280;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    
+    .card-custom {
+        background: white;
+        border-radius: 8px;
+        border: 1px solid #e5e7eb;
+        box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+        margin-bottom: 1.5rem;
+    }
+    
+    .card-header-custom {
+        background-color: #f9fafb;
+        border-bottom: 1px solid #e5e7eb;
+        padding: 1rem 1.25rem;
+    }
+    
+    .card-header-custom .card-title {
+        color: #1f2937;
+        font-weight: 600;
+        margin: 0;
+        font-size: 1rem;
+    }
+    
+    .form-label {
+        font-weight: 500;
+        font-size: 0.8rem;
+        margin-bottom: 0.4rem;
+        color: #374151;
+    }
+    
+    .form-control, .form-select {
+        border: 1px solid #d1d5db;
+        border-radius: 6px;
+        font-size: 0.875rem;
+    }
+    
+    .form-control:focus, .form-select:focus {
+        border-color: #9ca3af;
+        box-shadow: 0 0 0 2px rgba(156, 163, 175, 0.1);
+    }
+    
+    .required-field::after {
+        content: "*";
+        color: #dc2626;
+        margin-left: 4px;
+    }
+    
+    .btn-primary {
+        background-color: #374151;
+        border-color: #374151;
+    }
+    
+    .btn-primary:hover {
+        background-color: #1f2937;
+        border-color: #1f2937;
+    }
+    
+    .btn-secondary {
+        background-color: #6b7280;
+        border-color: #6b7280;
+    }
+    
+    .btn-secondary:hover {
+        background-color: #4b5563;
+        border-color: #4b5563;
+    }
+    
+    .btn-warning {
+        background-color: #f59e0b;
+        border-color: #f59e0b;
+        color: white;
+    }
+    
+    .btn-warning:hover {
+        background-color: #d97706;
+        border-color: #d97706;
+        color: white;
+    }
+    
+    .table {
+        font-size: 0.875rem;
+    }
+    
+    .table th {
+        font-weight: 600;
+        font-size: 0.8rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        background-color: #f9fafb;
+        color: #374151;
+        border-bottom: 2px solid #e5e7eb;
+        padding: 0.75rem;
+    }
+    
+    .table td {
+        vertical-align: middle;
+        color: #4b5563;
+        padding: 0.75rem;
+    }
+    
+    .table-hover tbody tr:hover {
+        background-color: #f9fafb;
+    }
+    
+    .badge {
+        font-weight: 500;
+        padding: 0.25rem 0.5rem;
+        border-radius: 4px;
+        font-size: 0.75rem;
+    }
+    
+    .badge.bg-success {
+        background-color: #10b981 !important;
+    }
+    
+    .badge.bg-secondary {
+        background-color: #6b7280 !important;
+    }
+    
+    .modal-header {
+        background-color: #f9fafb;
+        border-bottom: 1px solid #e5e7eb;
+        padding: 1rem 1.5rem;
+    }
+    
+    .modal-header .modal-title {
+        color: #1f2937;
+        font-weight: 600;
+    }
+    
+    .modal-footer {
+        background-color: #f9fafb;
+        border-top: 1px solid #e5e7eb;
+        padding: 1rem 1.5rem;
+    }
+    
+    .form-text {
+        font-size: 0.75rem;
+        color: #6b7280;
+        margin-top: 0.25rem;
+    }
+    
+    .search-box {
+        position: relative;
+        max-width: 300px;
+    }
+    
+    .search-box i {
+        position: absolute;
+        left: 10px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: #9ca3af;
+        font-size: 0.875rem;
+    }
+    
+    .search-box input {
+        padding-left: 32px;
+        font-size: 0.875rem;
+    }
+    
+    .empty-state {
+        text-align: center;
+        padding: 3rem;
+        color: #9ca3af;
+    }
+    
+    .empty-state i {
+        font-size: 3rem;
+        margin-bottom: 1rem;
+        opacity: 0.5;
+    }
+    
+    .btn-group-sm .btn {
+        margin: 0 2px;
+        border-radius: 4px;
+    }
+    
+    @media (max-width: 768px) {
+        .stats-card {
+            margin-bottom: 1rem;
+        }
+        
+        .stats-number {
+            font-size: 1.5rem;
+        }
+        
+        .table-responsive {
+            font-size: 0.8rem;
+        }
+        
+        .btn-sm {
+            padding: 0.25rem 0.5rem;
+            font-size: 0.75rem;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Tarjetas de estadísticas -->
+    <div class="row mb-4">
+        <div class="col-md-3 col-sm-6">
+            <div class="stats-card">
+                <div class="stats-number">{{ bodegas|length }}</div>
+                <div class="stats-label">Total Bodegas</div>
+                <i class="fas fa-warehouse position-absolute" style="right: 1.2rem; top: 1.2rem; font-size: 1.5rem; opacity: 0.3;"></i>
+            </div>
         </div>
-        <div class="card-body">
+        <div class="col-md-3 col-sm-6">
+            <div class="stats-card">
+                <div class="stats-number">
+                    {% set bodegas_activas = bodegas|selectattr('Estado', 'equalto', 'activa')|list|length %}
+                    {{ bodegas_activas }}
+                </div>
+                <div class="stats-label">Bodegas Activas</div>
+                <i class="fas fa-check-circle position-absolute" style="right: 1.2rem; top: 1.2rem; font-size: 1.5rem; opacity: 0.3;"></i>
+            </div>
+        </div>
+        <div class="col-md-3 col-sm-6">
+            <div class="stats-card">
+                <div class="stats-number">{{ empresas|length }}</div>
+                <div class="stats-label">Empresas</div>
+                <i class="fas fa-building position-absolute" style="right: 1.2rem; top: 1.2rem; font-size: 1.5rem; opacity: 0.3;"></i>
+            </div>
+        </div>
+        <div class="col-md-3 col-sm-6">
+            <div class="stats-card">
+                <div class="stats-number">
+                    {% set bodegas_inactivas = bodegas|selectattr('Estado', 'equalto', 'inactiva')|list|length %}
+                    {{ bodegas_inactivas }}
+                </div>
+                <div class="stats-label">Bodegas Inactivas</div>
+                <i class="fas fa-times-circle position-absolute" style="right: 1.2rem; top: 1.2rem; font-size: 1.5rem; opacity: 0.3;"></i>
+            </div>
+        </div>
+    </div>
+
+    <!-- Barra de herramientas -->
+    <div class="card-custom">
+        <div class="card-header-custom">
+            <div class="row align-items-center">
+                <div class="col-md-6 mb-3 mb-md-0">
+                    <div class="d-flex flex-wrap gap-2">
+                        <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#crearBodegaModal">
+                            <i class="fas fa-plus-circle me-2"></i>Nueva Bodega
+                        </button>
+                        <button type="button" class="btn btn-secondary" onclick="window.location.reload()">
+                            <i class="fas fa-sync-alt me-2"></i>Actualizar
+                        </button>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="search-box ms-auto">
+                        <i class="fas fa-search"></i>
+                        <input type="text" id="searchWarehouse" class="form-control" placeholder="Buscar bodega...">
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tabla de bodegas -->
+    <div class="card-custom">
+        <div class="card-header-custom">
+            <h6 class="card-title">
+                <i class="fas fa-list me-2"></i>Lista de Bodegas
+            </h6>
+        </div>
+        <div class="card-body p-0">
             <div class="table-responsive">
-                <table class="table table-bordered" width="100%" cellspacing="0">
+                <table class="table table-hover mb-0" id="warehouseTable">
                     <thead>
                         <tr>
                             <th>ID</th>
@@ -25,27 +312,58 @@
                             <th>Empresa</th>
                             <th>Ubicación</th>
                             <th>Estado</th>
-                            <th>Acciones</th>
+                            <th style="width: 100px;">Acciones</th>
                         </tr>
                     </thead>
                     <tbody>
                         {% for bodega in bodegas %}
-                        <tr>
-                            <td>{{ bodega.ID_Bodega }}</td>
-                            <td>{{ bodega.Nombre }}</td>
-                            <td>{{ bodega.Nombre_Empresa }}</td>
-                            <td>{{ bodega.Ubicacion or 'N/A' }}</td>
+                        <tr class="warehouse-row">
                             <td>
-                                <span class="badge {% if bodega.Estado == 'activa' %}bg-success{% else %}bg-secondary{% endif %}">
-                                    {{ bodega.Estado|title }}
-                                </span>
+                                <strong class="text-primary">{{ bodega.ID_Bodega }}</strong>
                             </td>
                             <td>
-                                <a href="{{ url_for('admin.admin_editar_bodega', id=bodega.ID_Bodega) }}" 
-                                   class="btn btn-warning btn-sm" 
-                                   title="Editar bodega">
-                                    <i class="fas fa-edit"></i> Editar
-                                </a>
+                                {{ bodega.Nombre }}
+                            </td>
+                            <td>
+                                <span class="badge bg-secondary">{{ bodega.Nombre_Empresa }}</span>
+                            </td>
+                            <td>
+                                {% if bodega.Ubicacion %}
+                                    <i class="fas fa-map-marker-alt me-1" style="color: #6b7280;"></i>
+                                    {{ bodega.Ubicacion }}
+                                {% else %}
+                                    <span class="text-muted">N/A</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if bodega.Estado == 'activa' %}
+                                    <span class="badge bg-success">
+                                        <i class="fas fa-check-circle me-1"></i>Activa
+                                    </span>
+                                {% else %}
+                                    <span class="badge bg-secondary">
+                                        <i class="fas fa-minus-circle me-1"></i>Inactiva
+                                    </span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <div class="btn-group btn-group-sm">
+                                    <a href="{{ url_for('admin.admin_editar_bodega', id=bodega.ID_Bodega) }}" 
+                                       class="btn btn-warning" 
+                                       title="Editar bodega">
+                                        <i class="fas fa-edit"></i>Editar
+                                    </a>
+                                </div>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="6">
+                                <div class="empty-state">
+                                    <i class="fas fa-warehouse"></i>
+                                    <h5>No hay bodegas registradas</h5>
+                                    <p class="text-muted">Haz clic en "Nueva Bodega" para comenzar</p>
+                                </div>
                             </td>
                         </tr>
                         {% endfor %}
@@ -56,47 +374,155 @@
     </div>
 </div>
 
-<!-- Modal para crear bodega -->
+<!-- Modal para crear bodega - Mejorado -->
 <div class="modal fade" id="crearBodegaModal" tabindex="-1" aria-labelledby="crearBodegaModalLabel" aria-hidden="true">
     <div class="modal-dialog">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title" id="crearBodegaModalLabel">Crear Nueva Bodega</h5>
+                <h5 class="modal-title" id="crearBodegaModalLabel">
+                    <i class="fas fa-plus-circle me-2"></i>Crear Nueva Bodega
+                </h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
-            <form action="{{ url_for('admin.admin_bodega_crear') }}" method="POST">
+            <form action="{{ url_for('admin.admin_bodega_crear') }}" method="POST" id="warehouseForm">
                 <div class="modal-body">
-                    <div class="form-group mb-3">
-                        <label for="nombre" class="form-label">Nombre de la Bodega *</label>
+                    <div class="mb-3">
+                        <label for="nombre" class="form-label required-field">Nombre de la Bodega</label>
                         <input type="text" class="form-control" id="nombre" name="nombre" required 
                                placeholder="Ingrese el nombre de la bodega">
-                        <small class="form-text text-muted">El nombre es requerido y debe ser único.</small>
+                        <small class="form-text">El nombre es requerido y debe ser único.</small>
                     </div>
                     
-                    <div class="form-group mb-3">
-                        <label for="id_empresa" class="form-label">Empresa *</label>
-                        <select class="form-control" id="id_empresa" name="id_empresa" required>
+                    <div class="mb-3">
+                        <label for="id_empresa" class="form-label required-field">Empresa</label>
+                        <select class="form-select" id="id_empresa" name="id_empresa" required>
                             <option value="">Seleccione una empresa</option>
                             {% for empresa in empresas %}
                             <option value="{{ empresa.ID_Empresa }}">{{ empresa.Nombre_Empresa }}</option>
                             {% endfor %}
                         </select>
-                        <small class="form-text text-muted">Seleccione la empresa a la que pertenece la bodega.</small>
+                        <small class="form-text">Seleccione la empresa a la que pertenece la bodega.</small>
                     </div>
                     
-                    <div class="form-group mb-3">
+                    <div class="mb-3">
                         <label for="ubicacion" class="form-label">Ubicación</label>
                         <textarea class="form-control" id="ubicacion" name="ubicacion" 
-                                  rows="2" placeholder="Ingrese la ubicación de la bodega"></textarea>
-                        <small class="form-text text-muted">Descripción de la ubicación física (opcional).</small>
+                                  rows="3" placeholder="Ingrese la ubicación de la bodega"></textarea>
+                        <small class="form-text">Descripción de la ubicación física (opcional).</small>
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="submit" class="btn btn-primary">Crear Bodega</button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="fas fa-times me-1"></i>Cancelar
+                    </button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save me-1"></i>Crear Bodega
+                    </button>
                 </div>
             </form>
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Búsqueda en tiempo real
+    const searchInput = document.getElementById('searchWarehouse');
+    if (searchInput) {
+        searchInput.addEventListener('keyup', function() {
+            const searchTerm = this.value.toLowerCase();
+            const rows = document.querySelectorAll('#warehouseTable tbody tr.warehouse-row');
+            
+            rows.forEach(row => {
+                const text = row.textContent.toLowerCase();
+                if (text.includes(searchTerm)) {
+                    row.style.display = '';
+                } else {
+                    row.style.display = 'none';
+                }
+            });
+        });
+    }
+
+    // Auto-focus en el modal
+    const modal = document.getElementById('crearBodegaModal');
+    if (modal) {
+        modal.addEventListener('shown.bs.modal', function() {
+            document.getElementById('nombre').focus();
+        });
+    }
+
+    // Validación del formulario
+    const form = document.getElementById('warehouseForm');
+    if (form) {
+        form.addEventListener('submit', function(e) {
+            const nombre = document.getElementById('nombre');
+            const empresa = document.getElementById('id_empresa');
+            
+            let isValid = true;
+            let errorMessage = '';
+            
+            if (!nombre.value.trim()) {
+                isValid = false;
+                errorMessage = 'El nombre de la bodega es obligatorio';
+                nombre.focus();
+            } else if (nombre.value.trim().length < 3) {
+                isValid = false;
+                errorMessage = 'El nombre debe tener al menos 3 caracteres';
+                nombre.focus();
+            } else if (!empresa.value) {
+                isValid = false;
+                errorMessage = 'Debe seleccionar una empresa';
+                empresa.focus();
+            }
+            
+            if (!isValid) {
+                e.preventDefault();
+                mostrarAlerta(errorMessage, 'danger');
+                return false;
+            }
+            
+            return true;
+        });
+    }
+    
+    // Función para mostrar alertas
+    function mostrarAlerta(mensaje, tipo) {
+        // Verificar si ya existe una alerta
+        const alertaExistente = document.querySelector('.alert-floating');
+        if (alertaExistente) {
+            alertaExistente.remove();
+        }
+        
+        const alertDiv = document.createElement('div');
+        alertDiv.className = `alert alert-${tipo} alert-dismissible fade show position-fixed alert-floating`;
+        alertDiv.style.cssText = 'top: 20px; right: 20px; z-index: 9999; min-width: 300px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);';
+        alertDiv.innerHTML = `
+            <i class="fas fa-${tipo === 'success' ? 'check-circle' : tipo === 'danger' ? 'exclamation-circle' : 'info-circle'} me-2"></i>
+            ${mensaje}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        `;
+        document.body.appendChild(alertDiv);
+        
+        setTimeout(() => {
+            if (alertDiv) alertDiv.remove();
+        }, 3000);
+    }
+    
+    // Tooltips para información adicional
+    const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+    tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl);
+    });
+    
+    // Limpiar formulario al cerrar modal
+    if (modal) {
+        modal.addEventListener('hidden.bs.modal', function() {
+            form.reset();
+        });
+    }
+});
+</script>
 {% endblock %}

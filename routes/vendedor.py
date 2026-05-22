@@ -1678,7 +1678,7 @@ def vendedor_movimientos_historial():
         flash(f'Error al cargar historial: {str(e)}', 'error')
         return redirect(url_for('vendedor.vendedor_inventario'))
 
-@vendedor_bp.route('/vendedor/movimientos/detalle/<int:id_movimiento>')
+@vendedor_bp.route('/movimientos/detalle/<int:id_movimiento>')
 @vendedor_required
 def vendedor_movimiento_detalle(id_movimiento):
     """
@@ -2842,6 +2842,7 @@ def api_procesar_abono():
             detalle_abono = []
             monto_aplicado = 0
             ultimo_id_abono = None
+            facturas_canceladas = []  # Lista para almacenar facturas que se cancelan completamente
             
             for factura in facturas:
                 if monto_restante <= 0:
@@ -2851,6 +2852,14 @@ def api_procesar_abono():
                 monto_aplicar = min(monto_restante, saldo_factura)
                 nuevo_saldo_factura = saldo_factura - monto_aplicar
                 nuevo_estado = 'Pagada' if nuevo_saldo_factura <= 0.01 else 'Pendiente'
+                
+                # Si la factura queda pagada completamente, agregar a la lista
+                if nuevo_saldo_factura <= 0.01:
+                    facturas_canceladas.append({
+                        'id_movimiento': factura['ID_Movimiento'],
+                        'num_documento': factura['Num_Documento'],
+                        'monto_pagado': monto_aplicar
+                    })
                 
                 # Actualizar factura
                 cursor.execute("""
@@ -2893,7 +2902,8 @@ def api_procesar_abono():
                     'monto': monto_aplicar,
                     'saldo_anterior': saldo_factura,
                     'saldo_nuevo': nuevo_saldo_factura,
-                    'estado': nuevo_estado
+                    'estado': nuevo_estado,
+                    'cancelada': nuevo_saldo_factura <= 0.01
                 })
                 
                 monto_restante -= monto_aplicar
@@ -2908,6 +2918,12 @@ def api_procesar_abono():
             """, (monto_aplicado, int(id_cliente)))
             
             print(f"✅ Abono procesado: Monto={monto_aplicado}, Cliente={id_cliente}")
+            
+            # Si se cancelaron facturas, mostrar mensaje
+            if facturas_canceladas:
+                print(f"🎉 Facturas canceladas completamente: {len(facturas_canceladas)}")
+                for factura_cancelada in facturas_canceladas:
+                    print(f"   - Factura {factura_cancelada['num_documento']}: C${factura_cancelada['monto_pagado']:,.2f}")
             
             # ID para el recibo
             id_abono_para_recibo = ultimo_id_abono if ultimo_id_abono else (id_movimiento_caja if id_movimiento_caja else 0)
@@ -2927,6 +2943,8 @@ def api_procesar_abono():
                 'vuelto': monto_restante,
                 'detalle': detalle_abono,
                 'registro_caja': id_metodo_pago == 1,
+                'facturas_canceladas': facturas_canceladas,  # Nuevo campo con las facturas canceladas
+                'total_facturas_canceladas': len(facturas_canceladas)  # Contador de facturas canceladas
             }
             
             # Solo incluir nuevo_saldo_caja si fue efectivo
@@ -2937,9 +2955,29 @@ def api_procesar_abono():
             
     except Exception as e:
         print(f"❌ Error en api_procesar_abono: {str(e)}")
-        import traceback
         traceback.print_exc()
         return jsonify({'success': False, 'error': f'Error interno: {str(e)}'}), 500
+
+@vendedor_bp.route('/api/vendedor/metodos_pago', methods=['GET'])
+@vendedor_required
+def api_metodos_pago():
+    """Obtener lista de métodos de pago"""
+    try:
+        with get_db_cursor() as cursor:
+            cursor.execute("""
+                SELECT ID_MetodoPago, Nombre
+                FROM metodos_pago
+                WHERE Estado = 'ACTIVO'
+                ORDER BY Nombre
+            """)
+            metodos = cursor.fetchall()
+            
+            return jsonify({
+                'success': True,
+                'metodos_pago': metodos
+            })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 @vendedor_bp.route('/vendedor/venta/<int:id_venta>/ticket')
 @vendedor_required
@@ -4907,6 +4945,45 @@ def vendedor_recibo_abono(id_abono):
                 flash('Abono no encontrado', 'error')
                 return redirect(url_for('vendedor.vendedor_clientes'))
             
+            # Obtener TODOS los abonos del mismo movimiento para calcular el total
+            # Primero, identificar el ID_Movimiento_Caja si existe
+            cursor.execute("""
+                SELECT ID_Movimiento_Caja 
+                FROM abonos_detalle 
+                WHERE ID_Detalle = %s
+            """, (id_abono,))
+            
+            resultado_mov = cursor.fetchone()
+            monto_total = float(abono['Monto_Aplicado'])  # Valor por defecto
+            
+            if resultado_mov and resultado_mov['ID_Movimiento_Caja']:
+                # Si tiene movimiento de caja, sumar todos los detalles de ese movimiento
+                id_mov_caja = resultado_mov['ID_Movimiento_Caja']
+                cursor.execute("""
+                    SELECT SUM(Monto_Aplicado) as total_abonado
+                    FROM abonos_detalle
+                    WHERE ID_Movimiento_Caja = %s
+                """, (id_mov_caja,))
+                
+                total_result = cursor.fetchone()
+                if total_result and total_result['total_abonado']:
+                    monto_total = float(total_result['total_abonado'])
+                    print(f"💰 Total abonado para movimiento {id_mov_caja}: {monto_total}")
+            else:
+                # Si no tiene movimiento de caja, buscar por fecha y cliente (mismo abono)
+                cursor.execute("""
+                    SELECT SUM(Monto_Aplicado) as total_abonado
+                    FROM abonos_detalle
+                    WHERE ID_Cliente = %s 
+                      AND DATE(Fecha) = DATE(%s)
+                      AND ID_Usuario = %s
+                """, (abono['ID_Cliente'], abono['Fecha'], id_vendedor))
+                
+                total_result = cursor.fetchone()
+                if total_result and total_result['total_abonado']:
+                    monto_total = float(total_result['total_abonado'])
+                    print(f"💰 Total abonado por fecha: {monto_total}")
+            
             # Obtener método de pago
             metodo_pago = abono.get('metodo_pago_nombre')
             if not metodo_pago:
@@ -4921,11 +4998,12 @@ def vendedor_recibo_abono(id_abono):
                 metodo_pago = 'NO ESPECIFICADO'
             
             print(f"✅ Método de pago: {metodo_pago}")
+            print(f"💰 Monto individual del registro: {float(abono['Monto_Aplicado'])}")
+            print(f"💰 Monto total abonado (suma): {monto_total}")
             
             # Calcular datos
-            monto_abono = float(abono['Monto_Aplicado'])
             saldo_actual = float(abono['saldo_actual_cliente'])
-            saldo_anterior = saldo_actual + monto_abono
+            saldo_anterior = saldo_actual + monto_total  # Usar monto_total en lugar del individual
             
             # Formatear fecha
             fecha_abono = abono['Fecha']
@@ -4953,7 +5031,7 @@ def vendedor_recibo_abono(id_abono):
                 'ruta': abono['ruta_nombre'],
                 'metodo_pago': metodo_pago,
                 'saldo_anterior_formateado': f"C${saldo_anterior:,.2f}",
-                'monto_abono_formateado': f"C${monto_abono:,.2f}",
+                'monto_total_formateado': f"C${monto_total:,.2f}",  # ← NUEVO: total abonado
                 'nuevo_saldo_formateado': f"C${saldo_actual:,.2f}",
                 'empresa': {
                     'nombre': abono['empresa_nombre'],

@@ -891,7 +891,7 @@ def admin_ventas_salidas():
                 LEFT JOIN catalogo_movimientos cm ON mi.ID_TipoMovimiento = cm.ID_TipoMovimiento
                 {where_clause}
                 ORDER BY f.Fecha DESC, f.ID_Factura DESC
-                LIMIT 30 
+                LIMIT 10 
             """, tuple(params))
             ventas = cursor.fetchall()
             
@@ -3045,6 +3045,7 @@ def admin_clientes_anticipos():
                 LEFT JOIN empresa e ON c.ID_Empresa = e.ID_Empresa
                 WHERE c.ID_Empresa = %s
                 ORDER BY a.Fecha_Anticipo DESC, a.ID_Anticipo DESC
+                LIMIT 10
             """, (id_empresa,))
             anticipos = cursor.fetchall()
             
@@ -4099,6 +4100,211 @@ def proforma_anticipo_api(id_anticipo):
             
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
+
+#=======================
+# MONITORE DE VENDEDORES
+#=======================
+@admin_bp.route('/monitoreo-vendedores')
+@admin_required
+@bitacora_decorator("MONITOREO-VENDEDORES")
+def admin_monitoreo_vendedores():
+    """Panel de monitoreo de vendedores - Vista principal y API"""
+    try:
+        vendedor_id = request.args.get('id', type=int)
+        
+        # Si es petición API (tiene id)
+        if vendedor_id:
+            with get_db_cursor(True) as cursor:
+                fecha_str = request.args.get('fecha')
+                if fecha_str:
+                    try:
+                        fecha_consulta = datetime.strptime(fecha_str, '%Y-%m-%d').date()
+                    except ValueError:
+                        return jsonify({
+                            'success': False, 
+                            'error': 'Formato de fecha inválido. Use YYYY-MM-DD'
+                        }), 400
+                else:
+                    fecha_consulta = date.today()
+                
+                # Obtener asignación activa del vendedor
+                cursor.execute("""
+                    SELECT av.ID_Asignacion, av.ID_Ruta, av.ID_Vehiculo, 
+                           r.Nombre_Ruta, r.Descripcion,
+                           av.Fecha_Asignacion, av.Hora_Inicio, av.Hora_Fin,
+                           v.Placa as VehiculoPlaca
+                    FROM asignacion_vendedores av
+                    LEFT JOIN rutas r ON av.ID_Ruta = r.ID_Ruta
+                    LEFT JOIN vehiculos v ON av.ID_Vehiculo = v.ID_Vehiculo
+                    WHERE av.ID_Usuario = %s 
+                      AND av.Estado = 'Activa'
+                      AND av.Fecha_Asignacion <= %s
+                    ORDER BY av.Fecha_Asignacion DESC
+                    LIMIT 1
+                """, (vendedor_id, fecha_consulta))
+                asignacion = cursor.fetchone()
+                
+                if not asignacion:
+                    return jsonify({
+                        'success': False, 
+                        'error': 'El vendedor no tiene una ruta activa asignada en esta fecha'
+                    }), 404
+                
+                id_asignacion = asignacion['ID_Asignacion']
+                
+                # ABONOS EN EFECTIVO (solo de la tabla abonos_detalle)
+                cursor.execute("""
+                    SELECT COALESCE(SUM(ad.Monto_Aplicado), 0) as total_abonos_efectivo
+                    FROM abonos_detalle ad
+                    LEFT JOIN metodos_pago mp ON ad.ID_MetodoPago = mp.ID_MetodoPago
+                    WHERE ad.ID_Asignacion = %s 
+                      AND DATE(ad.Fecha) = %s
+                      AND (mp.Nombre = 'Efectivo' OR mp.Nombre = 'CONTADO' OR ad.ID_MetodoPago IS NULL)
+                """, (id_asignacion, fecha_consulta))
+                abonos_efectivo = cursor.fetchone()['total_abonos_efectivo']
+                abonos_efectivo = float(abonos_efectivo) if abonos_efectivo else 0.0
+                
+                # Para la tarjeta de caja, también necesitamos las ventas en efectivo
+                cursor.execute("""
+                    SELECT COALESCE(SUM(mrc.Monto_Efectivo), 0) as total_ventas_efectivo
+                    FROM movimientos_ruta_cabecera mrc
+                    WHERE mrc.ID_Asignacion = %s 
+                      AND DATE(mrc.Fecha_Movimiento) = %s
+                      AND mrc.Estado = 'ACTIVO'
+                """, (id_asignacion, fecha_consulta))
+                ventas_efectivo = cursor.fetchone()['total_ventas_efectivo']
+                ventas_efectivo = float(ventas_efectivo) if ventas_efectivo else 0.0
+                
+                # Total de efectivo en caja = ventas + abonos
+                caja_total = ventas_efectivo + abonos_efectivo
+                
+                # LISTA DE ABONOS EN EFECTIVO (para mostrar en la tabla)
+                cursor.execute("""
+                    SELECT 
+                        ad.Monto_Aplicado as monto,
+                        ad.Fecha as fecha,
+                        c.Nombre as cliente,
+                        COALESCE(mp.Nombre, 'Efectivo') as metodo_pago
+                    FROM abonos_detalle ad
+                    JOIN clientes c ON ad.ID_Cliente = c.ID_Cliente
+                    LEFT JOIN metodos_pago mp ON ad.ID_MetodoPago = mp.ID_MetodoPago
+                    WHERE ad.ID_Asignacion = %s 
+                      AND DATE(ad.Fecha) = %s
+                      AND (mp.Nombre = 'Efectivo' OR mp.Nombre = 'CONTADO' OR ad.ID_MetodoPago IS NULL)
+                    ORDER BY ad.Fecha DESC
+                """, (id_asignacion, fecha_consulta))
+                abonos_hoy = cursor.fetchall()
+                
+                # Inventario
+                cursor.execute("""
+                    SELECT ir.ID_Producto, p.Descripcion as NombreProducto, ir.Cantidad, p.Precio_Ruta as PrecioVenta
+                    FROM inventario_ruta ir
+                    JOIN productos p ON ir.ID_Producto = p.ID_Producto
+                    WHERE ir.ID_Asignacion = %s AND ir.Cantidad > 0
+                """, (id_asignacion,))
+                inventario = cursor.fetchall()
+                
+                # Facturas pendientes
+                cursor.execute("""
+                    SELECT fr.ID_FacturaRuta, c.Nombre as NombreCliente, fr.Observacion,
+                           COALESCE(SUM(dfr.Cantidad * dfr.Precio), 0) as Total
+                    FROM facturacion_ruta fr
+                    LEFT JOIN detalle_facturacion_ruta dfr ON fr.ID_FacturaRuta = dfr.ID_FacturaRuta
+                    LEFT JOIN clientes c ON fr.ID_Cliente = c.ID_Cliente
+                    WHERE fr.ID_Asignacion = %s 
+                      AND fr.Estado = 'Activa' 
+                      AND fr.Credito_Contado = 2
+                    GROUP BY fr.ID_FacturaRuta, c.Nombre, fr.Observacion
+                    HAVING Total > 0
+                """, (id_asignacion,))
+                facturas_pendientes = cursor.fetchall()
+                
+                # Resumen
+                cursor.execute("""
+                    SELECT COUNT(*) as total_facturas,
+                           COALESCE(SUM(dfr.Cantidad * dfr.Precio), 0) as total_vendido
+                    FROM facturacion_ruta fr
+                    JOIN detalle_facturacion_ruta dfr ON fr.ID_FacturaRuta = dfr.ID_FacturaRuta
+                    WHERE fr.ID_Asignacion = %s AND DATE(fr.Fecha) = %s
+                """, (id_asignacion, fecha_consulta))
+                resumen = cursor.fetchone()
+                
+                # Info vendedor
+                cursor.execute("""
+                    SELECT ID_Usuario, NombreUsuario 
+                    FROM usuarios 
+                    WHERE ID_Usuario = %s
+                """, (vendedor_id,))
+                vendedor_info = cursor.fetchone()
+                
+                return jsonify({
+                    'success': True,
+                    'vendedor': {
+                        'id': vendedor_info['ID_Usuario'], 
+                        'nombre': vendedor_info['NombreUsuario']
+                    },
+                    'fecha_consulta': fecha_consulta.isoformat(),
+                    'ruta': {
+                        'nombre': asignacion['Nombre_Ruta'] or 'Sin nombre',
+                        'vehiculo': asignacion.get('VehiculoPlaca', 'N/A'),
+                        'hora_inicio': str(asignacion['Hora_Inicio']) if asignacion['Hora_Inicio'] else None,
+                        'hora_fin': str(asignacion['Hora_Fin']) if asignacion['Hora_Fin'] else None
+                    },
+                    'caja': {
+                        'ventas_efectivo': ventas_efectivo,
+                        'abonos_efectivo': abonos_efectivo,
+                        'total': caja_total
+                    },
+                    'inventario': [{
+                        'nombre': i['NombreProducto'],
+                        'cantidad': float(i['Cantidad']),
+                        'precio': float(i['PrecioVenta'])
+                    } for i in inventario],
+                    'facturas_pendientes': [{
+                        'cliente': f['NombreCliente'],
+                        'total': float(f['Total'])
+                    } for f in facturas_pendientes],
+                    'abonos_hoy': [{
+                        'cliente': a['cliente'],
+                        'monto': float(a['monto']),
+                        'metodo_pago': a['metodo_pago']
+                    } for a in abonos_hoy],
+                    'resumen': {
+                        'total_facturas': resumen['total_facturas'] or 0,
+                        'total_vendido': float(resumen['total_vendido'] or 0),
+                        'total_abonos': len(abonos_hoy),
+                        'total_abonos_monto': sum(float(a['monto']) for a in abonos_hoy)
+                    }
+                })
+        
+        # Cargar página principal
+        with get_db_cursor(True) as cursor:
+            cursor.execute("""
+                SELECT u.ID_Usuario, u.NombreUsuario
+                FROM usuarios u
+                INNER JOIN roles r ON u.ID_Rol = r.ID_Rol
+                WHERE u.ID_Empresa = %s 
+                  AND r.Nombre_Rol = 'Vendedor' 
+                  AND u.Estado = 'ACTIVO'
+                ORDER BY u.NombreUsuario
+            """, (session.get('empresa_id', 1),))
+            vendedores = cursor.fetchall()
+            
+            hoy = date.today().isoformat()
+            api_url = url_for('admin.admin_monitoreo_vendedores')
+            
+            return render_template(
+                'admin/ventas/monitoreo/monitore_vendedores.html', 
+                vendedores=vendedores, 
+                hoy=hoy,
+                api_url=api_url
+            )
+                                   
+    except Exception as e:
+        if request.args.get('id'):
+            return jsonify({'success': False, 'error': str(e)}), 500
+        flash(f'Error: {str(e)}', 'error')
+        return redirect(url_for('admin.admin_dashboard'))
 
 #CUENTAS POR COBRAR
 @admin_bp.route('/admin/ventas/cxcobrar/cuentas-por-cobrar')
@@ -5369,7 +5575,7 @@ def distribuir_carga(id_pedido):
         print(f"Error: {str(e)}")
         traceback.print_exc()
         flash(f'Error al cargar datos: {str(e)}', 'error')
-        return redirect(url_for('admin.admin_ver_pedido', id_pedido=id_pedido))
+        return redirect(url_for('admin.ver_pedido', id_pedido=id_pedido))
 
 
 @admin_bp.route('/admin/ventas/procesar-carga-consolidada/<int:id_pedido>', methods=['POST'])
@@ -5381,7 +5587,7 @@ def procesar_carga_consolidada(id_pedido):
     - Crea movimientos de salida de bodega principal
     - Crea movimientos de entrada en rutas de vendedores
     - Actualiza inventario de rutas
-    - Actualiza estado del pedido consolidado
+    - SOLO CAMBIA EL ESTADO, NO ELIMINA DATOS
     """
     try:
         # ============================================
@@ -5438,11 +5644,11 @@ def procesar_carga_consolidada(id_pedido):
             
             if pedido['Estado'] != 'Pendiente':
                 flash(f'El pedido debe estar Pendiente, no {pedido["Estado"]}', 'error')
-                return redirect(url_for('admin.admin_ver_pedido', id_pedido=id_pedido))
+                return redirect(url_for('admin.ver_pedido', id_pedido=id_pedido))
             
             if not pedido['ID_Ruta']:
                 flash('El pedido no tiene una ruta asignada', 'error')
-                return redirect(url_for('admin.admin_ver_pedido', id_pedido=id_pedido))
+                return redirect(url_for('admin.ver_pedido', id_pedido=id_pedido))
             
             # ============================================
             # 3. VERIFICAR VENDEDORES
@@ -5465,7 +5671,7 @@ def procesar_carga_consolidada(id_pedido):
             for item in distribucion:
                 if item['id_vendedor'] not in vendedores_dict:
                     flash('Uno o más vendedores no tienen asignación activa hoy', 'error')
-                    return redirect(url_for('admin.admin_ver_pedido', id_pedido=id_pedido))
+                    return redirect(url_for('admin.ver_pedido', id_pedido=id_pedido))
             
             # ============================================
             # 4. VERIFICAR PRODUCTOS
@@ -5509,17 +5715,17 @@ def procesar_carga_consolidada(id_pedido):
             for id_producto, cantidad_solicitada in total_por_producto.items():
                 if id_producto not in productos_dict:
                     flash('Producto no válido', 'error')
-                    return redirect(url_for('admin.admin_ver_pedido', id_pedido=id_pedido))
+                    return redirect(url_for('admin.ver_pedido', id_pedido=id_pedido))
                 
                 producto = productos_dict[id_producto]
                 
                 if cantidad_solicitada > producto['Cantidad_Total']:
                     flash(f'Cantidad excede el consolidado', 'error')
-                    return redirect(url_for('admin.admin_ver_pedido', id_pedido=id_pedido))
+                    return redirect(url_for('admin.ver_pedido', id_pedido=id_pedido))
                 
                 if cantidad_solicitada > producto['Stock_Disponible']:
                     flash(f'Stock insuficiente en bodega', 'error')
-                    return redirect(url_for('admin.admin_ver_pedido', id_pedido=id_pedido))
+                    return redirect(url_for('admin.ver_pedido', id_pedido=id_pedido))
             
             # ============================================
             # 5. MOVIMIENTO DE SALIDA DE BODEGA PRINCIPAL
@@ -5572,10 +5778,8 @@ def procesar_carga_consolidada(id_pedido):
                 ))
             
             # ============================================
-            # 6. DISTRIBUIR A VENDEDORES (CORREGIDO)
+            # 6. DISTRIBUIR A VENDEDORES
             # ============================================
-            # 6.1 Agrupar productos por vendedor
-            from collections import defaultdict
             distribucion_por_vendedor = defaultdict(list)
             
             for item in distribucion:
@@ -5585,14 +5789,11 @@ def procesar_carga_consolidada(id_pedido):
                     'precio': productos_dict[item['id_producto']]['Precio_Venta']
                 })
             
-            # 6.2 Procesar cada vendedor (UNA cabecera por vendedor)
             for id_vendedor, productos_vendedor in distribucion_por_vendedor.items():
-                # Calcular totales para este vendedor
-                total_items = sum([p['cantidad'] for p in productos_vendedor])  # Suma de cantidades
-                total_productos = len(productos_vendedor)  # Número de productos distintos
+                total_items = sum([p['cantidad'] for p in productos_vendedor])
+                total_productos = len(productos_vendedor)
                 total_subtotal = sum([p['cantidad'] * p['precio'] for p in productos_vendedor])
                 
-                # Insertar UNA cabecera por vendedor
                 cursor.execute("""
                     INSERT INTO movimientos_ruta_cabecera (
                         ID_Asignacion, 
@@ -5612,17 +5813,16 @@ def procesar_carga_consolidada(id_pedido):
                     id_vendedor,
                     TRASLADO_ENTRADA,
                     current_user.id,
-                    f'CARGA-{id_pedido}',  # Documento único por pedido
+                    f'CARGA-{id_pedido}',
                     id_pedido,
-                    total_productos,   # Cantidad de productos distintos
-                    total_items,       # Suma total de unidades
-                    total_subtotal,    # Suma total de subtotales
+                    total_productos,
+                    total_items,
+                    total_subtotal,
                     pedido['ID_Empresa']
                 ))
                 
                 movimiento_ruta_id = cursor.lastrowid
                 
-                # Insertar TODOS los detalles para este vendedor
                 for producto in productos_vendedor:
                     subtotal = producto['cantidad'] * producto['precio']
                     
@@ -5643,7 +5843,6 @@ def procesar_carga_consolidada(id_pedido):
                         subtotal
                     ))
                 
-                # Actualizar inventario de ruta (sumar todas las cantidades de este vendedor)
                 for producto in productos_vendedor:
                     cursor.execute("""
                         INSERT INTO inventario_ruta (
@@ -5663,40 +5862,19 @@ def procesar_carga_consolidada(id_pedido):
                     ))
             
             # ============================================
-            # 7. ACTUALIZAR PEDIDO CONSOLIDADO
+            # 7. SOLO CAMBIAR EL ESTADO - NO ELIMINAR NADA
             # ============================================
-            for id_producto, cantidad_solicitada in total_por_producto.items():
-                producto = productos_dict[id_producto]
-                cantidad_restante = producto['Cantidad_Total'] - cantidad_solicitada
-                
-                if cantidad_restante > 0:
-                    cursor.execute("""
-                        UPDATE pedidos_consolidados_productos
-                        SET Cantidad_Total = %s
-                        WHERE ID_Pedido = %s AND ID_Producto = %s
-                    """, (cantidad_restante, id_pedido, id_producto))
-                else:
-                    cursor.execute("""
-                        DELETE FROM pedidos_consolidados_productos
-                        WHERE ID_Pedido = %s AND ID_Producto = %s
-                    """, (id_pedido, id_producto))
-            
+            # Cambiar el estado del pedido a 'Entregado'
             cursor.execute("""
-                SELECT COUNT(*) as total
-                FROM pedidos_consolidados_productos
+                UPDATE pedidos 
+                SET Estado = 'Entregado'
                 WHERE ID_Pedido = %s
             """, (id_pedido,))
             
-            pedido_actualizado = cursor.fetchone()
+            # ⚠️ IMPORTANTE: NO se elimina nada de pedidos_consolidados_productos
+            # Los datos originales del consolidado permanecen intactos
             
-            if pedido_actualizado['total'] == 0:
-                cursor.execute("""
-                    UPDATE pedidos SET Estado = 'Entregado'
-                    WHERE ID_Pedido = %s
-                """, (id_pedido,))
-                flash(f'✅ Carga #{id_pedido} completada', 'success')
-            else:
-                flash(f'✅ Distribución parcial - Quedan {pedido_actualizado["total"]} productos', 'success')
+            flash(f'✅ Carga #{id_pedido} procesada exitosamente - Pedido marcado como Entregado', 'success')
             
             return redirect(url_for('admin.ver_pedido', id_pedido=id_pedido))
             
@@ -5705,7 +5883,6 @@ def procesar_carga_consolidada(id_pedido):
         traceback.print_exc()
         flash(f'Error: {str(e)}', 'error')
         return redirect(url_for('admin.ver_pedido', id_pedido=id_pedido))
-
 
 # ============================================
 # RUTAS COMUNES (APLICAN A AMBOS TIPOS DE PEDIDOS)
@@ -6085,7 +6262,7 @@ def filtrar_pedidos():
         flash(f"Error al filtrar pedidos: {e}", "error")
         return redirect(url_for('admin.admin_pedidos_venta'))
 
-@admin_bp.route('/admin/ventas/pedido-venta/<int:id_pedido>')
+@admin_bp.route('/ventas/pedido-venta/<int:id_pedido>')
 @admin_or_bodega_required
 def ver_pedido(id_pedido):
     """
@@ -6379,6 +6556,7 @@ def admin_procesar_venta_pedido(id_pedido):
     """
     Procesar venta desde un pedido aprobado
     Respeta el perfil_cliente para elegir el precio correcto en individuales
+    VERSIÓN MEJORADA CON VERIFICACIÓN DE STOCK ROBUSTA
     """
     try:
         # Obtener ID de empresa y usuario desde la sesión
@@ -6517,33 +6695,73 @@ def admin_procesar_venta_pedido(id_pedido):
             
             id_bodega_principal = bodega_principal['ID_Bodega']
             
-            # Verificar stock de productos
+            # ============================================
+            # VERIFICACIÓN DE STOCK MEJORADA
+            # ============================================
             productos_sin_stock = []
+            productos_sin_registro = []
             total_pedido = 0
             total_cajillas_huevos = 0
             ID_CATEGORIA_HUEVOS = 1  # AJUSTAR según tu sistema
+            
+            print(f"\n📦 INICIANDO VERIFICACIÓN DE STOCK")
+            print(f"📦 Bodega: {bodega_principal['Nombre']} (ID: {id_bodega_principal})")
+            print("="*60)
             
             for detalle in detalles_pedido:
                 id_producto = detalle['ID_Producto']
                 cantidad = float(detalle['Cantidad'])
                 precio = float(detalle['Precio_Unitario'])
+                nombre_producto = detalle.get('Descripcion', f'Producto ID:{id_producto}')
                 
-                # Verificar stock
+                # Verificar si existe registro de inventario y obtener stock
                 cursor.execute("""
-                    SELECT COALESCE(Existencias, 0) as Stock 
+                    SELECT 
+                        COALESCE(Existencias, 0) as Stock,
+                        CASE 
+                            WHEN ID_Producto IS NOT NULL THEN 1 
+                            ELSE 0 
+                        END as ExisteRegistro
                     FROM inventario_bodega 
                     WHERE ID_Bodega = %s AND ID_Producto = %s
                 """, (id_bodega_principal, id_producto))
                 
-                stock = cursor.fetchone()
-                stock_actual = stock['Stock'] if stock else 0
+                stock_info = cursor.fetchone()
                 
-                if stock_actual < cantidad:
-                    productos_sin_stock.append({
-                        'producto': detalle['Descripcion'],
-                        'stock_actual': stock_actual,
-                        'cantidad_solicitada': cantidad
+                print(f"\n🔍 Producto: {nombre_producto} (ID:{id_producto})")
+                print(f"   Cantidad solicitada: {cantidad}")
+                
+                if not stock_info or stock_info['ExisteRegistro'] == 0:
+                    # No existe registro en inventario_bodega
+                    print(f"   ❌ ERROR CRÍTICO: No hay registro de inventario para este producto")
+                    productos_sin_registro.append({
+                        'producto': nombre_producto,
+                        'id_producto': id_producto,
+                        'cantidad_solicitada': cantidad,
+                        'motivo': 'Producto no registrado en inventario_bodega'
                     })
+                    productos_sin_stock.append({
+                        'producto': nombre_producto,
+                        'stock_actual': 0,
+                        'cantidad_solicitada': cantidad,
+                        'motivo': 'Sin registro en inventario'
+                    })
+                else:
+                    stock_actual = float(stock_info['Stock'])
+                    
+                    print(f"   Stock actual en sistema: {stock_actual}")
+                    
+                    # Comparación con tolerancia para decimales
+                    if (stock_actual + 0.001) < cantidad:
+                        print(f"   ❌ STOCK INSUFICIENTE!")
+                        productos_sin_stock.append({
+                            'producto': nombre_producto,
+                            'stock_actual': stock_actual,
+                            'cantidad_solicitada': cantidad,
+                            'motivo': f'Stock insuficiente (disponible: {stock_actual}, necesita: {cantidad})'
+                        })
+                    else:
+                        print(f"   ✅ Stock suficiente")
                 
                 # Calcular total del pedido
                 total_pedido += cantidad * precio
@@ -6558,6 +6776,45 @@ def admin_procesar_venta_pedido(id_pedido):
                 producto_data = cursor.fetchone()
                 if producto_data and producto_data['ID_Categoria'] == ID_CATEGORIA_HUEVOS:
                     total_cajillas_huevos += cantidad
+            
+            print("\n" + "="*60)
+            
+            # Si hay productos sin stock, mostrar error detallado
+            if productos_sin_stock:
+                print(f"❌ VERIFICACIÓN DE STOCK FALLIDA")
+                print(f"   Total de productos con problemas: {len(productos_sin_stock)}")
+                
+                # Crear mensaje de error detallado
+                error_detalles = []
+                for ps in productos_sin_stock:
+                    error_detalles.append(f"{ps['producto']}: {ps['motivo']}")
+                
+                error_msg = f"No se puede procesar el pedido. Problemas de inventario:\n" + "\n".join(error_detalles)
+                
+                # Si es GET, mostrar en el template
+                if request.method == 'GET':
+                    return render_template('admin/ventas/pedidos/procesar_pedido.html',
+                                        pedido=pedido,
+                                        detalles_pedido=detalles_pedido,
+                                        productos_sin_stock=productos_sin_stock,
+                                        productos_sin_registro=productos_sin_registro,
+                                        total_pedido=total_pedido,
+                                        total_cajillas_huevos=total_cajillas_huevos,
+                                        bodega_principal=bodega_principal,
+                                        perfil_cliente=perfil_cliente,
+                                        now=datetime.now(),
+                                        current_user=current_user,
+                                        error_stock=True)
+                else:
+                    flash(error_msg, 'error')
+                    return redirect(url_for('admin.admin_procesar_venta_pedido', id_pedido=id_pedido))
+            
+            print(f"✅ VERIFICACIÓN DE STOCK EXITOSA")
+            print(f"   Total productos: {len(detalles_pedido)}")
+            print(f"   Total pedido: C${total_pedido:,.2f}")
+            if total_cajillas_huevos > 0:
+                print(f"   Cajillas de huevos: {total_cajillas_huevos}")
+            print("="*60)
         
         # Si es GET, mostrar formulario de procesamiento
         if request.method == 'GET':
@@ -6574,13 +6831,14 @@ def admin_procesar_venta_pedido(id_pedido):
         
         # Si es POST, procesar la venta
         if request.method == 'POST':
-            print(f"📨 Procesando venta desde pedido #{id_pedido}...")
+            print(f"\n📨 PROCESANDO VENTA DESDE PEDIDO #{id_pedido}...")
+            print("="*60)
             
             tipo_venta = request.form.get('tipo_venta', 'contado')
             observacion_adicional = request.form.get('observacion_adicional', '')
             
             with get_db_cursor(True) as cursor:
-                # ✅ VALIDACIÓN DE VISIBILIDAD DE PRODUCTOS
+                # VALIDACIÓN DE VISIBILIDAD DE PRODUCTOS
                 print("🔍 Validando visibilidad de productos para el cliente...")
                 
                 # Obtener tipo de cliente
@@ -6635,6 +6893,25 @@ def admin_procesar_venta_pedido(id_pedido):
                 
                 print("✅ Validación de visibilidad completada")
                 
+                # VOLVER A VERIFICAR STOCK ANTES DE PROCESAR (por si acaso)
+                print("🔍 Verificando stock nuevamente antes de procesar...")
+                for detalle in detalles_pedido:
+                    id_producto = detalle['ID_Producto']
+                    cantidad = float(detalle['Cantidad'])
+                    
+                    cursor.execute("""
+                        SELECT COALESCE(Existencias, 0) as Stock 
+                        FROM inventario_bodega 
+                        WHERE ID_Bodega = %s AND ID_Producto = %s
+                    """, (id_bodega_principal, id_producto))
+                    
+                    stock_data = cursor.fetchone()
+                    if not stock_data or float(stock_data['Stock']) < cantidad - 0.001:
+                        flash(f'Stock insuficiente para {detalle["Descripcion"]}. Por favor, verifique el inventario.', 'error')
+                        return redirect(url_for('admin.admin_procesar_venta_pedido', id_pedido=id_pedido))
+                
+                print("✅ Verificación de stock final exitosa")
+                
                 # 1. Crear factura
                 observacion_completa = f"Pedido #{id_pedido} - {pedido['Observacion'] or 'Sin observación'}"
                 if observacion_adicional:
@@ -6666,6 +6943,7 @@ def admin_procesar_venta_pedido(id_pedido):
                 total_venta = 0
                 
                 # 2. Procesar productos y crear detalles de facturación
+                print("\n📝 Procesando productos...")
                 for detalle in detalles_pedido:
                     id_producto = detalle['ID_Producto']
                     cantidad = float(detalle['Cantidad'])
@@ -6688,9 +6966,13 @@ def admin_procesar_venta_pedido(id_pedido):
                         WHERE ID_Bodega = %s AND ID_Producto = %s
                     """, (cantidad, id_bodega_principal, id_producto))
                     
-                    print(f"  {detalle['Descripcion']}: {cantidad} x C${precio} = C${total_linea}")
+                    # Verificar que la actualización fue exitosa
+                    if cursor.rowcount == 0:
+                        raise Exception(f"No se pudo actualizar el inventario para el producto {detalle['Descripcion']} (ID: {id_producto})")
+                    
+                    print(f"  ✅ {detalle['Descripcion']}: {cantidad} x C${precio:,.2f} = C${total_linea:,.2f}")
                 
-                print(f"📊 Total venta: C${total_venta:,.2f}")
+                print(f"\n📊 Total venta: C${total_venta:,.2f}")
                 
                 # 3. CALCULAR SEPARADORES NECESARIOS
                 separadores_totales = 0
@@ -6699,13 +6981,13 @@ def admin_procesar_venta_pedido(id_pedido):
                     separadores_base_extra = total_cajillas_huevos // 10
                     separadores_totales = separadores_entre_cajillas + separadores_base_extra
                     
-                    print(f"🔢 CÁLCULO DE SEPARADORES:")
-                    print(f"  Cajillas: {total_cajillas_huevos}")
-                    print(f"  Separadores totales necesarios: {separadores_totales}")
+                    print(f"\n🔢 CÁLCULO DE SEPARADORES:")
+                    print(f"  Cajillas de huevos: {total_cajillas_huevos}")
+                    print(f"  Separadores necesarios: {separadores_totales}")
                 
                 # 4. DESCONTAR SEPARADORES SI HAY PRODUCTOS DE HUEVOS
                 if separadores_totales > 0:
-                    print(f"🔧 Descontando {separadores_totales} separadores...")
+                    print(f"\n🔧 Procesando separadores...")
                     
                     # Verificar stock de separadores
                     cursor.execute("""
@@ -6715,7 +6997,7 @@ def admin_procesar_venta_pedido(id_pedido):
                     """, (ID_BODEGA_EMPAQUE, ID_SEPARADOR))
                     
                     stock_separadores = cursor.fetchone()
-                    stock_actual_separadores = stock_separadores['Stock'] if stock_separadores else 0
+                    stock_actual_separadores = float(stock_separadores['Stock']) if stock_separadores else 0
                     
                     if stock_actual_separadores >= separadores_totales:
                         # Restar separadores del inventario
@@ -6732,6 +7014,8 @@ def admin_procesar_venta_pedido(id_pedido):
                             )
                             VALUES (%s, %s, %s, 0, 0)
                         """, (id_factura, ID_SEPARADOR, separadores_totales))
+                        
+                        print(f"  ✅ Separadores descontados: {separadores_totales}")
                     else:
                         warning_msg = f'Stock insuficiente de separadores. Necesarios: {separadores_totales}, Disponibles: {stock_actual_separadores}'
                         print(f"  ⚠️ {warning_msg}")
@@ -6826,6 +7110,7 @@ def admin_procesar_venta_pedido(id_pedido):
                         id_factura,
                         id_usuario
                     ))
+                    print(f"💰 Cuenta por cobrar creada: FAC-{id_factura:05d}")
                 
                 # 10. Si es CONTADO, registrar entrada en caja
                 if tipo_venta == 'contado':
@@ -6842,6 +7127,7 @@ def admin_procesar_venta_pedido(id_pedido):
                         id_usuario,
                         f'FAC-{id_factura:05d}'
                     ))
+                    print(f"💰 Movimiento de caja registrado: C${total_venta:,.2f}")
                 
                 # 11. Actualizar el estado del pedido a "Entregado"
                 cursor.execute("""
@@ -6850,7 +7136,7 @@ def admin_procesar_venta_pedido(id_pedido):
                     WHERE ID_Pedido = %s
                 """, (id_pedido,))
                 
-                print(f"📝 Pedido #{id_pedido} actualizado a estado: Entregado")
+                print(f"\n✅ Pedido #{id_pedido} actualizado a estado: Entregado")
                 
                 # 12. Guardar datos de la venta en la sesión para mostrarlos en el ticket
                 session['venta_procesada'] = {
@@ -6862,15 +7148,21 @@ def admin_procesar_venta_pedido(id_pedido):
                     'fecha': datetime.now().strftime('%d/%m/%Y %H:%M:%S')
                 }
                 
-                # 13. Redirigir directamente al ticket SIN mensaje flash
-                print(f"🎯 Venta procesada exitosamente! Redirigiendo al ticket #{id_factura}")
+                print("="*60)
+                print(f"🎯 Venta procesada exitosamente!")
+                print(f"   Factura: #{id_factura}")
+                print(f"   Total: C${total_venta:,.2f}")
+                print("="*60)
+                
+                # 13. Redirigir directamente al ticket
                 return redirect(url_for('admin.admin_generar_ticket', id_factura=id_factura))
                 
     except Exception as e:
         error_msg = f'❌ Error al procesar venta desde pedido: {str(e)}'
-        print(f"{error_msg}")
+        print(f"\n{error_msg}")
         import traceback
-        print(f"Traceback: {traceback.format_exc()}")
+        print(f"Traceback completo:")
+        print(traceback.format_exc())
         
         flash(error_msg, 'error')
         return redirect(url_for('admin.admin_pedidos_venta'))
@@ -10764,7 +11056,7 @@ def registrar_gasto():
         flash(f'Error al registrar gasto: {str(e)}', 'error')
         return redirect(url_for('admin.admin_gastos_operativos'))
 
-@admin_bp.route('/admin/gastos/get_subcategorias', methods=['GET'])
+@admin_bp.route('/gastos/get_subcategorias', methods=['GET'])
 @admin_required
 def get_subcategorias():
     try:

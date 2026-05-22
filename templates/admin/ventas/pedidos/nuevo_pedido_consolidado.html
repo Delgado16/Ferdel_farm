@@ -2,12 +2,385 @@
 
 {% block title %}Nuevo Pedido Consolidado{% endblock %}
 
+{% block extra_css %}
+<style>
+    /* ============================================ */
+    /* ESTILOS PROFESIONALES Y SOBRIOS              */
+    /* ============================================ */
+    
+    :root {
+        --spacing-xs: 0.25rem;
+        --spacing-sm: 0.5rem;
+        --spacing-md: 1rem;
+        --spacing-lg: 1.5rem;
+        --spacing-xl: 2rem;
+        --border-radius-sm: 6px;
+        --border-radius-md: 10px;
+        --border-radius-lg: 12px;
+        --shadow-sm: 0 1px 2px rgba(0,0,0,0.05);
+        --shadow-md: 0 4px 6px -1px rgba(0,0,0,0.1);
+        --shadow-lg: 0 10px 15px -3px rgba(0,0,0,0.1);
+        --transition-fast: 150ms ease;
+        --transition-normal: 250ms ease;
+        --color-primary: #374151;
+        --color-primary-dark: #1f2937;
+        --color-gray-50: #f9fafb;
+        --color-gray-100: #f3f4f6;
+        --color-gray-200: #e5e7eb;
+        --color-gray-300: #d1d5db;
+        --color-gray-400: #9ca3af;
+        --color-gray-500: #6b7280;
+        --color-gray-600: #4b5563;
+        --color-gray-700: #374151;
+        --color-gray-800: #1f2937;
+        --color-success: #10b981;
+        --color-danger: #ef4444;
+        --color-warning: #f59e0b;
+        --color-info: #06b6d4;
+    }
+    
+    /* Cards mejoradas */
+    .card-custom {
+        background: white;
+        border-radius: var(--border-radius-md);
+        border: 1px solid var(--color-gray-200);
+        box-shadow: var(--shadow-sm);
+        transition: all var(--transition-normal);
+        overflow: hidden;
+    }
+    
+    .card-custom:hover {
+        box-shadow: var(--shadow-md);
+    }
+    
+    .card-header-custom {
+        background: linear-gradient(to bottom, #fafbfc, var(--color-gray-50));
+        border-bottom: 1px solid var(--color-gray-200);
+        padding: var(--spacing-md) var(--spacing-lg);
+    }
+    
+    .card-header-custom h5, 
+    .card-header-custom h6 {
+        font-weight: 600;
+        color: var(--color-gray-800);
+        margin: 0;
+        font-size: 0.95rem;
+    }
+    
+    /* Badges profesionales */
+    .badge {
+        font-weight: 500;
+        padding: 0.35rem 0.75rem;
+        border-radius: 20px;
+        font-size: 0.7rem;
+    }
+    
+    .badge-success {
+        background: #d1fae5;
+        color: #065f46;
+    }
+    
+    .badge-warning {
+        background: #fef3c7;
+        color: #92400e;
+    }
+    
+    .badge-danger {
+        background: #fee2e2;
+        color: #991b1b;
+    }
+    
+    .badge-info {
+        background: #e0e7ff;
+        color: #3730a3;
+    }
+    
+    .badge-primary {
+        background: var(--color-gray-100);
+        color: var(--color-gray-700);
+    }
+    
+    .badge-secondary {
+        background: var(--color-gray-100);
+        color: var(--color-gray-600);
+    }
+    
+    /* Alertas mejoradas */
+    .alert-custom {
+        border: none;
+        border-radius: var(--border-radius-md);
+        padding: var(--spacing-md) var(--spacing-lg);
+    }
+    
+    .alert-info-custom {
+        background: #eff6ff;
+        color: #1e40af;
+        border-left: 4px solid var(--color-info);
+    }
+    
+    .alert-primary-custom {
+        background: #f0fdf4;
+        color: #166534;
+        border-left: 4px solid var(--color-success);
+    }
+    
+    .alert-warning-custom {
+        background: #fef3c7;
+        color: #92400e;
+        border-left: 4px solid var(--color-warning);
+    }
+    
+    /* Formularios */
+    .form-label {
+        font-weight: 500;
+        font-size: 0.75rem;
+        margin-bottom: 0.4rem;
+        color: var(--color-gray-700);
+    }
+    
+    .form-control, .form-select {
+        border: 1px solid var(--color-gray-200);
+        border-radius: var(--border-radius-sm);
+        padding: 0.5rem 0.75rem;
+        font-size: 0.875rem;
+        transition: all var(--transition-fast);
+    }
+    
+    .form-control:focus, .form-select:focus {
+        border-color: var(--color-gray-400);
+        box-shadow: 0 0 0 3px rgba(148, 163, 184, 0.1);
+        outline: none;
+    }
+    
+    .input-group-text {
+        background: var(--color-gray-50);
+        border: 1px solid var(--color-gray-200);
+        color: var(--color-gray-500);
+        font-size: 0.75rem;
+    }
+    
+    /* Botones */
+    .btn {
+        padding: 0.5rem 1rem;
+        font-size: 0.8rem;
+        font-weight: 500;
+        border-radius: var(--border-radius-sm);
+        transition: all var(--transition-fast);
+    }
+    
+    .btn-sm {
+        padding: 0.375rem 0.75rem;
+        font-size: 0.7rem;
+    }
+    
+    .btn-primary {
+        background: var(--color-primary);
+        border: none;
+    }
+    
+    .btn-primary:hover {
+        background: var(--color-primary-dark);
+        transform: translateY(-1px);
+    }
+    
+    .btn-info {
+        background: var(--color-info);
+        border: none;
+        color: white;
+    }
+    
+    .btn-info:hover {
+        background: #0891b2;
+        transform: translateY(-1px);
+        color: white;
+    }
+    
+    .btn-outline-secondary {
+        border: 1px solid var(--color-gray-300);
+        color: var(--color-gray-600);
+    }
+    
+    .btn-outline-secondary:hover {
+        background: var(--color-gray-100);
+        border-color: var(--color-gray-400);
+        transform: translateY(-1px);
+    }
+    
+    .btn-outline-info {
+        border: 1px solid var(--color-gray-300);
+        color: var(--color-info);
+    }
+    
+    .btn-outline-info:hover {
+        background: #e0f2fe;
+        border-color: var(--color-info);
+        transform: translateY(-1px);
+    }
+    
+    /* Tabla */
+    .table-custom {
+        margin-bottom: 0;
+    }
+    
+    .table-custom thead th {
+        background: var(--color-gray-50);
+        font-weight: 600;
+        font-size: 0.7rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        color: var(--color-gray-600);
+        border-bottom: 1px solid var(--color-gray-200);
+        padding: var(--spacing-md);
+    }
+    
+    .table-custom tbody td {
+        padding: var(--spacing-md);
+        vertical-align: middle;
+        border-bottom: 1px solid var(--color-gray-100);
+        color: var(--color-gray-700);
+        font-size: 0.8rem;
+    }
+    
+    .table-custom tbody tr:hover {
+        background: var(--color-gray-50);
+    }
+    
+    /* Info Ruta */
+    .info-ruta-card {
+        background: var(--color-gray-50);
+        border-radius: var(--border-radius-md);
+        padding: var(--spacing-md);
+        border: 1px solid var(--color-gray-200);
+    }
+    
+    /* Product Cards */
+    .producto-card {
+        border: 1px solid var(--color-gray-200);
+        border-radius: var(--border-radius-md);
+        transition: all var(--transition-normal);
+        background: white;
+        height: 100%;
+    }
+    
+    .producto-card:hover {
+        transform: translateY(-4px);
+        box-shadow: var(--shadow-md);
+    }
+    
+    /* Animaciones */
+    @keyframes fadeInUp {
+        from {
+            opacity: 0;
+            transform: translateY(20px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+    
+    .fade-in-up {
+        animation: fadeInUp 0.4s ease-out;
+    }
+    
+    /* Scrollbar */
+    ::-webkit-scrollbar {
+        width: 6px;
+        height: 6px;
+    }
+    
+    ::-webkit-scrollbar-track {
+        background: var(--color-gray-100);
+        border-radius: 3px;
+    }
+    
+    ::-webkit-scrollbar-thumb {
+        background: var(--color-gray-400);
+        border-radius: 3px;
+    }
+    
+    ::-webkit-scrollbar-thumb:hover {
+        background: var(--color-gray-500);
+    }
+    
+    /* Responsive */
+    @media (max-width: 768px) {
+        .container-fluid {
+            padding-left: 12px;
+            padding-right: 12px;
+        }
+        
+        .card-header-custom {
+            padding: var(--spacing-sm) var(--spacing-md);
+        }
+        
+        .badge {
+            font-size: 0.6rem;
+            padding: 0.25rem 0.5rem;
+        }
+        
+        .btn-sm {
+            padding: 0.25rem 0.5rem;
+            font-size: 0.65rem;
+        }
+    }
+    
+    /* Categorías como Pills */
+    .categoria-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: var(--spacing-sm);
+        padding: 0.5rem 1rem;
+        background: white;
+        border: 1px solid var(--color-gray-200);
+        border-radius: 40px;
+        font-size: 0.8rem;
+        font-weight: 500;
+        color: var(--color-gray-600);
+        transition: all var(--transition-fast);
+        cursor: pointer;
+    }
+    
+    .categoria-pill:hover {
+        background: var(--color-gray-100);
+        border-color: var(--color-gray-300);
+        transform: translateY(-1px);
+    }
+    
+    /* Breadcrumb */
+    .breadcrumb {
+        background-color: transparent;
+        padding: 0;
+        margin-bottom: 0.5rem;
+    }
+    
+    .breadcrumb-item a {
+        color: var(--color-gray-500);
+        text-decoration: none;
+        transition: color var(--transition-fast);
+    }
+    
+    .breadcrumb-item a:hover {
+        color: var(--color-primary);
+    }
+    
+    .breadcrumb-item.active {
+        color: var(--color-gray-700);
+    }
+</style>
+{% endblock %}
+
 {% block content %}
-<div class="container-fluid mt-4">
-    <!-- Encabezado -->
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <div>
-            <h2><i class="fas fa-layer-group me-2"></i>Nuevo Pedido Consolidado</h2>
+<div class="container-fluid py-3 py-md-4 px-2 px-md-3 fade-in-up">
+    <!-- ============================================ -->
+    <!-- ENCABEZADO RESPONSIVO                        -->
+    <!-- ============================================ -->
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center mb-4">
+        <div class="mb-2 mb-md-0">
+            <h2 class="h3 mb-2" style="color: var(--color-gray-800);">
+                <i class="fas fa-layer-group me-2" style="color: var(--color-info);"></i>
+                Nuevo Pedido Consolidado
+            </h2>
             <nav aria-label="breadcrumb">
                 <ol class="breadcrumb">
                     <li class="breadcrumb-item"><a href="{{ url_for('admin.admin_dashboard') }}">Inicio</a></li>
@@ -15,41 +388,43 @@
                     <li class="breadcrumb-item active" aria-current="page">Nuevo Pedido Consolidado</li>
                 </ol>
             </nav>
-            <div class="alert alert-info mt-2 mb-0">
+            <div class="alert-custom alert-info-custom mt-2">
                 <i class="fas fa-info-circle me-2"></i>
                 <strong>Pedido Consolidado:</strong> Agrupa productos para entrega por ruta, sin asignar a un cliente específico. 
-                <span class="badge bg-primary ms-2">SIEMPRE usa Precio Ruta</span>
+                <span class="badge badge-info ms-2">SIEMPRE usa Precio Ruta</span>
             </div>
         </div>
-        <div>
-            <a href="{{ url_for('admin.admin_pedidos_venta') }}" class="btn btn-outline-secondary">
+        <div class="mt-2 mt-md-0">
+            <a href="{{ url_for('admin.admin_pedidos_venta') }}" class="btn btn-outline-secondary btn-sm">
                 <i class="fas fa-arrow-left me-1"></i> Cancelar
             </a>
         </div>
     </div>
     
-    <!-- Formulario de Pedido Consolidado -->
-    <div class="card">
-        <div class="card-header bg-info text-white">
-            <h5 class="mb-0"><i class="fas fa-layer-group me-2"></i>Datos del Pedido Consolidado</h5>
+    <!-- ============================================ -->
+    <!-- FORMULARIO DE PEDIDO CONSOLIDADO             -->
+    <!-- ============================================ -->
+    <div class="card-custom">
+        <div class="card-header-custom">
+            <h5><i class="fas fa-layer-group me-2"></i>Datos del Pedido Consolidado</h5>
         </div>
-        <div class="card-body">
+        <div class="card-body p-3 p-md-4">
             <form id="formPedidoConsolidado">
-                <div class="row g-3">
+                <div class="row g-4">
                     <!-- Datos del Pedido Consolidado -->
                     <div class="col-md-6">
-                        <h5 class="border-bottom pb-2 mb-3">
-                            <i class="fas fa-info-circle me-2"></i>Información General
-                        </h5>
+                        <div class="border-bottom pb-2 mb-3">
+                            <h6><i class="fas fa-info-circle me-2"></i>Información General</h6>
+                        </div>
                         
                         <div class="row g-3">
                             <div class="col-md-6">
-                                <label class="form-label fw-bold">Fecha:</label>
+                                <label class="form-label fw-bold">Fecha <span class="text-danger">*</span></label>
                                 <input type="date" id="fechaPedido" class="form-control" required 
                                        value="{{ now.strftime('%Y-%m-%d') }}">
                             </div>
                             <div class="col-md-6">
-                                <label class="form-label fw-bold">Empresa:</label>
+                                <label class="form-label fw-bold">Empresa <span class="text-danger">*</span></label>
                                 <select id="selectEmpresa" class="form-select" required>
                                     <option value="">Seleccione empresa...</option>
                                     {% for empresa in empresas %}
@@ -60,7 +435,7 @@
                                 </select>
                             </div>
                             <div class="col-md-6">
-                                <label class="form-label fw-bold">Prioridad:</label>
+                                <label class="form-label fw-bold">Prioridad <span class="text-danger">*</span></label>
                                 <select id="selectPrioridad" class="form-select" required>
                                     {% for prioridad in prioridades %}
                                     <option value="{{ prioridad }}" {% if prioridad == 'Normal' %}selected{% endif %}>
@@ -70,7 +445,7 @@
                                 </select>
                             </div>
                             <div class="col-md-6">
-                                <label class="form-label fw-bold">Ruta: <span class="text-danger">*</span></label>
+                                <label class="form-label fw-bold">Ruta <span class="text-danger">*</span></label>
                                 <select id="selectRuta" class="form-select" required>
                                     <option value="">Seleccione una ruta...</option>
                                     {% for ruta in rutas %}
@@ -83,7 +458,7 @@
                                     </option>
                                     {% endfor %}
                                 </select>
-                                <small class="form-text text-muted">
+                                <small class="text-muted">
                                     <i class="fas fa-route me-1"></i>
                                     Ruta obligatoria para pedidos consolidados
                                 </small>
@@ -98,34 +473,34 @@
                     
                     <!-- Información de Ruta y Precios -->
                     <div class="col-md-6">
-                        <h5 class="border-bottom pb-2 mb-3">
-                            <i class="fas fa-truck me-2"></i>Información de Entrega
-                        </h5>
+                        <div class="border-bottom pb-2 mb-3">
+                            <h6><i class="fas fa-truck me-2"></i>Información de Entrega</h6>
+                        </div>
                         
-                        <div id="infoRutaContainer" class="p-3 bg-light rounded" style="display: none;">
+                        <div id="infoRutaContainer" class="info-ruta-card" style="display: none;">
                             <div id="infoRutaContent"></div>
                         </div>
                         
-                        <div id="noRutaContainer" class="p-3 bg-light rounded">
+                        <div id="noRutaContainer" class="info-ruta-card">
                             <div class="text-center py-4">
-                                <i class="fas fa-route fa-3x text-muted mb-3"></i>
-                                <p class="mb-0">Seleccione una ruta para ver su información</p>
+                                <i class="fas fa-route fa-3x mb-3" style="color: var(--color-gray-400);"></i>
+                                <p class="mb-0 text-muted">Seleccione una ruta para ver su información</p>
                             </div>
                         </div>
                         
                         <!-- Información de Precios - SIEMPRE RUTA -->
                         <div class="mt-3">
-                            <div class="alert alert-primary">
+                            <div class="alert-custom alert-primary-custom">
                                 <div class="d-flex align-items-center">
                                     <i class="fas fa-tag fa-2x me-3"></i>
                                     <div>
                                         <h6 class="alert-heading mb-1">Tipo de Precio Aplicado</h6>
-                                        <p class="mb-0">
-                                            <span class="badge bg-primary fs-6">PRECIO RUTA</span>
-                                            <small class="d-block mt-2">
+                                        <p class="mb-0 small">
+                                            <span class="badge badge-info">PRECIO RUTA</span>
+                                            <span class="d-block mt-1 small">
                                                 Los pedidos consolidados SIEMPRE utilizan el precio de ruta de los productos, 
                                                 independientemente del perfil del cliente.
-                                            </small>
+                                            </span>
                                         </p>
                                     </div>
                                 </div>
@@ -134,7 +509,7 @@
                         
                         <!-- Indicador de prioridad -->
                         <div class="mt-3" id="indicadorPrioridad" style="display: none;">
-                            <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                            <div class="alert-custom alert-warning-custom">
                                 <div class="d-flex align-items-center">
                                     <div class="flex-shrink-0 me-3">
                                         <i class="fas fa-exclamation-triangle fa-2x"></i>
@@ -152,15 +527,17 @@
                     </div>
                 </div>
                 
-                <!-- Selección de Productos -->
+                <!-- ============================================ -->
+                <!-- SELECCIÓN DE PRODUCTOS                        -->
+                <!-- ============================================ -->
                 <div class="row mt-4">
                     <div class="col-12">
-                        <h5 class="border-bottom pb-2 mb-3">
-                            <i class="fas fa-boxes me-2"></i>Productos del Pedido Consolidado
-                        </h5>
+                        <div class="border-bottom pb-2 mb-3">
+                            <h6><i class="fas fa-boxes me-2"></i>Productos del Pedido Consolidado</h6>
+                        </div>
                         
                         <!-- Badge informativo de Precio Ruta -->
-                        <div class="alert alert-primary mb-3 py-2">
+                        <div class="alert-custom alert-primary-custom mb-3 py-2">
                             <i class="fas fa-info-circle me-2"></i>
                             Todos los productos se muestran con <strong>PRECIO RUTA</strong>
                         </div>
@@ -191,24 +568,22 @@
                         <!-- Productos por Categoría -->
                         <div id="productosContainer" style="display: none;">
                             <h6 class="mb-3">Seleccione productos por categoría:</h6>
-                            <div id="productosCategoriaContainer">
-                                <!-- Aquí se cargan los productos dinámicamente -->
-                            </div>
+                            <div id="productosCategoriaContainer"></div>
                         </div>
                         
                         <!-- Tabla de Productos Seleccionados -->
                         <div class="mt-4">
-                            <div class="d-flex justify-content-between align-items-center mb-3">
+                            <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
                                 <h6 class="mb-0">Productos seleccionados para consolidado:</h6>
                                 <div>
-                                    <span id="contadorProductos" class="badge bg-primary me-2">0 productos</span>
-                                    <span id="indicadorTotal" class="badge bg-success">Total: C$ 0.00</span>
+                                    <span id="contadorProductos" class="badge badge-primary me-2">0 productos</span>
+                                    <span id="indicadorTotal" class="badge badge-success">Total: C$ 0.00</span>
                                 </div>
                             </div>
                             
                             <div class="table-responsive">
-                                <table class="table table-bordered" id="tablaProductosSeleccionados">
-                                    <thead class="table-light">
+                                <table class="table table-custom" id="tablaProductosSeleccionados">
+                                    <thead>
                                         <tr>
                                             <th width="50">#</th>
                                             <th>Producto</th>
@@ -221,8 +596,8 @@
                                     </thead>
                                     <tbody id="tbodyProductos">
                                         <tr id="filaVacia">
-                                            <td colspan="7" class="text-center text-muted py-4">
-                                                <i class="fas fa-box-open fa-2x mb-2 d-block"></i>
+                                            <td colspan="7" class="text-center py-5" style="color: var(--color-gray-400);">
+                                                <i class="fas fa-box-open fa-3x mb-3 d-block"></i>
                                                 No hay productos seleccionados para el consolidado
                                             </td>
                                         </tr>
@@ -230,7 +605,7 @@
                                     <tfoot id="tfootTotales" style="display: none;">
                                         <tr class="table-active">
                                             <td colspan="5" class="text-end fw-bold">TOTAL CONSOLIDADO:</td>
-                                            <td class="fw-bold text-success fs-5" id="totalPedido">C$ 0.00</td>
+                                            <td class="fw-bold" style="color: var(--color-success); font-size: 1rem;" id="totalPedido">C$ 0.00</td>
                                             <td></td>
                                         </tr>
                                     </tfoot>
@@ -240,10 +615,12 @@
                     </div>
                 </div>
                 
-                <!-- Botones de Acción -->
+                <!-- ============================================ -->
+                <!-- BOTONES DE ACCIÓN                             -->
+                <!-- ============================================ -->
                 <div class="row mt-4">
                     <div class="col-12">
-                        <div class="d-flex justify-content-between">
+                        <div class="d-flex justify-content-between flex-wrap gap-2">
                             <button type="button" class="btn btn-secondary" onclick="window.history.back()">
                                 <i class="fas fa-times me-1"></i> Cancelar
                             </button>
@@ -258,12 +635,18 @@
     </div>
 </div>
 
+<!-- ============================================ -->
+<!-- MODALES                                       -->
+<!-- ============================================ -->
+
 <!-- Modal para ver stock detallado -->
 <div class="modal fade" id="modalStockDetalle" tabindex="-1">
-    <div class="modal-dialog modal-lg">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title">Stock Disponible por Bodega</h5>
+                <h5 class="modal-title">
+                    <i class="fas fa-warehouse me-2"></i>Stock Disponible por Bodega
+                </h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
@@ -283,7 +666,7 @@
 
 <!-- Modal para confirmar -->
 <div class="modal fade" id="modalConfirmacion" tabindex="-1">
-    <div class="modal-dialog modal-lg">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
         <div class="modal-content">
             <div class="modal-header">
                 <h5 class="modal-title">
@@ -292,28 +675,27 @@
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
-                <div class="alert alert-info">
+                <div class="alert-custom alert-info-custom">
                     <div class="d-flex align-items-center">
                         <div class="flex-shrink-0 me-3">
                             <i class="fas fa-info-circle fa-2x"></i>
                         </div>
                         <div class="flex-grow-1">
                             <h6 class="alert-heading mb-1">Resumen del pedido consolidado</h6>
-                            <p class="mb-0">
+                            <p class="mb-0 small">
                                 El pedido se creará con estado "Pendiente" y tipo "Consolidado".
-                                <span class="badge bg-primary ms-2">PRECIO RUTA</span>
+                                <span class="badge badge-info ms-2">PRECIO RUTA</span>
                             </p>
                         </div>
                     </div>
                 </div>
-                <div id="resumenPedido"></div>
+                <div id="resumenPedido" class="mt-3"></div>
                 
-                <!-- Resumen de productos -->
                 <div class="mt-3">
                     <h6 class="mb-3">Detalle de productos consolidados:</h6>
                     <div class="table-responsive">
-                        <table class="table table-sm table-bordered" id="tablaResumenProductos">
-                            <thead class="table-light">
+                        <table class="table table-sm table-custom" id="tablaResumenProductos">
+                            <thead>
                                 <tr>
                                     <th>Producto</th>
                                     <th class="text-center">Cantidad Total</th>
@@ -322,13 +704,11 @@
                                     <th class="text-end">Subtotal</th>
                                 </tr>
                             </thead>
-                            <tbody id="tbodyResumenProductos">
-                                <!-- Aquí se cargarán los productos -->
-                            </tbody>
+                            <tbody id="tbodyResumenProductos"></tbody>
                             <tfoot>
                                 <tr class="table-active">
                                     <td colspan="4" class="text-end fw-bold">TOTAL CONSOLIDADO:</td>
-                                    <td class="text-end fw-bold text-success" id="totalResumen">C$ 0.00</td>
+                                    <td class="text-end fw-bold" style="color: var(--color-success);" id="totalResumen">C$ 0.00</td>
                                 </tr>
                             </tfoot>
                         </table>
@@ -349,7 +729,7 @@
 
 <script>
 // ============================================
-// URLs DE API - Generadas con url_for para evitar errores de ruta
+// URLs DE API - Generadas con url_for
 // ============================================
 const API_URLS = {
     categoriasVisibles: "{{ url_for('admin.obtener_categorias_visibles') }}",
@@ -360,13 +740,16 @@ const API_URLS = {
     verPedido: "{{ url_for('admin.ver_pedido', id_pedido=999999) }}".replace('999999', '')
 };
 
-// Variables globales
+// ============================================
+// VARIABLES GLOBALES
+// ============================================
 let productosSeleccionados = [];
-// Para consolidados, siempre usar tipo_cliente 'Comun' y perfil 'Ruta'
 const tipoClienteActual = 'Comun';
 const perfilClienteActual = 'Ruta';
 
-// Funciones de formato
+// ============================================
+// FUNCIONES DE UTILIDAD
+// ============================================
 function formatCurrency(amount) {
     return new Intl.NumberFormat('es-NI', {
         style: 'currency',
@@ -380,12 +763,19 @@ function formatNumber(number) {
     return new Intl.NumberFormat('es-NI').format(number);
 }
 
+function escapeHtml(text) {
+    if (!text) return '';
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
 function getBadgeClassPrioridad(prioridad) {
     switch(prioridad) {
-        case 'Urgente': return 'bg-danger';
-        case 'Normal': return 'bg-primary';
-        case 'Bajo': return 'bg-secondary';
-        default: return 'bg-info';
+        case 'Urgente': return 'badge-danger';
+        case 'Normal': return 'badge-info';
+        case 'Bajo': return 'badge-secondary';
+        default: return 'badge-info';
     }
 }
 
@@ -398,36 +788,32 @@ function getIconoPrioridad(prioridad) {
     }
 }
 
+// ============================================
+// INICIALIZACIÓN
+// ============================================
 document.addEventListener('DOMContentLoaded', function() {
     console.log('API URLs configuradas:', API_URLS);
     
-    // Configurar fecha actual
     const fechaInput = document.getElementById('fechaPedido');
     if (fechaInput && !fechaInput.value) {
         fechaInput.value = new Date().toISOString().split('T')[0];
     }
     
-    // Cargar categorías (siempre con perfil Ruta)
     cargarCategoriasConsolidado();
     
-    // Evento para cambio de prioridad
     document.getElementById('selectPrioridad').addEventListener('change', function() {
-        const prioridad = this.value;
-        mostrarIndicadorPrioridad(prioridad);
+        mostrarIndicadorPrioridad(this.value);
+        validarFormulario();
     });
     
-    // Evento para cambio de ruta - OBLIGATORIO
     document.getElementById('selectRuta').addEventListener('change', function() {
         mostrarInfoRuta();
         validarFormulario();
     });
     
-    // Evento para cambios en empresa y fecha
     document.getElementById('selectEmpresa').addEventListener('change', validarFormulario);
     document.getElementById('fechaPedido').addEventListener('change', validarFormulario);
-    document.getElementById('selectPrioridad').addEventListener('change', validarFormulario);
     
-    // Búsqueda de productos
     document.getElementById('btnBuscarProducto').addEventListener('click', buscarProductos);
     document.getElementById('buscarProducto').addEventListener('keypress', function(e) {
         if (e.key === 'Enter') {
@@ -436,14 +822,14 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
     
-    // Modal de stock
-    document.getElementById('modalStockDetalle').addEventListener('hidden.bs.modal', function() {
+    const modalStock = document.getElementById('modalStockDetalle');
+    modalStock.addEventListener('hidden.bs.modal', function() {
         document.getElementById('contenidoStock').innerHTML = 
             '<div class="spinner-border text-primary" role="status"><span class="visually-hidden">Cargando...</span></div>';
     });
     
-    // Modal de confirmación
-    document.getElementById('modalConfirmacion').addEventListener('hidden.bs.modal', function () {
+    const modalConfirmacion = document.getElementById('modalConfirmacion');
+    modalConfirmacion.addEventListener('hidden.bs.modal', function () {
         const btnGuardar = document.getElementById('btnConfirmarGuardar');
         if (btnGuardar) {
             btnGuardar.disabled = false;
@@ -451,21 +837,17 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
     
-    // Verificar prioridad inicial
     mostrarIndicadorPrioridad(document.getElementById('selectPrioridad').value);
     
-    // Prevenir envío del formulario
     document.getElementById('formPedidoConsolidado').addEventListener('submit', function(e) {
         e.preventDefault();
         validarYConfirmarPedido();
     });
     
-    // Botón de confirmar
     document.getElementById('btnConfirmarGuardar').addEventListener('click', function() {
         guardarPedido();
     });
     
-    // Inicializar
     actualizarContadorProductos();
     validarFormulario();
 });
@@ -484,31 +866,33 @@ function mostrarInfoRuta() {
         const totalClientes = option.getAttribute('data-total-clientes') || '0';
         const nombreRuta = option.text.split('(')[0].trim();
         
-        let html = `
-            <h6 class="mb-3">
-                <i class="fas fa-route text-info me-2"></i>
-                ${nombreRuta}
-            </h6>
-            <div class="row">
-                <div class="col-md-6">
-                    <div class="mb-2">
-                        <small class="text-muted d-block">Descripción:</small>
-                        <span>${descripcion}</span>
+        document.getElementById('infoRutaContent').innerHTML = `
+            <div class="d-flex align-items-center mb-3">
+                <i class="fas fa-route fa-2x me-3" style="color: var(--color-info);"></i>
+                <div>
+                    <h6 class="mb-0">${nombreRuta}</h6>
+                    <small class="text-muted">Ruta seleccionada</small>
+                </div>
+            </div>
+            <div class="row g-2">
+                <div class="col-12">
+                    <div class="info-row">
+                        <span class="info-label">Descripción:</span>
+                        <span class="info-value">${descripcion}</span>
                     </div>
                 </div>
-                <div class="col-md-6">
-                    <div class="mb-2">
-                        <small class="text-muted d-block">Clientes en ruta:</small>
-                        <span class="badge bg-primary">${totalClientes} clientes</span>
+                <div class="col-12">
+                    <div class="info-row">
+                        <span class="info-label">Clientes asignados:</span>
+                        <span class="info-value"><span class="badge badge-info">${totalClientes} clientes</span></span>
                     </div>
                 </div>
             </div>
-            <div class="alert alert-success mt-2 mb-0 py-2">
+            <div class="alert-custom alert-info-custom mt-3 py-2">
                 <i class="fas fa-check-circle me-2"></i>
                 Este pedido consolidado será asignado a la ruta seleccionada
-            </div>`;
-        
-        document.getElementById('infoRutaContent').innerHTML = html;
+            </div>
+        `;
         infoContainer.style.display = 'block';
         noRutaContainer.style.display = 'none';
     } else {
@@ -517,20 +901,20 @@ function mostrarInfoRuta() {
     }
 }
 
+function mostrarIndicadorPrioridad(prioridad) {
+    const indicador = document.getElementById('indicadorPrioridad');
+    indicador.style.display = prioridad === 'Urgente' ? 'block' : 'none';
+}
+
 // ============================================
-// FUNCIONES DE CATEGORÍAS Y PRODUCTOS (SIEMPRE RUTA)
+// FUNCIONES DE CATEGORÍAS Y PRODUCTOS
 // ============================================
 function cargarCategoriasConsolidado() {
     const container = document.getElementById('categoriasContainer');
     container.innerHTML = '<div class="spinner-border text-primary" role="status"><span class="visually-hidden">Cargando...</span></div>';
     
     fetch(`${API_URLS.categoriasVisibles}?tipo_cliente=${tipoClienteActual}`)
-        .then(response => {
-            if (!response.ok) {
-                throw new Error(`Error HTTP: ${response.status}`);
-            }
-            return response.json();
-        })
+        .then(response => response.json())
         .then(data => {
             if (data.error) {
                 container.innerHTML = `<div class="alert alert-danger">${data.error}</div>`;
@@ -538,11 +922,7 @@ function cargarCategoriasConsolidado() {
             }
             
             if (data.categorias.length === 0) {
-                container.innerHTML = `
-                    <div class="alert alert-warning w-100">
-                        <i class="fas fa-exclamation-triangle me-2"></i>
-                        No hay categorías disponibles
-                    </div>`;
+                container.innerHTML = `<div class="alert alert-warning">No hay categorías disponibles</div>`;
                 document.getElementById('productosContainer').style.display = 'none';
                 return;
             }
@@ -551,7 +931,7 @@ function cargarCategoriasConsolidado() {
             data.categorias.forEach(categoria => {
                 const boton = document.createElement('button');
                 boton.type = 'button';
-                boton.className = 'btn btn-outline-info mb-2';
+                boton.className = 'categoria-pill';
                 boton.innerHTML = `<i class="fas fa-folder me-2"></i>${categoria.nombre}`;
                 boton.onclick = () => cargarProductosCategoria(categoria.id, categoria.nombre);
                 container.appendChild(boton);
@@ -560,24 +940,20 @@ function cargarCategoriasConsolidado() {
             document.getElementById('productosContainer').style.display = 'block';
         })
         .catch(error => {
-            console.error('Error al cargar categorías:', error);
-            container.innerHTML = `
-                <div class="alert alert-danger">
-                    <i class="fas fa-exclamation-triangle me-2"></i>
-                    Error al cargar categorías: ${error.message}
-                </div>`;
+            console.error('Error:', error);
+            container.innerHTML = `<div class="alert alert-danger">Error al cargar categorías: ${error.message}</div>`;
         });
 }
 
 function cargarProductosCategoria(categoriaId, categoriaNombre) {
     const container = document.getElementById('productosCategoriaContainer');
     container.innerHTML = `
-        <div class="card">
-            <div class="card-header bg-info text-white">
+        <div class="card-custom">
+            <div class="card-header-custom">
                 <h6 class="mb-0">
                     <i class="fas fa-folder me-2"></i>${categoriaNombre}
-                    <span class="badge bg-light text-dark float-end">Precio Ruta</span>
-                    <button type="button" class="btn btn-sm btn-outline-light float-end me-2" 
+                    <span class="badge badge-info float-end">Precio Ruta</span>
+                    <button type="button" class="btn btn-sm btn-outline-secondary float-end me-2" 
                             onclick="cerrarProductosCategoria()">
                         <i class="fas fa-times"></i>
                     </button>
@@ -585,7 +961,7 @@ function cargarProductosCategoria(categoriaId, categoriaNombre) {
             </div>
             <div class="card-body">
                 <div class="row" id="productosGrid-${categoriaId}">
-                    <div class="col-12 text-center">
+                    <div class="col-12 text-center py-4">
                         <div class="spinner-border text-primary" role="status">
                             <span class="visually-hidden">Cargando productos...</span>
                         </div>
@@ -594,30 +970,19 @@ function cargarProductosCategoria(categoriaId, categoriaNombre) {
             </div>
         </div>`;
     
-    // Para consolidados, forzar perfil_cliente = 'Ruta'
     fetch(`${API_URLS.productosCategoria}?categoria_id=${categoriaId}&tipo_cliente=${tipoClienteActual}&perfil_cliente=${perfilClienteActual}`)
-        .then(response => {
-            if (!response.ok) {
-                throw new Error(`Error HTTP: ${response.status}`);
-            }
-            return response.json();
-        })
+        .then(response => response.json())
         .then(data => {
             const grid = document.getElementById(`productosGrid-${categoriaId}`);
+            if (!grid) return;
             
             if (data.error) {
-                grid.innerHTML = `<div class="col-12"><div class="alert alert-danger">${data.error}</div></div>`;
+                grid.innerHTML = `<div class="alert alert-danger">${data.error}</div>`;
                 return;
             }
             
             if (data.productos.length === 0) {
-                grid.innerHTML = `
-                    <div class="col-12">
-                        <div class="alert alert-info">
-                            <i class="fas fa-info-circle me-2"></i>
-                            No hay productos disponibles en esta categoría
-                        </div>
-                    </div>`;
+                grid.innerHTML = `<div class="alert alert-info">No hay productos disponibles en esta categoría</div>`;
                 return;
             }
             
@@ -625,36 +990,33 @@ function cargarProductosCategoria(categoriaId, categoriaNombre) {
             data.productos.forEach(producto => {
                 const col = document.createElement('div');
                 col.className = 'col-md-6 col-lg-4 mb-3';
-                
-                const productoJSON = JSON.stringify(producto).replace(/'/g, "&#39;").replace(/"/g, '&quot;');
-                const productoNombreEscapado = producto.nombre.replace(/'/g, "\\'").replace(/"/g, '&quot;');
-                
                 col.innerHTML = `
-                    <div class="card h-100 border-primary">
-                        <div class="card-header bg-light py-2">
-                            <span class="badge bg-primary">Precio Ruta</span>
-                        </div>
-                        <div class="card-body">
-                            <h6 class="card-title">${producto.nombre}</h6>
-                            <div class="card-text small text-muted mb-2">
-                                <span class="badge bg-dark">${producto.codigo || 'N/A'}</span>
-                                <span class="badge bg-info">${producto.unidad_abreviatura || producto.unidad_descripcion || 'Unidad'}</span>
+                    <div class="producto-card">
+                        <div class="card-body p-3">
+                            <div class="d-flex justify-content-between align-items-start mb-2">
+                                <h6 class="mb-0">${producto.nombre}</h6>
+                                <span class="badge badge-info">Precio Ruta</span>
                             </div>
-                            <p class="card-text small mb-2">
-                                <i class="fas fa-box me-1"></i> Stock total: <span class="badge bg-success">${formatNumber(producto.stock)}</span>
-                            </p>
-                            <div class="d-flex justify-content-between align-items-center">
+                            <div class="mb-2">
+                                <span class="badge badge-secondary">${producto.codigo || 'N/A'}</span>
+                                <span class="badge badge-info ms-1">${producto.unidad_abreviatura || 'Und'}</span>
+                            </div>
+                            <div class="mb-2">
+                                <small class="text-muted"><i class="fas fa-box me-1"></i> Stock total: </small>
+                                <span class="badge badge-success">${formatNumber(producto.stock)}</span>
+                            </div>
+                            <div class="d-flex justify-content-between align-items-center mt-2">
                                 <div>
-                                    <span class="fw-bold text-success">${formatCurrency(producto.precio)}</span>
+                                    <span class="fw-bold" style="color: var(--color-success);">${formatCurrency(producto.precio)}</span>
                                 </div>
                                 <div>
                                     <button type="button" class="btn btn-sm btn-outline-info me-1" 
-                                            onclick="verStockProducto(${producto.id}, '${productoNombreEscapado}')"
+                                            onclick="verStockProducto(${producto.id}, '${escapeHtml(producto.nombre)}')"
                                             title="Ver stock por bodega">
                                         <i class="fas fa-warehouse"></i>
                                     </button>
                                     <button type="button" class="btn btn-sm btn-primary" 
-                                            onclick="agregarProducto(${productoJSON})">
+                                            onclick="agregarProducto(${producto.id}, '${escapeHtml(producto.nombre).replace(/'/g, "\\'")}', '${escapeHtml(producto.codigo || '').replace(/'/g, "\\'")}', ${producto.precio}, ${producto.stock}, '${escapeHtml(producto.unidad_abreviatura || 'Unidad').replace(/'/g, "\\'")}')">
                                         <i class="fas fa-plus me-1"></i> Agregar
                                     </button>
                                 </div>
@@ -665,9 +1027,9 @@ function cargarProductosCategoria(categoriaId, categoriaNombre) {
             });
         })
         .catch(error => {
-            console.error('Error al cargar productos:', error);
+            console.error('Error:', error);
             const grid = document.getElementById(`productosGrid-${categoriaId}`);
-            grid.innerHTML = `<div class="col-12"><div class="alert alert-danger">Error al cargar productos: ${error.message}</div></div>`;
+            if (grid) grid.innerHTML = `<div class="alert alert-danger">Error: ${error.message}</div>`;
         });
 }
 
@@ -676,7 +1038,7 @@ function cerrarProductosCategoria() {
 }
 
 // ============================================
-// BÚSQUEDA DE PRODUCTOS (SIEMPRE RUTA)
+// BÚSQUEDA DE PRODUCTOS
 // ============================================
 function buscarProductos() {
     const termino = document.getElementById('buscarProducto').value.trim();
@@ -686,59 +1048,41 @@ function buscarProductos() {
     }
     
     const resultadosDiv = document.getElementById('resultadosBusqueda');
-    resultadosDiv.innerHTML = '<div class="text-center"><div class="spinner-border text-primary" role="status"><span class="visually-hidden">Buscando...</span></div></div>';
+    resultadosDiv.innerHTML = '<div class="text-center py-3"><div class="spinner-border text-primary" role="status"></div></div>';
     resultadosDiv.style.display = 'block';
     
-    // Para consolidados, siempre enviar perfil_cliente = 'Ruta'
     fetch(`${API_URLS.buscarProductos}?q=${encodeURIComponent(termino)}&tipo_cliente=${tipoClienteActual}&perfil_cliente=${perfilClienteActual}`)
-        .then(response => {
-            if (!response.ok) {
-                throw new Error(`Error HTTP: ${response.status}`);
-            }
-            return response.json();
-        })
+        .then(response => response.json())
         .then(productos => {
             if (productos.length === 0) {
-                resultadosDiv.innerHTML = `
-                    <div class="alert alert-warning">
-                        <i class="fas fa-search me-2"></i>
-                        No se encontraron productos
-                    </div>`;
+                resultadosDiv.innerHTML = `<div class="alert alert-warning">No se encontraron productos</div>`;
                 return;
             }
             
             let html = '<div class="list-group">';
             productos.forEach(producto => {
-                const productoJSON = JSON.stringify(producto).replace(/'/g, "&#39;").replace(/"/g, '&quot;');
-                const productoNombreEscapado = producto.nombre.replace(/'/g, "\\'").replace(/"/g, '&quot;');
-                
                 html += `
-                    <div class="list-group-item list-group-item-action">
-                        <div class="d-flex w-100 justify-content-between align-items-start">
+                    <div class="list-group-item">
+                        <div class="d-flex justify-content-between align-items-start flex-wrap gap-2">
                             <div class="flex-grow-1">
-                                <h6 class="mb-1">${producto.nombre}</h6>
-                                <div class="d-flex justify-content-between align-items-center">
-                                    <div>
-                                        <small class="text-muted">
-                                            Código: ${producto.codigo || 'N/A'} | 
-                                            Stock total: <span class="badge bg-info">${formatNumber(producto.stock)}</span> |
-                                            Categoría: ${producto.categoria || 'N/A'}
-                                        </small>
-                                    </div>
-                                    <div>
-                                        <span class="fw-bold text-success me-3">${formatCurrency(producto.precio)}</span>
-                                        <span class="badge bg-primary me-2">Precio Ruta</span>
-                                        <button type="button" class="btn btn-sm btn-outline-info" 
-                                                onclick="verStockProducto(${producto.id}, '${productoNombreEscapado}')"
-                                                title="Ver stock por bodega">
-                                            <i class="fas fa-warehouse"></i>
-                                        </button>
-                                        <button type="button" class="btn btn-sm btn-primary ms-1" 
-                                                onclick="agregarProducto(${productoJSON})">
-                                            <i class="fas fa-plus me-1"></i> Agregar
-                                        </button>
-                                    </div>
-                                </div>
+                                <h6 class="mb-1">${escapeHtml(producto.nombre)}</h6>
+                                <small class="text-muted">
+                                    Código: ${escapeHtml(producto.codigo || 'N/A')} | 
+                                    Stock: ${formatNumber(producto.stock)} |
+                                    Categoría: ${escapeHtml(producto.categoria || 'N/A')}
+                                </small>
+                            </div>
+                            <div class="text-end">
+                                <span class="fw-bold me-2" style="color: var(--color-success);">${formatCurrency(producto.precio)}</span>
+                                <span class="badge badge-info me-2">Precio Ruta</span>
+                                <button type="button" class="btn btn-sm btn-outline-info me-1" 
+                                        onclick="verStockProducto(${producto.id}, '${escapeHtml(producto.nombre)}')">
+                                    <i class="fas fa-warehouse"></i>
+                                </button>
+                                <button type="button" class="btn btn-sm btn-primary" 
+                                        onclick="agregarProducto(${producto.id}, '${escapeHtml(producto.nombre).replace(/'/g, "\\'")}', '${escapeHtml(producto.codigo || '').replace(/'/g, "\\'")}', ${producto.precio}, ${producto.stock}, '${escapeHtml(producto.unidad_abreviatura || 'Unidad').replace(/'/g, "\\'")}')">
+                                    <i class="fas fa-plus me-1"></i> Agregar
+                                </button>
                             </div>
                         </div>
                     </div>`;
@@ -747,15 +1091,9 @@ function buscarProductos() {
             resultadosDiv.innerHTML = html;
         })
         .catch(error => {
-            console.error('Error al buscar productos:', error);
-            resultadosDiv.innerHTML = `<div class="alert alert-danger">Error al buscar productos: ${error.message}</div>`;
+            console.error('Error:', error);
+            resultadosDiv.innerHTML = `<div class="alert alert-danger">Error: ${error.message}</div>`;
         });
-}
-
-function agregarProductoDesdeBusqueda(producto) {
-    agregarProducto(producto);
-    document.getElementById('resultadosBusqueda').style.display = 'none';
-    document.getElementById('buscarProducto').value = '';
 }
 
 // ============================================
@@ -766,211 +1104,152 @@ function verStockProducto(productoId, productoNombre) {
     document.getElementById('modalProductoNombre').textContent = productoNombre;
     
     fetch(`${API_URLS.stockProducto}${productoId}`)
-        .then(response => {
-            if (!response.ok) {
-                throw new Error(`Error HTTP: ${response.status}`);
-            }
-            return response.json();
-        })
+        .then(response => response.json())
         .then(data => {
             if (data.error) {
-                document.getElementById('contenidoStock').innerHTML = `
-                    <div class="alert alert-danger">
-                        <i class="fas fa-exclamation-triangle me-2"></i>
-                        ${data.error}
-                    </div>`;
+                document.getElementById('contenidoStock').innerHTML = `<div class="alert alert-danger">${data.error}</div>`;
                 return;
             }
             
-            // Mostrar también el precio de ruta en el modal
             let html = `
                 <div class="mb-3">
                     <p><strong>Código:</strong> ${data.codigo || 'N/A'}</p>
-                    <p><strong>Stock Total:</strong> <span class="badge bg-success fs-6">${formatNumber(data.stock_total)}</span></p>
-                    <p><strong>Precio Ruta:</strong> <span class="badge bg-primary fs-6">${formatCurrency(data.precios?.ruta || 0)}</span></p>
+                    <p><strong>Stock Total:</strong> <span class="badge badge-success">${formatNumber(data.stock_total)}</span></p>
+                    <p><strong>Precio Ruta:</strong> <span class="badge badge-info">${formatCurrency(data.precios?.ruta || 0)}</span></p>
                 </div>`;
             
             if (data.bodegas && data.bodegas.length > 0) {
-                html += `
-                    <h6 class="mb-3">Stock por Bodega:</h6>
+                html += `<h6 class="mb-3">Stock por Bodega:</h6>
                     <div class="table-responsive">
-                        <table class="table table-sm table-hover">
-                            <thead class="table-light">
-                                <tr>
-                                    <th>Bodega</th>
-                                    <th class="text-end">Existencias</th>
-                                </tr>
-                            </thead>
+                        <table class="table table-sm">
+                            <thead><tr><th>Bodega</th><th class="text-end">Existencias</th></tr></thead>
                             <tbody>`;
-                
                 data.bodegas.forEach(bodega => {
-                    html += `
-                        <tr>
-                            <td>${bodega.Nombre_Bodega || `Bodega ${bodega.ID_Bodega}`}</td>
-                            <td class="text-end"><span class="badge bg-primary">${formatNumber(bodega.Existencias)}</span></td>
-                        </tr>`;
+                    html += `<tr><td>${bodega.Nombre_Bodega}</td><td class="text-end"><span class="badge badge-primary">${formatNumber(bodega.Existencias)}</span></td></tr>`;
                 });
-                
-                html += `
-                            </tbody>
-                        </table>
-                    </div>`;
+                html += `</tbody>}</div>`;
             } else {
-                html += `
-                    <div class="alert alert-warning">
-                        <i class="fas fa-exclamation-triangle me-2"></i>
-                        No hay stock registrado en bodegas para este producto
-                    </div>`;
+                html += `<div class="alert alert-warning">No hay stock registrado en bodegas</div>`;
             }
             
             document.getElementById('contenidoStock').innerHTML = html;
         })
         .catch(error => {
-            console.error('Error al cargar stock:', error);
-            document.getElementById('contenidoStock').innerHTML = `
-                <div class="alert alert-danger">
-                    <i class="fas fa-exclamation-triangle me-2"></i>
-                    Error al cargar el stock del producto: ${error.message}
-                </div>`;
+            document.getElementById('contenidoStock').innerHTML = `<div class="alert alert-danger">Error: ${error.message}</div>`;
         });
     
     modal.show();
 }
 
 // ============================================
-// GESTIÓN DE PRODUCTOS SELECCIONADOS
+// GESTIÓN DE PRODUCTOS SELECCIONADOS - FUNCIÓN CORREGIDA
 // ============================================
-function mostrarIndicadorPrioridad(prioridad) {
-    const indicador = document.getElementById('indicadorPrioridad');
-    if (prioridad === 'Urgente') {
-        indicador.style.display = 'block';
-    } else {
-        indicador.style.display = 'none';
-    }
-}
-
-function agregarProducto(producto) {
-    const index = productosSeleccionados.findIndex(p => p.id === producto.id);
+function agregarProducto(id, nombre, codigo, precio, stock, unidad) {
+    console.log('Agregando producto:', {id, nombre, precio, stock});
+    
+    const index = productosSeleccionados.findIndex(p => p.id === id);
     
     if (index !== -1) {
-        const cantidadActual = productosSeleccionados[index].cantidad;
-        const nuevaCantidad = cantidadActual + 1;
-        
-        if (nuevaCantidad > producto.stock) {
-            showAlert('warning', `Stock insuficiente para "${producto.nombre}". Disponible: ${formatNumber(producto.stock)}`);
+        const nuevaCantidad = productosSeleccionados[index].cantidad + 1;
+        if (nuevaCantidad > stock) {
+            showAlert('warning', `Stock insuficiente. Disponible: ${formatNumber(stock)}`);
             return;
         }
-        
         productosSeleccionados[index].cantidad = nuevaCantidad;
-        productosSeleccionados[index].subtotal = producto.precio * nuevaCantidad;
+        productosSeleccionados[index].subtotal = precio * nuevaCantidad;
         actualizarTablaProductos();
-        showToast('info', 'Cantidad actualizada', `Cantidad de "${producto.nombre}" aumentada a ${formatNumber(nuevaCantidad)}`);
         return;
     }
     
-    if (1 > producto.stock) {
-        showAlert('warning', `Stock insuficiente para "${producto.nombre}". Disponible: ${formatNumber(producto.stock)}`);
+    if (1 > stock) {
+        showAlert('warning', `Stock insuficiente. Disponible: ${formatNumber(stock)}`);
         return;
     }
     
     productosSeleccionados.push({
-        id: producto.id,
-        nombre: producto.nombre,
-        codigo: producto.codigo,
-        precio: producto.precio,
+        id: id,
+        nombre: nombre,
+        codigo: codigo || 'N/A',
+        precio: precio,
         cantidad: 1,
-        stock: producto.stock,
-        unidad: producto.unidad_abreviatura || producto.unidad_descripcion || 'Unidad',
-        subtotal: producto.precio * 1,
+        stock: stock,
+        unidad: unidad || 'Unidad',
+        subtotal: precio,
         tipoPrecio: 'Precio Ruta',
-        tipoPrecioClase: 'bg-primary'
+        tipoPrecioClase: 'badge-info'
     });
     
+    console.log('Productos después de agregar:', productosSeleccionados);
     actualizarTablaProductos();
-    showToast('success', 'Producto agregado', `${producto.nombre} agregado al pedido consolidado`);
+    showToast('success', 'Producto agregado', `${nombre} agregado al pedido consolidado`);
 }
 
 function actualizarTablaProductos() {
     const tbody = document.getElementById('tbodyProductos');
     const tfoot = document.getElementById('tfootTotales');
-    const filaVacia = document.getElementById('filaVacia');
+    
+    console.log('Actualizando tabla con', productosSeleccionados.length, 'productos');
+    
+    // Limpiar el tbody completamente
+    tbody.innerHTML = '';
     
     if (productosSeleccionados.length === 0) {
-        if (filaVacia) filaVacia.style.display = '';
+        tbody.innerHTML = `
+            <tr id="filaVacia">
+                <td colspan="7" class="text-center py-5" style="color: var(--color-gray-400);">
+                    <i class="fas fa-box-open fa-3x mb-3 d-block"></i>
+                    No hay productos seleccionados para el consolidado
+                 侧
+              </tr>
+        `;
         tfoot.style.display = 'none';
         actualizarContadorProductos();
         validarFormulario();
         return;
     }
     
-    if (filaVacia) filaVacia.style.display = 'none';
-    
     productosSeleccionados.sort((a, b) => a.nombre.localeCompare(b.nombre));
-    
-    tbody.innerHTML = '';
     let total = 0;
+    let html = '';
     
     productosSeleccionados.forEach((producto, index) => {
         total += producto.subtotal;
-        
-        const row = document.createElement('tr');
-        row.innerHTML = `
-            <td>${index + 1}</td>
-            <td>
-                <div class="fw-bold">${producto.nombre}</div>
-                <small class="text-muted">
-                    Código: ${producto.codigo || 'N/A'} | 
-                    Unidad: ${producto.unidad} |
-                    Stock: <span class="badge bg-secondary">${formatNumber(producto.stock)}</span>
-                </small>
-            </td>
-            <td>
-                <span class="badge ${producto.tipoPrecioClase}">${producto.tipoPrecio}</span>
-            </td>
-            <td>
-                <div class="input-group input-group-sm">
-                    <span class="input-group-text">C$</span>
-                    <input type="number" class="form-control precio-input" 
-                           value="${producto.precio.toFixed(2)}" step="0.01" min="0.01"
-                           data-index="${index}" onchange="actualizarPrecio(${index}, this.value)">
-                </div>
-            </td>
-            <td>
-                <div class="input-group input-group-sm">
-                    <input type="number" class="form-control cantidad-input" 
-                           value="${producto.cantidad}" step="0.01" min="0.01" max="${producto.stock}"
-                           data-index="${index}" onchange="actualizarCantidad(${index}, this.value)">
-                    <button class="btn btn-outline-secondary" type="button" 
-                            onclick="modificarCantidad(${index}, 1)">
-                        <i class="fas fa-plus"></i>
-                    </button>
-                    <button class="btn btn-outline-secondary" type="button" 
-                            onclick="modificarCantidad(${index}, -1)">
-                        <i class="fas fa-minus"></i>
-                    </button>
-                </div>
-                <small class="text-muted">Disponible: ${formatNumber(producto.stock)}</small>
-            </td>
-            <td class="fw-bold text-success">${formatCurrency(producto.subtotal)}</td>
-            <td>
-                <button type="button" class="btn btn-sm btn-outline-info me-1" 
-                        onclick="verStockProducto(${producto.id}, '${producto.nombre.replace(/'/g, "\\'")}')"
-                        title="Ver stock por bodega">
-                    <i class="fas fa-warehouse"></i>
-                </button>
-                <button type="button" class="btn btn-sm btn-danger" 
-                        onclick="eliminarProducto(${index})" title="Eliminar">
-                    <i class="fas fa-trash"></i>
-                </button>
-            </td>`;
-        tbody.appendChild(row);
+        html += `
+            <tr>
+                <td>${index + 1}</td>
+                <td>
+                    <div class="fw-bold">${escapeHtml(producto.nombre)}</div>
+                    <small class="text-muted">Código: ${escapeHtml(producto.codigo || 'N/A')} | Unidad: ${escapeHtml(producto.unidad)} | Stock: ${formatNumber(producto.stock)}</small>
+                </td>
+                <td><span class="badge ${producto.tipoPrecioClase}">${producto.tipoPrecio}</span></td>
+                <td>
+                    <div class="input-group input-group-sm">
+                        <span class="input-group-text">C$</span>
+                        <input type="number" class="form-control precio-input" value="${producto.precio.toFixed(2)}" step="0.01" min="0.01" data-index="${index}" onchange="actualizarPrecio(${index}, this.value)">
+                    </div>
+                </td>
+                <td>
+                    <div class="input-group input-group-sm">
+                        <input type="number" class="form-control cantidad-input" value="${producto.cantidad}" step="1" min="1" max="${producto.stock}" data-index="${index}" onchange="actualizarCantidad(${index}, this.value)">
+                        <button class="btn btn-outline-secondary" type="button" onclick="modificarCantidad(${index}, 1)"><i class="fas fa-plus"></i></button>
+                        <button class="btn btn-outline-secondary" type="button" onclick="modificarCantidad(${index}, -1)"><i class="fas fa-minus"></i></button>
+                    </div>
+                    <small class="text-muted">Disponible: ${formatNumber(producto.stock)}</small>
+                </td>
+                <td class="fw-bold" style="color: var(--color-success);">${formatCurrency(producto.subtotal)}</td>
+                <td>
+                    <button class="btn btn-sm btn-outline-info me-1" onclick="verStockProducto(${producto.id}, '${escapeHtml(producto.nombre)}')"><i class="fas fa-warehouse"></i></button>
+                    <button class="btn btn-sm btn-outline-danger" onclick="eliminarProducto(${index})"><i class="fas fa-trash"></i></button>
+                </td>
+            </tr>
+        `;
     });
     
+    tbody.innerHTML = html;
     const totalFormateado = formatCurrency(total);
     document.getElementById('totalPedido').textContent = totalFormateado;
     document.getElementById('indicadorTotal').textContent = `Total: ${totalFormateado}`;
     tfoot.style.display = '';
-    
     actualizarContadorProductos();
     validarFormulario();
 }
@@ -978,46 +1257,37 @@ function actualizarTablaProductos() {
 function actualizarContadorProductos() {
     const contador = document.getElementById('contadorProductos');
     contador.textContent = `${productosSeleccionados.length} producto${productosSeleccionados.length !== 1 ? 's' : ''}`;
-    contador.className = `badge ${productosSeleccionados.length > 0 ? 'bg-success' : 'bg-primary'}`;
+    contador.className = `badge ${productosSeleccionados.length > 0 ? 'badge-success' : 'badge-primary'}`;
 }
 
 function modificarCantidad(index, cambio) {
     const producto = productosSeleccionados[index];
     const nuevaCantidad = producto.cantidad + cambio;
-    
-    if (nuevaCantidad < 0.01) return;
+    if (nuevaCantidad < 1) return;
     if (nuevaCantidad > producto.stock) {
         showAlert('warning', `Stock insuficiente. Disponible: ${formatNumber(producto.stock)}`);
         return;
     }
-    
-    productosSeleccionados[index].cantidad = nuevaCantidad;
-    productosSeleccionados[index].subtotal = producto.precio * nuevaCantidad;
+    producto.cantidad = nuevaCantidad;
+    producto.subtotal = producto.precio * nuevaCantidad;
     actualizarTablaProductos();
 }
 
 function actualizarPrecio(index, nuevoPrecio) {
     nuevoPrecio = parseFloat(nuevoPrecio);
-    if (isNaN(nuevoPrecio) || nuevoPrecio < 0.01) {
-        nuevoPrecio = productosSeleccionados[index].precio;
-    }
-    
+    if (isNaN(nuevoPrecio) || nuevoPrecio < 0.01) nuevoPrecio = productosSeleccionados[index].precio;
     productosSeleccionados[index].precio = nuevoPrecio;
     productosSeleccionados[index].subtotal = nuevoPrecio * productosSeleccionados[index].cantidad;
     actualizarTablaProductos();
 }
 
 function actualizarCantidad(index, nuevaCantidad) {
-    nuevaCantidad = parseFloat(nuevaCantidad);
-    if (isNaN(nuevaCantidad) || nuevaCantidad < 0.01) {
-        nuevaCantidad = productosSeleccionados[index].cantidad;
-    }
-    
+    nuevaCantidad = parseInt(nuevaCantidad);
+    if (isNaN(nuevaCantidad) || nuevaCantidad < 1) nuevaCantidad = productosSeleccionados[index].cantidad;
     if (nuevaCantidad > productosSeleccionados[index].stock) {
         showAlert('warning', `Stock insuficiente. Disponible: ${formatNumber(productosSeleccionados[index].stock)}`);
         nuevaCantidad = productosSeleccionados[index].cantidad;
     }
-    
     productosSeleccionados[index].cantidad = nuevaCantidad;
     productosSeleccionados[index].subtotal = productosSeleccionados[index].precio * nuevaCantidad;
     actualizarTablaProductos();
@@ -1027,7 +1297,6 @@ function eliminarProducto(index) {
     if (confirm(`¿Eliminar "${productosSeleccionados[index].nombre}" del pedido consolidado?`)) {
         productosSeleccionados.splice(index, 1);
         actualizarTablaProductos();
-        showToast('info', 'Producto eliminado', 'El producto ha sido removido del pedido consolidado');
     }
 }
 
@@ -1035,155 +1304,115 @@ function eliminarProducto(index) {
 // VALIDACIÓN Y CONFIRMACIÓN
 // ============================================
 function validarFormulario() {
-    const empresaValido = document.getElementById('selectEmpresa').value !== '';
-    const fechaValido = document.getElementById('fechaPedido').value !== '';
-    const prioridadValido = document.getElementById('selectPrioridad').value !== '';
-    const rutaValido = document.getElementById('selectRuta').value !== '';
-    const productosValido = productosSeleccionados.length > 0;
+    const valido = document.getElementById('selectEmpresa').value !== '' &&
+                   document.getElementById('fechaPedido').value !== '' &&
+                   document.getElementById('selectPrioridad').value !== '' &&
+                   document.getElementById('selectRuta').value !== '' &&
+                   productosSeleccionados.length > 0;
     
-    const formularioValido = empresaValido && fechaValido && prioridadValido && rutaValido && productosValido;
-    document.getElementById('btnGuardar').disabled = !formularioValido;
-    
-    return formularioValido;
+    document.getElementById('btnGuardar').disabled = !valido;
+    return valido;
 }
 
 function validarYConfirmarPedido() {
     if (!validarFormulario()) {
-        let mensaje = 'Complete todos los campos obligatorios:\n';
-        if (!document.getElementById('selectEmpresa').value) mensaje += '• Seleccione una empresa\n';
-        if (!document.getElementById('selectRuta').value) mensaje += '• Seleccione una ruta\n';
-        if (!document.getElementById('fechaPedido').value) mensaje += '• Seleccione una fecha\n';
-        if (!document.getElementById('selectPrioridad').value) mensaje += '• Seleccione una prioridad\n';
-        if (productosSeleccionados.length === 0) mensaje += '• Agregue al menos un producto\n';
-        
-        showAlert('warning', mensaje);
+        let msg = 'Complete todos los campos obligatorios:\n';
+        if (!document.getElementById('selectEmpresa').value) msg += '• Empresa\n';
+        if (!document.getElementById('selectRuta').value) msg += '• Ruta\n';
+        if (!document.getElementById('fechaPedido').value) msg += '• Fecha\n';
+        if (!document.getElementById('selectPrioridad').value) msg += '• Prioridad\n';
+        if (productosSeleccionados.length === 0) msg += '• Al menos un producto\n';
+        showAlert('warning', msg);
         return;
     }
     
     const prioridad = document.getElementById('selectPrioridad').value;
-    const prioridadBadgeClass = getBadgeClassPrioridad(prioridad);
-    const prioridadIcono = getIconoPrioridad(prioridad);
-    
     const selectRuta = document.getElementById('selectRuta');
     const rutaNombre = selectRuta.options[selectRuta.selectedIndex].text.split('(')[0].trim();
     const totalClientes = selectRuta.options[selectRuta.selectedIndex].getAttribute('data-total-clientes') || '0';
-    const descripcion = selectRuta.options[selectRuta.selectedIndex].getAttribute('data-descripcion') || '';
     
-    const resumen = document.getElementById('resumenPedido');
-    let html = `
+    document.getElementById('resumenPedido').innerHTML = `
         <div class="row g-3 mb-4">
             <div class="col-md-6">
-                <div class="card">
-                    <div class="card-body">
-                        <h6 class="card-title border-bottom pb-2 mb-3">
-                            <i class="fas fa-layer-group me-2"></i>Información del Consolidado
-                        </h6>
+                <div class="card-custom">
+                    <div class="card-header-custom"><h6><i class="fas fa-layer-group me-2"></i>Información del Consolidado</h6></div>
+                    <div class="card-body p-3">
                         <p><strong>Empresa:</strong> ${document.getElementById('selectEmpresa').options[document.getElementById('selectEmpresa').selectedIndex].text}</p>
-                        <p><strong>Ruta:</strong> ${rutaNombre} ${descripcion ? '- ' + descripcion : ''}</p>
-                        <p><strong>Clientes en ruta:</strong> <span class="badge bg-primary">${totalClientes}</span></p>
+                        <p><strong>Ruta:</strong> ${rutaNombre}</p>
+                        <p><strong>Clientes:</strong> <span class="badge badge-info">${totalClientes}</span></p>
                         <p><strong>Observaciones:</strong> ${document.getElementById('observacionPedido').value || 'Ninguna'}</p>
-                        <p><strong>Tipo Precio:</strong> <span class="badge bg-primary">PRECIO RUTA</span></p>
+                        <p><strong>Tipo Precio:</strong> <span class="badge badge-info">PRECIO RUTA</span></p>
                     </div>
                 </div>
             </div>
             <div class="col-md-6">
-                <div class="card">
-                    <div class="card-body">
-                        <h6 class="card-title border-bottom pb-2 mb-3">
-                            <i class="fas fa-info-circle me-2"></i>Detalles del Pedido
-                        </h6>
+                <div class="card-custom">
+                    <div class="card-header-custom"><h6><i class="fas fa-info-circle me-2"></i>Detalles del Pedido</h6></div>
+                    <div class="card-body p-3">
                         <p><strong>Fecha:</strong> ${document.getElementById('fechaPedido').value}</p>
-                        <p><strong>Prioridad:</strong> <span class="badge ${prioridadBadgeClass}"><i class="${prioridadIcono} me-1"></i>${prioridad}</span></p>
-                        <p><strong>Total productos:</strong> <span class="badge bg-success">${productosSeleccionados.length}</span></p>
+                        <p><strong>Prioridad:</strong> <span class="badge ${getBadgeClassPrioridad(prioridad)}">${prioridad}</span></p>
+                        <p><strong>Total productos:</strong> <span class="badge badge-success">${productosSeleccionados.length}</span></p>
                     </div>
                 </div>
             </div>
         </div>`;
-    resumen.innerHTML = html;
     
-    const tbodyResumen = document.getElementById('tbodyResumenProductos');
-    const totalResumen = document.getElementById('totalResumen');
-    
-    let htmlResumen = '';
     let total = 0;
-    
-    productosSeleccionados.forEach((producto, index) => {
-        total += producto.subtotal;
-        htmlResumen += `
-            <tr>
-                <td>${index + 1}. ${producto.nombre}<br><small class="text-muted">Código: ${producto.codigo || 'N/A'} | Unidad: ${producto.unidad}</small></td>
-                <td class="text-center">${formatNumber(producto.cantidad)}</td>
-                <td class="text-end">${formatCurrency(producto.precio)}</td>
-                <td class="text-center"><span class="badge ${producto.tipoPrecioClase}">${producto.tipoPrecio}</span></td>
-                <td class="text-end fw-bold">${formatCurrency(producto.subtotal)}</td>
+    let html = '';
+    productosSeleccionados.forEach((p, i) => {
+        total += p.subtotal;
+        html += `<tr><td>${i+1}. ${escapeHtml(p.nombre)}<br><small class="text-muted">Código: ${escapeHtml(p.codigo || 'N/A')}</small></td>
+                 <td class="text-center">${formatNumber(p.cantidad)}</td>
+                 <td class="text-end">${formatCurrency(p.precio)}</td>
+                 <td class="text-center"><span class="badge ${p.tipoPrecioClase}">${p.tipoPrecio}</span></td>
+                 <td class="text-end fw-bold" style="color: var(--color-success);">${formatCurrency(p.subtotal)}</td>
             </tr>`;
     });
+    document.getElementById('tbodyResumenProductos').innerHTML = html;
+    document.getElementById('totalResumen').textContent = formatCurrency(total);
     
-    tbodyResumen.innerHTML = htmlResumen;
-    totalResumen.textContent = formatCurrency(total);
-    
-    const modal = new bootstrap.Modal(document.getElementById('modalConfirmacion'));
-    modal.show();
+    new bootstrap.Modal(document.getElementById('modalConfirmacion')).show();
 }
 
 // ============================================
 // GUARDAR PEDIDO
 // ============================================
 function guardarPedido() {
-    const btnGuardar = document.getElementById('btnConfirmarGuardar');
-    const modalElement = document.getElementById('modalConfirmacion');
-    const modal = bootstrap.Modal.getInstance(modalElement);
+    const btn = document.getElementById('btnConfirmarGuardar');
+    const modal = bootstrap.Modal.getInstance(document.getElementById('modalConfirmacion'));
     
-    btnGuardar.disabled = true;
-    btnGuardar.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Procesando...';
-    
-    const datosPedido = {
-        empresa_id: document.getElementById('selectEmpresa').value,
-        fecha: document.getElementById('fechaPedido').value,
-        prioridad: document.getElementById('selectPrioridad').value,
-        observacion: document.getElementById('observacionPedido').value,
-        id_ruta: document.getElementById('selectRuta').value,
-        productos: productosSeleccionados.map(p => ({
-            id: p.id,
-            nombre: p.nombre,
-            precio: p.precio,
-            cantidad: p.cantidad
-        }))
-    };
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Procesando...';
     
     fetch(API_URLS.guardarPedido, {
         method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(datosPedido)
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            empresa_id: document.getElementById('selectEmpresa').value,
+            fecha: document.getElementById('fechaPedido').value,
+            prioridad: document.getElementById('selectPrioridad').value,
+            observacion: document.getElementById('observacionPedido').value,
+            id_ruta: document.getElementById('selectRuta').value,
+            productos: productosSeleccionados.map(p => ({ id: p.id, nombre: p.nombre, precio: p.precio, cantidad: p.cantidad }))
+        })
     })
-    .then(response => {
-        if (!response.ok) {
-            throw new Error(`Error HTTP: ${response.status}`);
-        }
-        return response.json();
-    })
+    .then(response => response.json())
     .then(data => {
         modal.hide();
-        
         if (data.success) {
-            showToast('success', 'Pedido consolidado creado', `Pedido consolidado #${data.pedido_id} creado exitosamente`);
-            setTimeout(() => {
-                window.location.href = API_URLS.verPedido + data.pedido_id;
-            }, 1500);
+            showToast('success', 'Pedido consolidado creado', `Pedido #${data.pedido_id} creado exitosamente`);
+            setTimeout(() => window.location.href = API_URLS.verPedido + data.pedido_id, 1500);
         } else {
-            showAlert('error', data.message || 'Error al crear el pedido consolidado');
-            btnGuardar.disabled = false;
-            btnGuardar.innerHTML = '<i class="fas fa-save me-1"></i> Confirmar y Guardar';
+            showAlert('error', data.message || 'Error al crear el pedido');
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-save me-1"></i> Confirmar y Guardar';
         }
     })
     .catch(error => {
-        console.error('Error:', error);
         modal.hide();
-        showAlert('error', 'Error al conectar con el servidor: ' + error.message);
-        btnGuardar.disabled = false;
-        btnGuardar.innerHTML = '<i class="fas fa-save me-1"></i> Confirmar y Guardar';
+        showAlert('error', 'Error: ' + error.message);
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-save me-1"></i> Confirmar y Guardar';
     });
 }
 
@@ -1193,142 +1422,22 @@ function guardarPedido() {
 function showAlert(type, message) {
     const alertDiv = document.createElement('div');
     alertDiv.className = `alert alert-${type} alert-dismissible fade show position-fixed`;
-    alertDiv.style.cssText = 'top: 20px; right: 20px; z-index: 1055; max-width: 400px;';
-    
-    let icon = 'fa-info-circle';
-    if (type === 'success') icon = 'fa-check-circle';
-    else if (type === 'warning') icon = 'fa-exclamation-triangle';
-    else if (type === 'error' || type === 'danger') icon = 'fa-exclamation-circle';
-    
-    alertDiv.innerHTML = `
-        <i class="fas ${icon} me-2"></i>
-        ${message.replace(/\n/g, '<br>')}
-        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-    `;
-    
+    alertDiv.style.cssText = 'top: 20px; right: 20px; z-index: 1055; max-width: 400px; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.15);';
+    alertDiv.innerHTML = `<div class="d-flex align-items-center"><i class="fas fa-${type === 'success' ? 'check-circle' : type === 'warning' ? 'exclamation-triangle' : 'exclamation-circle'} me-2"></i><div class="flex-grow-1">${message.replace(/\n/g, '<br>')}</div><button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>`;
     document.body.appendChild(alertDiv);
-    setTimeout(() => { 
-        if (alertDiv.parentNode) {
-            alertDiv.classList.remove('show');
-            setTimeout(() => alertDiv.remove(), 300);
-        }
-    }, 5000);
+    setTimeout(() => { if (alertDiv.parentNode) alertDiv.remove(); }, 5000);
 }
 
 function showToast(type, title, message) {
     const toast = document.createElement('div');
     toast.className = `toast align-items-center text-white bg-${type} border-0 position-fixed`;
-    toast.style.cssText = 'bottom: 20px; right: 20px; z-index: 1055;';
+    toast.style.cssText = 'bottom: 20px; right: 20px; z-index: 1055; border-radius: 8px; min-width: 300px;';
     toast.setAttribute('role', 'alert');
-    toast.innerHTML = `
-        <div class="d-flex">
-            <div class="toast-body">
-                <strong>${title}:</strong> ${message}
-            </div>
-            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
-        </div>
-    `;
-    
+    toast.innerHTML = `<div class="d-flex"><div class="toast-body"><strong>${title}</strong><br><small>${message}</small></div><button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button></div>`;
     document.body.appendChild(toast);
-    const bsToast = new bootstrap.Toast(toast);
+    const bsToast = new bootstrap.Toast(toast, { delay: 3000 });
     bsToast.show();
-    toast.addEventListener('hidden.bs.toast', function() { 
-        if (toast.parentNode) toast.remove(); 
-    });
+    toast.addEventListener('hidden.bs.toast', () => toast.remove());
 }
 </script>
-
-<style>
-.precio-input, .cantidad-input {
-    text-align: right;
-}
-.table th {
-    background-color: #f8f9fa;
-    font-weight: 600;
-}
-.badge {
-    font-size: 0.85em;
-}
-.card-header {
-    font-weight: 600;
-}
-#productosCategoriaContainer .card {
-    max-height: 500px;
-    overflow-y: auto;
-}
-#resultadosBusqueda {
-    max-height: 300px;
-    overflow-y: auto;
-    border: 1px solid #dee2e6;
-    border-radius: 0.25rem;
-    padding: 10px;
-    background-color: #f8f9fa;
-}
-.btn-group-sm > .btn {
-    padding: 0.25rem 0.5rem;
-}
-.table-hover tbody tr:hover {
-    background-color: rgba(0,123,255,0.05);
-}
-.input-group-sm .form-control {
-    padding: 0.25rem 0.5rem;
-    font-size: 0.875rem;
-}
-.input-group-text {
-    background-color: #f8f9fa;
-    border-color: #dee2e6;
-    font-weight: 600;
-}
-.text-success {
-    color: #198754 !important;
-}
-.bg-danger { 
-    background-color: #dc3545 !important; 
-    color: white !important;
-}
-.bg-primary { 
-    background-color: #0d6efd !important; 
-    color: white !important;
-}
-.bg-secondary { 
-    background-color: #6c757d !important; 
-    color: white !important;
-}
-.bg-info { 
-    background-color: #0dcaf0 !important; 
-    color: white !important;
-}
-.bg-warning { 
-    background-color: #ffc107 !important; 
-    color: black !important;
-}
-#indicadorPrioridad .alert {
-    border-left: 4px solid #dc3545;
-}
-#indicadorPrioridad .alert-danger {
-    animation: pulse 2s infinite;
-}
-@keyframes pulse {
-    0% { opacity: 1; }
-    50% { opacity: 0.7; }
-    100% { opacity: 1; }
-}
-#tablaResumenProductos th {
-    background-color: #e9ecef;
-    font-weight: 600;
-}
-
-/* Estilos específicos para consolidados */
-.border-primary {
-    border-color: #0d6efd !important;
-}
-.card-header.bg-info {
-    background-color: #0dcaf0 !important;
-}
-.alert-primary {
-    background-color: #cfe2ff;
-    border-color: #b6d4fe;
-    color: #084298;
-}
-</style>
 {% endblock %}

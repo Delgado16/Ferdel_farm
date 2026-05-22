@@ -29,6 +29,7 @@
         display: flex;
         align-items: center;
         justify-content: center;
+        flex-shrink: 0;
     }
 
     .icon-circle-lg {
@@ -38,6 +39,7 @@
         display: flex;
         align-items: center;
         justify-content: center;
+        flex-shrink: 0;
     }
 
     .bg-primary-light { background-color: var(--primary-light); }
@@ -46,6 +48,76 @@
     .bg-info-light { background-color: var(--info-light); }
     .bg-danger-light { background-color: var(--danger-light); }
     .bg-dark-light { background-color: var(--dark-light); }
+
+    /* ESTILOS UNIFICADOS PARA TODOS LOS CARDS */
+    .card-uniform {
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+    }
+    
+    .card-uniform:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.1) !important;
+    }
+    
+    .card-uniform .card-body {
+        padding: 1.25rem;
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+    }
+    
+    /* Para cards con contenido interno consistente */
+    .card-uniform .card-header {
+        background-color: transparent;
+        border-bottom: 1px solid rgba(0,0,0,0.125);
+        padding: 0.875rem 1.25rem;
+    }
+    
+    /* Altura fija para contenedores de tablas dentro de cards */
+    .card-table-container {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        min-height: 300px;
+    }
+    
+    .card-table-container .table-responsive {
+        flex: 1;
+    }
+    
+    /* Grid responsivo para métricas */
+    .metricas-grid {
+        display: grid;
+        gap: 1rem;
+    }
+    
+    /* Ajuste para diferentes resoluciones */
+    @media (min-width: 1400px) {
+        .metricas-grid {
+            grid-template-columns: repeat(6, 1fr);
+        }
+    }
+    
+    @media (min-width: 1200px) and (max-width: 1399.98px) {
+        .metricas-grid {
+            grid-template-columns: repeat(3, 1fr);
+        }
+    }
+    
+    @media (min-width: 768px) and (max-width: 1199.98px) {
+        .metricas-grid {
+            grid-template-columns: repeat(2, 1fr);
+        }
+    }
+    
+    @media (max-width: 767.98px) {
+        .metricas-grid {
+            grid-template-columns: 1fr;
+        }
+    }
 
     .scroll-horizontal-mobile {
         width: 100%;
@@ -68,15 +140,6 @@
         border-radius: 4px;
     }
 
-    @media (max-width: 1023.98px) {
-        .card-item, .movimiento-item {
-            transition: background-color 0.2s ease;
-        }
-        .card-item:active, .movimiento-item:active {
-            background-color: rgba(0, 0, 0, 0.05);
-        }
-    }
-
     @media (max-width: 768px) {
         .icon-circle {
             width: 36px;
@@ -85,6 +148,13 @@
         .icon-circle i {
             font-size: 1rem;
         }
+        .icon-circle-lg {
+            width: 48px;
+            height: 48px;
+        }
+        .icon-circle-lg i {
+            font-size: 1.5rem;
+        }
         .chart-container {
             height: 280px !important;
         }
@@ -92,13 +162,12 @@
             padding: 0.5rem;
             font-size: 0.75rem;
         }
+        .card-uniform .card-body {
+            padding: 1rem;
+        }
     }
 
     @media (min-width: 769px) and (max-width: 1024px) {
-        .icon-circle {
-            width: 44px;
-            height: 44px;
-        }
         .d-md-block {
             display: none !important;
         }
@@ -122,30 +191,57 @@
         }
     }
 
-    .card {
-        transition: transform 0.2s ease, box-shadow 0.2s ease;
-    }
-    .card:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.1) !important;
-    }
     .badge {
         font-weight: 500;
         padding: 0.35rem 0.65rem;
     }
+    
     .table-hover tbody tr:hover {
         background-color: rgba(78, 115, 223, 0.05);
         cursor: pointer;
     }
+    
     .text-xs {
         font-size: 0.7rem;
     }
+    
     .text-gray-800 {
         color: #2c3e50;
     }
+    
     .chart-container {
         position: relative;
         width: 100%;
+        min-height: 320px;
+    }
+    
+    /* Altura uniforme para contenedores de gráficos */
+    .chart-box {
+        min-height: 320px;
+        position: relative;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    
+    /* Cards con misma altura para secciones dobles */
+    .equal-height-cards {
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+    }
+    
+    /* Mejoras visuales */
+    .metric-value {
+        font-size: 1.35rem;
+        line-height: 1.2;
+        margin-bottom: 0;
+    }
+    
+    @media (min-width: 1400px) {
+        .metric-value {
+            font-size: 1.5rem;
+        }
     }
 </style>
 {% endblock %}
@@ -187,7 +283,7 @@
     </div>
 
     <!-- ============================================ -->
-    <!-- SECCIÓN 1: MÉTRICAS CLAVE                    -->
+    <!-- SECCIÓN 1: MÉTRICAS CLAVE - UNIFORMES        -->
     <!-- ============================================ -->
     <div class="seccion-metricas mb-4">
         <div class="d-flex justify-content-between align-items-center mb-3">
@@ -198,129 +294,117 @@
             <span class="badge bg-light text-dark">Hoy</span>
         </div>
 
-        <div class="row g-3">
+        <div class="metricas-grid">
             <!-- Total Ventas -->
-            <div class="col-12 col-sm-6 col-md-4 col-lg-3 col-xl-2 d-flex">
-                <div class="card border-left-primary shadow h-100 w-100">
-                    <div class="card-body">
-                        <div class="d-flex justify-content-between align-items-center">
-                            <div>
-                                <div class="text-xs text-primary text-uppercase fw-bold mb-1">
-                                    Total Ventas
-                                </div>
-                                <div class="h5 mb-0 fw-bold text-gray-800">
-                                    C$ {{ "{:,.2f}".format(total_ventas_hoy|float) }}
-                                </div>
+            <div class="card border-left-primary shadow card-uniform">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center h-100">
+                        <div class="flex-grow-1">
+                            <div class="text-xs text-primary text-uppercase fw-bold mb-1">
+                                Total Ventas
                             </div>
-                            <div class="icon-circle bg-primary-light">
-                                <i class="fas fa-shopping-cart text-primary"></i>
+                            <div class="metric-value fw-bold text-gray-800">
+                                C$ {{ "{:,.2f}".format(total_ventas_hoy|float) }}
                             </div>
+                        </div>
+                        <div class="icon-circle bg-primary-light ms-2">
+                            <i class="fas fa-shopping-cart text-primary"></i>
                         </div>
                     </div>
                 </div>
             </div>
 
             <!-- Ventas Contado -->
-            <div class="col-12 col-sm-6 col-md-4 col-lg-3 col-xl-2 d-flex">
-                <div class="card border-left-success shadow h-100 w-100">
-                    <div class="card-body">
-                        <div class="d-flex justify-content-between align-items-center">
-                            <div>
-                                <div class="text-xs text-success text-uppercase fw-bold mb-1">
-                                    Contado
-                                </div>
-                                <div class="h5 mb-0 fw-bold text-gray-800">
-                                    C$ {{ "{:,.2f}".format(total_ventas_contado_hoy|float) }}
-                                </div>
+            <div class="card border-left-success shadow card-uniform">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center h-100">
+                        <div class="flex-grow-1">
+                            <div class="text-xs text-success text-uppercase fw-bold mb-1">
+                                Contado
                             </div>
-                            <div class="icon-circle bg-success-light">
-                                <i class="fas fa-money-bill text-success"></i>
+                            <div class="metric-value fw-bold text-gray-800">
+                                C$ {{ "{:,.2f}".format(total_ventas_contado_hoy|float) }}
                             </div>
+                        </div>
+                        <div class="icon-circle bg-success-light ms-2">
+                            <i class="fas fa-money-bill text-success"></i>
                         </div>
                     </div>
                 </div>
             </div>
 
             <!-- Ventas Crédito -->
-            <div class="col-12 col-sm-6 col-md-4 col-lg-3 col-xl-2 d-flex">
-                <div class="card border-left-warning shadow h-100 w-100">
-                    <div class="card-body">
-                        <div class="d-flex justify-content-between align-items-center">
-                            <div>
-                                <div class="text-xs text-warning text-uppercase fw-bold mb-1">
-                                    Crédito
-                                </div>
-                                <div class="h5 mb-0 fw-bold text-gray-800">
-                                    C$ {{ "{:,.2f}".format(total_ventas_credito_hoy|float) }}
-                                </div>
+            <div class="card border-left-warning shadow card-uniform">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center h-100">
+                        <div class="flex-grow-1">
+                            <div class="text-xs text-warning text-uppercase fw-bold mb-1">
+                                Crédito
                             </div>
-                            <div class="icon-circle bg-warning-light">
-                                <i class="fas fa-credit-card text-warning"></i>
+                            <div class="metric-value fw-bold text-gray-800">
+                                C$ {{ "{:,.2f}".format(total_ventas_credito_hoy|float) }}
                             </div>
+                        </div>
+                        <div class="icon-circle bg-warning-light ms-2">
+                            <i class="fas fa-credit-card text-warning"></i>
                         </div>
                     </div>
                 </div>
             </div>
 
             <!-- Cobros Realizados -->
-            <div class="col-12 col-sm-6 col-md-4 col-lg-3 col-xl-2 d-flex">
-                <div class="card border-left-info shadow h-100 w-100">
-                    <div class="card-body">
-                        <div class="d-flex justify-content-between align-items-center">
-                            <div>
-                                <div class="text-xs text-info text-uppercase fw-bold mb-1">
-                                    Cobros Hoy
-                                </div>
-                                <div class="h5 mb-0 fw-bold text-gray-800">
-                                    C$ {{ "{:,.2f}".format(total_cobrado_hoy|float) }}
-                                </div>
+            <div class="card border-left-info shadow card-uniform">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center h-100">
+                        <div class="flex-grow-1">
+                            <div class="text-xs text-info text-uppercase fw-bold mb-1">
+                                Cobros Hoy
                             </div>
-                            <div class="icon-circle bg-info-light">
-                                <i class="fas fa-hand-holding-usd text-info"></i>
+                            <div class="metric-value fw-bold text-gray-800">
+                                C$ {{ "{:,.2f}".format(total_cobrado_hoy|float) }}
                             </div>
+                        </div>
+                        <div class="icon-circle bg-info-light ms-2">
+                            <i class="fas fa-hand-holding-usd text-info"></i>
                         </div>
                     </div>
                 </div>
             </div>
 
             <!-- Saldo de Caja -->
-            <div class="col-12 col-sm-6 col-md-4 col-lg-3 col-xl-2 d-flex">
-                <div class="card border-left-dark shadow h-100 w-100">
-                    <div class="card-body">
-                        <div class="d-flex justify-content-between align-items-center">
-                            <div>
-                                <div class="text-xs text-dark text-uppercase fw-bold mb-1">
-                                    Saldo Caja
-                                </div>
-                                <div class="h5 mb-0 fw-bold {% if saldo_caja|float < 0 %}text-danger{% else %}text-success{% endif %}">
-                                    C$ {{ "{:,.2f}".format(saldo_caja|float) }}
-                                </div>
+            <div class="card border-left-dark shadow card-uniform">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center h-100">
+                        <div class="flex-grow-1">
+                            <div class="text-xs text-dark text-uppercase fw-bold mb-1">
+                                Saldo Caja
                             </div>
-                            <div class="icon-circle bg-dark-light">
-                                <i class="fas fa-cash-register text-dark"></i>
+                            <div class="metric-value fw-bold {% if saldo_caja|float < 0 %}text-danger{% else %}text-success{% endif %}">
+                                C$ {{ "{:,.2f}".format(saldo_caja|float) }}
                             </div>
+                        </div>
+                        <div class="icon-circle bg-dark-light ms-2">
+                            <i class="fas fa-cash-register text-dark"></i>
                         </div>
                     </div>
                 </div>
             </div>
 
             <!-- Próximos a Vencer -->
-            <div class="col-12 col-sm-6 col-md-4 col-lg-3 col-xl-2 d-flex">
-                <div class="card border-left-danger shadow h-100 w-100">
-                    <div class="card-body">
-                        <div class="d-flex justify-content-between align-items-center">
-                            <div>
-                                <div class="text-xs text-danger text-uppercase fw-bold mb-1">
-                                    Por Vencer (7d)
-                                </div>
-                                <div class="h5 mb-0 fw-bold text-gray-800">
-                                    C$ {{ "{:,.2f}".format(monto_proximo|float) }}
-                                </div>
-                                <small class="text-muted">{{ cobros_proximos }} créditos</small>
+            <div class="card border-left-danger shadow card-uniform">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center h-100">
+                        <div class="flex-grow-1">
+                            <div class="text-xs text-danger text-uppercase fw-bold mb-1">
+                                Por Vencer (7d)
                             </div>
-                            <div class="icon-circle bg-danger-light">
-                                <i class="fas fa-clock text-danger"></i>
+                            <div class="metric-value fw-bold text-gray-800">
+                                C$ {{ "{:,.2f}".format(monto_proximo|float) }}
                             </div>
+                            <small class="text-muted">{{ cobros_proximos }} créditos</small>
+                        </div>
+                        <div class="icon-circle bg-danger-light ms-2">
+                            <i class="fas fa-clock text-danger"></i>
                         </div>
                     </div>
                 </div>
@@ -329,7 +413,7 @@
     </div>
 
     <!-- ============================================ -->
-    <!-- SECCIÓN 2: ESTADO DE CARTERA                 -->
+    <!-- SECCIÓN 2: ESTADO DE CARTERA - UNIFORME      -->
     <!-- ============================================ -->
     {% if resumen_cartera and resumen_cartera.Total_Cartera > 0 %}
     <div class="seccion-cartera mb-4">
@@ -341,16 +425,16 @@
         </div>
         
         <div class="row g-3">
-            <div class="col-12 col-md-6">
-                <div class="card shadow-sm h-100">
+            <div class="col-12 col-md-6 col-lg-8">
+                <div class="card shadow card-uniform">
                     <div class="card-body">
-                        <div class="d-flex justify-content-between align-items-start">
-                            <div>
+                        <div class="d-flex justify-content-between align-items-start flex-wrap h-100">
+                            <div class="flex-grow-1">
                                 <p class="text-muted mb-1 small">Total por Cobrar</p>
                                 <h3 class="mb-0 fw-bold text-primary">C$ {{ "{:,.2f}".format(resumen_cartera.Total_Cartera|float) }}</h3>
                                 <small class="text-muted">{{ resumen_cartera.Total_Creditos }} créditos activos</small>
                             </div>
-                            <div class="text-end">
+                            <div class="text-end ms-3">
                                 <p class="text-muted mb-1 small">Promedio por Crédito</p>
                                 <h5 class="mb-0">C$ {{ "{:,.2f}".format(resumen_cartera.Promedio_Credito|float) }}</h5>
                             </div>
@@ -362,10 +446,10 @@
                 </div>
             </div>
             
-            <div class="col-12 col-md-6">
-                <div class="card shadow-sm h-100 {% if clientes_vencidos|length > 0 %}border-danger{% endif %}">
+            <div class="col-12 col-md-6 col-lg-4">
+                <div class="card shadow card-uniform {% if clientes_vencidos|length > 0 %}border-danger{% endif %}">
                     <div class="card-body">
-                        <div class="d-flex justify-content-between align-items-center">
+                        <div class="d-flex justify-content-between align-items-center h-100">
                             <div>
                                 <p class="text-muted mb-1 small">Clientes con Vencimiento</p>
                                 <h3 class="mb-0 fw-bold {% if clientes_vencidos|length > 0 %}text-danger{% else %}text-success{% endif %}">
@@ -373,7 +457,7 @@
                                 </h3>
                                 <small class="text-muted">clientes con pagos atrasados</small>
                             </div>
-                            <div class="icon-circle-lg {% if clientes_vencidos|length > 0 %}bg-danger-light{% else %}bg-success-light{% endif %}">
+                            <div class="icon-circle-lg {% if clientes_vencidos|length > 0 %}bg-danger-light{% else %}bg-success-light{% endif %} ms-2">
                                 <i class="fas {% if clientes_vencidos|length > 0 %}fa-exclamation-triangle text-danger{% else %}fa-check-circle text-success{% endif %} fa-2x"></i>
                             </div>
                         </div>
@@ -385,7 +469,7 @@
     {% endif %}
 
     <!-- ============================================ -->
-    <!-- SECCIÓN 3: ANÁLISIS GRÁFICO                  -->
+    <!-- SECCIÓN 3: ANÁLISIS GRÁFICO - UNIFORME       -->
     <!-- ============================================ -->
     <div class="seccion-graficos mb-4">
         <div class="d-flex justify-content-between align-items-center mb-3">
@@ -398,16 +482,16 @@
         <div class="row g-3">
             <!-- Gráfico de tendencia -->
             <div class="col-12 col-lg-7">
-                <div class="card shadow-sm">
-                    <div class="card-header bg-white py-3">
+                <div class="card shadow card-uniform">
+                    <div class="card-header bg-white">
                         <h6 class="mb-0 fw-bold">
                             <i class="fas fa-chart-line me-2 text-primary"></i>
                             Evolución de Ventas (30 días)
                         </h6>
                     </div>
                     <div class="card-body">
-                        <div class="chart-container" style="position: relative; height: 320px;">
-                            <canvas id="ventasDiariasChart"></canvas>
+                        <div class="chart-box">
+                            <canvas id="ventasDiariasChart" style="width: 100%; height: 100%;"></canvas>
                         </div>
                         {% if not ventas_fechas or ventas_fechas|length == 0 %}
                         <div class="text-center text-muted py-4">
@@ -421,16 +505,16 @@
 
             <!-- Top productos -->
             <div class="col-12 col-lg-5">
-                <div class="card shadow-sm">
-                    <div class="card-header bg-white py-3">
+                <div class="card shadow card-uniform">
+                    <div class="card-header bg-white">
                         <h6 class="mb-0 fw-bold">
                             <i class="fas fa-trophy me-2 text-warning"></i>
                             Top 5 Productos
                         </h6>
                     </div>
                     <div class="card-body">
-                        <div class="chart-container" style="position: relative; height: 320px;">
-                            <canvas id="topProductosChart"></canvas>
+                        <div class="chart-box">
+                            <canvas id="topProductosChart" style="width: 100%; height: 100%;"></canvas>
                         </div>
                         {% if not productos_nombres or productos_nombres|length == 0 %}
                         <div class="text-center text-muted py-4">
@@ -463,7 +547,7 @@
                 <div class="d-flex flex-nowrap gap-3 pb-2">
                     {% for cliente in clientes_vencidos %}
                     <div class="cliente-card flex-shrink-0" style="width: 300px;">
-                        <div class="card shadow-sm h-100 border-left-danger">
+                        <div class="card shadow-sm h-100 border-left-danger card-uniform">
                             <div class="card-body">
                                 <div class="d-flex justify-content-between align-items-start mb-2">
                                     <h6 class="mb-0 fw-bold">{{ cliente.Nombre }}</h6>
@@ -505,37 +589,40 @@
 
         <!-- Vista desktop: Tabla -->
         <div class="d-none d-lg-block">
-            <div class="card shadow-sm">
-                <div class="table-responsive">
-                    <table class="table table-hover mb-0">
-                        <thead class="table-light">
-                            <tr>
-                                <th>Cliente</th>
-                                <th>Teléfono</th>
-                                <th>Documento</th>
-                                <th>Saldo Pendiente</th>
-                                <th>Fecha Vencimiento</th>
-                                <th>Días Vencido</th>
-                                <th>Acciones</th>
+            <div class="card shadow card-uniform">
+                <div class="card-table-container">
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Cliente</th>
+                                    <th>Teléfono</th>
+                                    <th>Documento</th>
+                                    <th>Saldo Pendiente</th>
+                                    <th>Fecha Vencimiento</th>
+                                    <th>Días Vencido</th>
+                                    <th>Acciones</th>
+                                </tr>
                             </thead>
-                        <tbody>
-                            {% for cliente in clientes_vencidos %}
-                            <tr>
-                                <td class="fw-bold">{{ cliente.Nombre }}</td>
-                                <td>{{ cliente.Telefono or 'N/A' }}</td>
-                                <td>{{ cliente.Num_Documento or 'N/A' }}</td>
-                                <td class="text-danger fw-bold">C$ {{ "{:,.2f}".format(cliente.Saldo_Pendiente|float) }}</td>
-                                <td>{{ cliente.Fecha_Vencimiento.strftime('%d/%m/%Y') if cliente.Fecha_Vencimiento else 'N/A' }}</td>
-                                <td><span class="badge bg-danger">{{ cliente.Dias_Vencido }} días</span></td>
-                                <td>
-                                    <button class="btn btn-sm btn-outline-primary" onclick="verCliente({{ cliente.ID_Cliente }})">
-                                        <i class="fas fa-eye"></i>
-                                    </button>
-                                </td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
+                            <tbody>
+                                {% for cliente in clientes_vencidos %}
+                                <tr>
+                                    <td class="fw-bold">{{ cliente.Nombre }}</td>
+                                    <td>{{ cliente.Telefono or 'N/A' }}</td>
+                                    <td>{{ cliente.Num_Documento or 'N/A' }}</td>
+                                    <td class="text-danger fw-bold">C$ {{ "{:,.2f}".format(cliente.Saldo_Pendiente|float) }}</td>
+                                    <td>{{ cliente.Fecha_Vencimiento.strftime('%d/%m/%Y') if cliente.Fecha_Vencimiento else 'N/A' }}</td>
+                                    <td><span class="badge bg-danger">{{ cliente.Dias_Vencido }} días</span></td>
+                                    <td>
+                                        <button class="btn btn-sm btn-outline-primary" onclick="verCliente({{ cliente.ID_Cliente }})">
+                                            <i class="fas fa-eye"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
         </div>
@@ -543,7 +630,7 @@
     {% endif %}
 
     <!-- ============================================ -->
-    <!-- SECCIÓN 5: ACTIVIDAD RECIENTE                -->
+    <!-- SECCIÓN 5: ACTIVIDAD RECIENTE - UNIFORME     -->
     <!-- ============================================ -->
     <div class="seccion-actividad mb-4">
         <div class="d-flex justify-content-between align-items-center mb-3">
@@ -556,14 +643,14 @@
         <div class="row g-3">
             <!-- Ventas Recientes -->
             <div class="col-12 col-lg-6">
-                <div class="card shadow-sm h-100">
-                    <div class="card-header bg-white py-3">
+                <div class="card shadow card-uniform">
+                    <div class="card-header bg-white">
                         <h6 class="mb-0 fw-bold">
                             <i class="fas fa-shopping-cart me-2 text-success"></i>
                             Últimas Ventas
                         </h6>
                     </div>
-                    <div class="card-body p-0">
+                    <div class="card-table-container">
                         {% if ventas_recientes and ventas_recientes|length > 0 %}
                             <!-- Vista para móvil y tablet: Tarjetas -->
                             <div class="d-block d-md-none">
@@ -639,8 +726,8 @@
 
             <!-- Inventario en Ruta -->
             <div class="col-12 col-lg-6">
-                <div class="card shadow-sm h-100">
-                    <div class="card-header bg-white py-3">
+                <div class="card shadow card-uniform">
+                    <div class="card-header bg-white">
                         <h6 class="mb-0 fw-bold">
                             <i class="fas fa-boxes me-2 text-info"></i>
                             Inventario en Ruta
@@ -649,7 +736,7 @@
                             {% endif %}
                         </h6>
                     </div>
-                    <div class="card-body p-0">
+                    <div class="card-table-container">
                         {% if inventario_ruta and inventario_ruta|length > 0 %}
                             <!-- Vista para móvil y tablet: Tarjetas -->
                             <div class="d-block d-md-none">
@@ -740,7 +827,7 @@
             </h5>
         </div>
         
-        <div class="card shadow-sm">
+        <div class="card shadow card-uniform">
             <div class="card-body p-0">
                 <!-- Vista para móvil y tablet: Tarjetas -->
                 <div class="d-block d-md-none">
@@ -822,7 +909,7 @@
     <!-- SECCIÓN 7: ACCIONES RÁPIDAS                  -->
     <!-- ============================================ -->
     <div class="seccion-acciones mb-4">
-        <div class="card shadow-sm">
+        <div class="card shadow card-uniform">
             <div class="card-body text-center py-4">
                 <h5 class="mb-3 fw-bold">
                     <i class="fas fa-bolt text-warning me-2"></i>

@@ -2,54 +2,230 @@
 
 {% block title %}Editar Producto{% endblock %}
 
+{% block extra_css %}
+<style>
+    /* Estilos profesionales y sobrios - Mismo estilo que gestión de productos */
+    .stats-card {
+        background: white;
+        border-radius: 8px;
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+        border: 1px solid #e5e7eb;
+        transition: all 0.2s;
+        position: relative;
+    }
+    
+    .stats-card:hover {
+        box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+    }
+    
+    .stats-number {
+        font-size: 2rem;
+        font-weight: 600;
+        margin-bottom: 0.5rem;
+        color: #1f2937;
+    }
+    
+    .stats-label {
+        font-size: 0.85rem;
+        color: #6b7280;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    
+    .card-custom {
+        background: white;
+        border-radius: 8px;
+        border: 1px solid #e5e7eb;
+        box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+    }
+    
+    .form-label {
+        font-weight: 500;
+        font-size: 0.8rem;
+        margin-bottom: 0.4rem;
+        color: #374151;
+    }
+    
+    .form-control, .form-select {
+        border: 1px solid #d1d5db;
+        border-radius: 6px;
+        font-size: 0.875rem;
+    }
+    
+    .form-control:focus, .form-select:focus {
+        border-color: #9ca3af;
+        box-shadow: 0 0 0 2px rgba(156, 163, 175, 0.1);
+    }
+    
+    .required-field::after {
+        content: "*";
+        color: #dc2626;
+        margin-left: 4px;
+    }
+    
+    .btn-primary {
+        background-color: #374151;
+        border-color: #374151;
+    }
+    
+    .btn-primary:hover {
+        background-color: #1f2937;
+        border-color: #1f2937;
+    }
+    
+    .btn-secondary {
+        background-color: #6b7280;
+        border-color: #6b7280;
+    }
+    
+    .btn-secondary:hover {
+        background-color: #4b5563;
+        border-color: #4b5563;
+    }
+    
+    .alert {
+        border-radius: 6px;
+        border: 1px solid #e5e7eb;
+    }
+    
+    .alert-info {
+        background-color: #eff6ff;
+        border-color: #bfdbfe;
+        color: #1e40af;
+    }
+    
+    .alert-warning {
+        background-color: #fef3c7;
+        border-color: #fde68a;
+        color: #92400e;
+    }
+    
+    .badge {
+        font-weight: 500;
+        padding: 0.25rem 0.5rem;
+        border-radius: 4px;
+    }
+    
+    .badge.bg-primary {
+        background-color: #6b7280 !important;
+    }
+    
+    .badge.bg-warning {
+        background-color: #f59e0b !important;
+        color: white;
+    }
+    
+    .badge.bg-info {
+        background-color: #06b6d4 !important;
+        color: white;
+    }
+    
+    .table {
+        font-size: 0.875rem;
+    }
+    
+    .table th {
+        font-weight: 600;
+        font-size: 0.8rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        background-color: #f9fafb;
+        color: #374151;
+        border-bottom: 1px solid #e5e7eb;
+    }
+    
+    .table td {
+        vertical-align: middle;
+        color: #4b5563;
+    }
+    
+    .table-warning {
+        background-color: #fef3c7 !important;
+    }
+    
+    .card-header {
+        background-color: #f9fafb;
+        border-bottom: 1px solid #e5e7eb;
+        padding: 1rem 1.25rem;
+    }
+    
+    .card-header .card-title {
+        color: #1f2937;
+        font-weight: 600;
+    }
+    
+    .form-text {
+        font-size: 0.75rem;
+        color: #6b7280;
+        margin-top: 0.25rem;
+    }
+    
+    hr {
+        border-color: #e5e7eb;
+    }
+    
+    .input-group-text {
+        background-color: #f9fafb;
+        border: 1px solid #d1d5db;
+        color: #4b5563;
+    }
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="container-fluid py-4">
-    <!-- Header -->
-    <div class="d-flex justify-content-between align-items-center mb-4">
+    <!-- Header con información del producto -->
+    <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
         <h1><i class="fas fa-edit me-2"></i>Editar Producto</h1>
         <a href="{{ url_for('admin.admin_productos') }}" class="btn btn-secondary">
             <i class="fas fa-arrow-left me-2"></i>Volver a Productos
         </a>
     </div>
 
+    <!-- Tarjetas de información del producto -->
+    <div class="row mb-4">
+        <div class="col-md-4">
+            <div class="stats-card">
+                <div class="stats-number">{{ "%.2f"|format(producto.get('Existencias_Totales', 0)) }}</div>
+                <div class="stats-label">Existencias Totales</div>
+                <i class="fas fa-warehouse position-absolute" style="right: 1.2rem; top: 1.2rem; font-size: 1.5rem; opacity: 0.3;"></i>
+                <small class="text-muted d-block mt-2">{{ producto['Abreviatura'] }}</small>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="stats-card">
+                <div class="stats-number">{{ "%.2f"|format(producto['Stock_Minimo']) }}</div>
+                <div class="stats-label">Stock Mínimo</div>
+                <i class="fas fa-chart-line position-absolute" style="right: 1.2rem; top: 1.2rem; font-size: 1.5rem; opacity: 0.3;"></i>
+                <small class="text-muted d-block mt-2">{{ producto['Abreviatura'] }}</small>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="stats-card">
+                <div class="stats-number">{{ producto['Nombre_Unidad'] }}</div>
+                <div class="stats-label">Unidad de Medida</div>
+                <i class="fas fa-ruler position-absolute" style="right: 1.2rem; top: 1.2rem; font-size: 1.5rem; opacity: 0.3;"></i>
+                <small class="text-muted d-block mt-2">{{ producto['Abreviatura'] }}</small>
+            </div>
+        </div>
+    </div>
+
     <!-- Formulario de Edición -->
-    <div class="card">
+    <div class="card-custom">
         <div class="card-header">
             <h5 class="card-title mb-0"><i class="fas fa-box me-2"></i>Información del Producto</h5>
         </div>
-        <div class="card-body">
-            <!-- Información de Existencias -->
-            <div class="alert alert-info mb-4">
-                <div class="row">
-                    <div class="col-md-4">
-                        <strong><i class="fas fa-warehouse me-2"></i>Existencias Totales:</strong>
-                        <span class="badge bg-primary fs-6 ms-2">
-                            {{ "%.2f"|format(producto.get('Existencias_Totales', 0)) }} {{ producto['Abreviatura'] }}
-                        </span>
-                    </div>
-                    <div class="col-md-4">
-                        <strong><i class="fas fa-boxes me-2"></i>Stock Mínimo:</strong>
-                        <span class="badge bg-warning fs-6 ms-2">
-                            {{ "%.2f"|format(producto['Stock_Minimo']) }} {{ producto['Abreviatura'] }}
-                        </span>
-                    </div>
-                    <div class="col-md-4">
-                        <strong><i class="fas fa-tag me-2"></i>Unidad:</strong>
-                        <span class="badge bg-info fs-6 ms-2">
-                            {{ producto['Nombre_Unidad'] }} ({{ producto['Abreviatura'] }})
-                        </span>
-                    </div>
-                </div>
-            </div>
-
+        <div class="card-body p-4">
             <form method="POST" action="{{ url_for('admin.admin_editar_producto', id_producto=producto['ID_Producto']) }}">
-                <div class="row">
-                    <div class="col-md-6 mb-3">
+                <div class="row g-3">
+                    <div class="col-md-6">
                         <label class="form-label">ID Producto</label>
                         <input type="text" class="form-control" value="{{ producto['ID_Producto'] }}" readonly disabled>
                         <div class="form-text">Identificador único del producto (no editable)</div>
                     </div>
-                    <div class="col-md-6 mb-3">
+                    <div class="col-md-6">
                         <label class="form-label">Código Producto</label>
                         <input type="text" class="form-control" name="COD_Producto" 
                                value="{{ producto['COD_Producto'] or '' }}" placeholder="Ej: PROD-001">
@@ -57,18 +233,18 @@
                     </div>
                 </div>
 
-                <div class="row">
-                    <div class="col-md-12 mb-3">
-                        <label class="form-label">Descripción *</label>
+                <div class="row mt-3">
+                    <div class="col-12">
+                        <label class="form-label required-field">Descripción</label>
                         <input type="text" class="form-control" name="Descripcion" 
                                value="{{ producto['Descripcion'] }}" placeholder="Descripción del producto" required>
                         <div class="form-text">Nombre o descripción completa del producto</div>
                     </div>
                 </div>
                 
-                <div class="row">
-                    <div class="col-md-6 mb-3">
-                        <label class="form-label">Unidad de Medida *</label>
+                <div class="row mt-3">
+                    <div class="col-md-6">
+                        <label class="form-label required-field">Unidad de Medida</label>
                         <select class="form-select" name="Unidad_Medida" required>
                             <option value="">Seleccionar unidad</option>
                             {% for unidad in unidades %}
@@ -80,8 +256,8 @@
                             {% endfor %}
                         </select>
                     </div>
-                    <div class="col-md-6 mb-3">
-                        <label class="form-label">Categoría *</label>
+                    <div class="col-md-6">
+                        <label class="form-label required-field">Categoría</label>
                         <select class="form-select" name="ID_Categoria" required>
                             <option value="">Seleccionar categoría</option>
                             {% for categoria in categorias %}
@@ -94,45 +270,45 @@
                     </div>
                 </div>
                 
-                <div class="row">
-                    <div class="col-md-4 mb-3">
+                <div class="row mt-3">
+                    <div class="col-md-4">
                         <label class="form-label">Precio Mercado</label>
                         <div class="input-group">
                             <span class="input-group-text">C$</span>
                             <input type="number" class="form-control" name="Precio_Mercado" 
                                    value="{{ producto['Precio_Mercado'] or 0 }}" step="0.01" min="0">
                         </div>
-                        <div class="form-text">Precio de mercado</div>
+                        <div class="form-text">Precio de venta al público general</div>
                     </div>
-                    <div class="col-md-4 mb-3">
+                    <div class="col-md-4">
                         <label class="form-label">Precio Mayorista</label>
                         <div class="input-group">
                             <span class="input-group-text">C$</span>
                             <input type="number" class="form-control" name="Precio_Mayorista" 
                                    value="{{ producto['Precio_Mayorista'] or 0 }}" step="0.01" min="0">
                         </div>
-                        <div class="form-text">Precio mayorista</div>
+                        <div class="form-text">Precio para compras al por mayor</div>
                     </div>
-                    <div class="col-md-4 mb-3">
+                    <div class="col-md-4">
                         <label class="form-label">Precio Ruta</label>
                         <div class="input-group">
                             <span class="input-group-text">C$</span>
                             <input type="number" class="form-control" name="Precio_Ruta" 
                                    value="{{ producto['Precio_Ruta'] or 0 }}" step="0.01" min="0">
                         </div>
-                        <div class="form-text">Precio de ruta</div>
+                        <div class="form-text">Precio especial para rutas de venta</div>
                     </div>
                 </div>
 
-                <div class="row">
-                    <div class="col-md-4 mb-3">
+                <div class="row mt-3">
+                    <div class="col-md-4">
                         <label class="form-label">Stock Mínimo</label>
                         <input type="number" class="form-control" name="Stock_Minimo" 
                                value="{{ producto['Stock_Minimo'] or 5 }}" step="0.01" min="0">
                         <div class="form-text">Nivel mínimo de inventario</div>
                     </div>
-                    <div class="col-md-4 mb-3">
-                        <label class="form-label">Empresa *</label>
+                    <div class="col-md-4">
+                        <label class="form-label required-field">Empresa</label>
                         <select class="form-select" name="ID_Empresa" required>
                             <option value="">Seleccionar empresa</option>
                             {% for empresa in empresas %}
@@ -143,7 +319,7 @@
                             {% endfor %}
                         </select>
                     </div>
-                    <div class="col-md-4 mb-3">
+                    <div class="col-md-4">
                         <label class="form-label">Estado</label>
                         <select class="form-select" name="Estado">
                             <option value="activo" {% if producto['Estado'] == 'activo' %}selected{% endif %}>Activo</option>
@@ -157,10 +333,11 @@
                 {% if inventario_bodegas %}
                 <div class="row mt-4">
                     <div class="col-12">
+                        <hr>
                         <h6 class="mb-3"><i class="fas fa-warehouse me-2"></i>Inventario por Bodega</h6>
                         <div class="table-responsive">
-                            <table class="table table-sm table-bordered">
-                                <thead class="table-light">
+                            <table class="table table-hover">
+                                <thead>
                                     <tr>
                                         <th>Bodega</th>
                                         <th>Empresa</th>
@@ -169,21 +346,24 @@
                                 </thead>
                                 <tbody>
                                     {% for inventario in inventario_bodegas %}
-                                    <tr>
+                                    <tr class="{% if inventario['Existencias']|float <= producto['Stock_Minimo']|float %}table-warning{% endif %}">
                                         <td>{{ inventario['Nombre_Bodega'] }}</td>
                                         <td>{{ inventario['Nombre_Empresa'] }}</td>
-                                        <td class="{% if inventario['Existencias'] <= producto['Stock_Minimo'] %}table-warning{% endif %}">
+                                        <td>
                                             {{ "%.2f"|format(inventario['Existencias']) }} {{ producto['Abreviatura'] }}
-                                            {% if inventario['Existencias'] <= producto['Stock_Minimo'] %}
-                                            <i class="fas fa-exclamation-triangle text-warning ms-1" title="Stock por debajo del mínimo"></i>
+                                            {% if inventario['Existencias']|float <= producto['Stock_Minimo']|float %}
+                                            <i class="fas fa-exclamation-triangle ms-1" style="color: #f59e0b;" title="Stock por debajo del mínimo"></i>
                                             {% endif %}
-                                        </td>
+                                         </td>
                                     </tr>
                                     {% endfor %}
                                 </tbody>
                             </table>
                         </div>
-                        <div class="form-text">Para modificar existencias, use el módulo de movimientos de inventario</div>
+                        <div class="form-text">
+                            <i class="fas fa-info-circle me-1"></i>
+                            Para modificar existencias, use el módulo de movimientos de inventario
+                        </div>
                     </div>
                 </div>
                 {% else %}
@@ -202,14 +382,14 @@
                     <div class="col-12">
                         <hr>
                         <h6 class="mb-3"><i class="fas fa-history me-2"></i>Información de Auditoría</h6>
-                        <div class="row">
+                        <div class="row g-3">
                             <div class="col-md-4">
                                 <small class="text-muted">Creado por:</small>
-                                <p class="mb-1">{{ producto['Usuario_Creador_Nombre'] or 'Sistema' }}</p>
+                                <p class="mb-1 fw-semibold">{{ producto['Usuario_Creador_Nombre'] or 'Sistema' }}</p>
                             </div>
                             <div class="col-md-4">
                                 <small class="text-muted">Fecha creación:</small>
-                                <p class="mb-1">
+                                <p class="mb-1 fw-semibold">
                                     {% if producto['Fecha_Creacion'] %}
                                         {{ producto['Fecha_Creacion'].strftime('%d/%m/%Y %H:%M') }}
                                     {% else %}
@@ -219,24 +399,146 @@
                             </div>
                             <div class="col-md-4">
                                 <small class="text-muted">Última actualización:</small>
-                                <p class="mb-1">{{ fecha_actual }}</p>
+                                <p class="mb-1 fw-semibold">{{ fecha_actual }}</p>
                             </div>
                         </div>
                     </div>
                 </div>
 
+                <!-- Botones de acción -->
                 <div class="row mt-4">
                     <div class="col-12">
-                        <button type="submit" class="btn btn-primary">
-                            <i class="fas fa-save me-2"></i>Guardar Cambios
-                        </button>
-                        <a href="{{ url_for('admin.admin_productos') }}" class="btn btn-secondary">
-                            <i class="fas fa-times me-2"></i>Cancelar
-                        </a>
+                        <hr>
+                        <div class="d-flex gap-2">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save me-2"></i>Guardar Cambios
+                            </button>
+                            <a href="{{ url_for('admin.admin_productos') }}" class="btn btn-secondary">
+                                <i class="fas fa-times me-2"></i>Cancelar
+                            </a>
+                        </div>
                     </div>
                 </div>
             </form>
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Validación del formulario antes de enviar
+    const form = document.querySelector('form');
+    if (form) {
+        form.addEventListener('submit', function(e) {
+            const descripcion = form.querySelector('input[name="Descripcion"]');
+            const unidad = form.querySelector('select[name="Unidad_Medida"]');
+            const categoria = form.querySelector('select[name="ID_Categoria"]');
+            const empresa = form.querySelector('select[name="ID_Empresa"]');
+            
+            const precioMercado = parseFloat(form.querySelector('input[name="Precio_Mercado"]').value || 0);
+            const precioMayorista = parseFloat(form.querySelector('input[name="Precio_Mayorista"]').value || 0);
+            const precioRuta = parseFloat(form.querySelector('input[name="Precio_Ruta"]').value || 0);
+            const stockMinimo = parseFloat(form.querySelector('input[name="Stock_Minimo"]').value || 0);
+            
+            let isValid = true;
+            let errorMessage = '';
+            
+            if (!descripcion.value.trim()) {
+                isValid = false;
+                errorMessage = 'La descripción es obligatoria';
+                descripcion.focus();
+            } else if (!unidad.value) {
+                isValid = false;
+                errorMessage = 'La unidad de medida es obligatoria';
+                unidad.focus();
+            } else if (!categoria.value) {
+                isValid = false;
+                errorMessage = 'La categoría es obligatoria';
+                categoria.focus();
+            } else if (!empresa.value) {
+                isValid = false;
+                errorMessage = 'La empresa es obligatoria';
+                empresa.focus();
+            } else if (stockMinimo < 0) {
+                isValid = false;
+                errorMessage = 'El stock mínimo no puede ser negativo';
+                form.querySelector('input[name="Stock_Minimo"]').focus();
+            } else if (precioMercado < 0) {
+                isValid = false;
+                errorMessage = 'El precio mercado no puede ser negativo';
+                form.querySelector('input[name="Precio_Mercado"]').focus();
+            } else if (precioMayorista < 0) {
+                isValid = false;
+                errorMessage = 'El precio mayorista no puede ser negativo';
+                form.querySelector('input[name="Precio_Mayorista"]').focus();
+            } else if (precioRuta < 0) {
+                isValid = false;
+                errorMessage = 'El precio ruta no puede ser negativo';
+                form.querySelector('input[name="Precio_Ruta"]').focus();
+            } else if (precioMercado === 0 && precioMayorista === 0 && precioRuta === 0) {
+                isValid = false;
+                errorMessage = 'Debe ingresar al menos un precio mayor a 0';
+                form.querySelector('input[name="Precio_Mercado"]').focus();
+            }
+            
+            if (!isValid) {
+                e.preventDefault();
+                mostrarAlerta(errorMessage, 'danger');
+                return false;
+            }
+            
+            return true;
+        });
+    }
+    
+    // Función para mostrar alertas
+    function mostrarAlerta(mensaje, tipo) {
+        // Verificar si ya existe una alerta
+        const alertaExistente = document.querySelector('.alert-floating');
+        if (alertaExistente) {
+            alertaExistente.remove();
+        }
+        
+        const alertDiv = document.createElement('div');
+        alertDiv.className = `alert alert-${tipo} alert-dismissible fade show position-fixed alert-floating`;
+        alertDiv.style.cssText = 'top: 20px; right: 20px; z-index: 9999; min-width: 300px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);';
+        alertDiv.innerHTML = `
+            <i class="fas fa-${tipo === 'success' ? 'check-circle' : tipo === 'danger' ? 'exclamation-circle' : 'info-circle'} me-2"></i>
+            ${mensaje}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        `;
+        document.body.appendChild(alertDiv);
+        
+        setTimeout(() => {
+            if (alertDiv) alertDiv.remove();
+        }, 3000);
+    }
+    
+    // Tooltips para información adicional
+    const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+    tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl);
+    });
+    
+    // Advertencia de stock bajo en las tarjetas
+    const existenciasTotales = parseFloat('{{ producto.get("Existencias_Totales", 0) }}');
+    const stockMinimo = parseFloat('{{ producto["Stock_Minimo"] }}');
+    
+    if (existenciasTotales <= stockMinimo && existenciasTotales > 0) {
+        const alertDiv = document.createElement('div');
+        alertDiv.className = 'alert alert-warning alert-dismissible fade show mb-4';
+        alertDiv.innerHTML = `
+            <i class="fas fa-exclamation-triangle me-2"></i>
+            <strong>¡Atención!</strong> Las existencias totales (${existenciasTotales.toFixed(2)} ${'{{ producto["Abreviatura"] }}'}) están en o por debajo del stock mínimo (${stockMinimo.toFixed(2)} ${'{{ producto["Abreviatura"] }}'}).
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        `;
+        const container = document.querySelector('.container-fluid');
+        if (container) {
+            container.insertBefore(alertDiv, container.firstChild);
+        }
+    }
+});
+</script>
 {% endblock %}

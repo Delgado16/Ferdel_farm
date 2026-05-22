@@ -1,13 +1,547 @@
 {% extends "layout.html" %}
 
-{% block title %}Nuevo Pedido{% endblock %}
+{% block title %}Nuevo Pedido Individual{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* ============================================ */
+    /* MEJORAS VISUALES - DISEÑO PROFESIONAL        */
+    /* ============================================ */
+    
+    /* Variables globales */
+    :root {
+        --spacing-xs: 0.25rem;
+        --spacing-sm: 0.5rem;
+        --spacing-md: 1rem;
+        --spacing-lg: 1.5rem;
+        --spacing-xl: 2rem;
+        --border-radius-sm: 6px;
+        --border-radius-md: 10px;
+        --border-radius-lg: 12px;
+        --shadow-sm: 0 1px 2px rgba(0,0,0,0.05);
+        --shadow-md: 0 4px 6px -1px rgba(0,0,0,0.1);
+        --shadow-lg: 0 10px 15px -3px rgba(0,0,0,0.1);
+        --transition-fast: 150ms ease;
+        --transition-normal: 250ms ease;
+        --color-primary: #374151;
+        --color-primary-dark: #1f2937;
+        --color-gray-50: #f9fafb;
+        --color-gray-100: #f3f4f6;
+        --color-gray-200: #e5e7eb;
+        --color-gray-300: #d1d5db;
+        --color-gray-400: #9ca3af;
+        --color-gray-500: #6b7280;
+        --color-gray-600: #4b5563;
+        --color-gray-700: #374151;
+        --color-gray-800: #1f2937;
+        --color-gray-900: #111827;
+        --color-success: #10b981;
+        --color-danger: #ef4444;
+        --color-warning: #f59e0b;
+        --color-info: #06b6d4;
+    }
+    
+    /* Espaciado mejorado */
+    .container-fluid {
+        padding: var(--spacing-lg) var(--spacing-xl);
+    }
+    
+    @media (max-width: 768px) {
+        .container-fluid {
+            padding: var(--spacing-md);
+        }
+    }
+    
+    /* Cards mejoradas */
+    .card-custom {
+        background: white;
+        border-radius: var(--border-radius-md);
+        border: 1px solid var(--color-gray-200);
+        box-shadow: var(--shadow-sm);
+        transition: box-shadow var(--transition-normal);
+        overflow: hidden;
+    }
+    
+    .card-custom:hover {
+        box-shadow: var(--shadow-md);
+    }
+    
+    .card-header-custom {
+        background: linear-gradient(to bottom, #fafbfc, var(--color-gray-50));
+        border-bottom: 1px solid var(--color-gray-200);
+        padding: var(--spacing-md) var(--spacing-lg);
+    }
+    
+    .card-header-custom h5, 
+    .card-header-custom h6 {
+        font-weight: 600;
+        color: var(--color-gray-800);
+        margin: 0;
+        font-size: 0.95rem;
+    }
+    
+    /* Info Cliente - Tarjeta mejorada */
+    .cliente-info-card {
+        background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+        border-radius: var(--border-radius-md);
+        padding: var(--spacing-lg);
+        margin-bottom: var(--spacing-lg);
+        border: 1px solid #e2e8f0;
+    }
+    
+    .cliente-info-item {
+        display: flex;
+        align-items: center;
+        gap: var(--spacing-sm);
+        margin-bottom: var(--spacing-sm);
+        font-size: 0.875rem;
+    }
+    
+    .cliente-info-label {
+        min-width: 80px;
+        color: #64748b;
+        font-weight: 500;
+    }
+    
+    .cliente-info-value {
+        color: #1e293b;
+        font-weight: 500;
+    }
+    
+    /* Categorías como Pills elegantes */
+    .categoria-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: var(--spacing-sm);
+        padding: 0.5rem 1rem;
+        background: white;
+        border: 1px solid var(--color-gray-200);
+        border-radius: 40px;
+        font-size: 0.8rem;
+        font-weight: 500;
+        color: var(--color-gray-600);
+        transition: all var(--transition-fast);
+        cursor: pointer;
+    }
+    
+    .categoria-pill i {
+        font-size: 0.8rem;
+        color: var(--color-gray-500);
+    }
+    
+    .categoria-pill:hover {
+        background: var(--color-gray-100);
+        border-color: var(--color-gray-300);
+        transform: translateY(-1px);
+    }
+    
+    .categoria-pill.active {
+        background: var(--color-primary);
+        border-color: var(--color-primary);
+        color: white;
+    }
+    
+    .categoria-pill.active i {
+        color: white;
+    }
+    
+    /* Product Cards mejoradas */
+    .producto-card {
+        border: 1px solid var(--color-gray-200);
+        border-radius: var(--border-radius-md);
+        transition: all var(--transition-normal);
+        background: white;
+        height: 100%;
+    }
+    
+    .producto-card:hover {
+        transform: translateY(-4px);
+        box-shadow: var(--shadow-lg);
+        border-color: var(--color-gray-300);
+    }
+    
+    .producto-card .card-body {
+        padding: var(--spacing-lg);
+    }
+    
+    .producto-nombre {
+        font-weight: 600;
+        color: var(--color-gray-800);
+        margin-bottom: var(--spacing-sm);
+        font-size: 0.9rem;
+    }
+    
+    .stock-indicator {
+        display: flex;
+        align-items: center;
+        gap: var(--spacing-sm);
+        margin: var(--spacing-sm) 0;
+    }
+    
+    .stock-bar {
+        flex: 1;
+        height: 6px;
+        background: var(--color-gray-200);
+        border-radius: 3px;
+        overflow: hidden;
+    }
+    
+    .stock-bar-fill {
+        height: 100%;
+        background: var(--color-success);
+        border-radius: 3px;
+        transition: width var(--transition-normal);
+    }
+    
+    .stock-bar-fill.low {
+        background: var(--color-warning);
+    }
+    
+    .stock-bar-fill.critical {
+        background: var(--color-danger);
+    }
+    
+    /* Badges mejorados */
+    .badge {
+        font-weight: 500;
+        padding: 0.3rem 0.6rem;
+        border-radius: 20px;
+        font-size: 0.7rem;
+    }
+    
+    .badge-success {
+        background: #d1fae5;
+        color: #065f46;
+    }
+    
+    .badge-warning {
+        background: #fef3c7;
+        color: #92400e;
+    }
+    
+    .badge-danger {
+        background: #fee2e2;
+        color: #991b1b;
+    }
+    
+    .badge-info {
+        background: #e0e7ff;
+        color: #3730a3;
+    }
+    
+    .badge-primary {
+        background: #e5e7eb;
+        color: #374151;
+    }
+    
+    /* Tabla mejorada */
+    .table-responsive-custom {
+        border-radius: var(--border-radius-md);
+        overflow: auto;
+    }
+    
+    .table-pedido {
+        margin-bottom: 0;
+    }
+    
+    .table-pedido thead th {
+        position: sticky;
+        top: 0;
+        background: #f8fafc;
+        font-weight: 600;
+        font-size: 0.7rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        color: #475569;
+        border-bottom: 1px solid #e2e8f0;
+        padding: var(--spacing-md);
+    }
+    
+    .table-pedido tbody td {
+        padding: var(--spacing-md);
+        vertical-align: middle;
+        border-bottom: 1px solid #f1f5f9;
+    }
+    
+    .table-pedido tbody tr:hover {
+        background: #f8fafc;
+    }
+    
+    /* Inputs mejorados */
+    .form-control, .form-select {
+        border: 1px solid var(--color-gray-200);
+        border-radius: var(--border-radius-sm);
+        padding: 0.5rem 0.75rem;
+        font-size: 0.875rem;
+        transition: all var(--transition-fast);
+    }
+    
+    .form-control:focus, .form-select:focus {
+        border-color: var(--color-gray-400);
+        box-shadow: 0 0 0 3px rgba(148, 163, 184, 0.1);
+        outline: none;
+    }
+    
+    .input-group-text {
+        background: var(--color-gray-50);
+        border: 1px solid var(--color-gray-200);
+        color: var(--color-gray-500);
+        font-size: 0.75rem;
+    }
+    
+    /* Botones mejorados */
+    .btn {
+        padding: 0.5rem 1rem;
+        font-size: 0.8rem;
+        font-weight: 500;
+        border-radius: var(--border-radius-sm);
+        transition: all var(--transition-fast);
+    }
+    
+    .btn-sm {
+        padding: 0.375rem 0.75rem;
+        font-size: 0.7rem;
+    }
+    
+    .btn-primary {
+        background: var(--color-primary);
+        border: none;
+    }
+    
+    .btn-primary:hover {
+        background: var(--color-primary-dark);
+        transform: translateY(-1px);
+    }
+    
+    .btn-secondary {
+        background: var(--color-gray-500);
+        border: none;
+    }
+    
+    .btn-secondary:hover {
+        background: var(--color-gray-600);
+        transform: translateY(-1px);
+    }
+    
+    .btn-success {
+        background: var(--color-success);
+        border: none;
+    }
+    
+    .btn-success:hover {
+        background: #059669;
+        transform: translateY(-1px);
+    }
+    
+    .btn-outline-primary {
+        border: 1px solid var(--color-gray-300);
+        color: var(--color-gray-600);
+    }
+    
+    .btn-outline-primary:hover {
+        background: var(--color-gray-100);
+        border-color: var(--color-gray-400);
+        transform: translateY(-1px);
+    }
+    
+    .btn-outline-info {
+        border: 1px solid var(--color-gray-300);
+        color: var(--color-info);
+    }
+    
+    .btn-outline-info:hover {
+        background: #e0f2fe;
+        border-color: var(--color-info);
+        transform: translateY(-1px);
+    }
+    
+    .btn-outline-danger {
+        border: 1px solid var(--color-gray-300);
+        color: var(--color-danger);
+    }
+    
+    .btn-outline-danger:hover {
+        background: #fee2e2;
+        border-color: var(--color-danger);
+        transform: translateY(-1px);
+    }
+    
+    /* Modal mejorado */
+    .modal-content {
+        border: none;
+        border-radius: var(--border-radius-lg);
+        overflow: hidden;
+    }
+    
+    .modal-header {
+        background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+        border-bottom: 1px solid #e2e8f0;
+        padding: var(--spacing-lg);
+    }
+    
+    /* Alertas mejoradas */
+    .alert {
+        border: none;
+        border-radius: var(--border-radius-md);
+        padding: var(--spacing-md) var(--spacing-lg);
+    }
+    
+    .alert-primary {
+        background: #eff6ff;
+        color: #1e40af;
+    }
+    
+    .alert-info {
+        background: #eff6ff;
+        color: #1e40af;
+    }
+    
+    .alert-warning {
+        background: #fef3c7;
+        color: #92400e;
+    }
+    
+    .alert-danger {
+        background: #fee2e2;
+        color: #991b1b;
+    }
+    
+    .alert-success {
+        background: #d1fae5;
+        color: #065f46;
+    }
+    
+    /* Loading Skeleton */
+    .skeleton {
+        background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+        background-size: 200% 100%;
+        animation: loading 1.5s infinite;
+        border-radius: var(--border-radius-sm);
+    }
+    
+    @keyframes loading {
+        0% { background-position: 200% 0; }
+        100% { background-position: -200% 0; }
+    }
+    
+    .skeleton-text {
+        height: 1rem;
+        width: 100%;
+        margin-bottom: 0.5rem;
+    }
+    
+    .skeleton-title {
+        height: 1.5rem;
+        width: 60%;
+        margin-bottom: 1rem;
+    }
+    
+    /* Animaciones */
+    @keyframes fadeInUp {
+        from {
+            opacity: 0;
+            transform: translateY(20px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+    
+    .fade-in-up {
+        animation: fadeInUp 0.4s ease-out;
+    }
+    
+    /* Scrollbar personalizado */
+    ::-webkit-scrollbar {
+        width: 8px;
+        height: 8px;
+    }
+    
+    ::-webkit-scrollbar-track {
+        background: #f1f1f1;
+        border-radius: 4px;
+    }
+    
+    ::-webkit-scrollbar-thumb {
+        background: #cbd5e1;
+        border-radius: 4px;
+    }
+    
+    ::-webkit-scrollbar-thumb:hover {
+        background: #94a3b8;
+    }
+    
+    /* Breadcrumb mejorado */
+    .breadcrumb {
+        background-color: transparent;
+        padding: 0;
+        margin-bottom: 0.5rem;
+    }
+    
+    .breadcrumb-item a {
+        color: var(--color-gray-500);
+        text-decoration: none;
+        transition: color var(--transition-fast);
+    }
+    
+    .breadcrumb-item a:hover {
+        color: var(--color-primary);
+    }
+    
+    .breadcrumb-item.active {
+        color: var(--color-gray-700);
+    }
+    
+    /* Separadores */
+    .section-divider {
+        border-bottom: 1px solid var(--color-gray-200);
+        padding-bottom: var(--spacing-md);
+        margin-bottom: var(--spacing-lg);
+    }
+    
+    .section-divider h6 {
+        font-weight: 600;
+        color: var(--color-gray-700);
+        margin: 0;
+    }
+    
+    /* Responsive mejorado */
+    @media (max-width: 768px) {
+        .cliente-info-card {
+            padding: var(--spacing-md);
+        }
+        
+        .cliente-info-item {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 0.25rem;
+        }
+        
+        .cliente-info-label {
+            min-width: auto;
+        }
+        
+        .producto-card .card-body {
+            padding: var(--spacing-md);
+        }
+        
+        .btn {
+            padding: 0.375rem 0.75rem;
+        }
+    }
+</style>
+{% endblock %}
 
 {% block content %}
-<div class="container-fluid mt-4">
+<div class="container-fluid fade-in-up">
     <!-- Encabezado -->
-    <div class="d-flex justify-content-between align-items-center mb-4">
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center mb-4">
         <div>
-            <h2><i class="fas fa-plus-circle me-2"></i>Nuevo Pedido</h2>
+            <h2 class="h3 mb-1" style="color: var(--color-gray-800);">
+                <i class="fas fa-plus-circle me-2" style="color: var(--color-primary);"></i>
+                Nuevo Pedido Individual
+            </h2>
             <nav aria-label="breadcrumb">
                 <ol class="breadcrumb">
                     <li class="breadcrumb-item"><a href="{{ url_for('admin.admin_dashboard') }}">Inicio</a></li>
@@ -20,12 +554,12 @@
                 <strong>Pedido Individual:</strong> Asignado a un cliente específico. El precio se calcula según el perfil del cliente (Ruta, Mayorista, Mercado o Especial).
             </div>
         </div>
-        <div>
+        <div class="mt-2 mt-md-0">
             <div class="btn-group">
-                <a href="{{ url_for('admin.admin_pedidos_venta') }}" class="btn btn-outline-secondary">
+                <a href="{{ url_for('admin.admin_pedidos_venta') }}" class="btn btn-secondary btn-sm">
                     <i class="fas fa-arrow-left me-1"></i> Cancelar
                 </a>
-                <a href="{{ url_for('admin.nuevo_pedido_consolidado') }}" class="btn btn-outline-info">
+                <a href="{{ url_for('admin.nuevo_pedido_consolidado') }}" class="btn btn-outline-info btn-sm">
                     <i class="fas fa-layer-group me-1"></i> Ir a Pedido Consolidado
                 </a>
             </div>
@@ -33,22 +567,18 @@
     </div>
     
     <!-- Formulario de Pedido -->
-    <div class="card">
-        <div class="card-header bg-primary text-white">
-            <h5 class="mb-0"><i class="fas fa-shopping-cart me-2"></i>Datos del Pedido Individual</h5>
+    <div class="card-custom">
+        <div class="card-header-custom">
+            <h5><i class="fas fa-shopping-cart me-2"></i>Datos del Pedido Individual</h5>
         </div>
-        <div class="card-body">
+        <div class="card-body p-3 p-md-4">
             <form id="formPedido">
-                <div class="row g-3">
+                <div class="row g-4">
                     <!-- Datos del Cliente -->
                     <div class="col-md-6">
-                        <h5 class="border-bottom pb-2 mb-3">
-                            <i class="fas fa-user me-2"></i>Datos del Cliente
-                        </h5>
-                        
                         <div class="mb-3">
-                            <label class="form-label fw-bold">Seleccionar Cliente:</label>
-                            <select id="selectCliente" class="form-select select2" required>
+                            <label class="form-label fw-bold">Seleccionar Cliente <span class="text-danger">*</span></label>
+                            <select id="selectCliente" class="form-select" required>
                                 <option value="">Seleccione un cliente...</option>
                                 {% for cliente in clientes %}
                                 <option value="{{ cliente.ID_Cliente }}" 
@@ -70,42 +600,37 @@
                             </small>
                         </div>
                         
-                        <div id="clienteInfo" class="p-3 bg-light rounded" style="display: none;">
+                        <!-- Información del Cliente - Tarjeta mejorada -->
+                        <div id="clienteInfo" class="cliente-info-card" style="display: none;">
                             <div class="row">
                                 <div class="col-md-6">
-                                    <div class="mb-2">
-                                        <small class="text-muted d-block">Nombre:</small>
-                                        <span id="clienteNombre" class="fw-bold"></span>
+                                    <div class="cliente-info-item">
+                                        <span class="cliente-info-label"><i class="fas fa-user me-1"></i> Nombre:</span>
+                                        <span id="clienteNombre" class="cliente-info-value"></span>
                                     </div>
-                                    <div class="mb-2">
-                                        <small class="text-muted d-block">Documento:</small>
-                                        <span id="clienteRUC" class="badge bg-dark"></span>
+                                    <div class="cliente-info-item">
+                                        <span class="cliente-info-label"><i class="fas fa-id-card me-1"></i> Documento:</span>
+                                        <span id="clienteRUC" class="badge bg-secondary"></span>
                                     </div>
-                                    <div class="mb-2">
-                                        <small class="text-muted d-block">Teléfono:</small>
-                                        <span id="clienteTelefono"></span>
+                                    <div class="cliente-info-item">
+                                        <span class="cliente-info-label"><i class="fas fa-phone me-1"></i> Teléfono:</span>
+                                        <span id="clienteTelefono" class="cliente-info-value"></span>
                                     </div>
                                 </div>
                                 <div class="col-md-6">
-                                    <div class="mb-2">
-                                        <small class="text-muted d-block">Dirección:</small>
-                                        <span id="clienteDireccion"></span>
+                                    <div class="cliente-info-item">
+                                        <span class="cliente-info-label"><i class="fas fa-map-marker-alt me-1"></i> Dirección:</span>
+                                        <span id="clienteDireccion" class="cliente-info-value"></span>
                                     </div>
-                                    <div class="mb-2">
-                                        <small class="text-muted d-block">Tipo Cliente:</small>
+                                    <div class="cliente-info-item">
+                                        <span class="cliente-info-label"><i class="fas fa-tag me-1"></i> Tipo Cliente:</span>
                                         <span id="clienteTipo" class="badge"></span>
                                     </div>
-                                    <div class="mb-2">
-                                        <small class="text-muted d-block">Perfil / Precio:</small>
+                                    <div class="cliente-info-item">
+                                        <span class="cliente-info-label"><i class="fas fa-chart-line me-1"></i> Perfil / Precio:</span>
                                         <span id="clientePerfil" class="badge bg-info"></span>
                                         <span id="tipoPrecio" class="badge bg-success ms-1"></span>
                                     </div>
-                                    {% if cliente_seleccionado and cliente_seleccionado.ID_Ruta %}
-                                    <div class="mb-2">
-                                        <small class="text-muted d-block">Ruta asignada:</small>
-                                        <span id="clienteRuta" class="badge bg-secondary"></span>
-                                    </div>
-                                    {% endif %}
                                 </div>
                             </div>
                         </div>
@@ -128,29 +653,25 @@
                     
                     <!-- Datos del Pedido -->
                     <div class="col-md-6">
-                        <h5 class="border-bottom pb-2 mb-3">
-                            <i class="fas fa-info-circle me-2"></i>Información del Pedido
-                        </h5>
-                        
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Fecha <span class="text-danger">*</span></label>
+                            <input type="date" id="fechaPedido" class="form-control" required 
+                                   value="{{ now.strftime('%Y-%m-%d') }}">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Empresa <span class="text-danger">*</span></label>
+                            <select id="selectEmpresa" class="form-select" required>
+                                <option value="">Seleccione empresa...</option>
+                                {% for empresa in empresas %}
+                                <option value="{{ empresa.ID_Empresa }}">
+                                    {{ empresa.Nombre_Empresa }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
                         <div class="row g-3">
                             <div class="col-md-6">
-                                <label class="form-label fw-bold">Fecha:</label>
-                                <input type="date" id="fechaPedido" class="form-control" required 
-                                       value="{{ now.strftime('%Y-%m-%d') }}">
-                            </div>
-                            <div class="col-md-6">
-                                <label class="form-label fw-bold">Empresa:</label>
-                                <select id="selectEmpresa" class="form-select" required>
-                                    <option value="">Seleccione empresa...</option>
-                                    {% for empresa in empresas %}
-                                    <option value="{{ empresa.ID_Empresa }}">
-                                        {{ empresa.Nombre_Empresa }}
-                                    </option>
-                                    {% endfor %}
-                                </select>
-                            </div>
-                            <div class="col-md-6">
-                                <label class="form-label fw-bold">Prioridad:</label>
+                                <label class="form-label fw-bold">Prioridad <span class="text-danger">*</span></label>
                                 <select id="selectPrioridad" class="form-select" required>
                                     {% for prioridad in prioridades %}
                                     <option value="{{ prioridad }}" {% if prioridad == 'Normal' %}selected{% endif %}>
@@ -158,28 +679,28 @@
                                     </option>
                                     {% endfor %}
                                 </select>
-                                <small class="form-text text-muted">
+                                <small class="text-muted">
                                     <i class="fas fa-info-circle me-1"></i>
                                     Urgente: Entrega inmediata, Normal: Entrega estándar, Bajo: Sin urgencia
                                 </small>
                             </div>
                             <div class="col-md-6">
-                                <label class="form-label fw-bold">Tipo de Entrega:</label>
+                                <label class="form-label fw-bold">Tipo de Entrega <span class="text-danger">*</span></label>
                                 <select id="selectTipoEntrega" class="form-select" required>
                                     <option value="Retiro en local">Retiro en local</option>
                                     <option value="Entrega a domicilio">Entrega a domicilio</option>
                                 </select>
                             </div>
-                            <div class="col-12">
-                                <label class="form-label fw-bold">Observaciones:</label>
-                                <textarea id="observacionPedido" class="form-control" rows="2" 
-                                          placeholder="Agregue observaciones o notas adicionales..."></textarea>
-                            </div>
+                        </div>
+                        <div class="mt-3">
+                            <label class="form-label fw-bold">Observaciones:</label>
+                            <textarea id="observacionPedido" class="form-control" rows="2" 
+                                      placeholder="Agregue observaciones o notas adicionales..."></textarea>
                         </div>
                         
                         <!-- Indicador de prioridad -->
                         <div class="mt-3" id="indicadorPrioridad" style="display: none;">
-                            <div class="alert alert-warning alert-dismissible fade show" role="alert">
+                            <div class="alert alert-warning" role="alert">
                                 <div class="d-flex align-items-center">
                                     <div class="flex-shrink-0 me-3">
                                         <i class="fas fa-exclamation-triangle fa-2x"></i>
@@ -200,9 +721,9 @@
                 <!-- Selección de Productos -->
                 <div class="row mt-4">
                     <div class="col-12">
-                        <h5 class="border-bottom pb-2 mb-3">
-                            <i class="fas fa-boxes me-2"></i>Productos del Pedido
-                        </h5>
+                        <div class="section-divider">
+                            <h6><i class="fas fa-boxes me-2"></i>Productos del Pedido</h6>
+                        </div>
                         
                         <!-- Mensaje de error/sin cliente -->
                         <div id="mensajeSinCliente" class="alert alert-info mb-3" style="display: none;">
@@ -228,7 +749,7 @@
                         
                         <!-- Tabla de Productos Seleccionados -->
                         <div class="mt-4">
-                            <div class="d-flex justify-content-between align-items-center mb-3">
+                            <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
                                 <h6 class="mb-0">Productos seleccionados:</h6>
                                 <div>
                                     <span id="contadorProductos" class="badge bg-primary me-2">0 productos</span>
@@ -237,22 +758,22 @@
                             </div>
                             
                             <div class="table-responsive">
-                                <table class="table table-bordered" id="tablaProductosSeleccionados">
-                                    <thead class="table-light">
+                                <table class="table table-pedido" id="tablaProductosSeleccionados">
+                                    <thead>
                                         <tr>
                                             <th width="50">#</th>
                                             <th>Producto</th>
                                             <th width="120">Tipo Precio</th>
                                             <th width="150">Precio Unitario</th>
-                                            <th width="150">Cantidad</th>
+                                            <th width="180">Cantidad</th>
                                             <th width="150">Subtotal</th>
                                             <th width="100">Acciones</th>
                                         </tr>
                                     </thead>
                                     <tbody id="tbodyProductos">
                                         <tr id="filaVacia">
-                                            <td colspan="7" class="text-center text-muted py-4">
-                                                <i class="fas fa-box-open fa-2x mb-2 d-block"></i>
+                                            <td colspan="7" class="text-center text-muted py-5">
+                                                <i class="fas fa-box-open fa-3x mb-3 d-block" style="opacity: 0.5;"></i>
                                                 No hay productos seleccionados
                                             </td>
                                         </tr>
@@ -273,7 +794,7 @@
                 <!-- Botones de Acción -->
                 <div class="row mt-4">
                     <div class="col-12">
-                        <div class="d-flex justify-content-between">
+                        <div class="d-flex justify-content-between flex-wrap gap-2">
                             <div>
                                 <button type="button" class="btn btn-secondary" onclick="window.history.back()">
                                     <i class="fas fa-times me-1"></i> Cancelar
@@ -295,10 +816,12 @@
 
 <!-- Modal para ver stock detallado -->
 <div class="modal fade" id="modalStockDetalle" tabindex="-1">
-    <div class="modal-dialog modal-lg">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title">Stock Disponible por Bodega</h5>
+                <h5 class="modal-title">
+                    <i class="fas fa-warehouse me-2"></i>Stock Disponible por Bodega
+                </h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
@@ -318,7 +841,7 @@
 
 <!-- Modal para confirmar -->
 <div class="modal fade" id="modalConfirmacion" tabindex="-1">
-    <div class="modal-dialog modal-lg">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
         <div class="modal-content">
             <div class="modal-header">
                 <h5 class="modal-title">
@@ -344,8 +867,8 @@
                 <div class="mt-3">
                     <h6 class="mb-3">Detalle de productos:</h6>
                     <div class="table-responsive">
-                        <table class="table table-sm table-bordered" id="tablaResumenProductos">
-                            <thead class="table-light">
+                        <table class="table table-sm table-pedido" id="tablaResumenProductos">
+                            <thead>
                                 <tr>
                                     <th>Producto</th>
                                     <th class="text-center">Cantidad</th>
@@ -403,7 +926,6 @@ const API_URLS = {
 // FUNCIONES DE UTILIDAD
 // ============================================
 
-// Función para formatear números en formato de moneda Córdobas Nicaragüenses
 function formatCurrency(amount) {
     return new Intl.NumberFormat('es-NI', {
         style: 'currency',
@@ -413,12 +935,10 @@ function formatCurrency(amount) {
     }).format(amount).replace('NIO', 'C$');
 }
 
-// Función para formatear números con separadores de miles
 function formatNumber(number) {
     return new Intl.NumberFormat('es-NI').format(number);
 }
 
-// Obtener clase CSS para badge de prioridad
 function getBadgeClassPrioridad(prioridad) {
     switch(prioridad) {
         case 'Urgente': return 'bg-danger';
@@ -428,7 +948,6 @@ function getBadgeClassPrioridad(prioridad) {
     }
 }
 
-// Obtener icono para prioridad
 function getIconoPrioridad(prioridad) {
     switch(prioridad) {
         case 'Urgente': return 'fas fa-exclamation-triangle';
@@ -438,56 +957,46 @@ function getIconoPrioridad(prioridad) {
     }
 }
 
-// Obtener badge y texto según perfil
 function getPerfilBadge(perfil) {
     switch(perfil) {
         case 'Ruta':
-            return { clase: 'bg-info', texto: 'Precio Ruta' };
+            return { clase: 'badge-info', texto: 'Precio Ruta' };
         case 'Mayorista':
-            return { clase: 'bg-success', texto: 'Precio Mayorista' };
+            return { clase: 'badge-success', texto: 'Precio Mayorista' };
         case 'Mercado':
-            return { clase: 'bg-warning text-dark', texto: 'Precio Mercado' };
+            return { clase: 'badge-warning', texto: 'Precio Mercado' };
         case 'Especial':
-            return { clase: 'bg-secondary', texto: 'Precio Especial' };
+            return { clase: 'badge-primary', texto: 'Precio Especial' };
         default:
-            return { clase: 'bg-secondary', texto: 'Precio Mercado' };
+            return { clase: 'badge-secondary', texto: 'Precio Mercado' };
     }
 }
 
 // ============================================
-// INICIALIZACIÓN CORREGIDA (SIN SELECT2)
+// INICIALIZACIÓN
 // ============================================
 document.addEventListener('DOMContentLoaded', function() {
     console.log('🚀 Inicializando formulario de pedido individual');
-    console.log('🔗 API URLs configuradas:', API_URLS);
     
-    // Configurar fecha actual por defecto
     const fechaInput = document.getElementById('fechaPedido');
     if (fechaInput && !fechaInput.value) {
         fechaInput.value = new Date().toISOString().split('T')[0];
     }
     
-    // Mostrar mensaje inicial
     const mensajeSinCliente = document.getElementById('mensajeSinCliente');
     if (mensajeSinCliente) {
         mensajeSinCliente.style.display = 'block';
     }
     
-    console.log('ℹ️ Usando select nativo (sin Select2)');
-    
-    // Verificar si hay cliente preseleccionado
     const clienteSelect = document.getElementById('selectCliente');
     if (clienteSelect && clienteSelect.value) {
-        console.log('🔍 Cliente preseleccionado detectado, ID:', clienteSelect.value);
         procesarClienteSeleccionado();
     }
     
-    // Evento change para el select normal
     if (clienteSelect) {
         clienteSelect.addEventListener('change', procesarClienteSeleccionado);
     }
     
-    // Evento para cambio de prioridad
     const selectPrioridad = document.getElementById('selectPrioridad');
     if (selectPrioridad) {
         selectPrioridad.addEventListener('change', function() {
@@ -496,7 +1005,6 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
     
-    // Búsqueda de productos
     const btnBuscar = document.getElementById('btnBuscarProducto');
     const inputBuscar = document.getElementById('buscarProducto');
     
@@ -513,7 +1021,6 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
     
-    // Eventos para validación
     const selectEmpresa = document.getElementById('selectEmpresa');
     const fechaPedido = document.getElementById('fechaPedido');
     const selectTipoEntrega = document.getElementById('selectTipoEntrega');
@@ -522,7 +1029,6 @@ document.addEventListener('DOMContentLoaded', function() {
     if (fechaPedido) fechaPedido.addEventListener('change', validarFormulario);
     if (selectTipoEntrega) selectTipoEntrega.addEventListener('change', validarFormulario);
     
-    // Modal de stock
     const modalStock = document.getElementById('modalStockDetalle');
     if (modalStock) {
         modalStock.addEventListener('hidden.bs.modal', function() {
@@ -531,7 +1037,6 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
     
-    // Modal de confirmación
     const modalConfirmacion = document.getElementById('modalConfirmacion');
     if (modalConfirmacion) {
         modalConfirmacion.addEventListener('hidden.bs.modal', function () {
@@ -543,12 +1048,10 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
     
-    // Verificar prioridad inicial
     if (selectPrioridad) {
         mostrarIndicadorPrioridad(selectPrioridad.value);
     }
     
-    // Prevenir envío del formulario
     const formPedido = document.getElementById('formPedido');
     if (formPedido) {
         formPedido.addEventListener('submit', function(e) {
@@ -557,7 +1060,6 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
     
-    // Botón de confirmar
     const btnConfirmar = document.getElementById('btnConfirmarGuardar');
     if (btnConfirmar) {
         btnConfirmar.addEventListener('click', function() {
@@ -565,30 +1067,26 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
     
-    // Inicializar contador
     actualizarContadorProductos();
     validarFormulario();
 });
 
 // ============================================
-// FUNCIÓN CORREGIDA PARA PROCESAR CLIENTE
+// FUNCIONES DE INTERFAZ DE CLIENTE
 // ============================================
+
 function procesarClienteSeleccionado() {
-    console.log('👤 Procesando selección de cliente');
-    
     const select = document.getElementById('selectCliente');
     if (!select) return;
     
     const option = select.options[select.selectedIndex];
     
-    // Ocultar mensaje inicial
     const mensajeSinCliente = document.getElementById('mensajeSinCliente');
     if (mensajeSinCliente) {
         mensajeSinCliente.style.display = 'none';
     }
     
     if (!option || !option.value) {
-        console.log('ℹ️ No hay cliente seleccionado');
         ocultarInfoCliente();
         deshabilitarBusquedaProductos();
         limpiarCategorias();
@@ -598,53 +1096,22 @@ function procesarClienteSeleccionado() {
         return;
     }
     
-    // Obtener datos del cliente con valores por defecto
     const tipo = option.getAttribute('data-tipo') || 'Comun';
     const perfil = option.getAttribute('data-perfil') || 'Mercado';
     
-    console.log('📊 Datos del cliente:', {
-        id: option.value,
-        nombre: option.getAttribute('data-nombre'),
-        tipo: tipo,
-        perfil: perfil,
-        ruta: option.getAttribute('data-ruta')
-    });
-    
-    // Validar que tengamos los datos necesarios
-    if (!tipo || !perfil) {
-        console.error('❌ Cliente sin tipo o perfil');
-        showAlert('warning', 'El cliente seleccionado no tiene tipo o perfil asignado');
-        ocultarInfoCliente();
-        deshabilitarBusquedaProductos();
-        limpiarCategorias();
-        return;
-    }
-    
-    // Asignar variables globales
     tipoClienteActual = tipo;
     perfilClienteActual = perfil;
     
-    // Mostrar información del cliente
     mostrarInfoCliente(option);
-    
-    // Habilitar búsqueda
     habilitarBusquedaProductos();
-    
-    // Cargar categorías
     cargarCategoriasDisponibles(tipoClienteActual);
     
-    // Limpiar productos seleccionados al cambiar de cliente
     productosSeleccionados = [];
     actualizarTablaProductos();
     
     validarFormulario();
 }
 
-// ============================================
-// FUNCIONES DE INTERFAZ DE CLIENTE
-// ============================================
-
-// Mostrar información del cliente desde option
 function mostrarInfoCliente(option) {
     const infoDiv = document.getElementById('clienteInfo');
     if (!infoDiv) return;
@@ -655,7 +1122,6 @@ function mostrarInfoCliente(option) {
     const ruc = option.getAttribute('data-ruc') || 'Sin documento';
     const tipo = option.getAttribute('data-tipo') || 'Comun';
     const perfil = option.getAttribute('data-perfil') || 'Mercado';
-    const idRuta = option.getAttribute('data-ruta');
     
     const clienteNombre = document.getElementById('clienteNombre');
     const clienteTelefono = document.getElementById('clienteTelefono');
@@ -664,7 +1130,6 @@ function mostrarInfoCliente(option) {
     const clienteTipo = document.getElementById('clienteTipo');
     const clientePerfil = document.getElementById('clientePerfil');
     const tipoPrecio = document.getElementById('tipoPrecio');
-    const clienteRuta = document.getElementById('clienteRuta');
     
     if (clienteNombre) clienteNombre.textContent = nombre;
     if (clienteTelefono) clienteTelefono.textContent = telefono;
@@ -673,26 +1138,15 @@ function mostrarInfoCliente(option) {
     
     if (clienteTipo) {
         clienteTipo.textContent = tipo;
-        clienteTipo.className = `badge ${tipo === 'Especial' ? 'bg-primary' : 'bg-secondary'}`;
+        clienteTipo.className = `badge ${tipo === 'Especial' ? 'badge-primary' : 'badge-secondary'}`;
     }
     
-    // Mostrar perfil y tipo de precio
     if (clientePerfil) clientePerfil.textContent = perfil;
     
     const badgeInfo = getPerfilBadge(perfil);
     if (tipoPrecio) {
         tipoPrecio.textContent = badgeInfo.texto;
         tipoPrecio.className = `badge ${badgeInfo.clase} ms-1`;
-    }
-    
-    // Mostrar ruta si existe
-    if (clienteRuta) {
-        if (idRuta && idRuta !== 'None' && idRuta !== '') {
-            clienteRuta.textContent = 'Ruta asignada';
-            clienteRuta.style.display = 'inline';
-        } else {
-            clienteRuta.style.display = 'none';
-        }
     }
     
     infoDiv.style.display = 'block';
@@ -719,17 +1173,6 @@ function mostrarIndicadorPrioridad(prioridad) {
     
     if (prioridad === 'Urgente') {
         indicador.style.display = 'block';
-        const alert = indicador.querySelector('.alert');
-        const icono = alert.querySelector('i');
-        const titulo = alert.querySelector('.alert-heading');
-        const descripcion = alert.querySelector('p');
-        
-        if (icono) icono.className = getIconoPrioridad(prioridad) + ' fa-2x';
-        if (alert) alert.className = 'alert alert-danger alert-dismissible fade show';
-        if (titulo) titulo.textContent = 'Pedido Urgente';
-        if (descripcion) {
-            descripcion.innerHTML = `Este pedido será marcado como <strong class="text-uppercase">${prioridad}</strong> y tendrá prioridad máxima en el procesamiento y entrega.`;
-        }
     } else {
         indicador.style.display = 'none';
     }
@@ -752,55 +1195,41 @@ function deshabilitarBusquedaProductos() {
 }
 
 // ============================================
-// FUNCIONES DE CATEGORÍAS (CORREGIDAS)
+// FUNCIONES DE CATEGORÍAS
 // ============================================
 
 function cargarCategoriasDisponibles(tipoCliente) {
-    console.log('📂 Iniciando carga de categorías para tipo:', tipoCliente);
-    
-    // VALIDACIÓN CRÍTICA
     if (!tipoCliente || tipoCliente.trim() === '') {
-        console.error('❌ ERROR: tipoCliente es inválido:', tipoCliente);
         const container = document.getElementById('categoriasContainer');
         if (container) {
             container.innerHTML = `
                 <div class="alert alert-danger w-100">
                     <i class="fas fa-exclamation-triangle me-2"></i>
-                    Error: El cliente no tiene tipo asignado. Verifique la configuración.
+                    Error: El cliente no tiene tipo asignado.
                 </div>`;
         }
-        const productosContainer = document.getElementById('productosContainer');
-        if (productosContainer) productosContainer.style.display = 'none';
         return;
     }
     
     const container = document.getElementById('categoriasContainer');
     if (!container) return;
     
-    container.innerHTML = '<div class="spinner-border text-primary" role="status"><span class="visually-hidden">Cargando...</span></div>';
+    container.innerHTML = '<div class="skeleton skeleton-title" style="width: 200px;"></div>';
     
-    // CORREGIDO: Usar API_URLS en lugar de URL fija
     const url = `${API_URLS.categoriasVisibles}?tipo_cliente=${encodeURIComponent(tipoCliente)}`;
-    console.log('🔍 URL categorías:', url);
     
     fetch(url)
         .then(response => {
-            console.log('📥 Response status:', response.status);
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
+            if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
             return response.json();
         })
         .then(data => {
-            console.log('📦 Datos de categorías recibidos:', data);
-            
             if (data.error) {
                 container.innerHTML = `<div class="alert alert-danger">${data.error}</div>`;
                 return;
             }
             
             const categorias = data.categorias || [];
-            console.log('📊 Número de categorías:', categorias.length);
             
             if (categorias.length === 0) {
                 container.innerHTML = `
@@ -808,17 +1237,14 @@ function cargarCategoriasDisponibles(tipoCliente) {
                         <i class="fas fa-exclamation-triangle me-2"></i>
                         No hay categorías disponibles para este tipo de cliente
                     </div>`;
-                const productosContainer = document.getElementById('productosContainer');
-                if (productosContainer) productosContainer.style.display = 'none';
                 return;
             }
             
             container.innerHTML = '';
             categorias.forEach(categoria => {
-                console.log('➕ Creando botón para categoría:', categoria);
                 const boton = document.createElement('button');
                 boton.type = 'button';
-                boton.className = 'btn btn-outline-primary mb-2 me-2';
+                boton.className = 'categoria-pill';
                 boton.innerHTML = `<i class="fas fa-folder me-2"></i>${categoria.nombre}`;
                 boton.onclick = () => cargarProductosCategoria(categoria.id, categoria.nombre);
                 container.appendChild(boton);
@@ -828,25 +1254,17 @@ function cargarCategoriasDisponibles(tipoCliente) {
             if (productosContainer) productosContainer.style.display = 'block';
         })
         .catch(error => {
-            console.error('❌ Error detallado:', error);
+            console.error('Error:', error);
             container.innerHTML = `<div class="alert alert-danger">Error al cargar categorías: ${error.message}</div>`;
         });
 }
 
 // ============================================
-// FUNCIONES DE PRODUCTOS (CORREGIDAS)
+// FUNCIONES DE PRODUCTOS
 // ============================================
 
 function cargarProductosCategoria(categoriaId, categoriaNombre) {
-    console.log('📦 Cargando productos para categoría:', categoriaId, categoriaNombre);
-    
-    if (!categoriaId) {
-        console.error('❌ categoriaId es inválido');
-        return;
-    }
-    
-    if (!tipoClienteActual || !perfilClienteActual) {
-        console.error('❌ No hay tipo/perfil de cliente:', {tipoClienteActual, perfilClienteActual});
+    if (!categoriaId || !tipoClienteActual || !perfilClienteActual) {
         showAlert('warning', 'Seleccione un cliente válido primero');
         return;
     }
@@ -855,11 +1273,11 @@ function cargarProductosCategoria(categoriaId, categoriaNombre) {
     if (!container) return;
     
     container.innerHTML = `
-        <div class="card">
-            <div class="card-header bg-primary text-white">
+        <div class="card-custom">
+            <div class="card-header-custom">
                 <h6 class="mb-0">
                     <i class="fas fa-folder me-2"></i>${categoriaNombre}
-                    <button type="button" class="btn btn-sm btn-outline-light float-end" 
+                    <button type="button" class="btn btn-sm btn-outline-secondary float-end" 
                             onclick="cerrarProductosCategoria()">
                         <i class="fas fa-times"></i>
                     </button>
@@ -867,7 +1285,7 @@ function cargarProductosCategoria(categoriaId, categoriaNombre) {
             </div>
             <div class="card-body">
                 <div class="row" id="productosGrid-${categoriaId}">
-                    <div class="col-12 text-center">
+                    <div class="col-12 text-center py-4">
                         <div class="spinner-border text-primary" role="status">
                             <span class="visually-hidden">Cargando productos...</span>
                         </div>
@@ -876,21 +1294,14 @@ function cargarProductosCategoria(categoriaId, categoriaNombre) {
             </div>
         </div>`;
     
-    // CORREGIDO: Usar API_URLS en lugar de URL fija
     const url = `${API_URLS.productosCategoria}?categoria_id=${categoriaId}&tipo_cliente=${encodeURIComponent(tipoClienteActual)}&perfil_cliente=${encodeURIComponent(perfilClienteActual)}`;
-    console.log('🔍 URL productos:', url);
     
     fetch(url)
         .then(response => {
-            console.log('📥 Response status productos:', response.status);
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
+            if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
             return response.json();
         })
         .then(data => {
-            console.log('📦 Datos de productos recibidos:', data);
-            
             const grid = document.getElementById(`productosGrid-${categoriaId}`);
             if (!grid) return;
             
@@ -900,7 +1311,6 @@ function cargarProductosCategoria(categoriaId, categoriaNombre) {
             }
             
             const productos = data.productos || [];
-            console.log('📊 Número de productos:', productos.length);
             
             if (productos.length === 0) {
                 grid.innerHTML = `
@@ -916,37 +1326,39 @@ function cargarProductosCategoria(categoriaId, categoriaNombre) {
             grid.innerHTML = '';
             productos.forEach(producto => {
                 const badgeInfo = getPerfilBadge(perfilClienteActual);
-                
-                const col = document.createElement('div');
-                col.className = 'col-md-6 col-lg-4 mb-3';
-                
-                // Escapar correctamente para onclick
                 const productoJSON = JSON.stringify(producto).replace(/'/g, "&#39;").replace(/"/g, '&quot;');
                 const productoNombreEscapado = producto.nombre.replace(/'/g, "\\'").replace(/"/g, '&quot;');
                 
+                // Calcular porcentaje de stock para la barra
+                const stockPorcentaje = Math.min((producto.stock / 100) * 100, 100);
+                let stockBarClass = '';
+                if (producto.stock <= 5) stockBarClass = 'critical';
+                else if (producto.stock <= 15) stockBarClass = 'low';
+                
+                const col = document.createElement('div');
+                col.className = 'col-md-6 col-lg-4 mb-4';
                 col.innerHTML = `
-                    <div class="card h-100">
+                    <div class="producto-card">
                         <div class="card-body">
-                            <h6 class="card-title">${producto.nombre}</h6>
-                            <div class="card-text small text-muted mb-2">
-                                <span class="badge bg-dark">${producto.codigo || 'N/A'}</span>
-                                <span class="badge bg-info">${producto.unidad_abreviatura || 'Und'}</span>
+                            <div class="producto-nombre">${producto.nombre}</div>
+                            <div class="d-flex gap-2 mb-2">
+                                <span class="badge badge-secondary">${producto.codigo || 'N/A'}</span>
+                                <span class="badge badge-info">${producto.unidad_abreviatura || 'Und'}</span>
                             </div>
-                            <p class="card-text small mb-2">
-                                <i class="fas fa-box me-1"></i> Stock total: <span class="badge bg-success">${formatNumber(producto.stock)}</span>
-                            </p>
-                            <div class="d-flex justify-content-between align-items-center">
+                            <div class="stock-indicator">
+                                <i class="fas fa-box"></i>
+                                <span class="small">Stock: <strong>${formatNumber(producto.stock)}</strong></span>
+                            </div>
+                            <div class="stock-bar">
+                                <div class="stock-bar-fill ${stockBarClass}" style="width: ${stockPorcentaje}%"></div>
+                            </div>
+                            <div class="d-flex justify-content-between align-items-center mt-3">
                                 <div>
-                                    <span class="fw-bold text-success">${formatCurrency(producto.precio)}</span>
+                                    <span class="fw-bold text-success fs-5">${formatCurrency(producto.precio)}</span>
                                     <br><span class="badge ${badgeInfo.clase} mt-1">${badgeInfo.texto}</span>
                                 </div>
                                 <div>
-                                    <button type="button" class="btn btn-sm btn-outline-info me-1" 
-                                            onclick="verStockProducto(${producto.id}, '${productoNombreEscapado}')"
-                                            title="Ver stock por bodega">
-                                        <i class="fas fa-warehouse"></i>
-                                    </button>
-                                    <button type="button" class="btn btn-sm btn-primary" 
+                                    <button type="button" class="btn btn-sm btn-success" 
                                             onclick="agregarProducto(${productoJSON})">
                                         <i class="fas fa-plus me-1"></i> Agregar
                                     </button>
@@ -958,7 +1370,7 @@ function cargarProductosCategoria(categoriaId, categoriaNombre) {
             });
         })
         .catch(error => {
-            console.error('❌ Error en productos:', error);
+            console.error('Error:', error);
             const grid = document.getElementById(`productosGrid-${categoriaId}`);
             if (grid) {
                 grid.innerHTML = `<div class="alert alert-danger">Error: ${error.message}</div>`;
@@ -972,7 +1384,7 @@ function cerrarProductosCategoria() {
 }
 
 // ============================================
-// BÚSQUEDA DE PRODUCTOS (CORREGIDA)
+// BÚSQUEDA DE PRODUCTOS
 // ============================================
 
 function buscarProductos() {
@@ -993,23 +1405,17 @@ function buscarProductos() {
     const resultadosDiv = document.getElementById('resultadosBusqueda');
     if (!resultadosDiv) return;
     
-    resultadosDiv.innerHTML = '<div class="text-center"><div class="spinner-border text-primary" role="status"><span class="visually-hidden">Buscando...</span></div></div>';
+    resultadosDiv.innerHTML = '<div class="text-center py-3"><div class="spinner-border text-primary" role="status"><span class="visually-hidden">Buscando...</span></div></div>';
     resultadosDiv.style.display = 'block';
     
-    // CORREGIDO: Usar API_URLS en lugar de URL fija
     const url = `${API_URLS.buscarProductos}?q=${encodeURIComponent(termino)}&tipo_cliente=${encodeURIComponent(tipoClienteActual)}&perfil_cliente=${encodeURIComponent(perfilClienteActual)}`;
-    console.log('🔍 Buscando productos URL:', url);
     
     fetch(url)
         .then(response => {
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
+            if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
             return response.json();
         })
         .then(productos => {
-            console.log('📦 Productos encontrados:', productos);
-            
             if (productos.error) {
                 resultadosDiv.innerHTML = `<div class="alert alert-danger">${productos.error}</div>`;
                 return;
@@ -1033,31 +1439,27 @@ function buscarProductos() {
                 
                 html += `
                     <div class="list-group-item list-group-item-action">
-                        <div class="d-flex w-100 justify-content-between align-items-start">
+                        <div class="d-flex w-100 justify-content-between align-items-start flex-wrap gap-2">
                             <div class="flex-grow-1">
                                 <h6 class="mb-1">${producto.nombre}</h6>
-                                <div class="d-flex justify-content-between align-items-center">
-                                    <div>
-                                        <small class="text-muted">
-                                            Código: ${producto.codigo || 'N/A'} | 
-                                            Stock total: <span class="badge bg-info">${formatNumber(producto.stock)}</span> |
-                                            Categoría: ${producto.categoria || 'N/A'}
-                                        </small>
-                                    </div>
-                                    <div>
-                                        <span class="fw-bold text-success me-3">${formatCurrency(producto.precio)}</span>
-                                        <span class="badge ${badgeInfo.clase} me-2">${badgeInfo.texto}</span>
-                                        <button type="button" class="btn btn-sm btn-outline-info" 
-                                                onclick="verStockProducto(${producto.id}, '${productoNombreEscapado}')"
-                                                title="Ver stock por bodega">
-                                            <i class="fas fa-warehouse"></i>
-                                        </button>
-                                        <button type="button" class="btn btn-sm btn-primary ms-1" 
-                                                onclick="agregarProducto(${productoJSON})">
-                                            <i class="fas fa-plus me-1"></i> Agregar
-                                        </button>
-                                    </div>
-                                </div>
+                                <small class="text-muted">
+                                    Código: ${producto.codigo || 'N/A'} | 
+                                    Stock: <span class="badge badge-info">${formatNumber(producto.stock)}</span> |
+                                    Categoría: ${producto.categoria || 'N/A'}
+                                </small>
+                            </div>
+                            <div class="text-end">
+                                <span class="fw-bold text-success me-2">${formatCurrency(producto.precio)}</span>
+                                <span class="badge ${badgeInfo.clase} me-2">${badgeInfo.texto}</span>
+                                <button type="button" class="btn btn-sm btn-outline-info me-1" 
+                                        onclick="verStockProducto(${producto.id}, '${productoNombreEscapado}')"
+                                        title="Ver stock por bodega">
+                                    <i class="fas fa-warehouse"></i>
+                                </button>
+                                <button type="button" class="btn btn-sm btn-success" 
+                                        onclick="agregarProducto(${productoJSON})">
+                                    <i class="fas fa-plus me-1"></i> Agregar
+                                </button>
                             </div>
                         </div>
                     </div>`;
@@ -1066,22 +1468,13 @@ function buscarProductos() {
             resultadosDiv.innerHTML = html;
         })
         .catch(error => {
-            console.error('❌ Error en búsqueda:', error);
+            console.error('Error:', error);
             resultadosDiv.innerHTML = `<div class="alert alert-danger">Error al buscar productos: ${error.message}</div>`;
         });
 }
 
-function agregarProductoDesdeBusqueda(producto) {
-    agregarProducto(producto);
-    const resultadosDiv = document.getElementById('resultadosBusqueda');
-    const inputBuscar = document.getElementById('buscarProducto');
-    
-    if (resultadosDiv) resultadosDiv.style.display = 'none';
-    if (inputBuscar) inputBuscar.value = '';
-}
-
 // ============================================
-// STOCK (CORREGIDO)
+// STOCK
 // ============================================
 
 function verStockProducto(productoId, productoNombre) {
@@ -1092,45 +1485,35 @@ function verStockProducto(productoId, productoNombre) {
     const modalProducto = document.getElementById('modalProductoNombre');
     if (modalProducto) modalProducto.textContent = productoNombre;
     
-    // CORREGIDO: Usar API_URLS en lugar de URL fija
     const url = `${API_URLS.stockProducto}${productoId}`;
-    console.log('📊 Ver stock URL:', url);
     
     fetch(url)
         .then(response => {
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
+            if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
             return response.json();
         })
         .then(data => {
-            console.log('📦 Datos de stock:', data);
-            
             const contenidoStock = document.getElementById('contenidoStock');
             if (!contenidoStock) return;
             
             if (data.error) {
-                contenidoStock.innerHTML = `
-                    <div class="alert alert-danger">
-                        <i class="fas fa-exclamation-triangle me-2"></i>
-                        ${data.error}
-                    </div>`;
+                contenidoStock.innerHTML = `<div class="alert alert-danger">${data.error}</div>`;
                 return;
             }
             
             let html = `
                 <div class="mb-3">
                     <p><strong>Código:</strong> ${data.codigo || 'N/A'}</p>
-                    <p><strong>Stock Total:</strong> <span class="badge bg-success fs-6">${formatNumber(data.stock_total)}</span></p>
-                    <p><strong>Precio ${perfilClienteActual || 'Actual'}:</strong> <span class="badge bg-primary fs-6">${formatCurrency(data.precios?.[perfilClienteActual?.toLowerCase()] || 0)}</span></p>
+                    <p><strong>Stock Total:</strong> <span class="badge badge-success fs-6">${formatNumber(data.stock_total)}</span></p>
+                    <p><strong>Precio ${perfilClienteActual || 'Actual'}:</strong> <span class="badge badge-primary fs-6">${formatCurrency(data.precios?.[perfilClienteActual?.toLowerCase()] || 0)}</span></p>
                 </div>`;
             
             if (data.bodegas && data.bodegas.length > 0) {
                 html += `
                     <h6 class="mb-3">Stock por Bodega:</h6>
                     <div class="table-responsive">
-                        <table class="table table-sm table-hover">
-                            <thead class="table-light">
+                        <table class="table table-sm table-pedido">
+                            <thead>
                                 <tr>
                                     <th>Bodega</th>
                                     <th class="text-end">Existencias</th>
@@ -1142,7 +1525,7 @@ function verStockProducto(productoId, productoNombre) {
                     html += `
                         <tr>
                             <td>${bodega.Nombre_Bodega || `Bodega ${bodega.ID_Bodega}`}</td>
-                            <td class="text-end"><span class="badge bg-primary">${formatNumber(bodega.Existencias)}</span></td>
+                            <td class="text-end"><span class="badge badge-primary">${formatNumber(bodega.Existencias)}</span></td>
                         </tr>`;
                 });
                 
@@ -1151,24 +1534,16 @@ function verStockProducto(productoId, productoNombre) {
                         </table>
                     </div>`;
             } else {
-                html += `
-                    <div class="alert alert-warning">
-                        <i class="fas fa-exclamation-triangle me-2"></i>
-                        No hay stock registrado en bodegas para este producto
-                    </div>`;
+                html += `<div class="alert alert-warning">No hay stock registrado en bodegas para este producto</div>`;
             }
             
             contenidoStock.innerHTML = html;
         })
         .catch(error => {
-            console.error('❌ Error:', error);
+            console.error('Error:', error);
             const contenidoStock = document.getElementById('contenidoStock');
             if (contenidoStock) {
-                contenidoStock.innerHTML = `
-                    <div class="alert alert-danger">
-                        <i class="fas fa-exclamation-triangle me-2"></i>
-                        Error al cargar el stock del producto: ${error.message}
-                    </div>`;
+                contenidoStock.innerHTML = `<div class="alert alert-danger">Error al cargar el stock: ${error.message}</div>`;
             }
         });
     
@@ -1180,8 +1555,6 @@ function verStockProducto(productoId, productoNombre) {
 // ============================================
 
 function agregarProducto(producto) {
-    console.log('➕ Agregando producto:', producto);
-    
     if (!producto.precio || producto.precio <= 0) {
         showAlert('warning', `El producto "${producto.nombre}" no tiene precio válido para el perfil ${perfilClienteActual}`);
         return;
@@ -1260,12 +1633,10 @@ function actualizarTablaProductos() {
                 <small class="text-muted">
                     Código: ${producto.codigo || 'N/A'} | 
                     Unidad: ${producto.unidad} |
-                    Stock: <span class="badge bg-secondary">${formatNumber(producto.stock)}</span>
+                    Stock: <span class="badge badge-secondary">${formatNumber(producto.stock)}</span>
                 </small>
             </td>
-            <td>
-                <span class="badge ${producto.tipoPrecioClase}">${producto.tipoPrecio}</span>
-            </td>
+            <td><span class="badge ${producto.tipoPrecioClase}">${producto.tipoPrecio}</span></td>
             <td>
                 <div class="input-group input-group-sm">
                     <span class="input-group-text">C$</span>
@@ -1297,11 +1668,12 @@ function actualizarTablaProductos() {
                         title="Ver stock por bodega">
                     <i class="fas fa-warehouse"></i>
                 </button>
-                <button type="button" class="btn btn-sm btn-danger" 
+                <button type="button" class="btn btn-sm btn-outline-danger" 
                         onclick="eliminarProducto(${index})" title="Eliminar">
                     <i class="fas fa-trash"></i>
                 </button>
-            </td>`;
+              </td>
+         `;
         if (tbody) tbody.appendChild(row);
     });
     
@@ -1322,7 +1694,7 @@ function actualizarContadorProductos() {
     if (!contador) return;
     
     contador.textContent = `${productosSeleccionados.length} producto${productosSeleccionados.length !== 1 ? 's' : ''}`;
-    contador.className = `badge ${productosSeleccionados.length > 0 ? 'bg-success' : 'bg-primary'}`;
+    contador.className = `badge ${productosSeleccionados.length > 0 ? 'badge-success' : 'badge-primary'}`;
 }
 
 function modificarCantidad(index, cambio) {
@@ -1438,31 +1810,31 @@ function validarYConfirmarPedido() {
     let html = `
         <div class="row g-3 mb-4">
             <div class="col-md-6">
-                <div class="card">
-                    <div class="card-body">
-                        <h6 class="card-title border-bottom pb-2 mb-3">
-                            <i class="fas fa-user me-2"></i>Datos del Cliente
-                        </h6>
-                        <p><strong>Cliente:</strong> ${document.getElementById('clienteNombre')?.textContent || ''}</p>
-                        <p><strong>Documento:</strong> ${document.getElementById('clienteRUC')?.textContent || ''}</p>
-                        <p><strong>Teléfono:</strong> ${document.getElementById('clienteTelefono')?.textContent || ''}</p>
-                        <p><strong>Dirección:</strong> ${document.getElementById('clienteDireccion')?.textContent || ''}</p>
-                        <p><strong>Perfil:</strong> <span class="badge ${document.getElementById('clientePerfil')?.className || ''}">${document.getElementById('clientePerfil')?.textContent || ''}</span></p>
-                        <p><strong>Tipo Precio:</strong> <span class="badge ${document.getElementById('tipoPrecio')?.className || ''}">${document.getElementById('tipoPrecio')?.textContent || ''}</span></p>
+                <div class="card-custom">
+                    <div class="card-header-custom">
+                        <h6 class="mb-0"><i class="fas fa-user me-2"></i>Datos del Cliente</h6>
+                    </div>
+                    <div class="card-body p-3">
+                        <p class="mb-2"><strong>Cliente:</strong> ${document.getElementById('clienteNombre')?.textContent || ''}</p>
+                        <p class="mb-2"><strong>Documento:</strong> ${document.getElementById('clienteRUC')?.textContent || ''}</p>
+                        <p class="mb-2"><strong>Teléfono:</strong> ${document.getElementById('clienteTelefono')?.textContent || ''}</p>
+                        <p class="mb-2"><strong>Dirección:</strong> ${document.getElementById('clienteDireccion')?.textContent || ''}</p>
+                        <p class="mb-2"><strong>Perfil:</strong> <span class="badge ${document.getElementById('clientePerfil')?.className || ''}">${document.getElementById('clientePerfil')?.textContent || ''}</span></p>
+                        <p class="mb-2"><strong>Tipo Precio:</strong> <span class="badge ${document.getElementById('tipoPrecio')?.className || ''}">${document.getElementById('tipoPrecio')?.textContent || ''}</span></p>
                     </div>
                 </div>
             </div>
             <div class="col-md-6">
-                <div class="card">
-                    <div class="card-body">
-                        <h6 class="card-title border-bottom pb-2 mb-3">
-                            <i class="fas fa-info-circle me-2"></i>Información del Pedido
-                        </h6>
-                        <p><strong>Fecha:</strong> ${document.getElementById('fechaPedido')?.value || ''}</p>
-                        <p><strong>Empresa:</strong> ${document.getElementById('selectEmpresa')?.options[document.getElementById('selectEmpresa')?.selectedIndex]?.text || ''}</p>
-                        <p><strong>Prioridad:</strong> <span class="badge ${prioridadBadgeClass}"><i class="${prioridadIcono} me-1"></i>${prioridad}</span></p>
-                        <p><strong>Tipo entrega:</strong> ${document.getElementById('selectTipoEntrega')?.value || ''}</p>
-                        <p><strong>Observaciones:</strong> ${document.getElementById('observacionPedido')?.value || 'Ninguna'}</p>
+                <div class="card-custom">
+                    <div class="card-header-custom">
+                        <h6 class="mb-0"><i class="fas fa-info-circle me-2"></i>Información del Pedido</h6>
+                    </div>
+                    <div class="card-body p-3">
+                        <p class="mb-2"><strong>Fecha:</strong> ${document.getElementById('fechaPedido')?.value || ''}</p>
+                        <p class="mb-2"><strong>Empresa:</strong> ${document.getElementById('selectEmpresa')?.options[document.getElementById('selectEmpresa')?.selectedIndex]?.text || ''}</p>
+                        <p class="mb-2"><strong>Prioridad:</strong> <span class="badge ${prioridadBadgeClass}"><i class="${prioridadIcono} me-1"></i>${prioridad}</span></p>
+                        <p class="mb-2"><strong>Tipo entrega:</strong> ${document.getElementById('selectTipoEntrega')?.value || ''}</p>
+                        <p class="mb-2"><strong>Observaciones:</strong> ${document.getElementById('observacionPedido')?.value || 'Ninguna'}</p>
                     </div>
                 </div>
             </div>
@@ -1498,8 +1870,9 @@ function validarYConfirmarPedido() {
 }
 
 // ============================================
-// GUARDAR PEDIDO (CORREGIDO)
+// GUARDAR PEDIDO
 // ============================================
+
 function guardarPedido() {
     const btnGuardar = document.getElementById('btnConfirmarGuardar');
     const modalElement = document.getElementById('modalConfirmacion');
@@ -1532,9 +1905,6 @@ function guardarPedido() {
         }))
     };
     
-    console.log('📤 Enviando pedido:', datosPedido);
-    
-    // CORREGIDO: Usar API_URLS en lugar de URL fija
     fetch(API_URLS.crearPedido, {
         method: 'POST',
         headers: {
@@ -1549,14 +1919,11 @@ function guardarPedido() {
         return response.json();
     })
     .then(data => {
-        console.log('📥 Respuesta del servidor:', data);
-        
         if (modal) modal.hide();
         
         if (data.success) {
-            showToast('success', 'Pedido creado', `Pedido #${data.pedido_id} creado exitosamente con perfil ${data.perfil_cliente || perfilClienteActual}`);
+            showToast('success', 'Pedido creado', `Pedido #${data.pedido_id} creado exitosamente`);
             setTimeout(() => {
-                // CORREGIDO: Usar API_URLS en lugar de URL fija
                 window.location.href = API_URLS.verPedido + data.pedido_id;
             }, 1500);
         } else {
@@ -1566,7 +1933,7 @@ function guardarPedido() {
         }
     })
     .catch(error => {
-        console.error('❌ Error:', error);
+        console.error('Error:', error);
         if (modal) modal.hide();
         showAlert('error', 'Error al conectar con el servidor: ' + error.message);
         btnGuardar.disabled = false;
@@ -1575,12 +1942,13 @@ function guardarPedido() {
 }
 
 // ============================================
-// NOTIFICACIONES
+// NOTIFICACIONES MEJORADAS
 // ============================================
+
 function showAlert(type, message) {
     const alertDiv = document.createElement('div');
     alertDiv.className = `alert alert-${type} alert-dismissible fade show position-fixed`;
-    alertDiv.style.cssText = 'top: 20px; right: 20px; z-index: 1055; max-width: 400px;';
+    alertDiv.style.cssText = 'top: 20px; right: 20px; z-index: 1055; max-width: 400px; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.15);';
     
     let icon = 'fa-info-circle';
     if (type === 'success') icon = 'fa-check-circle';
@@ -1588,9 +1956,11 @@ function showAlert(type, message) {
     else if (type === 'error' || type === 'danger') icon = 'fa-exclamation-circle';
     
     alertDiv.innerHTML = `
-        <i class="fas ${icon} me-2"></i>
-        ${message}
-        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        <div class="d-flex align-items-center">
+            <i class="fas ${icon} me-2 fs-5"></i>
+            <div class="flex-grow-1">${message}</div>
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
     `;
     
     document.body.appendChild(alertDiv);
@@ -1606,12 +1976,13 @@ function showAlert(type, message) {
 function showToast(type, title, message) {
     const toast = document.createElement('div');
     toast.className = `toast align-items-center text-white bg-${type} border-0 position-fixed`;
-    toast.style.cssText = 'bottom: 20px; right: 20px; z-index: 1055;';
+    toast.style.cssText = 'bottom: 20px; right: 20px; z-index: 1055; border-radius: 10px; min-width: 300px;';
     toast.setAttribute('role', 'alert');
     toast.innerHTML = `
         <div class="d-flex">
             <div class="toast-body">
-                <strong>${title}:</strong> ${message}
+                <strong>${title}</strong><br>
+                <small>${message}</small>
             </div>
             <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
         </div>
@@ -1620,7 +1991,7 @@ function showToast(type, title, message) {
     document.body.appendChild(toast);
     
     if (typeof bootstrap !== 'undefined') {
-        const bsToast = new bootstrap.Toast(toast);
+        const bsToast = new bootstrap.Toast(toast, { delay: 3000 });
         bsToast.show();
     }
     
@@ -1631,97 +2002,4 @@ function showToast(type, title, message) {
     });
 }
 </script>
-
-<style>
-.precio-input, .cantidad-input {
-    text-align: right;
-}
-.table th {
-    background-color: #f8f9fa;
-    font-weight: 600;
-}
-.badge {
-    font-size: 0.85em;
-}
-.card-header {
-    font-weight: 600;
-}
-#productosCategoriaContainer .card {
-    max-height: 500px;
-    overflow-y: auto;
-}
-#resultadosBusqueda {
-    max-height: 300px;
-    overflow-y: auto;
-    border: 1px solid #dee2e6;
-    border-radius: 0.25rem;
-    padding: 10px;
-    background-color: #f8f9fa;
-}
-.btn-group-sm > .btn {
-    padding: 0.25rem 0.5rem;
-}
-.table-hover tbody tr:hover {
-    background-color: rgba(0,123,255,0.05);
-}
-.input-group-sm .form-control {
-    padding: 0.25rem 0.5rem;
-    font-size: 0.875rem;
-}
-.input-group-text {
-    background-color: #f8f9fa;
-    border-color: #dee2e6;
-    font-weight: 600;
-}
-.text-success {
-    color: #198754 !important;
-}
-.bg-danger { 
-    background-color: #dc3545 !important; 
-    color: white !important;
-}
-.bg-primary { 
-    background-color: #0d6efd !important; 
-    color: white !important;
-}
-.bg-secondary { 
-    background-color: #6c757d !important; 
-    color: white !important;
-}
-.bg-info { 
-    background-color: #0dcaf0 !important; 
-    color: white !important;
-}
-.bg-warning { 
-    background-color: #ffc107 !important; 
-    color: black !important;
-}
-#indicadorPrioridad .alert {
-    border-left: 4px solid #dc3545;
-}
-@keyframes pulse {
-    0% { opacity: 1; }
-    50% { opacity: 0.7; }
-    100% { opacity: 1; }
-}
-#indicadorPrioridad .alert-danger {
-    animation: pulse 2s infinite;
-}
-#tablaResumenProductos th {
-    background-color: #e9ecef;
-    font-weight: 600;
-}
-.select2-container--default .select2-selection--single {
-    height: 38px;
-    border: 1px solid #ced4da;
-    border-radius: 4px;
-}
-.select2-container--default .select2-selection--single .select2-selection__rendered {
-    line-height: 36px;
-    padding-left: 12px;
-}
-.select2-container--default .select2-selection--single .select2-selection__arrow {
-    height: 36px;
-}
-</style>
 {% endblock %}

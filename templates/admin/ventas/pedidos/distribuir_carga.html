@@ -2,127 +2,566 @@
 
 {% block title %}Distribuir Carga #{{ pedido.ID_Pedido }}{% endblock %}
 
+{% block extra_css %}
+<style>
+    /* ============================================ */
+    /* ESTILOS PROFESIONALES Y SOBRIOS              */
+    /* ============================================ */
+    
+    :root {
+        --spacing-xs: 0.25rem;
+        --spacing-sm: 0.5rem;
+        --spacing-md: 1rem;
+        --spacing-lg: 1.5rem;
+        --spacing-xl: 2rem;
+        --border-radius-sm: 6px;
+        --border-radius-md: 10px;
+        --border-radius-lg: 12px;
+        --shadow-sm: 0 1px 2px rgba(0,0,0,0.05);
+        --shadow-md: 0 4px 6px -1px rgba(0,0,0,0.1);
+        --shadow-lg: 0 10px 15px -3px rgba(0,0,0,0.1);
+        --transition-fast: 150ms ease;
+        --transition-normal: 250ms ease;
+        --color-primary: #374151;
+        --color-primary-dark: #1f2937;
+        --color-gray-50: #f9fafb;
+        --color-gray-100: #f3f4f6;
+        --color-gray-200: #e5e7eb;
+        --color-gray-300: #d1d5db;
+        --color-gray-400: #9ca3af;
+        --color-gray-500: #6b7280;
+        --color-gray-600: #4b5563;
+        --color-gray-700: #374151;
+        --color-gray-800: #1f2937;
+        --color-success: #10b981;
+        --color-danger: #ef4444;
+        --color-warning: #f59e0b;
+        --color-info: #06b6d4;
+    }
+    
+    /* Cards mejoradas */
+    .card-custom {
+        background: white;
+        border-radius: var(--border-radius-md);
+        border: 1px solid var(--color-gray-200);
+        box-shadow: var(--shadow-sm);
+        transition: all var(--transition-normal);
+        overflow: hidden;
+    }
+    
+    .card-custom:hover {
+        box-shadow: var(--shadow-md);
+    }
+    
+    .card-header-custom {
+        background: linear-gradient(to bottom, #fafbfc, var(--color-gray-50));
+        border-bottom: 1px solid var(--color-gray-200);
+        padding: var(--spacing-md) var(--spacing-lg);
+    }
+    
+    .card-header-custom h5, 
+    .card-header-custom h6 {
+        font-weight: 600;
+        color: var(--color-gray-800);
+        margin: 0;
+        font-size: 0.95rem;
+    }
+    
+    /* Badges profesionales */
+    .badge {
+        font-weight: 500;
+        padding: 0.35rem 0.75rem;
+        border-radius: 20px;
+        font-size: 0.7rem;
+    }
+    
+    .badge-success {
+        background: #d1fae5;
+        color: #065f46;
+    }
+    
+    .badge-warning {
+        background: #fef3c7;
+        color: #92400e;
+    }
+    
+    .badge-danger {
+        background: #fee2e2;
+        color: #991b1b;
+    }
+    
+    .badge-info {
+        background: #e0e7ff;
+        color: #3730a3;
+    }
+    
+    .badge-primary {
+        background: var(--color-gray-100);
+        color: var(--color-gray-700);
+    }
+    
+    .badge-secondary {
+        background: var(--color-gray-100);
+        color: var(--color-gray-600);
+    }
+    
+    /* Alertas mejoradas */
+    .alert-custom {
+        border: none;
+        border-radius: var(--border-radius-md);
+        padding: var(--spacing-md) var(--spacing-lg);
+    }
+    
+    .alert-info-custom {
+        background: #eff6ff;
+        color: #1e40af;
+        border-left: 4px solid var(--color-info);
+    }
+    
+    .alert-warning-custom {
+        background: #fef3c7;
+        color: #92400e;
+        border-left: 4px solid var(--color-warning);
+    }
+    
+    .alert-primary-custom {
+        background: #f0fdf4;
+        color: #166534;
+        border-left: 4px solid var(--color-success);
+    }
+    
+    /* Tabla mejorada */
+    .table-custom {
+        margin-bottom: 0;
+    }
+    
+    .table-custom thead th {
+        background: var(--color-gray-50);
+        font-weight: 600;
+        font-size: 0.7rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        color: var(--color-gray-600);
+        border-bottom: 1px solid var(--color-gray-200);
+        padding: var(--spacing-md);
+        text-align: center;
+    }
+    
+    .table-custom tbody td {
+        padding: var(--spacing-md);
+        vertical-align: middle;
+        border-bottom: 1px solid var(--color-gray-100);
+        color: var(--color-gray-700);
+        font-size: 0.8rem;
+        text-align: center;
+    }
+    
+    .table-custom tbody tr:hover {
+        background: var(--color-gray-50);
+    }
+    
+    /* Inputs de cantidad */
+    .input-cantidad {
+        width: 100px;
+        margin: 0 auto;
+        text-align: center;
+        font-size: 0.8rem;
+        padding: 0.375rem 0.5rem;
+        border: 1px solid var(--color-gray-200);
+        border-radius: var(--border-radius-sm);
+        transition: all var(--transition-fast);
+    }
+    
+    .input-cantidad:focus {
+        border-color: var(--color-warning);
+        box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.1);
+        outline: none;
+    }
+    
+    /* Tarjetas de resumen */
+    .summary-card {
+        background: white;
+        border-radius: var(--border-radius-md);
+        padding: var(--spacing-md);
+        text-align: center;
+        border: 1px solid var(--color-gray-200);
+        transition: all var(--transition-fast);
+    }
+    
+    .summary-card:hover {
+        transform: translateY(-2px);
+        box-shadow: var(--shadow-md);
+    }
+    
+    .summary-card h6 {
+        font-size: 0.7rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        color: var(--color-gray-500);
+        margin-bottom: var(--spacing-sm);
+    }
+    
+    .summary-card h3 {
+        font-size: 1.5rem;
+        font-weight: 600;
+        margin-bottom: 0;
+        color: var(--color-gray-800);
+    }
+    
+    .summary-card.text-success {
+        background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+        border: none;
+    }
+    
+    .summary-card.text-success h6,
+    .summary-card.text-success h3 {
+        color: white;
+    }
+    
+    /* Botones */
+    .btn {
+        padding: 0.5rem 1rem;
+        font-size: 0.8rem;
+        font-weight: 500;
+        border-radius: var(--border-radius-sm);
+        transition: all var(--transition-fast);
+    }
+    
+    .btn-sm {
+        padding: 0.375rem 0.75rem;
+        font-size: 0.7rem;
+    }
+    
+    .btn-warning {
+        background: var(--color-warning);
+        border: none;
+        color: white;
+    }
+    
+    .btn-warning:hover {
+        background: #d97706;
+        transform: translateY(-1px);
+    }
+    
+    .btn-outline-secondary {
+        border: 1px solid var(--color-gray-300);
+        color: var(--color-gray-600);
+    }
+    
+    .btn-outline-secondary:hover {
+        background: var(--color-gray-100);
+        border-color: var(--color-gray-400);
+        transform: translateY(-1px);
+    }
+    
+    .btn-outline-success {
+        border: 1px solid var(--color-gray-300);
+        color: var(--color-success);
+    }
+    
+    .btn-outline-success:hover {
+        background: #d1fae5;
+        border-color: var(--color-success);
+        transform: translateY(-1px);
+    }
+    
+    .btn-outline-info {
+        border: 1px solid var(--color-gray-300);
+        color: var(--color-info);
+    }
+    
+    .btn-outline-info:hover {
+        background: #e0f2fe;
+        border-color: var(--color-info);
+        transform: translateY(-1px);
+    }
+    
+    .btn-outline-warning {
+        border: 1px solid var(--color-gray-300);
+        color: var(--color-warning);
+    }
+    
+    .btn-outline-warning:hover {
+        background: #fef3c7;
+        border-color: var(--color-warning);
+        transform: translateY(-1px);
+    }
+    
+    /* Info Ruta */
+    .info-card {
+        background: white;
+        border-radius: var(--border-radius-md);
+        padding: var(--spacing-lg);
+        border: 1px solid var(--color-gray-200);
+    }
+    
+    .info-item {
+        display: flex;
+        justify-content: space-between;
+        padding: var(--spacing-sm) 0;
+        border-bottom: 1px solid var(--color-gray-100);
+    }
+    
+    .info-item:last-child {
+        border-bottom: none;
+    }
+    
+    .info-label {
+        color: var(--color-gray-500);
+        font-size: 0.75rem;
+        font-weight: 500;
+    }
+    
+    .info-value {
+        color: var(--color-gray-800);
+        font-weight: 600;
+        font-size: 0.85rem;
+    }
+    
+    /* Badge de stock */
+    .stock-badge {
+        font-size: 0.9rem;
+        padding: 0.4rem 0.8rem;
+        transition: all var(--transition-fast);
+    }
+    
+    /* Animaciones */
+    @keyframes fadeInUp {
+        from {
+            opacity: 0;
+            transform: translateY(20px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+    
+    .fade-in-up {
+        animation: fadeInUp 0.4s ease-out;
+    }
+    
+    /* Scrollbar */
+    ::-webkit-scrollbar {
+        width: 6px;
+        height: 6px;
+    }
+    
+    ::-webkit-scrollbar-track {
+        background: var(--color-gray-100);
+        border-radius: 3px;
+    }
+    
+    ::-webkit-scrollbar-thumb {
+        background: var(--color-gray-400);
+        border-radius: 3px;
+    }
+    
+    ::-webkit-scrollbar-thumb:hover {
+        background: var(--color-gray-500);
+    }
+    
+    /* Responsive */
+    @media (max-width: 768px) {
+        .container-fluid {
+            padding-left: 12px;
+            padding-right: 12px;
+        }
+        
+        .input-cantidad {
+            width: 65px;
+            font-size: 0.7rem;
+            padding: 0.25rem;
+        }
+        
+        .summary-card h3 {
+            font-size: 1.2rem;
+        }
+        
+        .table-custom {
+            font-size: 0.7rem;
+        }
+        
+        .badge {
+            font-size: 0.6rem;
+            padding: 0.25rem 0.5rem;
+        }
+        
+        .btn-sm {
+            padding: 0.25rem 0.5rem;
+            font-size: 0.65rem;
+        }
+    }
+    
+    /* Tooltips */
+    [data-bs-toggle="tooltip"] {
+        cursor: help;
+    }
+    
+    /* Botón guardar deshabilitado */
+    #btnGuardar:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+        transform: none;
+    }
+    
+    /* Tabla fija para mejor visualización */
+    .table-responsive {
+        max-height: 500px;
+        overflow-y: auto;
+    }
+    
+    .table-responsive thead th {
+        position: sticky;
+        top: 0;
+        background: var(--color-gray-50);
+        z-index: 10;
+    }
+</style>
+{% endblock %}
+
 {% block content %}
-<div class="container-fluid mt-4">
-    <!-- Encabezado -->
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <div>
-            <h2><i class="fas fa-truck-loading me-2 text-warning"></i>Distribuir Carga #{{ pedido.ID_Pedido }}</h2>
-            <p class="text-muted">
-                Ruta: <strong>{{ pedido.Nombre_Ruta }}</strong> | 
-                Fecha: <strong>{{ pedido.Fecha.strftime('%d/%m/%Y') }}</strong>
-            </p>
+<div class="container-fluid py-3 py-md-4 px-2 px-md-3 fade-in-up">
+    <!-- ============================================ -->
+    <!-- ENCABEZADO RESPONSIVO                        -->
+    <!-- ============================================ -->
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center mb-4">
+        <div class="mb-2 mb-md-0">
+            <h2 class="h3 mb-2" style="color: var(--color-gray-800);">
+                <i class="fas fa-truck-loading me-2" style="color: var(--color-warning);"></i>
+                Distribuir Carga #{{ pedido.ID_Pedido }}
+            </h2>
+            <div class="text-muted small">
+                <i class="fas fa-route me-1"></i> Ruta: <strong class="text-warning">{{ pedido.Nombre_Ruta }}</strong>
+                <i class="fas fa-calendar ms-3 me-1"></i> Fecha: <strong>{{ pedido.Fecha.strftime('%d/%m/%Y') }}</strong>
+            </div>
         </div>
-        <a href="{{ url_for('admin.ver_pedido', id_pedido=pedido.ID_Pedido) }}" class="btn btn-outline-secondary">
-            <i class="fas fa-arrow-left me-1"></i> Volver
-        </a>
+        <div>
+            <a href="{{ url_for('admin.ver_pedido', id_pedido=pedido.ID_Pedido) }}" class="btn btn-outline-secondary btn-sm">
+                <i class="fas fa-arrow-left me-1"></i> Volver al Pedido
+            </a>
+        </div>
     </div>
 
+    <!-- ============================================ -->
+    <!-- MENSAJES DE ADVERTENCIA                      -->
+    <!-- ============================================ -->
     {% if not vendedores %}
-    <div class="alert alert-warning">
-        <i class="fas fa-exclamation-triangle me-2"></i>
-        <strong>No hay vendedores activos hoy</strong> en la ruta {{ pedido.Nombre_Ruta }}
-        <br>
-        <small>Debe asignar vendedores a la ruta para poder distribuir la carga.</small>
+    <div class="alert-custom alert-warning-custom mb-4">
+        <div class="d-flex align-items-center">
+            <i class="fas fa-exclamation-triangle fa-2x me-3"></i>
+            <div>
+                <strong>No hay vendedores activos hoy</strong> en la ruta {{ pedido.Nombre_Ruta }}
+                <br>
+                <small>Debe asignar vendedores a la ruta para poder distribuir la carga.</small>
+            </div>
+        </div>
     </div>
     {% endif %}
 
     {% if not productos %}
-    <div class="alert alert-warning">
-        <i class="fas fa-exclamation-triangle me-2"></i>
-        <strong>El pedido no tiene productos</strong>
-        <br>
-        <small>No hay productos para distribuir en este pedido consolidado.</small>
+    <div class="alert-custom alert-warning-custom mb-4">
+        <div class="d-flex align-items-center">
+            <i class="fas fa-exclamation-triangle fa-2x me-3"></i>
+            <div>
+                <strong>El pedido no tiene productos</strong>
+                <br>
+                <small>No hay productos para distribuir en este pedido consolidado.</small>
+            </div>
+        </div>
     </div>
     {% endif %}
 
     {% if vendedores and productos %}
-    <!-- Detalle de la Carga -->
-    <div class="card mb-4 border-warning">
-        <div class="card-header bg-warning text-white">
-            <h5 class="mb-0"><i class="fas fa-info-circle me-2"></i>Detalle de la Carga</h5>
+    <!-- ============================================ -->
+    <!-- DETALLE DE LA CARGA                          -->
+    <!-- ============================================ -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-3">
+            <div class="info-card">
+                <div class="info-item">
+                    <span class="info-label"><i class="fas fa-hashtag me-1"></i> Pedido</span>
+                    <span class="info-value">#{{ pedido.ID_Pedido }}</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label"><i class="fas fa-route me-1"></i> Ruta</span>
+                    <span class="info-value text-warning">{{ pedido.Nombre_Ruta }}</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label"><i class="fas fa-calendar me-1"></i> Fecha</span>
+                    <span class="info-value">{{ pedido.Fecha.strftime('%d/%m/%Y') }}</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label"><i class="fas fa-users me-1"></i> Vendedores</span>
+                    <span class="info-value"><span class="badge badge-info">{{ vendedores|length }} activos</span></span>
+                </div>
+            </div>
         </div>
-        <div class="card-body">
-            <div class="row">
-                <div class="col-md-3">
-                    <h6 class="text-muted mb-1">Pedido</h6>
-                    <h4>#{{ pedido.ID_Pedido }}</h4>
-                </div>
-                <div class="col-md-3">
-                    <h6 class="text-muted mb-1">Ruta</h6>
-                    <h4 class="text-warning">{{ pedido.Nombre_Ruta }}</h4>
-                </div>
-                <div class="col-md-3">
-                    <h6 class="text-muted mb-1">Fecha</h6>
-                    <h4>{{ pedido.Fecha.strftime('%d/%m/%Y') }}</h4>
-                </div>
-                <div class="col-md-3">
-                    <h6 class="text-muted mb-1">Vendedores</h6>
-                    <h4><span class="badge bg-info">{{ vendedores|length }} activos</span></h4>
+        <div class="col-md-9">
+            <div class="alert-custom alert-info-custom h-100 d-flex align-items-center">
+                <i class="fas fa-tag fa-2x me-3"></i>
+                <div>
+                    <strong>Tipo de Precio Aplicado:</strong>
+                    <span class="badge badge-info ms-2">PRECIO RUTA</span>
+                    <p class="mb-0 mt-1 small">
+                        Los pedidos consolidados SIEMPRE utilizan precio de ruta para todos los productos.
+                    </p>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Información de Precios - SIEMPRE RUTA -->
-    <div class="alert alert-primary mb-3">
-        <div class="d-flex align-items-center">
-            <i class="fas fa-tag fa-2x me-3"></i>
-            <div>
-                <strong>Tipo de Precio Aplicado:</strong> 
-                <span class="badge bg-primary ms-2">PRECIO RUTA</span>
-                <p class="mb-0 mt-1">
-                    <small>Los pedidos consolidados SIEMPRE utilizan precio de ruta para todos los productos.</small>
-                </p>
-            </div>
-        </div>
-    </div>
-
-    <!-- Formulario -->
+    <!-- ============================================ -->
+    <!-- FORMULARIO DE DISTRIBUCIÓN                   -->
+    <!-- ============================================ -->
     <form method="POST" action="{{ url_for('admin.procesar_carga_consolidada', id_pedido=pedido.ID_Pedido) }}" id="formDistribucion">
         <div id="inputsContainer"></div>
         
-        <div class="card">
-            <div class="card-header bg-dark text-white">
-                <i class="fas fa-people-arrows me-2"></i>Distribuir a Vendedores
+        <div class="card-custom">
+            <div class="card-header-custom">
+                <h5><i class="fas fa-people-arrows me-2"></i>Distribuir a Vendedores</h5>
             </div>
             <div class="card-body p-0">
                 <div class="table-responsive">
-                    <table class="table table-bordered mb-0" id="tablaDistribucion">
-                        <thead class="table-dark">
+                    <table class="table table-custom" id="tablaDistribucion">
+                        <thead>
                             <tr>
-                                <th>Producto</th>
-                                <th class="text-center">Código</th>
-                                <th class="text-center">Precio Ruta</th>
-                                <th class="text-center">Stock</th>
+                                <th style="min-width: 180px;">Producto</th>
+                                <th style="width: 100px;">Código</th>
+                                <th style="width: 120px;">Precio Ruta</th>
+                                <th style="width: 100px;">Stock</th>
                                 {% for v in vendedores %}
-                                <th class="text-center" title="ID: {{ v.ID_Asignacion }}">
+                                <th style="min-width: 100px;" title="ID: {{ v.ID_Asignacion }}">
                                     {{ v.NombreUsuario }}
                                 </th>
                                 {% endfor %}
-                                <th class="text-center">Total</th>
+                                <th style="width: 100px;">Total</th>
                             </tr>
                         </thead>
                         <tbody>
                             {% for p in productos %}
                             <tr id="fila-{{ p.ID_Producto }}">
                                 <td>
-                                    <strong>{{ p.Nombre_Producto }}</strong>
+                                    <div class="fw-bold small">{{ p.Nombre_Producto }}</div>
+                                    {% if p.Descripcion %}
+                                    <small class="text-muted">{{ p.Descripcion|truncate(50) }}</small>
+                                    {% endif %}
                                 </td>
-                                <td class="text-center align-middle">
-                                    <span class="badge bg-secondary">{{ p.COD_Producto }}</span>
+                                <td class="align-middle">
+                                    <span class="badge badge-secondary">{{ p.COD_Producto }}</span>
                                 </td>
-                                <td class="text-center align-middle">
-                                    <span class="badge bg-primary">C${{ "%.2f"|format(p.Precio_Venta) }}</span>
+                                <td class="align-middle">
+                                    <span class="badge badge-info">C${{ "%.2f"|format(p.Precio_Venta) }}</span>
                                 </td>
-                                <td class="text-center align-middle">
-                                    <span class="badge bg-primary stock-badge" id="stock-{{ p.ID_Producto }}">
+                                <td class="align-middle">
+                                    <span class="badge badge-primary stock-badge" id="stock-{{ p.ID_Producto }}" 
+                                          style="font-size: 0.85rem;">
                                         {{ "%.2f"|format(p.Cantidad_Total) }}
                                     </span>
                                 </td>
                                 
                                 {% for v in vendedores %}
-                                <td class="text-center">
+                                <td class="align-middle">
                                     <input type="number" 
                                            class="form-control form-control-sm text-center input-cantidad"
                                            data-producto="{{ p.ID_Producto }}"
@@ -140,8 +579,11 @@
                                 </td>
                                 {% endfor %}
                                 
-                                <td class="text-center align-middle">
-                                    <span class="badge bg-info total-producto" id="total-{{ p.ID_Producto }}">0.00</span>
+                                <td class="align-middle">
+                                    <span class="badge badge-info total-producto" id="total-{{ p.ID_Producto }}"
+                                          style="font-size: 0.9rem; min-width: 60px;">
+                                        0.00
+                                    </span>
                                     <br>
                                     <small class="text-muted">/ {{ "%.2f"|format(p.Cantidad_Total) }}</small>
                                 </td>
@@ -151,9 +593,9 @@
                     </table>
                 </div>
             </div>
-            <div class="card-footer">
-                <div class="row">
-                    <div class="col-md-6">
+            <div class="card-footer" style="background: var(--color-gray-50);">
+                <div class="d-flex flex-wrap justify-content-between gap-2">
+                    <div>
                         <button type="button" class="btn btn-sm btn-outline-success" onclick="distribuirTodo()">
                             <i class="fas fa-calculator me-1"></i> Distribuir equitativamente
                         </button>
@@ -161,7 +603,7 @@
                             <i class="fas fa-eraser me-1"></i> Limpiar todo
                         </button>
                     </div>
-                    <div class="col-md-6 text-end">
+                    <div>
                         <button type="button" class="btn btn-sm btn-outline-warning" onclick="verificarStock()">
                             <i class="fas fa-check-circle me-1"></i> Verificar stock
                         </button>
@@ -170,48 +612,44 @@
             </div>
         </div>
 
-        <!-- Resumen -->
-        <div class="row mt-4">
-            <div class="col-md-3">
-                <div class="card bg-light">
-                    <div class="card-body text-center">
-                        <h6 class="text-muted">Productos</h6>
-                        <h3 id="resumen-productos">0</h3>
-                        <small class="text-muted">con asignación</small>
-                    </div>
+        <!-- ============================================ -->
+        <!-- RESUMEN ESTADÍSTICO                          -->
+        <!-- ============================================ -->
+        <div class="row g-3 mt-3">
+            <div class="col-md-3 col-sm-6">
+                <div class="summary-card">
+                    <h6><i class="fas fa-boxes me-1"></i> Productos</h6>
+                    <h3 id="resumen-productos">0</h3>
+                    <small class="text-muted">con asignación</small>
                 </div>
             </div>
-            <div class="col-md-3">
-                <div class="card bg-light">
-                    <div class="card-body text-center">
-                        <h6 class="text-muted">Unidades</h6>
-                        <h3 id="resumen-unidades">0.00</h3>
-                        <small class="text-muted">total asignado</small>
-                    </div>
+            <div class="col-md-3 col-sm-6">
+                <div class="summary-card">
+                    <h6><i class="fas fa-cubes me-1"></i> Unidades</h6>
+                    <h3 id="resumen-unidades">0.00</h3>
+                    <small class="text-muted">total asignado</small>
                 </div>
             </div>
-            <div class="col-md-3">
-                <div class="card bg-light">
-                    <div class="card-body text-center">
-                        <h6 class="text-muted">Vendedores</h6>
-                        <h3 id="resumen-vendedores">0</h3>
-                        <small class="text-muted">con carga</small>
-                    </div>
+            <div class="col-md-3 col-sm-6">
+                <div class="summary-card">
+                    <h6><i class="fas fa-users me-1"></i> Vendedores</h6>
+                    <h3 id="resumen-vendedores">0</h3>
+                    <small class="text-muted">con carga</small>
                 </div>
             </div>
-            <div class="col-md-3">
-                <div class="card bg-success text-white">
-                    <div class="card-body text-center">
-                        <h6>Valor Total</h6>
-                        <h3 id="resumen-valor">C$0.00</h3>
-                        <small>Precio Ruta</small>
-                    </div>
+            <div class="col-md-3 col-sm-6">
+                <div class="summary-card text-success">
+                    <h6><i class="fas fa-dollar-sign me-1"></i> Valor Total</h6>
+                    <h3 id="resumen-valor">C$0.00</h3>
+                    <small>Precio Ruta</small>
                 </div>
             </div>
         </div>
 
-        <!-- Botones -->
-        <div class="d-flex justify-content-between mt-4 mb-5">
+        <!-- ============================================ -->
+        <!-- BOTONES DE ACCIÓN                            -->
+        <!-- ============================================ -->
+        <div class="d-flex justify-content-between gap-3 mt-4 mb-5">
             <a href="{{ url_for('admin.ver_pedido', id_pedido=pedido.ID_Pedido) }}" class="btn btn-secondary">
                 <i class="fas fa-times me-1"></i> Cancelar
             </a>
@@ -224,12 +662,15 @@
 </div>
 
 <script>
-// Variables globales
+// ============================================
+// VARIABLES GLOBALES
+// ============================================
 let productosData = {};
 
-// Inicializar
+// ============================================
+// INICIALIZACIÓN
+// ============================================
 document.addEventListener('DOMContentLoaded', function() {
-    // Inicializar datos de productos
     {% for p in productos %}
     productosData[{{ p.ID_Producto }}] = {
         nombre: "{{ p.Nombre_Producto }}",
@@ -241,7 +682,9 @@ document.addEventListener('DOMContentLoaded', function() {
     actualizarResumen();
 });
 
-// Validar cantidad individual
+// ============================================
+// FUNCIONES DE VALIDACIÓN Y ACTUALIZACIÓN
+// ============================================
 function validarCantidad(input, idProducto, stockTotal) {
     let valor = parseFloat(input.value) || 0;
     
@@ -252,7 +695,6 @@ function validarCantidad(input, idProducto, stockTotal) {
     actualizarTotalProducto(idProducto, stockTotal);
 }
 
-// Actualizar total por producto
 function actualizarTotalProducto(idProducto, stockTotal) {
     const inputs = document.querySelectorAll(`.input-cantidad[data-producto="${idProducto}"]`);
     let total = 0;
@@ -264,31 +706,39 @@ function actualizarTotalProducto(idProducto, stockTotal) {
     // Actualizar stock disponible
     const stockSpan = document.getElementById(`stock-${idProducto}`);
     if (stockSpan) {
-        stockSpan.textContent = (stockTotal - total).toFixed(2);
+        const stockRestante = (stockTotal - total).toFixed(2);
+        stockSpan.textContent = stockRestante;
         
-        // Cambiar color si hay excedente
+        // Cambiar color según el estado del stock
         if (total > stockTotal) {
-            stockSpan.classList.add('bg-danger');
-            stockSpan.classList.remove('bg-primary');
+            stockSpan.className = 'badge badge-danger stock-badge';
         } else if (total === stockTotal) {
-            stockSpan.classList.add('bg-success');
-            stockSpan.classList.remove('bg-primary');
+            stockSpan.className = 'badge badge-success stock-badge';
+        } else if (total > 0) {
+            stockSpan.className = 'badge badge-warning stock-badge';
         } else {
-            stockSpan.classList.add('bg-primary');
-            stockSpan.classList.remove('bg-danger', 'bg-success');
+            stockSpan.className = 'badge badge-primary stock-badge';
         }
     }
     
-    // Actualizar total
+    // Actualizar total del producto
     const totalSpan = document.getElementById(`total-${idProducto}`);
     if (totalSpan) {
         totalSpan.textContent = total.toFixed(2);
+        
+        // Cambiar color según el total
+        if (total === stockTotal) {
+            totalSpan.className = 'badge badge-success total-producto';
+        } else if (total > 0) {
+            totalSpan.className = 'badge badge-info total-producto';
+        } else {
+            totalSpan.className = 'badge badge-secondary total-producto';
+        }
     }
     
     actualizarResumen();
 }
 
-// Actualizar resumen general
 function actualizarResumen() {
     const inputs = document.querySelectorAll('.input-cantidad');
     let totalUnidades = 0;
@@ -318,10 +768,17 @@ function actualizarResumen() {
     }
 }
 
-// Distribuir equitativamente
+// ============================================
+// FUNCIONES DE UTILIDAD
+// ============================================
 function distribuirTodo() {
     const filas = document.querySelectorAll('tbody tr');
     const totalVendedores = {{ vendedores|length }};
+    
+    if (totalVendedores === 0) {
+        alert('No hay vendedores disponibles');
+        return;
+    }
     
     filas.forEach(fila => {
         const inputs = fila.querySelectorAll('.input-cantidad');
@@ -329,6 +786,8 @@ function distribuirTodo() {
         
         const idProducto = inputs[0].dataset.producto;
         const stockTotal = parseFloat(inputs[0].dataset.max);
+        
+        if (stockTotal === 0) return;
         
         // Calcular distribución
         const cantidadPorVendedor = Math.floor((stockTotal / totalVendedores) * 100) / 100;
@@ -348,10 +807,13 @@ function distribuirTodo() {
         
         actualizarTotalProducto(idProducto, stockTotal);
     });
+    
+    showToast('info', 'Distribución completada', 'Stock distribuido equitativamente entre los vendedores');
 }
 
-// Limpiar todas las asignaciones
 function limpiarTodo() {
+    if (!confirm('¿Está seguro de limpiar todas las asignaciones?')) return;
+    
     const inputs = document.querySelectorAll('.input-cantidad');
     inputs.forEach(input => {
         input.value = '0';
@@ -361,15 +823,20 @@ function limpiarTodo() {
     const productos = document.querySelectorAll('[id^="stock-"]');
     productos.forEach(span => {
         const idProducto = span.id.replace('stock-', '');
-        const stockTotal = parseFloat(document.querySelector(`.input-cantidad[data-producto="${idProducto}"]`).dataset.max);
-        actualizarTotalProducto(idProducto, stockTotal);
+        const input = document.querySelector(`.input-cantidad[data-producto="${idProducto}"]`);
+        if (input) {
+            const stockTotal = parseFloat(input.dataset.max);
+            actualizarTotalProducto(idProducto, stockTotal);
+        }
     });
+    
+    showToast('info', 'Limpieza completada', 'Todas las asignaciones han sido eliminadas');
 }
 
-// Verificar stock
 function verificarStock() {
     const filas = document.querySelectorAll('tbody tr');
     let errores = [];
+    let advertencias = [];
     
     filas.forEach(fila => {
         const inputs = fila.querySelectorAll('.input-cantidad');
@@ -388,19 +855,29 @@ function verificarStock() {
             if (suma > stockTotal) {
                 errores.push(`❌ ${nombreProducto}: Excede el stock (${suma.toFixed(2)} > ${stockTotal.toFixed(2)})`);
             } else {
-                errores.push(`⚠️ ${nombreProducto}: Faltan ${(stockTotal - suma).toFixed(2)} unidades por distribuir`);
+                advertencias.push(`⚠️ ${nombreProducto}: Faltan ${(stockTotal - suma).toFixed(2)} unidades por distribuir`);
             }
         }
     });
     
+    let mensaje = '';
     if (errores.length > 0) {
-        alert('Problemas detectados:\n' + errores.join('\n'));
+        mensaje += '🔴 PROBLEMAS CRÍTICOS:\n' + errores.join('\n') + '\n\n';
+    }
+    if (advertencias.length > 0) {
+        mensaje += '🟡 ADVERTENCIAS:\n' + advertencias.join('\n');
+    }
+    
+    if (mensaje) {
+        alert(mensaje);
     } else {
-        alert('✅ Todo correcto! El stock está completamente distribuido.');
+        showToast('success', 'Verificación completada', '✅ Todo correcto! El stock está completamente distribuido.');
     }
 }
 
-// Validar antes de enviar
+// ============================================
+// VALIDACIÓN ANTES DE ENVIAR
+// ============================================
 document.getElementById('formDistribucion').addEventListener('submit', function(e) {
     const inputs = document.querySelectorAll('.input-cantidad');
     const container = document.getElementById('inputsContainer');
@@ -423,16 +900,22 @@ document.getElementById('formDistribucion').addEventListener('submit', function(
         productosSuma[idProducto] += cantidad;
         
         if (cantidad > max) {
-            errores.push(`Producto ${input.dataset.nombreProducto}: cantidad excede el stock`);
+            errores.push(`❌ Producto "${input.dataset.nombreProducto}": cantidad (${cantidad.toFixed(2)}) excede el stock (${max.toFixed(2)})`);
+        }
+        
+        if (cantidad > 0) {
+            hayAsignacion = true;
         }
     });
     
     // Segunda pasada: verificar que las sumas totales sean correctas
     for (const [idProducto, suma] of Object.entries(productosSuma)) {
-        const stockTotal = parseFloat(document.querySelector(`.input-cantidad[data-producto="${idProducto}"]`).dataset.max);
-        if (Math.abs(suma - stockTotal) > 0.01) {
-            const nombreProducto = document.querySelector(`.input-cantidad[data-producto="${idProducto}"]`).dataset.nombreProducto;
-            if (suma < stockTotal) {
+        const input = document.querySelector(`.input-cantidad[data-producto="${idProducto}"]`);
+        if (input) {
+            const stockTotal = parseFloat(input.dataset.max);
+            const nombreProducto = input.dataset.nombreProducto;
+            
+            if (Math.abs(suma - stockTotal) > 0.01 && suma < stockTotal) {
                 if (!confirm(`⚠️ El producto "${nombreProducto}" tiene ${(stockTotal - suma).toFixed(2)} unidades sin distribuir.\n¿Desea continuar de todas formas?`)) {
                     e.preventDefault();
                     return;
@@ -443,7 +926,13 @@ document.getElementById('formDistribucion').addEventListener('submit', function(
     
     if (errores.length > 0) {
         e.preventDefault();
-        alert('Errores encontrados:\n' + errores.join('\n'));
+        alert('❌ Errores encontrados:\n' + errores.join('\n'));
+        return;
+    }
+    
+    if (!hayAsignacion) {
+        e.preventDefault();
+        alert('⚠️ Debe asignar al menos un producto a algún vendedor');
         return;
     }
     
@@ -451,7 +940,6 @@ document.getElementById('formDistribucion').addEventListener('submit', function(
     inputs.forEach(input => {
         const cantidad = parseFloat(input.value) || 0;
         if (cantidad > 0) {
-            hayAsignacion = true;
             container.innerHTML += `
                 <input type="hidden" name="distribucion[${index}][id_vendedor]" value="${input.dataset.vendedor}">
                 <input type="hidden" name="distribucion[${index}][id_producto]" value="${input.dataset.producto}">
@@ -461,93 +949,33 @@ document.getElementById('formDistribucion').addEventListener('submit', function(
         }
     });
     
-    if (!hayAsignacion) {
-        e.preventDefault();
-        alert('Debe asignar al menos un producto a algún vendedor');
-        return;
-    }
-    
     // Confirmación final
     if (!confirm('¿Está seguro de procesar esta distribución? Se descontará el stock de bodega y se asignará a los vendedores.')) {
         e.preventDefault();
     }
 });
+
+// ============================================
+// NOTIFICACIONES
+// ============================================
+function showToast(type, title, message) {
+    const toast = document.createElement('div');
+    toast.className = `toast align-items-center text-white bg-${type === 'success' ? 'success' : 'info'} border-0 position-fixed`;
+    toast.style.cssText = 'bottom: 20px; right: 20px; z-index: 1055; border-radius: 8px; min-width: 300px;';
+    toast.setAttribute('role', 'alert');
+    toast.innerHTML = `
+        <div class="d-flex">
+            <div class="toast-body">
+                <strong>${title}</strong><br>
+                <small>${message}</small>
+            </div>
+            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+        </div>
+    `;
+    document.body.appendChild(toast);
+    const bsToast = new bootstrap.Toast(toast, { delay: 3000 });
+    bsToast.show();
+    toast.addEventListener('hidden.bs.toast', () => toast.remove());
+}
 </script>
-
-<style>
-.input-cantidad {
-    width: 100px;
-    margin: 0 auto;
-    text-align: center;
-    font-size: 0.9rem;
-    padding: 0.25rem;
-}
-
-.input-cantidad:focus {
-    border-color: #ffc107;
-    box-shadow: 0 0 0 0.2rem rgba(255, 193, 7, 0.25);
-}
-
-.table th {
-    text-align: center;
-    vertical-align: middle;
-}
-
-.table td {
-    vertical-align: middle;
-}
-
-.badge {
-    font-size: 0.9rem;
-    padding: 0.35em 0.65em;
-}
-
-.badge.bg-primary {
-    background-color: #0d6efd !important;
-}
-
-.badge.bg-success {
-    background-color: #198754 !important;
-}
-
-.badge.bg-danger {
-    background-color: #dc3545 !important;
-}
-
-.badge.bg-info {
-    background-color: #0dcaf0 !important;
-    color: #000;
-}
-
-.card-header {
-    font-weight: 600;
-}
-
-#btnGuardar:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-}
-
-/* Animación para cambios */
-.total-producto {
-    transition: all 0.3s ease;
-}
-
-/* Tooltips personalizados */
-[title] {
-    cursor: help;
-}
-
-/* Responsive */
-@media (max-width: 768px) {
-    .input-cantidad {
-        width: 70px;
-        font-size: 0.8rem;
-    }
-    
-    .table {
-        font-size: 0.85rem;
-    }
-}
-</style>
 {% endblock %}

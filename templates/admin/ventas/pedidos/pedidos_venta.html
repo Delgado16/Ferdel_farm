@@ -2,16 +2,445 @@
 
 {% block title %}Pedidos de Venta{% endblock %}
 
+{% block extra_css %}
+<style>
+    /* ============================================ */
+    /* ESTILOS PROFESIONALES Y SOBRIOS              */
+    /* ============================================ */
+    
+    /* Estadísticas */
+    .stats-card {
+        background: white;
+        border-radius: 8px;
+        padding: 1rem;
+        margin-bottom: 1rem;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+        border: 1px solid #e5e7eb;
+        transition: all 0.2s;
+        position: relative;
+    }
+    
+    .stats-card:hover {
+        box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+    }
+    
+    .stats-number {
+        font-size: 1.5rem;
+        font-weight: 600;
+        margin-bottom: 0.25rem;
+        color: #1f2937;
+    }
+    
+    .stats-label {
+        font-size: 0.7rem;
+        color: #6b7280;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    
+    /* Tarjetas de resumen (para mantener compatibilidad) */
+    .card.text-white .card-body {
+        padding: 0.75rem;
+    }
+    
+    .card.text-white h3 {
+        margin-bottom: 0;
+        font-weight: bold;
+        font-size: 1.25rem;
+    }
+    
+    .card.text-white h6 {
+        font-size: 0.65rem;
+        opacity: 0.9;
+        margin-bottom: 0.25rem;
+    }
+    
+    /* Filtros */
+    .filter-card {
+        background: white;
+        border-radius: 8px;
+        padding: 1rem;
+        margin-bottom: 1rem;
+        border: 1px solid #e5e7eb;
+        box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+    }
+    
+    /* Tarjetas de pedidos en móvil */
+    .pedido-card {
+        background-color: white;
+        transition: background-color 0.2s ease;
+        animation: fadeIn 0.3s ease;
+        border-bottom: 1px solid #e5e7eb;
+    }
+    
+    .pedido-card:hover {
+        background-color: #f9fafb;
+    }
+    
+    .pedido-card .badge {
+        font-size: 0.65rem;
+        padding: 0.25rem 0.4rem;
+    }
+    
+    /* Badges profesionales */
+    .badge {
+        font-weight: 500;
+        padding: 0.25rem 0.5rem;
+        border-radius: 4px;
+        font-size: 0.7rem;
+    }
+    
+    .badge.bg-warning {
+        background-color: #f59e0b !important;
+        color: white;
+    }
+    
+    .badge.bg-info {
+        background-color: #06b6d4 !important;
+        color: white;
+    }
+    
+    .badge.bg-primary {
+        background-color: #3b82f6 !important;
+        color: white;
+    }
+    
+    .badge.bg-success {
+        background-color: #10b981 !important;
+        color: white;
+    }
+    
+    .badge.bg-danger {
+        background-color: #ef4444 !important;
+        color: white;
+    }
+    
+    .badge.bg-secondary {
+        background-color: #6b7280 !important;
+        color: white;
+    }
+    
+    .badge.bg-dark {
+        background-color: #374151 !important;
+    }
+    
+    /* Tabla profesional */
+    .table {
+        font-size: 0.8rem;
+    }
+    
+    .table th {
+        font-weight: 600;
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        background-color: #f9fafb;
+        color: #374151;
+        border-bottom: 1px solid #e5e7eb;
+    }
+    
+    .table td {
+        vertical-align: middle;
+        color: #4b5563;
+    }
+    
+    .table-striped > tbody > tr:nth-of-type(odd) > * {
+        background-color: #f9fafb;
+    }
+    
+    .table-hover > tbody > tr:hover > * {
+        background-color: #f3f4f6;
+    }
+    
+    /* Botones */
+    .btn-primary {
+        background-color: #374151;
+        border-color: #374151;
+    }
+    
+    .btn-primary:hover {
+        background-color: #1f2937;
+        border-color: #1f2937;
+    }
+    
+    .btn-secondary {
+        background-color: #6b7280;
+        border-color: #6b7280;
+    }
+    
+    .btn-secondary:hover {
+        background-color: #4b5563;
+        border-color: #4b5563;
+    }
+    
+    .btn-success {
+        background-color: #10b981;
+        border-color: #10b981;
+    }
+    
+    .btn-success:hover {
+        background-color: #059669;
+        border-color: #059669;
+    }
+    
+    .btn-info {
+        background-color: #06b6d4;
+        border-color: #06b6d4;
+        color: white;
+    }
+    
+    .btn-info:hover {
+        background-color: #0891b2;
+        border-color: #0891b2;
+        color: white;
+    }
+    
+    .btn-warning {
+        background-color: #f59e0b;
+        border-color: #f59e0b;
+        color: white;
+    }
+    
+    .btn-warning:hover {
+        background-color: #d97706;
+        border-color: #d97706;
+        color: white;
+    }
+    
+    .btn-outline-primary {
+        border-color: #374151;
+        color: #374151;
+    }
+    
+    .btn-outline-primary:hover {
+        background-color: #374151;
+        border-color: #374151;
+    }
+    
+    .btn-outline-secondary {
+        border-color: #6b7280;
+        color: #6b7280;
+    }
+    
+    .btn-outline-secondary:hover {
+        background-color: #6b7280;
+        border-color: #6b7280;
+        color: white;
+    }
+    
+    .btn-outline-success {
+        border-color: #10b981;
+        color: #10b981;
+    }
+    
+    .btn-outline-success:hover {
+        background-color: #10b981;
+        border-color: #10b981;
+        color: white;
+    }
+    
+    .btn-outline-danger {
+        border-color: #ef4444;
+        color: #ef4444;
+    }
+    
+    .btn-outline-danger:hover {
+        background-color: #ef4444;
+        border-color: #ef4444;
+        color: white;
+    }
+    
+    .btn-outline-warning {
+        border-color: #f59e0b;
+        color: #f59e0b;
+    }
+    
+    .btn-outline-warning:hover {
+        background-color: #f59e0b;
+        border-color: #f59e0b;
+        color: white;
+    }
+    
+    .btn-outline-info {
+        border-color: #06b6d4;
+        color: #06b6d4;
+    }
+    
+    .btn-outline-info:hover {
+        background-color: #06b6d4;
+        border-color: #06b6d4;
+        color: white;
+    }
+    
+    .btn-sm {
+        font-size: 0.75rem;
+        padding: 0.25rem 0.5rem;
+        border-radius: 4px;
+    }
+    
+    /* Formularios */
+    .form-label {
+        font-weight: 500;
+        font-size: 0.7rem;
+        margin-bottom: 0.25rem;
+        color: #374151;
+    }
+    
+    .form-control, .form-select {
+        border: 1px solid #d1d5db;
+        border-radius: 6px;
+        font-size: 0.8rem;
+    }
+    
+    .form-control:focus, .form-select:focus {
+        border-color: #9ca3af;
+        box-shadow: 0 0 0 2px rgba(156, 163, 175, 0.1);
+    }
+    
+    .form-control-sm, .form-select-sm {
+        font-size: 0.75rem;
+        padding: 0.25rem 0.5rem;
+    }
+    
+    /* Modal */
+    .modal-header {
+        background-color: #f9fafb;
+        border-bottom: 1px solid #e5e7eb;
+        padding: 1rem 1.5rem;
+    }
+    
+    .modal-header .modal-title {
+        color: #1f2937;
+        font-weight: 600;
+    }
+    
+    .modal-footer {
+        background-color: #f9fafb;
+        border-top: 1px solid #e5e7eb;
+        padding: 0.75rem 1.5rem;
+    }
+    
+    /* Card */
+    .card {
+        border: 1px solid #e5e7eb;
+        border-radius: 8px;
+        box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+    }
+    
+    .card-header {
+        background-color: #f9fafb;
+        border-bottom: 1px solid #e5e7eb;
+        padding: 0.75rem 1rem;
+    }
+    
+    .card-footer {
+        background-color: #f9fafb;
+        border-top: 1px solid #e5e7eb;
+        padding: 0.75rem 1rem;
+    }
+    
+    /* Animaciones */
+    @keyframes fadeIn {
+        from {
+            opacity: 0;
+            transform: translateY(5px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+    
+    /* Responsive - Breakpoints corregidos */
+    /* Móvil: Tarjetas visibles hasta XL */
+    @media (max-width: 1199.98px) {
+        .vista-movil {
+            display: block !important;
+        }
+        .vista-desktop {
+            display: none !important;
+        }
+    }
+    
+    /* Desktop XL: Tabla visible a partir de XL */
+    @media (min-width: 1200px) {
+        .vista-movil {
+            display: none !important;
+        }
+        .vista-desktop {
+            display: block !important;
+        }
+    }
+    
+    /* Ajustes adicionales responsivos */
+    @media (max-width: 767.98px) {
+        .container-fluid {
+            padding-left: 8px;
+            padding-right: 8px;
+        }
+        
+        .stats-number {
+            font-size: 1.25rem;
+        }
+        
+        .pedido-card {
+            padding: 0.75rem !important;
+        }
+        
+        .btn-sm {
+            font-size: 0.7rem;
+            padding: 0.25rem 0.4rem;
+        }
+    }
+    
+    /* Scrollbar */
+    ::-webkit-scrollbar {
+        width: 6px;
+        height: 6px;
+    }
+    
+    ::-webkit-scrollbar-track {
+        background: #f1f1f1;
+        border-radius: 3px;
+    }
+    
+    ::-webkit-scrollbar-thumb {
+        background: #9ca3af;
+        border-radius: 3px;
+    }
+    
+    ::-webkit-scrollbar-thumb:hover {
+        background: #6b7280;
+    }
+    
+    /* Utilidades */
+    .text-primary {
+        color: #374151 !important;
+    }
+    
+    .bg-primary {
+        background-color: #374151 !important;
+    }
+    
+    .bg-light {
+        background-color: #f9fafb !important;
+    }
+    
+    .text-muted {
+        color: #6b7280 !important;
+    }
+</style>
+{% endblock %}
+
 {% block content %}
-<div class="container-fluid mt-2 mt-md-4 px-2 px-md-3">
+<div class="container-fluid py-3 py-md-4 px-2 px-md-3">
     <!-- ============================================ -->
     <!-- ENCABEZADO RESPONSIVO                        -->
     <!-- ============================================ -->
-    <div
-        class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center mb-3 mb-md-4">
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center mb-3 mb-md-4">
         <div class="mb-2 mb-md-0">
-            <h2 class="h3 h2-md">
-                <i class="fas fa-shopping-cart me-2 text-primary"></i>
+            <h2 class="h3 h2-md mb-1">
+                <i class="fas fa-shopping-cart me-2" style="color: #374151;"></i>
                 Pedidos de Venta
             </h2>
             <p class="text-muted small mb-0">
@@ -19,7 +448,6 @@
             </p>
         </div>
         <div class="d-flex flex-wrap gap-2">
-            <!-- Mostrar botones solo si NO es rol bodega -->
             {% if not current_user.rol == 'Bodega' %}
             <div class="btn-group btn-group-sm" role="group">
                 <button class="btn btn-success" onclick="nuevoPedido('individual')">
@@ -42,231 +470,203 @@
     </div>
 
     <!-- ============================================ -->
-    <!-- FILTROS AVANZADOS - VERSIÓN RESPONSIVA      -->
+    <!-- FILTROS AVANZADOS                           -->
     <!-- ============================================ -->
-    <div class="card mb-3 mb-md-4">
-        <div class="card-header bg-light py-2">
-            <h5 class="mb-0 h6">
-                <i class="fas fa-filter me-2"></i>
-                <span class="d-none d-sm-inline">Filtros de Búsqueda</span>
-                <span class="d-sm-none">Filtros</span>
-            </h5>
-        </div>
-        <div class="card-body p-2 p-md-3">
-            <form method="POST" action="{{ url_for('admin.filtrar_pedidos') }}" id="formFiltros">
-                <div class="row g-2">
-                    <!-- Primera fila de filtros (2 columnas en móvil) -->
-                    <div class="col-6 col-md-2">
-                        <label class="form-label small fw-bold mb-1">Estado:</label>
-                        <select name="estado" class="form-select form-select-sm">
-                            <option value="todos">Todos</option>
-                            {% for estado in estados %}
-                            <option value="{{ estado }}" {% if filtros_aplicados and filtros_aplicados.estado==estado
-                                %}selected{% endif %}>
-                                {{ estado }}
-                            </option>
-                            {% endfor %}
-                        </select>
-                    </div>
-                    <div class="col-6 col-md-2">
-                        <label class="form-label small fw-bold mb-1">Prioridad:</label>
-                        <select name="prioridad" class="form-select form-select-sm">
-                            <option value="todos">Todas</option>
-                            {% for prioridad in prioridades %}
-                            <option value="{{ prioridad }}" {% if filtros_aplicados and
-                                filtros_aplicados.prioridad==prioridad %}selected{% endif %}>
-                                {{ prioridad }}
-                            </option>
-                            {% endfor %}
-                        </select>
-                    </div>
-                    <div class="col-6 col-md-2">
-                        <label class="form-label small fw-bold mb-1">Tipo Pedido:</label>
-                        <select name="tipo_pedido" class="form-select form-select-sm">
-                            <option value="todos">Todos</option>
-                            {% for tipo in tipos_pedido %}
-                            <option value="{{ tipo }}" {% if filtros_aplicados and filtros_aplicados.tipo_pedido==tipo
-                                %}selected{% endif %}>
-                                {{ tipo }}
-                            </option>
-                            {% endfor %}
-                        </select>
-                    </div>
-                    <div class="col-6 col-md-2">
-                        <label class="form-label small fw-bold mb-1">Tipo Cliente:</label>
-                        <select name="tipo_cliente" class="form-select form-select-sm">
-                            <option value="todos">Todos</option>
-                            {% for tipo in tipos_cliente %}
-                            <option value="{{ tipo }}" {% if filtros_aplicados and filtros_aplicados.tipo_cliente==tipo
-                                %}selected{% endif %}>
-                                {{ tipo }}
-                            </option>
-                            {% endfor %}
-                        </select>
-                    </div>
-                    <div class="col-6 col-md-2">
-                        <label class="form-label small fw-bold mb-1">Perfil Cliente:</label>
-                        <select name="perfil_cliente" class="form-select form-select-sm">
-                            <option value="todos">Todos</option>
-                            {% for perfil in perfiles_cliente %}
-                            <option value="{{ perfil }}" {% if filtros_aplicados and
-                                filtros_aplicados.perfil_cliente==perfil %}selected{% endif %}>
-                                {{ perfil }}
-                            </option>
-                            {% endfor %}
-                        </select>
-                    </div>
-                    <div class="col-6 col-md-2">
-                        <label class="form-label small fw-bold mb-1">Tipo Entrega:</label>
-                        <select name="tipo_entrega" class="form-select form-select-sm">
-                            <option value="todos">Todos</option>
-                            {% for tipo in tipos_entrega %}
-                            <option value="{{ tipo }}" {% if filtros_aplicados and filtros_aplicados.tipo_entrega==tipo
-                                %}selected{% endif %}>
-                                {{ tipo }}
-                            </option>
-                            {% endfor %}
-                        </select>
-                    </div>
-
-                    <!-- Segunda fila de filtros -->
-                    <div class="col-6 col-md-2">
-                        <label class="form-label small fw-bold mb-1">Pedido Ruta:</label>
-                        <select name="es_pedido_ruta" class="form-select form-select-sm">
-                            <option value="todos">Todos</option>
-                            {% for opcion in opciones_ruta %}
-                            <option value="{{ opcion }}" {% if filtros_aplicados and
-                                filtros_aplicados.es_pedido_ruta==opcion %}selected{% endif %}>
-                                {{ opcion }}
-                            </option>
-                            {% endfor %}
-                        </select>
-                    </div>
-                    <div class="col-6 col-md-2">
-                        <label class="form-label small fw-bold mb-1">Ruta:</label>
-                        <select name="id_ruta" class="form-select form-select-sm">
-                            <option value="todos">Todas</option>
-                            {% if rutas %}
-                            {% for ruta in rutas %}
-                            <option value="{{ ruta.ID_Ruta }}" {% if filtros_aplicados and
-                                filtros_aplicados.id_ruta==ruta.ID_Ruta|string %}selected{% endif %}>
-                                {{ ruta.Nombre_Ruta|truncate(15) }}
-                            </option>
-                            {% endfor %}
-                            {% endif %}
-                        </select>
-                    </div>
-                    <div class="col-6 col-md-2">
-                        <label class="form-label small fw-bold mb-1">Fecha Inicio:</label>
-                        <input type="date" name="fecha_inicio" class="form-control form-control-sm"
-                            value="{{ filtros_aplicados.fecha_inicio if filtros_aplicados }}">
-                    </div>
-                    <div class="col-6 col-md-2">
-                        <label class="form-label small fw-bold mb-1">Fecha Fin:</label>
-                        <input type="date" name="fecha_fin" class="form-control form-control-sm"
-                            value="{{ filtros_aplicados.fecha_fin if filtros_aplicados }}">
-                    </div>
-                    <div class="col-12 col-md-3">
-                        <label class="form-label small fw-bold mb-1">Documento Cliente:</label>
-                        <input type="text" name="documento_cliente" class="form-control form-control-sm"
-                            placeholder="RUC/Cédula"
-                            value="{{ filtros_aplicados.documento_cliente if filtros_aplicados }}">
-                    </div>
-                    <div class="col-12 col-md-3">
-                        <label class="form-label small fw-bold mb-1">Nombre Cliente:</label>
-                        <input type="text" name="nombre_cliente" class="form-control form-control-sm"
-                            placeholder="Nombre del cliente"
-                            value="{{ filtros_aplicados.nombre_cliente if filtros_aplicados }}">
-                    </div>
-                    <div class="col-12">
-                        <div class="d-flex gap-2 mt-2">
-                            <button type="submit" class="btn btn-primary btn-sm flex-fill flex-md-grow-0">
-                                <i class="fas fa-search me-1"></i> Buscar
-                            </button>
-                            <a href="{{ url_for('admin.admin_pedidos_venta') }}"
-                                class="btn btn-outline-secondary btn-sm flex-fill flex-md-grow-0">
-                                <i class="fas fa-times me-1"></i> Limpiar
-                            </a>
-                        </div>
+    <div class="filter-card">
+        <form method="POST" action="{{ url_for('admin.filtrar_pedidos') }}" id="formFiltros">
+            <div class="row g-2">
+                <div class="col-6 col-md-2">
+                    <label class="form-label">Estado</label>
+                    <select name="estado" class="form-select form-select-sm">
+                        <option value="todos">Todos</option>
+                        {% for estado in estados %}
+                        <option value="{{ estado }}" {% if filtros_aplicados and filtros_aplicados.estado==estado %}selected{% endif %}>
+                            {{ estado }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-6 col-md-2">
+                    <label class="form-label">Prioridad</label>
+                    <select name="prioridad" class="form-select form-select-sm">
+                        <option value="todos">Todas</option>
+                        {% for prioridad in prioridades %}
+                        <option value="{{ prioridad }}" {% if filtros_aplicados and filtros_aplicados.prioridad==prioridad %}selected{% endif %}>
+                            {{ prioridad }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-6 col-md-2">
+                    <label class="form-label">Tipo Pedido</label>
+                    <select name="tipo_pedido" class="form-select form-select-sm">
+                        <option value="todos">Todos</option>
+                        {% for tipo in tipos_pedido %}
+                        <option value="{{ tipo }}" {% if filtros_aplicados and filtros_aplicados.tipo_pedido==tipo %}selected{% endif %}>
+                            {{ tipo }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-6 col-md-2">
+                    <label class="form-label">Tipo Cliente</label>
+                    <select name="tipo_cliente" class="form-select form-select-sm">
+                        <option value="todos">Todos</option>
+                        {% for tipo in tipos_cliente %}
+                        <option value="{{ tipo }}" {% if filtros_aplicados and filtros_aplicados.tipo_cliente==tipo %}selected{% endif %}>
+                            {{ tipo }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-6 col-md-2">
+                    <label class="form-label">Perfil Cliente</label>
+                    <select name="perfil_cliente" class="form-select form-select-sm">
+                        <option value="todos">Todos</option>
+                        {% for perfil in perfiles_cliente %}
+                        <option value="{{ perfil }}" {% if filtros_aplicados and filtros_aplicados.perfil_cliente==perfil %}selected{% endif %}>
+                            {{ perfil }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-6 col-md-2">
+                    <label class="form-label">Tipo Entrega</label>
+                    <select name="tipo_entrega" class="form-select form-select-sm">
+                        <option value="todos">Todos</option>
+                        {% for tipo in tipos_entrega %}
+                        <option value="{{ tipo }}" {% if filtros_aplicados and filtros_aplicados.tipo_entrega==tipo %}selected{% endif %}>
+                            {{ tipo }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-6 col-md-2">
+                    <label class="form-label">Pedido Ruta</label>
+                    <select name="es_pedido_ruta" class="form-select form-select-sm">
+                        <option value="todos">Todos</option>
+                        {% for opcion in opciones_ruta %}
+                        <option value="{{ opcion }}" {% if filtros_aplicados and filtros_aplicados.es_pedido_ruta==opcion %}selected{% endif %}>
+                            {{ opcion }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-6 col-md-2">
+                    <label class="form-label">Ruta</label>
+                    <select name="id_ruta" class="form-select form-select-sm">
+                        <option value="todos">Todas</option>
+                        {% if rutas %}
+                        {% for ruta in rutas %}
+                        <option value="{{ ruta.ID_Ruta }}" {% if filtros_aplicados and filtros_aplicados.id_ruta==ruta.ID_Ruta|string %}selected{% endif %}>
+                            {{ ruta.Nombre_Ruta|truncate(15) }}
+                        </option>
+                        {% endfor %}
+                        {% endif %}
+                    </select>
+                </div>
+                <div class="col-6 col-md-2">
+                    <label class="form-label">Fecha Inicio</label>
+                    <input type="date" name="fecha_inicio" class="form-control form-control-sm"
+                        value="{{ filtros_aplicados.fecha_inicio if filtros_aplicados }}">
+                </div>
+                <div class="col-6 col-md-2">
+                    <label class="form-label">Fecha Fin</label>
+                    <input type="date" name="fecha_fin" class="form-control form-control-sm"
+                        value="{{ filtros_aplicados.fecha_fin if filtros_aplicados }}">
+                </div>
+                <div class="col-12 col-md-3">
+                    <label class="form-label">Documento Cliente</label>
+                    <input type="text" name="documento_cliente" class="form-control form-control-sm"
+                        placeholder="RUC/Cédula"
+                        value="{{ filtros_aplicados.documento_cliente if filtros_aplicados }}">
+                </div>
+                <div class="col-12 col-md-3">
+                    <label class="form-label">Nombre Cliente</label>
+                    <input type="text" name="nombre_cliente" class="form-control form-control-sm"
+                        placeholder="Nombre del cliente"
+                        value="{{ filtros_aplicados.nombre_cliente if filtros_aplicados }}">
+                </div>
+                <div class="col-12">
+                    <div class="d-flex gap-2 mt-2">
+                        <button type="submit" class="btn btn-primary btn-sm flex-fill flex-md-grow-0">
+                            <i class="fas fa-search me-1"></i> Buscar
+                        </button>
+                        <a href="{{ url_for('admin.admin_pedidos_venta') }}" class="btn btn-outline-secondary btn-sm flex-fill flex-md-grow-0">
+                            <i class="fas fa-times me-1"></i> Limpiar
+                        </a>
                     </div>
                 </div>
-            </form>
-        </div>
+            </div>
+        </form>
     </div>
 
     <!-- ============================================ -->
-    <!-- RESUMEN ESTADÍSTICO - VERSIÓN RESPONSIVA    -->
+    <!-- RESUMEN ESTADÍSTICO                         -->
     <!-- ============================================ -->
     {% if pedidos %}
     <div class="row g-2 g-md-3 mb-3 mb-md-4">
         <div class="col-6 col-md-2">
-            <div class="card text-white bg-primary">
-                <div class="card-body p-2 p-md-3">
-                    <h6 class="card-title small mb-1">Total Pedidos</h6>
-                    <h3 class="card-text h4 h3-md">{{ pedidos|length }}</h3>
-                </div>
+            <div class="stats-card">
+                <div class="stats-number">{{ pedidos|length }}</div>
+                <div class="stats-label">Total Pedidos</div>
+                <i class="fas fa-shopping-cart position-absolute" style="right: 1rem; top: 1rem; font-size: 1.25rem; opacity: 0.3;"></i>
             </div>
         </div>
         <div class="col-6 col-md-2">
             {% set total_ventas = pedidos|sum(attribute='Total_Pedido') or 0 %}
-            <div class="card text-white bg-success">
-                <div class="card-body p-2 p-md-3">
-                    <h6 class="card-title small mb-1">Total Ventas</h6>
-                    <h3 class="card-text h5 h4-md">C${{ "{:,.0f}".format(total_ventas) }}</h3>
-                </div>
+            <div class="stats-card">
+                <div class="stats-number">C${{ "{:,.0f}".format(total_ventas) }}</div>
+                <div class="stats-label">Total Ventas</div>
+                <i class="fas fa-dollar-sign position-absolute" style="right: 1rem; top: 1rem; font-size: 1.25rem; opacity: 0.3;"></i>
             </div>
         </div>
         <div class="col-6 col-md-2">
             {% set pendientes = pedidos|selectattr('Estado', 'equalto', 'Pendiente')|list %}
-            <div class="card text-white bg-warning">
-                <div class="card-body p-2 p-md-3">
-                    <h6 class="card-title small mb-1">Pendientes</h6>
-                    <h3 class="card-text h4 h3-md">{{ pendientes|length }}</h3>
-                </div>
+            <div class="stats-card">
+                <div class="stats-number">{{ pendientes|length }}</div>
+                <div class="stats-label">Pendientes</div>
+                <i class="fas fa-clock position-absolute" style="right: 1rem; top: 1rem; font-size: 1.25rem; opacity: 0.3;"></i>
             </div>
         </div>
         <div class="col-6 col-md-2">
             {% set urgentes = pedidos|selectattr('Prioridad', 'equalto', 'Urgente')|list %}
-            <div class="card text-white bg-danger">
-                <div class="card-body p-2 p-md-3">
-                    <h6 class="card-title small mb-1">Urgentes</h6>
-                    <h3 class="card-text h4 h3-md">{{ urgentes|length }}</h3>
-                </div>
+            <div class="stats-card">
+                <div class="stats-number">{{ urgentes|length }}</div>
+                <div class="stats-label">Urgentes</div>
+                <i class="fas fa-exclamation-triangle position-absolute" style="right: 1rem; top: 1rem; font-size: 1.25rem; opacity: 0.3;"></i>
             </div>
         </div>
         <div class="col-6 col-md-2">
             {% set consolidados = pedidos|selectattr('Tipo_Pedido', 'equalto', 'Consolidado')|list %}
-            <div class="card text-white bg-info">
-                <div class="card-body p-2 p-md-3">
-                    <h6 class="card-title small mb-1">Consolidados</h6>
-                    <h3 class="card-text h4 h3-md">{{ consolidados|length }}</h3>
-                </div>
+            <div class="stats-card">
+                <div class="stats-number">{{ consolidados|length }}</div>
+                <div class="stats-label">Consolidados</div>
+                <i class="fas fa-layer-group position-absolute" style="right: 1rem; top: 1rem; font-size: 1.25rem; opacity: 0.3;"></i>
             </div>
         </div>
         <div class="col-6 col-md-2">
             {% set ruta_pedidos = pedidos|selectattr('Es_Pedido_Ruta', 'equalto', 'SI')|list %}
-            <div class="card text-white bg-secondary">
-                <div class="card-body p-2 p-md-3">
-                    <h6 class="card-title small mb-1">Ruta</h6>
-                    <h3 class="card-text h4 h3-md">{{ ruta_pedidos|length }}</h3>
-                </div>
+            <div class="stats-card">
+                <div class="stats-number">{{ ruta_pedidos|length }}</div>
+                <div class="stats-label">Ruta</div>
+                <i class="fas fa-route position-absolute" style="right: 1rem; top: 1rem; font-size: 1.25rem; opacity: 0.3;"></i>
             </div>
         </div>
     </div>
     {% endif %}
 
     <!-- ============================================ -->
-    <!-- LISTA DE PEDIDOS - VERSIÓN RESPONSIVA       -->
+    <!-- LISTA DE PEDIDOS                             -->
     <!-- ============================================ -->
     <div class="card">
-        <div
-            class="card-header bg-light py-2 d-flex flex-column flex-sm-row justify-content-between align-items-start align-items-sm-center">
+        <div class="card-header d-flex flex-column flex-sm-row justify-content-between align-items-start align-items-sm-center">
             <h5 class="mb-0 h6">
                 <i class="fas fa-list me-2"></i>
                 Listado de Pedidos
             </h5>
             <div class="mt-1 mt-sm-0">
-                <span class="badge bg-dark">{{ pedidos|length }} registros</span>
+                <span class="badge bg-secondary">{{ pedidos|length }} registros</span>
                 {% if es_rol_bodega %}
                 <span class="badge bg-info ms-1">Vista Bodega</span>
                 {% endif %}
@@ -276,12 +676,11 @@
             {% if pedidos %}
             <!-- ============================================ -->
             <!-- VISTA MÓVIL: Tarjetas de pedidos            -->
+            <!-- Se muestra hasta 1199px (antes de XL)       -->
             <!-- ============================================ -->
-            <div class="d-block d-xl-none">
+            <div class="vista-movil">
                 {% for pedido in pedidos %}
-                <div
-                    class="pedido-card p-2 border-bottom {% if pedido.Prioridad == 'Urgente' %}bg-danger bg-opacity-10{% endif %}">
-                    <!-- Cabecera de la tarjeta -->
+                <div class="pedido-card p-3 {% if pedido.Prioridad == 'Urgente' %}bg-danger bg-opacity-10{% endif %}">
                     <div class="d-flex justify-content-between align-items-start mb-2">
                         <div>
                             <span class="fw-bold">#{{ pedido.ID_Pedido }}</span>
@@ -296,8 +695,7 @@
                             </span>
                             {% endif %}
                         </div>
-                        <span class="badge 
-                            {% if pedido.Estado == 'Pendiente' %}bg-warning text-dark
+                        <span class="badge {% if pedido.Estado == 'Pendiente' %}bg-warning
                             {% elif pedido.Estado == 'Aprobado' %}bg-info
                             {% elif pedido.Estado == 'En Proceso' %}bg-primary
                             {% elif pedido.Estado == 'Entregado' %}bg-success
@@ -306,12 +704,10 @@
                         </span>
                     </div>
 
-                    <!-- Fecha y tipo -->
                     <div class="row g-1 mb-2">
                         <div class="col-6">
                             <small class="text-muted d-block">Fecha</small>
-                            <span class="small">{{ pedido.Fecha.strftime('%d/%m/%Y') if pedido.Fecha else 'N/A'
-                                }}</span>
+                            <span class="small">{{ pedido.Fecha.strftime('%d/%m/%Y') if pedido.Fecha else 'N/A' }}</span>
                         </div>
                         <div class="col-6">
                             <small class="text-muted d-block">Tipo</small>
@@ -319,7 +715,6 @@
                         </div>
                     </div>
 
-                    <!-- Cliente / Consolidado -->
                     <div class="mb-2">
                         {% if pedido.Tipo_Pedido == 'Consolidado' %}
                         <div class="fw-bold small">
@@ -336,7 +731,6 @@
                         {% endif %}
                     </div>
 
-                    <!-- Perfil y entrega -->
                     <div class="row g-1 mb-2">
                         <div class="col-6">
                             <small class="text-muted d-block">Perfil</small>
@@ -352,7 +746,6 @@
                         </div>
                     </div>
 
-                    <!-- Totales -->
                     <div class="d-flex justify-content-between align-items-center mb-2">
                         <div>
                             <small class="text-muted d-block">Total</small>
@@ -364,7 +757,6 @@
                         </div>
                     </div>
 
-                    <!-- Acciones -->
                     <div class="d-flex flex-wrap gap-1">
                         <a href="{{ url_for('admin.ver_pedido', id_pedido=pedido.ID_Pedido) }}"
                             class="btn btn-outline-info btn-sm flex-fill" title="Ver detalle">
@@ -416,12 +808,10 @@
                 </div>
                 {% endfor %}
 
-                <!-- Resumen móvil de totales -->
-                <div class="p-2 bg-light border-top">
+                <div class="p-3 bg-light border-top">
                     <div class="d-flex justify-content-between">
                         <span class="fw-bold">TOTAL GENERAL:</span>
-                        <span class="fw-bold text-primary">C${{ "{:,.2f}".format(pedidos|sum(attribute='Total_Pedido')
-                            or 0) }}</span>
+                        <span class="fw-bold text-primary">C${{ "{:,.2f}".format(pedidos|sum(attribute='Total_Pedido') or 0) }}</span>
                     </div>
                     <div class="d-flex justify-content-between mt-1">
                         <span class="text-muted">Total Items:</span>
@@ -431,209 +821,199 @@
             </div>
 
             <!-- ============================================ -->
-            <!-- VISTA DESKTOP: Tabla de pedidos             -->
+            <!-- VISTA DESKTOP: Tabla de pedidos              -->
+            <!-- Se muestra a partir de 1200px (XL en adelante) -->
             <!-- ============================================ -->
-            <div class="table-responsive d-none d-xl-block">
-                <table class="table table-hover table-striped mb-0" id="tablaPedidos">
-                    <thead class="table-dark">
-                        <tr>
-                            <th>ID</th>
-                            <th>Fecha</th>
-                            <th>Cliente</th>
-                            <th>Documento</th>
-                            <th>Tipo Cliente</th>
-                            <th>Perfil/Precio</th>
-                            <th>Tipo Pedido</th>
-                            <th>Ruta</th>
-                            <th>Prioridad</th>
-                            <th>Estado</th>
-                            <th>Entrega</th>
-                            <th>Total</th>
-                            <th>Items</th>
-                            <th>Acciones</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for pedido in pedidos %}
-                        <tr>
-                            <td class="fw-bold">
-                                #{{ pedido.ID_Pedido }}
-                                {% if pedido.Prioridad == 'Urgente' %}
-                                <span class="badge bg-danger ms-1" title="Urgente">!</span>
-                                {% endif %}
-                            </td>
-                            <td class="small">
-                                {% if pedido.Fecha %}
-                                {{ pedido.Fecha.strftime('%d/%m/%Y') }}
-                                {% else %}
-                                N/A
-                                {% endif %}
-                                {% if pedido.Es_Pedido_Ruta == 'SI' %}
-                                <span class="badge bg-info ms-1" title="Pedido de ruta">
-                                    <i class="fas fa-route"></i>
-                                </span>
-                                {% endif %}
-                            </td>
-                            <td>
-                                {% if pedido.Tipo_Pedido == 'Consolidado' %}
-                                <div class="fw-bold small">
-                                    <i class="fas fa-layer-group me-1 text-info"></i>
-                                    Pedido Consolidado
-                                </div>
-                                <small class="text-muted">{{ pedido.Nombre_Empresa or 'N/A' }}</small>
-                                {% else %}
-                                <div class="fw-bold small">{{ pedido.Nombre_Cliente or 'Sin nombre' }}</div>
-                                <small class="text-muted">
-                                    <i class="fas fa-phone-alt"></i> {{ pedido.Telefono_Cliente or 'Sin teléfono' }}
-                                </small>
-                                {% endif %}
-                            </td>
-                            <td class="small">
-                                {% if pedido.Tipo_Pedido != 'Consolidado' %}
-                                {% if pedido.Documento_Cliente %}
-                                <span class="badge bg-secondary">{{ pedido.Documento_Cliente }}</span>
-                                {% else %}
-                                <span class="badge bg-light text-dark">Sin doc</span>
-                                {% endif %}
-                                {% else %}
-                                <span class="badge bg-info">N/A</span>
-                                {% endif %}
-                            </td>
-                            <td>
-                                {% if pedido.Tipo_Pedido != 'Consolidado' %}
-                                <span
-                                    class="badge {% if pedido.Tipo_Cliente == 'Especial' %}bg-primary{% else %}bg-light text-dark{% endif %}">
-                                    {{ pedido.Tipo_Cliente }}
-                                </span>
-                                {% else %}
-                                <span class="badge bg-secondary">-</span>
-                                {% endif %}
-                            </td>
-                            <td>
-                                {% if pedido.Tipo_Pedido == 'Consolidado' %}
-                                <span class="badge bg-primary">Precio Ruta</span>
-                                {% else %}
-                                {% if pedido.Perfil_Cliente %}
-                                <span class="badge 
-                                            {% if pedido.Perfil_Cliente == 'Ruta' %}bg-info
-                                            {% elif pedido.Perfil_Cliente == 'Mayorista' %}bg-success
-                                            {% elif pedido.Perfil_Cliente == 'Mercado' %}bg-warning text-dark
-                                            {% else %}bg-secondary{% endif %}">
-                                    {{ pedido.Perfil_Cliente }}
-                                </span>
-                                {% else %}
-                                <span class="badge bg-secondary">Sin perfil</span>
-                                {% endif %}
-                                {% endif %}
-                            </td>
-                            <td>
-                                <span
-                                    class="badge {% if pedido.Tipo_Pedido == 'Consolidado' %}bg-info{% else %}bg-secondary{% endif %}">
-                                    {{ pedido.Tipo_Pedido }}
-                                </span>
-                            </td>
-                            <td>
-                                {% if pedido.Es_Pedido_Ruta == 'SI' %}
-                                <span class="badge bg-success">SI</span>
-                                {% else %}
-                                <span class="badge bg-secondary">NO</span>
-                                {% endif %}
-                            </td>
-                            <td>
-                                <span class="badge 
-                                    {% if pedido.Prioridad == 'Urgente' %}bg-danger
-                                    {% elif pedido.Prioridad == 'Normal' %}bg-primary
-                                    {% else %}bg-secondary{% endif %}">
-                                    {{ pedido.Prioridad }}
-                                </span>
-                            </td>
-                            <td>
-                                <span class="badge 
-                                    {% if pedido.Estado == 'Pendiente' %}bg-warning text-dark
-                                    {% elif pedido.Estado == 'Aprobado' %}bg-info
-                                    {% elif pedido.Estado == 'En Proceso' %}bg-primary
-                                    {% elif pedido.Estado == 'Entregado' %}bg-success
-                                    {% else %}bg-danger{% endif %}">
-                                    {{ pedido.Estado }}
-                                </span>
-                            </td>
-                            <td>
-                                <span
-                                    class="badge {% if pedido.Tipo_Entrega == 'Entrega a domicilio' %}bg-primary{% else %}bg-light text-dark{% endif %}">
-                                    {{ pedido.Tipo_Entrega }}
-                                </span>
-                            </td>
-                            <td class="fw-bold text-success">C${{ "{:,.2f}".format(pedido.Total_Pedido or 0) }}</td>
-                            <td class="text-center"><span class="badge bg-dark">{{ pedido.Total_Items|default(0, true)
-                                    }}</span></td>
-                            <td>
-                                <div class="btn-group btn-group-sm" role="group">
-                                    <a href="{{ url_for('admin.ver_pedido', id_pedido=pedido.ID_Pedido) }}"
-                                        class="btn btn-outline-info" title="Ver detalle">
-                                        <i class="fas fa-eye"></i>
-                                    </a>
-
-                                    {% if current_user.rol == 'Bodega' %}
-                                    {% if pedido.Tipo_Pedido == 'Consolidado' and pedido.Estado == 'Pendiente' %}
-                                    <a href="{{ url_for('admin.distribuir_carga', id_pedido=pedido.ID_Pedido) }}"
-                                        class="btn btn-warning" title="Procesar carga">
-                                        <i class="fas fa-truck-loading"></i>
-                                    </a>
-                                    {% elif pedido.Tipo_Pedido != 'Consolidado' and pedido.Estado == 'Aprobado' %}
-                                    <a href="{{ url_for('admin.admin_procesar_venta_pedido', id_pedido=pedido.ID_Pedido) }}"
-                                        class="btn btn-outline-primary" title="Procesar venta">
-                                        <i class="fas fa-cash-register"></i>
-                                    </a>
+            <div class="vista-desktop">
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0" id="tablaPedidos">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Fecha</th>
+                                <th>Cliente</th>
+                                <th>Documento</th>
+                                <th>Tipo Cliente</th>
+                                <th>Perfil/Precio</th>
+                                <th>Tipo Pedido</th>
+                                <th>Ruta</th>
+                                <th>Prioridad</th>
+                                <th>Estado</th>
+                                <th>Entrega</th>
+                                <th>Total</th>
+                                <th>Items</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for pedido in pedidos %}
+                            <tr>
+                                <td class="fw-bold">
+                                    #{{ pedido.ID_Pedido }}
+                                    {% if pedido.Prioridad == 'Urgente' %}
+                                    <span class="badge bg-danger ms-1" title="Urgente">!</span>
                                     {% endif %}
-
-                                    {% if pedido.Estado == 'Pendiente' and not (pedido.Tipo_Pedido == 'Consolidado') %}
-                                    <button type="button" class="btn btn-outline-success" title="Aprobar"
-                                        onclick="cambiarEstado({{ pedido.ID_Pedido }}, 'Aprobado')">
-                                        <i class="fas fa-check"></i>
-                                    </button>
+                                </td>
+                                <td class="small">
+                                    {% if pedido.Fecha %}
+                                    {{ pedido.Fecha.strftime('%d/%m/%Y') }}
+                                    {% else %}
+                                    N/A
                                     {% endif %}
-
-                                    {% if pedido.Estado != 'Cancelado' and pedido.Estado != 'Entregado' %}
-                                    <button type="button" class="btn btn-outline-danger" title="Cancelar"
-                                        onclick="cancelarPedido({{ pedido.ID_Pedido }})">
-                                        <i class="fas fa-times"></i>
-                                    </button>
+                                    {% if pedido.Es_Pedido_Ruta == 'SI' %}
+                                    <span class="badge bg-info ms-1" title="Pedido de ruta">
+                                        <i class="fas fa-route"></i>
+                                    </span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if pedido.Tipo_Pedido == 'Consolidado' %}
+                                    <div class="fw-bold small">
+                                        <i class="fas fa-layer-group me-1 text-info"></i>
+                                        Pedido Consolidado
+                                    </div>
+                                    <small class="text-muted">{{ pedido.Nombre_Empresa or 'N/A' }}</small>
+                                    {% else %}
+                                    <div class="fw-bold small">{{ pedido.Nombre_Cliente or 'Sin nombre' }}</div>
+                                    <small class="text-muted">
+                                        <i class="fas fa-phone-alt"></i> {{ pedido.Telefono_Cliente or 'Sin teléfono' }}
+                                    </small>
+                                    {% endif %}
+                                </td>
+                                <td class="small">
+                                    {% if pedido.Tipo_Pedido != 'Consolidado' %}
+                                    {% if pedido.Documento_Cliente %}
+                                    <span class="badge bg-secondary">{{ pedido.Documento_Cliente }}</span>
+                                    {% else %}
+                                    <span class="badge bg-light text-dark">Sin doc</span>
                                     {% endif %}
                                     {% else %}
-                                    {% if pedido.Estado == 'Pendiente' %}
-                                    <button type="button" class="btn btn-outline-success" title="Aprobar"
-                                        onclick="cambiarEstado({{ pedido.ID_Pedido }}, 'Aprobado')">
-                                        <i class="fas fa-check"></i>
-                                    </button>
+                                    <span class="badge bg-info">N/A</span>
                                     {% endif %}
+                                </td>
+                                <td>
+                                    {% if pedido.Tipo_Pedido != 'Consolidado' %}
+                                    <span class="badge {% if pedido.Tipo_Cliente == 'Especial' %}bg-primary{% else %}bg-light text-dark{% endif %}">
+                                        {{ pedido.Tipo_Cliente }}
+                                    </span>
+                                    {% else %}
+                                    <span class="badge bg-secondary">-</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if pedido.Tipo_Pedido == 'Consolidado' %}
+                                    <span class="badge bg-primary">Precio Ruta</span>
+                                    {% else %}
+                                    {% if pedido.Perfil_Cliente %}
+                                    <span class="badge bg-info">
+                                        {{ pedido.Perfil_Cliente }}
+                                    </span>
+                                    {% else %}
+                                    <span class="badge bg-secondary">Sin perfil</span>
+                                    {% endif %}
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <span class="badge bg-secondary">
+                                        {{ pedido.Tipo_Pedido }}
+                                    </span>
+                                </td>
+                                <td>
+                                    {% if pedido.Es_Pedido_Ruta == 'SI' %}
+                                    <span class="badge bg-success">SI</span>
+                                    {% else %}
+                                    <span class="badge bg-secondary">NO</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <span class="badge {% if pedido.Prioridad == 'Urgente' %}bg-danger{% else %}bg-primary{% endif %}">
+                                        {{ pedido.Prioridad }}
+                                    </span>
+                                </td>
+                                <td>
+                                    <span class="badge {% if pedido.Estado == 'Pendiente' %}bg-warning
+                                        {% elif pedido.Estado == 'Aprobado' %}bg-info
+                                        {% elif pedido.Estado == 'En Proceso' %}bg-primary
+                                        {% elif pedido.Estado == 'Entregado' %}bg-success
+                                        {% else %}bg-danger{% endif %}">
+                                        {{ pedido.Estado }}
+                                    </span>
+                                </td>
+                                <td>
+                                    <span class="badge bg-primary">
+                                        {{ pedido.Tipo_Entrega }}
+                                    </span>
+                                </td>
+                                <td class="fw-bold text-success">C${{ "{:,.2f}".format(pedido.Total_Pedido or 0) }}</td>
+                                <td class="text-center"><span class="badge bg-dark">{{ pedido.Total_Items|default(0, true) }}</span></td>
+                                <td>
+                                    <div class="btn-group btn-group-sm" role="group">
+                                        <a href="{{ url_for('admin.ver_pedido', id_pedido=pedido.ID_Pedido) }}"
+                                            class="btn btn-outline-info" title="Ver detalle">
+                                            <i class="fas fa-eye"></i>
+                                        </a>
 
-                                    {% if pedido.Estado != 'Cancelado' and pedido.Estado != 'Entregado' %}
-                                    <button type="button" class="btn btn-outline-warning" title="Cambiar estado"
-                                        onclick="cambiarEstado({{ pedido.ID_Pedido }})">
-                                        <i class="fas fa-exchange-alt"></i>
-                                    </button>
-                                    {% endif %}
-                                    {% endif %}
-                                </div>
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                    <tfoot>
-                        <tr class="table-active">
-                            <td colspan="11" class="text-end fw-bold">TOTAL GENERAL:</td>
-                            <td class="fw-bold text-primary">C${{ "{:,.2f}".format(pedidos|sum(attribute='Total_Pedido')
-                                or 0) }}</td>
-                            <td class="text-center fw-bold">{{ pedidos|sum(attribute='Total_Items') or 0 }}</td>
-                            <td></td>
-                        </tr>
-                    </tfoot>
-                </table>
+                                        {% if current_user.rol == 'Bodega' %}
+                                        {% if pedido.Tipo_Pedido == 'Consolidado' and pedido.Estado == 'Pendiente' %}
+                                        <a href="{{ url_for('admin.distribuir_carga', id_pedido=pedido.ID_Pedido) }}"
+                                            class="btn btn-warning" title="Procesar carga">
+                                            <i class="fas fa-truck-loading"></i>
+                                        </a>
+                                        {% elif pedido.Tipo_Pedido != 'Consolidado' and pedido.Estado == 'Aprobado' %}
+                                        <a href="{{ url_for('admin.admin_procesar_venta_pedido', id_pedido=pedido.ID_Pedido) }}"
+                                            class="btn btn-outline-primary" title="Procesar venta">
+                                            <i class="fas fa-cash-register"></i>
+                                        </a>
+                                        {% endif %}
+
+                                        {% if pedido.Estado == 'Pendiente' and not (pedido.Tipo_Pedido == 'Consolidado') %}
+                                        <button type="button" class="btn btn-outline-success" title="Aprobar"
+                                            onclick="cambiarEstado({{ pedido.ID_Pedido }}, 'Aprobado')">
+                                            <i class="fas fa-check"></i>
+                                        </button>
+                                        {% endif %}
+
+                                        {% if pedido.Estado != 'Cancelado' and pedido.Estado != 'Entregado' %}
+                                        <button type="button" class="btn btn-outline-danger" title="Cancelar"
+                                            onclick="cancelarPedido({{ pedido.ID_Pedido }})">
+                                            <i class="fas fa-times"></i>
+                                        </button>
+                                        {% endif %}
+                                        {% else %}
+                                        {% if pedido.Estado == 'Pendiente' %}
+                                        <button type="button" class="btn btn-outline-success" title="Aprobar"
+                                            onclick="cambiarEstado({{ pedido.ID_Pedido }}, 'Aprobado')">
+                                            <i class="fas fa-check"></i>
+                                        </button>
+                                        {% endif %}
+
+                                        {% if pedido.Estado != 'Cancelado' and pedido.Estado != 'Entregado' %}
+                                        <button type="button" class="btn btn-outline-warning" title="Cambiar estado"
+                                            onclick="cambiarEstado({{ pedido.ID_Pedido }})">
+                                            <i class="fas fa-exchange-alt"></i>
+                                        </button>
+                                        {% endif %}
+                                        {% endif %}
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                        <tfoot>
+                            <tr class="table-active">
+                                <td colspan="11" class="text-end fw-bold">TOTAL GENERAL:</td>
+                                <td class="fw-bold text-primary">C${{ "{:,.2f}".format(pedidos|sum(attribute='Total_Pedido') or 0) }}</td>
+                                <td class="text-center fw-bold">{{ pedidos|sum(attribute='Total_Items') or 0 }}</td>
+                                <td></td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
             </div>
             {% else %}
             <div class="text-center py-4 py-md-5">
-                <i class="fas fa-shopping-cart fa-2x fa-md-3x text-muted mb-2 mb-md-3"></i>
-                <h5 class="h6 h5-md text-muted">No hay pedidos registrados</h5>
+                <i class="fas fa-shopping-cart fa-2x text-muted mb-2 mb-md-3" style="color: #9ca3af;"></i>
+                <h5 class="text-muted">No hay pedidos registrados</h5>
                 <p class="text-muted small">
                     {% if filtros_aplicados %}
                     No se encontraron pedidos con los filtros aplicados
@@ -661,7 +1041,7 @@
             {% endif %}
         </div>
         {% if pedidos %}
-        <div class="card-footer bg-light py-2">
+        <div class="card-footer">
             <div class="row">
                 <div class="col-12 col-md-6">
                     <small class="text-muted d-block d-md-inline">
@@ -681,18 +1061,16 @@
     </div>
 </div>
 
-<!-- ============================================ -->
-<!-- MODAL PARA CAMBIAR ESTADO                   -->
-<!-- ============================================ -->
+<!-- MODAL PARA CAMBIAR ESTADO -->
 <div class="modal fade" id="modalEstado" tabindex="-1">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
-            <div class="modal-header bg-primary text-white py-2">
+            <div class="modal-header">
                 <h5 class="modal-title h6">
                     <i class="fas fa-exchange-alt me-2"></i>
                     Cambiar Estado del Pedido
                 </h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body p-3">
                 <p class="small">Seleccione el nuevo estado para el pedido:</p>
@@ -713,258 +1091,11 @@
             </div>
             <div class="modal-footer py-2">
                 <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
-                <button type="button" class="btn btn-primary btn-sm" onclick="confirmarCambioEstado()">Cambiar
-                    Estado</button>
+                <button type="button" class="btn btn-primary btn-sm" onclick="confirmarCambioEstado()">Cambiar Estado</button>
             </div>
         </div>
     </div>
 </div>
-
-<style>
-    /* ============================================ */
-    /* ESTILOS RESPONSIVOS MEJORADOS                */
-    /* ============================================ */
-
-    /* Ajustes generales */
-    .card {
-        border: none;
-        box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
-    }
-
-    .card-header {
-        background-color: #f8f9fc;
-        border-bottom: 1px solid #e3e6f0;
-    }
-
-    /* Tarjetas de resumen */
-    .card.text-white .card-body {
-        padding: 0.75rem;
-    }
-
-    .card.text-white h3 {
-        margin-bottom: 0;
-        font-weight: bold;
-    }
-
-    .card.text-white h6 {
-        font-size: 0.7rem;
-        opacity: 0.9;
-        margin-bottom: 0.25rem;
-    }
-
-    /* Tarjetas de pedidos en móvil */
-    .pedido-card {
-        background-color: white;
-        transition: background-color 0.2s ease;
-        animation: fadeIn 0.3s ease;
-    }
-
-    .pedido-card:hover {
-        background-color: #f8f9fa;
-    }
-
-    .pedido-card .badge {
-        font-size: 0.65rem;
-        padding: 0.25rem 0.4rem;
-    }
-
-    .bg-danger.bg-opacity-10 {
-        background-color: rgba(220, 53, 69, 0.05) !important;
-    }
-
-    /* Badges */
-    .badge {
-        font-size: 0.75rem;
-        padding: 0.35rem 0.65rem;
-    }
-
-    .badge.bg-warning {
-        color: #212529 !important;
-    }
-
-    .badge.bg-info {
-        background-color: #36b9cc !important;
-    }
-
-    .badge.bg-primary {
-        background-color: #4e73df !important;
-    }
-
-    .badge.bg-success {
-        background-color: #1cc88a !important;
-    }
-
-    .badge.bg-danger {
-        background-color: #e74a3b !important;
-    }
-
-    /* Botones */
-    .btn-sm {
-        font-size: 0.75rem;
-        padding: 0.25rem 0.5rem;
-    }
-
-    .btn-group-sm .btn {
-        padding: 0.2rem 0.4rem;
-        font-size: 0.7rem;
-    }
-
-    /* Animaciones */
-    @keyframes fadeIn {
-        from {
-            opacity: 0;
-            transform: translateY(5px);
-        }
-
-        to {
-            opacity: 1;
-            transform: translateY(0);
-        }
-    }
-
-    /* ============================================ */
-    /* VISTA MÓVIL (< 768px)                        */
-    /* ============================================ */
-    @media (max-width: 767.98px) {
-        .container-fluid {
-            padding-left: 8px;
-            padding-right: 8px;
-        }
-
-        .h2-md {
-            font-size: 1.3rem;
-        }
-
-        .h3-md {
-            font-size: 1.2rem;
-        }
-
-        .h4-md {
-            font-size: 1rem;
-        }
-
-        .btn-group-sm .btn {
-            padding: 0.3rem 0.6rem;
-            font-size: 0.7rem;
-        }
-
-        .pedido-card {
-            padding: 0.75rem !important;
-        }
-
-        .pedido-card .btn-sm {
-            padding: 0.25rem;
-            font-size: 0.65rem;
-        }
-
-        .form-select-sm,
-        .form-control-sm {
-            font-size: 0.75rem;
-        }
-
-        .small {
-            font-size: 0.7rem;
-        }
-    }
-
-    /* ============================================ */
-    /* VISTA TABLET (768px - 1199px)                */
-    /* ============================================ */
-    @media (min-width: 768px) and (max-width: 1199.98px) {
-        .card.text-white h3 {
-            font-size: 1.2rem;
-        }
-
-        .card.text-white h6 {
-            font-size: 0.65rem;
-        }
-
-        .pedido-card .row {
-            margin-left: -4px;
-            margin-right: -4px;
-        }
-
-        .pedido-card [class*="col-"] {
-            padding-left: 4px;
-            padding-right: 4px;
-        }
-    }
-
-    /* ============================================ */
-    /* SCROLLBAR PERSONALIZADO                      */
-    /* ============================================ */
-    ::-webkit-scrollbar {
-        width: 6px;
-        height: 6px;
-    }
-
-    ::-webkit-scrollbar-track {
-        background: #f1f1f1;
-        border-radius: 3px;
-    }
-
-    ::-webkit-scrollbar-thumb {
-        background: linear-gradient(45deg, #4e73df, #224abe);
-        border-radius: 3px;
-    }
-
-    /* ============================================ */
-    /* MEJORAS VISUALES                             */
-    /* ============================================ */
-
-    /* Hover en tarjetas */
-    .pedido-card {
-        cursor: pointer;
-        transition: all 0.2s ease;
-    }
-
-    .pedido-card:active {
-        background-color: #e9ecef;
-    }
-
-    /* Tooltips */
-    [data-bs-toggle="tooltip"] {
-        cursor: help;
-    }
-
-    /* Modal centrado */
-    .modal-dialog-centered {
-        display: flex;
-        align-items: center;
-        min-height: calc(100% - 1rem);
-    }
-
-    /* Botones de acción en grupo */
-    .btn-group-sm .btn i {
-        font-size: 0.7rem;
-    }
-
-    /* Resumen móvil */
-    .bg-light.border-top {
-        border-top: 2px solid #e3e6f0 !important;
-    }
-
-    /* Mejora para badges en móvil */
-    @media (max-width: 767.98px) {
-        .badge {
-            font-size: 0.6rem;
-            padding: 0.25rem 0.4rem;
-        }
-
-        .pedido-card .badge i {
-            font-size: 0.6rem;
-        }
-    }
-
-    /* Contenedor de tarjetas */
-    .pedido-card {
-        border-bottom: 1px solid #e3e6f0;
-    }
-
-    .pedido-card:last-child {
-        border-bottom: none;
-    }
-</style>
 
 <script>
     // ============================================
@@ -977,18 +1108,9 @@
         nuevoPedidoConsolidado: "{{ url_for('admin.nuevo_pedido_consolidado') }}"
     };
     
-    // Variables globales
     let pedidoActual = null;
 
     document.addEventListener('DOMContentLoaded', function () {
-        // Inicializar tooltips de Bootstrap
-        if (window.innerWidth >= 768) {
-            var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
-            var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
-                return new bootstrap.Tooltip(tooltipTriggerEl);
-            });
-        }
-
         // Configurar fechas por defecto
         const today = new Date().toISOString().split('T')[0];
         const firstDay = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0];
@@ -1003,37 +1125,6 @@
             fechaFin.value = today;
         }
 
-        // Inicializar DataTables solo en desktop
-        if (window.innerWidth >= 1200 && typeof $.fn.DataTable !== 'undefined' && document.getElementById('tablaPedidos')) {
-            $('#tablaPedidos').DataTable({
-                "language": {
-                    "url": "//cdn.datatables.net/plug-ins/1.10.25/i18n/Spanish.json"
-                },
-                "order": [[0, 'desc']],
-                "pageLength": 25,
-                "responsive": true,
-                "columnDefs": [
-                    { "orderable": false, "targets": [13] }
-                ]
-            });
-        }
-
-        // Detectar cambio de orientación
-        window.addEventListener('orientationchange', function () {
-            setTimeout(function () {
-                if (window.innerWidth >= 1200 && typeof $.fn.DataTable !== 'undefined' && document.getElementById('tablaPedidos')) {
-                    if (!$.fn.DataTable.isDataTable('#tablaPedidos')) {
-                        $('#tablaPedidos').DataTable({
-                            "language": { "url": "//cdn.datatables.net/plug-ins/1.10.25/i18n/Spanish.json" },
-                            "order": [[0, 'desc']],
-                            "pageLength": 25,
-                            "columnDefs": [{ "orderable": false, "targets": [13] }]
-                        });
-                    }
-                }
-            }, 200);
-        });
-        
         console.log('🔗 API URLs configuradas:', API_URLS);
     });
 
@@ -1077,7 +1168,6 @@
     }
 
     function realizarCambioEstado(idPedido, nuevoEstado, observacion) {
-        // CORREGIDO: Usar API_URLS reemplazando el 0 por el id real
         const url = API_URLS.cambiarEstado.replace('/0', '/' + idPedido);
         console.log('🔄 Cambiando estado URL:', url);
         
@@ -1117,7 +1207,6 @@
         const razon = prompt('Ingrese la razón de la cancelación:');
         if (razon !== null && razon.trim() !== '') {
             if (confirm(`¿Está seguro de cancelar el pedido #${idPedido}?`)) {
-                // CORREGIDO: Usar API_URLS reemplazando el 0 por el id real
                 const url = API_URLS.cancelarPedido.replace('/0', '/' + idPedido);
                 console.log('❌ Cancelando pedido URL:', url);
                 
@@ -1158,34 +1247,23 @@
     }
 
     function showToast(type, title, message) {
-        if (typeof Toast !== 'undefined') {
-            Toast.fire({
-                icon: type,
-                title: title,
-                text: message
-            });
-        } else {
-            const toastEl = document.createElement('div');
-            toastEl.className = `toast align-items-center text-white bg-${type === 'success' ? 'success' : type === 'warning' ? 'warning' : 'danger'} border-0 position-fixed bottom-0 end-0 m-3`;
-            toastEl.setAttribute('role', 'alert');
-            toastEl.setAttribute('style', 'z-index: 9999;');
-            toastEl.innerHTML = `
-            <div class="d-flex">
-                <div class="toast-body">
+        const toastEl = document.createElement('div');
+        toastEl.className = `alert alert-${type === 'success' ? 'success' : type === 'warning' ? 'warning' : 'danger'} alert-dismissible fade show position-fixed`;
+        toastEl.style.cssText = 'bottom: 20px; right: 20px; z-index: 9999; min-width: 300px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);';
+        toastEl.innerHTML = `
+            <div class="d-flex align-items-center">
+                <i class="fas fa-${type === 'success' ? 'check-circle' : type === 'warning' ? 'exclamation-triangle' : 'exclamation-circle'} me-2"></i>
+                <div>
                     <strong>${title}:</strong> ${message}
                 </div>
-                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+                <button type="button" class="btn-close ms-auto" data-bs-dismiss="alert"></button>
             </div>
-            `;
-
-            document.body.appendChild(toastEl);
-            const toast = new bootstrap.Toast(toastEl, { delay: 3000 });
-            toast.show();
-
-            toastEl.addEventListener('hidden.bs.toast', function () {
-                document.body.removeChild(toastEl);
-            });
-        }
+        `;
+        document.body.appendChild(toastEl);
+        
+        setTimeout(() => {
+            if (toastEl) toastEl.remove();
+        }, 3000);
     }
 </script>
 {% endblock %}

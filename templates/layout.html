@@ -3,16 +3,24 @@
 
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes, viewport-fit=cover">
     <title>{% block title %}FerDel Sistema{% endblock %}</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.8.1/font/bootstrap-icons.css">
+    
+    <!-- ========== PWA META TAGS ========== -->
     <link rel="manifest" href="/static/manifest.json">
     <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Ferdel">
+    <meta name="application-name" content="Ferdel">
+    <meta name="theme-color" content="#2c5e2e">
     
     <!-- FAVICON - Logo en la pestaña del navegador -->
     <link rel="icon" type="image/png" href="{{ url_for('static', filename='ferdel.png') }}">
     <link rel="shortcut icon" type="image/png" href="{{ url_for('static', filename='ferdel.png') }}">
+    <link rel="apple-touch-icon" href="{{ url_for('static', filename='ferdel.png') }}">
     
     <style>
         :root {
@@ -149,6 +157,14 @@
             .sidebar.collapsed .sidebar-footer {
                 display: none;
             }
+            
+            .sidebar.collapsed .submenu {
+                display: none !important;
+            }
+            
+            .sidebar.collapsed .has-submenu > .nav-link {
+                position: relative;
+            }
         }
 
         /* Estado en móviles */
@@ -189,6 +205,7 @@
         .sidebar .nav {
             flex-direction: column;
             padding: 0 0.5rem;
+            overflow: visible;
         }
 
         .sidebar .nav-link {
@@ -324,12 +341,17 @@
             border-radius: 0 8px 8px 0;
             padding: 6px 8px;
             cursor: pointer;
-            transition: left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            transition: left 0.3s cubic-bezier(0.4, 0, 0.2, 1), background-color 0.2s;
             box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.1);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 30px;
+            height: 30px;
         }
 
         .sidebar-toggle-btn:hover {
-            background-color: #f8f9fa;
+            background-color: #e9ecef;
         }
 
         .sidebar.collapsed ~ .sidebar-toggle-btn {
@@ -565,30 +587,131 @@
             }
         }
 
-        /* Tooltip para sidebar colapsado */
-        [data-tooltip] {
-            position: relative;
-        }
-
-        [data-tooltip]:before {
-            content: attr(data-tooltip);
-            position: absolute;
-            left: 100%;
-            top: 50%;
-            transform: translateY(-50%);
-            background: rgba(0, 0, 0, 0.85);
+        /* Tooltips para sidebar colapsado */
+        .sidebar-tooltip {
+            position: fixed;
+            background: rgba(0, 0, 0, 0.9);
             color: white;
-            padding: 5px 10px;
-            border-radius: 5px;
+            padding: 6px 12px;
+            border-radius: 6px;
             font-size: 0.8rem;
             white-space: nowrap;
             z-index: 1060;
-            display: none;
-            margin-left: 10px;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.15s ease;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
         }
 
-        .sidebar.collapsed .nav-link[data-tooltip]:hover:before {
+        .sidebar-tooltip.show {
+            opacity: 1;
+        }
+
+        .sidebar-tooltip::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            right: 100%;
+            margin-top: -5px;
+            border-width: 5px;
+            border-style: solid;
+            border-color: transparent rgba(0, 0, 0, 0.9) transparent transparent;
+        }
+
+        /* Estilos para PWA */
+        .pwa-install-button {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            z-index: 9999;
+            animation: slideInUp 0.3s ease-out;
+        }
+        
+        .pwa-update-notification {
+            position: fixed;
+            top: 70px;
+            right: 20px;
+            z-index: 9999;
+            max-width: 350px;
+            animation: slideInRight 0.3s ease-out;
+        }
+        
+        @keyframes slideInUp {
+            from {
+                transform: translateY(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+        
+        @keyframes slideInRight {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+        
+        @media (max-width: 768px) {
+            .pwa-install-button {
+                bottom: 10px;
+                right: 10px;
+            }
+            
+            .pwa-update-notification {
+                top: 60px;
+                right: 10px;
+                left: 10px;
+                max-width: none;
+            }
+        }
+        
+        /* Modo PWA standalone */
+        body.pwa-mode .navbar {
+            padding-top: env(safe-area-inset-top);
+        }
+        
+        body.pwa-mode .main-content {
+            padding-bottom: env(safe-area-inset-bottom);
+        }
+
+        /* Animaciones */
+        .sidebar-toggle-btn i {
+            transition: transform 0.2s;
+        }
+
+        .sidebar-toggle-btn:hover i {
+            transform: scale(1.1);
+        }
+
+        .sidebar.collapsed .has-submenu > .nav-link::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            right: 5px;
+            transform: translateY(-50%);
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background-color: rgba(255, 255, 255, 0.5);
             display: block;
+        }
+
+        .sidebar.collapsed .has-submenu.active > .nav-link::after {
+            background-color: #fff;
+            box-shadow: 0 0 5px rgba(255, 255, 255, 0.8);
+        }
+
+        @media (min-width: 768px) {
+            .main-content {
+                transition: margin-left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            }
         }
     </style>
     {% block extra_css %}{% endblock %}
@@ -612,6 +735,9 @@
     {% if current_user.is_authenticated %}
     <!-- Overlay para móvil -->
     <div class="overlay" id="mainOverlay"></div>
+    
+    <!-- Tooltip container para sidebar colapsado -->
+    <div class="sidebar-tooltip" id="sidebarTooltip"></div>
 
     <!-- Navbar -->
     <nav class="navbar navbar-expand-lg navbar-dark">
@@ -668,8 +794,8 @@
                 </a>
 
                 <!-- Caja de movimientos -->
-                <div class="has-submenu {% if 'caja' in request.endpoint %}active{% endif %}">
-                    <a class="nav-link submenu-toggle-btn" href="#caja-submenu" data-tooltip="Caja de Movimientos">
+                <div class="has-submenu {% if 'caja' in request.endpoint %}active{% endif %}" data-tooltip="Caja de Movimientos">
+                    <a class="nav-link submenu-toggle-btn" href="#caja-submenu">
                         <i class="bi bi-cash-stack"></i> <span>Caja de Movimientos</span>
                         <i class="bi bi-chevron-right submenu-toggle ms-auto"></i>
                     </a>
@@ -682,8 +808,8 @@
                 </div>
 
                 <!-- Ventas -->
-                <div class="has-submenu {% if 'ventas' in request.endpoint or 'cuentascobrar' in request.endpoint %}active{% endif %}">
-                    <a class="nav-link submenu-toggle-btn" href="#ventas-submenu" data-tooltip="Ventas">
+                <div class="has-submenu {% if 'ventas' in request.endpoint or 'cuentascobrar' in request.endpoint %}active{% endif %}" data-tooltip="Ventas">
+                    <a class="nav-link submenu-toggle-btn" href="#ventas-submenu">
                         <i class="bi bi-cart4"></i> <span>Ventas</span>
                         <i class="bi bi-chevron-right submenu-toggle ms-auto"></i>
                     </a>
@@ -695,6 +821,10 @@
                         <a class="nav-link {% if request.endpoint == 'admin.admin_clientes_anticipos' %}active{% endif %}"
                            href="{{ url_for('admin.admin_clientes_anticipos') }}">
                             <i class="bi bi-cash-coin"></i> Anticipos Clientes
+                        </a>
+                        <a class="nav-link {% if request.endpoint == 'admin.admin_monitoreo_vendedores' %}active{% endif %}"
+                           href="{{ url_for('admin.admin_monitoreo_vendedores') }}">
+                            <i class="bi bi-people"></i> Monitoreo Vendedores
                         </a>
                         <a class="nav-link {% if request.endpoint == 'admin.admin_cuentascobrar' %}active{% endif %}"
                            href="{{ url_for('admin.admin_cuentascobrar') }}">
@@ -716,8 +846,8 @@
                 </div>
 
                 <!-- Compras -->
-                <div class="has-submenu {% if 'compras' in request.endpoint or 'cuentas_por_pagar' in request.endpoint %}active{% endif %}">
-                    <a class="nav-link submenu-toggle-btn" href="#compras-submenu" data-tooltip="Compras">
+                <div class="has-submenu {% if 'compras' in request.endpoint or 'cuentas_por_pagar' in request.endpoint %}active{% endif %}" data-tooltip="Compras">
+                    <a class="nav-link submenu-toggle-btn" href="#compras-submenu">
                         <i class="bi bi-tags"></i> <span>Compras</span>
                         <i class="bi bi-chevron-right submenu-toggle ms-auto"></i>
                     </a>
@@ -738,8 +868,8 @@
                 </div>
 
                 <!-- Catálogos -->
-                <div class="has-submenu {% if 'usuarios' in request.endpoint or 'empresas' in request.endpoint or 'clientes' in request.endpoint %}active{% endif %}">
-                    <a class="nav-link submenu-toggle-btn" href="#catalogos-submenu" data-tooltip="Catálogos">
+                <div class="has-submenu {% if 'usuarios' in request.endpoint or 'empresas' in request.endpoint or 'clientes' in request.endpoint %}active{% endif %}" data-tooltip="Catálogos">
+                    <a class="nav-link submenu-toggle-btn" href="#catalogos-submenu">
                         <i class="bi bi-collection"></i> <span>Catálogos</span>
                         <i class="bi bi-chevron-right submenu-toggle ms-auto"></i>
                     </a>
@@ -796,8 +926,8 @@
                 </div>
 
                 <!-- Productos -->
-                <div class="has-submenu {% if 'admin.admin_productos' in request.endpoint %}active{% endif %}">
-                    <a class="nav-link submenu-toggle-btn" href="#productos-submenu" data-tooltip="Productos">
+                <div class="has-submenu {% if 'admin.admin_productos' in request.endpoint %}active{% endif %}" data-tooltip="Productos">
+                    <a class="nav-link submenu-toggle-btn" href="#productos-submenu">
                         <i class="bi bi-tags"></i> <span>Productos</span>
                         <i class="bi bi-chevron-right submenu-toggle ms-auto"></i>
                     </a>
@@ -810,8 +940,8 @@
                 </div>
 
                 <!-- Bodega e Inventario -->
-                <div class="has-submenu {% if 'bodega' in request.endpoint %}active{% endif %}">
-                    <a class="nav-link submenu-toggle-btn" href="#bodega-submenu" data-tooltip="Bodega e Inventario">
+                <div class="has-submenu {% if 'bodega' in request.endpoint %}active{% endif %}" data-tooltip="Bodega e Inventario">
+                    <a class="nav-link submenu-toggle-btn" href="#bodega-submenu">
                         <i class="bi bi-house-door"></i> <span>Bodega e Inventario</span>
                         <i class="bi bi-chevron-right submenu-toggle ms-auto"></i>
                     </a>
@@ -832,8 +962,8 @@
                 </div>
 
                 <!-- Herramientas -->
-                <div class="has-submenu {% if 'bitacora' in request.endpoint or 'config' in request.endpoint %}active{% endif %}">
-                    <a class="nav-link submenu-toggle-btn" href="#herramientas-submenu" data-tooltip="Herramientas">
+                <div class="has-submenu {% if 'bitacora' in request.endpoint or 'config' in request.endpoint %}active{% endif %}" data-tooltip="Herramientas">
+                    <a class="nav-link submenu-toggle-btn" href="#herramientas-submenu">
                         <i class="bi bi-tools"></i> <span>Herramientas</span>
                         <i class="bi bi-chevron-right submenu-toggle ms-auto"></i>
                     </a>
@@ -870,7 +1000,6 @@
                    href="{{ url_for('vendedor.vendedor_clientes') }}" data-tooltip="Clientes">
                     <i class="bi bi-people"></i> <span>Clientes</span>
                 </a>
-                <!-- Solo mostrar abonos recibidos por clientes -->
                 <a class="nav-link {% if request.endpoint == 'vendedor.vendedor_abonos' %}active{% endif %}"
                    href="{{ url_for('vendedor.vendedor_abonos') }}" data-tooltip="Abonos Recibidos">
                     <i class="bi bi-cash-coin"></i> <span>Abonos Recibidos</span>
@@ -910,7 +1039,7 @@
     </div>
 
     <!-- Botón para colapsar/expandir sidebar -->
-    <div class="sidebar-toggle-btn" id="sidebarToggleBtn">
+    <div class="sidebar-toggle-btn" id="sidebarToggleBtn" title="Colapsar/Expandir menú">
         <i class="bi bi-chevron-left" id="toggleIcon"></i>
     </div>
 
@@ -951,16 +1080,202 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
 
     <script>
+        // ========== DIAGNÓSTICO PWA ==========
+        (function diagnosticPWA() {
+            console.log('=== DIAGNÓSTICO PWA FERDEL ===');
+            console.log('URL:', window.location.href);
+            console.log('Ruta:', window.location.pathname);
+            
+            // Verificar modo standalone
+            const isStandalone = window.matchMedia('(display-mode: standalone)').matches;
+            console.log('Modo standalone:', isStandalone ? '✅ ACTIVO' : '❌ NO activo');
+            
+            if (isStandalone) {
+                console.log('🎉 La PWA se está ejecutando en modo app!');
+                document.body.classList.add('pwa-mode');
+            } else {
+                console.log('📱 La app se ejecuta en navegador normal');
+            }
+            
+            // Verificar Service Worker
+            if ('serviceWorker' in navigator) {
+                navigator.serviceWorker.getRegistration().then(reg => {
+                    if (reg) {
+                        console.log('✅ Service Worker registrado - Scope:', reg.scope);
+                        console.log('   Estado:', reg.active?.state);
+                    } else {
+                        console.log('⚠️ Service Worker NO registrado');
+                    }
+                });
+            }
+        })();
+
+        // ========== PWA MANAGER ==========
+        class PWAManager {
+            constructor() {
+                this.swRegistration = null;
+                this.deferredPrompt = null;
+                this.init();
+            }
+            
+            async init() {
+                await this.registerSW();
+                this.setupInstallPrompt();
+                this.setupUpdateNotifications();
+                this.checkConnectivity();
+            }
+            
+            async registerSW() {
+                if (!('serviceWorker' in navigator)) {
+                    console.log('[PWA] Service Worker no soportado');
+                    return;
+                }
+                
+                try {
+                    this.swRegistration = await navigator.serviceWorker.register('/static/sw.js', {
+                        scope: '/'
+                    });
+                    
+                    console.log('[PWA] ✅ Service Worker registrado:', this.swRegistration.scope);
+                    
+                    if (this.swRegistration.waiting) {
+                        this.showUpdateNotification();
+                    }
+                    
+                } catch (error) {
+                    console.error('[PWA] Error registrando SW:', error);
+                }
+            }
+            
+            setupInstallPrompt() {
+                window.addEventListener('beforeinstallprompt', (e) => {
+                    e.preventDefault();
+                    this.deferredPrompt = e;
+                    console.log('[PWA] 📱 App instalable detectada');
+                    this.showInstallButton();
+                });
+                
+                window.addEventListener('appinstalled', () => {
+                    console.log('[PWA] ✅ App instalada correctamente');
+                    this.deferredPrompt = null;
+                    this.hideInstallButton();
+                });
+            }
+            
+            showInstallButton() {
+                if (!document.getElementById('pwaInstallBtn')) {
+                    const installBtn = document.createElement('div');
+                    installBtn.id = 'pwaInstallBtn';
+                    installBtn.className = 'pwa-install-button';
+                    installBtn.innerHTML = `
+                        <button class="btn btn-success btn-sm">
+                            <i class="bi bi-download"></i> Instalar App
+                        </button>
+                    `;
+                    document.body.appendChild(installBtn);
+                    
+                    installBtn.querySelector('button').addEventListener('click', async () => {
+                        if (!this.deferredPrompt) return;
+                        
+                        this.deferredPrompt.prompt();
+                        const { outcome } = await this.deferredPrompt.userChoice;
+                        
+                        if (outcome === 'accepted') {
+                            console.log('[PWA] Usuario aceptó instalar');
+                        }
+                        this.deferredPrompt = null;
+                        this.hideInstallButton();
+                    });
+                }
+            }
+            
+            hideInstallButton() {
+                const btn = document.getElementById('pwaInstallBtn');
+                if (btn) btn.remove();
+            }
+            
+            setupUpdateNotifications() {
+                if (!this.swRegistration) return;
+                
+                this.swRegistration.addEventListener('updatefound', () => {
+                    const newWorker = this.swRegistration.installing;
+                    console.log('[PWA] Nueva versión encontrada');
+                    
+                    newWorker.addEventListener('statechange', () => {
+                        if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                            this.showUpdateNotification();
+                        }
+                    });
+                });
+            }
+            
+            showUpdateNotification() {
+                const notification = document.createElement('div');
+                notification.className = 'pwa-update-notification';
+                notification.innerHTML = `
+                    <div class="alert alert-info alert-dismissible fade show">
+                        <i class="bi bi-arrow-repeat"></i>
+                        <strong>¡Actualización disponible!</strong>
+                        <button class="btn btn-sm btn-primary ms-2" onclick="location.reload()">
+                            Actualizar ahora
+                        </button>
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>
+                `;
+                document.body.appendChild(notification);
+                
+                setTimeout(() => notification.remove(), 10000);
+            }
+            
+            checkConnectivity() {
+                const statusDiv = document.getElementById('connection-status');
+                if (!statusDiv) return;
+                
+                function updateStatus() {
+                    if (navigator.onLine) {
+                        statusDiv.style.display = 'none';
+                        statusDiv.style.background = '#d4edda';
+                        statusDiv.style.color = '#155724';
+                        statusDiv.textContent = '✅ Conexión restablecida';
+                        setTimeout(() => {
+                            if (navigator.onLine) statusDiv.style.display = 'none';
+                        }, 3000);
+                    } else {
+                        statusDiv.style.display = 'block';
+                        statusDiv.style.background = '#f8d7da';
+                        statusDiv.style.color = '#721c24';
+                        statusDiv.textContent = '⚠️ Sin conexión a internet. Algunas funciones pueden no estar disponibles.';
+                    }
+                }
+                
+                window.addEventListener('online', updateStatus);
+                window.addEventListener('offline', updateStatus);
+                updateStatus();
+            }
+            
+            async clearCache() {
+                if ('caches' in window) {
+                    const keys = await caches.keys();
+                    await Promise.all(keys.map(key => caches.delete(key)));
+                    console.log('[PWA] 🗑️ Caché limpiado');
+                }
+            }
+        }
+        
+        // ========== CÓDIGO DEL SIDEBAR ==========
         document.addEventListener('DOMContentLoaded', function () {
+            // Inicializar PWA Manager
+            window.pwaManager = new PWAManager();
+            
             const sidebar = document.getElementById('mainSidebar');
             const overlay = document.getElementById('mainOverlay');
             const mobileToggle = document.getElementById('mobileSidebarToggle');
             const sidebarToggleBtn = document.getElementById('sidebarToggleBtn');
             const toggleIcon = document.getElementById('toggleIcon');
             const mainContent = document.getElementById('mainContent');
+            const tooltip = document.getElementById('sidebarTooltip');
             let isMobileMenuOpen = false;
 
-            // Recuperar estado del sidebar
             const sidebarCollapsed = localStorage.getItem('sidebarCollapsed') === 'true';
             if (sidebarCollapsed && window.innerWidth >= 768) {
                 sidebar.classList.add('collapsed');
@@ -991,7 +1306,6 @@
                 isMobileMenuOpen = false;
             }
 
-            // Toggle móvil
             if (mobileToggle) {
                 mobileToggle.addEventListener('click', function (e) {
                     e.preventDefault();
@@ -1004,27 +1318,35 @@
                 });
             }
 
-            // Toggle escritorio
             if (sidebarToggleBtn) {
                 sidebarToggleBtn.addEventListener('click', function () {
                     if (isMobile()) return;
                     
-                    sidebar.classList.toggle('collapsed');
-                    mainContent.classList.toggle('expanded');
+                    const isCollapsed = sidebar.classList.contains('collapsed');
                     
-                    if (sidebar.classList.contains('collapsed')) {
-                        toggleIcon.classList.remove('bi-chevron-left');
-                        toggleIcon.classList.add('bi-chevron-right');
-                        localStorage.setItem('sidebarCollapsed', 'true');
-                    } else {
+                    if (isCollapsed) {
+                        sidebar.classList.remove('collapsed');
+                        mainContent.classList.remove('expanded');
                         toggleIcon.classList.remove('bi-chevron-right');
                         toggleIcon.classList.add('bi-chevron-left');
                         localStorage.setItem('sidebarCollapsed', 'false');
+                        if (tooltip) tooltip.classList.remove('show');
+                    } else {
+                        document.querySelectorAll('.has-submenu.active').forEach(item => {
+                            item.classList.remove('active');
+                            const sub = item.querySelector('.submenu');
+                            if (sub) sub.classList.remove('show');
+                        });
+                        
+                        sidebar.classList.add('collapsed');
+                        mainContent.classList.add('expanded');
+                        toggleIcon.classList.remove('bi-chevron-left');
+                        toggleIcon.classList.add('bi-chevron-right');
+                        localStorage.setItem('sidebarCollapsed', 'true');
                     }
                 });
             }
 
-            // Cerrar overlay
             if (overlay) {
                 overlay.addEventListener('click', function () {
                     if (isMobile() && isMobileMenuOpen) {
@@ -1033,7 +1355,6 @@
                 });
             }
 
-            // Cerrar menú al navegar (móvil)
             if (sidebar) {
                 const navLinks = sidebar.querySelectorAll('.nav-link:not(.submenu-toggle-btn)');
                 navLinks.forEach(link => {
@@ -1045,12 +1366,31 @@
                 });
             }
 
-            // Submenús
             const submenuToggles = document.querySelectorAll('.submenu-toggle-btn');
             submenuToggles.forEach(button => {
                 button.addEventListener('click', function (e) {
                     e.preventDefault();
                     e.stopPropagation();
+                    
+                    if (!isMobile() && sidebar.classList.contains('collapsed')) {
+                        sidebar.classList.remove('collapsed');
+                        mainContent.classList.remove('expanded');
+                        toggleIcon.classList.remove('bi-chevron-right');
+                        toggleIcon.classList.add('bi-chevron-left');
+                        localStorage.setItem('sidebarCollapsed', 'false');
+                        if (tooltip) tooltip.classList.remove('show');
+                        
+                        setTimeout(() => {
+                            const targetId = button.getAttribute('href');
+                            const targetMenu = document.querySelector(targetId);
+                            const parent = button.closest('.has-submenu');
+                            if (targetMenu && parent) {
+                                parent.classList.add('active');
+                                targetMenu.classList.add('show');
+                            }
+                        }, 350);
+                        return;
+                    }
 
                     const targetId = this.getAttribute('href');
                     const targetMenu = document.querySelector(targetId);
@@ -1073,7 +1413,35 @@
                 });
             });
 
-            // Auto-cerrar alertas
+            if (tooltip && sidebar) {
+                const tooltipElements = sidebar.querySelectorAll('[data-tooltip]');
+                
+                tooltipElements.forEach(element => {
+                    element.addEventListener('mouseenter', function(e) {
+                        if (!sidebar.classList.contains('collapsed') || isMobile()) return;
+                        
+                        const text = this.getAttribute('data-tooltip');
+                        if (!text) return;
+                        
+                        tooltip.textContent = text;
+                        tooltip.classList.add('show');
+                        
+                        const rect = this.getBoundingClientRect();
+                        tooltip.style.left = (rect.right + 10) + 'px';
+                        tooltip.style.top = (rect.top + rect.height / 2) + 'px';
+                        tooltip.style.transform = 'translateY(-50%)';
+                    });
+                    
+                    element.addEventListener('mouseleave', function() {
+                        tooltip.classList.remove('show');
+                    });
+                });
+                
+                sidebar.addEventListener('scroll', function() {
+                    tooltip.classList.remove('show');
+                });
+            }
+
             document.querySelectorAll('.alert').forEach(alert => {
                 setTimeout(() => {
                     const bsAlert = new bootstrap.Alert(alert);
@@ -1081,14 +1449,12 @@
                 }, 5000);
             });
 
-            // Cerrar con ESC
             document.addEventListener('keydown', function (e) {
                 if (e.key === 'Escape' && isMobileMenuOpen) {
                     closeMobileMenu();
                 }
             });
 
-            // Redimensionar
             function handleResize() {
                 if (!isMobile() && isMobileMenuOpen) {
                     closeMobileMenu();
@@ -1099,23 +1465,15 @@
                 } else if (!isMobile() && !sidebar.classList.contains('collapsed')) {
                     mainContent.classList.remove('expanded');
                 }
+                
+                if (tooltip) tooltip.classList.remove('show');
             }
 
             window.addEventListener('resize', handleResize);
             handleResize();
         });
-
-        // Service Worker
-        if ('serviceWorker' in navigator) {
-            window.addEventListener('load', function () {
-                navigator.serviceWorker.register('/static/sw.js').then(function (registration) {
-                    console.log('ServiceWorker registrado');
-                }).catch(function (err) {
-                    console.log('Error registrando ServiceWorker:', err);
-                });
-            });
-        }
     </script>
+    
     {% block extra_js %}{% endblock %}
 </body>
 

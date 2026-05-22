@@ -119,6 +119,27 @@
             display: inline-block;
             font-size: 11px;
         }
+
+        /* Opción 2: Sello diagonal (como estampado) */
+        .sello-cancelada {
+            position: relative;
+            margin: 10px auto;
+            text-align: center;
+        }
+
+        .sello-texto {
+            display: inline-block;
+            border: 3px solid #d32f2f;
+            padding: 8px 20px;
+            font-size: 16px;
+            font-weight: bold;
+            color: #d32f2f;
+            background: rgba(211, 47, 47, 0.05);
+            transform: rotate(-20deg);
+            text-transform: uppercase;
+            letter-spacing: 3px;
+            font-family: monospace;
+        }
     </style>
     <style>
         /* Ajuste específico para el logo dentro del recibo */
@@ -192,7 +213,7 @@
 
         <div class="saldo-row abono-row">
             <span>Abono del Cliente</span>
-            <span>{{ ticket.monto_abono_formateado }}</span>
+            <span>{{ ticket.monto_total_formateado }}</span>
         </div>
 
         <div class="divider"></div>
@@ -201,6 +222,13 @@
             <span>Nuevo Saldo</span>
             <span>{{ ticket.nuevo_saldo_formateado }}</span>
         </div>
+
+        <!-- SELLO DE CANCELADA (solo cuando el saldo es cero) -->
+        {% if ticket.nuevo_saldo_formateado == 'C$0.00' or ticket.nuevo_saldo == 0 %}
+        <div class="sello-cancelada">
+            <div class="sello-texto">CANCELADA</div>
+        </div>
+        {% endif %}
 
         <!-- PIE DEL RECIBO -->
         <div class="footer">

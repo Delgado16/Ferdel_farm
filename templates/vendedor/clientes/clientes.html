@@ -235,7 +235,7 @@
     </div>
 </div>
 
-<!-- MODAL PARA ABONOS CON MÉTODO DE PAGO CONDICIONAL -->
+<!-- MODAL PARA ABONOS PUROS (CORREGIDO - VERSIÓN DEFINITIVA) -->
 <div class="modal fade" id="modalAbono" tabindex="-1" aria-labelledby="modalAbonoLabel" aria-hidden="true" data-bs-backdrop="static">
     <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
         <div class="modal-content">
@@ -312,7 +312,8 @@
 
 <script>
 // ============================================
-// SISTEMA DE ABONOS SIN MENSAJES EMERGENTES
+// SISTEMA DE ABONOS PUROS - VERSIÓN CORREGIDA
+// CON DEPURACIÓN Y MANEJO DE ERRORES MEJORADO
 // ============================================
 
 let clienteSeleccionado = null;
@@ -327,6 +328,8 @@ function formatCurrency(value) {
 }
 
 window.abrirModalAbono = function(id, nombre, saldo) {
+    console.log('🔓 Abriendo modal para cliente:', {id, nombre, saldo});
+    
     const modalClienteNombre = document.getElementById('modalClienteNombre');
     const modalSaldoPendiente = document.getElementById('modalSaldoPendiente');
     const montoAbono = document.getElementById('montoAbono');
@@ -362,6 +365,9 @@ window.abrirModalAbono = function(id, nombre, saldo) {
     if (infoAdicional) infoAdicional.style.display = 'none';
     if (errorAbono) errorAbono.style.display = 'none';
     if (successAbono) successAbono.style.display = 'none';
+    
+    // Remover clases de validación previas
+    if (montoAbono) montoAbono.classList.remove('is-invalid', 'is-valid');
     
     const modalElement = document.getElementById('modalAbono');
     if (modalElement) {
@@ -415,8 +421,9 @@ async function procesarAbono() {
     if (!montoInput) return;
     
     const monto = parseFloat(montoInput.value);
-    const idMetodoPago = metodoPagoSelect ? metodoPagoSelect.value : '';
+    const idMetodoPagoRaw = metodoPagoSelect ? metodoPagoSelect.value : '';
     
+    // Validaciones
     if (!clienteSeleccionado) {
         mostrarError('No hay cliente seleccionado');
         return;
@@ -434,11 +441,20 @@ async function procesarAbono() {
         return;
     }
     
-    if (!idMetodoPago) {
+    if (!idMetodoPagoRaw) {
         mostrarError('Por favor seleccione un método de pago');
         metodoPagoSelect.focus();
         return;
     }
+    
+    // Depuración detallada
+    console.log('📤 Enviando abono:', {
+        id_cliente: clienteSeleccionado.id,
+        monto_abono: monto,
+        id_metodo_pago_raw: idMetodoPagoRaw,
+        id_metodo_pago_int: parseInt(idMetodoPagoRaw),
+        tipo_id_metodo: typeof idMetodoPagoRaw
+    });
     
     const btn = document.getElementById('btnProcesarAbono');
     if (!btn) return;
@@ -448,21 +464,51 @@ async function procesarAbono() {
     btn.disabled = true;
     
     try {
-        const requestData = {
+        // Intentar enviar como número primero
+        let requestData = {
             id_cliente: clienteSeleccionado.id,
             monto_abono: monto,
-            id_metodo_pago: parseInt(idMetodoPago)
+            id_metodo_pago: parseInt(idMetodoPagoRaw)
         };
         
-        const response = await fetch('/vendedor/api/vendedor/procesar_abono', {
+        let response = await fetch('/vendedor/api/vendedor/procesar_abono', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest'
             },
             body: JSON.stringify(requestData)
         });
         
+        // Si falla con 400, intentar como string
+        if (response.status === 400) {
+            console.warn('⚠️ Falló con número, intentando como string...');
+            requestData.id_metodo_pago = idMetodoPagoRaw;
+            response = await fetch('/vendedor/api/vendedor/procesar_abono', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: JSON.stringify(requestData)
+            });
+        }
+        
+        // Verificar respuesta
+        if (!response.ok) {
+            let errorMsg = `Error ${response.status}`;
+            try {
+                const errorData = await response.json();
+                errorMsg = errorData.error || errorMsg;
+            } catch(e) {
+                const errorText = await response.text();
+                errorMsg = errorText.substring(0, 100);
+            }
+            throw new Error(errorMsg);
+        }
+        
         const data = await response.json();
+        console.log('✅ Respuesta exitosa:', data);
         
         if (data.success) {
             let detalleHtml = '';
@@ -486,10 +532,12 @@ async function procesarAbono() {
             
             const idAbono = data.id_abono || data.id_movimiento;
             
+            // Cerrar modal
             const modalElement = document.getElementById('modalAbono');
             const modal = bootstrap.Modal.getInstance(modalElement);
             if (modal) modal.hide();
             
+            // Redirigir al recibo después de 2 segundos
             setTimeout(() => {
                 window.location.href = `/vendedor/abono/${idAbono}/recibo?autoPrint=1`;
             }, 2000);
@@ -500,8 +548,8 @@ async function procesarAbono() {
             btn.disabled = false;
         }
     } catch (error) {
-        console.error('Error:', error);
-        mostrarError('Error de conexión: ' + error.message);
+        console.error('❌ Error en proceso de abono:', error);
+        mostrarError('Error: ' + error.message);
         btn.innerHTML = originalText;
         btn.disabled = false;
     }
@@ -517,6 +565,7 @@ function mostrarError(mensaje) {
     }
     if (successDiv) successDiv.style.display = 'none';
     
+    // Auto-ocultar después de 5 segundos
     setTimeout(() => {
         if (errorDiv) errorDiv.style.display = 'none';
     }, 5000);
@@ -533,12 +582,23 @@ function mostrarExito(mensaje) {
     if (errorDiv) errorDiv.style.display = 'none';
 }
 
+// ============================================
+// INICIALIZACIÓN - SIN DUPLICACIÓN DE EVENTOS
+// ============================================
 document.addEventListener('DOMContentLoaded', function() {
+    console.log('🚀 Inicializando sistema de abonos puros');
+    
+    // Evento: cambio de método de pago
     const metodoPagoSelect = document.getElementById('metodoPago');
     if (metodoPagoSelect) {
-        metodoPagoSelect.addEventListener('change', function() {
+        // Remover event listeners anteriores si existen (por seguridad)
+        const newMetodoPago = metodoPagoSelect.cloneNode(true);
+        metodoPagoSelect.parentNode.replaceChild(newMetodoPago, metodoPagoSelect);
+        
+        newMetodoPago.addEventListener('change', function() {
             const metodoId = this.value;
             const metodoNombre = this.options[this.selectedIndex]?.text;
+            console.log('🔄 Método de pago seleccionado:', {metodoId, metodoNombre});
             if (metodoId) {
                 mostrarInfoMetodoPago(metodoId, metodoNombre);
             } else {
@@ -548,21 +608,30 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
     
+    // Evento: botón procesar abono
     const btnProcesar = document.getElementById('btnProcesarAbono');
     if (btnProcesar) {
-        btnProcesar.addEventListener('click', procesarAbono);
+        // Remover event listeners anteriores para evitar duplicados
+        const newBtn = btnProcesar.cloneNode(true);
+        btnProcesar.parentNode.replaceChild(newBtn, btnProcesar);
+        newBtn.addEventListener('click', procesarAbono);
     }
     
+    // Evento: Enter en el campo monto
     const montoInput = document.getElementById('montoAbono');
     if (montoInput) {
-        montoInput.addEventListener('keypress', function(e) {
+        // Remover event listeners anteriores
+        const newMontoInput = montoInput.cloneNode(true);
+        montoInput.parentNode.replaceChild(newMontoInput, montoInput);
+        
+        newMontoInput.addEventListener('keypress', function(e) {
             if (e.key === 'Enter') {
                 e.preventDefault();
                 procesarAbono();
             }
         });
         
-        montoInput.addEventListener('input', function() {
+        newMontoInput.addEventListener('input', function() {
             if (clienteSeleccionado) {
                 const valor = parseFloat(this.value);
                 if (valor > clienteSeleccionado.saldo) {

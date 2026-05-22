@@ -69,22 +69,18 @@ self.addEventListener('fetch', event => {
     event.respondWith(
       caches.match(request)
         .then(cachedResponse => {
-          // Si está en caché, lo devolvemos
           if (cachedResponse) {
             console.log('[Service Worker] ✅ Imagen desde caché:', url.pathname);
             return cachedResponse;
           }
           
-          // Si no está en caché, vamos a la red
           console.log('[Service Worker] 🌐 Imagen desde red:', url.pathname);
           return fetch(request)
             .then(networkResponse => {
-              // Verificar que sea una respuesta válida
               if (!networkResponse || networkResponse.status !== 200) {
                 return networkResponse;
               }
               
-              // Clonar y guardar en caché para futuras solicitudes
               const responseToCache = networkResponse.clone();
               caches.open(CACHE_NAME)
                 .then(cache => {
@@ -99,7 +95,6 @@ self.addEventListener('fetch', event => {
             })
             .catch(error => {
               console.error('[Service Worker] ❌ Error fetching imagen:', url.pathname, error);
-              // Para el logo, devolver un fallback visual
               if (url.pathname.includes('ferdel.png')) {
                 console.log('[Service Worker] 🖼️ Usando fallback para logo');
                 return new Response(
@@ -134,7 +129,6 @@ self.addEventListener('fetch', event => {
     event.respondWith(
       fetch(request)
         .then(networkResponse => {
-          // Si la petición es exitosa, actualizamos caché
           if (networkResponse && networkResponse.status === 200) {
             const responseToCache = networkResponse.clone();
             caches.open(CACHE_NAME)
@@ -148,7 +142,6 @@ self.addEventListener('fetch', event => {
           return networkResponse;
         })
         .catch(() => {
-          // Si falla la red, buscamos en caché
           console.log('[Service Worker] 📦 API desde caché (offline):', url.pathname);
           return caches.match(request);
         })
@@ -156,14 +149,16 @@ self.addEventListener('fetch', event => {
   }
   
   // 🔧 Estrategia 3: HTML y recursos principales (Cache First con revalidación)
+  // 👇 SOLO CAMBIO AQUÍ: Agregar '/admin/' y '/bodega/'
   else if (url.pathname.startsWith('/vendedor/') || 
+           url.pathname.startsWith('/admin/') ||    // ← NUEVO
+           url.pathname.startsWith('/bodega/') ||   // ← NUEVO
            url.pathname.match(/\.(html|css|js)$/i) ||
            url.pathname === '/' ||
            url.pathname === '/index.html') {
     event.respondWith(
       caches.match(request)
         .then(cachedResponse => {
-          // Si está en caché, devolvemos y actualizamos en segundo plano
           if (cachedResponse) {
             // Revalidación en segundo plano
             fetch(request)
@@ -184,7 +179,6 @@ self.addEventListener('fetch', event => {
             return cachedResponse;
           }
           
-          // Si no está en caché, vamos a la red
           return fetch(request)
             .then(networkResponse => {
               if (!networkResponse || networkResponse.status !== 200) {
@@ -209,7 +203,6 @@ self.addEventListener('fetch', event => {
     event.respondWith(
       fetch(request)
         .then(networkResponse => {
-          // Guardar en caché si es exitoso
           if (networkResponse && networkResponse.status === 200) {
             const responseToCache = networkResponse.clone();
             caches.open(CACHE_NAME)
@@ -237,7 +230,6 @@ self.addEventListener('message', event => {
     console.log('[Service Worker] Skip waiting ejecutado');
   }
   
-  // Permitir forzar limpieza de caché desde la app
   if (event.data && event.data.type === 'CLEAR_CACHE') {
     event.waitUntil(
       caches.delete(CACHE_NAME).then(() => {
@@ -249,7 +241,6 @@ self.addEventListener('message', event => {
     );
   }
   
-  // Verificar si una imagen específica está en caché
   if (event.data && event.data.type === 'CHECK_IMAGE_CACHE' && event.data.url) {
     event.waitUntil(
       caches.match(event.data.url).then(response => {
@@ -264,7 +255,6 @@ self.addEventListener('message', event => {
   }
 });
 
-// Evento para cuando el Service Worker se actualiza
 self.addEventListener('updatefound', () => {
   console.log('[Service Worker] Nueva versión encontrada');
 });
