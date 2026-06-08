@@ -14,6 +14,7 @@ from flask_login import login_required, current_user
 from datetime import datetime, timedelta, time, date
 import json
 import logging
+from collections import defaultdict
 
 from config.database import get_db_cursor
 from auth.decorators import admin_required, admin_or_bodega_required
@@ -3458,19 +3459,19 @@ def admin_anticipo_entregas():
                 anticipo = cursor.fetchone()
                 
                 if not anticipo:
-                    flash('Anticipo no encontrado o inactivo', 'error')
+                    flash('❌ Anticipo no encontrado o inactivo', 'error')
                     return redirect(request.url)
                 
                 # 2. Verificar que la bodega existe y está activa
                 cursor.execute("""
                     SELECT ID_Bodega, Nombre
                     FROM bodegas
-                    WHERE ID_Bodega = %s AND Estado = 'activa' AND ID_Empresa = %s
-                """, (id_bodega, anticipo['ID_Empresa']))
+                    WHERE ID_Bodega = %s AND Estado = 'activa'
+                """, (id_bodega,))
                 bodega = cursor.fetchone()
                 
                 if not bodega:
-                    flash('Bodega no encontrada o inactiva', 'error')
+                    flash('❌ Bodega no encontrada o inactiva', 'error')
                     return redirect(request.url)
                 
                 # 3. Verificar cajas disponibles en el anticipo
@@ -3592,34 +3593,41 @@ def admin_anticipo_entregas():
                     WHERE ID_Bodega = %s AND ID_Producto = %s
                 """, (nuevas_existencias, id_bodega, anticipo['ID_Producto']))
                 
-                # 12. Si el anticipo se completó, registrar en bitácora
+                # 12. Si el anticipo se completó, registrar en bitácora (CORREGIDO)
                 if anticipo_cliente_completado:
+                    # Obtener la IP del usuario
+                    ip_acceso = request.remote_addr or '0.0.0.0'
+                    
                     cursor.execute("""
-                        INSERT INTO bitacora (ID_Usuario, Accion, Tabla_Afectada, ID_Registro, Detalles, Fecha)
-                        VALUES (%s, 'ANTICIPO_COMPLETADO', 'clientes', %s, %s, NOW())
-                    """, (id_usuario, anticipo['ID_Cliente'], 
-                          f"Anticipo completado para el cliente {anticipo['Nombre_Cliente']}. Total cajas consumidas: {nuevas_cajas_consumidas_cliente}"))
+                        INSERT INTO bitacora (ID_Usuario, Modulo, Accion, IP_Acceso, Fecha)
+                        VALUES (%s, %s, %s, %s, NOW())
+                    """, (id_usuario, 
+                          'CLIENTES-ANTICIPOS-ENTREGAS', 
+                          f'ANTICIPO_COMPLETADO - Cliente: {anticipo["Nombre_Cliente"]} (ID: {anticipo["ID_Cliente"]}) - Total cajas consumidas: {nuevas_cajas_consumidas_cliente} - Anticipo #{id_anticipo}',
+                          ip_acceso))
+                
+                # Commit implícito por el context manager
                 
                 # Redirigir al ticket con auto-impresión
                 flash(f'✅ {len(ids_entregas)} entregas registradas exitosamente!', 'success')
                 return redirect(url_for('admin.ticket_entregas', id_anticipo=id_anticipo, autoPrint=1))
                 
         except ValueError as e:
-            flash(f'Error en el formato de los datos: {str(e)}', 'error')
+            flash(f'❌ Error en el formato de los datos: {str(e)}', 'error')
             return redirect(request.url)
         except Exception as e:
-            flash(f'Error al registrar la entrega: {str(e)}', 'error')
+            flash(f'❌ Error al registrar la entrega: {str(e)}', 'error')
             return redirect(request.url)
     
     # Método GET - Mostrar la página con datos
     try:
-        with get_db_cursor(True) as cursor:
+        with get_db_cursor() as cursor:
             # Obtener ID de la empresa del usuario actual
             cursor.execute("SELECT ID_Empresa FROM usuarios WHERE ID_Usuario = %s", (current_user.id,))
             usuario = cursor.fetchone()
             empresa_id = usuario['ID_Empresa'] if usuario else None
             
-            # 1. Obtener anticipos activos disponibles
+            # 1. Obtener anticipos activos disponibles - VERSIÓN CORREGIDA
             cursor.execute("""
                 SELECT 
                     a.ID_Anticipo,
@@ -3641,8 +3649,8 @@ def admin_anticipo_entregas():
                     a.Precio_Unitario,
                     a.Monto_Pagado,
                     a.Saldo_Restante,
-                    DATE_FORMAT(a.Fecha_Anticipo, '%%d/%%m/%%Y') as Fecha_Anticipo_Formato,
-                    DATE_FORMAT(a.Fecha_Vencimiento, '%%d/%%m/%%Y') as Fecha_Vencimiento_Formato,
+                    DATE_FORMAT(a.Fecha_Anticipo, '%d/%m/%Y') as Fecha_Anticipo_Formato,
+                    DATE_FORMAT(a.Fecha_Vencimiento, '%d/%m/%Y') as Fecha_Vencimiento_Formato,
                     DATEDIFF(a.Fecha_Vencimiento, CURDATE()) as Dias_Vencimiento,
                     CASE 
                         WHEN a.Fecha_Vencimiento < NOW() AND a.Estado = 'ACTIVO' THEN 'VENCIDO'
@@ -3653,8 +3661,7 @@ def admin_anticipo_entregas():
                 INNER JOIN clientes c ON a.ID_Cliente = c.ID_Cliente
                 INNER JOIN productos p ON a.ID_Producto = p.ID_Producto
                 WHERE a.Estado = 'ACTIVO' 
-                  AND a.Cajas_Consumidas < a.Cantidad_Cajas
-                  AND c.Anticipo_Activo = 1
+                  AND (a.Cantidad_Cajas - a.Cajas_Consumidas) > 0
                 ORDER BY c.Nombre, a.Fecha_Anticipo ASC
             """)
             anticipos_disponibles = cursor.fetchall()
@@ -3671,16 +3678,24 @@ def admin_anticipo_entregas():
             sucursales = cursor.fetchall()
             
             # 3. Obtener bodegas activas
-            cursor.execute("""
-                SELECT ID_Bodega, Nombre, Ubicacion, Estado
-                FROM bodegas
-                WHERE ID_Empresa = %s AND Estado = 'activa'
-                ORDER BY Nombre
-            """, (empresa_id,))
+            if empresa_id:
+                cursor.execute("""
+                    SELECT ID_Bodega, Nombre, Ubicacion, Estado
+                    FROM bodegas
+                    WHERE ID_Empresa = %s AND Estado = 'activa'
+                    ORDER BY Nombre
+                """, (empresa_id,))
+            else:
+                cursor.execute("""
+                    SELECT ID_Bodega, Nombre, Ubicacion, Estado
+                    FROM bodegas
+                    WHERE Estado = 'activa'
+                    ORDER BY Nombre
+                """)
             bodegas = cursor.fetchall()
             
             if not bodegas:
-                flash('No hay bodegas activas configuradas para su empresa', 'warning')
+                flash('⚠️ No hay bodegas activas configuradas para su empresa', 'warning')
             
             # 4. Obtener historial de entregas
             cursor.execute("""
@@ -3719,7 +3734,7 @@ def admin_anticipo_entregas():
                     COALESCE(SUM(e.Total), 0) as Monto_Total_Entregado_Hoy,
                     COUNT(DISTINCT a.ID_Anticipo) as Anticipos_Activos,
                     COALESCE(SUM(a.Cantidad_Cajas - a.Cajas_Consumidas), 0) as Cajas_Disponibles_Total,
-                    COUNT(DISTINCT c.ID_Cliente) as clientes_Con_Anticipos,
+                    COUNT(DISTINCT c.ID_Cliente) as Clientes_Con_Anticipos,
                     COALESCE(SUM(c.Saldo_Anticipos), 0) as Saldo_Total_Anticipos
                 FROM entregas e
                 RIGHT JOIN anticipos_clientes a ON e.ID_Anticipo = a.ID_Anticipo AND DATE(e.Fecha_Entrega) = CURDATE()
@@ -3727,6 +3742,17 @@ def admin_anticipo_entregas():
                 WHERE a.Estado = 'ACTIVO'
             """)
             estadisticas = cursor.fetchone()
+            
+            # Si estadisticas es None, inicializar con ceros
+            if not estadisticas:
+                estadisticas = {
+                    'Total_Entregas_Hoy': 0,
+                    'Monto_Total_Entregado_Hoy': 0,
+                    'Anticipos_Activos': 0,
+                    'Cajas_Disponibles_Total': 0,
+                    'Clientes_Con_Anticipos': 0,
+                    'Saldo_Total_Anticipos': 0
+                }
             
             # 6. Anticipos casi agotados
             cursor.execute("""
@@ -3760,7 +3786,7 @@ def admin_anticipo_entregas():
                                  anticipos_bajos=anticipos_bajos)
                                  
     except Exception as e:
-        flash(f'Error al cargar los datos: {str(e)}', 'error')
+        flash(f'❌ Error al cargar los datos: {str(e)}', 'error')
         return redirect(url_for('admin.admin_dashboard'))
 
 @admin_bp.route('/admin/ventas/anticipos/entregas/ticket/<int:id_anticipo>')
@@ -12585,6 +12611,427 @@ def admin_eliminar_cliente(id):
     
     return redirect(url_for("admin.admin_clientes"))
 
+@admin_bp.route('/admin/catalog/detalle-cliente/<int:id>', methods=['GET'])
+@admin_required
+@bitacora_decorator("DETALLE_CLIENTE")
+def admin_detalle_cliente(id):
+    try:
+        id_empresa = session.get('id_empresa', 1)
+        
+        with get_db_cursor() as cursor:
+            # 1. Datos básicos del cliente
+            cursor.execute("""
+                SELECT c.*, 
+                       r.Nombre_Ruta,
+                       COUNT(DISTINCT cxc.ID_Movimiento) as total_facturas_pendientes
+                FROM clientes c
+                LEFT JOIN rutas r ON c.ID_Ruta = r.ID_Ruta
+                LEFT JOIN cuentas_por_cobrar cxc ON c.ID_Cliente = cxc.ID_Cliente 
+                    AND cxc.Estado IN ('Pendiente', 'Vencida')
+                WHERE c.ID_Cliente = %s AND c.ID_Empresa = %s
+                GROUP BY c.ID_Cliente
+            """, (id, id_empresa))
+            
+            cliente = cursor.fetchone()
+            
+            if not cliente:
+                flash("Cliente no encontrado", "danger")
+                return redirect(url_for("admin.admin_clientes"))
+            
+            # 2. Cuentas por cobrar pendientes
+            cursor.execute("""
+                SELECT 
+                    cxc.ID_Movimiento,
+                    cxc.Num_Documento,
+                    cxc.Fecha,
+                    cxc.Fecha_Vencimiento,
+                    cxc.Monto_Movimiento,
+                    cxc.Saldo_Pendiente,
+                    cxc.Estado,
+                    cxc.Observacion,
+                    DATEDIFF(CURDATE(), cxc.Fecha_Vencimiento) AS Dias_Vencido,
+                    CASE 
+                        WHEN cxc.Estado = 'Vencida' THEN 'danger'
+                        WHEN cxc.Estado = 'Pendiente' AND cxc.Fecha_Vencimiento BETWEEN CURDATE() AND DATE_ADD(CURDATE(), INTERVAL 7 DAY) THEN 'warning'
+                        WHEN cxc.Estado = 'Pendiente' THEN 'success'
+                        ELSE 'secondary'
+                    END as Color_Estado
+                FROM cuentas_por_cobrar cxc
+                WHERE cxc.ID_Cliente = %s 
+                    AND cxc.Estado IN ('Pendiente', 'Vencida')
+                ORDER BY cxc.Fecha_Vencimiento ASC
+            """, (id,))
+            
+            cuentas_pendientes = cursor.fetchall()
+            
+            for cuenta in cuentas_pendientes:
+                if cuenta.get('Dias_Vencido') is None:
+                    cuenta['Dias_Vencido'] = 0
+            
+            # 3. Últimas facturas (facturacion normal)
+            cursor.execute("""
+                SELECT 
+                    f.ID_Factura as ID_Factura,
+                    f.Fecha,
+                    f.Credito_Contado,
+                    f.Observacion,
+                    f.Estado,
+                    'NORMAL' as Tipo_Factura,
+                    COALESCE(SUM(df.Total), 0) as Total_Factura,
+                    COUNT(df.ID_Detalle) as Cantidad_Productos
+                FROM facturacion f
+                LEFT JOIN detalle_facturacion df ON f.ID_Factura = df.ID_Factura
+                WHERE f.IDCliente = %s 
+                    AND f.Estado = 'Activa'
+                GROUP BY f.ID_Factura
+                ORDER BY f.Fecha DESC
+                LIMIT 10
+            """, (id,))
+            
+            facturas_normales = cursor.fetchall()
+            
+            # 4. Últimas facturas (facturacion ruta)
+            cursor.execute("""
+                SELECT 
+                    fr.ID_FacturaRuta as ID_Factura,
+                    fr.Fecha,
+                    fr.Credito_Contado,
+                    fr.Observacion,
+                    fr.Estado,
+                    'RUTA' as Tipo_Factura,
+                    COALESCE(SUM(dfr.Total), 0) as Total_Factura,
+                    COUNT(dfr.ID_DetalleRuta) as Cantidad_Productos
+                FROM facturacion_ruta fr
+                LEFT JOIN detalle_facturacion_ruta dfr ON fr.ID_FacturaRuta = dfr.ID_FacturaRuta
+                WHERE fr.ID_Cliente = %s 
+                    AND fr.Estado = 'Activa'
+                GROUP BY fr.ID_FacturaRuta
+                ORDER BY fr.Fecha DESC
+                LIMIT 10
+            """, (id,))
+            
+            facturas_ruta = cursor.fetchall()
+            
+            # Combinar y ordenar las facturas
+            ultimas_facturas = list(facturas_normales) + list(facturas_ruta)
+            ultimas_facturas.sort(key=lambda x: x['Fecha'] if x['Fecha'] else datetime.min.date(), reverse=True)
+            ultimas_facturas = ultimas_facturas[:10]
+            
+            # 5. Antigüedad de saldos (Aging)
+            cursor.execute("""
+                SELECT 
+                    COALESCE(SUM(CASE 
+                        WHEN cxc.Fecha_Vencimiento BETWEEN CURDATE() AND DATE_ADD(CURDATE(), INTERVAL 30 DAY) 
+                        THEN cxc.Saldo_Pendiente ELSE 0 END), 0) as Rango_0_30,
+                    COALESCE(SUM(CASE 
+                        WHEN cxc.Fecha_Vencimiento BETWEEN DATE_ADD(CURDATE(), INTERVAL 31 DAY) AND DATE_ADD(CURDATE(), INTERVAL 60 DAY) 
+                        THEN cxc.Saldo_Pendiente ELSE 0 END), 0) as Rango_31_60,
+                    COALESCE(SUM(CASE 
+                        WHEN cxc.Fecha_Vencimiento BETWEEN DATE_ADD(CURDATE(), INTERVAL 61 DAY) AND DATE_ADD(CURDATE(), INTERVAL 90 DAY) 
+                        THEN cxc.Saldo_Pendiente ELSE 0 END), 0) as Rango_61_90,
+                    COALESCE(SUM(CASE 
+                        WHEN cxc.Fecha_Vencimiento < CURDATE() 
+                        THEN cxc.Saldo_Pendiente ELSE 0 END), 0) as Vencido,
+                    COALESCE(SUM(CASE 
+                        WHEN cxc.Fecha_Vencimiento > DATE_ADD(CURDATE(), INTERVAL 90 DAY) 
+                        THEN cxc.Saldo_Pendiente ELSE 0 END), 0) as Mas_90
+                FROM cuentas_por_cobrar cxc
+                WHERE cxc.ID_Cliente = %s 
+                    AND cxc.Estado IN ('Pendiente', 'Vencida')
+            """, (id,))
+            
+            aging = cursor.fetchone()
+            if not aging:
+                aging = {'Rango_0_30': 0, 'Rango_31_60': 0, 'Rango_61_90': 0, 'Vencido': 0, 'Mas_90': 0}
+            
+            # 6. Ventas por mes (facturacion normal)
+            cursor.execute("""
+                SELECT 
+                    YEAR(f.Fecha) as Anio,
+                    MONTH(f.Fecha) as Numero_Mes,
+                    COUNT(DISTINCT f.ID_Factura) as Cantidad_Facturas,
+                    COUNT(DISTINCT CASE WHEN f.Credito_Contado = 1 THEN f.ID_Factura END) as Cantidad_Contado,
+                    COUNT(DISTINCT CASE WHEN f.Credito_Contado = 2 THEN f.ID_Factura END) as Cantidad_Credito,
+                    COALESCE(SUM(df.Total), 0) as Total_Ventas,
+                    COALESCE(SUM(CASE WHEN f.Credito_Contado = 1 THEN df.Total ELSE 0 END), 0) as Total_Contado,
+                    COALESCE(SUM(CASE WHEN f.Credito_Contado = 2 THEN df.Total ELSE 0 END), 0) as Total_Credito,
+                    MIN(f.Fecha) as Primera_Factura_Mes,
+                    MAX(f.Fecha) as Ultima_Factura_Mes
+                FROM facturacion f
+                INNER JOIN detalle_facturacion df ON f.ID_Factura = df.ID_Factura
+                WHERE f.IDCliente = %s 
+                    AND f.Estado = 'Activa'
+                GROUP BY YEAR(f.Fecha), MONTH(f.Fecha)
+            """, (id,))
+            
+            ventas_normales = cursor.fetchall()
+            
+            # 7. Ventas por mes (facturacion ruta)
+            cursor.execute("""
+                SELECT 
+                    YEAR(fr.Fecha) as Anio,
+                    MONTH(fr.Fecha) as Numero_Mes,
+                    COUNT(DISTINCT fr.ID_FacturaRuta) as Cantidad_Facturas,
+                    COUNT(DISTINCT CASE WHEN fr.Credito_Contado = 1 THEN fr.ID_FacturaRuta END) as Cantidad_Contado,
+                    COUNT(DISTINCT CASE WHEN fr.Credito_Contado = 2 THEN fr.ID_FacturaRuta END) as Cantidad_Credito,
+                    COALESCE(SUM(dfr.Total), 0) as Total_Ventas,
+                    COALESCE(SUM(CASE WHEN fr.Credito_Contado = 1 THEN dfr.Total ELSE 0 END), 0) as Total_Contado,
+                    COALESCE(SUM(CASE WHEN fr.Credito_Contado = 2 THEN dfr.Total ELSE 0 END), 0) as Total_Credito,
+                    MIN(fr.Fecha) as Primera_Factura_Mes,
+                    MAX(fr.Fecha) as Ultima_Factura_Mes
+                FROM facturacion_ruta fr
+                INNER JOIN detalle_facturacion_ruta dfr ON fr.ID_FacturaRuta = dfr.ID_FacturaRuta
+                WHERE fr.ID_Cliente = %s 
+                    AND fr.Estado = 'Activa'
+                GROUP BY YEAR(fr.Fecha), MONTH(fr.Fecha)
+            """, (id,))
+            
+            ventas_ruta = cursor.fetchall()
+            
+            # Combinar ventas por mes
+            ventas_dict = defaultdict(lambda: {
+                'Cantidad_Facturas': 0,
+                'Cantidad_Contado': 0,
+                'Cantidad_Credito': 0,
+                'Total_Ventas': 0,
+                'Total_Contado': 0,
+                'Total_Credito': 0,
+                'Primera_Factura_Mes': None,
+                'Ultima_Factura_Mes': None
+            })
+            
+            for venta in ventas_normales:
+                key = f"{venta['Anio']}-{venta['Numero_Mes']}"
+                ventas_dict[key]['Anio'] = venta['Anio']
+                ventas_dict[key]['Numero_Mes'] = venta['Numero_Mes']
+                ventas_dict[key]['Cantidad_Facturas'] += venta['Cantidad_Facturas']
+                ventas_dict[key]['Cantidad_Contado'] += venta['Cantidad_Contado']
+                ventas_dict[key]['Cantidad_Credito'] += venta['Cantidad_Credito']
+                ventas_dict[key]['Total_Ventas'] += float(venta['Total_Ventas'] or 0)
+                ventas_dict[key]['Total_Contado'] += float(venta['Total_Contado'] or 0)
+                ventas_dict[key]['Total_Credito'] += float(venta['Total_Credito'] or 0)
+                if venta['Primera_Factura_Mes'] and (not ventas_dict[key]['Primera_Factura_Mes'] or venta['Primera_Factura_Mes'] < ventas_dict[key]['Primera_Factura_Mes']):
+                    ventas_dict[key]['Primera_Factura_Mes'] = venta['Primera_Factura_Mes']
+                if venta['Ultima_Factura_Mes'] and (not ventas_dict[key]['Ultima_Factura_Mes'] or venta['Ultima_Factura_Mes'] > ventas_dict[key]['Ultima_Factura_Mes']):
+                    ventas_dict[key]['Ultima_Factura_Mes'] = venta['Ultima_Factura_Mes']
+            
+            for venta in ventas_ruta:
+                key = f"{venta['Anio']}-{venta['Numero_Mes']}"
+                if key not in ventas_dict:
+                    ventas_dict[key]['Anio'] = venta['Anio']
+                    ventas_dict[key]['Numero_Mes'] = venta['Numero_Mes']
+                ventas_dict[key]['Cantidad_Facturas'] += venta['Cantidad_Facturas']
+                ventas_dict[key]['Cantidad_Contado'] += venta['Cantidad_Contado']
+                ventas_dict[key]['Cantidad_Credito'] += venta['Cantidad_Credito']
+                ventas_dict[key]['Total_Ventas'] += float(venta['Total_Ventas'] or 0)
+                ventas_dict[key]['Total_Contado'] += float(venta['Total_Contado'] or 0)
+                ventas_dict[key]['Total_Credito'] += float(venta['Total_Credito'] or 0)
+                if venta['Primera_Factura_Mes'] and (not ventas_dict[key]['Primera_Factura_Mes'] or venta['Primera_Factura_Mes'] < ventas_dict[key]['Primera_Factura_Mes']):
+                    ventas_dict[key]['Primera_Factura_Mes'] = venta['Primera_Factura_Mes']
+                if venta['Ultima_Factura_Mes'] and (not ventas_dict[key]['Ultima_Factura_Mes'] or venta['Ultima_Factura_Mes'] > ventas_dict[key]['Ultima_Factura_Mes']):
+                    ventas_dict[key]['Ultima_Factura_Mes'] = venta['Ultima_Factura_Mes']
+            
+            ventas_por_mes = sorted(ventas_dict.values(), key=lambda x: (x['Anio'], x['Numero_Mes']), reverse=True)
+            
+            # 8. Top productos comprados (facturacion normal)
+            cursor.execute("""
+                SELECT 
+                    p.ID_Producto,
+                    p.Descripcion as Producto,
+                    p.COD_Producto,
+                    COALESCE(SUM(df.Cantidad), 0) as Cantidad_Total,
+                    COALESCE(SUM(df.Total), 0) as Total_Vendido
+                FROM detalle_facturacion df
+                INNER JOIN facturacion f ON df.ID_Factura = f.ID_Factura
+                INNER JOIN productos p ON df.ID_Producto = p.ID_Producto
+                WHERE f.IDCliente = %s 
+                    AND f.Estado = 'Activa'
+                GROUP BY p.ID_Producto, p.Descripcion, p.COD_Producto
+            """, (id,))
+            
+            top_productos_normal = cursor.fetchall()
+            
+            # 9. Top productos comprados (facturacion ruta)
+            cursor.execute("""
+                SELECT 
+                    p.ID_Producto,
+                    p.Descripcion as Producto,
+                    p.COD_Producto,
+                    COALESCE(SUM(dfr.Cantidad), 0) as Cantidad_Total,
+                    COALESCE(SUM(dfr.Total), 0) as Total_Vendido
+                FROM detalle_facturacion_ruta dfr
+                INNER JOIN facturacion_ruta fr ON dfr.ID_FacturaRuta = fr.ID_FacturaRuta
+                INNER JOIN productos p ON dfr.ID_Producto = p.ID_Producto
+                WHERE fr.ID_Cliente = %s 
+                    AND fr.Estado = 'Activa'
+                GROUP BY p.ID_Producto, p.Descripcion, p.COD_Producto
+            """, (id,))
+            
+            top_productos_ruta = cursor.fetchall()
+            
+            # Combinar top productos
+            productos_dict = defaultdict(lambda: {'Cantidad_Total': 0, 'Total_Vendido': 0})
+            for prod in top_productos_normal:
+                key = prod['ID_Producto']
+                productos_dict[key]['ID_Producto'] = prod['ID_Producto']
+                productos_dict[key]['Producto'] = prod['Producto']
+                productos_dict[key]['COD_Producto'] = prod['COD_Producto']
+                productos_dict[key]['Cantidad_Total'] += float(prod['Cantidad_Total'] or 0)
+                productos_dict[key]['Total_Vendido'] += float(prod['Total_Vendido'] or 0)
+            
+            for prod in top_productos_ruta:
+                key = prod['ID_Producto']
+                if key not in productos_dict:
+                    productos_dict[key]['ID_Producto'] = prod['ID_Producto']
+                    productos_dict[key]['Producto'] = prod['Producto']
+                    productos_dict[key]['COD_Producto'] = prod['COD_Producto']
+                productos_dict[key]['Cantidad_Total'] += float(prod['Cantidad_Total'] or 0)
+                productos_dict[key]['Total_Vendido'] += float(prod['Total_Vendido'] or 0)
+            
+            top_productos = sorted(productos_dict.values(), key=lambda x: x['Total_Vendido'], reverse=True)[:10]
+            
+            # 10. Anticipos activos del cliente (con barra de progreso)
+            cursor.execute("""
+                SELECT 
+                    a.ID_Anticipo,
+                    p.Descripcion as Producto,
+                    p.COD_Producto,
+                    a.Cantidad_Cajas,
+                    a.Cajas_Consumidas,
+                    (a.Cantidad_Cajas - a.Cajas_Consumidas) as Cajas_Restantes,
+                    a.Monto_Pagado,
+                    a.Saldo_Restante,
+                    a.Fecha_Anticipo,
+                    a.Fecha_Vencimiento,
+                    a.Estado,
+                    ROUND((a.Cajas_Consumidas / a.Cantidad_Cajas) * 100, 1) as Porcentaje_Consumido,
+                    ROUND(((a.Cantidad_Cajas - a.Cajas_Consumidas) / a.Cantidad_Cajas) * 100, 1) as Porcentaje_Restante
+                FROM anticipos_clientes a
+                INNER JOIN productos p ON a.ID_Producto = p.ID_Producto
+                WHERE a.ID_Cliente = %s AND a.Estado = 'ACTIVO'
+                ORDER BY a.Fecha_Vencimiento ASC
+            """, (id,))
+            
+            anticipos = cursor.fetchall()
+            
+            # 11. Últimas entregas del cliente (consumos de anticipos)
+            cursor.execute("""
+                SELECT 
+                    e.ID_Entrega,
+                    e.Fecha_Entrega,
+                    e.Cantidad_Cajas,
+                    e.Precio_Unitario,
+                    e.Total,
+                    e.Notas,
+                    p.Descripcion as Producto,
+                    p.COD_Producto,
+                    e.Usa_Anticipo
+                FROM entregas e
+                INNER JOIN productos p ON e.ID_Producto = p.ID_Producto
+                WHERE e.ID_Cliente = %s 
+                    AND e.Usa_Anticipo = 1
+                ORDER BY e.Fecha_Entrega DESC
+                LIMIT 10
+            """, (id,))
+            
+            ultimas_entregas = cursor.fetchall()
+            
+            # 12. Último abono del cliente
+            cursor.execute("""
+                SELECT 
+                    ad.ID_Detalle,
+                    ad.Monto_Aplicado,
+                    ad.Fecha,
+                    ad.Saldo_Anterior,
+                    ad.Saldo_Nuevo,
+                    mp.Nombre as Metodo_Pago,
+                    u.NombreUsuario as Vendedor,
+                    a.Nombre_Ruta as Ruta,
+                    cxc.Num_Documento as Documento
+                FROM abonos_detalle ad
+                LEFT JOIN metodos_pago mp ON ad.ID_MetodoPago = mp.ID_MetodoPago
+                LEFT JOIN usuarios u ON ad.ID_Usuario = u.ID_Usuario
+                LEFT JOIN asignacion_vendedores av ON ad.ID_Asignacion = av.ID_Asignacion
+                LEFT JOIN rutas a ON av.ID_Ruta = a.ID_Ruta
+                LEFT JOIN cuentas_por_cobrar cxc ON ad.ID_CuentaCobrar = cxc.ID_Movimiento
+                WHERE ad.ID_Cliente = %s
+                ORDER BY ad.Fecha DESC
+                LIMIT 1
+            """, (id,))
+            
+            ultimo_abono = cursor.fetchone()
+            
+            # 13. Estadísticas rápidas
+            stats = {
+                'total_facturas_pendientes': len(cuentas_pendientes),
+                'facturas_vencidas': sum(1 for f in cuentas_pendientes if f['Estado'] == 'Vencida'),
+                'saldo_total': float(cliente.get('Saldo_Pendiente_Total') or 0),
+                'monto_vencido': float(aging.get('Vencido', 0) or 0),
+                'anticipos_activos': len(anticipos),
+                'total_anticipado': sum(float(a.get('Saldo_Restante') or 0) for a in anticipos)
+            }
+            
+            # Calcular total de ventas
+            cursor.execute("""
+                SELECT COALESCE(SUM(df.Total), 0) as total_ventas
+                FROM facturacion f
+                INNER JOIN detalle_facturacion df ON f.ID_Factura = df.ID_Factura
+                WHERE f.IDCliente = %s AND f.Estado = 'Activa'
+            """, (id,))
+            total_normal = cursor.fetchone()['total_ventas'] or 0
+            
+            cursor.execute("""
+                SELECT COALESCE(SUM(dfr.Total), 0) as total_ventas
+                FROM facturacion_ruta fr
+                INNER JOIN detalle_facturacion_ruta dfr ON fr.ID_FacturaRuta = dfr.ID_FacturaRuta
+                WHERE fr.ID_Cliente = %s AND fr.Estado = 'Activa'
+            """, (id,))
+            total_ruta = cursor.fetchone()['total_ventas'] or 0
+            
+            stats['total_ventas'] = float(total_normal) + float(total_ruta)
+            
+            # Ventas último año
+            cursor.execute("""
+                SELECT COALESCE(SUM(df.Total), 0) as total
+                FROM facturacion f
+                INNER JOIN detalle_facturacion df ON f.ID_Factura = df.ID_Factura
+                WHERE f.IDCliente = %s 
+                    AND f.Estado = 'Activa'
+                    AND f.Fecha >= DATE_SUB(CURDATE(), INTERVAL 12 MONTH)
+            """, (id,))
+            anio_normal = cursor.fetchone()['total'] or 0
+            
+            cursor.execute("""
+                SELECT COALESCE(SUM(dfr.Total), 0) as total
+                FROM facturacion_ruta fr
+                INNER JOIN detalle_facturacion_ruta dfr ON fr.ID_FacturaRuta = dfr.ID_FacturaRuta
+                WHERE fr.ID_Cliente = %s 
+                    AND fr.Estado = 'Activa'
+                    AND fr.Fecha >= DATE_SUB(CURDATE(), INTERVAL 12 MONTH)
+            """, (id,))
+            anio_ruta = cursor.fetchone()['total'] or 0
+            
+            stats['total_ultimo_anio'] = float(anio_normal) + float(anio_ruta)
+            
+            return render_template('admin/catalog/client/detalle_clientes.html', 
+                                 cliente=cliente,
+                                 cuentas_pendientes=cuentas_pendientes,
+                                 ultimas_facturas=ultimas_facturas,
+                                 aging=aging,
+                                 ventas_por_mes=ventas_por_mes,
+                                 top_productos=top_productos,
+                                 anticipos=anticipos,
+                                 ultimas_entregas=ultimas_entregas,
+                                 ultimo_abono=ultimo_abono,
+                                 stats=stats,
+                                 today=datetime.now().date())
+    
+    except Exception as e:
+        logging.error(f"Error al cargar detalle del cliente: {str(e)}")
+        logging.error(traceback.format_exc())
+        flash(f"Error al cargar el detalle del cliente: {str(e)}", "danger")
+        return redirect(url_for("admin.admin_clientes"))
+
 # SUCURSALES DE CLIENTES
 @admin_bp.route('/admin/catalog/client/sucursales')
 @admin_required
@@ -13062,7 +13509,7 @@ def admin_detalle_proveedor(id):
                 if factura.get('Dias_Vencido') is None:
                     factura['Dias_Vencido'] = 0
             
-            # 3. Últimas compras (últimos 10 movimientos)
+            # 3. Últimas compras (solo Activas, excluyendo Anuladas y Canceladas)
             cursor.execute("""
                 SELECT 
                     mi.ID_Movimiento,
@@ -13073,12 +13520,14 @@ def admin_detalle_proveedor(id):
                 FROM movimientos_inventario mi
                 WHERE mi.ID_Proveedor = %s 
                     AND mi.Estado = 'Activa'
+                    AND mi.Estado NOT IN ('Anulada', 'Cancelada')
                 ORDER BY mi.Fecha DESC
                 LIMIT 10
             """, (id,))
             
             ultimas_compras = cursor.fetchall()
             
+            # Calcular totales por compra
             for compra in ultimas_compras:
                 cursor.execute("""
                     SELECT 
@@ -13142,11 +13591,9 @@ def admin_detalle_proveedor(id):
             if not aging:
                 aging = {'Rango_0_30': 0, 'Rango_31_60': 0, 'Rango_61_90': 0, 'Vencido': 0, 'Mas_90': 0}
             
-            # 6. RESUMEN DE COMPRAS POR MES - VERSIÓN MEJORADA
+            # 6. RESUMEN DE COMPRAS POR MES - EXCLUYENDO ANULADAS
             cursor.execute("""
                 SELECT 
-                    DATE_FORMAT(mi.Fecha, '%Y-%m') as Mes_Codigo,
-                    DATE_FORMAT(mi.Fecha, '%M %Y') as Mes_Nombre,
                     YEAR(mi.Fecha) as Anio,
                     MONTH(mi.Fecha) as Numero_Mes,
                     COUNT(DISTINCT mi.ID_Movimiento) as Cantidad_Compras,
@@ -13162,13 +13609,14 @@ def admin_detalle_proveedor(id):
                 INNER JOIN detalle_movimientos_inventario dmi ON mi.ID_Movimiento = dmi.ID_Movimiento
                 WHERE mi.ID_Proveedor = %s 
                     AND mi.Estado = 'Activa'
-                GROUP BY DATE_FORMAT(mi.Fecha, '%Y-%m'), YEAR(mi.Fecha), MONTH(mi.Fecha)
+                    AND mi.Estado NOT IN ('Anulada', 'Cancelada')
+                GROUP BY YEAR(mi.Fecha), MONTH(mi.Fecha)
                 ORDER BY Anio DESC, Numero_Mes DESC
             """, (id,))
             
             compras_por_mes = cursor.fetchall()
             
-            # 7. Top productos comprados
+            # 7. Top productos comprados - EXCLUYENDO ANULADAS
             cursor.execute("""
                 SELECT 
                     p.ID_Producto,
@@ -13176,13 +13624,13 @@ def admin_detalle_proveedor(id):
                     p.COD_Producto,
                     COALESCE(SUM(dmi.Cantidad), 0) as Cantidad_Total,
                     COALESCE(SUM(dmi.Subtotal), 0) as Total_Invertido,
-                    COUNT(DISTINCT mi.ID_Movimiento) as Veces_Comprado,
-                    AVG(dmi.Costo_Unitario) as Precio_Promedio
+                    COUNT(DISTINCT mi.ID_Movimiento) as Veces_Comprado
                 FROM detalle_movimientos_inventario dmi
                 INNER JOIN movimientos_inventario mi ON dmi.ID_Movimiento = mi.ID_Movimiento
                 INNER JOIN productos p ON dmi.ID_Producto = p.ID_Producto
                 WHERE mi.ID_Proveedor = %s 
                     AND mi.Estado = 'Activa'
+                    AND mi.Estado NOT IN ('Anulada', 'Cancelada')
                 GROUP BY p.ID_Producto, p.Descripcion, p.COD_Producto
                 ORDER BY Total_Invertido DESC
                 LIMIT 10
@@ -13190,7 +13638,7 @@ def admin_detalle_proveedor(id):
             
             top_productos = cursor.fetchall()
             
-            # 8. Estadísticas completas
+            # 8. Estadísticas completas - EXCLUYENDO ANULADAS
             stats = {
                 'total_facturas': len(facturas_pendientes),
                 'facturas_vencidas': sum(1 for f in facturas_pendientes if f['Estado'] == 'Vencida'),
@@ -13198,7 +13646,7 @@ def admin_detalle_proveedor(id):
                 'monto_vencido': float(aging.get('Vencido', 0) or 0),
             }
             
-            # Totales generales de compras
+            # Totales generales de compras (solo Activas)
             cursor.execute("""
                 SELECT 
                     COUNT(DISTINCT mi.ID_Movimiento) as total_compras,
@@ -13207,19 +13655,21 @@ def admin_detalle_proveedor(id):
                     COALESCE(SUM(CASE WHEN mi.Tipo_Compra = 'CREDITO' THEN dmi.Subtotal ELSE 0 END), 0) as total_credito
                 FROM movimientos_inventario mi
                 INNER JOIN detalle_movimientos_inventario dmi ON mi.ID_Movimiento = dmi.ID_Movimiento
-                WHERE mi.ID_Proveedor = %s AND mi.Estado = 'Activa'
+                WHERE mi.ID_Proveedor = %s 
+                    AND mi.Estado = 'Activa'
+                    AND mi.Estado NOT IN ('Anulada', 'Cancelada')
             """, (id,))
             totales = cursor.fetchone()
             stats.update(totales)
             
-            # Compras último año
+            # Compras último año (solo Activas)
             cursor.execute("""
-                SELECT 
-                    COALESCE(SUM(dmi.Subtotal), 0) as total
+                SELECT COALESCE(SUM(dmi.Subtotal), 0) as total
                 FROM movimientos_inventario mi
                 INNER JOIN detalle_movimientos_inventario dmi ON mi.ID_Movimiento = dmi.ID_Movimiento
                 WHERE mi.ID_Proveedor = %s 
                     AND mi.Estado = 'Activa'
+                    AND mi.Estado NOT IN ('Anulada', 'Cancelada')
                     AND mi.Fecha >= DATE_SUB(CURDATE(), INTERVAL 12 MONTH)
             """, (id,))
             stats['total_ultimo_anio'] = float(cursor.fetchone()['total'] or 0)
@@ -14605,10 +15055,17 @@ def admin_detalle_inventario_bodega(id_bodega):
         with get_db_cursor() as cursor:
             # Obtener información de la bodega con el nombre de la empresa
             cursor.execute("""
-                SELECT b.*, e.Nombre_Empresa 
+                SELECT 
+                    b.ID_Bodega,
+                    b.Nombre,
+                    b.Ubicacion,
+                    b.Estado,
+                    b.ID_Empresa,
+                    b.Fecha_Creacion,
+                    e.Nombre_Empresa 
                 FROM bodegas b
                 INNER JOIN empresa e ON b.ID_Empresa = e.ID_Empresa
-                WHERE b.ID_Bodega = %s
+                WHERE b.ID_Bodega = %s AND b.Estado = 'activa'
             """, (id_bodega,))
             bodega = cursor.fetchone()
             

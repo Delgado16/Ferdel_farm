@@ -7,7 +7,14 @@
     <title>{% block title %}FerDel Sistema{% endblock %}</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.8.1/font/bootstrap-icons.css">
-    
+
+    <!-- Google Fonts: Outfit & Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@300;400;500;600;700;800&display=swap"
+        rel="stylesheet">
+
     <!-- ========== PWA META TAGS ========== -->
     <link rel="manifest" href="/static/manifest.json">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -16,26 +23,37 @@
     <meta name="apple-mobile-web-app-title" content="Ferdel">
     <meta name="application-name" content="Ferdel">
     <meta name="theme-color" content="#2c5e2e">
-    
+
     <!-- FAVICON - Logo en la pestaña del navegador -->
     <link rel="icon" type="image/png" href="{{ url_for('static', filename='ferdel.png') }}">
     <link rel="shortcut icon" type="image/png" href="{{ url_for('static', filename='ferdel.png') }}">
     <link rel="apple-touch-icon" href="{{ url_for('static', filename='ferdel.png') }}">
-    
+
     <style>
         :root {
-            --primary-color: #6a11cb;
-            --secondary-color: #2575fc;
+            --primary-color: #2c5e2e;
+            /* Verde Bosque de la marca */
+            --secondary-color: #10b981;
+            /* Verde Esmeralda vibrante */
             --sidebar-width: 260px;
             --sidebar-collapsed-width: 70px;
-            --sidebar-bg: #1a1e24;
-            --sidebar-hover: #2c3138;
-            --sidebar-active: #0d6efd;
+            --sidebar-bg: #0f172a;
+            /* Slate 900 */
+            --sidebar-hover: #1e293b;
+            /* Slate 800 */
+            --sidebar-active: #10b981;
+            --body-bg: #f8fafc;
+            /* Slate 50 */
+            --text-main: #1e293b;
+            /* Slate 800 */
+            --font-family: 'Outfit', 'Inter', system-ui, -apple-system, sans-serif;
+            --navbar-height: 60px;
         }
 
         body {
-            background-color: #f8f9fa;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--body-bg);
+            color: var(--text-main);
+            font-family: var(--font-family);
             overflow-x: hidden;
         }
 
@@ -46,26 +64,35 @@
             left: 0;
             right: 0;
             z-index: 1030;
-            height: 60px;
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-            background: linear-gradient(135deg, var(--sidebar-bg) 0%, #2c3138 100%);
+            height: var(--navbar-height);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04);
+            background: rgba(15, 23, 42, 0.95);
+            /* Slate 900 semi-transparente */
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.06);
         }
 
         .navbar-brand {
             font-weight: 700;
             display: flex;
             align-items: center;
+            letter-spacing: -0.02em;
         }
 
         .navbar-brand i {
             font-size: 1.5rem;
             margin-right: 0.5rem;
+            background: linear-gradient(135deg, var(--secondary-color), #34d399);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
         }
 
         /* Botón de hamburguesa */
         .navbar-toggler {
             border: none;
             padding: 0.25rem 0.5rem;
+            color: rgba(255, 255, 255, 0.85);
         }
 
         .navbar-toggler:focus {
@@ -76,9 +103,9 @@
         /* SIDEBAR MEJORADO */
         .sidebar {
             position: fixed;
-            top: 60px;
+            top: var(--navbar-height);
             left: 0;
-            height: calc(100vh - 60px);
+            height: calc(100vh - var(--navbar-height));
             background-color: var(--sidebar-bg);
             color: white;
             width: var(--sidebar-width);
@@ -86,30 +113,36 @@
             z-index: 1020;
             overflow-y: auto;
             overflow-x: hidden;
-            box-shadow: 2px 0 10px rgba(0, 0, 0, 0.1);
+            -webkit-overflow-scrolling: touch;
+            box-shadow: 4px 0 20px rgba(0, 0, 0, 0.15);
+            border-right: 1px solid rgba(255, 255, 255, 0.03);
         }
 
         /* Sidebar Logo */
         .sidebar-logo {
-            padding: 1rem;
+            padding: 1.25rem 1rem;
             text-align: center;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
             margin-bottom: 1rem;
         }
 
         .sidebar-logo img {
-            width: 45px;
-            height: 45px;
+            width: 42px;
+            height: 42px;
             border-radius: 10px;
-            transition: all 0.3s;
+            box-shadow: 0 4px 10px rgba(16, 185, 129, 0.15);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
         .sidebar-logo span {
             display: inline-block;
             margin-left: 10px;
-            font-weight: 600;
-            font-size: 1.1rem;
+            font-weight: 700;
+            font-size: 1.15rem;
             vertical-align: middle;
+            background: linear-gradient(135deg, #ffffff 60%, var(--secondary-color) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
         }
 
         .sidebar.collapsed .sidebar-logo span {
@@ -157,12 +190,12 @@
             .sidebar.collapsed .sidebar-footer {
                 display: none;
             }
-            
+
             .sidebar.collapsed .submenu {
                 display: none !important;
             }
-            
-            .sidebar.collapsed .has-submenu > .nav-link {
+
+            .sidebar.collapsed .has-submenu>.nav-link {
                 position: relative;
             }
         }
@@ -174,9 +207,9 @@
                 transform: translateX(-100%);
                 width: 280px;
                 max-width: 85%;
-                transition: transform 0.3s ease;
+                transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
                 z-index: 1045;
-                box-shadow: 2px 0 15px rgba(0, 0, 0, 0.3);
+                box-shadow: 4px 0 25px rgba(0, 0, 0, 0.3);
             }
 
             .sidebar.show {
@@ -186,11 +219,11 @@
             .sidebar.collapsed {
                 width: 280px;
             }
-            
+
             .sidebar.collapsed .nav-link span:not(.submenu-toggle) {
                 display: inline-block;
             }
-            
+
             .sidebar.collapsed .nav-link {
                 justify-content: flex-start;
                 padding: 0.75rem 1rem;
@@ -209,22 +242,24 @@
         }
 
         .sidebar .nav-link {
-            color: rgba(255, 255, 255, 0.75);
+            color: rgba(255, 255, 255, 0.7);
             padding: 0.7rem 0.8rem;
             display: flex;
             align-items: center;
-            transition: all 0.2s;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
             white-space: nowrap;
             border-radius: 0.5rem;
             margin-bottom: 0.25rem;
             position: relative;
             gap: 0.75rem;
+            font-weight: 500;
         }
 
         .sidebar .nav-link i {
-            font-size: 1.2rem;
+            font-size: 1.25rem;
             min-width: 24px;
             text-align: center;
+            transition: transform 0.2s ease;
         }
 
         .sidebar .nav-link:hover {
@@ -232,10 +267,14 @@
             background-color: var(--sidebar-hover);
         }
 
+        .sidebar .nav-link:hover i {
+            transform: scale(1.1);
+        }
+
         .sidebar .nav-link.active {
             color: white;
             background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
-            box-shadow: 0 2px 5px rgba(106, 17, 203, 0.3);
+            box-shadow: 0 4px 12px rgba(16, 185, 129, 0.25);
         }
 
         /* Submenús */
@@ -249,7 +288,7 @@
             font-size: 0.8rem;
         }
 
-        .sidebar .has-submenu.active > .nav-link .submenu-toggle {
+        .sidebar .has-submenu.active>.nav-link .submenu-toggle {
             transform: rotate(90deg);
         }
 
@@ -257,8 +296,9 @@
             padding-left: 0;
             max-height: 0;
             overflow: hidden;
-            transition: max-height 0.3s ease;
-            margin-left: 1.8rem;
+            transition: max-height 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+            margin-left: 1.6rem;
+            border-left: 1px dashed rgba(255, 255, 255, 0.15);
         }
 
         .sidebar .submenu.show {
@@ -266,11 +306,23 @@
         }
 
         .sidebar .submenu .nav-link {
-            padding: 0.6rem 0.8rem;
+            padding: 0.5rem 0.8rem;
             font-size: 0.85rem;
             position: relative;
-            margin-left: 0;
+            margin-left: 0.5rem;
             gap: 0.6rem;
+            color: rgba(255, 255, 255, 0.65);
+        }
+
+        .sidebar .submenu .nav-link:hover {
+            color: white;
+            background-color: var(--sidebar-hover);
+        }
+
+        .sidebar .submenu .nav-link.active {
+            color: white;
+            background: rgba(16, 185, 129, 0.15);
+            font-weight: 500;
         }
 
         .sidebar .submenu .nav-link i {
@@ -283,17 +335,17 @@
             position: absolute;
             left: -0.5rem;
             top: 50%;
-            width: 4px;
-            height: 4px;
-            background: rgba(255, 255, 255, 0.4);
-            border-radius: 50%;
+            width: 5px;
+            height: 1px;
+            background: rgba(255, 255, 255, 0.3);
             transform: translateY(-50%);
+            transition: all 0.2s;
         }
 
+        .sidebar .submenu .nav-link:hover::before,
         .sidebar .submenu .nav-link.active::before {
-            background: white;
-            width: 6px;
-            height: 6px;
+            background: var(--secondary-color);
+            width: 8px;
         }
 
         /* Footer del sidebar */
@@ -303,7 +355,7 @@
             left: 0;
             right: 0;
             padding: 1rem;
-            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            border-top: 1px solid rgba(255, 255, 255, 0.05);
             font-size: 0.75rem;
             background-color: var(--sidebar-bg);
         }
@@ -330,32 +382,38 @@
             display: none;
         }
 
-        /* Botón toggle del sidebar (escritorio) */
+        /* Botón toggle del sidebar (escritorio) - Círculo moderno */
         .sidebar-toggle-btn {
             position: fixed;
-            left: var(--sidebar-width);
-            top: 70px;
+            left: calc(var(--sidebar-width) - 15px);
+            top: 75px;
             z-index: 1021;
             background: white;
-            border: 1px solid #dee2e6;
-            border-radius: 0 8px 8px 0;
-            padding: 6px 8px;
+            border: 1px solid #e2e8f0;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
             cursor: pointer;
-            transition: left 0.3s cubic-bezier(0.4, 0, 0.2, 1), background-color 0.2s;
-            box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.1);
+            transition: left 0.3s cubic-bezier(0.4, 0, 0.2, 1), background-color 0.2s, transform 0.2s, box-shadow 0.2s;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08);
             display: flex;
             align-items: center;
             justify-content: center;
-            width: 30px;
-            height: 30px;
         }
 
         .sidebar-toggle-btn:hover {
-            background-color: #e9ecef;
+            background-color: #f8fafc;
+            transform: scale(1.05);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
         }
 
-        .sidebar.collapsed ~ .sidebar-toggle-btn {
-            left: var(--sidebar-collapsed-width);
+        .sidebar-toggle-btn i {
+            color: #64748b;
+            font-size: 0.85rem;
+        }
+
+        .sidebar.collapsed~.sidebar-toggle-btn {
+            left: calc(var(--sidebar-collapsed-width) - 15px);
         }
 
         @media (max-width: 767.98px) {
@@ -366,17 +424,18 @@
 
         /* Main Content */
         .main-content {
-            padding: 20px;
+            padding: 30px 20px;
             transition: margin-left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
             margin-left: var(--sidebar-width);
-            margin-top: 60px;
-            min-height: calc(100vh - 60px);
+            margin-top: var(--navbar-height);
+            min-height: calc(100vh - var(--navbar-height));
         }
 
         @media (max-width: 767.98px) {
             .main-content {
                 margin-left: 0;
                 width: 100%;
+                padding: 20px 15px;
             }
         }
 
@@ -391,25 +450,41 @@
             left: 0;
             right: 0;
             bottom: 0;
-            background-color: rgba(0, 0, 0, 0.5);
+            background-color: rgba(15, 23, 42, 0.6);
+            backdrop-filter: blur(4px);
+            -webkit-backdrop-filter: blur(4px);
             z-index: 1040;
-            display: none;
-            transition: opacity 0.3s ease;
             opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.3s ease, visibility 0.3s ease;
         }
 
         .overlay.show {
-            display: block;
             opacity: 1;
+            visibility: visible;
         }
 
         /* Dropdown Menu */
         .dropdown-menu {
             z-index: 1040;
-            box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
-            border: none;
-            border-radius: 0.5rem;
+            box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+            border: 1px solid #e2e8f0;
+            border-radius: 0.75rem;
             margin-top: 0.5rem;
+            padding: 0.5rem;
+            animation: fadeInDropdown 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        @keyframes fadeInDropdown {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
         }
 
         /* Responsive */
@@ -422,28 +497,29 @@
         /* Formularios */
         .form-container {
             background: white;
-            border-radius: 10px;
-            box-shadow: 0 0.15rem 1rem rgba(0, 0, 0, 0.05);
-            padding: 1.5rem;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(15, 23, 42, 0.02);
+            border: 1px solid #e2e8f0;
+            padding: 2rem;
             margin-bottom: 2rem;
             overflow-x: auto;
         }
 
         @media (max-width: 576px) {
             .form-container {
-                padding: 1rem;
+                padding: 1.25rem;
             }
         }
 
         .form-header {
-            border-bottom: 1px solid #e9ecef;
-            padding-bottom: 1rem;
-            margin-bottom: 1.5rem;
+            border-bottom: 1px solid #e2e8f0;
+            padding-bottom: 1.25rem;
+            margin-bottom: 1.75rem;
             display: flex;
             flex-wrap: wrap;
             justify-content: space-between;
             align-items: center;
-            gap: 0.5rem;
+            gap: 0.75rem;
         }
 
         .form-section {
@@ -451,11 +527,12 @@
         }
 
         .section-title {
-            font-size: 1.1rem;
+            font-size: 1.15rem;
             color: var(--primary-color);
-            margin-bottom: 1rem;
+            margin-bottom: 1.25rem;
             padding-bottom: 0.5rem;
-            border-bottom: 1px solid #dee2e6;
+            border-bottom: 2px solid #e2e8f0;
+            font-weight: 600;
         }
 
         .btn-action {
@@ -479,15 +556,17 @@
         }
 
         .dashboard-card {
-            transition: transform 0.2s, box-shadow 0.2s;
-            border: none;
-            border-radius: 10px;
+            transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
             overflow: hidden;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.01);
         }
 
         .dashboard-card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 0.5rem 1.5rem rgba(0, 0, 0, 0.1) !important;
+            transform: translateY(-4px);
+            box-shadow: 0 10px 25px rgba(15, 23, 42, 0.08) !important;
+            border-color: #cbd5e1;
         }
 
         .card-icon {
@@ -497,10 +576,31 @@
 
         .table-container {
             background: white;
-            border-radius: 10px;
-            box-shadow: 0 0.15rem 1rem rgba(0, 0, 0, 0.05);
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(15, 23, 42, 0.02);
+            border: 1px solid #e2e8f0;
             overflow-x: auto;
             width: 100%;
+            margin-bottom: 2rem;
+        }
+
+        /* Custom scrollbar for table container */
+        .table-container::-webkit-scrollbar {
+            height: 6px;
+            width: 6px;
+        }
+
+        .table-container::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        .table-container::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 10px;
+        }
+
+        .table-container::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
         }
 
         .table {
@@ -509,14 +609,33 @@
         }
 
         .table thead th {
-            background-color: #f8f9fa;
+            background-color: #f8fafc;
             border-top: none;
+            border-bottom: 1px solid #e2e8f0;
             font-weight: 600;
-            color: #495057;
+            color: #475569;
+            padding: 1rem 0.75rem;
+        }
+
+        .table td {
+            padding: 0.85rem 0.75rem;
+            vertical-align: middle;
+        }
+
+        @media (max-width: 767.98px) {
+            .table thead th {
+                padding: 0.75rem 0.5rem;
+                font-size: 0.85rem;
+            }
+
+            .table td {
+                padding: 0.65rem 0.5rem;
+                font-size: 0.85rem;
+            }
         }
 
         .table-hover tbody tr:hover {
-            background-color: rgba(106, 17, 203, 0.05);
+            background-color: rgba(16, 185, 129, 0.03);
         }
 
         .cursor-pointer {
@@ -535,6 +654,7 @@
             from {
                 opacity: 0;
             }
+
             to {
                 opacity: 1;
             }
@@ -546,27 +666,27 @@
 
         .alert {
             border: none;
-            border-radius: 8px;
-            box-shadow: 0 0.15rem 0.5rem rgba(0, 0, 0, 0.08);
+            border-radius: 10px;
+            box-shadow: 0 6px 15px rgba(15, 23, 42, 0.06);
             z-index: 1035;
         }
 
         /* Scrollbar personalizado */
         .sidebar::-webkit-scrollbar {
-            width: 4px;
+            width: 5px;
         }
 
         .sidebar::-webkit-scrollbar-track {
-            background: rgba(255, 255, 255, 0.05);
+            background: transparent;
         }
 
         .sidebar::-webkit-scrollbar-thumb {
-            background: rgba(255, 255, 255, 0.2);
-            border-radius: 4px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
         }
 
         .sidebar::-webkit-scrollbar-thumb:hover {
-            background: rgba(255, 255, 255, 0.3);
+            background: rgba(255, 255, 255, 0.25);
         }
 
         .user-avatar {
@@ -579,10 +699,16 @@
             justify-content: center;
             color: white;
             font-weight: bold;
+            box-shadow: 0 2px 6px rgba(16, 185, 129, 0.3);
         }
 
         @media (max-width: 576px) {
-            input, select, textarea, .form-control, .form-select {
+
+            input,
+            select,
+            textarea,
+            .form-control,
+            .form-select {
                 font-size: 16px !important;
             }
         }
@@ -590,7 +716,7 @@
         /* Tooltips para sidebar colapsado */
         .sidebar-tooltip {
             position: fixed;
-            background: rgba(0, 0, 0, 0.9);
+            background: rgba(15, 23, 42, 0.95);
             color: white;
             padding: 6px 12px;
             border-radius: 6px;
@@ -600,7 +726,9 @@
             pointer-events: none;
             opacity: 0;
             transition: opacity 0.15s ease;
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            backdrop-filter: blur(5px);
+            border: 1px solid rgba(255, 255, 255, 0.05);
         }
 
         .sidebar-tooltip.show {
@@ -615,7 +743,7 @@
             margin-top: -5px;
             border-width: 5px;
             border-style: solid;
-            border-color: transparent rgba(0, 0, 0, 0.9) transparent transparent;
+            border-color: transparent rgba(15, 23, 42, 0.95) transparent transparent;
         }
 
         /* Estilos para PWA */
@@ -626,7 +754,7 @@
             z-index: 9999;
             animation: slideInUp 0.3s ease-out;
         }
-        
+
         .pwa-update-notification {
             position: fixed;
             top: 70px;
@@ -635,35 +763,37 @@
             max-width: 350px;
             animation: slideInRight 0.3s ease-out;
         }
-        
+
         @keyframes slideInUp {
             from {
                 transform: translateY(100%);
                 opacity: 0;
             }
+
             to {
                 transform: translateY(0);
                 opacity: 1;
             }
         }
-        
+
         @keyframes slideInRight {
             from {
                 transform: translateX(100%);
                 opacity: 0;
             }
+
             to {
                 transform: translateX(0);
                 opacity: 1;
             }
         }
-        
+
         @media (max-width: 768px) {
             .pwa-install-button {
                 bottom: 10px;
                 right: 10px;
             }
-            
+
             .pwa-update-notification {
                 top: 60px;
                 right: 10px;
@@ -671,26 +801,34 @@
                 max-width: none;
             }
         }
-        
+
         /* Modo PWA standalone */
+        body.pwa-mode {
+            --navbar-height: calc(60px + env(safe-area-inset-top));
+        }
+
         body.pwa-mode .navbar {
             padding-top: env(safe-area-inset-top);
         }
-        
+
         body.pwa-mode .main-content {
             padding-bottom: env(safe-area-inset-bottom);
         }
 
+        body.pwa-mode .sidebar-footer {
+            padding-bottom: calc(1rem + env(safe-area-inset-bottom));
+        }
+
         /* Animaciones */
         .sidebar-toggle-btn i {
-            transition: transform 0.2s;
+            transition: transform 0.25s ease;
         }
 
         .sidebar-toggle-btn:hover i {
             transform: scale(1.1);
         }
 
-        .sidebar.collapsed .has-submenu > .nav-link::after {
+        .sidebar.collapsed .has-submenu>.nav-link::after {
             content: '';
             position: absolute;
             top: 50%;
@@ -699,13 +837,13 @@
             width: 6px;
             height: 6px;
             border-radius: 50%;
-            background-color: rgba(255, 255, 255, 0.5);
+            background-color: rgba(255, 255, 255, 0.4);
             display: block;
         }
 
-        .sidebar.collapsed .has-submenu.active > .nav-link::after {
-            background-color: #fff;
-            box-shadow: 0 0 5px rgba(255, 255, 255, 0.8);
+        .sidebar.collapsed .has-submenu.active>.nav-link::after {
+            background-color: var(--secondary-color);
+            box-shadow: 0 0 6px rgba(16, 185, 129, 0.6);
         }
 
         @media (min-width: 768px) {
@@ -714,6 +852,8 @@
             }
         }
     </style>
+    <!-- Hojas de estilo unificadas para formularios -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}?v=1.0">
     {% block extra_css %}{% endblock %}
 </head>
 
@@ -735,7 +875,7 @@
     {% if current_user.is_authenticated %}
     <!-- Overlay para móvil -->
     <div class="overlay" id="mainOverlay"></div>
-    
+
     <!-- Tooltip container para sidebar colapsado -->
     <div class="sidebar-tooltip" id="sidebarTooltip"></div>
 
@@ -746,11 +886,11 @@
                 <span class="navbar-toggler-icon"></span>
             </button>
 
-            <a class="navbar-brand mx-auto mx-md-2" href="{{ url_for('main.dashboard') }}">
-                <i class="bi bi-building"></i>FerDel Sistema
+            <a class="navbar-brand ms-2 me-auto mx-md-2" href="{{ url_for('main.dashboard') }}">
+                <i class="bi bi-building"></i>FerDel <span class="d-none d-sm-inline">Sistema</span>
             </a>
 
-            <ul class="navbar-nav ms-auto">
+            <ul class="navbar-nav flex-row align-items-center ms-auto">
                 <li class="nav-item dropdown">
                     <a class="nav-link dropdown-toggle d-flex align-items-center px-3" href="#" id="userDropdown"
                         role="button" data-bs-toggle="dropdown" aria-expanded="false">
@@ -766,9 +906,12 @@
                                 <small class="text-muted">Rol: {{ current_user.rol }}</small>
                             </div>
                         </li>
-                        <li><hr class="dropdown-divider"></li>
                         <li>
-                            <a class="dropdown-item d-flex align-items-center text-danger" href="{{ url_for('auth.logout') }}">
+                            <hr class="dropdown-divider">
+                        </li>
+                        <li>
+                            <a class="dropdown-item d-flex align-items-center text-danger"
+                                href="{{ url_for('auth.logout') }}">
                                 <i class="bi bi-box-arrow-right me-2"></i>Cerrar Sesión
                             </a>
                         </li>
@@ -787,258 +930,270 @@
 
         <div class="nav flex-column">
             {% if current_user.rol == 'Administrador' %}
-                <!-- Dashboard -->
-                <a class="nav-link {% if request.endpoint == 'admin_dashboard' %}active{% endif %}" 
-                   href="{{ url_for('admin.admin_dashboard') }}" data-tooltip="Dashboard">
-                    <i class="bi bi-speedometer2"></i> <span>Dashboard</span>
+            <!-- Dashboard -->
+            <a class="nav-link {% if request.endpoint == 'admin_dashboard' %}active{% endif %}"
+                href="{{ url_for('admin.admin_dashboard') }}" data-tooltip="Dashboard">
+                <i class="bi bi-speedometer2"></i> <span>Dashboard</span>
+            </a>
+
+            <!-- Caja de movimientos -->
+            <div class="has-submenu {% if 'caja' in request.endpoint %}active{% endif %}"
+                data-tooltip="Caja de Movimientos">
+                <a class="nav-link submenu-toggle-btn" href="#caja-submenu">
+                    <i class="bi bi-cash-stack"></i> <span>Caja de Movimientos</span>
+                    <i class="bi bi-chevron-right submenu-toggle ms-auto"></i>
                 </a>
-
-                <!-- Caja de movimientos -->
-                <div class="has-submenu {% if 'caja' in request.endpoint %}active{% endif %}" data-tooltip="Caja de Movimientos">
-                    <a class="nav-link submenu-toggle-btn" href="#caja-submenu">
-                        <i class="bi bi-cash-stack"></i> <span>Caja de Movimientos</span>
-                        <i class="bi bi-chevron-right submenu-toggle ms-auto"></i>
+                <div class="submenu {% if 'caja' in request.endpoint %}show{% endif %}" id="caja-submenu">
+                    <a class="nav-link {% if request.endpoint == 'admin.admin_caja' %}active{% endif %}"
+                        href="{{ url_for('admin.admin_caja') }}">
+                        <i class="bi bi-list-ul"></i> Movimientos de Caja
                     </a>
-                    <div class="submenu {% if 'caja' in request.endpoint %}show{% endif %}" id="caja-submenu">
-                        <a class="nav-link {% if request.endpoint == 'admin.admin_caja' %}active{% endif %}"
-                           href="{{ url_for('admin.admin_caja') }}">
-                            <i class="bi bi-list-ul"></i> Movimientos de Caja
-                        </a>
-                    </div>
                 </div>
+            </div>
 
-                <!-- Ventas -->
-                <div class="has-submenu {% if 'ventas' in request.endpoint or 'cuentascobrar' in request.endpoint %}active{% endif %}" data-tooltip="Ventas">
-                    <a class="nav-link submenu-toggle-btn" href="#ventas-submenu">
-                        <i class="bi bi-cart4"></i> <span>Ventas</span>
-                        <i class="bi bi-chevron-right submenu-toggle ms-auto"></i>
+            <!-- Ventas -->
+            <div class="has-submenu {% if 'ventas' in request.endpoint or 'cuentascobrar' in request.endpoint %}active{% endif %}"
+                data-tooltip="Ventas">
+                <a class="nav-link submenu-toggle-btn" href="#ventas-submenu">
+                    <i class="bi bi-cart4"></i> <span>Ventas</span>
+                    <i class="bi bi-chevron-right submenu-toggle ms-auto"></i>
+                </a>
+                <div class="submenu {% if 'ventas' in request.endpoint or 'cuentascobrar' in request.endpoint %}show{% endif %}"
+                    id="ventas-submenu">
+                    <a class="nav-link {% if request.endpoint == 'admin.admin_ventas_salidas' %}active{% endif %}"
+                        href="{{ url_for('admin.admin_ventas_salidas') }}">
+                        <i class="bi bi-list-ul"></i> Ventas
                     </a>
-                    <div class="submenu {% if 'ventas' in request.endpoint or 'cuentascobrar' in request.endpoint %}show{% endif %}" id="ventas-submenu">
-                        <a class="nav-link {% if request.endpoint == 'admin.admin_ventas_salidas' %}active{% endif %}"
-                           href="{{ url_for('admin.admin_ventas_salidas') }}">
-                            <i class="bi bi-list-ul"></i> Ventas
-                        </a>
-                        <a class="nav-link {% if request.endpoint == 'admin.admin_clientes_anticipos' %}active{% endif %}"
-                           href="{{ url_for('admin.admin_clientes_anticipos') }}">
-                            <i class="bi bi-cash-coin"></i> Anticipos Clientes
-                        </a>
-                        <a class="nav-link {% if request.endpoint == 'admin.admin_monitoreo_vendedores' %}active{% endif %}"
-                           href="{{ url_for('admin.admin_monitoreo_vendedores') }}">
-                            <i class="bi bi-people"></i> Monitoreo Vendedores
-                        </a>
-                        <a class="nav-link {% if request.endpoint == 'admin.admin_cuentascobrar' %}active{% endif %}"
-                           href="{{ url_for('admin.admin_cuentascobrar') }}">
-                            <i class="bi bi-wallet2"></i> Cuentas por Cobrar
-                        </a>
-                        <a class="nav-link {% if request.endpoint == 'admin.admin_pedidos_venta' %}active{% endif %}"
-                           href="{{ url_for('admin.admin_pedidos_venta') }}">
-                            <i class="bi bi-cart-check"></i> Pedidos Clientes
-                        </a>
-                        <a class="nav-link {% if request.endpoint == 'admin.admin_asignacion_rutas' %}active{% endif %}"
-                           href="{{ url_for('admin.admin_asignacion_rutas') }}">
-                            <i class="bi bi-geo-alt"></i> Rutas
-                        </a>
-                        <a class="nav-link {% if request.endpoint == 'admin.admin_facturas_ventas' %}active{% endif %}"
-                           href="{{ url_for('admin.admin_facturas_ventas') }}">
-                            <i class="bi bi-receipt"></i> Facturas de Ventas
-                        </a>
-                    </div>
+                    <a class="nav-link {% if request.endpoint == 'admin.admin_clientes_anticipos' %}active{% endif %}"
+                        href="{{ url_for('admin.admin_clientes_anticipos') }}">
+                        <i class="bi bi-cash-coin"></i> Anticipos Clientes
+                    </a>
+                    <a class="nav-link {% if request.endpoint == 'admin.admin_monitoreo_vendedores' %}active{% endif %}"
+                        href="{{ url_for('admin.admin_monitoreo_vendedores') }}">
+                        <i class="bi bi-people"></i> Monitoreo Vendedores
+                    </a>
+                    <a class="nav-link {% if request.endpoint == 'admin.admin_cuentascobrar' %}active{% endif %}"
+                        href="{{ url_for('admin.admin_cuentascobrar') }}">
+                        <i class="bi bi-wallet2"></i> Cuentas por Cobrar
+                    </a>
+                    <a class="nav-link {% if request.endpoint == 'admin.admin_pedidos_venta' %}active{% endif %}"
+                        href="{{ url_for('admin.admin_pedidos_venta') }}">
+                        <i class="bi bi-cart-check"></i> Pedidos Clientes
+                    </a>
+                    <a class="nav-link {% if request.endpoint == 'admin.admin_asignacion_rutas' %}active{% endif %}"
+                        href="{{ url_for('admin.admin_asignacion_rutas') }}">
+                        <i class="bi bi-geo-alt"></i> Rutas
+                    </a>
+                    <a class="nav-link {% if request.endpoint == 'admin.admin_facturas_ventas' %}active{% endif %}"
+                        href="{{ url_for('admin.admin_facturas_ventas') }}">
+                        <i class="bi bi-receipt"></i> Facturas de Ventas
+                    </a>
                 </div>
+            </div>
 
-                <!-- Compras -->
-                <div class="has-submenu {% if 'compras' in request.endpoint or 'cuentas_por_pagar' in request.endpoint %}active{% endif %}" data-tooltip="Compras">
-                    <a class="nav-link submenu-toggle-btn" href="#compras-submenu">
-                        <i class="bi bi-tags"></i> <span>Compras</span>
-                        <i class="bi bi-chevron-right submenu-toggle ms-auto"></i>
+            <!-- Compras -->
+            <div class="has-submenu {% if 'compras' in request.endpoint or 'cuentas_por_pagar' in request.endpoint %}active{% endif %}"
+                data-tooltip="Compras">
+                <a class="nav-link submenu-toggle-btn" href="#compras-submenu">
+                    <i class="bi bi-tags"></i> <span>Compras</span>
+                    <i class="bi bi-chevron-right submenu-toggle ms-auto"></i>
+                </a>
+                <div class="submenu {% if 'compras' in request.endpoint or 'cuentas_por_pagar' in request.endpoint %}show{% endif %}"
+                    id="compras-submenu">
+                    <a class="nav-link {% if request.endpoint == 'admin.admin_compras_entradas' %}active{% endif %}"
+                        href="{{ url_for('admin.admin_compras_entradas') }}">
+                        <i class="bi bi-list-ul"></i> Compras
                     </a>
-                    <div class="submenu {% if 'compras' in request.endpoint or 'cuentas_por_pagar' in request.endpoint %}show{% endif %}" id="compras-submenu">
-                        <a class="nav-link {% if request.endpoint == 'admin.admin_compras_entradas' %}active{% endif %}"
-                           href="{{ url_for('admin.admin_compras_entradas') }}">
-                            <i class="bi bi-list-ul"></i> Compras
-                        </a>
-                        <a class="nav-link {% if request.endpoint == 'admin.admin_cuentas_por_pagar' %}active{% endif %}"
-                           href="{{ url_for('admin.admin_cuentas_por_pagar') }}">
-                            <i class="bi bi-wallet2"></i> Cuentas por Pagar
-                        </a>
-                        <a class="nav-link {% if request.endpoint == 'admin.admin_gastos_operativos' %}active{% endif %}"
-                           href="{{ url_for('admin.admin_gastos_operativos') }}">
-                            <i class="bi bi-file-earmark-text"></i> Gastos
-                        </a>
-                    </div>
+                    <a class="nav-link {% if request.endpoint == 'admin.admin_cuentas_por_pagar' %}active{% endif %}"
+                        href="{{ url_for('admin.admin_cuentas_por_pagar') }}">
+                        <i class="bi bi-wallet2"></i> Cuentas por Pagar
+                    </a>
+                    <a class="nav-link {% if request.endpoint == 'admin.admin_gastos_operativos' %}active{% endif %}"
+                        href="{{ url_for('admin.admin_gastos_operativos') }}">
+                        <i class="bi bi-file-earmark-text"></i> Gastos
+                    </a>
                 </div>
+            </div>
 
-                <!-- Catálogos -->
-                <div class="has-submenu {% if 'usuarios' in request.endpoint or 'empresas' in request.endpoint or 'clientes' in request.endpoint %}active{% endif %}" data-tooltip="Catálogos">
-                    <a class="nav-link submenu-toggle-btn" href="#catalogos-submenu">
-                        <i class="bi bi-collection"></i> <span>Catálogos</span>
-                        <i class="bi bi-chevron-right submenu-toggle ms-auto"></i>
+            <!-- Catálogos -->
+            <div class="has-submenu {% if 'usuarios' in request.endpoint or 'empresas' in request.endpoint or 'clientes' in request.endpoint %}active{% endif %}"
+                data-tooltip="Catálogos">
+                <a class="nav-link submenu-toggle-btn" href="#catalogos-submenu">
+                    <i class="bi bi-collection"></i> <span>Catálogos</span>
+                    <i class="bi bi-chevron-right submenu-toggle ms-auto"></i>
+                </a>
+                <div class="submenu {% if 'usuarios' in request.endpoint or 'empresas' in request.endpoint %}show{% endif %}"
+                    id="catalogos-submenu">
+                    <a class="nav-link {% if request.endpoint == 'admin.admin_roles' %}active{% endif %}"
+                        href="{{ url_for('admin.admin_roles') }}">
+                        <i class="bi bi-shield-lock"></i> Roles
                     </a>
-                    <div class="submenu {% if 'usuarios' in request.endpoint or 'empresas' in request.endpoint %}show{% endif %}" id="catalogos-submenu">
-                        <a class="nav-link {% if request.endpoint == 'admin.admin_roles' %}active{% endif %}"
-                           href="{{ url_for('admin.admin_roles') }}">
-                            <i class="bi bi-shield-lock"></i> Roles
-                        </a>
-                        <a class="nav-link {% if request.endpoint == 'admin.admin_usuarios' %}active{% endif %}"
-                           href="{{ url_for('admin.admin_usuarios') }}">
-                            <i class="bi bi-people"></i> Usuarios
-                        </a>
-                        <a class="nav-link {% if request.endpoint == 'admin.admin_empresas' %}active{% endif %}"
-                           href="{{ url_for('admin.admin_empresas') }}">
-                            <i class="bi bi-building"></i> Empresas
-                        </a>
-                        <a class="nav-link {% if request.endpoint == 'admin.admin_clientes' %}active{% endif %}"
-                           href="{{ url_for('admin.admin_clientes') }}">
-                            <i class="bi bi-people"></i> Clientes
-                        </a>
-                        <a class="nav-link {% if request.endpoint == 'admin.admin_proveedores' %}active{% endif %}"
-                           href="{{ url_for('admin.admin_proveedores') }}">
-                            <i class="bi bi-people"></i> Proveedores
-                        </a>
-                        <a class="nav-link {% if request.endpoint == 'admin.admin_unidades_medidas' %}active{% endif %}"
-                           href="{{ url_for('admin.admin_unidades_medidas') }}">
-                            <i class="bi bi-rulers"></i> Unidades de Medida
-                        </a>
-                        <a class="nav-link {% if request.endpoint == 'admin.admin_categorias' %}active{% endif %}"
-                           href="{{ url_for('admin.admin_categorias') }}">
-                            <i class="bi bi-tags"></i> Categorías de Productos
-                        </a>
-                        <a class="nav-link {% if request.endpoint == 'admin.admin_metodos_pago' %}active{% endif %}"
-                           href="{{ url_for('admin.admin_metodos_pago') }}">
-                            <i class="bi bi-credit-card"></i> Métodos de Pago
-                        </a>
-                        <a class="nav-link {% if request.endpoint == 'admin.admin_movimientos_inventario' %}active{% endif %}"
-                           href="{{ url_for('admin.admin_movimientos_inventario') }}">
-                            <i class="bi bi-arrow-left-right"></i> Movimientos de Inventario
-                        </a>
-                        <a class="nav-link {% if request.endpoint == 'admin.admin_rutas' %}active{% endif %}"
-                           href="{{ url_for('admin.admin_rutas') }}">
-                            <i class="bi bi-geo-alt"></i> Rutas
-                        </a>
-                        <a class="nav-link {% if request.endpoint == 'admin.admin_vehiculos' %}active{% endif %}"
-                           href="{{ url_for('admin.admin_vehiculos') }}">
-                            <i class="bi bi-truck"></i> Vehículos
-                        </a>
-                        <a class="nav-link {% if request.endpoint == 'admin.admin_tipos_gasto' %}active{% endif %}"
-                           href="{{ url_for('admin.admin_tipos_gasto') }}">
-                            <i class="bi bi-list-ul"></i> Tipos de Gastos
-                        </a>
-                    </div>
+                    <a class="nav-link {% if request.endpoint == 'admin.admin_usuarios' %}active{% endif %}"
+                        href="{{ url_for('admin.admin_usuarios') }}">
+                        <i class="bi bi-people"></i> Usuarios
+                    </a>
+                    <a class="nav-link {% if request.endpoint == 'admin.admin_empresas' %}active{% endif %}"
+                        href="{{ url_for('admin.admin_empresas') }}">
+                        <i class="bi bi-building"></i> Empresas
+                    </a>
+                    <a class="nav-link {% if request.endpoint == 'admin.admin_clientes' %}active{% endif %}"
+                        href="{{ url_for('admin.admin_clientes') }}">
+                        <i class="bi bi-people"></i> Clientes
+                    </a>
+                    <a class="nav-link {% if request.endpoint == 'admin.admin_proveedores' %}active{% endif %}"
+                        href="{{ url_for('admin.admin_proveedores') }}">
+                        <i class="bi bi-people"></i> Proveedores
+                    </a>
+                    <a class="nav-link {% if request.endpoint == 'admin.admin_unidades_medidas' %}active{% endif %}"
+                        href="{{ url_for('admin.admin_unidades_medidas') }}">
+                        <i class="bi bi-rulers"></i> Unidades de Medida
+                    </a>
+                    <a class="nav-link {% if request.endpoint == 'admin.admin_categorias' %}active{% endif %}"
+                        href="{{ url_for('admin.admin_categorias') }}">
+                        <i class="bi bi-tags"></i> Categorías de Productos
+                    </a>
+                    <a class="nav-link {% if request.endpoint == 'admin.admin_metodos_pago' %}active{% endif %}"
+                        href="{{ url_for('admin.admin_metodos_pago') }}">
+                        <i class="bi bi-credit-card"></i> Métodos de Pago
+                    </a>
+                    <a class="nav-link {% if request.endpoint == 'admin.admin_movimientos_inventario' %}active{% endif %}"
+                        href="{{ url_for('admin.admin_movimientos_inventario') }}">
+                        <i class="bi bi-arrow-left-right"></i> Movimientos de Inventario
+                    </a>
+                    <a class="nav-link {% if request.endpoint == 'admin.admin_rutas' %}active{% endif %}"
+                        href="{{ url_for('admin.admin_rutas') }}">
+                        <i class="bi bi-geo-alt"></i> Rutas
+                    </a>
+                    <a class="nav-link {% if request.endpoint == 'admin.admin_vehiculos' %}active{% endif %}"
+                        href="{{ url_for('admin.admin_vehiculos') }}">
+                        <i class="bi bi-truck"></i> Vehículos
+                    </a>
+                    <a class="nav-link {% if request.endpoint == 'admin.admin_tipos_gasto' %}active{% endif %}"
+                        href="{{ url_for('admin.admin_tipos_gasto') }}">
+                        <i class="bi bi-list-ul"></i> Tipos de Gastos
+                    </a>
                 </div>
+            </div>
 
-                <!-- Productos -->
-                <div class="has-submenu {% if 'admin.admin_productos' in request.endpoint %}active{% endif %}" data-tooltip="Productos">
-                    <a class="nav-link submenu-toggle-btn" href="#productos-submenu">
-                        <i class="bi bi-tags"></i> <span>Productos</span>
-                        <i class="bi bi-chevron-right submenu-toggle ms-auto"></i>
+            <!-- Productos -->
+            <div class="has-submenu {% if 'admin.admin_productos' in request.endpoint %}active{% endif %}"
+                data-tooltip="Productos">
+                <a class="nav-link submenu-toggle-btn" href="#productos-submenu">
+                    <i class="bi bi-tags"></i> <span>Productos</span>
+                    <i class="bi bi-chevron-right submenu-toggle ms-auto"></i>
+                </a>
+                <div class="submenu {% if 'admin.admin_productos' in request.endpoint %}show{% endif %}"
+                    id="productos-submenu">
+                    <a class="nav-link {% if request.endpoint == 'admin.admin_productos' %}active{% endif %}"
+                        href="{{ url_for('admin.admin_productos') }}">
+                        <i class="bi bi-list-ul"></i> Gestión de Productos
                     </a>
-                    <div class="submenu {% if 'admin.admin_productos' in request.endpoint %}show{% endif %}" id="productos-submenu">
-                        <a class="nav-link {% if request.endpoint == 'admin.admin_productos' %}active{% endif %}"
-                           href="{{ url_for('admin.admin_productos') }}">
-                            <i class="bi bi-list-ul"></i> Gestión de Productos
-                        </a>
-                    </div>
                 </div>
+            </div>
 
-                <!-- Bodega e Inventario -->
-                <div class="has-submenu {% if 'bodega' in request.endpoint %}active{% endif %}" data-tooltip="Bodega e Inventario">
-                    <a class="nav-link submenu-toggle-btn" href="#bodega-submenu">
-                        <i class="bi bi-house-door"></i> <span>Bodega e Inventario</span>
-                        <i class="bi bi-chevron-right submenu-toggle ms-auto"></i>
+            <!-- Bodega e Inventario -->
+            <div class="has-submenu {% if 'bodega' in request.endpoint %}active{% endif %}"
+                data-tooltip="Bodega e Inventario">
+                <a class="nav-link submenu-toggle-btn" href="#bodega-submenu">
+                    <i class="bi bi-house-door"></i> <span>Bodega e Inventario</span>
+                    <i class="bi bi-chevron-right submenu-toggle ms-auto"></i>
+                </a>
+                <div class="submenu {% if 'bodega' in request.endpoint %}show{% endif %}" id="bodega-submenu">
+                    <a class="nav-link {% if request.endpoint == 'admin.admin_bodega' %}active{% endif %}"
+                        href="{{ url_for('admin.admin_bodega') }}">
+                        <i class="bi bi-building"></i> Bodegas
                     </a>
-                    <div class="submenu {% if 'bodega' in request.endpoint %}show{% endif %}" id="bodega-submenu">
-                        <a class="nav-link {% if request.endpoint == 'admin.admin_bodega' %}active{% endif %}"
-                           href="{{ url_for('admin.admin_bodega') }}">
-                            <i class="bi bi-building"></i> Bodegas
-                        </a>
-                        <a class="nav-link {% if request.endpoint == 'bodega.bodega_dashboard' %}active{% endif %}"
-                           href="{{ url_for('bodega.bodega_dashboard') }}">
-                            <i class="bi bi-clipboard-data"></i> Inventario
-                        </a>
-                        <a class="nav-link {% if request.endpoint == 'bodega.bodega_historial_movimientos' %}active{% endif %}"
-                           href="{{ url_for('bodega.bodega_historial_movimientos') }}">
-                            <i class="bi bi-arrow-left-right"></i> Movimientos
-                        </a>
-                    </div>
+                    <a class="nav-link {% if request.endpoint == 'bodega.bodega_dashboard' %}active{% endif %}"
+                        href="{{ url_for('bodega.bodega_dashboard') }}">
+                        <i class="bi bi-clipboard-data"></i> Inventario
+                    </a>
+                    <a class="nav-link {% if request.endpoint == 'bodega.bodega_historial_movimientos' %}active{% endif %}"
+                        href="{{ url_for('bodega.bodega_historial_movimientos') }}">
+                        <i class="bi bi-arrow-left-right"></i> Movimientos
+                    </a>
                 </div>
+            </div>
 
-                <!-- Herramientas -->
-                <div class="has-submenu {% if 'bitacora' in request.endpoint or 'config' in request.endpoint %}active{% endif %}" data-tooltip="Herramientas">
-                    <a class="nav-link submenu-toggle-btn" href="#herramientas-submenu">
-                        <i class="bi bi-tools"></i> <span>Herramientas</span>
-                        <i class="bi bi-chevron-right submenu-toggle ms-auto"></i>
+            <!-- Herramientas -->
+            <div class="has-submenu {% if 'bitacora' in request.endpoint or 'config' in request.endpoint %}active{% endif %}"
+                data-tooltip="Herramientas">
+                <a class="nav-link submenu-toggle-btn" href="#herramientas-submenu">
+                    <i class="bi bi-tools"></i> <span>Herramientas</span>
+                    <i class="bi bi-chevron-right submenu-toggle ms-auto"></i>
+                </a>
+                <div class="submenu {% if 'bitacora' in request.endpoint or 'config' in request.endpoint %}show{% endif %}"
+                    id="herramientas-submenu">
+                    <a class="nav-link {% if request.endpoint == 'admin.admin_bitacora' %}active{% endif %}"
+                        href="{{ url_for('admin.admin_bitacora') }}">
+                        <i class="bi bi-clipboard-check"></i> Bitácora
                     </a>
-                    <div class="submenu {% if 'bitacora' in request.endpoint or 'config' in request.endpoint %}show{% endif %}" id="herramientas-submenu">
-                        <a class="nav-link {% if request.endpoint == 'admin.admin_bitacora' %}active{% endif %}"
-                           href="{{ url_for('admin.admin_bitacora') }}">
-                            <i class="bi bi-clipboard-check"></i> Bitácora
-                        </a>
-                        <a class="nav-link {% if request.endpoint == 'admin.config_visibilidad' %}active{% endif %}"
-                           href="{{ url_for('admin.config_visibilidad') }}">
-                            <i class="bi bi-gear"></i> Configuración de Clientes
-                        </a>
-                    </div>
+                    <a class="nav-link {% if request.endpoint == 'admin.config_visibilidad' %}active{% endif %}"
+                        href="{{ url_for('admin.config_visibilidad') }}">
+                        <i class="bi bi-gear"></i> Configuración de Clientes
+                    </a>
                 </div>
+            </div>
 
             {% elif current_user.rol == 'Vendedor' %}
-                <a class="nav-link {% if request.endpoint == 'vendedor.vendedor_dashboard' %}active{% endif %}"
-                   href="{{ url_for('vendedor.vendedor_dashboard') }}" data-tooltip="Dashboard">
-                    <i class="bi bi-speedometer2"></i> <span>Dashboard</span>
-                </a>
-                <a class="nav-link {% if request.endpoint == 'vendedor.vendedor_ventas' %}active{% endif %}"
-                   href="{{ url_for('vendedor.vendedor_ventas') }}" data-tooltip="Ventas">
-                    <i class="bi bi-receipt"></i> <span>Ventas</span>
-                </a>
-                <a class="nav-link {% if request.endpoint == 'vendedor.mis_movimientos_caja' %}active{% endif %}"
-                   href="{{ url_for('vendedor.mis_movimientos_caja') }}" data-tooltip="Caja de Efectivo">
-                    <i class="bi bi-cash-stack"></i> <span>Caja de Efectivo</span>
-                </a>
-                <a class="nav-link {% if request.endpoint == 'vendedor.vendedor_mis_rutas' %}active{% endif %}"
-                   href="{{ url_for('vendedor.vendedor_mis_rutas') }}" data-tooltip="Mi Ruta">
-                    <i class="bi bi-signpost"></i> <span>Mi Ruta</span>
-                </a>
-                <a class="nav-link {% if request.endpoint == 'vendedor.vendedor_clientes' %}active{% endif %}"
-                   href="{{ url_for('vendedor.vendedor_clientes') }}" data-tooltip="Clientes">
-                    <i class="bi bi-people"></i> <span>Clientes</span>
-                </a>
-                <a class="nav-link {% if request.endpoint == 'vendedor.vendedor_abonos' %}active{% endif %}"
-                   href="{{ url_for('vendedor.vendedor_abonos') }}" data-tooltip="Abonos Recibidos">
-                    <i class="bi bi-cash-coin"></i> <span>Abonos Recibidos</span>
-                </a>
-                <a class="nav-link {% if request.endpoint == 'vendedor.vendedor_inventario' %}active{% endif %}"
-                   href="{{ url_for('vendedor.vendedor_inventario') }}" data-tooltip="Inventario Ruta">
-                    <i class="bi bi-box-seam"></i> <span>Inventario Ruta</span>
-                </a>
-                <a class="nav-link {% if request.endpoint == 'vendedor.vendedor_gastos' %}active{% endif %}"
-                   href="{{ url_for('vendedor.vendedor_gastos') }}" data-tooltip="Gastos">
-                    <i class="bi bi-file-earmark-text"></i> <span>Gastos</span>
-                </a>
+            <a class="nav-link {% if request.endpoint == 'vendedor.vendedor_dashboard' %}active{% endif %}"
+                href="{{ url_for('vendedor.vendedor_dashboard') }}" data-tooltip="Dashboard">
+                <i class="bi bi-speedometer2"></i> <span>Dashboard</span>
+            </a>
+            <a class="nav-link {% if request.endpoint == 'vendedor.vendedor_ventas' %}active{% endif %}"
+                href="{{ url_for('vendedor.vendedor_ventas') }}" data-tooltip="Ventas">
+                <i class="bi bi-receipt"></i> <span>Ventas</span>
+            </a>
+            <a class="nav-link {% if request.endpoint == 'vendedor.mis_movimientos_caja' %}active{% endif %}"
+                href="{{ url_for('vendedor.mis_movimientos_caja') }}" data-tooltip="Caja de Efectivo">
+                <i class="bi bi-cash-stack"></i> <span>Caja de Efectivo</span>
+            </a>
+            <a class="nav-link {% if request.endpoint == 'vendedor.vendedor_mis_rutas' %}active{% endif %}"
+                href="{{ url_for('vendedor.vendedor_mis_rutas') }}" data-tooltip="Mi Ruta">
+                <i class="bi bi-signpost"></i> <span>Mi Ruta</span>
+            </a>
+            <a class="nav-link {% if request.endpoint == 'vendedor.vendedor_clientes' %}active{% endif %}"
+                href="{{ url_for('vendedor.vendedor_clientes') }}" data-tooltip="Clientes">
+                <i class="bi bi-people"></i> <span>Clientes</span>
+            </a>
+            <a class="nav-link {% if request.endpoint == 'vendedor.vendedor_abonos' %}active{% endif %}"
+                href="{{ url_for('vendedor.vendedor_abonos') }}" data-tooltip="Abonos Recibidos">
+                <i class="bi bi-cash-coin"></i> <span>Abonos Recibidos</span>
+            </a>
+            <a class="nav-link {% if request.endpoint == 'vendedor.vendedor_inventario' %}active{% endif %}"
+                href="{{ url_for('vendedor.vendedor_inventario') }}" data-tooltip="Inventario Ruta">
+                <i class="bi bi-box-seam"></i> <span>Inventario Ruta</span>
+            </a>
+            <a class="nav-link {% if request.endpoint == 'vendedor.vendedor_gastos' %}active{% endif %}"
+                href="{{ url_for('vendedor.vendedor_gastos') }}" data-tooltip="Gastos">
+                <i class="bi bi-file-earmark-text"></i> <span>Gastos</span>
+            </a>
 
             {% elif current_user.rol == 'Bodega' %}
-                <a class="nav-link {% if request.endpoint == 'bodega.bodega_dashboard' %}active{% endif %}"
-                   href="{{ url_for('bodega.bodega_dashboard') }}" data-tooltip="Dashboard">
-                    <i class="bi bi-speedometer2"></i> <span>Dashboard</span>
-                </a>
-                <a class="nav-link {% if request.endpoint == 'admin.admin_pedidos_venta' %}active{% endif %}"
-                   href="{{ url_for('admin.admin_pedidos_venta') }}" data-tooltip="Pedidos">
-                    <i class="bi bi-cart-check"></i> <span>Pedidos</span>
-                </a>
-                <!--RECIBIR CARGAS-->
-                <a class="nav-link {% if request.endpoint == 'bodega.cargas_pendientes' %}active{% endif %}"
-                   href="{{ url_for('bodega.cargas_pendientes') }}" data-tooltip="Recibir Cargas">
-                    <i class="bi bi-truck"></i> <span>Recibir Cargas</span>
-                </a>
-                <a class="nav-link {% if request.endpoint == 'admin.admin_crear_venta' %}active{% endif %}"
-                   href="{{ url_for('admin.admin_crear_venta') }}" data-tooltip="Ventas">
-                    <i class="bi bi-receipt"></i> <span>Ventas</span>
-                </a>
-                <a class="nav-link {% if request.endpoint == 'bodega.bodega_historial_movimientos' %}active{% endif %}"
-                   href="{{ url_for('bodega.bodega_historial_movimientos') }}" data-tooltip="Inventario">
-                    <i class="bi bi-box"></i> <span>Inventario</span>
-                </a>
-                <a class="nav-link {% if request.endpoint == 'bodega.bodega_reportes_avanzados' %}active{% endif %}"
-                   href="{{ url_for('bodega.bodega_reportes_avanzados') }}" data-tooltip="Reportes Avanzados">
-                    <i class="bi bi-bar-chart"></i> <span>Reportes Avanzados</span>
-                </a>
+            <a class="nav-link {% if request.endpoint == 'bodega.bodega_dashboard' %}active{% endif %}"
+                href="{{ url_for('bodega.bodega_dashboard') }}" data-tooltip="Dashboard">
+                <i class="bi bi-speedometer2"></i> <span>Dashboard</span>
+            </a>
+            <a class="nav-link {% if request.endpoint == 'admin.admin_pedidos_venta' %}active{% endif %}"
+                href="{{ url_for('admin.admin_pedidos_venta') }}" data-tooltip="Pedidos">
+                <i class="bi bi-cart-check"></i> <span>Pedidos</span>
+            </a>
+            <!--RECIBIR CARGAS-->
+            <a class="nav-link {% if request.endpoint == 'bodega.cargas_pendientes' %}active{% endif %}"
+                href="{{ url_for('bodega.cargas_pendientes') }}" data-tooltip="Recibir Cargas">
+                <i class="bi bi-truck"></i> <span>Recibir Cargas</span>
+            </a>
+            <a class="nav-link {% if request.endpoint == 'admin.admin_crear_venta' %}active{% endif %}"
+                href="{{ url_for('admin.admin_crear_venta') }}" data-tooltip="Ventas">
+                <i class="bi bi-receipt"></i> <span>Ventas</span>
+            </a>
+            <a class="nav-link {% if request.endpoint == 'bodega.bodega_historial_movimientos' %}active{% endif %}"
+                href="{{ url_for('bodega.bodega_historial_movimientos') }}" data-tooltip="Inventario">
+                <i class="bi bi-box"></i> <span>Inventario</span>
+            </a>
+            <a class="nav-link {% if request.endpoint == 'bodega.bodega_reportes_avanzados' %}active{% endif %}"
+                href="{{ url_for('bodega.bodega_reportes_avanzados') }}" data-tooltip="Reportes Avanzados">
+                <i class="bi bi-bar-chart"></i> <span>Reportes Avanzados</span>
+            </a>
             {% endif %}
         </div>
     </div>
@@ -1055,7 +1210,8 @@
         {% for category, message in messages %}
         <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
             <div class="d-flex align-items-center">
-                <i class="bi {% if category == 'success' %}bi-check-circle-fill{% elif category == 'danger' %}bi-exclamation-circle-fill{% elif category == 'warning' %}bi-exclamation-triangle-fill{% else %}bi-info-circle-fill{% endif %} me-2"></i>
+                <i
+                    class="bi {% if category == 'success' %}bi-check-circle-fill{% elif category == 'danger' %}bi-exclamation-circle-fill{% elif category == 'warning' %}bi-exclamation-triangle-fill{% else %}bi-info-circle-fill{% endif %} me-2"></i>
                 <div>{{ message }}</div>
             </div>
             <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
@@ -1071,7 +1227,8 @@
     <!-- Usuarios no autenticados -->
     <div class="d-flex justify-content-center align-items-center" style="height: 100vh;">
         <div class="text-center">
-            <img src="{{ url_for('static', filename='ferdel.png') }}" alt="Logo" style="width: 80px; margin-bottom: 20px;">
+            <img src="{{ url_for('static', filename='ferdel.png') }}" alt="Logo"
+                style="width: 80px; margin-bottom: 20px;">
             <h4><i class="bi bi-building"></i> FerDel Sistema</h4>
             <p class="text-muted">Por favor, inicie sesión para continuar</p>
             <a href="{{ url_for('auth.login') }}" class="btn btn-primary">
@@ -1090,18 +1247,18 @@
             console.log('=== DIAGNÓSTICO PWA FERDEL ===');
             console.log('URL:', window.location.href);
             console.log('Ruta:', window.location.pathname);
-            
+
             // Verificar modo standalone
             const isStandalone = window.matchMedia('(display-mode: standalone)').matches;
             console.log('Modo standalone:', isStandalone ? '✅ ACTIVO' : '❌ NO activo');
-            
+
             if (isStandalone) {
                 console.log('🎉 La PWA se está ejecutando en modo app!');
                 document.body.classList.add('pwa-mode');
             } else {
                 console.log('📱 La app se ejecuta en navegador normal');
             }
-            
+
             // Verificar Service Worker
             if ('serviceWorker' in navigator) {
                 navigator.serviceWorker.getRegistration().then(reg => {
@@ -1122,36 +1279,36 @@
                 this.deferredPrompt = null;
                 this.init();
             }
-            
+
             async init() {
                 await this.registerSW();
                 this.setupInstallPrompt();
                 this.setupUpdateNotifications();
                 this.checkConnectivity();
             }
-            
+
             async registerSW() {
                 if (!('serviceWorker' in navigator)) {
                     console.log('[PWA] Service Worker no soportado');
                     return;
                 }
-                
+
                 try {
                     this.swRegistration = await navigator.serviceWorker.register('/static/sw.js', {
                         scope: '/'
                     });
-                    
+
                     console.log('[PWA] ✅ Service Worker registrado:', this.swRegistration.scope);
-                    
+
                     if (this.swRegistration.waiting) {
                         this.showUpdateNotification();
                     }
-                    
+
                 } catch (error) {
                     console.error('[PWA] Error registrando SW:', error);
                 }
             }
-            
+
             setupInstallPrompt() {
                 window.addEventListener('beforeinstallprompt', (e) => {
                     e.preventDefault();
@@ -1159,14 +1316,14 @@
                     console.log('[PWA] 📱 App instalable detectada');
                     this.showInstallButton();
                 });
-                
+
                 window.addEventListener('appinstalled', () => {
                     console.log('[PWA] ✅ App instalada correctamente');
                     this.deferredPrompt = null;
                     this.hideInstallButton();
                 });
             }
-            
+
             showInstallButton() {
                 if (!document.getElementById('pwaInstallBtn')) {
                     const installBtn = document.createElement('div');
@@ -1178,13 +1335,13 @@
                         </button>
                     `;
                     document.body.appendChild(installBtn);
-                    
+
                     installBtn.querySelector('button').addEventListener('click', async () => {
                         if (!this.deferredPrompt) return;
-                        
+
                         this.deferredPrompt.prompt();
                         const { outcome } = await this.deferredPrompt.userChoice;
-                        
+
                         if (outcome === 'accepted') {
                             console.log('[PWA] Usuario aceptó instalar');
                         }
@@ -1193,19 +1350,19 @@
                     });
                 }
             }
-            
+
             hideInstallButton() {
                 const btn = document.getElementById('pwaInstallBtn');
                 if (btn) btn.remove();
             }
-            
+
             setupUpdateNotifications() {
                 if (!this.swRegistration) return;
-                
+
                 this.swRegistration.addEventListener('updatefound', () => {
                     const newWorker = this.swRegistration.installing;
                     console.log('[PWA] Nueva versión encontrada');
-                    
+
                     newWorker.addEventListener('statechange', () => {
                         if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
                             this.showUpdateNotification();
@@ -1213,7 +1370,7 @@
                     });
                 });
             }
-            
+
             showUpdateNotification() {
                 const notification = document.createElement('div');
                 notification.className = 'pwa-update-notification';
@@ -1228,14 +1385,14 @@
                     </div>
                 `;
                 document.body.appendChild(notification);
-                
+
                 setTimeout(() => notification.remove(), 10000);
             }
-            
+
             checkConnectivity() {
                 const statusDiv = document.getElementById('connection-status');
                 if (!statusDiv) return;
-                
+
                 function updateStatus() {
                     if (navigator.onLine) {
                         statusDiv.style.display = 'none';
@@ -1252,12 +1409,12 @@
                         statusDiv.textContent = '⚠️ Sin conexión a internet. Algunas funciones pueden no estar disponibles.';
                     }
                 }
-                
+
                 window.addEventListener('online', updateStatus);
                 window.addEventListener('offline', updateStatus);
                 updateStatus();
             }
-            
+
             async clearCache() {
                 if ('caches' in window) {
                     const keys = await caches.keys();
@@ -1266,12 +1423,12 @@
                 }
             }
         }
-        
+
         // ========== CÓDIGO DEL SIDEBAR ==========
         document.addEventListener('DOMContentLoaded', function () {
             // Inicializar PWA Manager
             window.pwaManager = new PWAManager();
-            
+
             const sidebar = document.getElementById('mainSidebar');
             const overlay = document.getElementById('mainOverlay');
             const mobileToggle = document.getElementById('mobileSidebarToggle');
@@ -1280,16 +1437,6 @@
             const mainContent = document.getElementById('mainContent');
             const tooltip = document.getElementById('sidebarTooltip');
             let isMobileMenuOpen = false;
-
-            const sidebarCollapsed = localStorage.getItem('sidebarCollapsed') === 'true';
-            if (sidebarCollapsed && window.innerWidth >= 768) {
-                sidebar.classList.add('collapsed');
-                mainContent.classList.add('expanded');
-                if (toggleIcon) {
-                    toggleIcon.classList.remove('bi-chevron-left');
-                    toggleIcon.classList.add('bi-chevron-right');
-                }
-            }
 
             function isMobile() {
                 return window.innerWidth < 768;
@@ -1311,6 +1458,142 @@
                 isMobileMenuOpen = false;
             }
 
+            // Inicialización y eventos condicionales al existir el sidebar
+            if (sidebar) {
+                let sidebarCollapsed = localStorage.getItem('sidebarCollapsed') === 'true';
+                if (localStorage.getItem('sidebarCollapsed') === null && window.innerWidth >= 768 && window.innerWidth < 1024) {
+                    sidebarCollapsed = true;
+                }
+                if (sidebarCollapsed && window.innerWidth >= 768) {
+                    sidebar.classList.add('collapsed');
+                    if (mainContent) mainContent.classList.add('expanded');
+                    if (toggleIcon) {
+                        toggleIcon.classList.remove('bi-chevron-left');
+                        toggleIcon.classList.add('bi-chevron-right');
+                    }
+                }
+
+                const navLinks = sidebar.querySelectorAll('.nav-link:not(.submenu-toggle-btn)');
+                navLinks.forEach(link => {
+                    link.addEventListener('click', function () {
+                        if (isMobile() && isMobileMenuOpen && this.getAttribute('href') && this.getAttribute('href') !== '#') {
+                            setTimeout(() => closeMobileMenu(), 150);
+                        }
+                    });
+                });
+
+                if (sidebarToggleBtn) {
+                    sidebarToggleBtn.addEventListener('click', function () {
+                        if (isMobile()) return;
+
+                        const isCollapsed = sidebar.classList.contains('collapsed');
+
+                        if (isCollapsed) {
+                            sidebar.classList.remove('collapsed');
+                            if (mainContent) mainContent.classList.remove('expanded');
+                            if (toggleIcon) {
+                                toggleIcon.classList.remove('bi-chevron-right');
+                                toggleIcon.classList.add('bi-chevron-left');
+                            }
+                            localStorage.setItem('sidebarCollapsed', 'false');
+                            if (tooltip) tooltip.classList.remove('show');
+                        } else {
+                            sidebar.querySelectorAll('.has-submenu.active').forEach(item => {
+                                item.classList.remove('active');
+                                const sub = item.querySelector('.submenu');
+                                if (sub) sub.classList.remove('show');
+                            });
+
+                            sidebar.classList.add('collapsed');
+                            if (mainContent) mainContent.classList.add('expanded');
+                            if (toggleIcon) {
+                                toggleIcon.classList.remove('bi-chevron-left');
+                                toggleIcon.classList.add('bi-chevron-right');
+                            }
+                            localStorage.setItem('sidebarCollapsed', 'true');
+                        }
+                    });
+                }
+
+                const submenuToggles = sidebar.querySelectorAll('.submenu-toggle-btn');
+                submenuToggles.forEach(button => {
+                    button.addEventListener('click', function (e) {
+                        e.preventDefault();
+                        e.stopPropagation();
+
+                        if (!isMobile() && sidebar.classList.contains('collapsed')) {
+                            sidebar.classList.remove('collapsed');
+                            if (mainContent) mainContent.classList.remove('expanded');
+                            if (toggleIcon) {
+                                toggleIcon.classList.remove('bi-chevron-right');
+                                toggleIcon.classList.add('bi-chevron-left');
+                            }
+                            localStorage.setItem('sidebarCollapsed', 'false');
+                            if (tooltip) tooltip.classList.remove('show');
+
+                            setTimeout(() => {
+                                const targetId = button.getAttribute('href');
+                                const targetMenu = sidebar.querySelector(targetId);
+                                const parent = button.closest('.has-submenu');
+                                if (targetMenu && parent) {
+                                    parent.classList.add('active');
+                                    targetMenu.classList.add('show');
+                                }
+                            }, 350);
+                            return;
+                        }
+
+                        const targetId = this.getAttribute('href');
+                        const targetMenu = sidebar.querySelector(targetId);
+                        const parent = this.closest('.has-submenu');
+
+                        if (targetMenu && parent) {
+                            if (isMobile()) {
+                                sidebar.querySelectorAll('.has-submenu.active').forEach(item => {
+                                    if (item !== parent) {
+                                        item.classList.remove('active');
+                                        const sub = item.querySelector('.submenu');
+                                        if (sub) sub.classList.remove('show');
+                                    }
+                                });
+                            }
+
+                            parent.classList.toggle('active');
+                            targetMenu.classList.toggle('show');
+                        }
+                    });
+                });
+
+                if (tooltip) {
+                    const tooltipElements = sidebar.querySelectorAll('[data-tooltip]');
+
+                    tooltipElements.forEach(element => {
+                        element.addEventListener('mouseenter', function (e) {
+                            if (!sidebar.classList.contains('collapsed') || isMobile()) return;
+
+                            const text = this.getAttribute('data-tooltip');
+                            if (!text) return;
+
+                            tooltip.textContent = text;
+                            tooltip.classList.add('show');
+
+                            const rect = this.getBoundingClientRect();
+                            tooltip.style.left = (rect.right + 10) + 'px';
+                            tooltip.style.top = (rect.top + rect.height / 2) + 'px';
+                            tooltip.style.transform = 'translateY(-50%)';
+                        });
+
+                        element.addEventListener('mouseleave', function () {
+                            tooltip.classList.remove('show');
+                        });
+                    });
+
+                    sidebar.addEventListener('scroll', function () {
+                        tooltip.classList.remove('show');
+                    });
+                }
+            }
+
             if (mobileToggle) {
                 mobileToggle.addEventListener('click', function (e) {
                     e.preventDefault();
@@ -1323,35 +1606,6 @@
                 });
             }
 
-            if (sidebarToggleBtn) {
-                sidebarToggleBtn.addEventListener('click', function () {
-                    if (isMobile()) return;
-                    
-                    const isCollapsed = sidebar.classList.contains('collapsed');
-                    
-                    if (isCollapsed) {
-                        sidebar.classList.remove('collapsed');
-                        mainContent.classList.remove('expanded');
-                        toggleIcon.classList.remove('bi-chevron-right');
-                        toggleIcon.classList.add('bi-chevron-left');
-                        localStorage.setItem('sidebarCollapsed', 'false');
-                        if (tooltip) tooltip.classList.remove('show');
-                    } else {
-                        document.querySelectorAll('.has-submenu.active').forEach(item => {
-                            item.classList.remove('active');
-                            const sub = item.querySelector('.submenu');
-                            if (sub) sub.classList.remove('show');
-                        });
-                        
-                        sidebar.classList.add('collapsed');
-                        mainContent.classList.add('expanded');
-                        toggleIcon.classList.remove('bi-chevron-left');
-                        toggleIcon.classList.add('bi-chevron-right');
-                        localStorage.setItem('sidebarCollapsed', 'true');
-                    }
-                });
-            }
-
             if (overlay) {
                 overlay.addEventListener('click', function () {
                     if (isMobile() && isMobileMenuOpen) {
@@ -1360,97 +1614,18 @@
                 });
             }
 
-            if (sidebar) {
-                const navLinks = sidebar.querySelectorAll('.nav-link:not(.submenu-toggle-btn)');
-                navLinks.forEach(link => {
-                    link.addEventListener('click', function () {
-                        if (isMobile() && isMobileMenuOpen && this.getAttribute('href') && this.getAttribute('href') !== '#') {
-                            setTimeout(() => closeMobileMenu(), 150);
-                        }
-                    });
-                });
-            }
-
-            const submenuToggles = document.querySelectorAll('.submenu-toggle-btn');
-            submenuToggles.forEach(button => {
-                button.addEventListener('click', function (e) {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    
-                    if (!isMobile() && sidebar.classList.contains('collapsed')) {
-                        sidebar.classList.remove('collapsed');
-                        mainContent.classList.remove('expanded');
-                        toggleIcon.classList.remove('bi-chevron-right');
-                        toggleIcon.classList.add('bi-chevron-left');
-                        localStorage.setItem('sidebarCollapsed', 'false');
-                        if (tooltip) tooltip.classList.remove('show');
-                        
-                        setTimeout(() => {
-                            const targetId = button.getAttribute('href');
-                            const targetMenu = document.querySelector(targetId);
-                            const parent = button.closest('.has-submenu');
-                            if (targetMenu && parent) {
-                                parent.classList.add('active');
-                                targetMenu.classList.add('show');
-                            }
-                        }, 350);
-                        return;
-                    }
-
-                    const targetId = this.getAttribute('href');
-                    const targetMenu = document.querySelector(targetId);
-                    const parent = this.closest('.has-submenu');
-
-                    if (targetMenu && parent) {
-                        if (isMobile()) {
-                            document.querySelectorAll('.has-submenu.active').forEach(item => {
-                                if (item !== parent) {
-                                    item.classList.remove('active');
-                                    const sub = item.querySelector('.submenu');
-                                    if (sub) sub.classList.remove('show');
-                                }
-                            });
-                        }
-                        
-                        parent.classList.toggle('active');
-                        targetMenu.classList.toggle('show');
-                    }
-                });
-            });
-
-            if (tooltip && sidebar) {
-                const tooltipElements = sidebar.querySelectorAll('[data-tooltip]');
-                
-                tooltipElements.forEach(element => {
-                    element.addEventListener('mouseenter', function(e) {
-                        if (!sidebar.classList.contains('collapsed') || isMobile()) return;
-                        
-                        const text = this.getAttribute('data-tooltip');
-                        if (!text) return;
-                        
-                        tooltip.textContent = text;
-                        tooltip.classList.add('show');
-                        
-                        const rect = this.getBoundingClientRect();
-                        tooltip.style.left = (rect.right + 10) + 'px';
-                        tooltip.style.top = (rect.top + rect.height / 2) + 'px';
-                        tooltip.style.transform = 'translateY(-50%)';
-                    });
-                    
-                    element.addEventListener('mouseleave', function() {
-                        tooltip.classList.remove('show');
-                    });
-                });
-                
-                sidebar.addEventListener('scroll', function() {
-                    tooltip.classList.remove('show');
-                });
-            }
-
             document.querySelectorAll('.alert').forEach(alert => {
                 setTimeout(() => {
-                    const bsAlert = new bootstrap.Alert(alert);
-                    bsAlert.close();
+                    if (document.body.contains(alert)) {
+                        if (window.bootstrap && bootstrap.Alert) {
+                            const bsAlert = new bootstrap.Alert(alert);
+                            bsAlert.close();
+                        } else {
+                            // Fallback manual si Bootstrap no ha cargado (ej. modo offline de PWA)
+                            alert.classList.remove('show');
+                            setTimeout(() => alert.remove(), 150);
+                        }
+                    }
                 }, 5000);
             });
 
@@ -1464,13 +1639,15 @@
                 if (!isMobile() && isMobileMenuOpen) {
                     closeMobileMenu();
                 }
-                
-                if (!isMobile() && sidebar.classList.contains('collapsed')) {
-                    mainContent.classList.add('expanded');
-                } else if (!isMobile() && !sidebar.classList.contains('collapsed')) {
-                    mainContent.classList.remove('expanded');
+
+                if (sidebar) {
+                    if (!isMobile() && sidebar.classList.contains('collapsed')) {
+                        if (mainContent) mainContent.classList.add('expanded');
+                    } else if (!isMobile() && !sidebar.classList.contains('collapsed')) {
+                        if (mainContent) mainContent.classList.remove('expanded');
+                    }
                 }
-                
+
                 if (tooltip) tooltip.classList.remove('show');
             }
 
@@ -1478,7 +1655,7 @@
             handleResize();
         });
     </script>
-    
+
     {% block extra_js %}{% endblock %}
 </body>
 

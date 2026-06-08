@@ -2080,7 +2080,7 @@ def vendedor_carga_directa_proveedor():
                     # REGISTRAR DETALLE DE SALIDA
                     # ============================================
                     for prod in productos_procesar:
-                        subtotal_salida = -(prod['cantidad'] * prod['costo'])
+                        subtotal_salida = (prod['cantidad'] * prod['costo'])
                         cursor.execute("""
                             INSERT INTO detalle_movimientos_inventario
                             (ID_Movimiento, ID_Producto, Cantidad, Costo_Unitario, Subtotal, ID_Usuario_Creacion)

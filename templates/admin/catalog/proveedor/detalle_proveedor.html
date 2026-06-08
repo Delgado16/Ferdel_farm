@@ -146,7 +146,7 @@
                                 </tr>
                                 {% endfor %}
                             </tbody>
-                        <tr>
+                        </table>
                     </div>
                     {% else %}
                     <p class="text-muted text-center">No hay facturas pendientes</p>
@@ -199,9 +199,7 @@
         </div>
     </div>
 
-    <!-- ============================================ -->
     <!-- TABLA DE COMPRAS POR MES - DETALLADA -->
-    <!-- ============================================ -->
     <div class="card mb-4 shadow-sm">
         <div class="card-header bg-light">
             <h5 class="mb-0">
@@ -228,8 +226,23 @@
                         {% for mes in compras_por_mes %}
                         <tr>
                             <td>
-                                <strong>{{ mes.Mes_Nombre }}</strong><br>
-                                <small class="text-muted">{{ mes.Mes_Codigo }}</small>
+                                <strong>
+                                    {% if mes.Numero_Mes == 1 %}Enero
+                                    {% elif mes.Numero_Mes == 2 %}Febrero
+                                    {% elif mes.Numero_Mes == 3 %}Marzo
+                                    {% elif mes.Numero_Mes == 4 %}Abril
+                                    {% elif mes.Numero_Mes == 5 %}Mayo
+                                    {% elif mes.Numero_Mes == 6 %}Junio
+                                    {% elif mes.Numero_Mes == 7 %}Julio
+                                    {% elif mes.Numero_Mes == 8 %}Agosto
+                                    {% elif mes.Numero_Mes == 9 %}Septiembre
+                                    {% elif mes.Numero_Mes == 10 %}Octubre
+                                    {% elif mes.Numero_Mes == 11 %}Noviembre
+                                    {% else %}Diciembre
+                                    {% endif %} {{ mes.Anio }}
+                                </strong>
+                                <br>
+                                <small class="text-muted">{{ mes.Anio }}-{{ "%02d"|format(mes.Numero_Mes) }}</small>
                             </td>
                             <td class="text-center">
                                 <span class="badge bg-primary">{{ mes.Cantidad_Compras }}</span>
@@ -280,14 +293,14 @@
                     <div class="alert alert-success">
                         <i class="fas fa-money-bill-wave"></i> <strong>Total Compras de Contado:</strong><br>
                         <h3 class="mb-0">C$ {{ "{:,.2f}".format(compras_por_mes|sum(attribute='Total_Contado')) }}</h3>
-                        <small>{{ (compras_por_mes|sum(attribute='Total_Contado') / compras_por_mes|sum(attribute='Total_Compras') * 100)|round(1) }}% del total</small>
+                        <small>{{ (compras_por_mes|sum(attribute='Total_Contado') / compras_por_mes|sum(attribute='Total_Compras') * 100)|round(1) if compras_por_mes|sum(attribute='Total_Compras') > 0 else 0 }}% del total</small>
                     </div>
                 </div>
                 <div class="col-md-4">
                     <div class="alert alert-warning">
                         <i class="fas fa-credit-card"></i> <strong>Total Compras a Crédito:</strong><br>
                         <h3 class="mb-0">C$ {{ "{:,.2f}".format(compras_por_mes|sum(attribute='Total_Credito')) }}</h3>
-                        <small>{{ (compras_por_mes|sum(attribute='Total_Credito') / compras_por_mes|sum(attribute='Total_Compras') * 100)|round(1) }}% del total</small>
+                        <small>{{ (compras_por_mes|sum(attribute='Total_Credito') / compras_por_mes|sum(attribute='Total_Compras') * 100)|round(1) if compras_por_mes|sum(attribute='Total_Compras') > 0 else 0 }}% del total</small>
                     </div>
                 </div>
                 <div class="col-md-4">
@@ -337,7 +350,7 @@
                                 </span>
                             </td>
                             <td class="text-end fw-bold">C$ {{ "{:,.2f}".format(compra.total_compra) }}</td>
-                            <td>{{ compra.cantidad_productos }} productos</td>
+                            <td>{{ compra.cantidad_productos }} productos{% if compra.cantidad_productos == 0 %} (sin detalle){% endif %}</td>
                             <td>{{ compra.Observacion or '-' }}</td>
                         </tr>
                         {% endfor %}
@@ -350,12 +363,12 @@
         </div>
     </div>
 
+    <!-- Top Productos -->
     <div class="row">
-        <!-- Top Productos -->
-        <div class="col-md-6 mb-4">
+        <div class="col-md-12 mb-4">
             <div class="card h-100 shadow-sm">
                 <div class="card-header bg-light">
-                    <h5 class="mb-0"><i class="fas fa-trophy"></i> Top 10 Productos</h5>
+                    <h5 class="mb-0"><i class="fas fa-trophy"></i> Top 10 Productos Más Comprados</h5>
                 </div>
                 <div class="card-body">
                     {% if top_productos %}
@@ -366,8 +379,8 @@
                                     <th>Código</th>
                                     <th>Producto</th>
                                     <th class="text-end">Cantidad</th>
-                                    <th class="text-end">Total</th>
-                                    <th class="text-center">Veces</th>
+                                    <th class="text-end">Total Invertido</th>
+                                    <th class="text-center">Veces Comprado</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -385,30 +398,6 @@
                     </div>
                     {% else %}
                     <p class="text-muted text-center">No hay productos registrados</p>
-                    {% endif %}
-                </div>
-            </div>
-        </div>
-
-        <!-- Gráfico de Compras -->
-        <div class="col-md-6 mb-4">
-            <div class="card h-100 shadow-sm">
-                <div class="card-header bg-light">
-                    <h5 class="mb-0"><i class="fas fa-chart-line"></i> Evolución de Compras</h5>
-                </div>
-                <div class="card-body">
-                    {% if compras_por_mes %}
-                    <canvas id="comprasChart" style="height: 300px;"></canvas>
-                    <div class="mt-3 text-center">
-                        <span class="badge bg-success me-2">Contado</span>
-                        <span class="badge bg-warning me-2">Crédito</span>
-                        <span class="badge bg-primary">Total</span>
-                    </div>
-                    {% else %}
-                    <div class="text-center py-5">
-                        <i class="fas fa-chart-line fa-3x text-muted mb-3"></i>
-                        <p class="text-muted">No hay datos para mostrar</p>
-                    </div>
                     {% endif %}
                 </div>
             </div>
@@ -437,130 +426,12 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
-    {% if compras_por_mes %}
-    // Preparar datos para el gráfico
-    const meses = [
-        {% for mes in compras_por_mes|reverse %}
-            '{{ mes.Mes_Nombre }}',
-        {% endfor %}
-    ];
-    
-    const datosContado = [
-        {% for mes in compras_por_mes|reverse %}
-            {{ mes.Total_Contado }},
-        {% endfor %}
-    ];
-    
-    const datosCredito = [
-        {% for mes in compras_por_mes|reverse %}
-            {{ mes.Total_Credito }},
-        {% endfor %}
-    ];
-    
-    const datosTotal = [
-        {% for mes in compras_por_mes|reverse %}
-            {{ mes.Total_Compras }},
-        {% endfor %}
-    ];
-    
-    // Crear gráfico combinado
-    const ctx = document.getElementById('comprasChart').getContext('2d');
-    new Chart(ctx, {
-        type: 'bar',
-        data: {
-            labels: meses,
-            datasets: [
-                {
-                    label: 'Contado',
-                    data: datosContado,
-                    backgroundColor: 'rgba(40, 167, 69, 0.7)',
-                    borderColor: 'rgb(40, 167, 69)',
-                    borderWidth: 1,
-                    borderRadius: 4
-                },
-                {
-                    label: 'Crédito',
-                    data: datosCredito,
-                    backgroundColor: 'rgba(255, 193, 7, 0.7)',
-                    borderColor: 'rgb(255, 193, 7)',
-                    borderWidth: 1,
-                    borderRadius: 4
-                },
-                {
-                    label: 'Total',
-                    data: datosTotal,
-                    type: 'line',
-                    backgroundColor: 'rgba(54, 162, 235, 0.1)',
-                    borderColor: 'rgb(54, 162, 235)',
-                    borderWidth: 3,
-                    fill: false,
-                    tension: 0.3,
-                    pointRadius: 5,
-                    pointHoverRadius: 7,
-                    pointBackgroundColor: 'rgb(54, 162, 235)',
-                    pointBorderColor: '#fff',
-                    pointBorderWidth: 2
-                }
-            ]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: true,
-            interaction: {
-                mode: 'index',
-                intersect: false
-            },
-            plugins: {
-                legend: {
-                    position: 'top',
-                    labels: {
-                        usePointStyle: true,
-                        boxWidth: 10
-                    }
-                },
-                tooltip: {
-                    callbacks: {
-                        label: function(context) {
-                            let label = context.dataset.label || '';
-                            let value = context.parsed.y;
-                            return label + ': C$ ' + value.toLocaleString('es-NI', {
-                                minimumFractionDigits: 2,
-                                maximumFractionDigits: 2
-                            });
-                        }
-                    }
-                }
-            },
-            scales: {
-                y: {
-                    beginAtZero: true,
-                    ticks: {
-                        callback: function(value) {
-                            return 'C$ ' + value.toLocaleString('es-NI');
-                        }
-                    },
-                    title: {
-                        display: true,
-                        text: 'Monto en Córdobas',
-                        font: {
-                            weight: 'bold'
-                        }
-                    }
-                },
-                x: {
-                    title: {
-                        display: true,
-                        text: 'Mes',
-                        font: {
-                            weight: 'bold'
-                        }
-                    }
-                }
-            }
-        }
+    document.addEventListener('DOMContentLoaded', function() {
+        var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+        var tooltipList = tooltipTriggerList.map(function(tooltipTriggerEl) {
+            return new bootstrap.Tooltip(tooltipTriggerEl);
+        });
     });
-    {% endif %}
 </script>
 {% endblock %}
