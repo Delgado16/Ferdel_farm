@@ -1,0 +1,171 @@
+{% extends "layout.html" %}
+
+{% block title %}Cargas Pendientes de Recepción{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-3">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>
+            <i class="fas fa-clipboard-list text-primary me-2"></i>
+            Recepción de Cargas
+        </h2>
+        <a href="{{ url_for('bodega.bodega_dashboard') }}" class="btn btn-outline-secondary">
+            <i class="fas fa-arrow-left me-1"></i> Volver al Dashboard
+        </a>
+    </div>
+
+    <!-- CARGAS PENDIENTES -->
+    <div class="card mb-4">
+        <div class="card-header bg-warning text-dark">
+            <h5 class="mb-0">
+                <i class="fas fa-clock me-2"></i>
+                Cargas Pendientes de Recepción
+                <span class="badge bg-dark ms-2">{{ cargas_pendientes|length }}</span>
+            </h5>
+        </div>
+        <div class="card-body">
+            {% if cargas_pendientes %}
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead class="table-light">
+                        <tr>
+                            <th>ID</th>
+                            <th>Fecha Carga</th>
+                            <th>Factura</th>
+                            <th>Proveedor</th>
+                            <th>Vendedor</th>
+                            <th>Productos</th>
+                            <th class="text-end">Cantidad</th>
+                            <th class="text-end">Monto</th>
+                            <th>Espera</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for carga in cargas_pendientes %}
+                        <tr class="{% if carga.dias_espera > 3 %}table-danger{% elif carga.dias_espera > 1 %}table-warning{% endif %}">
+                            <td class="fw-bold">#{{ carga.ID_Carga }}</td>
+                            <td>{{ carga.Fecha_Carga.strftime('%d/%m/%Y') }}</td>
+                            <td>
+                                <span class="badge bg-info">{{ carga.Num_Factura }}</span>
+                            </td>
+                            <td>{{ carga.proveedor_nombre }}</td>
+                            <td>{{ carga.vendedor_nombre }}</td>
+                            <td class="text-center">{{ carga.total_productos }}</td>
+                            <td class="text-end">{{ "%.2f"|format(carga.total_cantidad) }}</td>
+                            <td class="text-end">
+                                <strong class="text-success">C$ {{ "%.2f"|format(carga.total_monto) }}</strong>
+                            </td>
+                            <td>
+                                {% if carga.dias_espera == 0 %}
+                                <span class="badge bg-success">Hoy</span>
+                                {% elif carga.dias_espera <= 3 %}
+                                <span class="badge bg-warning">{{ carga.dias_espera }} días</span>
+                                {% else %}
+                                <span class="badge bg-danger">{{ carga.dias_espera }} días</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <div class="btn-group btn-group-sm">
+                                    <a href="{{ url_for('bodega.recibir_carga', id_carga=carga.ID_Carga) }}" 
+                                       class="btn btn-success">
+                                        <i class="fas fa-check-circle me-1"></i> Recibir
+                                    </a>
+                                    <a href="{{ url_for('bodega.carga_detalle', id_carga=carga.ID_Carga) }}" 
+                                       class="btn btn-info">
+                                        <i class="fas fa-eye"></i>
+                                    </a>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                    <tfoot class="table-light">
+                        <tr class="fw-bold">
+                            <td colspan="6" class="text-end">TOTALES:</td>
+                            <td class="text-end">{{ "%.2f"|format(cargas_pendientes|sum(attribute='total_cantidad')) }}</td>
+                            <td class="text-end text-success">C$ {{ "%.2f"|format(cargas_pendientes|sum(attribute='total_monto')) }}</td>
+                            <td colspan="2"></td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+            {% else %}
+            <div class="alert alert-success mb-0 text-center py-5">
+                <i class="fas fa-check-circle fa-4x mb-3 text-success"></i>
+                <h4>¡No hay cargas pendientes!</h4>
+                <p class="mb-0">Todas las cargas han sido recibidas correctamente.</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- HISTORIAL DE CARGAS RECIBIDAS -->
+    <div class="card">
+        <div class="card-header bg-secondary text-white">
+            <h5 class="mb-0">
+                <i class="fas fa-history me-2"></i>
+                Historial de Cargas Recibidas
+                <span class="badge bg-light text-dark ms-2">{{ cargas_recibidas|length }}</span>
+            </h5>
+        </div>
+        <div class="card-body">
+            {% if cargas_recibidas %}
+            <div class="table-responsive">
+                <table class="table table-sm">
+                    <thead class="table-light">
+                        <tr>
+                            <th>ID</th>
+                            <th>Factura</th>
+                            <th>Proveedor</th>
+                            <th>Vendedor</th>
+                            <th>Fecha Carga</th>
+                            <th>Fecha Recepción</th>
+                            <th>Estado</th>
+                            <th>Recibido por</th>
+                            <th>Cantidad</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for carga in cargas_recibidas %}
+                        <tr>
+                            <td>#{{ carga.ID_Carga }}</td>
+                            <td>{{ carga.Num_Factura }}</td>
+                            <td>{{ carga.proveedor_nombre }}</td>
+                            <td>{{ carga.vendedor_nombre }}</td>
+                            <td>{{ carga.Fecha_Carga.strftime('%d/%m/%Y') }}</td>
+                            <td>{{ carga.Fecha_Recepcion.strftime('%d/%m/%Y') if carga.Fecha_Recepcion else '-' }}</td>
+                            <td>
+                                {% if carga.Estado == 'RECIBIDA_TOTAL' %}
+                                <span class="badge bg-success">Recibida Total</span>
+                                {% elif carga.Estado == 'RECIBIDA_PARCIAL' %}
+                                <span class="badge bg-warning">Recibida Parcial</span>
+                                {% else %}
+                                <span class="badge bg-danger">Rechazada</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ carga.recibido_por or '-' }}</td>
+                            <td>{{ "%.2f"|format(carga.total_recibida) }}/{{ "%.2f"|format(carga.total_cantidad) }}</td>
+                            <td>
+                                <a href="{{ url_for('bodega.carga_detalle', id_carga=carga.ID_Carga) }}" 
+                                   class="btn btn-sm btn-info">
+                                    <i class="fas fa-eye"></i> Ver
+                                </a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="alert alert-info mb-0 text-center py-4">
+                <i class="fas fa-info-circle fa-3x mb-3 text-info"></i>
+                <h5>No hay cargas en el historial</h5>
+                <p class="mb-0">Las cargas que recibas aparecerán aquí.</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -4,641 +4,407 @@
 
 {% block extra_css %}
 <style>
-    /* Estilos profesionales y sobrios - SIN cambiar funcionalidades */
+    /* Estilos compactos y profesionales */
     .stats-card {
         background: white;
         border-radius: 8px;
-        padding: 1.5rem;
-        margin-bottom: 1.5rem;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+        padding: 0.75rem;
+        margin-bottom: 1rem;
         border: 1px solid #e5e7eb;
-        transition: all 0.2s;
-        position: relative;
-    }
-    
-    .stats-card:hover {
-        box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+        text-align: center;
     }
     
     .stats-number {
-        font-size: 2rem;
-        font-weight: 600;
-        margin-bottom: 0.5rem;
+        font-size: 1.5rem;
+        font-weight: 700;
+        margin-bottom: 0;
         color: #1f2937;
     }
     
     .stats-label {
-        font-size: 0.85rem;
+        font-size: 0.7rem;
         color: #6b7280;
         text-transform: uppercase;
-        letter-spacing: 0.5px;
     }
     
-    .filter-card, .card-custom {
+    .filter-bar {
         background: white;
         border-radius: 8px;
-        padding: 1.25rem;
-        margin-bottom: 1.5rem;
+        padding: 0.75rem;
+        margin-bottom: 1rem;
         border: 1px solid #e5e7eb;
-        box-shadow: 0 1px 2px rgba(0,0,0,0.05);
-    }
-    
-    .product-table-container {
-        background: white;
-        border-radius: 8px;
-        overflow: hidden;
-        border: 1px solid #e5e7eb;
-        box-shadow: 0 1px 2px rgba(0,0,0,0.05);
-    }
-    
-    .badge-stock {
-        font-size: 0.75rem;
-        padding: 0.25rem 0.5rem;
-        border-radius: 4px;
-        font-weight: 500;
-    }
-    
-    .badge-stock-low {
-        background-color: #fef3c7;
-        color: #92400e;
-    }
-    
-    .badge-stock-normal {
-        background-color: #d1fae5;
-        color: #065f46;
     }
     
     .table th {
-        font-weight: 600;
-        font-size: 0.8rem;
+        background: #f8f9fa;
+        font-size: 0.7rem;
         text-transform: uppercase;
-        letter-spacing: 0.5px;
-        background-color: #f9fafb;
-        color: #374151;
-        border-bottom: 1px solid #e5e7eb;
+        padding: 0.5rem;
     }
     
     .table td {
-        vertical-align: middle;
-        font-size: 0.875rem;
-        color: #4b5563;
-    }
-    
-    .modal-header {
-        background-color: #f9fafb;
-        border-bottom: 1px solid #e5e7eb;
-        padding: 1rem 1.5rem;
-    }
-    
-    .modal-header .modal-title {
-        color: #1f2937;
-        font-weight: 600;
-    }
-    
-    .form-label {
-        font-weight: 500;
         font-size: 0.8rem;
-        margin-bottom: 0.4rem;
-        color: #374151;
+        padding: 0.5rem;
+        vertical-align: middle;
     }
     
-    .form-control, .form-select {
-        border: 1px solid #d1d5db;
-        border-radius: 6px;
-        font-size: 0.875rem;
+    .badge-stock {
+        padding: 0.25rem 0.5rem;
+        border-radius: 20px;
+        font-size: 0.7rem;
+        font-weight: 500;
     }
     
-    .form-control:focus, .form-select:focus {
-        border-color: #9ca3af;
-        box-shadow: 0 0 0 2px rgba(156, 163, 175, 0.1);
-    }
+    .badge-critical { background: #fee2e2; color: #991b1b; }
+    .badge-low { background: #fed7aa; color: #92400e; }
+    .badge-normal { background: #d1fae5; color: #065f46; }
+    .badge-out { background: #f1f5f9; color: #475569; }
     
-    .required-field::after {
-        content: "*";
-        color: #dc2626;
-        margin-left: 4px;
-    }
-    
-    .btn-group-sm .btn {
-        margin: 0 2px;
-        border-radius: 4px;
-    }
-    
-    @media (max-width: 768px) {
-        .stats-card {
-            margin-bottom: 1rem;
-        }
-        
-        .stats-number {
-            font-size: 1.5rem;
-        }
-        
-        .table-responsive {
-            font-size: 0.8rem;
-        }
+    .btn-sm-custom {
+        padding: 0.2rem 0.5rem;
+        font-size: 0.7rem;
     }
     
     .search-box {
         position: relative;
-        max-width: 300px;
+        max-width: 250px;
     }
     
     .search-box i {
         position: absolute;
-        left: 10px;
+        left: 8px;
         top: 50%;
         transform: translateY(-50%);
+        font-size: 0.7rem;
         color: #9ca3af;
-        font-size: 0.875rem;
     }
     
     .search-box input {
-        padding-left: 32px;
-        font-size: 0.875rem;
+        padding-left: 28px;
+        font-size: 0.8rem;
+        height: 32px;
     }
     
-    .empty-state {
-        text-align: center;
-        padding: 3rem;
-        color: #9ca3af;
+    .form-label-small {
+        font-size: 0.7rem;
+        font-weight: 500;
+        margin-bottom: 0.25rem;
     }
     
-    .empty-state i {
-        font-size: 3rem;
-        margin-bottom: 1rem;
-        opacity: 0.5;
+    .modal-body {
+        padding: 1rem;
     }
     
-    .btn-primary {
-        background-color: #374151;
-        border-color: #374151;
-    }
-    
-    .btn-primary:hover {
-        background-color: #1f2937;
-        border-color: #1f2937;
-    }
-    
-    .btn-secondary {
-        background-color: #6b7280;
-        border-color: #6b7280;
-    }
-    
-    .btn-secondary:hover {
-        background-color: #4b5563;
-        border-color: #4b5563;
-    }
-    
-    .btn-warning {
-        background-color: #f59e0b;
-        border-color: #f59e0b;
-        color: white;
-    }
-    
-    .btn-warning:hover {
-        background-color: #d97706;
-        border-color: #d97706;
-        color: white;
-    }
-    
-    .btn-danger {
-        background-color: #ef4444;
-        border-color: #ef4444;
-    }
-    
-    .btn-danger:hover {
-        background-color: #dc2626;
-        border-color: #dc2626;
-    }
-    
-    .btn-success {
-        background-color: #10b981;
-        border-color: #10b981;
-    }
-    
-    .btn-success:hover {
-        background-color: #059669;
-        border-color: #059669;
-    }
-    
-    .alert {
-        border-radius: 6px;
-        border: 1px solid #e5e7eb;
-    }
-    
-    .alert-info {
-        background-color: #eff6ff;
-        border-color: #bfdbfe;
-        color: #1e40af;
-    }
-    
-    .alert-secondary {
-        background-color: #f3f4f6;
-        border-color: #e5e7eb;
-        color: #374151;
-    }
-    
-    .badge.bg-primary {
-        background-color: #6b7280 !important;
-    }
-    
-    .badge.bg-success {
-        background-color: #10b981 !important;
-    }
-    
-    .badge.bg-danger {
-        background-color: #ef4444 !important;
-    }
-    
-    .badge.bg-warning {
-        background-color: #f59e0b !important;
-    }
-    
-    .text-primary {
-        color: #4b5563 !important;
-    }
-    
-    .card {
-        border: 1px solid #e5e7eb;
-        border-radius: 8px;
-        box-shadow: 0 1px 2px rgba(0,0,0,0.05);
-    }
-    
-    .card-header {
-        background-color: #f9fafb;
-        border-bottom: 1px solid #e5e7eb;
-        padding: 1rem 1.25rem;
-    }
-    
-    .table-dark {
-        background-color: #f9fafb;
-        color: #374151;
-    }
-    
-    .table-striped > tbody > tr:nth-of-type(odd) > * {
-        background-color: #f9fafb;
-    }
-    
-    .table-hover > tbody > tr:hover > * {
-        background-color: #f3f4f6;
+    @media (max-width: 768px) {
+        .stats-number {
+            font-size: 1rem;
+        }
+        .table-responsive {
+            font-size: 0.7rem;
+        }
     }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="container-fluid py-4">
-    <!-- Header con estadísticas (CORREGIDO) -->
-    <div class="row mb-4">
-        <div class="col-md-3 col-sm-6">
+<div class="container-fluid px-3 py-2">
+    <!-- Título y botón nuevo -->
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <div>
+            <h5 class="mb-0 fw-bold">📦 Productos</h5>
+            <small class="text-muted">Gestión de inventario</small>
+        </div>
+        <button type="button" class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#modalCrearProducto">
+            <i class="fas fa-plus me-1"></i>Nuevo Producto
+        </button>
+    </div>
+
+    <!-- Tarjetas de estadísticas -->
+    <div class="row mb-3">
+        <div class="col-3">
             <div class="stats-card">
-                <div class="stats-number">{{ productos|length }}</div>
-                <div class="stats-label">Total Productos</div>
-                <i class="fas fa-boxes position-absolute" style="right: 1.2rem; top: 1.2rem; font-size: 1.5rem; opacity: 0.3;"></i>
+                <div class="stats-number">{{ stats.total|default(0) }}</div>
+                <div class="stats-label">Total</div>
             </div>
         </div>
-        <div class="col-md-3 col-sm-6">
+        <div class="col-3">
             <div class="stats-card">
-                <div class="stats-number">
-                    {% set stock_bajo_count = 0 %}
-                    {% for producto in productos %}
-                        {% if producto.Existencias|float <= (producto.Stock_Minimo|float if producto.Stock_Minimo else 0) %}
-                            {% set stock_bajo_count = stock_bajo_count + 1 %}
-                        {% endif %}
-                    {% endfor %}
-                    {{ stock_bajo_count }}
-                </div>
-                <div class="stats-label">Stock Bajo</div>
-                <i class="fas fa-exclamation-triangle position-absolute" style="right: 1.2rem; top: 1.2rem; font-size: 1.5rem; opacity: 0.3;"></i>
+                <div class="stats-number text-warning">{{ stats.critico|default(0) }}</div>
+                <div class="stats-label">Crítico</div>
             </div>
         </div>
-        <div class="col-md-3 col-sm-6">
+        <div class="col-3">
             <div class="stats-card">
-                <div class="stats-number">{{ categorias_filtro|length }}</div>
-                <div class="stats-label">Categorías</div>
-                <i class="fas fa-tags position-absolute" style="right: 1.2rem; top: 1.2rem; font-size: 1.5rem; opacity: 0.3;"></i>
+                <div class="stats-number text-danger">{{ stats.sin_stock|default(0) }}</div>
+                <div class="stats-label">Sin Stock</div>
             </div>
         </div>
-        <div class="col-md-3 col-sm-6">
+        <div class="col-3">
             <div class="stats-card">
-                <div class="stats-number">
-                    {% set total_existencias = 0 %}
-                    {% for producto in productos %}
-                        {% set total_existencias = total_existencias + (producto.Existencias|float) %}
-                    {% endfor %}
-                    {{ "%.2f"|format(total_existencias) }}
-                </div>
-                <div class="stats-label">Total Existencias</div>
-                <i class="fas fa-calculator position-absolute" style="right: 1.2rem; top: 1.2rem; font-size: 1.5rem; opacity: 0.3;"></i>
+                <div class="stats-number">{{ "%.0f"|format(stats.total_stock|default(0)) }}</div>
+                <div class="stats-label">Unidades</div>
             </div>
         </div>
     </div>
 
-    <!-- Barra de herramientas con búsqueda -->
-    <div class="filter-card">
-        <div class="row align-items-center">
-            <div class="col-md-6 mb-3 mb-md-0">
-                <div class="d-flex flex-wrap gap-2">
-                    <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#modalCrearProducto">
-                        <i class="fas fa-plus me-2"></i>Nuevo Producto
-                    </button>
-                    <button type="button" class="btn btn-secondary" onclick="window.location.reload()">
-                        <i class="fas fa-sync-alt me-2"></i>Actualizar
-                    </button>
-                </div>
-            </div>
-            <div class="col-md-6">
-                <div class="search-box ms-auto">
-                    <i class="fas fa-search"></i>
-                    <input type="text" id="searchProduct" class="form-control" placeholder="Buscar producto...">
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Filtro por categoría -->
-    <div class="card mb-3">
-        <div class="card-body">
-            <form method="GET" action="{{ url_for('admin.admin_productos') }}" class="row align-items-end">
-                <div class="col-md-4">
-                    <label for="categoria" class="form-label">Filtrar por Categoría:</label>
-                    <select name="categoria" id="categoria" class="form-select">
-                        <option value="todos" {% if categoria_seleccionada == 'todos' %}selected{% endif %}>
-                            Todas las categorías
+    <!-- Barra de filtros -->
+    <div class="filter-bar">
+        <form method="GET" action="{{ url_for('admin.admin_productos') }}" id="filterForm">
+            <div class="row g-2">
+                <div class="col-md-3 col-6">
+                    <select name="categoria" class="form-select form-select-sm" onchange="this.form.submit()">
+                        <option value="todos" {% if categoria_seleccionada == 'todos' %}selected{% endif %}>📁 Categoría</option>
+                        {% for cat in categorias %}
+                        <option value="{{ cat.id }}" {% if categoria_seleccionada|string == cat.id|string %}selected{% endif %}>
+                            {{ cat.nombre }}
                         </option>
-                        {% for categoria in categorias_filtro %}
-                            <option value="{{ categoria.ID_Categoria }}" 
-                                    {% if categoria_seleccionada|string == categoria.ID_Categoria|string %}selected{% endif %}>
-                                {{ categoria.Descripcion }}
-                            </option>
                         {% endfor %}
                     </select>
                 </div>
-                <div class="col-md-2">
-                    <button type="submit" class="btn btn-primary">
-                        <i class="fas fa-filter"></i> Filtrar
-                    </button>
-                    {% if categoria_seleccionada != 'todos' %}
-                        <a href="{{ url_for('admin.admin_productos') }}" class="btn btn-secondary">
-                            <i class="fas fa-times"></i> Limpiar
-                        </a>
-                    {% endif %}
+                <div class="col-md-3 col-6">
+                    <select name="empresa" class="form-select form-select-sm" onchange="this.form.submit()">
+                        <option value="todas" {% if empresa_seleccionada == 'todas' %}selected{% endif %}>🏢 Empresa</option>
+                        {% for emp in empresas %}
+                        <option value="{{ emp.id }}" {% if empresa_seleccionada|string == emp.id|string %}selected{% endif %}>
+                            {{ emp.nombre }}
+                        </option>
+                        {% endfor %}
+                    </select>
                 </div>
-            </form>
-        </div>
+                <div class="col-md-3 col-6">
+                    <select name="bodega" class="form-select form-select-sm" onchange="this.form.submit()">
+                        <option value="todas" {% if bodega_seleccionada == 'todas' %}selected{% endif %}>🏪 Bodega</option>
+                        {% for bod in bodegas %}
+                        <option value="{{ bod.id }}" {% if bodega_seleccionada|string == bod.id|string %}selected{% endif %}>
+                            {{ bod.nombre }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-3 col-6">
+                    <select name="stock" class="form-select form-select-sm" onchange="this.form.submit()">
+                        <option value="todos" {% if stock_seleccionado == 'todos' %}selected{% endif %}>📊 Estado Stock</option>
+                        <option value="critico" {% if stock_seleccionado == 'critico' %}selected{% endif %}>🔴 Crítico</option>
+                        <option value="bajo" {% if stock_seleccionado == 'bajo' %}selected{% endif %}>🟡 Bajo</option>
+                        <option value="normal" {% if stock_seleccionado == 'normal' %}selected{% endif %}>🟢 Normal</option>
+                        <option value="sin_stock" {% if stock_seleccionado == 'sin_stock' %}selected{% endif %}>⚪ Sin Stock</option>
+                    </select>
+                </div>
+            </div>
+            <div class="row mt-2">
+                <div class="col-12">
+                    <div class="search-box">
+                        <i class="fas fa-search"></i>
+                        <input type="text" id="searchInput" class="form-control form-control-sm" 
+                               placeholder="Buscar por código o descripción..." value="{{ search_term }}">
+                    </div>
+                </div>
+            </div>
+            {% if categoria_seleccionada != 'todos' or empresa_seleccionada != 'todas' or bodega_seleccionada != 'todas' or stock_seleccionado != 'todos' %}
+            <div class="row mt-2">
+                <div class="col-12">
+                    <a href="{{ url_for('admin.admin_productos') }}" class="btn btn-secondary btn-sm w-100">
+                        <i class="fas fa-times me-1"></i>Limpiar filtros
+                    </a>
+                </div>
+            </div>
+            {% endif %}
+        </form>
     </div>
 
-    <!-- Mostrar información del filtro actual -->
-    {% if categoria_seleccionada != 'todos' %}
-        {% for categoria in categorias_filtro %}
-            {% if categoria.ID_Categoria|string == categoria_seleccionada|string %}
-                <div class="alert alert-info">
-                    <i class="fas fa-info-circle"></i> 
-                    Mostrando productos de la categoría: <strong>{{ categoria.Descripcion }}</strong>
-                    <span class="badge bg-primary float-end">{{ productos|length }} producto(s)</span>
-                </div>
-            {% endif %}
-        {% endfor %}
-    {% else %}
-        <div class="alert alert-secondary">
-            <i class="fas fa-list"></i> 
-            Mostrando todos los productos
-            <span class="badge bg-primary float-end">{{ productos|length }} producto(s)</span>
-        </div>
-    {% endif %}
-
-    <!-- Tabla de Productos -->
-    <div class="card">
-        <div class="card-header">
-            <h5 class="card-title mb-0"><i class="fas fa-list me-2"></i>Lista de Productos</h5>
-        </div>
-        <div class="card-body">
-            <div class="table-responsive">
-                <table class="table table-striped table-hover" id="productTable">
-                    <thead class="table-dark">
-                        <tr>
-                            <th>Código</th>
-                            <th>Descripción</th>
-                            <th>Unidad</th>
-                            <th>Existencias</th>
-                            <th>Categoría</th>
-                            <th>Precio Mercado</th>
-                            <th>Precio Mayorista</th>
-                            <th>Precio Ruta</th>
-                            <th>Empresa</th>
-                            <th>Stock Mínimo</th>
-                            <th>Estado</th>
-                            <th>Acciones</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for producto in productos %}
-                        <tr>
-                            <td><strong>{{ producto.COD_Producto or 'N/A' }}</strong></td>
-                            <td>{{ producto.Descripcion }}</td>
-                            <td>
-                                {{ producto.Nombre_Unidad }}
-                                {% if producto.Abreviatura %}
-                                <small class="text-muted">({{ producto.Abreviatura }})</small>
-                                {% endif %}
-                            </td>
-                            <td>
-                                {# CORREGIDO: Convertir a float para comparación #}
-                                {% set existencias_float = producto.Existencias|float %}
-                                {% set stock_minimo_float = producto.Stock_Minimo|float if producto.Stock_Minimo else 0 %}
-                                <span class="badge {% if existencias_float <= stock_minimo_float %}bg-warning{% else %}bg-success{% endif %}">
-                                    {{ "%.2f"|format(producto.Existencias) }}
-                                </span>
-                            </td>
-                            <td>{{ producto.Nombre_Categoria }}</td>
-                            <td>C${{ "%.2f"|format(producto.Precio_Mercado or 0) }}</td>
-                            <td>C${{ "%.2f"|format(producto.Precio_Mayorista or 0) }}</td>
-                            <td>C${{ "%.2f"|format(producto.Precio_Ruta or 0) }}</td>
-                            <td>{{ producto.Nombre_Empresa }}</td>
-                            <td>{{ producto.Stock_Minimo }}</td>
-                            <td>
-                                {% if producto.Estado == 'activo' %}
-                                    <span class="badge bg-success">Activo</span>
-                                {% else %}
-                                    <span class="badge bg-danger">Inactivo</span>
-                                {% endif %}
-                            </td>
-                            <td>
-                                <div class="btn-group btn-group-sm">
-                                    <!-- Botón Editar -->
-                                    <a href="{{ url_for('admin.admin_editar_producto', id_producto=producto.ID_Producto) }}" 
-                                       class="btn btn-warning">
-                                        <i class="fas fa-edit"></i> Editar
-                                    </a>
-                                    
-                                    {% if producto.Estado == 'activo' %}
-                                    <!-- Botón Desactivar -->
-                                    <form method="POST" action="{{ url_for('admin.admin_desactivar_producto', id_producto=producto.ID_Producto) }}" class="d-inline">
-                                        <button type="submit" class="btn btn-danger" 
-                                                onclick="return confirm('¿Estás seguro de desactivar este producto?')">
-                                            <i class="fas fa-ban"></i> Desactivar
-                                        </button>
-                                    </form>
-                                    {% else %}
-                                    <!-- Botón Activar -->
-                                    <form method="POST" action="{{ url_for('admin.admin_activar_producto', id_producto=producto.ID_Producto) }}" class="d-inline">
-                                        <button type="submit" class="btn btn-success" 
-                                                onclick="return confirm('¿Estás seguro de activar este producto?')">
-                                            <i class="fas fa-check"></i> Activar
-                                        </button>
-                                    </form>
-                                    {% endif %}
-                                </div>
-                            </td>
-                        </tr>
-                        {% else %}
-                        <tr>
-                            <td colspan="12" class="text-center text-muted py-4">
-                                <i class="fas fa-box-open fa-2x mb-3"></i><br>
-                                No hay productos registrados
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
-        </div>
+    <!-- Tabla de productos -->
+    <div class="table-responsive">
+        <table class="table table-hover table-sm">
+            <thead>
+                <tr>
+                    <th>Código</th>
+                    <th>Producto</th>
+                    <th>Unidad</th>
+                    <th>Stock</th>
+                    <th>Precio</th>
+                    <th>Categoría</th>
+                    <th>Empresa</th>
+                    <th>Stock Mín</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for prod in productos %}
+                {% set stock_class = 'normal' %}
+                {% if prod.stock == 0 %}
+                    {% set stock_class = 'out' %}
+                {% elif prod.stock <= prod.stock_minimo %}
+                    {% set stock_class = 'critical' %}
+                {% elif prod.stock <= prod.stock_minimo * 2 %}
+                    {% set stock_class = 'low' %}
+                {% endif %}
+                
+                <tr>
+                    <td>
+                        <code class="small">{{ prod.codigo }}</code>
+                    </td>
+                    <td>
+                        <strong>{{ prod.nombre }}</strong>
+                    </td>
+                    <td>{{ prod.unidad }}</td>
+                    <td>
+                        <span class="badge-stock badge-{{ stock_class }}">
+                            {% if prod.stock == 0 %}Sin Stock
+                            {% elif prod.stock <= prod.stock_minimo %}Crítico {{ "%.0f"|format(prod.stock) }}
+                            {% elif prod.stock <= prod.stock_minimo * 2 %}Bajo {{ "%.0f"|format(prod.stock) }}
+                            {% else %}Normal {{ "%.0f"|format(prod.stock) }}
+                            {% endif %}
+                        </span>
+                    </td>
+                    <td>C${{ "%.2f"|format(prod.precio_mercado) }}</td>
+                    <td>{{ prod.categoria }}</td>
+                    <td>{{ prod.empresa }}</td>
+                    <td>{{ "%.0f"|format(prod.stock_minimo) }}</td>
+                    <td>
+                        <div class="btn-group btn-group-sm">
+                            <a href="{{ url_for('admin.admin_editar_producto', id_producto=prod.id) }}" 
+                               class="btn btn-outline-warning" title="Editar">
+                                <i class="fas fa-edit"></i>
+                            </a>
+                            {% if prod.estado == 'activo' %}
+                            <form method="POST" action="{{ url_for('admin.admin_desactivar_producto', id_producto=prod.id) }}" 
+                                  class="d-inline" onsubmit="return confirm('¿Desactivar este producto?')">
+                                <button type="submit" class="btn btn-outline-danger" title="Desactivar">
+                                    <i class="fas fa-ban"></i>
+                                </button>
+                            </form>
+                            {% else %}
+                            <form method="POST" action="{{ url_for('admin.admin_activar_producto', id_producto=prod.id) }}" 
+                                  class="d-inline" onsubmit="return confirm('¿Activar este producto?')">
+                                <button type="submit" class="btn btn-outline-success" title="Activar">
+                                    <i class="fas fa-check"></i>
+                                </button>
+                            </form>
+                            {% endif %}
+                        </div>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="9" class="text-center py-4 text-muted">
+                        <i class="fas fa-box-open fa-2x mb-2 d-block"></i>
+                        No hay productos registrados
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
     </div>
 </div>
 
-<!-- Modal Crear Producto (MANTENIDO IGUAL) -->
+<!-- Modal Crear Producto -->
 <div class="modal fade" id="modalCrearProducto" tabindex="-1">
-    <div class="modal-dialog modal-lg">
+    <div class="modal-dialog modal-md">
         <div class="modal-content">
-            <form method="POST" action="{{ url_for('admin.admin_crear_producto') }}">
-                <div class="modal-header">
-                    <h5 class="modal-title"><i class="fas fa-plus me-2"></i>Crear Nuevo Producto</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            <form method="POST" action="{{ url_for('admin.admin_crear_producto') }}" id="createProductForm">
+                <div class="modal-header bg-light">
+                    <h6 class="modal-title"><i class="fas fa-plus me-2"></i>Crear Nuevo Producto</h6>
+                    <button type="button" class="btn-close btn-close-sm" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body">
-                    <div class="row">
-                        <div class="col-md-6 mb-3">
-                            <label class="form-label">Código Producto</label>
-                            <input type="text" class="form-control" name="COD_Producto" placeholder="Ej: PROD-001">
-                            <div class="form-text">Código único identificador del producto (opcional)</div>
-                        </div>
-                        <div class="col-md-6 mb-3">
-                            <label class="form-label">Descripción *</label>
-                            <input type="text" class="form-control" name="Descripcion" placeholder="Descripción del producto" required>
-                            <div class="form-text">Nombre o descripción completa del producto</div>
+                    <!-- Datos básicos -->
+                    <div class="row g-2 mb-2">
+                        <div class="col-12">
+                            <label class="form-label-small">Código Producto</label>
+                            <input type="text" class="form-control form-control-sm" name="COD_Producto" 
+                                   placeholder="Ej: PROD-001">
                         </div>
                     </div>
                     
-                    <div class="row">
-                        <div class="col-md-6 mb-3">
-                            <label class="form-label">Unidad de Medida *</label>
-                            <select class="form-select" name="Unidad_Medida" required>
-                                <option value="">Seleccionar unidad</option>
+                    <div class="row g-2 mb-2">
+                        <div class="col-12">
+                            <label class="form-label-small">Descripción *</label>
+                            <input type="text" class="form-control form-control-sm" name="Descripcion" required>
+                        </div>
+                    </div>
+                    
+                    <div class="row g-2 mb-2">
+                        <div class="col-6">
+                            <label class="form-label-small">Unidad de Medida *</label>
+                            <select class="form-select form-select-sm" name="Unidad_Medida" required>
+                                <option value="">Seleccionar</option>
                                 {% for unidad in unidades %}
-                                <option value="{{ unidad.ID_Unidad }}">
-                                    {{ unidad.Descripcion }} 
-                                    {% if unidad.Abreviatura %}({{ unidad.Abreviatura }}){% endif %}
-                                </option>
+                                <option value="{{ unidad.id }}">{{ unidad.nombre }} ({{ unidad.abreviatura }})</option>
                                 {% endfor %}
                             </select>
                         </div>
-                        <div class="col-md-6 mb-3">
-                            <label class="form-label">
-                                Categoría * 
-                                <i class="fas fa-search text-primary ms-2" 
-                                   style="cursor: pointer;" 
-                                   onclick="filtrarCategorias()" 
-                                   data-bs-toggle="tooltip" 
-                                   title="Buscar categoría"></i>
-                            </label>
-                            <select class="form-select" name="ID_Categoria" id="ID_Categoria" required>
-                                <option value="">Seleccionar categoría</option>
-                                {% for categoria in categorias %}
-                                <option value="{{ categoria.ID_Categoria }}">{{ categoria.Descripcion }}</option>
+                        <div class="col-6">
+                            <label class="form-label-small">Categoría *</label>
+                            <select class="form-select form-select-sm" name="ID_Categoria" required>
+                                <option value="">Seleccionar</option>
+                                {% for cat in categorias %}
+                                <option value="{{ cat.id }}">{{ cat.nombre }}</option>
                                 {% endfor %}
                             </select>
-                            <div class="form-text">Categoría del producto</div>
                         </div>
                     </div>
                     
-                    <div class="row">
-                        <div class="col-md-3 mb-3">
-                            <label class="form-label">Cantidad Inicial *</label>
-                            <input type="number" class="form-control" name="Cantidad_Inicial" value="0" step="0.01" min="0" required>
-                            <div class="form-text">Existencias iniciales</div>
+                    <!-- Precios y stock -->
+                    <div class="row g-2 mb-2">
+                        <div class="col-4">
+                            <label class="form-label-small">Stock Inicial</label>
+                            <input type="number" class="form-control form-control-sm" name="Cantidad_Inicial" 
+                                   value="0" step="0.01">
                         </div>
-                        <div class="col-md-3 mb-3">
-                            <label class="form-label">
-                                Precio Mercado
-                                <i class="fas fa-info-circle text-primary" 
-                                   data-bs-toggle="tooltip" 
-                                   title="Precio de venta al público general"></i>
-                            </label>
-                            <input type="number" class="form-control" name="Precio_Mercado" value="0" step="0.01" min="0">
+                        <div class="col-4">
+                            <label class="form-label-small">Stock Mínimo</label>
+                            <input type="number" class="form-control form-control-sm" name="Stock_Minimo" 
+                                   value="5" step="0.01">
                         </div>
-                        <div class="col-md-3 mb-3">
-                            <label class="form-label">
-                                Precio Mayorista
-                                <i class="fas fa-info-circle text-primary" 
-                                   data-bs-toggle="tooltip" 
-                                   title="Precio para compras al por mayor"></i>
-                            </label>
-                            <input type="number" class="form-control" name="Precio_Mayorista" value="0" step="0.01" min="0">
-                        </div>
-                        <div class="col-md-3 mb-3">
-                            <label class="form-label">
-                                Precio Ruta
-                                <i class="fas fa-info-circle text-primary" 
-                                   data-bs-toggle="tooltip" 
-                                   title="Precio especial para rutas de venta"></i>
-                            </label>
-                            <input type="number" class="form-control" name="Precio_Ruta" value="0" step="0.01" min="0">
-                        </div>
-                    </div>
-
-                    <div class="row">
-                        <div class="col-md-4 mb-3">
-                            <label class="form-label">Stock Mínimo</label>
-                            <input type="number" class="form-control" name="Stock_Minimo" value="5" step="0.01" min="0">
-                            <div class="form-text">Nivel mínimo de inventario</div>
-                        </div>
-                        <div class="col-md-4 mb-3">
-                            <label class="form-label">Empresa *</label>
-                            <select class="form-select" name="ID_Empresa" id="ID_Empresa" required>
-                                <option value="">Seleccionar empresa</option>
-                                {% for empresa in empresas %}
-                                <option value="{{ empresa.ID_Empresa }}">{{ empresa.Nombre_Empresa }}</option>
-                                {% endfor %}
-                            </select>
-                        </div>
-                        <div class="col-md-4 mb-3">
-                            <label class="form-label">Estado</label>
-                            <select class="form-select" name="Estado">
-                                <option value="activo" selected>Activo</option>
+                        <div class="col-4">
+                            <label class="form-label-small">Estado</label>
+                            <select class="form-select form-select-sm" name="Estado">
+                                <option value="activo">Activo</option>
                                 <option value="inactivo">Inactivo</option>
                             </select>
                         </div>
                     </div>
-
-                    <div class="row">
-                        <div class="col-md-12 mb-3">
-                            <label class="form-label">Bodega *</label>
-                            <select class="form-select" name="ID_Bodega" id="ID_Bodega" required>
-                                <option value="">Seleccionar bodega</option>
-                                {% for bodega in bodegas %}
-                                <option value="{{ bodega.ID_Bodega }}" data-empresa="{{ bodega.ID_Empresa }}">
-                                    {{ bodega.Nombre }} - {{ bodega.Nombre_Empresa }}
-                                </option>
+                    
+                    <div class="row g-2 mb-2">
+                        <div class="col-4">
+                            <label class="form-label-small">Precio Mercado</label>
+                            <input type="number" class="form-control form-control-sm" name="Precio_Mercado" 
+                                   value="0" step="0.01">
+                        </div>
+                        <div class="col-4">
+                            <label class="form-label-small">Precio Mayorista</label>
+                            <input type="number" class="form-control form-control-sm" name="Precio_Mayorista" 
+                                   value="0" step="0.01">
+                        </div>
+                        <div class="col-4">
+                            <label class="form-label-small">Precio Ruta</label>
+                            <input type="number" class="form-control form-control-sm" name="Precio_Ruta" 
+                                   value="0" step="0.01">
+                        </div>
+                    </div>
+                    
+                    <!-- Empresa y bodega -->
+                    <div class="row g-2 mb-2">
+                        <div class="col-6">
+                            <label class="form-label-small">Empresa *</label>
+                            <select class="form-select form-select-sm" name="ID_Empresa" id="empresaSelect" required>
+                                <option value="">Seleccionar</option>
+                                {% for emp in empresas %}
+                                <option value="{{ emp.id }}">{{ emp.nombre }}</option>
                                 {% endfor %}
                             </select>
-                            <div class="form-text">Bodega donde se almacenará el producto inicialmente</div>
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label-small">Bodega *</label>
+                            <select class="form-select form-select-sm" name="ID_Bodega" id="bodegaSelect" required disabled>
+                                <option value="">Primero seleccione empresa</option>
+                            </select>
                         </div>
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="submit" class="btn btn-primary">
-                        <i class="fas fa-save me-2"></i>Crear Producto
-                    </button>
+                    <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary btn-sm">Crear Producto</button>
                 </div>
             </form>
         </div>
@@ -648,207 +414,113 @@
 
 {% block scripts %}
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-    // Inicializar tooltips de Bootstrap
-    const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
-    const tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
-        return new bootstrap.Tooltip(tooltipTriggerEl);
-    });
+// Filtro de bodegas por empresa
+const empresaSelect = document.getElementById('empresaSelect');
+const bodegaSelect = document.getElementById('bodegaSelect');
+const bodegasData = {{ bodegas|tojson }};
 
-    // Auto-focus en el primer campo del modal cuando se abre
-    var modalCrear = document.getElementById('modalCrearProducto');
-    if (modalCrear) {
-        modalCrear.addEventListener('shown.bs.modal', function () {
-            var firstInput = this.querySelector('input[name="COD_Producto"]');
-            if (firstInput) {
-                firstInput.focus();
-            }
-        });
-    }
-
-    // Filtrar bodegas según empresa seleccionada
-    const empresaSelect = document.getElementById('ID_Empresa');
-    const bodegaSelect = document.getElementById('ID_Bodega');
-
-    if (empresaSelect && bodegaSelect) {
-        // Obtener todas las opciones de bodega
-        const todasLasOpcionesBodega = Array.from(bodegaSelect.querySelectorAll('option[data-empresa]'));
-        const opcionDefault = bodegaSelect.querySelector('option[value=""]');
+if (empresaSelect && bodegaSelect) {
+    empresaSelect.addEventListener('change', function() {
+        const empresaId = this.value;
+        bodegaSelect.innerHTML = '<option value="">Seleccionar bodega</option>';
         
-        empresaSelect.addEventListener('change', function() {
-            const empresaId = this.value;
-            
-            // Limpiar select de bodegas, manteniendo la primera opción
-            bodegaSelect.innerHTML = '';
-            bodegaSelect.appendChild(opcionDefault.cloneNode(true));
-            bodegaSelect.disabled = !empresaId;
-            
-            if (!empresaId) {
-                return;
-            }
-
-            // Filtrar y agregar bodegas que pertenecen a la empresa seleccionada
-            const bodegasFiltradas = todasLasOpcionesBodega.filter(option => 
-                option.getAttribute('data-empresa') === empresaId
-            );
+        if (empresaId) {
+            const bodegasFiltradas = bodegasData.filter(b => b.id_empresa == empresaId);
             
             if (bodegasFiltradas.length === 0) {
                 const option = document.createElement('option');
                 option.value = '';
-                option.textContent = 'No hay bodegas para esta empresa';
+                option.textContent = 'No hay bodegas disponibles';
                 bodegaSelect.appendChild(option);
                 bodegaSelect.disabled = true;
             } else {
-                bodegasFiltradas.forEach(option => {
-                    bodegaSelect.appendChild(option.cloneNode(true));
+                bodegasFiltradas.forEach(bodega => {
+                    const option = document.createElement('option');
+                    option.value = bodega.id;
+                    option.textContent = bodega.nombre;
+                    bodegaSelect.appendChild(option);
                 });
-            }
-        });
-
-        // También ejecutar el filtro cuando se abre el modal si ya hay una empresa seleccionada
-        if (modalCrear) {
-            modalCrear.addEventListener('show.bs.modal', function () {
-                if (empresaSelect.value) {
-                    empresaSelect.dispatchEvent(new Event('change'));
-                }
-            });
-        }
-    }
-
-    // Validación del formulario antes de enviar
-    const form = document.querySelector('#modalCrearProducto form');
-    if (form) {
-        form.addEventListener('submit', function(e) {
-            const descripcion = form.querySelector('input[name="Descripcion"]');
-            const unidad = form.querySelector('select[name="Unidad_Medida"]');
-            const categoria = form.querySelector('select[name="ID_Categoria"]');
-            const empresa = form.querySelector('select[name="ID_Empresa"]');
-            const bodega = document.getElementById('ID_Bodega');
-            const cantidadInicial = form.querySelector('input[name="Cantidad_Inicial"]');
-            const stockMinimo = form.querySelector('input[name="Stock_Minimo"]');
-            
-            // Precios
-            const precioMercado = parseFloat(form.querySelector('input[name="Precio_Mercado"]').value || 0);
-            const precioMayorista = parseFloat(form.querySelector('input[name="Precio_Mayorista"]').value || 0);
-            const precioRuta = parseFloat(form.querySelector('input[name="Precio_Ruta"]').value || 0);
-            
-            let isValid = true;
-            let errorMessage = '';
-            
-            if (!descripcion.value.trim()) {
-                isValid = false;
-                errorMessage = 'La descripción es obligatoria';
-                descripcion.focus();
-            } else if (!unidad.value) {
-                isValid = false;
-                errorMessage = 'La unidad de medida es obligatoria';
-                unidad.focus();
-            } else if (!categoria.value) {
-                isValid = false;
-                errorMessage = 'La categoría es obligatoria';
-                categoria.focus();
-            } else if (!empresa.value) {
-                isValid = false;
-                errorMessage = 'La empresa es obligatoria';
-                empresa.focus();
-            } else if (!bodega.value || bodega.disabled) {
-                isValid = false;
-                errorMessage = 'Debe seleccionar una bodega válida';
-                bodega.focus();
-            } else if (!cantidadInicial.value || parseFloat(cantidadInicial.value) < 0) {
-                isValid = false;
-                errorMessage = 'La cantidad inicial debe ser un valor positivo';
-                cantidadInicial.focus();
-            } else if (stockMinimo.value && parseFloat(stockMinimo.value) < 0) {
-                isValid = false;
-                errorMessage = 'El stock mínimo no puede ser negativo';
-                stockMinimo.focus();
-            } else if (precioMercado <= 0 && precioMayorista <= 0 && precioRuta <= 0) {
-                isValid = false;
-                errorMessage = 'Debe ingresar al menos un precio mayor a 0';
-                form.querySelector('input[name="Precio_Mercado"]').focus();
-            }
-            
-            if (!isValid) {
-                e.preventDefault();
-                alert(errorMessage);
-                return false;
-            }
-            
-            return true;
-        });
-    }
-
-    // Búsqueda en tiempo real
-    const searchInput = document.getElementById('searchProduct');
-    if (searchInput) {
-        searchInput.addEventListener('keyup', function() {
-            const searchTerm = this.value.toLowerCase();
-            const table = document.getElementById('productTable');
-            if (table) {
-                const rows = table.querySelectorAll('tbody tr');
-                rows.forEach(row => {
-                    const text = row.textContent.toLowerCase();
-                    if (text.includes(searchTerm)) {
-                        row.style.display = '';
-                    } else {
-                        row.style.display = 'none';
-                    }
-                });
-            }
-        });
-    }
-});
-
-// Función para filtrar categorías
-function filtrarCategorias() {
-    const categoriaSelect = document.getElementById('ID_Categoria');
-    const busqueda = prompt('Ingrese el texto a buscar en categorías:', '');
-    
-    if (busqueda !== null && busqueda.trim() !== '') {
-        const textoBusqueda = busqueda.trim().toLowerCase();
-        const opciones = Array.from(categoriaSelect.options);
-        let encontrada = false;
-        let opcionesEncontradas = [];
-        
-        // Primero, encontrar todas las opciones que coinciden
-        for (let i = 1; i < opciones.length; i++) { // Empezar desde 1 para saltar la opción vacía
-            if (opciones[i].text.toLowerCase().includes(textoBusqueda)) {
-                opcionesEncontradas.push({
-                    index: i,
-                    text: opciones[i].text,
-                    value: opciones[i].value
-                });
-            }
-        }
-        
-        if (opcionesEncontradas.length > 0) {
-            if (opcionesEncontradas.length === 1) {
-                // Si solo hay una coincidencia, seleccionarla automáticamente
-                categoriaSelect.selectedIndex = opcionesEncontradas[0].index;
-                alert(`Categoría encontrada: ${opcionesEncontradas[0].text}`);
-            } else {
-                // Si hay múltiples coincidencias, mostrar lista para elegir
-                let mensaje = 'Se encontraron varias categorías:\n\n';
-                opcionesEncontradas.forEach((opt, idx) => {
-                    mensaje += `${idx + 1}. ${opt.text}\n`;
-                });
-                mensaje += '\nIngrese el número de la categoría deseada:';
-                
-                const seleccion = prompt(mensaje, '1');
-                if (seleccion !== null) {
-                    const numSeleccion = parseInt(seleccion);
-                    if (!isNaN(numSeleccion) && numSeleccion > 0 && numSeleccion <= opcionesEncontradas.length) {
-                        categoriaSelect.selectedIndex = opcionesEncontradas[numSeleccion - 1].index;
-                    } else {
-                        alert('Selección no válida');
-                    }
-                }
+                bodegaSelect.disabled = false;
             }
         } else {
-            alert('No se encontró ninguna categoría con ese texto');
+            bodegaSelect.disabled = true;
         }
-    }
+    });
 }
+
+// Búsqueda en tiempo real
+const searchInput = document.getElementById('searchInput');
+if (searchInput) {
+    let searchTimeout;
+    searchInput.addEventListener('keyup', function() {
+        clearTimeout(searchTimeout);
+        searchTimeout = setTimeout(() => {
+            const searchTerm = encodeURIComponent(this.value);
+            const currentUrl = new URL(window.location.href);
+            if (searchTerm) {
+                currentUrl.searchParams.set('search', searchTerm);
+            } else {
+                currentUrl.searchParams.delete('search');
+            }
+            window.location.href = currentUrl.toString();
+        }, 500);
+    });
+}
+
+// Validación del formulario
+document.getElementById('createProductForm')?.addEventListener('submit', function(e) {
+    const descripcion = this.querySelector('input[name="Descripcion"]');
+    const unidad = this.querySelector('select[name="Unidad_Medida"]');
+    const categoria = this.querySelector('select[name="ID_Categoria"]');
+    const empresa = this.querySelector('select[name="ID_Empresa"]');
+    const bodega = document.getElementById('bodegaSelect');
+    const precioMercado = parseFloat(this.querySelector('input[name="Precio_Mercado"]').value || 0);
+    const precioMayorista = parseFloat(this.querySelector('input[name="Precio_Mayorista"]').value || 0);
+    const precioRuta = parseFloat(this.querySelector('input[name="Precio_Ruta"]').value || 0);
+    
+    if (!descripcion.value.trim()) {
+        e.preventDefault();
+        alert('La descripción es obligatoria');
+        descripcion.focus();
+        return false;
+    }
+    
+    if (!unidad.value) {
+        e.preventDefault();
+        alert('La unidad de medida es obligatoria');
+        unidad.focus();
+        return false;
+    }
+    
+    if (!categoria.value) {
+        e.preventDefault();
+        alert('La categoría es obligatoria');
+        categoria.focus();
+        return false;
+    }
+    
+    if (!empresa.value) {
+        e.preventDefault();
+        alert('La empresa es obligatoria');
+        empresa.focus();
+        return false;
+    }
+    
+    if (!bodega.value || bodega.disabled) {
+        e.preventDefault();
+        alert('Debe seleccionar una bodega válida');
+        bodega.focus();
+        return false;
+    }
+    
+    if (precioMercado <= 0 && precioMayorista <= 0 && precioRuta <= 0) {
+        e.preventDefault();
+        alert('Debe ingresar al menos un precio mayor a 0');
+        this.querySelector('input[name="Precio_Mercado"]').focus();
+        return false;
+    }
+    
+    return true;
+});
 </script>
 {% endblock %}

@@ -4,7 +4,7 @@
 
 {% block content %}
 <div class="container-fluid">
-    <div class="d-flex justify-content-between align-items-center mb-4">
+    <div class="d-flex flex-column flex-sm-row justify-content-between align-items-sm-center gap-2 mb-4">
         <h1 class="h3 mb-0 text-gray-800">
             <i class="fas fa-sign-out-alt text-danger me-2"></i>Nueva Salida
         </h1>
@@ -15,8 +15,8 @@
         </div>
     </div>
 
-    <div class="row">
-        <div class="col-lg-8">
+    <div class="row g-3">
+        <div class="col-12 col-lg-8">
             <!-- Formulario Principal -->
             <div class="card shadow mb-4">
                 <div class="card-header py-3 bg-danger text-white">
@@ -27,13 +27,13 @@
                 <div class="card-body">
                     <form id="formSalida" method="POST" action="{{ url_for('bodega.bodega_procesar_salida') }}">
                         <div class="row g-3">
-                            <div class="col-md-6">
+                            <div class="col-12 col-md-6">
                                 <label class="form-label required">Fecha</label>
                                 <input type="date" name="fecha" class="form-control" 
                                        value="{{ fecha_hoy }}" required>
                             </div>
                             
-                            <div class="col-md-6">
+                            <div class="col-12 col-md-6">
                                 <label class="form-label required">Tipo de Movimiento</label>
                                 <select name="id_tipo_movimiento" class="form-select" required id="tipo-movimiento">
                                     <option value="">Seleccionar...</option>
@@ -45,7 +45,7 @@
                                 </select>
                             </div>
                             
-                            <div class="col-md-6">
+                            <div class="col-12 col-md-6">
                                 <label class="form-label required">Bodega</label>
                                 <select name="id_bodega" id="select-bodega" class="form-select" required>
                                     <option value="">Seleccionar...</option>
@@ -58,7 +58,7 @@
                             </div>
                             
                             <!-- Campos para VENTAS -->
-                            <div class="col-md-6" id="factura-container" style="display: none;">
+                            <div class="col-12 col-md-6" id="factura-container" style="display: none;">
                                 <label class="form-label">Factura Asociada (opcional)</label>
                                 <select name="id_factura_venta" class="form-select">
                                     <option value="">Crear nueva factura</option>
@@ -71,7 +71,7 @@
                                 </select>
                             </div>
                             
-                            <div class="col-md-6" id="cliente-container" style="display: none;">
+                            <div class="col-12 col-md-6" id="cliente-container" style="display: none;">
                                 <label class="form-label">Cliente</label>
                                 <select name="id_cliente" class="form-select" id="select-cliente">
                                     <option value="">Seleccionar...</option>
@@ -83,7 +83,7 @@
                                 </select>
                             </div>
                             
-                            <div class="col-md-6" id="tipo-pago-container" style="display: none;">
+                            <div class="col-12 col-md-6" id="tipo-pago-container" style="display: none;">
                                 <label class="form-label">Tipo de Pago</label>
                                 <select name="tipo_pago" class="form-select" id="select-tipo-pago">
                                     <option value="CONTADO">Contado</option>
@@ -104,18 +104,18 @@
                         
                         <!-- Productos -->
                         <div class="mt-4">
-                            <div class="d-flex justify-content-between align-items-center mb-3">
+                            <div class="d-flex flex-column flex-sm-row justify-content-between align-items-sm-center gap-2 mb-3">
                                 <h5 class="mb-0">
                                     <i class="fas fa-boxes me-2"></i>Productos a Retirar
                                 </h5>
                                 <button type="button" class="btn btn-primary btn-sm" 
-                                        onclick="agregarProductoSalida()">
+                                        onclick="mostrarSelectorProducto()" id="btn-agregar-producto" disabled>
                                     <i class="fas fa-plus me-1"></i> Agregar Producto
                                 </button>
                             </div>
                             
                             <div class="table-responsive" id="tabla-productos-container" style="display: none;">
-                                <table class="table table-sm">
+                                <table class="table table-sm table-hover">
                                     <thead>
                                         <tr class="table-light" id="tabla-header">
                                             <!-- Los headers se actualizarán dinámicamente -->
@@ -134,17 +134,17 @@
                             
                             <div class="alert alert-info" id="alerta-sin-productos">
                                 <i class="fas fa-info-circle me-2"></i>
-                                Seleccione una bodega y agregue productos usando el botón o la lista
+                                Seleccione una bodega y un tipo de movimiento, luego haga clic en un producto de la lista
                             </div>
                             
                             <input type="hidden" name="productos" id="productos-json" value="[]" required>
                         </div>
                         
                         <div class="mt-4 pt-3 border-top">
-                            <div class="d-flex justify-content-end">
-                                <button type="button" class="btn btn-secondary me-2" 
+                            <div class="d-flex flex-column flex-sm-row gap-2 justify-content-end">
+                                <button type="button" class="btn btn-secondary" 
                                         onclick="window.history.back()">
-                                    Cancelar
+                                    <i class="fas fa-times me-1"></i> Cancelar
                                 </button>
                                 <button type="submit" class="btn btn-danger" id="btn-guardar" disabled>
                                     <i class="fas fa-save me-1"></i> Guardar Salida
@@ -156,12 +156,13 @@
             </div>
         </div>
         
-        <div class="col-lg-4">
+        <div class="col-12 col-lg-4">
             <!-- Productos Disponibles en Bodega -->
             <div class="card shadow mb-4">
                 <div class="card-header py-3 bg-primary text-white">
                     <h6 class="m-0 font-weight-bold">
                         <i class="fas fa-box me-1"></i>Productos Disponibles
+                        <span class="badge bg-light text-dark ms-2" id="cantidad-productos-disponibles">0</span>
                     </h6>
                 </div>
                 <div class="card-body">
@@ -197,22 +198,21 @@
                 </div>
                 <div class="card-body">
                     <ul class="list-group list-group-flush">
-                        <li class="list-group-item d-flex justify-content-between">
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
                             <span>Productos:</span>
                             <strong id="resumen-cantidad">0</strong>
                         </li>
-                        <li class="list-group-item d-flex justify-content-between">
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
                             <span>Total Unidades:</span>
                             <strong id="resumen-unidades">0.000</strong>
                         </li>
-                        <!-- Elementos que se mostrarán según el tipo -->
-                        <li class="list-group-item d-flex justify-content-between" id="resumen-costo-container">
+                        <li class="list-group-item d-flex justify-content-between align-items-center" id="resumen-costo-container" style="display: none;">
                             <span>Total Costo:</span>
-                            <strong id="resumen-costo">C$0.00</strong>
+                            <strong id="resumen-costo" class="text-danger">C$0.00</strong>
                         </li>
-                        <li class="list-group-item d-flex justify-content-between" id="resumen-venta-container">
+                        <li class="list-group-item d-flex justify-content-between align-items-center" id="resumen-venta-container" style="display: none;">
                             <span>Total Venta:</span>
-                            <strong id="resumen-total-venta">C$0.00</strong>
+                            <strong id="resumen-total-venta" class="text-success">C$0.00</strong>
                         </li>
                     </ul>
                 </div>
@@ -223,300 +223,313 @@
 
 <!-- JavaScript -->
 <script>
+// URL de la API
+const API_STOCK_BODEGA_URL = "{{ url_for('bodega.api_productos_stock_bodega') }}";
+
 let productosSalida = [];
 let contadorProductos = 0;
 let productosDisponibles = [];
 
-// Configurar headers de tabla según tipo de movimiento
+// Función para escapar HTML
+function escapeHtml(text) {
+    if (!text) return '';
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+// Determinar tipo de movimiento actual
+function getTipoMovimiento() {
+    const select = document.getElementById('tipo-movimiento');
+    return select ? select.value : '';
+}
+
+// Verificar si es venta (ID_TipoMovimiento = 2)
+function esVenta() {
+    return getTipoMovimiento() === '2';
+}
+
+// Verificar si es consumo o merma
+function esConsumoOMerma() {
+    const tipo = getTipoMovimiento();
+    return tipo && tipo !== '2' && tipo !== '';
+}
+
+// Actualizar headers de tabla
 function actualizarHeadersTabla() {
-    const tipoMovimiento = document.getElementById('tipo-movimiento').value;
-    const esVenta = tipoMovimiento === '2';
     const headerRow = document.getElementById('tabla-header');
     const footerRow = document.getElementById('tabla-footer');
+    const resumenCosto = document.getElementById('resumen-costo-container');
+    const resumenVenta = document.getElementById('resumen-venta-container');
     
-    if (esVenta) {
-        // Headers para VENTA (solo precio de venta)
+    if (!headerRow || !footerRow) return;
+    
+    if (esVenta()) {
         headerRow.innerHTML = `
             <th>Producto</th>
-            <th>Stock Disp.</th>
-            <th>Cantidad</th>
-            <th>Precio Unitario</th>
-            <th>Total</th>
-            <th>Acciones</th>
+            <th class="text-center">Stock</th>
+            <th class="text-center">Cantidad</th>
+            <th class="text-center">Precio Venta</th>
+            <th class="text-center">Total</th>
+            <th class="text-center">Acciones</th>
         `;
-        
-        // Footer para VENTA
         footerRow.innerHTML = `
             <td colspan="4" class="text-end"><strong>Total Venta:</strong></td>
-            <td><strong id="total-venta">C$0.00</strong></td>
+            <td class="text-center"><strong id="total-venta">C$0.00</strong></td>
             <td></td>
         `;
-        
-        // Ocultar resumen de costo
-        document.getElementById('resumen-costo-container').style.display = 'none';
-        document.getElementById('resumen-venta-container').style.display = 'flex';
-    } else {
-        // Headers para otros tipos de salida (muestra costo)
+        if (resumenCosto) resumenCosto.style.display = 'none';
+        if (resumenVenta) resumenVenta.style.display = 'flex';
+    } else if (esConsumoOMerma()) {
         headerRow.innerHTML = `
             <th>Producto</th>
-            <th>Stock Disp.</th>
-            <th>Cantidad</th>
-            <th>Costo Unitario</th>
-            <th>Subtotal</th>
-            <th>Acciones</th>
+            <th class="text-center">Stock</th>
+            <th class="text-center">Cantidad</th>
+            <th class="text-center">Costo Unitario</th>
+            <th class="text-center">Subtotal</th>
+            <th class="text-center">Acciones</th>
         `;
-        
-        // Footer para otros tipos
         footerRow.innerHTML = `
             <td colspan="4" class="text-end"><strong>Total Costo:</strong></td>
-            <td><strong id="total-costo">C$0.00</strong></td>
+            <td class="text-center"><strong id="total-costo">C$0.00</strong></td>
             <td></td>
         `;
-        
-        // Mostrar resumen de costo, ocultar venta
-        document.getElementById('resumen-costo-container').style.display = 'flex';
-        document.getElementById('resumen-venta-container').style.display = 'none';
+        if (resumenCosto) resumenCosto.style.display = 'flex';
+        if (resumenVenta) resumenVenta.style.display = 'none';
     }
 }
 
-// Configurar campos según tipo de movimiento
+// Configurar campos según tipo
 function configurarCamposPorTipoSalida() {
-    const tipoMovimiento = document.getElementById('tipo-movimiento').value;
-    const esVenta = tipoMovimiento === '2'; // TIPO_VENTA = 2
+    const esVentaActual = esVenta();
+    const mostrar = esVentaActual ? 'block' : 'none';
     
-    // Actualizar headers de tabla
-    actualizarHeadersTabla();
+    const elementos = ['factura-container', 'cliente-container', 'tipo-pago-container', 'observacion-factura-container'];
+    elementos.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.style.display = mostrar;
+    });
     
-    // Mostrar/ocultar campos de facturación
-    const mostrar = esVenta ? 'block' : 'none';
+    const selectCliente = document.getElementById('select-cliente');
+    const selectTipoPago = document.getElementById('select-tipo-pago');
     
-    document.getElementById('factura-container').style.display = mostrar;
-    document.getElementById('cliente-container').style.display = mostrar;
-    document.getElementById('tipo-pago-container').style.display = mostrar;
-    document.getElementById('observacion-factura-container').style.display = mostrar;
+    if (selectCliente) selectCliente.required = esVentaActual;
+    if (selectTipoPago) selectTipoPago.required = esVentaActual;
     
-    // Configurar campos requeridos
-    document.getElementById('select-cliente').required = esVenta;
-    document.getElementById('select-tipo-pago').required = esVenta;
-    
-    // Si no es venta, limpiar campos de facturación
-    if (!esVenta) {
-        document.getElementById('select-cliente').value = '';
-        document.getElementById('select-tipo-pago').value = 'CONTADO';
-        document.querySelector('textarea[name="observacion_factura"]').value = '';
+    if (!esVentaActual) {
+        if (selectCliente) selectCliente.value = '';
+        if (selectTipoPago) selectTipoPago.value = 'CONTADO';
+        const obsFactura = document.querySelector('textarea[name="observacion_factura"]');
+        if (obsFactura) obsFactura.value = '';
     }
     
-    // Actualizar todas las filas existentes
-    actualizarFilasPorTipoMovimiento();
-    
+    actualizarHeadersTabla();
     habilitarBotonGuardar();
 }
 
-// Actualizar filas existentes cuando cambia el tipo de movimiento
-function actualizarFilasPorTipoMovimiento() {
-    const tipoMovimiento = document.getElementById('tipo-movimiento').value;
-    const esVenta = tipoMovimiento === '2';
+// FUNCIÓN PRINCIPAL: Agregar producto seleccionado
+function agregarProductoSeleccionado(producto) {
+    console.log('agregarProductoSeleccionado llamado con:', producto);
     
-    document.querySelectorAll('#productos-tbody tr').forEach((fila, index) => {
-        const productoId = fila.querySelector('.id-producto')?.value;
-        if (!productoId) return;
-        
-        // Obtener datos del producto
-        const producto = productosDisponibles.find(p => p.ID_Producto == productoId);
-        if (!producto) return;
-        
-        // Reconstruir la fila con el formato correcto
-        const nuevaFila = crearFilaProducto(producto, index, esVenta);
-        fila.outerHTML = nuevaFila;
-    });
+    if (!producto) {
+        console.error('Producto es null o undefined');
+        alert('Error: Producto no válido');
+        return;
+    }
     
-    // Reasignar eventos y recalcular
-    contadorProductos = document.querySelectorAll('#productos-tbody tr').length;
-    actualizarResumen();
-}
-
-// Crear fila de producto según el tipo
-function crearFilaProducto(producto, index, esVenta) {
-    if (esVenta) {
-        return `
+    // Verificar si ya existe
+    const existente = Array.from(document.querySelectorAll('.id-producto'))
+        .find(input => input.value == producto.ID_Producto);
+    
+    if (existente) {
+        alert(`El producto "${producto.Descripcion}" ya está en la lista`);
+        return;
+    }
+    
+    const tbody = document.getElementById('productos-tbody');
+    if (!tbody) {
+        console.error('No se encontró el tbody');
+        return;
+    }
+    
+    const index = contadorProductos++;
+    
+    // Crear fila
+    let filaHTML = '';
+    
+    if (esVenta()) {
+        filaHTML = `
             <tr id="producto-salida-${index}">
-                <td>
-                    <input type="hidden" name="productos[${index}][id_producto]" 
-                           value="${producto.ID_Producto}" class="id-producto">
-                    <div>
-                        <strong>${producto.Descripcion}</strong><br>
-                        <small class="text-muted">${producto.COD_Producto || 'Sin código'}</small>
-                    </div>
+                <td class="align-middle">
+                    <input type="hidden" class="id-producto" value="${producto.ID_Producto}">
+                    <input type="hidden" name="productos[${index}][id_producto]" value="${producto.ID_Producto}">
+                    <strong>${escapeHtml(producto.Descripcion)}</strong><br>
+                    <small class="text-muted">${escapeHtml(producto.COD_Producto || 'Sin código')}</small>
                 </td>
-                <td class="text-center">
+                <td class="text-center align-middle">
                     <span class="badge bg-success stock-disponible">${producto.Stock_Bodega.toFixed(2)}</span>
                 </td>
-                <td>
+                <td class="align-middle">
                     <input type="number" step="0.001" min="0.001" max="${producto.Stock_Bodega}"
                            name="productos[${index}][cantidad]" 
                            class="form-control form-control-sm cantidad" 
-                           value="1" onchange="validarCantidad(${index})" oninput="validarCantidad(${index})" required>
-                    <small class="text-danger d-block" style="font-size: 0.7em;" id="error-${index}"></small>
+                           value="1" onchange="calcularTotalFila(${index})" oninput="calcularTotalFila(${index})">
                 </td>
-                <td>
+                <td class="align-middle">
                     <input type="number" step="0.01" min="0" 
                            name="productos[${index}][precio_unitario]" 
                            class="form-control form-control-sm precio" 
-                           value="${producto.Precio_Venta.toFixed(2)}"
-                           onchange="calcularTotalFila(${index})" oninput="calcularTotalFila(${index})" required>
-                    <input type="hidden" name="productos[${index}][costo_unitario]" 
-                           class="costo-oculto" value="0">
+                           value="${(producto.Precio_Venta || 0).toFixed(2)}"
+                           onchange="calcularTotalFila(${index})" oninput="calcularTotalFila(${index})">
                 </td>
-                <td>
-                    <input type="text" class="form-control form-control-sm total-fila" 
-                           value="C$0.00" readonly>
+                <td class="text-center align-middle">
+                    <input type="text" class="form-control form-control-sm total-fila text-end" value="C$0.00" readonly style="width: 100px;">
                 </td>
-                <td class="text-center">
-                    <button type="button" class="btn btn-danger btn-sm" 
-                            onclick="eliminarProductoSalida(${index})" title="Eliminar">
+                <td class="text-center align-middle">
+                    <button type="button" class="btn btn-danger btn-sm" onclick="eliminarProductoSalida(${index})">
                         <i class="fas fa-trash"></i>
                     </button>
                 </td>
             </tr>
         `;
     } else {
-        // Calcular costo sugerido (60% del precio de venta para margen del 40%)
-        const costoSugerido = (producto.Precio_Venta * 0.6).toFixed(2);
-        
-        return `
+        const costoSugerido = producto.Precio_Venta ? (producto.Precio_Venta * 0.6).toFixed(2) : '0.00';
+        filaHTML = `
             <tr id="producto-salida-${index}">
-                <td>
-                    <input type="hidden" name="productos[${index}][id_producto]" 
-                           value="${producto.ID_Producto}" class="id-producto">
-                    <div>
-                        <strong>${producto.Descripcion}</strong><br>
-                        <small class="text-muted">${producto.COD_Producto || 'Sin código'}</small>
-                    </div>
+                <td class="align-middle">
+                    <input type="hidden" class="id-producto" value="${producto.ID_Producto}">
+                    <input type="hidden" name="productos[${index}][id_producto]" value="${producto.ID_Producto}">
+                    <strong>${escapeHtml(producto.Descripcion)}</strong><br>
+                    <small class="text-muted">${escapeHtml(producto.COD_Producto || 'Sin código')}</small>
                 </td>
-                <td class="text-center">
+                <td class="text-center align-middle">
                     <span class="badge bg-success stock-disponible">${producto.Stock_Bodega.toFixed(2)}</span>
                 </td>
-                <td>
+                <td class="align-middle">
                     <input type="number" step="0.001" min="0.001" max="${producto.Stock_Bodega}"
                            name="productos[${index}][cantidad]" 
                            class="form-control form-control-sm cantidad" 
-                           value="1" onchange="validarCantidad(${index})" oninput="validarCantidad(${index})" required>
-                    <small class="text-danger d-block" style="font-size: 0.7em;" id="error-${index}"></small>
+                           value="1" onchange="calcularTotalFila(${index})" oninput="calcularTotalFila(${index})">
                 </td>
-                <td>
+                <td class="align-middle">
                     <input type="number" step="0.01" min="0" 
                            name="productos[${index}][costo_unitario]" 
                            class="form-control form-control-sm costo" 
                            value="${costoSugerido}"
-                           onchange="calcularTotalFila(${index})" oninput="calcularTotalFila(${index})" required>
-                    <input type="hidden" name="productos[${index}][precio_unitario]" 
-                           class="precio-oculto" value="${producto.Precio_Venta.toFixed(2)}">
+                           onchange="calcularTotalFila(${index})" oninput="calcularTotalFila(${index})">
                 </td>
-                <td>
-                    <input type="text" class="form-control form-control-sm total-fila" 
-                           value="C$0.00" readonly>
+                <td class="text-center align-middle">
+                    <input type="text" class="form-control form-control-sm total-fila text-end" value="C$0.00" readonly style="width: 100px;">
                 </td>
-                <td class="text-center">
-                    <button type="button" class="btn btn-danger btn-sm" 
-                            onclick="eliminarProductoSalida(${index})" title="Eliminar">
+                <td class="text-center align-middle">
+                    <button type="button" class="btn btn-danger btn-sm" onclick="eliminarProductoSalida(${index})">
                         <i class="fas fa-trash"></i>
                     </button>
                 </td>
             </tr>
         `;
     }
+    
+    tbody.insertAdjacentHTML('beforeend', filaHTML);
+    
+    // Mostrar tabla
+    document.getElementById('tabla-productos-container').style.display = 'block';
+    document.getElementById('alerta-sin-productos').style.display = 'none';
+    
+    calcularTotalFila(index);
+    actualizarResumen();
+    habilitarBotonGuardar();
+    
+    console.log(`Producto agregado: ${producto.Descripcion}`);
 }
 
-// Cargar productos de la bodega seleccionada usando API
+// Función para el botón
+function mostrarSelectorProducto() {
+    console.log('mostrarSelectorProducto llamado');
+    console.log('productosDisponibles:', productosDisponibles);
+    
+    if (!productosDisponibles || productosDisponibles.length === 0) {
+        alert('⚠️ No hay productos disponibles. Primero seleccione una bodega con stock.');
+        return;
+    }
+    
+    if (!getTipoMovimiento()) {
+        alert('⚠️ Primero debe seleccionar un tipo de movimiento');
+        return;
+    }
+    
+    // Resaltar la lista
+    const lista = document.getElementById('lista-productos-bodega');
+    if (lista) {
+        lista.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        lista.style.backgroundColor = '#fff3cd';
+        setTimeout(() => {
+            lista.style.backgroundColor = '';
+        }, 1500);
+    }
+    
+    alert(`📦 Haga clic en un producto de la lista de la derecha para agregarlo. (${productosDisponibles.length} productos disponibles)`);
+}
+
+// Cargar productos de la bodega
 function cargarProductosBodega() {
     const bodegaId = document.getElementById('select-bodega').value;
     const lista = document.getElementById('lista-productos-bodega');
     const alerta = document.getElementById('alerta-bodega');
     const buscarInput = document.getElementById('buscar-producto-bodega');
-    const buscarBtn = buscarInput.nextElementSibling;
+    const buscarBtn = buscarInput ? buscarInput.nextElementSibling : null;
+    const cantidadSpan = document.getElementById('cantidad-productos-disponibles');
     
     if (!bodegaId) {
-        lista.innerHTML = `
-            <div class="text-center text-muted p-3">
-                <i class="fas fa-warehouse fa-2x mb-2"></i><br>
-                Seleccione una bodega primero
-            </div>
-        `;
-        alerta.innerHTML = '<i class="fas fa-info-circle me-1"></i> Seleccione una bodega para ver los productos';
-        alerta.style.display = 'block';
-        
-        // Deshabilitar búsqueda
-        buscarInput.disabled = true;
-        buscarBtn.disabled = true;
-        buscarInput.value = '';
-        buscarInput.placeholder = 'Seleccione una bodega primero';
-        
+        if (lista) lista.innerHTML = '<div class="text-center text-muted p-3"><i class="fas fa-warehouse fa-2x mb-2"></i><br>Seleccione una bodega primero</div>';
+        if (alerta) alerta.style.display = 'block';
+        if (buscarInput) buscarInput.disabled = true;
+        if (buscarBtn) buscarBtn.disabled = true;
+        if (cantidadSpan) cantidadSpan.textContent = '0';
         productosDisponibles = [];
         return;
     }
     
-    alerta.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> Cargando productos...';
-    lista.innerHTML = '';
+    if (alerta) {
+        alerta.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> Cargando productos...';
+        alerta.style.display = 'block';
+    }
+    if (lista) lista.innerHTML = '<div class="text-center p-3"><i class="fas fa-spinner fa-spin fa-2x"></i><br>Cargando...</div>';
     
-    // Habilitar búsqueda
-    buscarInput.disabled = false;
-    buscarBtn.disabled = false;
-    buscarInput.placeholder = 'Buscar producto...';
-    
-    // Llamar a la API
-    fetch(`/api/productos/stock-bodega?bodega=${bodegaId}`)
-        .then(response => {
-            if (!response.ok) {
-                throw new Error('Error en la respuesta del servidor');
-            }
-            return response.json();
-        })
+    fetch(`${API_STOCK_BODEGA_URL}?bodega=${bodegaId}`)
+        .then(response => response.json())
         .then(data => {
-            if (data.error) {
-                throw new Error(data.error);
-            }
+            if (data.error) throw new Error(data.error);
             
             productosDisponibles = data;
+            console.log('Productos cargados:', productosDisponibles.length);
+            
+            if (cantidadSpan) cantidadSpan.textContent = productosDisponibles.length;
             
             if (productosDisponibles.length === 0) {
-                lista.innerHTML = `
-                    <div class="alert alert-warning">
-                        <i class="fas fa-exclamation-triangle me-1"></i>
-                        No hay productos con stock disponible en esta bodega
-                    </div>
-                `;
-                alerta.style.display = 'none';
+                lista.innerHTML = '<div class="alert alert-warning">No hay productos con stock disponible</div>';
+                if (alerta) alerta.style.display = 'none';
             } else {
-                alerta.style.display = 'none';
-                mostrarProductosDisponibles(productosDisponibles);
+                if (alerta) alerta.style.display = 'none';
+                mostrarListaProductos(productosDisponibles);
+                if (buscarInput) buscarInput.disabled = false;
+                if (buscarBtn) buscarBtn.disabled = false;
             }
         })
         .catch(error => {
-            console.error('Error al cargar productos:', error);
-            lista.innerHTML = `
-                <div class="alert alert-danger">
-                    <i class="fas fa-exclamation-circle me-1"></i>
-                    Error al cargar productos: ${error.message}
-                </div>
-            `;
-            alerta.style.display = 'none';
+            console.error('Error:', error);
+            lista.innerHTML = `<div class="alert alert-danger">Error: ${error.message}</div>`;
             productosDisponibles = [];
+            if (cantidadSpan) cantidadSpan.textContent = '0';
         });
 }
 
-// Mostrar productos disponibles
-function mostrarProductosDisponibles(productos) {
+// Mostrar lista de productos
+function mostrarListaProductos(productos) {
     const lista = document.getElementById('lista-productos-bodega');
-    lista.innerHTML = '';
+    if (!lista) return;
     
-    if (productos.length === 0) {
-        lista.innerHTML = `
-            <div class="alert alert-warning">
-                No se encontraron productos
-            </div>
-        `;
-        return;
-    }
+    lista.innerHTML = '';
     
     productos.forEach(producto => {
         const item = document.createElement('a');
@@ -524,491 +537,188 @@ function mostrarProductosDisponibles(productos) {
         item.href = '#';
         item.onclick = (e) => {
             e.preventDefault();
-            seleccionarProductoSalida(producto);
+            console.log('Click en producto:', producto.Descripcion);
+            agregarProductoSeleccionado(producto);
         };
         
         item.innerHTML = `
-            <div class="d-flex w-100 justify-content-between align-items-start">
-                <div class="flex-grow-1">
-                    <h6 class="mb-1">${producto.Descripcion}</h6>
-                    <p class="mb-1">
-                        <small class="text-muted">Código: ${producto.COD_Producto || 'N/A'}</small><br>
-                        <small class="text-muted">Categoría: ${producto.Categoria_Descripcion || 'Sin categoría'}</small>
-                    </p>
-                </div>
-                <div class="text-end ms-2">
-                    <span class="badge bg-success mb-1">${producto.Stock_Bodega.toFixed(2)} disp.</span><br>
-                    <small class="text-primary">C$${producto.Precio_Venta.toFixed(2)}</small>
-                </div>
+            <div class="d-flex w-100 justify-content-between">
+                <h6 class="mb-1">${escapeHtml(producto.Descripcion)}</h6>
+                <span class="badge bg-success">${producto.Stock_Bodega.toFixed(2)}</span>
             </div>
-            <small class="text-muted d-block mt-1">
-                <i class="fas fa-balance-scale me-1"></i>${producto.Unidad_Descripcion || 'Unidad'}
-            </small>
+            <small class="text-muted">Código: ${escapeHtml(producto.COD_Producto || 'N/A')}</small><br>
+            <small class="text-muted">${escapeHtml(producto.Categoria_Descripcion || 'Sin categoría')}</small>
+            ${esVenta() ? `<div class="mt-1"><small class="text-primary">Precio: C$${(producto.Precio_Venta || 0).toFixed(2)}</small></div>` : ''}
         `;
         lista.appendChild(item);
     });
 }
 
-// Filtrar productos por búsqueda
+// Filtrar productos
 function filtrarProductos() {
     const termino = document.getElementById('buscar-producto-bodega').value.toLowerCase();
-    if (!termino || !productosDisponibles.length) {
-        mostrarProductosDisponibles(productosDisponibles);
+    if (!termino) {
+        mostrarListaProductos(productosDisponibles);
         return;
     }
     
-    const productosFiltrados = productosDisponibles.filter(p => 
+    const filtrados = productosDisponibles.filter(p => 
         p.Descripcion.toLowerCase().includes(termino) ||
-        (p.COD_Producto && p.COD_Producto.toLowerCase().includes(termino)) ||
-        (p.Categoria_Descripcion && p.Categoria_Descripcion.toLowerCase().includes(termino))
+        (p.COD_Producto && p.COD_Producto.toLowerCase().includes(termino))
     );
-    mostrarProductosDisponibles(productosFiltrados);
+    mostrarListaProductos(filtrados);
 }
 
-// Agregar producto a salida
-function agregarProductoSalida(producto = null) {
-    if (!producto) {
-        alert('Seleccione un producto de la lista');
-        return;
-    }
-    
-    // Verificar si ya existe en la tabla
-    const existente = Array.from(document.querySelectorAll('.id-producto'))
-        .find(input => input.value == producto.ID_Producto);
-    
-    if (existente) {
-        alert('Este producto ya está en la lista');
-        return;
-    }
-    
-    const tbody = document.getElementById('productos-tbody');
-    const index = contadorProductos++;
-    const tipoMovimiento = document.getElementById('tipo-movimiento').value;
-    const esVenta = tipoMovimiento === '2';
-    
-    // Crear fila según el tipo
-    const filaHTML = crearFilaProducto(producto, index, esVenta);
-    tbody.insertAdjacentHTML('beforeend', filaHTML);
-    
-    // Mostrar tabla y ocultar alerta
-    document.getElementById('tabla-productos-container').style.display = 'block';
-    document.getElementById('alerta-sin-productos').style.display = 'none';
-    
-    calcularTotalFila(index);
-    actualizarResumen();
-    habilitarBotonGuardar();
-}
-
-// Validar cantidad no exceda stock
-function validarCantidad(index) {
-    const fila = document.getElementById(`producto-salida-${index}`);
-    if (!fila) return;
-    
-    const cantidadInput = fila.querySelector('.cantidad');
-    const errorElement = fila.querySelector(`#error-${index}`);
-    const stockBadge = fila.querySelector('.stock-disponible');
-    
-    let maxStock = 0;
-    if (stockBadge) {
-        maxStock = parseFloat(stockBadge.textContent) || 0;
-    }
-    
-    const cantidad = parseFloat(cantidadInput.value) || 0;
-    
-    if (errorElement) {
-        if (maxStock > 0 && cantidad > maxStock) {
-            cantidadInput.value = maxStock;
-            errorElement.textContent = `Máx: ${maxStock.toFixed(2)}`;
-            errorElement.classList.remove('d-none');
-            errorElement.classList.add('d-block');
-        } else {
-            errorElement.classList.remove('d-block');
-            errorElement.classList.add('d-none');
-        }
-    }
-    
-    calcularTotalFila(index);
-}
-
-// Calcular total de la fila
+// Calcular total de fila
 function calcularTotalFila(index) {
     const fila = document.getElementById(`producto-salida-${index}`);
     if (!fila) return;
     
-    const cantidadInput = fila.querySelector('.cantidad');
-    const precioInput = fila.querySelector('.precio') || fila.querySelector('.costo');
-    const totalInput = fila.querySelector('.total-fila');
-    const tipoMovimiento = document.getElementById('tipo-movimiento').value;
-    const esVenta = tipoMovimiento === '2';
-    
-    if (!cantidadInput || !precioInput || !totalInput) return;
-    
-    const cantidad = parseFloat(cantidadInput.value) || 0;
-    const precio = parseFloat(precioInput.value) || 0;
+    const cantidad = parseFloat(fila.querySelector('.cantidad')?.value) || 0;
+    const precio = parseFloat(fila.querySelector('.precio, .costo')?.value) || 0;
     const total = cantidad * precio;
     
-    totalInput.value = `C$${total.toFixed(2)}`;
-    
-    // Actualizar campos ocultos según el tipo
-    if (esVenta) {
-        const costoOculto = fila.querySelector('.costo-oculto');
-        if (costoOculto) {
-            // Estimar costo como 60% del precio para inventario
-            costoOculto.value = (precio * 0.6).toFixed(2);
-        }
-    } else {
-        const precioOculto = fila.querySelector('.precio-oculto');
-        if (precioOculto) {
-            // Mantener el precio de venta original
-            // No se modifica
-        }
-    }
+    const totalInput = fila.querySelector('.total-fila');
+    if (totalInput) totalInput.value = `C$${total.toFixed(2)}`;
     
     actualizarResumen();
 }
 
-// Eliminar producto de salida
+// Eliminar producto
 function eliminarProductoSalida(index) {
     const fila = document.getElementById(`producto-salida-${index}`);
     if (fila) {
         fila.remove();
         actualizarResumen();
         
-        // Si no quedan productos, mostrar alerta
-        const tbody = document.getElementById('productos-tbody');
-        if (tbody.children.length === 0) {
+        if (document.querySelectorAll('#productos-tbody tr').length === 0) {
             document.getElementById('tabla-productos-container').style.display = 'none';
             document.getElementById('alerta-sin-productos').style.display = 'block';
         }
+        habilitarBotonGuardar();
     }
-    
-    habilitarBotonGuardar();
 }
 
 // Actualizar resumen
 function actualizarResumen() {
-    const tipoMovimiento = document.getElementById('tipo-movimiento').value;
-    const esVenta = tipoMovimiento === '2';
-    
     let total = 0;
     let unidades = 0;
-    let cantidadProductos = 0;
+    let cantidad = 0;
     
     document.querySelectorAll('#productos-tbody tr').forEach(fila => {
-        const cantidadInput = fila.querySelector('.cantidad');
-        const precioInput = fila.querySelector('.precio') || fila.querySelector('.costo');
+        const cant = parseFloat(fila.querySelector('.cantidad')?.value) || 0;
+        const precio = parseFloat(fila.querySelector('.precio, .costo')?.value) || 0;
         
-        if (!cantidadInput || !precioInput) return;
-        
-        const cantidad = parseFloat(cantidadInput.value) || 0;
-        const precio = parseFloat(precioInput.value) || 0;
-        
-        if (cantidad > 0) {
-            unidades += cantidad;
-            total += cantidad * precio;
-            cantidadProductos++;
+        if (cant > 0) {
+            unidades += cant;
+            total += cant * precio;
+            cantidad++;
         }
     });
     
-    document.getElementById('resumen-cantidad').textContent = cantidadProductos;
+    document.getElementById('resumen-cantidad').textContent = cantidad;
     document.getElementById('resumen-unidades').textContent = unidades.toFixed(3);
     
-    if (esVenta) {
+    if (esVenta()) {
         document.getElementById('resumen-total-venta').textContent = `C$${total.toFixed(2)}`;
-        document.getElementById('total-venta').textContent = `C$${total.toFixed(2)}`;
+        const totalVenta = document.getElementById('total-venta');
+        if (totalVenta) totalVenta.textContent = `C$${total.toFixed(2)}`;
     } else {
         document.getElementById('resumen-costo').textContent = `C$${total.toFixed(2)}`;
-        document.getElementById('total-costo').textContent = `C$${total.toFixed(2)}`;
+        const totalCosto = document.getElementById('total-costo');
+        if (totalCosto) totalCosto.textContent = `C$${total.toFixed(2)}`;
     }
     
-    // Actualizar JSON oculto con todos los datos necesarios
+    // Actualizar JSON
     const productosData = [];
     document.querySelectorAll('#productos-tbody tr').forEach((fila, idx) => {
-        const idProductoInput = fila.querySelector('.id-producto');
-        const cantidadInput = fila.querySelector('.cantidad');
+        const idProducto = fila.querySelector('.id-producto')?.value;
+        const cantidad = fila.querySelector('.cantidad')?.value;
         
-        if (idProductoInput && idProductoInput.value && cantidadInput) {
-            let producto = {
-                id_producto: idProductoInput.value,
-                cantidad: cantidadInput.value
-            };
-            
-            if (esVenta) {
-                // Para ventas: tomar precio del campo visible y costo del oculto
-                const precioInput = fila.querySelector('.precio');
-                const costoOculto = fila.querySelector('.costo-oculto');
-                producto.precio_unitario = precioInput ? precioInput.value : '0';
-                producto.costo_unitario = costoOculto ? costoOculto.value : '0';
+        if (idProducto && cantidad) {
+            const item = { id_producto: idProducto, cantidad: cantidad };
+            if (esVenta()) {
+                item.precio_unitario = fila.querySelector('.precio')?.value || '0';
+                item.costo_unitario = '0';
             } else {
-                // Para otros: tomar costo del campo visible y precio del oculto
-                const costoInput = fila.querySelector('.costo');
-                const precioOculto = fila.querySelector('.precio-oculto');
-                producto.costo_unitario = costoInput ? costoInput.value : '0';
-                producto.precio_unitario = precioOculto ? precioOculto.value : '0';
+                item.costo_unitario = fila.querySelector('.costo')?.value || '0';
+                item.precio_unitario = '0';
             }
-            
-            productosData.push(producto);
+            productosData.push(item);
         }
     });
     
     document.getElementById('productos-json').value = JSON.stringify(productosData);
-    habilitarBotonGuardar();
 }
 
-// Habilitar o deshabilitar botón guardar
+// Habilitar botón guardar
 function habilitarBotonGuardar() {
-    const productosData = JSON.parse(document.getElementById('productos-json').value || '[]');
-    const btnGuardar = document.getElementById('btn-guardar');
-    const bodegaSeleccionada = document.getElementById('select-bodega').value;
-    const tipoMovimiento = document.getElementById('tipo-movimiento').value;
+    const btn = document.getElementById('btn-guardar');
+    const productos = JSON.parse(document.getElementById('productos-json').value || '[]');
+    const bodega = document.getElementById('select-bodega').value;
+    const tipo = getTipoMovimiento();
     
-    let habilitar = false;
+    let habilitar = productos.length > 0 && bodega && tipo;
     
-    if (productosData.length > 0 && bodegaSeleccionada && tipoMovimiento) {
-        // Verificar que todos los productos tengan datos válidos
-        const todosValidos = productosData.every(p => 
-            p.id_producto && 
-            p.cantidad && parseFloat(p.cantidad) > 0
-        );
-        
-        // Si es venta, verificar cliente seleccionado
-        if (tipoMovimiento === '2') {
-            const clienteSeleccionado = document.getElementById('select-cliente').value;
-            const tipoPagoSeleccionado = document.getElementById('select-tipo-pago').value;
-            habilitar = todosValidos && clienteSeleccionado && tipoPagoSeleccionado;
-        } else {
-            habilitar = todosValidos;
-        }
+    if (habilitar && esVenta()) {
+        const cliente = document.getElementById('select-cliente')?.value;
+        habilitar = habilitar && cliente;
     }
     
-    btnGuardar.disabled = !habilitar;
+    btn.disabled = !habilitar;
 }
-
-// Seleccionar producto para salida
-function seleccionarProductoSalida(producto) {
-    agregarProductoSalida(producto);
-}
-
-// Validar formulario antes de enviar
-document.getElementById('formSalida').addEventListener('submit', function(e) {
-    e.preventDefault();
-    
-    const bodegaId = document.getElementById('select-bodega').value;
-    if (!bodegaId) {
-        alert('Debe seleccionar una bodega');
-        return false;
-    }
-    
-    const tipoMovimiento = document.getElementById('tipo-movimiento').value;
-    if (!tipoMovimiento) {
-        alert('Debe seleccionar un tipo de movimiento');
-        return false;
-    }
-    
-    // Validaciones específicas para ventas
-    if (tipoMovimiento === '2') {
-        const clienteId = document.getElementById('select-cliente').value;
-        if (!clienteId) {
-            alert('Para ventas debe seleccionar un cliente');
-            return false;
-        }
-        
-        const tipoPago = document.getElementById('select-tipo-pago').value;
-        if (!tipoPago) {
-            alert('Debe seleccionar un tipo de pago');
-            return false;
-        }
-    }
-    
-    const productosData = JSON.parse(document.getElementById('productos-json').value || '[]');
-    
-    if (productosData.length === 0) {
-        alert('Debe agregar al menos un producto');
-        return false;
-    }
-    
-    // Verificar stock antes de enviar
-    let stockValido = true;
-    let mensajeError = '';
-    
-    document.querySelectorAll('#productos-tbody tr').forEach(fila => {
-        const idProductoInput = fila.querySelector('.id-producto');
-        const cantidadInput = fila.querySelector('.cantidad');
-        const stockBadge = fila.querySelector('.stock-disponible');
-        
-        if (!idProductoInput || !idProductoInput.value || !cantidadInput) return;
-        
-        const productoNombre = fila.querySelector('strong') ? fila.querySelector('strong').textContent : 'Producto';
-        const cantidad = parseFloat(cantidadInput.value) || 0;
-        
-        let stockDisponible = 0;
-        if (stockBadge) {
-            stockDisponible = parseFloat(stockBadge.textContent) || 0;
-        }
-        
-        if (cantidad > stockDisponible) {
-            stockValido = false;
-            mensajeError += `- ${productoNombre}: Solicitado ${cantidad.toFixed(2)}, Disponible ${stockDisponible.toFixed(2)}\n`;
-        }
-    });
-    
-    if (!stockValido) {
-        alert(`Stock insuficiente:\n${mensajeError}`);
-        return false;
-    }
-    
-    // Confirmar según tipo de movimiento
-    const tipoMovimientoTexto = document.querySelector('#tipo-movimiento option:checked').textContent;
-    let mensajeConfirmacion = '';
-    
-    if (tipoMovimiento === '2') {
-        const tipoPago = document.getElementById('select-tipo-pago').value;
-        const cliente = document.querySelector('#select-cliente option:checked').textContent;
-        const totalVenta = document.getElementById('total-venta').textContent;
-        
-        mensajeConfirmacion = `¿Está seguro de guardar esta VENTA?\n\n`;
-        mensajeConfirmacion += `Cliente: ${cliente}\n`;
-        mensajeConfirmacion += `Tipo de pago: ${tipoPago}\n`;
-        mensajeConfirmacion += `Productos: ${productosData.length}\n`;
-        mensajeConfirmacion += `Total Venta: ${totalVenta}\n\n`;
-        mensajeConfirmacion += `Esta acción:\n`;
-        mensajeConfirmacion += `1. Descontará productos del inventario\n`;
-        mensajeConfirmacion += `2. Creará una factura por ${totalVenta}\n`;
-        mensajeConfirmacion += tipoPago === 'CREDITO' ? '3. Creará una cuenta por cobrar' : '3. Registrará pago de contado';
-    } else {
-        mensajeConfirmacion = `¿Está seguro de guardar esta ${tipoMovimientoTexto.toUpperCase()}?\n\n`;
-        mensajeConfirmacion += `Productos: ${productosData.length}\n`;
-        mensajeConfirmacion += `Total: ${document.getElementById('total-costo').textContent}`;
-    }
-    
-    if (confirm(mensajeConfirmacion)) {
-        this.submit();
-    }
-});
 
 // Event listeners
 document.addEventListener('DOMContentLoaded', function() {
-    // Configurar fecha actual
     const fechaInput = document.querySelector('input[name="fecha"]');
-    if (!fechaInput.value) {
-        const hoy = new Date().toISOString().split('T')[0];
-        fechaInput.value = hoy;
+    if (fechaInput && !fechaInput.value) {
+        fechaInput.value = new Date().toISOString().split('T')[0];
     }
     
-    // Inicializar headers
-    actualizarHeadersTabla();
+    document.getElementById('tipo-movimiento')?.addEventListener('change', function() {
+        configurarCamposPorTipoSalida();
+        // Limpiar productos al cambiar tipo
+        document.getElementById('productos-tbody').innerHTML = '';
+        contadorProductos = 0;
+        document.getElementById('tabla-productos-container').style.display = 'none';
+        document.getElementById('alerta-sin-productos').style.display = 'block';
+        actualizarResumen();
+    });
     
-    // Configurar cambios en tipo de movimiento
-    document.getElementById('tipo-movimiento').addEventListener('change', configurarCamposPorTipoSalida);
-    
-    // Configurar cambios en bodega
-    document.getElementById('select-bodega').addEventListener('change', function() {
+    document.getElementById('select-bodega')?.addEventListener('change', function() {
         cargarProductosBodega();
+        // Limpiar productos al cambiar bodega
+        document.getElementById('productos-tbody').innerHTML = '';
+        contadorProductos = 0;
+        document.getElementById('tabla-productos-container').style.display = 'none';
+        document.getElementById('alerta-sin-productos').style.display = 'block';
+        actualizarResumen();
         habilitarBotonGuardar();
     });
     
-    // Configurar cambios en cliente y tipo pago
-    document.getElementById('select-cliente').addEventListener('change', habilitarBotonGuardar);
-    document.getElementById('select-tipo-pago').addEventListener('change', habilitarBotonGuardar);
+    document.getElementById('select-cliente')?.addEventListener('change', habilitarBotonGuardar);
+    document.getElementById('select-tipo-pago')?.addEventListener('change', habilitarBotonGuardar);
     
-    // Configurar búsqueda por Enter
-    document.getElementById('buscar-producto-bodega').addEventListener('keypress', function(e) {
-        if (e.key === 'Enter') {
-            e.preventDefault();
-            filtrarProductos();
+    document.getElementById('buscar-producto-bodega')?.addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') filtrarProductos();
+    });
+    
+    document.getElementById('formSalida')?.addEventListener('submit', function(e) {
+        e.preventDefault();
+        if (confirm('¿Confirmar esta salida de inventario?')) {
+            this.submit();
         }
     });
     
-    // Inicializar
     configurarCamposPorTipoSalida();
 });
 </script>
 
 <style>
-.required:after {
-    content: " *";
-    color: #dc3545;
-}
-
-#productos-tbody tr td {
-    vertical-align: middle;
-}
-
-.badge {
-    min-width: 65px;
-    font-size: 0.75rem;
-    padding: 0.25em 0.4em;
-}
-
-.form-control-sm {
-    padding: 0.25rem 0.5rem;
-    font-size: 0.875rem;
-    height: calc(1.5em + 0.5rem + 2px);
-}
-
-.list-group-item:hover {
-    background-color: #f8f9fa;
-    cursor: pointer;
-    border-left: 3px solid #0d6efd;
-}
-
-#tabla-productos-container table th {
-    white-space: nowrap;
-    font-size: 0.875rem;
-    background-color: #f8f9fa;
-}
-
-#tabla-productos-container table td {
-    padding: 0.5rem;
-}
-
-.input-group .btn {
-    padding-left: 0.75rem;
-    padding-right: 0.75rem;
-}
-
-.text-primary {
-    color: #0d6efd !important;
-}
-
-.text-success {
-    color: #198754 !important;
-}
-
-.bg-success {
-    background-color: #198754 !important;
-}
-
-.bg-info {
-    background-color: #0dcaf0 !important;
-}
-
-.bg-danger {
-    background-color: #dc3545 !important;
-}
-
-.bg-primary {
-    background-color: #0d6efd !important;
-}
-
-.btn-danger {
-    background-color: #dc3545;
-    border-color: #dc3545;
-}
-
-.btn-danger:hover {
-    background-color: #bb2d3b;
-    border-color: #b02a37;
-}
-
-.btn-primary {
-    background-color: #0d6efd;
-    border-color: #0d6efd;
-}
-
-.btn-primary:hover {
-    background-color: #0b5ed7;
-    border-color: #0a58ca;
-}
+.required:after { content: " *"; color: #dc3545; }
+#productos-tbody tr td { vertical-align: middle; }
+.badge { min-width: 65px; }
+.list-group-item:hover { background-color: #f8f9fa; cursor: pointer; border-left: 3px solid #0d6efd; }
+.total-fila { background-color: #f8f9fa; font-weight: bold; width: 100px; }
 </style>
 {% endblock %}

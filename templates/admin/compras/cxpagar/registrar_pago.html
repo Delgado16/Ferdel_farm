@@ -1,375 +1,207 @@
 {% extends "layout.html" %}
 
-{% block title %}Registrar Pago - Cuentas por Pagar{% endblock %}
+{% block title %}Registrar Pago - {{ cuenta_info.Num_Documento }}{% endblock %}
 
 {% block content %}
 <div class="container-fluid">
-    <!-- Header -->
-    <div class="d-flex flex-column flex-sm-row align-items-start align-items-sm-center justify-content-between mb-4">
-        <div class="d-flex align-items-center mb-3 mb-sm-0">
-            <div class="icon-circle bg-success text-white mr-3">
-                <i class="fas fa-money-bill-wave"></i>
-            </div>
-            <div>
-                <h1 class="h3 mb-0 text-gray-800">Registrar Pago</h1>
-                <p class="text-muted mb-0 d-none d-sm-block">Completar transacción de cuenta por pagar</p>
-            </div>
-        </div>
-        <div class="d-flex flex-wrap gap-2">
-            {% if cuenta_info %}
-            <a href="{{ url_for('admin.historial_pagos_cuenta', id_cuenta=cuenta_info.ID_Cuenta) }}" 
-               class="btn btn-outline-info btn-sm btn-block-sm">
-                <i class="fas fa-history mr-1"></i> <span>Historial</span>
-            </a>
-            {% endif %}
-            <a href="{{ url_for('admin.admin_cuentas_por_pagar') }}" class="btn btn-secondary btn-sm btn-block-sm">
-                <i class="fas fa-arrow-left mr-1"></i> <span>Volver</span>
-            </a>
-        </div>
-    </div>
+    <h1 class="h3 mb-4 text-gray-800">Registrar Pago a Proveedor</h1>
 
-
-    <div class="row g-4">
-        <!-- Contenido Principal -->
-        <div class="col-12 col-lg-8">
+    <div class="row">
+        <div class="col-lg-8">
+            <!-- Información de la Cuenta -->
             <div class="card shadow mb-4">
-                <div class="card-header bg-success text-white py-3 d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center">
-                    <h6 class="m-0 font-weight-bold mb-2 mb-md-0">
-                        <i class="fas fa-credit-card mr-2"></i>Información del Pago
-                    </h6>
-                    {% if cuenta_info %}
-                    <span class="badge badge-pill {{ 'badge-warning' if cuenta_info.Estado == 'Pendiente' else 'badge-success' if cuenta_info.Estado == 'Pagada' else 'badge-secondary' }} text-uppercase">
-                        {{ cuenta_info.Estado }}
-                    </span>
-                    {% endif %}
+                <div class="card-header py-3 bg-info text-white">
+                    <h6 class="m-0 font-weight-bold">Información de la Cuenta por Pagar</h6>
                 </div>
-                <div class="card-body p-3 p-md-4">
-                    {% if cuenta_info %}
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <p><strong>Proveedor:</strong> {{ cuenta_info.Proveedor }}</p>
+                            <p><strong>Documento:</strong> {{ cuenta_info.Num_Documento }}</p>
+                            <p><strong>Estado Actual:</strong> 
+                                {% if cuenta_info.Estado == 'Pagada' %}
+                                    <span class="badge badge-success">Pagada</span>
+                                {% elif cuenta_info.Estado == 'Anulada' %}
+                                    <span class="badge badge-secondary">Anulada</span>
+                                {% else %}
+                                    <span class="badge badge-warning">Pendiente</span>
+                                {% endif %}
+                            </p>
+                        </div>
+                        <div class="col-md-6">
+                            <p><strong>Monto Total:</strong> <span class="font-weight-bold">C${{ "%.2f"|format(cuenta_info.Monto_Movimiento) }}</span></p>
+                            <p><strong>Saldo Pendiente:</strong> 
+                                <span class="text-danger font-weight-bold" style="font-size: 1.2rem;">C${{ "%.2f"|format(cuenta_info.Saldo_Pendiente) }}</span>
+                            </p>
+                        </div>
+                    </div>
                     
-                    <!-- Validación de estado -->
-                    {% if cuenta_info.Estado != 'Pendiente' %}
-                    <div class="alert alert-warning alert-dismissible fade show mb-4" role="alert">
-                        <div class="d-flex align-items-start">
-                            <i class="fas fa-exclamation-triangle mr-3 mt-1 flex-shrink-0"></i>
-                            <div>
-                                <h6 class="alert-heading mb-1">Cuenta no disponible para pago</h6>
-                                <p class="mb-0">Esta cuenta ya está <strong>{{ cuenta_info.Estado.lower() }}</strong>. No se pueden registrar pagos.</p>
+                    <!-- Barra de progreso del pago -->
+                    <div class="row mt-3">
+                        <div class="col-12">
+                            <div class="progress" style="height: 25px;">
+                                {% set porcentaje = ((cuenta_info.Monto_Movimiento - cuenta_info.Saldo_Pendiente) / cuenta_info.Monto_Movimiento * 100) if cuenta_info.Monto_Movimiento > 0 else 0 %}
+                                <div class="progress-bar bg-success" role="progressbar" 
+                                     style="width: {{ porcentaje }}%;" 
+                                     aria-valuenow="{{ porcentaje }}" aria-valuemin="0" aria-valuemax="100">
+                                    {{ "%.1f"|format(porcentaje) }}% Pagado
+                                </div>
+                            </div>
+                            <div class="d-flex justify-content-between mt-1">
+                                <small>Pagado: C${{ "%.2f"|format(cuenta_info.Monto_Movimiento - cuenta_info.Saldo_Pendiente) }}</small>
+                                <small>Total: C${{ "%.2f"|format(cuenta_info.Monto_Movimiento) }}</small>
                             </div>
                         </div>
                     </div>
-                    {% endif %}
-                    
-                    <!-- Información de la cuenta - Mejorada -->
-                    <div class="account-summary-card mb-4 p-3 p-md-4">
-                        <div class="d-flex justify-content-between align-items-start mb-3">
-                            <h6 class="font-weight-bold text-success mb-0">
-                                <i class="fas fa-file-invoice-dollar mr-2"></i>Cuenta #{{ cuenta_info.ID_Cuenta }}
-                            </h6>
-                            {% if cuenta_info.dias_vencimiento and cuenta_info.dias_vencimiento < 0 %}
-                            <span class="badge badge-danger">
-                                <i class="fas fa-clock mr-1"></i>Vencida
-                            </span>
-                            {% endif %}
-                        </div>
-                        
-                        <div class="row g-3">
-                            <div class="col-12 col-md-6">
-                                <div class="info-item mb-3">
-                                    <label class="text-muted small mb-1 d-block">Proveedor</label>
-                                    <div class="font-weight-bold">{{ cuenta_info.Proveedor or 'N/A' }}</div>
-                                </div>
-                                <div class="info-item mb-3">
-                                    <label class="text-muted small mb-1 d-block">Documento</label>
-                                    <div class="font-weight-bold text-primary">{{ cuenta_info.Num_Documento or 'N/A' }}</div>
-                                </div>
-                                {% if cuenta_info.Observacion %}
-                                <div class="info-item">
-                                    <label class="text-muted small mb-1 d-block">Observación</label>
-                                    <div class="small text-muted">{{ cuenta_info.Observacion }}</div>
-                                </div>
-                                {% endif %}
-                            </div>
-                            <div class="col-12 col-md-6">
-                                <div class="info-item mb-3">
-                                    <label class="text-muted small mb-1 d-block">Monto Total</label>
-                                    <div class="font-weight-bold text-dark">
-                                        ${{ "{:,.2f}".format(cuenta_info.Monto_Movimiento) if cuenta_info.Monto_Movimiento else '0.00' }}
-                                    </div>
-                                </div>
-                                <div class="info-item mb-3">
-                                    <label class="text-muted small mb-1 d-block">Saldo Pendiente</label>
-                                    <div class="font-weight-bold {{ 'text-danger' if cuenta_info.Saldo_Pendiente and cuenta_info.Saldo_Pendiente > 0 else 'text-success' }}">
-                                        ${{ "{:,.2f}".format(cuenta_info.Saldo_Pendiente) if cuenta_info.Saldo_Pendiente else '0.00' }}
-                                    </div>
-                                </div>
-                                {% if cuenta_info.Fecha_Vencimiento %}
-                                <div class="info-item">
-                                    <label class="text-muted small mb-1 d-block">Vencimiento</label>
-                                    <div class="font-weight-bold {{ 'text-danger' if cuenta_info.dias_vencimiento and cuenta_info.dias_vencimiento < 0 else 'text-dark' }}">
-                                        {{ cuenta_info.Fecha_Vencimiento.strftime('%d/%m/%Y') if cuenta_info.Fecha_Vencimiento else 'Sin fecha' }}
-                                        {% if cuenta_info.dias_vencimiento is not none %}
-                                            <small class="d-block mt-1 {{ 'text-danger' if cuenta_info.dias_vencimiento < 0 else 'text-warning' if cuenta_info.dias_vencimiento <= 7 else 'text-success' }}">
-                                                {% if cuenta_info.dias_vencimiento < 0 %}
-                                                    <i class="fas fa-exclamation-circle mr-1"></i>Vencido hace {{ -cuenta_info.dias_vencimiento }} días
-                                                {% elif cuenta_info.dias_vencimiento == 0 %}
-                                                    <i class="fas fa-exclamation-triangle mr-1"></i>Vence hoy
-                                                {% elif cuenta_info.dias_vencimiento <= 7 %}
-                                                    <i class="fas fa-clock mr-1"></i>Vence en {{ cuenta_info.dias_vencimiento }} días
-                                                {% else %}
-                                                    <i class="fas fa-check-circle mr-1"></i>{{ cuenta_info.dias_vencimiento }} días restantes
-                                                {% endif %}
-                                            </small>
-                                        {% endif %}
-                                    </div>
-                                </div>
-                                {% endif %}
-                            </div>
-                        </div>
-                    </div>
+                </div>
+            </div>
 
-                    <!-- Formulario de Pago (solo si está Pendiente) -->
-                    {% if cuenta_info.Estado == 'Pendiente' %}
-                    <form id="formPago" action="{{ url_for('admin.registrar_pago_cuenta') }}" method="POST" novalidate>
+            <!-- Formulario de Pago -->
+            <div class="card shadow mb-4">
+                <div class="card-header py-3 bg-success text-white">
+                    <h6 class="m-0 font-weight-bold">Registrar Pago</h6>
+                </div>
+                <div class="card-body">
+                    <form method="POST" action="{{ url_for('admin.registrar_pago_cuenta') }}" id="formPago">
                         <input type="hidden" name="id_cuenta" value="{{ cuenta_info.ID_Cuenta }}">
                         
-                        <!-- Monto y Fecha -->
-                        <div class="form-section mb-4 p-3 p-md-4">
-                            <h6 class="section-title mb-3">
-                                <i class="fas fa-dollar-sign mr-2"></i>Monto y Fecha
-                            </h6>
-                            <div class="row g-3">
-                                <div class="col-12 col-lg-6">
-                                    <div class="form-group mb-0">
-                                        <label for="monto_pago" class="font-weight-bold required d-block">Monto a Pagar</label>
-                                        <div class="input-group input-group-lg input-group-responsive">
-                                            <div class="input-group-prepend">
-                                                <span class="input-group-text bg-light">$</span>
-                                            </div>
-                                            <input type="number" step="0.01" class="form-control" id="monto_pago" name="monto_pago" 
-                                                   value="{{ cuenta_info.Saldo_Pendiente }}" 
-                                                   max="{{ cuenta_info.Saldo_Pendiente }}" 
-                                                   min="0.01" required
-                                                   inputmode="decimal"
-                                                   pattern="[0-9]*\.?[0-9]*">
-                                        </div>
-                                        <div class="d-flex justify-content-between align-items-center mt-2">
-                                            <small class="form-text text-muted">Saldo disponible</small>
-                                            <small class="form-text font-weight-bold">$<span id="monto-maximo">{{ "{:,.2f}".format(cuenta_info.Saldo_Pendiente) if cuenta_info.Saldo_Pendiente else '0.00' }}</span></small>
-                                        </div>
-                                        <div class="progress mt-2" style="height: 6px;">
-                                            <div id="monto-progress" class="progress-bar bg-success" role="progressbar" style="width: 100%"></div>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="col-12 col-lg-6">
-                                    <div class="form-group mb-0">
-                                        <label for="fecha_pago" class="font-weight-bold required d-block">Fecha de Pago</label>
-                                        <div class="input-group input-group-lg input-group-responsive">
-                                            <div class="input-group-prepend">
-                                                <span class="input-group-text bg-light">
-                                                    <i class="fas fa-calendar-alt"></i>
-                                                </span>
-                                            </div>
-                                            <input type="date" class="form-control" id="fecha_pago" name="fecha_pago" 
-                                                   value="{{ today }}" required>
-                                        </div>
-                                        <small class="form-text text-muted">Fecha en que se realiza el pago</small>
-                                    </div>
-                                </div>
+                        <div class="form-group">
+                            <label for="monto_pago" class="font-weight-bold">Monto del Pago *</label>
+                            <input type="number" class="form-control form-control-lg" id="monto_pago" name="monto_pago" 
+                                   step="0.01" min="0.01" max="{{ "%.2f"|format(cuenta_info.Saldo_Pendiente) }}" 
+                                   required placeholder="0.00" style="font-size: 1.2rem;"
+                                   value="{{ "%.2f"|format(cuenta_info.Saldo_Pendiente) if cuenta_info.Saldo_Pendiente > 0 else '' }}">
+                            <small class="form-text text-muted">
+                                Saldo pendiente: <span class="font-weight-bold text-danger">C${{ "%.2f"|format(cuenta_info.Saldo_Pendiente) }}</span>
+                            </small>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="fecha_pago" class="font-weight-bold">Fecha del Pago *</label>
+                            <input type="date" class="form-control" id="fecha_pago" name="fecha_pago" 
+                                   required value="{{ today if today else '' }}">
+                            <small class="form-text text-muted">Fecha en que se realiza el pago</small>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="id_metodo_pago" class="font-weight-bold">Método de Pago *</label>
+                            <select class="form-control" id="id_metodo_pago" name="id_metodo_pago" required>
+                                <option value="">Seleccionar método de pago...</option>
+                                {% for metodo in metodos_pago %}
+                                <option value="{{ metodo.ID_MetodoPago }}" 
+                                        data-tipo="{{ metodo.Nombre|upper }}">
+                                    {{ metodo.Nombre }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <!-- Sección dinámica para detalles del método de pago -->
+                        <div id="detalles-metodo-container" class="mt-4">
+                            <div class="alert alert-info">
+                                <i class="fas fa-info-circle"></i> Seleccione un método de pago para ver los campos específicos
                             </div>
                         </div>
-                        
-                        <!-- Método de Pago -->
-                        <div class="form-section mb-4 p-3 p-md-4">
-                            <h6 class="section-title mb-3">
-                                <i class="fas fa-credit-card mr-2"></i>Método de Pago
-                            </h6>
-                            <div class="row g-3">
-                                <div class="col-12 col-lg-6">
-                                    <div class="form-group mb-0">
-                                        <label for="id_metodo_pago" class="font-weight-bold required d-block">Método</label>
-                                        <select class="form-control form-control-lg form-control-responsive" id="id_metodo_pago" name="id_metodo_pago" required>
-                                            <option value="">Seleccionar método...</option>
-                                            {% for metodo in metodos_pago %}
-                                            <option value="{{ metodo.ID_MetodoPago }}" 
-                                                    data-desc="{{ metodo.Descripcion or '' }}"
-                                                    data-icon="{{ 
-                                                        'money-bill-wave' if 'Efectivo' in metodo.Nombre else 
-                                                        'credit-card' if 'Tarjeta' in metodo.Nombre else 
-                                                        'exchange-alt' if 'Transferencia' in metodo.Nombre else 
-                                                        'file-invoice-dollar' if 'Cheque' in metodo.Nombre else 
-                                                        'hand-holding-usd' if 'Crédito' in metodo.Nombre else 
-                                                        'wallet' 
-                                                    }}">
-                                                {{ metodo.Nombre }}
-                                            </option>
-                                            {% endfor %}
-                                        </select>
-                                        <small class="form-text text-muted" id="metodo-descripcion"></small>
-                                    </div>
-                                </div>
-                                <div class="col-12 col-lg-6">
-                                    <div class="form-group mb-0">
-                                        <label for="detalles_metodo" class="font-weight-bold d-block">Detalles del Método</label>
-                                        <input type="text" class="form-control form-control-lg form-control-responsive" id="detalles_metodo" name="detalles_metodo" 
-                                               placeholder="Ej: N° cheque, referencia, etc.">
-                                        <small class="form-text text-muted" id="ayuda-metodo">Complete según el método seleccionado</small>
-                                    </div>
-                                </div>
-                            </div>
+
+                        <!-- Campo oculto para enviar los detalles finales -->
+                        <input type="hidden" id="detalles_metodo" name="detalles_metodo">
+
+                        <div class="form-group mt-4">
+                            <label for="comentarios_pago" class="font-weight-bold">Comentarios u Observaciones</label>
+                            <textarea class="form-control" id="comentarios_pago" name="comentarios_pago" 
+                                      rows="3" placeholder="Observaciones adicionales sobre el pago..."></textarea>
                         </div>
-                        
-                        <!-- Información Adicional -->
-                        <div class="form-section mb-4 p-3 p-md-4">
-                            <h6 class="section-title mb-3">
-                                <i class="fas fa-comment-alt mr-2"></i>Información Adicional
-                            </h6>
-                            <div class="form-group mb-0">
-                                <label for="comentarios_pago" class="font-weight-bold d-block">Comentarios</label>
-                                <textarea class="form-control form-control-responsive" id="comentarios_pago" name="comentarios_pago" rows="3" 
-                                          placeholder="Observaciones adicionales sobre este pago..."></textarea>
-                                <small class="form-text text-muted">Opcional: información relevante sobre la transacción</small>
-                            </div>
-                        </div>
-                        
-                        <!-- Action Buttons -->
-                        <div class="form-actions mt-5 pt-4 border-top">
-                            <div class="d-flex flex-column flex-sm-row justify-content-center gap-3">
-                                <button type="submit" class="btn btn-success btn-lg px-4 px-sm-5 py-3 w-100 w-sm-auto" id="btn-registrar-pago">
-                                    <i class="fas fa-check-circle mr-2"></i>Registrar Pago
-                                </button>
-                                <a href="{{ url_for('admin.admin_cuentas_por_pagar') }}" class="btn btn-outline-secondary btn-lg px-4 py-3 w-100 w-sm-auto">
-                                    <i class="fas fa-times mr-2"></i>Cancelar
-                                </a>
-                            </div>
+
+                        <div class="form-group mt-4">
+                            <button type="submit" class="btn btn-success btn-lg mr-2" id="btnRegistrar">
+                                <i class="fas fa-check-circle"></i> Registrar Pago
+                            </button>
+                            <a href="{{ url_for('admin.admin_cuentas_por_pagar') }}" 
+                               class="btn btn-secondary btn-lg">
+                                <i class="fas fa-times"></i> Cancelar
+                            </a>
                         </div>
                     </form>
-                    {% else %}
-                    <!-- Cuenta no disponible para pago -->
-                    <div class="text-center py-4 py-md-5">
-                        <div class="icon-circle bg-secondary text-white mb-3 mx-auto" style="width: 60px; height: 60px;">
-                            <i class="fas fa-ban fa-2x"></i>
-                        </div>
-                        <h4 class="text-secondary mb-3">Cuenta {{ cuenta_info.Estado.lower() }}</h4>
-                        <p class="text-muted mb-4">
-                            Esta cuenta ya está marcada como <strong>{{ cuenta_info.Estado.lower() }}</strong>.<br class="d-none d-md-block">
-                            No se pueden registrar pagos adicionales.
-                        </p>
-                        <div class="d-flex flex-column flex-sm-row justify-content-center gap-3">
-                            <a href="{{ url_for('admin.historial_pagos_cuenta', id_cuenta=cuenta_info.ID_Cuenta) }}" 
-                               class="btn btn-info w-100 w-sm-auto">
-                                <i class="fas fa-history mr-2"></i>Ver Historial
-                            </a>
-                            <a href="{{ url_for('admin.admin_cuentas_por_pagar') }}" class="btn btn-primary w-100 w-sm-auto">
-                                <i class="fas fa-arrow-left mr-2"></i>Volver
-                            </a>
-                        </div>
-                    </div>
-                    {% endif %}
-                    
-                    {% else %}
-                    <!-- Estado sin información de cuenta -->
-                    <div class="text-center py-4 py-md-5">
-                        <div class="icon-circle bg-warning text-white mb-3 mx-auto" style="width: 60px; height: 60px;">
-                            <i class="fas fa-exclamation-triangle fa-2x"></i>
-                        </div>
-                        <h4 class="text-warning">Cuenta no encontrada</h4>
-                        <p class="text-muted mb-4">No se pudo cargar la información de la cuenta seleccionada.</p>
-                        <a href="{{ url_for('admin.admin_cuentas_por_pagar') }}" class="btn btn-primary w-100 w-sm-auto">
-                            <i class="fas fa-arrow-left mr-2"></i>Volver a Cuentas por Pagar
-                        </a>
-                    </div>
-                    {% endif %}
                 </div>
             </div>
         </div>
-        
-        <!-- Sidebar -->
-        <div class="col-12 col-lg-4">
+
+        <div class="col-lg-4">
             <!-- Resumen del Pago -->
-            <div class="card shadow mb-4 sticky-sidebar">
-                <div class="card-header bg-primary text-white py-3">
-                    <h6 class="m-0 font-weight-bold">
-                        <i class="fas fa-calculator mr-2"></i>Resumen del Pago
-                    </h6>
+            <div class="card shadow mb-4">
+                <div class="card-header py-3 bg-primary text-white">
+                    <h6 class="m-0 font-weight-bold">Resumen del Pago</h6>
                 </div>
-                <div class="card-body p-3 p-md-4">
-                    <div class="summary-list">
-                        <div class="summary-item d-flex justify-content-between align-items-center mb-3 pb-3 border-bottom">
-                            <div class="flex-grow-1">
-                                <div class="text-muted small mb-1">Saldo Actual</div>
-                                <div class="h5 font-weight-bold mb-0">$<span id="summary-saldo">{{ "{:,.2f}".format(cuenta_info.Saldo_Pendiente) if cuenta_info else '0.00' }}</span></div>
-                            </div>
-                            <div class="icon-circle-sm bg-light text-primary ml-3 flex-shrink-0">
-                                <i class="fas fa-wallet"></i>
-                            </div>
+                <div class="card-body">
+                    <div class="text-center mb-4">
+                        <i class="fas fa-money-bill-wave fa-3x text-success mb-3"></i>
+                        <h5 class="font-weight-bold">Información Importante</h5>
+                    </div>
+                    
+                    <div class="alert alert-info">
+                        <h6><i class="fas fa-info-circle"></i> Notas:</h6>
+                        <ul class="mb-0 pl-3">
+                            <li>El pago se registrará inmediatamente</li>
+                            <li>El saldo pendiente de esta cuenta se actualizará automáticamente</li>
+                            <li>Se generará un comprobante en el historial</li>
+                        </ul>
+                    </div>
+
+                    <div class="border-top pt-3 mt-3">
+                        <h6 class="font-weight-bold">Datos Actuales:</h6>
+                        <table class="table table-sm table-borderless">
+                            <tr>
+                                <td>Monto Total:</td>
+                                <td class="text-right font-weight-bold">C${{ "%.2f"|format(cuenta_info.Monto_Movimiento) }}</td>
+                            </tr>
+                            <tr>
+                                <td>Saldo Pendiente:</td>
+                                <td class="text-right font-weight-bold text-danger">C${{ "%.2f"|format(cuenta_info.Saldo_Pendiente) }}</td>
+                            </tr>
+                            <tr>
+                                <td>Pagado:</td>
+                                <td class="text-right font-weight-bold text-success">
+                                    C${{ "%.2f"|format(cuenta_info.Monto_Movimiento - cuenta_info.Saldo_Pendiente) }}
+                                </td>
+                            </tr>
+                        </table>
+                    </div>
+
+                    <!-- Simulación de nuevo saldo -->
+                    <div class="border-top pt-3 mt-3">
+                        <h6 class="font-weight-bold">Después del Pago:</h6>
+                        <div id="simulacionSaldo" class="mt-2 p-2 bg-light rounded">
+                            <p class="mb-1">
+                                <strong>Nuevo saldo:</strong> 
+                                <span id="nuevoSaldo" class="font-weight-bold">C${{ "%.2f"|format(cuenta_info.Saldo_Pendiente) }}</span>
+                            </p>
+                            <p class="mb-0">
+                                <strong>Estado:</strong> 
+                                <span id="nuevoEstado" class="badge badge-warning">Pendiente</span>
+                            </p>
                         </div>
-                        
-                        <div class="summary-item d-flex justify-content-between align-items-center mb-3 pb-3 border-bottom">
-                            <div class="flex-grow-1">
-                                <div class="text-muted small mb-1">Monto a Pagar</div>
-                                <div class="h5 font-weight-bold text-success mb-0">$<span id="summary-monto">0.00</span></div>
-                            </div>
-                            <div class="icon-circle-sm bg-light text-success ml-3 flex-shrink-0">
-                                <i class="fas fa-money-bill-wave"></i>
-                            </div>
-                        </div>
-                        
-                        <div class="summary-item d-flex justify-content-between align-items-center mb-4">
-                            <div class="flex-grow-1">
-                                <div class="text-muted small mb-1">Nuevo Saldo</div>
-                                <div class="h4 font-weight-bold text-primary mb-0">$<span id="summary-nuevo-saldo">{{ "{:,.2f}".format(cuenta_info.Saldo_Pendiente) if cuenta_info else '0.00' }}</span></div>
-                            </div>
-                            <div class="icon-circle-sm bg-primary text-white ml-3 flex-shrink-0">
-                                <i class="fas fa-balance-scale"></i>
-                            </div>
-                        </div>
-                        
-                        <div class="alert alert-light border">
-                            <small class="text-muted d-block mb-2">
-                                <i class="fas fa-info-circle mr-1"></i>
-                                <strong>Estado después del pago:</strong>
-                            </small>
-                            <div class="text-center">
-                                <span id="status-badge" class="badge badge-success p-2 w-100">
-                                    Pagada Completamente
-                                </span>
-                            </div>
+                    </div>
+
+                    <!-- Detalles del método seleccionado -->
+                    <div class="border-top pt-3 mt-3" id="resumenDetalles" style="display: none;">
+                        <h6 class="font-weight-bold">Detalles del Método:</h6>
+                        <div id="resumenDetallesContenido" class="mt-2 p-2 bg-light rounded">
+                            <!-- Se llenará con JavaScript -->
                         </div>
                     </div>
                 </div>
             </div>
-            
-            <!-- Métodos de Pago -->
-            <div class="card shadow mb-4 d-none d-lg-block">
-                <div class="card-header bg-info text-white py-3">
-                    <h6 class="m-0 font-weight-bold">
-                        <i class="fas fa-question-circle mr-2"></i>Guía de Métodos
-                    </h6>
+
+            <!-- Acciones Rápidas -->
+            <div class="card shadow">
+                <div class="card-header py-3 bg-secondary text-white">
+                    <h6 class="m-0 font-weight-bold">Acciones Rápidas</h6>
                 </div>
-                <div class="card-body p-3">
-                    <div class="method-guide">
-                        {% for metodo in metodos_pago %}
-                        <div class="method-item mb-3 pb-3 {{ 'border-bottom' if not loop.last }}">
-                            <div class="d-flex align-items-start">
-                                <div class="method-icon mr-3 flex-shrink-0 mt-1">
-                                    <i class="fas fa-{{ 
-                                        'money-bill-wave' if 'Efectivo' in metodo.Nombre else 
-                                        'credit-card' if 'Tarjeta' in metodo.Nombre else 
-                                        'exchange-alt' if 'Transferencia' in metodo.Nombre else 
-                                        'file-invoice-dollar' if 'Cheque' in metodo.Nombre else 
-                                        'hand-holding-usd' if 'Crédito' in metodo.Nombre else 
-                                        'wallet' 
-                                    }} text-info"></i>
-                                </div>
-                                <div class="flex-grow-1">
-                                    <h6 class="font-weight-bold mb-1 small">{{ metodo.Nombre }}</h6>
-                                    <p class="small text-muted mb-0">{{ metodo.Descripcion or 'Detalles específicos del método' }}</p>
-                                </div>
-                            </div>
-                        </div>
-                        {% endfor %}
-                    </div>
+                <div class="card-body text-center">
+                    <a href="{{ url_for('admin.admin_cuentas_por_pagar') }}" 
+                       class="btn btn-outline-secondary btn-block">
+                        <i class="fas fa-list"></i> Volver a Lista
+                    </a>
                 </div>
             </div>
         </div>
@@ -377,843 +209,588 @@
 </div>
 {% endblock %}
 
-{% block styles %}
-<style>
-/* Icon circles - Responsivos */
-.icon-circle {
-    width: 40px;
-    height: 40px;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 1rem;
-    flex-shrink: 0;
-}
-
-@media (min-width: 576px) {
-    .icon-circle {
-        width: 50px;
-        height: 50px;
-        font-size: 1.2rem;
-    }
-}
-
-.icon-circle-sm {
-    width: 35px;
-    height: 35px;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 0.9rem;
-    flex-shrink: 0;
-    margin-left: 1rem;
-}
-
-/* Account summary card */
-.account-summary-card {
-    background: linear-gradient(135deg, #f8f9fc 0%, #ffffff 100%);
-    border: 1px solid #e3e6f0;
-    border-radius: 0.5rem;
-    border-left: 4px solid #1cc88a;
-}
-
-.info-item {
-    margin-bottom: 1rem;
-}
-
-.info-item:last-child {
-    margin-bottom: 0;
-}
-
-/* Form sections */
-.form-section {
-    background: #f8f9fc;
-    border-radius: 0.5rem;
-    border: 1px solid #e3e6f0;
-}
-
-.section-title {
-    color: #4e73df;
-    font-weight: 600;
-    margin-bottom: 1.25rem;
-    padding-bottom: 0.5rem;
-    border-bottom: 2px solid #eaecf4;
-    font-size: 0.95rem;
-}
-
-/* Required field indicator */
-.required::after {
-    content: " *";
-    color: #e74a3b;
-}
-
-/* Form actions */
-.form-actions {
-    text-align: center;
-}
-
-/* Method guide */
-.method-guide {
-    max-height: 250px;
-    overflow-y: auto;
-}
-
-.method-icon {
-    width: 25px;
-    text-align: center;
-    flex-shrink: 0;
-}
-
-.method-item {
-    transition: all 0.2s;
-}
-
-.method-item:hover {
-    transform: translateX(3px);
-}
-
-/* Progress bar */
-.progress {
-    background-color: #eaecf4;
-    border-radius: 3px;
-}
-
-/* Summary list */
-.summary-list {
-    padding: 0.5rem 0;
-}
-
-/* Botones responsivos */
-.btn-block-sm {
-    width: 100%;
-}
-
-@media (min-width: 576px) {
-    .btn-block-sm {
-        width: auto;
-    }
-}
-
-/* Inputs responsivos */
-.input-group-responsive {
-    flex-direction: column;
-}
-
-@media (min-width: 576px) {
-    .input-group-responsive {
-        flex-direction: row;
-    }
-}
-
-.form-control-responsive {
-    font-size: 16px !important; /* Previene zoom en iOS */
-    min-height: 44px;
-}
-
-/* Sticky sidebar */
-.sticky-sidebar {
-    position: static;
-}
-
-@media (min-width: 992px) {
-    .sticky-sidebar {
-        position: sticky;
-        top: 20px;
-        z-index: 100;
-    }
-}
-
-/* Responsive Design */
-@media (max-width: 575.98px) {
-    /* Header mobile */
-    .d-flex.flex-column h1 {
-        font-size: 1.5rem;
-    }
-    
-    .icon-circle {
-        width: 35px;
-        height: 35px;
-        font-size: 0.9rem;
-    }
-    
-    /* Cards mobile */
-    .card-body {
-        padding: 1rem !important;
-    }
-    
-    .account-summary-card,
-    .form-section {
-        padding: 1rem !important;
-    }
-    
-    /* Input groups mobile */
-    .input-group.input-group-lg {
-        display: flex;
-        flex-direction: column;
-    }
-    
-    .input-group.input-group-lg .input-group-prepend {
-        margin-bottom: -1px;
-    }
-    
-    .input-group.input-group-lg .input-group-prepend .input-group-text {
-        border-radius: 0.375rem 0.375rem 0 0 !important;
-        border-bottom: 0;
-        width: 100%;
-        text-align: center;
-        justify-content: center;
-    }
-    
-    .input-group.input-group-lg .form-control {
-        border-radius: 0 0 0.375rem 0.375rem !important;
-        border-top: 0;
-    }
-    
-    /* Select mobile */
-    .form-control-responsive {
-        height: 44px;
-        -webkit-appearance: none;
-        -moz-appearance: none;
-        appearance: none;
-        background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
-        background-repeat: no-repeat;
-        background-position: right 0.75rem center;
-        background-size: 16px;
-        padding-right: 2.5rem;
-    }
-    
-    /* Botones mobile */
-    .btn-lg {
-        padding: 0.875rem 1rem;
-        font-size: 1rem;
-        min-height: 50px;
-    }
-    
-    /* Form actions mobile */
-    .form-actions .d-flex {
-        flex-direction: column;
-        gap: 0.75rem !important;
-    }
-    
-    .form-actions .btn {
-        width: 100%;
-    }
-    
-    /* Badges mobile */
-    .badge-pill {
-        font-size: 0.7rem;
-        padding: 0.25rem 0.5rem;
-    }
-    
-    /* Summary items mobile */
-    .summary-item .h5 {
-        font-size: 1.25rem;
-    }
-    
-    .summary-item .h4 {
-        font-size: 1.5rem;
-    }
-}
-
-@media (min-width: 576px) and (max-width: 767.98px) {
-    /* Tablets pequeñas */
-    .icon-circle {
-        width: 45px;
-        height: 45px;
-        font-size: 1.1rem;
-    }
-    
-    .form-section {
-        padding: 1.25rem !important;
-    }
-    
-    .input-group-lg > .form-control,
-    .input-group-lg > .input-group-prepend > .input-group-text {
-        height: calc(1.5em + 1rem + 2px);
-        font-size: 1rem;
-    }
-    
-    .btn-lg {
-        padding: 0.875rem 1.5rem;
-    }
-}
-
-@media (min-width: 768px) and (max-width: 991.98px) {
-    /* Tablets */
-    .form-section {
-        padding: 1.5rem !important;
-    }
-    
-    .sticky-sidebar {
-        position: static;
-    }
-}
-
-/* Mejoras de accesibilidad táctil */
-@media (hover: none) and (pointer: coarse) {
-    .btn, .form-control, select, .table td {
-        min-height: 44px;
-    }
-    
-    .btn-sm {
-        min-height: 36px;
-    }
-    
-    .input-group-lg > .form-control,
-    .input-group-lg > .input-group-prepend > .input-group-text {
-        min-height: 50px;
-    }
-    
-    /* Aumentar área de toque para checkboxes/radios */
-    .form-check-input {
-        width: 22px;
-        height: 22px;
-    }
-    
-    .form-check-label {
-        padding-left: 8px;
-        line-height: 22px;
-    }
-    
-    /* Mejorar scroll en móvil */
-    .method-guide {
-        -webkit-overflow-scrolling: touch;
-    }
-}
-
-/* Mejoras para orientación horizontal en móviles */
-@media (max-width: 767.98px) and (orientation: landscape) {
-    .container-fluid {
-        padding-left: 0.5rem;
-        padding-right: 0.5rem;
-    }
-    
-    .account-summary-card .row {
-        flex-direction: column;
-    }
-    
-    .form-section .row {
-        flex-direction: column;
-    }
-    
-    .btn-lg {
-        padding: 0.75rem 1rem;
-        min-height: 44px;
-    }
-}
-
-/* Animaciones para mejor UX */
-.form-control:focus {
-    border-color: #4e73df;
-    box-shadow: 0 0 0 0.2rem rgba(78, 115, 223, 0.25);
-    transition: all 0.3s;
-}
-
-.btn {
-    transition: all 0.2s ease-in-out;
-}
-
-.btn:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-}
-
-.btn:disabled, .btn.disabled {
-    opacity: 0.65;
-    cursor: not-allowed;
-    transform: none !important;
-    box-shadow: none !important;
-}
-
-.btn-disabled {
-    background-color: #6c757d;
-    border-color: #6c757d;
-    color: white;
-}
-
-/* Tooltip improvements */
-[title] {
-    position: relative;
-}
-
-[title]:hover::after {
-    content: attr(title);
-    position: absolute;
-    bottom: 100%;
-    left: 50%;
-    transform: translateX(-50%);
-    background: rgba(0, 0, 0, 0.8);
-    color: white;
-    padding: 0.5rem 0.75rem;
-    border-radius: 0.25rem;
-    font-size: 0.75rem;
-    white-space: nowrap;
-    z-index: 1070;
-    pointer-events: none;
-}
-
-/* Text truncation */
-.text-truncate {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-/* Estilo para inputs en móvil iOS */
-.input-touch-friendly {
-    -webkit-user-select: text;
-    user-select: text;
-}
-
-/* Print styles */
-@media print {
-    .btn, .card-header, .alert, .badge,
-    .form-actions, .sticky-sidebar, .method-guide,
-    .d-none, [class*="d-print-none"] {
-        display: none !important;
-    }
-    
-    .container-fluid {
-        padding: 0 !important;
-    }
-    
-    .card {
-        box-shadow: none !important;
-        border: 1px solid #000 !important;
-        break-inside: avoid;
-    }
-    
-    .card-body {
-        padding: 0.5rem !important;
-    }
-    
-    .h3 {
-        font-size: 14pt !important;
-        margin-bottom: 0.5rem !important;
-    }
-    
-    .row {
-        display: block !important;
-    }
-    
-    .col-lg-8, .col-lg-4 {
-        width: 100% !important;
-        max-width: 100% !important;
-        flex: 0 0 100% !important;
-    }
-}
-
-/* Feedback táctil */
-.btn-active {
-    transform: scale(0.98) !important;
-    opacity: 0.9 !important;
-}
-
-/* Placeholder styling */
-::placeholder {
-    color: #6c757d !important;
-    opacity: 0.7 !important;
-}
-
-/* Mejorar visibilidad de focos */
-.form-control:focus, .btn:focus {
-    outline: 2px solid #4e73df;
-    outline-offset: 2px;
-}
-
-/* Scrollbar personalizado para navegadores webkit */
-.method-guide::-webkit-scrollbar {
-    width: 6px;
-}
-
-.method-guide::-webkit-scrollbar-track {
-    background: #f1f1f1;
-    border-radius: 3px;
-}
-
-.method-guide::-webkit-scrollbar-thumb {
-    background: #c1c1c1;
-    border-radius: 3px;
-}
-
-.method-guide::-webkit-scrollbar-thumb:hover {
-    background: #a8a8a8;
-}
-</style>
-{% endblock %}
-
 {% block scripts %}
 <script>
-$(document).ready(function() {
-    // Variables
-    let cuentaInfo = {{ cuenta_info|tojson|safe if cuenta_info else 'null' }};
-    let saldoPendiente = 0;
+document.addEventListener('DOMContentLoaded', function() {
+    const montoInput = document.getElementById('monto_pago');
+    const metodoSelect = document.getElementById('id_metodo_pago');
+    const detallesContainer = document.getElementById('detalles-metodo-container');
+    const detallesHidden = document.getElementById('detalles_metodo');
+    const resumenDetalles = document.getElementById('resumenDetalles');
+    const resumenDetallesContenido = document.getElementById('resumenDetallesContenido');
+    const saldoMaximo = parseFloat({{ cuenta_info.Saldo_Pendiente }});
+    const form = document.getElementById('formPago');
+    const nuevoSaldoSpan = document.getElementById('nuevoSaldo');
+    const nuevoEstadoSpan = document.getElementById('nuevoEstado');
     
-    if (cuentaInfo && cuentaInfo.Saldo_Pendiente) {
-        saldoPendiente = parseFloat(cuentaInfo.Saldo_Pendiente) || 0;
-    }
-    
-    // Inicializar fecha con hoy
-    $('#fecha_pago').val('{{ today }}');
-    
-    // Detectar dispositivo
-    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
-    
-    // Configuración para dispositivos móviles
-    if (isMobile) {
-        // Para iOS, prevenir zoom en inputs
-        if (isIOS) {
-            $('input, select, textarea').on('focus', function() {
-                $(this).css('font-size', '16px');
-            }).on('blur', function() {
-                $(this).css('font-size', '');
-            });
+    // Configuraciones por tipo de método de pago
+    const configMetodos = {
+        'EFECTIVO': {
+            titulo: 'Detalles de Pago en Efectivo',
+            campos: [
+                {
+                    id: 'efectivo_entregado',
+                    label: 'Cantidad Entregada *',
+                    type: 'number',
+                    placeholder: '0.00',
+                    required: true,
+                    step: '0.01',
+                    min: '0.01',
+                    ayuda: 'Ingrese la cantidad de dinero entregada al proveedor'
+                },
+                {
+                    id: 'efectivo_cambio',
+                    label: 'Cambio',
+                    type: 'text',
+                    placeholder: 'Se calculará automáticamente',
+                    readonly: true,
+                    ayuda: 'El cambio se calculará automáticamente'
+                }
+            ],
+            instrucciones: 'Ingrese la cantidad de efectivo entregada al proveedor.'
+        },
+        'TRANSFERENCIA': {
+            titulo: 'Detalles de Transferencia Bancaria',
+            campos: [
+                {
+                    id: 'transferencia_numero',
+                    label: 'Número de Transacción/Referencia *',
+                    type: 'text',
+                    placeholder: 'Ej: T-2024-001234',
+                    required: true,
+                    ayuda: 'Número único de la transacción bancaria'
+                },
+                {
+                    id: 'transferencia_banco',
+                    label: 'Banco',
+                    type: 'text',
+                    placeholder: 'Nombre del banco',
+                    ayuda: 'Ej: BAC, Banco Nacional, Banpro, etc.'
+                },
+                {
+                    id: 'transferencia_fecha',
+                    label: 'Fecha de Transferencia',
+                    type: 'date',
+                    ayuda: 'Fecha en que se realizó la transferencia'
+                }
+            ],
+            instrucciones: 'Ingrese los datos de la transferencia bancaria.'
+        },
+        'DEPÓSITO': {
+            titulo: 'Detalles de Depósito Bancario',
+            campos: [
+                {
+                    id: 'deposito_numero',
+                    label: 'Número de Depósito/Referencia *',
+                    type: 'text',
+                    placeholder: 'Ej: D-2024-001234',
+                    required: true,
+                    ayuda: 'Número del depósito o comprobante'
+                },
+                {
+                    id: 'deposito_banco',
+                    label: 'Banco',
+                    type: 'text',
+                    placeholder: 'Nombre del banco',
+                    ayuda: 'Ej: BAC, Banco Nacional, Banpro, etc.'
+                },
+                {
+                    id: 'deposito_fecha',
+                    label: 'Fecha de Depósito',
+                    type: 'date',
+                    ayuda: 'Fecha en que se realizó el depósito'
+                }
+            ],
+            instrucciones: 'Ingrese los datos del depósito bancario.'
+        },
+        'CHEQUE': {
+            titulo: 'Detalles de Cheque',
+            campos: [
+                {
+                    id: 'cheque_numero',
+                    label: 'Número de Cheque *',
+                    type: 'text',
+                    placeholder: 'Ej: 000123456',
+                    required: true,
+                    ayuda: 'Número del cheque'
+                },
+                {
+                    id: 'cheque_banco',
+                    label: 'Banco *',
+                    type: 'text',
+                    placeholder: 'Nombre del banco',
+                    required: true,
+                    ayuda: 'Banco emisor del cheque'
+                },
+                {
+                    id: 'cheque_fecha',
+                    label: 'Fecha del Cheque',
+                    type: 'date',
+                    ayuda: 'Fecha del cheque'
+                }
+            ],
+            instrucciones: 'Ingrese los datos del cheque.'
+        },
+        'TARJETA': {
+            titulo: 'Detalles de Pago con Tarjeta',
+            campos: [
+                {
+                    id: 'tarjeta_numero',
+                    label: 'Últimos 4 dígitos *',
+                    type: 'text',
+                    placeholder: 'XXXX',
+                    maxlength: 4,
+                    pattern: '\\d{4}',
+                    required: true,
+                    ayuda: 'Últimos 4 dígitos de la tarjeta'
+                },
+                {
+                    id: 'tarjeta_tipo',
+                    label: 'Tipo de Tarjeta',
+                    type: 'select',
+                    options: ['Crédito', 'Débito', 'Prepago'],
+                    ayuda: 'Seleccione el tipo de tarjeta'
+                },
+                {
+                    id: 'tarjeta_autorizacion',
+                    label: 'Número de Autorización',
+                    type: 'text',
+                    placeholder: 'Número de autorización',
+                    ayuda: 'Número de autorización de la transacción'
+                }
+            ],
+            instrucciones: 'Ingrese los datos de la transacción con tarjeta.'
         }
+    };
+
+    // Función para actualizar los campos de detalles
+    function actualizarCamposDetalles() {
+        const metodoSeleccionado = metodoSelect.options[metodoSelect.selectedIndex];
+        const metodoNombre = metodoSeleccionado.getAttribute('data-tipo');
         
-        // Mejorar experiencia táctil
-        $('.btn').css('min-height', '44px');
-        $('input, select').css('min-height', '44px');
+        detallesContainer.innerHTML = '';
+        resumenDetalles.style.display = 'none';
         
-        // Añadir feedback táctil
-        $('.btn').on('touchstart', function() {
-            $(this).addClass('btn-active');
-        }).on('touchend', function() {
-            $(this).removeClass('btn-active');
-        });
-        
-        // Agregar clase para inputs táctiles
-        $('input, select').addClass('input-touch-friendly');
-    }
-    
-    // Actualizar resumen en tiempo real
-    function actualizarResumen() {
-        const montoPago = parseFloat($('#monto_pago').val()) || 0;
-        const nuevoSaldo = Math.max(0, saldoPendiente - montoPago);
-        
-        // Actualizar elementos con formato
-        $('#summary-monto').text(montoPago.toLocaleString('es-ES', {
-            minimumFractionDigits: 2,
-            maximumFractionDigits: 2
-        }));
-        
-        $('#summary-nuevo-saldo').text(nuevoSaldo.toLocaleString('es-ES', {
-            minimumFractionDigits: 2,
-            maximumFractionDigits: 2
-        }));
-        
-        // Actualizar barra de progreso
-        const porcentaje = saldoPendiente > 0 ? (montoPago / saldoPendiente) * 100 : 0;
-        $('#monto-progress').css('width', Math.min(porcentaje, 100) + '%');
-        
-        // Cambiar color de la barra
-        if (porcentaje >= 100) {
-            $('#monto-progress').removeClass('bg-warning bg-info').addClass('bg-success');
-        } else if (porcentaje >= 50) {
-            $('#monto-progress').removeClass('bg-success bg-info').addClass('bg-warning');
-        } else {
-            $('#monto-progress').removeClass('bg-success bg-warning').addClass('bg-info');
-        }
-        
-        // Actualizar estado
-        const $statusBadge = $('#status-badge');
-        if (nuevoSaldo <= 0) {
-            $statusBadge.removeClass('badge-warning badge-secondary').addClass('badge-success');
-            $statusBadge.html('<i class="fas fa-check-circle mr-1"></i>Pagada Completamente');
-        } else if (montoPago > 0) {
-            $statusBadge.removeClass('badge-success badge-secondary').addClass('badge-warning');
-            $statusBadge.html('<i class="fas fa-clock mr-1"></i>Pago Parcial');
-        } else {
-            $statusBadge.removeClass('badge-success badge-warning').addClass('badge-secondary');
-            $statusBadge.html('<i class="fas fa-credit-card mr-1"></i>Sin Pago');
-        }
-        
-        // Validar y actualizar estado del botón
-        const $btn = $('#btn-registrar-pago');
-        const isDisabled = montoPago <= 0 || montoPago > saldoPendiente || !$('#id_metodo_pago').val();
-        $btn.prop('disabled', isDisabled);
-        $btn.toggleClass('btn-disabled', isDisabled);
-    }
-    
-    // Ayuda para métodos de pago
-    function actualizarAyudaMetodo() {
-        const $select = $('#id_metodo_pago');
-        const $desc = $('#metodo-descripcion');
-        const $hint = $('#ayuda-metodo');
-        const $details = $('#detalles_metodo');
-        
-        if (!$select.val()) {
-            $desc.text('');
-            $hint.text('Seleccione un método de pago');
-            $details.attr('placeholder', 'Ej: N° cheque, referencia, etc.');
+        if (!metodoNombre) {
+            detallesContainer.innerHTML = `
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle"></i> Seleccione un método de pago para ver los campos específicos
+                </div>
+            `;
             return;
         }
         
-        const selectedOption = $select.find('option:selected');
-        const metodoNombre = selectedOption.text();
-        const metodoDesc = selectedOption.data('desc');
-        
-        // Actualizar descripción
-        $desc.text(metodoDesc || '');
-        
-        // Actualizar ayuda y placeholder
-        switch(true) {
-            case metodoNombre.includes('Cheque'):
-                $hint.text('Ingrese el número de cheque');
-                $details.attr('placeholder', 'Ej: CH-2024-001234');
+        let config = null;
+        for (const [key, value] of Object.entries(configMetodos)) {
+            if (metodoNombre.includes(key)) {
+                config = value;
                 break;
-            case metodoNombre.includes('Transferencia'):
-                $hint.text('Ingrese el número de referencia o transacción');
-                $details.attr('placeholder', 'Ej: REF-2024-567890');
-                break;
-            case metodoNombre.includes('Tarjeta'):
-                $hint.text('Ingrese los últimos 4 dígitos de la tarjeta');
-                $details.attr('placeholder', 'Ej: **** 1234');
-                break;
-            case metodoNombre.includes('Efectivo'):
-                $hint.text('No se requieren detalles adicionales');
-                $details.attr('placeholder', 'Pago en efectivo');
-                if (!$details.val()) {
-                    $details.val('Pago en efectivo');
-                }
-                break;
-            case metodoNombre.includes('Crédito'):
-                $hint.text('Especifique los términos del crédito');
-                $details.attr('placeholder', 'Ej: 30 días neto');
-                break;
-            default:
-                $hint.text('Complete los detalles del método de pago');
-                $details.attr('placeholder', 'Detalles específicos...');
-        }
-    }
-    
-    // Validar monto en tiempo real
-    function validarMonto() {
-        const $input = $('#monto_pago');
-        const montoPago = parseFloat($input.val()) || 0;
-        let esValido = true;
-        let mensajeError = '';
-        
-        if (montoPago > saldoPendiente) {
-            esValido = false;
-            mensajeError = 'El monto no puede exceder el saldo pendiente';
-        } else if (montoPago <= 0) {
-            esValido = false;
-            mensajeError = 'El monto debe ser mayor a cero';
-        } else if (isNaN(montoPago)) {
-            esValido = false;
-            mensajeError = 'Ingrese un monto válido';
-        }
-        
-        // Actualizar estado visual
-        if (esValido) {
-            $input.removeClass('is-invalid').addClass('is-valid');
-            $('#monto-error').remove();
-        } else {
-            $input.removeClass('is-valid').addClass('is-invalid');
-            
-            // Mostrar mensaje de error
-            let $errorDiv = $('#monto-error');
-            if (!$errorDiv.length) {
-                $errorDiv = $('<div class="invalid-feedback d-block" id="monto-error"></div>');
-                $input.closest('.form-group').append($errorDiv);
-            }
-            $errorDiv.text(mensajeError);
-        }
-        
-        return esValido;
-    }
-    
-    // Validar formulario completo
-    function validarFormulario(e) {
-        e.preventDefault();
-        
-        // Resetear validaciones
-        $('.is-invalid, .is-valid').removeClass('is-invalid is-valid');
-        $('.invalid-feedback').remove();
-        
-        let errores = [];
-        
-        // Validar monto
-        const montoPago = parseFloat($('#monto_pago').val()) || 0;
-        if (isNaN(montoPago) || montoPago <= 0) {
-            errores.push('El monto a pagar debe ser mayor a cero');
-            $('#monto_pago').addClass('is-invalid');
-        } else if (montoPago > saldoPendiente) {
-            errores.push('El monto a pagar no puede ser mayor al saldo pendiente');
-            $('#monto_pago').addClass('is-invalid');
-        }
-        
-        // Validar método de pago
-        if (!$('#id_metodo_pago').val()) {
-            errores.push('Debe seleccionar un método de pago');
-            $('#id_metodo_pago').addClass('is-invalid');
-        }
-        
-        // Validar fecha
-        const fechaPago = $('#fecha_pago').val();
-        if (!fechaPago) {
-            errores.push('Debe ingresar una fecha de pago');
-            $('#fecha_pago').addClass('is-invalid');
-        } else {
-            // Validar que no sea fecha futura
-            const fechaIngresada = new Date(fechaPago);
-            const hoy = new Date();
-            hoy.setHours(0, 0, 0, 0);
-            
-            if (fechaIngresada > hoy) {
-                errores.push('La fecha de pago no puede ser futura');
-                $('#fecha_pago').addClass('is-invalid');
             }
         }
         
-        // Si hay errores, mostrarlos
-        if (errores.length > 0) {
-            const errorHtml = `
-                <div class="alert alert-danger alert-dismissible fade show mb-4" role="alert">
-                    <div class="d-flex align-items-start">
-                        <i class="fas fa-exclamation-triangle mr-3 mt-1 flex-shrink-0"></i>
-                        <div>
-                            <h6 class="alert-heading mb-2">Errores en el formulario</h6>
-                            <ul class="mb-0 small ps-3">
-                                ${errores.map(error => `<li class="mb-1">${error}</li>`).join('')}
-                            </ul>
+        if (!config) {
+            detallesContainer.innerHTML = `
+                <div class="card border-left-primary shadow h-100 py-2">
+                    <div class="card-body">
+                        <div class="form-group">
+                            <label for="detalles_generico" class="font-weight-bold">Detalles del Pago</label>
+                            <input type="text" class="form-control" id="detalles_generico" 
+                                   placeholder="Ingrese detalles del pago (número de referencia, observaciones, etc.)">
+                            <small class="form-text text-muted">Ingrese cualquier información relevante sobre este pago</small>
                         </div>
                     </div>
-                    <button type="button" class="close" data-dismiss="alert" aria-label="Close">
-                        <span aria-hidden="true">&times;</span>
-                    </button>
                 </div>
             `;
-            
-            // Insertar alerta
-            const $cardBody = $('#formPago').closest('.card-body');
-            $cardBody.find('.alert-danger').remove();
-            $cardBody.prepend(errorHtml);
-            
-            // Scroll al primer error
-            const $firstError = $('.is-invalid').first();
-            if ($firstError.length) {
-                $('html, body').animate({
-                    scrollTop: $firstError.offset().top - 100
-                }, 500);
-                $firstError.focus();
+            return;
+        }
+        
+        let camposHTML = `
+            <div class="card border-left-success shadow h-100 py-2">
+                <div class="card-body">
+                    <h5 class="font-weight-bold text-success mb-3">
+                        <i class="fas fa-credit-card mr-2"></i>${config.titulo}
+                    </h5>
+        `;
+        
+        if (config.instrucciones) {
+            camposHTML += `
+                <div class="alert alert-info mb-4">
+                    <i class="fas fa-info-circle"></i> ${config.instrucciones}
+                </div>
+            `;
+        }
+        
+        config.campos.forEach(campo => {
+            if (campo.type === 'select') {
+                camposHTML += `
+                    <div class="form-group">
+                        <label for="${campo.id}" class="font-weight-bold">${campo.label}</label>
+                        <select class="form-control" id="${campo.id}" ${campo.required ? 'required' : ''}>
+                            <option value="">Seleccionar...</option>
+                            ${campo.options.map(opt => `<option value="${opt}">${opt}</option>`).join('')}
+                        </select>
+                        ${campo.ayuda ? `<small class="form-text text-muted">${campo.ayuda}</small>` : ''}
+                    </div>
+                `;
+            } else {
+                camposHTML += `
+                    <div class="form-group">
+                        <label for="${campo.id}" class="font-weight-bold">${campo.label}</label>
+                        <input type="${campo.type}" 
+                               class="form-control ${campo.id.includes('cambio') ? 'cambio-input' : ''}" 
+                               id="${campo.id}" 
+                               ${campo.placeholder ? `placeholder="${campo.placeholder}"` : ''}
+                               ${campo.required ? 'required' : ''}
+                               ${campo.readonly ? 'readonly' : ''}
+                               ${campo.step ? `step="${campo.step}"` : ''}
+                               ${campo.min ? `min="${campo.min}"` : ''}
+                               ${campo.maxlength ? `maxlength="${campo.maxlength}"` : ''}
+                               ${campo.pattern ? `pattern="${campo.pattern}"` : ''}>
+                        ${campo.ayuda ? `<small class="form-text text-muted">${campo.ayuda}</small>` : ''}
+                    </div>
+                `;
             }
+        });
+        
+        camposHTML += '</div></div>';
+        detallesContainer.innerHTML = camposHTML;
+        
+        if (metodoNombre.includes('EFECTIVO')) {
+            const entregadoInput = document.getElementById('efectivo_entregado');
+            const cambioInput = document.getElementById('efectivo_cambio');
             
+            if (entregadoInput && cambioInput) {
+                entregadoInput.addEventListener('input', calcularCambio);
+                montoInput.addEventListener('input', calcularCambio);
+                entregadoInput.addEventListener('blur', actualizarResumenDetalles);
+            }
+        } else {
+            const inputs = detallesContainer.querySelectorAll('input, select, textarea');
+            inputs.forEach(input => {
+                input.addEventListener('change', actualizarResumenDetalles);
+                input.addEventListener('input', actualizarResumenDetalles);
+            });
+        }
+        
+        actualizarResumenDetalles();
+    }
+    
+    function calcularCambio() {
+        const entregado = parseFloat(document.getElementById('efectivo_entregado')?.value) || 0;
+        const montoPago = parseFloat(montoInput.value) || 0;
+        const cambioInput = document.getElementById('efectivo_cambio');
+        
+        if (cambioInput && entregado > 0) {
+            const cambio = entregado - montoPago;
+            if (cambio >= 0) {
+                cambioInput.value = `C$ ${cambio.toFixed(2)}`;
+                cambioInput.className = 'form-control cambio-positivo';
+            } else {
+                cambioInput.value = `Falta: C$ ${Math.abs(cambio).toFixed(2)}`;
+                cambioInput.className = 'form-control cambio-negativo';
+            }
+        }
+    }
+    
+    function actualizarResumenDetalles() {
+        const metodoSeleccionado = metodoSelect.options[metodoSelect.selectedIndex];
+        const metodoNombre = metodoSeleccionado.getAttribute('data-tipo');
+        
+        let detallesHTML = '';
+        
+        if (metodoNombre && metodoNombre.includes('EFECTIVO')) {
+            const entregado = document.getElementById('efectivo_entregado')?.value;
+            const cambio = document.getElementById('efectivo_cambio')?.value;
+            if (entregado) {
+                detallesHTML = `<p><strong>Entregado:</strong> C$ ${parseFloat(entregado).toFixed(2)}</p>`;
+                if (cambio && !cambio.includes('Se calculará')) {
+                    detallesHTML += `<p><strong>Cambio:</strong> ${cambio}</p>`;
+                }
+            }
+        } 
+        else if (metodoNombre && metodoNombre.includes('TRANSFERENCIA')) {
+            const numero = document.getElementById('transferencia_numero')?.value;
+            const banco = document.getElementById('transferencia_banco')?.value;
+            const fecha = document.getElementById('transferencia_fecha')?.value;
+            
+            if (numero) detallesHTML += `<p><strong>Transacción:</strong> ${numero}</p>`;
+            if (banco) detallesHTML += `<p><strong>Banco:</strong> ${banco}</p>`;
+            if (fecha) detallesHTML += `<p><strong>Fecha:</strong> ${fecha}</p>`;
+        }
+        else if (metodoNombre && metodoNombre.includes('DEPÓSITO')) {
+            const numero = document.getElementById('deposito_numero')?.value;
+            const banco = document.getElementById('deposito_banco')?.value;
+            const fecha = document.getElementById('deposito_fecha')?.value;
+            
+            if (numero) detallesHTML += `<p><strong>Depósito:</strong> ${numero}</p>`;
+            if (banco) detallesHTML += `<p><strong>Banco:</strong> ${banco}</p>`;
+            if (fecha) detallesHTML += `<p><strong>Fecha:</strong> ${fecha}</p>`;
+        }
+        else if (metodoNombre && metodoNombre.includes('CHEQUE')) {
+            const numero = document.getElementById('cheque_numero')?.value;
+            const banco = document.getElementById('cheque_banco')?.value;
+            const fecha = document.getElementById('cheque_fecha')?.value;
+            
+            if (numero) detallesHTML += `<p><strong>Cheque #:</strong> ${numero}</p>`;
+            if (banco) detallesHTML += `<p><strong>Banco:</strong> ${banco}</p>`;
+            if (fecha) detallesHTML += `<p><strong>Fecha cheque:</strong> ${fecha}</p>`;
+        }
+        else if (metodoNombre && metodoNombre.includes('TARJETA')) {
+            const numero = document.getElementById('tarjeta_numero')?.value;
+            const tipo = document.getElementById('tarjeta_tipo')?.value;
+            const autorizacion = document.getElementById('tarjeta_autorizacion')?.value;
+            
+            if (numero) detallesHTML += `<p><strong>Tarjeta:</strong> XXXX-${numero}</p>`;
+            if (tipo) detallesHTML += `<p><strong>Tipo:</strong> ${tipo}</p>`;
+            if (autorizacion) detallesHTML += `<p><strong>Autorización:</strong> ${autorizacion}</p>`;
+        }
+        else {
+            const generico = document.getElementById('detalles_generico')?.value;
+            if (generico) detallesHTML = `<p><strong>Detalles:</strong> ${generico}</p>`;
+        }
+        
+        if (detallesHTML) {
+            resumenDetallesContenido.innerHTML = detallesHTML;
+            resumenDetalles.style.display = 'block';
+        } else {
+            resumenDetalles.style.display = 'none';
+        }
+    }
+    
+    function prepararDetallesParaEnvio() {
+        const metodoSeleccionado = metodoSelect.options[metodoSelect.selectedIndex];
+        const metodoNombre = metodoSeleccionado.getAttribute('data-tipo');
+        
+        let detalles = '';
+        
+        if (metodoNombre && metodoNombre.includes('EFECTIVO')) {
+            const entregado = document.getElementById('efectivo_entregado')?.value;
+            const cambio = document.getElementById('efectivo_cambio')?.value;
+            if (entregado) {
+                detalles = `Entregado: ${entregado}`;
+                if (cambio && !cambio.includes('Se calculará')) {
+                    detalles += `, Cambio: ${cambio}`;
+                }
+            }
+        } 
+        else if (metodoNombre && metodoNombre.includes('TRANSFERENCIA')) {
+            const numero = document.getElementById('transferencia_numero')?.value;
+            const banco = document.getElementById('transferencia_banco')?.value;
+            const fecha = document.getElementById('transferencia_fecha')?.value;
+            
+            if (numero) detalles = `Transferencia: ${numero}`;
+            if (banco) detalles += (detalles ? ', ' : '') + `Banco: ${banco}`;
+            if (fecha) detalles += (detalles ? ', ' : '') + `Fecha: ${fecha}`;
+        }
+        else if (metodoNombre && metodoNombre.includes('DEPÓSITO')) {
+            const numero = document.getElementById('deposito_numero')?.value;
+            const banco = document.getElementById('deposito_banco')?.value;
+            const fecha = document.getElementById('deposito_fecha')?.value;
+            
+            if (numero) detalles = `Depósito: ${numero}`;
+            if (banco) detalles += (detalles ? ', ' : '') + `Banco: ${banco}`;
+            if (fecha) detalles += (detalles ? ', ' : '') + `Fecha: ${fecha}`;
+        }
+        else if (metodoNombre && metodoNombre.includes('CHEQUE')) {
+            const numero = document.getElementById('cheque_numero')?.value;
+            const banco = document.getElementById('cheque_banco')?.value;
+            const fecha = document.getElementById('cheque_fecha')?.value;
+            
+            if (numero) detalles = `Cheque #${numero}`;
+            if (banco) detalles += (detalles ? ', ' : '') + `Banco: ${banco}`;
+            if (fecha) detalles += (detalles ? ', ' : '') + `Fecha: ${fecha}`;
+        }
+        else if (metodoNombre && metodoNombre.includes('TARJETA')) {
+            const numero = document.getElementById('tarjeta_numero')?.value;
+            const tipo = document.getElementById('tarjeta_tipo')?.value;
+            const autorizacion = document.getElementById('tarjeta_autorizacion')?.value;
+            
+            if (numero) detalles = `Tarjeta: XXXX-${numero}`;
+            if (tipo) detalles += (detalles ? ', ' : '') + `Tipo: ${tipo}`;
+            if (autorizacion) detalles += (detalles ? ', ' : '') + `Auth: ${autorizacion}`;
+        }
+        else {
+            const generico = document.getElementById('detalles_generico')?.value;
+            if (generico) detalles = generico;
+        }
+        
+        detallesHidden.value = detalles;
+        return detalles;
+    }
+    
+    metodoSelect.addEventListener('change', function() {
+        actualizarCamposDetalles();
+        actualizarSimulacion();
+    });
+    
+    function actualizarSimulacion() {
+        let montoPago = parseFloat(montoInput.value) || 0;
+        let nuevoSaldo = saldoMaximo - montoPago;
+        
+        if (nuevoSaldo < 0) nuevoSaldo = 0;
+        
+        nuevoSaldoSpan.textContent = 'C$' + nuevoSaldo.toFixed(2);
+        
+        if (nuevoSaldo === 0) {
+            nuevoEstadoSpan.className = 'badge badge-success';
+            nuevoEstadoSpan.textContent = 'Pagada';
+            nuevoSaldoSpan.className = 'font-weight-bold text-success';
+        } else if (nuevoSaldo > 0) {
+            nuevoEstadoSpan.className = 'badge badge-warning';
+            nuevoEstadoSpan.textContent = 'Pendiente';
+            nuevoSaldoSpan.className = 'font-weight-bold text-danger';
+        }
+    }
+    
+    montoInput.addEventListener('input', function() {
+        let valor = parseFloat(this.value) || 0;
+        
+        if (valor > saldoMaximo) {
+            this.value = saldoMaximo.toFixed(2);
+            valor = saldoMaximo;
+        }
+        
+        if (valor < 0) this.value = '';
+        
+        actualizarSimulacion();
+        
+        if (document.getElementById('efectivo_entregado')) {
+            calcularCambio();
+        }
+    });
+
+    form.addEventListener('submit', function(e) {
+        const monto = parseFloat(montoInput.value) || 0;
+        const metodoPago = metodoSelect.value;
+        
+        if (monto <= 0) {
+            e.preventDefault();
+            alert('❌ Por favor ingrese un monto válido (mayor a cero)');
+            montoInput.focus();
             return false;
         }
         
-        // Mostrar loading y enviar formulario
-        const $btn = $('#btn-registrar-pago');
-        const originalHtml = $btn.html();
-        $btn.html('<span class="spinner-border spinner-border-sm mr-2"></span>Procesando...')
-            .prop('disabled', true)
-            .addClass('disabled');
-        
-        // Enviar formulario
-        setTimeout(() => {
-            $('#formPago').off('submit').submit();
-        }, 500);
-        
-        return true;
-    }
-    
-    // Event Listeners
-    $('#monto_pago').on('input change', function() {
-        // Formatear mientras escribe
-        const value = $(this).val();
-        if (value && !isNaN(value)) {
-            $(this).val(parseFloat(value).toFixed(2));
-        }
-        actualizarResumen();
-        validarMonto();
-    }).on('blur', function() {
-        // Formatear al salir
-        const value = parseFloat($(this).val());
-        if (!isNaN(value)) {
-            $(this).val(value.toFixed(2));
-        }
-    });
-    
-    $('#id_metodo_pago').on('change', actualizarAyudaMetodo);
-    $('#detalles_metodo').on('focus', function() {
-        // Limpiar valor por defecto de efectivo si el usuario va a escribir
-        if ($(this).val() === 'Pago en efectivo') {
-            $(this).val('');
-        }
-    });
-    
-    $('#formPago').on('submit', validarFormulario);
-    
-    // Doble click para establecer monto máximo
-    $('#monto_pago').on('dblclick', function() {
-        if (saldoPendiente > 0) {
-            $(this).val(saldoPendiente.toFixed(2));
-            actualizarResumen();
-            validarMonto();
-            
-            // Mostrar notificación
-            const toast = $('<div class="toast-notification bg-success text-white">Monto máximo establecido</div>')
-                .css({
-                    position: 'fixed',
-                    top: '20px',
-                    right: '20px',
-                    padding: '0.75rem 1rem',
-                    borderRadius: '0.5rem',
-                    zIndex: '9999',
-                    fontSize: '0.875rem',
-                    boxShadow: '0 4px 12px rgba(0,0,0,0.15)'
-                })
-                .appendTo('body');
-            
-            setTimeout(() => {
-                toast.fadeOut(300, function() {
-                    $(this).remove();
-                });
-            }, 1500);
-        }
-    });
-    
-    // Tooltip para monto máximo
-    if (!isMobile) {
-        $('#monto-maximo').attr('title', 'Haga doble click para usar el monto máximo');
-    }
-    
-    // Manejar cambios de orientación
-    window.addEventListener('orientationchange', function() {
-        setTimeout(function() {
-            actualizarResumen();
-        }, 300);
-    });
-    
-    // Prevenir envío con Enter en inputs
-    $('input').on('keypress', function(e) {
-        if (e.which === 13) {
+        if (monto > saldoMaximo) {
             e.preventDefault();
-            $(this).blur();
+            alert('❌ El monto no puede ser mayor al saldo pendiente (C$' + saldoMaximo.toFixed(2) + ')');
+            montoInput.focus();
+            return false;
         }
-    });
-    
-    // Inicializar
-    actualizarResumen();
-    actualizarAyudaMetodo();
-    
-    // Ajustar inputs en carga
-    setTimeout(() => {
-        $('input, select').trigger('change');
-        $('#monto_pago').trigger('input');
-    }, 100);
-    
-    // Manejar recarga de página
-    $(window).on('beforeunload', function() {
-        if ($('#formPago').find('input, select, textarea').filter(function() {
-            return $(this).val() !== $(this).prop('defaultValue');
-        }).length > 0) {
-            return '¿Está seguro que desea salir? Los cambios no guardados se perderán.';
+        
+        if (!metodoPago) {
+            e.preventDefault();
+            alert('❌ Por favor seleccione un método de pago');
+            metodoSelect.focus();
+            return false;
         }
+        
+        const detalles = prepararDetallesParaEnvio();
+        const metodoSeleccionado = metodoSelect.options[metodoSelect.selectedIndex];
+        const metodoNombre = metodoSeleccionado.getAttribute('data-tipo') || '';
+        
+        if (metodoNombre.includes('EFECTIVO')) {
+            const entregado = parseFloat(document.getElementById('efectivo_entregado')?.value) || 0;
+            if (!entregado || entregado <= 0) {
+                e.preventDefault();
+                alert('❌ Debe ingresar la cantidad entregada');
+                document.getElementById('efectivo_entregado').focus();
+                return false;
+            }
+            if (entregado < monto) {
+                e.preventDefault();
+                alert('❌ La cantidad entregada no puede ser menor al monto del pago');
+                document.getElementById('efectivo_entregado').focus();
+                return false;
+            }
+        }
+        else if (metodoNombre.includes('TRANSFERENCIA') || metodoNombre.includes('DEPÓSITO')) {
+            const numero = document.getElementById('transferencia_numero')?.value || 
+                          document.getElementById('deposito_numero')?.value;
+            if (!numero || numero.trim() === '') {
+                e.preventDefault();
+                alert('❌ Debe ingresar el número de transacción o referencia');
+                const input = document.getElementById('transferencia_numero') || 
+                             document.getElementById('deposito_numero');
+                input?.focus();
+                return false;
+            }
+        }
+        else if (metodoNombre.includes('CHEQUE')) {
+            const numero = document.getElementById('cheque_numero')?.value;
+            const banco = document.getElementById('cheque_banco')?.value;
+            if (!numero || numero.trim() === '') {
+                e.preventDefault();
+                alert('❌ Debe ingresar el número de cheque');
+                document.getElementById('cheque_numero').focus();
+                return false;
+            }
+            if (!banco || banco.trim() === '') {
+                e.preventDefault();
+                alert('❌ Debe ingresar el nombre del banco');
+                document.getElementById('cheque_banco').focus();
+                return false;
+            }
+        }
+        else if (metodoNombre.includes('TARJETA')) {
+            const numero = document.getElementById('tarjeta_numero')?.value;
+            if (!numero || numero.trim() === '' || numero.length !== 4) {
+                e.preventDefault();
+                alert('❌ Debe ingresar los últimos 4 dígitos de la tarjeta');
+                document.getElementById('tarjeta_numero').focus();
+                return false;
+            }
+        }
+        
+        const nuevoSaldo = saldoMaximo - monto;
+        const estadoFinal = nuevoSaldo === 0 ? 'PAGADA' : 'PENDIENTE';
+        
+        let confirmMessage = `¿Está seguro de registrar este pago?\n\n` +
+                            `Proveedor: ${'{{ cuenta_info.Proveedor }}'}\n` +
+                            `Método: ${metodoSeleccionado.textContent}\n` +
+                            `Monto del pago: C$${monto.toFixed(2)}\n` +
+                            `Saldo anterior: C$${saldoMaximo.toFixed(2)}\n` +
+                            `Nuevo saldo: C$${nuevoSaldo.toFixed(2)}\n` +
+                            `Estado final: ${estadoFinal}`;
+        
+        if (detalles) {
+            confirmMessage += `\n\nDetalles del pago:\n${detalles}`;
+        }
+        
+        if (!confirm(confirmMessage)) {
+            e.preventDefault();
+            return false;
+        }
+        
+        const btnRegistrar = document.getElementById('btnRegistrar');
+        btnRegistrar.disabled = true;
+        btnRegistrar.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Procesando...';
     });
+
+    actualizarSimulacion();
+    montoInput.focus();
+    montoInput.select();
 });
 </script>
+
+<style>
+.cambio-positivo {
+    color: #1cc88a;
+    font-weight: bold;
+    background-color: #f8fff9;
+}
+
+.cambio-negativo {
+    color: #e74a3b;
+    font-weight: bold;
+    background-color: #fff8f8;
+}
+
+.border-left-success {
+    border-left: 0.5rem solid #1cc88a !important;
+}
+
+.border-left-primary {
+    border-left: 0.5rem solid #4e73df !important;
+}
+</style>
 {% endblock %}

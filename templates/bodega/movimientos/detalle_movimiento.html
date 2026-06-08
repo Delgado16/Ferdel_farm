@@ -4,20 +4,20 @@
 
 {% block content %}
 <div class="container-fluid">
-    <div class="d-flex justify-content-between align-items-center mb-4">
+    <div class="d-flex flex-column flex-sm-row justify-content-between align-items-sm-center gap-2 mb-4">
         <h1 class="h3 mb-0 text-gray-800">
             <i class="fas fa-file-invoice me-2"></i>Movimiento #{{ movimiento.ID_Movimiento }}
         </h1>
-        <div>
-            <a href="{{ url_for('bodega.bodega_historial_movimientos') }}" class="btn btn-secondary">
+        <div class="btn-group" role="group">
+            <a href="{{ url_for('bodega.bodega_historial_movimientos') }}" class="btn btn-secondary btn-sm">
                 <i class="fas fa-arrow-left me-1"></i> Volver
             </a>
             <a href="{{ url_for('bodega.bodega_imprimir_movimiento', id_movimiento=movimiento.ID_Movimiento) }}" 
-               class="btn btn-primary ms-1" target="_blank">
+               class="btn btn-primary btn-sm" target="_blank">
                 <i class="fas fa-print me-1"></i> Imprimir
             </a>
             {% if movimiento.Estado == 'Activa' %}
-            <button type="button" class="btn btn-danger ms-1" 
+            <button type="button" class="btn btn-danger btn-sm" 
                     data-bs-toggle="modal" data-bs-target="#anularModal">
                 <i class="fas fa-ban me-1"></i> Anular
             </button>
@@ -25,10 +25,10 @@
         </div>
     </div>
 
-    <div class="row">
+    <div class="row g-3">
         <!-- Información General -->
-        <div class="col-lg-4 mb-4">
-            <div class="card shadow">
+        <div class="col-12 col-lg-4">
+            <div class="card shadow mb-3">
                 <div class="card-header py-3 
                     {% if movimiento.Letra == 'E' %}bg-success text-white
                     {% elif movimiento.Letra == 'S' %}bg-danger text-white
@@ -37,135 +37,152 @@
                         <i class="fas fa-info-circle me-1"></i>Información General
                     </h6>
                 </div>
-                <div class="card-body">
-                    <table class="table table-sm">
-                        <tr>
-                            <th class="text-muted">ID:</th>
-                            <td><strong>#{{ movimiento.ID_Movimiento }}</strong></td>
-                        </tr>
-                        <tr>
-                            <th class="text-muted">Fecha:</th>
-                            <td>{{ movimiento.Fecha }}</td>
-                        </tr>
-                        <tr>
-                            <th class="text-muted">Tipo:</th>
-                            <td>
-                                <span class="badge 
-                                    {% if movimiento.Letra == 'E' %}bg-success
-                                    {% elif movimiento.Letra == 'S' %}bg-danger
-                                    {% else %}bg-warning{% endif %}">
-                                    {{ movimiento.Tipo_Movimiento_Descripcion }}
-                                </span>
-                            </td>
-                        </tr>
-                        <tr>
-                            <th class="text-muted">Bodega:</th>
-                            <td>
-                                {{ movimiento.Bodega_Origen_Nombre }}
-                                {% if movimiento.Bodega_Destino_Nombre %}
-                                <i class="fas fa-arrow-right text-muted mx-1"></i>
-                                {{ movimiento.Bodega_Destino_Nombre }}
-                                {% endif %}
-                            </td>
-                        </tr>
+                <div class="card-body p-2 p-sm-3">
+                    <div class="row g-2">
+                        <div class="col-6 col-sm-4 col-lg-5">
+                            <small class="text-muted">ID:</small>
+                        </div>
+                        <div class="col-6 col-sm-8 col-lg-7">
+                            <strong>#{{ movimiento.ID_Movimiento }}</strong>
+                        </div>
+                        
+                        <div class="col-6 col-sm-4 col-lg-5">
+                            <small class="text-muted">Fecha:</small>
+                        </div>
+                        <div class="col-6 col-sm-8 col-lg-7">
+                            {{ movimiento.Fecha }}
+                        </div>
+                        
+                        <div class="col-6 col-sm-4 col-lg-5">
+                            <small class="text-muted">Tipo:</small>
+                        </div>
+                        <div class="col-6 col-sm-8 col-lg-7">
+                            <span class="badge 
+                                {% if movimiento.Letra == 'E' %}bg-success
+                                {% elif movimiento.Letra == 'S' %}bg-danger
+                                {% else %}bg-warning{% endif %}">
+                                {{ movimiento.Tipo_Movimiento_Descripcion }}
+                            </span>
+                        </div>
+                        
+                        <div class="col-6 col-sm-4 col-lg-5">
+                            <small class="text-muted">Bodega:</small>
+                        </div>
+                        <div class="col-6 col-sm-8 col-lg-7">
+                            {{ movimiento.Bodega_Origen_Nombre }}
+                            {% if movimiento.Bodega_Destino_Nombre %}
+                            <i class="fas fa-arrow-right text-muted mx-1"></i>
+                            {{ movimiento.Bodega_Destino_Nombre }}
+                            {% endif %}
+                        </div>
+                        
                         {% if movimiento.Proveedor_Nombre %}
-                        <tr>
-                            <th class="text-muted">Proveedor:</th>
-                            <td>{{ movimiento.Proveedor_Nombre }}</td>
-                        </tr>
+                        <div class="col-6 col-sm-4 col-lg-5">
+                            <small class="text-muted">Proveedor:</small>
+                        </div>
+                        <div class="col-6 col-sm-8 col-lg-7">
+                            {{ movimiento.Proveedor_Nombre }}
+                        </div>
                         {% endif %}
+                        
                         {% if movimiento.Cliente_Nombre %}
-                        <tr>
-                            <th class="text-muted">Cliente:</th>
-                            <td>{{ movimiento.Cliente_Nombre }}</td>
-                        </tr>
+                        <div class="col-6 col-sm-4 col-lg-5">
+                            <small class="text-muted">Cliente:</small>
+                        </div>
+                        <div class="col-6 col-sm-8 col-lg-7">
+                            {{ movimiento.Cliente_Nombre }}
+                        </div>
                         {% endif %}
+                        
                         {% if movimiento.Tipo_Compra %}
-                        <tr>
-                            <th class="text-muted">Tipo Compra:</th>
-                            <td>
-                                <span class="badge 
-                                    {% if movimiento.Tipo_Compra == 'CONTADO' %}bg-success
-                                    {% else %}bg-warning text-dark{% endif %}">
-                                    {{ movimiento.Tipo_Compra }}
-                                </span>
-                            </td>
-                        </tr>
+                        <div class="col-6 col-sm-4 col-lg-5">
+                            <small class="text-muted">Tipo Compra:</small>
+                        </div>
+                        <div class="col-6 col-sm-8 col-lg-7">
+                            <span class="badge 
+                                {% if movimiento.Tipo_Compra == 'CONTADO' %}bg-success
+                                {% else %}bg-warning text-dark{% endif %}">
+                                {{ movimiento.Tipo_Compra }}
+                            </span>
+                        </div>
                         {% endif %}
+                        
                         {% if movimiento.N_Factura_Externa %}
-                        <tr>
-                            <th class="text-muted">Factura Externa:</th>
-                            <td>{{ movimiento.N_Factura_Externa }}</td>
-                        </tr>
+                        <div class="col-6 col-sm-4 col-lg-5">
+                            <small class="text-muted">Factura Externa:</small>
+                        </div>
+                        <div class="col-6 col-sm-8 col-lg-7">
+                            {{ movimiento.N_Factura_Externa }}
+                        </div>
                         {% endif %}
-                        <tr>
-                            <th class="text-muted">Usuario:</th>
-                            <td>{{ movimiento.Usuario_Creacion_Nombre }}</td>
-                        </tr>
-                        <tr>
-                            <th class="text-muted">Estado:</th>
-                            <td>
-                                {% if movimiento.Estado == 'Activa' %}
-                                <span class="badge bg-success">Activa</span>
-                                {% else %}
-                                <span class="badge bg-danger">Anulada</span>
-                                {% endif %}
-                            </td>
-                        </tr>
-                    </table>
+                        
+                        <div class="col-6 col-sm-4 col-lg-5">
+                            <small class="text-muted">Usuario:</small>
+                        </div>
+                        <div class="col-6 col-sm-8 col-lg-7">
+                            {{ movimiento.Usuario_Creacion_Nombre }}
+                        </div>
+                        
+                        <div class="col-6 col-sm-4 col-lg-5">
+                            <small class="text-muted">Estado:</small>
+                        </div>
+                        <div class="col-6 col-sm-8 col-lg-7">
+                            {% if movimiento.Estado == 'Activa' %}
+                            <span class="badge bg-success">Activa</span>
+                            {% else %}
+                            <span class="badge bg-danger">Anulada</span>
+                            {% endif %}
+                        </div>
+                    </div>
                 </div>
             </div>
             
-            <!-- Totales -->
-            <div class="card shadow mt-4">
+            <!-- Totales - SIN PRECIOS -->
+            <div class="card shadow mb-3">
                 <div class="card-header py-3 bg-info text-white">
                     <h6 class="m-0 font-weight-bold">
-                        <i class="fas fa-calculator me-1"></i>Totales
+                        <i class="fas fa-calculator me-1"></i>Resumen
                     </h6>
                 </div>
-                <div class="card-body">
-                    <table class="table table-sm">
-                        <tr>
-                            <th class="text-muted">Productos:</th>
-                            <td class="text-end">{{ detalle|length }}</td>
-                        </tr>
-                        <tr>
-                            <th class="text-muted">Total Unidades:</th>
-                            <td class="text-end">{{ "%.3f"|format(total_cantidad) }}</td>
-                        </tr>
+                <div class="card-body p-2 p-sm-3">
+                    <div class="row g-2">
+                        <div class="col-6 col-sm-4 col-lg-5">
+                            <small class="text-muted">Productos:</small>
+                        </div>
+                        <div class="col-6 col-sm-8 col-lg-7 text-end text-sm-start">
+                            <strong>{{ detalle|length }}</strong>
+                        </div>
                         
-                        {% if movimiento.Letra == 'S' %}
-                        <!-- Para SALIDAS: solo mostrar total precio de venta -->
-                        <tr>
-                            <th class="text-muted">Total Venta:</th>
-                            <td class="text-end">
-                                <strong class="text-success">C${{ "%.2f"|format(total_precio) }}</strong>
-                            </td>
-                        </tr>
-                        {% else %}
-                        <!-- Para ENTRADAS/TRANSFERENCIAS: mostrar total costo -->
-                        <tr>
-                            <th class="text-muted">Total Costo:</th>
-                            <td class="text-end">
-                                <strong>C${{ "%.2f"|format(total_costo) }}</strong>
-                            </td>
-                        </tr>
-                        {% endif %}
-                    </table>
+                        <div class="col-6 col-sm-4 col-lg-5">
+                            <small class="text-muted">Total Unidades:</small>
+                        </div>
+                        <div class="col-6 col-sm-8 col-lg-7 text-end text-sm-start">
+                            <strong class="text-primary">{{ "%.3f"|format(total_cantidad|abs) }}</strong>
+                        </div>
+                        
+                        <div class="col-12 mt-2">
+                            <div class="alert alert-info alert-sm mb-0 py-2">
+                                <small>
+                                    <i class="fas fa-info-circle me-1"></i>
+                                    Los precios no se muestran por políticas de la bodega
+                                </small>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
         
-        <!-- Detalle de Productos -->
-        <div class="col-lg-8">
-            <div class="card shadow">
-                <div class="card-header py-3 d-flex justify-content-between align-items-center">
+        <!-- Detalle de Productos - SIN PRECIOS (VERSIÓN RESPONSIVA) -->
+        <div class="col-12 col-lg-8">
+            <div class="card shadow mb-3">
+                <div class="card-header py-3 d-flex flex-column flex-sm-row justify-content-between align-items-sm-center gap-2">
                     <h6 class="m-0 font-weight-bold text-primary">
                         <i class="fas fa-boxes me-1"></i>Productos
                         <span class="badge bg-primary ms-2">{{ detalle|length }}</span>
                     </h6>
                     <div>
-                        <span class="text-muted">
+                        <span class="text-muted small">
                             {% if movimiento.Letra == 'E' %}
                             <i class="fas fa-sign-in-alt text-success me-1"></i>Entrada
                             {% elif movimiento.Letra == 'S' %}
@@ -176,89 +193,148 @@
                         </span>
                     </div>
                 </div>
-                <div class="card-body">
+                <div class="card-body p-0">
                     {% if detalle %}
-                    <div class="table-responsive">
-                        <table class="table table-hover">
-                            <thead class="table-light">
-                                <tr>
-                                    <th>Código</th>
-                                    <th>Producto</th>
-                                    <th>Cantidad</th>
-                                    {% if movimiento.Letra == 'S' %}
-                                    <!-- Para SALIDAS (ventas): mostrar precio de venta -->
-                                    <th>Precio Venta</th>
-                                    <th>Subtotal Venta</th>
-                                    {% else %}
-                                    <!-- Para ENTRADAS/TRANSFERENCIAS: mostrar costo -->
-                                    <th>Costo Unitario</th>
-                                    <th>Subtotal Costo</th>
-                                    {% endif %}
-                                    {% if detalle[0].Lote %}
-                                    <th>Lote</th>
-                                    {% endif %}
-                                    <th>Stock Actual</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for item in detalle %}
-                                <tr>
-                                    <td>
-                                        <small class="text-muted">{{ item.COD_Producto or 'N/A' }}</small>
-                                    </td>
-                                    <td>
-                                        <strong>{{ item.Producto_Descripcion }}</strong>
-                                        <br>
-                                        <small class="text-muted">{{ item.Unidad_Abreviatura or item.Unidad_Medida_Descripcion }}</small>
-                                    </td>
-                                    <td>{{ "%.3f"|format(item.Cantidad) }}</td>
-                                    
-                                    {% if movimiento.Letra == 'S' %}
-                                    <!-- Para SALIDAS: mostrar precio de venta -->
-                                    <td>C${{ "%.2f"|format(item.Precio_Unitario) }}</td>
-                                    <td><strong>C${{ "%.2f"|format(item.Cantidad * item.Precio_Unitario) }}</strong></td>
-                                    {% else %}
-                                    <!-- Para ENTRADAS: mostrar costo -->
-                                    <td>C${{ "%.2f"|format(item.Costo_Unitario) }}</td>
-                                    <td><strong>C${{ "%.2f"|format(item.Subtotal) }}</strong></td>
-                                    {% endif %}
-                                    
-                                    {% if item.Lote %}
-                                    <td>
-                                        <span class="badge bg-info">{{ item.Lote }}</span>
-                                        {% if item.Fecha_Vencimiento %}
-                                        <br>
-                                        <small class="text-muted">{{ item.Fecha_Vencimiento }}</small>
-                                        {% endif %}
-                                    </td>
-                                    {% endif %}
-                                    
-                                    <td>
+                    
+                    <!-- VERSIÓN DESKTOP: Tabla normal -->
+                    <div class="d-none d-md-block">
+                        <div class="table-responsive">
+                            <table class="table table-hover mb-0">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Código</th>
+                                        <th>Producto</th>
+                                        <th class="text-end">Cantidad</th>
+                                        <th>Unidad</th>
+                                        <th class="text-center">Stock Actual</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for item in detalle %}
+                                    <tr>
+                                        <td>
+                                            <small class="text-muted">{{ item.COD_Producto or 'N/A' }}</small>
+                                        </td>
+                                        <td>
+                                            <strong>{{ item.Producto_Descripcion }}</strong>
+                                            <br>
+                                            <small class="text-muted">{{ item.Categoria_Descripcion or 'Sin categoría' }}</small>
+                                        </td>
+                                        <td class="text-end"><strong>{{ "%.3f"|format(item.Cantidad|abs) }}</strong></td>
+                                        <td>{{ item.Unidad_Abreviatura or item.Unidad_Medida_Descripcion }}</td>
+                                        <td class="text-center">
+                                            <span class="badge 
+                                                {% if item.Stock_Actual and item.Stock_Actual > 0 %}bg-success
+                                                {% else %}bg-danger{% endif %}">
+                                                {{ item.Stock_Actual or 0 }}
+                                            </span>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                                <tfoot class="table-secondary">
+                                    <tr>
+                                        <td colspan="2" class="text-end"><strong>Total:</strong></td>
+                                        <td class="text-end"><strong>{{ "%.3f"|format(total_cantidad|abs) }}</strong></td>
+                                        <td colspan="2"></td>
+                                    </tr>
+                                </tfoot>
+                            </table>
+                        </div>
+                    </div>
+                    
+                    <!-- VERSIÓN TABLET: Tabla compacta -->
+                    <div class="d-none d-sm-block d-md-none">
+                        <div class="table-responsive">
+                            <table class="table table-sm table-hover mb-0">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Producto</th>
+                                        <th class="text-end">Cant</th>
+                                        <th>Unidad</th>
+                                        <th class="text-center">Stock</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for item in detalle %}
+                                    <tr>
+                                        <td>
+                                            <strong>{{ item.Producto_Descripcion|truncate(30) }}</strong>
+                                            <br>
+                                            <small class="text-muted">{{ item.COD_Producto or 'N/A' }}</small>
+                                        </td>
+                                        <td class="text-end"><strong>{{ "%.3f"|format(item.Cantidad|abs) }}</strong></td>
+                                        <td>{{ item.Unidad_Abreviatura or item.Unidad_Medida_Descripcion }}</td>
+                                        <td class="text-center">
+                                            <span class="badge 
+                                                {% if item.Stock_Actual and item.Stock_Actual > 0 %}bg-success
+                                                {% else %}bg-danger{% endif %}">
+                                                {{ item.Stock_Actual or 0 }}
+                                            </span>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                                <tfoot class="table-secondary">
+                                    <tr>
+                                        <td class="text-end"><strong>Total:</strong></td>
+                                        <td class="text-end"><strong>{{ "%.3f"|format(total_cantidad|abs) }}</strong></td>
+                                        <td colspan="2"></td>
+                                    </tr>
+                                </tfoot>
+                            </table>
+                        </div>
+                    </div>
+                    
+                    <!-- VERSIÓN MÓVIL: Tarjetas -->
+                    <div class="d-block d-sm-none">
+                        <div class="list-group list-group-flush">
+                            {% for item in detalle %}
+                            <div class="list-group-item p-3">
+                                <div class="d-flex justify-content-between align-items-start mb-2">
+                                    <div class="flex-grow-1">
+                                        <strong class="fs-6">{{ item.Producto_Descripcion }}</strong>
+                                        <div>
+                                            <small class="text-muted">{{ item.COD_Producto or 'N/A' }}</small>
+                                            {% if item.Categoria_Descripcion %}
+                                            <br>
+                                            <small class="text-muted">
+                                                <i class="fas fa-tag me-1"></i>{{ item.Categoria_Descripcion }}
+                                            </small>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                    <div class="text-end">
                                         <span class="badge 
                                             {% if item.Stock_Actual and item.Stock_Actual > 0 %}bg-success
                                             {% else %}bg-danger{% endif %}">
-                                            {{ item.Stock_Actual or 0 }}
+                                            Stock: {{ item.Stock_Actual or 0 }}
                                         </span>
-                                    </td>
-                                </tr>
-                                {% endfor %}
-                            </tbody>
-                            <tfoot class="table-secondary">
-                                <tr>
-                                    <td colspan="3" class="text-end"><strong>Total:</strong></td>
-                                    {% if movimiento.Letra == 'S' %}
-                                    <!-- Para SALIDAS: total precio de venta -->
-                                    <td colspan="2"><strong>C${{ "%.2f"|format(total_precio) }}</strong></td>
-                                    {% else %}
-                                    <!-- Para ENTRADAS: total costo -->
-                                    <td colspan="2"><strong>C${{ "%.2f"|format(total_costo) }}</strong></td>
-                                    {% endif %}
-                                    {% if detalle[0].Lote %}<td></td>{% endif %}
-                                    <td></td>
-                                </tr>
-                            </tfoot>
-                        </table>
+                                    </div>
+                                </div>
+                                <div class="row mt-2">
+                                    <div class="col-6">
+                                        <small class="text-muted d-block">Cantidad</small>
+                                        <strong class="text-primary fs-5">{{ "%.3f"|format(item.Cantidad|abs) }}</strong>
+                                    </div>
+                                    <div class="col-6">
+                                        <small class="text-muted d-block">Unidad</small>
+                                        <span>{{ item.Unidad_Abreviatura or item.Unidad_Medida_Descripcion }}</span>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                            
+                            <!-- Total en móvil -->
+                            <div class="list-group-item bg-light">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <strong>Total Unidades:</strong>
+                                    <strong class="text-primary fs-5">{{ "%.3f"|format(total_cantidad|abs) }}</strong>
+                                </div>
+                            </div>
+                        </div>
                     </div>
+                    
                     {% else %}
                     <div class="text-center py-5">
                         <i class="fas fa-box-open fa-3x text-muted mb-3"></i>
@@ -270,14 +346,43 @@
             
             <!-- Observaciones -->
             {% if movimiento.Observacion %}
-            <div class="card shadow mt-4">
+            <div class="card shadow mb-3">
                 <div class="card-header py-3">
                     <h6 class="m-0 font-weight-bold text-primary">
                         <i class="fas fa-sticky-note me-1"></i>Observaciones
                     </h6>
                 </div>
                 <div class="card-body">
-                    <p class="mb-0">{{ movimiento.Observacion }}</p>
+                    <p class="mb-0 small">{{ movimiento.Observacion }}</p>
+                </div>
+            </div>
+            {% endif %}
+            
+            <!-- MOSTRAR FACTURA DEL PROVEEDOR (SI EXISTE) - VERSIÓN RESPONSIVA -->
+            {% if foto_url %}
+            <div class="card shadow mb-3">
+                <div class="card-header py-3 bg-info text-white">
+                    <h6 class="m-0 font-weight-bold">
+                        <i class="fas fa-file-invoice me-2"></i>
+                        Factura del Proveedor
+                    </h6>
+                </div>
+                <div class="card-body text-center p-2 p-sm-3">
+                    <a href="/static/{{ foto_url }}" target="_blank" class="btn btn-primary btn-sm mb-2">
+                        <i class="fas fa-external-link-alt me-1"></i> Ver Factura Completa
+                    </a>
+                    <div class="mt-2">
+                        <img src="/static/{{ foto_url }}" 
+                             class="img-fluid img-thumbnail" 
+                             style="max-height: 300px; width: auto; cursor: pointer; max-width: 100%;" 
+                             onclick="window.open('/static/{{ foto_url }}', '_blank')"
+                             alt="Factura del proveedor"
+                             onerror="this.onerror=null; this.style.display='none'; this.parentElement.innerHTML += '<div class=\'alert alert-danger mt-2\'><i class=\'fas fa-exclamation-triangle me-1\'></i> No se pudo cargar la imagen de la factura. El archivo podría no existir o la ruta es incorrecta.</div>';">
+                        <p class="text-muted mt-2 small">
+                            <i class="fas fa-info-circle me-1"></i> 
+                            Haz clic en la imagen para verla en tamaño completo
+                        </p>
+                    </div>
                 </div>
             </div>
             {% endif %}
@@ -288,7 +393,7 @@
 <!-- Modal para anular -->
 {% if movimiento.Estado == 'Activa' %}
 <div class="modal fade" id="anularModal" tabindex="-1">
-    <div class="modal-dialog">
+    <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
             <div class="modal-header bg-danger text-white">
                 <h5 class="modal-title">
@@ -303,10 +408,10 @@
                 <div class="modal-body">
                     <p>¿Está seguro que desea anular el movimiento 
                         <strong>#{{ movimiento.ID_Movimiento }}</strong>?</p>
-                    <p class="text-danger">
+                    <div class="alert alert-danger">
                         <i class="fas fa-exclamation-circle me-1"></i>
                         Esta acción revertirá los cambios en el inventario y no se puede deshacer.
-                    </p>
+                    </div>
                     <div class="mb-3">
                         <label class="form-label">Motivo de anulación:</label>
                         <textarea name="motivo" class="form-control" rows="3" required></textarea>
@@ -327,12 +432,47 @@
 
 <!-- JavaScript -->
 <script>
-$(document).ready(function() {
-    // Si hay parámetros de éxito en la URL
+document.addEventListener('DOMContentLoaded', function() {
     const urlParams = new URLSearchParams(window.location.search);
     if (urlParams.has('success')) {
-        toastr.success('Movimiento procesado exitosamente');
+        if (typeof toastr !== 'undefined') {
+            toastr.success('Movimiento procesado exitosamente');
+        } else {
+            console.log('Movimiento procesado exitosamente');
+        }
     }
+    
+    window.verFactura = function(url) {
+        window.open(url, '_blank');
+    };
 });
 </script>
+
+<style>
+/* Mejoras responsivas adicionales */
+@media (max-width: 576px) {
+    .btn-group {
+        width: 100%;
+    }
+    .btn-group .btn {
+        flex: 1;
+    }
+    .card-header h6 {
+        font-size: 0.9rem;
+    }
+}
+
+@media (min-width: 768px) and (max-width: 991px) {
+    .table-sm td, .table-sm th {
+        padding: 0.5rem;
+        font-size: 0.85rem;
+    }
+}
+
+/* Mejora para scroll horizontal en tablas si es necesario */
+.table-responsive {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+}
+</style>
 {% endblock %}

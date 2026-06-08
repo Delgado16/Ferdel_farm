@@ -16,9 +16,10 @@ from helpers.bitacora import bitacora_decorator
 bodega_bp = Blueprint('bodega', __name__, url_prefix='/bodega')
 
 
-@bodega_bp.route('/bodega/dashboard')
+@bodega_bp.route('/dashboard')
 @admin_or_bodega_required
 def bodega_dashboard():
+    """Dashboard del bodeguero con todas las estadísticas"""
 
     try:
         with get_db_cursor() as cursor:
@@ -123,7 +124,7 @@ def bodega_dashboard():
             """)
             resumen_dia_total = cursor.fetchone()
             
-            # 4. Productos con stock bajo (menor al mínimo) - TODAS las bodegas
+            # 4. Productos con stock bajo
             cursor.execute("""
                 SELECT 
                     p.Descripcion AS Producto,
@@ -149,7 +150,7 @@ def bodega_dashboard():
             """)
             productos_stock_bajo = cursor.fetchall()
             
-            # 5. Top 10 productos más vendidos hoy - SIN PRECIOS
+            # 5. Top 10 productos más vendidos hoy
             cursor.execute("""
                 SELECT 
                     p.Descripcion AS Producto,
@@ -172,7 +173,7 @@ def bodega_dashboard():
             """)
             top_productos_hoy = cursor.fetchall()
             
-            # 6. Información de TODAS las bodegas - SIN VALORES MONETARIOS
+            # 6. Información de todas las bodegas
             cursor.execute("""
                 SELECT 
                     b.Nombre,
@@ -189,7 +190,7 @@ def bodega_dashboard():
             """)
             info_bodegas = cursor.fetchall()
             
-            # 7. Productos por categoría - SIN PRECIOS NI VALORES TOTALES
+            # 7. Productos por categoría
             cursor.execute("""
                 SELECT 
                     b.Nombre AS Bodega,
@@ -215,7 +216,7 @@ def bodega_dashboard():
             """)
             productos_categorias = cursor.fetchall()
             
-            # 8. Resumen por bodega y categoría - SIN VALORES MONETARIOS
+            # 8. Resumen por bodega y categoría
             cursor.execute("""
                 SELECT 
                     b.Nombre AS Bodega,
@@ -244,7 +245,46 @@ def bodega_dashboard():
             """)
             sistema_info = cursor.fetchone()
             
-            # Formatear fecha actual para mostrar
+            # ============================================
+            # NUEVO: Cargas pendientes de recepción
+            # ============================================
+            cursor.execute("""
+                SELECT 
+                    cp.ID_Carga,
+                    cp.Num_Factura,
+                    cp.Fecha_Carga,
+                    cp.Estado,
+                    p.Nombre as proveedor_nombre,
+                    u.NombreUsuario as vendedor_nombre,
+                    COUNT(cpd.ID_Detalle) as total_productos,
+                    SUM(cpd.Cantidad_Cargada) as total_cantidad,
+                    SUM(cpd.Cantidad_Cargada * cpd.Costo_Unitario) as total_monto,
+                    DATEDIFF(CURDATE(), cp.Fecha_Carga) as dias_espera
+                FROM cargas_pendientes_recepcion cp
+                LEFT JOIN proveedores p ON cp.ID_Proveedor = p.ID_Proveedor
+                LEFT JOIN usuarios u ON cp.ID_Usuario_Carga = u.ID_Usuario
+                LEFT JOIN cargas_pendientes_detalle cpd ON cp.ID_Carga = cpd.ID_Carga
+                WHERE cp.Estado = 'PENDIENTE'
+                GROUP BY cp.ID_Carga, cp.Num_Factura, cp.Fecha_Carga, cp.Estado, 
+                         p.Nombre, u.NombreUsuario
+                ORDER BY cp.Fecha_Carga ASC
+                LIMIT 10
+            """)
+            cargas_pendientes_recepcion = cursor.fetchall()
+            
+            # Resumen de cargas pendientes
+            cursor.execute("""
+                SELECT 
+                    COUNT(*) as total_pendientes,
+                    COALESCE(SUM(cpd.Cantidad_Cargada), 0) as total_cantidad_pendiente,
+                    COALESCE(SUM(cpd.Cantidad_Cargada * cpd.Costo_Unitario), 0) as total_monto_pendiente,
+                    COUNT(CASE WHEN DATEDIFF(CURDATE(), cp.Fecha_Carga) > 3 THEN 1 END) as cargas_atrasadas
+                FROM cargas_pendientes_recepcion cp
+                LEFT JOIN cargas_pendientes_detalle cpd ON cp.ID_Carga = cpd.ID_Carga
+                WHERE cp.Estado = 'PENDIENTE'
+            """)
+            resumen_cargas_pendientes = cursor.fetchone()
+            
             fecha_hoy = datetime.now().strftime("%d/%m/%Y")
             
             return render_template('bodega/dashboard.html',
@@ -258,6 +298,8 @@ def bodega_dashboard():
                                  productos_categorias=productos_categorias,
                                  resumen_categorias=resumen_categorias,
                                  sistema_info=sistema_info,
+                                 cargas_pendientes_recepcion=cargas_pendientes_recepcion,
+                                 resumen_cargas_pendientes=resumen_cargas_pendientes,
                                  fecha_hoy=fecha_hoy,
                                  current_user=current_user)
                              
@@ -276,6 +318,8 @@ def bodega_dashboard():
                              productos_categorias=[],
                              resumen_categorias=[],
                              sistema_info={},
+                             cargas_pendientes_recepcion=[],
+                             resumen_cargas_pendientes={},
                              fecha_hoy=datetime.now().strftime("%d/%m/%Y"),
                              current_user=current_user)
 
@@ -304,9 +348,13 @@ def bodega_historial_movimientos():
         fecha_fin = request.args.get('fecha_fin', '')
         
         with get_db_cursor(True) as cursor:
-            # Consulta base CORREGIDA - Sin filtro fijo de estado
+            # Consulta base - SIN PRECIOS (eliminamos Total_Costo)
             query = """
-                SELECT mi.*, 
+                SELECT mi.ID_Movimiento,
+                       mi.Fecha,
+                       mi.ID_TipoMovimiento,
+                       mi.Estado,
+                       mi.Observacion,
                        cm.Descripcion as Tipo_Movimiento_Descripcion,
                        cm.Letra,
                        bo.Nombre as Bodega_Origen_Nombre,
@@ -315,14 +363,14 @@ def bodega_historial_movimientos():
                        u.NombreUsuario as Usuario_Creacion_Nombre,
                        (SELECT COUNT(*) FROM detalle_movimientos_inventario 
                         WHERE ID_Movimiento = mi.ID_Movimiento) as Cantidad_Productos,
-                       (SELECT SUM(Subtotal) FROM detalle_movimientos_inventario 
-                        WHERE ID_Movimiento = mi.ID_Movimiento) as Total_Costo
+                       -- Eliminamos el cálculo de Total_Costo
+                       NULL as Total_Costo_Seguro  -- Campo vacío por si el template lo espera
                 FROM movimientos_inventario mi
                 LEFT JOIN catalogo_movimientos cm ON mi.ID_TipoMovimiento = cm.ID_TipoMovimiento
                 LEFT JOIN bodegas bo ON mi.ID_Bodega = bo.ID_Bodega
                 LEFT JOIN bodegas bd ON mi.ID_Bodega_Destino = bd.ID_Bodega
                 LEFT JOIN proveedores p ON mi.ID_Proveedor = p.ID_Proveedor 
-                    AND p.ID_Empresa = mi.ID_Empresa  -- IMPORTANTE: filtrar por misma empresa
+                    AND p.ID_Empresa = mi.ID_Empresa
                 LEFT JOIN usuarios u ON mi.ID_Usuario_Creacion = u.ID_Usuario
                 WHERE 1=1
             """
@@ -336,7 +384,7 @@ def bodega_historial_movimientos():
             params = []
             count_params = []
             
-            # Aplicar filtro de estado (NUEVO)
+            # Aplicar filtro de estado
             if estado_filtro != 'todas':
                 query += " AND mi.Estado = %s"
                 count_query += " AND mi.Estado = %s"
@@ -384,7 +432,7 @@ def bodega_historial_movimientos():
                                  movimientos=movimientos,
                                  tipos_movimiento=tipos_movimiento,
                                  tipo_filtro=tipo_filtro,
-                                 estado_filtro=estado_filtro,  # NUEVO: pasar estado al template
+                                 estado_filtro=estado_filtro,
                                  fecha_inicio=fecha_inicio,
                                  fecha_fin=fecha_fin,
                                  page=page,
@@ -398,13 +446,7 @@ def bodega_historial_movimientos():
 @bodega_bp.route('/bodega/movimientos/entrada/nueva')
 @admin_or_bodega_required
 def bodega_nueva_entrada_form():
-
-    print(f"DEBUG - current_user: {current_user}")
-    print(f"DEBUG - current_user.is_authenticated: {current_user.is_authenticated}")
-    print(f"DEBUG - current_user.id: {getattr(current_user, 'id', 'NO ID ATTRIBUTE')}")
-    print(f"DEBUG - current_user.__dict__: {current_user.__dict__}")
-
-    """Mostrar formulario para nueva entrada (compra/producción)"""
+    """Mostrar formulario para nueva entrada (compra/producción) - SIN PRECIOS"""
     try:
         with get_db_cursor(True) as cursor:
             # Solo mostrar tipos de entrada (Letra = 'E')
@@ -412,7 +454,7 @@ def bodega_nueva_entrada_form():
                 SELECT * FROM catalogo_movimientos 
                 WHERE Letra = 'E'
                 ORDER BY Descripcion
-            """)  # Ajuste también puede ser entrada
+            """)
             
             tipos_movimiento = cursor.fetchall()
             
@@ -432,7 +474,7 @@ def bodega_nueva_entrada_form():
             """)
             bodegas = cursor.fetchall()
             
-            # Obtener productos activos
+            # Obtener productos activos - SIN PRECIOS
             cursor.execute("""
                 SELECT 
                     p.ID_Producto, 
@@ -440,7 +482,6 @@ def bodega_nueva_entrada_form():
                     p.Descripcion, 
                     p.Unidad_Medida, 
                     um.Descripcion as Unidad_Descripcion,
-                    p.Precio_Mercado as Precio_Venta, 
                     p.Stock_Minimo,
                     cp.Descripcion as Categoria_Descripcion,
                     COALESCE(SUM(ib.Existencias), 0) as Existencias_Totales
@@ -450,9 +491,9 @@ def bodega_nueva_entrada_form():
                 LEFT JOIN inventario_bodega ib ON p.ID_Producto = ib.ID_Producto
                 WHERE p.Estado = 'activo'
                 GROUP BY p.ID_Producto, p.COD_Producto, p.Descripcion, 
-                         p.Unidad_Medida, Precio_Venta, p.Stock_Minimo,
+                         p.Unidad_Medida, p.Stock_Minimo,
                          um.Descripcion, cp.Descripcion
-                ORDER BY p.Descripcion
+                ORDER BY p.COD_Producto
                 LIMIT 100
             """)
             productos = cursor.fetchall()
@@ -482,13 +523,26 @@ def bodega_nueva_entrada_form():
 
             fecha_hoy = datetime.now().strftime('%Y-%m-%d')
             
+            # Obtener IDs de tipos de producción - MANEJO DE ERRORES
+            try:
+                cursor.execute("""
+                    SELECT ID_TipoMovimiento FROM catalogo_movimientos 
+                    WHERE Letra = 'E' AND (Descripcion LIKE '%PRODUCCIÓN%' OR Descripcion LIKE '%FABRICACIÓN%' OR Descripcion LIKE '%PRODUCCION%')
+                """)
+                tipos_produccion = [str(t['ID_TipoMovimiento']) for t in cursor.fetchall()]
+            except Exception as e:
+                print(f"Error al obtener tipos de producción: {e}")
+                tipos_produccion = []  
+            
             return render_template('bodega/movimientos/nueva_entrada.html',
                                  tipos_movimiento=tipos_movimiento,
                                  proveedores=proveedores,
                                  bodegas=bodegas,
                                  productos=productos_con_stock,
-                                 fecha_hoy=fecha_hoy)
+                                 fecha_hoy=fecha_hoy,
+                                 tipos_produccion=tipos_produccion)
     except Exception as e:
+        print(f"Error al cargar formulario: {str(e)}")
         flash(f"Error al cargar formulario: {str(e)}", 'error')
         return redirect(url_for('bodega.bodega_historial_movimientos'))
 
@@ -497,7 +551,7 @@ def bodega_nueva_entrada_form():
 @admin_or_bodega_required
 @bitacora_decorator("PROCESAR-ENTRADA")
 def bodega_procesar_entrada():
-    """Procesar nueva entrada (compra/producción/ajuste positivo)"""
+    """Procesar nueva entrada (compra/producción/ajuste positivo) - SIN PRECIO DE VENTA"""
     try:
         # Obtener user_id desde current_user (Flask-Login)
         if not current_user.is_authenticated:
@@ -592,6 +646,7 @@ def bodega_procesar_entrada():
                     id_producto = int(prod['id_producto'])
                     cantidad = Decimal(str(prod.get('cantidad', 0)))
                     costo_unitario = Decimal(str(prod.get('costo_unitario', 0)))
+                    # precio_unitario ahora es opcional, por defecto 0
                     precio_unitario = Decimal(str(prod.get('precio_unitario', 0)))
                     subtotal = cantidad * costo_unitario
                     
@@ -608,7 +663,8 @@ def bodega_procesar_entrada():
                     if not cursor.fetchone():
                         continue
                     
-                    # Insertar detalle
+                    # Insertar detalle - precio_unitario sigue siendo requerido por la tabla
+                    # pero lo seteamos a 0 si no viene
                     cursor.execute("""
                         INSERT INTO detalle_movimientos_inventario
                         (ID_Movimiento, ID_Producto, Cantidad, Costo_Unitario,
@@ -619,7 +675,7 @@ def bodega_procesar_entrada():
                         id_producto, 
                         cantidad,
                         costo_unitario, 
-                        precio_unitario, 
+                        precio_unitario,  # Puede ser 0 si no se proporciona
                         subtotal,
                         user_id
                     ))
@@ -1564,10 +1620,84 @@ def bodega_detalle_movimiento(id_movimiento):
                 flash("Movimiento no encontrado", 'error')
                 return redirect(url_for('bodega.bodega_historial_movimientos'))
             
+            # ============================================
+            # EXTRAER RUTA DE LA FOTO - CORREGIDO
+            # ============================================
+            import re
+            foto_url = None
+            
+            # Buscar en Observación (formato: " | Factura: ruta" o " | Foto: ruta")
+            if movimiento['Observacion']:
+                # Buscar "Factura:" (como se guarda actualmente)
+                match = re.search(r'Factura:\s*([^\s|]+)', movimiento['Observacion'])
+                if not match:
+                    # También buscar "Foto:" por compatibilidad
+                    match = re.search(r'Foto:\s*([^\s|]+)', movimiento['Observacion'])
+                
+                if match:
+                    foto_url = match.group(1)
+                    print(f"Foto encontrada en movimiento actual: {foto_url}")
+            
+            # Si no se encontró y es un traslado (ID_TipoMovimiento=6), buscar en el movimiento de compra relacionado
+            if not foto_url and movimiento['ID_TipoMovimiento'] == 6:
+                # Buscar por factura externa
+                if movimiento.get('N_Factura_Externa'):
+                    cursor.execute("""
+                        SELECT Observacion 
+                        FROM movimientos_inventario 
+                        WHERE ID_TipoMovimiento = 1 
+                        AND N_Factura_Externa = %s
+                        AND ID_Proveedor = %s
+                        AND Estado != 'Anulada'
+                        LIMIT 1
+                    """, (movimiento.get('N_Factura_Externa'), movimiento.get('ID_Proveedor')))
+                    
+                    movimiento_compra = cursor.fetchone()
+                    if movimiento_compra and movimiento_compra['Observacion']:
+                        match = re.search(r'Factura:\s*([^\s|]+)', movimiento_compra['Observacion'])
+                        if not match:
+                            match = re.search(r'Foto:\s*([^\s|]+)', movimiento_compra['Observacion'])
+                        if match:
+                            foto_url = match.group(1)
+                            print(f"Foto encontrada en movimiento de compra por factura: {foto_url}")
+            
+            # Si aún no se encontró, buscar por ID_Pedido_Origen
+            if not foto_url and movimiento.get('ID_Pedido_Origen'):
+                cursor.execute("""
+                    SELECT Observacion 
+                    FROM movimientos_inventario 
+                    WHERE ID_Movimiento = %s
+                """, (movimiento['ID_Pedido_Origen'],))
+                movimiento_origen = cursor.fetchone()
+                if movimiento_origen and movimiento_origen['Observacion']:
+                    match = re.search(r'Factura:\s*([^\s|]+)', movimiento_origen['Observacion'])
+                    if not match:
+                        match = re.search(r'Foto:\s*([^\s|]+)', movimiento_origen['Observacion'])
+                    if match:
+                        foto_url = match.group(1)
+                        print(f"Foto encontrada por ID_Pedido_Origen: {foto_url}")
+            
+            # ============================================
+            # VERIFICAR SI LA FOTO EXISTE FÍSICAMENTE (CORREGIDO)
+            # ============================================
+            if foto_url:
+                from flask import current_app  # ← IMPORTANTE: usar current_app
+                import os
+                ruta_completa = os.path.join(current_app.root_path, 'static', foto_url)
+                if not os.path.exists(ruta_completa):
+                    print(f"ADVERTENCIA: La foto no existe en: {ruta_completa}")
+                    foto_url = None  # No mostrar si no existe
+                else:
+                    print(f"Foto encontrada y válida: {ruta_completa}")
+            
             # Detalle de productos
             cursor.execute("""
-                SELECT dmi.*, 
-                       p.COD_Producto, p.Descripcion as Producto_Descripcion,
+                SELECT dmi.ID_Producto,
+                       dmi.Cantidad,
+                       dmi.Costo_Unitario,
+                       dmi.Subtotal,
+                       p.COD_Producto, 
+                       p.Descripcion as Producto_Descripcion,
                        um.Descripcion as Unidad_Medida_Descripcion,
                        um.Abreviatura as Unidad_Abreviatura,
                        cp.Descripcion as Categoria_Descripcion,
@@ -1587,23 +1717,21 @@ def bodega_detalle_movimiento(id_movimiento):
             detalle = cursor.fetchall()
             
             # Calcular totales
-            total_cantidad = sum(Decimal(str(d['Cantidad'])) for d in detalle)
-            total_costo = sum(Decimal(str(d['Subtotal'] or 0)) for d in detalle)
-            
-            # Para ventas, calcular total precio
-            total_precio = 0
-            if movimiento['Letra'] == 'S':
-                total_precio = sum(Decimal(str(d['Precio_Unitario'] or 0)) * 
-                                 Decimal(str(d['Cantidad'])) for d in detalle)
+            from decimal import Decimal
+            total_cantidad = sum(Decimal(str(d['Cantidad'])) for d in detalle if d['Cantidad'])
+            total_costo = sum(Decimal(str(d.get('Subtotal', 0))) for d in detalle if d.get('Subtotal'))
             
             return render_template('bodega/movimientos/detalle_movimiento.html',
                                  movimiento=movimiento,
                                  detalle=detalle,
                                  total_cantidad=total_cantidad,
                                  total_costo=total_costo,
-                                 total_precio=total_precio)
+                                 foto_url=foto_url)
             
     except Exception as e:
+        print(f"Error al cargar detalle: {str(e)}")
+        import traceback
+        traceback.print_exc()
         flash(f"Error al cargar detalle: {str(e)}", 'error')
         return redirect(url_for('bodega.bodega_historial_movimientos'))
 
@@ -2041,7 +2169,7 @@ def bodega_reportes_avanzados():
                 LEFT JOIN categorias_producto cp ON p.ID_Categoria = cp.ID_Categoria
                 LEFT JOIN unidades_medida um ON p.Unidad_Medida = um.ID_Unidad
                 WHERE p.Estado = 'activo' AND b.Estado = 'activa'
-                ORDER BY b.Nombre, p.Descripcion
+                ORDER BY p.COD_Producto
             """)
             inventario = cursor.fetchall()
             
@@ -2450,3 +2578,294 @@ def historial_vendedor(id_usuario):
     except Exception as e:
         flash(f"Error al cargar historial: {e}", "danger")
         return redirect(url_for('bodega.inventario_vendedores'))
+    
+@bodega_bp.route('/cargas-pendientes', methods=['GET'])
+@login_required
+@bodega_required
+def cargas_pendientes():
+    """Vista para que el bodeguero vea las cargas pendientes de recibir"""
+    id_empresa = session.get('id_empresa', 1)
+    
+    with get_db_cursor(True) as cursor:
+        # Obtener cargas pendientes con cálculo de días de espera
+        cursor.execute("""
+            SELECT 
+                cp.ID_Carga,
+                cp.Num_Factura,
+                cp.Fecha_Carga,
+                cp.Estado,
+                cp.Observaciones,
+                p.ID_Proveedor,
+                p.Nombre as proveedor_nombre,
+                u.NombreUsuario as vendedor_nombre,
+                COUNT(cpd.ID_Detalle) as total_productos,
+                SUM(cpd.Cantidad_Cargada) as total_cantidad,
+                SUM(cpd.Cantidad_Cargada * cpd.Costo_Unitario) as total_monto,
+                DATEDIFF(NOW(), cp.Fecha_Carga) as dias_espera
+            FROM cargas_pendientes_recepcion cp
+            LEFT JOIN proveedores p ON cp.ID_Proveedor = p.ID_Proveedor
+            LEFT JOIN usuarios u ON cp.ID_Usuario_Carga = u.ID_Usuario
+            LEFT JOIN cargas_pendientes_detalle cpd ON cp.ID_Carga = cpd.ID_Carga
+            WHERE cp.Estado = 'PENDIENTE'
+            AND p.ID_Empresa = %s
+            GROUP BY cp.ID_Carga
+            ORDER BY cp.Fecha_Carga DESC
+        """, (id_empresa,))
+        
+        cargas_pendientes = cursor.fetchall()
+        
+        # Obtener también cargas ya recibidas (historial)
+        cursor.execute("""
+            SELECT 
+                cp.ID_Carga,
+                cp.Num_Factura,
+                cp.Fecha_Carga,
+                cp.Fecha_Recepcion,
+                cp.Estado,
+                p.Nombre as proveedor_nombre,
+                u.NombreUsuario as vendedor_nombre,
+                u2.NombreUsuario as recibido_por,
+                SUM(cpd.Cantidad_Cargada) as total_cantidad,
+                SUM(cpd.Cantidad_Recibida) as total_recibida
+            FROM cargas_pendientes_recepcion cp
+            LEFT JOIN proveedores p ON cp.ID_Proveedor = p.ID_Proveedor
+            LEFT JOIN usuarios u ON cp.ID_Usuario_Carga = u.ID_Usuario
+            LEFT JOIN usuarios u2 ON cp.ID_Usuario_Recepcion = u2.ID_Usuario
+            LEFT JOIN cargas_pendientes_detalle cpd ON cp.ID_Carga = cpd.ID_Carga
+            WHERE cp.Estado IN ('RECIBIDA_TOTAL', 'RECIBIDA_PARCIAL', 'RECHAZADA')
+            AND p.ID_Empresa = %s
+            GROUP BY cp.ID_Carga
+            ORDER BY cp.Fecha_Recepcion DESC
+            LIMIT 50
+        """, (id_empresa,))
+        
+        cargas_recibidas = cursor.fetchall()
+        
+    return render_template('bodega/cargas/cargas_pendientes.html', 
+                         cargas_pendientes=cargas_pendientes,
+                         cargas_recibidas=cargas_recibidas,
+                         now=datetime.now())
+
+@bodega_bp.route('/recibir-carga/<int:id_carga>', methods=['GET', 'POST'])
+@login_required
+@bodega_required
+def recibir_carga(id_carga):
+    """Bodeguero recibe y valida la carga física"""
+    id_empresa = session.get('id_empresa', 1)
+    ID_BODEGA_CENTRAL = 1
+    
+    with get_db_cursor(True) as cursor:
+        # Obtener información de la carga
+        cursor.execute("""
+            SELECT 
+                cp.*,
+                p.Nombre as proveedor_nombre,
+                u.NombreUsuario as vendedor_nombre
+            FROM cargas_pendientes_recepcion cp
+            LEFT JOIN proveedores p ON cp.ID_Proveedor = p.ID_Proveedor
+            LEFT JOIN usuarios u ON cp.ID_Usuario_Carga = u.ID_Usuario
+            WHERE cp.ID_Carga = %s AND p.ID_Empresa = %s
+        """, (id_carga, id_empresa))    
+        
+        carga = cursor.fetchone()
+        
+        if not carga:
+            flash('Carga no encontrada', 'error')
+            return redirect(url_for('bodega.cargas_pendientes'))
+        
+        # Obtener detalles de la carga
+        cursor.execute("""
+            SELECT 
+                cpd.*,
+                p.Descripcion as producto_nombre,
+                p.COD_Producto as codigo,
+                IFNULL(um.Abreviatura, 'PZA') as unidad
+            FROM cargas_pendientes_detalle cpd
+            LEFT JOIN productos p ON cpd.ID_Producto = p.ID_Producto
+            LEFT JOIN unidades_medida um ON p.Unidad_Medida = um.ID_Unidad
+            WHERE cpd.ID_Carga = %s
+        """, (id_carga,))
+        
+        detalles = cursor.fetchall()
+        
+        if request.method == 'POST':
+            try:
+                # Obtener cantidades recibidas del formulario
+                cantidades_recibidas = request.form.getlist('cantidad_recibida[]')
+                observacion_recepcion = request.form.get('observacion_recepcion', '')
+                accion = request.form.get('accion', 'RECIBIR')
+                
+                if accion == 'RECHAZAR':
+                    # Rechazar toda la carga
+                    cursor.execute("""
+                        UPDATE cargas_pendientes_recepcion
+                        SET Estado = 'RECHAZADA', 
+                            Fecha_Recepcion = CURDATE(), 
+                            ID_Usuario_Recepcion = %s,
+                            Observaciones = CONCAT(IFNULL(Observaciones, ''), ' | RECHAZADA: ', %s)
+                        WHERE ID_Carga = %s
+                    """, (current_user.id, observacion_recepcion, id_carga))
+                    
+                    # Actualizar movimiento de inventario a Anulado
+                    cursor.execute("""
+                        UPDATE movimientos_inventario
+                        SET Estado = 'Anulada'
+                        WHERE ID_Movimiento = %s
+                    """, (carga['ID_Movimiento'],))
+                    
+                    flash(f'Carga #{id_carga} - Factura {carga["Num_Factura"]} ha sido RECHAZADA', 'warning')
+                    return redirect(url_for('bodega.cargas_pendientes'))
+                
+                # Procesar recepción
+                total_recibido = 0
+                total_esperado = 0
+                productos_recibidos = []
+                
+                for i, detalle in enumerate(detalles):
+                    cantidad_recibida = float(cantidades_recibidas[i]) if i < len(cantidades_recibidas) else 0
+                    cantidad_esperada = float(detalle['Cantidad_Cargada'])
+                    
+                    total_esperado += cantidad_esperada
+                    total_recibido += cantidad_recibida
+                    
+                    # Validar que no sea mayor a lo esperado
+                    if cantidad_recibida > cantidad_esperada:
+                        flash(f'La cantidad recibida del producto {detalle["producto_nombre"]} no puede ser mayor a la cargada', 'error')
+                        return redirect(url_for('bodega.recibir_carga', id_carga=id_carga))
+                    
+                    # Actualizar cantidad recibida
+                    cursor.execute("""
+                        UPDATE cargas_pendientes_detalle
+                        SET Cantidad_Recibida = %s
+                        WHERE ID_Detalle = %s
+                    """, (cantidad_recibida, detalle['ID_Detalle']))
+                    
+                    if cantidad_recibida > 0:
+                        productos_recibidos.append({
+                            'id_producto': detalle['ID_Producto'],
+                            'cantidad': cantidad_recibida,
+                            'costo': float(detalle['Costo_Unitario'])
+                        })
+                
+                # Determinar estado final
+                if total_recibido == 0:
+                    estado = 'RECHAZADA'
+                    mensaje = 'Carga rechazada - No se recibió mercancía'
+                elif total_recibido >= total_esperado:
+                    estado = 'RECIBIDA_TOTAL'
+                    mensaje = 'Carga recibida totalmente'
+                else:
+                    estado = 'RECIBIDA_PARCIAL'
+                    mensaje = f'Carga recibida parcialmente ({total_recibido:.2f}/{total_esperado:.2f})'
+                
+                # Actualizar estado de la carga
+                cursor.execute("""
+                    UPDATE cargas_pendientes_recepcion
+                    SET Estado = %s, 
+                        Fecha_Recepcion = CURDATE(), 
+                        ID_Usuario_Recepcion = %s,
+                        Observaciones = CONCAT(IFNULL(Observaciones, ''), ' | ', %s)
+                    WHERE ID_Carga = %s
+                """, (estado, current_user.id, observacion_recepcion, id_carga))
+                
+                # Si se recibió mercancía, actualizar inventario real
+                if total_recibido > 0:
+                    # Actualizar movimiento de inventario a Activa
+                    cursor.execute("""
+                        UPDATE movimientos_inventario
+                        SET Estado = 'Activa'
+                        WHERE ID_Movimiento = %s
+                    """, (carga['ID_Movimiento'],))
+                    
+                    # Actualizar inventario de bodega con cantidades reales recibidas
+                    for prod in productos_recibidos:
+                        # Verificar si existe el producto en inventario_bodega
+                        cursor.execute("""
+                            INSERT INTO inventario_bodega (ID_Bodega, ID_Producto, Existencias)
+                            SELECT %s, %s, 0
+                            WHERE NOT EXISTS (
+                                SELECT 1 FROM inventario_bodega 
+                                WHERE ID_Bodega = %s AND ID_Producto = %s
+                            )
+                        """, (ID_BODEGA_CENTRAL, prod['id_producto'], ID_BODEGA_CENTRAL, prod['id_producto']))
+                        
+                        # Actualizar existencias
+                        cursor.execute("""
+                            UPDATE inventario_bodega 
+                            SET Existencias = Existencias + %s
+                            WHERE ID_Bodega = %s AND ID_Producto = %s
+                        """, (prod['cantidad'], ID_BODEGA_CENTRAL, prod['id_producto']))
+                    
+                    flash(f'{mensaje}. Inventario actualizado correctamente.', 'success')
+                else:
+                    # Si no se recibió nada, anular el movimiento
+                    cursor.execute("""
+                        UPDATE movimientos_inventario
+                        SET Estado = 'Anulada'
+                        WHERE ID_Movimiento = %s
+                    """, (carga['ID_Movimiento'],))
+                    flash(f'{mensaje}. Movimiento anulado.', 'warning')
+                
+                return redirect(url_for('bodega.cargas_pendientes'))
+                
+            except Exception as e:
+                print(f"Error al recibir carga: {str(e)}")
+                import traceback
+                traceback.print_exc()
+                flash(f'Error al procesar la recepción: {str(e)}', 'error')
+                return redirect(url_for('bodega.recibir_carga', id_carga=id_carga))
+        
+        # GET: Mostrar formulario de recepción
+        return render_template('bodega/cargas/recibir_carga.html', 
+                             carga=carga, 
+                             detalles=detalles,
+                             now=datetime.now())
+
+@bodega_bp.route('/carga-detalle/<int:id_carga>', methods=['GET'])
+@login_required
+@bodega_required
+def carga_detalle(id_carga):
+    """Ver detalle de una carga específica"""
+    id_empresa = session.get('id_empresa', 1)
+    
+    with get_db_cursor(True) as cursor:
+        # Información de la carga
+        cursor.execute("""
+            SELECT 
+                cp.*,
+                p.Nombre as proveedor_nombre,
+                u.NombreUsuario as vendedor_nombre,
+                u2.NombreUsuario as recibido_por_nombre
+            FROM cargas_pendientes_recepcion cp
+            LEFT JOIN proveedores p ON cp.ID_Proveedor = p.ID_Proveedor
+            LEFT JOIN usuarios u ON cp.ID_Usuario_Carga = u.ID_Usuario
+            LEFT JOIN usuarios u2 ON cp.ID_Usuario_Recepcion = u2.ID_Usuario
+            WHERE cp.ID_Carga = %s AND p.ID_Empresa = %s
+        """, (id_carga, id_empresa))
+        
+        carga = cursor.fetchone()
+        
+        if not carga:
+            flash('Carga no encontrada', 'error')
+            return redirect(url_for('bodega.cargas_pendientes'))
+        
+        # Detalle de productos
+        cursor.execute("""
+            SELECT 
+                cpd.*,
+                p.Descripcion as producto_nombre,
+                p.COD_Producto as codigo,
+                IFNULL(um.Abreviatura, 'PZA') as unidad,
+                (cpd.Cantidad_Cargada - IFNULL(cpd.Cantidad_Recibida, 0)) as pendiente
+            FROM cargas_pendientes_detalle cpd
+            LEFT JOIN productos p ON cpd.ID_Producto = p.ID_Producto
+            LEFT JOIN unidades_medida um ON p.Unidad_Medida = um.ID_Unidad
+            WHERE cpd.ID_Carga = %s
+        """, (id_carga,))
+        
+        detalles = cursor.fetchall()
+        
+    return render_template('bodega/cargas/carga_detalle.html', 
+                         carga=carga, 
+                         detalles=detalles,
+                         now=datetime.now())

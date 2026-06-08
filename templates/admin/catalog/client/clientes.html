@@ -2,99 +2,87 @@
 
 {% block title %}Gestión de Clientes - FerDel{% endblock %}
 
-{% block head %}
-<!-- Bootstrap CSS -->
-<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
-<!-- Bootstrap Icons -->
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.8.1/font/bootstrap-icons.css">
-<style>
-    .pagination {
-        margin-top: 20px;
-    }
-    .table-actions {
-        white-space: nowrap;
-    }
-    .badge-tipo {
-        font-size: 0.8em;
-    }
-    .badge-perfil {
-        font-size: 0.8em;
-    }
-    .info-card {
-        background: linear-gradient(45deg, #f8f9fa, #e9ecef);
-        border-left: 4px solid #0d6efd;
-    }
-    .anticipo-card {
-        background: #f8f9fa;
-        border-radius: 8px;
-        padding: 10px;
-        margin-top: 10px;
-    }
-</style>
-{% endblock %}
-
 {% block content %}
 <div class="container-fluid py-4">
-    <!-- Encabezado con botón de volver -->
+    <!-- Encabezdo con botones de volver y sucursal -->
     <div class="d-flex justify-content-between align-items-center mb-4">
         <h1>
-            <i class="bi bi-people-fill"></i> Gestión de Clientes
+            <i class="fas fa-users"></i> Gestión de Clientes
         </h1>
-        <a href="{{ url_for('admin.admin_dashboard') }}" class="btn btn-outline-secondary">
-            <i class="bi bi-arrow-left"></i> Volver al Dashboard
-        </a>
+        <div>
+            <a href="{{ url_for('admin.admin_dashboard') }}" class="btn btn-outline-secondary">
+                <i class="fas fa-arrow-left"></i> Volver al Dashboard
+            </a>
+        </div>
     </div>
 
-    <!-- Botón crear cliente y sucursal -->
-    <div class="mb-3 d-flex gap-2">
+    <!-- Botón crear cliente -->
+    <div class="mb-3">
         <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#crearClienteModal">
-            <i class="bi bi-plus-circle"></i> Agregar Nuevo Cliente
-        </button>   
-        <a class="btn btn-success" href="{{ url_for('admin.admin_sucursales_clientes') }}">
-            <i class="bi bi-building"></i> Sucursal
+            <i class="fas fa-plus-circle"></i> Agregar Nuevo Cliente
+        </button>
+        <a href="{{ url_for('admin.admin_sucursales_clientes') }}" class="btn btn-outline-info ms-2">
+            <i class="fas fa-store"></i> Gestionar Sucursales
         </a>
     </div>
 
-    <!-- Formulario de búsqueda -->
+    <!-- Filtro por sucursal (opcional) -->
     <div class="card mb-4">
         <div class="card-body">
-            <form method="get" class="mb-0">
-                <div class="row g-2">
-                    <div class="col-md-8">
-                        <input type="text" name="q" class="form-control" placeholder="Buscar por nombre, identificación o teléfono..." 
-                               value="{{ search }}">
-                    </div>
-                    <div class="col-md-2">
-                        <button class="btn btn-primary w-100" type="submit">
-                            <i class="bi bi-search"></i> Buscar
-                        </button>
-                    </div>
-                    <div class="col-md-2">
-                        {% if search %}
-                        <a href="{{ url_for('admin.admin_clientes') }}" class="btn btn-outline-secondary w-100">
-                            <i class="bi bi-arrow-clockwise"></i> Limpiar
-                        </a>
-                        {% endif %}
-                    </div>
+            <div class="row">
+                <div class="col-md-12">
+                    <form method="get" class="mb-0">
+                        <div class="row g-2">
+                            <div class="col-md-3">
+                                <select name="sucursal" class="form-select" id="filtroSucursal">
+                                    <option value="">Todas las sucursales</option>
+                                    {% if sucursales %}
+                                        {% for sucursal in sucursales %}
+                                        <option value="{{ sucursal.ID_Sucursal }}" {% if sucursal_seleccionada == sucursal.ID_Sucursal|string %}selected{% endif %}>
+                                            {{ sucursal.Nombre_Sucursal }}
+                                        </option>
+                                        {% endfor %}
+                                    {% endif %}
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <input type="text" name="q" class="form-control" placeholder="Buscar por nombre, RUC/Cédula o teléfono..." 
+                                       value="{{ search }}">
+                            </div>
+                            <div class="col-md-3">
+                                <div class="d-grid gap-2 d-md-flex">
+                                    <button class="btn btn-primary w-100" type="submit">
+                                        <i class="fas fa-search"></i> Buscar
+                                    </button>
+                                    {% if search or sucursal_seleccionada %}
+                                    <a href="{{ url_for('admin.admin_clientes') }}" class="btn btn-outline-secondary w-100">
+                                        <i class="fas fa-arrow-clockwise"></i> Limpiar
+                                    </a>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    </form>
                 </div>
-            </form>
+            </div>
         </div>
     </div>
 
     <!-- Información de resultados -->
-    {% if search %}
+    {% if search or sucursal_seleccionada %}
     <div class="alert alert-info d-flex align-items-center mb-3">
-        <i class="bi bi-info-circle me-2"></i>
+        <i class="fas fa-info-circle me-2"></i>
         <div>
-            <strong>{{ total }}</strong> cliente(s) encontrado(s) 
+            <strong>{{ total }}</strong> cliente(s) encontrado(s)
             {% if search %}para "<strong>{{ search }}</strong>"{% endif %}
+            {% if sucursal_seleccionada %}en la sucursal seleccionada{% endif %}
         </div>
     </div>
     {% endif %}
 
     <!-- Tabla de clientes -->
     {% if clientes %}
-    <div class="card shadow">
+    <div class="card shadow-sm">
         <div class="card-body">
             <div class="table-responsive">
                 <table class="table table-striped table-hover">
@@ -102,13 +90,14 @@
                         <tr>
                             <th>ID</th>
                             <th>Nombre</th>
-                            <th>Identificación</th>
+                            <th>RUC/Cédula</th>
                             <th>Teléfono</th>
-                            <th>Tipo</th>
-                            <th>Perfil</th>
+                            <th>Dirección</th>
+                            <th>Sucursal</th>
                             <th>Ruta</th>
-                            <th>Saldo</th>
-                            <th>Anticipo</th>
+                            <th>Tipo Cliente</th>
+                            <th>Saldo Pendiente</th>
+                            <th>Anticipo Activo</th>
                             <th>Estado</th>
                             <th class="text-center">Acciones</th>
                         </tr>
@@ -116,83 +105,57 @@
                     <tbody>
                         {% for cliente in clientes %}
                         <tr>
-                            <td><strong>#{{ cliente.ID_Cliente }}</strong></td>
-                            <td>{{ cliente.Nombre }}</td>
+                            <td class="fw-bold">#{{ cliente.ID_Cliente }}</td>
                             <td>
-                                {{ cliente.RUC_CEDULA or '-' }}
-                                {% if cliente.RUC_CEDULA %}
-                                <small class="text-muted d-block">
-                                    {% if cliente.RUC_CEDULA|length == 10 %}
-                                        <span class="badge bg-info">Cédula</span>
-                                    {% elif cliente.RUC_CEDULA|length == 13 %}
-                                        <span class="badge bg-primary">RUC</span>
-                                    {% endif %}
-                                </small>
-                                {% endif %}
+                                <strong>{{ cliente.Nombre }}</strong>
                             </td>
+                            <td>{{ cliente.RUC_CEDULA or '-' }}</td>
                             <td>
                                 {% if cliente.Telefono %}
-                                    <a href="tel:{{ cliente.Telefono }}" class="text-decoration-none" title="Llamar">
-                                        <i class="bi bi-telephone"></i> {{ cliente.Telefono }}
+                                    <a href="tel:{{ cliente.Telefono }}" class="text-decoration-none">
+                                        {{ cliente.Telefono }}
                                     </a>
                                 {% else %}
                                     <span class="text-muted">-</span>
                                 {% endif %}
                             </td>
+                            <td>{{ cliente.Direccion or '-' }}</td>
                             <td>
-                                <span class="badge {% if cliente.tipo_cliente == 'Especial' %}bg-warning text-dark{% else %}bg-secondary{% endif %} badge-tipo">
-                                    {{ cliente.tipo_cliente }}
-                                </span>
-                            </td>
-                            <td>
-                                {% if cliente.perfil_cliente %}
-                                    <span class="badge 
-                                        {% if cliente.perfil_cliente == 'Ruta' %}bg-primary
-                                        {% elif cliente.perfil_cliente == 'Mayorista' %}bg-success
-                                        {% elif cliente.perfil_cliente == 'Mercado' %}bg-info
-                                        {% elif cliente.perfil_cliente == 'Especial' %}bg-warning text-dark
-                                        {% else %}bg-secondary{% endif %} badge-perfil">
-                                        {{ cliente.perfil_cliente }}
-                                    </span>
+                                {% if cliente.Nombre_Sucursal %}
+                                <span class="badge bg-info">{{ cliente.Nombre_Sucursal }}</span>
                                 {% else %}
-                                    <span class="text-muted">-</span>
+                                <span class="text-muted">Sin sucursal</span>
                                 {% endif %}
                             </td>
                             <td>
                                 {% if cliente.Nombre_Ruta %}
-                                    <span class="badge bg-info">{{ cliente.Nombre_Ruta }}</span>
+                                <span class="badge bg-primary">{{ cliente.Nombre_Ruta }}</span>
                                 {% else %}
-                                    <span class="text-muted">Sin ruta</span>
+                                <span class="text-muted">Sin ruta</span>
                                 {% endif %}
                             </td>
                             <td>
-                                <span class="badge {% if cliente.Saldo_Pendiente_Total > 0 %}bg-warning text-dark{% elif cliente.Saldo_Pendiente_Total < 0 %}bg-success{% else %}bg-secondary{% endif %}">
-                                    C${{ "{:,.2f}".format(cliente.Saldo_Pendiente_Total) }}
-                                </span>
-                                {% if cliente.Saldo_Pendiente_Total > 0 %}
-                                <i class="bi bi-exclamation-triangle text-warning ms-1" title="Saldo pendiente"></i>
+                                {% if cliente.tipo_cliente == 'DISTRIBUIDOR' %}
+                                <span class="badge bg-success">Distribuidor</span>
+                                {% elif cliente.tipo_cliente == 'MINORISTA' %}
+                                <span class="badge bg-warning">Minorista</span>
+                                {% else %}
+                                <span class="badge bg-secondary">{{ cliente.tipo_cliente or 'N/A' }}</span>
                                 {% endif %}
                             </td>
-                            <td class="align-middle">
+                            <td>
+                                {% set saldo = cliente.Saldo_Pendiente_Total|float %}
+                                <span class="fw-bold {% if saldo > 0 %}text-danger{% elif saldo < 0 %}text-success{% else %}text-muted{% endif %}">
+                                    C$ {{ "{:,.2f}".format(saldo) }}
+                                </span>
+                            </td>
+                            <td>
                                 {% if cliente.Anticipo_Activo %}
-                                    <div class="d-flex flex-column">
-                                        <span class="badge bg-success mb-1">
-                                            <i class="bi bi-check-circle-fill"></i> Activo
-                                        </span>
-                                        <small class="text-muted">
-                                            <i class="bi bi-box"></i> {{ cliente.Cajas_Consumidas_Anticipo or 0 }}/{{ cliente.Limite_Anticipo_Cajas or 0 }} cajas<br>
-                                            <i class="bi bi-cash"></i> C${{ "{:,.2f}".format(cliente.Saldo_Anticipos or 0) }}
-                                        </small>
-                                        {% if cliente.Nombre_Producto_Anticipado %}
-                                            <small class="text-info">
-                                                <i class="bi bi-tag"></i> {{ cliente.Nombre_Producto_Anticipado }}
-                                            </small>
-                                        {% endif %}
-                                    </div>
+                                <span class="badge bg-warning">
+                                    Activo ({{ cliente.Cajas_Consumidas_Anticipo }}/{{ cliente.Limite_Anticipo_Cajas }})
+                                </span>
                                 {% else %}
-                                    <span class="badge bg-secondary">
-                                        <i class="bi bi-x-circle"></i> Inactivo
-                                    </span>
+                                <span class="badge bg-secondary">Inactivo</span>
                                 {% endif %}
                             </td>
                             <td>
@@ -200,21 +163,16 @@
                                     {{ cliente.Estado }}
                                 </span>
                             </td>
-                            <td class="table-actions">
+                            <td class="text-center">
                                 <div class="btn-group btn-group-sm" role="group">
-                                    <a href="{{ url_for('admin.admin_editar_cliente', id=cliente.ID_Cliente) }}" 
-                                       class="btn btn-outline-primary" title="Editar">
-                                        <i class="bi bi-pencil"></i> Editar
+                                    <a href="#"
+                                       class="btn btn-outline-primary" title="Ver detalles">
+                                        <i class="fas fa-eye"></i> Detalles
                                     </a>
-                                    {% if cliente.Estado == 'ACTIVO' %}
-                                    <button type="button" 
-                                            class="btn btn-outline-danger eliminar-cliente-btn"
-                                            data-id="{{ cliente.ID_Cliente }}"
-                                            data-nombre="{{ cliente.Nombre }}"
-                                            title="Eliminar">
-                                        <i class="bi bi-trash"></i> Eliminar
-                                    </button>
-                                    {% endif %}
+                                    <a href="{{ url_for('admin.admin_editar_cliente', id=cliente.ID_Cliente) }}"
+                                       class="btn btn-outline-secondary" title="Editar">
+                                        <i class="fas fa-edit"></i> Editar
+                                    </a>
                                 </div>
                             </td>
                         </tr>
@@ -226,11 +184,11 @@
     </div>
     {% else %}
     <div class="alert alert-warning">
-        <i class="bi bi-exclamation-triangle"></i> 
+        <i class="fas fa-exclamation-triangle"></i>
         {% if search %}
         No se encontraron clientes para "<strong>{{ search }}</strong>".
         {% else %}
-        No se encontraron clientes en el sistema. ¡Comienza agregando uno nuevo!
+        No se encontraron clientes en el sistema.
         {% endif %}
     </div>
     {% endif %}
@@ -241,45 +199,32 @@
         <ul class="pagination justify-content-center">
             {% if page > 1 %}
             <li class="page-item">
-                <a class="page-link" href="{{ url_for('admin.admin_clientes', page=page-1, q=search) }}" aria-label="Previous">
+                <a class="page-link" href="{{ url_for('admin.admin_clientes', page=page-1, q=search, sucursal=sucursal_seleccionada) }}" aria-label="Previous">
                     <span aria-hidden="true">&laquo;</span>
                 </a>
             </li>
             {% endif %}
             
-            {% set start_page = [1, page - 2]|max %}
-            {% set end_page = [total_pages, page + 2]|min %}
-            
-            {% if start_page > 1 %}
-            <li class="page-item disabled"><span class="page-link">...</span></li>
-            {% endif %}
-            
-            {% for p in range(start_page, end_page + 1) %}
-            <li class="page-item {% if p == page %}active{% endif %}">
-                <a class="page-link" href="{{ url_for('admin.admin_clientes', page=p, q=search) }}">{{ p }}</a>
-            </li>
+            {% for p in range(1, total_pages + 1) %}
+                {% if p >= page - 2 and p <= page + 2 %}
+                <li class="page-item {% if p == page %}active{% endif %}">
+                    <a class="page-link" href="{{ url_for('admin.admin_clientes', page=p, q=search, sucursal=sucursal_seleccionada) }}">{{ p }}</a>
+                </li>
+                {% endif %}
             {% endfor %}
-            
-            {% if end_page < total_pages %}
-            <li class="page-item disabled"><span class="page-link">...</span></li>
-            {% endif %}
             
             {% if page < total_pages %}
             <li class="page-item">
-                <a class="page-link" href="{{ url_for('admin.admin_clientes', page=page+1, q=search) }}" aria-label="Next">
+                <a class="page-link" href="{{ url_for('admin.admin_clientes', page=page+1, q=search, sucursal=sucursal_seleccionada) }}" aria-label="Next">
                     <span aria-hidden="true">&raquo;</span>
                 </a>
             </li>
             {% endif %}
         </ul>
         <div class="text-center text-muted small mt-2">
-            Página {{ page }} de {{ total_pages }} - Mostrando {{ clientes|length }} de {{ total }} cliente(s)
+            Página {{ page }} de {{ total_pages }} - Total: {{ total }} cliente(s)
         </div>
     </nav>
-    {% elif total > 0 %}
-    <div class="text-center text-muted small mt-2">
-        Mostrando {{ clientes|length }} de {{ total }} cliente(s)
-    </div>
     {% endif %}
 </div>
 
@@ -289,197 +234,168 @@
         <div class="modal-content">
             <div class="modal-header">
                 <h5 class="modal-title" id="crearClienteModalLabel">
-                    <i class="bi bi-plus-circle"></i> Agregar Nuevo Cliente
+                    <i class="fas fa-plus-circle"></i> Agregar Nuevo Cliente
                 </h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <form method="POST" action="{{ url_for('admin.admin_crear_cliente') }}" id="crearClienteForm" novalidate>
                 <div class="modal-body">
-                    <!-- Nota sobre saldos -->
-                    <div class="alert alert-secondary small p-2 mb-3">
-                        <i class="bi bi-info-circle"></i> El saldo pendiente inicia en C$0.00 y solo se modifica mediante facturación/pagos.
-                    </div>
-                    
+                    <!-- Información Básica -->
                     <div class="row">
-                        <!-- Nombre Completo -->
-                        <div class="col-md-6 mb-3">
-                            <label for="nombre" class="form-label">Nombre Completo <span class="text-danger">*</span></label>
-                            <input type="text" class="form-control" id="nombre" name="nombre" 
-                                   required minlength="2" maxlength="255"
-                                   placeholder="Ingrese el nombre completo del cliente">
-                            <div class="invalid-feedback">Por favor ingrese el nombre del cliente (mínimo 2 caracteres).</div>
-                        </div>
-                        
-                        <!-- Teléfono -->
-                        <div class="col-md-6 mb-3">
-                            <label for="telefono" class="form-label">Teléfono <span class="text-danger">*</span></label>
-                            <input type="tel" class="form-control" id="telefono" name="telefono" 
-                                   required maxlength="20"
-                                   placeholder="Ej: 0991234567"
-                                   oninput="this.value = this.value.replace(/[^0-9+\-()\s]/g, '')">
-                            <div class="form-text">Número de contacto principal</div>
-                            <div class="invalid-feedback">Por favor ingrese un número de teléfono válido.</div>
-                        </div>
-                        
-                        <!-- RUC/Cédula -->
-                        <div class="col-md-6 mb-3">
-                            <label for="ruc_cedula" class="form-label">RUC/Cédula</label>
-                            <input type="text" class="form-control" id="ruc_cedula" name="ruc_cedula" 
-                                   maxlength="13" pattern="\d*"
-                                   placeholder="Ej: 1234567890123 o 1234567890"
-                                   oninput="this.value = this.value.replace(/[^0-9]/g, '')">
-                            <div class="form-text">
-                                Opcional. Solo números. Cédula: 10 dígitos | RUC: 13 dígitos
-                            </div>
-                            <div class="invalid-feedback" id="rucError">
-                                El RUC/Cédula debe tener 10 (cédula) o 13 (RUC) dígitos numéricos.
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="nombre" class="form-label">Nombre del Cliente <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control" id="nombre" name="nombre" 
+                                       required minlength="2" maxlength="255"
+                                       placeholder="Ingrese el nombre del cliente">
+                                <div class="form-text">Mínimo 2 caracteres, máximo 255</div>
                             </div>
                         </div>
-                        
-                        <!-- Dirección -->
-                        <div class="col-md-6 mb-3">
-                            <label for="direccion" class="form-label">Dirección</label>
-                            <textarea class="form-control" id="direccion" name="direccion" rows="2" 
-                                      maxlength="200"
-                                      placeholder="Ingrese la dirección completa del cliente"></textarea>
-                            <div class="form-text">Máximo 200 caracteres</div>
-                        </div>
-                        
-                        <!-- Tipo de Cliente -->
-                        <div class="col-md-6 mb-3">
-                            <label for="tipo_cliente" class="form-label">Tipo de Cliente <span class="text-danger">*</span></label>
-                            <select class="form-select" id="tipo_cliente" name="tipo_cliente" required>
-                                <option value="" disabled selected>Seleccione un tipo...</option>
-                                <option value="Comun">Cliente Común</option>
-                                <option value="Especial">Cliente Especial</option>
-                            </select>
-                            <div class="form-text">Los clientes especiales pueden tener condiciones diferentes</div>
-                            <div class="invalid-feedback">Por favor seleccione el tipo de cliente.</div>
-                        </div>
-                        
-                        <!-- Perfil de Cliente -->
-                        <div class="col-md-6 mb-3">
-                            <label for="perfil_cliente" class="form-label">Perfil de Cliente <span class="text-danger">*</span></label>
-                            <select class="form-select" id="perfil_cliente" name="perfil_cliente" required>
-                                <option value="" disabled selected>Seleccione un perfil...</option>
-                                <option value="Ruta">Ruta</option>
-                                <option value="Mayorista">Mayorista</option>
-                                <option value="Mercado" selected>Mercado</option>
-                                <option value="Especial">Especial</option>
-                            </select>
-                            <div class="form-text">
-                                <small>
-                                    <i class="bi bi-info-circle"></i> 
-                                    <strong>Ruta:</strong> Clientes de recorrido diario | 
-                                    <strong>Mayorista:</strong> Compra al por mayor | 
-                                    <strong>Mercado:</strong> Clientes generales | 
-                                    <strong>Especial:</strong> Condiciones especiales
-                                </small>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="ruc_cedula" class="form-label">RUC/Cédula</label>
+                                <input type="text" class="form-control" id="ruc_cedula" name="ruc_cedula" 
+                                       maxlength="20" pattern="\d*"
+                                       placeholder="Ej: 1234567890123">
+                                <div class="form-text">Opcional. Solo números</div>
                             </div>
-                            <div class="invalid-feedback">Por favor seleccione el perfil del cliente.</div>
-                        </div>
-                        
-                        <!-- Ruta de Entrega -->
-                        <div class="col-md-6 mb-3">
-                            <label for="id_ruta" class="form-label">Ruta de Entrega</label>
-                            <select class="form-select" id="id_ruta" name="id_ruta">
-                                <option value="" selected>Sin ruta asignada</option>
-                                {% for ruta in rutas %}
-                                <option value="{{ ruta.ID_Ruta }}">{{ ruta.Nombre_Ruta }}</option>
-                                {% endfor %}
-                            </select>
-                            <div class="form-text">Seleccione una ruta para la entrega de productos (opcional)</div>
                         </div>
                     </div>
 
-                    <!-- SECCIÓN DE ANTICIPOS -->
-                    <div class="row mt-3">
-                        <div class="col-12">
-                            <hr class="my-3">
-                            <h6 class="mb-3">
-                                <i class="bi bi-cash-stack"></i> Configuración de Anticipos
-                                <small class="text-muted">(Opcional)</small>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="telefono" class="form-label">Teléfono</label>
+                                <input type="tel" class="form-control" id="telefono" name="telefono" 
+                                       maxlength="20"
+                                       placeholder="Ej: 0991234567">
+                                <div class="form-text">Número de contacto principal</div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="id_sucursal" class="form-label">Sucursal <span class="text-danger">*</span></label>
+                                <select class="form-select" id="id_sucursal" name="id_sucursal" required>
+                                    <option value="">Seleccione una sucursal</option>
+                                    {% if sucursales %}
+                                        {% for sucursal in sucursales %}
+                                        <option value="{{ sucursal.ID_Sucursal }}">{{ sucursal.Nombre_Sucursal }}</option>
+                                        {% endfor %}
+                                    {% endif %}
+                                </select>
+                                <div class="form-text">Seleccione la sucursal asignada</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="id_ruta" class="form-label">Ruta <span class="text-danger">*</span></label>
+                                <select class="form-select" id="id_ruta" name="id_ruta" required>
+                                    <option value="">Seleccione una ruta</option>
+                                    {% for ruta in rutas %}
+                                    <option value="{{ ruta.ID_Ruta }}">{{ ruta.Nombre_Ruta }}</option>
+                                    {% endfor %}
+                                </select>
+                                <div class="form-text">Asigne el cliente a una ruta</div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="direccion" class="form-label">Dirección</label>
+                                <textarea class="form-control" id="direccion" name="direccion" rows="2" 
+                                          maxlength="500"
+                                          placeholder="Ingrese la dirección completa del cliente"></textarea>
+                                <div class="form-text">Máximo 500 caracteres</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Tipo y Perfil de Cliente -->
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="tipo_cliente" class="form-label">Tipo de Cliente <span class="text-danger">*</span></label>
+                                <select class="form-select" id="tipo_cliente" name="tipo_cliente" required>
+                                    <option value="MINORISTA">Minorista</option>
+                                    <option value="DISTRIBUIDOR">Distribuidor</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="perfil_cliente" class="form-label">Perfil de Cliente</label>
+                                <select class="form-select" id="perfil_cliente" name="perfil_cliente">
+                                    <option value="">Seleccione un perfil</option>
+                                    <option value="REGULAR">Regular</option>
+                                    <option value="PREMIUM">Premium</option>
+                                    <option value="VIP">VIP</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Información de Anticipos -->
+                    <div class="card mb-3">
+                        <div class="card-header">
+                            <h6 class="mb-0">
+                                <i class="fas fa-money-bill-wave"></i> Configuración de Anticipos
                             </h6>
                         </div>
-
-                        <div class="col-md-3 mb-3">
-                            <div class="form-check form-switch mt-4">
-                                <input class="form-check-input" type="checkbox" id="anticipo_activo" name="anticipo_activo" value="1" style="transform: scale(1.2);">
-                                <label class="form-check-label fw-bold ms-2" for="anticipo_activo">
-                                    Activar Anticipo
+                        <div class="card-body">
+                            <div class="form-check mb-3">
+                                <input class="form-check-input" type="checkbox" id="anticipo_activo" name="anticipo_activo" value="1">
+                                <label class="form-check-label" for="anticipo_activo">
+                                    Activar anticipo para este cliente
                                 </label>
-                                <div class="form-text small">Permite anticipos para este cliente</div>
+                            </div>
+
+                            <div id="anticipo-config" style="display: none;">
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <div class="mb-3">
+                                            <label for="limite_anticipo_cajas" class="form-label">Límite de Cajas</label>
+                                            <input type="number" class="form-control" id="limite_anticipo_cajas" 
+                                                   name="limite_anticipo_cajas" min="1" max="100" value="1">
+                                            <div class="form-text">Número máximo de cajas que puede recibir en anticipo</div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="mb-3">
+                                            <label for="producto_anticipado" class="form-label">Producto Anticipado</label>
+                                            <select class="form-select" id="producto_anticipado" name="producto_anticipado">
+                                                <option value="">Seleccione un producto</option>
+                                                {% for producto in productos %}
+                                                <option value="{{ producto.ID_Producto }}">{{ producto.Nombre }}</option>
+                                                {% endfor %}
+                                            </select>
+                                            <div class="form-text">Producto que recibe en anticipo</div>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
+                    </div>
 
-                        <div class="col-md-3 mb-3">
-                            <label for="limite_anticipo_cajas" class="form-label">Límite de Cajas</label>
-                            <input type="number" class="form-control" id="limite_anticipo_cajas" name="limite_anticipo_cajas" 
-                                   value="0" min="0" step="1"
-                                   placeholder="Número de cajas">
-                            <div class="form-text small">Máximo de cajas permitidas</div>
+                    <!-- Saldo Inicial -->
+                    <div class="mb-3">
+                        <label for="saldo_pendiente" class="form-label">Saldo Pendiente Inicial</label>
+                        <div class="input-group">
+                            <span class="input-group-text">C$</span>
+                            <input type="number" class="form-control" id="saldo_pendiente" name="saldo_pendiente" 
+                                   step="0.01" min="0" value="0.00"
+                                   placeholder="0.00">
                         </div>
-
-                        <div class="col-md-3 mb-3">
-                            <label for="saldo_anticipos" class="form-label">Saldo de Anticipos (C$)</label>
-                            <div class="input-group">
-                                <span class="input-group-text">C$</span>
-                                <input type="number" class="form-control" id="saldo_anticipos" name="saldo_anticipos" 
-                                       value="0" min="0" step="0.01"
-                                       placeholder="0.00">
-                            </div>
-                            <div class="form-text small">Monto disponible para anticipos</div>
-                        </div>
-
-                        <div class="col-md-3 mb-3">
-                            <label for="producto_anticipado" class="form-label">Producto Anticipado</label>
-                            <select class="form-select" id="producto_anticipado" name="producto_anticipado">
-                                <option value="">Sin producto asignado</option>
-                                {% for producto in productos %}
-                                <option value="{{ producto.ID_Producto }}">{{ producto.Nombre }} {% if producto.Codigo_Barras %}({{ producto.Codigo_Barras }}){% endif %}</option>
-                                {% endfor %}
-                            </select>
-                            <div class="form-text small">Producto asociado al anticipo</div>
-                        </div>
+                        <div class="form-text">Saldo inicial del cliente (opcional, por defecto 0.00)</div>
                     </div>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
-                        <i class="bi bi-x-circle"></i> Cancelar
+                        <i class="fas fa-times"></i> Cancelar
                     </button>
-                    <button type="submit" class="btn btn-primary" id="submitBtn">
-                        <i class="bi bi-check-circle"></i> Guardar Cliente
-                    </button>
-                </div>
-            </form>
-        </div>
-    </div>
-</div>
-
-<!-- Modal de confirmación para eliminar -->
-<div class="modal fade" id="eliminarClienteModal" tabindex="-1" aria-labelledby="eliminarClienteModalLabel" aria-hidden="true">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header bg-danger text-white">
-                <h5 class="modal-title" id="eliminarClienteModalLabel">
-                    <i class="bi bi-exclamation-triangle"></i> Confirmar Eliminación
-                </h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <form method="POST" action="" id="eliminarClienteForm">
-                <div class="modal-body">
-                    <p>¿Está seguro que desea eliminar al cliente <strong id="clienteNombreEliminar"></strong>?</p>
-                    <p class="text-danger small">
-                        <i class="bi bi-info-circle"></i> Esta acción cambiará el estado del cliente a INACTIVO.
-                    </p>
-                    <input type="hidden" name="csrf_token" value="{{ csrf_token() if csrf_token else '' }}">
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
-                        <i class="bi bi-x-circle"></i> Cancelar
-                    </button>
-                    <button type="submit" class="btn btn-danger">
-                        <i class="bi bi-trash"></i> Sí, Eliminar
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-check"></i> Guardar Cliente
                     </button>
                 </div>
             </form>
@@ -489,88 +405,38 @@
 {% endblock %}
 
 {% block scripts %}
-<!-- Bootstrap JS -->
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    const crearForm = document.getElementById('crearClienteForm');
+    const form = document.getElementById('crearClienteForm');
     const telefonoInput = document.getElementById('telefono');
     const rucCedulaInput = document.getElementById('ruc_cedula');
-    const eliminarForm = document.getElementById('eliminarClienteForm');
-    let clienteAEliminar = null;
-    
-    // Elementos de anticipo
+    const saldoInput = document.getElementById('saldo_pendiente');
     const anticipoCheckbox = document.getElementById('anticipo_activo');
-    const limiteCajas = document.getElementById('limite_anticipo_cajas');
-    const saldoAnticipos = document.getElementById('saldo_anticipos');
-    const productoAnticipado = document.getElementById('producto_anticipado');
+    const anticipoConfig = document.getElementById('anticipo-config');
+    const limiteCajasInput = document.getElementById('limite_anticipo_cajas');
     
-    // Función para habilitar/deshabilitar campos de anticipo
-    function toggleAnticipoFields() {
-        const isActive = anticipoCheckbox.checked;
-        limiteCajas.disabled = !isActive;
-        saldoAnticipos.disabled = !isActive;
-        productoAnticipado.disabled = !isActive;
-        
-        if (!isActive) {
-            limiteCajas.value = 0;
-            saldoAnticipos.value = 0;
-            productoAnticipado.value = '';
-        }
-    }
-    
-    // Event listener para el checkbox de anticipo
-    if (anticipoCheckbox) {
-        anticipoCheckbox.addEventListener('change', toggleAnticipoFields);
-        toggleAnticipoFields(); // Inicializar estado
-    }
-    
-    // Validación de límite de cajas
-    if (limiteCajas) {
-        limiteCajas.addEventListener('change', function() {
-            if (this.value < 0) this.value = 0;
-            if (this.value > 999) this.value = 999;
-        });
-    }
-    
-    // Validación de saldo de anticipos
-    if (saldoAnticipos) {
-        saldoAnticipos.addEventListener('change', function() {
-            if (this.value < 0) this.value = 0;
-        });
-    }
-    
-    // Validación de RUC/Cédula
-    function validateRucCedula() {
-        if (!rucCedulaInput.value) {
-            rucCedulaInput.setCustomValidity('');
-            rucCedulaInput.classList.remove('is-invalid');
-            return true;
-        }
-        
-        const value = rucCedulaInput.value.replace(/\D/g, '');
-        if (value.length !== 10 && value.length !== 13) {
-            rucCedulaInput.setCustomValidity('Debe tener 10 (cédula) o 13 (RUC) dígitos');
-            rucCedulaInput.classList.add('is-invalid');
-            return false;
+    // Mostrar/ocultar configuración de anticipo
+    function toggleAnticipoConfig() {
+        if (anticipoCheckbox.checked) {
+            anticipoConfig.style.display = 'block';
+            document.getElementById('producto_anticipado').required = true;
         } else {
-            rucCedulaInput.setCustomValidity('');
-            rucCedulaInput.classList.remove('is-invalid');
-            return true;
+            anticipoConfig.style.display = 'none';
+            document.getElementById('producto_anticipado').required = false;
+            if (limiteCajasInput) limiteCajasInput.value = '1';
+            document.getElementById('producto_anticipado').value = '';
         }
+    }
+    
+    if (anticipoCheckbox) {
+        anticipoCheckbox.addEventListener('change', toggleAnticipoConfig);
+        toggleAnticipoConfig();
     }
     
     // Validación de Teléfono
     function validateTelefono() {
-        if (!telefonoInput.value.trim()) {
-            telefonoInput.setCustomValidity('El teléfono es obligatorio');
-            telefonoInput.classList.add('is-invalid');
-            return false;
-        }
-        
-        const value = telefonoInput.value.trim();
-        if (value.length < 7) {
-            telefonoInput.setCustomValidity('El teléfono debe tener al menos 7 dígitos');
+        if (telefonoInput.value && !/^[\d\s\-+()]+$/.test(telefonoInput.value)) {
+            telefonoInput.setCustomValidity('Ingrese un número de teléfono válido');
             telefonoInput.classList.add('is-invalid');
             return false;
         } else {
@@ -580,132 +446,118 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
     
-    // Event listeners para validación en tiempo real
+    // Validación de RUC/Cédula
+    function validateRucCedula() {
+        if (rucCedulaInput.value && !/^\d+$/.test(rucCedulaInput.value)) {
+            rucCedulaInput.setCustomValidity('Ingrese solo números');
+            rucCedulaInput.classList.add('is-invalid');
+            return false;
+        } else {
+            rucCedulaInput.setCustomValidity('');
+            rucCedulaInput.classList.remove('is-invalid');
+            return true;
+        }
+    }
+    
+    // Validación de Saldo
+    function validateSaldo() {
+        let saldo = parseFloat(saldoInput.value);
+        if (isNaN(saldo)) {
+            saldoInput.value = '0.00';
+            saldo = 0;
+        }
+        if (saldo < 0) {
+            saldoInput.setCustomValidity('El saldo no puede ser negativo');
+            saldoInput.classList.add('is-invalid');
+            return false;
+        } else {
+            saldoInput.setCustomValidity('');
+            saldoInput.classList.remove('is-invalid');
+            return true;
+        }
+    }
+    
+    // Formatear saldo
+    function formatSaldo() {
+        let saldo = parseFloat(saldoInput.value);
+        if (isNaN(saldo)) {
+            saldoInput.value = '0.00';
+        } else {
+            saldoInput.value = saldo.toFixed(2);
+        }
+    }
+    
+    // Event listeners
     telefonoInput.addEventListener('input', validateTelefono);
     rucCedulaInput.addEventListener('input', validateRucCedula);
+    saldoInput.addEventListener('input', validateSaldo);
+    saldoInput.addEventListener('blur', formatSaldo);
     
-    // Validación del formulario de creación
-    crearForm.addEventListener('submit', function(event) {
+    // Validación del formulario
+    form.addEventListener('submit', function(event) {
         const isTelefonoValid = validateTelefono();
         const isRucCedulaValid = validateRucCedula();
+        const isSaldoValid = validateSaldo();
         
-        // Validación de anticipos
-        if (anticipoCheckbox && anticipoCheckbox.checked) {
-            const limite = parseInt(limiteCajas.value) || 0;
-            const saldo = parseFloat(saldoAnticipos.value) || 0;
-            const producto = productoAnticipado.value;
-            
-            if (limite === 0 && saldo === 0 && !producto) {
+        if (anticipoCheckbox.checked) {
+            const productoAnticipado = document.getElementById('producto_anticipado').value;
+            if (!productoAnticipado) {
                 event.preventDefault();
-                event.stopPropagation();
-                alert('⚠️ Si activa anticipos, debe configurar al menos:\n- Límite de cajas\n- Saldo de anticipos\n- Producto anticipado');
+                alert('Por favor seleccione un producto anticipado');
                 return false;
             }
         }
         
-        if (!isTelefonoValid || !isRucCedulaValid || !crearForm.checkValidity()) {
+        if (!isTelefonoValid || !isRucCedulaValid || !isSaldoValid || !form.checkValidity()) {
             event.preventDefault();
             event.stopPropagation();
         }
-        crearForm.classList.add('was-validated');
+        form.classList.add('was-validated');
     });
     
-    // Manejo del botón de eliminar
-    document.querySelectorAll('.eliminar-cliente-btn').forEach(button => {
-        button.addEventListener('click', function() {
-            const clienteId = this.getAttribute('data-id');
-            const clienteNombre = this.getAttribute('data-nombre');
-            
-            clienteAEliminar = clienteId;
-            document.getElementById('clienteNombreEliminar').textContent = clienteNombre;
-            
-            // Actualizar el action del formulario
-            eliminarForm.action = `/admin/catalog/client/eliminar-cliente/${clienteId}`;
-            
-            const modal = new bootstrap.Modal(document.getElementById('eliminarClienteModal'));
-            modal.show();
-        });
-    });
-    
-    // Formulario de eliminación
-    if (eliminarForm) {
-        eliminarForm.addEventListener('submit', function(event) {
-            if (!clienteAEliminar) {
-                event.preventDefault();
-                alert('Error: Cliente no especificado');
-            }
-        });
-    }
-    
-    // Limpiar formulario al cerrar modal de creación
+    // Limpiar formulario al cerrar modal
     document.getElementById('crearClienteModal').addEventListener('hidden.bs.modal', function () {
-        crearForm.reset();
-        crearForm.classList.remove('was-validated');
+        form.reset();
+        form.classList.remove('was-validated');
         telefonoInput.setCustomValidity('');
         telefonoInput.classList.remove('is-invalid');
         rucCedulaInput.setCustomValidity('');
         rucCedulaInput.classList.remove('is-invalid');
+        saldoInput.setCustomValidity('');
+        saldoInput.classList.remove('is-invalid');
+        saldoInput.value = '0.00';
         
-        // Restablecer los select
-        const tipoClienteSelect = document.getElementById('tipo_cliente');
-        const perfilClienteSelect = document.getElementById('perfil_cliente');
-        const rutaSelect = document.getElementById('id_ruta');
-        tipoClienteSelect.selectedIndex = 0;
-        perfilClienteSelect.value = "Mercado";
-        rutaSelect.selectedIndex = 0;
-        
-        // Restablecer campos de anticipo
         if (anticipoCheckbox) {
             anticipoCheckbox.checked = false;
-            toggleAnticipoFields();
+            toggleAnticipoConfig();
         }
     });
     
-    // Auto-focus en el campo nombre cuando se abre el modal
+    // Auto-focus
     document.getElementById('crearClienteModal').addEventListener('shown.bs.modal', function () {
         document.getElementById('nombre').focus();
     });
     
-    // Auto-focus en el campo de búsqueda
+    // Focus en búsqueda
     const searchInput = document.querySelector('input[name="q"]');
     if (searchInput) {
         searchInput.focus();
-        searchInput.selectionStart = searchInput.selectionEnd = searchInput.value.length;
+    }
+    
+    // Filtrar rutas por sucursal seleccionada (opcional)
+    const sucursalSelect = document.getElementById('id_sucursal');
+    const rutaSelect = document.getElementById('id_ruta');
+    
+    if (sucursalSelect && rutaSelect) {
+        sucursalSelect.addEventListener('change', function() {
+            const sucursalId = this.value;
+            if (sucursalId) {
+                // Aquí puedes hacer una llamada AJAX para cargar rutas por sucursal
+                // o simplemente mostrar un mensaje
+                console.log('Sucursal seleccionada:', sucursalId);
+            }
+        });
     }
 });
-
-// Función para mostrar toasts de notificación
-function showToast(category, message) {
-    const toastContainer = document.createElement('div');
-    toastContainer.className = 'toast-container position-fixed bottom-0 end-0 p-3';
-    
-    const toastId = 'toast-' + Date.now();
-    const bgColor = category === 'success' ? 'bg-success' : 
-                    category === 'danger' ? 'bg-danger' : 
-                    category === 'warning' ? 'bg-warning' : 'bg-info';
-    
-    const toastHTML = `
-        <div id="${toastId}" class="toast" role="alert" aria-live="assertive" aria-atomic="true">
-            <div class="toast-header ${bgColor} text-white">
-                <strong class="me-auto">Notificación</strong>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="toast" aria-label="Close"></button>
-            </div>
-            <div class="toast-body">
-                ${message}
-            </div>
-        </div>
-    `;
-    
-    toastContainer.innerHTML = toastHTML;
-    document.body.appendChild(toastContainer);
-    
-    const toastEl = document.getElementById(toastId);
-    const toast = new bootstrap.Toast(toastEl, { delay: 5000 });
-    toast.show();
-    
-    toastEl.addEventListener('hidden.bs.toast', function () {
-        toastContainer.remove();
-    });
-}
 </script>
 {% endblock %}

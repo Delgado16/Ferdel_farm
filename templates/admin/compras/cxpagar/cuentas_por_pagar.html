@@ -14,15 +14,158 @@
         </a>
     </div>
 
+    <!-- Panel de Filtros Avanzados -->
+    <div class="card shadow-sm mb-4">
+        <div class="card-header bg-white">
+            <h5 class="card-title fw-bold mb-0">
+                <i class="fas fa-filter me-2 text-primary"></i>Filtros de Búsqueda
+            </h5>
+            <button class="btn btn-sm btn-link float-end" type="button" data-bs-toggle="collapse" data-bs-target="#filtrosCollapse">
+                <i class="fas fa-chevron-down"></i>
+            </button>
+        </div>
+        <div class="collapse show" id="filtrosCollapse">
+            <div class="card-body">
+                <form method="GET" action="{{ url_for('admin.admin_cuentas_por_pagar') }}" id="filtrosForm">
+                    <div class="row">
+                        <!-- Filtro Estado -->
+                        <div class="col-md-3 mb-3">
+                            <label class="form-label fw-bold">Estado</label>
+                            <select name="estado" class="form-select" id="filtroEstado">
+                                <option value="Pendiente" {% if filtro_estado == 'Pendiente' %}selected{% endif %}>Pendientes</option>
+                                <option value="Pagada" {% if filtro_estado == 'Pagada' %}selected{% endif %}>Pagadas</option>
+                                <option value="Anulada" {% if filtro_estado == 'Anulada' %}selected{% endif %}>Anuladas</option>
+                                <option value="Todas" {% if filtro_estado == 'Todas' %}selected{% endif %}>Todas</option>
+                            </select>
+                        </div>
+                        
+                        <!-- Filtro Proveedor -->
+                        <div class="col-md-3 mb-3">
+                            <label class="form-label fw-bold">Proveedor</label>
+                            <select name="proveedor" class="form-select select2" id="filtroProveedor">
+                                <option value="">Todos los proveedores</option>
+                                {% for proveedor in proveedores %}
+                                <option value="{{ proveedor.ID_Proveedor }}" {% if filtro_proveedor|string == proveedor.ID_Proveedor|string %}selected{% endif %}>
+                                    {{ proveedor.Nombre }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        
+                        <!-- Filtro por Vencimiento -->
+                        <div class="col-md-3 mb-3">
+                            <label class="form-label fw-bold">Vencimiento</label>
+                            <select name="rango_dias" class="form-select" id="filtroRangoDias">
+                                <option value="">Todos</option>
+                                <option value="vencidas" {% if filtro_rango_dias == 'vencidas' %}selected{% endif %}>Vencidas</option>
+                                <option value="hoy" {% if filtro_rango_dias == 'hoy' %}selected{% endif %}>Vencen hoy</option>
+                                <option value="proximas_7" {% if filtro_rango_dias == 'proximas_7' %}selected{% endif %}>Próximos 7 días</option>
+                                <option value="proximas_15" {% if filtro_rango_dias == 'proximas_15' %}selected{% endif %}>Próximos 15 días</option>
+                                <option value="proximas_30" {% if filtro_rango_dias == 'proximas_30' %}selected{% endif %}>Próximos 30 días</option>
+                                <option value="futuras" {% if filtro_rango_dias == 'futuras' %}selected{% endif %}>Más de 30 días</option>
+                            </select>
+                        </div>
+                        
+                        <!-- Búsqueda por documento -->
+                        <div class="col-md-3 mb-3">
+                            <label class="form-label fw-bold">N° Documento</label>
+                            <input type="text" name="num_documento" class="form-control" 
+                                   value="{{ filtro_num_documento }}" placeholder="Buscar por documento...">
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <!-- Filtro Rango de Fechas Desde -->
+                        <div class="col-md-3 mb-3">
+                            <label class="form-label fw-bold">Fecha Vencimiento Desde</label>
+                            <input type="date" name="fecha_desde" class="form-control" 
+                                   value="{{ filtro_fecha_desde }}">
+                        </div>
+                        
+                        <!-- Filtro Rango de Fechas Hasta -->
+                        <div class="col-md-3 mb-3">
+                            <label class="form-label fw-bold">Fecha Vencimiento Hasta</label>
+                            <input type="date" name="fecha_hasta" class="form-control" 
+                                   value="{{ filtro_fecha_hasta }}">
+                        </div>
+                        
+                        <!-- Filtro Monto Mínimo -->
+                        <div class="col-md-2 mb-3">
+                            <label class="form-label fw-bold">Monto Mínimo</label>
+                            <input type="number" step="0.01" name="monto_min" class="form-control" 
+                                   value="{{ filtro_monto_min }}" placeholder="0.00">
+                        </div>
+                        
+                        <!-- Filtro Monto Máximo -->
+                        <div class="col-md-2 mb-3">
+                            <label class="form-label fw-bold">Monto Máximo</label>
+                            <input type="number" step="0.01" name="monto_max" class="form-control" 
+                                   value="{{ filtro_monto_max }}" placeholder="999999.99">
+                        </div>
+                        
+                        <!-- Botones de acción -->
+                        <div class="col-md-2 mb-3">
+                            <label class="form-label fw-bold">&nbsp;</label>
+                            <div class="d-grid gap-2">
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="fas fa-search me-2"></i>Filtrar
+                                </button>
+                                <a href="{{ url_for('admin.admin_cuentas_por_pagar') }}" class="btn btn-secondary">
+                                    <i class="fas fa-eraser me-2"></i>Limpiar
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Filtros activos -->
+                    {% if filtro_estado != 'Pendiente' or filtro_proveedor or filtro_fecha_desde or filtro_fecha_hasta or filtro_rango_dias or filtro_monto_min or filtro_monto_max or filtro_num_documento %}
+                    <div class="row mt-2">
+                        <div class="col-12">
+                            <div class="alert alert-info mb-0">
+                                <i class="fas fa-filter me-2"></i>
+                                <strong>Filtros activos:</strong>
+                                {% if filtro_estado != 'Pendiente' %}
+                                    <span class="badge bg-primary ms-1">Estado: {{ filtro_estado }}</span>
+                                {% endif %}
+                                {% if filtro_proveedor %}
+                                    <span class="badge bg-primary ms-1">Proveedor ID: {{ filtro_proveedor }}</span>
+                                {% endif %}
+                                {% if filtro_rango_dias %}
+                                    <span class="badge bg-primary ms-1">Vencimiento: {{ filtro_rango_dias }}</span>
+                                {% endif %}
+                                {% if filtro_num_documento %}
+                                    <span class="badge bg-primary ms-1">Doc: {{ filtro_num_documento }}</span>
+                                {% endif %}
+                                {% if filtro_fecha_desde %}
+                                    <span class="badge bg-primary ms-1">Desde: {{ filtro_fecha_desde }}</span>
+                                {% endif %}
+                                {% if filtro_fecha_hasta %}
+                                    <span class="badge bg-primary ms-1">Hasta: {{ filtro_fecha_hasta }}</span>
+                                {% endif %}
+                                {% if filtro_monto_min %}
+                                    <span class="badge bg-primary ms-1">Monto ≥ {{ filtro_monto_min }}</span>
+                                {% endif %}
+                                {% if filtro_monto_max %}
+                                    <span class="badge bg-primary ms-1">Monto ≤ {{ filtro_monto_max }}</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+                </form>
+            </div>
+        </div>
+    </div>
+
     <!-- Resumen General -->
     <div class="row mb-4">
         <div class="col-xl-3 col-md-6 mb-3">
-            <div class="card">
+            <div class="card border-primary">
                 <div class="card-body">
                     <div class="d-flex justify-content-between align-items-center">
                         <div>
                             <h6 class="text-muted mb-1">Total Pendiente</h6>
-                            <h2 class="fw-bold text-dark mb-0">C${{ "{:,.2f}".format(total_pendiente) if total_pendiente else '0.00' }}</h2>
+                            <h2 class="fw-bold text-primary mb-0">C${{ "{:,.2f}".format(total_pendiente) if total_pendiente else '0.00' }}</h2>
                         </div>
                         <div class="text-primary">
                             <i class="fas fa-dollar-sign fa-2x"></i>
@@ -33,12 +176,12 @@
         </div>
         
         <div class="col-xl-3 col-md-6 mb-3">
-            <div class="card">
+            <div class="card border-warning">
                 <div class="card-body">
                     <div class="d-flex justify-content-between align-items-center">
                         <div>
                             <h6 class="text-muted mb-1">Cuentas Vencidas</h6>
-                            <h2 class="fw-bold text-dark mb-0">{{ cuentas_vencidas or 0 }}</h2>
+                            <h2 class="fw-bold text-warning mb-0">{{ cuentas_vencidas or 0 }}</h2>
                         </div>
                         <div class="text-warning">
                             <i class="fas fa-clock fa-2x"></i>
@@ -49,18 +192,18 @@
         </div>
         
         <div class="col-xl-3 col-md-6 mb-3">
-            <div class="card">
+            <div class="card border-success">
                 <div class="card-body">
                     <div class="d-flex justify-content-between align-items-center">
                         <div>
                             <h6 class="text-muted mb-1">Cuentas Pagadas</h6>
-                            <h2 class="fw-bold text-dark mb-0">
+                            <h2 class="fw-bold text-success mb-0">
                                 {% set cuentas_pagadas = cuentas|selectattr('Estado', 'equalto', 'Pagada')|list %}
                                 {{ cuentas_pagadas|length or 0 }}
                             </h2>
                         </div>
-                        <div class="text-danger">
-                            <i class="fas fa-exclamation-triangle fa-2x"></i>
+                        <div class="text-success">
+                            <i class="fas fa-check-circle fa-2x"></i>
                         </div>
                     </div>
                 </div>
@@ -68,14 +211,14 @@
         </div>
         
         <div class="col-xl-3 col-md-6 mb-3">
-            <div class="card">
+            <div class="card border-info">
                 <div class="card-body">
                     <div class="d-flex justify-content-between align-items-center">
                         <div>
                             <h6 class="text-muted mb-1">Total Registros</h6>
-                            <h2 class="fw-bold text-dark mb-0">{{ total_cuentas or 0 }}</h2>
+                            <h2 class="fw-bold text-info mb-0">{{ total_cuentas or 0 }}</h2>
                         </div>
-                        <div class="text-success">
+                        <div class="text-info">
                             <i class="fas fa-list fa-2x"></i>
                         </div>
                     </div>
@@ -87,21 +230,24 @@
     <!-- Tabla Principal -->
     <div class="card shadow-sm">
         <div class="card-header bg-white">
-            <div class="d-flex justify-content-between align-items-center">
+            <div class="d-flex justify-content-between align-items-center flex-wrap">
                 <h5 class="card-title fw-bold mb-0">
                     <i class="fas fa-table me-2 text-primary"></i>Lista de Cuentas por Pagar
                 </h5>
-                <div class="d-flex align-items-center">
+                <div class="d-flex align-items-center mt-2 mt-md-0">
                     <div class="input-group input-group-sm" style="width: 250px;">
-                        <input type="text" class="form-control" placeholder="Buscar proveedor..." id="searchInput">
+                        <input type="text" class="form-control" placeholder="Buscar en tabla..." id="searchInput">
                         <button class="btn btn-outline-secondary" type="button" id="clearSearch">
                             <i class="fas fa-times"></i>
                         </button>
                     </div>
-                    <button onclick="exportarExcel()" class="btn btn-primary btn-sm ms-2">
-                        <i class="fas fa-file-export"></i> Exportar
+                    <button onclick="exportarExcel()" class="btn btn-success btn-sm ms-2">
+                        <i class="fas fa-file-excel me-1"></i> Exportar
                     </button>
-                    <span class="badge bg-primary ms-2">{{ total_cuentas or 0 }} registros</span>
+                    <button onclick="imprimirTabla()" class="btn btn-primary btn-sm ms-2">
+                        <i class="fas fa-print me-1"></i> Imprimir
+                    </button>
+                    <span class="badge bg-secondary ms-2">{{ total_cuentas or 0 }} registros</span>
                 </div>
             </div>
         </div>
@@ -113,11 +259,11 @@
                         <tr>
                             <th>ID</th>
                             <th>Proveedor</th>
-                            <th>Contacto</th>
                             <th>Documento</th>
                             <th class="text-end">Monto</th>
                             <th class="text-end">Saldo</th>
                             <th>Vencimiento</th>
+                            <th>Días</th>
                             <th class="text-center">Estado</th>
                             <th class="text-center">Acciones</th>
                         </tr>
@@ -133,6 +279,7 @@
                             <td>
                                 <div class="fw-bold mb-1">{{ cuenta.Proveedor or 'N/A' }}</div>
                                 <small class="text-muted">
+                                    <i class="fas fa-calendar-alt me-1"></i>
                                     {{ cuenta.Fecha.strftime('%d/%m/%Y') if cuenta.Fecha else 'Sin fecha' }}
                                 </small>
                                 {% if cuenta.Observacion %}
@@ -144,25 +291,13 @@
                                 {% endif %}
                             </td>
                             
-                            <!-- Contacto -->
-                            <td>
-                                {% if cuenta.ID_Proveedor %}
-                                    <span>
-                                        <i class="fas fa-id-card fa-sm me-1 text-primary"></i>ID: {{ cuenta.ID_Proveedor }}
-                                    </span>
-                                {% else %}
-                                    <span class="text-muted">Sin ID</span>
-                                {% endif %}
-                            </td>
-                            
                             <!-- Documento -->
                             <td>
                                 {% if cuenta.Num_Documento %}
-                                    <div class="mb-1">
-                                        <span class="badge bg-info">
-                                            {{ cuenta.Num_Documento }}
-                                        </span>
-                                    </div>
+                                    <span class="badge bg-info">
+                                        <i class="fas fa-file-invoice me-1"></i>
+                                        {{ cuenta.Num_Documento }}
+                                    </span>
                                 {% else %}
                                     <span class="text-muted">Sin documento</span>
                                 {% endif %}
@@ -191,19 +326,40 @@
                             <td>
                                 {% if cuenta.Fecha_Vencimiento %}
                                     <div class="mb-1">
+                                        <i class="fas fa-calendar-alt me-1"></i>
                                         {{ cuenta.Fecha_Vencimiento.strftime('%d/%m/%Y') }}
                                     </div>
-                                    {% if dias_vencimiento is not none and dias_vencimiento < 0 %}
+                                {% else %}
+                                    <span class="text-muted">Sin fecha</span>
+                                {% endif %}
+                            </td>
+                            
+                            <!-- Días -->
+                            <td>
+                                {% if dias_vencimiento is not none %}
+                                    {% if dias_vencimiento < 0 %}
                                         <span class="badge bg-danger">
+                                            <i class="fas fa-exclamation-triangle me-1"></i>
                                             Vencido: {{ -dias_vencimiento }} días
                                         </span>
-                                    {% elif dias_vencimiento is not none and dias_vencimiento >= 0 %}
+                                    {% elif dias_vencimiento == 0 %}
+                                        <span class="badge bg-warning text-dark">
+                                            <i class="fas fa-bell me-1"></i>
+                                            Vence hoy
+                                        </span>
+                                    {% elif dias_vencimiento <= 7 %}
                                         <span class="badge bg-info">
-                                            {{ dias_vencimiento }} días restantes
+                                            <i class="fas fa-hourglass-half me-1"></i>
+                                            {{ dias_vencimiento }} días
+                                        </span>
+                                    {% else %}
+                                        <span class="badge bg-secondary">
+                                            <i class="fas fa-calendar-week me-1"></i>
+                                            {{ dias_vencimiento }} días
                                         </span>
                                     {% endif %}
                                 {% else %}
-                                    <span class="text-muted">Sin fecha</span>
+                                    <span class="badge bg-secondary">N/A</span>
                                 {% endif %}
                             </td>
                             
@@ -211,18 +367,22 @@
                             <td class="text-center">
                                 {% if cuenta.Estado == 'Pagada' %}
                                     <span class="badge bg-success">
+                                        <i class="fas fa-check-circle me-1"></i>
                                         Pagada
                                     </span>
                                 {% elif cuenta.Estado == 'Anulada' %}
                                     <span class="badge bg-secondary">
+                                        <i class="fas fa-ban me-1"></i>
                                         Anulada
                                     </span>
                                 {% elif dias_vencimiento is not none and dias_vencimiento < 0 %}
                                     <span class="badge bg-danger">
+                                        <i class="fas fa-exclamation-circle me-1"></i>
                                         Vencida
                                     </span>
                                 {% else %}
-                                    <span class="badge bg-warning">
+                                    <span class="badge bg-warning text-dark">
+                                        <i class="fas fa-clock me-1"></i>
                                         Pendiente
                                     </span>
                                 {% endif %}
@@ -264,17 +424,20 @@
                             <td colspan="9" class="text-center py-5">
                                 <i class="fas fa-check-circle fa-3x text-success mb-3"></i>
                                 <h5 class="text-muted">¡Excelente!</h5>
-                                <p class="text-muted">No hay cuentas por pagar pendientes</p>
+                                <p class="text-muted">No hay cuentas que coincidan con los filtros seleccionados</p>
+                                <a href="{{ url_for('admin.admin_cuentas_por_pagar') }}" class="btn btn-primary btn-sm">
+                                    <i class="fas fa-eraser me-1"></i>Limpiar filtros
+                                </a>
                             </td>
                         </tr>
                         {% endfor %}
                     </tbody>
                     <tfoot class="table-light">
                         <tr>
-                            <td colspan="4" class="text-end fw-bold">TOTALES:</td>
+                            <td colspan="3" class="text-end fw-bold">TOTALES:</td>
                             <td class="text-end fw-bold">C${{ "{:,.2f}".format(total_monto) if total_monto else '0.00' }}</td>
                             <td class="text-end fw-bold">C${{ "{:,.2f}".format(total_saldo) if total_saldo else '0.00' }}</td>
-                            <td colspan="3"></td>
+                            <td colspan="4"></td>
                         </tr>
                     </tfoot>
                 </table>
@@ -282,7 +445,7 @@
         </div>
         
         <div class="card-footer bg-white">
-            <div class="d-flex justify-content-between align-items-center">
+            <div class="d-flex justify-content-between align-items-center flex-wrap">
                 <div>
                     <small class="text-muted">
                         <i class="fas fa-info-circle me-1 text-primary"></i>
@@ -291,7 +454,8 @@
                 </div>
                 <div>
                     <small class="text-muted">
-                        Actualizado: {{ hoy.strftime('%d/%m/%Y %H:%M') if hoy else 'N/A' }}
+                        <i class="fas fa-sync-alt me-1"></i>
+                        Actualizado: {{ hoy.strftime('%d/%m/%Y %H:%M:%S') if hoy else 'N/A' }}
                     </small>
                 </div>
             </div>
@@ -303,11 +467,11 @@
 <div class="modal fade" id="anularCuentaModal" tabindex="-1" aria-labelledby="anularCuentaModalLabel" aria-hidden="true">
     <div class="modal-dialog">
         <div class="modal-content">
-            <div class="modal-header">
+            <div class="modal-header bg-danger text-white">
                 <h5 class="modal-title" id="anularCuentaModalLabel">
-                    <i class="fas fa-exclamation-triangle me-2 text-danger"></i>Confirmar Anulación
+                    <i class="fas fa-exclamation-triangle me-2"></i>Confirmar Anulación
                 </h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
                 <p class="mb-3">¿Está seguro de que desea anular esta cuenta por pagar?</p>
@@ -316,8 +480,8 @@
                     <strong>Esta acción no se puede deshacer.</strong> La cuenta será marcada como "Anulada" y ya no estará disponible para pagos.
                 </div>
                 <div class="mb-3">
-                    <p><strong>Proveedor:</strong> <span id="anular-proveedor"></span></p>
-                    <p><strong>Saldo Pendiente:</strong> C$<span id="anular-saldo"></span></p>
+                    <p><strong>Proveedor:</strong> <span id="anular-proveedor" class="fw-bold"></span></p>
+                    <p><strong>Saldo Pendiente:</strong> <span class="fw-bold text-danger">C$<span id="anular-saldo"></span></span></p>
                 </div>
                 <div class="mb-3">
                     <label for="motivoAnulacion" class="form-label fw-bold">Motivo de anulación:</label>
@@ -336,47 +500,75 @@
     </div>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    // Inicializar Select2 para mejor experiencia
+    if (typeof $ !== 'undefined' && $.fn.select2) {
+        $('.select2').select2({
+            theme: 'bootstrap4',
+            placeholder: 'Seleccione un proveedor',
+            allowClear: true,
+            width: '100%'
+        });
+        
+        // Auto-submit cuando cambie el select de proveedor
+        $('#filtroProveedor').on('change', function() {
+            $('#filtrosForm').submit();
+        });
+    }
+    
+    // Auto-submit para cambios rápidos
+    $('#filtroEstado, #filtroRangoDias').on('change', function() {
+        $('#filtrosForm').submit();
+    });
+    
+    // Búsqueda en tabla cliente-side
     const searchInput = document.getElementById('searchInput');
     const clearSearch = document.getElementById('clearSearch');
     const tableRows = document.querySelectorAll('#dataTable tbody tr');
     
-    // Función para filtrar
     function filterTable() {
         const searchTerm = searchInput.value.toLowerCase().trim();
         
         tableRows.forEach(row => {
             if (row.cells.length > 1) {
+                // Buscar en proveedor (columna 1) y documento (columna 2)
                 const proveedorCell = row.cells[1];
-                const proveedorText = proveedorCell.textContent.toLowerCase();
+                const documentoCell = row.cells[2];
+                const proveedorText = proveedorCell ? proveedorCell.textContent.toLowerCase() : '';
+                const documentoText = documentoCell ? documentoCell.textContent.toLowerCase() : '';
                 
-                if (proveedorText.includes(searchTerm)) {
+                if (proveedorText.includes(searchTerm) || documentoText.includes(searchTerm)) {
                     row.style.display = '';
                 } else {
                     row.style.display = 'none';
                 }
             }
         });
+        
+        // Actualizar contador visible
+        const visibleRows = Array.from(tableRows).filter(row => row.style.display !== 'none').length;
+        const contadorInfo = document.querySelector('.badge.bg-secondary');
+        if (contadorInfo) {
+            contadorInfo.textContent = visibleRows + ' registros';
+        }
     }
     
-    // Evento de búsqueda
-    searchInput.addEventListener('keyup', filterTable);
+    if (searchInput) {
+        searchInput.addEventListener('keyup', filterTable);
+    }
     
-    // Limpiar búsqueda
-    clearSearch.addEventListener('click', function() {
-        searchInput.value = '';
-        tableRows.forEach(row => {
-            row.style.display = '';
+    if (clearSearch) {
+        clearSearch.addEventListener('click', function() {
+            if (searchInput) {
+                searchInput.value = '';
+                filterTable();
+            }
         });
-    });
-    
-    // Manejar tecla Enter
-    searchInput.addEventListener('keypress', function(e) {
-        if (e.which === 13) {
-            filterTable();
-        }
-    });
+    }
 
     // Modal de anulación
     var cuentaIdAnular = null;
@@ -395,7 +587,12 @@ document.addEventListener('DOMContentLoaded', function() {
         var motivo = $('#motivoAnulacion').val().trim();
         
         if (!motivo) {
-            alert('Por favor ingrese un motivo para la anulación.');
+            Swal.fire({
+                icon: 'warning',
+                title: 'Motivo requerido',
+                text: 'Por favor ingrese un motivo para la anulación.',
+                confirmButtonColor: '#3085d6'
+            });
             $('#motivoAnulacion').focus();
             return;
         }
@@ -415,10 +612,21 @@ document.addEventListener('DOMContentLoaded', function() {
             }),
             success: function(response) {
                 if (response.success) {
-                    $('#anularCuentaModal').modal('hide');
-                    location.reload();
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Anulada',
+                        text: 'La cuenta ha sido anulada exitosamente.',
+                        confirmButtonColor: '#3085d6'
+                    }).then(() => {
+                        location.reload();
+                    });
                 } else {
-                    alert('Error: ' + response.message);
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error',
+                        text: response.message || 'Error al anular la cuenta.',
+                        confirmButtonColor: '#3085d6'
+                    });
                     $btn.html(originalHtml).prop('disabled', false);
                 }
             },
@@ -427,7 +635,12 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (xhr.responseJSON && xhr.responseJSON.message) {
                     errorMsg = xhr.responseJSON.message;
                 }
-                alert(errorMsg);
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error',
+                    text: errorMsg,
+                    confirmButtonColor: '#3085d6'
+                });
                 $btn.html(originalHtml).prop('disabled', false);
             }
         });
@@ -442,7 +655,7 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 function exportarExcel() {
-    // Implementar exportación a Excel simple
+    // Implementar exportación a Excel
     var table = document.getElementById('dataTable');
     var html = table.outerHTML;
     var blob = new Blob([html], {type: 'application/vnd.ms-excel'});
@@ -455,5 +668,55 @@ function exportarExcel() {
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
 }
+
+function imprimirTabla() {
+    window.print();
+}
 </script>
+
+<style>
+@media print {
+    .card-header .btn,
+    .card-footer,
+    .modal,
+    #filtrosForm,
+    .btn-group,
+    .btn-outline-secondary,
+    .btn-primary,
+    .btn-success {
+        display: none !important;
+    }
+    
+    .card {
+        border: 1px solid #ddd !important;
+        box-shadow: none !important;
+    }
+    
+    table {
+        font-size: 10px !important;
+    }
+    
+    .badge {
+        print-color-adjust: exact;
+        -webkit-print-color-adjust: exact;
+    }
+}
+
+.select2-container--bootstrap4 .select2-selection {
+    min-height: calc(2.25rem + 2px);
+}
+
+.card {
+    transition: transform 0.2s;
+}
+
+.card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15) !important;
+}
+
+.table-hover tbody tr:hover {
+    background-color: rgba(0, 123, 255, 0.05);
+}
+</style>
 {% endblock %}

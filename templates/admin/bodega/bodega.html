@@ -111,6 +111,18 @@
         color: white;
     }
     
+    .btn-info {
+        background-color: #0ea5e9;
+        border-color: #0ea5e9;
+        color: white;
+    }
+    
+    .btn-info:hover {
+        background-color: #0284c7;
+        border-color: #0284c7;
+        color: white;
+    }
+    
     .table {
         font-size: 0.875rem;
     }
@@ -149,6 +161,10 @@
     
     .badge.bg-secondary {
         background-color: #6b7280 !important;
+    }
+    
+    .badge.bg-info {
+        background-color: #0ea5e9 !important;
     }
     
     .modal-header {
@@ -210,6 +226,28 @@
         border-radius: 4px;
     }
     
+    /* Estilos para el acceso rápido */
+    .hover-shadow {
+        transition: all 0.2s ease;
+        background-color: white;
+        cursor: pointer;
+    }
+    
+    .hover-shadow:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        border-color: #0ea5e9 !important;
+    }
+    
+    .warehouse-stats {
+        font-size: 0.7rem;
+        padding: 2px 6px;
+        border-radius: 10px;
+        background-color: #f3f4f6;
+        color: #6b7280;
+        display: inline-block;
+    }
+    
     @media (max-width: 768px) {
         .stats-card {
             margin-bottom: 1rem;
@@ -226,6 +264,11 @@
         .btn-sm {
             padding: 0.25rem 0.5rem;
             font-size: 0.75rem;
+        }
+        
+        .btn-group-sm .btn {
+            padding: 0.25rem 0.5rem;
+            font-size: 0.7rem;
         }
     }
 </style>
@@ -271,6 +314,54 @@
         </div>
     </div>
 
+    <!-- Acceso Rápido a Inventarios -->
+    {% if bodegas %}
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card-custom">
+                <div class="card-header-custom">
+                    <div class="row align-items-center">
+                        <div class="col">
+                            <h6 class="card-title mb-0">
+                                <i class="fas fa-chart-line me-2"></i>Acceso Rápido a Inventarios
+                            </h6>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        {% for bodega in bodegas[:4] %}
+                        <div class="col-md-3 col-sm-6 mb-2">
+                            <a href="{{ url_for('admin.admin_detalle_inventario_bodega', id_bodega=bodega.ID_Bodega) }}" 
+                               class="text-decoration-none">
+                                <div class="d-flex align-items-center p-3 border rounded hover-shadow">
+                                    <i class="fas fa-warehouse fa-2x text-info me-3"></i>
+                                    <div>
+                                        <strong class="d-block">{{ bodega.Nombre }}</strong>
+                                        <small class="text-muted">Ver inventario →</small>
+                                    </div>
+                                </div>
+                            </a>
+                        </div>
+                        {% endfor %}
+                        {% if bodegas|length > 4 %}
+                        <div class="col-md-3 col-sm-6 mb-2">
+                            <div class="d-flex align-items-center p-3 border rounded bg-light">
+                                <i class="fas fa-ellipsis-h fa-2x text-muted me-3"></i>
+                                <div>
+                                    <strong class="d-block">Y más...</strong>
+                                    <small class="text-muted">{{ bodegas|length - 4 }} bodegas adicionales</small>
+                                </div>
+                            </div>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
     <!-- Barra de herramientas -->
     <div class="card-custom">
         <div class="card-header-custom">
@@ -307,12 +398,12 @@
                 <table class="table table-hover mb-0" id="warehouseTable">
                     <thead>
                         <tr>
-                            <th>ID</th>
+                            <th style="width: 60px;">ID</th>
                             <th>Nombre</th>
                             <th>Empresa</th>
                             <th>Ubicación</th>
-                            <th>Estado</th>
-                            <th style="width: 100px;">Acciones</th>
+                            <th style="width: 100px;">Estado</th>
+                            <th style="width: 180px;">Acciones</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -347,11 +438,16 @@
                                 {% endif %}
                             </td>
                             <td>
-                                <div class="btn-group btn-group-sm">
+                                <div class="btn-group btn-group-sm" role="group">
+                                    <a href="{{ url_for('admin.admin_detalle_inventario_bodega', id_bodega=bodega.ID_Bodega) }}" 
+                                       class="btn btn-info" 
+                                       title="Ver inventario de la bodega">
+                                        <i class="fas fa-boxes me-1"></i>Inventario
+                                    </a>
                                     <a href="{{ url_for('admin.admin_editar_bodega', id=bodega.ID_Bodega) }}" 
                                        class="btn btn-warning" 
                                        title="Editar bodega">
-                                        <i class="fas fa-edit"></i>Editar
+                                        <i class="fas fa-edit me-1"></i>Editar
                                     </a>
                                 </div>
                             </td>
@@ -364,7 +460,7 @@
                                     <h5>No hay bodegas registradas</h5>
                                     <p class="text-muted">Haz clic en "Nueva Bodega" para comenzar</p>
                                 </div>
-                            </td>
+                             </td>
                         </tr>
                         {% endfor %}
                     </tbody>
@@ -374,7 +470,7 @@
     </div>
 </div>
 
-<!-- Modal para crear bodega - Mejorado -->
+<!-- Modal para crear bodega -->
 <div class="modal fade" id="crearBodegaModal" tabindex="-1" aria-labelledby="crearBodegaModalLabel" aria-hidden="true">
     <div class="modal-dialog">
         <div class="modal-content">

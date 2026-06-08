@@ -1,0 +1,566 @@
+{% extends "layout.html" %}
+
+{% block title %}Detalle Proveedor: {{ proveedor.Nombre }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Encabezado -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1>
+            <i class="fas fa-truck"></i> {{ proveedor.Nombre }}
+        </h1>
+        <div>
+            <a href="{{ url_for('admin.admin_editar_proveedor', id=proveedor.ID_Proveedor) }}" class="btn btn-warning me-2">
+                <i class="fas fa-edit"></i> Editar
+            </a>
+            <a href="{{ url_for('admin.admin_proveedores') }}" class="btn btn-outline-secondary">
+                <i class="fas fa-arrow-left"></i> Volver
+            </a>
+        </div>
+    </div>
+
+    <!-- KPIs Cards -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card bg-info text-white shadow-sm">
+                <div class="card-body">
+                    <h5 class="card-title">Saldo Pendiente</h5>
+                    <h2 class="mb-0">C$ {{ "{:,.2f}".format(stats.saldo_total) }}</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-danger text-white shadow-sm">
+                <div class="card-body">
+                    <h5 class="card-title">Monto Vencido</h5>
+                    <h2 class="mb-0">C$ {{ "{:,.2f}".format(stats.monto_vencido) }}</h2>
+                    <small>{{ stats.facturas_vencidas }} facturas vencidas</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-success text-white shadow-sm">
+                <div class="card-body">
+                    <h5 class="card-title">Total Compras</h5>
+                    <h2 class="mb-0">C$ {{ "{:,.2f}".format(stats.total_invertido) }}</h2>
+                    <small>{{ stats.total_compras }} compras realizadas</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-warning text-white shadow-sm">
+                <div class="card-body">
+                    <h5 class="card-title">Último Año</h5>
+                    <h2 class="mb-0">C$ {{ "{:,.2f}".format(stats.total_ultimo_anio) }}</h2>
+                    <small>Compras últimos 12 meses</small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Información del proveedor -->
+    <div class="card mb-4 shadow-sm">
+        <div class="card-header bg-light">
+            <h5 class="mb-0"><i class="fas fa-info-circle"></i> Información del Proveedor</h5>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-3 mb-3">
+                    <strong>RUC/Cédula:</strong><br>
+                    {{ proveedor.RUC_CEDULA or 'N/A' }}
+                </div>
+                <div class="col-md-3 mb-3">
+                    <strong>Teléfono:</strong><br>
+                    {{ proveedor.Telefono or 'N/A' }}
+                </div>
+                <div class="col-md-3 mb-3">
+                    <strong>Estado:</strong><br>
+                    {% if proveedor.Estado == 'ACTIVO' %}
+                        <span class="badge bg-success">ACTIVO</span>
+                    {% else %}
+                        <span class="badge bg-danger">INACTIVO</span>
+                    {% endif %}
+                </div>
+                <div class="col-md-3 mb-3">
+                    <strong>Fecha Creación:</strong><br>
+                    {{ proveedor.Fecha_Creacion.strftime('%d/%m/%Y %H:%M') if proveedor.Fecha_Creacion else 'N/A' }}
+                </div>
+            </div>
+            {% if proveedor.Direccion %}
+            <div class="row">
+                <div class="col-md-12">
+                    <strong>Dirección:</strong><br>
+                    {{ proveedor.Direccion }}
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Facturas Pendientes -->
+        <div class="col-md-6 mb-4">
+            <div class="card h-100 shadow-sm">
+                <div class="card-header bg-light">
+                    <h5 class="mb-0"><i class="fas fa-file-invoice"></i> Facturas Pendientes</h5>
+                </div>
+                <div class="card-body">
+                    {% if facturas_pendientes %}
+                    <div class="table-responsive">
+                        <table class="table table-sm table-hover">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>N° Documento</th>
+                                    <th>Fecha Venc.</th>
+                                    <th>Saldo</th>
+                                    <th>Estado</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for factura in facturas_pendientes %}
+                                <tr>
+                                    <td>{{ factura.Num_Documento or 'N/A' }}</td>
+                                    <td>
+                                        {% if factura.Fecha_Vencimiento %}
+                                            {% if factura.Estado == 'Vencida' %}
+                                                <span class="text-danger">{{ factura.Fecha_Vencimiento.strftime('%d/%m/%Y') }}</span>
+                                            {% else %}
+                                                {{ factura.Fecha_Vencimiento.strftime('%d/%m/%Y') }}
+                                            {% endif %}
+                                        {% else %}
+                                            N/A
+                                        {% endif %}
+                                    </td>
+                                    <td>C$ {{ "{:,.2f}".format(factura.Saldo_Pendiente) }}</td>
+                                    <td>
+                                        {% if factura.Estado == 'Vencida' %}
+                                            <span class="badge bg-danger">Vencida</span>
+                                        {% elif factura.Estado == 'Pendiente' %}
+                                            <span class="badge bg-warning">Pendiente</span>
+                                        {% elif factura.Estado == 'Parcial' %}
+                                            <span class="badge bg-info">Parcial</span>
+                                        {% else %}
+                                            <span class="badge bg-secondary">{{ factura.Estado }}</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        <tr>
+                    </div>
+                    {% else %}
+                    <p class="text-muted text-center">No hay facturas pendientes</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Antigüedad de Saldos -->
+        <div class="col-md-6 mb-4">
+            <div class="card h-100 shadow-sm">
+                <div class="card-header bg-light">
+                    <h5 class="mb-0"><i class="fas fa-chart-line"></i> Antigüedad de Saldos</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row text-center">
+                        <div class="col-md-2 col-6 mb-3">
+                            <div class="border rounded p-2">
+                                <small class="text-muted">0-30 días</small>
+                                <h6 class="text-info mb-0">C$ {{ "{:,.0f}".format(aging.Rango_0_30) }}</h6>
+                            </div>
+                        </div>
+                        <div class="col-md-2 col-6 mb-3">
+                            <div class="border rounded p-2">
+                                <small class="text-muted">31-60 días</small>
+                                <h6 class="text-info mb-0">C$ {{ "{:,.0f}".format(aging.Rango_31_60) }}</h6>
+                            </div>
+                        </div>
+                        <div class="col-md-2 col-6 mb-3">
+                            <div class="border rounded p-2">
+                                <small class="text-muted">61-90 días</small>
+                                <h6 class="text-warning mb-0">C$ {{ "{:,.0f}".format(aging.Rango_61_90) }}</h6>
+                            </div>
+                        </div>
+                        <div class="col-md-3 col-6 mb-3">
+                            <div class="border rounded p-2 bg-danger text-white">
+                                <small>Vencido</small>
+                                <h6 class="mb-0">C$ {{ "{:,.0f}".format(aging.Vencido) }}</h6>
+                            </div>
+                        </div>
+                        <div class="col-md-3 col-6 mb-3">
+                            <div class="border rounded p-2">
+                                <small class="text-muted">90+ días</small>
+                                <h6 class="text-danger mb-0">C$ {{ "{:,.0f}".format(aging.Mas_90) }}</h6>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============================================ -->
+    <!-- TABLA DE COMPRAS POR MES - DETALLADA -->
+    <!-- ============================================ -->
+    <div class="card mb-4 shadow-sm">
+        <div class="card-header bg-light">
+            <h5 class="mb-0">
+                <i class="fas fa-chart-bar"></i> Historial de Compras por Mes
+            </h5>
+        </div>
+        <div class="card-body">
+            {% if compras_por_mes %}
+            <div class="table-responsive">
+                <table class="table table-bordered table-hover">
+                    <thead class="table-dark">
+                        <tr>
+                            <th>Mes</th>
+                            <th class="text-center">Cantidad Compras</th>
+                            <th class="text-end">Total Contado</th>
+                            <th class="text-end">Total Crédito</th>
+                            <th class="text-end">Total Compras</th>
+                            <th class="text-end">Promedio por Compra</th>
+                            <th>Primera Compra</th>
+                            <th>Última Compra</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for mes in compras_por_mes %}
+                        <tr>
+                            <td>
+                                <strong>{{ mes.Mes_Nombre }}</strong><br>
+                                <small class="text-muted">{{ mes.Mes_Codigo }}</small>
+                            </td>
+                            <td class="text-center">
+                                <span class="badge bg-primary">{{ mes.Cantidad_Compras }}</span>
+                                <br>
+                                <small>
+                                    <span class="text-success">C:{{ mes.Cantidad_Contado }}</span> |
+                                    <span class="text-warning">R:{{ mes.Cantidad_Credito }}</span>
+                                </small>
+                            </td>
+                            <td class="text-end text-success">
+                                <i class="fas fa-money-bill-wave"></i> C$ {{ "{:,.2f}".format(mes.Total_Contado) }}
+                            </td>
+                            <td class="text-end text-warning">
+                                <i class="fas fa-credit-card"></i> C$ {{ "{:,.2f}".format(mes.Total_Credito) }}
+                            </td>
+                            <td class="text-end fw-bold bg-light">
+                                C$ {{ "{:,.2f}".format(mes.Total_Compras) }}
+                            </td>
+                            <td class="text-end">
+                                C$ {{ "{:,.2f}".format(mes.Promedio_Compra) }}
+                            </td>
+                            <td class="text-center small">
+                                {{ mes.Primera_Compra_Mes.strftime('%d/%m/%Y') if mes.Primera_Compra_Mes else 'N/A' }}
+                            </td>
+                            <td class="text-center small">
+                                {{ mes.Ultima_Compra_Mes.strftime('%d/%m/%Y') if mes.Ultima_Compra_Mes else 'N/A' }}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                    <tfoot class="table-secondary">
+                        <tr>
+                            <th>TOTALES</th>
+                            <th class="text-center">{{ compras_por_mes|sum(attribute='Cantidad_Compras') }}</th>
+                            <th class="text-end">C$ {{ "{:,.2f}".format(compras_por_mes|sum(attribute='Total_Contado')) }}</th>
+                            <th class="text-end">C$ {{ "{:,.2f}".format(compras_por_mes|sum(attribute='Total_Credito')) }}</th>
+                            <th class="text-end">C$ {{ "{:,.2f}".format(compras_por_mes|sum(attribute='Total_Compras')) }}</th>
+                            <th class="text-end">-</th>
+                            <th colspan="2"></th>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+            
+            <!-- Resumen adicional -->
+            <div class="row mt-4">
+                <div class="col-md-4">
+                    <div class="alert alert-success">
+                        <i class="fas fa-money-bill-wave"></i> <strong>Total Compras de Contado:</strong><br>
+                        <h3 class="mb-0">C$ {{ "{:,.2f}".format(compras_por_mes|sum(attribute='Total_Contado')) }}</h3>
+                        <small>{{ (compras_por_mes|sum(attribute='Total_Contado') / compras_por_mes|sum(attribute='Total_Compras') * 100)|round(1) }}% del total</small>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="alert alert-warning">
+                        <i class="fas fa-credit-card"></i> <strong>Total Compras a Crédito:</strong><br>
+                        <h3 class="mb-0">C$ {{ "{:,.2f}".format(compras_por_mes|sum(attribute='Total_Credito')) }}</h3>
+                        <small>{{ (compras_por_mes|sum(attribute='Total_Credito') / compras_por_mes|sum(attribute='Total_Compras') * 100)|round(1) }}% del total</small>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="alert alert-info">
+                        <i class="fas fa-chart-line"></i> <strong>Total General Compras:</strong><br>
+                        <h3 class="mb-0">C$ {{ "{:,.2f}".format(compras_por_mes|sum(attribute='Total_Compras')) }}</h3>
+                        <small>{{ compras_por_mes|sum(attribute='Cantidad_Compras') }} compras en total</small>
+                    </div>
+                </div>
+            </div>
+            {% else %}
+            <div class="text-center py-5">
+                <i class="fas fa-chart-bar fa-3x text-muted mb-3"></i>
+                <p class="text-muted">No hay datos de compras registradas</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Últimas Compras -->
+    <div class="card mb-4 shadow-sm">
+        <div class="card-header bg-light">
+            <h5 class="mb-0"><i class="fas fa-shopping-cart"></i> Últimas Compras</h5>
+        </div>
+        <div class="card-body">
+            {% if ultimas_compras %}
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Fecha</th>
+                            <th>Factura</th>
+                            <th>Tipo</th>
+                            <th class="text-end">Total</th>
+                            <th>Productos</th>
+                            <th>Observación</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for compra in ultimas_compras %}
+                        <tr>
+                            <td>{{ compra.Fecha.strftime('%d/%m/%Y') if compra.Fecha else 'N/A' }}</td>
+                            <td>{{ compra.N_Factura_Externa or 'S/N' }}</td>
+                            <td>
+                                <span class="badge {% if compra.Tipo_Compra == 'CREDITO' %}bg-warning{% else %}bg-success{% endif %}">
+                                    {% if compra.Tipo_Compra == 'CREDITO' %}Crédito{% else %}Contado{% endif %}
+                                </span>
+                            </td>
+                            <td class="text-end fw-bold">C$ {{ "{:,.2f}".format(compra.total_compra) }}</td>
+                            <td>{{ compra.cantidad_productos }} productos</td>
+                            <td>{{ compra.Observacion or '-' }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <p class="text-muted text-center">No hay compras registradas</p>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Top Productos -->
+        <div class="col-md-6 mb-4">
+            <div class="card h-100 shadow-sm">
+                <div class="card-header bg-light">
+                    <h5 class="mb-0"><i class="fas fa-trophy"></i> Top 10 Productos</h5>
+                </div>
+                <div class="card-body">
+                    {% if top_productos %}
+                    <div class="table-responsive">
+                        <table class="table table-sm table-hover">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Código</th>
+                                    <th>Producto</th>
+                                    <th class="text-end">Cantidad</th>
+                                    <th class="text-end">Total</th>
+                                    <th class="text-center">Veces</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for producto in top_productos %}
+                                <tr>
+                                    <td><small>{{ producto.COD_Producto or 'N/A' }}</small></td>
+                                    <td>{{ producto.Producto }}</td>
+                                    <td class="text-end">{{ "{:,.0f}".format(producto.Cantidad_Total) }}</td>
+                                    <td class="text-end text-primary">C$ {{ "{:,.2f}".format(producto.Total_Invertido) }}</td>
+                                    <td class="text-center"><span class="badge bg-secondary">{{ producto.Veces_Comprado }}</span></td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <p class="text-muted text-center">No hay productos registrados</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Gráfico de Compras -->
+        <div class="col-md-6 mb-4">
+            <div class="card h-100 shadow-sm">
+                <div class="card-header bg-light">
+                    <h5 class="mb-0"><i class="fas fa-chart-line"></i> Evolución de Compras</h5>
+                </div>
+                <div class="card-body">
+                    {% if compras_por_mes %}
+                    <canvas id="comprasChart" style="height: 300px;"></canvas>
+                    <div class="mt-3 text-center">
+                        <span class="badge bg-success me-2">Contado</span>
+                        <span class="badge bg-warning me-2">Crédito</span>
+                        <span class="badge bg-primary">Total</span>
+                    </div>
+                    {% else %}
+                    <div class="text-center py-5">
+                        <i class="fas fa-chart-line fa-3x text-muted mb-3"></i>
+                        <p class="text-muted">No hay datos para mostrar</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Botones de acción -->
+    <div class="row mt-3">
+        <div class="col-12">
+            <div class="card shadow-sm">
+                <div class="card-body text-center">
+                    <a href="{{ url_for('admin.admin_editar_proveedor', id=proveedor.ID_Proveedor) }}" class="btn btn-warning mx-2">
+                        <i class="fas fa-edit"></i> Editar Proveedor
+                    </a>
+                    <button type="button" class="btn btn-info mx-2" onclick="window.print()">
+                        <i class="fas fa-print"></i> Imprimir Reporte
+                    </button>
+                    <a href="{{ url_for('admin.admin_proveedores') }}" class="btn btn-secondary mx-2">
+                        <i class="fas fa-list"></i> Lista de Proveedores
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    {% if compras_por_mes %}
+    // Preparar datos para el gráfico
+    const meses = [
+        {% for mes in compras_por_mes|reverse %}
+            '{{ mes.Mes_Nombre }}',
+        {% endfor %}
+    ];
+    
+    const datosContado = [
+        {% for mes in compras_por_mes|reverse %}
+            {{ mes.Total_Contado }},
+        {% endfor %}
+    ];
+    
+    const datosCredito = [
+        {% for mes in compras_por_mes|reverse %}
+            {{ mes.Total_Credito }},
+        {% endfor %}
+    ];
+    
+    const datosTotal = [
+        {% for mes in compras_por_mes|reverse %}
+            {{ mes.Total_Compras }},
+        {% endfor %}
+    ];
+    
+    // Crear gráfico combinado
+    const ctx = document.getElementById('comprasChart').getContext('2d');
+    new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: meses,
+            datasets: [
+                {
+                    label: 'Contado',
+                    data: datosContado,
+                    backgroundColor: 'rgba(40, 167, 69, 0.7)',
+                    borderColor: 'rgb(40, 167, 69)',
+                    borderWidth: 1,
+                    borderRadius: 4
+                },
+                {
+                    label: 'Crédito',
+                    data: datosCredito,
+                    backgroundColor: 'rgba(255, 193, 7, 0.7)',
+                    borderColor: 'rgb(255, 193, 7)',
+                    borderWidth: 1,
+                    borderRadius: 4
+                },
+                {
+                    label: 'Total',
+                    data: datosTotal,
+                    type: 'line',
+                    backgroundColor: 'rgba(54, 162, 235, 0.1)',
+                    borderColor: 'rgb(54, 162, 235)',
+                    borderWidth: 3,
+                    fill: false,
+                    tension: 0.3,
+                    pointRadius: 5,
+                    pointHoverRadius: 7,
+                    pointBackgroundColor: 'rgb(54, 162, 235)',
+                    pointBorderColor: '#fff',
+                    pointBorderWidth: 2
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            interaction: {
+                mode: 'index',
+                intersect: false
+            },
+            plugins: {
+                legend: {
+                    position: 'top',
+                    labels: {
+                        usePointStyle: true,
+                        boxWidth: 10
+                    }
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            let label = context.dataset.label || '';
+                            let value = context.parsed.y;
+                            return label + ': C$ ' + value.toLocaleString('es-NI', {
+                                minimumFractionDigits: 2,
+                                maximumFractionDigits: 2
+                            });
+                        }
+                    }
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        callback: function(value) {
+                            return 'C$ ' + value.toLocaleString('es-NI');
+                        }
+                    },
+                    title: {
+                        display: true,
+                        text: 'Monto en Córdobas',
+                        font: {
+                            weight: 'bold'
+                        }
+                    }
+                },
+                x: {
+                    title: {
+                        display: true,
+                        text: 'Mes',
+                        font: {
+                            weight: 'bold'
+                        }
+                    }
+                }
+            }
+        }
+    });
+    {% endif %}
+</script>
+{% endblock %}

@@ -153,6 +153,48 @@
             font-size: 9px;
         }
 
+        /* ===== MÉTODOS DE PAGO ===== */
+        .pagos-table {
+            width: 100%;
+            margin: 5px 0;
+            font-size: 9px;
+        }
+        
+        .pagos-table td {
+            padding: 2px 0;
+        }
+        
+        .pagos-header {
+            font-weight: bold;
+            text-align: center;
+            border-bottom: 1px dashed #000;
+            margin-bottom: 3px;
+            padding-bottom: 2px;
+        }
+        
+        .metodo-icon {
+            display: inline-block;
+            width: 16px;
+            text-align: center;
+        }
+        
+        .total-pagado {
+            background: #e8f5e9;
+            padding: 4px;
+            margin: 5px 0;
+            border-radius: 2px;
+            font-weight: bold;
+        }
+        
+        .saldo-pendiente {
+            background: #ffebee;
+            padding: 4px;
+            margin: 5px 0;
+            border-radius: 2px;
+            font-weight: bold;
+            color: #c62828;
+        }
+
         /* ===== CONTROLES NO IMPRIMIBLES ===== */
         .print-controls {
             margin-top: 20px;
@@ -228,7 +270,7 @@
                         {% if item.COD_Producto and item.COD_Producto != 'N/A' %}
                         <div class="product-code">Cod: {{ item.COD_Producto }}</div>
                         {% endif %}
-                    </td>
+                     </td>
                     <td class="text-right">{{ "%.2f"|format(item.Cantidad) }}</td>
                     <td class="text-right">C$ {{ "{:,.2f}".format(item.Precio) }}</td>
                     <td class="text-right">C$ {{ "{:,.2f}".format(item.Subtotal) }}</td>
@@ -239,6 +281,76 @@
         </table>
 
         <div class="double-divider"></div>
+
+        <!-- SECCIÓN DE MÉTODOS DE PAGO -->
+        {% if ticket.metodos_pago and ticket.metodos_pago|length > 0 %}
+        <div class="pagos-header">DETALLE DE PAGO</div>
+        <table class="pagos-table">
+            <tbody>
+                {% for pago in ticket.metodos_pago %}
+                <tr>
+                    <td class="text-left">
+                        <span class="metodo-icon">
+                            {% if pago.nombre == 'Efectivo' %}
+                            {% elif pago.nombre == 'Transferencia' %}
+                            {% elif pago.nombre == 'Depósito Bancario' %}
+                            {% elif pago.nombre == 'Tarjeta Débito' %}
+                            {% elif pago.nombre == 'Tarjeta Crédito' %}
+                            {% elif pago.nombre == 'Cheque' %}
+                            {% else %}✓{% endif %}
+                        </span>
+                        {{ pago.nombre }}
+                    </td>
+                    <td class="text-right">C$ {{ "{:,.2f}".format(pago.monto) }}</td>
+                    {% if pago.referencia and pago.referencia != '' %}
+                    <td class="text-left size-8">Ref: {{ pago.referencia[:15] }}</td>
+                    {% else %}
+                    <td class="text-left size-8">---</td>
+                    {% endif %}
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        
+        <!-- TOTAL PAGADO -->
+        <div class="total-pagado">
+            <table style="width: 100%; background: transparent;">
+                <tr>
+                    <td class="text-left size-10 bold">TOTAL PAGADO:</td>
+                    <td class="text-right size-11 bold">C$ {{ "{:,.2f}".format(ticket.total_pagado) }}</td>
+                </tr>
+            </table>
+        </div>
+        
+        <!-- SALDO PENDIENTE (si aplica) -->
+        {% if ticket.saldo_pendiente > 0 %}
+        <div class="saldo-pendiente">
+            <table style="width: 100%; background: transparent;">
+                <tr>
+                    <td class="text-left size-10 bold">SALDO PENDIENTE:</td>
+                    <td class="text-right size-11 bold">C$ {{ "{:,.2f}".format(ticket.saldo_pendiente) }}</td>
+                </tr>
+            </table>
+        </div>
+        {% endif %}
+        
+        {% else %}
+        <!-- Si no hay métodos registrados (fallback) -->
+        <div class="total-pagado">
+            <table style="width: 100%; background: transparent;">
+                <tr>
+                    <td class="text-left size-10 bold">PAGO:</td>
+                    <td class="text-right size-11 bold">C$ {{ "{:,.2f}".format(ticket.total) }}</td>
+                </tr>
+                <tr>
+                    <td class="text-left size-9">Método:</td>
+                    <td class="text-right size-9">Efectivo</td>
+                </tr>
+            </table>
+        </div>
+        {% endif %}
+
+        <div class="divider"></div>
 
         <!-- TOTALES -->
         <table class="size-10">
@@ -255,11 +367,24 @@
             </tr>
             {% endif %}
             <tr class="total-row">
-                <td class="text-left size-11">TOTAL:</td>
+                <td class="text-left size-11">TOTAL FACTURA:</td>
                 <td colspan="2"></td>
                 <td class="text-right size-12 bold">C$ {{ "{:,.2f}".format(ticket.total) }}</td>
             </tr>
         </table>
+
+        <!-- RESUMEN FINANCIERO RÁPIDO -->
+        <div class="divider"></div>
+        <div class="size-9">
+            <div class="bold text-center">RESUMEN FINANCIERO</div>
+            <div>Total Factura: C$ {{ "{:,.2f}".format(ticket.total) }}</div>
+            <div>Total Pagado: C$ {{ "{:,.2f}".format(ticket.total_pagado) }}</div>
+            {% if ticket.saldo_pendiente > 0 %}
+            <div style="color: #c62828;">Saldo Pendiente: C$ {{ "{:,.2f}".format(ticket.saldo_pendiente) }}</div>
+            {% else %}
+            <div style="color: #2e7d32;">✓ PAGADO</div>
+            {% endif %}
+        </div>
 
         <!-- INFORMACIÓN DE CRÉDITO -->
         {% if ticket.tiene_credito and ticket.cuenta_cobrar %}
@@ -269,6 +394,7 @@
             {% if ticket.cuenta_cobrar.Fecha_Vencimiento %}
             <div>Vence: {{ ticket.cuenta_cobrar.Fecha_Vencimiento.strftime('%d/%m/%Y') }}</div>
             {% endif %}
+            <div class="size-8">Este documento es un comprobante de deuda</div>
         </div>
         {% endif %}
 

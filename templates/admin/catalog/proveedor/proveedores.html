@@ -70,6 +70,7 @@
                             <th>Teléfono</th>
                             <th>Dirección</th>
                             <th>Empresa</th>
+                            <th>Saldo Pendiente</th>
                             <th>Estado</th>
                             <th class="text-center">Acciones</th>
                         </tr>
@@ -100,13 +101,19 @@
                                 {% endif %}
                             </td>
                             <td>
+                                {% set saldo = proveedor.Saldo_Pendiente|float %}
+                                <span class="fw-bold {% if saldo > 0 %}text-danger{% elif saldo < 0 %}text-success{% else %}text-muted{% endif %}">
+                                    C$ {{ "{:,.2f}".format(saldo) }}
+                                </span>
+                            </td>
+                            <td>
                                 <span class="badge bg-{% if proveedor.Estado == 'ACTIVO' %}success{% else %}danger{% endif %}">
                                     {{ proveedor.Estado }}
                                 </span>
                             </td>
                             <td class="text-center">
                                 <div class="btn-group btn-group-sm" role="group">
-                                    <a href="#"
+                                    <a href="{{ url_for('admin.admin_detalle_proveedor', id=proveedor.ID_Proveedor) }}"
                                        class="btn btn-outline-primary" title="Ver detalles">
                                         <i class="fas fa-eye"></i> Detalles
                                     </a>
@@ -217,6 +224,18 @@
                                   placeholder="Ingrese la dirección completa del proveedor"></textarea>
                         <div class="form-text">Máximo 500 caracteres</div>
                     </div>
+
+                    <!-- Saldo Pendiente -->
+                    <div class="mb-3">
+                        <label for="saldo_pendiente" class="form-label">Saldo Pendiente</label>
+                        <div class="input-group">
+                            <span class="input-group-text">C$</span>
+                            <input type="number" class="form-control" id="saldo_pendiente" name="saldo_pendiente" 
+                                   step="0.01" min="0" value="0.00"
+                                   placeholder="0.00">
+                        </div>
+                        <div class="form-text">Saldo inicial del proveedor (opcional, por defecto 0.00)</div>
+                    </div>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
@@ -238,10 +257,11 @@ document.addEventListener('DOMContentLoaded', function() {
     const form = document.getElementById('crearProveedorForm');
     const telefonoInput = document.getElementById('telefono');
     const rucCedulaInput = document.getElementById('ruc_cedula');
+    const saldoInput = document.getElementById('saldo_pendiente');
     
     // Validación de Teléfono (formato básico)
     function validateTelefono() {
-        if (telefonoInput.value && !/^[\d\s\-+()]+$/.test(telefonoInput.value)) {
+        if (telefonoInput.value && !/^[\d\s\-+()]+C$/.test(telefonoInput.value)) {
             telefonoInput.setCustomValidity('Ingrese un número de teléfono válido');
             telefonoInput.classList.add('is-invalid');
             return false;
@@ -254,7 +274,7 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Validación de RUC/Cédula (solo números)
     function validateRucCedula() {
-        if (rucCedulaInput.value && !/^\d+$/.test(rucCedulaInput.value)) {
+        if (rucCedulaInput.value && !/^\d+C$/.test(rucCedulaInput.value)) {
             rucCedulaInput.setCustomValidity('Ingrese solo números');
             rucCedulaInput.classList.add('is-invalid');
             return false;
@@ -265,16 +285,47 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
     
+    // Validación de Saldo Pendiente
+    function validateSaldo() {
+        let saldo = parseFloat(saldoInput.value);
+        if (isNaN(saldo)) {
+            saldoInput.value = '0.00';
+            saldo = 0;
+        }
+        if (saldo < 0) {
+            saldoInput.setCustomValidity('El saldo no puede ser negativo');
+            saldoInput.classList.add('is-invalid');
+            return false;
+        } else {
+            saldoInput.setCustomValidity('');
+            saldoInput.classList.remove('is-invalid');
+            return true;
+        }
+    }
+    
+    // Formatear saldo a 2 decimales al perder el foco
+    function formatSaldo() {
+        let saldo = parseFloat(saldoInput.value);
+        if (isNaN(saldo)) {
+            saldoInput.value = '0.00';
+        } else {
+            saldoInput.value = saldo.toFixed(2);
+        }
+    }
+    
     // Event listeners para validación en tiempo real
     telefonoInput.addEventListener('input', validateTelefono);
     rucCedulaInput.addEventListener('input', validateRucCedula);
+    saldoInput.addEventListener('input', validateSaldo);
+    saldoInput.addEventListener('blur', formatSaldo);
     
     // Validación del formulario completo
     form.addEventListener('submit', function(event) {
         const isTelefonoValid = validateTelefono();
         const isRucCedulaValid = validateRucCedula();
+        const isSaldoValid = validateSaldo();
         
-        if (!isTelefonoValid || !isRucCedulaValid || !form.checkValidity()) {
+        if (!isTelefonoValid || !isRucCedulaValid || !isSaldoValid || !form.checkValidity()) {
             event.preventDefault();
             event.stopPropagation();
         }
@@ -282,17 +333,21 @@ document.addEventListener('DOMContentLoaded', function() {
     });
     
     // Limpiar formulario al cerrar modal
-    document.getElementById('crearProveedorModal').addEventListener('hidden.bs.modal', function () {
+    document.getElementById('crearProveedorModal').addEventListener('hidden.bs-modal', function () {
         form.reset();
         form.classList.remove('was-validated');
         telefonoInput.setCustomValidity('');
         telefonoInput.classList.remove('is-invalid');
         rucCedulaInput.setCustomValidity('');
         rucCedulaInput.classList.remove('is-invalid');
+        saldoInput.setCustomValidity('');
+        saldoInput.classList.remove('is-invalid');
+        // Resetear saldo a 0.00 después de limpiar
+        document.getElementById('saldo_pendiente').value = '0.00';
     });
     
     // Auto-focus en el campo nombre cuando se abre el modal
-    document.getElementById('crearProveedorModal').addEventListener('shown.bs.modal', function () {
+    document.getElementById('crearProveedorModal').addEventListener('shown.bs-modal', function () {
         document.getElementById('nombre').focus();
     });
     

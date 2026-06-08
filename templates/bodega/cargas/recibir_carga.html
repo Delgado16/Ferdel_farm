@@ -1,0 +1,253 @@
+{% extends "layout.html" %}
+
+{% block title %}Recibir Carga - {{ carga.Num_Factura }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-3">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>
+            <i class="fas fa-clipboard-check text-success me-2"></i>
+            Recepción de Carga #{{ carga.ID_Carga }}
+        </h2>
+        <div>
+            <a href="{{ url_for('bodega.cargas_pendientes') }}" class="btn btn-outline-secondary">
+                <i class="fas fa-arrow-left me-1"></i> Volver
+            </a>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-4">
+            <!-- Información de la carga -->
+            <div class="card mb-4">
+                <div class="card-header bg-primary text-white">
+                    <h6 class="mb-0"><i class="fas fa-info-circle me-2"></i>Información de la Carga</h6>
+                </div>
+                <div class="card-body">
+                    <table class="table table-sm">
+                        <tr>
+                            <th>Factura:</th>
+                            <td><strong>{{ carga.Num_Factura }}</strong></td>
+                        </tr>
+                        <tr>
+                            <th>Proveedor:</th>
+                            <td>{{ carga.proveedor_nombre }}</td>
+                        </tr>
+                        <tr>
+                            <th>Fecha de Carga:</th>
+                            <td>{{ carga.Fecha_Carga.strftime('%d/%m/%Y') }}</td>
+                        </tr>
+                        <tr>
+                            <th>Vendedor:</th>
+                            <td>
+                                {{ carga.vendedor_nombre }}<br>
+                                <small class="text-muted">{{ carga.vendedor_email }}</small>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th>Observaciones:</th>
+                            <td>{{ carga.Observaciones or 'Ninguna' }}</td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Resumen -->
+            <div class="card mb-4">
+                <div class="card-header bg-info text-white">
+                    <h6 class="mb-0"><i class="fas fa-chart-bar me-2"></i>Resumen</h6>
+                </div>
+                <div class="card-body">
+                    <div class="text-center mb-3">
+                        <h4>Total Productos</h4>
+                        <h2 class="text-primary">{{ detalles|length }}</h2>
+                    </div>
+                    <hr>
+                    <div class="text-center">
+                        <h4>Cantidad Total</h4>
+                        <h3 class="text-success">{{ "%.2f"|format(detalles|sum(attribute='Cantidad_Cargada')) }}</h3>
+                    </div>
+                    <hr>
+                    <div class="text-center">
+                        <h4>Monto Total</h4>
+                        <h3 class="text-info">C$ {{ "%.2f"|format(detalles|sum(attribute='Cantidad_Cargada') * detalles[0]['Costo_Unitario'] if detalles else 0) }}</h3>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Alertas -->
+            <div class="alert alert-warning">
+                <i class="fas fa-exclamation-triangle me-2"></i>
+                <strong>Importante:</strong>
+                <ul class="mb-0 mt-2">
+                    <li>Verifique físicamente cada producto</li>
+                    <li>Ingrese las cantidades REALES recibidas</li>
+                    <li>Las diferencias se registrarán automáticamente</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="col-md-8">
+            <!-- Formulario de recepción -->
+            <div class="card">
+                <div class="card-header bg-warning text-dark">
+                    <h6 class="mb-0">
+                        <i class="fas fa-edit me-2"></i>
+                        Verificar y Recibir Mercancía
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <form method="POST" id="formRecepcion">
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle me-2"></i>
+                            Ingrese las cantidades REALES recibidas. Si la cantidad es menor a la cargada, 
+                            se registrará como recepción parcial. Deje en 0 para no recibir ese producto.
+                        </div>
+
+                        <div class="table-responsive">
+                            <table class="table table-bordered">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Producto</th>
+                                        <th>Código</th>
+                                        <th>Unidad</th>
+                                        <th class="text-end">Cargado</th>
+                                        <th class="text-end">Costo Unit.</th>
+                                        <th class="text-end">Subtotal</th>
+                                        <th class="text-center">Recibido *</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for detalle in detalles %}
+                                    <tr>
+                                        <td>
+                                            <div class="fw-bold">{{ detalle.producto_nombre }}</div>
+                                            <small class="text-muted">{{ detalle.producto_nombre }}</small>
+                                        </td>
+                                        <td>{{ detalle.codigo or '-' }}</td>
+                                        <td>{{ detalle.unidad }}</td>
+                                        <td class="text-end">{{ "%.2f"|format(detalle.Cantidad_Cargada) }}</td>
+                                        <td class="text-end">C$ {{ "%.2f"|format(detalle.Costo_Unitario) }}</td>
+                                        <td class="text-end">C$ {{ "%.2f"|format(detalle.Cantidad_Cargada * detalle.Costo_Unitario) }}</td>
+                                        <td>
+                                            <input type="number" 
+                                                   name="cantidad_recibida[]" 
+                                                   class="form-control cantidad-recibida text-center" 
+                                                   step="0.01" 
+                                                   min="0" 
+                                                   max="{{ detalle.Cantidad_Cargada }}"
+                                                   value="{{ detalle.Cantidad_Cargada }}"
+                                                   required>
+                                            <small class="text-muted">Máx: {{ "%.2f"|format(detalle.Cantidad_Cargada) }}</small>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                                <tfoot class="table-info">
+                                    <tr>
+                                        <td colspan="5" class="text-end fw-bold">TOTAL A RECIBIR:</td>
+                                        <td class="text-end fw-bold" id="totalSubtotalRecibir">C$ 0.00</td>
+                                        <td class="text-center">
+                                            <strong id="totalCantidadRecibir">0.00</strong>
+                                        </td>
+                                    </tr>
+                                </tfoot>
+                            </table>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Observaciones de Recepción</label>
+                            <textarea name="observacion_recepcion" class="form-control" rows="3" 
+                                      placeholder="Ingrese observaciones sobre la recepción (ej: productos dañados, faltantes, etc.)"></textarea>
+                        </div>
+
+                        <div class="d-flex justify-content-between gap-2">
+                            <button type="button" class="btn btn-danger" id="btnRechazar">
+                                <i class="fas fa-times-circle me-1"></i> Rechazar Carga Completa
+                            </button>
+                            <div>
+                                <a href="{{ url_for('bodega.cargas_pendientes') }}" class="btn btn-secondary">
+                                    <i class="fas fa-times me-1"></i> Cancelar
+                                </a>
+                                <button type="submit" class="btn btn-success" id="btnRecibir">
+                                    <i class="fas fa-save me-1"></i> Confirmar Recepción
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Calcular totales en tiempo real
+    function calcularTotales() {
+        let totalCantidad = 0;
+        let totalSubtotal = 0;
+        
+        const cantidades = document.querySelectorAll('.cantidad-recibida');
+        const filas = document.querySelectorAll('tbody tr');
+        
+        cantidades.forEach((input, index) => {
+            const cantidad = parseFloat(input.value) || 0;
+            const fila = filas[index];
+            const costoUnitario = parseFloat(fila.querySelector('td:nth-child(5)').textContent.replace('C$ ', '')) || 0;
+            
+            totalCantidad += cantidad;
+            totalSubtotal += cantidad * costoUnitario;
+        });
+        
+        document.getElementById('totalCantidadRecibir').textContent = totalCantidad.toFixed(2);
+        document.getElementById('totalSubtotalRecibir').textContent = `C$ ${totalSubtotal.toFixed(2)}`;
+    }
+
+    // Event listeners para calcular totales
+    document.querySelectorAll('.cantidad-recibida').forEach(input => {
+        input.addEventListener('input', calcularTotales);
+        input.addEventListener('change', function() {
+            let max = parseFloat(this.getAttribute('max'));
+            if (parseFloat(this.value) > max) {
+                this.value = max;
+                calcularTotales();
+            }
+        });
+    });
+    
+    // Calcular inicial
+    calcularTotales();
+
+    // Confirmar rechazo
+    document.getElementById('btnRechazar')?.addEventListener('click', function() {
+        if (confirm('¿Está seguro de RECHAZAR toda la carga? Esta acción no se puede deshacer.')) {
+            const form = document.getElementById('formRecepcion');
+            const hiddenInput = document.createElement('input');
+            hiddenInput.type = 'hidden';
+            hiddenInput.name = 'accion';
+            hiddenInput.value = 'RECHAZAR';
+            form.appendChild(hiddenInput);
+            form.submit();
+        }
+    });
+
+    // Validar antes de enviar
+    document.getElementById('formRecepcion')?.addEventListener('submit', function(e) {
+        let recibido = false;
+        const cantidades = document.querySelectorAll('.cantidad-recibida');
+        cantidades.forEach(input => {
+            if (parseFloat(input.value) > 0) {
+                recibido = true;
+            }
+        });
+        
+        if (!recibido) {
+            if (!confirm('No ha ingresado ninguna cantidad recibida. ¿Desea rechazar la carga?')) {
+                e.preventDefault();
+                return false;
+            }
+        }
+        return true;
+    });
+</script>
+{% endblock %}

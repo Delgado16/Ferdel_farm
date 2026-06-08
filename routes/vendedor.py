@@ -1561,11 +1561,12 @@ def vendedor_movimiento_merma():
 def vendedor_movimientos_historial():
     """
     Muestra el historial de movimientos de inventario del vendedor
+    Incluye traslados de bodega central a ruta
     """
     try:
         with get_db_cursor(True) as cursor:
             # ============================================
-            # 1. OBTENER ASIGNACIÓN ACTIVA
+            # 1. OBTENER ASIGNACION ACTIVA
             # ============================================
             cursor.execute("""
                 SELECT 
@@ -1587,11 +1588,11 @@ def vendedor_movimientos_historial():
             asignacion = cursor.fetchone()
             
             if not asignacion:
-                flash('No tienes una asignación activa para hoy', 'warning')
+                flash('No tienes una asignacion activa para hoy', 'warning')
                 return redirect(url_for('vendedor.vendedor_inventario'))
             
             # ============================================
-            # 2. OBTENER MOVIMIENTOS (CON Total_Items)
+            # 2. OBTENER MOVIMIENTOS (INCLUYENDO TRASLADOS)
             # ============================================
             cursor.execute("""
                 SELECT 
@@ -1606,12 +1607,20 @@ def vendedor_movimientos_historial():
                     mrc.Estado,
                     u.NombreUsuario as Usuario_Registra,
                     CASE 
-                        WHEN mrc.ID_TipoMovimiento = 13 THEN 'Carga de Productos'
+                        WHEN mrc.ID_TipoMovimiento = 13 THEN 'Traslado Entrada (Bodega -> Ruta)'
+                        WHEN mrc.ID_TipoMovimiento = 12 THEN 'Traslado Salida (Bodega -> Ruta)'
+                        WHEN mrc.ID_TipoMovimiento = 6 THEN 'Traslado Interno'
+                        WHEN mrc.ID_TipoMovimiento = 15 THEN 'Entrada por Carga'
                         WHEN mrc.ID_TipoMovimiento = 7 THEN 'Merma'
-                        WHEN mrc.ID_TipoMovimiento = 11 THEN 'Devolución'
+                        WHEN mrc.ID_TipoMovimiento = 11 THEN 'Devolucion Ruta'
                         WHEN mrc.ID_TipoMovimiento = 1 THEN 'Compra'
                         WHEN mrc.ID_TipoMovimiento = 2 THEN 'Venta'
-                        ELSE 'Otro'
+                        WHEN mrc.ID_TipoMovimiento = 3 THEN 'Produccion'
+                        WHEN mrc.ID_TipoMovimiento = 4 THEN 'Consumo'
+                        WHEN mrc.ID_TipoMovimiento = 5 THEN 'Ajuste Salida'
+                        WHEN mrc.ID_TipoMovimiento = 8 THEN 'Ajuste Entrada'
+                        WHEN mrc.ID_TipoMovimiento = 14 THEN 'Salida por Entrega'
+                        ELSE cm.Descripcion
                     END as Descripcion_Detallada
                 FROM movimientos_ruta_cabecera mrc
                 INNER JOIN catalogo_movimientos cm 
@@ -1619,14 +1628,14 @@ def vendedor_movimientos_historial():
                 INNER JOIN usuarios u 
                     ON mrc.ID_Usuario_Registra = u.ID_Usuario
                 WHERE mrc.ID_Asignacion = %s
-                    AND mrc.ID_TipoMovimiento IN (1, 2, 7, 11, 13)
+                    AND mrc.ID_TipoMovimiento IN (1, 2, 3, 4, 5, 6, 7, 8, 11, 12, 13, 14, 15)
                     AND mrc.Estado = 'ACTIVO'
                 ORDER BY mrc.Fecha_Movimiento DESC
             """, (asignacion['ID_Asignacion'],))
             
             movimientos = cursor.fetchall()
             
-            # Convertir valores numéricos
+            # Convertir valores numericos
             for mov in movimientos:
                 if 'Total_Productos' in mov:
                     mov['Total_Productos'] = float(mov['Total_Productos']) if mov['Total_Productos'] else 0.0
@@ -1641,11 +1650,19 @@ def vendedor_movimientos_historial():
             cursor.execute("""
                 SELECT 
                     CASE 
-                        WHEN mrc.ID_TipoMovimiento = 13 THEN 'Carga de Productos'
+                        WHEN mrc.ID_TipoMovimiento = 13 THEN 'Traslado Entrada (Bodega -> Ruta)'
+                        WHEN mrc.ID_TipoMovimiento = 12 THEN 'Traslado Salida (Bodega -> Ruta)'
+                        WHEN mrc.ID_TipoMovimiento = 6 THEN 'Traslado Interno'
+                        WHEN mrc.ID_TipoMovimiento = 15 THEN 'Entrada por Carga'
+                        WHEN mrc.ID_TipoMovimiento = 7 THEN 'Merma'
+                        WHEN mrc.ID_TipoMovimiento = 11 THEN 'Devolucion Ruta'
                         WHEN mrc.ID_TipoMovimiento = 1 THEN 'Compra'
                         WHEN mrc.ID_TipoMovimiento = 2 THEN 'Venta'
-                        WHEN mrc.ID_TipoMovimiento = 7 THEN 'Merma'
-                        WHEN mrc.ID_TipoMovimiento = 11 THEN 'Devolución'
+                        WHEN mrc.ID_TipoMovimiento = 3 THEN 'Produccion'
+                        WHEN mrc.ID_TipoMovimiento = 4 THEN 'Consumo'
+                        WHEN mrc.ID_TipoMovimiento = 5 THEN 'Ajuste Salida'
+                        WHEN mrc.ID_TipoMovimiento = 8 THEN 'Ajuste Entrada'
+                        WHEN mrc.ID_TipoMovimiento = 14 THEN 'Salida por Entrega'
                         ELSE cm.Descripcion
                     END as Tipo_Movimiento,
                     COUNT(*) as Cantidad_Movimientos,
@@ -1653,7 +1670,7 @@ def vendedor_movimientos_historial():
                 FROM movimientos_ruta_cabecera mrc
                 INNER JOIN catalogo_movimientos cm ON mrc.ID_TipoMovimiento = cm.ID_TipoMovimiento
                 WHERE mrc.ID_Asignacion = %s
-                AND mrc.ID_TipoMovimiento IN (1, 2, 7, 11, 13)
+                AND mrc.ID_TipoMovimiento IN (1, 2, 3, 4, 5, 6, 7, 8, 11, 12, 13, 14, 15)
                 AND mrc.Estado = 'ACTIVO'
                 GROUP BY Tipo_Movimiento
                 ORDER BY Cantidad_Movimientos DESC
@@ -1687,65 +1704,17 @@ def vendedor_movimiento_detalle(id_movimiento):
     try:
         print(f"\n=== DEPURACIÓN DETALLE MOVIMIENTO ===")
         print(f"ID Movimiento solicitado: {id_movimiento}")
-        print(f"Usuario actual ID: {current_user.id}")
-        print(f"Usuario actual nombre: {current_user.username if hasattr(current_user, 'username') else 'N/A'}")
+        print(f"Usuario actual ID: {current_user.id if hasattr(current_user, 'id') else 'No ID'}")
+        
+        # Validar que el usuario tenga ID válido
+        if not hasattr(current_user, 'id') or not current_user.id:
+            flash('Sesión inválida o usuario no identificado', 'error')
+            return redirect(url_for('vendedor.vendedor_movimientos_historial'))
         
         with get_db_cursor(True) as cursor:
-            # ============================================
-            # PRUEBA 1: Verificar si el movimiento existe
-            # ============================================
-            print("\n--- PRUEBA 1: Verificar existencia del movimiento ---")
+            # Obtener asignación activa del vendedor primero
             cursor.execute("""
-                SELECT ID_Movimiento, ID_Asignacion, Estado, ID_TipoMovimiento
-                FROM movimientos_ruta_cabecera 
-                WHERE ID_Movimiento = %s
-            """, (id_movimiento,))
-            
-            movimiento_raw = cursor.fetchone()
-            
-            if not movimiento_raw:
-                print(f"ERROR: El movimiento {id_movimiento} NO existe en la base de datos")
-                flash(f'Movimiento #{id_movimiento} no existe en el sistema', 'error')
-                return redirect(url_for('vendedor.vendedor_movimientos_historial'))
-            
-            print(f"Movimiento encontrado: ID={movimiento_raw['ID_Movimiento']}, Asignacion={movimiento_raw['ID_Asignacion']}, Estado={movimiento_raw['Estado']}")
-            
-            # ============================================
-            # PRUEBA 2: Verificar la asignación del movimiento
-            # ============================================
-            print("\n--- PRUEBA 2: Verificar asignación del movimiento ---")
-            cursor.execute("""
-                SELECT 
-                    av.ID_Asignacion,
-                    av.ID_Usuario,
-                    av.Estado as Estado_Asignacion,
-                    u.NombreUsuario
-                FROM asignacion_vendedores av
-                LEFT JOIN usuarios u ON av.ID_Usuario = u.ID_Usuario
-                WHERE av.ID_Asignacion = %s
-            """, (movimiento_raw['ID_Asignacion'],))
-            
-            asignacion_mov = cursor.fetchone()
-            
-            if not asignacion_mov:
-                print(f"ERROR: La asignación {movimiento_raw['ID_Asignacion']} NO existe")
-                flash('El movimiento no tiene una asignación válida', 'error')
-                return redirect(url_for('vendedor.vendedor_movimientos_historial'))
-            
-            print(f"Asignación encontrada: ID={asignacion_mov['ID_Asignacion']}, Usuario={asignacion_mov['ID_Usuario']}, Estado={asignacion_mov['Estado_Asignacion']}")
-            print(f"¿Coincide con usuario actual? {asignacion_mov['ID_Usuario'] == current_user.id}")
-            
-            # ============================================
-            # PRUEBA 3: Verificar asignación activa del vendedor actual
-            # ============================================
-            print("\n--- PRUEBA 3: Verificar asignación activa del vendedor ---")
-            cursor.execute("""
-                SELECT 
-                    ID_Asignacion, 
-                    ID_Ruta, 
-                    Estado,
-                    Fecha_Asignacion,
-                    Fecha_Finalizacion
+                SELECT ID_Asignacion, ID_Ruta
                 FROM asignacion_vendedores 
                 WHERE ID_Usuario = %s 
                 AND Estado = 'Activa'
@@ -1755,34 +1724,61 @@ def vendedor_movimiento_detalle(id_movimiento):
             """, (current_user.id,))
             
             asignacion_activa = cursor.fetchone()
+            id_asignacion_activa = asignacion_activa['ID_Asignacion'] if asignacion_activa else None
             
-            if asignacion_activa:
-                print(f"Asignación activa encontrada: ID={asignacion_activa['ID_Asignacion']}, Ruta={asignacion_activa['ID_Ruta']}")
+            print(f"Asignación activa encontrada: {id_asignacion_activa}")
+            
+            # CONSULTA PRINCIPAL CORREGIDA
+            # Primero verificamos permisos sin LEFT JOIN problemáticos
+            query_permiso = """
+                SELECT 
+                    mrc.ID_Movimiento,
+                    mrc.ID_Asignacion,
+                    mrc.ID_TipoMovimiento,
+                    mrc.ID_Usuario_Registra
+                FROM movimientos_ruta_cabecera mrc
+                WHERE mrc.ID_Movimiento = %s
+                AND mrc.Estado = 'ACTIVO'
+            """
+            
+            cursor.execute(query_permiso, (id_movimiento,))
+            movimiento_base = cursor.fetchone()
+            
+            if not movimiento_base:
+                flash(f'Movimiento #{id_movimiento} no existe o está anulado', 'error')
+                return redirect(url_for('vendedor.vendedor_movimientos_historial'))
+            
+            # Verificar permisos: 
+            # 1. El movimiento pertenece a la asignación activa del vendedor
+            # 2. O el vendedor fue quien registró el movimiento
+            tiene_permiso = False
+            
+            if movimiento_base['ID_Asignacion'] == id_asignacion_activa:
+                tiene_permiso = True
+                print("Permiso concedido: Movimiento pertenece a asignación activa")
+            elif movimiento_base['ID_Usuario_Registra'] == current_user.id:
+                tiene_permiso = True
+                print("Permiso concedido: Vendedor registró el movimiento")
             else:
-                print("No se encontró asignación activa para el vendedor actual")
+                # Verificar si el movimiento pertenece a alguna asignación anterior del vendedor
+                cursor.execute("""
+                    SELECT COUNT(*) as total
+                    FROM asignacion_vendedores
+                    WHERE ID_Asignacion = %s
+                    AND ID_Usuario = %s
+                """, (movimiento_base['ID_Asignacion'], current_user.id))
+                
+                asignacion_anterior = cursor.fetchone()
+                if asignacion_anterior and asignacion_anterior['total'] > 0:
+                    tiene_permiso = True
+                    print("Permiso concedido: Movimiento pertenece a asignación anterior del vendedor")
             
-            # ============================================
-            # CONSULTA FINAL CON PERMISOS FLEXIBLES
-            # ============================================
-            print("\n--- CONSULTA FINAL: Obteniendo datos completos ---")
+            if not tiene_permiso:
+                flash('No tienes permiso para ver este movimiento', 'error')
+                return redirect(url_for('vendedor.vendedor_movimientos_historial'))
             
-            # Construir condición de permisos
-            condiciones = []
-            params = [id_movimiento]
-            
-            condiciones.append("av.ID_Usuario = %s")
-            params.append(current_user.id)
-            
-            condiciones.append("mrc.ID_Usuario_Registra = %s")
-            params.append(current_user.id)
-            
-            if asignacion_activa:
-                condiciones.append("mrc.ID_Asignacion = %s")
-                params.append(asignacion_activa['ID_Asignacion'])
-            
-            where_permisos = " OR ".join(condiciones)
-            
-            query = f"""
+            # Ahora obtener todos los datos del movimiento con JOINs simplificados
+            query = """
                 SELECT 
                     mrc.ID_Movimiento,
                     mrc.ID_Asignacion,
@@ -1790,8 +1786,8 @@ def vendedor_movimiento_detalle(id_movimiento):
                     mrc.Fecha_Movimiento,
                     mrc.Documento_Numero,
                     mrc.Total_Productos,
-                    mrc.Total_Subtotal,
                     mrc.Total_Items,
+                    mrc.Total_Subtotal,
                     mrc.Estado,
                     mrc.ID_Cliente,
                     mrc.ID_Pedido,
@@ -1799,8 +1795,6 @@ def vendedor_movimiento_detalle(id_movimiento):
                     cm.Letra as Tipo_Letra,
                     u.NombreUsuario as Usuario_Registra,
                     r.Nombre_Ruta,
-                    av.ID_Ruta as Ruta_Asignada,
-                    av.ID_Usuario as ID_Vendedor_Asignado,
                     fr.Credito_Contado,
                     CASE 
                         WHEN mrc.ID_TipoMovimiento = 13 THEN 'Carga de Productos'
@@ -1809,9 +1803,7 @@ def vendedor_movimiento_detalle(id_movimiento):
                         WHEN mrc.ID_TipoMovimiento = 7 THEN 'Merma'
                         WHEN mrc.ID_TipoMovimiento = 11 THEN 'Devolución'
                         ELSE cm.Descripcion
-                    END as Descripcion_Detallada,
-                    CAST(COALESCE(mrc.Total_Productos, 0) AS DECIMAL(12,2)) as Total_Productos_Num,
-                    CAST(COALESCE(mrc.Total_Subtotal, 0) AS DECIMAL(12,2)) as Total_Subtotal_Num
+                    END as Descripcion_Detallada
                 FROM movimientos_ruta_cabecera mrc
                 INNER JOIN catalogo_movimientos cm ON mrc.ID_TipoMovimiento = cm.ID_TipoMovimiento
                 INNER JOIN usuarios u ON mrc.ID_Usuario_Registra = u.ID_Usuario
@@ -1819,31 +1811,20 @@ def vendedor_movimiento_detalle(id_movimiento):
                 LEFT JOIN rutas r ON av.ID_Ruta = r.ID_Ruta
                 LEFT JOIN facturacion_ruta fr ON mrc.ID_Movimiento = fr.ID_Movimiento
                 WHERE mrc.ID_Movimiento = %s
-                AND mrc.Estado = 'ACTIVO'
-                AND ({where_permisos})
             """
             
-            print(f"Query ejecutada: {query}")
-            print(f"Parámetros: {params}")
-            
-            cursor.execute(query, params)
+            cursor.execute(query, (id_movimiento,))
             movimiento = cursor.fetchone()
             
             if not movimiento:
-                print("ERROR: No se encontró el movimiento con los permisos actuales")
-                flash('Movimiento no encontrado o no tienes permiso para verlo', 'error')
+                flash('Error al cargar datos del movimiento', 'error')
                 return redirect(url_for('vendedor.vendedor_movimientos_historial'))
             
-            print(f"Movimiento encontrado exitosamente: #{movimiento['ID_Movimiento']}")
-            
             # Convertir valores numéricos
-            movimiento['Total_Productos'] = float(movimiento['Total_Productos_Num']) if movimiento.get('Total_Productos_Num') else 0
-            movimiento['Total_Subtotal'] = float(movimiento['Total_Subtotal_Num']) if movimiento.get('Total_Subtotal_Num') else 0
+            movimiento['Total_Productos'] = float(movimiento.get('Total_Productos', 0) or 0)
+            movimiento['Total_Subtotal'] = float(movimiento.get('Total_Subtotal', 0) or 0)
             
-            # ============================================
-            # OBTENER DETALLES DEL MOVIMIENTO
-            # ============================================
-            print("\n--- Obteniendo detalles del movimiento ---")
+            # Obtener detalles del movimiento
             cursor.execute("""
                 SELECT 
                     mrd.ID_Detalle,
@@ -1853,10 +1834,7 @@ def vendedor_movimiento_detalle(id_movimiento):
                     mrd.ID_Producto,
                     p.COD_Producto,
                     p.Descripcion as Producto_Nombre,
-                    um.Abreviatura as Unidad_Medida,
-                    CAST(COALESCE(mrd.Cantidad, 0) AS DECIMAL(12,2)) as Cantidad_Num,
-                    CAST(COALESCE(mrd.Precio_Unitario, 0) AS DECIMAL(12,2)) as Precio_Unitario_Num,
-                    CAST(COALESCE(mrd.Subtotal, 0) AS DECIMAL(12,2)) as Subtotal_Num
+                    um.Abreviatura as Unidad_Medida
                 FROM movimientos_ruta_detalle mrd
                 INNER JOIN productos p ON mrd.ID_Producto = p.ID_Producto
                 LEFT JOIN unidades_medida um ON p.Unidad_Medida = um.ID_Unidad
@@ -1865,25 +1843,16 @@ def vendedor_movimiento_detalle(id_movimiento):
             """, (id_movimiento,))
             
             detalles = cursor.fetchall()
-            print(f"Detalles encontrados: {len(detalles)}")
             
             # Convertir valores numéricos en detalles
             for detalle in detalles:
-                detalle['Cantidad'] = float(detalle['Cantidad_Num']) if detalle.get('Cantidad_Num') else 0
-                detalle['Precio_Unitario'] = float(detalle['Precio_Unitario_Num']) if detalle.get('Precio_Unitario_Num') else 0
-                detalle['Subtotal'] = float(detalle['Subtotal_Num']) if detalle.get('Subtotal_Num') else 0
-                
-                # Limpiar campos temporales
-                if 'Cantidad_Num' in detalle:
-                    del detalle['Cantidad_Num']
-                if 'Precio_Unitario_Num' in detalle:
-                    del detalle['Precio_Unitario_Num']
-                if 'Subtotal_Num' in detalle:
-                    del detalle['Subtotal_Num']
+                detalle['Cantidad'] = float(detalle['Cantidad'] or 0)
+                detalle['Precio_Unitario'] = float(detalle['Precio_Unitario'] or 0)
+                detalle['Subtotal'] = float(detalle['Subtotal'] or 0)
             
-            # ============================================
-            # OBTENER INFORMACIÓN DEL CLIENTE
-            # ============================================
+            print(f"Detalles encontrados: {len(detalles)}")
+            
+            # Obtener información del cliente
             cliente_info = None
             if movimiento.get('ID_Cliente') and movimiento['ID_Cliente']:
                 cursor.execute("""
@@ -1891,11 +1860,8 @@ def vendedor_movimiento_detalle(id_movimiento):
                     FROM clientes WHERE ID_Cliente = %s
                 """, (movimiento['ID_Cliente'],))
                 cliente_info = cursor.fetchone()
-                print(f"Cliente encontrado: {cliente_info['Nombre'] if cliente_info else 'No'}")
             
-            # ============================================
-            # OBTENER INFORMACIÓN DE LA ASIGNACIÓN
-            # ============================================
+            # Obtener información de la asignación
             asignacion_info = None
             if movimiento.get('ID_Asignacion'):
                 cursor.execute("""
@@ -1907,8 +1873,6 @@ def vendedor_movimiento_detalle(id_movimiento):
                     WHERE av.ID_Asignacion = %s
                 """, (movimiento['ID_Asignacion'],))
                 asignacion_info = cursor.fetchone()
-            
-            print("=== DEPURACIÓN COMPLETADA ===\n")
             
             return render_template('vendedor/inventario/detalle_movimiento.html',
                                  movimiento=movimiento,
@@ -1922,6 +1886,476 @@ def vendedor_movimiento_detalle(id_movimiento):
         traceback.print_exc()
         flash(f'Error al cargar detalle del movimiento: {str(e)}', 'error')
         return redirect(url_for('vendedor.vendedor_movimientos_historial'))
+
+###################
+# ============================================
+# RUTAS PARA CARGA DIRECTA DESDE PROVEEDOR
+# ============================================
+@vendedor_bp.route('/vendedor/movimientos/carga-directa-proveedor', methods=['GET', 'POST'])
+@vendedor_required
+def vendedor_carga_directa_proveedor():
+    from datetime import datetime, timedelta
+    import os
+    from werkzeug.utils import secure_filename
+    
+    id_empresa = session.get('id_empresa', 1)
+    id_usuario = current_user.id
+
+    # Constantes
+    ID_TIPO_COMPRA = 1
+    ID_TIPO_TRASLADO = 6
+    ID_TIPO_ENTRADA_CARGA = 15
+    ID_BODEGA_CENTRAL = 1
+    ID_TIPO_CUENTA_COMPRA = 1
+
+    if request.method == 'POST':
+        try:
+            # Obtener datos del formulario
+            productos = request.form.getlist('producto_id[]')
+            cantidades = request.form.getlist('cantidad[]')
+            costos_unitarios = request.form.getlist('costo_unitario[]')
+            factura_proveedor = request.form.get('factura_proveedor', '').strip()
+            id_proveedor = request.form.get('id_proveedor')
+            tipo_compra = request.form.get('tipo_compra', 'CONTADO')
+            tipo_destino = request.form.get('tipo_destino')  # RUTA o BODEGA
+            observacion = request.form.get('observacion', '')
+            
+            # Campos opcionales para crédito
+            fecha_vencimiento = request.form.get('fecha_vencimiento', '')
+            dias_credito = request.form.get('dias_credito', '')
+            
+            # Validaciones básicas
+            if not factura_proveedor:
+                flash('El número de factura del proveedor es obligatorio', 'error')
+                return redirect(url_for('vendedor.vendedor_carga_directa_proveedor'))
+            
+            if not id_proveedor:
+                flash('Debe seleccionar un proveedor', 'error')
+                return redirect(url_for('vendedor.vendedor_carga_directa_proveedor'))
+            
+            if not tipo_destino or tipo_destino not in ['RUTA', 'BODEGA']:
+                flash('Debe seleccionar el tipo de carga (Ruta o Local/Bodega)', 'error')
+                return redirect(url_for('vendedor.vendedor_carga_directa_proveedor'))
+            
+            with get_db_cursor(commit=True) as cursor:
+                # Para carga a RUTA, necesitamos asignación activa
+                id_asignacion = None
+                if tipo_destino == 'RUTA':
+                    cursor.execute("""
+                        SELECT av.ID_Asignacion, av.ID_Ruta, r.Nombre_Ruta
+                        FROM asignacion_vendedores av
+                        LEFT JOIN rutas r ON av.ID_Ruta = r.ID_Ruta
+                        WHERE av.ID_Usuario = %s
+                        AND av.Estado = 'Activa'
+                        AND av.Fecha_Asignacion = CURDATE()
+                        LIMIT 1
+                    """, (id_usuario,))
+                    
+                    asignacion = cursor.fetchone()
+                    if not asignacion:
+                        flash('No tienes una asignación activa para hoy. No puedes cargar mercancía a tu ruta.', 'error')
+                        return redirect(url_for('vendedor.vendedor_inventario'))
+                    id_asignacion = asignacion['ID_Asignacion']
+                
+                # Verificar factura duplicada
+                cursor.execute("""
+                    SELECT COUNT(*) as total 
+                    FROM movimientos_inventario 
+                    WHERE N_Factura_Externa = %s AND ID_Proveedor = %s AND Estado != 'Anulada'
+                """, (factura_proveedor, id_proveedor))
+                
+                if cursor.fetchone()['total'] > 0:
+                    flash(f'La factura {factura_proveedor} ya fue registrada anteriormente', 'error')
+                    return redirect(url_for('vendedor.vendedor_carga_directa_proveedor'))
+                
+                # Procesar productos
+                productos_procesar = []
+                total_cantidad = 0
+                total_items = 0
+                total_costo_compra = 0
+                
+                for i in range(len(productos)):
+                    if productos[i] and cantidades[i] and float(cantidades[i]) > 0:
+                        id_producto = int(productos[i])
+                        cantidad = float(cantidades[i])
+                        costo = float(costos_unitarios[i]) if i < len(costos_unitarios) and costos_unitarios[i] else 0
+                        
+                        if tipo_destino == 'RUTA':
+                            # Para RUTA: necesitamos Precio_Ruta
+                            cursor.execute("""
+                                SELECT ID_Producto, IFNULL(Precio_Ruta, 0) as Precio_Ruta, Descripcion 
+                                FROM productos 
+                                WHERE ID_Producto = %s AND Estado = 'activo'
+                            """, (id_producto,))
+                        else:
+                            # Para BODEGA: solo validar existencia
+                            cursor.execute("""
+                                SELECT ID_Producto, Descripcion 
+                                FROM productos 
+                                WHERE ID_Producto = %s AND Estado = 'activo'
+                            """, (id_producto,))
+                        
+                        producto_info = cursor.fetchone()
+                        if not producto_info:
+                            flash(f'Producto ID {id_producto} no existe o está inactivo', 'error')
+                            return redirect(url_for('vendedor.vendedor_carga_directa_proveedor'))
+                        
+                        precio_ruta = 0
+                        if tipo_destino == 'RUTA':
+                            precio_ruta = float(producto_info['Precio_Ruta'])
+                        
+                        productos_procesar.append({
+                            'id_producto': id_producto,
+                            'cantidad': cantidad,
+                            'costo': costo,
+                            'precio_ruta': precio_ruta
+                        })
+                        total_cantidad += cantidad
+                        total_items += 1
+                        total_costo_compra += cantidad * costo
+                
+                if not productos_procesar:
+                    flash('Debe agregar al menos un producto', 'error')
+                    return redirect(url_for('vendedor.vendedor_carga_directa_proveedor'))
+                
+                # ============================================
+                # REGISTRAR MOVIMIENTO PRINCIPAL DE COMPRA
+                # ============================================
+                estado_movimiento = 'Activa' if tipo_destino == 'RUTA' else 'Pendiente'
+                
+                cursor.execute("""
+                    INSERT INTO movimientos_inventario 
+                    (ID_TipoMovimiento, N_Factura_Externa, Fecha, ID_Proveedor, 
+                     Tipo_Compra, Observacion, ID_Empresa, ID_Bodega, 
+                     ID_Usuario_Creacion, Estado)
+                    VALUES (%s, %s, CURDATE(), %s, %s, %s, %s, %s, %s, %s)
+                """, (ID_TIPO_COMPRA, factura_proveedor, id_proveedor, tipo_compra,
+                      f'CARGA DIRECTA - Tipo: {tipo_destino} - {observacion}'[:500],
+                      id_empresa, ID_BODEGA_CENTRAL, id_usuario, estado_movimiento))
+                
+                id_movimiento_entrada = cursor.lastrowid
+                
+                # ============================================
+                # REGISTRAR DETALLE DE LA COMPRA
+                # ============================================
+                for prod in productos_procesar:
+                    subtotal = prod['cantidad'] * prod['costo']
+                    cursor.execute("""
+                        INSERT INTO detalle_movimientos_inventario
+                        (ID_Movimiento, ID_Producto, Cantidad, Costo_Unitario, Subtotal, ID_Usuario_Creacion)
+                        VALUES (%s, %s, %s, %s, %s, %s)
+                    """, (id_movimiento_entrada, prod['id_producto'], prod['cantidad'], prod['costo'], subtotal, id_usuario))
+                
+                # ============================================
+                # PROCESAR SEGÚN TIPO DE DESTINO
+                # ============================================
+                id_movimiento_final = None
+                id_carga_pendiente = None
+                ruta_factura = None
+                
+                if tipo_destino == 'RUTA':
+                    # ========================================
+                    # CASO 1: CARGA A RUTA (VENTA INMEDIATA)
+                    # ========================================
+                    
+                    # 1. Salida de bodega central (traslado)
+                    cursor.execute("""
+                        INSERT INTO movimientos_inventario 
+                        (ID_TipoMovimiento, Fecha, Observacion, ID_Empresa, ID_Bodega, 
+                         ID_Bodega_Destino, ID_Pedido_Origen, ID_Usuario_Creacion, Estado)
+                        VALUES (%s, CURDATE(), %s, %s, %s, %s, %s, %s, 'Activa')
+                    """, (
+                        ID_TIPO_TRASLADO,
+                        f'TRASLADO A RUTA - Asignacion: {id_asignacion} - Factura: {factura_proveedor}'[:500],
+                        id_empresa,
+                        ID_BODEGA_CENTRAL,
+                        None,
+                        None,
+                        id_usuario
+                    ))
+                    
+                    id_movimiento_salida = cursor.lastrowid
+                    
+                    # ============================================
+                    # REGISTRAR DETALLE DE SALIDA
+                    # ============================================
+                    for prod in productos_procesar:
+                        subtotal_salida = -(prod['cantidad'] * prod['costo'])
+                        cursor.execute("""
+                            INSERT INTO detalle_movimientos_inventario
+                            (ID_Movimiento, ID_Producto, Cantidad, Costo_Unitario, Subtotal, ID_Usuario_Creacion)
+                            VALUES (%s, %s, %s, %s, %s, %s)
+                        """, (id_movimiento_salida, prod['id_producto'], -prod['cantidad'], prod['costo'], subtotal_salida, id_usuario))
+                    
+                    # 2. Entrada a ruta
+                    total_subtotal_venta = sum(p['cantidad'] * p['precio_ruta'] for p in productos_procesar)
+                    
+                    cursor.execute("""
+                        INSERT INTO movimientos_ruta_cabecera 
+                        (ID_Asignacion, ID_TipoMovimiento, ID_Usuario_Registra, 
+                         Documento_Numero, Total_Productos, Total_Items, Total_Subtotal,
+                         ID_Empresa, Estado)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 'ACTIVO')
+                    """, (id_asignacion, ID_TIPO_ENTRADA_CARGA, id_usuario, factura_proveedor,
+                          total_cantidad, total_items, total_subtotal_venta, id_empresa))
+                    
+                    id_movimiento_ruta = cursor.lastrowid
+                    
+                    for prod in productos_procesar:
+                        subtotal = prod['cantidad'] * prod['precio_ruta']
+                        cursor.execute("""
+                            INSERT INTO movimientos_ruta_detalle
+                            (ID_Movimiento, ID_Producto, Cantidad, Precio_Unitario, 
+                             Subtotal, ID_Movimiento_Origen)
+                            VALUES (%s, %s, %s, %s, %s, %s)
+                        """, (id_movimiento_ruta, prod['id_producto'], prod['cantidad'],
+                              prod['precio_ruta'], subtotal, id_movimiento_salida))
+                        
+                        # Actualizar inventario de ruta
+                        cursor.execute("""
+                            INSERT INTO inventario_ruta (ID_Asignacion, ID_Producto, Cantidad)
+                            VALUES (%s, %s, %s)
+                            ON DUPLICATE KEY UPDATE Cantidad = Cantidad + VALUES(Cantidad)
+                        """, (id_asignacion, prod['id_producto'], prod['cantidad']))
+                    
+                    # 3. Actualizar inventario de bodega (restar)
+                    for prod in productos_procesar:
+                        cursor.execute("""
+                            UPDATE inventario_bodega 
+                            SET Existencias = Existencias - %s
+                            WHERE ID_Bodega = %s AND ID_Producto = %s
+                        """, (prod['cantidad'], ID_BODEGA_CENTRAL, prod['id_producto']))
+                    
+                    id_movimiento_final = id_movimiento_ruta
+                    mensaje_exito = f' CARGA A RUTA registrada exitosamente. Stock disponible en tu ruta para venta inmediata. Factura: {factura_proveedor}'
+                    
+                else:  # tipo_destino == 'BODEGA'
+                    # ========================================
+                    # CASO 2: CARGA A BODEGA (RECEPCIÓN PENDIENTE)
+                    # ========================================
+                    
+                    # Crear registro de carga pendiente de recepción
+                    cursor.execute("""
+                        INSERT INTO cargas_pendientes_recepcion
+                        (ID_Movimiento, ID_Proveedor, Num_Factura, Fecha_Carga, 
+                         ID_Usuario_Carga, Estado, Observaciones)
+                        VALUES (%s, %s, %s, CURDATE(), %s, 'PENDIENTE', %s)
+                    """, (id_movimiento_entrada, id_proveedor, factura_proveedor, 
+                          id_usuario, f'Carga pendiente de recepción en bodega - {observacion}'[:500]))
+                    
+                    id_carga_pendiente = cursor.lastrowid
+                    
+                    # Registrar detalle de la carga pendiente
+                    for prod in productos_procesar:
+                        cursor.execute("""
+                            INSERT INTO cargas_pendientes_detalle
+                            (ID_Carga, ID_Producto, Cantidad_Cargada, Costo_Unitario)
+                            VALUES (%s, %s, %s, %s)
+                        """, (id_carga_pendiente, prod['id_producto'], prod['cantidad'], prod['costo']))
+                    
+                    id_movimiento_final = id_movimiento_entrada
+                    mensaje_exito = f' CARGA A BODEGA registrada. Pendiente de recepción por el encargado de bodega. Factura: {factura_proveedor}'
+                
+                # ============================================
+                # CREAR CUENTA POR PAGAR Y ACTUALIZAR SALDO DEL PROVEEDOR SI ES CRÉDITO
+                # ============================================
+                if tipo_compra == 'CREDITO':
+                    fecha_venc = None
+                    if fecha_vencimiento:
+                        fecha_venc = datetime.strptime(fecha_vencimiento, '%Y-%m-%d').date()
+                    elif dias_credito and dias_credito.strip():
+                        fecha_venc = datetime.now().date() + timedelta(days=int(dias_credito))
+                    
+                    cursor.execute("""
+                        INSERT INTO cuentas_por_pagar 
+                        (ID_Movimiento, Fecha, ID_Proveedor, Num_Documento, 
+                         Observacion, Fecha_Vencimiento, Tipo_Movimiento, 
+                         Monto_Movimiento, ID_Empresa, Saldo_Pendiente, 
+                         ID_Usuario_Creacion, Estado)
+                        VALUES (%s, CURDATE(), %s, %s, %s, %s, %s, %s, %s, %s, %s, 'Pendiente')
+                    """, (
+                        id_movimiento_entrada,
+                        id_proveedor,
+                        factura_proveedor,
+                        f'Compra a crédito - Tipo: {tipo_destino} - Factura: {factura_proveedor}'[:500],
+                        fecha_venc,
+                        ID_TIPO_CUENTA_COMPRA,
+                        total_costo_compra,
+                        id_empresa,
+                        total_costo_compra,
+                        id_usuario
+                    ))
+                    
+                    id_cuenta = cursor.lastrowid
+                    
+                    # ACTUALIZAR SALDO PENDIENTE DEL PROVEEDOR
+                    cursor.execute("""
+                        UPDATE proveedores 
+                        SET Saldo_Pendiente = COALESCE(Saldo_Pendiente, 0) + %s
+                        WHERE ID_Proveedor = %s
+                    """, (total_costo_compra, id_proveedor))
+                    
+                    cursor.execute("""
+                        UPDATE movimientos_inventario 
+                        SET Observacion = CONCAT(Observacion, ' | Cuenta por pagar ID: ', %s, ' | Saldo proveedor actualizado')
+                        WHERE ID_Movimiento = %s
+                    """, (str(id_cuenta), id_movimiento_entrada))
+                    
+                    mensaje_exito += f' Cuenta por pagar #{id_cuenta} creada. Saldo del proveedor actualizado.'
+
+                # ============================================
+                # GUARDAR FOTO DE FACTURA
+                # ============================================
+                if 'foto_factura' in request.files:
+                    foto = request.files['foto_factura']
+                    if foto and foto.filename != '':
+                        # Crear carpeta
+                        upload_folder = os.path.join('static', 'uploads', 'facturas')
+                        os.makedirs(upload_folder, exist_ok=True)
+                        
+                        # Generar nombre único
+                        extension = foto.filename.rsplit('.', 1)[1].lower() if '.' in foto.filename else 'jpg'
+                        nombre_archivo = f"factura_{id_movimiento_entrada}_{factura_proveedor}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.{extension}"
+                        nombre_archivo = secure_filename(nombre_archivo)
+                        
+                        # Guardar archivo
+                        ruta_completa = os.path.join(upload_folder, nombre_archivo)
+                        foto.save(ruta_completa)
+                        
+                        # Guardar ruta relativa
+                        ruta_factura = f'uploads/facturas/{nombre_archivo}'
+                        
+                        # Guardar en la tabla correspondiente
+                        if tipo_destino == 'BODEGA' and id_carga_pendiente:
+                            cursor.execute("""
+                                UPDATE cargas_pendientes_recepcion
+                                SET factura_ruta = %s
+                                WHERE ID_Carga = %s
+                            """, (ruta_factura, id_carga_pendiente))
+                        else:
+                            cursor.execute("""
+                                UPDATE movimientos_inventario 
+                                SET Observacion = CONCAT(Observacion, ' | Factura: ', %s)
+                                WHERE ID_Movimiento = %s
+                            """, (ruta_factura, id_movimiento_entrada))
+                
+                flash(mensaje_exito, 'success')
+                
+                # Redirigir según el tipo de movimiento
+                if tipo_destino == 'RUTA':
+                    return redirect(url_for('vendedor.vendedor_movimiento_detalle', id_movimiento=id_movimiento_final))
+                else:
+                    return redirect(url_for('vendedor.vendedor_inventario'))
+                    
+        except Exception as e:
+            print(f"Error en carga directa: {str(e)}")
+            import traceback
+            traceback.print_exc()
+            flash(f'Error al procesar la carga directa: {str(e)}', 'error')
+            return redirect(url_for('vendedor.vendedor_inventario'))
+    
+    # MÉTODO GET
+    try:
+        with get_db_cursor(True) as cursor:
+            # Obtener proveedores
+            cursor.execute("""
+                SELECT ID_Proveedor, Nombre 
+                FROM proveedores 
+                WHERE Estado = 'ACTIVO' AND ID_Empresa = %s 
+                ORDER BY Nombre
+            """, (id_empresa,))
+            proveedores = cursor.fetchall()
+            
+            # Obtener productos activos
+            cursor.execute("""
+                SELECT 
+                    p.ID_Producto as id,
+                    p.COD_Producto as codigo,
+                    p.Descripcion as nombre,
+                    IFNULL(p.Precio_Ruta, 0) as precio_ruta,
+                    IFNULL(um.Abreviatura, 'PZA') as unidad
+                FROM productos p
+                LEFT JOIN unidades_medida um ON p.Unidad_Medida = um.ID_Unidad
+                WHERE p.Estado = 'activo' AND p.ID_Empresa = %s
+                ORDER BY p.Descripcion
+            """, (id_empresa,))
+            productos = cursor.fetchall()
+            
+            # Verificar si hay asignación activa
+            cursor.execute("""
+                SELECT COUNT(*) as total
+                FROM asignacion_vendedores
+                WHERE ID_Usuario = %s AND Estado = 'Activa' AND Fecha_Asignacion = CURDATE()
+            """, (current_user.id,))
+            tiene_asignacion = cursor.fetchone()['total'] > 0
+            
+            return render_template('vendedor/inventario/carga_directa_proveedor.html',
+                                 proveedores=proveedores,
+                                 productos=productos,
+                                 tiene_asignacion=tiene_asignacion,
+                                 now=datetime.now())
+                                 
+    except Exception as e:
+        print(f"Error en GET carga directa: {str(e)}")
+        traceback.print_exc()
+        flash(f'Error al cargar el formulario: {str(e)}', 'error')
+        return redirect(url_for('vendedor.vendedor_inventario'))
+
+@vendedor_bp.route('/api/productos', methods=['GET'])
+@vendedor_required
+def vendedor_api_productos():
+    """
+    API para obtener productos activos del vendedor
+    Retorna JSON con los productos para usar en el formulario dinámico
+    """
+    id_empresa = session.get('id_empresa', 1)
+    
+    try:
+        with get_db_cursor(True) as cursor:
+            cursor.execute("""
+                SELECT 
+                    p.ID_Producto,
+                    p.COD_Producto,
+                    p.Descripcion,
+                    p.Precio_Ruta,
+                    IFNULL(um.Abreviatura, 'PZA') as Unidad,
+                    IFNULL(c.Descripcion, 'S/C') as Categoria
+                FROM productos p
+                LEFT JOIN unidades_medida um ON p.Unidad_Medida = um.ID_Unidad
+                LEFT JOIN categorias_producto c ON p.ID_Categoria = c.ID_Categoria
+                WHERE p.Estado = 'activo'
+                AND p.ID_Empresa = %s
+                ORDER BY c.Descripcion, p.Descripcion
+            """, (id_empresa,))
+            
+            productos = cursor.fetchall()
+            
+            # Convertir a lista de diccionarios
+            productos_list = []
+            for prod in productos:
+                productos_list.append({
+                    'id': prod['ID_Producto'],
+                    'codigo': prod['COD_Producto'] or '',
+                    'nombre': prod['Descripcion'],
+                    'precio_ruta': float(prod['Precio_Ruta']) if prod['Precio_Ruta'] else 0,
+                    'unidad': prod['Unidad'] or 'PZA',
+                    'categoria': prod['Categoria'] or 'S/C'
+                })
+            
+            return jsonify({
+                'success': True,
+                'productos': productos_list,
+                'total': len(productos_list)
+            })
+            
+    except Exception as e:
+        print(f"Error en API productos: {str(e)}")
+        traceback.print_exc()
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+###################
 
 #ventas rutas
 # =============================================

@@ -146,8 +146,137 @@
         </div>
 
         <div class="col-lg-4">
-            <!-- Acciones -->
+            <!-- MÉTODOS DE PAGO (NUEVA SECCIÓN) -->
             <div class="card">
+                <div class="card-header bg-success text-white">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-money-bill-wave"></i>
+                        Métodos de Pago
+                    </h5>
+                </div>
+                <div class="card-body">
+                    {% if metodos_pago and metodos_pago|length > 0 %}
+                        <div class="table-responsive">
+                            <table class="table table-sm table-bordered">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Método</th>
+                                        <th class="text-end">Monto</th>
+                                        <th>Referencia</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for pago in metodos_pago %}
+                                    <tr>
+                                        <td>
+                                            {% if pago.nombre == 'Efectivo' %}
+                                                <i class="fas fa-money-bill text-success"></i>
+                                            {% elif pago.nombre == 'Transferencia' %}
+                                                <i class="fas fa-university text-primary"></i>
+                                            {% elif pago.nombre == 'Depósito Bancario' %}
+                                                <i class="fas fa-hand-holding-usd text-info"></i>
+                                            {% elif pago.nombre == 'Tarjeta Débito' or pago.nombre == 'Tarjeta Crédito' %}
+                                                <i class="fas fa-credit-card text-warning"></i>
+                                            {% elif pago.nombre == 'Cheque' %}
+                                                <i class="fas fa-file-alt text-secondary"></i>
+                                            {% else %}
+                                                <i class="fas fa-receipt"></i>
+                                            {% endif %}
+                                            {{ pago.nombre }}
+                                        </td>
+                                        <td class="text-end text-success fw-bold">
+                                            C$ {{ "{:,.2f}".format(pago.monto) }}
+                                        </td>
+                                        <td>
+                                            {% if pago.referencia %}
+                                                <small class="text-muted">{{ pago.referencia }}</small>
+                                            {% else %}
+                                                <small class="text-muted">---</small>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                                <tfoot class="table-light">
+                                    <tr class="fw-bold">
+                                        <td class="text-end">TOTAL PAGADO:</td>
+                                        <td class="text-end text-success">
+                                            C$ {{ "{:,.2f}".format(total_pagado) }}
+                                        </td>
+                                        <td></td>
+                                    </tr>
+                                    {% if saldo_pendiente > 0 %}
+                                    <tr class="fw-bold">
+                                        <td class="text-end">SALDO PENDIENTE:</td>
+                                        <td class="text-end text-danger">
+                                            C$ {{ "{:,.2f}".format(saldo_pendiente) }}
+                                        </td>
+                                        <td>
+                                            {% if credito_info.Fecha_Vencimiento_Max %}
+                                            <small class="text-danger">Vence: {{ credito_info.Fecha_Vencimiento_Max.strftime('%d/%m/%Y') if credito_info.Fecha_Vencimiento_Max is not string else credito_info.Fecha_Vencimiento_Max }}</small>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                    {% endif %}
+                                </tfoot>
+                            </table>
+                        </div>
+
+                        <!-- Resumen rápido -->
+                        <div class="row mt-3">
+                            <div class="col-6">
+                                <div class="alert alert-info text-center mb-0">
+                                    <small>Total Factura</small>
+                                    <h6 class="mb-0">C$ {{ "{:,.2f}".format(total_venta) }}</h6>
+                                </div>
+                            </div>
+                            <div class="col-6">
+                                <div class="alert {% if saldo_pendiente > 0 %}alert-danger{% else %}alert-success{% endif %} text-center mb-0">
+                                    <small>{% if saldo_pendiente > 0 %}Pendiente{% else %}Pagado{% endif %}</small>
+                                    <h6 class="mb-0">C$ {{ "{:,.2f}".format(saldo_pendiente if saldo_pendiente > 0 else 0) }}</h6>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Barra de progreso de pago -->
+                        <div class="mt-3">
+                            <div class="progress" style="height: 20px;">
+                                {% set porcentaje_pagado = (total_pagado / total_venta * 100) if total_venta > 0 else 0 %}
+                                <div class="progress-bar {% if porcentaje_pagado == 100 %}bg-success{% elif porcentaje_pagado >= 50 %}bg-info{% elif porcentaje_pagado > 0 %}bg-warning{% else %}bg-secondary{% endif %}" 
+                                     role="progressbar" 
+                                     style="width: {{ porcentaje_pagado }}%;" 
+                                     aria-valuenow="{{ porcentaje_pagado }}" 
+                                     aria-valuemin="0" 
+                                     aria-valuemax="100">
+                                    {{ "%.0f"|format(porcentaje_pagado) }}%
+                                </div>
+                            </div>
+                            <small class="text-muted">Progreso de pago</small>
+                        </div>
+
+                    {% else %}
+                        <div class="alert alert-warning mb-0">
+                            <i class="fas fa-exclamation-triangle"></i>
+                            {% if factura.Tipo_Venta_Numerico == 0 %}
+                                <strong>Venta de Contado</strong> - Se registró como pago en efectivo completo.
+                                <hr>
+                                <div class="text-center">
+                                    <strong>Monto:</strong> C$ {{ "{:,.2f}".format(total_venta) }}
+                                </div>
+                            {% else %}
+                                <strong>Venta a Crédito</strong> - No se registraron pagos iniciales.
+                                <hr>
+                                <div class="text-center">
+                                    <strong>Saldo pendiente:</strong> C$ {{ "{:,.2f}".format(total_venta) }}
+                                </div>
+                            {% endif %}
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Acciones -->
+            <div class="card mt-4">
                 <div class="card-header bg-secondary text-white">
                     <h5 class="card-title mb-0">
                         <i class="fas fa-cog"></i>
@@ -287,14 +416,16 @@
                                     <th>Fecha</th>
                                     <th>Monto</th>
                                     <th>Forma</th>
+                                    <th>Comprobante</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {% for pago in pagos %}
                                 <tr>
                                     <td>{{ pago.Fecha_Pago or 'N/A' }}</td>
-                                    <td>C$ {{ "%.2f"|format(pago.Monto_Pago) if pago.Monto_Pago else '0.00' }}</td>
+                                    <td class="text-success fw-bold">C$ {{ "%.2f"|format(pago.Monto_Pago) if pago.Monto_Pago else '0.00' }}</td>
                                     <td>{{ pago.Forma_Pago or 'N/A' }}</td>
+                                    <td><small>{{ pago.Numero_Comprobante or 'N/A' }}</small></td>
                                 </tr>
                                 {% endfor %}
                             </tbody>

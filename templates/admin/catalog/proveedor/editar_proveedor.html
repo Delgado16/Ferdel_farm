@@ -16,6 +16,22 @@
         border: none;
         box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
     }
+    .saldo-display {
+        font-size: 1.1rem;
+        font-weight: bold;
+    }
+    .saldo-positivo {
+        color: #dc3545;
+    }
+    .saldo-cero {
+        color: #28a745;
+    }
+    .info-box {
+        background-color: #f8f9fa;
+        border-left: 4px solid #007bff;
+        padding: 10px 15px;
+        margin-bottom: 20px;
+    }
 </style>
 {% endblock %}
 
@@ -40,6 +56,20 @@
                             {% endfor %}
                         {% endif %}
                     {% endwith %}
+
+                    <!-- Información adicional del proveedor -->
+                    <div class="info-box">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <small class="text-muted">ID Proveedor:</small>
+                                <strong>#{{ proveedor.ID_Proveedor }}</strong>
+                            </div>
+                            <div class="col-md-6">
+                                <small class="text-muted">Fecha de Creación:</small>
+                                <strong>{{ proveedor.Fecha_Creacion.strftime('%d/%m/%Y %H:%M') if proveedor.Fecha_Creacion else 'N/A' }}</strong>
+                            </div>
+                        </div>
+                    </div>
 
                     <form method="POST" action="{{ url_for('admin.admin_editar_proveedor', id=proveedor.ID_Proveedor) }}">
                         <div class="mb-3">
@@ -70,12 +100,45 @@
                             <div class="form-text">Opcional. Si se proporciona, debe ser único entre proveedores activos.</div>
                         </div>
 
+                        <!-- Saldo Pendiente (Deuda con el proveedor) -->
+                        <div class="mb-3">
+                            <label for="saldo_pendiente" class="form-label">Saldo Pendiente</label>
+                            <div class="input-group">
+                                <span class="input-group-text">$</span>
+                                <input type="number" class="form-control" id="saldo_pendiente" name="saldo_pendiente" 
+                                       step="0.01" min="0" value="{{ '%.2f'|format(proveedor.Saldo_Pendiente|float) }}"
+                                       placeholder="0.00">
+                            </div>
+                            <div class="form-text">
+                                Monto total que la empresa le debe actualmente a este proveedor.
+                                {% set saldo = proveedor.Saldo_Pendiente|float %}
+                                {% if saldo > 0 %}
+                                    <span class="text-danger fw-bold">
+                                        <i class="bi bi-exclamation-triangle"></i> 
+                                        Deuda pendiente: ${{ "{:,.2f}".format(saldo) }}
+                                    </span>
+                                {% elif saldo == 0 %}
+                                    <span class="text-success">
+                                        <i class="bi bi-check-circle"></i> 
+                                        Sin deuda pendiente con este proveedor
+                                    </span>
+                                {% endif %}
+                            </div>
+                        </div>
+
                         <div class="mb-3">
                             <label for="estado" class="form-label">Estado</label>
                             <select class="form-select" id="estado" name="estado">
                                 <option value="ACTIVO" {% if proveedor.Estado == 'ACTIVO' %}selected{% endif %}>Activo</option>
                                 <option value="INACTIVO" {% if proveedor.Estado == 'INACTIVO' %}selected{% endif %}>Inactivo</option>
                             </select>
+                            <div class="form-text">
+                                {% if proveedor.Estado == 'ACTIVO' %}
+                                    <span class="text-success">✓ Proveedor activo</span>
+                                {% else %}
+                                    <span class="text-danger">⚠️ Proveedor inactivo</span>
+                                {% endif %}
+                            </div>
                         </div>
 
                         <div class="d-flex justify-content-between align-items-center">
@@ -87,6 +150,22 @@
                             </button>
                         </div>
                     </form>
+                </div>
+            </div>
+
+            <!-- Tarjeta de información adicional -->
+            <div class="card mt-3 bg-light">
+                <div class="card-body">
+                    <h6 class="text-muted mb-3">
+                        <i class="bi bi-info-circle"></i> Información importante:
+                    </h6>
+                    <ul class="small text-muted mb-0">
+                        <li><strong>Saldo Pendiente:</strong> Representa la deuda actual que tiene la empresa con el proveedor.</li>
+                        <li>Este saldo se actualiza automáticamente con las compras y pagos realizados al proveedor.</li>
+                        <li>El saldo siempre debe ser mayor o igual a cero (no puede ser negativo).</li>
+                        <li>Desactivar un proveedor no eliminará sus transacciones históricas ni el saldo pendiente.</li>
+                        <li>Los campos marcados con <span class="text-danger">*</span> son obligatorios.</li>
+                    </ul>
                 </div>
             </div>
         </div>
@@ -101,6 +180,45 @@
 document.addEventListener('DOMContentLoaded', function() {
     // Validación del formulario
     const form = document.querySelector('form');
+    const saldoInput = document.getElementById('saldo_pendiente');
+    
+    // Función para validar saldo (no puede ser negativo)
+    function validateSaldo() {
+        let saldo = parseFloat(saldoInput.value);
+        if (isNaN(saldo)) {
+            saldoInput.value = '0.00';
+            saldo = 0;
+        }
+        if (saldo < 0) {
+            saldoInput.setCustomValidity('El saldo pendiente no puede ser negativo. Representa lo que le debemos al proveedor.');
+            saldoInput.classList.add('is-invalid');
+            return false;
+        } else {
+            saldoInput.setCustomValidity('');
+            saldoInput.classList.remove('is-invalid');
+            return true;
+        }
+    }
+    
+    // Formatear saldo a 2 decimales
+    function formatSaldo() {
+        let saldo = parseFloat(saldoInput.value);
+        if (isNaN(saldo)) {
+            saldoInput.value = '0.00';
+        } else if (saldo < 0) {
+            saldoInput.value = '0.00';
+            alert('El saldo no puede ser negativo. Se ha ajustado a 0.00');
+        } else {
+            saldoInput.value = saldo.toFixed(2);
+        }
+    }
+    
+    // Eventos para el saldo
+    if (saldoInput) {
+        saldoInput.addEventListener('input', validateSaldo);
+        saldoInput.addEventListener('blur', formatSaldo);
+    }
+    
     if (form) {
         form.addEventListener('submit', function(e) {
             const nombre = document.getElementById('nombre').value.trim();
@@ -142,6 +260,22 @@ document.addEventListener('DOMContentLoaded', function() {
                 e.preventDefault();
                 alert('El RUC/Cédula debe contener solo números (10-20 dígitos)');
                 document.getElementById('ruc_cedula').focus();
+                return false;
+            }
+            
+            // Validación del saldo
+            const saldo = parseFloat(saldoInput.value);
+            if (isNaN(saldo)) {
+                e.preventDefault();
+                alert('El saldo debe ser un valor numérico válido');
+                saldoInput.focus();
+                return false;
+            }
+            
+            if (saldo < 0) {
+                e.preventDefault();
+                alert('El saldo pendiente no puede ser negativo. Representa la deuda con el proveedor.');
+                saldoInput.focus();
                 return false;
             }
             
