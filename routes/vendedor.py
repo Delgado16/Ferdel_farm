@@ -2249,7 +2249,6 @@ def vendedor_carga_directa_proveedor():
                     
         except Exception as e:
             print(f"Error en carga directa: {str(e)}")
-            import traceback
             traceback.print_exc()
             flash(f'Error al procesar la carga directa: {str(e)}', 'error')
             return redirect(url_for('vendedor.vendedor_inventario'))
