@@ -717,7 +717,7 @@ def admin_anular_compra(id_movimiento):
                         p.Descripcion,
                         COALESCE(ib.Existencias, 0) as Existencias
                     FROM detalle_movimientos_inventario dmi
-                    INNER JOIN Productos p ON dmi.ID_Producto = p.ID_Producto
+                    INNER JOIN productos p ON dmi.ID_Producto = p.ID_Producto
                     LEFT JOIN inventario_bodega ib ON ib.ID_Producto = dmi.ID_Producto AND ib.ID_Bodega = %s
                     WHERE dmi.ID_Movimiento = %s
                 """, (compra['ID_Bodega'], id_movimiento))
