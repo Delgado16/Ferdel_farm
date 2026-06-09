@@ -1090,7 +1090,7 @@ def admin_detalle_compra_completo(id_movimiento):
                     um.Descripcion as Unidad_Medida,
                     um.Abreviatura as Simbolo_Medida
                 FROM detalle_movimientos_inventario dmi
-                INNER JOIN Productos p ON dmi.ID_Producto = p.ID_Producto
+                INNER JOIN productos p ON dmi.ID_Producto = p.ID_Producto
                 LEFT JOIN unidades_medida um ON p.Unidad_Medida = um.ID_Unidad
                 LEFT JOIN inventario_bodega ib ON dmi.ID_Producto = ib.ID_Producto 
                     AND ib.ID_Bodega = %s
