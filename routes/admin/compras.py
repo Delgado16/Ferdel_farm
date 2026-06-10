@@ -1028,54 +1028,87 @@ def admin_anular_compra(id_movimiento):
             traceback.print_exc()
             flash(f'❌ Error al anular compra: {str(e)}', 'error')
             return redirect(url_for('admin.admin_compras_entradas'))
-    
-@admin_bp.route('/admin/compras/compras-entradas/detalle-completo/<int:id_movimiento>', methods=['GET'])
+
+@admin_bp.route('/admin/compras/detalle-completo/<int:id_movimiento>', methods=['GET'])
 @admin_required
 @bitacora_decorator("COMPRAS-ENTRADAS-DETALLE-COMPLETO")
 def admin_detalle_compra_completo(id_movimiento):
     try:
+        # Obtener ID de empresa desde la sesión
+        id_empresa = session.get('id_empresa', 1)
+        
         with get_db_cursor(True) as cursor:
-            # CONSULTA PRINCIPAL CORREGIDA
+            # 1. Obtener información general del movimiento de compra
             cursor.execute("""
                 SELECT 
                     mi.ID_Movimiento,
-                    mi.ID_TipoMovimiento,
+                    DATE_FORMAT(mi.Fecha, '%%d/%%m/%%Y') as Fecha_Formateada,
+                    mi.Fecha as Fecha_Original,
                     mi.N_Factura_Externa,
-                    mi.Fecha,
+                    mi.Observacion,
+                    mi.ID_Usuario_Creacion,
+                    mi.ID_Usuario_Modificacion,
+                    mi.Fecha_Creacion,
+                    mi.Fecha_Modificacion,
+                    mi.Estado as Estado_Movimiento,
+                    mi.Tipo_Compra,
+                    mi.ID_Bodega,
                     mi.ID_Proveedor,
+                    -- Datos del proveedor
                     p.Nombre as Proveedor,
                     p.RUC_CEDULA as RUC_Proveedor,
                     p.Direccion as Direccion_Proveedor,
                     p.Telefono as Telefono_Proveedor,
-                    mi.Tipo_Compra,
-                    mi.Observacion,
-                    mi.ID_Bodega,
+                    -- Datos de la bodega
                     b.Nombre as Bodega,
                     b.Ubicacion as Direccion_Bodega,
+                    -- Datos de usuarios
                     u.NombreUsuario as Usuario_Creacion,
-                    mi.Fecha_Creacion,
                     u_mod.NombreUsuario as Usuario_Modificacion,
-                    mi.Fecha_Modificacion,
-                    mi.Estado,
-                    (SELECT SUM(Subtotal) FROM detalle_movimientos_inventario 
-                     WHERE ID_Movimiento = mi.ID_Movimiento) as Total_Compra,
-                    (SELECT COUNT(*) FROM detalle_movimientos_inventario 
-                     WHERE ID_Movimiento = mi.ID_Movimiento) as Total_Productos
+                    -- Datos de la empresa
+                    e.Nombre_Empresa,
+                    e.RUC as RUC_Empresa,
+                    e.Direccion as Direccion_Empresa,
+                    e.Telefono as Telefono_Empresa,
+                    -- Formatear tipo de compra
+                    CASE 
+                        WHEN mi.Tipo_Compra = 'Crédito' THEN 'CRÉDITO'
+                        ELSE 'CONTADO'
+                    END as Tipo_Compra_Formateado,
+                    -- Estado formateado
+                    UPPER(mi.Estado) as Estado_Formateado,
+                    -- Calcular total de la compra
+                    COALESCE(
+                        (SELECT SUM(Subtotal) 
+                         FROM detalle_movimientos_inventario 
+                         WHERE ID_Movimiento = mi.ID_Movimiento), 
+                        0
+                    ) as Total_Compra,
+                    -- Total de productos
+                    COALESCE(
+                        (SELECT COUNT(*) 
+                         FROM detalle_movimientos_inventario 
+                         WHERE ID_Movimiento = mi.ID_Movimiento), 
+                        0
+                    ) as Total_Productos
                 FROM movimientos_inventario mi
                 LEFT JOIN proveedores p ON mi.ID_Proveedor = p.ID_Proveedor
                 LEFT JOIN bodegas b ON mi.ID_Bodega = b.ID_Bodega
                 LEFT JOIN usuarios u ON mi.ID_Usuario_Creacion = u.ID_Usuario
                 LEFT JOIN usuarios u_mod ON mi.ID_Usuario_Modificacion = u_mod.ID_Usuario
-                WHERE mi.ID_Movimiento = %s
-            """, (id_movimiento,))
+                LEFT JOIN empresa e ON mi.ID_Empresa = e.ID_Empresa
+                WHERE mi.ID_Movimiento = %s 
+                  AND mi.ID_Empresa = %s
+                LIMIT 1
+            """, (id_movimiento, id_empresa))
             
             movimiento = cursor.fetchone()
             
             if not movimiento:
-                flash('Compra no encontrada', 'error')
+                flash('Compra no encontrada o no pertenece a su empresa', 'error')
                 return redirect(url_for('admin.admin_compras_entradas'))
             
-            # DETALLES CORREGIDOS - SIN LOTE Y FECHA_VENCIMIENTO
+            # 2. Obtener detalles de los productos comprados
             cursor.execute("""
                 SELECT 
                     dmi.ID_Detalle_Movimiento,
@@ -1100,7 +1133,7 @@ def admin_detalle_compra_completo(id_movimiento):
             
             detalles = cursor.fetchall()
             
-            # CUENTAS POR PAGAR CORREGIDA
+            # 3. Obtener información de cuenta por pagar
             cursor.execute("""
                 SELECT 
                     ID_Cuenta,
@@ -1113,23 +1146,30 @@ def admin_detalle_compra_completo(id_movimiento):
             
             cuenta_por_pagar = cursor.fetchone()
             
-            # Calcular total de cantidad
+            # 4. Calcular totales
+            total_productos = len(detalles)
             total_cantidad = sum([detalle['Cantidad'] for detalle in detalles]) if detalles else 0
             
-            now = datetime.now().date()
+            # 5. Calcular estadísticas de pago
+            total_pagado = 0
+            if cuenta_por_pagar:
+                total_pagado = cuenta_por_pagar['Monto_Movimiento'] - cuenta_por_pagar['Saldo_Pendiente']
             
             return render_template(
                 'admin/compras/detalle_compra.html',
                 movimiento=movimiento,
                 detalles=detalles,
                 cuenta_por_pagar=cuenta_por_pagar,
+                total_productos=total_productos,
                 total_cantidad=total_cantidad,
-                now=now,
-                title="Detalles de Compra"
+                total_compra=movimiento['Total_Compra'],
+                total_pagado=total_pagado,
+                now=datetime.now().date()
             )
-                                
+            
     except Exception as e:
         print(f"Error al cargar detalle completo de compra: {str(e)}")
+        print(f"Error detallado: {traceback.format_exc()}")
         flash(f'Error al cargar detalles: {str(e)}', 'error')
         return redirect(url_for('admin.admin_compras_entradas'))
 

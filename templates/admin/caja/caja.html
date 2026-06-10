@@ -4,88 +4,59 @@
 
 {% block extra_css %}
 <style>
-    /* ===== ESTILOS EXCLUSIVOS PARA EL MODAL DE CONTADOR ===== */
+    /* ===== ESTILOS EXCLUSIVOS PARA LOS MODALES DE CAJA ===== */
     
-    /* Denominaciones mejoradas */
-    .denominacion-item-modern {
-        transition: all 0.2s ease;
-        padding: 12px 16px;
-        border-bottom: 1px solid #e9ecef;
+    /* Tarjetas de denominación para Contador de Dinero */
+    .denominacion-card {
+        transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+        border: 1px solid rgba(226, 232, 240, 0.8) !important;
+        border-radius: 12px;
+        background: #ffffff;
     }
     
-    .denominacion-item-modern:hover {
-        background-color: #f8f9fa;
+    .denominacion-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 20px rgba(15, 23, 42, 0.06) !important;
+        border-color: rgba(106, 17, 203, 0.25) !important;
     }
     
-    .denominacion-item-modern .valor-badge {
-        background: linear-gradient(135deg, #6a11cb 0%, #2575fc 100%);
-        color: white;
-        padding: 6px 12px;
+    .valor-badge-modern {
+        font-weight: 800;
         border-radius: 8px;
+        letter-spacing: 0.5px;
+    }
+    
+    .denominacion-card .input-group .form-control {
+        height: 38px;
+        font-size: 0.95rem;
         font-weight: 700;
-        min-width: 85px;
-        text-align: center;
-        font-size: 0.9rem;
     }
     
-    .denominacion-item-modern .denominacion-controls {
-        display: flex;
-        flex-direction: column;
-        gap: 8px;
+    .denominacion-card .subtotal-valor {
+        font-weight: 750;
+        font-family: 'Courier New', Courier, monospace;
+        font-size: 1.05rem;
     }
     
-    @media (min-width: 576px) {
-        .denominacion-item-modern .denominacion-controls {
-            flex-direction: row;
-            align-items: center;
-            justify-content: space-between;
-        }
-    }
-    
-    .denominacion-item-modern .input-group {
-        width: 100%;
-    }
-    
-    @media (min-width: 576px) {
-        .denominacion-item-modern .input-group {
-            width: 160px;
-        }
-    }
-    
-    .denominacion-item-modern .input-group .form-control {
-        height: 42px;
-        font-size: 1rem;
-        text-align: center;
-        font-weight: 600;
-    }
-    
-    .denominacion-item-modern .subtotal-valor {
-        font-weight: 700;
-        color: #28a745;
-        font-size: 1rem;
-        font-family: monospace;
-        min-width: 90px;
-        text-align: right;
-    }
-    
-    /* Tabs personalizados */
+    /* Tabs personalizados para monedas */
     .nav-tabs .nav-link {
         border: none;
-        color: #6c757d;
+        color: #64748b;
         border-radius: 12px 12px 0 0;
-        transition: all 0.2s;
+        transition: all 0.2s ease;
+        border-bottom: 2px solid transparent;
     }
     
     .nav-tabs .nav-link:hover {
-        background-color: #f8f9fa;
-        color: #6a11cb;
+        background-color: #f8fafc;
+        color: #4f46e5;
     }
     
     .nav-tabs .nav-link.active {
         background: linear-gradient(135deg, #6a11cb 0%, #2575fc 100%);
         color: white;
         border: none;
-        box-shadow: 0 2px 8px rgba(106,17,203,0.3);
+        box-shadow: 0 4px 12px rgba(106,17,203,0.2);
     }
     
     .nav-tabs .nav-link.active .badge {
@@ -93,9 +64,21 @@
         color: #6a11cb !important;
     }
     
-    /* Progress bars */
+    /* Recibo de cierre */
+    .receipt-card {
+        background-color: #f8fafc;
+        border: 1px solid #e2e8f0;
+        border-radius: 12px;
+        box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.02);
+    }
+    
+    .border-dashed {
+        border-top: 1.5px dashed #cbd5e1 !important;
+    }
+    
+    /* Progress bars y Badges */
     .progress {
-        background-color: #e9ecef;
+        background-color: #e2e8f0;
         border-radius: 10px;
         overflow: hidden;
         height: 6px;
@@ -105,28 +88,29 @@
         transition: width 0.3s ease;
     }
     
-    /* Badges de verificación */
     .badge-verificacion-coincide {
-        background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+        background: linear-gradient(135deg, #10b981 0%, #059669 100%);
         color: white;
-        padding: 8px 16px;
+        padding: 10px 20px;
         border-radius: 50px;
-        font-weight: 600;
+        font-weight: 700;
         display: inline-flex;
         align-items: center;
         gap: 8px;
+        box-shadow: 0 4px 10px rgba(16, 185, 129, 0.2);
         animation: pulse 0.5s ease;
     }
     
     .badge-verificacion-diferencia {
-        background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+        background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
         color: white;
-        padding: 8px 16px;
+        padding: 10px 20px;
         border-radius: 50px;
-        font-weight: 600;
+        font-weight: 700;
         display: inline-flex;
         align-items: center;
         gap: 8px;
+        box-shadow: 0 4px 10px rgba(239, 68, 68, 0.2);
         animation: shake 0.5s ease;
     }
     
@@ -137,57 +121,31 @@
     
     @keyframes shake {
         0%, 100% { transform: translateX(0); }
-        25% { transform: translateX(-5px); }
-        75% { transform: translateX(5px); }
+        25% { transform: translateX(-6px); }
+        75% { transform: translateX(6px); }
     }
     
-    /* Animaciones */
-    @keyframes slideInRight {
-        from {
-            opacity: 0;
-            transform: translateX(30px);
-        }
-        to {
-            opacity: 1;
-            transform: translateX(0);
-        }
+    /* Estilos personalizados para Switch & Radio selectores */
+    .btn-check:checked + .btn-outline-success {
+        background-color: #10b981 !important;
+        border-color: #10b981 !important;
+        color: white !important;
+        box-shadow: 0 4px 12px rgba(16, 185, 129, 0.25) !important;
     }
     
-    .card {
-        animation: slideInRight 0.3s ease-out;
+    .btn-check:checked + .btn-outline-danger {
+        background-color: #ef4444 !important;
+        border-color: #ef4444 !important;
+        color: white !important;
+        box-shadow: 0 4px 12px rgba(239, 68, 68, 0.25) !important;
     }
     
-    /* Responsive */
+    /* Responsive layout tweaks */
     @media (max-width: 768px) {
-        .denominacion-item-modern .valor-badge {
-            min-width: 70px;
-            font-size: 0.8rem;
-        }
-    }
-    
-    @media (max-width: 576px) {
-        .nav-tabs .nav-link {
-            padding: 10px 12px;
+        .valor-badge-modern {
             font-size: 0.85rem;
+            padding: 4px 8px;
         }
-        
-        .denominacion-item-modern {
-            padding: 10px 12px;
-        }
-    }
-    
-    /* Toast personalizado */
-    .custom-toast {
-        position: fixed;
-        bottom: 20px;
-        right: 20px;
-        z-index: 9999;
-        min-width: 250px;
-        max-width: 90%;
-        background: white;
-        border-radius: 8px;
-        box-shadow: 0 5px 20px rgba(0,0,0,0.2);
-        animation: slideInRight 0.3s ease;
     }
 </style>
 {% endblock %}
@@ -454,8 +412,8 @@
                                             </button>
                                         </div>
                                     </div>
-                                    <div class="card-body p-0">
-                                        <div id="billetes-container" class="list-group list-group-flush"></div>
+                                    <div class="card-body p-3">
+                                        <div id="billetes-container" class="row g-2"></div>
                                     </div>
                                     <div class="card-footer bg-white">
                                         <div class="d-flex justify-content-between align-items-center">
@@ -491,8 +449,8 @@
                                             </div>
                                         </div>
                                     </div>
-                                    <div class="card-body p-0">
-                                        <div id="billetes-dolares-container" class="list-group list-group-flush"></div>
+                                    <div class="card-body p-3">
+                                        <div id="billetes-dolares-container" class="row g-2"></div>
                                     </div>
                                     <div class="card-footer bg-white">
                                         <div class="row g-2 mb-3">
@@ -643,21 +601,21 @@
             </div>
             <form method="POST" action="{{ url_for('admin.admin_caja_aperturar') }}">
                 <div class="modal-body">
-                    <div class="alert alert-info">
-                        <i class="bi bi-info-circle me-2"></i>
+                    <div class="alert alert-info border-0 rounded-3 bg-info bg-opacity-10 text-dark mb-4">
+                        <i class="bi bi-info-circle-fill me-2 text-info fs-5 align-middle"></i>
                         Registra el monto inicial con el que inicia la caja hoy.
                     </div>
-                    <div class="mb-3">
-                        <label class="form-label fw-bold">Monto Inicial</label>
-                        <div class="input-group">
-                            <span class="input-group-text">C$</span>
-                            <input type="number" class="form-control" name="monto_inicial" step="0.01" min="0" required>
+                    <div class="mb-3 text-center">
+                        <label class="form-label fw-bold text-uppercase tracking-wider mb-2 text-secondary small">Monto Inicial</label>
+                        <div class="input-group input-group-lg justify-content-center mx-auto" style="max-width: 280px;">
+                            <span class="input-group-text bg-success bg-gradient text-white border-0"><i class="bi bi-cash-stack"></i></span>
+                            <input type="number" class="form-control text-center fw-bold fs-3" name="monto_inicial" placeholder="0.00" step="0.01" min="0" required>
                         </div>
                     </div>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="submit" class="btn btn-success">Aperturar</button>
+                    <button type="submit" class="btn btn-success px-4">Aperturar</button>
                 </div>
             </form>
         </div>
@@ -676,35 +634,46 @@
             </div>
             <form method="POST" action="{{ url_for('admin.admin_caja_movimiento') }}">
                 <div class="modal-body">
-                    <div class="row g-3 mb-3">
-                        <div class="col-md-6">
-                            <label class="form-label fw-bold">Tipo</label>
-                            <select class="form-select" name="tipo_movimiento" id="tipo_movimiento" required>
-                                <option value="">Seleccionar...</option>
-                                <option value="ENTRADA">Entrada</option>
-                                <option value="SALIDA">Salida</option>
-                            </select>
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label fw-bold">Monto</label>
-                            <div class="input-group">
-                                <span class="input-group-text">C$</span>
-                                <input type="number" class="form-control" name="monto" id="monto_movimiento" step="0.01" required>
-                            </div>
+                    <div class="mb-4">
+                        <label class="form-label fw-bold text-uppercase small text-secondary d-block mb-2 text-center">Tipo de Movimiento</label>
+                        <div class="btn-group w-100" role="group" aria-label="Tipo de movimiento">
+                            <input type="radio" class="btn-check" name="tipo_movimiento" id="tipo_entrada" value="ENTRADA" checked required autocomplete="off">
+                            <label class="btn btn-outline-success w-50 py-3 fw-bold fs-6 d-flex align-items-center justify-content-center gap-2" for="tipo_entrada">
+                                <i class="bi bi-arrow-down-circle-fill fs-5"></i>
+                                Entrada (Ingreso)
+                            </label>
+                            <input type="radio" class="btn-check" name="tipo_movimiento" id="tipo_salida" value="SALIDA" required autocomplete="off">
+                            <label class="btn btn-outline-danger w-50 py-3 fw-bold fs-6 d-flex align-items-center justify-content-center gap-2" for="tipo_salida">
+                                <i class="bi bi-arrow-up-circle-fill fs-5"></i>
+                                Salida (Egreso)
+                            </label>
                         </div>
                     </div>
-                    <div class="mb-3">
-                        <label class="form-label fw-bold">Descripción</label>
-                        <textarea class="form-control" name="descripcion" rows="2" required></textarea>
+                    
+                    <div class="mb-4">
+                        <label class="form-label fw-bold text-secondary text-uppercase small">Monto del Movimiento</label>
+                        <div class="input-group input-group-lg">
+                            <span class="input-group-text bg-primary bg-gradient text-white border-0">C$</span>
+                            <input type="number" class="form-control fw-bold fs-3" name="monto" id="monto_movimiento" placeholder="0.00" step="0.01" required>
+                        </div>
                     </div>
+
                     <div class="mb-3">
-                        <label class="form-label fw-bold">Referencia</label>
-                        <input type="text" class="form-control" name="referencia_documento">
+                        <label class="form-label fw-bold text-secondary text-uppercase small">Descripción</label>
+                        <textarea class="form-control" name="descripcion" placeholder="Escribe el motivo o detalle del movimiento..." rows="2" required></textarea>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label fw-bold text-secondary text-uppercase small">Referencia / Documento</label>
+                        <div class="input-group">
+                            <span class="input-group-text bg-light"><i class="bi bi-file-earmark-text"></i></span>
+                            <input type="text" class="form-control" name="referencia_documento" placeholder="Ej. Factura #1234 (opcional)">
+                        </div>
                     </div>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="submit" class="btn btn-primary">Registrar</button>
+                    <button type="submit" class="btn btn-primary px-4">Registrar</button>
                 </div>
             </form>
         </div>
@@ -716,41 +685,45 @@
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
             <div class="modal-header bg-warning">
-                <h5 class="modal-title">
-                    <i class="bi bi-lock me-2"></i>Cerrar Caja
+                <h5 class="modal-title text-dark">
+                    <i class="bi bi-lock me-2 text-dark"></i>Cerrar Caja
                 </h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <form method="POST" action="{{ url_for('admin.admin_caja_cerrar') }}">
                 <div class="modal-body">
-                    <div class="alert alert-warning">
-                        <i class="bi bi-exclamation-triangle me-2"></i>
+                    <div class="alert alert-warning border-0 rounded-3 bg-warning bg-opacity-10 text-dark mb-3">
+                        <i class="bi bi-exclamation-triangle-fill me-2 text-warning fs-5 align-middle"></i>
                         <strong>¡ATENCIÓN!</strong> Esta acción cerrará la caja del día {{ caja.fecha }}.
                     </div>
-                    <div class="bg-light p-3 rounded mb-3">
-                        <div class="row">
-                            <div class="col-6">
-                                <small class="text-success">Entradas</small>
-                                <div class="fw-bold text-success">C$ {{ "{:,.2f}".format(caja.entradas) }}</div>
-                            </div>
-                            <div class="col-6">
-                                <small class="text-danger">Salidas</small>
-                                <div class="fw-bold text-danger">C$ {{ "{:,.2f}".format(caja.salidas) }}</div>
-                            </div>
-                            <div class="col-12 mt-2">
-                                <small class="text-primary">Saldo a cerrar</small>
-                                <div class="fw-bold text-primary fs-5">C$ {{ "{:,.2f}".format(caja.saldo_dia) }}</div>
-                            </div>
+                    
+                    <div class="receipt-card p-3 mb-3">
+                        <div class="text-center mb-3">
+                            <span class="badge bg-warning text-dark text-uppercase fw-bold px-3 py-1">Resumen del Día</span>
+                        </div>
+                        <div class="d-flex justify-content-between mb-2">
+                            <span class="text-muted"><i class="bi bi-arrow-down-circle text-success me-2"></i>Total Entradas:</span>
+                            <span class="fw-bold text-success">+C$ {{ "{:,.2f}".format(caja.entradas) }}</span>
+                        </div>
+                        <div class="d-flex justify-content-between mb-2">
+                            <span class="text-muted"><i class="bi bi-arrow-up-circle text-danger me-2"></i>Total Salidas:</span>
+                            <span class="fw-bold text-danger">-C$ {{ "{:,.2f}".format(caja.salidas) }}</span>
+                        </div>
+                        <div class="border-top border-dashed my-2"></div>
+                        <div class="d-flex justify-content-between align-items-center pt-2">
+                            <span class="fw-bold text-dark"><i class="bi bi-wallet2 text-primary me-2"></i>Saldo de Cierre:</span>
+                            <span class="fw-extrabold text-primary fs-4">C$ {{ "{:,.2f}".format(caja.saldo_dia) }}</span>
                         </div>
                     </div>
+
                     <div class="mb-3">
-                        <label class="form-label fw-bold">Observaciones</label>
-                        <textarea class="form-control" name="observaciones" rows="2"></textarea>
+                        <label class="form-label fw-bold text-secondary text-uppercase small">Observaciones / Notas de Cierre</label>
+                        <textarea class="form-control" name="observaciones" placeholder="Escribe cualquier detalle u observación relevante sobre el cierre..." rows="2"></textarea>
                     </div>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="submit" class="btn btn-warning">Cerrar Caja</button>
+                    <button type="submit" class="btn btn-warning text-dark fw-bold px-4">Cerrar Caja</button>
                 </div>
             </form>
         </div>
@@ -833,49 +806,29 @@ function generarInputs(containerId, moneda) {
     const simbolo = moneda === 'cordobas' ? 'C$' : '$';
     
     lista.forEach(item => {
-        const div = document.createElement('div');
-        div.className = 'denominacion-item-modern list-group-item';
-        div.innerHTML = `
-            <div class="d-flex flex-column flex-sm-row align-items-sm-center justify-content-between gap-2">
-                <div class="d-flex align-items-center gap-3">
-                    <div class="valor-badge">
-                        <i class="bi bi-${moneda === 'cordobas' ? 'cash' : 'currency-dollar'} me-1"></i>
-                        ${simbolo}${item.valor}
+        const col = document.createElement('div');
+        col.className = 'col-md-6 col-sm-12';
+        const isCordobas = moneda === 'cordobas';
+        const badgeBg = isCordobas ? 'bg-primary' : 'bg-success';
+        col.innerHTML = `
+            <div class="card denominacion-card border-0 shadow-sm h-100">
+                <div class="card-body p-3 d-flex flex-column justify-content-between">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <span class="badge valor-badge-modern ${badgeBg} bg-gradient px-3 py-2 fs-6">
+                            <i class="bi bi-${isCordobas ? 'cash-stack' : 'currency-dollar'} me-1"></i>${simbolo}${item.valor}
+                        </span>
+                        <span class="text-secondary small fw-bold text-uppercase">${item.label}</span>
                     </div>
-                    <span class="text-muted small">${item.label}</span>
-                </div>
-                <div class="denominacion-controls w-100 w-sm-auto">
-                    <div class="input-group">
-                        <button class="btn btn-outline-secondary btn-decrement" type="button" data-valor="${item.valor}" data-moneda="${moneda}">
-                            <i class="bi bi-dash"></i>
-                        </button>
-                        <input type="number" class="form-control denominacion-input text-center" 
+                    <div class="d-flex align-items-center justify-content-between gap-2 mt-auto">
+                        <input type="number" class="form-control denominacion-input text-center fw-bold fs-6 py-1" 
                                data-valor="${item.valor}" data-moneda="${moneda}"
-                               min="0" value="0" step="1" style="max-width: 90px;">
-                        <button class="btn btn-outline-secondary btn-increment" type="button" data-valor="${item.valor}" data-moneda="${moneda}">
-                            <i class="bi bi-plus"></i>
-                        </button>
+                               min="0" value="0" step="1" style="max-width: 100px;">
+                        <div class="subtotal-valor text-success font-monospace fw-bold">${simbolo}0.00</div>
                     </div>
-                    <div class="subtotal-valor text-end">${simbolo}0.00</div>
                 </div>
             </div>
         `;
-        container.appendChild(div);
-    });
-    
-    // Event listeners para botones +/-
-    container.querySelectorAll('.btn-increment, .btn-decrement').forEach(btn => {
-        btn.addEventListener('click', function() {
-            const input = this.closest('.denominacion-controls').querySelector('.denominacion-input');
-            let valor = parseInt(input.value) || 0;
-            if (this.classList.contains('btn-increment')) {
-                valor++;
-            } else {
-                valor = Math.max(0, valor - 1);
-            }
-            input.value = valor;
-            input.dispatchEvent(new Event('input'));
-        });
+        container.appendChild(col);
     });
 }
 
@@ -889,8 +842,8 @@ function calcularTotales() {
         const valor = parseFloat(input.dataset.valor);
         totalCordobas += cantidad * valor;
         
-        const subtotalDiv = input.closest('.denominacion-controls')?.querySelector('.subtotal-valor');
-        if (subtotalDiv) subtotalDiv.textContent = `C$${(cantidad * valor).toFixed(2)}`;
+        const subtotalDiv = input.closest('.card-body')?.querySelector('.subtotal-valor');
+        if (subtotalDiv) subtotalDiv.textContent = `C$ ${(cantidad * valor).toFixed(2)}`;
     });
     
     const incluirDolares = document.getElementById('incluirDolaresSwitch');
@@ -902,8 +855,8 @@ function calcularTotales() {
             const valor = parseFloat(input.dataset.valor);
             totalDolares += cantidad * valor;
             
-            const subtotalDiv = input.closest('.denominacion-controls')?.querySelector('.subtotal-valor');
-            if (subtotalDiv) subtotalDiv.textContent = `$${(cantidad * valor).toFixed(2)}`;
+            const subtotalDiv = input.closest('.card-body')?.querySelector('.subtotal-valor');
+            if (subtotalDiv) subtotalDiv.textContent = `$ ${(cantidad * valor).toFixed(2)}`;
         });
         tipoCambio = parseFloat(document.getElementById('tipo-cambio').value) || 36.50;
     }
@@ -1022,7 +975,7 @@ document.getElementById('modalContadorDinero')?.addEventListener('shown.bs.modal
 
 // Validar saldo en salidas
 document.querySelector('form[action*="admin_caja_movimiento"]')?.addEventListener('submit', function(e) {
-    const tipo = document.getElementById('tipo_movimiento')?.value;
+    const tipo = document.querySelector('input[name="tipo_movimiento"]:checked')?.value;
     const monto = parseFloat(document.getElementById('monto_movimiento')?.value) || 0;
     const saldo = parseFloat('{{ caja.saldo_dia|float }}') || 0;
     

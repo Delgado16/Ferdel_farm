@@ -87,7 +87,6 @@ def obtener_metricas_kpis():
         'productos_bajo_stock': productos_bajo_stock
     }
 
-
 def obtener_ventas_mes():
     """Obtiene datos de ventas del mes actual para gráficos"""
     with get_db_cursor() as cursor:
@@ -105,7 +104,6 @@ def obtener_ventas_mes():
         """)
         return cursor.fetchall()
 
-
 def obtener_top_clientes_deudores():
     """Obtiene los 5 clientes con mayor deuda"""
     with get_db_cursor() as cursor:
@@ -122,7 +120,6 @@ def obtener_top_clientes_deudores():
             LIMIT 5
         """)
         return cursor.fetchall()
-
 
 def obtener_productos_bajo_stock():
     """Obtiene productos con stock bajo"""
@@ -142,7 +139,6 @@ def obtener_productos_bajo_stock():
         """)
         return cursor.fetchall()
 
-
 def obtener_gastos_mes():
     """Obtiene gastos del mes por categoría"""
     with get_db_cursor() as cursor:
@@ -160,7 +156,6 @@ def obtener_gastos_mes():
             LIMIT 5
         """)
         return cursor.fetchall()
-
 
 def obtener_ventas_vendedores():
     """Obtiene ventas por vendedor del día actual"""
@@ -181,7 +176,6 @@ def obtener_ventas_vendedores():
         """)
         return cursor.fetchall()
 
-
 def obtener_rutas_activas():
     """Obtiene rutas activas con vendedor y vehículo"""
     with get_db_cursor() as cursor:
@@ -199,7 +193,6 @@ def obtener_rutas_activas():
         """)
         return cursor.fetchall()
 
-
 def obtener_ventas_7dias():
     """Obtiene ventas de los últimos 7 días"""
     with get_db_cursor() as cursor:
@@ -216,7 +209,6 @@ def obtener_ventas_7dias():
         """)
         return cursor.fetchall()
 
-
 def obtener_movimientos_caja():
     """Obtiene movimientos de caja del día actual"""
     with get_db_cursor() as cursor:
@@ -230,7 +222,6 @@ def obtener_movimientos_caja():
             GROUP BY Tipo
         """)
         return cursor.fetchall()
-
 
 def obtener_proximos_vencimientos():
     """Obtiene facturas con próximos vencimientos (7 días)"""
@@ -250,7 +241,6 @@ def obtener_proximos_vencimientos():
             LIMIT 5
         """)
         return cursor.fetchall()
-
 
 def preparar_datos_graficos(ventas_mes, ventas_7dias, gastos_mes, movimientos_caja):
     """Prepara datos JSON para los gráficos del dashboard"""

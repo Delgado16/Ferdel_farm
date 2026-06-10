@@ -80,7 +80,6 @@ def admin_caja():
     
     return render_template('admin/caja/caja.html', caja=datos)
 
-
 @admin_bp.route('/admin/caja/aperturar', methods=['POST'])
 @admin_required
 def admin_caja_aperturar():
@@ -125,7 +124,6 @@ def admin_caja_aperturar():
     except Exception as e:
         flash(f'Error: {str(e)}', 'error')
         return redirect(url_for('admin.admin_caja'))
-
 
 @admin_bp.route('/admin/caja/movimiento', methods=['POST'])
 @admin_required
@@ -184,7 +182,6 @@ def admin_caja_movimiento():
         flash(f'Error: {str(e)}', 'error')
         return redirect(url_for('admin.admin_caja'))
 
-
 @admin_bp.route('/admin/caja/cerrar', methods=['POST'])
 @admin_required
 def admin_caja_cerrar():
@@ -218,7 +215,6 @@ def admin_caja_cerrar():
     except Exception as e:
         flash(f'Error: {str(e)}', 'error')
         return redirect(url_for('admin.admin_caja'))
-
 
 @admin_bp.route('/admin/caja/anular/<int:id_movimiento>', methods=['POST'])
 @admin_required
@@ -260,34 +256,99 @@ def admin_caja_anular(id_movimiento):
         flash(f'Error: {str(e)}', 'error')
         return redirect(url_for('admin.admin_caja'))
 
-
 @admin_bp.route('/admin/caja/historial')
 @admin_required
 def admin_caja_historial():
-    """Muestra historial de movimientos de caja"""
+    """Muestra historial de movimientos de caja con filtro por fecha (hoy por defecto)"""
     try:
+        from datetime import datetime
+        
+        # Obtener fecha del parámetro GET (si no viene, usar hoy)
+        fecha_param = request.args.get('fecha', '')
+        
         with get_db_cursor() as cursor:
+            # Si no se especificó fecha, usar la fecha actual
+            if not fecha_param:
+                cursor.execute("SELECT CURDATE() as hoy")
+                fecha_actual = cursor.fetchone()
+                fecha_param = fecha_actual['hoy'].strftime('%Y-%m-%d')
+            
+            # Validar que la fecha no sea futura
+            fecha_maxima = datetime.now().strftime('%Y-%m-%d')
+            if fecha_param > fecha_maxima:
+                fecha_param = fecha_maxima
+            
+            # Obtener movimientos de la fecha seleccionada
             cursor.execute("""
                 SELECT 
                     ID_Movimiento,
-                    DATE(Fecha) as fecha,
+                    Fecha,
                     Tipo_Movimiento,
                     Descripcion,
                     Monto,
-                    Estado
+                    Estado,
+                    Referencia_Documento,
+                    ID_Factura,
+                    ID_Pagos_cxc
                 FROM caja_movimientos
-                ORDER BY Fecha DESC
-                LIMIT 100
-            """)
+                WHERE DATE(Fecha) = %s
+                ORDER BY Fecha ASC
+            """, (fecha_param,))
             
-            historial = cursor.fetchall()
+            movimientos = cursor.fetchall()
+            
+            # Calcular totales de la fecha seleccionada
+            entradas = sum(m['Monto'] for m in movimientos 
+                          if m['Tipo_Movimiento'] == 'ENTRADA' and m['Estado'] != 'ANULADO')
+            salidas = sum(m['Monto'] for m in movimientos 
+                         if m['Tipo_Movimiento'] == 'SALIDA' and m['Estado'] != 'ANULADO')
+            saldo_dia = entradas - salidas
+            
+            # Contar movimientos
+            total = len([m for m in movimientos if m['Estado'] != 'ANULADO'])
+            total_anulados = len([m for m in movimientos if m['Estado'] == 'ANULADO'])
+            
+            # Obtener fechas disponibles para el selector (últimos 30 días con movimientos)
+            cursor.execute("""
+                SELECT DISTINCT DATE(Fecha) as fecha
+                FROM caja_movimientos
+                ORDER BY fecha DESC
+                LIMIT 30
+            """)
+            fechas_disponibles = cursor.fetchall()
+            
+            # Determinar estado de la caja basado en movimientos (sin tabla caja_estados)
+            # Si hay movimientos de apertura/cierre en la fecha
+            tiene_apertura = any(m.get('Referencia_Documento') == 'APERTURA' for m in movimientos)
+            tiene_cierre = any(m.get('Referencia_Documento') == 'CIERRE' for m in movimientos)
+            
+            if tiene_apertura and not tiene_cierre:
+                estado = 'ABIERTA'
+            elif tiene_apertura and tiene_cierre:
+                estado = 'CERRADA'
+            else:
+                estado = 'SIN APERTURA'
+            
+            # Formatear fecha para mostrar
+            fecha_obj = datetime.strptime(fecha_param, '%Y-%m-%d')
+            fecha_formateada = fecha_obj.strftime('%d/%m/%Y')
         
-        return render_template('admin/caja/historial.html', historial=historial)
+        return render_template('admin/caja/historial.html',
+                             movimientos=movimientos,
+                             fecha=fecha_param,
+                             fecha_formateada=fecha_formateada,
+                             fecha_maxima=fecha_maxima,
+                             fechas_disponibles=fechas_disponibles,
+                             entradas=entradas,
+                             salidas=salidas,
+                             saldo_dia=saldo_dia,
+                             total=total,
+                             total_anulados=total_anulados,
+                             estado=estado)
         
     except Exception as e:
-        flash(f'Error: {str(e)}', 'error')
+        flash(f'Error al cargar historial: {str(e)}', 'error')
         return redirect(url_for('admin.admin_caja'))
-
 
 @admin_bp.route('/admin/caja/reporte')
 @admin_required

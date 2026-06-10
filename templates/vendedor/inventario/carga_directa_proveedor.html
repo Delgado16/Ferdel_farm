@@ -117,11 +117,11 @@
                     </div>
 
                     <!-- ============================================ -->
-                    <!-- DATOS DEL PROVEEDOR -->
+                    <!-- DATOS DEL PROVEEDOR Y COMPRA -->
                     <!-- ============================================ -->
                     <div class="card mb-4">
                         <div class="card-header bg-light">
-                            <h6 class="mb-0"><i class="fas fa-building me-2"></i>Información del Proveedor</h6>
+                            <h6 class="mb-0"><i class="fas fa-building me-2"></i>Información de la Compra</h6>
                         </div>
                         <div class="card-body">
                             <div class="row g-3">
@@ -145,38 +145,6 @@
                                         <option value="CONTADO">Contado</option>
                                         <option value="CREDITO">Crédito</option>
                                     </select>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Campos para crédito (opcional) -->
-                    <div id="camposCredito" class="card mb-4" style="display: none;">
-                        <div class="card-header bg-light">
-                            <h6 class="mb-0"><i class="fas fa-calendar-alt me-2"></i>Condiciones de Crédito (Opcional)</h6>
-                        </div>
-                        <div class="card-body">
-                            <div class="alert alert-info mb-3">
-                                <i class="fas fa-info-circle me-2"></i>
-                                <small>Estos campos son solo de referencia para recordatorio de pago</small>
-                            </div>
-                            <div class="row g-3">
-                                <div class="col-md-6">
-                                    <label class="form-label">
-                                        <i class="far fa-calendar-alt me-1"></i>
-                                        Días de Crédito
-                                    </label>
-                                    <input type="number" name="dias_credito" id="dias_credito" class="form-control" 
-                                           placeholder="Ej: 30" min="1" max="365">
-                                    <small class="text-muted">Opcional: Días para recordatorio</small>
-                                </div>
-                                <div class="col-md-6">
-                                    <label class="form-label">
-                                        <i class="far fa-calendar-check me-1"></i>
-                                        Fecha de Vencimiento
-                                    </label>
-                                    <input type="date" name="fecha_vencimiento" id="fecha_vencimiento" class="form-control">
-                                    <small class="text-muted">Opcional: Fecha estimada de pago</small>
                                 </div>
                             </div>
                         </div>
@@ -360,133 +328,8 @@ function seleccionarTipoCarga(tipo) {
     }
 }
 
-// Inicializar eventos de tipo de carga
-document.addEventListener('DOMContentLoaded', function() {
-    const tarjetas = document.querySelectorAll('.tipo-carga-card');
-    tarjetas.forEach(card => {
-        card.addEventListener('click', function() {
-            const tipo = this.getAttribute('data-tipo');
-            const radio = this.querySelector('input[type="radio"]');
-            if (radio) {
-                radio.checked = true;
-                seleccionarTipoCarga(tipo);
-            }
-        });
-        
-        const radio = card.querySelector('input[type="radio"]');
-        if (radio) {
-            radio.addEventListener('change', function() {
-                if (this.checked) {
-                    seleccionarTipoCarga(this.value);
-                }
-            });
-        }
-    });
-});
-
-// Botón para volver a seleccionar tipo
-const btnVolverTipo = document.getElementById('btnVolverTipo');
-if (btnVolverTipo) {
-    btnVolverTipo.addEventListener('click', function() {
-        const pasoTipoCarga = document.getElementById('pasoTipoCarga');
-        const pasoFormulario = document.getElementById('pasoFormulario');
-        
-        if (pasoTipoCarga) pasoTipoCarga.style.display = 'block';
-        if (pasoFormulario) pasoFormulario.style.display = 'none';
-        tipoCargaSeleccionado = null;
-        
-        const radios = document.querySelectorAll('input[name="tipo_carga_principal"]');
-        radios.forEach(radio => {
-            radio.checked = false;
-        });
-    });
-}
-
 // ============================================
-// MANEJAR CAMPOS DE CRÉDITO
-// ============================================
-function toggleCamposCredito() {
-    const tipoCompra = document.getElementById('tipo_compra');
-    const camposCredito = document.getElementById('camposCredito');
-    
-    if (tipoCompra && camposCredito) {
-        if (tipoCompra.value === 'CREDITO') {
-            camposCredito.style.display = 'block';
-        } else {
-            camposCredito.style.display = 'none';
-            const diasCredito = document.getElementById('dias_credito');
-            const fechaVencimiento = document.getElementById('fecha_vencimiento');
-            if (diasCredito) diasCredito.value = '';
-            if (fechaVencimiento) fechaVencimiento.value = '';
-        }
-    }
-}
-
-// ============================================
-// CARGAR PRODUCTOS DESDE API
-// ============================================
-async function cargarProductosDesdeAPI() {
-    const loader = document.getElementById('loaderProductos');
-    const errorDiv = document.getElementById('errorProductos');
-    
-    console.log('Cargando productos desde API...');
-    
-    if (!loader) {
-        console.error('Loader no encontrado');
-        return;
-    }
-    
-    try {
-        const response = await fetch('/vendedor/api/productos');
-        const data = await response.json();
-        
-        console.log('Respuesta API:', data);
-        
-        if (data.success && data.productos && data.productos.length > 0) {
-            productosAPI = data.productos;
-            productosCargados = true;
-            
-            console.log(`✅ Productos cargados: ${productosAPI.length}`);
-            
-            loader.style.display = 'none';
-            const tablaDesktop = document.getElementById('tablaDesktop');
-            const vistaMovil = document.getElementById('vistaMovil');
-            
-            if (tablaDesktop) tablaDesktop.style.display = '';
-            if (vistaMovil) vistaMovil.style.display = '';
-            
-            const btnAgregarProducto = document.getElementById('btnAgregarProducto');
-            const btnAgregarProductoMovil = document.getElementById('btnAgregarProductoMovil');
-            const btnSubmit = document.getElementById('btnSubmit');
-            
-            if (btnAgregarProducto) btnAgregarProducto.disabled = false;
-            if (btnAgregarProductoMovil) btnAgregarProductoMovil.disabled = false;
-            if (btnSubmit) btnSubmit.disabled = false;
-            
-            // Agregar fila inicial
-            agregarFilaProducto();
-            agregarProductoMovil();
-            
-        } else {
-            console.error('❌ No se encontraron productos:', data);
-            if (loader) loader.style.display = 'none';
-            if (errorDiv) {
-                errorDiv.classList.remove('d-none');
-                errorDiv.innerHTML = '<i class="fas fa-exclamation-triangle me-2"></i> No hay productos activos disponibles. Contacte al administrador.';
-            }
-        }
-    } catch (error) {
-        console.error('❌ Error al cargar productos:', error);
-        if (loader) loader.style.display = 'none';
-        if (errorDiv) {
-            errorDiv.classList.remove('d-none');
-            errorDiv.innerHTML = '<i class="fas fa-times-circle me-2"></i> Error al cargar productos: ' + error.message;
-        }
-    }
-}
-
-// ============================================
-// FUNCIONES PARA DESKTOP
+// FUNCIONES PARA DESKTOP Y MÓVIL (productos)
 // ============================================
 
 function generarSelectProductos() {
@@ -904,7 +747,70 @@ function mostrarError(mensaje) {
 }
 
 // ============================================
-// VALIDACIÓN DEL FORMULARIO (CORREGIDA)
+// CARGAR PRODUCTOS DESDE API
+// ============================================
+async function cargarProductosDesdeAPI() {
+    const loader = document.getElementById('loaderProductos');
+    const errorDiv = document.getElementById('errorProductos');
+    
+    console.log('Cargando productos desde API...');
+    
+    if (!loader) {
+        console.error('Loader no encontrado');
+        return;
+    }
+    
+    try {
+        const response = await fetch('/vendedor/api/productos');
+        const data = await response.json();
+        
+        console.log('Respuesta API:', data);
+        
+        if (data.success && data.productos && data.productos.length > 0) {
+            productosAPI = data.productos;
+            productosCargados = true;
+            
+            console.log(`✅ Productos cargados: ${productosAPI.length}`);
+            
+            loader.style.display = 'none';
+            const tablaDesktop = document.getElementById('tablaDesktop');
+            const vistaMovil = document.getElementById('vistaMovil');
+            
+            if (tablaDesktop) tablaDesktop.style.display = '';
+            if (vistaMovil) vistaMovil.style.display = '';
+            
+            const btnAgregarProducto = document.getElementById('btnAgregarProducto');
+            const btnAgregarProductoMovil = document.getElementById('btnAgregarProductoMovil');
+            const btnSubmit = document.getElementById('btnSubmit');
+            
+            if (btnAgregarProducto) btnAgregarProducto.disabled = false;
+            if (btnAgregarProductoMovil) btnAgregarProductoMovil.disabled = false;
+            if (btnSubmit) btnSubmit.disabled = false;
+            
+            // Agregar fila inicial
+            agregarFilaProducto();
+            agregarProductoMovil();
+            
+        } else {
+            console.error('❌ No se encontraron productos:', data);
+            if (loader) loader.style.display = 'none';
+            if (errorDiv) {
+                errorDiv.classList.remove('d-none');
+                errorDiv.innerHTML = '<i class="fas fa-exclamation-triangle me-2"></i> No hay productos activos disponibles. Contacte al administrador.';
+            }
+        }
+    } catch (error) {
+        console.error('❌ Error al cargar productos:', error);
+        if (loader) loader.style.display = 'none';
+        if (errorDiv) {
+            errorDiv.classList.remove('d-none');
+            errorDiv.innerHTML = '<i class="fas fa-times-circle me-2"></i> Error al cargar productos: ' + error.message;
+        }
+    }
+}
+
+// ============================================
+// VALIDACIÓN DEL FORMULARIO
 // ============================================
 const formCargaDirecta = document.getElementById('formCargaDirecta');
 if (formCargaDirecta) {
@@ -937,9 +843,7 @@ if (formCargaDirecta) {
             console.log('❌ Error: Factura no ingresada');
         }
         
-        // ============================================
-        // VALIDACIÓN DE PRODUCTOS MEJORADA
-        // ============================================
+        // Validar productos
         let productosValidos = 0;
         
         // Buscar productos en la vista DESKTOP
@@ -1034,12 +938,44 @@ document.addEventListener('DOMContentLoaded', function() {
         console.log('✅ Botón agregar móvil configurado');
     }
     
-    // Configurar campos de crédito
-    const tipoCompra = document.getElementById('tipo_compra');
-    if (tipoCompra) {
-        tipoCompra.addEventListener('change', toggleCamposCredito);
-        toggleCamposCredito();
-        console.log('✅ Campos de crédito configurados');
+    // Inicializar tarjetas de tipo de carga
+    const tarjetas = document.querySelectorAll('.tipo-carga-card');
+    tarjetas.forEach(card => {
+        card.addEventListener('click', function() {
+            const tipo = this.getAttribute('data-tipo');
+            const radio = this.querySelector('input[type="radio"]');
+            if (radio) {
+                radio.checked = true;
+                seleccionarTipoCarga(tipo);
+            }
+        });
+        
+        const radio = card.querySelector('input[type="radio"]');
+        if (radio) {
+            radio.addEventListener('change', function() {
+                if (this.checked) {
+                    seleccionarTipoCarga(this.value);
+                }
+            });
+        }
+    });
+    
+    // Botón para volver a seleccionar tipo
+    const btnVolverTipo = document.getElementById('btnVolverTipo');
+    if (btnVolverTipo) {
+        btnVolverTipo.addEventListener('click', function() {
+            const pasoTipoCarga = document.getElementById('pasoTipoCarga');
+            const pasoFormulario = document.getElementById('pasoFormulario');
+            
+            if (pasoTipoCarga) pasoTipoCarga.style.display = 'block';
+            if (pasoFormulario) pasoFormulario.style.display = 'none';
+            tipoCargaSeleccionado = null;
+            
+            const radios = document.querySelectorAll('input[name="tipo_carga_principal"]');
+            radios.forEach(radio => {
+                radio.checked = false;
+            });
+        });
     }
     
     // Cargar productos desde API

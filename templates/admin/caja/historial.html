@@ -97,6 +97,7 @@
         font-weight: 600;
         padding: 12px 10px;
         border: none;
+        white-space: nowrap;
     }
     
     .table tbody tr:hover {
@@ -176,12 +177,6 @@
         animation: fadeInUp 0.3s ease-out;
     }
     
-    /* Tooltips */
-    .fecha-badge[title] {
-        position: relative;
-        cursor: help;
-    }
-    
     /* Mejoras de impresión */
     @media print {
         .no-print {
@@ -229,12 +224,12 @@
         </div>
 
         <div class="card-body p-4">
-            <!-- Formulario de búsqueda -->
+            <!-- Formulario de búsqueda por fecha -->
             <form method="GET" class="mb-4 no-print">
                 <div class="row g-3">
                     <div class="col-12 col-sm-6 col-md-3">
                         <label class="form-label fw-semibold">
-                            <i class="bi bi-calendar3 me-1"></i>Fecha
+                            <i class="bi bi-calendar3 me-1"></i>Seleccionar Fecha
                         </label>
                         <input type="date" 
                                class="form-control" 
@@ -248,33 +243,33 @@
                         <label class="form-label fw-semibold">&nbsp;</label>
                         <button type="submit" class="btn btn-primary w-100">
                             <i class="bi bi-search me-1"></i>
-                            <span class="d-none d-sm-inline">Buscar</span>
+                            <span class="d-none d-sm-inline">Ver Fecha</span>
+                            <span class="d-inline d-sm-none">Buscar</span>
                         </button>
                     </div>
                     
                     <div class="col-6 col-sm-3 col-md-2">
                         <label class="form-label fw-semibold">&nbsp;</label>
-                        <a href="{{ url_for('admin.admin_caja_historial') }}" class="btn btn-secondary w-100">
+                        <a href="{{ url_for('admin.admin_caja_historial') }}" class="btn btn-success w-100">
                             <i class="bi bi-calendar-today me-1"></i>
-                            <span class="d-none d-sm-inline">Hoy</span>
+                            <span class="d-none d-sm-inline">Volver a Hoy</span>
+                            <span class="d-inline d-sm-none">Hoy</span>
                         </a>
                     </div>
                     
                     <div class="col-12 col-md-5">
                         <label class="form-label fw-semibold">
-                            <i class="bi bi-calendar-week me-1"></i>Fechas disponibles
+                            <i class="bi bi-calendar-week me-1"></i>Fechas con movimientos
                         </label>
                         <div class="fechas-container">
                             <div class="d-flex flex-wrap gap-2">
                                 {% for fecha_item in fechas_disponibles %}
                                     {% if fecha_item.fecha %}
-                                        {% set fecha_obj = fecha_item.fecha|string %}
-                                        {% set fecha_mostrar = fecha_obj[:10] if fecha_obj|length > 10 else fecha_obj %}
-                                        <a href="{{ url_for('admin.admin_caja_historial', fecha=fecha_obj) }}" 
-                                           class="fecha-badge {% if fecha == fecha_obj %}active{% endif %}"
-                                           title="{{ fecha_obj }}">
+                                        {% set fecha_str = fecha_item.fecha.strftime('%Y-%m-%d') if fecha_item.fecha is not string else fecha_item.fecha %}
+                                        <a href="{{ url_for('admin.admin_caja_historial', fecha=fecha_str) }}" 
+                                           class="fecha-badge {% if fecha == fecha_str %}active{% endif %}">
                                             <i class="bi bi-calendar3 me-1"></i>
-                                            {{ fecha_mostrar }}
+                                            {{ fecha_str }}
                                         </a>
                                     {% endif %}
                                 {% endfor %}
@@ -291,7 +286,7 @@
                         <h6 class="mb-1">
                             <i class="bi bi-calendar-day me-1"></i>Fecha
                         </h6>
-                        <h4 class="mb-0">{{ fecha_formateada[:10] }}</h4>
+                        <h4 class="mb-0">{{ fecha_formateada }}</h4>
                     </div>
                 </div>
                 <div class="col-6 col-md-3">
@@ -329,7 +324,7 @@
                         {% if total_anulados|default(0) > 0 %}
                             y <strong>{{ total_anulados|default(0) }}</strong> anulado{{ 's' if total_anulados|default(0) != 1 else '' }}
                         {% endif %}
-                        encontrado{{ 's' if (total|default(0) + total_anulados|default(0)) != 1 else '' }}
+                        encontrado{{ 's' if (total|default(0) + total_anulados|default(0)) != 1 else '' }} para el {{ fecha_formateada }}
                     </div>
                     <div class="d-flex gap-2">
                         <span class="badge bg-success bg-opacity-25 text-success px-3 py-2">
@@ -363,7 +358,15 @@
                             {% for mov in movimientos %}
                             <tr class="{% if mov.Estado == 'ANULADO' %}opacity-75{% endif %}">
                                 <td class="font-monospace fw-medium">
-                                    {{ mov.Fecha|format_hora if mov.Fecha else '--:--' }}
+                                    {% if mov.Fecha %}
+                                        {% if mov.Fecha is string %}
+                                            {{ mov.Fecha[11:16] if mov.Fecha|length > 16 else '--:--' }}
+                                        {% else %}
+                                            {{ mov.Fecha.strftime('%H:%M') }}
+                                        {% endif %}
+                                    {% else %}
+                                        --:--
+                                    {% endif %}
                                 </td>
                                 <td>
                                     {% if mov.Estado == 'ANULADO' %}
@@ -505,11 +508,13 @@
                     </button>
                 </div>
                 <div class="d-flex gap-2">
+                    {% if fecha %}
                     <a href="{{ url_for('admin.admin_caja_reporte') }}?fecha={{ fecha }}" class="btn btn-outline-success">
                         <i class="bi bi-bar-chart me-1"></i>
                         <span class="d-none d-sm-inline">Ver Reporte</span>
                         <span class="d-inline d-sm-none">Reporte</span>
                     </a>
+                    {% endif %}
                     <a href="{{ url_for('admin.admin_caja') }}" class="btn btn-primary">
                         <i class="bi bi-cash-stack me-1"></i>
                         <span class="d-none d-sm-inline">Ir a Caja Principal</span>
@@ -525,7 +530,7 @@
 {% block extra_js %}
 <script>
 $(document).ready(function() {
-    // Configurar fecha máxima
+    // Configurar fecha máxima (no permitir fechas futuras)
     const hoy = new Date();
     const fechaMax = hoy.toISOString().split('T')[0];
     const fechaInput = $('#fechaInput');
@@ -533,20 +538,15 @@ $(document).ready(function() {
     if (fechaInput.length) {
         fechaInput.attr('max', fechaMax);
         
-        // Si no hay valor o es inválido, establecer hoy
-        if (!fechaInput.val() || fechaInput.val() > fechaMax) {
-            fechaInput.val(fechaMax);
-        }
-        
-        // Validar fecha futura
+        // Validar que no se seleccione fecha futura
         fechaInput.on('change', function() {
             if ($(this).val() > fechaMax) {
-                Swal.fire?.({
+                Swal.fire({
                     icon: 'warning',
                     title: 'Fecha no válida',
                     text: 'No puedes seleccionar una fecha futura',
                     confirmButtonColor: '#6a11cb'
-                }) || alert('❌ No puedes seleccionar una fecha futura');
+                });
                 $(this).val(fechaMax);
             }
         });
@@ -573,18 +573,14 @@ $(document).ready(function() {
         });
     }
     
-    // Cerrar alertas automáticamente
-    $('.alert-info').delay(5000).fadeOut(300, function() {
-        $(this).alert?.('close');
-    });
+    // Cerrar alertas automáticamente después de 5 segundos
+    setTimeout(function() {
+        $('.alert-info').fadeOut(300, function() {
+            $(this).alert('close');
+        });
+    }, 5000);
     
-    // Efecto hover en filas de tabla
-    $('.table tbody tr').hover(
-        function() { $(this).css('cursor', 'pointer'); },
-        function() { $(this).css('cursor', 'default'); }
-    );
-    
-    console.log('Historial de caja cargado - Versión optimizada con Bootstrap Icons');
+    console.log('Historial de caja cargado - Mostrando: {{ fecha_formateada }}');
 });
 </script>
 {% endblock %}

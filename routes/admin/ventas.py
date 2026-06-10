@@ -2,7 +2,7 @@ from decimal import Decimal
 import traceback
 from flask import render_template, redirect, session, url_for, request, flash, jsonify
 from flask_login import current_user, login_required
-from datetime import date, datetime
+from datetime import date, datetime, time, timedelta
 from config.database import get_db_cursor
 from auth.decorators import admin_required, admin_or_bodega_required
 from . import admin_bp
@@ -4813,9 +4813,6 @@ def distribuir_carga(id_pedido):
     """
     try:
         with get_db_cursor(True) as cursor:
-            # ============================================
-            # 1. OBTENER DATOS DEL PEDIDO
-            # ============================================
             cursor.execute("""
                 SELECT 
                     p.ID_Pedido,
@@ -4901,9 +4898,6 @@ def procesar_carga_consolidada(id_pedido):
     - SOLO CAMBIA EL ESTADO, NO ELIMINA DATOS
     """
     try:
-        # ============================================
-        # 1. OBTENER DATOS DEL FORMULARIO
-        # ============================================
         distribucion = []
         index = 0
         
@@ -7013,7 +7007,6 @@ def api_productos_consolidados(id_pedido):
         }), 500
 
 ## ASIGNACION RUTAS
-# Rutas para asignación de rutas
 @admin_bp.route('/admin/catalogos/rutas/asignacion')
 @admin_required
 def admin_asignacion_rutas():
@@ -7055,6 +7048,7 @@ def admin_asignacion_rutas():
                 LEFT JOIN usuarios ua ON a.ID_Usuario_Asigna = ua.ID_Usuario
                 WHERE a.ID_Empresa = %s
                 ORDER BY a.Fecha_Asignacion DESC, a.Estado
+                LIMIT 10
             """, (empresa_id,))
             asignaciones_raw = cursor.fetchall()
             
@@ -7695,7 +7689,9 @@ def api_asignaciones_vendedor(id_vendedor):
         
     except Exception as e:
         return jsonify({'error': str(e)}), 500
-    
+
+#VENTAS Y FACTURACION
+
 @admin_bp.route('/admin/facturas/ventas', methods=['GET'])
 @admin_required
 @bitacora_decorator("FACTURAS_VENTAS")

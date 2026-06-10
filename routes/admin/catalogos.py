@@ -3618,4 +3618,3 @@ def cambiar_estado_vehiculo(id):
     except Exception as e:
         flash(f'Error al cambiar estado del vehículo: {str(e)}', 'error')
         return redirect(url_for('admin.admin_vehiculos'))
- 
