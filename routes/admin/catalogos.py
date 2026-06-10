@@ -188,7 +188,7 @@ def admin_usuarios():
             cursor.execute("""
                 SELECT u.*, r.Nombre_Rol as Rol, e.Nombre_Empresa FROM usuarios u
                 JOIN roles r ON u.ID_Rol = r.ID_Rol
-                JOIN Empresa e ON u.ID_Empresa = e.ID_Empresa
+                JOIN empresa e ON u.ID_Empresa = e.ID_Empresa
             """)
             usuarios = cursor.fetchall()
             
@@ -242,7 +242,7 @@ def editar_usuario(user_id):
                     SELECT u.*, r.Nombre_Rol as Rol, e.Nombre_Empresa 
                     FROM usuarios u
                     JOIN roles r ON u.ID_Rol = r.ID_Rol
-                    JOIN Empresa e ON u.ID_Empresa = e.ID_Empresa
+                    JOIN empresa e ON u.ID_Empresa = e.ID_Empresa
                     WHERE u.ID_Usuario = %s
                 """, (user_id,))
                 usuario = cursor.fetchone()
