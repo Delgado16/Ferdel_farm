@@ -2978,7 +2978,7 @@ def admin_anticipo_entregas():
                 LEFT JOIN usuarios u ON e.ID_Usuario = u.ID_Usuario
                 WHERE e.Usa_Anticipo = 1
                 ORDER BY e.Fecha_Entrega DESC
-                LIMIT 50
+                LIMIT 10
             """)
             entregas_recientes = cursor.fetchall()
             
@@ -5196,16 +5196,38 @@ def procesar_carga_consolidada(id_pedido):
 def admin_pedidos_venta():
     """
     Listado principal de pedidos (individuales y consolidados)
-    Los precios se calculan según:
-    - Individuales: usando CASE con perfil_cliente para elegir el precio correcto
-    - Consolidados: siempre usan Precio_Ruta
     """
     try:
         with get_db_cursor(True) as cursor:
-            # Obtener el rol del usuario actual
-            es_rol_bodega = current_user.rol == 'Bodega'
+            # 🔑 OBTENER EL ROL DEL USUARIO ACTUAL DESDE LA BASE DE DATOS
+            # Usar el ID correcto - normalmente es 'id' o 'get_id()'
+            user_id = current_user.get_id() if hasattr(current_user, 'get_id') else current_user.id
             
-            # CONSULTA QUE USA perfil_cliente PARA ELEGIR EL PRECIO CORRECTO
+            print(f"🔍 Debug - User ID: {user_id}")
+            print(f"🔍 Debug - Current User atributos: {dir(current_user)}")
+            
+            cursor.execute("""
+                SELECT r.Nombre_Rol 
+                FROM usuarios u
+                INNER JOIN roles r ON u.ID_Rol = r.ID_Rol
+                WHERE u.ID_Usuario = %s
+            """, (user_id,))
+            
+            rol_result = cursor.fetchone()
+            
+            if not rol_result:
+                flash("Error: No se pudo determinar el rol del usuario", "error")
+                return redirect(url_for('admin.admin_dashboard'))
+            
+            # Determinar si es Bodega
+            es_rol_bodega = (rol_result['Nombre_Rol'] == 'Bodega')
+            
+            # DEBUG
+            print(f"🔍 Usuario ID: {user_id}")
+            print(f"🔍 Rol obtenido: {rol_result['Nombre_Rol']}")
+            print(f"🔍 ¿Es rol bodega? {es_rol_bodega}")
+            
+            # CONSULTA PRINCIPAL
             sql = """
             SELECT 
                 p.ID_Pedido,
@@ -5230,7 +5252,6 @@ def admin_pedidos_venta():
                 c.Estado as Estado_Cliente,
                 e.Nombre_Empresa,
                 u.NombreUsuario as Usuario_Creacion,
-                -- Calcular Total_Items según tipo de pedido
                 CASE 
                     WHEN p.Tipo_Pedido = 'Consolidado' THEN (
                         SELECT COALESCE(SUM(pcp.Cantidad_Total), 0)
@@ -5239,30 +5260,26 @@ def admin_pedidos_venta():
                     )
                     ELSE COALESCE(SUM(dp.Cantidad), 0)
                 END as Total_Items,
-                -- Calcular Total_Pedido según tipo de pedido y PERFIL DEL CLIENTE
                 CASE 
                     WHEN p.Tipo_Pedido = 'Consolidado' THEN (
-                        -- CONSOLIDADOS: siempre usan Precio_Ruta
-                        SELECT COALESCE(SUM(pcp.Cantidad_Total * pr.Precio_Ruta), 0)
+                        SELECT COALESCE(SUM(pcp.Cantidad_Total * pr2.Precio_Ruta), 0)
                         FROM pedidos_consolidados_productos pcp
-                        LEFT JOIN productos pr ON pcp.ID_Producto = pr.ID_Producto
+                        LEFT JOIN productos pr2 ON pcp.ID_Producto = pr2.ID_Producto
                         WHERE pcp.ID_Pedido = p.ID_Pedido
                     )
                     ELSE COALESCE(SUM(
-                        -- INDIVIDUALES: usan precio según perfil_cliente
                         dp.Cantidad * 
                         CASE c.perfil_cliente
                             WHEN 'Ruta' THEN pr.Precio_Ruta
                             WHEN 'Mayorista' THEN pr.Precio_Mayorista
                             WHEN 'Mercado' THEN pr.Precio_Mercado
-                            WHEN 'Especial' THEN pr.Precio_Mercado  -- Especial usa precio de mercado por defecto
+                            WHEN 'Especial' THEN pr.Precio_Mercado
                             ELSE pr.Precio_Mercado
                         END
                     ), 0)
                 END as Total_Pedido,
-                -- Contador de items
                 COUNT(DISTINCT CASE 
-                    WHEN p.Tipo_Pedido = 'Consolidado' THEN pcp.ID_Pedido_Consolidado_Producto 
+                    WHEN p.Tipo_Pedido = 'Consolidado' THEN pcp2.ID_Pedido_Consolidado_Producto 
                     ELSE dp.ID_Detalle_Pedido 
                 END) as Numero_Items
             FROM pedidos p
@@ -5271,17 +5288,19 @@ def admin_pedidos_venta():
             LEFT JOIN usuarios u ON p.ID_Usuario_Creacion = u.ID_Usuario
             LEFT JOIN rutas r ON p.ID_Ruta = r.ID_Ruta
             LEFT JOIN detalle_pedidos dp ON p.ID_Pedido = dp.ID_Pedido AND p.Tipo_Pedido != 'Consolidado'
-            LEFT JOIN pedidos_consolidados_productos pcp ON p.ID_Pedido = pcp.ID_Pedido AND p.Tipo_Pedido = 'Consolidado'
-            LEFT JOIN productos pr ON COALESCE(dp.ID_Producto, pcp.ID_Producto) = pr.ID_Producto
+            LEFT JOIN productos pr ON dp.ID_Producto = pr.ID_Producto
+            LEFT JOIN pedidos_consolidados_productos pcp2 ON p.ID_Pedido = pcp2.ID_Pedido AND p.Tipo_Pedido = 'Consolidado'
             WHERE 1=1
             """
             
-            # Filtro para clientes activos (solo aplica cuando hay cliente)
+            # Filtro para clientes activos
             sql += " AND (c.ID_Cliente IS NULL OR c.Estado = 'ACTIVO')"
             
-            # Si es rol Bodega, filtrar solo pedidos del día actual
+            # 🎯 APLICAR FILTRO SEGÚN EL ROL
             if es_rol_bodega:
-                sql += " AND DATE(p.Fecha) = CURDATE()"
+                # Mostrar pedidos de los últimos 7 días para Bodega
+                sql += " AND DATE(p.Fecha) >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)"
+                print("⚠️ Aplicando filtro: Mostrando pedidos de los últimos 7 días para Bodega")
             
             # Group by y Order by
             sql += """
@@ -5292,12 +5311,6 @@ def admin_pedidos_venta():
                 c.ID_Cliente, c.Nombre, c.Telefono, c.Direccion, c.RUC_CEDULA,
                 c.tipo_cliente, c.perfil_cliente, c.Estado, e.Nombre_Empresa, u.NombreUsuario
             ORDER BY 
-                CASE 
-                    WHEN p.Prioridad = 'Urgente' THEN 1
-                    WHEN p.Prioridad = 'Normal' THEN 2
-                    WHEN p.Prioridad = 'Bajo' THEN 3
-                    ELSE 4
-                END,
                 p.Fecha DESC,
                 p.ID_Pedido DESC
             """
@@ -5305,14 +5318,17 @@ def admin_pedidos_venta():
             cursor.execute(sql)
             pedidos = cursor.fetchall()
             
-            # Debug - imprimir cantidad de pedidos encontrados
+            # DEBUG
             print(f"📊 Total pedidos encontrados: {len(pedidos)}")
-            consolidados = [p for p in pedidos if p.get('Tipo_Pedido') == 'Consolidado']
-            print(f"   - Individuales: {len(pedidos) - len(consolidados)}")
-            print(f"   - Consolidados: {len(consolidados)}")
+            if pedidos:
+                for idx, pedido in enumerate(pedidos[:3]):
+                    print(f"   Pedido {idx+1}: ID={pedido.get('ID_Pedido')}, Fecha={pedido.get('Fecha')}")
             
             # Obtener opciones de filtro
             estados = ['Pendiente', 'Aprobado', 'Entregado', 'Cancelado']
+            if es_rol_bodega:
+                estados.insert(2, 'En Proceso')
+            
             tipos_entrega = ['Retiro en local', 'Entrega a domicilio']
             tipos_cliente = ['Comun', 'Especial']
             prioridades = ['Urgente', 'Normal', 'Bajo']
@@ -5320,7 +5336,7 @@ def admin_pedidos_venta():
             opciones_ruta = ['SI', 'NO']
             perfiles_cliente = ['Ruta', 'Mayorista', 'Mercado', 'Especial']
             
-            # Obtener lista de rutas para filtros
+            # Obtener lista de rutas
             cursor.execute("""
                 SELECT ID_Ruta, Nombre_Ruta 
                 FROM rutas 
@@ -5329,23 +5345,17 @@ def admin_pedidos_venta():
             """)
             rutas = cursor.fetchall()
             
-            # Estadísticas para Bodega
+            # Estadísticas
             stats = None
-            if es_rol_bodega:
-                estados.insert(2, 'En Proceso')
+            if es_rol_bodega and pedidos:
                 fecha_hoy = datetime.now().strftime('%Y-%m-%d')
                 pedidos_hoy = [p for p in pedidos if p.get('Fecha') and p['Fecha'].strftime('%Y-%m-%d') == fecha_hoy]
-                urgentes_hoy = [p for p in pedidos_hoy if p.get('Prioridad') == 'Urgente']
-                aprobados_hoy = [p for p in pedidos_hoy if p.get('Estado') == 'Aprobado']
-                pendientes_hoy = [p for p in pedidos_hoy if p.get('Estado') == 'Pendiente']
-                consolidados_hoy = [p for p in pedidos_hoy if p.get('Tipo_Pedido') == 'Consolidado']
-                
                 stats = {
                     'total_hoy': len(pedidos_hoy),
-                    'urgentes_hoy': len(urgentes_hoy),
-                    'aprobados_hoy': len(aprobados_hoy),
-                    'pendientes_hoy': len(pendientes_hoy),
-                    'consolidados_hoy': len(consolidados_hoy),
+                    'urgentes_hoy': len([p for p in pedidos_hoy if p.get('Prioridad') == 'Urgente']),
+                    'aprobados_hoy': len([p for p in pedidos_hoy if p.get('Estado') == 'Aprobado']),
+                    'pendientes_hoy': len([p for p in pedidos_hoy if p.get('Estado') == 'Pendiente']),
+                    'consolidados_hoy': len([p for p in pedidos_hoy if p.get('Tipo_Pedido') == 'Consolidado']),
                     'fecha_hoy': fecha_hoy
                 }
             
@@ -5361,6 +5371,7 @@ def admin_pedidos_venta():
                                  perfiles_cliente=perfiles_cliente,
                                  es_rol_bodega=es_rol_bodega,
                                  stats=stats,
+                                 filtros_aplicados=None,
                                  now=datetime.now())
             
     except Exception as e:
@@ -5370,82 +5381,106 @@ def admin_pedidos_venta():
         return redirect(url_for('admin.admin_dashboard'))
 
 @admin_bp.route('/admin/ventas/pedidos-venta/filtrar', methods=['POST'])
+@admin_or_bodega_required
+@bitacora_decorator("FILTRAR-PEDIDOS-VENTA")
 def filtrar_pedidos():
     """
     Filtro avanzado para el listado de pedidos
-    Incluye filtro por perfil_cliente
     """
     try:
-        estado = request.form.get('estado', 'todos')
-        fecha_inicio = request.form.get('fecha_inicio')
-        fecha_fin = request.form.get('fecha_fin')
-        tipo_entrega = request.form.get('tipo_entrega', 'todos')
-        tipo_cliente = request.form.get('tipo_cliente', 'todos')
-        prioridad = request.form.get('prioridad', 'todos')
-        tipo_pedido = request.form.get('tipo_pedido', 'todos')
-        es_pedido_ruta = request.form.get('es_pedido_ruta', 'todos')
-        id_ruta = request.form.get('id_ruta', 'todos')
-        perfil_cliente = request.form.get('perfil_cliente', 'todos')
-        documento_cliente = request.form.get('documento_cliente', '').strip()
-        nombre_cliente = request.form.get('nombre_cliente', '').strip()
-        
-        condiciones = ["(c.ID_Cliente IS NULL OR c.Estado = 'ACTIVO')"]
-        parametros = []
-        
-        if estado != 'todos':
-            condiciones.append("p.Estado = %s")
-            parametros.append(estado)
-        
-        if fecha_inicio:
-            condiciones.append("p.Fecha >= %s")
-            parametros.append(fecha_inicio)
-        
-        if fecha_fin:
-            condiciones.append("p.Fecha <= %s")
-            parametros.append(fecha_fin)
-        
-        if tipo_entrega != 'todos':
-            condiciones.append("p.Tipo_Entrega = %s")
-            parametros.append(tipo_entrega)
-        
-        if tipo_cliente != 'todos':
-            condiciones.append("c.tipo_cliente = %s")
-            parametros.append(tipo_cliente)
-        
-        if perfil_cliente != 'todos':
-            condiciones.append("c.perfil_cliente = %s")
-            parametros.append(perfil_cliente)
-        
-        if prioridad != 'todos':
-            condiciones.append("p.Prioridad = %s")
-            parametros.append(prioridad)
-        
-        if tipo_pedido != 'todos':
-            condiciones.append("p.Tipo_Pedido = %s")
-            parametros.append(tipo_pedido)
-        
-        if es_pedido_ruta != 'todos':
-            condiciones.append("p.Es_Pedido_Ruta = %s")
-            parametros.append(es_pedido_ruta)
-        
-        if id_ruta != 'todos':
-            condiciones.append("p.ID_Ruta = %s")
-            parametros.append(id_ruta)
-        
-        if documento_cliente:
-            condiciones.append("c.RUC_CEDULA LIKE %s")
-            parametros.append(f"%{documento_cliente}%")
-        
-        if nombre_cliente:
-            condiciones.append("c.Nombre LIKE %s")
-            parametros.append(f"%{nombre_cliente}%")
-        
         with get_db_cursor(True) as cursor:
-            # Obtener lista de rutas para el select
-            cursor.execute("SELECT ID_Ruta, Nombre_Ruta FROM rutas WHERE Estado = 1 ORDER BY Nombre_Ruta")
-            rutas = cursor.fetchall()
+            # 🔑 OBTENER EL ROL DEL USUARIO ACTUAL
+            # Usar el ID correcto
+            user_id = current_user.get_id() if hasattr(current_user, 'get_id') else current_user.id
             
-            sql_base = """
+            cursor.execute("""
+                SELECT r.Nombre_Rol 
+                FROM usuarios u
+                INNER JOIN roles r ON u.ID_Rol = r.ID_Rol
+                WHERE u.ID_Usuario = %s
+            """, (user_id,))
+            
+            rol_result = cursor.fetchone()
+            
+            if not rol_result:
+                flash("Error: No se pudo determinar el rol del usuario", "error")
+                return redirect(url_for('admin.admin_pedidos_venta'))
+            
+            es_rol_bodega = (rol_result['Nombre_Rol'] == 'Bodega')
+            
+            # Obtener parámetros del formulario
+            estado = request.form.get('estado', 'todos')
+            fecha_inicio = request.form.get('fecha_inicio')
+            fecha_fin = request.form.get('fecha_fin')
+            tipo_entrega = request.form.get('tipo_entrega', 'todos')
+            tipo_cliente = request.form.get('tipo_cliente', 'todos')
+            prioridad = request.form.get('prioridad', 'todos')
+            tipo_pedido = request.form.get('tipo_pedido', 'todos')
+            es_pedido_ruta = request.form.get('es_pedido_ruta', 'todos')
+            id_ruta = request.form.get('id_ruta', 'todos')
+            perfil_cliente = request.form.get('perfil_cliente', 'todos')
+            documento_cliente = request.form.get('documento_cliente', '').strip()
+            nombre_cliente = request.form.get('nombre_cliente', '').strip()
+            
+            # Construir condiciones
+            condiciones = ["(c.ID_Cliente IS NULL OR c.Estado = 'ACTIVO')"]
+            parametros = []
+            
+            # Si es rol Bodega y NO se aplicaron filtros de fecha, filtrar últimos 7 días
+            if es_rol_bodega and not fecha_inicio and not fecha_fin:
+                condiciones.append("DATE(p.Fecha) >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)")
+            
+            # Aplicar filtros
+            if estado != 'todos':
+                condiciones.append("p.Estado = %s")
+                parametros.append(estado)
+            
+            if fecha_inicio:
+                condiciones.append("DATE(p.Fecha) >= %s")
+                parametros.append(fecha_inicio)
+            
+            if fecha_fin:
+                condiciones.append("DATE(p.Fecha) <= %s")
+                parametros.append(fecha_fin)
+            
+            if tipo_entrega != 'todos':
+                condiciones.append("p.Tipo_Entrega = %s")
+                parametros.append(tipo_entrega)
+            
+            if tipo_cliente != 'todos':
+                condiciones.append("c.tipo_cliente = %s")
+                parametros.append(tipo_cliente)
+            
+            if perfil_cliente != 'todos':
+                condiciones.append("c.perfil_cliente = %s")
+                parametros.append(perfil_cliente)
+            
+            if prioridad != 'todos':
+                condiciones.append("p.Prioridad = %s")
+                parametros.append(prioridad)
+            
+            if tipo_pedido != 'todos':
+                condiciones.append("p.Tipo_Pedido = %s")
+                parametros.append(tipo_pedido)
+            
+            if es_pedido_ruta != 'todos':
+                condiciones.append("p.Es_Pedido_Ruta = %s")
+                parametros.append(es_pedido_ruta)
+            
+            if id_ruta != 'todos' and id_ruta.isdigit():
+                condiciones.append("p.ID_Ruta = %s")
+                parametros.append(int(id_ruta))
+            
+            if documento_cliente:
+                condiciones.append("c.RUC_CEDULA LIKE %s")
+                parametros.append(f"%{documento_cliente}%")
+            
+            if nombre_cliente:
+                condiciones.append("c.Nombre LIKE %s")
+                parametros.append(f"%{nombre_cliente}%")
+            
+            # Construir consulta SQL (la misma que en admin_pedidos_venta)
+            sql = """
             SELECT 
                 p.ID_Pedido,
                 p.Fecha,
@@ -5458,12 +5493,15 @@ def filtrar_pedidos():
                 p.Es_Pedido_Ruta,
                 p.ID_Ruta,
                 r.Nombre_Ruta,
+                r.Descripcion as Descripcion_Ruta,
                 c.ID_Cliente,
                 c.Nombre as Nombre_Cliente,
                 c.Telefono as Telefono_Cliente,
+                c.Direccion as Direccion_Cliente,
                 c.RUC_CEDULA as Documento_Cliente,
                 c.tipo_cliente as Tipo_Cliente,
                 c.perfil_cliente as Perfil_Cliente,
+                c.Estado as Estado_Cliente,
                 e.Nombre_Empresa,
                 u.NombreUsuario as Usuario_Creacion,
                 CASE 
@@ -5476,14 +5514,12 @@ def filtrar_pedidos():
                 END as Total_Items,
                 CASE 
                     WHEN p.Tipo_Pedido = 'Consolidado' THEN (
-                        -- CONSOLIDADOS: Precio_Ruta
-                        SELECT COALESCE(SUM(pcp.Cantidad_Total * pr.Precio_Ruta), 0)
+                        SELECT COALESCE(SUM(pcp.Cantidad_Total * pr2.Precio_Ruta), 0)
                         FROM pedidos_consolidados_productos pcp
-                        JOIN productos pr ON pcp.ID_Producto = pr.ID_Producto
+                        LEFT JOIN productos pr2 ON pcp.ID_Producto = pr2.ID_Producto
                         WHERE pcp.ID_Pedido = p.ID_Pedido
                     )
                     ELSE COALESCE(SUM(
-                        -- INDIVIDUALES: precio según perfil_cliente
                         dp.Cantidad * 
                         CASE c.perfil_cliente
                             WHEN 'Ruta' THEN pr.Precio_Ruta
@@ -5493,7 +5529,11 @@ def filtrar_pedidos():
                             ELSE pr.Precio_Mercado
                         END
                     ), 0)
-                END as Total_Pedido
+                END as Total_Pedido,
+                COUNT(DISTINCT CASE 
+                    WHEN p.Tipo_Pedido = 'Consolidado' THEN pcp2.ID_Pedido_Consolidado_Producto 
+                    ELSE dp.ID_Detalle_Pedido 
+                END) as Numero_Items
             FROM pedidos p
             LEFT JOIN clientes c ON p.ID_Cliente = c.ID_Cliente
             LEFT JOIN empresa e ON p.ID_Empresa = e.ID_Empresa
@@ -5501,37 +5541,77 @@ def filtrar_pedidos():
             LEFT JOIN rutas r ON p.ID_Ruta = r.ID_Ruta
             LEFT JOIN detalle_pedidos dp ON p.ID_Pedido = dp.ID_Pedido AND p.Tipo_Pedido != 'Consolidado'
             LEFT JOIN productos pr ON dp.ID_Producto = pr.ID_Producto
+            LEFT JOIN pedidos_consolidados_productos pcp2 ON p.ID_Pedido = pcp2.ID_Pedido AND p.Tipo_Pedido = 'Consolidado'
+            WHERE 1=1
             """
             
             if condiciones:
-                sql_base += " WHERE " + " AND ".join(condiciones)
+                sql += " AND " + " AND ".join(condiciones)
             
-            sql_base += """
-            GROUP BY p.ID_Pedido, p.Fecha, p.Estado, p.Tipo_Entrega, p.Observacion, 
-                     p.Fecha_Creacion, p.Prioridad, p.Tipo_Pedido, p.Es_Pedido_Ruta,
-                     p.ID_Ruta, r.Nombre_Ruta, c.ID_Cliente, c.Nombre, c.Telefono, 
-                     c.RUC_CEDULA, c.tipo_cliente, c.perfil_cliente, e.Nombre_Empresa, u.NombreUsuario
+            sql += """
+            GROUP BY 
+                p.ID_Pedido, p.Fecha, p.Estado, p.Tipo_Entrega, p.Observacion,
+                p.Fecha_Creacion, p.Prioridad, p.Tipo_Pedido, p.Es_Pedido_Ruta,
+                p.ID_Ruta, r.Nombre_Ruta, r.Descripcion,
+                c.ID_Cliente, c.Nombre, c.Telefono, c.Direccion, c.RUC_CEDULA,
+                c.tipo_cliente, c.perfil_cliente, c.Estado, e.Nombre_Empresa, u.NombreUsuario
             ORDER BY 
-                CASE p.Prioridad
-                    WHEN 'Urgente' THEN 1
-                    WHEN 'Normal' THEN 2
-                    WHEN 'Bajo' THEN 3
-                    ELSE 4
-                END,
-                p.Fecha DESC, 
+                p.Fecha DESC,
                 p.ID_Pedido DESC
             """
             
-            cursor.execute(sql_base, tuple(parametros))
+            cursor.execute(sql, tuple(parametros))
             pedidos = cursor.fetchall()
             
+            # Obtener opciones de filtro
             estados = ['Pendiente', 'Aprobado', 'Entregado', 'Cancelado']
+            if es_rol_bodega:
+                estados.insert(2, 'En Proceso')
+            
             tipos_entrega = ['Retiro en local', 'Entrega a domicilio']
             tipos_cliente = ['Comun', 'Especial']
             prioridades = ['Urgente', 'Normal', 'Bajo']
             tipos_pedido = ['Individual', 'Consolidado']
             opciones_ruta = ['SI', 'NO']
             perfiles_cliente = ['Ruta', 'Mayorista', 'Mercado', 'Especial']
+            
+            # Obtener rutas
+            cursor.execute("""
+                SELECT ID_Ruta, Nombre_Ruta 
+                FROM rutas 
+                WHERE Estado = 'Activa' 
+                ORDER BY Nombre_Ruta
+            """)
+            rutas = cursor.fetchall()
+            
+            # Estadísticas
+            stats = None
+            if es_rol_bodega and pedidos:
+                fecha_hoy = datetime.now().strftime('%Y-%m-%d')
+                pedidos_hoy = [p for p in pedidos if p.get('Fecha') and p['Fecha'].strftime('%Y-%m-%d') == fecha_hoy]
+                stats = {
+                    'total_hoy': len(pedidos_hoy),
+                    'urgentes_hoy': len([p for p in pedidos_hoy if p.get('Prioridad') == 'Urgente']),
+                    'aprobados_hoy': len([p for p in pedidos_hoy if p.get('Estado') == 'Aprobado']),
+                    'pendientes_hoy': len([p for p in pedidos_hoy if p.get('Estado') == 'Pendiente']),
+                    'consolidados_hoy': len([p for p in pedidos_hoy if p.get('Tipo_Pedido') == 'Consolidado']),
+                    'fecha_hoy': fecha_hoy
+                }
+            
+            filtros_aplicados = {
+                'estado': estado if estado != 'todos' else None,
+                'fecha_inicio': fecha_inicio,
+                'fecha_fin': fecha_fin,
+                'tipo_entrega': tipo_entrega if tipo_entrega != 'todos' else None,
+                'tipo_cliente': tipo_cliente if tipo_cliente != 'todos' else None,
+                'perfil_cliente': perfil_cliente if perfil_cliente != 'todos' else None,
+                'prioridad': prioridad if prioridad != 'todos' else None,
+                'tipo_pedido': tipo_pedido if tipo_pedido != 'todos' else None,
+                'es_pedido_ruta': es_pedido_ruta if es_pedido_ruta != 'todos' else None,
+                'id_ruta': id_ruta if id_ruta != 'todos' else None,
+                'documento_cliente': documento_cliente if documento_cliente else None,
+                'nombre_cliente': nombre_cliente if nombre_cliente else None
+            }
             
             return render_template('admin/ventas/pedidos/pedidos_venta.html',
                                  pedidos=pedidos,
@@ -5543,24 +5623,15 @@ def filtrar_pedidos():
                                  opciones_ruta=opciones_ruta,
                                  rutas=rutas,
                                  perfiles_cliente=perfiles_cliente,
-                                 filtros_aplicados={
-                                     'estado': estado,
-                                     'fecha_inicio': fecha_inicio,
-                                     'fecha_fin': fecha_fin,
-                                     'tipo_entrega': tipo_entrega,
-                                     'tipo_cliente': tipo_cliente,
-                                     'perfil_cliente': perfil_cliente,
-                                     'prioridad': prioridad,
-                                     'tipo_pedido': tipo_pedido,
-                                     'es_pedido_ruta': es_pedido_ruta,
-                                     'id_ruta': id_ruta,
-                                     'documento_cliente': documento_cliente,
-                                     'nombre_cliente': nombre_cliente
-                                 },
+                                 es_rol_bodega=es_rol_bodega,
+                                 stats=stats,
+                                 filtros_aplicados=filtros_aplicados,
                                  now=datetime.now())
             
     except Exception as e:
-        flash(f"Error al filtrar pedidos: {e}", "error")
+        print(f"❌ Error en filtrar_pedidos: {str(e)}")
+        traceback.print_exc()
+        flash(f"Error al filtrar pedidos: {str(e)}", "error")
         return redirect(url_for('admin.admin_pedidos_venta'))
 
 @admin_bp.route('/ventas/pedido-venta/<int:id_pedido>')
@@ -7217,8 +7288,6 @@ def admin_asignacion_rutas():
         
     except Exception as e:
         flash(f'Error al cargar asignación de rutas: {str(e)}', 'error')
-        # Para debugging detallado
-        import traceback
         error_details = traceback.format_exc()
         print(f"ERROR DETALLADO: {error_details}")
         return redirect(url_for('admin.admin_dashboard'))

@@ -1042,7 +1042,7 @@ def admin_detalle_compra_completo(id_movimiento):
             cursor.execute("""
                 SELECT 
                     mi.ID_Movimiento,
-                    DATE_FORMAT(mi.Fecha, '%%d/%%m/%%Y') as Fecha_Formateada,
+                    DATE_FORMAT(mi.Fecha, '%d/%m/%Y') as Fecha_Formateada,
                     mi.Fecha as Fecha_Original,
                     mi.N_Factura_Externa,
                     mi.Observacion,
