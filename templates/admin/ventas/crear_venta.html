@@ -928,7 +928,7 @@
                 <!-- ============================================ -->
                 <!-- 6. MÉTODOS DE PAGO (AHORA AL FINAL, DESPUÉS DEL TOTAL) -->
                 <!-- ============================================ -->
-                <div class="form-section">
+                <div class="form-section" id="seccion-metodos-pago">
                     <h4 class="section-title"><i class="fas fa-money-bill-wave me-2"></i>3. Métodos de Pago</h4>
                     
                     <!-- Info por defecto: Efectivo 100% -->
@@ -1051,8 +1051,12 @@
     function actualizarTotalPagado() {
         let totalPagado = 0;
         const usarAvanzados = document.getElementById('usar_pagos_avanzados').value === '1';
+        const tipoVenta = document.getElementById('tipo_venta').value;
         
-        if (usarAvanzados) {
+        if (tipoVenta === 'credito') {
+            totalPagado = 0;
+            document.getElementById('total-pagado-label').innerHTML = `C$ 0.00`;
+        } else if (usarAvanzados) {
             const montos = document.querySelectorAll('.monto-pago');
             montos.forEach(monto => {
                 let valor = parseFloat(monto.value);
@@ -1553,6 +1557,7 @@
                         const creditoOption = tipoVentaSelect.querySelector('option[value="credito"]');
                         if (creditoOption) creditoOption.disabled = true;
                         mostrarAlerta('warning', '⚠️ Cliente con mora', 'Este cliente tiene facturas vencidas. Solo se permiten ventas de contado.');
+                        manejarCambioTipoVenta('contado');
                     } else {
                         const creditoOption = tipoVentaSelect.querySelector('option[value="credito"]');
                         if (creditoOption) creditoOption.disabled = false;
@@ -1974,7 +1979,7 @@
         const totalVenta = parseFloat(extraerNumeroDeMoneda(document.getElementById('total-venta').textContent));
         const tipoVenta = document.getElementById('tipo_venta').value;
         
-        if (usarAvanzados) {
+        if (tipoVenta !== 'credito' && usarAvanzados) {
             const totalPagado = actualizarTotalPagado();
             
             if (totalPagado <= 0) {
@@ -2194,27 +2199,30 @@
         }
 
         const usarAvanzados = document.getElementById('usar_pagos_avanzados').value === '1';
+        const tipoVenta = document.getElementById('tipo_venta').value;
         
-        if (usarAvanzados) {
-            const metodosIds = document.querySelectorAll('select[name="metodo_pago_id[]"]');
-            const metodosNombres = document.querySelectorAll('.metodo-pago-nombre');
-            const montos = document.querySelectorAll('input[name="monto_pago[]"]');
-            const referencias = document.querySelectorAll('input[name="referencia_pago[]"]');
-            
-            for (let i = 0; i < metodosIds.length; i++) {
-                if (metodosIds[i].value && montos[i] && parseFloat(montos[i].value) > 0) {
-                    formData.append('metodo_pago_id[]', metodosIds[i].value);
-                    formData.append('metodo_pago_nombre[]', metodosNombres[i]?.value || metodosIds[i].options[metodosIds[i].selectedIndex]?.text || '');
-                    formData.append('monto_pago[]', parseFloat(montos[i].value).toFixed(2));
-                    formData.append('referencia_pago[]', referencias[i]?.value || '');
+        if (tipoVenta !== 'credito') {
+            if (usarAvanzados) {
+                const metodosIds = document.querySelectorAll('select[name="metodo_pago_id[]"]');
+                const metodosNombres = document.querySelectorAll('.metodo-pago-nombre');
+                const montos = document.querySelectorAll('input[name="monto_pago[]"]');
+                const referencias = document.querySelectorAll('input[name="referencia_pago[]"]');
+                
+                for (let i = 0; i < metodosIds.length; i++) {
+                    if (metodosIds[i].value && montos[i] && parseFloat(montos[i].value) > 0) {
+                        formData.append('metodo_pago_id[]', metodosIds[i].value);
+                        formData.append('metodo_pago_nombre[]', metodosNombres[i]?.value || metodosIds[i].options[metodosIds[i].selectedIndex]?.text || '');
+                        formData.append('monto_pago[]', parseFloat(montos[i].value).toFixed(2));
+                        formData.append('referencia_pago[]', referencias[i]?.value || '');
+                    }
                 }
+            } else {
+                const totalVenta = parseFloat(extraerNumeroDeMoneda(document.getElementById('total-venta').textContent));
+                formData.append('metodo_pago_id[]', '1');
+                formData.append('metodo_pago_nombre[]', 'Efectivo');
+                formData.append('monto_pago[]', totalVenta.toFixed(2));
+                formData.append('referencia_pago[]', '');
             }
-        } else {
-            const totalVenta = parseFloat(extraerNumeroDeMoneda(document.getElementById('total-venta').textContent));
-            formData.append('metodo_pago_id[]', '1');
-            formData.append('metodo_pago_nombre[]', 'Efectivo');
-            formData.append('monto_pago[]', totalVenta.toFixed(2));
-            formData.append('referencia_pago[]', '');
         }
 
         document.querySelectorAll('.product-card').forEach(item => {
@@ -2288,18 +2296,32 @@
     document.getElementById('btnMostrarPagosAvanzados').addEventListener('click', mostrarPagosAvanzados);
     document.getElementById('btnVolverDefault').addEventListener('click', volverModoDefault);
 
-    document.getElementById('tipo_venta').addEventListener('change', function() {
+    function manejarCambioTipoVenta(tipoVenta) {
         const fechaGroup = document.getElementById('fecha_vencimiento_group');
-        if (this.value === 'credito') {
+        const seccionMetodosPago = document.getElementById('seccion-metodos-pago');
+        
+        if (tipoVenta === 'credito') {
             fechaGroup.style.display = 'block';
+            if (seccionMetodosPago) {
+                seccionMetodosPago.style.display = 'none';
+                seccionMetodosPago.querySelectorAll('input, select').forEach(el => el.disabled = true);
+            }
             const fecha = new Date();
             fecha.setDate(fecha.getDate() + 30);
             document.getElementById('fecha_vencimiento').value = fecha.toISOString().split('T')[0];
         } else {
             fechaGroup.style.display = 'none';
+            if (seccionMetodosPago) {
+                seccionMetodosPago.style.display = 'block';
+                seccionMetodosPago.querySelectorAll('input, select').forEach(el => el.disabled = false);
+            }
             document.getElementById('fecha_vencimiento').value = '';
         }
         actualizarTotalPagado();
+    }
+
+    document.getElementById('tipo_venta').addEventListener('change', function() {
+        manejarCambioTipoVenta(this.value);
     });
 
     document.getElementById('confirmModal').addEventListener('click', function(e) {
@@ -2313,7 +2335,7 @@
     
     document.addEventListener('DOMContentLoaded', function() {
         cargarClientesEnMemoria();
-        actualizarTotalPagado();
+        manejarCambioTipoVenta(document.getElementById('tipo_venta').value);
     });
 </script>
 {% endblock %}

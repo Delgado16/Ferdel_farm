@@ -366,8 +366,9 @@ def admin_crear_venta():
             id_cliente = request.form.get('id_cliente','').strip()
             tipo_venta = request.form.get('tipo_venta')
             observacion = request.form.get('observacion', '')
+            fecha_vencimiento = request.form.get('fecha_vencimiento', '')
             
-            # Obtener métodos de pago del formulario
+            # Obtener métodos de pago del formulario (solo necesarios para contado)
             metodos_pago_ids = request.form.getlist('metodo_pago_id[]')
             metodos_pago_nombres = request.form.getlist('metodo_pago_nombre[]')
             montos_pago = request.form.getlist('monto_pago[]')
@@ -409,9 +410,9 @@ def admin_crear_venta():
                                     metodos_pago=metodos_pago,
                                     id_tipo_movimiento=id_tipo_movimiento)
             
-            # Validar que haya al menos un método de pago
-            if not metodos_pago_ids or len(metodos_pago_ids) == 0:
-                error_msg = 'Debe seleccionar al menos un método de pago'
+            # Validación para ventas a crédito: fecha de vencimiento
+            if tipo_venta == 'credito' and not fecha_vencimiento:
+                error_msg = 'Para ventas a crédito debe especificar una fecha de vencimiento'
                 print(f"❌ {error_msg}")
                 flash(error_msg, 'error')
                 return render_template('admin/ventas/crear_venta.html',
@@ -422,6 +423,22 @@ def admin_crear_venta():
                                     empresa=empresa_data,
                                     metodos_pago=metodos_pago,
                                     id_tipo_movimiento=id_tipo_movimiento)
+            
+            # 🔥 PARA CRÉDITO: No validar métodos de pago
+            if tipo_venta == 'contado':
+                # Validar que haya al menos un método de pago solo para contado
+                if not metodos_pago_ids or len(metodos_pago_ids) == 0:
+                    error_msg = 'Debe seleccionar al menos un método de pago'
+                    print(f"❌ {error_msg}")
+                    flash(error_msg, 'error')
+                    return render_template('admin/ventas/crear_venta.html',
+                                        clientes=clientes,
+                                        bodega_principal=bodega_principal,
+                                        productos=productos,
+                                        categorias=categorias,
+                                        empresa=empresa_data,
+                                        metodos_pago=metodos_pago,
+                                        id_tipo_movimiento=id_tipo_movimiento)
 
             # Usar otro contexto para la transacción de la venta
             with get_db_cursor(True) as cursor:
@@ -536,45 +553,55 @@ def admin_crear_venta():
                         'total_linea': total_linea
                     })
                 
-                # Procesar métodos de pago
+                # 🔥 Para CRÉDITO: Ignorar completamente los métodos de pago
                 metodos_pago_list = []
                 total_pagado = 0
-                monto_efectivo = 0  # 🔥 NUEVA VARIABLE PARA EFECTIVO
+                monto_efectivo = 0
                 
-                for i in range(len(metodos_pago_ids)):
-                    if i < len(montos_pago) and montos_pago[i]:
-                        monto = float(montos_pago[i])
-                        if monto > 0:
-                            nombre_metodo = metodos_pago_nombres[i] if i < len(metodos_pago_nombres) else ''
-                            
-                            metodo_pago = {
-                                'id_metodo': int(metodos_pago_ids[i]),
-                                'nombre': nombre_metodo,
-                                'monto': monto,
-                                'referencia': referencias_pago[i] if i < len(referencias_pago) else ''
-                            }
-                            metodos_pago_list.append(metodo_pago)
-                            total_pagado += monto
-                            
-                            # 🔥 ACUMULAR SOLO EL EFECTIVO
-                            if nombre_metodo.upper() in ['EFECTIVO', 'EFECTIVO CORDODAS', 'EFECTIVO DOLARES', 'CASH']:
-                                monto_efectivo += monto
+                if tipo_venta == 'contado':
+                    # Solo para contado procesamos los métodos de pago
+                    for i in range(len(metodos_pago_ids)):
+                        if i < len(montos_pago) and montos_pago[i]:
+                            monto = float(montos_pago[i])
+                            if monto > 0:
+                                nombre_metodo = metodos_pago_nombres[i] if i < len(metodos_pago_nombres) else ''
+                                
+                                metodo_pago = {
+                                    'id_metodo': int(metodos_pago_ids[i]),
+                                    'nombre': nombre_metodo,
+                                    'monto': monto,
+                                    'referencia': referencias_pago[i] if i < len(referencias_pago) else ''
+                                }
+                                metodos_pago_list.append(metodo_pago)
+                                total_pagado += monto
+                                
+                                if nombre_metodo.upper() in ['EFECTIVO', 'EFECTIVO CORDODAS', 'EFECTIVO DOLARES', 'CASH']:
+                                    monto_efectivo += monto
+                    
+                    print(f"📊 Total venta: C${total_venta:,.2f}")
+                    print(f"💵 Total pagado: C${total_pagado:,.2f}")
+                    print(f"💰 Monto en EFECTIVO: C${monto_efectivo:,.2f}")
+                    print(f"💳 Otros métodos: C${total_pagado - monto_efectivo:,.2f}")
+                    
+                    # Validaciones de pago solo para contado
+                    if total_pagado > total_venta:
+                        raise Exception(f'El monto total pagado (C${total_pagado:,.2f}) no puede exceder el total de la venta (C${total_venta:,.2f})')
+                    
+                    if total_pagado < total_venta:
+                        raise Exception(f'En ventas de contado debe pagarse el total. Pagado: C${total_pagado:,.2f}, Total: C${total_venta:,.2f}')
+                else:
+                    # 🔥 CRÉDITO: No procesar métodos de pago
+                    print(f"ℹ️ Venta a CRÉDITO - Total: C${total_venta:,.2f}")
+                    print(f"   Métodos de pago ignorados completamente")
                 
-                print(f"📊 Total venta: C${total_venta:,.2f}")
-                print(f"💵 Total pagado: C${total_pagado:,.2f}")
-                print(f"💰 Monto en EFECTIVO: C${monto_efectivo:,.2f}")  # 🔥 NUEVO LOG
-                print(f"💳 Otros métodos: C${total_pagado - monto_efectivo:,.2f}")  # 🔥 NUEVO LOG
-                
-                # Validaciones de pago
-                if total_pagado > total_venta:
-                    raise Exception(f'El monto total pagado (C${total_pagado:,.2f}) no puede exceder el total de la venta (C${total_venta:,.2f})')
-                
-                if tipo_venta == 'contado' and total_pagado < total_venta:
-                    raise Exception(f'En ventas de contado debe pagarse el total. Pagado: C${total_pagado:,.2f}, Total: C${total_venta:,.2f}')
-                
-                # 1. Crear factura con métodos de pago
+                # 1. Crear factura
                 import json
-                metodos_pago_json = json.dumps(metodos_pago_list, ensure_ascii=False)
+                
+                # 🔥 Para CRÉDITO: Guardar metodos_pago_json como NULL o string vacío
+                if tipo_venta == 'credito':
+                    metodos_pago_json = None  # No guardar métodos de pago en crédito
+                else:
+                    metodos_pago_json = json.dumps(metodos_pago_list, ensure_ascii=False)
                 
                 cursor.execute("""
                     INSERT INTO facturacion (
@@ -740,9 +767,17 @@ def admin_crear_venta():
                 # 6. Manejar crédito o contado
                 saldo_pendiente = total_venta - total_pagado
                 
-                if tipo_venta == 'credito' and saldo_pendiente > 0:
+                if tipo_venta == 'credito':
+                    # 🔥 CRÉDITO: El cliente debe el total de la venta
+                    saldo_a_registrar = total_venta
+                    
+                    print(f"🔴 VENTA A CRÉDITO:")
+                    print(f"   Total venta: C${total_venta:,.2f}")
+                    print(f"   Deuda registrada: C${saldo_a_registrar:,.2f}")
+                    print(f"   (Métodos de pago ignorados completamente)")
+                    
                     # Actualizar saldo pendiente del cliente
-                    nuevo_saldo = saldo_actual_cliente + saldo_pendiente
+                    nuevo_saldo = saldo_actual_cliente + saldo_a_registrar
                     
                     cursor.execute("""
                         UPDATE clientes 
@@ -754,7 +789,7 @@ def admin_crear_venta():
                     
                     print(f"💰 Actualizando saldo del cliente:")
                     print(f"   Saldo anterior: C${saldo_actual_cliente:,.2f}")
-                    print(f"   + Saldo pendiente: C${saldo_pendiente:,.2f}")
+                    print(f"   + Deuda: C${saldo_a_registrar:,.2f}")
                     print(f"   = Nuevo saldo: C${nuevo_saldo:,.2f}")
                     
                     # Insertar registro en cuentas por cobrar
@@ -764,61 +799,80 @@ def admin_crear_venta():
                             Fecha_Vencimiento, Tipo_Movimiento, Monto_Movimiento,
                             ID_Empresa, Saldo_Pendiente, ID_Factura, ID_Usuario_Creacion
                         )
-                        VALUES (CURDATE(), %s, %s, %s, DATE_ADD(CURDATE(), INTERVAL 30 DAY), 
+                        VALUES (CURDATE(), %s, %s, %s, %s, 
                                 1, %s, %s, %s, %s, %s)
                     """, (
                         id_cliente,
                         f'FAC-{id_factura:05d}',
                         f"Venta {perfil_cliente} - {observacion}",
-                        saldo_pendiente,
+                        fecha_vencimiento if fecha_vencimiento else f"DATE_ADD(CURDATE(), INTERVAL 30 DAY)",
+                        saldo_a_registrar,
                         id_empresa,
-                        saldo_pendiente,
+                        saldo_a_registrar,
                         id_factura,
                         id_usuario
                     ))
-                    print(f"💳 Cuenta por cobrar creada por C${saldo_pendiente:,.2f}")
+                    print(f"💳 Cuenta por cobrar creada por C${saldo_a_registrar:,.2f} con vencimiento {fecha_vencimiento}")
+                    
+                    # 🔥 CRÉDITO: NUNCA registrar en caja
+                    print(f"ℹ️ Venta a CRÉDITO - No se registra movimiento en caja física")
                 
-                # 🔥 7. Registrar pago en caja SOLO si hay PAGO EN EFECTIVO
-                if monto_efectivo > 0:
-                    descripcion_pago = f"Venta {perfil_cliente} - Factura #{id_factura} - Cliente: {nombre_cliente}"
-                    
-                    # Si hay múltiples métodos, indicar claramente
-                    if len(metodos_pago_list) > 1:
-                        otros_metodos = [f'{p["nombre"]}: C${p["monto"]:,.2f}' 
-                                        for p in metodos_pago_list 
-                                        if p['nombre'].upper() not in ['EFECTIVO', 'EFECTIVO CORDODAS', 'EFECTIVO DOLARES', 'CASH']]
-                        if otros_metodos:
-                            descripcion_pago += f" (Efectivo únicamente - Otros métodos: {', '.join(otros_metodos)})"
-                    
-                    cursor.execute("""
-                        INSERT INTO caja_movimientos (
-                            Fecha, Tipo_Movimiento, Descripcion, Monto, 
-                            ID_Factura, ID_Usuario, Referencia_Documento
-                        )
-                        VALUES (NOW(), 'ENTRADA', %s, %s, %s, %s, %s)
-                    """, (
-                        descripcion_pago,
-                        monto_efectivo,  # 🔥 SOLO EL MONTO EN EFECTIVO
-                        id_factura,
-                        id_usuario,
-                        f'FAC-{id_factura:05d}'
-                    ))
-                    print(f"💰 Pago en EFECTIVO registrado en caja física: C${monto_efectivo:,.2f}")
                 else:
-                    print(f"ℹ️ No hay pago en efectivo - No se registra movimiento en caja física")
+                    # VENTA DE CONTADO - Registrar en caja SOLO el efectivo
+                    print(f"🟢 VENTA DE CONTADO:")
+                    print(f"   Total venta: C${total_venta:,.2f}")
+                    print(f"   Pagado: C${total_pagado:,.2f}")
+                    
+                    # No actualizar saldo del cliente (no hay crédito)
+                    # Actualizar solo la última factura
+                    cursor.execute("""
+                        UPDATE clientes 
+                        SET Fecha_Ultimo_Movimiento = NOW(),
+                            ID_Ultima_Factura = %s
+                        WHERE ID_Cliente = %s
+                    """, (id_factura, id_cliente))
+                    
+                    # Registrar pago en caja SOLO en ventas de CONTADO y SOLO el monto en EFECTIVO
+                    if monto_efectivo > 0:
+                        descripcion_pago = f"Venta {perfil_cliente} - Factura #{id_factura} - Cliente: {nombre_cliente}"
+                        
+                        if len(metodos_pago_list) > 1:
+                            otros_metodos = [f'{p["nombre"]}: C${p["monto"]:,.2f}' 
+                                            for p in metodos_pago_list 
+                                            if p['nombre'].upper() not in ['EFECTIVO', 'EFECTIVO CORDODAS', 'EFECTIVO DOLARES', 'CASH']]
+                            if otros_metodos:
+                                descripcion_pago += f" (Efectivo únicamente - Otros métodos: {', '.join(otros_metodos)})"
+                        
+                        cursor.execute("""
+                            INSERT INTO caja_movimientos (
+                                Fecha, Tipo_Movimiento, Descripcion, Monto, 
+                                ID_Factura, ID_Usuario, Referencia_Documento
+                            )
+                            VALUES (NOW(), 'ENTRADA', %s, %s, %s, %s, %s)
+                        """, (
+                            descripcion_pago,
+                            monto_efectivo,
+                            id_factura,
+                            id_usuario,
+                            f'FAC-{id_factura:05d}'
+                        ))
+                        print(f"💰 Pago en EFECTIVO registrado en caja física: C${monto_efectivo:,.2f}")
+                    else:
+                        print(f"ℹ️ No hay pago en efectivo - No se registra movimiento en caja física")
                 
                 # Construir mensaje de éxito
                 success_msg = f'✅ Venta {perfil_cliente} creada! Factura #{id_factura} - Total: C${total_venta:,.2f}'
                 
-                if total_pagado > 0:
+                if tipo_venta == 'contado' and total_pagado > 0:
                     success_msg += f' - Pagado: C${total_pagado:,.2f}'
                     if monto_efectivo > 0:
                         success_msg += f' (Efectivo: C${monto_efectivo:,.2f})'
                     if total_pagado - monto_efectivo > 0:
                         success_msg += f' (Otros: C${total_pagado - monto_efectivo:,.2f})'
                 
-                if saldo_pendiente > 0:
-                    success_msg += f' - Saldo pendiente: C${saldo_pendiente:,.2f}'
+                if tipo_venta == 'credito':
+                    success_msg += f' - Saldo pendiente: C${total_venta:,.2f}'
+                    success_msg += f' (Vencimiento: {fecha_vencimiento})'
                 
                 print(f"🎯 {success_msg}")
                 flash(success_msg, 'success')
@@ -828,15 +882,16 @@ def admin_crear_venta():
                     'message': success_msg,
                     'id_factura': id_factura,
                     'total_venta': total_venta,
-                    'total_pagado': total_pagado,
-                    'monto_efectivo': monto_efectivo,  # 🔥 NUEVO CAMPO
-                    'saldo_pendiente': saldo_pendiente,
-                    'metodos_pago': metodos_pago_list,
+                    'total_pagado': total_pagado if tipo_venta == 'contado' else 0,
+                    'monto_efectivo': monto_efectivo if tipo_venta == 'contado' else 0,
+                    'saldo_pendiente': total_venta if tipo_venta == 'credito' else 0,
+                    'metodos_pago': metodos_pago_list if tipo_venta == 'contado' else [],
                     'perfil_cliente': perfil_cliente,
                     'cajillas_huevos': total_cajillas_huevos,
                     'separadores': separadores_totales,
                     'facturas_pendientes': facturas_pendientes,
                     'total_pendiente': total_pendiente,
+                    'tipo_venta': tipo_venta,
                     'redirect_url': url_for('admin.admin_generar_ticket', id_factura=id_factura)
                 })
         
@@ -851,7 +906,7 @@ def admin_crear_venta():
                             id_tipo_movimiento=id_tipo_movimiento)
             
     except Exception as e:
-        error_msg = f'❌ Error al procesar venta: {str(e)}'
+        error_msg = f' Error al procesar venta: {str(e)}'
         print(f"{error_msg}")
         print(f"Traceback: {traceback.format_exc()}")
         
@@ -1553,9 +1608,7 @@ def admin_detalles_venta(id_factura):
                         ELSE -1
                     END as Estado_Movimiento_Numerico,
                     -- Calcular total de la factura
-                    (SELECT COALESCE(SUM(Total), 0) 
-                     FROM detalle_facturacion 
-                     WHERE ID_Factura = f.ID_Factura) as Total_Factura,
+                    COALESCE((SELECT SUM(Total) FROM detalle_facturacion WHERE ID_Factura = f.ID_Factura), 0) as Total_Factura,
                     -- Obtener tipo de movimiento si existe
                     cm.Descripcion as Tipo_Movimiento
                 FROM facturacion f
@@ -1626,7 +1679,7 @@ def admin_detalles_venta(id_factura):
                     (SELECT Existencias 
                      FROM inventario_bodega ib
                      WHERE ib.ID_Producto = p.ID_Producto 
-                       AND ib.ID_Bodega = %s
+                       AND ib.ID_Bodega = COALESCE(%s, 1)
                      LIMIT 1),
                     0
                 ) as Existencia_Actual,
@@ -1643,7 +1696,7 @@ def admin_detalles_venta(id_factura):
             LEFT JOIN categorias_producto cat ON p.ID_Categoria = cat.ID_Categoria
             WHERE df.ID_Factura = %s
             ORDER BY df.ID_Detalle
-            """, (factura['ID_Bodega'] or 1, factura['ID_Movimiento'], id_factura))
+            """, (factura.get('ID_Bodega', 1), factura.get('ID_Movimiento', 0), id_factura))
             
             detalles = cursor.fetchall()
             
@@ -1666,39 +1719,58 @@ def admin_detalles_venta(id_factura):
             credito_info = cursor.fetchone()
             tiene_credito_pendiente = credito_info['Tiene_Credito_Pendiente'] > 0
             
-            # 6. Obtener historial de pagos si es crédito
+            # 6. Obtener historial de pagos si es crédito (CORREGIDO)
             pagos = []
             if tiene_credito_pendiente:
-                cursor.execute("""
-                    SELECT 
-                        Fecha_Pago,
-                        Monto_Pago,
-                        Observacion,
-                        Forma_Pago,
-                        Numero_Comprobante
-                    FROM pagos_cuentascobrar
-                    WHERE ID_Cuenta_Cobrar IN (
-                        SELECT ID_Cuenta_Cobrar 
-                        FROM cuentas_por_cobrar 
-                        WHERE ID_Factura = %s
-                    )
-                    ORDER BY Fecha_Pago DESC
-                """, (id_factura,))
-                pagos = cursor.fetchall()
+                try:
+                    cursor.execute("""
+                        SELECT 
+                            DATE_FORMAT(pc.Fecha, '%%d/%%m/%%Y %%H:%%i') as Fecha_Pago_Formateada,
+                            pc.Fecha as Fecha_Original,
+                            pc.Monto as Monto_Pago,
+                            pc.Comentarios as Observacion,
+                            COALESCE(mp.Nombre_Metodo, 
+                                CASE 
+                                    WHEN pc.ID_MetodoPago = 1 THEN 'Efectivo'
+                                    WHEN pc.ID_MetodoPago = 2 THEN 'Transferencia'
+                                    WHEN pc.ID_MetodoPago = 3 THEN 'Depósito Bancario'
+                                    WHEN pc.ID_MetodoPago = 4 THEN 'Tarjeta Débito'
+                                    WHEN pc.ID_MetodoPago = 5 THEN 'Tarjeta Crédito'
+                                    WHEN pc.ID_MetodoPago = 6 THEN 'Cheque'
+                                    ELSE CONCAT('Método ', pc.ID_MetodoPago)
+                                END
+                            ) as Forma_Pago,
+                            pc.Detalles_Metodo as Numero_Comprobante,
+                            pc.ID_MetodoPago
+                        FROM pagos_cuentascobrar pc
+                        LEFT JOIN metodos_pago mp ON pc.ID_MetodoPago = mp.ID_MetodoPago
+                        WHERE pc.ID_Movimiento IN (
+                            SELECT ID_Movimiento 
+                            FROM cuentas_por_cobrar 
+                            WHERE ID_Factura = %s 
+                              AND Estado = 1
+                        )
+                        ORDER BY pc.Fecha DESC
+                    """, (id_factura,))
+                    pagos = cursor.fetchall()
+                    print(f"DEBUG - Pagos encontrados para factura {id_factura}: {len(pagos)}")
+                except Exception as e:
+                    print(f"Error al obtener pagos: {e}")
+                    pagos = []
             
             # 7. Obtener datos del movimiento de inventario (si existe)
             movimiento_info = None
-            if factura['ID_Movimiento']:
+            if factura.get('ID_Movimiento'):
                 cursor.execute("""
                     SELECT 
                         mi.ID_Movimiento,
-                        DATE_FORMAT(mi.Fecha, '%d/%m/%Y') as Fecha_Formateada,
+                        DATE_FORMAT(mi.Fecha, '%%d/%%m/%%Y') as Fecha_Formateada,
                         mi.Fecha,
                         mi.Observacion,
                         mi.ID_Usuario_Creacion,
                         mi.Estado,
                         mi.ID_Bodega,
-                        DATE_FORMAT(mi.Fecha, '%d/%m/%Y %H:%i') as Fecha_Completa,
+                        DATE_FORMAT(mi.Fecha, '%%d/%%m/%%Y %%H:%%i') as Fecha_Completa,
                         cm.Descripcion as Tipo_Movimiento,
                         b.Nombre as Nombre_Bodega,
                         u.NombreUsuario as Usuario_Creacion
@@ -1718,6 +1790,7 @@ def admin_detalles_venta(id_factura):
             print(f"DEBUG - Total Pagado: {total_pagado}")
             print(f"DEBUG - Saldo Pendiente: {saldo_pendiente}")
             print(f"DEBUG - Métodos de Pago: {len(metodos_pago)}")
+            print(f"DEBUG - Pagos históricos: {len(pagos)}")
             
             return render_template('admin/ventas/detalle_venta.html',
                                  factura=factura,

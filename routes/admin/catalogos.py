@@ -1,3 +1,4 @@
+from collections import defaultdict
 from decimal import Decimal
 import logging
 import traceback
