@@ -581,6 +581,7 @@
     // ============================================
     // VARIABLES GLOBALES
     // ============================================
+    const ID_RUTA_ACTUAL = "{{ asignacion.ID_Ruta }}";
     let saldoClienteActual = 0;
     let facturasPendientes = [];
     let productos = [];
@@ -645,6 +646,18 @@
 
     function calcularTotalVenta() {
         return productos.reduce((total, prod) => total + (prod.cantidad * prod.precio), 0);
+    }
+
+    async function obtenerSiguienteConsecutivoOffline() {
+        try {
+            let consecutivo = await localforage.getItem('consecutivo_offline') || 0;
+            consecutivo += 1;
+            await localforage.setItem('consecutivo_offline', consecutivo);
+            return consecutivo;
+        } catch (error) {
+            console.error('Error al obtener consecutivo:', error);
+            return Math.floor(Math.random() * 9000) + 1000;
+        }
     }
 
     // ============================================
@@ -757,7 +770,7 @@
                 nuevoSaldo = Math.max(0, saldoTotal - abono);
             }
 
-            const facturaId = venta.id.slice(-8).toUpperCase();
+            const facturaId = venta.factura_id || String(venta.id || '').slice(-8).toUpperCase();
             const mostrarDetalleVenta = venta.datos.tipo_venta !== '1';
             const conceptoAbono = abono > 0 ?
                 (abono >= totalVenta ? 'PAGO TOTAL DE LA VENTA' : 'ABONO A CUENTA') : '';
@@ -787,20 +800,66 @@
             </svg>`)}`;
 
             const obtenerLogoUrl = async () => {
+                const blobToBase64 = (blob) => new Promise((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onloadend = () => resolve(reader.result);
+                    reader.onerror = reject;
+                    reader.readAsDataURL(blob);
+                });
+
+                // 1. Intentar obtener el logo desde localforage
+                try {
+                    const clavesLogo = ['logo', 'logo_base64', 'empresa_logo', 'logo_empresa', 'logoUrl', 'logo_url'];
+                    for (const clave of clavesLogo) {
+                        const logoLocal = await localforage.getItem(clave);
+                        if (logoLocal) {
+                            if (typeof logoLocal === 'string') {
+                                if (logoLocal.startsWith('data:image') || logoLocal.length > 500) {
+                                    console.log(`✅ Logo obtenido desde localforage (${clave})`);
+                                    return logoLocal.startsWith('data:image') ? logoLocal : `data:image/png;base64,${logoLocal}`;
+                                }
+                            } else if (logoLocal instanceof Blob) {
+                                console.log(`✅ Logo (Blob) obtenido desde localforage (${clave})`);
+                                return await blobToBase64(logoLocal);
+                            }
+                        }
+                    }
+
+                    // También revisar si está dentro de clientes_saldos.empresa.logo o similar
+                    const clientesLocal = await localforage.getItem('clientes_saldos');
+                    if (clientesLocal && clientesLocal.empresa) {
+                        const logoEmpresa = clientesLocal.empresa.logo || clientesLocal.empresa.logo_base64 || clientesLocal.empresa.logo_url;
+                        if (logoEmpresa) {
+                            if (typeof logoEmpresa === 'string') {
+                                if (logoEmpresa.startsWith('data:image') || logoEmpresa.length > 500) {
+                                    console.log('✅ Logo obtenido desde localforage (clientes_saldos.empresa)');
+                                    return logoEmpresa.startsWith('data:image') ? logoEmpresa : `data:image/png;base64,${logoEmpresa}`;
+                                }
+                            } else if (logoEmpresa instanceof Blob) {
+                                console.log('✅ Logo (Blob) obtenido desde localforage (clientes_saldos.empresa)');
+                                return await blobToBase64(logoEmpresa);
+                            }
+                        }
+                    }
+                } catch (e) {
+                    console.warn('Error al buscar el logo en localforage:', e);
+                }
+
+                // 2. Intentar buscar en caches de service worker
                 if ('caches' in window) {
                     try {
                         const cache = await caches.open('vendedor-cache-v2');
                         const cachedResponse = await cache.match('/static/ferdel.png');
                         if (cachedResponse && cachedResponse.ok) {
                             const blob = await cachedResponse.blob();
-                            const url = URL.createObjectURL(blob);
-                            return url;
+                            return await blobToBase64(blob);
                         }
                     } catch (e) {
                         console.warn('Error accediendo a caché:', e);
                     }
                 }
 
+                // 3. Fallback a fetch o fallback predefinido
                 try {
                     const response = await fetch('/static/ferdel.png', {
                         cache: 'force-cache',
@@ -808,8 +867,7 @@
                     });
                     if (response.ok) {
                         const blob = await response.blob();
-                        const url = URL.createObjectURL(blob);
-                        return url;
+                        return await blobToBase64(blob);
                     }
                 } catch (e) {
                     console.warn('No se pudo cargar desde red:', e);
@@ -1155,34 +1213,37 @@
 </html>`;
             };
 
+            // Abrir ventana inmediatamente en el hilo de interacción del usuario para evitar bloqueador de popups
+            const ventana = window.open('', '_blank');
+
             generarTicketConLogo().then(ticketHtml => {
                 try {
-                    const ventana = window.open('', '_blank');
-                    if (!ventana) {
-                        Swal.fire({
-                            icon: 'warning',
-                            title: 'Popup bloqueado',
-                            text: 'Permite ventanas emergentes para ver la factura',
-                            confirmButtonText: 'Intentar de nuevo'
-                        }).then(() => {
-                            const newWindow = window.open('', '_blank', 'width=800,height=600');
-                            if (newWindow) {
-                                newWindow.document.write(ticketHtml);
-                                newWindow.document.close();
-                            }
-                        });
-                        return;
+                    if (ventana) {
+                        ventana.document.write(ticketHtml);
+                        ventana.document.close();
+                    } else {
+                        // Fallback si la ventana fue bloqueada o no se pudo abrir
+                        document.open();
+                        document.write(ticketHtml);
+                        document.close();
                     }
-                    ventana.document.write(ticketHtml);
-                    ventana.document.close();
                 } catch (error) {
-                    console.error('Error al abrir ventana:', error);
-                    if (typeof showAlert === 'function') {
-                        showAlert('error', 'No se pudo abrir la ventana de factura');
+                    console.error('Error al escribir en la ventana:', error);
+                    try {
+                        document.open();
+                        document.write(ticketHtml);
+                        document.close();
+                    } catch (e) {
+                        if (typeof showAlert === 'function') {
+                            showAlert('error', 'No se pudo mostrar la factura');
+                        }
                     }
                 }
             }).catch(error => {
                 console.error('Error generando HTML:', error);
+                if (ventana) {
+                    ventana.close();
+                }
                 if (typeof showAlert === 'function') {
                     showAlert('error', 'No se pudo generar la factura');
                 }
@@ -2268,12 +2329,15 @@
 
                 const inventarioLocal = await localforage.getItem('inventario_local');
 
+                const consecutivo = await obtenerSiguienteConsecutivoOffline();
+                const ticketID = `R${ID_RUTA_ACTUAL}-${String(consecutivo).padStart(4, '0')}`;
+
                 const ventaOffline = {
                     id: 'offline_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9),
                     fecha_creacion: new Date().toISOString(),
                     estado: 'pendiente',
                     intentos: 0,
-                    factura_id: null,
+                    factura_id: ticketID,
                     ticket_url: null,
                     asignacion_id: inventarioLocal?.asignacion_id || null,
                     productos_vendidos: productos.map(p => ({ id: p.id, cantidad: p.cantidad })),
@@ -2877,7 +2941,7 @@
                     const total = venta.datos?.total || 0;
                     const tipoVenta = venta.datos?.tipo_venta === '1' ? 'Contado' : 'Crédito';
 
-                    html += `<div class="border rounded p-2 mb-2" style="border-left: 4px solid #ffc107; background: #fff9e6;"><div class="d-flex flex-column flex-sm-row justify-content-between align-items-start align-items-sm-center"><div style="flex: 1;"><strong>Venta ${index + 1}</strong><span class="badge bg-warning ms-2">${venta.intentos || 0}/3</span><div class="small text-muted">${fecha}</div><div>Cliente ID: ${venta.datos?.cliente}</div><div>${tipoVenta} - Total: <strong class="text-success">${formatoCordoba(total)}</strong></div>${venta.abono_realizado > 0 ? `<div class="text-success small">Abono: ${formatoCordoba(venta.abono_realizado)}</div>` : ''}</div><button class="btn btn-sm btn-info mt-2 mt-sm-0" onclick="verFacturaPendiente('${venta.id}')" style="min-width: 100px;"><i class="fas fa-file-invoice"></i> Ver factura</button></div></div>`;
+                    html += `<div class="border rounded p-2 mb-2" style="border-left: 4px solid #ffc107; background: #fff9e6;"><div class="d-flex flex-column flex-sm-row justify-content-between align-items-start align-items-sm-center"><div style="flex: 1;"><strong>Venta ${venta.factura_id || (index + 1)}</strong><span class="badge bg-warning ms-2">${venta.intentos || 0}/3</span><div class="small text-muted">${fecha}</div><div>Cliente ID: ${venta.datos?.cliente}</div><div>${tipoVenta} - Total: <strong class="text-success">${formatoCordoba(total)}</strong></div>${venta.abono_realizado > 0 ? `<div class="text-success small">Abono: ${formatoCordoba(venta.abono_realizado)}</div>` : ''}</div><button class="btn btn-sm btn-info mt-2 mt-sm-0" onclick="verFacturaPendiente('${venta.id}')" style="min-width: 100px;"><i class="fas fa-file-invoice"></i> Ver factura</button></div></div>`;
                 });
             }
 
