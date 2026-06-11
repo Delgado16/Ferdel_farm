@@ -539,11 +539,7 @@
         <div class="row g-2">
             <div class="col-5">
                 <small class="text-muted d-block mb-1">Cantidad</small>
-                <div class="input-group input-group-sm">
-                    <button class="btn btn-outline-secondary btn-menos" type="button">-</button>
-                    <input type="number" class="form-control text-center cantidad-movil" value="1" min="0.01" step="0.01">
-                    <button class="btn btn-outline-secondary btn-mas" type="button">+</button>
-                </div>
+                <input type="number" class="form-control form-control-sm text-center cantidad-movil" value="1" min="0.01" step="0.01">
                 <small class="text-muted d-block mt-1 stock-movil"></small>
             </div>
             <div class="col-4">
@@ -624,7 +620,8 @@
             toast: true,
             didOpen: () => {
                 if (isMobile) {
-                    document.querySelector('.swal2-container').style.zIndex = '9999';
+                    const container = document.querySelector('.swal2-container');
+                    if (container) container.style.zIndex = '9999';
                 }
             }
         });
@@ -1924,6 +1921,7 @@
         const modalTotalFinal = getElement('modalTotalFinal');
 
         if (modalNuevoSaldo) modalNuevoSaldo.textContent = formatoCordoba(nuevoSaldo);
+        if (modalNuevaVentaDespues) modalNuevaVentaDespues.textContent = formatoCordoba(nuevaVenta);
 
         const filaNuevaVentaDespues = document.getElementById('filaNuevaVentaDespues');
         const labelTotalFinal = document.getElementById('labelTotalFinal');
@@ -2999,7 +2997,7 @@
         if (!tablaBody) return;
 
         if (productos.length === 0) {
-            tablaBody.innerHTML = `<tr id="fila_vacia"><td colspan="7" class="text-center text-muted py-4"><i class="fas fa-box-open fa-2x mb-2 d-block"></i><small>No hay productos agregados</small>    </td>`;
+            tablaBody.innerHTML = `<tr id="fila_vacia"><td colspan="7" class="text-center text-muted py-4"><i class="fas fa-box-open fa-2x mb-2 d-block"></i><small>No hay productos agregados</small></td></tr>`;
             if (tfootTotales) tfootTotales.style.display = 'none';
             return;
         }
@@ -3015,11 +3013,11 @@
                 <td class="align-middle text-center">${index + 1}</td>
                 <td class="align-middle"><div class="small fw-bold">${prod.nombre}</div><small class="text-muted">Unidad: ${prod.unidad}</small></td>
                 <td class="small align-middle">${prod.codigo}</td>
-                <td class="text-center align-middle"><div class="input-group input-group-sm" style="width: 130px; margin: 0 auto;"><button class="btn btn-outline-secondary" type="button" onclick="modificarCantidad(${index}, -1)"><i class="fas fa-minus"></i></button><input type="number" class="form-control text-center cantidad-input" data-index="${index}" value="${prod.cantidad}" min="0.01" max="${prod.stock}" step="0.01" style="width: 50px;"><button class="btn btn-outline-secondary" type="button" onclick="modificarCantidad(${index}, 1)"><i class="fas fa-plus"></i></button></div><small class="text-muted d-block">Stock: ${formatNumber(prod.stock)}</small></td>
+                <td class="text-center align-middle"><input type="number" class="form-control form-control-sm text-center cantidad-input" data-index="${index}" value="${prod.cantidad}" min="0.01" max="${prod.stock}" step="0.01" style="width: 70px; margin: 0 auto;"><small class="text-muted d-block">Stock: ${formatNumber(prod.stock)}</small></td>
                 <td class="text-end align-middle"><div class="input-group input-group-sm"><span class="input-group-text">C$</span><input type="number" class="form-control text-end precio-input" data-index="${index}" value="${prod.precio.toFixed(2)}" min="0.01" step="0.01" style="width: 90px;"></div></td>
                 <td class="text-end fw-bold text-success align-middle small">${formatoCordoba(subtotal)}</td>
                 <td class="text-center align-middle"><button type="button" class="btn btn-sm btn-danger" onclick="event.preventDefault(); event.stopPropagation(); eliminarProducto(${index})" title="Eliminar producto"><i class="fas fa-trash"></i></button></td>
-               `;
+            </tr>`;
         });
 
         tablaBody.innerHTML = html;
@@ -3064,11 +3062,7 @@
                 <div class="row g-2">
                     <div class="col-12 col-sm-5">
                         <small class="text-muted d-block">Cantidad</small>
-                        <div class="input-group">
-                            <button class="btn btn-outline-secondary" type="button" onclick="modificarCantidadMovil(${index}, -1)">-</button>
-                            <input type="number" class="form-control text-center cantidad-movil" value="${prod.cantidad}" min="0.01" max="${prod.stock}" step="0.01" onchange="actualizarCantidadMovil(${index}, this.value)">
-                            <button class="btn btn-outline-secondary" type="button" onclick="modificarCantidadMovil(${index}, 1)">+</button>
-                        </div>
+                        <input type="number" class="form-control text-center cantidad-movil" value="${prod.cantidad}" min="0.01" max="${prod.stock}" step="0.01" onchange="actualizarCantidadMovil(${index}, this.value)">
                         <small class="text-muted d-block mt-1">Stock: ${formatNumber(prod.stock)}</small>
                     </div>
                     <div class="col-7 col-sm-4">
@@ -3514,7 +3508,7 @@
 
                 tipoVentaActual = tipoVenta.value;
 
-                if (saldoClienteActual > 0) {
+                if (tipoVenta.value === '2' || saldoClienteActual > 0) {
                     const totalVenta = calcularTotalVenta();
                     mostrarModalAbono(clienteSelect.value, saldoClienteActual, totalVenta, facturasPendientes);
                 } else {
