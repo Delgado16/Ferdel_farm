@@ -386,7 +386,7 @@ def admin_crear_venta():
             # Validaciones básicas
             if not id_cliente or not tipo_venta:
                 error_msg = 'Cliente y tipo de venta son obligatorios'
-                print(f"❌ {error_msg}")
+                print(f" {error_msg}")
                 flash(error_msg, 'error')
                 return render_template('admin/ventas/crear_venta.html',
                                     clientes=clientes,
@@ -399,7 +399,7 @@ def admin_crear_venta():
             
             if not productos_ids or len(productos_ids) == 0:
                 error_msg = 'Debe agregar al menos un producto a la venta'
-                print(f"❌ {error_msg}")
+                print(f" {error_msg}")
                 flash(error_msg, 'error')
                 return render_template('admin/ventas/crear_venta.html',
                                     clientes=clientes,
@@ -413,7 +413,7 @@ def admin_crear_venta():
             # Validación para ventas a crédito: fecha de vencimiento
             if tipo_venta == 'credito' and not fecha_vencimiento:
                 error_msg = 'Para ventas a crédito debe especificar una fecha de vencimiento'
-                print(f"❌ {error_msg}")
+                print(f" {error_msg}")
                 flash(error_msg, 'error')
                 return render_template('admin/ventas/crear_venta.html',
                                     clientes=clientes,
@@ -424,12 +424,12 @@ def admin_crear_venta():
                                     metodos_pago=metodos_pago,
                                     id_tipo_movimiento=id_tipo_movimiento)
             
-            # 🔥 PARA CRÉDITO: No validar métodos de pago
+            #  PARA CRÉDITO: No validar métodos de pago
             if tipo_venta == 'contado':
                 # Validar que haya al menos un método de pago solo para contado
                 if not metodos_pago_ids or len(metodos_pago_ids) == 0:
                     error_msg = 'Debe seleccionar al menos un método de pago'
-                    print(f"❌ {error_msg}")
+                    print(f" {error_msg}")
                     flash(error_msg, 'error')
                     return render_template('admin/ventas/crear_venta.html',
                                         clientes=clientes,
@@ -458,9 +458,9 @@ def admin_crear_venta():
                 nombre_cliente = cliente_data['Nombre']
                 saldo_actual_cliente = float(cliente_data['Saldo_Pendiente_Total'] or 0)
                 
-                print(f"👤 Cliente: {nombre_cliente}")
-                print(f"📊 Perfil: {perfil_cliente} | Tipo: {tipo_cliente}")
-                print(f"💰 Saldo actual del cliente: C${saldo_actual_cliente:,.2f}")
+                print(f" Cliente: {nombre_cliente}")
+                print(f" Perfil: {perfil_cliente} | Tipo: {tipo_cliente}")
+                print(f" Saldo actual del cliente: C${saldo_actual_cliente:,.2f}")
                 
                 # VERIFICAR ESTADO DE CUENTA (facturas pendientes)
                 cursor.execute("""
@@ -514,7 +514,7 @@ def admin_crear_venta():
                 if productos_invalidos:
                     productos_error = ", ".join([f"{p['nombre']} ({p['categoria']})" for p in productos_invalidos])
                     error_msg = f"Los siguientes productos no están disponibles para este cliente ({tipo_cliente}): {productos_error}"
-                    print(f"❌ {error_msg}")
+                    print(f" {error_msg}")
                     
                     if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
                         return jsonify({'success': False, 'error': error_msg}), 400
@@ -553,7 +553,7 @@ def admin_crear_venta():
                         'total_linea': total_linea
                     })
                 
-                # 🔥 Para CRÉDITO: Ignorar completamente los métodos de pago
+                # Para CRÉDITO: Ignorar completamente los métodos de pago
                 metodos_pago_list = []
                 total_pagado = 0
                 monto_efectivo = 0
@@ -590,14 +590,14 @@ def admin_crear_venta():
                     if total_pagado < total_venta:
                         raise Exception(f'En ventas de contado debe pagarse el total. Pagado: C${total_pagado:,.2f}, Total: C${total_venta:,.2f}')
                 else:
-                    # 🔥 CRÉDITO: No procesar métodos de pago
+                    # CRÉDITO: No procesar métodos de pago
                     print(f"ℹ️ Venta a CRÉDITO - Total: C${total_venta:,.2f}")
                     print(f"   Métodos de pago ignorados completamente")
                 
                 # 1. Crear factura
                 import json
                 
-                # 🔥 Para CRÉDITO: Guardar metodos_pago_json como NULL o string vacío
+                # Para CRÉDITO: Guardar metodos_pago_json como NULL o string vacío
                 if tipo_venta == 'credito':
                     metodos_pago_json = None  # No guardar métodos de pago en crédito
                 else:
@@ -768,7 +768,7 @@ def admin_crear_venta():
                 saldo_pendiente = total_venta - total_pagado
                 
                 if tipo_venta == 'credito':
-                    # 🔥 CRÉDITO: El cliente debe el total de la venta
+                    # CRÉDITO: El cliente debe el total de la venta
                     saldo_a_registrar = total_venta
                     
                     print(f"🔴 VENTA A CRÉDITO:")
@@ -814,7 +814,7 @@ def admin_crear_venta():
                     ))
                     print(f"💳 Cuenta por cobrar creada por C${saldo_a_registrar:,.2f} con vencimiento {fecha_vencimiento}")
                     
-                    # 🔥 CRÉDITO: NUNCA registrar en caja
+                    # CRÉDITO: NUNCA registrar en caja
                     print(f"ℹ️ Venta a CRÉDITO - No se registra movimiento en caja física")
                 
                 else:
@@ -1080,7 +1080,7 @@ def api_productos_por_cliente(cliente_id):
             })
             
     except Exception as e:
-        print(f"❌ Error en API productos por cliente: {str(e)}")
+        print(f" Error en API productos por cliente: {str(e)}")
         import traceback
         traceback.print_exc()
         return jsonify({'success': False, 'error': str(e)}), 500
@@ -1166,9 +1166,9 @@ def obtener_productos_por_categoria_venta(id_categoria):
             return jsonify(productos_list)
             
     except Exception as e:
-        print(f"❌ [VENTAS] Error al obtener productos por categoría: {str(e)}")
+        print(f" [VENTAS] Error al obtener productos por categoría: {str(e)}")
         import traceback
-        print(f"❌ [VENTAS] Traceback: {traceback.format_exc()}")
+        print(f" [VENTAS] Traceback: {traceback.format_exc()}")
         return jsonify({'error': str(e)}), 500
 
 @admin_bp.route('/api/productos-por-cliente/<int:cliente_id>')
@@ -1270,11 +1270,11 @@ def verificar_stock_producto(id_producto):
                     }
                 })
             else:
-                print(f"❌ [STOCK] Producto {id_producto} no encontrado en bodega {id_bodega}")
+                print(f" [STOCK] Producto {id_producto} no encontrado en bodega {id_bodega}")
                 return jsonify({'success': False, 'error': 'Producto no encontrado'}), 404
                 
     except Exception as e:
-        print(f"❌ [STOCK] Error al verificar stock: {str(e)}")
+        print(f" [STOCK] Error al verificar stock: {str(e)}")
         import traceback
         traceback.print_exc()
         return jsonify({'success': False, 'error': str(e)}), 500
@@ -1304,7 +1304,7 @@ def obtener_categorias_productos_venta():
             return jsonify(categorias_list)
             
     except Exception as e:
-        print(f"❌ [VENTAS] Error al obtener categorías: {str(e)}")
+        print(f" [VENTAS] Error al obtener categorías: {str(e)}")
         return jsonify({'error': str(e)}), 500
 
 @admin_bp.route('/ventas/todos-productos')
@@ -1365,7 +1365,7 @@ def obtener_todos_productos_venta():
             return jsonify(productos_list)
             
     except Exception as e:
-        print(f"❌ [VENTAS] Error al obtener todos los productos: {str(e)}")
+        print(f" [VENTAS] Error al obtener todos los productos: {str(e)}")
         import traceback
         traceback.print_exc()
         return jsonify({'error': str(e)}), 500
@@ -1400,15 +1400,17 @@ def obtener_bodega_principal():
                 return jsonify({'error': 'No hay bodegas activas'}), 404
                 
     except Exception as e:
-        print(f"❌ [BODEGA] Error al obtener bodega principal: {str(e)}")
+        print(f" [BODEGA] Error al obtener bodega principal: {str(e)}")
         return jsonify({'error': str(e)}), 500
 
 @admin_bp.route('/admin/ventas/ticket/<int:id_factura>')
 @admin_or_bodega_required
 def admin_generar_ticket(id_factura):
     try:
+        from datetime import datetime
+        
         with get_db_cursor(True) as cursor:
-            # Obtener datos de la factura
+            # Obtener datos de la factura (usando SOLO facturacion)
             cursor.execute("""
                 SELECT 
                     f.ID_Factura,
@@ -1420,6 +1422,11 @@ def admin_generar_ticket(id_factura):
                     c.ID_Cliente,
                     c.Nombre as Cliente,
                     c.RUC_CEDULA as RUC_Cliente,
+                    c.Telefono as Telefono_Cliente,
+                    c.Direccion as Direccion_Cliente,
+                    c.perfil_cliente,
+                    c.Saldo_Pendiente_Total,
+                    r.Nombre_Ruta,
                     u.NombreUsuario as Usuario,
                     e.ID_Empresa,
                     COALESCE(e.Nombre_Empresa, 'MI EMPRESA') as Nombre_Empresa,
@@ -1432,6 +1439,7 @@ def admin_generar_ticket(id_factura):
                     END as Tipo_Venta_Formateado
                 FROM facturacion f
                 LEFT JOIN clientes c ON f.IDCliente = c.ID_Cliente
+                LEFT JOIN rutas r ON c.ID_Ruta = r.ID_Ruta
                 LEFT JOIN usuarios u ON f.ID_Usuario_Creacion = u.ID_Usuario
                 LEFT JOIN empresa e ON f.ID_Empresa = e.ID_Empresa
                 WHERE f.ID_Factura = %s
@@ -1465,71 +1473,151 @@ def admin_generar_ticket(id_factura):
                 flash('La factura no tiene detalles de productos', 'error')
                 return redirect(url_for('admin.admin_ventas_salidas'))
             
-            # Calcular total
-            total_venta = sum(float(detalle['Subtotal'] or 0) for detalle in detalles)
+            # Calcular total de la venta actual
+            total_venta_actual = sum(float(detalle['Subtotal'] or 0) for detalle in detalles)
             
-            # Procesar métodos de pago
-            import json
+            # Obtener saldo anterior del cliente (suma de cuentas por cobrar pendientes ANTES de esta venta)
+            cursor.execute("""
+                SELECT COALESCE(SUM(Saldo_Pendiente), 0) as Saldo_Anterior
+                FROM cuentas_por_cobrar 
+                WHERE ID_Cliente = %s 
+                AND Estado IN ('Pendiente', 'Vencida')
+                AND Saldo_Pendiente > 0
+                AND ID_Factura != %s
+            """, (factura['ID_Cliente'], id_factura))
+            saldo_anterior_result = cursor.fetchone()
+            saldo_anterior = float(saldo_anterior_result['Saldo_Anterior'] or 0)
+            
+            # Calcular saldo total (saldo anterior + venta actual)
+            saldo_total = saldo_anterior + total_venta_actual
+            
+            # Obtener abono/cliente (si es crédito, el abono es 0; si es contado, es el total pagado)
+            abono_cliente = 0
+            concepto_abono = ''
+            fecha_abono = ''
+            
+            if factura['Credito_Contado'] == 0:  # CONTADO
+                import json
+                if factura['metodos_pago']:
+                    try:
+                        metodos_pago = json.loads(factura['metodos_pago'])
+                        abono_cliente = sum(float(p.get('monto', 0)) for p in metodos_pago)
+                        concepto_abono = "Pago realizado en efectivo/transferencia"
+                        fecha_abono = datetime.now().strftime('%d/%m/%Y %H:%M')
+                    except:
+                        abono_cliente = total_venta_actual
+                        concepto_abono = "Pago en efectivo"
+                        fecha_abono = datetime.now().strftime('%d/%m/%Y %H:%M')
+                else:
+                    abono_cliente = total_venta_actual
+                    concepto_abono = "Pago en efectivo"
+                    fecha_abono = datetime.now().strftime('%d/%m/%Y %H:%M')
+            else:  # CRÉDITO
+                # Buscar si hubo algún abono registrado para esta factura en caja_movimientos
+                cursor.execute("""
+                    SELECT COALESCE(SUM(Monto), 0) as Total_Abonado
+                    FROM caja_movimientos
+                    WHERE ID_Factura = %s 
+                    AND Tipo_Movimiento = 'ENTRADA'
+                    AND Estado = 'ACTIVO'
+                """, (id_factura,))
+                abono_result = cursor.fetchone()
+                abono_cliente = float(abono_result['Total_Abonado'] if abono_result else 0)
+                
+                if abono_cliente > 0:
+                    concepto_abono = "Abono registrado en caja"
+                    fecha_abono = datetime.now().strftime('%d/%m/%Y %H:%M')
+                else:
+                    concepto_abono = "Venta a crédito - pendiente de pago"
+                    fecha_abono = ''
+            
+            # Obtener el nuevo saldo pendiente del cliente (de la tabla clientes)
+            nuevo_saldo_cliente = float(factura['Saldo_Pendiente_Total'] or 0)
+            
+            # Obtener facturas pendientes del cliente (para mostrar en el ticket)
+            cursor.execute("""
+                SELECT 
+                    cxc.Num_Documento,
+                    cxc.Saldo_Pendiente,
+                    cxc.Monto_Movimiento as Monto_Original,
+                    cxc.Fecha_Vencimiento,
+                    cxc.Estado,
+                    DATE_FORMAT(cxc.Fecha_Vencimiento, '%%d/%%m/%%Y') as Fecha_Vencimiento_Formateada
+                FROM cuentas_por_cobrar cxc
+                WHERE cxc.ID_Cliente = %s 
+                AND cxc.Estado IN ('Pendiente', 'Vencida')
+                AND cxc.Saldo_Pendiente > 0
+                ORDER BY 
+                    CASE WHEN cxc.Fecha_Vencimiento < CURDATE() THEN 0 ELSE 1 END,
+                    cxc.Fecha_Vencimiento ASC
+            """, (factura['ID_Cliente'],))
+            facturas_pendientes = cursor.fetchall()
+            
+            # Formatear valores para mostrar
+            venta_realizada_formateada = f"C$ {total_venta_actual:,.2f}"
+            saldo_anterior_formateado = f"C$ {saldo_anterior:,.2f}"
+            abono_cliente_formateado = f"C$ {abono_cliente:,.2f}" if abono_cliente > 0 else ""
+            nuevo_saldo_pendiente_formateado = f"C$ {nuevo_saldo_cliente:,.2f}"
+            
+            # Procesar métodos de pago para el ticket
             metodos_pago = []
             total_pagado = 0
             
-            if factura['metodos_pago']:
+            if factura['Credito_Contado'] == 0 and factura['metodos_pago']:
+                import json
                 try:
                     metodos_pago = json.loads(factura['metodos_pago'])
-                    total_pagado = sum(float(p['monto']) for p in metodos_pago)
+                    total_pagado = sum(float(p.get('monto', 0)) for p in metodos_pago)
                 except:
-                    metodos_pago = []
-                    total_pagado = 0
+                    pass
             
-            # Si es contado pero no hay métodos registrados, mostrar efectivo
-            if factura['Credito_Contado'] == 0 and not metodos_pago:
-                metodos_pago = [{
-                    'nombre': 'Efectivo',
-                    'monto': total_venta,
-                    'referencia': ''
-                }]
-                total_pagado = total_venta
-            
-            saldo_pendiente = total_venta - total_pagado if factura['Credito_Contado'] == 1 else 0
-            
-            # Obtener información del movimiento
-            cursor.execute("""
-                SELECT 
-                    mi.ID_Movimiento,
-                    b.Nombre as Bodega,
-                    cm.Descripcion as Tipo_Movimiento
-                FROM movimientos_inventario mi
-                LEFT JOIN bodegas b ON mi.ID_Bodega = b.ID_Bodega
-                LEFT JOIN catalogo_movimientos cm ON mi.ID_TipoMovimiento = cm.ID_TipoMovimiento
-                WHERE mi.ID_Factura_Venta = %s
-            """, (id_factura,))
-            movimiento = cursor.fetchone()
-            
-            # Verificar cuenta por cobrar
-            cuenta_cobrar = None
-            if saldo_pendiente > 0:
-                cursor.execute("""
-                    SELECT Saldo_Pendiente, Fecha_Vencimiento
-                    FROM cuentas_por_cobrar 
-                    WHERE ID_Factura = %s AND Saldo_Pendiente > 0
-                """, (id_factura,))
-                cuenta_cobrar = cursor.fetchone()
+            # Formatear detalles
+            for detalle in detalles:
+                cantidad = float(detalle['Cantidad'])
+                if cantidad.is_integer():
+                    detalle['Cantidad_Formateada'] = f"{int(cantidad)}"
+                else:
+                    detalle['Cantidad_Formateada'] = f"{cantidad:,.2f}"
+                detalle['Precio_Formateado'] = f"C$ {float(detalle['Precio']):,.2f}"
+                detalle['Subtotal_Formateado'] = f"C$ {float(detalle['Subtotal']):,.2f}"
             
             hora_emision = datetime.now()
             
+            # Obtener información de cuenta por cobrar para crédito
+            cuenta_cobrar = None
+            if factura['Credito_Contado'] == 1:
+                cursor.execute("""
+                    SELECT 
+                        Saldo_Pendiente,
+                        Fecha_Vencimiento,
+                        Num_Documento
+                    FROM cuentas_por_cobrar
+                    WHERE ID_Factura = %s
+                    AND Estado IN ('Pendiente', 'Vencida')
+                    LIMIT 1
+                """, (id_factura,))
+                cuenta_cobrar = cursor.fetchone()
+            
+            # Preparar datos para el template
             ticket_data = {
                 'id_factura': factura['ID_Factura'],
                 'fecha': factura['Fecha'],
                 'hora_emision': hora_emision,
                 'cliente': factura['Cliente'] or 'Consumidor Final',
                 'ruc_cliente': factura['RUC_Cliente'] or 'Consumidor Final',
+                'ruta': factura['Nombre_Ruta'] or 'N/A',
+                'cliente_detalles': {
+                    'telefono': factura['Telefono_Cliente'],
+                    'direccion': factura['Direccion_Cliente']
+                },
+                'perfil_cliente': factura.get('perfil_cliente', 'No definido'),
                 'tipo_venta': factura['Tipo_Venta_Formateado'],
                 'observacion': factura['Observacion'],
                 'usuario': factura['Usuario'] or 'Usuario No Especificado',
                 'detalles': detalles,
-                'total': total_venta,
+                'total': total_venta_actual,
                 'total_pagado': total_pagado,
-                'saldo_pendiente': saldo_pendiente,
+                'saldo_pendiente': nuevo_saldo_cliente if factura['Credito_Contado'] == 1 else max(0, total_venta_actual - total_pagado),
                 'metodos_pago': metodos_pago,
                 'empresa': {
                     'nombre': factura['Nombre_Empresa'],
@@ -1537,13 +1625,23 @@ def admin_generar_ticket(id_factura):
                     'direccion': factura['Direccion_Empresa'],
                     'telefono': factura['Telefono_Empresa']
                 },
-                'movimiento': movimiento,
-                'tiene_credito': saldo_pendiente > 0,
-                'cuenta_cobrar': cuenta_cobrar
+                'es_credito': factura['Credito_Contado'] == 1,
+                'cuenta_cobrar': cuenta_cobrar,
+                'facturas_pendientes': facturas_pendientes
             }
             
             return render_template('admin/ventas/ticket_venta.html', 
-                                 ticket=ticket_data)
+                                 ticket=ticket_data,
+                                 venta_realizada_formateada=venta_realizada_formateada,
+                                 saldo_anterior_formateado=saldo_anterior_formateado,
+                                 saldo_total=saldo_total,
+                                 abono_cliente=abono_cliente,
+                                 abono_cliente_formateado=abono_cliente_formateado,
+                                 nuevo_saldo_pendiente=nuevo_saldo_cliente,
+                                 nuevo_saldo_pendiente_formateado=nuevo_saldo_pendiente_formateado,
+                                 concepto_abono=concepto_abono,
+                                 fecha_abono=fecha_abono,
+                                 facturas_pendientes=facturas_pendientes)
                              
     except Exception as e:
         flash(f'Error al generar ticket: {str(e)}', 'error')
@@ -2013,7 +2111,7 @@ def admin_anular_venta(id_factura):
                 })
                 
         except Exception as e:
-            print(f"❌ Error obteniendo datos de venta #{id_factura}: {str(e)}")
+            print(f" Error obteniendo datos de venta #{id_factura}: {str(e)}")
             traceback.print_exc()
             
             return jsonify({
@@ -2334,7 +2432,7 @@ def admin_anular_venta(id_factura):
                 return redirect(url_for('admin.admin_ventas_salidas'))
                 
         except Exception as e:
-            error_msg = f'❌ Error al anular venta #{id_factura}: {str(e)}'
+            error_msg = f' Error al anular venta #{id_factura}: {str(e)}'
             print(error_msg)
             traceback.print_exc()
             flash(error_msg, 'error')
@@ -2387,7 +2485,7 @@ def admin_clientes_anticipos():
             return render_template('admin/ventas/anticipos/clientes_anticipos.html', 
                                  anticipos=anticipos)
     except Exception as e:
-        print(f"❌ Error obteniendo anticipos de clientes: {str(e)}")
+        print(f" Error obteniendo anticipos de clientes: {str(e)}")
         traceback.print_exc()
         flash('Error interno al obtener anticipos de clientes', 'error')
         return redirect(url_for('admin.admin_dashboard'))
@@ -2552,7 +2650,7 @@ def admin_anticipo_nuevo():
                 return redirect(url_for('admin.admin_clientes_anticipos'))
                 
         except Exception as e:
-            print(f"❌ Error registrando anticipo: {str(e)}")
+            print(f" Error registrando anticipo: {str(e)}")
             traceback.print_exc()
             flash('Error interno al registrar el anticipo', 'error')
             return redirect(url_for('admin.admin_anticipo_nuevo'))
@@ -2586,7 +2684,7 @@ def admin_anticipo_nuevo():
             return render_template('admin/ventas/anticipos/nuevo_anticipo.html',
                                  clientes=clientes, productos=productos)
     except Exception as e:
-        print(f"❌ Error cargando formulario: {str(e)}")
+        print(f" Error cargando formulario: {str(e)}")
         traceback.print_exc()
         flash('Error cargando el formulario', 'error')
         return redirect(url_for('admin.admin_clientes_anticipos'))
@@ -2632,7 +2730,7 @@ def admin_anticipo_detalle(id_anticipo):
             return render_template('admin/ventas/anticipos/detalle_anticipo.html',
                                  anticipo=anticipo)
     except Exception as e:
-        print(f"❌ Error obteniendo detalle: {str(e)}")
+        print(f" Error obteniendo detalle: {str(e)}")
         traceback.print_exc()
         flash('Error al obtener el detalle del anticipo', 'error')
         return redirect(url_for('admin.admin_clientes_anticipos'))
@@ -2689,7 +2787,7 @@ def admin_anticipo_cancelar(id_anticipo):
             return redirect(url_for('admin.admin_clientes_anticipos'))
             
     except Exception as e:
-        print(f"❌ Error cancelando anticipo: {str(e)}")
+        print(f" Error cancelando anticipo: {str(e)}")
         traceback.print_exc()
         flash('Error al cancelar el anticipo', 'error')
         return redirect(url_for('admin.admin_clientes_anticipos'))
@@ -2714,20 +2812,20 @@ def admin_anticipo_entregas():
             
             # Validar datos básicos
             if not id_anticipo:
-                flash('❌ Por favor seleccione un anticipo', 'error')
+                flash(' Por favor seleccione un anticipo', 'error')
                 return redirect(request.url)
             
             if not id_bodega:
-                flash('❌ Por favor seleccione una bodega', 'error')
+                flash(' Por favor seleccione una bodega', 'error')
                 return redirect(request.url)
             
             if not sucursales or not cantidades:
-                flash('❌ Debe agregar al menos una entrega', 'error')
+                flash(' Debe agregar al menos una entrega', 'error')
                 return redirect(request.url)
             
             # Validar que los arreglos tengan la misma longitud
             if len(sucursales) != len(cantidades):
-                flash('❌ Error en los datos de entregas', 'error')
+                flash(' Error en los datos de entregas', 'error')
                 return redirect(request.url)
             
             # Validar que haya al menos una entrega válida
@@ -2750,7 +2848,7 @@ def admin_anticipo_entregas():
                     continue
             
             if len(entregas_validas) == 0:
-                flash('❌ No hay entregas válidas para procesar', 'error')
+                flash(' No hay entregas válidas para procesar', 'error')
                 return redirect(request.url)
             
             # Calcular total de cajas
@@ -2787,7 +2885,7 @@ def admin_anticipo_entregas():
                 anticipo = cursor.fetchone()
                 
                 if not anticipo:
-                    flash('❌ Anticipo no encontrado o inactivo', 'error')
+                    flash(' Anticipo no encontrado o inactivo', 'error')
                     return redirect(request.url)
                 
                 # 2. Verificar que la bodega existe y está activa
@@ -2799,7 +2897,7 @@ def admin_anticipo_entregas():
                 bodega = cursor.fetchone()
                 
                 if not bodega:
-                    flash('❌ Bodega no encontrada o inactiva', 'error')
+                    flash(' Bodega no encontrada o inactiva', 'error')
                     return redirect(request.url)
                 
                 # 3. Verificar cajas disponibles en el anticipo
@@ -2941,10 +3039,10 @@ def admin_anticipo_entregas():
                 return redirect(url_for('admin.ticket_entregas', id_anticipo=id_anticipo, autoPrint=1))
                 
         except ValueError as e:
-            flash(f'❌ Error en el formato de los datos: {str(e)}', 'error')
+            flash(f' Error en el formato de los datos: {str(e)}', 'error')
             return redirect(request.url)
         except Exception as e:
-            flash(f'❌ Error al registrar la entrega: {str(e)}', 'error')
+            flash(f' Error al registrar la entrega: {str(e)}', 'error')
             return redirect(request.url)
     
     # Método GET - Mostrar la página con datos
@@ -3114,7 +3212,7 @@ def admin_anticipo_entregas():
                                  anticipos_bajos=anticipos_bajos)
                                  
     except Exception as e:
-        flash(f'❌ Error al cargar los datos: {str(e)}', 'error')
+        flash(f' Error al cargar los datos: {str(e)}', 'error')
         return redirect(url_for('admin.admin_dashboard'))
 
 @admin_bp.route('/admin/ventas/anticipos/entregas/ticket/<int:id_anticipo>')
@@ -3860,7 +3958,7 @@ def admin_registrar_pago(id_movimiento):
                 if resultado:
                     metodo_pago_nombre = resultado['Nombre'].upper().strip()
                 else:
-                    flash("❌ Método de pago no válido")
+                    flash(" Método de pago no válido")
                     return redirect(url_for('admin.admin_registrar_pago', id_movimiento=id_movimiento))
             
             # Normalizar nombres para comparación (eliminar acentos y espacios)
@@ -3886,7 +3984,7 @@ def admin_registrar_pago(id_movimiento):
                             recibido_str = recibido_match.group(1).replace(',', '')
                             recibido = Decimal(recibido_str)
                             if recibido < monto_pago:
-                                flash("❌ La cantidad recibida no puede ser menor al monto del pago")
+                                flash(" La cantidad recibida no puede ser menor al monto del pago")
                                 return redirect(url_for('admin.admin_registrar_pago', id_movimiento=id_movimiento))
                     except Exception as e:
                         print(f"Error procesando detalles de efectivo: {e}")
@@ -3895,19 +3993,19 @@ def admin_registrar_pago(id_movimiento):
             # TRANSFERENCIA o DEPÓSITO
             elif metodo_normalizado in ['TRANSFERENCIA', 'DEPOSITO', 'TRANSFERENCIA BANCARIA', 'DEPOSITO BANCARIO', 'TRANSFERENCIA/DEPOSITO']:
                 if not detalles_metodo.strip():
-                    flash("❌ Para pagos por transferencia/depósito debe proporcionar el número de transacción o referencia")
+                    flash(" Para pagos por transferencia/depósito debe proporcionar el número de transacción o referencia")
                     return redirect(url_for('admin.admin_registrar_pago', id_movimiento=id_movimiento))
             
             # CHEQUE
             elif metodo_normalizado in ['CHEQUE', 'CHEQUES']:
                 if not detalles_metodo.strip():
-                    flash("❌ Para pagos con cheque debe proporcionar los detalles del cheque (número, banco, etc.)")
+                    flash(" Para pagos con cheque debe proporcionar los detalles del cheque (número, banco, etc.)")
                     return redirect(url_for('admin.admin_registrar_pago', id_movimiento=id_movimiento))
             
             # TARJETA (cualquier tipo)
             elif 'TARJETA' in metodo_normalizado or metodo_normalizado in ['CREDITO', 'DEBITO', 'VISA', 'MASTERCARD']:
                 if not detalles_metodo.strip():
-                    flash("❌ Para pagos con tarjeta debe proporcionar los detalles de la transacción (autorización, último dígitos, etc.)")
+                    flash(" Para pagos con tarjeta debe proporcionar los detalles de la transacción (autorización, último dígitos, etc.)")
                     return redirect(url_for('admin.admin_registrar_pago', id_movimiento=id_movimiento))
             
             with get_db_cursor(True) as cursor:
@@ -3928,12 +4026,12 @@ def admin_registrar_pago(id_movimiento):
                 
                 # Verificar si ya está pagada
                 if resultado['Estado'] == 'Pagada':
-                    flash("❌ Esta cuenta ya ha sido pagada completamente")
+                    flash(" Esta cuenta ya ha sido pagada completamente")
                     return redirect(url_for('admin.admin_detalle_cuentacobrar', id_movimiento=id_movimiento))
                 
                 # Verificar si está anulada
                 if resultado['Estado'] == 'Anulada':
-                    flash("❌ No se puede registrar pago en una cuenta anulada")
+                    flash(" No se puede registrar pago en una cuenta anulada")
                     return redirect(url_for('admin.admin_detalle_cuentacobrar', id_movimiento=id_movimiento))
                 
                 # Asegurar que saldo_actual sea Decimal
@@ -3942,11 +4040,11 @@ def admin_registrar_pago(id_movimiento):
                 
                 # Validaciones con Decimal
                 if monto_pago <= Decimal('0'):
-                    flash("❌ El monto del pago debe ser mayor a cero")
+                    flash(" El monto del pago debe ser mayor a cero")
                     return redirect(url_for('admin.admin_registrar_pago', id_movimiento=id_movimiento))
                 
                 if monto_pago > saldo_actual:
-                    flash(f"❌ El monto del pago (${monto_pago:,.2f}) no puede ser mayor al saldo pendiente (${saldo_actual:,.2f})")
+                    flash(f" El monto del pago (${monto_pago:,.2f}) no puede ser mayor al saldo pendiente (${saldo_actual:,.2f})")
                     return redirect(url_for('admin.admin_registrar_pago', id_movimiento=id_movimiento))
                 
                 # Registrar pago - convertir a float para la base de datos
@@ -4074,10 +4172,10 @@ def admin_registrar_pago(id_movimiento):
                 return redirect(url_for('admin.admin_detalle_cuentacobrar', id_movimiento=id_movimiento))
                 
         except ValueError as e:
-            flash(f"❌ Error: El monto ingresado no es válido: {e}")
+            flash(f" Error: El monto ingresado no es válido: {e}")
             return redirect(url_for('admin.admin_registrar_pago', id_movimiento=id_movimiento))
         except Exception as e:
-            flash(f"❌ Error al registrar pago: {str(e)}")
+            flash(f" Error al registrar pago: {str(e)}")
             import traceback
             print(traceback.format_exc())
             return redirect(url_for('admin.admin_registrar_pago', id_movimiento=id_movimiento))
@@ -4138,7 +4236,7 @@ def admin_registrar_pago(id_movimiento):
                                  today=today)
                                  
     except Exception as e:
-        flash(f"❌ Error al cargar formulario de pago: {e}")
+        flash(f" Error al cargar formulario de pago: {e}")
         import traceback
         print(traceback.format_exc())
         return redirect(url_for('admin.admin_cuentascobrar'))
@@ -4200,7 +4298,7 @@ def admin_detalle_cuentacobrar(id_movimiento):
             cuenta_raw = cursor.fetchone()
             
             if not cuenta_raw:
-                flash("❌ Error: Cuenta por cobrar no encontrada", "error")
+                flash(" Error: Cuenta por cobrar no encontrada", "error")
                 return redirect(url_for('admin.admin_cuentascobrar'))
             
             # FUNCIÓN PARA FORMATEAR FECHAS EN PYTHON (MÁS CONFIABLE)
@@ -4425,7 +4523,7 @@ def admin_detalle_cuentacobrar(id_movimiento):
             return render_template('admin/ventas/cxcobrar/detalle_cuenta.html', **datos_template)
                                  
     except Exception as e:
-        flash(f"❌ Error al cargar detalle de cuenta: {str(e)}", "error")
+        flash(f" Error al cargar detalle de cuenta: {str(e)}", "error")
         traceback.print_exc()
         return redirect(url_for('admin.admin_cuentascobrar'))
 
@@ -4714,7 +4812,7 @@ def crear_pedido():
             })
             
     except Exception as e:
-        print(f"❌ Error al crear pedido: {str(e)}")
+        print(f" Error al crear pedido: {str(e)}")
         traceback.print_exc()
         return jsonify({'success': False, 'message': str(e)}), 500
 
@@ -5448,7 +5546,7 @@ def admin_pedidos_venta():
                                  now=datetime.now())
             
     except Exception as e:
-        print(f"❌ Error en admin_pedidos_venta: {str(e)}")
+        print(f" Error en admin_pedidos_venta: {str(e)}")
         traceback.print_exc()
         flash(f"Error al cargar pedidos de venta: {str(e)}", "error")
         return redirect(url_for('admin.admin_dashboard'))
@@ -5702,7 +5800,7 @@ def filtrar_pedidos():
                                  now=datetime.now())
             
     except Exception as e:
-        print(f"❌ Error en filtrar_pedidos: {str(e)}")
+        print(f" Error en filtrar_pedidos: {str(e)}")
         traceback.print_exc()
         flash(f"Error al filtrar pedidos: {str(e)}", "error")
         return redirect(url_for('admin.admin_pedidos_venta'))
@@ -6175,7 +6273,7 @@ def admin_procesar_venta_pedido(id_pedido):
                 
                 if not stock_info or stock_info['ExisteRegistro'] == 0:
                     # No existe registro en inventario_bodega
-                    print(f"   ❌ ERROR CRÍTICO: No hay registro de inventario para este producto")
+                    print(f"    ERROR CRÍTICO: No hay registro de inventario para este producto")
                     productos_sin_registro.append({
                         'producto': nombre_producto,
                         'id_producto': id_producto,
@@ -6195,7 +6293,7 @@ def admin_procesar_venta_pedido(id_pedido):
                     
                     # Comparación con tolerancia para decimales
                     if (stock_actual + 0.001) < cantidad:
-                        print(f"   ❌ STOCK INSUFICIENTE!")
+                        print(f"    STOCK INSUFICIENTE!")
                         productos_sin_stock.append({
                             'producto': nombre_producto,
                             'stock_actual': stock_actual,
@@ -6223,7 +6321,7 @@ def admin_procesar_venta_pedido(id_pedido):
             
             # Si hay productos sin stock, mostrar error detallado
             if productos_sin_stock:
-                print(f"❌ VERIFICACIÓN DE STOCK FALLIDA")
+                print(f" VERIFICACIÓN DE STOCK FALLIDA")
                 print(f"   Total de productos con problemas: {len(productos_sin_stock)}")
                 
                 # Crear mensaje de error detallado
@@ -6329,7 +6427,7 @@ def admin_procesar_venta_pedido(id_pedido):
                 if productos_invalidos:
                     productos_error = ", ".join([f"{p['nombre']} ({p['categoria']})" for p in productos_invalidos])
                     error_msg = f"Los siguientes productos no están disponibles para este cliente ({tipo_cliente}): {productos_error}"
-                    print(f"❌ {error_msg}")
+                    print(f" {error_msg}")
                     flash(error_msg, 'error')
                     return redirect(url_for('admin.admin_procesar_venta_pedido', id_pedido=id_pedido))
                 
@@ -6600,7 +6698,7 @@ def admin_procesar_venta_pedido(id_pedido):
                 return redirect(url_for('admin.admin_generar_ticket', id_factura=id_factura))
                 
     except Exception as e:
-        error_msg = f'❌ Error al procesar venta desde pedido: {str(e)}'
+        error_msg = f' Error al procesar venta desde pedido: {str(e)}'
         print(f"\n{error_msg}")
         import traceback
         print(f"Traceback completo:")

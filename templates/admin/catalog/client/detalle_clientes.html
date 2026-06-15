@@ -437,6 +437,54 @@
     </div>
     {% endif %}
 
+    <!-- Resumen rápido de ventas por tipo de pago -->
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="card border-success shadow-sm">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0"><i class="fas fa-money-bill-wave"></i> Ventas de Contado</h5>
+                </div>
+                <div class="card-body">
+                    <h2 class="text-success">C$ {{ "{:,.2f}".format(ventas_por_mes|sum(attribute='Total_Contado') if ventas_por_mes else 0) }}</h2>
+                    <small>Total histórico de ventas al contado</small>
+                    <hr>
+                    <div class="row">
+                        <div class="col-6">
+                            <small>Facturas contado:</small>
+                            <h4>{{ ventas_por_mes|sum(attribute='Cantidad_Contado') if ventas_por_mes else 0 }}</h4>
+                        </div>
+                        <div class="col-6">
+                            <small>Ticket promedio:</small>
+                            <h4>C$ {{ "{:,.2f}".format((ventas_por_mes|sum(attribute='Total_Contado') / ventas_por_mes|sum(attribute='Cantidad_Contado')) if ventas_por_mes and ventas_por_mes|sum(attribute='Cantidad_Contado') > 0 else 0) }}</h4>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card border-warning shadow-sm">
+                <div class="card-header bg-warning text-dark">
+                    <h5 class="mb-0"><i class="fas fa-credit-card"></i> Ventas a Crédito</h5>
+                </div>
+                <div class="card-body">
+                    <h2 class="text-warning">C$ {{ "{:,.2f}".format(ventas_por_mes|sum(attribute='Total_Credito') if ventas_por_mes else 0) }}</h2>
+                    <small>Total histórico de ventas a crédito</small>
+                    <hr>
+                    <div class="row">
+                        <div class="col-6">
+                            <small>Facturas crédito:</small>
+                            <h4>{{ ventas_por_mes|sum(attribute='Cantidad_Credito') if ventas_por_mes else 0 }}</h4>
+                        </div>
+                        <div class="col-6">
+                            <small>Ticket promedio:</small>
+                            <h4>C$ {{ "{:,.2f}".format((ventas_por_mes|sum(attribute='Total_Credito') / ventas_por_mes|sum(attribute='Cantidad_Credito')) if ventas_por_mes and ventas_por_mes|sum(attribute='Cantidad_Credito') > 0 else 0) }}</h4>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- TABLA DE VENTAS POR MES -->
     <div class="card mb-4 shadow-sm">
         <div class="card-header bg-light">
@@ -451,7 +499,7 @@
                     <thead class="table-dark">
                         <tr>
                             <th>Mes</th>
-                            <th class="text-center">Cantidad Facturas</th>
+                            <th class="text-center">Facturas</th>
                             <th class="text-end">Total Contado</th>
                             <th class="text-end">Total Crédito</th>
                             <th class="text-end">Total Ventas</th>
@@ -482,11 +530,17 @@
                                 <small class="text-muted">{{ mes.Anio }}-{{ "%02d"|format(mes.Numero_Mes) }}</small>
                             </td>
                             <td class="text-center">
-                                <span class="badge bg-primary">{{ mes.Cantidad_Facturas }}</span>
+                                <span class="badge bg-primary" data-bs-toggle="tooltip" title="Total facturas: {{ mes.Cantidad_Facturas }}">
+                                    {{ mes.Cantidad_Facturas }}
+                                </span>
                                 <br>
                                 <small>
-                                    <span class="text-success">C:{{ mes.Cantidad_Contado }}</span> |
-                                    <span class="text-warning">R:{{ mes.Cantidad_Credito }}</span>
+                                    <span class="text-success" data-bs-toggle="tooltip" title="Facturas de Contado">
+                                        <i class="fas fa-money-bill-wave"></i> {{ mes.Cantidad_Contado }}
+                                    </span> |
+                                    <span class="text-warning" data-bs-toggle="tooltip" title="Facturas de Crédito">
+                                        <i class="fas fa-credit-card"></i> {{ mes.Cantidad_Credito }}
+                                    </span>
                                 </small>
                             </td>
                             <td class="text-end text-success">
@@ -520,27 +574,45 @@
                 </table>
             </div>
             
-            <!-- Resumen adicional -->
+            <!-- Distribución por tipo de pago -->
             <div class="row mt-4">
-                <div class="col-md-4">
-                    <div class="alert alert-success">
-                        <i class="fas fa-money-bill-wave"></i> <strong>Total Ventas de Contado:</strong><br>
-                        <h3 class="mb-0">C$ {{ "{:,.2f}".format(ventas_por_mes|sum(attribute='Total_Contado')) }}</h3>
-                        <small>{{ (ventas_por_mes|sum(attribute='Total_Contado') / ventas_por_mes|sum(attribute='Total_Ventas') * 100)|round(1) if ventas_por_mes|sum(attribute='Total_Ventas') > 0 else 0 }}% del total</small>
-                    </div>
-                </div>
-                <div class="col-md-4">
-                    <div class="alert alert-warning">
-                        <i class="fas fa-credit-card"></i> <strong>Total Ventas a Crédito:</strong><br>
-                        <h3 class="mb-0">C$ {{ "{:,.2f}".format(ventas_por_mes|sum(attribute='Total_Credito')) }}</h3>
-                        <small>{{ (ventas_por_mes|sum(attribute='Total_Credito') / ventas_por_mes|sum(attribute='Total_Ventas') * 100)|round(1) if ventas_por_mes|sum(attribute='Total_Ventas') > 0 else 0 }}% del total</small>
-                    </div>
-                </div>
-                <div class="col-md-4">
-                    <div class="alert alert-info">
-                        <i class="fas fa-chart-line"></i> <strong>Total General Ventas:</strong><br>
-                        <h3 class="mb-0">C$ {{ "{:,.2f}".format(ventas_por_mes|sum(attribute='Total_Ventas')) }}</h3>
-                        <small>{{ ventas_por_mes|sum(attribute='Cantidad_Facturas') }} facturas en total</small>
+                <div class="col-md-12">
+                    <div class="card bg-light">
+                        <div class="card-body">
+                            <h6 class="card-title"><i class="fas fa-chart-pie"></i> Distribución por Tipo de Pago</h6>
+                            {% set total_contado = ventas_por_mes|sum(attribute='Total_Contado') %}
+                            {% set total_credito = ventas_por_mes|sum(attribute='Total_Credito') %}
+                            {% set total_general = total_contado + total_credito %}
+                            {% if total_general > 0 %}
+                            <div class="progress mb-3" style="height: 30px;">
+                                <div class="progress-bar bg-success" style="width: {{ (total_contado / total_general * 100)|round }}%">
+                                    Contado {{ (total_contado / total_general * 100)|round(1) }}%
+                                </div>
+                                <div class="progress-bar bg-warning" style="width: {{ (total_credito / total_general * 100)|round }}%">
+                                    Crédito {{ (total_credito / total_general * 100)|round(1) }}%
+                                </div>
+                            </div>
+                            <div class="row text-center">
+                                <div class="col-6">
+                                    <div class="border rounded p-2 bg-success text-white">
+                                        <small>Ventas de Contado</small>
+                                        <h5 class="mb-0">C$ {{ "{:,.2f}".format(total_contado) }}</h5>
+                                    </div>
+                                </div>
+                                <div class="col-6">
+                                    <div class="border rounded p-2 bg-warning">
+                                        <small>Ventas a Crédito</small>
+                                        <h5 class="mb-0">C$ {{ "{:,.2f}".format(total_credito) }}</h5>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="row text-center mt-3">
+                                <div class="col-12">
+                                    <small class="text-muted">Promedio mensual: C$ {{ "{:,.2f}".format(total_general / ventas_por_mes|length if ventas_por_mes|length > 0 else 0) }}</small>
+                                </div>
+                            </div>
+                            {% endif %}
+                        </div>
                     </div>
                 </div>
             </div>
@@ -584,9 +656,17 @@
                                 </span>
                             </td>
                             <td>
-                                <span class="badge {% if factura.Credito_Contado == 2 %}bg-warning{% else %}bg-success{% endif %}">
-                                    {% if factura.Credito_Contado == 2 %}Crédito{% else %}Contado{% endif %}
-                                </span>
+                                {% if factura.Tipo_Pago == 'CONTADO' %}
+                                    <span class="badge bg-success">
+                                        <i class="fas fa-money-bill-wave"></i> CONTADO
+                                    </span>
+                                {% elif factura.Tipo_Pago == 'CRÉDITO' %}
+                                    <span class="badge bg-warning">
+                                        <i class="fas fa-credit-card"></i> CRÉDITO
+                                    </span>
+                                {% else %}
+                                    <span class="badge bg-secondary">DESCONOCIDO</span>
+                                {% endif %}
                             </td>
                             <td class="text-end fw-bold">C$ {{ "{:,.2f}".format(factura.Total_Factura) }}</td>
                             <td>{{ factura.Cantidad_Productos }} productos{% if factura.Cantidad_Productos == 0 %} (sin detalle){% endif %}</td>

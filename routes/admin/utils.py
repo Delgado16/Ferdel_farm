@@ -18,22 +18,30 @@ def obtener_metricas_kpis():
         cursor.execute("SELECT COUNT(*) as count FROM empresa WHERE Estado = 'Activo'")
         empresas_count = cursor.fetchone()['count']
         
-        # Ventas de hoy
+        # Ventas de hoy (solo contado)
         cursor.execute("""
-            SELECT COALESCE(SUM(Ventas_Totales), 0) AS Total_Ventas_Hoy
+            SELECT COALESCE(SUM(Ventas_Totales), 0) AS Total_Ventas_Contado_Hoy
             FROM (
-                SELECT SUM(df.Total) AS Ventas_Totales 
+                SELECT COALESCE(SUM(df.Total), 0) AS Ventas_Totales 
                 FROM detalle_facturacion df
                 INNER JOIN facturacion fac ON df.ID_Factura = fac.ID_Factura
-                WHERE DATE(fac.Fecha_Creacion) = CURDATE() AND fac.Estado = 'Activa'
+                WHERE fac.Fecha_Creacion >= CURDATE() 
+                AND fac.Fecha_Creacion < CURDATE() + INTERVAL 1 DAY
+                AND fac.Estado = 'Activa'
+                AND fac.Credito_Contado = 0
+                
                 UNION ALL
-                SELECT SUM(dfr.Total) AS Ventas_Totales 
+                
+                SELECT COALESCE(SUM(dfr.Total), 0) AS Ventas_Totales 
                 FROM detalle_facturacion_ruta dfr
                 INNER JOIN facturacion_ruta facr ON dfr.ID_FacturaRuta = facr.ID_FacturaRuta
-                WHERE DATE(facr.Fecha_Creacion) = CURDATE() AND facr.Estado = 'Activa'
+                WHERE facr.Fecha_Creacion >= CURDATE()
+                AND facr.Fecha_Creacion < CURDATE() + INTERVAL 1 DAY
+                AND facr.Estado = 'Activa'
+                AND facr.Credito_Contado = 1
             ) AS Ventas
         """)
-        ventas_hoy = cursor.fetchone()['Total_Ventas_Hoy'] or 0
+        ventas_hoy = cursor.fetchone()['Total_Ventas_Contado_Hoy'] or 0
         
         # Cobros de hoy
         cursor.execute("""

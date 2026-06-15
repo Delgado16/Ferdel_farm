@@ -1036,19 +1036,24 @@ def admin_detalle_cliente(id):
             cursor.execute("""
                 SELECT 
                     f.ID_Factura as ID_Factura,
-                    f.Fecha,
+                    f.Fecha_Creacion as Fecha,
                     f.Credito_Contado,
                     f.Observacion,
                     f.Estado,
                     'NORMAL' as Tipo_Factura,
                     COALESCE(SUM(df.Total), 0) as Total_Factura,
-                    COUNT(df.ID_Detalle) as Cantidad_Productos
+                    COUNT(df.ID_Detalle) as Cantidad_Productos,
+                    CASE 
+                        WHEN f.Credito_Contado = 0 THEN 'CONTADO'
+                        WHEN f.Credito_Contado = 1 THEN 'CRÉDITO'
+                        ELSE 'DESCONOCIDO'
+                    END as Tipo_Pago
                 FROM facturacion f
                 LEFT JOIN detalle_facturacion df ON f.ID_Factura = df.ID_Factura
                 WHERE f.IDCliente = %s 
                     AND f.Estado = 'Activa'
-                GROUP BY f.ID_Factura
-                ORDER BY f.Fecha DESC
+                GROUP BY f.ID_Factura, f.Fecha_Creacion, f.Credito_Contado, f.Observacion, f.Estado
+                ORDER BY f.Fecha_Creacion DESC
                 LIMIT 10
             """, (id,))
             
@@ -1058,19 +1063,24 @@ def admin_detalle_cliente(id):
             cursor.execute("""
                 SELECT 
                     fr.ID_FacturaRuta as ID_Factura,
-                    fr.Fecha,
+                    fr.Fecha_Creacion as Fecha,
                     fr.Credito_Contado,
                     fr.Observacion,
                     fr.Estado,
                     'RUTA' as Tipo_Factura,
                     COALESCE(SUM(dfr.Total), 0) as Total_Factura,
-                    COUNT(dfr.ID_DetalleRuta) as Cantidad_Productos
+                    COUNT(dfr.ID_DetalleRuta) as Cantidad_Productos,
+                    CASE 
+                        WHEN fr.Credito_Contado = 1 THEN 'CONTADO'
+                        WHEN fr.Credito_Contado = 2 THEN 'CRÉDITO'
+                        ELSE 'DESCONOCIDO'
+                    END as Tipo_Pago
                 FROM facturacion_ruta fr
                 LEFT JOIN detalle_facturacion_ruta dfr ON fr.ID_FacturaRuta = dfr.ID_FacturaRuta
                 WHERE fr.ID_Cliente = %s 
                     AND fr.Estado = 'Activa'
-                GROUP BY fr.ID_FacturaRuta
-                ORDER BY fr.Fecha DESC
+                GROUP BY fr.ID_FacturaRuta, fr.Fecha_Creacion, fr.Credito_Contado, fr.Observacion, fr.Estado
+                ORDER BY fr.Fecha_Creacion DESC
                 LIMIT 10
             """, (id,))
             
@@ -1108,51 +1118,56 @@ def admin_detalle_cliente(id):
             if not aging:
                 aging = {'Rango_0_30': 0, 'Rango_31_60': 0, 'Rango_61_90': 0, 'Vencido': 0, 'Mas_90': 0}
             
-            # 6. Ventas por mes (facturacion normal)
+            # 6. Ventas por mes - CONSULTA CORREGIDA (facturacion normal)
             cursor.execute("""
                 SELECT 
-                    YEAR(f.Fecha) as Anio,
-                    MONTH(f.Fecha) as Numero_Mes,
+                    YEAR(f.Fecha_Creacion) as Anio,
+                    MONTH(f.Fecha_Creacion) as Numero_Mes,
+                    MONTHNAME(f.Fecha_Creacion) as Nombre_Mes,
                     COUNT(DISTINCT f.ID_Factura) as Cantidad_Facturas,
-                    COUNT(DISTINCT CASE WHEN f.Credito_Contado = 1 THEN f.ID_Factura END) as Cantidad_Contado,
-                    COUNT(DISTINCT CASE WHEN f.Credito_Contado = 2 THEN f.ID_Factura END) as Cantidad_Credito,
+                    COUNT(DISTINCT CASE WHEN f.Credito_Contado = 0 THEN f.ID_Factura END) as Cantidad_Contado,
+                    COUNT(DISTINCT CASE WHEN f.Credito_Contado = 1 THEN f.ID_Factura END) as Cantidad_Credito,
                     COALESCE(SUM(df.Total), 0) as Total_Ventas,
-                    COALESCE(SUM(CASE WHEN f.Credito_Contado = 1 THEN df.Total ELSE 0 END), 0) as Total_Contado,
-                    COALESCE(SUM(CASE WHEN f.Credito_Contado = 2 THEN df.Total ELSE 0 END), 0) as Total_Credito,
-                    MIN(f.Fecha) as Primera_Factura_Mes,
-                    MAX(f.Fecha) as Ultima_Factura_Mes
+                    COALESCE(SUM(CASE WHEN f.Credito_Contado = 0 THEN df.Total ELSE 0 END), 0) as Total_Contado,
+                    COALESCE(SUM(CASE WHEN f.Credito_Contado = 1 THEN df.Total ELSE 0 END), 0) as Total_Credito,
+                    MIN(f.Fecha_Creacion) as Primera_Factura_Mes,
+                    MAX(f.Fecha_Creacion) as Ultima_Factura_Mes
                 FROM facturacion f
                 INNER JOIN detalle_facturacion df ON f.ID_Factura = df.ID_Factura
                 WHERE f.IDCliente = %s 
                     AND f.Estado = 'Activa'
-                GROUP BY YEAR(f.Fecha), MONTH(f.Fecha)
+                GROUP BY YEAR(f.Fecha_Creacion), MONTH(f.Fecha_Creacion), MONTHNAME(f.Fecha_Creacion)
+                ORDER BY YEAR(f.Fecha_Creacion) DESC, MONTH(f.Fecha_Creacion) DESC
             """, (id,))
             
             ventas_normales = cursor.fetchall()
             
-            # 7. Ventas por mes (facturacion ruta)
+            # 7. Ventas por mes - CONSULTA CORREGIDA (facturacion ruta)
             cursor.execute("""
                 SELECT 
-                    YEAR(fr.Fecha) as Anio,
-                    MONTH(fr.Fecha) as Numero_Mes,
+                    YEAR(fr.Fecha_Creacion) as Anio,
+                    MONTH(fr.Fecha_Creacion) as Numero_Mes,
+                    MONTHNAME(fr.Fecha_Creacion) as Nombre_Mes,
                     COUNT(DISTINCT fr.ID_FacturaRuta) as Cantidad_Facturas,
                     COUNT(DISTINCT CASE WHEN fr.Credito_Contado = 1 THEN fr.ID_FacturaRuta END) as Cantidad_Contado,
                     COUNT(DISTINCT CASE WHEN fr.Credito_Contado = 2 THEN fr.ID_FacturaRuta END) as Cantidad_Credito,
                     COALESCE(SUM(dfr.Total), 0) as Total_Ventas,
                     COALESCE(SUM(CASE WHEN fr.Credito_Contado = 1 THEN dfr.Total ELSE 0 END), 0) as Total_Contado,
                     COALESCE(SUM(CASE WHEN fr.Credito_Contado = 2 THEN dfr.Total ELSE 0 END), 0) as Total_Credito,
-                    MIN(fr.Fecha) as Primera_Factura_Mes,
-                    MAX(fr.Fecha) as Ultima_Factura_Mes
+                    MIN(fr.Fecha_Creacion) as Primera_Factura_Mes,
+                    MAX(fr.Fecha_Creacion) as Ultima_Factura_Mes
                 FROM facturacion_ruta fr
                 INNER JOIN detalle_facturacion_ruta dfr ON fr.ID_FacturaRuta = dfr.ID_FacturaRuta
                 WHERE fr.ID_Cliente = %s 
                     AND fr.Estado = 'Activa'
-                GROUP BY YEAR(fr.Fecha), MONTH(fr.Fecha)
+                GROUP BY YEAR(fr.Fecha_Creacion), MONTH(fr.Fecha_Creacion), MONTHNAME(fr.Fecha_Creacion)
+                ORDER BY YEAR(fr.Fecha_Creacion) DESC, MONTH(fr.Fecha_Creacion) DESC
             """, (id,))
             
             ventas_ruta = cursor.fetchall()
             
             # Combinar ventas por mes
+            from collections import defaultdict
             ventas_dict = defaultdict(lambda: {
                 'Cantidad_Facturas': 0,
                 'Cantidad_Contado': 0,
@@ -1161,13 +1176,16 @@ def admin_detalle_cliente(id):
                 'Total_Contado': 0,
                 'Total_Credito': 0,
                 'Primera_Factura_Mes': None,
-                'Ultima_Factura_Mes': None
+                'Ultima_Factura_Mes': None,
+                'Nombre_Mes': ''
             })
             
+            # Procesar ventas normales
             for venta in ventas_normales:
                 key = f"{venta['Anio']}-{venta['Numero_Mes']}"
                 ventas_dict[key]['Anio'] = venta['Anio']
                 ventas_dict[key]['Numero_Mes'] = venta['Numero_Mes']
+                ventas_dict[key]['Nombre_Mes'] = venta['Nombre_Mes']
                 ventas_dict[key]['Cantidad_Facturas'] += venta['Cantidad_Facturas']
                 ventas_dict[key]['Cantidad_Contado'] += venta['Cantidad_Contado']
                 ventas_dict[key]['Cantidad_Credito'] += venta['Cantidad_Credito']
@@ -1179,11 +1197,13 @@ def admin_detalle_cliente(id):
                 if venta['Ultima_Factura_Mes'] and (not ventas_dict[key]['Ultima_Factura_Mes'] or venta['Ultima_Factura_Mes'] > ventas_dict[key]['Ultima_Factura_Mes']):
                     ventas_dict[key]['Ultima_Factura_Mes'] = venta['Ultima_Factura_Mes']
             
+            # Procesar ventas de ruta
             for venta in ventas_ruta:
                 key = f"{venta['Anio']}-{venta['Numero_Mes']}"
                 if key not in ventas_dict:
                     ventas_dict[key]['Anio'] = venta['Anio']
                     ventas_dict[key]['Numero_Mes'] = venta['Numero_Mes']
+                    ventas_dict[key]['Nombre_Mes'] = venta['Nombre_Mes']
                 ventas_dict[key]['Cantidad_Facturas'] += venta['Cantidad_Facturas']
                 ventas_dict[key]['Cantidad_Contado'] += venta['Cantidad_Contado']
                 ventas_dict[key]['Cantidad_Credito'] += venta['Cantidad_Credito']
@@ -1234,6 +1254,7 @@ def admin_detalle_cliente(id):
             top_productos_ruta = cursor.fetchall()
             
             # Combinar top productos
+            from collections import defaultdict
             productos_dict = defaultdict(lambda: {'Cantidad_Total': 0, 'Total_Vendido': 0})
             for prod in top_productos_normal:
                 key = prod['ID_Producto']
@@ -1361,7 +1382,7 @@ def admin_detalle_cliente(id):
                 INNER JOIN detalle_facturacion df ON f.ID_Factura = df.ID_Factura
                 WHERE f.IDCliente = %s 
                     AND f.Estado = 'Activa'
-                    AND f.Fecha >= DATE_SUB(CURDATE(), INTERVAL 12 MONTH)
+                    AND f.Fecha_Creacion >= DATE_SUB(CURDATE(), INTERVAL 12 MONTH)
             """, (id,))
             anio_normal = cursor.fetchone()['total'] or 0
             
@@ -1371,7 +1392,7 @@ def admin_detalle_cliente(id):
                 INNER JOIN detalle_facturacion_ruta dfr ON fr.ID_FacturaRuta = dfr.ID_FacturaRuta
                 WHERE fr.ID_Cliente = %s 
                     AND fr.Estado = 'Activa'
-                    AND fr.Fecha >= DATE_SUB(CURDATE(), INTERVAL 12 MONTH)
+                    AND fr.Fecha_Creacion >= DATE_SUB(CURDATE(), INTERVAL 12 MONTH)
             """, (id,))
             anio_ruta = cursor.fetchone()['total'] or 0
             

@@ -1954,7 +1954,7 @@ def vendedor_carga_directa_proveedor():
                         return redirect(url_for('vendedor.vendedor_inventario'))
                     id_asignacion = asignacion['ID_Asignacion']
                 
-                # Verificar factura duplicada
+                # Verificar factura duplicada en movimientos_inventario
                 cursor.execute("""
                     SELECT COUNT(*) as total 
                     FROM movimientos_inventario 
@@ -2007,7 +2007,8 @@ def vendedor_carga_directa_proveedor():
                             'id_producto': id_producto,
                             'cantidad': cantidad,
                             'costo': costo,
-                            'precio_ruta': precio_ruta
+                            'precio_ruta': precio_ruta,
+                            'descripcion': producto_info['Descripcion']
                         })
                         total_cantidad += cantidad
                         total_items += 1
@@ -2067,110 +2068,132 @@ def vendedor_carga_directa_proveedor():
                     # CASO RUTA: TRASLADO DE BODEGA A RUTA
                     # ========================================
                     
-                    # VERIFICAR STOCK DISPONIBLE EN BODEGA
-                    for prod in productos_procesar:
-                        cursor.execute("""
-                            SELECT Existencias FROM inventario_bodega 
-                            WHERE ID_Bodega = %s AND ID_Producto = %s
-                        """, (ID_BODEGA_CENTRAL, prod['id_producto']))
-                        existencias = cursor.fetchone()
+                    # Crear savepoint para poder revertir solo el traslado si falla
+                    cursor.execute("SAVEPOINT antes_traslado")
+                    
+                    try:
+                        # VERIFICAR STOCK DISPONIBLE EN BODEGA ANTES DE TRASLADAR
+                        for prod in productos_procesar:
+                            cursor.execute("""
+                                SELECT Existencias FROM inventario_bodega 
+                                WHERE ID_Bodega = %s AND ID_Producto = %s
+                            """, (ID_BODEGA_CENTRAL, prod['id_producto']))
+                            existencias = cursor.fetchone()
+                            
+                            if not existencias or existencias['Existencias'] < prod['cantidad']:
+                                flash(f'Stock insuficiente en bodega para producto {prod["descripcion"]}. Disponible: {existencias["Existencias"] if existencias else 0}, Requerido: {prod["cantidad"]}', 'error')
+                                return redirect(url_for('vendedor.vendedor_carga_directa_proveedor'))
                         
-                        if not existencias or existencias['Existencias'] < prod['cantidad']:
-                            flash(f'Stock insuficiente en bodega para producto {prod["id_producto"]}. Disponible: {existencias["Existencias"] if existencias else 0}, Requerido: {prod["cantidad"]}', 'error')
-                            return redirect(url_for('vendedor.vendedor_carga_directa_proveedor'))
-                    
-                    # PASO 4.1: REGISTRAR MOVIMIENTO DE TRASLADO (SALIDA DE BODEGA)
-                    cursor.execute("""
-                        INSERT INTO movimientos_inventario 
-                        (ID_TipoMovimiento, Fecha, Observacion, ID_Empresa, ID_Bodega, 
-                         ID_Bodega_Destino, ID_Pedido_Origen, ID_Usuario_Creacion, Estado)
-                        VALUES (%s, CURDATE(), %s, %s, %s, %s, %s, %s, 'Activa')
-                    """, (
-                        ID_TIPO_TRASLADO,
-                        f'TRASLADO A RUTA - Asignacion: {id_asignacion} - Factura: {factura_proveedor}'[:500],
-                        id_empresa,
-                        ID_BODEGA_CENTRAL,
-                        None,
-                        None,
-                        id_usuario
-                    ))
-                    
-                    id_movimiento_salida = cursor.lastrowid
-                    
-                    # PASO 4.2: REGISTRAR DETALLE DEL TRASLADO (SALIDA)
-                    for prod in productos_procesar:
-                        subtotal_salida = (prod['cantidad'] * prod['costo'])
+                        # PASO 4.1: REGISTRAR MOVIMIENTO DE TRASLADO (SALIDA DE BODEGA)
                         cursor.execute("""
-                            INSERT INTO detalle_movimientos_inventario
-                            (ID_Movimiento, ID_Producto, Cantidad, Costo_Unitario, Subtotal, ID_Usuario_Creacion)
-                            VALUES (%s, %s, %s, %s, %s, %s)
-                        """, (id_movimiento_salida, prod['id_producto'], prod['cantidad'], prod['costo'], subtotal_salida, id_usuario))
-                    
-                    # PASO 4.3: ACTUALIZAR INVENTARIO DE BODEGA (RESTAR)
-                    for prod in productos_procesar:
-                        cursor.execute("""
-                            UPDATE inventario_bodega 
-                            SET Existencias = Existencias - %s
-                            WHERE ID_Bodega = %s AND ID_Producto = %s
-                        """, (prod['cantidad'], ID_BODEGA_CENTRAL, prod['id_producto']))
+                            INSERT INTO movimientos_inventario 
+                            (ID_TipoMovimiento, Fecha, Observacion, ID_Empresa, ID_Bodega, 
+                             ID_Bodega_Destino, ID_Pedido_Origen, ID_Usuario_Creacion, Estado)
+                            VALUES (%s, CURDATE(), %s, %s, %s, %s, %s, %s, 'Activa')
+                        """, (
+                            ID_TIPO_TRASLADO,
+                            f'TRASLADO A RUTA - Asignacion: {id_asignacion} - Factura: {factura_proveedor}'[:500],
+                            id_empresa,
+                            ID_BODEGA_CENTRAL,
+                            None,
+                            None,
+                            id_usuario
+                        ))
                         
-                        # VERIFICAR QUE NO QUEDE NEGATIVO
-                        cursor.execute("""
-                            SELECT Existencias FROM inventario_bodega 
-                            WHERE ID_Bodega = %s AND ID_Producto = %s
-                        """, (ID_BODEGA_CENTRAL, prod['id_producto']))
-                        existencias_final = cursor.fetchone()
+                        id_movimiento_salida = cursor.lastrowid
                         
-                        if existencias_final['Existencias'] < 0:
-                            flash(f'ERROR CRÍTICO: Stock negativo en bodega para producto {prod["id_producto"]}', 'error')
-                            return redirect(url_for('vendedor.vendedor_carga_directa_proveedor'))
-                    
-                    # PASO 4.4: REGISTRAR ENTRADA A RUTA
-                    total_subtotal_venta = sum(p['cantidad'] * p['precio_ruta'] for p in productos_procesar)
-                    
-                    cursor.execute("""
-                        INSERT INTO movimientos_ruta_cabecera 
-                        (ID_Asignacion, ID_TipoMovimiento, ID_Usuario_Registra, 
-                         Documento_Numero, Total_Productos, Total_Items, Total_Subtotal,
-                         ID_Empresa, Estado)
-                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 'ACTIVO')
-                    """, (id_asignacion, ID_TIPO_ENTRADA_CARGA, id_usuario, factura_proveedor,
-                          total_cantidad, total_items, total_subtotal_venta, id_empresa))
-                    
-                    id_movimiento_ruta = cursor.lastrowid
-                    
-                    # PASO 4.5: REGISTRAR DETALLE DE RUTA
-                    for prod in productos_procesar:
-                        subtotal = prod['cantidad'] * prod['precio_ruta']
-                        cursor.execute("""
-                            INSERT INTO movimientos_ruta_detalle
-                            (ID_Movimiento, ID_Producto, Cantidad, Precio_Unitario, 
-                             Subtotal, ID_Movimiento_Origen)
-                            VALUES (%s, %s, %s, %s, %s, %s)
-                        """, (id_movimiento_ruta, prod['id_producto'], prod['cantidad'],
-                              prod['precio_ruta'], subtotal, id_movimiento_salida))
-                    
-                    # PASO 4.6: ACTUALIZAR INVENTARIO DE RUTA (SUMA)
-                    for prod in productos_procesar:
-                        cursor.execute("""
-                            INSERT INTO inventario_ruta (ID_Asignacion, ID_Producto, Cantidad)
-                            VALUES (%s, %s, %s)
-                            ON DUPLICATE KEY UPDATE Cantidad = Cantidad + VALUES(Cantidad)
-                        """, (id_asignacion, prod['id_producto'], prod['cantidad']))
+                        # PASO 4.2: REGISTRAR DETALLE DEL TRASLADO (SALIDA)
+                        for prod in productos_procesar:
+                            subtotal_salida = (prod['cantidad'] * prod['costo'])
+                            cursor.execute("""
+                                INSERT INTO detalle_movimientos_inventario
+                                (ID_Movimiento, ID_Producto, Cantidad, Costo_Unitario, Subtotal, ID_Usuario_Creacion)
+                                VALUES (%s, %s, %s, %s, %s, %s)
+                            """, (id_movimiento_salida, prod['id_producto'], prod['cantidad'], prod['costo'], subtotal_salida, id_usuario))
                         
-                        # VERIFICAR INVENTARIO DE RUTA
-                        cursor.execute("""
-                            SELECT Cantidad FROM inventario_ruta 
-                            WHERE ID_Asignacion = %s AND ID_Producto = %s
-                        """, (id_asignacion, prod['id_producto']))
-                        ruta_inventario = cursor.fetchone()
+                        # PASO 4.3: ACTUALIZAR INVENTARIO DE BODEGA (RESTAR)
+                        for prod in productos_procesar:
+                            # Verificar stock nuevamente justo antes de restar
+                            cursor.execute("""
+                                SELECT Existencias FROM inventario_bodega 
+                                WHERE ID_Bodega = %s AND ID_Producto = %s
+                            """, (ID_BODEGA_CENTRAL, prod['id_producto']))
+                            existencias_actual = cursor.fetchone()
+                            
+                            if not existencias_actual or existencias_actual['Existencias'] < prod['cantidad']:
+                                flash(f'Stock insuficiente para {prod["descripcion"]} justo antes del traslado', 'error')
+                                return redirect(url_for('vendedor.vendedor_carga_directa_proveedor'))
+                            
+                            # Realizar la resta
+                            cursor.execute("""
+                                UPDATE inventario_bodega 
+                                SET Existencias = Existencias - %s
+                                WHERE ID_Bodega = %s AND ID_Producto = %s
+                            """, (prod['cantidad'], ID_BODEGA_CENTRAL, prod['id_producto']))
+                            
+                            # Verificar que no quede negativo
+                            cursor.execute("""
+                                SELECT Existencias FROM inventario_bodega 
+                                WHERE ID_Bodega = %s AND ID_Producto = %s
+                            """, (ID_BODEGA_CENTRAL, prod['id_producto']))
+                            existencias_final = cursor.fetchone()
+                            
+                            if existencias_final['Existencias'] < 0:
+                                flash(f'ERROR CRÍTICO: Stock negativo en bodega para producto {prod["descripcion"]}', 'error')
+                                return redirect(url_for('vendedor.vendedor_carga_directa_proveedor'))
                         
-                        if ruta_inventario['Cantidad'] < 0:
-                            flash(f'ERROR: Inventario de ruta negativo para producto {prod["id_producto"]}', 'error')
-                            return redirect(url_for('vendedor.vendedor_carga_directa_proveedor'))
-                    
-                    id_movimiento_final = id_movimiento_ruta
-                    mensaje_exito = f'✅ CARGA A RUTA registrada exitosamente. Stock disponible en tu ruta para venta inmediata. Factura: {factura_proveedor}'
+                        # PASO 4.4: REGISTRAR ENTRADA A RUTA
+                        total_subtotal_venta = sum(p['cantidad'] * p['precio_ruta'] for p in productos_procesar)
+                        
+                        cursor.execute("""
+                            INSERT INTO movimientos_ruta_cabecera 
+                            (ID_Asignacion, ID_TipoMovimiento, ID_Usuario_Registra, 
+                             Documento_Numero, Total_Productos, Total_Items, Total_Subtotal,
+                             ID_Empresa, Estado)
+                            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 'ACTIVO')
+                        """, (id_asignacion, ID_TIPO_ENTRADA_CARGA, id_usuario, factura_proveedor,
+                              total_cantidad, total_items, total_subtotal_venta, id_empresa))
+                        
+                        id_movimiento_ruta = cursor.lastrowid
+                        
+                        # PASO 4.5: REGISTRAR DETALLE DE RUTA
+                        for prod in productos_procesar:
+                            subtotal = prod['cantidad'] * prod['precio_ruta']
+                            cursor.execute("""
+                                INSERT INTO movimientos_ruta_detalle
+                                (ID_Movimiento, ID_Producto, Cantidad, Precio_Unitario, 
+                                 Subtotal, ID_Movimiento_Origen)
+                                VALUES (%s, %s, %s, %s, %s, %s)
+                            """, (id_movimiento_ruta, prod['id_producto'], prod['cantidad'],
+                                  prod['precio_ruta'], subtotal, id_movimiento_salida))
+                        
+                        # PASO 4.6: ACTUALIZAR INVENTARIO DE RUTA (SUMA)
+                        for prod in productos_procesar:
+                            cursor.execute("""
+                                INSERT INTO inventario_ruta (ID_Asignacion, ID_Producto, Cantidad)
+                                VALUES (%s, %s, %s)
+                                ON DUPLICATE KEY UPDATE Cantidad = Cantidad + VALUES(Cantidad)
+                            """, (id_asignacion, prod['id_producto'], prod['cantidad']))
+                            
+                            # VERIFICAR INVENTARIO DE RUTA
+                            cursor.execute("""
+                                SELECT Cantidad FROM inventario_ruta 
+                                WHERE ID_Asignacion = %s AND ID_Producto = %s
+                            """, (id_asignacion, prod['id_producto']))
+                            ruta_inventario = cursor.fetchone()
+                            
+                            if ruta_inventario['Cantidad'] < 0:
+                                flash(f'ERROR: Inventario de ruta negativo para producto {prod["descripcion"]}', 'error')
+                                return redirect(url_for('vendedor.vendedor_carga_directa_proveedor'))
+                        
+                        # Si llegamos aquí, todo está bien, el savepoint se libera automáticamente al hacer commit
+                        id_movimiento_final = id_movimiento_ruta
+                        mensaje_exito = f'✅ CARGA A RUTA registrada exitosamente. Stock disponible en tu ruta para venta inmediata. Factura: {factura_proveedor}'
+                        
+                    except Exception as e:
+                        # Revertir solo el traslado (hasta el savepoint), mantener la compra
+                        cursor.execute("ROLLBACK TO SAVEPOINT antes_traslado")
+                        raise e
                     
                 else:  # tipo_destino == 'BODEGA'
                     # ========================================
@@ -2325,6 +2348,7 @@ def vendedor_carga_directa_proveedor():
         traceback.print_exc()
         flash(f'Error al cargar el formulario: {str(e)}', 'error')
         return redirect(url_for('vendedor.vendedor_inventario'))
+
 
 @vendedor_bp.route('/api/productos', methods=['GET'])
 @vendedor_required
