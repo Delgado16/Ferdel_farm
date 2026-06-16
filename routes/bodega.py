@@ -2646,6 +2646,7 @@ def cargas_pendientes():
                          cargas_recibidas=cargas_recibidas,
                          now=datetime.now())
 
+## CAMBIO DE RUTAS PARA INTEGRAR EL REGISTRO DE MOVIMIENTO DE INVENTARIOS
 @bodega_bp.route('/recibir-carga/<int:id_carga>', methods=['GET', 'POST'])
 @login_required
 @bodega_required
@@ -2706,12 +2707,14 @@ def recibir_carga(id_carga):
                         WHERE ID_Carga = %s
                     """, (current_user.id, observacion_recepcion, id_carga))
                     
-                    # Actualizar movimiento de inventario a Anulado
+                    # Actualizar movimiento de inventario a Cancelada
                     cursor.execute("""
                         UPDATE movimientos_inventario
-                        SET Estado = 'Anulada'
+                        SET Estado = 'Cancelada',
+                            Fecha_Modificacion = NOW(),
+                            ID_Usuario_Modificacion = %s
                         WHERE ID_Movimiento = %s
-                    """, (carga['ID_Movimiento'],))
+                    """, (current_user.id, carga['ID_Movimiento']))
                     
                     flash(f'Carga #{id_carga} - Factura {carga["Num_Factura"]} ha sido RECHAZADA', 'warning')
                     return redirect(url_for('bodega.cargas_pendientes'))
@@ -2773,9 +2776,44 @@ def recibir_carga(id_carga):
                     # Actualizar movimiento de inventario a Activa
                     cursor.execute("""
                         UPDATE movimientos_inventario
-                        SET Estado = 'Activa'
+                        SET Estado = 'Activa',
+                            Fecha_Modificacion = NOW(),
+                            ID_Usuario_Modificacion = %s
                         WHERE ID_Movimiento = %s
-                    """, (carga['ID_Movimiento'],))
+                    """, (current_user.id, carga['ID_Movimiento']))
+                    
+                    # Actualizar o crear detalle del movimiento de inventario
+                    for prod in productos_recibidos:
+                        # Verificar si ya existe detalle para este movimiento y producto
+                        cursor.execute("""
+                            SELECT ID_Detalle_Movimiento 
+                            FROM detalle_movimientos_inventario 
+                            WHERE ID_Movimiento = %s AND ID_Producto = %s
+                        """, (carga['ID_Movimiento'], prod['id_producto']))
+                        
+                        detalle_existente = cursor.fetchone()
+                        
+                        subtotal = prod['cantidad'] * prod['costo']
+                        
+                        if detalle_existente:
+                            # Actualizar detalle existente
+                            cursor.execute("""
+                                UPDATE detalle_movimientos_inventario
+                                SET Cantidad = %s,
+                                    Costo_Unitario = %s,
+                                    Subtotal = %s
+                                WHERE ID_Movimiento = %s AND ID_Producto = %s
+                            """, (prod['cantidad'], prod['costo'], subtotal, 
+                                  carga['ID_Movimiento'], prod['id_producto']))
+                        else:
+                            # Crear nuevo detalle
+                            cursor.execute("""
+                                INSERT INTO detalle_movimientos_inventario 
+                                (ID_Movimiento, ID_Producto, Cantidad, Costo_Unitario, 
+                                 Subtotal, ID_Usuario_Creacion)
+                                VALUES (%s, %s, %s, %s, %s, %s)
+                            """, (carga['ID_Movimiento'], prod['id_producto'], 
+                                  prod['cantidad'], prod['costo'], subtotal, current_user.id))
                     
                     # Actualizar inventario de bodega con cantidades reales recibidas
                     for prod in productos_recibidos:
@@ -2798,13 +2836,15 @@ def recibir_carga(id_carga):
                     
                     flash(f'{mensaje}. Inventario actualizado correctamente.', 'success')
                 else:
-                    # Si no se recibió nada, anular el movimiento
+                    # Si no se recibió nada, actualizar movimiento de inventario a Cancelada
                     cursor.execute("""
                         UPDATE movimientos_inventario
-                        SET Estado = 'Anulada'
+                        SET Estado = 'Cancelada',
+                            Fecha_Modificacion = NOW(),
+                            ID_Usuario_Modificacion = %s
                         WHERE ID_Movimiento = %s
-                    """, (carga['ID_Movimiento'],))
-                    flash(f'{mensaje}. Movimiento anulado.', 'warning')
+                    """, (current_user.id, carga['ID_Movimiento']))
+                    flash(f'{mensaje}. Movimiento cancelado.', 'warning')
                 
                 return redirect(url_for('bodega.cargas_pendientes'))
                 
@@ -2821,6 +2861,7 @@ def recibir_carga(id_carga):
                              detalles=detalles,
                              now=datetime.now())
 
+
 @bodega_bp.route('/carga-detalle/<int:id_carga>', methods=['GET'])
 @login_required
 @bodega_required
@@ -2835,11 +2876,16 @@ def carga_detalle(id_carga):
                 cp.*,
                 p.Nombre as proveedor_nombre,
                 u.NombreUsuario as vendedor_nombre,
-                u2.NombreUsuario as recibido_por_nombre
+                u2.NombreUsuario as recibido_por_nombre,
+                mi.Estado as movimiento_estado,
+                mi.Fecha as movimiento_fecha,
+                mi.Tipo_Compra,
+                mi.Observacion as movimiento_observacion
             FROM cargas_pendientes_recepcion cp
             LEFT JOIN proveedores p ON cp.ID_Proveedor = p.ID_Proveedor
             LEFT JOIN usuarios u ON cp.ID_Usuario_Carga = u.ID_Usuario
             LEFT JOIN usuarios u2 ON cp.ID_Usuario_Recepcion = u2.ID_Usuario
+            LEFT JOIN movimientos_inventario mi ON cp.ID_Movimiento = mi.ID_Movimiento
             WHERE cp.ID_Carga = %s AND p.ID_Empresa = %s
         """, (id_carga, id_empresa))
         
@@ -2856,16 +2902,33 @@ def carga_detalle(id_carga):
                 p.Descripcion as producto_nombre,
                 p.COD_Producto as codigo,
                 IFNULL(um.Abreviatura, 'PZA') as unidad,
-                (cpd.Cantidad_Cargada - IFNULL(cpd.Cantidad_Recibida, 0)) as pendiente
+                (cpd.Cantidad_Cargada - IFNULL(cpd.Cantidad_Recibida, 0)) as pendiente,
+                dmi.Cantidad as movimiento_cantidad,
+                dmi.Costo_Unitario as movimiento_costo,
+                dmi.Subtotal as movimiento_subtotal
             FROM cargas_pendientes_detalle cpd
             LEFT JOIN productos p ON cpd.ID_Producto = p.ID_Producto
             LEFT JOIN unidades_medida um ON p.Unidad_Medida = um.ID_Unidad
+            LEFT JOIN detalle_movimientos_inventario dmi ON dmi.ID_Movimiento = cpd.ID_Carga AND dmi.ID_Producto = cpd.ID_Producto
             WHERE cpd.ID_Carga = %s
         """, (id_carga,))
         
         detalles = cursor.fetchall()
         
+        # Obtener resumen del movimiento de inventario
+        cursor.execute("""
+            SELECT 
+                COUNT(DISTINCT dmi.ID_Producto) as productos_recibidos,
+                SUM(dmi.Cantidad) as total_recibido,
+                SUM(dmi.Subtotal) as total_valor
+            FROM detalle_movimientos_inventario dmi
+            WHERE dmi.ID_Movimiento = %s
+        """, (carga['ID_Movimiento'],))
+        
+        resumen_movimiento = cursor.fetchone()
+        
     return render_template('bodega/cargas/carga_detalle.html', 
                          carga=carga, 
                          detalles=detalles,
+                         resumen_movimiento=resumen_movimiento,
                          now=datetime.now())

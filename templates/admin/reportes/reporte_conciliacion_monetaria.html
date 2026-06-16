@@ -1,0 +1,138 @@
+{% extends "layout.html" %}
+
+{% block title %}Conciliación Monetaria de Ruta - FerDel{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">
+        <i class="bi bi-cash-stack"></i> Conciliación Monetaria de Ruta
+    </h1>
+    <div class="btn-toolbar mb-2 mb-md-0">
+        <div class="btn-group">
+            <a href="{{ url_for('admin.reporte_conciliacion_monetaria', fecha_inicio=fecha_inicio, fecha_fin=fecha_fin, vendedor_id=vendedor_id, formato='csv') }}" 
+               class="btn btn-sm btn-success">
+                <i class="bi bi-file-earmark-spreadsheet"></i> Exportar CSV
+            </a>
+            <a href="{{ url_for('admin.reporte_conciliacion_monetaria', fecha_inicio=fecha_inicio, fecha_fin=fecha_fin, vendedor_id=vendedor_id, formato='json') }}" 
+               class="btn btn-sm btn-info text-white">
+                <i class="bi bi-file-earmark-code"></i> Exportar JSON
+            </a>
+            <button class="btn btn-sm btn-secondary" onclick="window.print()">
+                <i class="bi bi-printer"></i> Imprimir
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Filtros -->
+<div class="card shadow-sm mb-4">
+    <div class="card-header bg-light">
+        <i class="bi bi-funnel"></i> <strong>Filtros</strong>
+    </div>
+    <div class="card-body">
+        <form method="GET" action="{{ url_for('admin.reporte_conciliacion_monetaria') }}" class="row g-3">
+            <div class="col-md-3">
+                <label class="form-label">Fecha Inicio</label>
+                <input type="date" name="fecha_inicio" class="form-control" value="{{ fecha_inicio }}">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Fecha Fin</label>
+                <input type="date" name="fecha_fin" class="form-control" value="{{ fecha_fin }}">
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">Vendedor</label>
+                <select name="vendedor_id" class="form-select">
+                    <option value="">Todos</option>
+                    {% for v in vendedores %}
+                    <option value="{{ v.ID_Usuario }}" {% if vendedor_id|int == v.ID_Usuario %}selected{% endif %}>
+                        {{ v.NombreUsuario }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2 d-flex align-items-end">
+                <button type="submit" class="btn btn-primary w-100">
+                    <i class="bi bi-search"></i> Filtrar
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Tabla de Detalles -->
+<div class="card shadow-sm">
+    <div class="card-header bg-white">
+        <i class="bi bi-table"></i> <strong>Detalle de Conciliación de Efectivo vs Facturación</strong>
+        <span class="badge bg-secondary float-end">{{ resultados|length }} registros</span>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0" style="font-size: 0.85rem;">
+                <thead class="table-light text-center">
+                    <tr>
+                        <th rowspan="2" class="align-middle text-start">Ruta / Vendedor</th>
+                        <th rowspan="2" class="align-middle">Fecha</th>
+                        <th colspan="3" class="table-primary">Ventas de Contado</th>
+                        <th colspan="3" class="table-success">Cobro de Abonos</th>
+                        <th colspan="4" class="table-secondary">Liquidación de Efectivo</th>
+                    </tr>
+                    <tr>
+                        <th class="table-primary border-start text-end">Facturado</th>
+                        <th class="table-primary text-end">Caja</th>
+                        <th class="table-primary text-end">Dif.</th>
+                        
+                        <th class="table-success border-start text-end">Recibos</th>
+                        <th class="table-success text-end">Caja</th>
+                        <th class="table-success text-end">Dif.</th>
+                        
+                        <th class="table-secondary border-start text-end">Gastos</th>
+                        <th class="table-secondary text-end">Teórico</th>
+                        <th class="table-secondary text-end text-success">Cierre</th>
+                        <th class="table-secondary text-end">Cuadre</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in resultados %}
+                    <tr class="{% if item.Cuadre_Final_Caja|float != 0 or item.Discrepancia_Dinero_Ventas|float != 0 or item.Discrepancia_Dinero_Abonos|float != 0 %}table-warning{% endif %}">
+                        <td class="text-start">
+                            <strong>{{ item.Ruta }}</strong><br>
+                            <span class="text-muted small">{{ item.Vendedor }}</span>
+                        </td>
+                        <td>{{ item.Fecha.strftime('%d/%m/%Y') if item.Fecha is not string else item.Fecha }}</td>
+                        
+                        <!-- Ventas Contado -->
+                        <td class="text-end border-start">C${{ "{:,.2f}".format(item.Facturado_Contado|float) }}</td>
+                        <td class="text-end">C${{ "{:,.2f}".format(item.Efectivo_Ventas_Caja|float) }}</td>
+                        <td class="text-end fw-bold {% if item.Discrepancia_Dinero_Ventas|float != 0 %}text-danger{% else %}text-muted{% endif %}">
+                            C${{ "{:,.2f}".format(item.Discrepancia_Dinero_Ventas|float) }}
+                        </td>
+                        
+                        <!-- Cobro Abonos -->
+                        <td class="text-end border-start">C${{ "{:,.2f}".format(item.Abonos_Clientes_Detalle|float) }}</td>
+                        <td class="text-end">C${{ "{:,.2f}".format(item.Efectivo_Abonos_Caja|float) }}</td>
+                        <td class="text-end fw-bold {% if item.Discrepancia_Dinero_Abonos|float != 0 %}text-danger{% else %}text-muted{% endif %}">
+                            C${{ "{:,.2f}".format(item.Discrepancia_Dinero_Abonos|float) }}
+                        </td>
+                        
+                        <!-- Liquidación -->
+                        <td class="text-end border-start text-danger">-C${{ "{:,.2f}".format(item.Egreos_Gastos_Ruta|default(item.Egresos_Gastos_Ruta, true)|float) }}</td>
+                        <td class="text-end text-primary fw-bold">C${{ "{:,.2f}".format(item.Saldo_Teorico_Total|float) }}</td>
+                        <td class="text-end text-success fw-bold">C${{ "{:,.2f}".format(item.Caja_Cierre_Declarado|float) }}</td>
+                        <td class="text-end fw-bold {% if item.Cuadre_Final_Caja|float < 0 %}text-danger{% elif item.Cuadre_Final_Caja|float > 0 %}text-warning{% else %}text-success{% endif %}">
+                            C${{ "{:,.2f}".format(item.Cuadre_Final_Caja|float) }}
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="12" class="text-center text-muted py-4">
+                            <i class="bi bi-inbox fs-1"></i><br>
+                            No hay conciliaciones registradas en este período
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -2,34 +2,451 @@
 
 {% block title %}Dashboard de Ventas - Rutas y Local{% endblock %}
 
-{% block styles %}
+{% block extra_css %}
 <style>
-    .card-stats { transition: transform 0.3s; cursor: pointer; }
-    .card-stats:hover { transform: translateY(-5px); }
-    .chart-container { position: relative; height: 300px; margin: 20px 0; }
-    .filter-card { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; }
-    .filter-card .form-label { color: white; }
-    .filter-card .form-select, .filter-card .form-control { background-color: rgba(255, 255, 255, 0.9); border: none; }
-    .btn-filter { background-color: white; color: #667eea; font-weight: bold; }
-    .btn-filter:hover { background-color: #f8f9fa; transform: scale(1.05); }
-    .stats-icon { font-size: 2.5rem; opacity: 0.3; position: absolute; right: 20px; top: 20px; }
-    .fila-inactiva { background-color: #f8f9fa; opacity: 0.7; }
-    .nav-tabs .nav-link { color: #6c757d; font-weight: 500; border: none; padding: 12px 20px; transition: all 0.3s; }
-    .nav-tabs .nav-link:hover { color: #667eea; border-bottom: 3px solid #667eea; }
-    .nav-tabs .nav-link.active { color: #667eea; border-bottom: 3px solid #667eea; background: transparent; }
-    .nav-tabs { border-bottom: 2px solid #e3e6f0; }
-    .btn-anular { background: linear-gradient(135deg, #f5576c 0%, #d63031 100%); color: white; border: none; padding: 8px 20px; border-radius: 5px; transition: all 0.3s; font-weight: bold; width: 100%; }
-    .btn-anular:hover { transform: scale(1.02); color: white; box-shadow: 0 5px 15px rgba(245, 87, 108, 0.4); }
-    .btn-anular:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
-    .factura-anulada { background-color: #fff3f3; }
-    .modal-anular .modal-header { background: linear-gradient(135deg, #f5576c 0%, #d63031 100%); color: white; }
-    .modal-anular .modal-header .btn-close { filter: brightness(0) invert(1); }
-    .icono-anulacion { font-size: 4rem; color: #d63031; animation: pulse 1.5s infinite; }
-    @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.1); } 100% { transform: scale(1); } }
+    /* ===== PALETA DE COLORES Y CONTENEDOR ===== */
+    .dashboard-ventas-wrapper {
+        --primary: #4f46e5;
+        --primary-hover: #4338ca;
+        --success: #10b981;
+        --success-hover: #059669;
+        --info: #06b6d4;
+        --warning: #f59e0b;
+        --danger: #ef4444;
+        --danger-hover: #dc2626;
+        --slate-50: #f8fafc;
+        --slate-100: #f1f5f9;
+        --slate-200: #e2e8f0;
+        --slate-300: #cbd5e1;
+        --slate-400: #94a3b8;
+        --slate-500: #64748b;
+        --slate-600: #475569;
+        --slate-700: #334155;
+        --slate-800: #1e293b;
+        --card-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+        --hover-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.08), 0 10px 10px -5px rgba(0, 0, 0, 0.03);
+
+        font-family: 'Inter', 'Outfit', sans-serif;
+    }
+
+    /* ===== TARJETAS DE ESTADÍSTICAS ===== */
+    .dashboard-ventas-wrapper .card-stats {
+        border-radius: 16px;
+        border: 1px solid var(--slate-100) !important;
+        box-shadow: var(--card-shadow) !important;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        cursor: pointer;
+        overflow: hidden;
+        position: relative;
+    }
+    .dashboard-ventas-wrapper .card-stats:hover {
+        transform: translateY(-4px);
+        box-shadow: var(--hover-shadow) !important;
+        border-color: var(--slate-200) !important;
+    }
+    .dashboard-ventas-wrapper .card-stats::after {
+        content: '';
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        width: 100%;
+        height: 4px;
+        background: transparent;
+        transition: background-color 0.3s ease;
+    }
+    .dashboard-ventas-wrapper .border-left-primary::after { background: var(--primary); }
+    .dashboard-ventas-wrapper .border-left-success::after { background: var(--success); }
+    .dashboard-ventas-wrapper .border-left-info::after { background: var(--info); }
+    .dashboard-ventas-wrapper .border-left-warning::after { background: var(--warning); }
+    .dashboard-ventas-wrapper .border-left-danger::after { background: var(--danger); }
+    
+    .dashboard-ventas-wrapper .border-left-primary { border-left: none !important; }
+    .dashboard-ventas-wrapper .border-left-success { border-left: none !important; }
+    .dashboard-ventas-wrapper .border-left-info { border-left: none !important; }
+    .dashboard-ventas-wrapper .border-left-warning { border-left: none !important; }
+    .dashboard-ventas-wrapper .border-left-danger { border-left: none !important; }
+
+    .dashboard-ventas-wrapper .card-stats .text-primary { color: var(--primary) !important; }
+    .dashboard-ventas-wrapper .card-stats .text-success { color: var(--success) !important; }
+    .dashboard-ventas-wrapper .card-stats .text-info { color: var(--info) !important; }
+    .dashboard-ventas-wrapper .card-stats .text-warning { color: var(--warning) !important; }
+    .dashboard-ventas-wrapper .card-stats .text-danger { color: var(--danger) !important; }
+
+    .dashboard-ventas-wrapper .card-stats .stats-icon {
+        font-size: 2.2rem;
+        opacity: 0.12;
+        position: absolute;
+        right: 1.25rem;
+        top: 1.25rem;
+        transition: all 0.3s ease;
+    }
+    .dashboard-ventas-wrapper .card-stats:hover .stats-icon {
+        opacity: 0.25;
+        transform: scale(1.1);
+    }
+
+    /* ===== FILTROS Y TARJETA ===== */
+    .dashboard-ventas-wrapper .filter-card {
+        background: white !important;
+        border: 1px solid var(--slate-200) !important;
+        box-shadow: var(--card-shadow) !important;
+        border-radius: 16px;
+        color: var(--slate-700) !important;
+        padding: 0.5rem;
+    }
+    .dashboard-ventas-wrapper .filter-card .form-label {
+        color: var(--slate-500) !important;
+        font-size: 0.75rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        margin-bottom: 0.35rem;
+    }
+    .dashboard-ventas-wrapper .filter-card .form-select,
+    .dashboard-ventas-wrapper .filter-card .form-control {
+        background-color: var(--slate-50) !important;
+        border: 1px solid var(--slate-200) !important;
+        color: var(--slate-700) !important;
+        border-radius: 10px;
+        padding: 0.55rem 0.85rem;
+        font-size: 0.9rem;
+        font-weight: 500;
+        transition: all 0.2s ease;
+        outline: none;
+    }
+    .dashboard-ventas-wrapper .filter-card .form-select:focus,
+    .dashboard-ventas-wrapper .filter-card .form-control:focus {
+        border-color: var(--primary) !important;
+        box-shadow: 0 0 0 4px rgba(79, 70, 229, 0.15) !important;
+        background-color: white !important;
+    }
+    .dashboard-ventas-wrapper .btn-filter {
+        background-color: var(--primary) !important;
+        color: white !important;
+        border: none !important;
+        border-radius: 10px;
+        padding: 0.55rem 1.5rem;
+        font-weight: 600;
+        font-size: 0.9rem;
+        transition: all 0.2s ease;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.35rem;
+        box-shadow: 0 4px 12px rgba(79, 70, 229, 0.15);
+    }
+    .dashboard-ventas-wrapper .btn-filter:hover {
+        background-color: var(--primary-hover) !important;
+        transform: translateY(-1px);
+        box-shadow: 0 6px 16px rgba(79, 70, 229, 0.25);
+    }
+
+    /* ===== PESTAÑAS (TABS) ===== */
+    .dashboard-ventas-wrapper .nav-tabs {
+        border-bottom: 2px solid var(--slate-200);
+        gap: 0.5rem;
+    }
+    .dashboard-ventas-wrapper .nav-tabs .nav-link {
+        color: var(--slate-400);
+        font-weight: 600;
+        font-size: 0.9rem;
+        border: none;
+        border-bottom: 2px solid transparent;
+        padding: 0.75rem 1.25rem;
+        transition: all 0.2s ease;
+        background: transparent;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        margin-bottom: -2px;
+    }
+    .dashboard-ventas-wrapper .nav-tabs .nav-link:hover {
+        color: var(--slate-600);
+    }
+    .dashboard-ventas-wrapper .nav-tabs .nav-link.active {
+        color: var(--primary);
+        border-bottom: 2px solid var(--primary);
+        background: transparent;
+    }
+
+    /* ===== TABLAS Y TARJETAS GENERALES ===== */
+    .dashboard-ventas-wrapper .card {
+        border-radius: 16px;
+        border: 1px solid var(--slate-200);
+        box-shadow: var(--card-shadow) !important;
+        overflow: hidden;
+    }
+    .dashboard-ventas-wrapper .card-header {
+        background-color: var(--slate-50);
+        border-bottom: 1px solid var(--slate-200);
+        padding: 1rem 1.25rem;
+    }
+    .dashboard-ventas-wrapper .card-header h6 {
+        font-weight: 700;
+        color: var(--slate-800) !important;
+        font-size: 0.95rem;
+        margin: 0;
+        display: flex;
+        align-items: center;
+        gap: 0.35rem;
+    }
+    .dashboard-ventas-wrapper .card-header h6 i {
+        color: var(--primary);
+    }
+    .dashboard-ventas-wrapper .table-responsive {
+        border-radius: 0 0 16px 16px;
+        overflow: hidden;
+    }
+    .dashboard-ventas-wrapper table {
+        width: 100%;
+        margin-bottom: 0;
+        font-size: 0.875rem;
+    }
+    .dashboard-ventas-wrapper table thead.table-dark th {
+        background-color: var(--slate-50) !important;
+        color: var(--slate-500) !important;
+        border-bottom: 1px solid var(--slate-200) !important;
+        padding: 0.85rem 1rem;
+        font-weight: 700;
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+    }
+    .dashboard-ventas-wrapper table tbody td {
+        padding: 0.85rem 1rem;
+        border-bottom: 1px solid var(--slate-100);
+        vertical-align: middle;
+        color: var(--slate-700);
+    }
+    .dashboard-ventas-wrapper table tbody tr {
+        transition: background-color 0.2s ease;
+    }
+    .dashboard-ventas-wrapper table tbody tr:hover {
+        background-color: var(--slate-50);
+    }
+    .dashboard-ventas-wrapper .fila-inactiva {
+        opacity: 0.55;
+    }
+    .dashboard-ventas-wrapper .factura-anulada {
+        background-color: rgba(239, 68, 68, 0.02) !important;
+    }
+    .dashboard-ventas-wrapper .factura-anulada:hover {
+        background-color: rgba(239, 68, 68, 0.04) !important;
+    }
+
+    /* ===== BADGES ===== */
+    .dashboard-ventas-wrapper .badge {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.35rem;
+        padding: 0.35rem 0.75rem;
+        border-radius: 50px;
+        font-size: 0.75rem;
+        font-weight: 600;
+        line-height: 1;
+        letter-spacing: 0.02em;
+    }
+    .dashboard-ventas-wrapper .badge.bg-primary { background-color: rgba(79, 70, 229, 0.08) !important; color: var(--primary) !important; }
+    .dashboard-ventas-wrapper .badge.bg-success { background-color: rgba(16, 185, 129, 0.08) !important; color: var(--success) !important; }
+    .dashboard-ventas-wrapper .badge.bg-danger { background-color: rgba(239, 68, 68, 0.08) !important; color: var(--danger) !important; }
+    .dashboard-ventas-wrapper .badge.bg-warning { background-color: rgba(245, 158, 11, 0.08) !important; color: var(--warning) !important; }
+    .dashboard-ventas-wrapper .badge.bg-info { background-color: rgba(6, 182, 212, 0.08) !important; color: var(--info) !important; }
+    .dashboard-ventas-wrapper .badge.bg-secondary { background-color: rgba(100, 116, 139, 0.08) !important; color: var(--slate-500) !important; }
+
+    /* ===== DETALLE FACTURA (ESTILO RECIBO) ===== */
+    .dashboard-ventas-wrapper .table-sm th {
+        font-weight: 600;
+        color: var(--slate-500);
+        padding: 0.65rem 0;
+        font-size: 0.85rem;
+        border-bottom: 1px solid var(--slate-100);
+    }
+    .dashboard-ventas-wrapper .table-sm td {
+        font-weight: 600;
+        color: var(--slate-800);
+        padding: 0.65rem 0;
+        font-size: 0.9rem;
+        border-bottom: 1px solid var(--slate-100);
+    }
+    .dashboard-ventas-wrapper .alert-danger {
+        background-color: rgba(239, 68, 68, 0.05) !important;
+        border: 1px dashed var(--danger) !important;
+        color: var(--danger) !important;
+        border-radius: 12px;
+        padding: 1rem;
+    }
+    .dashboard-ventas-wrapper .alert-danger h6 {
+        font-weight: 700;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    /* ===== BOTÓN ANULAR ===== */
+    .dashboard-ventas-wrapper .btn-anular {
+        background: linear-gradient(135deg, var(--danger), #dc2626) !important;
+        color: white !important;
+        border: none !important;
+        padding: 0.75rem 1.5rem;
+        border-radius: 10px;
+        font-weight: 700;
+        font-size: 0.9rem;
+        transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        width: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+        box-shadow: 0 4px 12px rgba(239, 68, 68, 0.2);
+    }
+    .dashboard-ventas-wrapper .btn-anular:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 6px 16px rgba(239, 68, 68, 0.35);
+    }
+    .dashboard-ventas-wrapper .btn-anular:active {
+        transform: translateY(1px);
+    }
+
+    /* ===== BOTONES GENERALES ACCION ===== */
+    .dashboard-ventas-wrapper .btn-outline-primary {
+        color: var(--primary);
+        border-color: var(--slate-200);
+        background: white;
+        border-radius: 8px;
+        font-weight: 600;
+    }
+    .dashboard-ventas-wrapper .btn-outline-primary:hover {
+        background: var(--primary);
+        border-color: var(--primary);
+        color: white;
+        box-shadow: 0 4px 10px rgba(79, 70, 229, 0.15);
+    }
+    .dashboard-ventas-wrapper .btn-outline-secondary {
+        color: var(--slate-500);
+        border-color: var(--slate-200);
+        background: white;
+        border-radius: 8px;
+        font-weight: 600;
+    }
+    .dashboard-ventas-wrapper .btn-outline-secondary:hover {
+        background: var(--slate-100);
+        border-color: var(--slate-300);
+        color: var(--slate-700);
+    }
+    .dashboard-ventas-wrapper .btn-outline-info {
+        color: var(--info);
+        border-color: var(--slate-200);
+        background: white;
+        border-radius: 8px;
+        font-weight: 600;
+    }
+    .dashboard-ventas-wrapper .btn-outline-info:hover {
+        background: var(--info);
+        border-color: var(--info);
+        color: white;
+        box-shadow: 0 4px 10px rgba(6, 182, 212, 0.15);
+    }
+    .dashboard-ventas-wrapper .btn-info {
+        background: var(--info);
+        border: none;
+        color: white;
+        border-radius: 8px;
+        font-weight: 600;
+    }
+    .dashboard-ventas-wrapper .btn-info:hover {
+        background: #0891b2;
+        color: white;
+        box-shadow: 0 4px 10px rgba(6, 182, 212, 0.25);
+    }
+
+    .dashboard-ventas-wrapper .chart-container {
+        position: relative;
+        height: 280px;
+        margin: 0.5rem 0;
+        padding: 0.5rem;
+    }
+
+    /* ===== MODAL ===== */
+    .modal-anular .modal-content {
+        border-radius: 20px;
+        border: none;
+        overflow: hidden;
+        box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+    }
+    .modal-anular .modal-header {
+        background: linear-gradient(135deg, var(--danger), #dc2626);
+        color: white;
+        border-bottom: none;
+        padding: 1.25rem 1.5rem;
+    }
+    .modal-anular .modal-header .modal-title {
+        font-weight: 700;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    .modal-anular .modal-header .btn-close {
+        filter: brightness(0) invert(1);
+        opacity: 0.8;
+        transition: all 0.2s;
+    }
+    .modal-anular .modal-header .btn-close:hover {
+        opacity: 1;
+        transform: rotate(90deg);
+    }
+    .modal-anular .modal-body {
+        padding: 1.75rem 1.5rem;
+    }
+    .modal-anular .icono-anulacion {
+        font-size: 4rem;
+        color: var(--danger);
+        animation: pulse-danger 2s infinite;
+        margin-bottom: 0.5rem;
+    }
+    @keyframes pulse-danger {
+        0%, 100% { transform: scale(1); opacity: 1; }
+        50% { transform: scale(1.08); opacity: 0.8; }
+    }
+    .modal-anular .modal-footer {
+        border-top: 1px solid var(--slate-100);
+        padding: 1rem 1.5rem;
+        background: var(--slate-50);
+        display: flex;
+        gap: 0.5rem;
+    }
+    .modal-anular .modal-footer .btn {
+        border-radius: 10px;
+        padding: 0.55rem 1.5rem;
+        font-weight: 600;
+        font-size: 0.9rem;
+    }
+    .modal-anular .form-control {
+        border-radius: 10px;
+        border: 1px solid var(--slate-200);
+        padding: 0.65rem 0.85rem;
+        background: var(--slate-50);
+        font-size: 0.9rem;
+        transition: all 0.2s ease;
+    }
+    .modal-anular .form-control:focus {
+        border-color: var(--danger);
+        box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.15);
+        background: white;
+    }
+    .modal-anular .alert-warning {
+        background-color: rgba(245, 158, 11, 0.08);
+        border: 1px solid rgba(245, 158, 11, 0.15);
+        color: #b45309;
+        border-radius: 10px;
+        font-weight: 600;
+        font-size: 0.85rem;
+    }
 </style>
 {% endblock %}
 
 {% block content %}
+<div class="dashboard-ventas-wrapper">
 <div class="container-fluid">
     <!-- Encabezado -->
     <div class="d-flex justify-content-between align-items-center mb-4">
@@ -268,7 +685,7 @@
                             <td>{% if venta.ultima_fecha %}{{ venta.ultima_fecha.strftime('%d/%m/%Y') if venta.ultima_fecha is not string else venta.ultima_fecha }}{% else %}<span class="text-muted">Sin ventas</span>{% endif %}</td>
                             <td>
                                 {% if venta.id_vendedor %}
-                                <a href="{{ url_for('admin.admin_facturas_ventas', vista='detalle_vendedor', id_vendedor=venta.id_vendedor, filtro=filtro_actual) }}" class="btn btn-sm btn-outline-info"><i class="fas fa-eye"></i></a>
+                                <a href="{{ url_for('admin.admin_facturas_ventas', vista='detalle_vendedor', id_vendedor=venta.id_vendedor, filtro=filtro_actual) }}" class="btn btn-sm btn-outline-info"><i class="fas fa-eye"></i> Ver Ventas</a>
                                 {% endif %}
                             </td>
                         </tr>
@@ -429,9 +846,9 @@
                         <tr><th class="text-muted">Fecha:</th><td>{{ factura_detalle.Fecha.strftime('%d/%m/%Y') if factura_detalle.Fecha is not string else factura_detalle.Fecha }}</td></tr>
                         <tr><th class="text-muted">Vendedor:</th><td>{{ factura_detalle.vendedor }}</td></tr>
                         <tr><th class="text-muted">Cliente:</th><td>{{ factura_detalle.Nombre_Cliente }}</td></tr>
-                        {% if factura_detalle.direccion_cliente %} wax<th class="text-muted">Dirección:</th><td>{{ factura_detalle.direccion_cliente }}</td></tr>{% endif %}
-                        {% if tipo_factura == 'ruta' %} wax<th class="text-muted">Ruta:</th><td>{{ factura_detalle.Nombre_Ruta }}</td></tr>{% endif %}
-                        {% if factura_detalle.vehiculo %} wax<th class="text-muted">Vehículo:</th><td>{{ factura_detalle.vehiculo }}</td></tr>{% endif %}
+                        {% if factura_detalle.direccion_cliente %} <tr><th class="text-muted">Dirección:</th><td>{{ factura_detalle.direccion_cliente }}</td></tr>{% endif %}
+                        {% if tipo_factura == 'ruta' %} <tr><th class="text-muted">Ruta:</th><td>{{ factura_detalle.Nombre_Ruta }}</td></tr>{% endif %}
+                        {% if factura_detalle.vehiculo %} <tr><th class="text-muted">Vehículo:</th><td>{{ factura_detalle.vehiculo }}</td></tr>{% endif %}
                         <tr>
                             <th class="text-muted">Tipo:</th>
                             <td>
@@ -457,7 +874,7 @@
                             </td>
                         </tr>
                         <tr><th class="text-muted">Total:</th><td class="h5 text-success">C${{ "{:,.2f}".format((total_factura|default(0))|float) }}</td></tr>
-                        {% if factura_detalle.Observacion %} wax<th class="text-muted">Observación:</th><td><small>{{ factura_detalle.Observacion }}</small></td></tr>{% endif %}
+                        {% if factura_detalle.Observacion %} <tr><th class="text-muted">Observación:</th><td><small>{{ factura_detalle.Observacion }}</small></td></tr>{% endif %}
                     </table>
                     
                     {% if anulacion_info %}
@@ -556,6 +973,12 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
 {% if vista_actual == 'general' %}
+// Configuración Global de Chart.js para diseño Premium
+if (typeof Chart !== 'undefined') {
+    Chart.defaults.font.family = "'Inter', sans-serif";
+    Chart.defaults.color = "#64748b";
+}
+
 (function() {
     var ctx = document.getElementById('evolucionChart').getContext('2d');
     new Chart(ctx, {
@@ -563,19 +986,42 @@
         data: {
             labels: {{ fechas_grafico|tojson }},
             datasets: [
-                { label: 'Ventas Rutas', data: {{ datos_ruta_grafico|tojson }}, borderColor: '#667eea', backgroundColor: 'rgba(102, 126, 234, 0.1)', tension: 0.4, fill: true },
-                { label: 'Ventas Local', data: {{ datos_local_grafico|tojson }}, borderColor: '#f5576c', backgroundColor: 'rgba(245, 87, 108, 0.1)', tension: 0.4, fill: true }
+                { label: 'Ventas Rutas', data: {{ datos_ruta_grafico|tojson }}, borderColor: '#4f46e5', backgroundColor: 'rgba(79, 70, 229, 0.06)', tension: 0.35, fill: true },
+                { label: 'Ventas Local', data: {{ datos_local_grafico|tojson }}, borderColor: '#10b981', backgroundColor: 'rgba(16, 185, 129, 0.06)', tension: 0.35, fill: true }
             ]
         },
-        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'top' } } }
+        options: { 
+            responsive: true, 
+            maintainAspectRatio: false, 
+            plugins: { 
+                legend: { position: 'top', labels: { boxWidth: 10, padding: 12, font: { size: 11, weight: '500' } } } 
+            },
+            scales: {
+                x: {
+                    grid: { color: 'rgba(226, 232, 240, 0.4)', drawBorder: false },
+                    ticks: { font: { size: 10 } }
+                },
+                y: {
+                    grid: { color: 'rgba(226, 232, 240, 0.4)', drawBorder: false },
+                    ticks: { font: { size: 10 } }
+                }
+            }
+        }
     });
 })();
 (function() {
     var ctx = document.getElementById('distribucionChart').getContext('2d');
     new Chart(ctx, {
         type: 'doughnut',
-        data: { labels: ['Rutas', 'Local'], datasets: [{ data: {{ torta_data|tojson }}, backgroundColor: ['#667eea', '#f5576c'], borderWidth: 0 }] },
-        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } }
+        data: { labels: ['Rutas', 'Local'], datasets: [{ data: {{ torta_data|tojson }}, backgroundColor: ['#4f46e5', '#10b981'], borderWidth: 0 }] },
+        options: { 
+            responsive: true, 
+            maintainAspectRatio: false, 
+            plugins: { 
+                legend: { position: 'bottom', labels: { boxWidth: 10, padding: 12, font: { size: 11, weight: '500' } } } 
+            },
+            cutout: '75%'
+        }
     });
 })();
 (function() {
@@ -585,12 +1031,30 @@
     var origen = {{ top_vendedores|map(attribute='origen')|list|tojson }};
     var colores = [];
     for (var i = 0; i < origen.length; i++) {
-        colores.push(origen[i] === 'RUTA' ? '#667eea' : '#f5576c');
+        colores.push(origen[i] === 'RUTA' ? '#4f46e5' : '#10b981');
     }
     new Chart(ctx, {
         type: 'bar',
-        data: { labels: labels, datasets: [{ label: 'Total Vendido', data: data, backgroundColor: colores, borderRadius: 5 }] },
-        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+        data: { labels: labels, datasets: [{ label: 'Total Vendido', data: data, backgroundColor: colores, borderRadius: 6, maxBarThickness: 32 }] },
+        options: { 
+            responsive: true, 
+            maintainAspectRatio: false, 
+            plugins: { legend: { display: false } },
+            scales: {
+                x: {
+                    grid: { display: false },
+                    ticks: { font: { size: 10 } }
+                },
+                y: {
+                    grid: { color: 'rgba(226, 232, 240, 0.4)', drawBorder: false },
+                    beginAtZero: true,
+                    ticks: {
+                        font: { size: 10 },
+                        callback: function(v) { return 'C$' + v.toLocaleString(); }
+                    }
+                }
+            }
+        }
     });
 })();
 {% endif %}
@@ -687,4 +1151,5 @@ function anularFactura() {
     });
 }
 </script>
+</div>
 {% endblock %}

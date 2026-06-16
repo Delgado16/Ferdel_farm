@@ -1,0 +1,114 @@
+{% extends "layout.html" %}
+
+{% block title %}Conciliación de Carga (Productos en Ruta) - FerDel{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">
+        <i class="bi bi-box-seam"></i> Conciliación Física de Carga
+    </h1>
+    <div class="btn-toolbar mb-2 mb-md-0">
+        <div class="btn-group">
+            <a href="{{ url_for('admin.reporte_conciliacion_productos', fecha_inicio=fecha_inicio, fecha_fin=fecha_fin, vendedor_id=vendedor_id, formato='csv') }}" 
+               class="btn btn-sm btn-success">
+                <i class="bi bi-file-earmark-spreadsheet"></i> Exportar CSV
+            </a>
+            <a href="{{ url_for('admin.reporte_conciliacion_productos', fecha_inicio=fecha_inicio, fecha_fin=fecha_fin, vendedor_id=vendedor_id, formato='json') }}" 
+               class="btn btn-sm btn-info text-white">
+                <i class="bi bi-file-earmark-code"></i> Exportar JSON
+            </a>
+            <button class="btn btn-sm btn-secondary" onclick="window.print()">
+                <i class="bi bi-printer"></i> Imprimir
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Filtros -->
+<div class="card shadow-sm mb-4">
+    <div class="card-header bg-light">
+        <i class="bi bi-funnel"></i> <strong>Filtros</strong>
+    </div>
+    <div class="card-body">
+        <form method="GET" action="{{ url_for('admin.reporte_conciliacion_productos') }}" class="row g-3">
+            <div class="col-md-3">
+                <label class="form-label">Fecha Inicio</label>
+                <input type="date" name="fecha_inicio" class="form-control" value="{{ fecha_inicio }}">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Fecha Fin</label>
+                <input type="date" name="fecha_fin" class="form-control" value="{{ fecha_fin }}">
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">Vendedor</label>
+                <select name="vendedor_id" class="form-select">
+                    <option value="">Todos</option>
+                    {% for v in vendedores %}
+                    <option value="{{ v.ID_Usuario }}" {% if vendedor_id|int == v.ID_Usuario %}selected{% endif %}>
+                        {{ v.NombreUsuario }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2 d-flex align-items-end">
+                <button type="submit" class="btn btn-primary w-100">
+                    <i class="bi bi-search"></i> Filtrar
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Tabla de Detalles -->
+<div class="card shadow-sm">
+    <div class="card-header bg-white">
+        <i class="bi bi-table"></i> <strong>Arqueo Físico de Productos por Asignación</strong>
+        <span class="badge bg-secondary float-end">{{ resultados|length }} registros</span>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>Asignación #</th>
+                        <th>Fecha</th>
+                        <th>Ruta</th>
+                        <th>Vendedor</th>
+                        <th>Código</th>
+                        <th>Producto</th>
+                        <th class="text-center text-primary">Cargado (Camión)</th>
+                        <th class="text-center text-success">Vendido (Facturas)</th>
+                        <th class="text-center text-info">Remanente (Físico)</th>
+                        <th class="text-center">Diferencia</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in resultados %}
+                    <tr class="{% if item.Discrepancia_Fisica_Stock|float != 0 %}table-danger{% endif %}">
+                        <td><code>#{{ item.ID_Asignacion }}</code></td>
+                        <td>{{ item.Fecha.strftime('%d/%m/%Y') if item.Fecha is not string else item.Fecha }}</td>
+                        <td><strong>{{ item.Ruta }}</strong></td>
+                        <td>{{ item.Vendedor }}</td>
+                        <td><code>{{ item.Codigo_Prod }}</code></td>
+                        <td>{{ item.Producto }}</td>
+                        <td class="text-center text-primary fw-bold">{{ "%.0f"|format(item.Cantidad_Cargada) }}</td>
+                        <td class="text-center text-success fw-bold">{{ "%.0f"|format(item.Cantidad_Vendida) }}</td>
+                        <td class="text-center text-info fw-bold">{{ "%.0f"|format(item.Stock_Actual_En_Camion) }}</td>
+                        <td class="text-center fw-bold {% if item.Discrepancia_Fisica_Stock|float == 0 %}text-success{% else %}text-danger{% endif %}">
+                            {{ "%.0f"|format(item.Discrepancia_Fisica_Stock) }}
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="10" class="text-center text-muted py-4">
+                            <i class="bi bi-inbox fs-1"></i><br>
+                            No hay productos cargados en rutas para este período
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

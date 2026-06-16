@@ -192,7 +192,6 @@
     }
 
     .stock-low { color: var(--warning-color); font-weight: 600; }
-    .stock-medium { color: var(--warning-color); font-weight: 600; }
     .stock-good { color: var(--success-color); font-weight: 600; }
 
     .alert-flotante {
@@ -575,44 +574,13 @@
     
     .total-pagado-card h4 { margin: 0; font-size: 1.5rem; }
 
-    /* Indicador visual de flujo */
-    .flow-indicator {
-        display: flex;
-        justify-content: center;
-        gap: 2rem;
-        margin-bottom: 2rem;
-        flex-wrap: wrap;
-    }
-    
-    .flow-step {
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-        padding: 0.5rem 1rem;
-        background: #f8f9fa;
-        border-radius: 50px;
-        font-size: 0.85rem;
-    }
-    
-    .flow-step.active {
-        background: linear-gradient(135deg, #28a745, #20c997);
-        color: white;
-    }
-    
-    .flow-step .step-number {
-        width: 24px;
-        height: 24px;
-        background: rgba(0,0,0,0.1);
-        border-radius: 50%;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        font-weight: bold;
-        font-size: 0.75rem;
-    }
-    
-    .flow-step.active .step-number {
-        background: rgba(255,255,255,0.3);
+    /* Estilo para abono inicial */
+    #abono_inicial_group {
+        background: #fff8e1;
+        border-radius: 8px;
+        padding: 0.75rem 1rem;
+        margin-top: 0.5rem;
+        border-left: 4px solid #ffc107;
     }
 
     @media (max-width: 1200px) {
@@ -623,7 +591,6 @@
         .form-section { padding: 1rem; }
         .product-grid { grid-template-columns: 1fr 1fr; }
         .confirm-modal-content { width: 95%; margin: 1rem; }
-        .flow-indicator { display: none; }
     }
     @media (max-width: 576px) {
         .product-grid { grid-template-columns: 1fr; }
@@ -656,17 +623,17 @@
                     <span>TOTAL VENTA:</span> <strong id="confirm-total-venta"></strong>
                 </div>
                 <div class="confirm-summary-item" id="confirm-total-pagado-container" style="display: none;">
-                    <span>TOTAL PAGADO:</span> <strong id="confirm-total-pagado" style="color: #28a745;"></strong>
+                    <span>ABONO INICIAL:</span> <strong id="confirm-total-pagado" style="color: #28a745;"></strong>
                 </div>
                 <div class="confirm-summary-item" id="confirm-saldo-container" style="display: none;">
-                    <span>SALDO PENDIENTE:</span> <strong id="confirm-saldo" style="color: #dc3545;"></strong>
+                    <span>SALDO A CRÉDITO:</span> <strong id="confirm-saldo" style="color: #dc3545;"></strong>
                 </div>
             </div>
 
             <h6 class="mb-2">Productos incluidos:</h6>
             <div class="confirm-product-list" id="confirm-product-list"></div>
 
-            <h6 class="mb-2 mt-3">Métodos de Pago:</h6>
+            <h6 class="mb-2 mt-3">Detalle del Pago:</h6>
             <div id="confirm-metodos-pago-list" style="margin-bottom: 1rem; max-height: 200px; overflow-y: auto;"></div>
 
             <div class="alert alert-warning mt-3 mb-0">
@@ -688,26 +655,6 @@
         </div>
         <div class="card-body">
 
-            <!-- Indicador de flujo visual -->
-            <div class="flow-indicator">
-                <div class="flow-step active">
-                    <span class="step-number">1</span>
-                    <span>Datos del Cliente</span>
-                </div>
-                <div class="flow-step">
-                    <span class="step-number">2</span>
-                    <span>Seleccionar Productos</span>
-                </div>
-                <div class="flow-step">
-                    <span class="step-number">3</span>
-                    <span>Ver Total</span>
-                </div>
-                <div class="flow-step">
-                    <span class="step-number">4</span>
-                    <span>Finalizar</span>
-                </div>
-            </div>
-
             {% if bodega_principal %}
             <div class="bodega-info">
                 <div class="d-flex align-items-center">
@@ -722,7 +669,7 @@
 
             <form id="formVenta" method="POST" novalidate>
                 <!-- ============================================ -->
-                <!-- 1. INFORMACIÓN GENERAL (Cliente, Tipo Venta) -->
+                <!-- 1. INFORMACIÓN GENERAL -->
                 <!-- ============================================ -->
                 <div class="form-section">
                     <h4 class="section-title"><i class="fas fa-info-circle me-2"></i>1. Información del Cliente</h4>
@@ -737,7 +684,7 @@
                                        placeholder="🔍 Buscar cliente por nombre, RUC o perfil..."
                                        autocomplete="off">
                                        
-                                <span class="search-icon-indicator" id="searchIcon">🔍</span>
+                                <span class="search-icon-indicator">🔍</span>
                                 
                                 <div class="cliente-dropdown" id="clienteDropdown">
                                     {% for cliente in clientes %}
@@ -836,9 +783,26 @@
                             </div>
                         </div>
 
+                        <!-- Fecha de Vencimiento (solo crédito) -->
                         <div class="col-12" id="fecha_vencimiento_group" style="display: none;">
                             <label for="fecha_vencimiento" class="form-label required-field">Fecha de Vencimiento (Crédito)</label>
                             <input type="date" class="form-control" id="fecha_vencimiento" name="fecha_vencimiento">
+                            <small class="text-muted">Fecha límite para que el cliente pague el saldo pendiente</small>
+                        </div>
+
+                        <!-- Abono Inicial (solo crédito) -->
+                        <div class="col-md-6" id="abono_inicial_group" style="display: none;">
+                            <label for="abono_inicial" class="form-label">Abono Inicial (opcional)</label>
+                            <div class="input-group">
+                                <span class="input-group-text">C$</span>
+                                <input type="number" class="form-control" id="abono_inicial" name="abono_inicial" 
+                                       step="0.01" min="0" value="0" placeholder="0.00">
+                            </div>
+                            <small class="text-muted">
+                                <i class="fas fa-info-circle me-1"></i>
+                                Monto que el cliente paga hoy. El resto pasará a crédito.
+                            </small>
+                            <div class="invalid-feedback" id="error-abono"></div>
                         </div>
 
                         <div class="col-12">
@@ -919,19 +883,18 @@
                 <div class="total-summary">
                     <div class="total-row"><span>Total Productos:</span> <span id="total-productos" class="fw-bold">0</span></div>
                     <div class="total-row"><span>Subtotal:</span> <span id="subtotal" class="fw-bold">C$ 0.00</span></div>
-                    <div class="total-row grand-total"><span>MONTO A PAGAR:</span> <span id="total-venta" class="fw-bold" style="font-size: 1.4rem;">C$ 0.00</span></div>
+                    <div class="total-row grand-total"><span>MONTO TOTAL:</span> <span id="total-venta" class="fw-bold" style="font-size: 1.4rem;">C$ 0.00</span></div>
                     <div class="total-row" id="pendiente-por-pagar" style="display: none; color: #dc3545;">
-                        <span>PENDIENTE POR PAGAR:</span> <span id="pendiente-monto" class="fw-bold">C$ 0.00</span>
+                        <span>SALDO A CRÉDITO:</span> <span id="pendiente-monto" class="fw-bold">C$ 0.00</span>
                     </div>
                 </div>
 
                 <!-- ============================================ -->
-                <!-- 6. MÉTODOS DE PAGO (SOLO PARA CONTADO) -->
+                <!-- 6. MÉTODOS DE PAGO -->
                 <!-- ============================================ -->
-                <div class="form-section" id="seccion-metodos-pago" style="display: none;">
+                <div class="form-section" id="seccion-metodos-pago" style="display: block;">
                     <h4 class="section-title"><i class="fas fa-money-bill-wave me-2"></i>3. Métodos de Pago</h4>
                     
-                    <!-- Info por defecto: Efectivo 100% -->
                     <div class="default-pago-info" id="defaultPagoInfo">
                         <div>
                             <i class="fas fa-money-bill text-success fa-2x me-3"></i>
@@ -945,7 +908,6 @@
                         </button>
                     </div>
                     
-                    <!-- Panel de métodos de pago avanzados -->
                     <div class="pagos-avanzados-card" id="pagosAvanzadosCard">
                         <div class="d-flex justify-content-between align-items-center mb-3">
                             <h6 class="mb-0"><i class="fas fa-credit-card me-1"></i>Múltiples métodos de pago</h6>
@@ -1001,19 +963,18 @@
                         <div class="total-pagado-card mt-3">
                             <div class="row align-items-center">
                                 <div class="col-6">
-                                    <strong><i class="fas fa-receipt me-1"></i>TOTAL PAGADO:</strong>
+                                    <strong><i class="fas fa-receipt me-1"></i>TOTAL A PAGAR HOY:</strong>
                                 </div>
                                 <div class="col-6 text-end">
                                     <h4 id="total-pagado-label">C$ 0.00</h4>
                                 </div>
                             </div>
                             <small id="validacion-pago" class="text-warning" style="display: none;">
-                                <i class="fas fa-exclamation-triangle me-1"></i> El total pagado no puede exceder el total de la venta
+                                <i class="fas fa-exclamation-triangle me-1"></i> El total a pagar no coincide
                             </small>
                         </div>
                     </div>
                     
-                    <!-- Campo oculto para saber si se usan métodos avanzados -->
                     <input type="hidden" id="usar_pagos_avanzados" name="usar_pagos_avanzados" value="0">
                 </div>
 
@@ -1046,68 +1007,88 @@
     let clientesData = [];
 
     // ============================================
-    // FUNCIONES MÉTODOS DE PAGO
+    // FUNCIONES UTILITARIAS
+    // ============================================
+    function formatearMoneda(valor) {
+        if (valor === undefined || valor === null) valor = 0;
+        return `C$ ${parseFloat(valor).toLocaleString('es-NI', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+    }
+
+    function extraerNumeroDeMoneda(textoMoneda) {
+        if (!textoMoneda) return 0;
+        if (typeof textoMoneda === 'number') return textoMoneda;
+        return parseFloat(textoMoneda.toString().replace(/[^0-9.-]+/g, "")) || 0;
+    }
+
+    function mostrarAlerta(tipo, titulo, mensaje) {
+        const alertasExistentes = document.querySelectorAll('.alert-flotante');
+        alertasExistentes.forEach(alerta => alerta.remove());
+        const alerta = document.createElement('div');
+        alerta.className = `alert alert-${tipo} alert-dismissible fade show alert-flotante`;
+        alerta.innerHTML = `<strong>${titulo}</strong> ${mensaje}<button type="button" class="btn-close" data-bs-dismiss="alert"></button>`;
+        document.body.appendChild(alerta);
+        setTimeout(() => { if (alerta.parentNode) alerta.remove(); }, 5000);
+    }
+
+    function getIconoMetodoPago(nombre) {
+        if (!nombre) return 'fa-receipt';
+        if (nombre.includes('Efectivo')) return 'fa-money-bill-wave';
+        if (nombre.includes('Transferencia')) return 'fa-university';
+        if (nombre.includes('Depósito')) return 'fa-hand-holding-usd';
+        if (nombre.includes('Tarjeta')) return 'fa-credit-card';
+        if (nombre.includes('Cheque')) return 'fa-file-alt';
+        return 'fa-receipt';
+    }
+
+    // ============================================
+    // MÉTODOS DE PAGO
     // ============================================
     function actualizarTotalPagado() {
         const tipoVenta = document.getElementById('tipo_venta').value;
-        
-        // Para CRÉDITO: No mostrar información de pagos
-        if (tipoVenta === 'credito') {
-            const totalPagadoLabel = document.getElementById('total-pagado-label');
-            const validacionDiv = document.getElementById('validacion-pago');
-            const pendienteDiv = document.getElementById('pendiente-por-pagar');
-            const totalVenta = parseFloat(extraerNumeroDeMoneda(document.getElementById('total-venta').textContent));
-            
-            if (totalPagadoLabel) totalPagadoLabel.innerHTML = `C$ 0.00`;
-            if (validacionDiv) validacionDiv.style.display = 'none';
-            if (pendienteDiv) {
-                pendienteDiv.style.display = 'flex';
-                document.getElementById('pendiente-monto').innerHTML = formatearMoneda(totalVenta);
-            }
-            return 0;
-        }
-        
-        // Para CONTADO: Calcular normalmente
-        let totalPagado = 0;
+        const totalVenta = parseFloat(extraerNumeroDeMoneda(document.getElementById('total-venta').textContent));
+        const abonoInicial = parseFloat(document.getElementById('abono_inicial')?.value) || 0;
         const usarAvanzados = document.getElementById('usar_pagos_avanzados').value === '1';
+        let totalPagado = 0;
         
         if (usarAvanzados) {
             const montos = document.querySelectorAll('.monto-pago');
             montos.forEach(monto => {
                 let valor = parseFloat(monto.value);
-                if (!isNaN(valor) && valor > 0) {
-                    totalPagado += valor;
-                }
+                if (!isNaN(valor) && valor > 0) totalPagado += valor;
             });
-            document.getElementById('total-pagado-label').innerHTML = `C$ ${totalPagado.toLocaleString('es-NI', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
         } else {
-            const totalVenta = parseFloat(extraerNumeroDeMoneda(document.getElementById('total-venta').textContent));
-            totalPagado = totalVenta;
-            document.getElementById('total-pagado-label').innerHTML = `C$ ${totalPagado.toLocaleString('es-NI', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+            totalPagado = (tipoVenta === 'credito') ? abonoInicial : totalVenta;
         }
         
-        const totalVenta = parseFloat(extraerNumeroDeMoneda(document.getElementById('total-venta').textContent));
-        const validacionDiv = document.getElementById('validacion-pago');
-        const pendienteDiv = document.getElementById('pendiente-por-pagar');
+        document.getElementById('total-pagado-label').innerHTML = formatearMoneda(totalPagado);
         
-        if (usarAvanzados) {
-            if (totalPagado > totalVenta && totalVenta > 0) {
-                if (validacionDiv) validacionDiv.style.display = 'block';
-                if (pendienteDiv) pendienteDiv.style.display = 'none';
-            } else {
-                if (validacionDiv) validacionDiv.style.display = 'none';
-                const pendiente = totalVenta - totalPagado;
-                if (pendienteDiv && pendiente > 0) {
+        if (tipoVenta === 'credito') {
+            const pendiente = totalVenta - totalPagado;
+            const pendienteDiv = document.getElementById('pendiente-por-pagar');
+            if (pendienteDiv) {
+                if (pendiente >= 0) {
                     pendienteDiv.style.display = 'flex';
                     document.getElementById('pendiente-monto').innerHTML = formatearMoneda(pendiente);
-                } else if (pendienteDiv) {
+                } else {
                     pendienteDiv.style.display = 'none';
                 }
             }
+            
+            const validacionDiv = document.getElementById('validacion-pago');
+            if (usarAvanzados && abonoInicial > 0 && Math.abs(totalPagado - abonoInicial) > 0.01) {
+                validacionDiv.style.display = 'block';
+                validacionDiv.innerHTML = `<i class="fas fa-exclamation-triangle me-1"></i> La suma (${formatearMoneda(totalPagado)}) no coincide con el abono inicial (${formatearMoneda(abonoInicial)})`;
+            } else {
+                validacionDiv.style.display = 'none';
+            }
         } else {
-            if (pendienteDiv) pendienteDiv.style.display = 'none';
+            const validacionDiv = document.getElementById('validacion-pago');
+            if (usarAvanzados && totalPagado > totalVenta) {
+                validacionDiv.style.display = 'block';
+            } else {
+                validacionDiv.style.display = 'none';
+            }
         }
-        
         return totalPagado;
     }
 
@@ -1182,7 +1163,6 @@
         
         const container = document.getElementById('metodos-pago-container');
         container.innerHTML = '';
-        
         const template = `
         <div class="metodo-pago-card">
             <div class="row g-3">
@@ -1214,8 +1194,16 @@
             </div>
         </div>`;
         container.insertAdjacentHTML('beforeend', template);
-        
         actualizarNombresMetodosPago();
+        
+        const tipoVenta = document.getElementById('tipo_venta').value;
+        if (tipoVenta === 'credito') {
+            const abonoInicial = parseFloat(document.getElementById('abono_inicial')?.value) || 0;
+            const primerMonto = document.querySelector('.monto-pago');
+            if (primerMonto && abonoInicial > 0) {
+                primerMonto.value = abonoInicial;
+            }
+        }
         actualizarTotalPagado();
     }
     
@@ -1263,73 +1251,6 @@
         }
     }
 
-    function getIconoMetodoPago(nombre) {
-        if (!nombre) return 'fa-receipt';
-        if (nombre.includes('Efectivo')) return 'fa-money-bill-wave';
-        if (nombre.includes('Transferencia')) return 'fa-university';
-        if (nombre.includes('Depósito')) return 'fa-hand-holding-usd';
-        if (nombre.includes('Tarjeta')) return 'fa-credit-card';
-        if (nombre.includes('Cheque')) return 'fa-file-alt';
-        return 'fa-receipt';
-    }
-
-    // ============================================
-    // FUNCIONES UTILITARIAS
-    // ============================================
-    function formatearMoneda(valor) {
-        if (valor === undefined || valor === null) valor = 0;
-        return `C$ ${parseFloat(valor).toLocaleString('es-NI', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
-    }
-
-    function extraerNumeroDeMoneda(textoMoneda) {
-        if (!textoMoneda) return 0;
-        if (typeof textoMoneda === 'number') return textoMoneda;
-        return parseFloat(textoMoneda.toString().replace(/[^0-9.-]+/g, "")) || 0;
-    }
-
-    function mostrarAlerta(tipo, titulo, mensaje) {
-        const alertasExistentes = document.querySelectorAll('.alert-flotante');
-        alertasExistentes.forEach(alerta => alerta.remove());
-        const alerta = document.createElement('div');
-        alerta.className = `alert alert-${tipo} alert-dismissible fade show alert-flotante`;
-        alerta.innerHTML = `<strong>${titulo}</strong> ${mensaje}<button type="button" class="btn-close" data-bs-dismiss="alert"></button>`;
-        document.body.appendChild(alerta);
-        setTimeout(() => { if (alerta.parentNode) alerta.remove(); }, 5000);
-    }
-
-    function obtenerPrecioPorPerfil(producto, perfil) {
-        if (!producto || !perfil) return 0;
-        switch (perfil) {
-            case 'Ruta': return parseFloat(producto.Precio_Ruta || producto.precio_ruta || 0);
-            case 'Mayorista': return parseFloat(producto.Precio_Mayorista || producto.precio_mayorista || 0);
-            case 'Mercado': return parseFloat(producto.Precio_Mercado || producto.precio_mercado || 0);
-            case 'Especial': return parseFloat(producto.Precio_Mercado || producto.precio_mercado || 0);
-            default: return parseFloat(producto.Precio_Mercado || producto.precio_mercado || 0);
-        }
-    }
-
-    function mostrarInfoPerfilCliente(perfil, ruta = '') {
-        const infoDiv = document.getElementById('info-perfil-cliente');
-        if (!infoDiv) return;
-        let badgeClass = 'bg-secondary', icono = 'fas fa-user';
-        switch (perfil) {
-            case 'Ruta': badgeClass = 'bg-warning text-dark'; icono = 'fas fa-route'; break;
-            case 'Mayorista': badgeClass = 'bg-success'; icono = 'fas fa-store'; break;
-            case 'Mercado': badgeClass = 'bg-primary'; icono = 'fas fa-shopping-cart'; break;
-            case 'Especial': badgeClass = 'bg-info'; icono = 'fas fa-crown'; break;
-        }
-        let html = `<span class="badge ${badgeClass} p-2"><i class="${icono} me-1"></i>Perfil: ${perfil}</span>`;
-        if (ruta) html += `<span class="badge bg-secondary ms-2 p-2"><i class="fas fa-map-marker-alt me-1"></i>${ruta}</span>`;
-        infoDiv.innerHTML = html;
-    }
-
-    function resaltarTexto(texto, busqueda) {
-        if (!busqueda || busqueda.length < 1) return texto;
-        const escaped = busqueda.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-        const regex = new RegExp(`(${escaped})`, 'gi');
-        return texto.replace(regex, '<span class="highlight">$1</span>');
-    }
-
     // ============================================
     // BUSCADOR DE CLIENTES
     // ============================================
@@ -1348,7 +1269,13 @@
                 searchtext: item.dataset.searchtext
             });
         });
-        console.log(`✅ ${clientesData.length} clientes cargados en memoria`);
+    }
+
+    function resaltarTexto(texto, busqueda) {
+        if (!busqueda || busqueda.length < 1) return texto;
+        const escaped = busqueda.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const regex = new RegExp(`(${escaped})`, 'gi');
+        return texto.replace(regex, '<span class="highlight">$1</span>');
     }
 
     const searchInput = document.getElementById('cliente_search_input');
@@ -1506,9 +1433,11 @@
         document.getElementById('cliente_selected_info').classList.add('show');
 
         manejarCambioCliente({ id, nombre, ruc, perfil, tipo, saldo, ruta });
+        cargarFacturasPendientes(id);
+        cargarProductosPorCliente(id);
+        actualizarPreciosProductosPorPerfil();
 
-        selectedIndex = -1;
-        dropdown.classList.remove('show');
+        if (filtroCategoriaActual !== '0') aplicarFiltroCategoria();
     }
 
     dropdown.addEventListener('click', function(e) {
@@ -1546,7 +1475,7 @@
     // ============================================
     // MANEJO DE CAMBIO DE CLIENTE
     // ============================================
-    async function manejarCambioCliente(cliente) {
+    function manejarCambioCliente(cliente) {
         if (!cliente || !cliente.id) return;
 
         perfilClienteActual = cliente.perfil || 'Mercado';
@@ -1557,9 +1486,19 @@
         document.getElementById('cliente-nombre').innerHTML = `<i class="fas fa-user me-1"></i>${cliente.nombre}`;
         document.getElementById('saldo-consolidado-container').style.display = 'block';
 
-        mostrarInfoPerfilCliente(perfilClienteActual, cliente.ruta);
-        await cargarFacturasPendientes(cliente.id);
-        await cargarProductosPorCliente(cliente.id);
+        let badgeClass = 'bg-secondary', icono = 'fas fa-user';
+        switch (perfilClienteActual) {
+            case 'Ruta': badgeClass = 'bg-warning text-dark'; icono = 'fas fa-route'; break;
+            case 'Mayorista': badgeClass = 'bg-success'; icono = 'fas fa-store'; break;
+            case 'Mercado': badgeClass = 'bg-primary'; icono = 'fas fa-shopping-cart'; break;
+            default: badgeClass = 'bg-info'; icono = 'fas fa-crown'; break;
+        }
+        let html = `<span class="badge ${badgeClass} p-2"><i class="${icono} me-1"></i>Perfil: ${perfilClienteActual}</span>`;
+        if (cliente.ruta) html += `<span class="badge bg-secondary ms-2 p-2"><i class="fas fa-map-marker-alt me-1"></i>${cliente.ruta}</span>`;
+        document.getElementById('info-perfil-cliente').innerHTML = html;
+        
+        cargarFacturasPendientes(cliente.id);
+        cargarProductosPorCliente(cliente.id);
         actualizarPreciosProductosPorPerfil();
 
         if (filtroCategoriaActual !== '0') aplicarFiltroCategoria();
@@ -1587,7 +1526,8 @@
                         if (esVencida) tieneVencidas = true;
                         html += `<tr class="${esVencida ? 'factura-vencida' : ''}">
                             <td><strong>${factura.documento}</strong></td>
-                            <td>${factura.fecha}</td><td>${factura.vencimiento}</td>
+                            <td>${factura.fecha}</td>
+                            <td>${factura.vencimiento}</td>
                             <td>${formatearMoneda(factura.monto_original)}</td>
                             <td><strong>${formatearMoneda(factura.saldo)}</strong></td>
                             <td>${esVencida ? '<span class="badge-vencida">VENCIDA</span>' : '<span class="badge-pendiente">Pendiente</span>'}</td>
@@ -1595,18 +1535,6 @@
                         </tr>`;
                     });
                     tbody.innerHTML = html;
-                    
-                    const tipoVentaSelect = document.getElementById('tipo_venta');
-                    if (tieneVencidas) {
-                        tipoVentaSelect.value = 'contado';
-                        const creditoOption = tipoVentaSelect.querySelector('option[value="credito"]');
-                        if (creditoOption) creditoOption.disabled = true;
-                        mostrarAlerta('warning', '⚠️ Cliente con mora', 'Este cliente tiene facturas vencidas. Solo se permiten ventas de contado.');
-                        manejarCambioTipoVenta('contado');
-                    } else {
-                        const creditoOption = tipoVentaSelect.querySelector('option[value="credito"]');
-                        if (creditoOption) creditoOption.disabled = false;
-                    }
                 }
                 document.getElementById('facturas-pendientes-section').style.display = 'block';
             }
@@ -1619,6 +1547,15 @@
     // ============================================
     // PRODUCTOS
     // ============================================
+    function obtenerPrecioPorPerfil(producto, perfil) {
+        if (!producto || !perfil) return 0;
+        switch (perfil) {
+            case 'Ruta': return parseFloat(producto.Precio_Ruta || producto.precio_ruta || 0);
+            case 'Mayorista': return parseFloat(producto.Precio_Mayorista || producto.precio_mayorista || 0);
+            default: return parseFloat(producto.Precio_Mercado || producto.precio_mercado || 0);
+        }
+    }
+
     async function cargarProductosPorCliente(clienteId) {
         try {
             const btnFiltro = document.getElementById('btn-aplicar-filtro');
@@ -1631,7 +1568,6 @@
 
             if (data.success && data.productos) {
                 productosFiltradosPorCliente = data.productos;
-                mostrarAlerta('info', 'ℹ️ Productos cargados', `Mostrando ${data.total} productos disponibles para perfil ${data.perfil_cliente}`);
             } else {
                 throw new Error(data.error || 'Error al cargar productos');
             }
@@ -1643,7 +1579,6 @@
                 const data = await response.json();
                 productosFiltradosPorCliente = Array.isArray(data) ? data : (data.productos || []);
                 actualizarTodosLosSelectsProductosConPerfil();
-                mostrarAlerta('warning', '⚠️ Modo básico', 'Mostrando todos los productos sin filtro de visibilidad');
             } catch (e) {
                 productosFiltradosPorCliente = [];
                 mostrarAlerta('danger', '❌ Error', 'No se pudieron cargar los productos');
@@ -1947,7 +1882,6 @@
                 filtroInfo.style.display = 'block';
                 filtroActual.textContent = nombreCategoria;
             }
-            mostrarAlerta('success', '✅ Filtro aplicado', `Mostrando ${productosAMostrar.length} productos de ${nombreCategoria}`);
         } catch (error) {
             console.error('Error aplicando filtro:', error);
             mostrarAlerta('danger', '❌ Error', 'No se pudo aplicar el filtro');
@@ -1962,7 +1896,41 @@
         document.getElementById('filtro-info').style.display = 'none';
         filtroCategoriaActual = '0';
         document.querySelectorAll('.producto-select').forEach(select => llenarSelectProductos(select));
-        mostrarAlerta('info', 'ℹ️ Filtro limpiado', 'Mostrando todos los productos disponibles.');
+    }
+
+    // ============================================
+    // MANEJO DE CAMBIO DE TIPO DE VENTA
+    // ============================================
+    function manejarCambioTipoVenta(tipoVenta) {
+        const fechaGroup = document.getElementById('fecha_vencimiento_group');
+        const abonoGroup = document.getElementById('abono_inicial_group');
+        const defaultPagoInfo = document.getElementById('defaultPagoInfo');
+        const pagosAvanzadosCard = document.getElementById('pagosAvanzadosCard');
+        const abonoInput = document.getElementById('abono_inicial');
+        
+        if (tipoVenta === 'credito') {
+            fechaGroup.style.display = 'block';
+            abonoGroup.style.display = 'block';
+            if (defaultPagoInfo) defaultPagoInfo.style.display = 'flex';
+            if (pagosAvanzadosCard) pagosAvanzadosCard.classList.remove('show');
+            document.getElementById('usar_pagos_avanzados').value = '0';
+            resetearMetodosPago();
+            
+            const fecha = new Date();
+            fecha.setDate(fecha.getDate() + 30);
+            document.getElementById('fecha_vencimiento').value = fecha.toISOString().split('T')[0];
+            if (abonoInput) abonoInput.value = '0';
+        } else {
+            fechaGroup.style.display = 'none';
+            abonoGroup.style.display = 'none';
+            if (defaultPagoInfo) defaultPagoInfo.style.display = 'flex';
+            if (pagosAvanzadosCard) pagosAvanzadosCard.classList.remove('show');
+            document.getElementById('usar_pagos_avanzados').value = '0';
+            document.getElementById('fecha_vencimiento').value = '';
+            if (abonoInput) abonoInput.value = '0';
+            resetearMetodosPago();
+        }
+        actualizarTotalPagado();
     }
 
     // ============================================
@@ -1990,8 +1958,9 @@
     function validarVentaBasica() {
         let valido = true;
         const tipoVenta = document.getElementById('tipo_venta').value;
+        const abonoInicial = parseFloat(document.getElementById('abono_inicial')?.value) || 0;
+        const totalVenta = parseFloat(extraerNumeroDeMoneda(document.getElementById('total-venta').textContent));
 
-        // Validar cliente
         if (!document.getElementById('id_cliente').value) {
             document.getElementById('cliente_search_input').classList.add("is-invalid");
             document.getElementById('error-cliente').style.display = 'block';
@@ -2001,7 +1970,6 @@
             document.getElementById('error-cliente').style.display = 'none';
         }
 
-        // Validar productos
         const tarjetas = document.querySelectorAll(".product-card");
         if (tarjetas.length === 0) {
             mostrarAlerta('danger', '❌ Error!', 'Debe agregar al menos un producto a la venta.');
@@ -2023,11 +1991,65 @@
             valido = false;
         }
         
-        // SOLO PARA CONTADO: Validar métodos de pago
-        if (tipoVenta !== 'credito') {
+        if (tipoVenta === 'credito') {
+            const fechaVencimiento = document.getElementById('fecha_vencimiento').value;
+            const hoy = new Date().toISOString().split('T')[0];
+            if (!fechaVencimiento) {
+                mostrarAlerta('danger', '❌ Error!', 'Para ventas a crédito debe especificar una fecha de vencimiento');
+                return false;
+            }
+            if (fechaVencimiento <= hoy) {
+                mostrarAlerta('danger', '❌ Error!', 'La fecha de vencimiento debe ser posterior a hoy');
+                return false;
+            }
+            
+            if (abonoInicial > totalVenta) {
+                mostrarAlerta('danger', '❌ Error!', `El abono inicial (${formatearMoneda(abonoInicial)}) no puede ser mayor al total de la venta (${formatearMoneda(totalVenta)})`);
+                return false;
+            }
+            
+            if (abonoInicial > 0) {
+                const usarAvanzados = document.getElementById('usar_pagos_avanzados').value === '1';
+                
+                if (usarAvanzados) {
+                    const metodosPago = document.querySelectorAll('.metodo-pago-select');
+                    let hayMetodosValidos = false;
+                    let sumaMontos = 0;
+                    
+                    metodosPago.forEach((select, idx) => {
+                        if (select.value) {
+                            hayMetodosValidos = true;
+                            const montoInput = document.querySelectorAll('.monto-pago')[idx];
+                            if (montoInput) {
+                                sumaMontos += parseFloat(montoInput.value) || 0;
+                            }
+                        }
+                    });
+                    
+                    if (!hayMetodosValidos) {
+                        mostrarAlerta('danger', '❌ Error!', 'Debe seleccionar al menos un método de pago para el abono inicial');
+                        return false;
+                    }
+                    
+                    if (Math.abs(sumaMontos - abonoInicial) > 0.01) {
+                        mostrarAlerta('danger', '❌ Error!', `La suma de los métodos de pago (${formatearMoneda(sumaMontos)}) no coincide con el abono inicial (${formatearMoneda(abonoInicial)})`);
+                        return false;
+                    }
+                }
+            }
+        } else {
             const usarAvanzados = document.getElementById('usar_pagos_avanzados').value === '1';
-            const totalVenta = parseFloat(extraerNumeroDeMoneda(document.getElementById('total-venta').textContent));
-            const totalPagado = actualizarTotalPagado();
+            let totalPagado = 0;
+            
+            if (usarAvanzados) {
+                const montos = document.querySelectorAll('.monto-pago');
+                montos.forEach(monto => {
+                    let valor = parseFloat(monto.value);
+                    if (!isNaN(valor) && valor > 0) totalPagado += valor;
+                });
+            } else {
+                totalPagado = totalVenta;
+            }
             
             if (totalPagado <= 0) {
                 mostrarAlerta('danger', '❌ Error!', 'Debe especificar al menos un método de pago con monto mayor a 0.');
@@ -2061,76 +2083,61 @@
         return valido;
     }
 
-    function validarFechaVencimiento() {
-        const tipoVentaSelect = document.getElementById('tipo_venta');
-        if (tipoVentaSelect && tipoVentaSelect.value === 'credito') {
-            const fechaVencimiento = document.getElementById('fecha_vencimiento')?.value;
-            const hoy = new Date().toISOString().split('T')[0];
-            if (!fechaVencimiento) {
-                mostrarAlerta('warning', '⚠️ Fecha requerida', 'Para ventas a crédito debe especificar una fecha de vencimiento');
-                return false;
-            }
-            if (fechaVencimiento <= hoy) {
-                mostrarAlerta('warning', '⚠️ Fecha inválida', 'La fecha de vencimiento debe ser posterior a hoy');
-                return false;
-            }
-        }
-        return true;
-    }
-
     function mostrarModalConfirmacion() {
         const cliente = clienteSeleccionado ? clienteSeleccionado.nombre : 'Cliente no seleccionado';
         const tipoVenta = document.getElementById('tipo_venta').value === 'credito' ? 'CRÉDITO' : 'CONTADO';
         const totalProductos = document.getElementById('total-productos').textContent;
         const totalVenta = document.getElementById('total-venta').textContent;
         const fechaVencimiento = document.getElementById('fecha_vencimiento')?.value;
+        const abonoInicial = parseFloat(document.getElementById('abono_inicial')?.value) || 0;
         const usarAvanzados = document.getElementById('usar_pagos_avanzados').value === '1';
         const totalVentaNum = extraerNumeroDeMoneda(totalVenta);
         
-        let totalPagadoText = '';
         let totalPagadoNum = 0;
         
-        // Para CRÉDITO: No mostrar métodos de pago en el modal
         if (tipoVenta === 'CRÉDITO') {
-            totalPagadoText = 'C$ 0.00';
-            totalPagadoNum = 0;
+            if (usarAvanzados && abonoInicial > 0) {
+                const montos = document.querySelectorAll('.monto-pago');
+                montos.forEach(monto => {
+                    let valor = parseFloat(monto.value);
+                    if (!isNaN(valor) && valor > 0) totalPagadoNum += valor;
+                });
+            } else {
+                totalPagadoNum = abonoInicial;
+            }
         } else {
-            // Para CONTADO: Calcular normalmente
             if (usarAvanzados) {
                 const montos = document.querySelectorAll('.monto-pago');
                 montos.forEach(monto => {
                     let valor = parseFloat(monto.value);
-                    if (!isNaN(valor) && valor > 0) {
-                        totalPagadoNum += valor;
-                    }
+                    if (!isNaN(valor) && valor > 0) totalPagadoNum += valor;
                 });
-                totalPagadoText = formatearMoneda(totalPagadoNum);
             } else {
                 totalPagadoNum = totalVentaNum;
-                totalPagadoText = totalVenta;
             }
         }
         
         const saldoPendiente = totalVentaNum - totalPagadoNum;
 
-        // Actualizar información básica
         document.getElementById('confirm-cliente').textContent = cliente;
         document.getElementById('confirm-perfil-cliente').textContent = perfilClienteActual || 'No definido';
         document.getElementById('confirm-tipo-venta').textContent = tipoVenta;
         document.getElementById('confirm-total-productos').textContent = totalProductos;
         document.getElementById('confirm-total-venta').textContent = totalVenta;
         
-        // Mostrar/ocultar sección de total pagado según tipo de venta
         const totalPagadoContainer = document.getElementById('confirm-total-pagado-container');
         if (tipoVenta === 'CRÉDITO') {
-            if (totalPagadoContainer) totalPagadoContainer.style.display = 'none';
-            document.getElementById('confirm-saldo').textContent = formatearMoneda(totalVentaNum);
+            if (totalPagadoNum > 0) {
+                totalPagadoContainer.style.display = 'block';
+                document.getElementById('confirm-total-pagado').textContent = formatearMoneda(totalPagadoNum);
+            } else {
+                totalPagadoContainer.style.display = 'none';
+            }
+            document.getElementById('confirm-saldo').textContent = formatearMoneda(saldoPendiente);
             document.getElementById('confirm-saldo-container').style.display = 'block';
         } else {
-            if (totalPagadoContainer) {
-                totalPagadoContainer.style.display = 'block';
-                document.getElementById('confirm-total-pagado').textContent = totalPagadoText;
-            }
+            totalPagadoContainer.style.display = 'block';
+            document.getElementById('confirm-total-pagado').textContent = formatearMoneda(totalPagadoNum);
             if (saldoPendiente > 0) {
                 document.getElementById('confirm-saldo').textContent = formatearMoneda(saldoPendiente);
                 document.getElementById('confirm-saldo-container').style.display = 'block';
@@ -2139,7 +2146,6 @@
             }
         }
 
-        // Fecha de vencimiento (solo para crédito)
         const fechaContainer = document.getElementById('confirm-fecha-vencimiento-container');
         if (tipoVenta === 'CRÉDITO' && fechaVencimiento) {
             fechaContainer.style.display = 'flex';
@@ -2148,7 +2154,6 @@
             fechaContainer.style.display = 'none';
         }
 
-        // Lista de productos
         const productList = document.getElementById('confirm-product-list');
         productList.innerHTML = '';
         document.querySelectorAll('.product-card').forEach(tarjeta => {
@@ -2171,23 +2176,56 @@
             }
         });
 
-        // SECCIÓN DE MÉTODOS DE PAGO EN MODAL (SOLO PARA CONTADO)
         const metodosPagoList = document.getElementById('confirm-metodos-pago-list');
         metodosPagoList.innerHTML = '';
         
         if (tipoVenta === 'CRÉDITO') {
-            // Para CRÉDITO: Mostrar mensaje informativo
-            const creditoInfoDiv = document.createElement('div');
-            creditoInfoDiv.className = 'alert alert-info text-center mb-0';
-            creditoInfoDiv.innerHTML = `
-                <i class="fas fa-info-circle me-2"></i>
-                <strong>Venta a Crédito</strong><br>
-                <small>Los pagos se registrarán en la cuenta por cobrar.<br>
-                Fecha de vencimiento: ${fechaVencimiento ? new Date(fechaVencimiento).toLocaleDateString('es-ES') : 'No especificada'}</small>
-            `;
-            metodosPagoList.appendChild(creditoInfoDiv);
+            if (abonoInicial > 0) {
+                const abonoDiv = document.createElement('div');
+                abonoDiv.className = 'alert alert-success';
+                abonoDiv.innerHTML = `
+                    <i class="fas fa-money-bill-wave me-2"></i>
+                    <strong>Abono Inicial:</strong> ${formatearMoneda(abonoInicial)}<br>
+                    <small>El cliente paga este monto hoy. El saldo restante quedará registrado como crédito.</small>
+                `;
+                metodosPagoList.appendChild(abonoDiv);
+                
+                if (usarAvanzados && abonoInicial > 0) {
+                    const metodosCards = document.querySelectorAll('.metodo-pago-card');
+                    metodosCards.forEach(card => {
+                        const select = card.querySelector('.metodo-pago-select');
+                        const monto = card.querySelector('.monto-pago');
+                        const referencia = card.querySelector('input[name="referencia_pago[]"]');
+                        if (select && select.value && monto && parseFloat(monto.value) > 0) {
+                            const metodoDiv = document.createElement('div');
+                            metodoDiv.className = 'confirm-product-item';
+                            metodoDiv.style.backgroundColor = '#f0f8ff';
+                            metodoDiv.style.borderLeft = '3px solid #28a745';
+                            metodoDiv.innerHTML = `
+                                <div class="confirm-product-name">
+                                    <i class="fas ${getIconoMetodoPago(select.options[select.selectedIndex]?.text)} me-2"></i>
+                                    <strong>${select.options[select.selectedIndex]?.text}</strong>
+                                </div>
+                                <div class="confirm-product-details">
+                                    <span class="text-success fw-bold">${formatearMoneda(monto.value)}</span>
+                                    ${referencia && referencia.value ? `<span class="text-muted">Ref: ${referencia.value}</span>` : ''}
+                                </div>`;
+                            metodosPagoList.appendChild(metodoDiv);
+                        }
+                    });
+                }
+            } else {
+                const creditoInfoDiv = document.createElement('div');
+                creditoInfoDiv.className = 'alert alert-info text-center';
+                creditoInfoDiv.innerHTML = `
+                    <i class="fas fa-info-circle me-2"></i>
+                    <strong>Venta a Crédito sin abono</strong><br>
+                    <small>El cliente no paga nada hoy. El total quedará registrado como crédito.<br>
+                    Fecha de vencimiento: ${fechaVencimiento ? new Date(fechaVencimiento).toLocaleDateString('es-ES') : 'No especificada'}</small>
+                `;
+                metodosPagoList.appendChild(creditoInfoDiv);
+            }
         } else {
-            // Para CONTADO: Mostrar métodos de pago
             if (usarAvanzados) {
                 const metodosCards = document.querySelectorAll('.metodo-pago-card');
                 let tieneMetodosValidos = false;
@@ -2250,7 +2288,6 @@
 
     function confirmarVenta() {
         cerrarModalConfirmacion();
-        if (!validarFechaVencimiento()) return;
         procesarVenta();
     }
 
@@ -2258,20 +2295,43 @@
         const formData = new FormData();
         const tipoVenta = document.getElementById('tipo_venta').value;
         
-        // Datos básicos
         formData.append('id_cliente', document.getElementById('id_cliente').value);
         formData.append('tipo_venta', tipoVenta);
         formData.append('observacion', document.getElementById('observacion').value);
 
-        // Solo para crédito: agregar fecha de vencimiento
         if (tipoVenta === 'credito') {
             const fechaVencimiento = document.getElementById('fecha_vencimiento')?.value;
             if (fechaVencimiento) formData.append('fecha_vencimiento', fechaVencimiento);
-            console.log('🔵 Procesando venta a CRÉDITO - Sin métodos de pago');
-            // Para CRÉDITO: NO agregar ningún método de pago al FormData
+            
+            const abonoInicial = document.getElementById('abono_inicial')?.value || '0';
+            formData.append('abono_inicial', abonoInicial);
+            
+            const abonoNum = parseFloat(abonoInicial);
+            if (abonoNum > 0) {
+                const usarAvanzados = document.getElementById('usar_pagos_avanzados').value === '1';
+                
+                if (usarAvanzados) {
+                    const metodosIds = document.querySelectorAll('select[name="metodo_pago_id[]"]');
+                    const metodosNombres = document.querySelectorAll('.metodo-pago-nombre');
+                    const montos = document.querySelectorAll('input[name="monto_pago[]"]');
+                    const referencias = document.querySelectorAll('input[name="referencia_pago[]"]');
+                    
+                    for (let i = 0; i < metodosIds.length; i++) {
+                        if (metodosIds[i].value && montos[i] && parseFloat(montos[i].value) > 0) {
+                            formData.append('metodo_pago_id[]', metodosIds[i].value);
+                            formData.append('metodo_pago_nombre[]', metodosNombres[i]?.value || metodosIds[i].options[metodosIds[i].selectedIndex]?.text || '');
+                            formData.append('monto_pago[]', parseFloat(montos[i].value).toFixed(2));
+                            formData.append('referencia_pago[]', referencias[i]?.value || '');
+                        }
+                    }
+                } else {
+                    formData.append('metodo_pago_id[]', '1');
+                    formData.append('metodo_pago_nombre[]', 'Efectivo');
+                    formData.append('monto_pago[]', abonoNum.toFixed(2));
+                    formData.append('referencia_pago[]', '');
+                }
+            }
         } else {
-            // Solo para CONTADO: Procesar métodos de pago
-            console.log('🟢 Procesando venta de CONTADO - Con métodos de pago');
             const usarAvanzados = document.getElementById('usar_pagos_avanzados').value === '1';
             
             if (usarAvanzados) {
@@ -2297,7 +2357,6 @@
             }
         }
 
-        // Agregar productos (siempre se agregan)
         document.querySelectorAll('.product-card').forEach(item => {
             const select = item.querySelector('.producto-select');
             const cantidad = item.querySelector('.cantidad');
@@ -2308,12 +2367,6 @@
                 formData.append('precio[]', parseFloat(precio.value).toFixed(2));
             }
         });
-
-        // Mostrar en consola qué se está enviando (para debug)
-        console.log('📤 Enviando datos:');
-        for (let pair of formData.entries()) {
-            console.log(pair[0] + ': ' + pair[1]);
-        }
 
         const submitBtn = document.querySelector('#formVenta button[type="submit"]');
         const originalText = submitBtn.innerHTML;
@@ -2351,56 +2404,6 @@
     }
 
     // ============================================
-    // MANEJO DE CAMBIO DE TIPO DE VENTA
-    // ============================================
-    function manejarCambioTipoVenta(tipoVenta) {
-        const fechaGroup = document.getElementById('fecha_vencimiento_group');
-        const seccionMetodosPago = document.getElementById('seccion-metodos-pago');
-        const defaultPagoInfo = document.getElementById('defaultPagoInfo');
-        const pagosAvanzadosCard = document.getElementById('pagosAvanzadosCard');
-        
-        if (tipoVenta === 'credito') {
-            // CRÉDITO: Ocultar completamente la sección de métodos de pago
-            fechaGroup.style.display = 'block';
-            
-            // Ocultar la sección completa de métodos de pago
-            if (seccionMetodosPago) {
-                seccionMetodosPago.style.display = 'none';
-            }
-            
-            // Establecer fecha de vencimiento por defecto (30 días)
-            const fecha = new Date();
-            fecha.setDate(fecha.getDate() + 30);
-            document.getElementById('fecha_vencimiento').value = fecha.toISOString().split('T')[0];
-            
-            console.log('🔵 Modo CRÉDITO - Métodos de pago ocultos');
-            
-        } else {
-            // CONTADO: Mostrar la sección de métodos de pago
-            fechaGroup.style.display = 'none';
-            
-            // Mostrar la sección de métodos de pago
-            if (seccionMetodosPago) {
-                seccionMetodosPago.style.display = 'block';
-            }
-            
-            // Restaurar el modo por defecto (efectivo)
-            if (defaultPagoInfo) defaultPagoInfo.style.display = 'flex';
-            if (pagosAvanzadosCard) pagosAvanzadosCard.classList.remove('show');
-            document.getElementById('usar_pagos_avanzados').value = '0';
-            
-            document.getElementById('fecha_vencimiento').value = '';
-            
-            // Resetear los métodos de pago a un solo método
-            resetearMetodosPago();
-            
-            console.log('🟢 Modo CONTADO - Métodos de pago visibles');
-        }
-        
-        actualizarTotalPagado();
-    }
-
-    // ============================================
     // EVENT LISTENERS
     // ============================================
     document.getElementById('formVenta').addEventListener('submit', async function(e) {
@@ -2408,7 +2411,11 @@
         if (!validarVentaBasica()) return;
         const esStockValido = await verificarStockProductos();
         if (esStockValido.length > 0) {
-            mostrarAlerta('danger', '❌ Stock Insuficiente!', 'Algunos productos no tienen stock suficiente');
+            let mensaje = 'Stock insuficiente para:\n';
+            esStockValido.forEach(p => {
+                mensaje += `- ${p.descripcion}: requiere ${p.cantidadRequerida}, disponible ${p.stockActual}\n`;
+            });
+            mostrarAlerta('danger', '❌ Stock Insuficiente!', mensaje);
             return;
         }
         mostrarModalConfirmacion();
@@ -2432,6 +2439,33 @@
     document.getElementById('confirmModal').addEventListener('click', function(e) {
         if (e.target === this) cerrarModalConfirmacion();
     });
+
+    const abonoInput = document.getElementById('abono_inicial');
+    if (abonoInput) {
+        abonoInput.addEventListener('input', function() {
+            const tipoVenta = document.getElementById('tipo_venta').value;
+            if (tipoVenta === 'credito') {
+                const usarAvanzados = document.getElementById('usar_pagos_avanzados').value === '1';
+                if (!usarAvanzados) {
+                    const primerMonto = document.querySelector('.monto-pago');
+                    if (primerMonto) {
+                        primerMonto.value = this.value;
+                    }
+                }
+                actualizarTotalPagado();
+                
+                const totalVenta = parseFloat(extraerNumeroDeMoneda(document.getElementById('total-venta').textContent));
+                if (parseFloat(this.value) > totalVenta) {
+                    document.getElementById('error-abono').style.display = 'block';
+                    document.getElementById('error-abono').textContent = 'El abono no puede ser mayor al total de la venta';
+                    this.classList.add('is-invalid');
+                } else {
+                    document.getElementById('error-abono').style.display = 'none';
+                    this.classList.remove('is-invalid');
+                }
+            }
+        });
+    }
 
     // ============================================
     // INICIALIZACIÓN
