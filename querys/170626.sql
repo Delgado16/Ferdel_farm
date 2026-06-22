@@ -1,7 +1,7 @@
 
 CREATE TABLE `abonos_detalle` (
   `ID_Detalle` int NOT NULL AUTO_INCREMENT,
-  `ID_Movimiento_Caja` int NOT NULL,
+  `ID_Movimiento_Caja` int DEFAULT NULL,
   `ID_Asignacion` int NOT NULL COMMENT 'Ruta donde se recibió el abono',
   `ID_Usuario` int NOT NULL COMMENT 'Vendedor que registró el abono',
   `ID_Cliente` int NOT NULL,
@@ -10,6 +10,7 @@ CREATE TABLE `abonos_detalle` (
   `Saldo_Anterior` decimal(12,2) NOT NULL,
   `Saldo_Nuevo` decimal(12,2) NOT NULL,
   `Fecha` datetime DEFAULT CURRENT_TIMESTAMP,
+  `ID_MetodoPago` int DEFAULT NULL,
   PRIMARY KEY (`ID_Detalle`),
   KEY `ID_Movimiento_Caja` (`ID_Movimiento_Caja`),
   KEY `ID_Asignacion` (`ID_Asignacion`),
@@ -17,12 +18,33 @@ CREATE TABLE `abonos_detalle` (
   KEY `ID_Cliente` (`ID_Cliente`),
   KEY `ID_CuentaCobrar` (`ID_CuentaCobrar`),
   KEY `idx_fecha_usuario_ruta` (`Fecha`,`ID_Usuario`,`ID_Asignacion`),
-  CONSTRAINT `abonos_detalle_ibfk_1` FOREIGN KEY (`ID_Movimiento_Caja`) REFERENCES `movimientos_caja_ruta` (`ID_Movimiento`),
+  KEY `fk_abono_metodo_pago` (`ID_MetodoPago`),
   CONSTRAINT `abonos_detalle_ibfk_2` FOREIGN KEY (`ID_Asignacion`) REFERENCES `asignacion_vendedores` (`ID_Asignacion`),
   CONSTRAINT `abonos_detalle_ibfk_3` FOREIGN KEY (`ID_Usuario`) REFERENCES `usuarios` (`ID_Usuario`),
   CONSTRAINT `abonos_detalle_ibfk_4` FOREIGN KEY (`ID_Cliente`) REFERENCES `clientes` (`ID_Cliente`),
-  CONSTRAINT `abonos_detalle_ibfk_5` FOREIGN KEY (`ID_CuentaCobrar`) REFERENCES `cuentas_por_cobrar` (`ID_Movimiento`)
-) ENGINE=InnoDB AUTO_INCREMENT=28 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+  CONSTRAINT `abonos_detalle_ibfk_5` FOREIGN KEY (`ID_CuentaCobrar`) REFERENCES `cuentas_por_cobrar` (`ID_Movimiento`),
+  CONSTRAINT `fk_abono_metodo_pago` FOREIGN KEY (`ID_MetodoPago`) REFERENCES `metodos_pago` (`ID_MetodoPago`)
+) ENGINE=InnoDB AUTO_INCREMENT=470 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+CREATE TABLE `anticipos_clientes` (
+  `ID_Anticipo` int NOT NULL AUTO_INCREMENT,
+  `ID_Cliente` int NOT NULL,
+  `ID_Producto` int NOT NULL COMMENT 'Producto que cubre el anticipo',
+  `Cantidad_Cajas` int NOT NULL COMMENT 'Total de cajas pagadas por adelantado',
+  `Cajas_Consumidas` int NOT NULL DEFAULT '0',
+  `Precio_Unitario` decimal(10,2) DEFAULT NULL,
+  `Monto_Pagado` decimal(12,2) NOT NULL COMMENT 'Monto total del anticipo',
+  `Saldo_Restante` decimal(12,2) NOT NULL COMMENT 'Monto remanente (se recalcula con precio actual)',
+  `Fecha_Anticipo` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `Fecha_Vencimiento` datetime DEFAULT NULL,
+  `Estado` enum('ACTIVO','COMPLETADO','CANCELADO') DEFAULT 'ACTIVO',
+  `Notas` text,
+  PRIMARY KEY (`ID_Anticipo`),
+  KEY `ID_Cliente` (`ID_Cliente`),
+  KEY `ID_Producto` (`ID_Producto`),
+  CONSTRAINT `anticipos_clientes_ibfk_1` FOREIGN KEY (`ID_Cliente`) REFERENCES `clientes` (`ID_Cliente`),
+  CONSTRAINT `anticipos_clientes_ibfk_2` FOREIGN KEY (`ID_Producto`) REFERENCES `productos` (`ID_Producto`)
+) ENGINE=InnoDB AUTO_INCREMENT=6 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 
 CREATE TABLE `asignacion_vendedores` (
@@ -49,7 +71,7 @@ CREATE TABLE `asignacion_vendedores` (
   CONSTRAINT `asignacion_vendedores_ibfk_3` FOREIGN KEY (`ID_Vehiculo`) REFERENCES `vehiculos` (`ID_Vehiculo`),
   CONSTRAINT `asignacion_vendedores_ibfk_4` FOREIGN KEY (`ID_Empresa`) REFERENCES `empresa` (`ID_Empresa`),
   CONSTRAINT `asignacion_vendedores_ibfk_5` FOREIGN KEY (`ID_Usuario_Asigna`) REFERENCES `usuarios` (`ID_Usuario`)
-) ENGINE=InnoDB AUTO_INCREMENT=25 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=93 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 
 CREATE TABLE `bitacora` (
@@ -62,7 +84,7 @@ CREATE TABLE `bitacora` (
   PRIMARY KEY (`ID_Bitacora`),
   KEY `ID_Usuario` (`ID_Usuario`),
   CONSTRAINT `bitacora_ibfk_1` FOREIGN KEY (`ID_Usuario`) REFERENCES `usuarios` (`ID_Usuario`)
-) ENGINE=InnoDB AUTO_INCREMENT=7938 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=13983 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 
 CREATE TABLE `bodegas` (
@@ -100,7 +122,40 @@ CREATE TABLE `caja_movimientos` (
   KEY `idx_estado_fecha` (`Estado`,`Fecha`),
   KEY `idx_fecha_estado_tipo` (`Fecha`,`Estado`,`Tipo_Movimiento`),
   CONSTRAINT `caja_movimientos_chk_1` CHECK ((`Monto` >= 0))
-) ENGINE=InnoDB AUTO_INCREMENT=169 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=283 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+
+CREATE TABLE `cargas_pendientes_detalle` (
+  `ID_Detalle` int NOT NULL AUTO_INCREMENT,
+  `ID_Carga` int NOT NULL,
+  `ID_Producto` int NOT NULL,
+  `Cantidad_Cargada` decimal(12,2) NOT NULL,
+  `Cantidad_Recibida` decimal(12,2) DEFAULT '0.00',
+  `Costo_Unitario` decimal(12,2) NOT NULL,
+  PRIMARY KEY (`ID_Detalle`),
+  KEY `ID_Carga` (`ID_Carga`),
+  KEY `ID_Producto` (`ID_Producto`)
+) ENGINE=InnoDB AUTO_INCREMENT=20 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+
+CREATE TABLE `cargas_pendientes_recepcion` (
+  `ID_Carga` int NOT NULL AUTO_INCREMENT,
+  `ID_Movimiento` int NOT NULL,
+  `ID_Proveedor` int NOT NULL,
+  `Num_Factura` varchar(255) NOT NULL,
+  `Fecha_Carga` date NOT NULL,
+  `ID_Usuario_Carga` int NOT NULL,
+  `Estado` enum('PENDIENTE','RECIBIDA_PARCIAL','RECIBIDA_TOTAL','RECHAZADA') DEFAULT 'PENDIENTE',
+  `Observaciones` text,
+  `Fecha_Recepcion` date DEFAULT NULL,
+  `ID_Usuario_Recepcion` int DEFAULT NULL,
+  `factura_ruta` varchar(500) DEFAULT NULL COMMENT 'Ruta de la factura digital',
+  PRIMARY KEY (`ID_Carga`),
+  KEY `ID_Movimiento` (`ID_Movimiento`),
+  KEY `ID_Proveedor` (`ID_Proveedor`),
+  KEY `ID_Usuario_Carga` (`ID_Usuario_Carga`),
+  KEY `ID_Usuario_Recepcion` (`ID_Usuario_Recepcion`)
+) ENGINE=InnoDB AUTO_INCREMENT=12 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 
 CREATE TABLE `catalogo_movimientos` (
@@ -109,12 +164,13 @@ CREATE TABLE `catalogo_movimientos` (
   `Adicion` varchar(255) DEFAULT NULL,
   `Letra` varchar(10) DEFAULT NULL,
   PRIMARY KEY (`ID_TipoMovimiento`)
-) ENGINE=InnoDB AUTO_INCREMENT=14 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=16 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 
 CREATE TABLE `categorias_producto` (
   `ID_Categoria` int NOT NULL AUTO_INCREMENT,
   `Descripcion` varchar(255) NOT NULL,
+  `Estado` enum('Activo','Inactivo') NOT NULL DEFAULT 'Activo',
   PRIMARY KEY (`ID_Categoria`)
 ) ENGINE=InnoDB AUTO_INCREMENT=13 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
@@ -136,6 +192,11 @@ CREATE TABLE `clientes` (
   `ID_Usuario_Creacion` int DEFAULT NULL,
   `tipo_cliente` enum('Comun','Especial') NOT NULL DEFAULT 'Comun',
   `perfil_cliente` enum('Ruta','Mayorista','Mercado','Especial') NOT NULL DEFAULT 'Mercado',
+  `Anticipo_Activo` tinyint(1) DEFAULT '0',
+  `Limite_Anticipo_Cajas` int DEFAULT '0',
+  `Cajas_Consumidas_Anticipo` int DEFAULT '0',
+  `Saldo_Anticipos` decimal(12,2) DEFAULT '0.00',
+  `Producto_Anticipado` int DEFAULT NULL,
   PRIMARY KEY (`ID_Cliente`),
   KEY `ID_Empresa` (`ID_Empresa`),
   KEY `ID_Usuario_Creacion` (`ID_Usuario_Creacion`),
@@ -148,7 +209,7 @@ CREATE TABLE `clientes` (
   CONSTRAINT `clientes_ibfk_1` FOREIGN KEY (`ID_Empresa`) REFERENCES `empresa` (`ID_Empresa`),
   CONSTRAINT `clientes_ibfk_2` FOREIGN KEY (`ID_Usuario_Creacion`) REFERENCES `usuarios` (`ID_Usuario`),
   CONSTRAINT `clientes_ibfk_ruta` FOREIGN KEY (`ID_Ruta`) REFERENCES `rutas` (`ID_Ruta`) ON DELETE SET NULL ON UPDATE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=13 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=14 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 
 CREATE TABLE `config_visibilidad_categorias` (
@@ -190,7 +251,7 @@ CREATE TABLE `cuentas_por_cobrar` (
   CONSTRAINT `cuentas_por_cobrar_ibfk_3` FOREIGN KEY (`ID_Factura`) REFERENCES `facturacion` (`ID_Factura`),
   CONSTRAINT `cuentas_por_cobrar_ibfk_4` FOREIGN KEY (`ID_Usuario_Creacion`) REFERENCES `usuarios` (`ID_Usuario`),
   CONSTRAINT `fk_cxc_factura_ruta` FOREIGN KEY (`ID_FacturaRuta`) REFERENCES `facturacion_ruta` (`ID_FacturaRuta`)
-) ENGINE=InnoDB AUTO_INCREMENT=49 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=311 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 
 CREATE TABLE `cuentas_por_pagar` (
@@ -214,7 +275,23 @@ CREATE TABLE `cuentas_por_pagar` (
   CONSTRAINT `cuentas_por_pagar_ibfk_1` FOREIGN KEY (`ID_Proveedor`) REFERENCES `proveedores` (`ID_Proveedor`),
   CONSTRAINT `cuentas_por_pagar_ibfk_2` FOREIGN KEY (`ID_Empresa`) REFERENCES `empresa` (`ID_Empresa`),
   CONSTRAINT `cuentas_por_pagar_ibfk_3` FOREIGN KEY (`ID_Usuario_Creacion`) REFERENCES `usuarios` (`ID_Usuario`)
-) ENGINE=InnoDB AUTO_INCREMENT=10 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=41 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+
+CREATE TABLE `detalle_entregas` (
+  `ID_Detalle` int NOT NULL AUTO_INCREMENT,
+  `ID_Entrega` int NOT NULL,
+  `ID_Producto` int NOT NULL,
+  `Cantidad_Cajas` int NOT NULL,
+  `Precio_Unitario` decimal(12,2) NOT NULL,
+  `Total` decimal(12,2) NOT NULL,
+  `Usa_Anticipo` tinyint(1) NOT NULL DEFAULT '0',
+  `ID_Anticipo` int DEFAULT NULL,
+  PRIMARY KEY (`ID_Detalle`),
+  KEY `ID_Entrega` (`ID_Entrega`),
+  KEY `ID_Producto` (`ID_Producto`),
+  KEY `ID_Anticipo` (`ID_Anticipo`)
+) ENGINE=InnoDB AUTO_INCREMENT=57 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 
 CREATE TABLE `detalle_facturacion` (
@@ -229,7 +306,7 @@ CREATE TABLE `detalle_facturacion` (
   KEY `ID_Producto` (`ID_Producto`),
   CONSTRAINT `detalle_facturacion_ibfk_1` FOREIGN KEY (`ID_Factura`) REFERENCES `facturacion` (`ID_Factura`),
   CONSTRAINT `detalle_facturacion_ibfk_2` FOREIGN KEY (`ID_Producto`) REFERENCES `productos` (`ID_Producto`)
-) ENGINE=InnoDB AUTO_INCREMENT=255 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=399 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 
 CREATE TABLE `detalle_facturacion_ruta` (
@@ -248,7 +325,7 @@ CREATE TABLE `detalle_facturacion_ruta` (
   CONSTRAINT `detalle_facturacion_ruta_ibfk_1` FOREIGN KEY (`ID_FacturaRuta`) REFERENCES `facturacion_ruta` (`ID_FacturaRuta`),
   CONSTRAINT `detalle_facturacion_ruta_ibfk_2` FOREIGN KEY (`ID_Producto`) REFERENCES `productos` (`ID_Producto`),
   CONSTRAINT `detalle_facturacion_ruta_ibfk_3` FOREIGN KEY (`ID_Detalle_Movimiento`) REFERENCES `movimientos_ruta_detalle` (`ID_Detalle`) ON DELETE SET NULL
-) ENGINE=InnoDB AUTO_INCREMENT=49 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=462 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 
 CREATE TABLE `detalle_movimientos_inventario` (
@@ -268,7 +345,7 @@ CREATE TABLE `detalle_movimientos_inventario` (
   CONSTRAINT `detalle_movimientos_inventario_ibfk_1` FOREIGN KEY (`ID_Movimiento`) REFERENCES `movimientos_inventario` (`ID_Movimiento`) ON DELETE CASCADE,
   CONSTRAINT `detalle_movimientos_inventario_ibfk_2` FOREIGN KEY (`ID_Producto`) REFERENCES `productos` (`ID_Producto`),
   CONSTRAINT `detalle_movimientos_inventario_ibfk_3` FOREIGN KEY (`ID_Usuario_Creacion`) REFERENCES `usuarios` (`ID_Usuario`)
-) ENGINE=InnoDB AUTO_INCREMENT=403 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=887 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 
 CREATE TABLE `detalle_pedidos` (
@@ -284,7 +361,7 @@ CREATE TABLE `detalle_pedidos` (
   KEY `ID_Producto` (`ID_Producto`),
   CONSTRAINT `detalle_pedidos_ibfk_1` FOREIGN KEY (`ID_Pedido`) REFERENCES `pedidos` (`ID_Pedido`) ON DELETE CASCADE,
   CONSTRAINT `detalle_pedidos_ibfk_2` FOREIGN KEY (`ID_Producto`) REFERENCES `productos` (`ID_Producto`)
-) ENGINE=InnoDB AUTO_INCREMENT=48 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=59 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 
 CREATE TABLE `empresa` (
@@ -300,12 +377,38 @@ CREATE TABLE `empresa` (
 ) ENGINE=InnoDB AUTO_INCREMENT=3 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 
+CREATE TABLE `entregas` (
+  `ID_Entrega` int NOT NULL AUTO_INCREMENT,
+  `ID_Cliente` int NOT NULL COMMENT 'Cliente que recibe',
+  `ID_Sucursal` int NOT NULL COMMENT 'Sucursal que recibe',
+  `ID_Producto` int NOT NULL COMMENT 'Producto entregado',
+  `Cantidad_Cajas` int NOT NULL COMMENT 'Número de cajas',
+  `Precio_Unitario` decimal(12,2) NOT NULL COMMENT 'Precio por caja en ese momento',
+  `Total` decimal(12,2) NOT NULL COMMENT 'Cantidad_Cajas * Precio_Unitario',
+  `Usa_Anticipo` tinyint(1) NOT NULL DEFAULT '0' COMMENT '1=Descuenta del anticipo, 0=Pago normal',
+  `ID_Anticipo` int DEFAULT NULL COMMENT 'Anticipo al que se aplica esta entrega',
+  `Fecha_Entrega` datetime DEFAULT CURRENT_TIMESTAMP,
+  `ID_Usuario` int DEFAULT NULL COMMENT 'Usuario que registró la entrega',
+  `Notas` text,
+  PRIMARY KEY (`ID_Entrega`),
+  KEY `ID_Cliente` (`ID_Cliente`),
+  KEY `ID_Sucursal` (`ID_Sucursal`),
+  KEY `ID_Producto` (`ID_Producto`),
+  KEY `idx_entregas_fecha` (`Fecha_Entrega` DESC),
+  KEY `idx_entregas_anticipo` (`ID_Anticipo`),
+  CONSTRAINT `entregas_ibfk_1` FOREIGN KEY (`ID_Cliente`) REFERENCES `clientes` (`ID_Cliente`),
+  CONSTRAINT `entregas_ibfk_2` FOREIGN KEY (`ID_Sucursal`) REFERENCES `sucursales` (`ID_Sucursal`),
+  CONSTRAINT `entregas_ibfk_3` FOREIGN KEY (`ID_Producto`) REFERENCES `productos` (`ID_Producto`)
+) ENGINE=InnoDB AUTO_INCREMENT=57 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+
 CREATE TABLE `facturacion` (
   `ID_Factura` int NOT NULL AUTO_INCREMENT,
   `Fecha` date NOT NULL,
   `IDCliente` int NOT NULL,
   `Credito_Contado` int DEFAULT NULL,
   `Observacion` text,
+  `metodos_pago` json DEFAULT NULL,
   `ID_Empresa` int NOT NULL,
   `ID_Usuario_Creacion` int DEFAULT NULL,
   `Fecha_Creacion` datetime DEFAULT CURRENT_TIMESTAMP,
@@ -320,7 +423,7 @@ CREATE TABLE `facturacion` (
   CONSTRAINT `facturacion_ibfk_2` FOREIGN KEY (`ID_Empresa`) REFERENCES `empresa` (`ID_Empresa`),
   CONSTRAINT `facturacion_ibfk_3` FOREIGN KEY (`ID_Usuario_Creacion`) REFERENCES `usuarios` (`ID_Usuario`),
   CONSTRAINT `fk_facturacion_pedido` FOREIGN KEY (`ID_Pedido`) REFERENCES `pedidos` (`ID_Pedido`)
-) ENGINE=InnoDB AUTO_INCREMENT=195 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=277 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 
 CREATE TABLE `facturacion_ruta` (
@@ -331,6 +434,7 @@ CREATE TABLE `facturacion_ruta` (
   `ID_Movimiento` int DEFAULT NULL COMMENT 'Movimiento de ruta relacionado',
   `Credito_Contado` int DEFAULT NULL COMMENT '1=Contado, 2=Crédito',
   `Observacion` text,
+  `Saldo_Anterior_Cliente` decimal(10,2) DEFAULT '0.00',
   `ID_Empresa` int NOT NULL,
   `ID_Usuario_Creacion` int DEFAULT NULL,
   `Fecha_Creacion` datetime DEFAULT CURRENT_TIMESTAMP,
@@ -349,7 +453,47 @@ CREATE TABLE `facturacion_ruta` (
   CONSTRAINT `facturacion_ruta_ibfk_4` FOREIGN KEY (`ID_Empresa`) REFERENCES `empresa` (`ID_Empresa`),
   CONSTRAINT `facturacion_ruta_ibfk_5` FOREIGN KEY (`ID_Usuario_Creacion`) REFERENCES `usuarios` (`ID_Usuario`),
   CONSTRAINT `facturacion_ruta_ibfk_6` FOREIGN KEY (`ID_Pedido`) REFERENCES `pedidos` (`ID_Pedido`)
-) ENGINE=InnoDB AUTO_INCREMENT=38 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=407 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+
+CREATE TABLE `gastos_generales` (
+  `ID_Gasto` int NOT NULL AUTO_INCREMENT,
+  `ID_Tipo_Gasto` int NOT NULL,
+  `ID_Subcategoria` int DEFAULT NULL,
+  `Fecha` date NOT NULL,
+  `Monto` decimal(12,2) NOT NULL,
+  `Descripcion` text,
+  `N_Factura` varchar(50) DEFAULT NULL,
+  `ID_Proveedor` int DEFAULT NULL,
+  `ID_Vehiculo` int DEFAULT NULL,
+  `Metodo_Pago` enum('EFECTIVO','TRANSFERENCIA','TARJETA','CHEQUE') DEFAULT 'EFECTIVO',
+  `Comprobante` varchar(255) DEFAULT NULL,
+  `ID_Empresa` int NOT NULL,
+  `Estado` enum('Activo','Anulado') DEFAULT 'Activo',
+  `Fecha_Registro` datetime DEFAULT CURRENT_TIMESTAMP,
+  `ID_Usuario_Registro` int DEFAULT NULL,
+  PRIMARY KEY (`ID_Gasto`),
+  KEY `ID_Tipo_Gasto` (`ID_Tipo_Gasto`),
+  KEY `ID_Subcategoria` (`ID_Subcategoria`),
+  KEY `ID_Proveedor` (`ID_Proveedor`),
+  KEY `ID_Vehiculo` (`ID_Vehiculo`),
+  CONSTRAINT `fk_gastos_subcategoria` FOREIGN KEY (`ID_Subcategoria`) REFERENCES `subcategorias_gasto` (`ID_Subcategoria`),
+  CONSTRAINT `fk_gastos_tipo` FOREIGN KEY (`ID_Tipo_Gasto`) REFERENCES `tipos_gasto` (`ID_Tipo_Gasto`),
+  CONSTRAINT `fk_gastos_vehiculo` FOREIGN KEY (`ID_Vehiculo`) REFERENCES `vehiculos` (`ID_Vehiculo`)
+) ENGINE=InnoDB AUTO_INCREMENT=13 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+
+CREATE TABLE `gastos_vehiculo_detalle` (
+  `ID_Gasto_Vehiculo` int NOT NULL AUTO_INCREMENT,
+  `ID_Gasto` int NOT NULL,
+  `ID_Vehiculo` int NOT NULL,
+  `Kilometraje` int DEFAULT NULL,
+  `Tipo_Mantenimiento` varchar(50) DEFAULT NULL,
+  `Taller` varchar(100) DEFAULT NULL,
+  PRIMARY KEY (`ID_Gasto_Vehiculo`),
+  KEY `ID_Gasto` (`ID_Gasto`),
+  CONSTRAINT `fk_gasto_vehiculo_gasto` FOREIGN KEY (`ID_Gasto`) REFERENCES `gastos_generales` (`ID_Gasto`)
+) ENGINE=InnoDB AUTO_INCREMENT=5 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 
 CREATE TABLE `inventario_bodega` (
@@ -376,7 +520,24 @@ CREATE TABLE `inventario_ruta` (
   KEY `idx_asignacion` (`ID_Asignacion`),
   CONSTRAINT `fk_inv_ruta_asignacion` FOREIGN KEY (`ID_Asignacion`) REFERENCES `asignacion_vendedores` (`ID_Asignacion`) ON DELETE CASCADE,
   CONSTRAINT `fk_inv_ruta_producto` FOREIGN KEY (`ID_Producto`) REFERENCES `productos` (`ID_Producto`)
-) ENGINE=InnoDB AUTO_INCREMENT=43 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='Inventario de productos por asignación/vendedor';
+) ENGINE=InnoDB AUTO_INCREMENT=226 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='Inventario de productos por asignación/vendedor';
+
+
+CREATE TABLE `log_anulaciones` (
+  `ID_Log` int NOT NULL AUTO_INCREMENT,
+  `ID_Factura` int NOT NULL,
+  `Tipo` enum('ruta','local') COLLATE utf8mb4_unicode_ci NOT NULL,
+  `Motivo` text COLLATE utf8mb4_unicode_ci NOT NULL,
+  `ID_Usuario_Anula` int NOT NULL,
+  `Fecha_Anulacion` datetime NOT NULL,
+  `ID_Empresa` int NOT NULL,
+  PRIMARY KEY (`ID_Log`),
+  KEY `ID_Usuario_Anula` (`ID_Usuario_Anula`),
+  KEY `ID_Empresa` (`ID_Empresa`),
+  KEY `idx_factura_tipo` (`ID_Factura`,`Tipo`),
+  CONSTRAINT `log_anulaciones_ibfk_1` FOREIGN KEY (`ID_Usuario_Anula`) REFERENCES `usuarios` (`ID_Usuario`),
+  CONSTRAINT `log_anulaciones_ibfk_2` FOREIGN KEY (`ID_Empresa`) REFERENCES `empresa` (`ID_Empresa`)
+) ENGINE=InnoDB AUTO_INCREMENT=6 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 
 CREATE TABLE `log_cambios_visibilidad` (
@@ -415,15 +576,18 @@ CREATE TABLE `movimientos_caja_ruta` (
   `ID_Cliente` int DEFAULT NULL,
   `Saldo_Acumulado` decimal(12,2) DEFAULT NULL,
   `Estado` enum('ACTIVO','ANULADO') DEFAULT 'ACTIVO',
+  `ID_MetodoPago` int DEFAULT NULL,
   PRIMARY KEY (`ID_Movimiento`),
   KEY `ID_Asignacion` (`ID_Asignacion`),
   KEY `ID_Usuario` (`ID_Usuario`),
   KEY `ID_Cliente` (`ID_Cliente`),
   KEY `idx_fecha_usuario` (`Fecha`,`ID_Usuario`),
   KEY `idx_fecha_ruta` (`Fecha`,`ID_Asignacion`),
+  KEY `ID_MetodoPago` (`ID_MetodoPago`),
   CONSTRAINT `movimientos_caja_ruta_ibfk_1` FOREIGN KEY (`ID_Asignacion`) REFERENCES `asignacion_vendedores` (`ID_Asignacion`),
-  CONSTRAINT `movimientos_caja_ruta_ibfk_2` FOREIGN KEY (`ID_Usuario`) REFERENCES `usuarios` (`ID_Usuario`)
-) ENGINE=InnoDB AUTO_INCREMENT=31 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+  CONSTRAINT `movimientos_caja_ruta_ibfk_2` FOREIGN KEY (`ID_Usuario`) REFERENCES `usuarios` (`ID_Usuario`),
+  CONSTRAINT `movimientos_caja_ruta_ibfk_3` FOREIGN KEY (`ID_MetodoPago`) REFERENCES `metodos_pago` (`ID_MetodoPago`)
+) ENGINE=InnoDB AUTO_INCREMENT=572 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 
 CREATE TABLE `movimientos_inventario` (
@@ -444,7 +608,7 @@ CREATE TABLE `movimientos_inventario` (
   `Fecha_Creacion` datetime DEFAULT CURRENT_TIMESTAMP,
   `Fecha_Modificacion` datetime DEFAULT NULL,
   `ID_Usuario_Modificacion` int DEFAULT NULL,
-  `Estado` enum('Activa','Anulada') NOT NULL DEFAULT 'Activa',
+  `Estado` enum('Activa','Anulada','Pendiente','Cancelada') DEFAULT 'Activa',
   PRIMARY KEY (`ID_Movimiento`),
   KEY `ID_Empresa` (`ID_Empresa`),
   KEY `ID_Bodega_Destino` (`ID_Bodega_Destino`),
@@ -467,7 +631,7 @@ CREATE TABLE `movimientos_inventario` (
   CONSTRAINT `movimientos_inventario_ibfk_6` FOREIGN KEY (`ID_Bodega_Destino`) REFERENCES `bodegas` (`ID_Bodega`),
   CONSTRAINT `movimientos_inventario_ibfk_7` FOREIGN KEY (`ID_Usuario_Creacion`) REFERENCES `usuarios` (`ID_Usuario`),
   CONSTRAINT `movimientos_inventario_ibfk_8` FOREIGN KEY (`ID_Usuario_Modificacion`) REFERENCES `usuarios` (`ID_Usuario`)
-) ENGINE=InnoDB AUTO_INCREMENT=305 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=605 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 
 CREATE TABLE `movimientos_ruta_cabecera` (
@@ -506,7 +670,7 @@ CREATE TABLE `movimientos_ruta_cabecera` (
   CONSTRAINT `fk_movcab_tipo` FOREIGN KEY (`ID_TipoMovimiento`) REFERENCES `catalogo_movimientos` (`ID_TipoMovimiento`),
   CONSTRAINT `fk_movcab_usuario_anu` FOREIGN KEY (`ID_Usuario_Anula`) REFERENCES `usuarios` (`ID_Usuario`),
   CONSTRAINT `fk_movcab_usuario_reg` FOREIGN KEY (`ID_Usuario_Registra`) REFERENCES `usuarios` (`ID_Usuario`)
-) ENGINE=InnoDB AUTO_INCREMENT=43 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=317 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 
 CREATE TABLE `movimientos_ruta_detalle` (
@@ -526,7 +690,7 @@ CREATE TABLE `movimientos_ruta_detalle` (
   CONSTRAINT `fk_movdet_detalle_pedido` FOREIGN KEY (`ID_Detalle_Pedido`) REFERENCES `detalle_pedidos` (`ID_Detalle_Pedido`) ON DELETE SET NULL,
   CONSTRAINT `fk_movdet_movimiento` FOREIGN KEY (`ID_Movimiento`) REFERENCES `movimientos_ruta_cabecera` (`ID_Movimiento`) ON DELETE CASCADE,
   CONSTRAINT `fk_movdet_producto` FOREIGN KEY (`ID_Producto`) REFERENCES `productos` (`ID_Producto`)
-) ENGINE=InnoDB AUTO_INCREMENT=43 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='DETALLE - Productos del movimiento en ruta';
+) ENGINE=InnoDB AUTO_INCREMENT=375 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='DETALLE - Productos del movimiento en ruta';
 
 
 CREATE TABLE `pagos_cuentascobrar` (
@@ -545,7 +709,7 @@ CREATE TABLE `pagos_cuentascobrar` (
   CONSTRAINT `pagos_cuentascobrar_ibfk_1` FOREIGN KEY (`ID_Movimiento`) REFERENCES `cuentas_por_cobrar` (`ID_Movimiento`) ON DELETE CASCADE,
   CONSTRAINT `pagos_cuentascobrar_ibfk_2` FOREIGN KEY (`ID_MetodoPago`) REFERENCES `metodos_pago` (`ID_MetodoPago`),
   CONSTRAINT `pagos_cuentascobrar_ibfk_3` FOREIGN KEY (`ID_Usuario_Creacion`) REFERENCES `usuarios` (`ID_Usuario`)
-) ENGINE=InnoDB AUTO_INCREMENT=29 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=58 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 
 CREATE TABLE `pagos_cuentaspagar` (
@@ -564,7 +728,7 @@ CREATE TABLE `pagos_cuentaspagar` (
   CONSTRAINT `pagos_cuentaspagar_ibfk_1` FOREIGN KEY (`ID_Cuenta`) REFERENCES `cuentas_por_pagar` (`ID_Cuenta`),
   CONSTRAINT `pagos_cuentaspagar_ibfk_2` FOREIGN KEY (`ID_MetodoPago`) REFERENCES `metodos_pago` (`ID_MetodoPago`),
   CONSTRAINT `pagos_cuentaspagar_ibfk_3` FOREIGN KEY (`ID_Usuario_Creacion`) REFERENCES `usuarios` (`ID_Usuario`)
-) ENGINE=InnoDB AUTO_INCREMENT=7 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=9 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 
 CREATE TABLE `pedidos` (
@@ -590,7 +754,7 @@ CREATE TABLE `pedidos` (
   CONSTRAINT `pedidos_ibfk_2` FOREIGN KEY (`ID_Empresa`) REFERENCES `empresa` (`ID_Empresa`),
   CONSTRAINT `pedidos_ibfk_3` FOREIGN KEY (`ID_Usuario_Creacion`) REFERENCES `usuarios` (`ID_Usuario`),
   CONSTRAINT `pedidos_ibfk_ruta` FOREIGN KEY (`ID_Ruta`) REFERENCES `rutas` (`ID_Ruta`) ON DELETE SET NULL
-) ENGINE=InnoDB AUTO_INCREMENT=42 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=87 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 
 CREATE TABLE `pedidos_consolidados_productos` (
@@ -608,7 +772,7 @@ CREATE TABLE `pedidos_consolidados_productos` (
   CONSTRAINT `pedidos_consolidados_productos_ibfk_1` FOREIGN KEY (`ID_Pedido`) REFERENCES `pedidos` (`ID_Pedido`) ON DELETE CASCADE,
   CONSTRAINT `pedidos_consolidados_productos_ibfk_2` FOREIGN KEY (`ID_Producto`) REFERENCES `productos` (`ID_Producto`),
   CONSTRAINT `pedidos_consolidados_productos_ibfk_3` FOREIGN KEY (`ID_Usuario_Creacion`) REFERENCES `usuarios` (`ID_Usuario`)
-) ENGINE=InnoDB AUTO_INCREMENT=58 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=144 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 
 CREATE TABLE `productos` (
@@ -645,6 +809,7 @@ CREATE TABLE `proveedores` (
   `RUC_CEDULA` varchar(50) DEFAULT NULL,
   `ID_Empresa` int DEFAULT NULL,
   `Estado` enum('ACTIVO','INACTIVO') DEFAULT 'ACTIVO',
+  `Saldo_Pendiente` decimal(12,2) DEFAULT '0.00',
   `Fecha_Creacion` datetime DEFAULT CURRENT_TIMESTAMP,
   `ID_Usuario_Creacion` int DEFAULT NULL,
   PRIMARY KEY (`ID_Proveedor`),
@@ -652,7 +817,7 @@ CREATE TABLE `proveedores` (
   KEY `ID_Usuario_Creacion` (`ID_Usuario_Creacion`),
   CONSTRAINT `proveedores_ibfk_1` FOREIGN KEY (`ID_Empresa`) REFERENCES `empresa` (`ID_Empresa`),
   CONSTRAINT `proveedores_ibfk_2` FOREIGN KEY (`ID_Usuario_Creacion`) REFERENCES `usuarios` (`ID_Usuario`)
-) ENGINE=InnoDB AUTO_INCREMENT=6 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=8 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 
 CREATE TABLE `roles` (
@@ -673,7 +838,49 @@ CREATE TABLE `rutas` (
   PRIMARY KEY (`ID_Ruta`),
   KEY `ID_Empresa` (`ID_Empresa`),
   CONSTRAINT `rutas_ibfk_1` FOREIGN KEY (`ID_Empresa`) REFERENCES `empresa` (`ID_Empresa`)
+) ENGINE=InnoDB AUTO_INCREMENT=7 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+
+CREATE TABLE `subcategorias_gasto` (
+  `ID_Subcategoria` int NOT NULL AUTO_INCREMENT,
+  `ID_Tipo_Gasto` int NOT NULL,
+  `Nombre` varchar(50) NOT NULL,
+  `Descripcion` text,
+  `Estado` enum('Activo','Inactivo') DEFAULT 'Activo',
+  PRIMARY KEY (`ID_Subcategoria`),
+  KEY `ID_Tipo_Gasto` (`ID_Tipo_Gasto`),
+  CONSTRAINT `fk_subcategoria_tipo_gasto` FOREIGN KEY (`ID_Tipo_Gasto`) REFERENCES `tipos_gasto` (`ID_Tipo_Gasto`)
+) ENGINE=InnoDB AUTO_INCREMENT=12 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+
+CREATE TABLE `sucursales` (
+  `ID_Sucursal` int NOT NULL AUTO_INCREMENT,
+  `ID_Cliente` int NOT NULL COMMENT 'Cliente dueño de la sucursal',
+  `Nombre_Sucursal` varchar(255) NOT NULL,
+  `Direccion` text,
+  `Telefono` varchar(50) DEFAULT NULL,
+  `Encargado` varchar(255) DEFAULT NULL,
+  `Estado` enum('ACTIVO','INACTIVO') DEFAULT 'ACTIVO',
+  `Fecha_Creacion` datetime DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`ID_Sucursal`),
+  KEY `ID_Cliente` (`ID_Cliente`),
+  CONSTRAINT `sucursales_ibfk_1` FOREIGN KEY (`ID_Cliente`) REFERENCES `clientes` (`ID_Cliente`) ON DELETE CASCADE
 ) ENGINE=InnoDB AUTO_INCREMENT=6 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+
+CREATE TABLE `tipos_gasto` (
+  `ID_Tipo_Gasto` int NOT NULL AUTO_INCREMENT,
+  `Nombre` varchar(50) NOT NULL,
+  `Descripcion` text,
+  `Origen` enum('INVENTARIO','GASTO_DIRECTO') DEFAULT 'GASTO_DIRECTO',
+  `ID_Categoria_Inventario` int DEFAULT NULL,
+  `Estado` enum('Activo','Inactivo') DEFAULT 'Activo',
+  `ID_Empresa` int DEFAULT NULL,
+  PRIMARY KEY (`ID_Tipo_Gasto`),
+  KEY `ID_Categoria_Inventario` (`ID_Categoria_Inventario`),
+  KEY `ID_Empresa` (`ID_Empresa`),
+  CONSTRAINT `fk_tipos_gasto_categoria_inv` FOREIGN KEY (`ID_Categoria_Inventario`) REFERENCES `categorias_producto` (`ID_Categoria`)
+) ENGINE=InnoDB AUTO_INCREMENT=9 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 
 CREATE TABLE `unidades_medida` (
@@ -700,7 +907,7 @@ CREATE TABLE `usuarios` (
   KEY `ID_Empresa` (`ID_Empresa`),
   CONSTRAINT `usuarios_ibfk_1` FOREIGN KEY (`ID_Rol`) REFERENCES `roles` (`ID_Rol`),
   CONSTRAINT `usuarios_ibfk_2` FOREIGN KEY (`ID_Empresa`) REFERENCES `empresa` (`ID_Empresa`)
-) ENGINE=InnoDB AUTO_INCREMENT=13 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=15 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 
 CREATE TABLE `vehiculos` (
@@ -720,6 +927,35 @@ CREATE TABLE `vehiculos` (
   CONSTRAINT `vehiculos_ibfk_1` FOREIGN KEY (`ID_Empresa`) REFERENCES `empresa` (`ID_Empresa`)
 ) ENGINE=InnoDB AUTO_INCREMENT=5 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
+
+
+DROP TABLE IF EXISTS `vista_gastos_unificados`;
+/*!50001 DROP VIEW IF EXISTS `vista_gastos_unificados`*/;
+SET @saved_cs_client     = @@character_set_client;
+/*!50503 SET character_set_client = utf8mb4 */;
+/*!50001 CREATE VIEW `vista_gastos_unificados` AS SELECT 
+ 1 AS `origen`,
+ 1 AS `id_tipo`,
+ 1 AS `tipo_gasto`,
+ 1 AS `subcategoria`,
+ 1 AS `Fecha`,
+ 1 AS `monto`,
+ 1 AS `factura`,
+ 1 AS `proveedor`,
+ 1 AS `id_proveedor`,
+ 1 AS `vehiculo`,
+ 1 AS `ID_Empresa`,
+ 1 AS `Estado`,
+ 1 AS `id_gasto`,
+ 1 AS `id_categoria_inv`*/;
+SET character_set_client = @saved_cs_client;
+
+--
+-- Temporary view structure for view `vista_kardex_productos`
+--
+
+DROP TABLE IF EXISTS `vista_kardex_productos`;
+/*!50001 DROP VIEW IF EXISTS `vista_kardex_productos`*/;
 SET @saved_cs_client     = @@character_set_client;
 /*!50503 SET character_set_client = utf8mb4 */;
 /*!50001 CREATE VIEW `vista_kardex_productos` AS SELECT 
@@ -734,4 +970,34 @@ SET @saved_cs_client     = @@character_set_client;
  1 AS `Stock_Minimo`,
  1 AS `Salidas_Mes`,
  1 AS `Entradas_Mes`*/;
+SET character_set_client = @saved_cs_client;
+
+--
+-- Temporary view structure for view `vw_entradas_inventario`
+--
+
+DROP TABLE IF EXISTS `vw_entradas_inventario`;
+/*!50001 DROP VIEW IF EXISTS `vw_entradas_inventario`*/;
+SET @saved_cs_client     = @@character_set_client;
+/*!50503 SET character_set_client = utf8mb4 */;
+/*!50001 CREATE VIEW `vw_entradas_inventario` AS SELECT 
+ 1 AS `ID_Movimiento`,
+ 1 AS `Fecha`,
+ 1 AS `ID_TipoMovimiento`,
+ 1 AS `Tipo_Movimiento`,
+ 1 AS `Letra`,
+ 1 AS `N_Factura_Externa`,
+ 1 AS `ID_Proveedor`,
+ 1 AS `Proveedor`,
+ 1 AS `Tipo_Compra`,
+ 1 AS `ID_Bodega`,
+ 1 AS `Bodega`,
+ 1 AS `ID_Producto`,
+ 1 AS `Codigo_Producto`,
+ 1 AS `Producto`,
+ 1 AS `Cantidad`,
+ 1 AS `Costo_Unitario`,
+ 1 AS `Precio_Unitario`,
+ 1 AS `Subtotal`,
+ 1 AS `Estado`*/;
 SET character_set_client = @saved_cs_client;

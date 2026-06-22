@@ -81,6 +81,34 @@
     </div>
 </div>
 
+<!-- Gráficos Financieros -->
+<div class="row mb-4">
+    <div class="col-md-5 mb-3">
+        <div class="card shadow-sm h-100">
+            <div class="card-header bg-white py-3">
+                <i class="bi bi-bar-chart-fill text-primary me-2"></i><strong>Ingresos vs Gastos</strong>
+            </div>
+            <div class="card-body">
+                <div style="position: relative; height: 250px; width: 100%;">
+                    <canvas id="profitComparisonChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-7 mb-3">
+        <div class="card shadow-sm h-100">
+            <div class="card-header bg-white py-3">
+                <i class="bi bi-pie-chart-fill text-danger me-2"></i><strong>Distribución de Gastos Operativos</strong>
+            </div>
+            <div class="card-body">
+                <div style="position: relative; height: 250px; width: 100%;">
+                    <canvas id="expensesBreakdownChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Estado de Resultados Detallado -->
 <div class="row">
     <div class="col-md-6">
@@ -203,4 +231,107 @@
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    // Parsear resultados a JS
+    const rawResultados = [
+        {% for item in resultados %}
+        {
+            tipo: "{{ item.Tipo }}",
+            concepto: "{{ item.Concepto }}",
+            monto: {{ item.Monto|default(0)|float }}
+        },
+        {% endfor %}
+    ];
+
+    // 1. Gráfico Comparativo de Ingresos vs Gastos
+    const ctxProfit = document.getElementById('profitComparisonChart').getContext('2d');
+    new Chart(ctxProfit, {
+        type: 'bar',
+        data: {
+            labels: ['Finanzas del Mes'],
+            datasets: [
+                {
+                    label: 'Ingresos Totales',
+                    data: [{{ total_ingresos }}],
+                    backgroundColor: '#10b981',
+                    borderRadius: 6
+                },
+                {
+                    label: 'Gastos Totales',
+                    data: [{{ total_gastos }}],
+                    backgroundColor: '#ef4444',
+                    borderRadius: 6
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { position: 'top', labels: { font: { family: 'Outfit, sans-serif' } } },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            return context.dataset.label + ': C$ ' + context.raw.toLocaleString('es-NI', { maximumFractionDigits: 0 });
+                        }
+                    }
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        callback: function(value) {
+                            return 'C$' + value.toLocaleString('es-NI');
+                        }
+                    }
+                }
+            }
+        }
+    });
+
+    // 2. Gráfico de Rosca de Desglose de Gastos
+    const gastos = rawResultados.filter(item => item.tipo === 'GASTOS');
+    const ctxExpenses = document.getElementById('expensesBreakdownChart').getContext('2d');
+    new Chart(ctxExpenses, {
+        type: 'doughnut',
+        data: {
+            labels: gastos.map(g => g.concepto),
+            datasets: [{
+                data: gastos.map(g => g.monto),
+                backgroundColor: [
+                    '#ef4444', '#f59e0b', '#3b82f6', '#8b5cf6', '#ec4899', 
+                    '#14b8a6', '#64748b', '#a855f7', '#06b6d4', '#4b5563'
+                ],
+                borderWidth: 2,
+                borderColor: '#ffffff'
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'right',
+                    labels: {
+                        boxWidth: 15,
+                        font: { family: 'Outfit, sans-serif', size: 11 }
+                    }
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            const value = context.raw || 0;
+                            return context.label + ': C$ ' + value.toLocaleString('es-NI', { maximumFractionDigits: 0 });
+                        }
+                    }
+                }
+            }
+        }
+    });
+</script>
 {% endblock %}

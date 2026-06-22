@@ -49,7 +49,7 @@ def bodega_dashboard():
             # 2. Kardex de hoy completo
             cursor.execute("""
                 SELECT 
-                    DATE_FORMAT(mi.Fecha, '%H:%i:%s') AS Hora,
+                    DATE_FORMAT(mi.Fecha_Creacion, '%H:%i:%s') AS Hora,
                     mi.ID_Movimiento,
                     cm.Descripcion AS Tipo_Movimiento,
                     p.Descripcion AS Producto,
@@ -284,6 +284,71 @@ def bodega_dashboard():
                 WHERE cp.Estado = 'PENDIENTE'
             """)
             resumen_cargas_pendientes = cursor.fetchone()
+
+            # ============================================
+            # NUEVO: Pedidos pendientes
+            # ============================================
+            cursor.execute("""
+                SELECT 
+                    p.ID_Pedido,
+                    p.Fecha,
+                    p.Prioridad,
+                    p.Tipo_Pedido,
+                    p.Tipo_Entrega,
+                    p.Observacion,
+                    p.Estado,
+                    c.Nombre as cliente_nombre,
+                    r.Nombre_Ruta as ruta_nombre,
+                    u.NombreUsuario as vendedor_nombre,
+                    CASE 
+                        WHEN p.Tipo_Pedido = 'Consolidado' THEN (
+                            SELECT COALESCE(SUM(pcp.Cantidad_Total), 0)
+                            FROM pedidos_consolidados_productos pcp
+                            WHERE pcp.ID_Pedido = p.ID_Pedido
+                        )
+                        ELSE COALESCE(SUM(dp.Cantidad), 0)
+                    END as total_cantidad,
+                    CASE 
+                        WHEN p.Tipo_Pedido = 'Consolidado' THEN (
+                            SELECT COUNT(DISTINCT pcp.ID_Producto)
+                            FROM pedidos_consolidados_productos pcp
+                            WHERE pcp.ID_Pedido = p.ID_Pedido
+                        )
+                        ELSE COUNT(DISTINCT dp.ID_Producto)
+                    END as total_productos,
+                    DATEDIFF(CURDATE(), p.Fecha) as dias_espera
+                FROM pedidos p
+                LEFT JOIN clientes c ON p.ID_Cliente = c.ID_Cliente
+                LEFT JOIN rutas r ON p.ID_Ruta = r.ID_Ruta
+                LEFT JOIN usuarios u ON p.ID_Usuario_Creacion = u.ID_Usuario
+                LEFT JOIN detalle_pedidos dp ON p.ID_Pedido = dp.ID_Pedido AND p.Tipo_Pedido != 'Consolidado'
+                WHERE p.Estado IN ('Pendiente', 'Aprobado')
+                    AND p.Fecha = CURDATE()
+                GROUP BY p.ID_Pedido, p.Fecha, p.Prioridad, p.Tipo_Pedido, p.Tipo_Entrega, p.Observacion, p.Estado,
+                         c.Nombre, r.Nombre_Ruta, u.NombreUsuario
+                ORDER BY 
+                    CASE p.Prioridad
+                        WHEN 'Urgente' THEN 1
+                        WHEN 'Normal' THEN 2
+                        WHEN 'Bajo' THEN 3
+                        ELSE 4
+                    END,
+                    p.Fecha ASC
+                LIMIT 15
+            """)
+            pedidos_pendientes = cursor.fetchall()
+            
+            # Resumen de pedidos pendientes
+            cursor.execute("""
+                SELECT 
+                    COUNT(*) as total_pendientes,
+                    COUNT(CASE WHEN p.Prioridad = 'Urgente' THEN 1 END) as urgentes,
+                    COUNT(CASE WHEN p.Tipo_Pedido = 'Consolidado' THEN 1 END) as consolidados
+                FROM pedidos p
+                WHERE p.Estado IN ('Pendiente', 'Aprobado')
+                    AND p.Fecha = CURDATE()
+            """)
+            resumen_pedidos_pendientes = cursor.fetchone()
             
             fecha_hoy = datetime.now().strftime("%d/%m/%Y")
             
@@ -300,6 +365,8 @@ def bodega_dashboard():
                                  sistema_info=sistema_info,
                                  cargas_pendientes_recepcion=cargas_pendientes_recepcion,
                                  resumen_cargas_pendientes=resumen_cargas_pendientes,
+                                 pedidos_pendientes=pedidos_pendientes,
+                                 resumen_pedidos_pendientes=resumen_pedidos_pendientes,
                                  fecha_hoy=fecha_hoy,
                                  current_user=current_user)
                              
@@ -320,8 +387,11 @@ def bodega_dashboard():
                              sistema_info={},
                              cargas_pendientes_recepcion=[],
                              resumen_cargas_pendientes={},
+                             pedidos_pendientes=[],
+                             resumen_pedidos_pendientes={},
                              fecha_hoy=datetime.now().strftime("%d/%m/%Y"),
                              current_user=current_user)
+
 
 TIPO_COMPRA = 1
 TIPO_VENTA = 2

@@ -100,6 +100,34 @@
     </div>
 </div>
 
+<!-- Gráficos de Inventario -->
+<div class="row mb-4">
+    <div class="col-md-6 mb-3">
+        <div class="card shadow-sm h-100">
+            <div class="card-header bg-white py-3">
+                <i class="bi bi-pie-chart-fill text-primary me-2"></i><strong>Distribución del Stock por Estado</strong>
+            </div>
+            <div class="card-body">
+                <div style="position: relative; height: 260px; width: 100%;">
+                    <canvas id="stockStatusChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6 mb-3">
+        <div class="card shadow-sm h-100">
+            <div class="card-header bg-white py-3">
+                <i class="bi bi-bar-chart-fill text-success me-2"></i><strong>Top 5 Productos de Mayor Valor en Almacén</strong>
+            </div>
+            <div class="card-body">
+                <div style="position: relative; height: 260px; width: 100%;">
+                    <canvas id="topStockValueChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Tabla de Inventario -->
 <div class="card shadow-sm">
     <div class="card-header bg-white">
@@ -149,7 +177,7 @@
                                 <span class="text-muted">Sin ventas</span>
                             {% endif %}
                         </td>
-                        <td>C${{ "{:,.0f}".format((item.Stock_Actual or 0) * (item.Precio_Mercado or 0)) }}</td>
+                        <td>C${{ "{:,.0f}".format(item.Valor_Inventario|default(0)) }}</td>
                     </tr>
                     {% else %}
                     <tr>
@@ -162,7 +190,7 @@
                 <tfoot class="table-light">
                     <tr>
                         <td colspan="9" class="text-end fw-bold">VALOR TOTAL INVENTARIO:</td>
-                        <td class="fw-bold">C${{ "{:,.0f}".format(inventario|sum(attribute='Stock_Actual') * inventario|sum(attribute='Precio_Mercado')) }}</td>
+                        <td class="fw-bold">C${{ "{:,.0f}".format(inventario|sum(attribute='Valor_Inventario')|default(0)) }}</td>
                     </tr>
                 </tfoot>
             </table>
@@ -179,4 +207,96 @@
     <a href="#" class="alert-link">Revisar lista de productos por reabastecer</a>
 </div>
 {% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    // Parsear inventario de Python a JS
+    const rawInventario = [
+        {% for item in inventario %}
+        {
+            producto: "{{ item.Producto }}",
+            stock: {{ item.Stock_Actual|default(0)|float }},
+            minimo: {{ item.Stock_Minimo|default(0)|float }},
+            estado: "{{ item.Estado_Stock }}",
+            valor: {{ item.Valor_Inventario|default(0)|float }}
+        },
+        {% endfor %}
+    ];
+
+    // Procesar datos para Gráfico de Rosca
+    const counts = { 'STOCK BAJO': 0, 'STOCK MINIMO': 0, 'NORMAL': 0 };
+    rawInventario.forEach(item => {
+        if (counts[item.estado] !== undefined) counts[item.estado]++;
+    });
+
+    const ctxStatus = document.getElementById('stockStatusChart').getContext('2d');
+    new Chart(ctxStatus, {
+        type: 'doughnut',
+        data: {
+            labels: ['Stock Bajo (Crítico)', 'Stock Mínimo', 'Stock Normal'],
+            datasets: [{
+                data: [counts['STOCK BAJO'], counts['STOCK MINIMO'], counts['NORMAL']],
+                backgroundColor: ['#ef4444', '#f59e0b', '#10b981'],
+                borderWidth: 2,
+                borderColor: '#ffffff'
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'bottom',
+                    labels: { font: { family: 'Outfit, sans-serif' } }
+                }
+            }
+        }
+    });
+
+    // Procesar datos para Top 5 Productos por Valor de Inventario
+    const sortedProducts = [...rawInventario]
+        .sort((a, b) => b.valor - a.valor)
+        .slice(0, 5);
+
+    const ctxValue = document.getElementById('topStockValueChart').getContext('2d');
+    new Chart(ctxValue, {
+        type: 'bar',
+        data: {
+            labels: sortedProducts.map(p => p.producto.substring(0, 18) + (p.producto.length > 18 ? '...' : '')),
+            datasets: [{
+                label: 'Valor de Inventario (C$)',
+                data: sortedProducts.map(p => p.valor),
+                backgroundColor: '#10b981',
+                borderRadius: 6,
+                maxBarThickness: 35
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            return 'C$ ' + context.raw.toLocaleString('es-NI', { maximumFractionDigits: 0 });
+                        }
+                    }
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        callback: function(value) {
+                            return 'C$' + value.toLocaleString('es-NI');
+                        }
+                    }
+                }
+            }
+        }
+    });
+</script>
 {% endblock %}

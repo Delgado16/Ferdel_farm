@@ -84,6 +84,34 @@
     </div>
 </div>
 
+<!-- Gráficos de Utilidades -->
+<div class="row mb-4">
+    <div class="col-md-5 mb-3">
+        <div class="card shadow-sm h-100">
+            <div class="card-header bg-white py-3">
+                <i class="bi bi-bar-chart-fill text-primary me-2"></i><strong>Rentabilidad por Canal (Local vs Ruta)</strong>
+            </div>
+            <div class="card-body">
+                <div style="position: relative; height: 260px; width: 100%;">
+                    <canvas id="channelProfitChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-7 mb-3">
+        <div class="card shadow-sm h-100">
+            <div class="card-header bg-white py-3">
+                <i class="bi bi-graph-up text-success me-2"></i><strong>Tendencia de Rentabilidad Diaria</strong>
+            </div>
+            <div class="card-body">
+                <div style="position: relative; height: 260px; width: 100%;">
+                    <canvas id="profitTrendChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Tabla de Detalles -->
 <div class="card shadow-sm">
     <div class="card-header bg-white">
@@ -139,4 +167,155 @@
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    // Parsear resultados a JS
+    const rawResultados = [
+        {% for item in resultados %}
+        {
+            canal: "{{ item.Canal }}",
+            fecha: "{{ item.Fecha.strftime('%d/%m/%Y') if item.Fecha is not string else item.Fecha }}",
+            costo: {{ item.Costo_Total|default(0)|float }},
+            venta: {{ item.Venta_Total|default(0)|float }},
+            utilidad: {{ item.Utilidad_Neta|default(0)|float }}
+        },
+        {% endfor %}
+    ];
+
+    // 1. Procesar datos para Canal (Local vs Ruta)
+    const channelData = {
+        Local: { venta: 0, utilidad: 0 },
+        Ruta: { venta: 0, utilidad: 0 }
+    };
+    rawResultados.forEach(item => {
+        if (channelData[item.canal]) {
+            channelData[item.canal].venta += item.venta;
+            channelData[item.canal].utilidad += item.utilidad;
+        }
+    });
+
+    const ctxChannel = document.getElementById('channelProfitChart').getContext('2d');
+    new Chart(ctxChannel, {
+        type: 'bar',
+        data: {
+            labels: ['Local (Oficina)', 'Ruta (Distribución)'],
+            datasets: [
+                {
+                    label: 'Ventas',
+                    data: [channelData.Local.venta, channelData.Ruta.venta],
+                    backgroundColor: '#3b82f6',
+                    borderRadius: 6
+                },
+                {
+                    label: 'Utilidad Neta',
+                    data: [channelData.Local.utilidad, channelData.Ruta.utilidad],
+                    backgroundColor: '#10b981',
+                    borderRadius: 6
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { position: 'top', labels: { font: { family: 'Outfit, sans-serif' } } },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            return context.dataset.label + ': C$ ' + context.raw.toLocaleString('es-NI', { maximumFractionDigits: 0 });
+                        }
+                    }
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        callback: function(value) {
+                            return 'C$' + value.toLocaleString('es-NI');
+                        }
+                    }
+                }
+            }
+        }
+    });
+
+    // 2. Procesar datos para Tendencia Diaria
+    const dailyData = {};
+    rawResultados.forEach(item => {
+        if (!item.fecha) return;
+        if (!dailyData[item.fecha]) {
+            dailyData[item.fecha] = { venta: 0, costo: 0, utilidad: 0 };
+        }
+        dailyData[item.fecha].venta += item.venta;
+        dailyData[item.fecha].costo += item.costo;
+        dailyData[item.fecha].utilidad += item.utilidad;
+    });
+
+    // Ordenar fechas cronológicamente
+    const sortedDates = Object.keys(dailyData).sort((a, b) => {
+        const da = a.split('/').reverse().join('');
+        const db = b.split('/').reverse().join('');
+        return da.localeCompare(db);
+    });
+
+    const ctxTrend = document.getElementById('profitTrendChart').getContext('2d');
+    new Chart(ctxTrend, {
+        type: 'line',
+        data: {
+            labels: sortedDates,
+            datasets: [
+                {
+                    label: 'Ventas Totales',
+                    data: sortedDates.map(d => dailyData[d].venta),
+                    borderColor: '#3b82f6',
+                    backgroundColor: 'transparent',
+                    tension: 0.3
+                },
+                {
+                    label: 'Costos Totales',
+                    data: sortedDates.map(d => dailyData[d].costo),
+                    borderColor: '#94a3b8',
+                    backgroundColor: 'transparent',
+                    tension: 0.3
+                },
+                {
+                    label: 'Utilidad Neta',
+                    data: sortedDates.map(d => dailyData[d].utilidad),
+                    borderColor: '#10b981',
+                    backgroundColor: 'rgba(16, 185, 129, 0.05)',
+                    fill: true,
+                    tension: 0.3
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { position: 'top', labels: { font: { family: 'Outfit, sans-serif' } } },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            return context.dataset.label + ': C$ ' + context.raw.toLocaleString('es-NI', { maximumFractionDigits: 0 });
+                        }
+                    }
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        callback: function(value) {
+                            return 'C$' + value.toLocaleString('es-NI');
+                        }
+                    }
+                }
+            }
+        }
+    });
+</script>
 {% endblock %}

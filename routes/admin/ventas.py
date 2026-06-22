@@ -1579,6 +1579,7 @@ def admin_generar_ticket(id_factura):
                 'usuario': factura['Usuario'] or 'Usuario No Especificado',
                 'detalles': detalles,
                 'total': total_venta_actual,
+                'total_formateado': f"C$ {total_venta_actual:,.2f}",
                 'total_pagado': total_pagado,
                 'saldo_pendiente': nuevo_saldo_cliente if factura['Credito_Contado'] == 1 else max(0, total_venta_actual - total_pagado),
                 'metodos_pago': metodos_pago,

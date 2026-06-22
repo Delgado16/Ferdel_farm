@@ -159,6 +159,24 @@
     </div>
 </div>
 
+<!-- Gráfico de Tendencia de Ventas -->
+<div class="card shadow-sm mb-4">
+    <div class="card-header bg-white d-flex justify-content-between align-items-center py-3">
+        <div>
+            <i class="bi bi-graph-up text-primary fs-5 me-2"></i><strong>Tendencia Diaria de Ventas</strong>
+        </div>
+        <div class="btn-group btn-group-sm" role="group">
+            <button type="button" class="btn btn-outline-primary active" id="btnChartType">Por Tipo de Pago</button>
+            <button type="button" class="btn btn-outline-success" id="btnChartOrigin">Por Canal de Venta</button>
+        </div>
+    </div>
+    <div class="card-body">
+        <div style="position: relative; height: 300px; width: 100%;">
+            <canvas id="salesTrendChart"></canvas>
+        </div>
+    </div>
+</div>
+
 <!-- Tabla de Ventas -->
 <div class="card shadow-sm">
     <div class="card-header bg-white">
@@ -260,11 +278,182 @@
 {% endblock %}
 
 {% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
     // Tooltips para los badges
     var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
     var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
         return new bootstrap.Tooltip(tooltipTriggerEl)
-    })
+    });
+
+    // Parsear ventas de Python/Jinja2 a JS
+    const rawVentas = [
+        {% for venta in ventas %}
+        {
+            fecha: "{{ venta.Fecha.strftime('%d/%m/%Y') if venta.Fecha else '' }}",
+            total: {{ venta.Total_Venta|default(0)|float }},
+            tipo: "{{ venta.Tipo_Venta }}",
+            origen: "{{ venta.Origen }}"
+        },
+        {% endfor %}
+    ];
+
+    // Procesar datos en JS
+    function getChartData() {
+        const dailyData = {};
+        
+        // Agrupar ventas por fecha y atributos
+        rawVentas.forEach(v => {
+            if (!v.fecha) return;
+            if (!dailyData[v.fecha]) {
+                dailyData[v.fecha] = { contado: 0, credito: 0, normal: 0, ruta: 0, total: 0 };
+            }
+            dailyData[v.fecha].total += v.total;
+            if (v.tipo === 'CONTADO') dailyData[v.fecha].contado += v.total;
+            else if (v.tipo === 'CREDITO') dailyData[v.fecha].credito += v.total;
+            
+            if (v.origen === 'NORMAL') dailyData[v.fecha].normal += v.total;
+            else if (v.origen === 'RUTA') dailyData[v.fecha].ruta += v.total;
+        });
+
+        // Ordenar fechas cronológicamente
+        const sortedDates = Object.keys(dailyData).sort((a, b) => {
+            const da = a.split('/').reverse().join('');
+            const db = b.split('/').reverse().join('');
+            return da.localeCompare(db);
+        });
+
+        const labels = sortedDates;
+        const total = [];
+        const contado = [];
+        const credito = [];
+        const normal = [];
+        const ruta = [];
+
+        sortedDates.forEach(date => {
+            total.push(dailyData[date].total);
+            contado.push(dailyData[date].contado);
+            credito.push(dailyData[date].credito);
+            normal.push(dailyData[date].normal);
+            ruta.push(dailyData[date].ruta);
+        });
+
+        return { labels, total, contado, credito, normal, ruta };
+    }
+
+    const chartData = getChartData();
+    const ctx = document.getElementById('salesTrendChart').getContext('2d');
+    
+    // Crear conjuntos de datos
+    const datasetsType = [
+        {
+            label: 'Contado',
+            data: chartData.contado,
+            borderColor: '#10b981',
+            backgroundColor: 'rgba(16, 185, 129, 0.05)',
+            tension: 0.3,
+            fill: true
+        },
+        {
+            label: 'Crédito',
+            data: chartData.credito,
+            borderColor: '#ffc107',
+            backgroundColor: 'rgba(255, 193, 7, 0.05)',
+            tension: 0.3,
+            fill: true
+        },
+        {
+            label: 'Total General',
+            data: chartData.total,
+            borderColor: '#4f46e5',
+            backgroundColor: 'transparent',
+            borderDash: [5, 5],
+            tension: 0.3
+        }
+    ];
+
+    const datasetsOrigin = [
+        {
+            label: 'Local (Oficina)',
+            data: chartData.normal,
+            borderColor: '#0284c7',
+            backgroundColor: 'rgba(2, 132, 199, 0.05)',
+            tension: 0.3,
+            fill: true
+        },
+        {
+            label: 'Ruta (Distribución)',
+            data: chartData.ruta,
+            borderColor: '#10b981',
+            backgroundColor: 'rgba(16, 185, 129, 0.05)',
+            tension: 0.3,
+            fill: true
+        },
+        {
+            label: 'Total General',
+            data: chartData.total,
+            borderColor: '#4f46e5',
+            backgroundColor: 'transparent',
+            borderDash: [5, 5],
+            tension: 0.3
+        }
+    ];
+
+    const salesChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: chartData.labels,
+            datasets: datasetsType
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'top',
+                    labels: {
+                        font: { family: 'Outfit, sans-serif', size: 12 }
+                    }
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            let label = context.dataset.label || '';
+                            if (label) label += ': ';
+                            if (context.parsed.y !== null) {
+                                label += new Intl.NumberFormat('es-NI', { style: 'currency', currency: 'NIO', maximumFractionDigits: 0 }).format(context.parsed.y).replace('NIO', 'C$');
+                            }
+                            return label;
+                        }
+                    }
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        callback: function(value) {
+                            return 'C$' + value.toLocaleString('es-NI');
+                        }
+                    }
+                }
+            }
+        }
+    });
+
+    // Eventos para cambiar de modo de gráfico
+    document.getElementById('btnChartType').addEventListener('click', function() {
+        this.classList.add('active');
+        document.getElementById('btnChartOrigin').classList.remove('active');
+        salesChart.data.datasets = datasetsType;
+        salesChart.update();
+    });
+
+    document.getElementById('btnChartOrigin').addEventListener('click', function() {
+        this.classList.add('active');
+        document.getElementById('btnChartType').classList.remove('active');
+        salesChart.data.datasets = datasetsOrigin;
+        salesChart.update();
+    });
 </script>
 {% endblock %}

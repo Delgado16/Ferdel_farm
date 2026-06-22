@@ -8,10 +8,39 @@ from flask_login import current_user
 from config.database import get_db_cursor
 
 
-def registrar_bitacora(id_usuario=None, modulo=None, accion=None, ip_acceso='0.0.0.0'):
+def obtener_ip_cliente():
     """
-    Registrar en bitácora - IP ahora es obligatoria con valor por defecto
+    Obtiene la IP real del cliente, considerando proxies inversos (como Railway, Render, Nginx, etc.)
     """
+    try:
+        # Intentar obtener de X-Forwarded-For (común en Railway/Render/Nginx)
+        if request.headers.getlist("X-Forwarded-For"):
+            # Tomar la primera dirección de la lista
+            ip = request.headers.getlist("X-Forwarded-For")[0].split(',')[0].strip()
+            if ip:
+                return ip
+        # Intentar obtener de X-Real-IP
+        ip_real = request.headers.get("X-Real-IP")
+        if ip_real:
+            return ip_real.strip()
+    except Exception:
+        # Silenciar si no estamos en un contexto de request activo
+        pass
+    
+    # Caer en remote_addr
+    try:
+        return request.remote_addr or '0.0.0.0'
+    except Exception:
+        return '0.0.0.0'
+
+
+def registrar_bitacora(id_usuario=None, modulo=None, accion=None, ip_acceso=None):
+    """
+    Registrar en bitácora - IP se obtiene automáticamente si no se especifica o es genérica
+    """
+    if ip_acceso is None or ip_acceso in ('0.0.0.0', '127.0.0.1'):
+        ip_acceso = obtener_ip_cliente()
+        
     try:
         with get_db_cursor(commit=True) as cursor:
             # Si no se proporciona usuario, usar el current_user
@@ -23,7 +52,7 @@ def registrar_bitacora(id_usuario=None, modulo=None, accion=None, ip_acceso='0.0
                 VALUES (%s, %s, %s, %s)
             """, (id_usuario, modulo, accion, ip_acceso))
             
-            print(f"📝 Bitácora registrada: {modulo} - {accion}")
+            print(f"📝 Bitácora registrada: {modulo} - {accion} | IP: {ip_acceso}")
             return True
             
     except Exception as e:
@@ -51,8 +80,7 @@ def bitacora_decorator(modulo):
                 if current_user.is_authenticated:
                     registrar_bitacora(
                         modulo=modulo,
-                        accion=func.__name__,
-                        ip_acceso=request.remote_addr
+                        accion=func.__name__
                     )
             except Exception as e:
                 print(f"Error en decorador bitácora: {e}")
@@ -63,12 +91,10 @@ def bitacora_decorator(modulo):
 
 
 def registrar_login_exitoso(username, id_usuario):
-    from flask import request
     registrar_bitacora(
         id_usuario=id_usuario,
         modulo="AUTH",
-        accion="LOGIN_EXITOSO",
-        ip_acceso=request.remote_addr
+        accion="LOGIN_EXITOSO"
     )
 
 
@@ -80,14 +106,11 @@ def registrar_login_fallido(username, razon):
         username (str): Nombre de usuario
         razon (str): Razón del fallo
     """
-    try:
-        with get_db_cursor(commit=True) as cursor:
-            cursor.execute("""
-                INSERT INTO bitacora (Modulo, Accion, IP_Acceso)
-                VALUES (%s, %s, %s)
-            """, ("AUTH", f"LOGIN_FALLIDO: {razon} - Usuario: {username}", request.remote_addr))
-    except Exception as e:
-        print(f"Error al registrar login fallido: {e}")
+    registrar_bitacora(
+        id_usuario=None,
+        modulo="AUTH",
+        accion=f"LOGIN_FALLIDO: {razon} - Usuario: {username}"
+    )
 
 
 def registrar_logout(id_usuario):
@@ -100,6 +123,5 @@ def registrar_logout(id_usuario):
     registrar_bitacora(
         id_usuario=id_usuario,
         modulo="AUTH", 
-        accion="LOGOUT",
-        ip_acceso=request.remote_addr
+        accion="LOGOUT"
     )

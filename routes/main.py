@@ -1,7 +1,7 @@
 """
 Blueprint de rutas principales (home, health, diagnostics)
 """
-from flask import Blueprint, abort, redirect, url_for, jsonify, render_template
+from flask import Blueprint, abort, redirect, url_for, jsonify, render_template, send_from_directory, current_app
 from flask_login import login_required, current_user
 from datetime import datetime
 from config.settings import RENDER_ENV
@@ -88,3 +88,39 @@ def diagnostico():
     <p>Ver logs detallados en la consola del servidor.</p>
     <p><a href="/auth/login">Ir al login</a> | <a href="/auth/fix-admin">Corregir admin</a> | <a href="/auth/check-users">Ver usuarios</a></p>
     """
+
+
+@main_bp.route('/sw.js')
+def serve_sw():
+    return send_from_directory(current_app.static_folder, 'sw.js')
+
+
+@main_bp.route('/manifest.json')
+def serve_manifest():
+    return send_from_directory(current_app.static_folder, 'manifest.json')
+
+
+@main_bp.route('/test-403')
+def test_403():
+    abort(403)
+
+
+@main_bp.app_errorhandler(403)
+def forbidden_error(error):
+    """Manejador de error global para 403 Prohibido"""
+    from flask import request
+    
+    # Si la petición acepta JSON (como peticiones AJAX o API), retornamos JSON
+    accept = request.headers.get('Accept', '')
+    if request.path.startswith('/api/') or \
+       request.headers.get('X-Requested-With') == 'XMLHttpRequest' or \
+       ('application/json' in accept and 'text/html' not in accept):
+        return jsonify({
+            'status': 'error',
+            'error': 'Prohibido',
+            'message': 'No tienes permiso para acceder al recurso solicitado. Está protegida contra lectura o no es legible para el servidor.'
+        }), 403
+        
+    return render_template('errors/403.html'), 403
+
+

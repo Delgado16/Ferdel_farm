@@ -1,0 +1,317 @@
+{% extends "layout.html" %}
+
+{% block title %}Ventas por Categoría - FerDel{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">
+        <i class="bi bi-cart-check-fill text-success"></i> Ventas por Categoría
+    </h1>
+    <div class="btn-toolbar mb-2 mb-md-0">
+        <div class="btn-group me-2">
+            <a href="{{ url_for('admin.reporte_categoria_ventas', periodo=periodo, fecha_inicio=fecha_inicio, fecha_fin=fecha_fin, categoria_id=categoria_id, formato='csv') }}" 
+               class="btn btn-sm btn-success">
+                <i class="bi bi-file-earmark-spreadsheet"></i> Exportar CSV
+            </a>
+            <a href="{{ url_for('admin.reporte_categoria_ventas', periodo=periodo, fecha_inicio=fecha_inicio, fecha_fin=fecha_fin, categoria_id=categoria_id, formato='json') }}" 
+               class="btn btn-sm btn-info text-white">
+                <i class="bi bi-file-earmark-code"></i> Exportar JSON
+            </a>
+            <button class="btn btn-sm btn-secondary" onclick="window.print()">
+                <i class="bi bi-printer"></i> Imprimir
+            </button>
+        </div>
+        <a href="{{ url_for('admin.reportes') }}" class="btn btn-sm btn-outline-secondary">
+            <i class="bi bi-arrow-left"></i> Volver
+        </a>
+    </div>
+</div>
+
+<!-- Filtros de Período y Categoría -->
+<div class="card shadow-sm mb-4">
+    <div class="card-header bg-light py-3 d-flex justify-content-between align-items-center">
+        <span><i class="bi bi-funnel-fill text-secondary"></i> <strong>Filtros de Búsqueda</strong></span>
+        <div class="btn-group" role="group" aria-label="Filtración rápida">
+            <a href="{{ url_for('admin.reporte_categoria_ventas', periodo='dia', categoria_id=categoria_id) }}" 
+               class="btn btn-sm {% if periodo == 'dia' %}btn-success{% else %}btn-outline-success{% endif %} px-3">
+                Hoy
+            </a>
+            <a href="{{ url_for('admin.reporte_categoria_ventas', periodo='semana', categoria_id=categoria_id) }}" 
+               class="btn btn-sm {% if periodo == 'semana' %}btn-success{% else %}btn-outline-success{% endif %} px-3">
+                Esta Semana
+            </a>
+            <a href="{{ url_for('admin.reporte_categoria_ventas', periodo='mes', categoria_id=categoria_id) }}" 
+               class="btn btn-sm {% if periodo == 'mes' %}btn-success{% else %}btn-outline-success{% endif %} px-3">
+                Este Mes
+            </a>
+            <a href="{{ url_for('admin.reporte_categoria_ventas', periodo='ano', categoria_id=categoria_id) }}" 
+               class="btn btn-sm {% if periodo == 'ano' %}btn-success{% else %}btn-outline-success{% endif %} px-3">
+                Este Año
+            </a>
+        </div>
+    </div>
+    <div class="card-body">
+        <form method="GET" action="{{ url_for('admin.reporte_categoria_ventas') }}" class="row g-3">
+            <input type="hidden" name="periodo" value="personalizado">
+            <div class="col-md-3">
+                <label class="form-label small fw-semibold">Fecha Inicio</label>
+                <input type="date" name="fecha_inicio" class="form-control form-control-sm" value="{{ fecha_inicio }}">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label small fw-semibold">Fecha Fin</label>
+                <input type="date" name="fecha_fin" class="form-control form-control-sm" value="{{ fecha_fin }}">
+            </div>
+            <div class="col-md-4">
+                <label class="form-label small fw-semibold">Categoría de Producto</label>
+                <select name="categoria_id" class="form-select form-select-sm">
+                    <option value="">Todas las categorías</option>
+                    {% for cat in categorias %}
+                    <option value="{{ cat.ID_Categoria }}" {% if categoria_id|int == cat.ID_Categoria %}selected{% endif %}>
+                        {{ cat.Descripcion }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2 d-flex align-items-end">
+                <button type="submit" class="btn btn-sm btn-dark w-100 py-2">
+                    <i class="bi bi-search"></i> Consultar
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- KPIs y Banners -->
+{% set total_vendido_cant = resultados|sum(attribute='Cantidad_Vendida')|default(0)|float %}
+{% set total_vendido_monto = resultados|sum(attribute='Monto_Vendido')|default(0)|float %}
+
+<div class="row mb-4">
+    <!-- Volumen Vendido -->
+    <div class="col-md-4 mb-3">
+        <div class="card text-white shadow-sm h-100" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%) !important; border: none; border-radius: 12px;">
+            <div class="card-body d-flex flex-column justify-content-between p-4">
+                <div>
+                    <h6 class="card-subtitle mb-2 text-white-50 text-uppercase" style="font-size: 0.75rem; letter-spacing: 0.05em;">Volumen de Ventas</h6>
+                    <h2 class="card-title mb-0 fw-bold">{{ "{:,.0f}".format(total_vendido_cant) }} Cajas</h2>
+                </div>
+                <div class="mt-4 text-white-50 small d-flex align-items-center gap-2">
+                    <i class="bi bi-cart-check fs-5"></i> Unidades totales vendidas (Oficina + Ruta)
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Monto Total Vendido -->
+    <div class="col-md-4 mb-3">
+        <div class="card text-white shadow-sm h-100" style="background: linear-gradient(135deg, #0d9488 0%, #0f766e 100%) !important; border: none; border-radius: 12px;">
+            <div class="card-body d-flex flex-column justify-content-between p-4">
+                <div>
+                    <h6 class="card-subtitle mb-2 text-white-50 text-uppercase" style="font-size: 0.75rem; letter-spacing: 0.05em;">Ingresos Totales</h6>
+                    <h2 class="card-title mb-0 fw-bold">C$ {{ "{:,.2f}".format(total_vendido_monto) }}</h2>
+                </div>
+                <div class="mt-4 text-white-50 small d-flex align-items-center gap-2">
+                    <i class="bi bi-graph-up-arrow fs-5"></i> Facturación total acumulada activa
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Rango de Período -->
+    <div class="col-md-4 mb-3">
+        <div class="card bg-dark text-white shadow-sm h-100" style="border: none; border-radius: 12px;">
+            <div class="card-body d-flex align-items-center justify-content-between p-4">
+                <div>
+                    <h5 class="fw-bold mb-1 text-success" style="font-family: 'Outfit', sans-serif;">Rango del Reporte</h5>
+                    <p class="mb-0 text-white-50 small">
+                        Desde el <strong>{{ fecha_inicio_formatted }}</strong> al <strong>{{ fecha_fin_formatted }}</strong>.
+                    </p>
+                </div>
+                <div class="fs-1 text-success opacity-25">
+                    <i class="bi bi-calendar-range"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <!-- Gráfico de Ventas por Producto -->
+    {% if resultados|length > 0 %}
+    <div class="col-lg-6 mb-4">
+        <div class="card shadow-sm h-100">
+            <div class="card-header bg-white py-3">
+                <i class="bi bi-bar-chart-fill text-success me-2"></i><strong>Ingresos por Producto (Top 15)</strong>
+            </div>
+            <div class="card-body">
+                <div style="position: relative; height: 320px; width: 100%;">
+                    <canvas id="ventasChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Gráfico de Participación por Categoría/Producto -->
+    <div class="col-lg-6 mb-4">
+        <div class="card shadow-sm h-100">
+            <div class="card-header bg-white py-3">
+                <i class="bi bi-pie-chart-fill text-teal me-2"></i><strong>Distribución del Volumen Vendido</strong>
+            </div>
+            <div class="card-body d-flex align-items-center justify-content-center">
+                <div style="position: relative; height: 280px; width: 100%;">
+                    <canvas id="ventasDonaChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Tabla Detallada -->
+<div class="card shadow-sm mb-4">
+    <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+        <span><i class="bi bi-list-task text-success me-2"></i><strong>Desglose de Ventas por Artículo</strong></span>
+        <span class="badge bg-secondary">{{ resultados|length }} productos</span>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th class="py-3 ps-4">Código</th>
+                        <th class="py-3">Producto</th>
+                        <th class="py-3">Categoría</th>
+                        <th class="text-center py-3 text-success">Cantidad Vendida</th>
+                        <th class="text-end py-3 text-success pe-4">Monto Total</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in resultados %}
+                    <tr>
+                        <td class="ps-4"><code>{{ item.Codigo }}</code></td>
+                        <td><strong>{{ item.Producto }}</strong></td>
+                        <td><span class="badge bg-light text-dark border">{{ item.Categoria }}</span></td>
+                        <td class="text-center fw-semibold text-success">{{ "{:,.0f}".format(item.Cantidad_Vendida) }} Cajas</td>
+                        <td class="text-end text-success fw-bold pe-4">C$ {{ "{:,.2f}".format(item.Monto_Vendido) }}</td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="5" class="text-center text-muted py-5">
+                            <i class="bi bi-inbox fs-1"></i><br>
+                            No se registraron movimientos de ventas en el período y filtros seleccionados.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+                {% if resultados|length > 0 %}
+                <tfoot class="table-light fw-bold">
+                    <tr>
+                        <td colspan="3" class="text-end ps-4">TOTALES:</td>
+                        <td class="text-center text-success">{{ "{:,.0f}".format(total_vendido_cant) }} Cajas</td>
+                        <td class="text-end text-success pe-4">C$ {{ "{:,.2f}".format(total_vendido_monto) }}</td>
+                    </tr>
+                </tfoot>
+                {% endif %}
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+{% if resultados|length > 0 %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    const rawData = [
+        {% for item in resultados[:15] %}
+        {
+            producto: "{{ item.Producto }}",
+            cantidad: {{ item.Cantidad_Vendida }},
+            monto: {{ item.Monto_Vendido }}
+        },
+        {% endfor %}
+    ];
+
+    // Chart de Barras (Montos)
+    const ctxBar = document.getElementById('ventasChart').getContext('2d');
+    new Chart(ctxBar, {
+        type: 'bar',
+        data: {
+            labels: rawData.map(d => d.producto.substring(0, 18) + (d.producto.length > 18 ? '...' : '')),
+            datasets: [{
+                label: 'Ventas (C$)',
+                data: rawData.map(d => d.monto),
+                backgroundColor: 'rgba(16, 185, 129, 0.85)',
+                borderColor: 'rgb(16, 185, 129)',
+                borderWidth: 1,
+                borderRadius: 4
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            return 'Ingresos: C$ ' + context.raw.toLocaleString('es-NI', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                        }
+                    }
+                }
+            },
+            scales: {
+                x: { grid: { display: false } },
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        callback: function(value) { return 'C$ ' + value.toLocaleString(); }
+                    }
+                }
+            }
+        }
+    });
+
+    // Chart de Dona (Volumen de cajas)
+    const ctxDona = document.getElementById('ventasDonaChart').getContext('2d');
+    new Chart(ctxDona, {
+        type: 'doughnut',
+        data: {
+            labels: rawData.slice(0, 7).map(d => d.producto.substring(0, 15)),
+            datasets: [{
+                data: rawData.slice(0, 7).map(d => d.cantidad),
+                backgroundColor: [
+                    'rgba(16, 185, 129, 0.85)',
+                    'rgba(13, 148, 136, 0.85)',
+                    'rgba(37, 99, 235, 0.85)',
+                    'rgba(245, 158, 11, 0.85)',
+                    'rgba(239, 68, 68, 0.85)',
+                    'rgba(100, 116, 139, 0.85)',
+                    'rgba(168, 85, 247, 0.85)'
+                ],
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'right',
+                    labels: {
+                        boxWidth: 12,
+                        font: { size: 11, family: 'Outfit, sans-serif' }
+                    }
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            return ' ' + context.label + ': ' + context.raw.toLocaleString() + ' Cajas';
+                        }
+                    }
+                }
+            }
+        }
+    });
+</script>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,777 @@
+{% extends "layout.html" %}
+
+{% block title %}Consolidado de Carga y Ventas - FerDel{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">
+        <i class="bi bi-intersect"></i> Consolidado de Carga vs Ventas (Rutas)
+    </h1>
+    <div class="btn-toolbar mb-2 mb-md-0">
+        <div class="btn-group">
+            {% if vendedor_id %}
+            <a href="{{ url_for('admin.reporte_consolidado_carga_ventas', fecha_inicio=fecha_inicio, fecha_fin=fecha_fin, vendedor_id=vendedor_id, categoria_id=categoria_id, formato='csv') }}" 
+               class="btn btn-sm btn-success">
+                <i class="bi bi-file-earmark-spreadsheet"></i> Exportar CSV
+            </a>
+            <a href="{{ url_for('admin.reporte_consolidado_carga_ventas', fecha_inicio=fecha_inicio, fecha_fin=fecha_fin, vendedor_id=vendedor_id, categoria_id=categoria_id, formato='json') }}" 
+               class="btn btn-sm btn-info text-white">
+                <i class="bi bi-file-earmark-code"></i> Exportar JSON
+            </a>
+            {% endif %}
+            <button class="btn btn-sm btn-secondary" onclick="window.print()">
+                <i class="bi bi-printer"></i> Imprimir
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Filtros -->
+<div class="card shadow-sm mb-4">
+    <div class="card-header bg-light py-3">
+        <i class="bi bi-funnel"></i> <strong>Filtros de Búsqueda</strong>
+    </div>
+    <div class="card-body">
+        <form method="GET" action="{{ url_for('admin.reporte_consolidado_carga_ventas') }}" class="row g-3">
+            <div class="col-md-3">
+                <label class="form-label">Fecha Inicio</label>
+                <input type="date" name="fecha_inicio" class="form-control" value="{{ fecha_inicio }}">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Fecha Fin</label>
+                <input type="date" name="fecha_fin" class="form-control" value="{{ fecha_fin }}">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Vendedor</label>
+                <select name="vendedor_id" class="form-select">
+                    <option value="">-- Seleccionar Vendedor --</option>
+                    {% for v in vendedores %}
+                    <option value="{{ v.ID_Usuario }}" {% if vendedor_id|int == v.ID_Usuario %}selected{% endif %}>
+                        {{ v.NombreUsuario }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Categoría</label>
+                <select name="categoria_id" class="form-select">
+                    <option value="">Todas las categorías</option>
+                    {% for cat in categorias %}
+                    <option value="{{ cat.ID_Categoria }}" {% if categoria_id|int == cat.ID_Categoria %}selected{% endif %}>
+                        {{ cat.Descripcion }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-12 d-flex justify-content-end gap-2">
+                {% if vendedor_id %}
+                <a href="{{ url_for('admin.reporte_consolidado_carga_ventas', fecha_inicio=fecha_inicio, fecha_fin=fecha_fin) }}" class="btn btn-outline-secondary">
+                    <i class="bi bi-arrow-left"></i> Volver a la Lista de Vendedores
+                </a>
+                {% endif %}
+                <a href="{{ url_for('admin.reporte_consolidado_carga_ventas') }}" class="btn btn-outline-secondary">
+                    <i class="bi bi-arrow-counterclockwise"></i> Limpiar Filtros
+                </a>
+                <button type="submit" class="btn btn-primary px-4">
+                    <i class="bi bi-search"></i> Generar Consolidado
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+{% if not vendedor_id %}
+<!-- VISTA 1: LISTADO DE VENDEDORES -->
+<div class="card shadow-sm mb-4">
+    <div class="card-header bg-white py-3">
+        <i class="bi bi-people-fill text-primary"></i> <strong>Vendedores con Actividad en el Período</strong>
+        <span class="badge bg-secondary float-end">{{ vendedores_activos|length }} registrados</span>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th class="py-3">Vendedor</th>
+                        <th class="py-3">Rutas Asignadas</th>
+                        <th class="py-3 text-center">Asignaciones</th>
+                        <th class="py-3 text-center">Período de Trabajo</th>
+                        <th class="py-3 text-center">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for v in vendedores_activos %}
+                    <tr>
+                        <td>
+                            <div class="d-flex align-items-center">
+                                <div class="avatar-circle-sm bg-primary text-white me-3">
+                                    {{ v.Vendedor[0]|upper }}
+                                </div>
+                                <div>
+                                    <strong class="text-dark">{{ v.Vendedor }}</strong>
+                                </div>
+                            </div>
+                        </td>
+                        <td>
+                            {% if v.Rutas %}
+                            {% for ruta in v.Rutas.split(', ') %}
+                            <span class="badge bg-light text-dark border me-1">{{ ruta }}</span>
+                            {% endfor %}
+                            {% else %}
+                            <span class="text-muted">Sin ruta asignada</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-center">
+                            <span class="badge bg-primary rounded-pill px-2.5">{{ v.Total_Asignaciones }}</span>
+                        </td>
+                        <td class="text-center small text-muted">
+                            {{ v.Primera_Asignacion.strftime('%d/%m/%Y') }} - {{ v.Ultima_Asignacion.strftime('%d/%m/%Y') }}
+                        </td>
+                        <td class="text-center">
+                            <a href="{{ url_for('admin.reporte_consolidado_carga_ventas', fecha_inicio=fecha_inicio, fecha_fin=fecha_fin, vendedor_id=v.ID_Usuario) }}" 
+                               class="btn btn-sm btn-primary px-3 shadow-2xs">
+                                <i class="bi bi-eye"></i> Ver Consolidado
+                            </a>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="5" class="text-center text-muted py-5">
+                            <i class="bi bi-people fs-1 text-secondary opacity-50"></i><br>
+                            <span class="mt-2 d-block">No se encontraron vendedores activos con asignaciones en este rango de fechas.</span>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+{% else %}
+<!-- VISTA 2: CONSOLIDACIÓN DETALLADA DEL VENDEDOR SELECCIONADO -->
+
+<!-- KPIs -->
+{% set total_cargado = resultados|sum(attribute='Total_Cargado')|default(0)|float %}
+{% set total_vendido = resultados|sum(attribute='Total_Vendido')|default(0)|float %}
+{% set total_devuelto = resultados|sum(attribute='Total_Devuelto')|default(0)|float %}
+{% set total_stock = resultados|sum(attribute='Stock_Camion')|default(0)|float %}
+{% set total_diferencia = resultados|sum(attribute='Diferencia')|default(0)|float %}
+
+<!-- Nombre del vendedor -->
+{% set VendedorNombre = "" %}
+{% for v in vendedores %}
+    {% if v.ID_Usuario == vendedor_id|int %}
+        {% set VendedorNombre = v.NombreUsuario %}
+    {% endif %}
+{% endfor %}
+
+<div class="row mb-4">
+    <div class="col-md-3 mb-3">
+        <div class="card bg-primary text-white shadow-sm h-100">
+            <div class="card-body d-flex flex-column justify-content-between">
+                <div>
+                    <h6 class="card-subtitle mb-2 text-white-50 text-uppercase" style="font-size: 0.75rem; letter-spacing: 0.05em;">Total Cargado</h6>
+                    <h3 class="card-title mb-0 fw-bold">{{ "{:,.0f}".format(total_cargado) }} Cajas</h3>
+                </div>
+                <div class="mt-3 text-white-50" style="font-size: 0.85rem;">
+                    <i class="bi bi-truck"></i> Despachado al camión
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3 mb-3">
+        <div class="card bg-success text-white shadow-sm h-100">
+            <div class="card-body d-flex flex-column justify-content-between">
+                <div>
+                    <h6 class="card-subtitle mb-2 text-white-50 text-uppercase" style="font-size: 0.75rem; letter-spacing: 0.05em;">Total Vendido</h6>
+                    <h3 class="card-title mb-0 fw-bold">{{ "{:,.0f}".format(total_vendido) }} Cajas</h3>
+                </div>
+                <div class="mt-3 text-white-50" style="font-size: 0.85rem;">
+                    <i class="bi bi-receipt"></i> Facturado en ruta
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-2 mb-3">
+        <div class="card bg-warning text-dark shadow-sm h-100" style="background-color: #f59e0b !important;">
+            <div class="card-body d-flex flex-column justify-content-between">
+                <div>
+                    <h6 class="card-subtitle mb-2 text-dark-50 text-uppercase" style="font-size: 0.75rem; letter-spacing: 0.05em;">Devoluciones</h6>
+                    <h3 class="card-title mb-0 fw-bold text-dark">{{ "{:,.0f}".format(total_devuelto) }} Cajas</h3>
+                </div>
+                <div class="mt-3 text-dark-50" style="font-size: 0.85rem;">
+                    <i class="bi bi-arrow-return-left"></i> Retornado a bodega
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-2 mb-3">
+        <div class="card bg-info text-white shadow-sm h-100" style="background: linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%) !important;">
+            <div class="card-body d-flex flex-column justify-content-between">
+                <div>
+                    <h6 class="card-subtitle mb-2 text-white-50 text-uppercase" style="font-size: 0.75rem; letter-spacing: 0.05em;">Remanente en Ruta</h6>
+                    <h3 class="card-title mb-0 fw-bold">{{ "{:,.0f}".format(total_stock) }} Cajas</h3>
+                </div>
+                <div class="mt-3 text-white-50" style="font-size: 0.85rem;">
+                    <i class="bi bi-box-seam"></i> Stock actual en camión
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-2 mb-3">
+        <div class="card {% if total_diferencia|abs > 0 %}bg-danger{% else %}bg-secondary{% endif %} text-white shadow-sm h-100">
+            <div class="card-body d-flex flex-column justify-content-between">
+                <div>
+                    <h6 class="card-subtitle mb-2 text-white-50 text-uppercase" style="font-size: 0.75rem; letter-spacing: 0.05em;">Diferencia</h6>
+                    <h3 class="card-title mb-0 fw-bold">{{ "{:,.0f}".format(total_diferencia) }} Cajas</h3>
+                </div>
+                <div class="mt-3 text-white-50" style="font-size: 0.85rem;">
+                    {% if total_diferencia|abs > 0 %}
+                    <i class="bi bi-exclamation-triangle-fill text-warning"></i> Requiere revisión
+                    {% else %}
+                    <i class="bi bi-check-circle-fill"></i> Cuadre perfecto
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Gráfico de Comparación -->
+{% if resultados|length > 0 %}
+<div class="card shadow-sm mb-4">
+    <div class="card-header bg-white py-3">
+        <i class="bi bi-bar-chart-fill text-primary"></i> <strong>Comparación Carga vs Ventas vs Devoluciones ({{ VendedorNombre }})</strong>
+    </div>
+    <div class="card-body">
+        <div style="position: relative; height: 350px; width: 100%;">
+            <canvas id="consolidatedChart"></canvas>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Tabla Detallada -->
+<div class="card shadow-sm mb-5">
+    <div class="card-header bg-white py-3">
+        <i class="bi bi-table text-primary"></i> <strong>Consolidado de Productos de {{ VendedorNombre }}</strong>
+        <span class="badge bg-secondary float-end">{{ resultados|length }} productos</span>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th class="py-3">Código</th>
+                        <th class="py-3">Producto</th>
+                        <th class="py-3">Categoría</th>
+                        <th class="text-center py-3 text-primary">Cargado</th>
+                        <th class="text-center py-3 text-success">Vendido</th>
+                        <th class="text-center py-3 text-warning">Devuelto</th>
+                        <th class="text-center py-3 text-info">Stock Camión</th>
+                        <th class="text-center py-3">Diferencia</th>
+                        <th class="text-center py-3">Estado</th>
+                        <th class="text-center py-3">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in resultados %}
+                    <tr class="{% if item.Diferencia|float != 0 %}table-danger-light{% endif %}">
+                        <td><code>{{ item.Codigo }}</code></td>
+                        <td><strong>{{ item.Producto }}</strong></td>
+                        <td><span class="badge bg-light text-dark border">{{ item.Categoria }}</span></td>
+                        <td class="text-center fw-bold text-primary">{{ "%.0f"|format(item.Total_Cargado) }}</td>
+                        <td class="text-center fw-bold text-success">{{ "%.0f"|format(item.Total_Vendido) }}</td>
+                        <td class="text-center fw-bold text-warning">{{ "%.0f"|format(item.Total_Devuelto) }}</td>
+                        <td class="text-center fw-bold text-info">{{ "%.0f"|format(item.Stock_Camion) }}</td>
+                        <td class="text-center fw-bold {% if item.Diferencia|float == 0 %}text-success{% else %}text-danger{% endif %}">
+                            {{ "%.0f"|format(item.Diferencia) }}
+                        </td>
+                        <td class="text-center">
+                            {% if item.Diferencia|float == 0 %}
+                            <span class="badge bg-success"><i class="bi bi-check"></i> Cuadrado</span>
+                            {% else %}
+                            <span class="badge bg-danger"><i class="bi bi-x-circle"></i> Descuadre</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-center">
+                            <button type="button" class="btn btn-sm btn-outline-primary btn-ver-detalle px-3" 
+                                    data-id="{{ item.ID_Producto }}" 
+                                    data-nombre="{{ item.Producto|escape }}">
+                                <i class="bi bi-eye"></i> Ver Detalles
+                            </button>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="10" class="text-center text-muted py-4">
+                            <i class="bi bi-inbox fs-1"></i><br>
+                            No se encontraron datos de productos en la ruta para el período seleccionado.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+                {% if resultados|length > 0 %}
+                <tfoot class="table-light fw-bold">
+                    <tr>
+                        <td colspan="3" class="text-end">TOTALES:</td>
+                        <td class="text-center text-primary">{{ "%.0f"|format(total_cargado) }}</td>
+                        <td class="text-center text-success">{{ "%.0f"|format(total_vendido) }}</td>
+                        <td class="text-center text-warning">{{ "%.0f"|format(total_devuelto) }}</td>
+                        <td class="text-center text-info">{{ "%.0f"|format(total_stock) }}</td>
+                        <td class="text-center {% if total_diferencia == 0 %}text-success{% else %}text-danger{% endif %}">
+                            {{ "%.0f"|format(total_diferencia) }}
+                        </td>
+                        <td></td>
+                        <td></td>
+                    </tr>
+                </tfoot>
+                {% endif %}
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Tabs de Transacciones -->
+<div class="card shadow-sm mb-4">
+    <div class="card-header bg-white py-3">
+        <i class="bi bi-card-checklist text-primary"></i> <strong>Historial de Transacciones de Ruta</strong>
+    </div>
+    <div class="card-body">
+        <ul class="nav nav-pills mb-3" id="pills-tab" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button class="nav-link active" id="pills-facturas-tab" data-bs-toggle="pill" data-bs-target="#pills-facturas" type="button" role="tab" aria-controls="pills-facturas" aria-selected="true">
+                    <i class="bi bi-receipt me-1"></i> Facturas Realizadas ({{ facturas_realizadas|length }})
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="pills-devoluciones-tab" data-bs-toggle="pill" data-bs-target="#pills-devoluciones" type="button" role="tab" aria-controls="pills-devoluciones" aria-selected="false">
+                    <i class="bi bi-arrow-return-left me-1"></i> Devoluciones a Bodega ({{ devoluciones_realizadas|length }})
+                </button>
+            </li>
+        </ul>
+        
+        <div class="tab-content" id="pills-tabContent">
+            <!-- Facturas -->
+            <div class="tab-pane fade show active" id="pills-facturas" role="tabpanel" aria-labelledby="pills-facturas-tab">
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle border">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Factura #</th>
+                                <th>Fecha y Hora</th>
+                                <th>Cliente</th>
+                                <th>Tipo Pago</th>
+                                <th class="text-end">Total Facturado</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for f in facturas_realizadas %}
+                            <tr>
+                                <td><code>{{ f.Factura_N }}</code></td>
+                                <td>{{ f.Fecha.strftime('%d/%m/%Y %I:%M %p') if f.Fecha else '-' }}</td>
+                                <td><strong>{{ f.Cliente }}</strong></td>
+                                <td>
+                                    {% if f.Credito_Contado == 1 %}
+                                    <span class="badge bg-success">CONTADO</span>
+                                    {% elif f.Credito_Contado == 2 %}
+                                    <span class="badge bg-warning text-dark">CREDITO</span>
+                                    {% else %}
+                                    <span class="badge bg-secondary">OTRO</span>
+                                    {% endif %}
+                                </td>
+                                <td class="text-end fw-bold">C$ {{ "{:,.2f}".format(f.Total) }}</td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="5" class="text-center text-muted py-3">
+                                    No se registraron facturas para este vendedor en el período.
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            
+            <!-- Devoluciones -->
+            <div class="tab-pane fade" id="pills-devoluciones" role="tabpanel" aria-labelledby="pills-devoluciones-tab">
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle border">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Movimiento #</th>
+                                <th>Fecha y Hora</th>
+                                <th>Ruta</th>
+                                <th>Documento Ref</th>
+                                <th class="text-center">Total Productos (Cajas)</th>
+                                <th class="text-end">Monto Equivalente</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for d in devoluciones_realizadas %}
+                            <tr>
+                                <td><code>#{{ d.ID_Movimiento }}</code></td>
+                                <td>{{ d.Fecha.strftime('%d/%m/%Y %H:%M') if d.Fecha else '-' }}</td>
+                                <td>{{ d.Ruta }}</td>
+                                <td><code>{{ d.Documento_Numero or '-' }}</code></td>
+                                <td class="text-center fw-bold">{{ "%.0f"|format(d.Total_Productos) }}</td>
+                                <td class="text-end fw-bold text-muted">C$ {{ "{:,.2f}".format(d.Total_Subtotal) }}</td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="6" class="text-center text-muted py-3">
+                                    No se registraron devoluciones a bodega para este vendedor en el período.
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endif %}
+
+<!-- Modal de Detalles -->
+<div class="modal fade" id="detalleModal" tabindex="-1" aria-labelledby="detalleModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+        <div class="modal-content" style="border-radius: 16px; overflow: hidden; border: none; box-shadow: 0 10px 40px rgba(0,0,0,0.15);">
+            <div class="modal-header bg-dark text-white py-3">
+                <h5 class="modal-title fw-bold" id="detalleModalLabel">
+                    <i class="bi bi-search me-2"></i> Detalle de Movimientos en Ruta
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-4">
+                <div class="mb-4">
+                    <span class="text-muted text-uppercase fw-bold" style="font-size: 0.8rem; letter-spacing: 0.05em;">Producto Seleccionado:</span>
+                    <h4 id="modalProductoNombre" class="fw-bold text-primary mb-1"></h4>
+                    <span class="badge bg-secondary p-2 mt-1" id="modalRangoFechas"></span>
+                </div>
+                
+                <!-- Nav tabs -->
+                <ul class="nav nav-tabs mb-4" id="modalTab" role="tablist" style="border-bottom: 2px solid #f1f5f9;">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active fw-bold px-4 py-2.5" id="cargas-tab" data-bs-toggle="tab" data-bs-target="#modalCargas" type="button" role="tab" aria-controls="modalCargas" aria-selected="true" style="border: none; border-bottom: 3px solid transparent; transition: all 0.2s;">
+                            <i class="bi bi-truck me-2 text-primary"></i>Cargas al Camión (<span id="countCargas" class="badge bg-primary">0</span>)
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link fw-bold px-4 py-2.5" id="ventas-tab" data-bs-toggle="tab" data-bs-target="#modalVentas" type="button" role="tab" aria-controls="modalVentas" aria-selected="false" style="border: none; border-bottom: 3px solid transparent; transition: all 0.2s;">
+                            <i class="bi bi-receipt me-2 text-success"></i>Facturas Emitidas (<span id="countVentas" class="badge bg-success">0</span>)
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link fw-bold px-4 py-2.5" id="devoluciones-tab" data-bs-toggle="tab" data-bs-target="#modalDevoluciones" type="button" role="tab" aria-controls="modalDevoluciones" aria-selected="false" style="border: none; border-bottom: 3px solid transparent; transition: all 0.2s;">
+                            <i class="bi bi-arrow-return-left me-2 text-warning"></i>Devoluciones Bodega (<span id="countDevoluciones" class="badge bg-warning text-dark">0</span>)
+                        </button>
+                    </li>
+                </ul>
+                
+                <!-- Tab panes -->
+                <div class="tab-content" id="modalTabContent">
+                    <!-- Tab Cargas -->
+                    <div class="tab-pane fade show active" id="modalCargas" role="tabpanel" aria-labelledby="cargas-tab">
+                        <div class="table-responsive">
+                            <table class="table table-hover align-middle mb-0 border">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th class="py-2.5">Fecha</th>
+                                        <th class="py-2.5">Vendedor</th>
+                                        <th class="py-2.5">Ruta</th>
+                                        <th class="py-2.5">Documento Carga</th>
+                                        <th class="text-center py-2.5 text-primary">Cantidad (Cajas)</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tableCargasBody">
+                                    <!-- Dinámico -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    
+                    <!-- Tab Ventas -->
+                    <div class="tab-pane fade" id="modalVentas" role="tabpanel" aria-labelledby="ventas-tab">
+                        <div class="table-responsive">
+                            <table class="table table-hover align-middle mb-0 border">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th class="py-2.5">Fecha</th>
+                                        <th class="py-2.5">Vendedor</th>
+                                        <th class="py-2.5">Ruta</th>
+                                        <th class="py-2.5">Factura #</th>
+                                        <th class="py-2.5">Cliente</th>
+                                        <th class="text-center py-2.5 text-success">Cantidad (Cajas)</th>
+                                        <th class="text-end py-2.5">Monto Total</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tableVentasBody">
+                                    <!-- Dinámico -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Tab Devoluciones -->
+                    <div class="tab-pane fade" id="modalDevoluciones" role="tabpanel" aria-labelledby="devoluciones-tab">
+                        <div class="table-responsive">
+                            <table class="table table-hover align-middle mb-0 border">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th class="py-2.5">Fecha</th>
+                                        <th class="py-2.5">Vendedor</th>
+                                        <th class="py-2.5">Ruta</th>
+                                        <th class="py-2.5">Movimiento #</th>
+                                        <th class="text-center py-2.5 text-warning">Cantidad (Cajas)</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tableDevolucionesBody">
+                                    <!-- Dinámico -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer bg-light">
+                <button type="button" class="btn btn-secondary px-4" data-bs-dismiss="modal">Cerrar Detalles</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+{% if vendedor_id and resultados|length > 0 %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    // Parsear datos para el gráfico
+    const chartData = [
+        {% for item in resultados[:15] %}
+        {
+            producto: "{{ item.Producto }}",
+            cargado: {{ item.Total_Cargado|float }},
+            vendido: {{ item.Total_Vendido|float }},
+            devuelto: {{ item.Total_Devuelto|float }},
+            stock: {{ item.Stock_Camion|float }}
+        },
+        {% endfor %}
+    ];
+
+    const ctxCons = document.getElementById('consolidatedChart').getContext('2d');
+    new Chart(ctxCons, {
+        type: 'bar',
+        data: {
+            labels: chartData.map(d => d.producto.substring(0, 20) + (d.producto.length > 20 ? '...' : '')),
+            datasets: [
+                {
+                    label: 'Cargado (Camión)',
+                    data: chartData.map(d => d.cargado),
+                    backgroundColor: 'rgba(59, 130, 246, 0.85)',
+                    borderColor: 'rgb(59, 130, 246)',
+                    borderWidth: 1,
+                    borderRadius: 4
+                },
+                {
+                    label: 'Vendido (Facturas)',
+                    data: chartData.map(d => d.vendido),
+                    backgroundColor: 'rgba(16, 185, 129, 0.85)',
+                    borderColor: 'rgb(16, 185, 129)',
+                    borderWidth: 1,
+                    borderRadius: 4
+                },
+                {
+                    label: 'Devuelto (Bodega)',
+                    data: chartData.map(d => d.devuelto),
+                    backgroundColor: 'rgba(245, 158, 11, 0.85)',
+                    borderColor: 'rgb(245, 158, 11)',
+                    borderWidth: 1,
+                    borderRadius: 4
+                },
+                {
+                    label: 'Stock Remanente',
+                    data: chartData.map(d => d.stock),
+                    backgroundColor: 'rgba(14, 165, 233, 0.85)',
+                    borderColor: 'rgb(14, 165, 233)',
+                    borderWidth: 1,
+                    borderRadius: 4
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'top',
+                    labels: { font: { family: 'Outfit, sans-serif' } }
+                },
+                tooltip: {
+                    mode: 'index',
+                    intersect: false
+                }
+            },
+            scales: {
+                x: {
+                    grid: { display: false }
+                },
+                y: {
+                    beginAtZero: true,
+                    title: {
+                        display: true,
+                        text: 'Cantidad (Cajas)'
+                    }
+                }
+            }
+        }
+    });
+</script>
+{% endif %}
+
+<script>
+    // Event listeners para los botones de detalles
+    document.querySelectorAll('.btn-ver-detalle').forEach(button => {
+        button.addEventListener('click', function() {
+            const id = this.getAttribute('data-id');
+            const nombre = this.getAttribute('data-nombre');
+            verDetalles(id, nombre);
+        });
+    });
+
+    function verDetalles(productoId, productoNombre) {
+        const fechaInicio = "{{ fecha_inicio }}";
+        const fechaFin = "{{ fecha_fin }}";
+        const vendedorId = "{{ vendedor_id }}";
+        
+        // Configurar info básica en modal
+        document.getElementById('modalProductoNombre').innerText = productoNombre;
+        document.getElementById('modalRangoFechas').innerText = `Rango: ${fechaInicio} al ${fechaFin}`;
+        
+        // Mostrar cargando
+        document.getElementById('tableCargasBody').innerHTML = '<tr><td colspan="5" class="text-center py-4"><div class="spinner-border text-primary" role="status"></div><br><span class="mt-2 d-block text-muted">Obteniendo cargas...</span></td></tr>';
+        document.getElementById('tableVentasBody').innerHTML = '<tr><td colspan="7" class="text-center py-4"><div class="spinner-border text-success" role="status"></div><br><span class="mt-2 d-block text-muted">Obteniendo facturas...</span></td></tr>';
+        document.getElementById('tableDevolucionesBody').innerHTML = '<tr><td colspan="5" class="text-center py-4"><div class="spinner-border text-warning" role="status"></div><br><span class="mt-2 d-block text-muted">Obteniendo devoluciones...</span></td></tr>';
+        
+        document.getElementById('countCargas').innerText = '0';
+        document.getElementById('countVentas').innerText = '0';
+        document.getElementById('countDevoluciones').innerText = '0';
+        
+        // Abrir Modal
+        const modalEl = document.getElementById('detalleModal');
+        const modal = new bootstrap.Modal(modalEl);
+        modal.show();
+        
+        // Fetch
+        const url = `{{ url_for('admin.reporte_consolidado_carga_ventas_detalle') }}?producto_id=${productoId}&fecha_inicio=${fechaInicio}&fecha_fin=${fechaFin}&vendedor_id=${vendedorId}`;
+        
+        fetch(url)
+            .then(response => response.json())
+            .then(data => {
+                if (data.error) {
+                    alert('Error: ' + data.error);
+                    return;
+                }
+                
+                // 1. Cargas
+                const cargas = data.cargas || [];
+                document.getElementById('countCargas').innerText = cargas.length;
+                let htmlCargas = '';
+                if (cargas.length === 0) {
+                    htmlCargas = '<tr><td colspan="5" class="text-center text-muted py-4"><i class="bi bi-inbox fs-4"></i><br>No se registraron cargas para este producto.</td></tr>';
+                } else {
+                    cargas.forEach(c => {
+                        htmlCargas += `
+                            <tr>
+                                <td>${c.Fecha}</td>
+                                <td>${c.Vendedor}</td>
+                                <td><span class="badge bg-light text-dark border">${c.Ruta}</span></td>
+                                <td><code>#${c.Movimiento_ID}</code></td>
+                                <td class="text-center fw-bold text-primary">${c.Cantidad.toFixed(0)}</td>
+                            </tr>
+                        `;
+                    });
+                }
+                document.getElementById('tableCargasBody').innerHTML = htmlCargas;
+                
+                // 2. Ventas
+                const ventas = data.ventas || [];
+                document.getElementById('countVentas').innerText = ventas.length;
+                let htmlVentas = '';
+                if (ventas.length === 0) {
+                    htmlVentas = '<tr><td colspan="7" class="text-center text-muted py-4"><i class="bi bi-inbox fs-4"></i><br>No se registraron facturas en ruta para este producto.</td></tr>';
+                } else {
+                    ventas.forEach(v => {
+                        htmlVentas += `
+                            <tr>
+                                <td>${v.Fecha}</td>
+                                <td>${v.Vendedor}</td>
+                                <td><span class="badge bg-light text-dark border">${v.Ruta}</span></td>
+                                <td><code>${v.Factura_N}</code></td>
+                                <td><strong>${v.Cliente_Nombre}</strong></td>
+                                <td class="text-center fw-bold text-success">${v.Cantidad.toFixed(0)}</td>
+                                <td class="text-end fw-bold text-primary">C$ ${v.Total.toLocaleString('es-NI', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                            </tr>
+                        `;
+                    });
+                }
+                document.getElementById('tableVentasBody').innerHTML = htmlVentas;
+
+                // 3. Devoluciones
+                const devoluciones = data.devoluciones || [];
+                document.getElementById('countDevoluciones').innerText = devoluciones.length;
+                let htmlDevoluciones = '';
+                if (devoluciones.length === 0) {
+                    htmlDevoluciones = '<tr><td colspan="5" class="text-center text-muted py-4"><i class="bi bi-inbox fs-4"></i><br>No se registraron devoluciones para este producto.</td></tr>';
+                } else {
+                    devoluciones.forEach(d => {
+                        htmlDevoluciones += `
+                            <tr>
+                                <td>${d.Fecha}</td>
+                                <td>${d.Vendedor}</td>
+                                <td><span class="badge bg-light text-dark border">${d.Ruta}</span></td>
+                                <td><code>#${d.Movimiento_ID}</code></td>
+                                <td class="text-center fw-bold text-warning">${d.Cantidad.toFixed(0)}</td>
+                            </tr>
+                        `;
+                    });
+                }
+                document.getElementById('tableDevolucionesBody').innerHTML = htmlDevoluciones;
+            })
+            .catch(err => {
+                console.error(err);
+                document.getElementById('tableCargasBody').innerHTML = '<tr><td colspan="5" class="text-center text-danger py-4">Error al cargar datos.</td></tr>';
+                document.getElementById('tableVentasBody').innerHTML = '<tr><td colspan="7" class="text-center text-danger py-4">Error al cargar datos.</td></tr>';
+                document.getElementById('tableDevolucionesBody').innerHTML = '<tr><td colspan="5" class="text-center text-danger py-4">Error al cargar datos.</td></tr>';
+            });
+    }
+</script>
+<style>
+    .table-danger-light {
+        background-color: rgba(239, 68, 68, 0.04) !important;
+    }
+    .nav-tabs .nav-link.active {
+        color: #0f172a !important;
+        border-bottom-color: #0f172a !important;
+    }
+    .modal-xl {
+        max-width: 1140px;
+    }
+    .avatar-circle-sm {
+        width: 38px;
+        height: 38px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: bold;
+        font-size: 1rem;
+    }
+    .shadow-2xs {
+        box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+    }
+</style>
+{% endblock %}

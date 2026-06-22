@@ -60,6 +60,16 @@ def get_db():
                 config_simple = {k: v for k, v in DB_CONFIG.items() 
                                if k not in ['pool_name', 'pool_size', 'pool_reset_session']}
                 g.db = mysql.connector.connect(**config_simple)
+            
+            # Configurar zona horaria de la sesión en MySQL a Nicaragua (UTC-6)
+            try:
+                cursor = g.db.cursor()
+                cursor.execute("SET time_zone = '-06:00'")
+                cursor.close()
+                print("⏰ Zona horaria de la sesión BD establecida a UTC-6 (Nicaragua)")
+            except Exception as tz_err:
+                print(f"⚠️ No se pudo establecer la zona horaria en MySQL: {tz_err}")
+
             print("✅ Conexión a BD establecida")
             
         except pooling.PoolError as e:
@@ -68,6 +78,16 @@ def get_db():
                 config_simple = {k: v for k, v in DB_CONFIG.items()
                                 if k not in ['pool_name', 'pool_size', 'pool_reset_session']}
                 g.db = mysql.connector.connect(**config_simple)
+                
+                # Configurar zona horaria en la conexión de fallback
+                try:
+                    cursor = g.db.cursor()
+                    cursor.execute("SET time_zone = '-06:00'")
+                    cursor.close()
+                    print("⏰ Zona horaria de la sesión BD (Fallback) establecida a UTC-6 (Nicaragua)")
+                except Exception as tz_err:
+                    print(f"⚠️ No se pudo establecer la zona horaria en MySQL (Fallback): {tz_err}")
+                    
             except Error as fallback_error:
                 print(f"❌ Fallback también falló: {fallback_error}")
                 g.db = None

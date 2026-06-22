@@ -7674,6 +7674,7 @@ def admin_generar_ticket(id_factura):
                 'usuario': factura['Usuario'] or 'Usuario No Especificado',
                 'detalles': detalles,
                 'total': total_venta,
+                'total_formateado': f"C$ {total_venta:,.2f}",
                 'empresa': {
                     'nombre': factura['Nombre_Empresa'],
                     'ruc': factura['RUC_Empresa'],

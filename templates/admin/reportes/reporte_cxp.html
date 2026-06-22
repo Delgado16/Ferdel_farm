@@ -1,20 +1,20 @@
 {% extends "layout.html" %}
 
-{% block title %}Reporte de Cartera - FerDel{% endblock %}
+{% block title %}Reporte de Cuentas por Pagar - FerDel{% endblock %}
 
 {% block content %}
 <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
     <h1 class="h2">
-        <i class="bi bi-credit-card-2-back"></i> Reporte de Cartera y Cuentas por Cobrar
+        <i class="bi bi-credit-card-2-back"></i> Reporte de Cuentas por Pagar (Proveedores)
     </h1>
     <div class="btn-toolbar mb-2 mb-md-0">
         <div class="btn-group">
-            <a href="{{ url_for('admin.reporte_cartera', fecha_corte=fecha_corte, estado=estado, formato='csv') }}" 
+            <a href="{{ url_for('admin.reporte_cxp', fecha_corte=fecha_corte, estado=estado, formato='csv') }}" 
                class="btn btn-sm btn-success">
                 <i class="bi bi-file-earmark-spreadsheet"></i> Exportar CSV
             </a>
-            <a href="{{ url_for('admin.reporte_cartera', fecha_corte=fecha_corte, estado=estado, formato='json') }}" 
-               class="btn btn-sm btn-info">
+            <a href="{{ url_for('admin.reporte_cxp', fecha_corte=fecha_corte, estado=estado, formato='json') }}" 
+               class="btn btn-sm btn-info text-white">
                 <i class="bi bi-file-earmark-code"></i> Exportar JSON
             </a>
             <button class="btn btn-sm btn-secondary" onclick="window.print()">
@@ -26,67 +26,66 @@
 
 <!-- Filtros -->
 <div class="card shadow-sm mb-4">
-    <div class="card-header bg-light">
-        <i class="bi bi-funnel"></i> <strong>Filtros de Cartera</strong>
+    <div class="card-header bg-light py-3">
+        <i class="bi bi-funnel"></i> <strong>Filtros de Búsqueda</strong>
     </div>
     <div class="card-body">
-        <form method="GET" action="{{ url_for('admin.reporte_cartera') }}" class="row g-3">
+        <form method="GET" action="{{ url_for('admin.reporte_cxp') }}" class="row g-3">
             <div class="col-md-4">
                 <label class="form-label">Fecha de Corte</label>
                 <input type="date" name="fecha_corte" class="form-control" value="{{ fecha_corte }}">
-                <small class="text-muted">Fecha base para calcular mora</small>
+                <small class="text-muted">Fecha base para el cálculo de mora</small>
             </div>
             <div class="col-md-4">
-                <label class="form-label">Estado de Cartera</label>
+                <label class="form-label">Estado de Cuenta</label>
                 <select name="estado" class="form-select">
-                    <option value="todos" {% if estado == 'todos' %}selected{% endif %}>Todos</option>
-                    <option value="pendiente" {% if estado == 'pendiente' %}selected{% endif %}>Pendiente</option>
+                    <option value="todos" {% if estado == 'todos' %}selected{% endif %}>Todos (Pendientes/Vencidos)</option>
+                    <option value="pendiente" {% if estado == 'pendiente' %}selected{% endif %}>Pendiente (Al día)</option>
                     <option value="vencida" {% if estado == 'vencida' %}selected{% endif %}>Vencida</option>
-                    <option value="pagada" {% if estado == 'pagada' %}selected{% endif %}>Pagada</option>
                 </select>
             </div>
             <div class="col-md-4 d-flex align-items-end">
                 <button type="submit" class="btn btn-primary w-100">
-                    <i class="bi bi-search"></i> Filtrar
+                    <i class="bi bi-search"></i> Filtrar Cuentas
                 </button>
             </div>
         </form>
     </div>
 </div>
 
-<!-- Tarjetas de Resumen de Cartera -->
+<!-- Tarjetas de Resumen de Cuentas por Pagar -->
 <div class="row mb-4">
     <div class="col-md-3 mb-3">
-        <div class="card bg-success text-white">
+        <div class="card bg-success text-white shadow-sm">
             <div class="card-body">
-                <h6 class="card-title">Cartera al Día</h6>
+                <h6 class="card-title">Deuda al Día</h6>
                 <h3>C${{ "{:,.0f}".format(resumen.Cartera_Al_Dia|default(0)) }}</h3>
-                <small>Facturas vigentes</small>
+                <small>Pagos vigentes</small>
             </div>
         </div>
     </div>
     <div class="col-md-3 mb-3">
-        <div class="card bg-warning text-dark">
+        <div class="card bg-warning text-dark shadow-sm">
             <div class="card-body">
-                <h6 class="card-title">Cartera 1-30 días</h6>
+                <h6 class="card-title">Deuda 1-30 días</h6>
                 <h3>C${{ "{:,.0f}".format(resumen.Cartera_30_Dias|default(0)) }}</h3>
                 <small>Mora temprana</small>
             </div>
         </div>
     </div>
     <div class="col-md-3 mb-3">
-        <div class="card bg-orange text-white">
+        <div class="card bg-danger text-white shadow-sm" style="background: linear-gradient(135deg, #fd7e14 0%, #ff6b35 100%) !important;">
             <div class="card-body">
-                <h6 class="card-title">Cartera 31-60 días</h6>
+                <h6 class="card-title">Deuda 31-60 días</h6>
                 <h3>C${{ "{:,.0f}".format(resumen.Cartera_60_Dias|default(0)) }}</h3>
                 <small>Mora media</small>
             </div>
         </div>
     </div>
     <div class="col-md-3 mb-3">
-        <div class="card bg-danger text-white">
+        <div class="card bg-danger text-white shadow-sm">
             <div class="card-body">
-                <h6 class="card-title">Cartera 61-90+ días</h6>
+                <h6 class="card-title">Deuda 61-90+ días</h6>
                 <h3>C${{ "{:,.0f}".format((resumen.Cartera_90_Dias|default(0)) + (resumen.Cartera_90_Mas|default(0))) }}</h3>
                 <small>Mora crítica</small>
             </div>
@@ -94,40 +93,42 @@
     </div>
 </div>
 
-<!-- Gráfico de Cartera por Antigüedad -->
+<!-- Gráficos y Tablas Resumen -->
 <div class="row mb-4">
-    <div class="col-md-6">
-        <div class="card shadow-sm">
-            <div class="card-header bg-white">
-                <i class="bi bi-pie-chart"></i> <strong>Distribución de Cartera por Antigüedad</strong>
+    <div class="col-md-6 mb-3">
+        <div class="card shadow-sm h-100">
+            <div class="card-header bg-white py-3">
+                <i class="bi bi-pie-chart-fill text-primary me-2"></i><strong>Antigüedad de Deuda con Proveedores</strong>
             </div>
             <div class="card-body">
-                <canvas id="carteraChart" height="250"></canvas>
+                <div style="position: relative; height: 250px; width: 100%;">
+                    <canvas id="cxpChart"></canvas>
+                </div>
             </div>
         </div>
     </div>
-    <div class="col-md-6">
-        <div class="card shadow-sm">
-            <div class="card-header bg-white">
-                <i class="bi bi-bar-chart"></i> <strong>Resumen Ejecutivo</strong>
+    <div class="col-md-6 mb-3">
+        <div class="card shadow-sm h-100">
+            <div class="card-header bg-white py-3">
+                <i class="bi bi-bar-chart-fill text-dark me-2"></i><strong>Resumen de Pasivos</strong>
             </div>
-            <div class="card-body">
-                <table class="table table-sm">
-                    <tr>
-                        <td><strong>Total Cartera:</strong></td>
-                        <td class="text-end fw-bold">C${{ "{:,.0f}".format(resumen.Total_Cartera|default(0)) }}</td>
+            <div class="card-body d-flex flex-column justify-content-center">
+                <table class="table table-sm mb-0">
+                    <tr class="py-2">
+                        <td><strong>Monto Total Comprometido:</strong></td>
+                        <td class="text-end fw-bold">C${{ "{:,.0f}".format(cartera|sum(attribute='Monto_Original')) }}</td>
                     </tr>
-                    <tr>
-                        <td><strong>Clientes con deuda:</strong></td>
-                        <td class="text-end">C${{ "{:,.0f}".format(cartera|length) }}</td>
+                    <tr class="py-2">
+                        <td><strong>Saldo Pendiente de Pago:</strong></td>
+                        <td class="text-end fw-bold text-danger">C${{ "{:,.0f}".format(resumen.Total_Cartera|default(0)) }}</td>
                     </tr>
-                    <tr>
-                        <td><strong>Facturas pendientes:</strong></td>
-                        <td class="text-end">C${{ "{:,.0f}".format(cartera|selectattr('Estado_Actual', 'ne', 'PAGADA')|list|length) }}</td>
+                    <tr class="py-2">
+                        <td><strong>Proveedores Comprometidos:</strong></td>
+                        <td class="text-end fw-bold">{{ cartera|map(attribute='Proveedor')|unique|list|length }} proveedores</td>
                     </tr>
-                    <tr class="table-danger">
-                        <td><strong>Cartera en mora > 90 días:</strong></td>
-                        <td class="text-end fw-bold text-danger">C${{ "{:,.0f}".format(resumen.Cartera_90_Mas|default(0)) }}</td>
+                    <tr class="py-2">
+                        <td><strong>Facturas Pendientes:</strong></td>
+                        <td class="text-end fw-bold">{{ cartera|length }} facturas</td>
                     </tr>
                 </table>
             </div>
@@ -135,39 +136,39 @@
     </div>
 </div>
 
-<!-- Tabla de Cartera Detallada -->
+<!-- Tabla Detallada -->
 <div class="card shadow-sm">
-    <div class="card-header bg-white">
-        <i class="bi bi-table"></i> <strong>Detalle de Cuentas por Cobrar</strong>
-        <span class="badge bg-primary float-end">{{ cartera|length }} registros</span>
+    <div class="card-header bg-white py-3">
+        <i class="bi bi-table"></i> <strong>Detalle de Cuentas por Pagar</strong>
+        <span class="badge bg-secondary float-end">{{ cartera|length }} registros</span>
     </div>
     <div class="card-body p-0">
         <div class="table-responsive">
             <table class="table table-hover mb-0">
                 <thead class="table-light">
                     <tr>
-                        <th>Cliente</th>
+                        <th>Proveedor</th>
                         <th>Teléfono</th>
-                        <th>Documento</th>
-                        <th>Fecha Factura</th>
+                        <th>N° Factura</th>
+                        <th>Fecha Registro</th>
                         <th>Fecha Vencimiento</th>
-                        <th>Días Vencido</th>
+                        <th>Días Vencidos</th>
                         <th>Monto Original</th>
                         <th>Saldo Pendiente</th>
                         <th>Estado</th>
-                        <th>Rango Mora</th>
+                        <th>Mora</th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for item in cartera %}
                     <tr class="{% if item.Dias_Vencido is not none %}{% if item.Dias_Vencido > 90 %}table-danger{% elif item.Dias_Vencido > 30 %}table-warning{% endif %}{% endif %}">
-                        <td><strong>{{ item.Cliente }}</strong></td>
+                        <td><strong>{{ item.Proveedor }}</strong></td>
                         <td>{{ item.Telefono or '-' }}</td>
                         <td><code>{{ item.Num_Documento or '-' }}</code></td>
                         <td>{{ item.Fecha.strftime('%d/%m/%Y') if item.Fecha else '-' }}</td>
                         <td>
                             {% if item.Fecha_Vencimiento %}
-                                <span class="{% if item.Dias_Vencido is not none and item.Dias_Vencido > 0 %}text-danger{% endif %}">
+                                <span class="{% if item.Dias_Vencido is not none and item.Dias_Vencido > 0 %}text-danger fw-bold{% endif %}">
                                     {{ item.Fecha_Vencimiento.strftime('%d/%m/%Y') }}
                                 </span>
                             {% else %}
@@ -177,9 +178,9 @@
                         <td>
                             {% if item.Dias_Vencido is not none %}
                                 {% if item.Dias_Vencido > 0 %}
-                                    <span class="badge bg-danger">{{ item.Dias_Vencido }} días</span>
+                                    <span class="badge bg-danger">{{ item.Dias_Vencido }} días vencido</span>
                                 {% else %}
-                                    <span class="badge bg-success">{{ item.Dias_Vencido|abs }} días para vencer</span>
+                                    <span class="badge bg-success">{{ item.Dias_Vencido|abs }} días al vencimiento</span>
                                 {% endif %}
                             {% else %}
                                 <span class="badge bg-secondary">Sin vencimiento</span>
@@ -200,16 +201,17 @@
                     </tr>
                     {% else %}
                     <tr>
-                        <td colspan="10" class="text-center text-muted">
-                            <i class="bi bi-check-circle"></i> No hay cuentas por cobrar en el período seleccionado
+                        <td colspan="10" class="text-center text-muted py-4">
+                            <i class="bi bi-check-circle fs-1"></i><br>
+                            ¡Excelente! No tienes cuentas por pagar pendientes de pago.
                         </td>
                     </tr>
                     {% endfor %}
                 </tbody>
                 <tfoot class="table-light">
                     <tr>
-                        <td colspan="7" class="text-end fw-bold">TOTALES:</td>
-                        <td class="fw-bold">C${{ "{:,.0f}".format(cartera|sum(attribute='Saldo_Pendiente')) }}</td>
+                        <td colspan="7" class="text-end fw-bold">TOTAL GENERAL PENDIENTE:</td>
+                        <td class="fw-bold text-danger">C${{ "{:,.0f}".format(resumen.Total_Cartera|default(0)) }}</td>
                         <td colspan="2"></td>
                     </tr>
                 </tfoot>
@@ -218,13 +220,10 @@
     </div>
 </div>
 
-<!-- Recomendaciones -->
-{% set total_mora = (resumen.Cartera_30_Dias|default(0)) + (resumen.Cartera_60_Dias|default(0)) + (resumen.Cartera_90_Dias|default(0)) + (resumen.Cartera_90_Mas|default(0)) %}
-{% if total_mora > 0 %}
+{% if resumen.Total_Cartera|default(0) > 0 %}
 <div class="alert alert-warning mt-4">
-    <i class="bi bi-exclamation-triangle"></i>
-    <strong>Atención:</strong> Tienes <strong>C${{ "{:,.0f}".format(total_mora) }}</strong> en cartera vencida.
-    Se recomienda activar el proceso de cobranza para estos clientes.
+    <i class="bi bi-shield-exclamation me-2 fs-5"></i>
+    <strong>Aviso de Obligación Financiera:</strong> Tienes deudas acumuladas de <strong>C${{ "{:,.0f}".format(resumen.Total_Cartera|default(0)) }}</strong> con proveedores. Asegúrate de programar los abonos correspondientes para evitar suspensiones de despacho de fábrica.
 </div>
 {% endif %}
 {% endblock %}
@@ -232,8 +231,8 @@
 {% block extra_js %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
-    // Gráfico de distribución de cartera
-    const ctx = document.getElementById('carteraChart').getContext('2d');
+    // Gráfico de distribución de CxP
+    const ctx = document.getElementById('cxpChart').getContext('2d');
     new Chart(ctx, {
         type: 'doughnut',
         data: {
@@ -247,29 +246,28 @@
                     {{ resumen.Cartera_90_Mas|default(0) }}
                 ],
                 backgroundColor: [
-                    '#28a745',
+                    '#10b981',
                     '#ffc107',
                     '#fd7e14',
-                    '#dc3545',
-                    '#6c757d'
+                    '#ef4444',
+                    '#64748b'
                 ],
                 borderWidth: 2,
-                borderColor: '#fff'
+                borderColor: '#ffffff'
             }]
         },
         options: {
             responsive: true,
-            maintainAspectRatio: true,
+            maintainAspectRatio: false,
             plugins: {
                 legend: {
                     position: 'bottom',
+                    labels: { font: { family: 'Outfit, sans-serif' } }
                 },
                 tooltip: {
                     callbacks: {
                         label: function(context) {
-                            const label = context.label || '';
-                            const value = context.raw || 0;
-                            return `${label}: C\${value.toLocaleString('es-CO')}`;
+                            return context.label + ': C$ ' + context.raw.toLocaleString('es-NI', { maximumFractionDigits: 0 });
                         }
                     }
                 }
@@ -277,10 +275,4 @@
         }
     });
 </script>
-
-<style>
-    .bg-orange {
-        background: linear-gradient(135deg, #ff9a3c 0%, #ff6b35 100%);
-    }
-</style>
 {% endblock %}

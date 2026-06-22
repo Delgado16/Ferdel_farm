@@ -1,0 +1,237 @@
+{% extends "layout.html" %}
+
+{% block title %}Reporte de Flujo de Caja - FerDel{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">
+        <i class="bi bi-cash-stack"></i> Reporte de Flujo de Caja General (Oficina)
+    </h1>
+    <div class="btn-toolbar mb-2 mb-md-0">
+        <div class="btn-group">
+            <a href="{{ url_for('admin.reporte_flujo_caja', fecha_inicio=fecha_inicio, fecha_fin=fecha_fin, formato='csv') }}" 
+               class="btn btn-sm btn-success">
+                <i class="bi bi-file-earmark-spreadsheet"></i> Exportar CSV
+            </a>
+            <a href="{{ url_for('admin.reporte_flujo_caja', fecha_inicio=fecha_inicio, fecha_fin=fecha_fin, formato='json') }}" 
+               class="btn btn-sm btn-info text-white">
+                <i class="bi bi-file-earmark-code"></i> Exportar JSON
+            </a>
+            <button class="btn btn-sm btn-secondary" onclick="window.print()">
+                <i class="bi bi-printer"></i> Imprimir
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Filtros -->
+<div class="card shadow-sm mb-4">
+    <div class="card-header bg-light py-3">
+        <i class="bi bi-funnel"></i> <strong>Filtros por Fecha</strong>
+    </div>
+    <div class="card-body">
+        <form method="GET" action="{{ url_for('admin.reporte_flujo_caja') }}" class="row g-3">
+            <div class="col-md-5">
+                <label class="form-label">Fecha Inicio</label>
+                <input type="date" name="fecha_inicio" class="form-control" value="{{ fecha_inicio }}">
+            </div>
+            <div class="col-md-5">
+                <label class="form-label">Fecha Fin</label>
+                <input type="date" name="fecha_fin" class="form-control" value="{{ fecha_fin }}">
+            </div>
+            <div class="col-md-2 d-flex align-items-end">
+                <button type="submit" class="btn btn-primary w-100">
+                    <i class="bi bi-search"></i> Analizar Caja
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Tarjetas de Resumen Financiero -->
+{% set total_entradas = resumen.Total_Entradas|default(0)|float %}
+{% set total_salidas = resumen.Total_Salidas|default(0)|float %}
+{% set saldo_neto = total_entradas - total_salidas %}
+<div class="row mb-4">
+    <div class="col-md-4 mb-3">
+        <div class="card bg-success text-white shadow-sm">
+            <div class="card-body">
+                <h6 class="card-title">Total Entradas (Ingresos)</h6>
+                <h2>C${{ "{:,.2f}".format(total_entradas) }}</h2>
+                <small>Aperturas y cobros registrados</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4 mb-3">
+        <div class="card bg-danger text-white shadow-sm">
+            <div class="card-body">
+                <h6 class="card-title">Total Salidas (Egresos)</h6>
+                <h2>C${{ "{:,.2f}".format(total_salidas) }}</h2>
+                <small>Retiros de caja y cierres de saldo</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4 mb-3">
+        <div class="card {% if saldo_neto >= 0 %}bg-primary{% else %}bg-dark{% endif %} text-white shadow-sm">
+            <div class="card-body">
+                <h6 class="card-title">Flujo Neto del Período</h6>
+                <h2>C${{ "{:,.2f}".format(saldo_neto) }}</h2>
+                <small>Saldo resultante activo</small>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Gráficos de Flujo -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card shadow-sm">
+            <div class="card-header bg-white py-3">
+                <i class="bi bi-bar-chart-line text-primary me-2"></i><strong>Historial del Flujo de Efectivo por Fecha</strong>
+            </div>
+            <div class="card-body">
+                <div style="position: relative; height: 300px; width: 100%;">
+                    <canvas id="cashFlowDailyChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Tabla de Detalles -->
+<div class="card shadow-sm">
+    <div class="card-header bg-white py-3">
+        <i class="bi bi-table"></i> <strong>Movimientos de Caja Chica Central</strong>
+        <span class="badge bg-secondary float-end">{{ resultados|length }} registros</span>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>Fecha</th>
+                        <th>Tipo</th>
+                        <th>Descripción</th>
+                        <th>Monto</th>
+                        <th>Referencia</th>
+                        <th>Estado</th>
+                        <th>Registrado Por</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in resultados %}
+                    <tr class="{% if item.Estado == 'ANULADO' %}table-light text-decoration-line-through text-muted{% endif %}">
+                        <td>{{ item.Fecha.strftime('%d/%m/%Y %H:%M') if item.Fecha is not string else item.Fecha }}</td>
+                        <td>
+                            <span class="badge {% if item.Tipo_Movimiento == 'ENTRADA' %}bg-success{% else %}bg-danger{% endif %}">
+                                {{ item.Tipo_Movimiento }}
+                            </span>
+                        </td>
+                        <td>{{ item.Descripcion }}</td>
+                        <td class="fw-bold {% if item.Tipo_Movimiento == 'ENTRADA' %}text-success{% else %}text-danger{% endif %}">
+                            {% if item.Tipo_Movimiento == 'ENTRADA' %}+{% else %}-{% endif %}C${{ "{:,.2f}".format(item.Monto) }}
+                        </td>
+                        <td><code>{{ item.Referencia_Documento or '-' }}</code></td>
+                        <td>
+                            <span class="badge {% if item.Estado == 'ACTIVO' %}bg-success{% else %}bg-secondary{% endif %}">
+                                {{ item.Estado }}
+                            </span>
+                        </td>
+                        <td>{{ item.Creado_Por }}</td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="7" class="text-center text-muted py-4">
+                            <i class="bi bi-inbox fs-1"></i><br>
+                            No hay movimientos registrados en la caja para el período seleccionado.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    // Parsear movimientos de caja
+    const rawMovimientos = [
+        {% for item in resultados if item.Estado == 'ACTIVO' %}
+        {
+            fecha: "{{ item.Fecha.strftime('%d/%m/%Y') if item.Fecha is not string else item.Fecha.split(' ')[0] }}",
+            tipo: "{{ item.Tipo_Movimiento }}",
+            monto: {{ item.Monto|default(0)|float }}
+        },
+        {% endfor %}
+    ];
+
+    // Agrupar movimientos por fecha
+    const flowData = {};
+    rawMovimientos.forEach(m => {
+        if (!m.fecha) return;
+        // Solo obtener fecha sin la hora en caso de que venga formateado completo
+        const cleanDate = m.fecha.split(' ')[0];
+        if (!flowData[cleanDate]) {
+            flowData[cleanDate] = { entrada: 0, salida: 0 };
+        }
+        if (m.tipo === 'ENTRADA') flowData[cleanDate].entrada += m.monto;
+        else if (m.tipo === 'SALIDA') flowData[cleanDate].salida += m.monto;
+    });
+
+    // Ordenar fechas cronológicamente
+    const sortedDates = Object.keys(flowData).sort((a, b) => {
+        const da = a.split('/').reverse().join('');
+        const db = b.split('/').reverse().join('');
+        return da.localeCompare(db);
+    });
+
+    const ctx = document.getElementById('cashFlowDailyChart').getContext('2d');
+    new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: sortedDates,
+            datasets: [
+                {
+                    label: 'Entradas (Ingresos)',
+                    data: sortedDates.map(d => flowData[d].entrada),
+                    backgroundColor: '#10b981',
+                    borderRadius: 4
+                },
+                {
+                    label: 'Salidas (Egresos)',
+                    data: sortedDates.map(d => flowData[d].salida),
+                    backgroundColor: '#ef4444',
+                    borderRadius: 4
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { position: 'top', labels: { font: { family: 'Outfit, sans-serif' } } },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            return context.dataset.label + ': C$ ' + context.raw.toLocaleString('es-NI', { maximumFractionDigits: 2 });
+                        }
+                    }
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        callback: function(value) {
+                            return 'C$' + value.toLocaleString('es-NI');
+                        }
+                    }
+                }
+            }
+        }
+    });
+</script>
+{% endblock %}

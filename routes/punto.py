@@ -2263,6 +2263,7 @@ def admin_generar_ticket(id_factura):
                 'usuario': factura['Usuario'] or 'Usuario No Especificado',
                 'detalles': detalles,
                 'total': total_venta,
+                'total_formateado': f"C$ {total_venta:,.2f}",
                 'total_pagado': total_pagado,
                 'saldo_pendiente': saldo_pendiente,
                 'metodos_pago': metodos_pago,

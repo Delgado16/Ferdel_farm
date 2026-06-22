@@ -5,6 +5,7 @@ Inicializa la app, configura middleware, y registra blueprints
 from flask import Flask
 from flask_cors import CORS
 from flask_session import Session
+from werkzeug.middleware.proxy_fix import ProxyFix
 import secrets
 
 # Importar configuraciones
@@ -39,6 +40,9 @@ def create_app():
     # ===== EXTENSIONES =====
     CORS(app)
     Session(app)
+    
+    # Resolver la IP real del cliente detrás de proxies inversos (como Railway/Render)
+    app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_port=1, x_prefix=1)
     
     # ===== AUTENTICACIÓN =====
     setup_login_manager(app)

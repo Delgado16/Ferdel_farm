@@ -13,9 +13,7 @@ class PWAManager {
 
     try {
       // Registrar SW en la raíz para que cubra TODAS las rutas
-      this.swRegistration = await navigator.serviceWorker.register('/static/sw.js', {
-        scope: '/'  // Importante: scope raíz para todas las rutas
-      });
+      this.swRegistration = await navigator.serviceWorker.register('/sw.js');
       
       console.log('[PWA] Service Worker registrado correctamente');
       console.log('[PWA] Scope:', this.swRegistration.scope);

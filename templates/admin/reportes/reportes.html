@@ -3,311 +3,471 @@
 {% block title %}Reportes Ejecutivos - FerDel{% endblock %}
 
 {% block content %}
-<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
-    <h1 class="h2">
-        <i class="bi bi-file-earmark-text"></i> Reportes Ejecutivos
-    </h1>
-</div>
+<style>
+    /* Premium Dashboard Styles */
+    .reports-header {
+        background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+        border-radius: 16px;
+        padding: 2.5rem 2rem;
+        margin-bottom: 2rem;
+        box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+        border: 1px solid rgba(255, 255, 255, 0.05);
+        color: white;
+    }
+    .reports-header h1 {
+        font-family: 'Outfit', sans-serif;
+        font-weight: 800;
+        letter-spacing: -0.03em;
+        margin-bottom: 0.5rem;
+    }
+    .reports-header p {
+        color: #94a3b8;
+        font-size: 1.1rem;
+        margin-bottom: 0;
+    }
 
+    /* Custom Nav Pills */
+    .nav-reports {
+        background: #f1f5f9;
+        border-radius: 12px;
+        padding: 0.5rem;
+        border: 1px solid #e2e8f0;
+        margin-bottom: 2.5rem;
+    }
+    .nav-reports .nav-link {
+        color: #64748b;
+        font-weight: 600;
+        border-radius: 8px;
+        padding: 0.75rem 1.25rem;
+        transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+        border: none;
+    }
+    .nav-reports .nav-link:hover {
+        color: #0f172a;
+        background-color: rgba(255, 255, 255, 0.6);
+    }
+    .nav-reports .nav-link.active {
+        color: #0f172a;
+        background: white;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+    }
 
-<div class="row">
-    <!-- Reporte de Ventas -->
-    <div class="col-md-6 col-lg-4 mb-4">
-        <div class="card h-100 shadow-sm border-0 bg-white">
-            <div class="card-header bg-primary text-white py-3">
-                <i class="bi bi-graph-up"></i> <strong>Reporte de Ventas</strong>
-            </div>
-            <div class="card-body">
-                <p class="card-text">
-                    Analiza las ventas por período, tipo de venta, vendedor y cliente.
-                    Incluye gráficos de tendencia y resúmenes ejecutivos.
-                </p>
-                <ul class="list-unstyled small text-muted">
-                    <li><i class="bi bi-check2-circle text-success"></i> Ventas por día/semana/mes</li>
-                    <li><i class="bi bi-check2-circle text-success"></i> Desglose contado vs crédito</li>
-                    <li><i class="bi bi-check2-circle text-success"></i> Rendimiento por vendedor</li>
-                </ul>
-            </div>
-            <div class="card-footer bg-transparent border-0 pt-0">
-                <a href="{{ url_for('admin.reporte_ventas') }}" class="btn btn-outline-primary w-100">
-                    <i class="bi bi-eye"></i> Generar Reporte
-                </a>
-            </div>
-        </div>
+    /* Premium Report Cards */
+    .report-card {
+        background: white;
+        border: 1px solid #e2e8f0;
+        border-radius: 16px;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        box-shadow: 0 4px 6px rgba(15, 23, 42, 0.01);
+        position: relative;
+        overflow: hidden;
+    }
+    .report-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 4px;
+        background: transparent;
+        transition: background 0.3s ease;
+    }
+    .report-card:hover {
+        transform: translateY(-6px);
+        box-shadow: 0 15px 30px rgba(15, 23, 42, 0.08);
+        border-color: #cbd5e1;
+    }
+    .report-card.card-finance:hover::before {
+        background: linear-gradient(90deg, #4f46e5, #818cf8);
+    }
+    .report-card.card-route:hover::before {
+        background: linear-gradient(90deg, #10b981, #34d399);
+    }
+    .report-card.card-inv:hover::before {
+        background: linear-gradient(90deg, #f59e0b, #fbbf24);
+    }
+    .report-card.card-log:hover::before {
+        background: linear-gradient(90deg, #64748b, #94a3b8);
+    }
+
+    .report-icon-wrapper {
+        width: 48px;
+        height: 48px;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-bottom: 1.25rem;
+        font-size: 1.5rem;
+    }
+    .bg-finance-light { background-color: #eeebff; color: #4f46e5; }
+    .bg-route-light { background-color: #e6f9f0; color: #10b981; }
+    .bg-inv-light { background-color: #fef6e5; color: #d97706; }
+    .bg-log-light { background-color: #f1f5f9; color: #475569; }
+
+    .report-title {
+        font-family: 'Outfit', sans-serif;
+        font-weight: 700;
+        color: #0f172a;
+        font-size: 1.2rem;
+        margin-bottom: 0.75rem;
+    }
+    .report-text {
+        color: #64748b;
+        font-size: 0.95rem;
+        line-height: 1.5;
+        margin-bottom: 1.25rem;
+        flex-grow: 1;
+    }
+    
+    .report-badge {
+        font-size: 0.75rem;
+        font-weight: 600;
+        padding: 0.25rem 0.5rem;
+        border-radius: 6px;
+        position: absolute;
+        top: 1rem;
+        right: 1rem;
+    }
+</style>
+
+<!-- Encabezado de Reportes -->
+<div class="reports-header d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3">
+    <div>
+        <h1>Reportes Ejecutivos</h1>
+        <p>Centro de análisis inteligente y auditoría financiera de FerDel</p>
     </div>
-
-    <!-- Utilidad y Margen de Ventas -->
-    <div class="col-md-6 col-lg-4 mb-4">
-        <div class="card h-100 shadow-sm border-0 bg-white">
-            <div class="card-header bg-primary text-white py-3" style="background: linear-gradient(135deg, #4f46e5, #4338ca) !important;">
-                <i class="bi bi-wallet2"></i> <strong>Utilidad y Margen de Ventas</strong>
-            </div>
-            <div class="card-body">
-                <p class="card-text">
-                    Audita las ganancias exactas y rentabilidad calculando los costos reales de productos vendidos en oficina y campo.
-                </p>
-                <ul class="list-unstyled small text-muted">
-                    <li><i class="bi bi-check2-circle text-success"></i> Margen bruto por producto</li>
-                    <li><i class="bi bi-check2-circle text-success"></i> Utilidad neta (Local vs. Ruta)</li>
-                    <li><i class="bi bi-check2-circle text-success"></i> Porcentaje de margen promedio</li>
-                </ul>
-            </div>
-            <div class="card-footer bg-transparent border-0 pt-0">
-                <a href="{{ url_for('admin.reporte_utilidad_ventas') }}" class="btn w-100 text-white" style="background: #4f46e5;">
-                    <i class="bi bi-eye"></i> Generar Reporte
-                </a>
-            </div>
-        </div>
-    </div>
-
-    <!-- Reporte de Cartera -->
-    <div class="col-md-6 col-lg-4 mb-4">
-        <div class="card h-100 shadow-sm border-0 bg-white">
-            <div class="card-header bg-danger text-white py-3">
-                <i class="bi bi-credit-card-2-back"></i> <strong>Reporte de Cartera</strong>
-            </div>
-            <div class="card-body">
-                <p class="card-text">
-                    Control de cuentas por cobrar (CxC), saldos de clientes morosos y proyecciones de ingresos de cartera.
-                </p>
-                <ul class="list-unstyled small text-muted">
-                    <li><i class="bi bi-check2-circle text-success"></i> Cartera por antigüedad (30-60-90+)</li>
-                    <li><i class="bi bi-check2-circle text-success"></i> Clientes con mayor deuda</li>
-                    <li><i class="bi bi-check2-circle text-success"></i> Facturas por vencer</li>
-                </ul>
-            </div>
-            <div class="card-footer bg-transparent border-0 pt-0">
-                <a href="{{ url_for('admin.reporte_cartera') }}" class="btn btn-outline-danger w-100">
-                    <i class="bi bi-eye"></i> Generar Reporte
-                </a>
-            </div>
-        </div>
-    </div>
-
-    <!-- Arqueo de Caja de Ruta -->
-    <div class="col-md-6 col-lg-4 mb-4">
-        <div class="card h-100 shadow-sm border-0 bg-white">
-            <div class="card-header bg-success text-white py-3" style="background: linear-gradient(135deg, #10b981, #059669) !important;">
-                <i class="bi bi-cash-coin"></i> <strong>Arqueo de Caja de Ruta</strong>
-            </div>
-            <div class="card-body">
-                <p class="card-text">
-                    Cuadre y liquidación de dinero en efectivo recaudado por vendedores de ruta (aperturas, cobros, gastos y cierres).
-                </p>
-                <ul class="list-unstyled small text-muted">
-                    <li><i class="bi bi-check2-circle text-success"></i> Control de saldos teóricos vs declarados</li>
-                    <li><i class="bi bi-check2-circle text-success"></i> Sobrantes y faltantes de efectivo</li>
-                    <li><i class="bi bi-check2-circle text-success"></i> Rendición diaria de cuentas</li>
-                </ul>
-            </div>
-            <div class="card-footer bg-transparent border-0 pt-0">
-                <a href="{{ url_for('admin.reporte_caja_ruta') }}" class="btn w-100 text-white" style="background: #10b981;">
-                    <i class="bi bi-eye"></i> Generar Reporte
-                </a>
-            </div>
-        </div>
-    </div>
-
-    <!-- Conciliación Monetaria de Ruta -->
-    <div class="col-md-6 col-lg-4 mb-4">
-        <div class="card h-100 shadow-sm border-0 bg-white">
-            <div class="card-header bg-danger text-white py-3" style="background: linear-gradient(135deg, #ef4444, #b91c1c) !important;">
-                <i class="bi bi-cash-stack"></i> <strong>Conciliación Monetaria de Ruta</strong>
-            </div>
-            <div class="card-body">
-                <p class="card-text">
-                    Auditoría de ingresos en caja de ruta cruzados con facturas de contado y cobros de abonos registrados (`abonos_detalle`).
-                </p>
-                <ul class="list-unstyled small text-muted">
-                    <li><i class="bi bi-check2-circle text-success"></i> Discrepancias de caja en ventas contado</li>
-                    <li><i class="bi bi-check2-circle text-success"></i> Discrepancias de caja en cobro de créditos</li>
-                    <li><i class="bi bi-check2-circle text-success"></i> Resumen de liquidación total</li>
-                </ul>
-            </div>
-            <div class="card-footer bg-transparent border-0 pt-0">
-                <a href="{{ url_for('admin.reporte_conciliacion_monetaria') }}" class="btn w-100 text-white" style="background: #ef4444;">
-                    <i class="bi bi-eye"></i> Generar Reporte
-                </a>
-            </div>
-        </div>
-    </div>
-
-    <!-- Reporte de Inventario -->
-    <div class="col-md-6 col-lg-4 mb-4">
-        <div class="card h-100 shadow-sm border-0 bg-white">
-            <div class="card-header bg-warning text-dark py-3">
-                <i class="bi bi-box-seam"></i> <strong>Reporte de Inventario</strong>
-            </div>
-            <div class="card-body">
-                <p class="card-text">
-                    Control de existencias actuales por bodega, alertas de productos con bajo stock y valorización del almacén.
-                </p>
-                <ul class="list-unstyled small text-muted">
-                    <li><i class="bi bi-check2-circle text-success"></i> Alerta de stock crítico/mínimo</li>
-                    <li><i class="bi bi-check2-circle text-success"></i> Valor total del almacén</li>
-                    <li><i class="bi bi-check2-circle text-success"></i> Filtros de categoría y estado</li>
-                </ul>
-            </div>
-            <div class="card-footer bg-transparent border-0 pt-0">
-                <a href="{{ url_for('admin.reporte_inventario') }}" class="btn btn-outline-warning text-dark w-100">
-                    <i class="bi bi-eye"></i> Generar Reporte
-                </a>
-            </div>
-        </div>
-    </div>
-
-    <!-- Kardex de Inventario -->
-    <div class="col-md-6 col-lg-4 mb-4">
-        <div class="card h-100 shadow-sm border-0 bg-white">
-            <div class="card-header bg-info text-white py-3" style="background: linear-gradient(135deg, #06b6d4, #0891b2) !important;">
-                <i class="bi bi-arrow-down-up"></i> <strong>Kardex de Inventario</strong>
-            </div>
-            <div class="card-body">
-                <p class="card-text">
-                    Historial cronológico detallado de ingresos (compras, recepciones) y egresos (ventas, mermas) de stock por bodega.
-                </p>
-                <ul class="list-unstyled small text-muted">
-                    <li><i class="bi bi-check2-circle text-success"></i> Registro de entradas y salidas</li>
-                    <li><i class="bi bi-check2-circle text-success"></i> Auditoría por tipo de movimiento</li>
-                    <li><i class="bi bi-check2-circle text-success"></i> Trazabilidad del usuario que registra</li>
-                </ul>
-            </div>
-            <div class="card-footer bg-transparent border-0 pt-0">
-                <a href="{{ url_for('admin.reporte_kardex') }}" class="btn w-100 text-white" style="background: #06b6d4;">
-                    <i class="bi bi-eye"></i> Generar Reporte
-                </a>
-            </div>
-        </div>
-    </div>
-
-    <!-- Conciliación Física de Cargas -->
-    <div class="col-md-6 col-lg-4 mb-4">
-        <div class="card h-100 shadow-sm border-0 bg-white">
-            <div class="card-header bg-dark text-white py-3">
-                <i class="bi bi-ui-checks"></i> <strong>Conciliación Física de Cargas</strong>
-            </div>
-            <div class="card-body">
-                <p class="card-text">
-                    Arqueo de mercancía en ruta. Compara el inventario cargado vs. facturado vs. remanente físico devuelto por camiones.
-                </p>
-                <ul class="list-unstyled small text-muted">
-                    <li><i class="bi bi-check2-circle text-success"></i> Control de mermas e inconsistencias</li>
-                    <li><i class="bi bi-check2-circle text-success"></i> Cuadre exacto por producto/caja</li>
-                    <li><i class="bi bi-check2-circle text-success"></i> Rendición de asignación</li>
-                </ul>
-            </div>
-            <div class="card-footer bg-transparent border-0 pt-0">
-                <a href="{{ url_for('admin.reporte_conciliacion_productos') }}" class="btn btn-outline-dark w-100">
-                    <i class="bi bi-eye"></i> Generar Reporte
-                </a>
-            </div>
-        </div>
-    </div>
-
-    <!-- Gastos de Vehículos -->
-    <div class="col-md-6 col-lg-4 mb-4">
-        <div class="card h-100 shadow-sm border-0 bg-white">
-            <div class="card-header bg-secondary text-white py-3">
-                <i class="bi bi-car-front"></i> <strong>Gastos de Vehículos</strong>
-            </div>
-            <div class="card-body">
-                <p class="card-text">
-                    Control de gastos asociados a camiones y motocicletas de reparto (combustible, refacciones, seguros, talleres).
-                </p>
-                <ul class="list-unstyled small text-muted">
-                    <li><i class="bi bi-check2-circle text-success"></i> Historial de talleres y mantenimientos</li>
-                    <li><i class="bi bi-check2-circle text-success"></i> Control de kilometraje y consumo</li>
-                    <li><i class="bi bi-check2-circle text-success"></i> Alerta de seguros por vencer</li>
-                </ul>
-            </div>
-            <div class="card-footer bg-transparent border-0 pt-0">
-                <a href="{{ url_for('admin.reporte_gastos_vehiculos') }}" class="btn btn-outline-secondary w-100">
-                    <i class="bi bi-eye"></i> Generar Reporte
-                </a>
-            </div>
-        </div>
-    </div>
-
-    <!-- Auditoría de Cargas y Compras -->
-    <div class="col-md-6 col-lg-4 mb-4">
-        <div class="card h-100 shadow-sm border-0 bg-white">
-            <div class="card-header bg-warning text-dark py-3" style="background: linear-gradient(135deg, #f59e0b, #d97706) !important; color: white !important;">
-                <i class="bi bi-shield-check"></i> <strong>Cargas y Compras</strong>
-            </div>
-            <div class="card-body">
-                <p class="card-text">
-                    Auditoría de compras de fábrica. Compara los despachos cargados por proveedores vs. recibidos en tus bodegas.
-                </p>
-                <ul class="list-unstyled small text-muted">
-                    <li><i class="bi bi-check2-circle text-success"></i> Control de mermas e incidentes de flete</li>
-                    <li><i class="bi bi-check2-circle text-success"></i> Estado de recepción (total/parcial)</li>
-                    <li><i class="bi bi-check2-circle text-success"></i> Detalle de costos e importes de compra</li>
-                </ul>
-            </div>
-            <div class="card-footer bg-transparent border-0 pt-0">
-                <a href="{{ url_for('admin.reporte_compras_cargas') }}" class="btn w-100 text-white" style="background: #f59e0b;">
-                    <i class="bi bi-eye"></i> Generar Reporte
-                </a>
-            </div>
-        </div>
-    </div>
-
-    <!-- Estado de Resultados -->
-    <div class="col-md-6 col-lg-4 mb-4">
-        <div class="card h-100 shadow-sm border-0 bg-white">
-            <div class="card-header bg-success text-white py-3">
-                <i class="bi bi-pie-chart"></i> <strong>Estado de Resultados</strong>
-            </div>
-            <div class="card-body">
-                <p class="card-text">
-                    Análisis financiero mensual consolidado de rentabilidad general cruzando todos los ingresos contra los gastos.
-                </p>
-                <ul class="list-unstyled small text-muted">
-                    <li><i class="bi bi-check2-circle text-success"></i> Ingresos reales (Contado + Cobranzas)</li>
-                    <li><i class="bi bi-check2-circle text-success"></i> Gastos por clasificación</li>
-                    <li><i class="bi bi-check2-circle text-success"></i> Utilidad neta y margen operativo</li>
-                </ul>
-            </div>
-            <div class="card-footer bg-transparent border-0 pt-0">
-                <a href="{{ url_for('admin.reporte_estado_resultados') }}" class="btn btn-outline-success w-100">
-                    <i class="bi bi-eye"></i> Generar Reporte
-                </a>
-            </div>
-        </div>
+    <div>
+        <span class="badge bg-success px-3 py-2 rounded-pill"><i class="bi bi-clock-history"></i> Actualizado en Tiempo Real</span>
     </div>
 </div>
 
-<!-- Reportes Rápidos -->
-<div class="row mt-3">
+<!-- Navegador de Módulos (Pestañas) -->
+<ul class="nav nav-pills nav-fill nav-reports shadow-sm" id="reportsTab" role="tablist">
+    <li class="nav-item" role="presentation">
+        <button class="nav-link active" id="finanzas-tab" data-bs-toggle="tab" data-bs-target="#finanzas" type="button" role="tab" aria-controls="finanzas" aria-selected="true">
+            <i class="bi bi-bank me-2"></i> Finanzas y Ventas
+        </button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link" id="rutas-tab" data-bs-toggle="tab" data-bs-target="#rutas" type="button" role="tab" aria-controls="rutas" aria-selected="false">
+            <i class="bi bi-truck me-2"></i> Operaciones en Ruta
+        </button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link" id="inventarios-tab" data-bs-toggle="tab" data-bs-target="#inventarios" type="button" role="tab" aria-controls="inventarios" aria-selected="false">
+            <i class="bi bi-box-seam me-2"></i> Inventarios y Almacén
+        </button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link" id="logistica-tab" data-bs-toggle="tab" data-bs-target="#logistica" type="button" role="tab" aria-controls="logistica" aria-selected="false">
+            <i class="bi bi-car-front me-2"></i> Logística y Proveedores
+        </button>
+    </li>
+</ul>
+
+<!-- Contenido de las Pestañas -->
+<div class="tab-content" id="reportsTabContent">
+    <!-- PESTAÑA FINANZAS Y VENTAS -->
+    <div class="tab-pane fade show active" id="finanzas" role="tabpanel" aria-labelledby="finanzas-tab">
+        <div class="row g-4">
+            <!-- Reporte de Ventas -->
+            <div class="col-md-6 col-lg-4">
+                <div class="report-card card-finance p-4">
+                    <div class="report-icon-wrapper bg-finance-light">
+                        <i class="bi bi-graph-up"></i>
+                    </div>
+                    <h3 class="report-title">Reporte de Ventas</h3>
+                    <p class="report-text">
+                        Analiza las ventas por período, tipo de venta, vendedor y cliente. Incluye gráficos de tendencia y desglose detallado.
+                    </p>
+                    <a href="{{ url_for('admin.reporte_ventas') }}" class="btn btn-outline-primary w-100 mt-auto">
+                        <i class="bi bi-eye"></i> Ver Reporte
+                    </a>
+                </div>
+            </div>
+
+            <!-- Utilidad y Margen -->
+            <div class="col-md-6 col-lg-4">
+                <div class="report-card card-finance p-4">
+                    <div class="report-icon-wrapper bg-finance-light">
+                        <i class="bi bi-wallet2"></i>
+                    </div>
+                    <h3 class="report-title">Utilidades y Márgenes</h3>
+                    <p class="report-text">
+                        Audita la rentabilidad de las ventas cruzando precios facturados con costos reales del Kardex histórico (Local vs. Ruta).
+                    </p>
+                    <a href="{{ url_for('admin.reporte_utilidad_ventas') }}" class="btn btn-outline-primary w-100 mt-auto">
+                        <i class="bi bi-eye"></i> Ver Reporte
+                    </a>
+                </div>
+            </div>
+
+            <!-- Reporte de Cartera -->
+            <div class="col-md-6 col-lg-4">
+                <div class="report-card card-finance p-4">
+                    <div class="report-icon-wrapper bg-finance-light">
+                        <i class="bi bi-file-earmark-person"></i>
+                    </div>
+                    <h3 class="report-title">Cartera (Cuentas por Cobrar)</h3>
+                    <p class="report-text">
+                        Control del saldo pendiente de clientes a crédito, antigüedad de la mora y facturas próximas a vencer.
+                    </p>
+                    <a href="{{ url_for('admin.reporte_cartera') }}" class="btn btn-outline-primary w-100 mt-auto">
+                        <i class="bi bi-eye"></i> Ver Reporte
+                    </a>
+                </div>
+            </div>
+
+            <!-- NUEVO: Cuentas por Pagar (CxP) -->
+            <div class="col-md-6 col-lg-4">
+                <div class="report-card card-finance p-4">
+                    <span class="report-badge bg-primary text-white">NUEVO</span>
+                    <div class="report-icon-wrapper bg-finance-light">
+                        <i class="bi bi-credit-card-2-back"></i>
+                    </div>
+                    <h3 class="report-title">Cuentas por Pagar (CxP)</h3>
+                    <p class="report-text">
+                        Auditoría y desglose de obligaciones pendientes con proveedores por compras de fábrica y antigüedad de mora.
+                    </p>
+                    <a href="{{ url_for('admin.reporte_cxp') }}" class="btn btn-outline-primary w-100 mt-auto">
+                        <i class="bi bi-eye"></i> Ver Reporte
+                    </a>
+                </div>
+            </div>
+
+            <!-- NUEVO: Flujo de Caja General -->
+            <div class="col-md-6 col-lg-4">
+                <div class="report-card card-finance p-4">
+                    <span class="report-badge bg-primary text-white">NUEVO</span>
+                    <div class="report-icon-wrapper bg-finance-light">
+                        <i class="bi bi-cash-stack"></i>
+                    </div>
+                    <h3 class="report-title">Flujo de Caja (Oficina)</h3>
+                    <p class="report-text">
+                        Auditoría de ingresos, salidas de caja chica central y arqueo consolidado del flujo diario de efectivo de oficina.
+                    </p>
+                    <a href="{{ url_for('admin.reporte_flujo_caja') }}" class="btn btn-outline-primary w-100 mt-auto">
+                        <i class="bi bi-eye"></i> Ver Reporte
+                    </a>
+                </div>
+            </div>
+
+            <!-- Estado de Resultados -->
+            <div class="col-md-6 col-lg-4">
+                <div class="report-card card-finance p-4">
+                    <div class="report-icon-wrapper bg-finance-light">
+                        <i class="bi bi-pie-chart"></i>
+                    </div>
+                    <h3 class="report-title">Estado de Resultados</h3>
+                    <p class="report-text">
+                        Análisis financiero consolidado. Cruza todos los ingresos (contado y cobros) contra los gastos de operación del mes.
+                    </p>
+                    <a href="{{ url_for('admin.reporte_estado_resultados') }}" class="btn btn-outline-primary w-100 mt-auto">
+                        <i class="bi bi-eye"></i> Ver Reporte
+                    </a>
+                </div>
+            </div>
+
+            <!-- NUEVO: Compras por Categoría -->
+            <div class="col-md-6 col-lg-4">
+                <div class="report-card card-finance p-4">
+                    <span class="report-badge bg-primary text-white">NUEVO</span>
+                    <div class="report-icon-wrapper bg-finance-light">
+                        <i class="bi bi-bag-plus"></i>
+                    </div>
+                    <h3 class="report-title">Compras por Categoría</h3>
+                    <p class="report-text">
+                        Analiza las compras de almacén agrupadas por categoría y proveedor con filtros por día, semana, mes o año.
+                    </p>
+                    <a href="{{ url_for('admin.reporte_categoria_compras') }}" class="btn btn-outline-primary w-100 mt-auto">
+                        <i class="bi bi-eye"></i> Ver Reporte
+                    </a>
+                </div>
+            </div>
+
+            <!-- NUEVO: Ventas por Categoría -->
+            <div class="col-md-6 col-lg-4">
+                <div class="report-card card-finance p-4">
+                    <span class="report-badge bg-primary text-white">NUEVO</span>
+                    <div class="report-icon-wrapper bg-finance-light">
+                        <i class="bi bi-cart-check"></i>
+                    </div>
+                    <h3 class="report-title">Ventas por Categoría</h3>
+                    <p class="report-text">
+                        Analiza las ventas totales de oficina y ruta agrupadas por categoría con filtros por día, semana, mes o año.
+                    </p>
+                    <a href="{{ url_for('admin.reporte_categoria_ventas') }}" class="btn btn-outline-primary w-100 mt-auto">
+                        <i class="bi bi-eye"></i> Ver Reporte
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- PESTAÑA OPERACIONES EN RUTA -->
+    <div class="tab-pane fade" id="rutas" role="tabpanel" aria-labelledby="rutas-tab">
+        <div class="row g-4">
+            <!-- Conciliación Monetaria y Arqueo de Caja -->
+            <div class="col-md-6">
+                <div class="report-card card-route p-4">
+                    <div class="report-icon-wrapper bg-route-light">
+                        <i class="bi bi-currency-exchange"></i>
+                    </div>
+                    <h3 class="report-title">Conciliación Monetaria y Arqueo de Caja</h3>
+                    <p class="report-text">
+                        Auditoría unificada de ingresos en ruta cruzando cobros teóricos del sistema de facturación con el efectivo físico entregado y arqueo de caja (aperturas, cierres, cobros y gastos).
+                    </p>
+                    <a href="{{ url_for('admin.reporte_conciliacion_monetaria') }}" class="btn btn-outline-success w-100 mt-auto">
+                        <i class="bi bi-eye"></i> Ver Reporte Unificado
+                    </a>
+                </div>
+            </div>
+
+            <!-- Consolidado de Carga y Ventas -->
+            <div class="col-md-6">
+                <div class="report-card card-route p-4">
+                    <div class="report-icon-wrapper bg-route-light">
+                        <i class="bi bi-intersect"></i>
+                    </div>
+                    <h3 class="report-title">Consolidado Carga vs Ventas</h3>
+                    <p class="report-text">
+                        Cuadre consolidado e inventario físico de productos en camiones: cantidad cargada en bodega contra ventas facturadas, devoluciones de ruta y stock remanente en camión.
+                    </p>
+                    <a href="{{ url_for('admin.reporte_consolidado_carga_ventas') }}" class="btn btn-outline-success w-100 mt-auto">
+                        <i class="bi bi-eye"></i> Ver Reporte Consolidado
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- PESTAÑA INVENTARIOS Y ALMACÉN -->
+    <div class="tab-pane fade" id="inventarios" role="tabpanel" aria-labelledby="inventarios-tab">
+        <div class="row g-4">
+            <!-- Reporte de Inventario -->
+            <div class="col-md-6 col-lg-4">
+                <div class="report-card card-inv p-4">
+                    <div class="report-icon-wrapper bg-inv-light">
+                        <i class="bi bi-box-seam"></i>
+                    </div>
+                    <h3 class="report-title">Inventario General</h3>
+                    <p class="report-text">
+                        Existencias actuales por bodega, alertas de stock mínimo/crítico y valorización global de las mercancías del almacén.
+                    </p>
+                    <a href="{{ url_for('admin.reporte_inventario') }}" class="btn btn-outline-warning text-dark w-100 mt-auto">
+                        <i class="bi bi-eye"></i> Ver Reporte
+                    </a>
+                </div>
+            </div>
+
+            <!-- Kardex de Inventario -->
+            <div class="col-md-6 col-lg-4">
+                <div class="report-card card-inv p-4">
+                    <div class="report-icon-wrapper bg-inv-light">
+                        <i class="bi bi-arrow-down-up"></i>
+                    </div>
+                    <h3 class="report-title">Kardex de Movimientos</h3>
+                    <p class="report-text">
+                        Historial cronológico detallado de entradas (compras, cargas) y salidas (ventas, mermas) con trazabilidad de usuario.
+                    </p>
+                    <a href="{{ url_for('admin.reporte_kardex') }}" class="btn btn-outline-warning text-dark w-100 mt-auto">
+                        <i class="bi bi-eye"></i> Ver Reporte
+                    </a>
+                </div>
+            </div>
+
+            <!-- NUEVO: Rotación de Productos -->
+            <div class="col-md-6 col-lg-4">
+                <div class="report-card card-inv p-4">
+                    <span class="report-badge bg-primary text-white">NUEVO</span>
+                    <div class="report-icon-wrapper bg-inv-light">
+                        <i class="bi bi-cart-check"></i>
+                    </div>
+                    <h3 class="report-title">Rotación de Productos</h3>
+                    <p class="report-text">
+                        Identifica los productos estrella de mayor volumen de venta, participación en la facturación y días de inventario promedio.
+                    </p>
+                    <a href="{{ url_for('admin.reporte_rotacion_productos') }}" class="btn btn-outline-warning text-dark w-100 mt-auto">
+                        <i class="bi bi-eye"></i> Ver Reporte
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- PESTAÑA LOGÍSTICA Y PROVEEDORES -->
+    <div class="tab-pane fade" id="logistica" role="tabpanel" aria-labelledby="logistica-tab">
+        <div class="row g-4">
+            <!-- Gastos de Vehículos -->
+            <div class="col-md-6 col-lg-4">
+                <div class="report-card card-log p-4">
+                    <div class="report-icon-wrapper bg-log-light">
+                        <i class="bi bi-car-front"></i>
+                    </div>
+                    <h3 class="report-title">Gastos por Vehículo</h3>
+                    <p class="report-text">
+                        Control de gastos de flota de reparto (combustible, refacciones, seguros, talleres) agrupados por placa y modelo.
+                    </p>
+                    <a href="{{ url_for('admin.reporte_gastos_vehiculos') }}" class="btn btn-outline-secondary w-100 mt-auto">
+                        <i class="bi bi-eye"></i> Ver Reporte
+                    </a>
+                </div>
+            </div>
+
+            <!-- Cargas y Compras -->
+            <div class="col-md-6 col-lg-4">
+                <div class="report-card card-log p-4">
+                    <div class="report-icon-wrapper bg-log-light">
+                        <i class="bi bi-shield-check"></i>
+                    </div>
+                    <h3 class="report-title">Cargas y Compras de Fábrica</h3>
+                    <p class="report-text">
+                        Auditoría de despachos de proveedores contra cantidades reales recibidas en bodega para control de mermas de flete.
+                    </p>
+                    <a href="{{ url_for('admin.reporte_compras_cargas') }}" class="btn btn-outline-secondary w-100 mt-auto">
+                        <i class="bi bi-eye"></i> Ver Reporte
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Accesos Directos a Reportes Rápidos -->
+<div class="row mt-5">
     <div class="col-12">
-        <div class="card shadow-sm">
-            <div class="card-header bg-info text-white">
-                <i class="bi bi-lightning-charge"></i> <strong>Reportes Rápidos</strong>
+        <div class="card shadow-sm border-0 bg-white" style="border-radius: 16px;">
+            <div class="card-header bg-dark text-white py-3" style="border-top-left-radius: 16px; border-top-right-radius: 16px;">
+                <h5 class="m-0 font-weight-bold"><i class="bi bi-lightning-charge-fill me-2 text-warning"></i> Reportes Ejecutivos Rápidos</h5>
             </div>
-            <div class="card-body">
-                <div class="row">
-                    <div class="col-md-3 mb-2">
+            <div class="card-body p-4">
+                <div class="row g-3">
+                    <div class="col-sm-6 col-md-3">
                         <a href="{{ url_for('admin.reporte_ventas', fecha_inicio=now.strftime('%Y-%m-01'), fecha_fin=now.strftime('%Y-%m-%d')) }}" 
-                           class="btn btn-outline-info w-100">
-                            <i class="bi bi-calendar-month"></i> Ventas del Mes
+                           class="btn btn-outline-primary w-100 py-2.5">
+                            <i class="bi bi-calendar-month me-1"></i> Ventas del Mes
                         </a>
                     </div>
-                    <div class="col-md-3 mb-2">
+                    <div class="col-sm-6 col-md-3">
                         <a href="{{ url_for('admin.reporte_cartera', estado='vencida') }}" 
-                           class="btn btn-outline-danger w-100">
-                            <i class="bi bi-exclamation-triangle"></i> Cartera Vencida
+                           class="btn btn-outline-danger w-100 py-2.5">
+                            <i class="bi bi-exclamation-triangle me-1"></i> Cartera Vencida
                         </a>
                     </div>
-                    <div class="col-md-3 mb-2">
+                    <div class="col-sm-6 col-md-3">
                         <a href="{{ url_for('admin.reporte_inventario', stock_status='critico') }}" 
-                           class="btn btn-outline-warning w-100">
-                            <i class="bi bi-box-seam"></i> Stock Crítico
+                           class="btn btn-outline-warning text-dark w-100 py-2.5">
+                            <i class="bi bi-box-seam me-1"></i> Stock Crítico
                         </a>
                     </div>
-                    <div class="col-md-3 mb-2">
-                        <a href="{{ url_for('admin.reporte_ventas', formato='csv') }}" 
-                           class="btn btn-outline-success w-100">
-                            <i class="bi bi-file-earmark-spreadsheet"></i> Exportar Ventas CSV
+                    <div class="col-sm-6 col-md-3">
+                        <a href="{{ url_for('admin.reporte_cxp', estado='vencida') }}" 
+                           class="btn btn-outline-dark w-100 py-2.5">
+                            <i class="bi bi-shield-exclamation me-1"></i> Deudas Proveedores
                         </a>
                     </div>
                 </div>

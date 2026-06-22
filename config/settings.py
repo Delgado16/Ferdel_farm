@@ -2,8 +2,14 @@
 Configuración de variables de entorno y settings
 """
 import os
+import time
 from dotenv import load_dotenv
 from datetime import timedelta
+
+# ===== CONFIGURAR ZONA HORARIA DEL PROCESO (Nicaragua UTC-6) =====
+os.environ['TZ'] = 'America/Managua'
+if hasattr(time, 'tzset'):
+    time.tzset()
 
 load_dotenv()
 

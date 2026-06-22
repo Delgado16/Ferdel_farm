@@ -4810,7 +4810,7 @@ def api_asignacion_actual():
 # =================================
 #  CAJA DE MOVIMIENTOS DE EFECTIVOS
 # =================================
-@vendedor_bp.route('/vendedor/caja/mis_movimientos', methods=['GET'])
+@vendedor_bp.route('/caja/mis_movimientos', methods=['GET'])
 @vendedor_required
 def mis_movimientos_caja():
     """Muestra los movimientos del vendedor actual en su ruta"""
@@ -4973,7 +4973,7 @@ def mis_movimientos_caja():
         flash(f'Error al cargar los movimientos: {str(e)}', 'danger')
         return redirect(url_for('vendedor.vendedor_dashboard'))
 
-@vendedor_bp.route('/vendedor/caja/apertura_modal', methods=['POST'])
+@vendedor_bp.route('/caja/apertura_modal', methods=['POST'])
 @vendedor_required
 def apertura_caja_modal():
     """Procesa la apertura de caja desde el modal"""
@@ -4984,7 +4984,7 @@ def apertura_caja_modal():
         observacion = data.get('observacion', '')
         fecha_actual = datetime.now().strftime('%Y-%m-%d')
         
-        with get_db_cursor() as cursor:
+        with get_db_cursor(commit=True) as cursor:
             # Obtener asignación activa
             cursor.execute("""
                 SELECT ID_Asignacion
@@ -5001,6 +5001,10 @@ def apertura_caja_modal():
             if not asignacion:
                 return jsonify({'success': False, 'error': 'Sin ruta activa'})
             
+            # Limitar la longitud del concepto a 200 caracteres (longitud de columna varchar(200))
+            concepto = f"Apertura de caja: {observacion}" if observacion else "Apertura de caja"
+            concepto = concepto[:200]
+            
             # Insertar apertura
             cursor.execute("""
                 INSERT INTO movimientos_caja_ruta 
@@ -5009,7 +5013,7 @@ def apertura_caja_modal():
             """, (
                 asignacion['ID_Asignacion'],
                 id_vendedor,
-                f"Apertura de caja: {observacion}" if observacion else "Apertura de caja",
+                concepto,
                 monto
             ))
             
@@ -5018,7 +5022,7 @@ def apertura_caja_modal():
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
 
-@vendedor_bp.route('/vendedor/caja/cierre_modal', methods=['POST'])
+@vendedor_bp.route('/caja/cierre_modal', methods=['POST'])
 @vendedor_required
 def cierre_caja_modal():
     """Procesa el cierre de caja desde el modal"""
@@ -5029,7 +5033,7 @@ def cierre_caja_modal():
         observacion = data.get('observacion', '')
         fecha_actual = datetime.now().strftime('%Y-%m-%d')
         
-        with get_db_cursor() as cursor:
+        with get_db_cursor(commit=True) as cursor:
             # Obtener asignación activa
             cursor.execute("""
                 SELECT ID_Asignacion
@@ -5063,6 +5067,10 @@ def cierre_caja_modal():
             saldo_esperado = float(saldo['Saldo_Esperado'])
             diferencia = monto_real - saldo_esperado
             
+            # Limitar la longitud del concepto a 200 caracteres (longitud de columna varchar(200))
+            concepto = f"Cierre de caja - Diferencia: Gs. {diferencia:,.0f}. {observacion}" if observacion else f"Cierre de caja - Diferencia: Gs. {diferencia:,.0f}"
+            concepto = concepto[:200]
+            
             # Insertar cierre
             cursor.execute("""
                 INSERT INTO movimientos_caja_ruta 
@@ -5071,7 +5079,7 @@ def cierre_caja_modal():
             """, (
                 asignacion['ID_Asignacion'],
                 id_vendedor,
-                f"Cierre de caja - Diferencia: Gs. {diferencia:,.0f}. {observacion}" if observacion else f"Cierre de caja - Diferencia: Gs. {diferencia:,.0f}",
+                concepto,
                 monto_real
             ))
             
