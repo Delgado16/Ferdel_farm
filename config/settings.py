@@ -20,38 +20,14 @@ SECRET_KEY = os.environ.get("SECRET_KEY", "dev-secret-key-change-in-production")
 RENDER_ENV = os.environ.get('RENDER', False)
 RAILWAY_ENV = os.environ.get('RAILWAY_STATIC_URL', None) is not None
 
-# ===== CONFIGURACIÓN DE BASE DE DATOS (SOPORTA MYSQL_URL Y VARIABLES INDIVIDUALES) =====
-# Parsear MYSQL_URL si está presente (inyectada por Railway y útil para desarrollo local)
-mysql_url_str = os.environ.get('MYSQL_URL')
-if mysql_url_str:
-    try:
-        url = urllib.parse.urlparse(mysql_url_str)
-        DB_USER_DEFAULT = url.username or 'root'
-        DB_PASSWORD_DEFAULT = url.password or 'admin'
-        DB_HOST_DEFAULT = url.hostname or 'localhost'
-        DB_PORT_DEFAULT = url.port or 3306
-        DB_NAME_DEFAULT = url.path.lstrip('/') or 'db_ferdel'
-    except Exception:
-        DB_USER_DEFAULT = 'root'
-        DB_PASSWORD_DEFAULT = 'admin'
-        DB_HOST_DEFAULT = 'localhost'
-        DB_PORT_DEFAULT = 3306
-        DB_NAME_DEFAULT = 'db_ferdel'
-else:
-    DB_USER_DEFAULT = os.environ.get('MYSQLUSER', 'root')
-    DB_PASSWORD_DEFAULT = os.environ.get('MYSQLPASSWORD', 'admin')
-    DB_HOST_DEFAULT = os.environ.get('MYSQLHOST', 'localhost')
-    DB_PORT_DEFAULT = int(os.environ.get('MYSQLPORT', 3306))
-    DB_NAME_DEFAULT = os.environ.get('MYSQLDATABASE', 'db_ferdel')
-
 DB_CONFIG = {
-    'user': os.environ.get('DB_USER', DB_USER_DEFAULT),
-    'password': os.environ.get('DB_PASSWORD', DB_PASSWORD_DEFAULT),
-    'host': os.environ.get('DB_HOST', DB_HOST_DEFAULT),
-    'port': int(os.environ.get('DB_PORT', DB_PORT_DEFAULT)),
-    'database': os.environ.get('DB_NAME', DB_NAME_DEFAULT),
+    'user': os.environ.get('DB_USER', 'root'),
+    'password': os.environ.get('DB_PASSWORD', ''),
+    'host': os.environ.get('DB_HOST', 'reseau.proxy.rlwy.net'),
+    'port': int(os.environ.get('DB_PORT', 41024)),
+    'database': os.environ.get('DB_NAME', 'db_ferdel'),
     'pool_name': 'ferdel_pool',
-    'pool_size': int(os.environ.get('DB_POOL_SIZE', 3)),
+    'pool_size': int(os.environ.get('DB_POOL_SIZE', 5)),
     'pool_reset_session': True,
     'autocommit': True,
     'connect_timeout': 30,
