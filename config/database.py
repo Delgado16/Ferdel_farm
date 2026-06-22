@@ -22,7 +22,7 @@ if not hasattr(collections, 'Iterable'):
 warnings.filterwarnings('ignore', category=DeprecationWarning)
 # ===== FIN DE MODIFICACIONES =====
 
-from .settings import DB_CONFIG, RENDER_ENV
+from .settings import DB_CONFIG, RENDER_ENV, RAILWAY_ENV
 
 logger = logging.getLogger(__name__)
 
@@ -179,6 +179,7 @@ def diagnose_db():
     print(f"   DB_NAME: {os.environ.get('DB_NAME')}")
     print(f"   DB_HOST: {os.environ.get('DB_HOST')}")
     print(f"   RENDER: {RENDER_ENV}")
+    print(f"   RAILWAY: {RAILWAY_ENV}")
     
     # 1. Verificar conexión
     conn = get_db()

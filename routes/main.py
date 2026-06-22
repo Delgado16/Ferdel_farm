@@ -4,7 +4,7 @@ Blueprint de rutas principales (home, health, diagnostics)
 from flask import Blueprint, abort, redirect, url_for, jsonify, render_template, send_from_directory, current_app
 from flask_login import login_required, current_user
 from datetime import datetime
-from config.settings import RENDER_ENV
+from config.settings import RENDER_ENV, RAILWAY_ENV
 from config.database import get_db_cursor, diagnose_db
 
 main_bp = Blueprint('main', __name__)
@@ -38,7 +38,7 @@ def health_check():
     status = {
         'status': 'healthy',
         'timestamp': datetime.now().isoformat(),
-        'environment': 'render' if RENDER_ENV else 'development',
+        'environment': 'render' if RENDER_ENV else ('railway' if RAILWAY_ENV else 'development'),
         'database': False
     }
     
@@ -68,13 +68,15 @@ def debug_db():
                 'mysql_version': result['version'],
                 'server_time': result['current_time'].isoformat() if result['current_time'] else None,
                 'render_env': RENDER_ENV,
+                'railway_env': RAILWAY_ENV,
             })
     except Exception as e:
         return jsonify({
             'connected': False,
             'error': str(e),
             'error_type': type(e).__name__,
-            'render_env': RENDER_ENV
+            'render_env': RENDER_ENV,
+            'railway_env': RAILWAY_ENV
         }), 500
 
 

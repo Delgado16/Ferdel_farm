@@ -9,7 +9,7 @@ from werkzeug.middleware.proxy_fix import ProxyFix
 import secrets
 
 # Importar configuraciones
-from config.settings import SECRET_KEY, SESSION_CONFIG, CORS_CONFIG, RENDER_ENV, print_db_config
+from config.settings import SECRET_KEY, SESSION_CONFIG, CORS_CONFIG, RENDER_ENV, RAILWAY_ENV, print_db_config
 from config.database import init_pool, close_db
 
 # Importar autenticación
@@ -70,7 +70,7 @@ def create_app():
     print(f"   Secret Key: {'✅ Configurado' if SECRET_KEY else '❌ No configurado'}")
     print(f"   CORS: ✅ Habilitado")
     print(f"   Autenticación: ✅ Flask-Login configurado")
-    print(f"   Ambiente: {'🏭 Render' if RENDER_ENV else '💻 Desarrollo'}")
+    print(f"   Ambiente: {'🏭 Render' if RENDER_ENV else ('🚂 Railway' if RAILWAY_ENV else '💻 Desarrollo')}")
     print("✅ Aplicación inicializada correctamente")
     
     return app
