@@ -10,6 +10,7 @@ from .bitacora import (
 )
 from .validators import validate_username, validate_password
 from .formatters import apply_filters
+from .export import exportar_csv, exportar_json
 
 __all__ = [
     'registrar_bitacora',
@@ -19,5 +20,7 @@ __all__ = [
     'bitacora_decorator',
     'validate_username',
     'validate_password',
-    'apply_filters'
+    'apply_filters',
+    'exportar_csv',
+    'exportar_json'
 ]
