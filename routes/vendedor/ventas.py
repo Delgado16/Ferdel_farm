@@ -364,6 +364,10 @@ def vendedor_venta_crear():
                 abono_monto = float(request.form.get('abono_monto', '0'))
                 abono_metodo_pago = request.form.get('abono_metodo_pago', '')
                 procesar_abono = request.form.get('procesar_abono', '0') == '1'
+                try:
+                    id_metodo_pago = int(abono_metodo_pago) if abono_metodo_pago else None
+                except (ValueError, TypeError):
+                    id_metodo_pago = None
                 
                 # Validar datos básicos
                 if not id_cliente:
@@ -786,8 +790,9 @@ def vendedor_venta_crear():
                                     cursor.execute("""
                                         INSERT INTO abonos_detalle
                                         (ID_Movimiento_Caja, ID_Asignacion, ID_Usuario, ID_Cliente, 
-                                         ID_CuentaCobrar, Monto_Aplicado, Saldo_Anterior, Saldo_Nuevo)
-                                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                                         ID_CuentaCobrar, Monto_Aplicado, Saldo_Anterior, Saldo_Nuevo,
+                                         ID_MetodoPago)
+                                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
                                     """, (
                                         id_movimiento_caja,
                                         asignacion['ID_Asignacion'],
@@ -796,7 +801,8 @@ def vendedor_venta_crear():
                                         factura['ID_Movimiento'],
                                         monto_aplicar,
                                         saldo_factura,
-                                        nuevo_saldo_factura
+                                        nuevo_saldo_factura,
+                                        id_metodo_pago
                                     ))
                                 except Exception as e:
                                     print(f"⚠️ No se pudo insertar en abonos_detalle: {e}")
@@ -1733,6 +1739,10 @@ def api_registrar_venta_offline():
             # Procesar abono si existe
             if data.get('procesar_abono') == '1' and float(data.get('abono_monto', 0)) > 0:
                 monto_abono = float(data['abono_monto'])
+                try:
+                    id_metodo_pago = int(data.get('abono_metodo_pago')) if data.get('abono_metodo_pago') else None
+                except (ValueError, TypeError):
+                    id_metodo_pago = None
                 
                 # Obtener facturas pendientes del cliente
                 cursor.execute("""
@@ -1805,8 +1815,9 @@ def api_registrar_venta_offline():
                         cursor.execute("""
                             INSERT INTO abonos_detalle
                             (ID_Movimiento_Caja, ID_Asignacion, ID_Usuario, ID_Cliente, 
-                             ID_CuentaCobrar, Monto_Aplicado, Saldo_Anterior, Saldo_Nuevo)
-                            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                             ID_CuentaCobrar, Monto_Aplicado, Saldo_Anterior, Saldo_Nuevo,
+                             ID_MetodoPago)
+                            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
                         """, (
                             id_movimiento_caja,
                             asignacion['ID_Asignacion'],
@@ -1815,7 +1826,8 @@ def api_registrar_venta_offline():
                             factura['ID_Movimiento'],
                             monto_aplicar,
                             saldo_factura,
-                            nuevo_saldo_factura
+                            nuevo_saldo_factura,
+                            id_metodo_pago
                         ))
                         
                         monto_restante -= monto_aplicar

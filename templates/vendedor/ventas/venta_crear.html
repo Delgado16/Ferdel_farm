@@ -609,6 +609,7 @@
     let sincronizando = false;
     let tipoVentaActual = '1';
     let metodosPagoLista = [];
+    let logoUrlCached = null;
 
     // ============================================
     // FUNCIONES DE UTILIDAD
@@ -816,12 +817,16 @@
             </svg>`)}`;
 
             const obtenerLogoUrl = async () => {
+                if (logoUrlCached) return logoUrlCached;
+
                 const blobToBase64 = (blob) => new Promise((resolve, reject) => {
                     const reader = new FileReader();
                     reader.onloadend = () => resolve(reader.result);
                     reader.onerror = reject;
                     reader.readAsDataURL(blob);
                 });
+
+                let resolvedUrl = null;
 
                 // 1. Intentar obtener el logo desde localforage
                 try {
@@ -832,28 +837,32 @@
                             if (typeof logoLocal === 'string') {
                                 if (logoLocal.startsWith('data:image') || logoLocal.length > 500) {
                                     console.log(`✅ Logo obtenido desde localforage (${clave})`);
-                                    return logoLocal.startsWith('data:image') ? logoLocal : `data:image/png;base64,${logoLocal}`;
+                                    resolvedUrl = logoLocal.startsWith('data:image') ? logoLocal : `data:image/png;base64,${logoLocal}`;
+                                    break;
                                 }
                             } else if (logoLocal instanceof Blob) {
                                 console.log(`✅ Logo (Blob) obtenido desde localforage (${clave})`);
-                                return await blobToBase64(logoLocal);
+                                resolvedUrl = await blobToBase64(logoLocal);
+                                break;
                             }
                         }
                     }
 
-                    // También revisar si está dentro de clientes_saldos.empresa.logo o similar
-                    const clientesLocal = await localforage.getItem('clientes_saldos');
-                    if (clientesLocal && clientesLocal.empresa) {
-                        const logoEmpresa = clientesLocal.empresa.logo || clientesLocal.empresa.logo_base64 || clientesLocal.empresa.logo_url;
-                        if (logoEmpresa) {
-                            if (typeof logoEmpresa === 'string') {
-                                if (logoEmpresa.startsWith('data:image') || logoEmpresa.length > 500) {
-                                    console.log('✅ Logo obtenido desde localforage (clientes_saldos.empresa)');
-                                    return logoEmpresa.startsWith('data:image') ? logoEmpresa : `data:image/png;base64,${logoEmpresa}`;
+                    if (!resolvedUrl) {
+                        // También revisar si está dentro de clientes_saldos.empresa.logo o similar
+                        const clientesLocal = await localforage.getItem('clientes_saldos');
+                        if (clientesLocal && clientesLocal.empresa) {
+                            const logoEmpresa = clientesLocal.empresa.logo || clientesLocal.empresa.logo_base64 || clientesLocal.empresa.logo_url;
+                            if (logoEmpresa) {
+                                if (typeof logoEmpresa === 'string') {
+                                    if (logoEmpresa.startsWith('data:image') || logoEmpresa.length > 500) {
+                                        console.log('✅ Logo obtenido desde localforage (clientes_saldos.empresa)');
+                                        resolvedUrl = logoEmpresa.startsWith('data:image') ? logoEmpresa : `data:image/png;base64,${logoEmpresa}`;
+                                    }
+                                } else if (logoEmpresa instanceof Blob) {
+                                    console.log('✅ Logo (Blob) obtenido desde localforage (clientes_saldos.empresa)');
+                                    resolvedUrl = await blobToBase64(logoEmpresa);
                                 }
-                            } else if (logoEmpresa instanceof Blob) {
-                                console.log('✅ Logo (Blob) obtenido desde localforage (clientes_saldos.empresa)');
-                                return await blobToBase64(logoEmpresa);
                             }
                         }
                     }
@@ -862,13 +871,13 @@
                 }
 
                 // 2. Intentar buscar en caches de service worker
-                if ('caches' in window) {
+                if (!resolvedUrl && 'caches' in window) {
                     try {
                         const cache = await caches.open('vendedor-cache-v2');
                         const cachedResponse = await cache.match('/static/ferdel.png');
                         if (cachedResponse && cachedResponse.ok) {
                             const blob = await cachedResponse.blob();
-                            return await blobToBase64(blob);
+                            resolvedUrl = await blobToBase64(blob);
                         }
                     } catch (e) {
                         console.warn('Error accediendo a caché:', e);
@@ -876,20 +885,23 @@
                 }
 
                 // 3. Fallback a fetch o fallback predefinido
-                try {
-                    const response = await fetch('/static/ferdel.png', {
-                        cache: 'force-cache',
-                        headers: { 'Cache-Control': 'no-cache' }
-                    });
-                    if (response.ok) {
-                        const blob = await response.blob();
-                        return await blobToBase64(blob);
+                if (!resolvedUrl) {
+                    try {
+                        const response = await fetch('/static/ferdel.png', {
+                            cache: 'force-cache',
+                            headers: { 'Cache-Control': 'no-cache' }
+                        });
+                        if (response.ok) {
+                            const blob = await response.blob();
+                            resolvedUrl = await blobToBase64(blob);
+                        }
+                    } catch (e) {
+                        console.warn('No se pudo cargar desde red:', e);
                     }
-                } catch (e) {
-                    console.warn('No se pudo cargar desde red:', e);
                 }
 
-                return LOGO_FALLBACK_BASE64;
+                logoUrlCached = resolvedUrl || LOGO_FALLBACK_BASE64;
+                return logoUrlCached;
             };
 
             const generarTicketConLogo = async () => {
@@ -1380,13 +1392,26 @@
         const productoSelect = document.getElementById('producto_select');
         if (!productoSelect) return;
 
-        const opcionesExistentes = Array.from(productoSelect.options).map(opt => opt.value);
+        // Build a map of existing options for O(1) lookup
+        const optionsMap = {};
+        const options = productoSelect.options;
+        for (let i = 0; i < options.length; i++) {
+            const opt = options[i];
+            if (opt.value) {
+                optionsMap[opt.value] = opt;
+            }
+        }
+
+        const selectFragment = document.createDocumentFragment();
+        let needsAppendSelect = false;
 
         inventario.forEach(prod => {
             const stock = parseFloat(prod.Stock_Disponible);
             const opcionTexto = `${prod.Nombre} - Stock: ${stock} ${prod.Unidad_Medida || ''}`;
+            const key = String(prod.ID_Producto);
+            const existingOpt = optionsMap[key];
 
-            if (!opcionesExistentes.includes(String(prod.ID_Producto))) {
+            if (!existingOpt) {
                 const option = document.createElement('option');
                 option.value = prod.ID_Producto;
                 option.dataset.nombre = prod.Nombre;
@@ -1395,48 +1420,53 @@
                 option.dataset.stock = stock;
                 option.dataset.unidad = prod.Unidad_Medida;
                 option.textContent = opcionTexto;
-                productoSelect.appendChild(option);
+                selectFragment.appendChild(option);
+                needsAppendSelect = true;
             } else {
-                const option = productoSelect.querySelector(`option[value="${prod.ID_Producto}"]`);
-                if (option) {
-                    option.dataset.stock = stock;
-                    option.textContent = opcionTexto;
-                }
+                existingOpt.dataset.stock = stock;
+                existingOpt.textContent = opcionTexto;
             }
         });
 
+        if (needsAppendSelect) {
+            productoSelect.appendChild(selectFragment);
+        }
+
         const inventarioBody = document.getElementById('inventario_body');
         if (inventarioBody) {
-            inventarioBody.innerHTML = '';
+            // Rebuild rows as a single HTML string instead of individual DOM row creations
+            let rowsHtml = '';
             inventario.forEach((prod, index) => {
                 const stock = parseFloat(prod.Stock_Disponible);
-                const row = inventarioBody.insertRow();
-                row.dataset.id = prod.ID_Producto;
-                row.dataset.nombre = prod.Nombre.replace(/'/g, "\\'");
-                row.dataset.codigo = prod.COD_Producto;
-                row.dataset.precio = prod.Precio_Ruta;
-                row.dataset.stock = stock;
-                row.dataset.unidad = prod.Unidad_Medida;
+                const nombreEscaped = prod.Nombre.replace(/'/g, "\\'").replace(/"/g, '&quot;');
 
-                row.innerHTML = `
-                    <td class="text-center">${index + 1}</td>
-                    <td class="small fw-bold">${prod.Nombre}</td>
-                    <td class="small">${prod.COD_Producto || ''}</td>
-                    <td class="text-center small">${prod.Unidad_Medida || ''}</td>
-                    <td class="text-end">
-                        <span class="badge bg-${stock > 10 ? 'success' : stock > 0 ? 'warning' : 'danger'}">
-                            ${stock}
-                        </span>
-                    </td>
-                    <td class="text-end small">C$ ${parseFloat(prod.Precio_Ruta).toFixed(2)}</td>
-                    <td class="text-center">
-                        <button type="button" class="btn btn-sm btn-primary py-0 px-2" style="font-size: 0.7rem;"
-                            onclick="agregarDesdeInventario('${prod.ID_Producto}', '${prod.Nombre.replace(/'/g, "\\'")}', '${prod.COD_Producto}', ${prod.Precio_Ruta}, ${stock}, '${prod.Unidad_Medida}')">
-                            <i class="fas fa-cart-plus"></i>
-                        </button>
-                    </td>
+                rowsHtml += `
+                    <tr data-id="${prod.ID_Producto}" 
+                        data-nombre="${nombreEscaped}" 
+                        data-codigo="${prod.COD_Producto || ''}" 
+                        data-precio="${prod.Precio_Ruta}" 
+                        data-stock="${stock}" 
+                        data-unidad="${prod.Unidad_Medida || ''}">
+                        <td class="text-center">${index + 1}</td>
+                        <td class="small fw-bold">${prod.Nombre}</td>
+                        <td class="small">${prod.COD_Producto || ''}</td>
+                        <td class="text-center small">${prod.Unidad_Medida || ''}</td>
+                        <td class="text-end">
+                            <span class="badge bg-${stock > 10 ? 'success' : stock > 0 ? 'warning' : 'danger'}">
+                                ${stock}
+                            </span>
+                        </td>
+                        <td class="text-end small">C$ ${parseFloat(prod.Precio_Ruta).toFixed(2)}</td>
+                        <td class="text-center">
+                            <button type="button" class="btn btn-sm btn-primary py-0 px-2" style="font-size: 0.7rem;"
+                                onclick="agregarDesdeInventario('${prod.ID_Producto}', '${nombreEscaped}', '${prod.COD_Producto || ''}', ${prod.Precio_Ruta}, ${stock}, '${prod.Unidad_Medida || ''}')">
+                                <i class="fas fa-cart-plus"></i>
+                            </button>
+                        </td>
+                    </tr>
                 `;
             });
+            inventarioBody.innerHTML = rowsHtml;
         }
     }
 
@@ -1483,10 +1513,14 @@
             if (clientesLocal && clientesLocal.lista && clienteSelect) {
                 const valorActual = clienteSelect.value;
 
-                while (clienteSelect.options.length > 1) {
-                    clienteSelect.remove(1);
+                // Fast clear of options except the default one
+                const defaultOption = clienteSelect.options[0];
+                clienteSelect.innerHTML = '';
+                if (defaultOption) {
+                    clienteSelect.appendChild(defaultOption);
                 }
 
+                const fragment = document.createDocumentFragment();
                 clientesLocal.lista.forEach(cliente => {
                     const option = document.createElement('option');
                     option.value = cliente.ID_Cliente;
@@ -1503,10 +1537,12 @@
                         option.style.color = '#856404';
                     }
 
-                    clienteSelect.appendChild(option);
+                    fragment.appendChild(option);
                 });
 
-                if (valorActual && Array.from(clienteSelect.options).some(opt => opt.value === valorActual)) {
+                clienteSelect.appendChild(fragment);
+
+                if (valorActual && clientesLocal.data && clientesLocal.data[valorActual]) {
                     clienteSelect.value = valorActual;
                     verificarSaldoCliente(valorActual);
                 }
@@ -3305,10 +3341,17 @@
         resultadosDiv.innerHTML = '<div class="text-center"><div class="spinner-border spinner-border-sm text-primary"></div> Buscando...</div>';
         resultadosDiv.style.display = 'block';
 
-        const productosEncontrados = Array.from(document.querySelectorAll('#producto_select option')).filter(opt => {
-            if (!opt.value) return false;
-            return opt.text.toLowerCase().includes(termino.toLowerCase());
-        }).slice(0, 5);
+        const selectElement = getElement('producto_select');
+        const options = selectElement ? selectElement.options : [];
+        const term = termino.toLowerCase();
+        const productosEncontrados = [];
+        for (let i = 0; i < options.length; i++) {
+            const opt = options[i];
+            if (opt.value && opt.text.toLowerCase().includes(term)) {
+                productosEncontrados.push(opt);
+                if (productosEncontrados.length === 5) break;
+            }
+        }
 
         if (productosEncontrados.length === 0) {
             resultadosDiv.innerHTML = '<div class="alert alert-warning py-2">No se encontraron productos</div>';

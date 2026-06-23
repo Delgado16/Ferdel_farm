@@ -54,9 +54,23 @@
                                    placeholder="Nombre del cliente"
                                    value="{{ filtros.cliente }}">
                         </div>
-                        <div class="col-12">
-                            <button type="submit" class="btn btn-primary">Buscar</button>
-                            <a href="{{ url_for('vendedor.vendedor_abonos') }}" class="btn btn-secondary">Limpiar</a>
+                        <div class="col-12 d-flex flex-wrap align-items-center justify-content-between gap-3">
+                            <div>
+                                <button type="submit" class="btn btn-primary px-4"><i class="bi bi-search me-1"></i>Buscar</button>
+                                <a href="{{ url_for('vendedor.vendedor_abonos') }}" class="btn btn-secondary px-4"><i class="bi bi-x-circle me-1"></i>Limpiar</a>
+                            </div>
+                            <div class="d-flex align-items-center gap-2">
+                                <span class="text-secondary small fw-bold"><i class="bi bi-funnel-fill me-1"></i>Filtros Rápidos:</span>
+                                <a href="{{ url_for('vendedor.vendedor_abonos') }}" class="btn btn-sm btn-outline-success {% if filtros.fecha_desde == hoy and filtros.fecha_hasta == hoy and not filtros.ver_todo %}active{% endif %} rounded-pill px-3">
+                                    Hoy
+                                </a>
+                                <a href="{{ url_for('vendedor.vendedor_abonos', fecha_desde=ayer, fecha_hasta=ayer) }}" class="btn btn-sm btn-outline-success {% if filtros.fecha_desde == ayer and filtros.fecha_hasta == ayer %}active{% endif %} rounded-pill px-3">
+                                    Ayer
+                                </a>
+                                <a href="{{ url_for('vendedor.vendedor_abonos', ver_todo='1') }}" class="btn btn-sm btn-outline-success {% if filtros.ver_todo == '1' %}active{% endif %} rounded-pill px-3">
+                                    Historial Completo
+                                </a>
+                            </div>
                         </div>
                     </form>
                 </div>
@@ -67,51 +81,148 @@
     <!-- Tabla de Abonos -->
     <div class="row">
         <div class="col-12">
-            <div class="card shadow">
-                <div class="card-header bg-success text-white">
-                    <h5 class="mb-0">Historial de Abonos</h5>
+            <div class="card shadow border-0 rounded-3 overflow-hidden">
+                <div class="card-header bg-success text-white py-3">
+                    <h5 class="mb-0 d-flex align-items-center">
+                        <i class="bi bi-clock-history me-2"></i>
+                        Historial de Abonos Recientes
+                    </h5>
                 </div>
-                <div class="card-body">
+                <div class="card-body p-0">
                     {% if abonos and abonos|length > 0 %}
                     <div class="table-responsive">
-                        <table class="table table-hover">
+                        <table class="table table-hover align-middle mb-0">
                             <thead class="table-dark">
                                 <tr>
-                                    <th>ID</th>
-                                    <th>Fecha</th>
+                                    <th class="ps-3">Fecha</th>
                                     <th>Cliente</th>
-                                    <th>Monto</th>
                                     <th>Método de Pago</th>
                                     <th>Ruta</th>
-                                    <th>Saldo Anterior</th>
-                                    <th>Saldo Nuevo</th>
+                                    <th class="text-end pe-4">Monto Cobrado</th>
+                                    <th class="text-center">Acción</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {% for abono in abonos %}
-                                <tr>
-                                    <td>{{ abono.ID_Detalle }}</td>
-                                    <td>{{ abono.Fecha.strftime('%d/%m/%Y %H:%M') if abono.Fecha else 'N/A' }}</td>
-                                    <td>{{ abono.Nombre_Cliente }}</td>
-                                    <td class="text-success">C${{ "{:,.2f}".format(abono.Monto_Aplicado) }}</td>
-                                    <td>{{ abono.Metodo_Pago }}</td>
-                                    <td>{{ abono.Nombre_Ruta }}</td>
-                                    <td class="text-danger">C${{ "{:,.2f}".format(abono.Saldo_Anterior) }}</td>
-                                    <td class="text-success">C${{ "{:,.2f}".format(abono.Saldo_Nuevo) }}</td>
+                                <tr class="abono-row border-bottom">
+                                    <td class="ps-3">
+                                        <div class="fw-semibold text-dark">
+                                            {{ abono.Fecha.strftime('%d/%m/%Y') if abono.Fecha else 'N/A' }}
+                                        </div>
+                                        <div class="small text-muted">
+                                            {{ abono.Fecha.strftime('%H:%M') if abono.Fecha else '' }}
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <div class="fw-bold text-dark">{{ abono.Nombre_Cliente }}</div>
+                                        {% if abono.RUC_CEDULA or abono.Telefono %}
+                                        <div class="small text-muted font-size-xs">
+                                            {% if abono.RUC_CEDULA %}<span class="me-2">RUC: {{ abono.RUC_CEDULA }}</span>{% endif %}
+                                            {% if abono.Telefono %}<span>Tel: {{ abono.Telefono }}</span>{% endif %}
+                                        </div>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-light text-dark border px-2 py-1">{{ abono.Metodo_Pago }}</span>
+                                    </td>
+                                    <td>
+                                        <span class="text-secondary"><i class="bi bi-geo-alt me-1"></i>{{ abono.Nombre_Ruta }}</span>
+                                    </td>
+                                    <td class="text-end pe-4 text-success fw-bold font-size-md">
+                                        C${{ "{:,.2f}".format(abono.Monto_Total) }}
+                                    </td>
+                                    <td class="text-center">
+                                        <button class="btn btn-sm btn-outline-success border-2 rounded-pill px-3 btn-toggle-detail d-inline-flex align-items-center gap-1" 
+                                                type="button" 
+                                                data-bs-toggle="collapse" 
+                                                data-bs-target="#detalle-{{ loop.index }}" 
+                                                aria-expanded="false" 
+                                                aria-controls="detalle-{{ loop.index }}">
+                                            <span>Detalle</span>
+                                            <i class="bi bi-chevron-down arrow-icon"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+                                <tr class="collapse-row">
+                                    <td colspan="6" class="p-0 border-0">
+                                        <div class="collapse" id="detalle-{{ loop.index }}">
+                                            <div class="p-4 bg-light-green-gradient border-bottom">
+                                                <div class="card detail-card border-0 shadow-sm overflow-hidden">
+                                                    <div class="card-header bg-dark text-white py-2 px-3 d-flex align-items-center justify-content-between">
+                                                        <span class="fw-bold small text-uppercase tracking-wider">
+                                                            <i class="bi bi-receipt me-1 text-success"></i> Facturas Abonadas / Canceladas
+                                                        </span>
+                                                        <span class="badge bg-success rounded-pill px-3">{{ abono.Detalles|length }} Factura(s)</span>
+                                                    </div>
+                                                    <div class="table-responsive">
+                                                        <table class="table table-sm table-hover align-middle mb-0 bg-white">
+                                                            <thead class="bg-light text-secondary small">
+                                                                <tr>
+                                                                    <th class="ps-3 py-2">Nº Factura / Documento</th>
+                                                                    <th class="py-2 text-end">Monto Aplicado</th>
+                                                                    <th class="py-2 text-end">Saldo Anterior</th>
+                                                                    <th class="py-2 text-end">Saldo Resultante</th>
+                                                                    <th class="pe-3 py-2 text-center">Estado de Factura</th>
+                                                                </tr>
+                                                            </thead>
+                                                            <tbody>
+                                                                {% for det in abono.Detalles %}
+                                                                <tr class="border-bottom border-light">
+                                                                    <td class="ps-3 py-2">
+                                                                        <span class="fw-semibold text-dark"><i class="bi bi-file-earmark-text text-muted me-1"></i>{{ det.Num_Documento }}</span>
+                                                                    </td>
+                                                                    <td class="py-2 text-end text-success fw-bold">
+                                                                        C${{ "{:,.2f}".format(det.Monto_Aplicado) }}
+                                                                    </td>
+                                                                    <td class="py-2 text-end text-muted font-size-xs">
+                                                                        C${{ "{:,.2f}".format(det.Saldo_Anterior) }}
+                                                                    </td>
+                                                                    <td class="py-2 text-end text-primary fw-semibold">
+                                                                        C${{ "{:,.2f}".format(det.Saldo_Nuevo) }}
+                                                                    </td>
+                                                                    <td class="pe-3 py-2 text-center">
+                                                                        {% if det.Saldo_Nuevo <= 0.01 %}
+                                                                        <span class="badge bg-success-soft text-success rounded-pill px-3 py-1 font-size-xs">
+                                                                            <i class="bi bi-check-circle-fill me-1"></i> Cancelada
+                                                                        </span>
+                                                                        {% else %}
+                                                                        <span class="badge bg-warning-soft text-warning rounded-pill px-3 py-1 font-size-xs">
+                                                                            <i class="bi bi-hourglass-split me-1"></i> Con Saldo
+                                                                        </span>
+                                                                        {% endif %}
+                                                                    </td>
+                                                                </tr>
+                                                                {% endfor %}
+                                                            </tbody>
+                                                        </table>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </td>
                                 </tr>
                                 {% endfor %}
                             </tbody>
-                            <tfoot class="table-secondary">
+                            <tfoot class="table-light border-top border-2">
                                 <tr>
-                                    <th colspan="3" class="text-end">Total:</th>
-                                    <th colspan="4">C${{ "{:,.2f}".format(estadisticas.Monto_Total) }}</th>
+                                    <th colspan="4" class="text-end pe-3 py-3">Monto Consolidado Total:</th>
+                                    <th class="text-end pe-4 text-success fw-bold py-3 font-size-md">
+                                        C${{ "{:,.2f}".format(estadisticas.Monto_Total) }}
+                                    </th>
+                                    <th></th>
                                 </tr>
                             </tfoot>
                         </table>
                     </div>
                     {% else %}
-                    <div class="alert alert-info">
-                        No se encontraron abonos registrados para este vendedor.
+                    <div class="alert alert-info m-4 border-0 shadow-sm">
+                        <div class="d-flex align-items-center">
+                            <i class="bi bi-info-circle-fill fs-4 me-3 text-info"></i>
+                            <div>
+                                <h6 class="alert-heading mb-1 fw-bold">Sin resultados</h6>
+                                No se encontraron abonos registrados para este vendedor con los filtros seleccionados.
+                            </div>
+                        </div>
                     </div>
                     {% endif %}
                 </div>
@@ -119,4 +230,62 @@
         </div>
     </div>
 </div>
+
+{% block extra_css %}
+<style>
+    /* Estilos Premium para la tabla de Abonos */
+    .font-size-xs {
+        font-size: 0.75rem;
+    }
+    .font-size-md {
+        font-size: 1.05rem;
+    }
+    
+    .abono-row {
+        transition: background-color 0.2s ease;
+    }
+    
+    .abono-row:hover {
+        background-color: rgba(44, 94, 46, 0.02) !important;
+    }
+    
+    .btn-toggle-detail {
+        transition: all 0.2s ease-in-out;
+    }
+    
+    .btn-toggle-detail[aria-expanded="true"] {
+        background-color: var(--primary-color) !important;
+        border-color: var(--primary-color) !important;
+        color: white !important;
+    }
+    
+    .arrow-icon {
+        transition: transform 0.2s ease;
+    }
+    
+    .btn-toggle-detail[aria-expanded="true"] .arrow-icon {
+        transform: rotate(180deg);
+    }
+    
+    .bg-light-green-gradient {
+        background: linear-gradient(135deg, rgba(44, 94, 46, 0.02) 0%, rgba(16, 185, 129, 0.04) 100%);
+        border-left: 4px solid var(--primary-color);
+    }
+    
+    .detail-card {
+        border: 1px solid rgba(0, 0, 0, 0.05) !important;
+        border-radius: 10px !important;
+    }
+    
+    .bg-success-soft {
+        background-color: rgba(25, 135, 84, 0.1) !important;
+        color: #198754 !important;
+    }
+    
+    .bg-warning-soft {
+        background-color: rgba(255, 193, 7, 0.12) !important;
+        color: #8f6b00 !important;
+    }
+</style>
+{% endblock %}
 {% endblock %}

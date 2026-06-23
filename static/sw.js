@@ -1,4 +1,4 @@
-const CACHE_NAME = 'vendedor-cache-v2';
+const CACHE_NAME = 'vendedor-cache-v3';
 
 // SOLO las rutas que existen en tu app
 const urlsToCache = [
@@ -64,6 +64,11 @@ self.addEventListener('fetch', event => {
   const url = new URL(event.request.url);
   const request = event.request;
 
+  // Solo interceptar peticiones GET (las peticiones POST/PUT/DELETE deben pasar directo a la red)
+  if (request.method !== 'GET') {
+    return;
+  }
+
   // 🔧 Estrategia 1: Imágenes (Cache First con respaldo de red)
   if (url.pathname.match(/\.(jpg|jpeg|png|gif|webp|svg|bmp|ico)$/i)) {
     event.respondWith(
@@ -125,7 +130,11 @@ self.addEventListener('fetch', event => {
   }
   
   // 🔧 Estrategia 2: API y datos dinámicos (Network First)
-  else if (url.pathname.includes('/api/') || url.pathname.includes('/ajax/')) {
+  else if (url.pathname.includes('/api/') || 
+           url.pathname.includes('/ajax/') ||
+           url.pathname.startsWith('/vendedor/') ||
+           url.pathname.startsWith('/admin/') ||
+           url.pathname.startsWith('/bodega/')) {
     event.respondWith(
       fetch(request)
         .then(networkResponse => {
@@ -149,11 +158,7 @@ self.addEventListener('fetch', event => {
   }
   
   // 🔧 Estrategia 3: HTML y recursos principales (Cache First con revalidación)
-  // 👇 SOLO CAMBIO AQUÍ: Agregar '/admin/' y '/bodega/'
-  else if (url.pathname.startsWith('/vendedor/') || 
-           url.pathname.startsWith('/admin/') ||    // ← NUEVO
-           url.pathname.startsWith('/bodega/') ||   // ← NUEVO
-           url.pathname.match(/\.(html|css|js)$/i) ||
+  else if (url.pathname.match(/\.(html|css|js)$/i) ||
            url.pathname === '/' ||
            url.pathname === '/index.html') {
     event.respondWith(

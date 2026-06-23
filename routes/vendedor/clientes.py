@@ -272,7 +272,6 @@ def api_metodos_pago():
             cursor.execute("""
                 SELECT ID_MetodoPago, Nombre
                 FROM metodos_pago
-                WHERE Estado = 'ACTIVO'
                 ORDER BY Nombre
             """)
             metodos = cursor.fetchall()
@@ -944,13 +943,21 @@ def vendedor_abonos():
         fecha_hasta = request.args.get('fecha_hasta', '')
         metodo_pago = request.args.get('metodo_pago', '')
         cliente = request.args.get('cliente', '')
+        ver_todo = request.args.get('ver_todo', '')
         
+        # Por defecto, si no se proporcionan filtros de fecha y no se solicita ver todo el historial, limitar a hoy
+        if not fecha_desde and not fecha_hasta and not ver_todo:
+            today_str = datetime.now().strftime('%Y-%m-%d')
+            fecha_desde = today_str
+            fecha_hasta = today_str
+            
         print("=== DEBUG INFO ===")
         print(f"ID Vendedor: {id_vendedor}")
         print(f"Fecha Desde: {fecha_desde}")
         print(f"Fecha Hasta: {fecha_hasta}")
         print(f"Metodo Pago: {metodo_pago}")
         print(f"Cliente: {cliente}")
+        print(f"Ver Todo: {ver_todo}")
         
         with get_db_cursor() as cursor:
             # PRIMERO: Verificar conexión y tabla
@@ -973,6 +980,7 @@ def vendedor_abonos():
             query = """
                 SELECT 
                     ad.ID_Detalle,
+                    ad.ID_Cliente,
                     c.Nombre AS Nombre_Cliente,
                     c.RUC_CEDULA,
                     c.Telefono,
@@ -980,13 +988,15 @@ def vendedor_abonos():
                     ad.Fecha,
                     ad.Saldo_Anterior,
                     ad.Saldo_Nuevo,
-                    mp.Nombre AS Metodo_Pago,
-                    r.Nombre_Ruta
+                    COALESCE(mp.Nombre, 'Efectivo') AS Metodo_Pago,
+                    COALESCE(r.Nombre_Ruta, 'Ruta Actual') AS Nombre_Ruta,
+                    cc.Num_Documento AS Num_Documento
                 FROM abonos_detalle ad
                 INNER JOIN clientes c ON ad.ID_Cliente = c.ID_Cliente
-                INNER JOIN metodos_pago mp ON ad.ID_MetodoPago = mp.ID_MetodoPago
-                INNER JOIN asignacion_vendedores av ON ad.ID_Asignacion = av.ID_Asignacion
-                INNER JOIN rutas r ON av.ID_Ruta = r.ID_Ruta
+                LEFT JOIN metodos_pago mp ON ad.ID_MetodoPago = mp.ID_MetodoPago
+                LEFT JOIN asignacion_vendedores av ON ad.ID_Asignacion = av.ID_Asignacion
+                LEFT JOIN rutas r ON av.ID_Ruta = r.ID_Ruta
+                LEFT JOIN cuentas_por_cobrar cc ON ad.ID_CuentaCobrar = cc.ID_Movimiento
                 WHERE ad.ID_Usuario = %s
             """
             
@@ -1013,7 +1023,7 @@ def vendedor_abonos():
                 params.append(f'%{cliente}%')
                 print(f"Agregado filtro cliente, params: {params}")
             
-            query += " ORDER BY ad.Fecha DESC"
+            query += " ORDER BY ad.Fecha DESC, ad.ID_Detalle DESC"
             
             print(f"\nQuery final: {query}")
             print(f"Params finales: {params}")
@@ -1021,13 +1031,44 @@ def vendedor_abonos():
             
             # Ejecutar consulta
             cursor.execute(query, tuple(params))
-            abonos = cursor.fetchall()
+            abonos_raw = cursor.fetchall()
             
-            print(f"Abonos encontrados: {len(abonos)}")
+            print(f"Registros de abono crudos encontrados: {len(abonos_raw)}")
             
-            # Si no hay abonos, mostrar mensaje
-            if not abonos:
-                print("No se encontraron abonos para este vendedor")
+            # Agrupar abonos en Python por cliente + fecha + metodo_pago
+            from collections import OrderedDict
+            grouped_dict = OrderedDict()
+            
+            for abono in abonos_raw:
+                # La fecha en MySQL suele ser idéntica para inserciones en la misma transacción.
+                # Formateamos la fecha a cadena para tener una clave consistente.
+                fecha_str = abono['Fecha'].strftime('%Y-%m-%d %H:%M:%S') if abono['Fecha'] else 'N/A'
+                key = (abono['ID_Cliente'], fecha_str, abono['Metodo_Pago'])
+                
+                if key not in grouped_dict:
+                    grouped_dict[key] = {
+                        'ID_Cliente': abono['ID_Cliente'],
+                        'Nombre_Cliente': abono['Nombre_Cliente'],
+                        'RUC_CEDULA': abono['RUC_CEDULA'],
+                        'Telefono': abono['Telefono'],
+                        'Fecha': abono['Fecha'],
+                        'Metodo_Pago': abono['Metodo_Pago'],
+                        'Nombre_Ruta': abono['Nombre_Ruta'],
+                        'Monto_Total': 0.0,
+                        'Detalles': []
+                    }
+                
+                grouped_dict[key]['Monto_Total'] += float(abono['Monto_Aplicado'])
+                grouped_dict[key]['Detalles'].append({
+                    'ID_Detalle': abono['ID_Detalle'],
+                    'Num_Documento': abono['Num_Documento'] or 'Venta / Factura General',
+                    'Monto_Aplicado': abono['Monto_Aplicado'],
+                    'Saldo_Anterior': abono['Saldo_Anterior'],
+                    'Saldo_Nuevo': abono['Saldo_Nuevo']
+                })
+                
+            abonos_agrupados = list(grouped_dict.values())
+            print(f"Abonos agrupados: {len(abonos_agrupados)}")
             
             # Obtener métodos de pago
             cursor.execute("SELECT ID_MetodoPago, Nombre FROM metodos_pago ORDER BY Nombre")
@@ -1035,39 +1076,48 @@ def vendedor_abonos():
             
             # Resumen por método de pago
             resumen_pagos = []
-            if abonos:
+            if abonos_raw:
                 query_resumen = """
                     SELECT 
-                        mp.Nombre AS Metodo_Pago,
+                        COALESCE(mp.Nombre, 'Efectivo') AS Metodo_Pago,
                         COUNT(*) AS Cantidad,
                         SUM(ad.Monto_Aplicado) AS Total
                     FROM abonos_detalle ad
-                    INNER JOIN metodos_pago mp ON ad.ID_MetodoPago = mp.ID_MetodoPago
+                    LEFT JOIN metodos_pago mp ON ad.ID_MetodoPago = mp.ID_MetodoPago
                     WHERE ad.ID_Usuario = %s
-                    GROUP BY mp.Nombre
+                    GROUP BY COALESCE(mp.Nombre, 'Efectivo')
                 """
                 cursor.execute(query_resumen, (id_vendedor,))
                 resumen_pagos = cursor.fetchall()
             
-            # Estadísticas
+            # Estadísticas basadas en abonos agrupados para que refleje transacciones reales de cobro
+            total_monto = sum(abono['Monto_Total'] for abono in abonos_agrupados) if abonos_agrupados else 0
+            cantidad_abonos = len(abonos_agrupados)
+            
             estadisticas = {
-                'Total_Abonos': len(abonos),
-                'Monto_Total': sum(abono['Monto_Aplicado'] for abono in abonos) if abonos else 0,
-                'Promedio_Abono': (sum(abono['Monto_Aplicado'] for abono in abonos) / len(abonos)) if abonos else 0,
-                'Primera_Fecha': abonos[-1]['Fecha'] if abonos else None,
-                'Ultima_Fecha': abonos[0]['Fecha'] if abonos else None
+                'Total_Abonos': cantidad_abonos,
+                'Monto_Total': total_monto,
+                'Promedio_Abono': (total_monto / cantidad_abonos) if cantidad_abonos > 0 else 0,
+                'Primera_Fecha': abonos_agrupados[-1]['Fecha'] if abonos_agrupados else None,
+                'Ultima_Fecha': abonos_agrupados[0]['Fecha'] if abonos_agrupados else None
             }
             
+            today_str = datetime.now().strftime('%Y-%m-%d')
+            yesterday_str = (datetime.now() - timedelta(days=1)).strftime('%Y-%m-%d')
+            
             return render_template('vendedor/clientes/abonos.html', 
-                                 abonos=abonos,
+                                 abonos=abonos_agrupados,
                                  metodos_pago=metodos_pago,
                                  resumen_pagos=resumen_pagos,
                                  estadisticas=estadisticas,
+                                 hoy=today_str,
+                                 ayer=yesterday_str,
                                  filtros={
                                      'fecha_desde': fecha_desde,
                                      'fecha_hasta': fecha_hasta,
                                      'metodo_pago': metodo_pago,
-                                     'cliente': cliente
+                                     'cliente': cliente,
+                                     'ver_todo': ver_todo
                                  })
             
     except Exception as e:
