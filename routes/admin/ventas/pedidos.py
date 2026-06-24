@@ -1869,9 +1869,9 @@ def admin_procesar_venta_pedido(id_pedido):
                 # VALIDACIÓN DE VISIBILIDAD DE PRODUCTOS
                 print("🔍 Validando visibilidad de productos para el cliente...")
                 
-                # Obtener tipo de cliente
+                # Obtener tipo de cliente y saldo actual
                 cursor.execute("""
-                    SELECT tipo_cliente 
+                    SELECT tipo_cliente, Saldo_Pendiente_Total 
                     FROM clientes 
                     WHERE ID_Cliente = %s
                 """, (pedido['ID_Cliente'],))
@@ -1882,7 +1882,8 @@ def admin_procesar_venta_pedido(id_pedido):
                     return redirect(url_for('admin.admin_pedidos_venta'))
                 
                 tipo_cliente = cliente_data['tipo_cliente']
-                print(f"👤 Tipo de cliente: {tipo_cliente}")
+                saldo_actual_cliente = float(cliente_data['Saldo_Pendiente_Total'] or 0)
+                print(f"👤 Tipo de cliente: {tipo_cliente} | Saldo actual: {saldo_actual_cliente}")
                 
                 # Validar cada producto contra la visibilidad del cliente
                 productos_invalidos = []
@@ -1948,15 +1949,16 @@ def admin_procesar_venta_pedido(id_pedido):
                 cursor.execute("""
                     INSERT INTO facturacion (
                         Fecha, IDCliente, Credito_Contado, Observacion, 
-                        ID_Empresa, ID_Usuario_Creacion
+                        ID_Empresa, ID_Usuario_Creacion, Saldo_Anterior_Cliente
                     )
-                    VALUES (CURDATE(), %s, %s, %s, %s, %s)
+                    VALUES (CURDATE(), %s, %s, %s, %s, %s, %s)
                 """, (
                     pedido['ID_Cliente'],
                     1 if tipo_venta == 'credito' else 0,
                     observacion_completa,
                     id_empresa,
-                    id_usuario
+                    id_usuario,
+                    saldo_actual_cliente
                 ))
                 
                 # Obtener el ID de la factura
@@ -2139,6 +2141,16 @@ def admin_procesar_venta_pedido(id_pedido):
                         id_usuario
                     ))
                     print(f"💰 Cuenta por cobrar creada: FAC-{id_factura:05d}")
+                    
+                    # Actualizar saldo pendiente consolidado del cliente
+                    cursor.execute("""
+                        UPDATE clientes 
+                        SET Saldo_Pendiente_Total = COALESCE(Saldo_Pendiente_Total, 0) + %s,
+                            Fecha_Ultimo_Movimiento = NOW(),
+                            ID_Ultima_Factura = %s
+                        WHERE ID_Cliente = %s
+                    """, (total_venta, id_factura, pedido['ID_Cliente']))
+                    print(f"💰 Saldo consolidado del cliente actualizado con el crédito de la venta.")
                 
                 # 10. Si es CONTADO, registrar entrada en caja
                 if tipo_venta == 'contado':
@@ -2156,6 +2168,15 @@ def admin_procesar_venta_pedido(id_pedido):
                         f'FAC-{id_factura:05d}'
                     ))
                     print(f"💰 Movimiento de caja registrado: C${total_venta:,.2f}")
+                    
+                    # Actualizar última fecha de movimiento y última factura en el cliente
+                    cursor.execute("""
+                        UPDATE clientes 
+                        SET Fecha_Ultimo_Movimiento = NOW(),
+                            ID_Ultima_Factura = %s
+                        WHERE ID_Cliente = %s
+                    """, (id_factura, pedido['ID_Cliente']))
+                    print(f"💰 Registro de última factura y fecha actualizado en el cliente.")
                 
                 # 11. Actualizar el estado del pedido a "Entregado"
                 cursor.execute("""

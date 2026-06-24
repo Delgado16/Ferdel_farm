@@ -1030,8 +1030,8 @@ def vendedor_generar_ticket_ruta(id_venta):
                     concepto_abono = 'ABONO A CUENTA' if abono_cliente > 0 else 'SIN ABONO'
                     fecha_abono = None
             
-            # El nuevo saldo pendiente es el que está en la tabla clientes (ya actualizado)
-            nuevo_saldo_pendiente = float(factura['Saldo_Cliente_Actual'] or 0)
+            # El nuevo saldo pendiente se calcula matemáticamente para ser histórico de esta venta
+            nuevo_saldo_pendiente = saldo_anterior_total + total_venta - abono_cliente
             
             # Determinar si mostrar sección de crédito
             if saldo_anterior_total > 0 or abono_cliente > 0 or factura['Credito_Contado'] == 2:

@@ -776,21 +776,18 @@
 
             const saldoAnterior = saldoAnteriorReal !== null ? saldoAnteriorReal : (saldoClienteActual || 0);
 
-            const abono = parseFloat(venta.datos.abono_monto) || 0;
-            let saldoTotal, nuevoSaldo;
+            // Si es contado, el abono/pago real es el total de la venta
+            const abono = venta.datos.tipo_venta === '1' ? totalVenta : (parseFloat(venta.datos.abono_monto) || 0);
 
-            if (venta.datos.tipo_venta === '1') {
-                saldoTotal = saldoAnterior;
-                nuevoSaldo = Math.max(0, saldoTotal - abono);
-            } else {
-                saldoTotal = totalVenta + saldoAnterior;
-                nuevoSaldo = Math.max(0, saldoTotal - abono);
-            }
+            // El saldo total es la venta más el saldo anterior del cliente
+            const saldoTotal = totalVenta + saldoAnterior;
+
+            // El nuevo saldo es la diferencia
+            const nuevoSaldo = Math.max(0, saldoTotal - abono);
 
             const facturaId = venta.factura_id || String(venta.id || '').slice(-8).toUpperCase();
-            const mostrarDetalleVenta = venta.datos.tipo_venta !== '1';
             const conceptoAbono = abono > 0 ?
-                (abono >= totalVenta ? 'PAGO TOTAL DE LA VENTA' : 'ABONO A CUENTA') : '';
+                (venta.datos.tipo_venta === '1' ? 'PAGO AL CONTADO' : (abono >= totalVenta ? 'PAGO TOTAL DE LA VENTA' : 'ABONO A CUENTA')) : '';
 
             const productosHtml = venta.datos.productos.map(p => {
                 const subtotal = p.cantidad * p.precio;
@@ -1155,22 +1152,18 @@
         ${(nuevoSaldo > 0 || abono > 0) ? `
         <div class="saldos-container">
             <div class="saldos-title">ESTADO DE CUENTA</div>
-            ${mostrarDetalleVenta ? `
             <div class="saldos-row">
                 <span>Total de la venta</span>
                 <span style="font-weight: bold;">C$ ${totalVenta.toFixed(2)}</span>
             </div>
-            ` : ''}
             <div class="saldos-row">
                 <span>Saldo Anterior</span>
                 <span style="font-weight: bold;">C$ ${saldoAnterior.toFixed(2)}</span>
             </div>
-            ${mostrarDetalleVenta ? `
             <div class="saldos-total-row">
                 <span>saldo total ----</span>
                 <span>C$ ${saldoTotal.toFixed(2)}</span>
             </div>
-            ` : ''}
             ${abono > 0 ? `
             <div class="saldos-abono-row">
                 <span>Abono --------</span>
@@ -1241,25 +1234,19 @@
 </html>`;
             };
 
-            // Abrir ventana inmediatamente en el hilo de interacción del usuario para evitar bloqueador de popups
-            const ventana = window.open('', '_blank');
-
             generarTicketConLogo().then(ticketHtml => {
                 try {
-                    if (ventana) {
-                        ventana.document.write(ticketHtml);
-                        ventana.document.close();
-                    } else {
-                        // Fallback si la ventana fue bloqueada o no se pudo abrir
-                        document.open();
-                        document.write(ticketHtml);
-                        document.close();
-                    }
+                    // Reemplazar window.close() por location.reload() para el botón Cerrar en la misma ventana
+                    const htmlContent = ticketHtml.replace('window.close()', 'location.reload()');
+                    document.open();
+                    document.write(htmlContent);
+                    document.close();
                 } catch (error) {
-                    console.error('Error al escribir en la ventana:', error);
+                    console.error('Error al escribir el ticket en la ventana:', error);
                     try {
+                        const htmlContent = ticketHtml.replace('window.close()', 'location.reload()');
                         document.open();
-                        document.write(ticketHtml);
+                        document.write(htmlContent);
                         document.close();
                     } catch (e) {
                         if (typeof showAlert === 'function') {
@@ -1269,9 +1256,6 @@
                 }
             }).catch(error => {
                 console.error('Error generando HTML:', error);
-                if (ventana) {
-                    ventana.close();
-                }
                 if (typeof showAlert === 'function') {
                     showAlert('error', 'No se pudo generar la factura');
                 }
@@ -2762,7 +2746,7 @@
         let html = '<div style="max-height: 400px; overflow-y: auto; padding: 5px;">';
         tickets.forEach((t, i) => {
             const fecha = new Date(t.fecha).toLocaleString();
-            html += `<div class="border rounded p-3 mb-2" style="background: #f8f9fa;"><div class="d-flex flex-column flex-sm-row justify-content-between align-items-start align-items-sm-center"><div style="flex: 1;"><strong style="font-size: 14px;">Factura #${t.id}</strong><br><small class="text-muted">${fecha}</small><br><span class="text-success fw-bold">${formatoCordoba(t.total)}</span></div><button onclick="window.open('${t.url}?autoPrint=1', '_blank')" class="btn btn-sm btn-primary mt-2 mt-sm-0" style="min-width: 100px;"><i class="fas fa-print"></i> Imprimir</button></div></div>`;
+            html += `<div class="border rounded p-3 mb-2" style="background: #f8f9fa;"><div class="d-flex flex-column flex-sm-row justify-content-between align-items-start align-items-sm-center"><div style="flex: 1;"><strong style="font-size: 14px;">Factura #${t.id}</strong><br><small class="text-muted">${fecha}</small><br><span class="text-success fw-bold">${formatoCordoba(t.total)}</span></div><button onclick="window.location.href='${t.url}?autoPrint=1'" class="btn btn-sm btn-primary mt-2 mt-sm-0" style="min-width: 100px;"><i class="fas fa-print"></i> Imprimir</button></div></div>`;
         });
         html += '</div>';
         Swal.fire({ title: '<i class="fas fa-ticket-alt"></i> Tickets generados', html: html, width: '500px', confirmButtonText: '<i class="fas fa-check"></i> Cerrar', confirmButtonColor: '#6c757d' });
@@ -2781,7 +2765,7 @@
             let html = '<div style="max-height: 400px; overflow-y: auto; padding: 5px;">';
             sincronizadas.forEach((v, i) => {
                 const fecha = new Date(v.fecha_sincronizacion || v.fecha_creacion).toLocaleString();
-                html += `<div class="border rounded p-3 mb-2" style="background: #f8f9fa;"><div class="d-flex flex-column flex-sm-row justify-content-between align-items-start align-items-sm-center"><div style="flex: 1;"><strong style="font-size: 14px;">Factura #${v.factura_id}</strong><br><small class="text-muted">${fecha}</small><br><span class="text-success fw-bold">${formatoCordoba(v.datos.total)}</span></div><div class="d-flex gap-2 mt-2 mt-sm-0"><button onclick="window.open('${v.ticket_url}?autoPrint=1', '_blank')" class="btn btn-sm btn-primary"><i class="fas fa-print"></i></button><button onclick="eliminarTicket('${v.id}')" class="btn btn-sm btn-danger"><i class="fas fa-trash"></i></button></div></div></div>`;
+                html += `<div class="border rounded p-3 mb-2" style="background: #f8f9fa;"><div class="d-flex flex-column flex-sm-row justify-content-between align-items-start align-items-sm-center"><div style="flex: 1;"><strong style="font-size: 14px;">Factura #${v.factura_id}</strong><br><small class="text-muted">${fecha}</small><br><span class="text-success fw-bold">${formatoCordoba(v.datos.total)}</span></div><div class="d-flex gap-2 mt-2 mt-sm-0"><button onclick="window.location.href='${v.ticket_url}?autoPrint=1'" class="btn btn-sm btn-primary"><i class="fas fa-print"></i></button><button onclick="eliminarTicket('${v.id}')" class="btn btn-sm btn-danger"><i class="fas fa-trash"></i></button></div></div></div>`;
             });
             html += '</div>';
 
@@ -3003,7 +2987,7 @@
                     const fecha = new Date(venta.fecha_sincronizacion || venta.fecha_creacion).toLocaleString();
                     const total = venta.datos?.total || 0;
 
-                    html += `<div class="border rounded p-2 mb-2" style="border-left: 4px solid #28a745; background: #f0fff0;"><div class="d-flex flex-column flex-sm-row justify-content-between align-items-start align-items-sm-center"><div style="flex: 1;"><strong>Factura #${venta.factura_id}</strong><br><small class="text-muted">${fecha}</small><br><span class="text-success">${formatoCordoba(total)}</span></div><button onclick="window.open('${venta.ticket_url}?autoPrint=1', '_blank')" class="btn btn-sm btn-primary mt-2 mt-sm-0" style="min-width: 100px;"><i class="fas fa-print"></i> Imprimir</button></div></div>`;
+                    html += `<div class="border rounded p-2 mb-2" style="border-left: 4px solid #28a745; background: #f0fff0;"><div class="d-flex flex-column flex-sm-row justify-content-between align-items-start align-items-sm-center"><div style="flex: 1;"><strong>Factura #${venta.factura_id}</strong><br><small class="text-muted">${fecha}</small><br><span class="text-success">${formatoCordoba(total)}</span></div><button onclick="window.location.href='${venta.ticket_url}?autoPrint=1'" class="btn btn-sm btn-primary mt-2 mt-sm-0" style="min-width: 100px;"><i class="fas fa-print"></i> Imprimir</button></div></div>`;
                 });
             }
 

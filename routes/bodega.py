@@ -974,19 +974,28 @@ def bodega_procesar_salida():
                         return redirect(url_for('bodega.bodega_nueva_salida_form'))
                         
                 elif id_cliente:
+                    # Obtener saldo actual del cliente
+                    cursor.execute("""
+                        SELECT COALESCE(Saldo_Pendiente_Total, 0) as Saldo_Pendiente_Total
+                        FROM clientes WHERE ID_Cliente = %s
+                    """, (id_cliente,))
+                    cliente_res = cursor.fetchone()
+                    saldo_anterior = float(cliente_res['Saldo_Pendiente_Total']) if cliente_res else 0.0
+
                     # Crear nueva factura
                     cursor.execute("""
                         INSERT INTO facturacion 
                         (Fecha, IDCliente, Credito_Contado, Observacion, 
-                         ID_Empresa, ID_Usuario_Creacion)
-                        VALUES (%s, %s, %s, %s, %s, %s)
+                         ID_Empresa, ID_Usuario_Creacion, Saldo_Anterior_Cliente)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s)
                     """, (
                         fecha,
                         id_cliente,
                         1 if tipo_pago == 'CREDITO' else 0,  # 1=Crédito, 0=Contado
                         request.form.get('observacion_factura') or None,
                         id_empresa,
-                        user_id
+                        user_id,
+                        saldo_anterior
                     ))
                     id_factura_venta = cursor.lastrowid
                     
@@ -1037,6 +1046,15 @@ def bodega_procesar_salida():
                             id_factura_venta,
                             user_id
                         ))
+                        
+                        # Actualizar saldo pendiente consolidado del cliente
+                        cursor.execute("""
+                            UPDATE clientes 
+                            SET Saldo_Pendiente_Total = COALESCE(Saldo_Pendiente_Total, 0) + %s,
+                                Fecha_Ultimo_Movimiento = NOW(),
+                                ID_Ultima_Factura = %s
+                            WHERE ID_Cliente = %s
+                        """, (total_venta, id_factura_venta, id_cliente))
 
                     if tipo_pago == 'CONTADO':
                         cursor.execute("SELECT Nombre FROM clientes WHERE ID_Cliente = %s", (id_cliente,))
@@ -1056,7 +1074,15 @@ def bodega_procesar_salida():
                             current_user.id,
                             f'FAC-{id_factura_venta:05d}'
                         ))
-                    print(f"💰 Entrada en caja registrada: C${total_venta:,.2f}")
+                        print(f"💰 Entrada en caja registrada: C${total_venta:,.2f}")
+                        
+                        # Actualizar última fecha de movimiento y última factura en el cliente
+                        cursor.execute("""
+                            UPDATE clientes 
+                            SET Fecha_Ultimo_Movimiento = NOW(),
+                                ID_Ultima_Factura = %s
+                            WHERE ID_Cliente = %s
+                        """, (id_factura_venta, id_cliente))
                     
                     flash(f"✅ Factura #{id_factura_venta} creada exitosamente", 'success')
                     

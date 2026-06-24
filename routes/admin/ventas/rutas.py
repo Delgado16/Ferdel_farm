@@ -288,7 +288,7 @@ def admin_asignacion_rutas():
                 LEFT JOIN vehiculos v ON a.ID_Vehiculo = v.ID_Vehiculo
                 LEFT JOIN usuarios ua ON a.ID_Usuario_Asigna = ua.ID_Usuario
                 WHERE a.ID_Empresa = %s
-                ORDER BY a.Fecha_Asignacion DESC, a.Estado
+                ORDER BY a.ID_Asignacion DESC, a.Estado
                 LIMIT 10
             """, (empresa_id,))
             asignaciones_raw = cursor.fetchall()

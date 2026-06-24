@@ -591,16 +591,17 @@ def admin_crear_venta():
                 cursor.execute("""
                     INSERT INTO facturacion (
                         Fecha, IDCliente, Credito_Contado, Observacion, 
-                        metodos_pago, ID_Empresa, ID_Usuario_Creacion
+                        metodos_pago, ID_Empresa, ID_Usuario_Creacion, Saldo_Anterior_Cliente
                     )
-                    VALUES (CURDATE(), %s, %s, %s, %s, %s, %s)
+                    VALUES (CURDATE(), %s, %s, %s, %s, %s, %s, %s)
                 """, (
                     id_cliente,
                     es_credito,
                     observacion,
                     metodos_pago_json,
                     id_empresa,
-                    id_usuario
+                    id_usuario,
+                    saldo_actual_cliente
                 ))
                 
                 # Obtener el ID de la factura
@@ -907,6 +908,7 @@ def admin_generar_ticket(id_factura):
                     f.Credito_Contado,
                     f.ID_Usuario_Creacion,
                     f.metodos_pago,
+                    f.Saldo_Anterior_Cliente,
                     c.ID_Cliente,
                     c.Nombre as Cliente,
                     c.RUC_CEDULA as RUC_Cliente,
@@ -964,22 +966,9 @@ def admin_generar_ticket(id_factura):
             # Calcular total de la venta actual
             total_venta_actual = sum(float(detalle['Subtotal'] or 0) for detalle in detalles)
             
-            # Obtener saldo anterior del cliente (suma de cuentas por cobrar pendientes ANTES de esta venta)
-            cursor.execute("""
-                SELECT COALESCE(SUM(Saldo_Pendiente), 0) as Saldo_Anterior
-                FROM cuentas_por_cobrar 
-                WHERE ID_Cliente = %s 
-                AND Estado IN ('Pendiente', 'Vencida')
-                AND Saldo_Pendiente > 0
-                AND ID_Factura != %s
-            """, (factura['ID_Cliente'], id_factura))
-            saldo_anterior_result = cursor.fetchone()
-            saldo_anterior = float(saldo_anterior_result['Saldo_Anterior'] or 0)
+            # (El saldo pendiente se calculará después de obtener el abono)
             
-            # Calcular saldo total (saldo anterior + venta actual)
-            saldo_total = saldo_anterior + total_venta_actual
-            
-            # Obtener abono/cliente (si es crédito, el abono es 0; si es contado, es el total pagado)
+            # Obtener abono/cliente (si es contado, el pago es el total de la venta; si es crédito, se suma lo registrado en caja)
             abono_cliente = 0
             concepto_abono = ''
             fecha_abono = ''
@@ -1019,8 +1008,14 @@ def admin_generar_ticket(id_factura):
                     concepto_abono = "Venta a crédito - pendiente de pago"
                     fecha_abono = ''
             
-            # Obtener el nuevo saldo pendiente del cliente (de la tabla clientes)
-            nuevo_saldo_cliente = float(factura['Saldo_Pendiente_Total'] or 0)
+            # El saldo anterior guardado históricamente en la factura
+            saldo_anterior = float(factura['Saldo_Anterior_Cliente'] or 0)
+            
+            # El nuevo saldo pendiente se calcula matemáticamente para ser histórico de esta venta
+            nuevo_saldo_cliente = saldo_anterior + total_venta_actual - abono_cliente
+                
+            # Calcular saldo total acumulado antes del pago/abono
+            saldo_total = saldo_anterior + total_venta_actual
             
             # Obtener facturas pendientes del cliente (para mostrar en el ticket)
             cursor.execute("""
@@ -1051,13 +1046,21 @@ def admin_generar_ticket(id_factura):
             metodos_pago = []
             total_pagado = 0
             
-            if factura['Credito_Contado'] == 0 and factura['metodos_pago']:
+            if factura['metodos_pago']:
                 import json
                 try:
                     metodos_pago = json.loads(factura['metodos_pago'])
                     total_pagado = sum(float(p.get('monto', 0)) for p in metodos_pago)
                 except:
                     pass
+            
+            if factura['Credito_Contado'] == 0 and not metodos_pago:
+                metodos_pago = [{
+                    'nombre': 'Efectivo',
+                    'monto': total_venta_actual,
+                    'referencia': ''
+                }]
+                total_pagado = total_venta_actual
             
             # Formatear detalles
             for detalle in detalles:
@@ -1106,7 +1109,7 @@ def admin_generar_ticket(id_factura):
                 'total': total_venta_actual,
                 'total_formateado': f"C$ {total_venta_actual:,.2f}",
                 'total_pagado': total_pagado,
-                'saldo_pendiente': nuevo_saldo_cliente if factura['Credito_Contado'] == 1 else max(0, total_venta_actual - total_pagado),
+                'saldo_pendiente': nuevo_saldo_cliente,
                 'metodos_pago': metodos_pago,
                 'empresa': {
                     'nombre': factura['Nombre_Empresa'],
@@ -1122,6 +1125,7 @@ def admin_generar_ticket(id_factura):
             return render_template('admin/ventas/ticket_venta.html', 
                                  ticket=ticket_data,
                                  venta_realizada_formateada=venta_realizada_formateada,
+                                 saldo_anterior=saldo_anterior,
                                  saldo_anterior_formateado=saldo_anterior_formateado,
                                  saldo_total=saldo_total,
                                  abono_cliente=abono_cliente,
