@@ -2489,7 +2489,7 @@ def inventario_vendedores():
                     av.Hora_Fin,
                     v.Placa AS Vehiculo,
                     av.Estado AS Estado_Asignacion,
-                    COUNT(ir.ID_Producto) AS Total_Productos,
+                    COUNT(CASE WHEN ir.Cantidad > 0 THEN ir.ID_Producto END) AS Total_Productos,
                     COALESCE(SUM(ir.Cantidad), 0) AS Total_Unidades
                 FROM usuarios u
                 INNER JOIN roles r ON u.ID_Rol = r.ID_Rol
@@ -2506,7 +2506,18 @@ def inventario_vendedores():
                          av.Hora_Fin, v.Placa, av.Estado
                 ORDER BY u.NombreUsuario
             """, (session.get('id_empresa', 1),))
-            vendedores = cursor.fetchall()
+            vendedores_raw = cursor.fetchall()
+            
+            from datetime import date, datetime
+            vendedores = []
+            for v in vendedores_raw:
+                v_dict = dict(v)
+                if v_dict.get('Fecha_Asignacion') and isinstance(v_dict['Fecha_Asignacion'], str):
+                    try:
+                        v_dict['Fecha_Asignacion'] = datetime.strptime(v_dict['Fecha_Asignacion'][:10], '%Y-%m-%d').date()
+                    except ValueError:
+                        pass
+                vendedores.append(v_dict)
         
         return render_template('bodega/ruta/inventario_vendedores.html', vendedores=vendedores)
     except Exception as e:
@@ -2538,11 +2549,19 @@ def inventario_vendedor_detalle(id_usuario):
                 LEFT JOIN vehiculos v ON av.ID_Vehiculo = v.ID_Vehiculo
                 WHERE u.ID_Usuario = %s AND u.ID_Empresa = %s
             """, (id_usuario, session.get('id_empresa', 1)))
-            vendedor = cursor.fetchone()
+            vendedor_row = cursor.fetchone()
             
-            if not vendedor:
+            if not vendedor_row:
                 flash("Vendedor no encontrado", "warning")
                 return redirect(url_for('bodega.inventario_vendedores'))
+            
+            from datetime import date, datetime
+            vendedor = dict(vendedor_row)
+            if vendedor.get('Fecha_Asignacion') and isinstance(vendedor['Fecha_Asignacion'], str):
+                try:
+                    vendedor['Fecha_Asignacion'] = datetime.strptime(vendedor['Fecha_Asignacion'][:10], '%Y-%m-%d').date()
+                except ValueError:
+                    pass
             
             # Inventario actual desde la tabla inventario_ruta
             cursor.execute("""
@@ -2551,10 +2570,10 @@ def inventario_vendedor_detalle(id_usuario):
                     p.COD_Producto,
                     p.Descripcion AS Producto,
                     um.Descripcion AS Unidad_Medida,
-                    p.Precio_Mercado AS Precio_Venta,
+                    COALESCE(p.Precio_Mercado, 0) AS Precio_Venta,
                     ir.Cantidad AS Stock_Actual,
                     p.Stock_Minimo,
-                    (ir.Cantidad * p.Precio_Mercado) AS Valor_Total,
+                    COALESCE(ir.Cantidad * p.Precio_Mercado, 0) AS Valor_Total,
                     ir.Fecha_Actualizacion
                 FROM inventario_ruta ir
                 INNER JOIN productos p ON ir.ID_Producto = p.ID_Producto
@@ -2562,7 +2581,20 @@ def inventario_vendedor_detalle(id_usuario):
                 WHERE ir.ID_Asignacion = %s AND ir.Cantidad > 0 AND p.Estado = 'activo'
                 ORDER BY p.Descripcion
             """, (vendedor['ID_Asignacion'],))
-            inventario = cursor.fetchall()
+            inventario_raw = cursor.fetchall()
+            
+            inventario = []
+            for item in inventario_raw:
+                item_dict = dict(item)
+                if item_dict.get('Fecha_Actualizacion') and isinstance(item_dict['Fecha_Actualizacion'], str):
+                    try:
+                        item_dict['Fecha_Actualizacion'] = datetime.strptime(item_dict['Fecha_Actualizacion'][:19], '%Y-%m-%d %H:%M:%S')
+                    except ValueError:
+                        try:
+                            item_dict['Fecha_Actualizacion'] = datetime.strptime(item_dict['Fecha_Actualizacion'][:16], '%Y-%m-%d %H:%M')
+                        except ValueError:
+                            pass
+                inventario.append(item_dict)
             
             # Resumen del inventario
             cursor.execute("""
@@ -2613,11 +2645,19 @@ def historial_vendedor(id_usuario):
                 LEFT JOIN rutas rut ON av.ID_Ruta = rut.ID_Ruta
                 WHERE u.ID_Usuario = %s AND u.ID_Empresa = %s
             """, (id_usuario, session.get('id_empresa', 1)))
-            vendedor = cursor.fetchone()
+            vendedor_row = cursor.fetchone()
             
-            if not vendedor:
+            if not vendedor_row:
                 flash("Vendedor no encontrado", "warning")
                 return redirect(url_for('bodega.inventario_vendedores'))
+            
+            from datetime import date, datetime
+            vendedor = dict(vendedor_row)
+            if vendedor.get('Fecha_Asignacion') and isinstance(vendedor['Fecha_Asignacion'], str):
+                try:
+                    vendedor['Fecha_Asignacion'] = datetime.strptime(vendedor['Fecha_Asignacion'][:10], '%Y-%m-%d').date()
+                except ValueError:
+                    pass
             
             # Historial de movimientos de la asignación
             cursor.execute("""

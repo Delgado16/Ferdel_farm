@@ -503,7 +503,6 @@ def distribuir_carga(id_pedido):
                 INNER JOIN usuarios u ON av.ID_Usuario = u.ID_Usuario
                 WHERE av.ID_Ruta = %s
                 AND av.Estado = 'Activa'
-                AND av.Fecha_Asignacion = CURDATE()
                 ORDER BY u.NombreUsuario
             """, (pedido['ID_Ruta'],))
             
@@ -620,7 +619,6 @@ def procesar_carga_consolidada(id_pedido):
                 FROM asignacion_vendedores
                 WHERE ID_Asignacion IN ({placeholders})
                 AND Estado = 'Activa'
-                AND Fecha_Asignacion = CURDATE()
             """
             cursor.execute(query_vendedores, vendedores_ids)
             

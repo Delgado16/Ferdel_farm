@@ -34,7 +34,7 @@ def vendedor_inventario():
                 LEFT JOIN vehiculos v ON av.ID_Vehiculo = v.ID_Vehiculo
                 WHERE av.ID_Usuario = %s
                 AND av.Estado = 'Activa'
-                AND av.Fecha_Asignacion = CURDATE()
+                ORDER BY av.Fecha_Asignacion DESC
                 LIMIT 1
             """, (current_user.id,))
             
@@ -99,7 +99,6 @@ def vendedor_inventario():
                 FROM movimientos_ruta_cabecera
                 WHERE ID_Asignacion = %s
                 AND ID_TipoMovimiento = 3  -- Tipo Venta
-                AND DATE(Fecha_Movimiento) = CURDATE()
                 AND Estado = 'ACTIVO'
             """, (asignacion['ID_Asignacion'],))
             
@@ -145,7 +144,7 @@ def api_vendedor_inventario():
                 FROM asignacion_vendedores
                 WHERE ID_Usuario = %s
                 AND Estado = 'Activa'
-                AND Fecha_Asignacion = CURDATE()
+                ORDER BY Fecha_Asignacion DESC
                 LIMIT 1
             """, (current_user.id,))
             
@@ -205,7 +204,7 @@ def vendedor_producto_detalle(id_producto):
                 FROM asignacion_vendedores
                 WHERE ID_Usuario = %s
                 AND Estado = 'Activa'
-                AND Fecha_Asignacion = CURDATE()
+                ORDER BY Fecha_Asignacion DESC
                 LIMIT 1
             """, (current_user.id,))
             
@@ -293,7 +292,7 @@ def vendedor_refrescar_inventario():
                 FROM asignacion_vendedores
                 WHERE ID_Usuario = %s
                 AND Estado = 'Activa'
-                AND Fecha_Asignacion = CURDATE()
+                ORDER BY Fecha_Asignacion DESC
                 LIMIT 1
             """, (current_user.id,))
             

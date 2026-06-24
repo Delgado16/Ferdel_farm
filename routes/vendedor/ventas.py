@@ -110,6 +110,8 @@ def vendedor_ventas():
                 ids_asignacion = [a['ID_Asignacion'] for a in asignaciones_raw]
                 placeholders = ','.join(['%s'] * len(ids_asignacion))
                 
+                hoy_local = date.today()
+                
                 cursor.execute(f"""
                     SELECT fr.ID_FacturaRuta, 
                            fr.Fecha,
@@ -140,11 +142,11 @@ def vendedor_ventas():
                     INNER JOIN rutas r ON av.ID_Ruta = r.ID_Ruta
                     LEFT JOIN detalle_facturacion_ruta dfr ON fr.ID_FacturaRuta = dfr.ID_FacturaRuta
                     WHERE fr.ID_Asignacion IN ({placeholders})
-                      AND DATE(fr.Fecha) = CURDATE()
+                      AND DATE(fr.Fecha) = %s
                     GROUP BY fr.ID_FacturaRuta
                     ORDER BY fr.Fecha DESC, fr.ID_FacturaRuta DESC
                     LIMIT 15
-                """, tuple(ids_asignacion))
+                """, tuple(ids_asignacion) + (hoy_local,))
                 ventas_raw = cursor.fetchall()
                 
                 # Formatear fechas de ventas
@@ -273,16 +275,17 @@ def vendedor_venta_crear():
                 """)
                 metodos_pago = cursor.fetchall()
                 
-                # ===== VERIFICACIÓN DE CAJA MEJORADA =====
+                from datetime import date
+                hoy_local = date.today()
                 # Verificar si hay caja abierta hoy
                 cursor.execute("""
                     SELECT COUNT(*) as tiene_caja_hoy
                     FROM movimientos_caja_ruta 
                     WHERE ID_Asignacion = %s 
-                    AND DATE(Fecha) = CURDATE() 
+                    AND DATE(Fecha) = %s 
                     AND Tipo = 'APERTURA'
                     AND Estado = 'ACTIVO'
-                """, (asignacion['ID_Asignacion'],))
+                """, (asignacion['ID_Asignacion'], hoy_local))
                 tiene_caja_hoy = cursor.fetchone()['tiene_caja_hoy'] > 0
                 
                 # Verificar si hay una caja abierta de días anteriores SIN CIERRE
@@ -307,11 +310,11 @@ def vendedor_venta_crear():
                     SELECT Tipo, Estado, DATE(Fecha) as Fecha_Movimiento
                     FROM movimientos_caja_ruta 
                     WHERE ID_Asignacion = %s 
-                    AND DATE(Fecha) = CURDATE()
+                    AND DATE(Fecha) = %s
                     AND Estado = 'ACTIVO'
                     ORDER BY Fecha DESC
                     LIMIT 1
-                """, (asignacion['ID_Asignacion'],))
+                """, (asignacion['ID_Asignacion'], hoy_local))
                 ultimo_movimiento_hoy = cursor.fetchone()
                 
                 caja_abierta = tiene_caja_hoy or (tiene_caja_activa and (not ultimo_movimiento_hoy or ultimo_movimiento_hoy['Tipo'] != 'CIERRE'))
@@ -392,17 +395,19 @@ def vendedor_venta_crear():
                 
                 # ===== SOLO PARA VENTAS DE CONTADO: VERIFICAR CAJA =====
                 if tipo_venta == '1':  # Solo ventas de contado requieren caja
+                    from datetime import date
+                    hoy_local = date.today()
                     # Estrategia 1: Buscar apertura de hoy
                     cursor.execute("""
                         SELECT ID_Movimiento, Fecha, Saldo_Acumulado
                         FROM movimientos_caja_ruta 
                         WHERE ID_Asignacion = %s 
-                        AND DATE(Fecha) = CURDATE() 
+                        AND DATE(Fecha) = %s 
                         AND Tipo = 'APERTURA'
                         AND Estado = 'ACTIVO'
                         ORDER BY Fecha DESC 
                         LIMIT 1
-                    """, (asignacion['ID_Asignacion'],))
+                    """, (asignacion['ID_Asignacion'], hoy_local))
                     caja = cursor.fetchone()
                     
                     # Estrategia 2: Si no hay apertura hoy, buscar la última apertura activa sin cierre
@@ -431,11 +436,11 @@ def vendedor_venta_crear():
                             SELECT Tipo
                             FROM movimientos_caja_ruta 
                             WHERE ID_Asignacion = %s 
-                            AND DATE(Fecha) = CURDATE()
+                            AND DATE(Fecha) = %s
                             AND Estado = 'ACTIVO'
                             ORDER BY Fecha DESC
                             LIMIT 1
-                        """, (asignacion['ID_Asignacion'],))
+                        """, (asignacion['ID_Asignacion'], hoy_local))
                         ultimo_hoy = cursor.fetchone()
                         
                         # Si el último movimiento de hoy es un CIERRE, la caja está cerrada
@@ -447,15 +452,14 @@ def vendedor_venta_crear():
                     if not caja:
                         print("⚠️ No se encontró caja abierta, intentando crear apertura automática...")
                         
-                        # Verificar si ya existe una apertura hoy (por si acaso)
                         cursor.execute("""
                             SELECT ID_Movimiento
                             FROM movimientos_caja_ruta 
                             WHERE ID_Asignacion = %s 
-                            AND DATE(Fecha) = CURDATE() 
+                            AND DATE(Fecha) = %s 
                             AND Tipo = 'APERTURA'
                             LIMIT 1
-                        """, (asignacion['ID_Asignacion'],))
+                        """, (asignacion['ID_Asignacion'], hoy_local))
                         apertura_existente = cursor.fetchone()
                         
                         if apertura_existente:
@@ -539,12 +543,13 @@ def vendedor_venta_crear():
                     total_items += prod['cantidad']
                 
                 # ===== 1. INSERTAR FACTURA (INCLUYENDO SALDO ANTERIOR) =====
+                from datetime import date
                 cursor.execute("""
                     INSERT INTO facturacion_ruta 
                     (Fecha, ID_Cliente, ID_Asignacion, Credito_Contado, 
                      Observacion, Saldo_Anterior_Cliente, ID_Empresa, ID_Usuario_Creacion, Estado)
-                    VALUES (CURDATE(), %s, %s, %s, %s, %s, %s, %s, 'Activa')
-                """, (int(id_cliente), asignacion['ID_Asignacion'], int(tipo_venta), 
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 'Activa')
+                """, (date.today(), int(id_cliente), asignacion['ID_Asignacion'], int(tipo_venta), 
                       observacion, saldo_anterior, asignacion['ID_Empresa'], id_vendedor))
                 
                 id_factura = cursor.lastrowid
@@ -1335,6 +1340,7 @@ def vendedor_venta_anular(id_venta):
         motivo = request.form.get('motivo', 'Sin motivo especificado')
         
         with get_db_cursor(commit=True) as cursor:  # CORREGIDO: agregar commit=True
+            from datetime import date
             # Verificar que la venta pertenezca al vendedor y sea del día
             cursor.execute("""
                 SELECT fr.ID_FacturaRuta, fr.ID_Asignacion, fr.Credito_Contado,
@@ -1344,8 +1350,8 @@ def vendedor_venta_anular(id_venta):
                 WHERE fr.ID_FacturaRuta = %s 
                 AND fr.ID_Usuario_Creacion = %s
                 AND fr.Estado = 'Activa'
-                AND DATE(fr.Fecha_Creacion) = CURDATE()
-            """, (id_venta, id_vendedor))
+                AND DATE(fr.Fecha_Creacion) = %s
+            """, (id_venta, id_vendedor, date.today()))
             venta_data = cursor.fetchall()
             
             if not venta_data:
@@ -1603,15 +1609,17 @@ def api_registrar_venta_offline():
             if not asignacion:
                 return jsonify({'success': False, 'error': 'Sin ruta activa'}), 400
             
+            from datetime import date
+            hoy_local = date.today()
             # Verificar/crear caja
             cursor.execute("""
                 SELECT ID_Movimiento, Saldo_Acumulado
                 FROM movimientos_caja_ruta 
                 WHERE ID_Asignacion = %s 
-                AND DATE(Fecha) = CURDATE() 
+                AND DATE(Fecha) = %s 
                 AND Tipo = 'APERTURA'
                 AND Estado = 'ACTIVO'
-            """, (asignacion['ID_Asignacion'],))
+            """, (asignacion['ID_Asignacion'], hoy_local))
             caja = cursor.fetchone()
             
             if not caja:
@@ -1643,8 +1651,9 @@ def api_registrar_venta_offline():
                 INSERT INTO facturacion_ruta 
                 (Fecha, ID_Cliente, ID_Asignacion, Credito_Contado, 
                  Observacion, Saldo_Anterior_Cliente, ID_Empresa, ID_Usuario_Creacion, Estado)
-                VALUES (CURDATE(), %s, %s, %s, %s, %s, %s, %s, 'Activa')
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 'Activa')
             """, (
+                hoy_local,
                 int(data['cliente_id']), 
                 asignacion['ID_Asignacion'], 
                 int(data['tipo_venta']),

@@ -38,7 +38,7 @@ def vendedor_movimiento_entrada_bodega():
                     LEFT JOIN rutas r ON av.ID_Ruta = r.ID_Ruta
                     WHERE av.ID_Usuario = %s
                     AND av.Estado = 'Activa'
-                    AND av.Fecha_Asignacion = CURDATE()
+                    ORDER BY av.Fecha_Asignacion DESC
                     LIMIT 1
                 """, (current_user.id,))
                 
@@ -168,7 +168,7 @@ def vendedor_movimiento_entrada_bodega():
                 LEFT JOIN rutas r ON av.ID_Ruta = r.ID_Ruta
                 WHERE av.ID_Usuario = %s
                 AND av.Estado = 'Activa'
-                AND av.Fecha_Asignacion = CURDATE()
+                ORDER BY av.Fecha_Asignacion DESC
                 LIMIT 1
             """, (current_user.id,))
             
@@ -238,7 +238,7 @@ def vendedor_movimiento_devolucion_bodega():
                     LEFT JOIN rutas r ON av.ID_Ruta = r.ID_Ruta
                     WHERE av.ID_Usuario = %s
                     AND av.Estado = 'Activa'
-                    AND av.Fecha_Asignacion = CURDATE()
+                    ORDER BY av.Fecha_Asignacion DESC
                     LIMIT 1
                 """, (current_user.id,))
                 
@@ -427,7 +427,7 @@ def vendedor_movimiento_devolucion_bodega():
                 LEFT JOIN rutas r ON av.ID_Ruta = r.ID_Ruta
                 WHERE av.ID_Usuario = %s
                 AND av.Estado = 'Activa'
-                AND av.Fecha_Asignacion = CURDATE()
+                ORDER BY av.Fecha_Asignacion DESC
                 LIMIT 1
             """, (current_user.id,))
             
@@ -498,7 +498,7 @@ def vendedor_movimiento_merma():
                     LEFT JOIN rutas r ON av.ID_Ruta = r.ID_Ruta
                     WHERE av.ID_Usuario = %s
                     AND av.Estado = 'Activa'
-                    AND av.Fecha_Asignacion = CURDATE()
+                    ORDER BY av.Fecha_Asignacion DESC
                     LIMIT 1
                 """, (current_user.id,))
                 
@@ -638,7 +638,7 @@ def vendedor_movimiento_merma():
                 LEFT JOIN rutas r ON av.ID_Ruta = r.ID_Ruta
                 WHERE av.ID_Usuario = %s
                 AND av.Estado = 'Activa'
-                AND av.Fecha_Asignacion = CURDATE()
+                ORDER BY av.Fecha_Asignacion DESC
                 LIMIT 1
             """, (current_user.id,))
             
@@ -693,6 +693,8 @@ def vendedor_movimientos_historial():
             # ============================================
             # 1. OBTENER ASIGNACION ACTIVA
             # ============================================
+            from datetime import date
+            hoy_local = date.today()
             cursor.execute("""
                 SELECT 
                     av.ID_Asignacion,
@@ -705,10 +707,10 @@ def vendedor_movimientos_historial():
                 LEFT JOIN rutas r ON av.ID_Ruta = r.ID_Ruta
                 WHERE av.ID_Usuario = %s
                 AND av.Estado = 'Activa'
-                AND CURDATE() BETWEEN av.Fecha_Asignacion AND COALESCE(av.Fecha_Finalizacion, CURDATE())
+                AND %s BETWEEN av.Fecha_Asignacion AND COALESCE(av.Fecha_Finalizacion, %s)
                 ORDER BY av.Fecha_Asignacion DESC
                 LIMIT 1
-            """, (current_user.id,))
+            """, (current_user.id, hoy_local, hoy_local))
             
             asignacion = cursor.fetchone()
             
@@ -838,16 +840,18 @@ def vendedor_movimiento_detalle(id_movimiento):
             return redirect(url_for('vendedor.vendedor_movimientos_historial'))
         
         with get_db_cursor(True) as cursor:
+            from datetime import date
+            hoy_local = date.today()
             # Obtener asignación activa del vendedor primero
             cursor.execute("""
                 SELECT ID_Asignacion, ID_Ruta
                 FROM asignacion_vendedores 
                 WHERE ID_Usuario = %s 
                 AND Estado = 'Activa'
-                AND CURDATE() BETWEEN Fecha_Asignacion AND COALESCE(Fecha_Finalizacion, CURDATE())
+                AND %s BETWEEN Fecha_Asignacion AND COALESCE(Fecha_Finalizacion, %s)
                 ORDER BY Fecha_Asignacion DESC
                 LIMIT 1
-            """, (current_user.id,))
+            """, (current_user.id, hoy_local, hoy_local))
             
             asignacion_activa = cursor.fetchone()
             id_asignacion_activa = asignacion_activa['ID_Asignacion'] if asignacion_activa else None
@@ -1067,7 +1071,7 @@ def vendedor_carga_directa_proveedor():
                         LEFT JOIN rutas r ON av.ID_Ruta = r.ID_Ruta
                         WHERE av.ID_Usuario = %s
                         AND av.Estado = 'Activa'
-                        AND av.Fecha_Asignacion = CURDATE()
+                        ORDER BY av.Fecha_Asignacion DESC
                         LIMIT 1
                     """, (id_usuario,))
                     
@@ -1403,7 +1407,7 @@ def vendedor_carga_directa_proveedor():
             cursor.execute("""
                 SELECT COUNT(*) as total
                 FROM asignacion_vendedores
-                WHERE ID_Usuario = %s AND Estado = 'Activa' AND Fecha_Asignacion = CURDATE()
+                WHERE ID_Usuario = %s AND Estado = 'Activa'
             """, (current_user.id,))
             tiene_asignacion = cursor.fetchone()['total'] > 0
             

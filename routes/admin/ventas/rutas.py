@@ -858,15 +858,22 @@ def api_disponibilidad_asignaciones():
             cursor.execute("""
             SELECT 
                 u.ID_Usuario, 
-                u.NombreUsuario AS Nombre,  -- ← Esto ya es el nombre del usuario
+                u.NombreUsuario AS Nombre,
                 rol.Nombre_Rol AS Rol
             FROM usuarios u
             LEFT JOIN roles rol ON u.ID_Rol = rol.ID_Rol
             WHERE u.ID_Empresa = %s 
             AND u.Estado = 'ACTIVO'
             AND u.ID_Rol = 4  -- Solo vendedores
+            AND u.ID_Usuario NOT IN (
+                SELECT ID_Usuario 
+                FROM asignacion_vendedores 
+                WHERE Fecha_Asignacion = %s 
+                AND Estado = 'Activa'
+                AND ID_Empresa = %s
+            )
             ORDER BY u.NombreUsuario
-            """, (empresa_id, empresa_id, fecha, fecha))
+            """, (empresa_id, fecha, empresa_id))
             
             vendedores = cursor.fetchall()
             
@@ -954,7 +961,6 @@ def api_vendedores_activos(id_ruta):
                 INNER JOIN usuarios u ON av.ID_Usuario = u.ID_Usuario
                 WHERE av.ID_Ruta = %s
                 AND av.Estado = 'Activa'
-                AND av.Fecha_Asignacion = CURDATE()
                 ORDER BY u.NombreUsuario
             """, (id_ruta,))
             

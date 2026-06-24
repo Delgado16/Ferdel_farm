@@ -297,7 +297,7 @@ def api_verificar_saldo_cliente(id_cliente):
                 INNER JOIN rutas r ON av.ID_Ruta = r.ID_Ruta
                 WHERE av.ID_Usuario = %s
                 AND av.Estado = 'Activa'
-                AND av.Fecha_Asignacion = CURDATE()
+                ORDER BY av.Fecha_Asignacion DESC
                 LIMIT 1
             """, (current_user.id,))
             
@@ -384,7 +384,7 @@ def api_verificar_saldo_cliente_offline(id_cliente):
                 INNER JOIN rutas r ON av.ID_Ruta = r.ID_Ruta
                 WHERE av.ID_Usuario = %s
                 AND av.Estado = 'Activa'
-                AND av.Fecha_Asignacion = CURDATE()
+                ORDER BY av.Fecha_Asignacion DESC
                 LIMIT 1
             """, (current_user.id,))
             

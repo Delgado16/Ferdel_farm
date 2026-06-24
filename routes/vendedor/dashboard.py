@@ -28,7 +28,8 @@ def vendedor_dashboard():
             JOIN rutas r ON av.ID_Ruta = r.ID_Ruta
             WHERE av.ID_Usuario = %s 
               AND av.Estado = 'Activa'
-              AND DATE(av.Fecha_Asignacion) = CURDATE()
+            ORDER BY av.Fecha_Asignacion DESC
+            LIMIT 1
         """, (user_id,))
         asignacion_activa = cursor.fetchone()
         
@@ -36,43 +37,46 @@ def vendedor_dashboard():
         asignacion_id = asignacion_activa['ID_Asignacion'] if asignacion_activa else None
         
         # 2. Tarjeta: Ventas de Contado (Hoy) - EFECTIVO QUE ENTRA
-        cursor.execute("""
-            SELECT COALESCE(SUM(dfr.Total), 0) AS Total_Ventas_Contado_Hoy
-            FROM facturacion_ruta fr
-            JOIN detalle_facturacion_ruta dfr ON fr.ID_FacturaRuta = dfr.ID_FacturaRuta
-            WHERE fr.ID_Usuario_Creacion = %s
-              AND DATE(fr.Fecha) = CURDATE()
-              AND fr.Estado = 'Activa'
-              AND fr.Credito_Contado = 1
-        """, (user_id,))
-        result = cursor.fetchone()
-        total_ventas_contado_hoy = result['Total_Ventas_Contado_Hoy'] if result else 0
+        total_ventas_contado_hoy = 0
+        if asignacion_id:
+            cursor.execute("""
+                SELECT COALESCE(SUM(dfr.Total), 0) AS Total_Ventas_Contado_Hoy
+                FROM facturacion_ruta fr
+                JOIN detalle_facturacion_ruta dfr ON fr.ID_FacturaRuta = dfr.ID_FacturaRuta
+                WHERE fr.ID_Asignacion = %s
+                  AND fr.Estado = 'Activa'
+                  AND fr.Credito_Contado = 1
+            """, (asignacion_id,))
+            result = cursor.fetchone()
+            total_ventas_contado_hoy = result['Total_Ventas_Contado_Hoy'] if result else 0
         
         # 3. Tarjeta: Ventas a Crédito (Hoy) - FIADO
-        cursor.execute("""
-            SELECT COALESCE(SUM(dfr.Total), 0) AS Total_Ventas_Credito_Hoy
-            FROM facturacion_ruta fr
-            JOIN detalle_facturacion_ruta dfr ON fr.ID_FacturaRuta = dfr.ID_FacturaRuta
-            WHERE fr.ID_Usuario_Creacion = %s
-              AND DATE(fr.Fecha) = CURDATE()
-              AND fr.Estado = 'Activa'
-              AND fr.Credito_Contado = 2
-        """, (user_id,))
-        result = cursor.fetchone()
-        total_ventas_credito_hoy = result['Total_Ventas_Credito_Hoy'] if result else 0
+        total_ventas_credito_hoy = 0
+        if asignacion_id:
+            cursor.execute("""
+                SELECT COALESCE(SUM(dfr.Total), 0) AS Total_Ventas_Credito_Hoy
+                FROM facturacion_ruta fr
+                JOIN detalle_facturacion_ruta dfr ON fr.ID_FacturaRuta = dfr.ID_FacturaRuta
+                WHERE fr.ID_Asignacion = %s
+                  AND fr.Estado = 'Activa'
+                  AND fr.Credito_Contado = 2
+            """, (asignacion_id,))
+            result = cursor.fetchone()
+            total_ventas_credito_hoy = result['Total_Ventas_Credito_Hoy'] if result else 0
         
         # 4. Tarjeta: Total Ventas (Contado + Crédito)
         total_ventas_hoy = total_ventas_contado_hoy + total_ventas_credito_hoy
         
         # 5. Tarjeta: Cobros Realizados (Hoy) - ABONOS A CRÉDITO
-        cursor.execute("""
-            SELECT COALESCE(SUM(ad.Monto_Aplicado), 0) AS Total_Cobrado_Hoy
-            FROM abonos_detalle ad
-            WHERE ad.ID_Usuario = %s
-              AND DATE(ad.Fecha) = CURDATE()
-        """, (user_id,))
-        result = cursor.fetchone()
-        total_cobrado_hoy = result['Total_Cobrado_Hoy'] if result else 0
+        total_cobrado_hoy = 0
+        if asignacion_id:
+            cursor.execute("""
+                SELECT COALESCE(SUM(ad.Monto_Aplicado), 0) AS Total_Cobrado_Hoy
+                FROM abonos_detalle ad
+                WHERE ad.ID_Asignacion = %s
+            """, (asignacion_id,))
+            result = cursor.fetchone()
+            total_cobrado_hoy = result['Total_Cobrado_Hoy'] if result else 0
         
         # 6. Tarjeta: Saldo de Caja (Actual)
         saldo_caja = 0

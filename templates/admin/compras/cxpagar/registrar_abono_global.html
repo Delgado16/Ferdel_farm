@@ -1,0 +1,160 @@
+{% extends "layout.html" %}
+
+{% block title %}Registrar Abono General - FerDel{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Encabezado -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1>
+            <i class="fas fa-money-bill-wave text-success"></i> Registrar Abono General a Proveedor
+        </h1>
+        <a href="{{ url_for('admin.admin_cuentas_por_pagar') }}" class="btn btn-outline-secondary">
+            <i class="fas fa-arrow-left"></i> Volver a Cuentas por Pagar
+        </a>
+    </div>
+
+    <div class="row">
+        <!-- Formulario -->
+        <div class="col-lg-8 mb-4">
+            <div class="card shadow-sm border-0">
+                <div class="card-header bg-success text-white py-3">
+                    <h5 class="card-title fw-bold mb-0">Datos del Abono Multifactura</h5>
+                </div>
+                <div class="card-body p-4">
+                    <form method="POST" action="{{ url_for('admin.registrar_abono_proveedor_global') }}" id="formAbono">
+                        
+                        <!-- Seleccionar Proveedor -->
+                        <div class="mb-4">
+                            <label for="id_proveedor" class="form-label fw-bold">Proveedor *</label>
+                            <select class="form-select select2-proveedor" id="id_proveedor" name="id_proveedor" required>
+                                <option value="" data-saldo="0">Seleccione un proveedor...</option>
+                                {% for prov in proveedores %}
+                                <option value="{{ prov.ID_Proveedor }}" data-saldo="{{ prov.Saldo_Pendiente }}">
+                                    {{ prov.Nombre }} (Saldo total pendiente: C${{ "{:,.2f}".format(prov.Saldo_Pendiente) }})
+                                </option>
+                                {% endfor %}
+                            </select>
+                            <div class="form-text text-muted mt-2" id="saldoInfoContainer" style="display:none;">
+                                Saldo total pendiente del proveedor: <span class="fw-bold text-danger" id="saldoProveedorText">C$0.00</span>
+                            </div>
+                        </div>
+
+                        <!-- Monto del Abono -->
+                        <div class="mb-4">
+                            <label for="monto_abono" class="form-label fw-bold">Monto del Abono *</label>
+                            <div class="input-group input-group-lg">
+                                <span class="input-group-text bg-light fw-bold">C$</span>
+                                <input type="number" class="form-control form-control-lg fw-bold text-success" id="monto_abono" name="monto_abono" 
+                                       step="0.01" min="0.01" required placeholder="0.00">
+                            </div>
+                            <div class="form-text text-muted">Este monto se distribuirá automáticamente en cascada (de la factura más antigua a la más nueva).</div>
+                        </div>
+
+                        <!-- Fecha de Pago -->
+                        <div class="mb-4">
+                            <label for="fecha_pago" class="form-label fw-bold">Fecha del Pago *</label>
+                            <input type="date" class="form-control" id="fecha_pago" name="fecha_pago" 
+                                   required value="{{ today }}">
+                        </div>
+
+                        <!-- Método de Pago -->
+                        <div class="mb-4">
+                            <label for="id_metodo_pago" class="form-label fw-bold">Método de Pago *</label>
+                            <select class="form-select" id="id_metodo_pago" name="id_metodo_pago" required>
+                                <option value="">Seleccione el método de pago...</option>
+                                {% for metodo in metodos_pago %}
+                                <option value="{{ metodo.ID_MetodoPago }}">
+                                    {{ metodo.Nombre }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <!-- Detalles del Método de Pago -->
+                        <div class="mb-4">
+                            <label for="detalles_metodo" class="form-label fw-bold">Detalles de Transferencia / Referencia</label>
+                            <input type="text" class="form-control" id="detalles_metodo" name="detalles_metodo" 
+                                   placeholder="N° de transferencia, cheque, banco, etc. (Opcional)">
+                        </div>
+
+                        <!-- Comentarios -->
+                        <div class="mb-4">
+                            <label for="comentarios_pago" class="form-label fw-bold">Comentarios / Observaciones</label>
+                            <textarea class="form-control" id="comentarios_pago" name="comentarios_pago" rows="3" 
+                                      placeholder="Información adicional sobre el pago... (Opcional)"></textarea>
+                        </div>
+
+                        <!-- Botones de Acción -->
+                        <div class="d-flex justify-content-end gap-2 mt-4">
+                            <a href="{{ url_for('admin.admin_cuentas_por_pagar') }}" class="btn btn-light px-4">Cancelar</a>
+                            <button type="submit" class="btn btn-success px-4" id="btnSubmit">
+                                <i class="fas fa-check-circle me-1"></i> Confirmar y Aplicar Abono
+                            </button>
+                        </div>
+
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Panel Informativo -->
+        <div class="col-lg-4">
+            <div class="card shadow-sm border-0 bg-light">
+                <div class="card-body p-4">
+                    <h5 class="fw-bold mb-3"><i class="fas fa-info-circle text-primary me-2"></i>¿Cómo funciona?</h5>
+                    <p class="text-muted small">
+                        El sistema distribuye el abono en <strong>cascada (FIFO)</strong> de manera automática y transparente para ahorrarte tiempo:
+                    </p>
+                    <ol class="text-muted small ps-3">
+                        <li class="mb-2">Busca todas las facturas pendientes de cobro del proveedor seleccionado ordenadas por fecha de vencimiento.</li>
+                        <li class="mb-2">Aplica el abono de forma secuencial, liquidando primero las facturas más antiguas.</li>
+                        <li class="mb-2">Por cada factura afectada, se guardará un desglose detallado con el saldo anterior, el monto aplicado y el saldo nuevo.</li>
+                    </ol>
+                    <div class="alert alert-warning mb-0 border-0 shadow-none mt-3">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        <span class="small">Asegúrate de que el monto a abonar no supere el saldo total adeudado.</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener("DOMContentLoaded", function() {
+        const selectProveedor = document.getElementById("id_proveedor");
+        const saldoInfoContainer = document.getElementById("saldoInfoContainer");
+        const saldoProveedorText = document.getElementById("saldoProveedorText");
+        const inputMonto = document.getElementById("monto_abono");
+        const form = document.getElementById("formAbono");
+
+        // Cambiar saldo dinámicamente al seleccionar proveedor
+        selectProveedor.addEventListener("change", function() {
+            const selectedOption = selectProveedor.options[selectProveedor.selectedIndex];
+            const saldo = parseFloat(selectedOption.getAttribute("data-saldo") || 0);
+
+            if (selectProveedor.value) {
+                saldoProveedorText.textContent = "C$ " + saldo.toLocaleString('es-NI', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                saldoInfoContainer.style.display = "block";
+                inputMonto.setAttribute("max", saldo);
+            } else {
+                saldoInfoContainer.style.display = "none";
+                inputMonto.removeAttribute("max");
+            }
+        });
+
+        // Validar que el abono no sea mayor al saldo pendiente
+        form.addEventListener("submit", function(event) {
+            const selectedOption = selectProveedor.options[selectProveedor.selectedIndex];
+            const saldo = parseFloat(selectedOption.getAttribute("data-saldo") || 0);
+            const monto = parseFloat(inputMonto.value || 0);
+
+            if (monto > saldo) {
+                event.preventDefault();
+                alert("⚠️ Error: El monto del abono (C$ " + monto.toFixed(2) + ") no puede ser superior al saldo pendiente total del proveedor (C$ " + saldo.toFixed(2) + ").");
+            }
+        });
+    });
+</script>
+{% endblock %}
