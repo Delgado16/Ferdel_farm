@@ -67,5 +67,7 @@ def admin_dashboard():
                              now=now)
                              
     except Exception as e:
-        flash(f"Error al cargar dashboard: {e}", "danger")
-        return redirect(url_for('admin.admin_dashboard'))
+        import traceback
+        error_msg = f"Error al cargar dashboard: {e}\n\n{traceback.format_exc()}"
+        print(error_msg)
+        return f"<h1>Error al cargar dashboard</h1><pre>{error_msg}</pre>", 500

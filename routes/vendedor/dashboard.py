@@ -37,46 +37,43 @@ def vendedor_dashboard():
         asignacion_id = asignacion_activa['ID_Asignacion'] if asignacion_activa else None
         
         # 2. Tarjeta: Ventas de Contado (Hoy) - EFECTIVO QUE ENTRA
-        total_ventas_contado_hoy = 0
-        if asignacion_id:
-            cursor.execute("""
-                SELECT COALESCE(SUM(dfr.Total), 0) AS Total_Ventas_Contado_Hoy
-                FROM facturacion_ruta fr
-                JOIN detalle_facturacion_ruta dfr ON fr.ID_FacturaRuta = dfr.ID_FacturaRuta
-                WHERE fr.ID_Asignacion = %s
-                  AND fr.Estado = 'Activa'
-                  AND fr.Credito_Contado = 1
-            """, (asignacion_id,))
-            result = cursor.fetchone()
-            total_ventas_contado_hoy = result['Total_Ventas_Contado_Hoy'] if result else 0
+        cursor.execute("""
+            SELECT COALESCE(SUM(dfr.Total), 0) AS Total_Ventas_Contado_Hoy
+            FROM facturacion_ruta fr
+            JOIN detalle_facturacion_ruta dfr ON fr.ID_FacturaRuta = dfr.ID_FacturaRuta
+            WHERE fr.ID_Usuario_Creacion = %s
+              AND DATE(fr.Fecha) = CURDATE()
+              AND fr.Estado = 'Activa'
+              AND fr.Credito_Contado = 1
+        """, (user_id,))
+        result = cursor.fetchone()
+        total_ventas_contado_hoy = result['Total_Ventas_Contado_Hoy'] if result else 0
         
         # 3. Tarjeta: Ventas a Crédito (Hoy) - FIADO
-        total_ventas_credito_hoy = 0
-        if asignacion_id:
-            cursor.execute("""
-                SELECT COALESCE(SUM(dfr.Total), 0) AS Total_Ventas_Credito_Hoy
-                FROM facturacion_ruta fr
-                JOIN detalle_facturacion_ruta dfr ON fr.ID_FacturaRuta = dfr.ID_FacturaRuta
-                WHERE fr.ID_Asignacion = %s
-                  AND fr.Estado = 'Activa'
-                  AND fr.Credito_Contado = 2
-            """, (asignacion_id,))
-            result = cursor.fetchone()
-            total_ventas_credito_hoy = result['Total_Ventas_Credito_Hoy'] if result else 0
+        cursor.execute("""
+            SELECT COALESCE(SUM(dfr.Total), 0) AS Total_Ventas_Credito_Hoy
+            FROM facturacion_ruta fr
+            JOIN detalle_facturacion_ruta dfr ON fr.ID_FacturaRuta = dfr.ID_FacturaRuta
+            WHERE fr.ID_Usuario_Creacion = %s
+              AND DATE(fr.Fecha) = CURDATE()
+              AND fr.Estado = 'Activa'
+              AND fr.Credito_Contado = 2
+        """, (user_id,))
+        result = cursor.fetchone()
+        total_ventas_credito_hoy = result['Total_Ventas_Credito_Hoy'] if result else 0
         
         # 4. Tarjeta: Total Ventas (Contado + Crédito)
         total_ventas_hoy = total_ventas_contado_hoy + total_ventas_credito_hoy
         
         # 5. Tarjeta: Cobros Realizados (Hoy) - ABONOS A CRÉDITO
-        total_cobrado_hoy = 0
-        if asignacion_id:
-            cursor.execute("""
-                SELECT COALESCE(SUM(ad.Monto_Aplicado), 0) AS Total_Cobrado_Hoy
-                FROM abonos_detalle ad
-                WHERE ad.ID_Asignacion = %s
-            """, (asignacion_id,))
-            result = cursor.fetchone()
-            total_cobrado_hoy = result['Total_Cobrado_Hoy'] if result else 0
+        cursor.execute("""
+            SELECT COALESCE(SUM(ad.Monto_Aplicado), 0) AS Total_Cobrado_Hoy
+            FROM abonos_detalle ad
+            WHERE ad.ID_Usuario = %s
+              AND DATE(ad.Fecha) = CURDATE()
+        """, (user_id,))
+        result = cursor.fetchone()
+        total_cobrado_hoy = result['Total_Cobrado_Hoy'] if result else 0
         
         # 6. Tarjeta: Saldo de Caja (Actual)
         saldo_caja = 0
@@ -261,7 +258,6 @@ def vendedor_dashboard():
                          inventario_ruta=inventario_ruta,
                          resumen_cartera=resumen_cartera)
 
-
 @vendedor_bp.route('/vendedor/mis-rutas')
 @vendedor_required
 def vendedor_mis_rutas():
@@ -317,7 +313,6 @@ def vendedor_mis_rutas():
         flash(f'Error al cargar rutas: {str(e)}', 'error')
         return redirect(url_for('vendedor.vendedor_dashboard'))
 
-
 @vendedor_bp.route('/vendedor/ruta/iniciar/<int:id>', methods=['POST'])
 @vendedor_required
 def vendedor_iniciar_ruta(id):
@@ -371,7 +366,6 @@ def vendedor_iniciar_ruta(id):
         flash(f'Error al iniciar ruta: {str(e)}', 'error')
     
     return redirect(url_for('vendedor.vendedor_mis_rutas'))
-
 
 @vendedor_bp.route('/vendedor/ruta/finalizar/<int:id>', methods=['POST'])
 @vendedor_required
@@ -440,7 +434,6 @@ def vendedor_finalizar_ruta(id):
     
     return redirect(url_for('vendedor.vendedor_mis_rutas'))
 
-
 @vendedor_bp.route('/vendedor/ruta/detalle/<int:id>')
 @vendedor_required
 def vendedor_detalle_ruta(id):
@@ -489,7 +482,6 @@ def vendedor_detalle_ruta(id):
         flash(f'Error al cargar detalle: {str(e)}', 'error')
         return redirect(url_for('vendedor.vendedor_mis_rutas'))
 
-
 @vendedor_bp.route('/api/vendedor/asignacion_actual', methods=['GET'])
 @vendedor_required
 def api_asignacion_actual():
@@ -522,7 +514,6 @@ def api_asignacion_actual():
             
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
-
 
 @vendedor_bp.route('/vendedor/resumen/diario', methods=['GET'])
 @vendedor_required
@@ -562,5 +553,3 @@ def resumen_diario_vendedor():
             
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
-
-

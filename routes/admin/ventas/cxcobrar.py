@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+from flask import json
 from decimal import Decimal
 import traceback
 from flask import render_template, redirect, session, url_for, request, flash, jsonify
@@ -133,6 +134,21 @@ def admin_cuentascobrar():
                                   c['Fecha_Vencimiento'] and 
                                   c['Fecha_Vencimiento'] >= hoy]
             
+            # Obtener clientes con saldo pendiente
+            cursor.execute("""
+                SELECT 
+                    c.ID_Cliente, 
+                    c.Nombre, 
+                    SUM(cc.Saldo_Pendiente) as Saldo_Total 
+                FROM clientes c
+                JOIN cuentas_por_cobrar cc ON c.ID_Cliente = cc.ID_Cliente
+                WHERE cc.Saldo_Pendiente > 0 
+                  AND cc.Estado IN ('Pendiente', 'Vencida')
+                GROUP BY c.ID_Cliente, c.Nombre
+                ORDER BY c.Nombre
+            """)
+            clientes_pendientes = cursor.fetchall()
+            
             return render_template('admin/ventas/cxcobrar/cuentas_cobrar.html',
                                  cuentas=cuentas,
                                  total_pendiente=total_pendiente,
@@ -141,7 +157,8 @@ def admin_cuentascobrar():
                                  filtro_actual=filtro_estado,
                                  total_pagadas=len(cuentas_pagadas),
                                  total_vencidas=len(cuentas_vencidas),
-                                 total_pendientes=len(cuentas_pendientes))
+                                 total_pendientes=len(cuentas_pendientes),
+                                 clientes_pendientes=clientes_pendientes)
     except Exception as e:
         flash(f"Error al cargar cuentas por cobrar: {e}")
         return redirect(url_for('admin.admin_dashboard'))
@@ -945,3 +962,213 @@ def productos_por_cliente(cliente_id):
         })
 
 
+
+@admin_bp.route('/admin/ventas/cxcobrar/abono', methods=['GET', 'POST'])
+@admin_required
+def admin_crear_abono():
+    """Renderiza y procesa el formulario para crear un registro en abonos_general."""
+    if request.method == 'POST':
+        try:
+            id_usuario = current_user.id
+            id_cliente = request.form.get('id_cliente')
+            monto_aplicado = request.form.get('monto_aplicado')
+            id_metodo_pago = request.form.get('id_metodo_pago') or None
+
+            monto_aplicado = float(monto_aplicado)
+            if monto_aplicado <= 0:
+                # Cambiado a JSON para mantener la consistencia en el Frontend
+                return jsonify({'success': False, 'error': 'El monto del abono debe ser mayor a 0'}), 400
+
+            if id_metodo_pago is not None:
+                id_metodo_pago = int(id_metodo_pago)
+
+            # Inicializamos variables para evitar UnboundLocalError
+            caja_movimientos_json = None 
+            id_movimiento_caja = None
+            nuevo_saldo = None
+
+            # TODO el proceso de DB envuelto en el bloque WITH
+            with get_db_cursor(commit=True) as cursor:
+                cursor.execute("""
+                SELECT ID_MetodoPago, Nombre
+                FROM metodos_pago
+                WHERE ID_MetodoPago = %s
+                """, (id_metodo_pago,))
+                metodo = cursor.fetchone()
+
+                if not metodo:
+                    return jsonify({'success': False, 'error': 'Método de pago no válido'}), 400
+
+                nombre_metodo = metodo['Nombre']
+
+                # Facturas pendientes
+                cursor.execute("""
+                SELECT ID_Movimiento, Num_Documento, Saldo_Pendiente,
+                    Fecha_Vencimiento,
+                    CASE
+                        WHEN Fecha_Vencimiento < CURDATE() THEN 1
+                        ELSE 2
+                    END as Prioridad
+                FROM cuentas_por_cobrar
+                WHERE ID_Cliente = %s 
+                    AND Estado IN ('Pendiente','Vencida')
+                    AND Saldo_Pendiente > 0
+                ORDER BY Prioridad ASC, Fecha_Vencimiento ASC
+                """,(int(id_cliente),))
+
+                facturas = cursor.fetchall()
+
+                if not facturas:
+                    return jsonify({'success': False, 'error': 'No hay facturas pendientes para este cliente'}), 400
+            
+                if id_metodo_pago == 1:
+                    cursor.execute("""
+                    SELECT COALESCE(SUM(CASE
+                        WHEN Tipo_Movimiento = 'ENTRADA' THEN Monto
+                        ELSE -Monto
+                    END), 0) as Saldo_Actual
+                    FROM caja_movimientos
+                    WHERE DATE(Fecha) = CURDATE()
+                    AND Estado = 'ACTIVO'
+                    """)
+
+                    saldo_actual_caja = cursor.fetchone()
+                    saldo_actual = float(saldo_actual_caja['Saldo_Actual'] if saldo_actual_caja else 0)
+                    nuevo_saldo = saldo_actual + monto_aplicado
+
+                    concepto_caja = f"Abono de Cliente - {nombre_metodo} - Monto: C${monto_aplicado:.2f}"
+
+                    cursor.execute("""
+                    INSERT INTO caja_movimientos 
+                    (Fecha, Tipo_Movimiento, Descripcion, Monto, ID_Usuario, Estado, Referencia_Documento)
+                    VALUES (NOW(), 'ENTRADA', %s, %s, %s, 'ACTIVO', %s)
+                    """, (
+                        concepto_caja,
+                        monto_aplicado,
+                        id_usuario,
+                        f"Abono Cxc Cliente {id_cliente}"
+                    ))
+
+                    id_movimiento_caja = cursor.lastrowid
+                    # La columna caja_movimientos es varchar(100), no podemos guardar un JSON largo.
+                    # Guardaremos una referencia corta al ID del movimiento de caja.
+                    caja_mov_ref = f"ADMIN-{id_movimiento_caja}" if id_movimiento_caja else "SIN_CAJA"
+
+                # Distribución del abono entre las facturas
+                monto_restante = monto_aplicado
+                detalle_abono = []
+                monto_aplicado_total = 0  # Usar una nueva variable en vez de sobreescribir 'monto_aplicado'
+                ultimo_id_abono = None
+                facturas_canceladas = []
+
+                for factura in facturas: 
+                    if monto_restante <= 0:
+                        break
+
+                    saldo_factura = float(factura['Saldo_Pendiente'])
+                    monto_aplicar = min(monto_restante, saldo_factura)
+                    nuevo_saldo_factura = saldo_factura - monto_aplicar
+                    nuevo_estado = 'Pagada' if nuevo_saldo_factura == 0 else 'Pendiente'
+                
+                    if nuevo_saldo_factura <= 0.01:
+                        facturas_canceladas.append({
+                            'id_movimiento': factura['ID_Movimiento'],
+                            'num_documento': factura['Num_Documento'],
+                            'monto_pagado': monto_aplicar
+                        })
+                
+                    cursor.execute("""
+                    UPDATE cuentas_por_cobrar
+                    SET Saldo_Pendiente = %s,
+                        Estado = %s
+                    WHERE ID_Movimiento = %s
+                    """, (nuevo_saldo_factura, nuevo_estado, factura['ID_Movimiento']))
+
+                    saldo_anterior = float(factura['Saldo_Pendiente'])
+                    saldo_nuevo = float(nuevo_saldo_factura)
+                
+                    cursor.execute("""
+                        INSERT INTO abonos_general
+                        (ID_Usuario, ID_Cliente, ID_CuentaCobrar, Monto_Aplicado, 
+                        Saldo_Anterior, Saldo_Nuevo, Fecha, ID_MetodoPago, caja_movimientos)
+                        VALUES (%s, %s, %s, %s, %s, %s, NOW(), %s, %s)
+                    """, (
+                        id_usuario,
+                        id_cliente,
+                        factura['ID_Movimiento'],
+                        monto_aplicar,
+                        saldo_anterior,
+                        saldo_nuevo,
+                        id_metodo_pago,
+                        caja_mov_ref
+                    ))
+                
+                    detalle_abono.append({
+                        'factura_id': factura['ID_Movimiento'],
+                        'num_documento': factura['Num_Documento'],
+                        'monto_aplicado': monto_aplicar,
+                        'saldo_anterior': saldo_anterior,
+                        'saldo_nuevo': saldo_nuevo
+                    })
+                
+                    monto_restante -= monto_aplicar
+                    monto_aplicado_total += monto_aplicar
+                    ultimo_id_abono = cursor.lastrowid
+
+                # Actualizar saldo del cliente
+                cursor.execute("""
+                UPDATE clientes
+                SET Saldo_Pendiente_Total = GREATEST(0, COALESCE(Saldo_Pendiente_Total,0) - %s),
+                    Fecha_ultimo_pago = NOW()
+                WHERE ID_Cliente = %s
+                """, (monto_aplicado_total, int(id_cliente)))
+
+            # Preparamos la respuesta final fuera del WITH una vez cerrado y "commiteado"
+            id_abono_para_recibo = ultimo_id_abono if ultimo_id_abono else (id_movimiento_caja if id_movimiento_caja else 0)
+
+            respuesta ={
+                'success': True,
+                'mensaje': f'Abono de C${monto_aplicado_total:,.2f} registrado correctamente',
+                'id_abono': id_abono_para_recibo,
+                'monto_aplicado': monto_aplicado_total,
+                'detalle': detalle_abono,
+                'facturas_canceladas': facturas_canceladas
+            }
+
+            if id_metodo_pago == 1:
+                respuesta['nuevo_saldo_caja'] = nuevo_saldo
+
+            return jsonify(respuesta)
+
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            print(f' Error al insertar abono: {e}')
+            return jsonify({'success': False, 'error': 'Error interno del servidor'}), 500
+            
+    # Respuesta por si el método es GET
+    try:
+        with get_db_cursor(True) as cursor:
+            # Obtener clientes con saldo pendiente
+            cursor.execute("""
+                SELECT ID_Cliente, Nombre, Saldo_Pendiente_Total as Saldo_Pendiente
+                FROM clientes
+                WHERE Estado = 'ACTIVO' AND Saldo_Pendiente_Total > 0
+                ORDER BY Nombre
+            """)
+            clientes = cursor.fetchall()
+            
+            # Obtener métodos de pago
+            cursor.execute("SELECT ID_MetodoPago, Nombre FROM metodos_pago ORDER BY Nombre")
+            metodos_pago = cursor.fetchall()
+            
+            today = datetime.now().strftime('%Y-%m-%d')
+            
+            return render_template('admin/ventas/cxcobrar/cxcobrar_abono.html',
+                                 clientes=clientes,
+                                 metodos_pago=metodos_pago,
+                                 today=today)
+    except Exception as e:
+        print(f' Error al cargar formulario de abono: {e}')
+        flash('Error al cargar el formulario', 'danger')
+        return redirect(url_for('admin.admin_cuentascobrar'))

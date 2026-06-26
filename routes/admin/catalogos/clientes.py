@@ -920,26 +920,46 @@ def admin_detalle_cliente(id):
             
             # 12. Último abono del cliente
             cursor.execute("""
-                SELECT 
-                    ad.ID_Detalle,
-                    ad.Monto_Aplicado,
-                    ad.Fecha,
-                    ad.Saldo_Anterior,
-                    ad.Saldo_Nuevo,
-                    mp.Nombre as Metodo_Pago,
-                    u.NombreUsuario as Vendedor,
-                    a.Nombre_Ruta as Ruta,
-                    cxc.Num_Documento as Documento
-                FROM abonos_detalle ad
-                LEFT JOIN metodos_pago mp ON ad.ID_MetodoPago = mp.ID_MetodoPago
-                LEFT JOIN usuarios u ON ad.ID_Usuario = u.ID_Usuario
-                LEFT JOIN asignacion_vendedores av ON ad.ID_Asignacion = av.ID_Asignacion
-                LEFT JOIN rutas a ON av.ID_Ruta = a.ID_Ruta
-                LEFT JOIN cuentas_por_cobrar cxc ON ad.ID_CuentaCobrar = cxc.ID_Movimiento
-                WHERE ad.ID_Cliente = %s
-                ORDER BY ad.Fecha DESC
+                SELECT * FROM (
+                    SELECT 
+                        ad.ID_Detalle,
+                        ad.Monto_Aplicado,
+                        ad.Fecha,
+                        ad.Saldo_Anterior,
+                        ad.Saldo_Nuevo,
+                        mp.Nombre as Metodo_Pago,
+                        u.NombreUsuario as Vendedor,
+                        a.Nombre_Ruta as Ruta,
+                        cxc.Num_Documento as Documento
+                    FROM abonos_detalle ad
+                    LEFT JOIN metodos_pago mp ON ad.ID_MetodoPago = mp.ID_MetodoPago
+                    LEFT JOIN usuarios u ON ad.ID_Usuario = u.ID_Usuario
+                    LEFT JOIN asignacion_vendedores av ON ad.ID_Asignacion = av.ID_Asignacion
+                    LEFT JOIN rutas a ON av.ID_Ruta = a.ID_Ruta
+                    LEFT JOIN cuentas_por_cobrar cxc ON ad.ID_CuentaCobrar = cxc.ID_Movimiento
+                    WHERE ad.ID_Cliente = %s
+
+                    UNION ALL
+
+                    SELECT 
+                        ag.ID_Detalle,
+                        ag.Monto_Aplicado,
+                        ag.Fecha,
+                        ag.Saldo_Anterior,
+                        ag.Saldo_Nuevo,
+                        mp.Nombre as Metodo_Pago,
+                        u.NombreUsuario as Vendedor,
+                        NULL as Ruta,
+                        cxc.Num_Documento as Documento
+                    FROM abonos_general ag
+                    LEFT JOIN metodos_pago mp ON ag.ID_MetodoPago = mp.ID_MetodoPago
+                    LEFT JOIN usuarios u ON ag.ID_Usuario = u.ID_Usuario
+                    LEFT JOIN cuentas_por_cobrar cxc ON ag.ID_CuentaCobrar = cxc.ID_Movimiento
+                    WHERE ag.ID_Cliente = %s
+                ) AS todos_abonos
+                ORDER BY Fecha DESC
                 LIMIT 1
-            """, (id,))
+            """, (id, id))
             
             ultimo_abono = cursor.fetchone()
             

@@ -68,7 +68,7 @@ def vendedor_inventario():
                 LEFT JOIN unidades_medida um ON p.Unidad_Medida = um.ID_Unidad
                 LEFT JOIN categorias_producto c ON p.ID_Categoria = c.ID_Categoria
                 WHERE ir.ID_Asignacion = %s
-                AND ir.Cantidad > 0
+                AND (ir.Cantidad > 0 OR DATE(ir.Fecha_Actualizacion) = CURDATE())
                 ORDER BY c.Descripcion, p.Descripcion
             """, (asignacion['ID_Asignacion'],))
             
@@ -99,6 +99,7 @@ def vendedor_inventario():
                 FROM movimientos_ruta_cabecera
                 WHERE ID_Asignacion = %s
                 AND ID_TipoMovimiento = 3  -- Tipo Venta
+                AND DATE(Fecha_Movimiento) = CURDATE()
                 AND Estado = 'ACTIVO'
             """, (asignacion['ID_Asignacion'],))
             
@@ -128,7 +129,6 @@ def vendedor_inventario():
         flash(f'Error al cargar inventario: {str(e)}', 'error')
         return redirect(url_for('vendedor.vendedor_dashboard'))
 
-
 @vendedor_bp.route('/api/vendedor/inventario')
 @login_required
 def api_vendedor_inventario():
@@ -144,7 +144,6 @@ def api_vendedor_inventario():
                 FROM asignacion_vendedores
                 WHERE ID_Usuario = %s
                 AND Estado = 'Activa'
-                ORDER BY Fecha_Asignacion DESC
                 LIMIT 1
             """, (current_user.id,))
             
@@ -170,7 +169,7 @@ def api_vendedor_inventario():
                 INNER JOIN productos p ON ir.ID_Producto = p.ID_Producto
                 LEFT JOIN unidades_medida um ON p.Unidad_Medida = um.ID_Unidad
                 WHERE ir.ID_Asignacion = %s
-                AND ir.Cantidad > 0
+                AND (ir.Cantidad > 0 OR DATE(ir.Fecha_Actualizacion) = CURDATE())
                 ORDER BY p.Descripcion
             """, (asignacion['ID_Asignacion'],))
             
@@ -189,7 +188,6 @@ def api_vendedor_inventario():
             'data': []
         }), 500
 
-
 @vendedor_bp.route('/vendedor/producto/<int:id_producto>')
 @login_required
 def vendedor_producto_detalle(id_producto):
@@ -204,7 +202,6 @@ def vendedor_producto_detalle(id_producto):
                 FROM asignacion_vendedores
                 WHERE ID_Usuario = %s
                 AND Estado = 'Activa'
-                ORDER BY Fecha_Asignacion DESC
                 LIMIT 1
             """, (current_user.id,))
             
@@ -234,6 +231,7 @@ def vendedor_producto_detalle(id_producto):
                 LEFT JOIN categorias_producto c ON p.ID_Categoria = c.ID_Categoria
                 WHERE ir.ID_Asignacion = %s
                 AND ir.ID_Producto = %s
+                AND (ir.Cantidad > 0 OR DATE(ir.Fecha_Actualizacion) = CURDATE())
                 LIMIT 1
             """, (asignacion['ID_Asignacion'], id_producto))
             
@@ -276,7 +274,6 @@ def vendedor_producto_detalle(id_producto):
         flash(f'Error: {str(e)}', 'error')
         return redirect(url_for('vendedor.vendedor_inventario'))
 
-
 @vendedor_bp.route('/vendedor/refrescar-inventario', methods=['POST'])
 @login_required
 def vendedor_refrescar_inventario():
@@ -292,7 +289,6 @@ def vendedor_refrescar_inventario():
                 FROM asignacion_vendedores
                 WHERE ID_Usuario = %s
                 AND Estado = 'Activa'
-                ORDER BY Fecha_Asignacion DESC
                 LIMIT 1
             """, (current_user.id,))
             
@@ -332,7 +328,6 @@ def vendedor_refrescar_inventario():
             'message': str(e)
         }), 500
 
-
 @vendedor_bp.route('/api/vendedor/sincronizar_inventario', methods=['GET'])
 @vendedor_required
 def api_sincronizar_inventario():
@@ -370,6 +365,7 @@ def api_sincronizar_inventario():
                     LEFT JOIN categorias_producto c ON p.ID_Categoria = c.ID_Categoria
                     WHERE ir.ID_Asignacion = %s 
                       AND ir.Fecha_Actualizacion > %s
+                      AND (ir.Cantidad > 0 OR DATE(ir.Fecha_Actualizacion) = CURDATE())
                     ORDER BY p.Descripcion
                 """, (asignacion['ID_Asignacion'], ultima_sincronizacion))
             else:
@@ -387,6 +383,7 @@ def api_sincronizar_inventario():
                     LEFT JOIN categorias_producto c ON p.ID_Categoria = c.ID_Categoria
                     WHERE ir.ID_Asignacion = %s 
                       AND p.Estado = 'activo'
+                      AND (ir.Cantidad > 0 OR DATE(ir.Fecha_Actualizacion) = CURDATE())
                     ORDER BY p.Descripcion
                 """, (asignacion['ID_Asignacion'],))
             
@@ -413,5 +410,3 @@ def api_sincronizar_inventario():
         print(f"Error en api_sincronizar_inventario: {str(e)}")
         traceback.print_exc()
         return jsonify({'success': False, 'error': str(e)}), 500
-
-
