@@ -696,23 +696,19 @@ def admin_anticipo_entregas():
             if not bodegas:
                 flash('⚠️ No hay bodegas activas configuradas para su empresa', 'warning')
             
-            # 4. Obtener historial de entregas
+            # 4. Obtener historial de entregas agrupadas por día
             cursor.execute("""
                 SELECT 
-                    e.ID_Entrega,
-                    DATE_FORMAT(e.Fecha_Entrega, '%d/%m/%Y %H:%i') as Fecha_Entrega_Formato,
+                    DATE_FORMAT(e.Fecha_Entrega, '%d/%m/%Y') as Fecha_Dia,
                     c.Nombre as Nombre_Cliente,
                     c.Telefono as Cliente_Telefono,
                     p.Descripcion as Nombre_Producto,
-                    e.Cantidad_Cajas,
-                    e.Precio_Unitario,
-                    e.Total,
-                    s.Nombre_Sucursal,
-                    e.Notas,
-                    e.Usa_Anticipo,
-                    a.ID_Anticipo,
-                    a.Saldo_Restante as Saldo_Restante_Anticipo,
-                    u.NombreUsuario,
+                    SUM(e.Cantidad_Cajas) as Total_Cajas,
+                    SUM(e.Total) as Total_Monto,
+                    COUNT(e.ID_Entrega) as Num_Entregas,
+                    GROUP_CONCAT(DISTINCT s.Nombre_Sucursal ORDER BY s.Nombre_Sucursal SEPARATOR ', ') as Sucursales,
+                    GROUP_CONCAT(DISTINCT u.NombreUsuario ORDER BY u.NombreUsuario SEPARATOR ', ') as Usuarios,
+                    MAX(a.ID_Anticipo) as ID_Anticipo,
                     c.Saldo_Anticipos as Cliente_Saldo_Actual
                 FROM entregas e
                 INNER JOIN clientes c ON e.ID_Cliente = c.ID_Cliente
@@ -721,8 +717,11 @@ def admin_anticipo_entregas():
                 LEFT JOIN anticipos_clientes a ON e.ID_Anticipo = a.ID_Anticipo
                 LEFT JOIN usuarios u ON e.ID_Usuario = u.ID_Usuario
                 WHERE e.Usa_Anticipo = 1
-                ORDER BY e.Fecha_Entrega DESC
-                LIMIT 10
+                GROUP BY DATE(e.Fecha_Entrega), DATE_FORMAT(e.Fecha_Entrega, '%d/%m/%Y'), 
+                         c.ID_Cliente, c.Nombre, c.Telefono, c.Saldo_Anticipos,
+                         p.ID_Producto, p.Descripcion
+                ORDER BY DATE(e.Fecha_Entrega) DESC, c.Nombre
+                LIMIT 15
             """)
             entregas_recientes = cursor.fetchall()
             
