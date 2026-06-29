@@ -1,38 +1,24 @@
-const CACHE_NAME = 'vendedor-cache-v3';
+const CACHE_NAME = 'vendedor-cache-v5'; // Incrementamos la versión para forzar actualización a v5 y limpiar el caché anterior
 
-// SOLO las rutas que existen en tu app
+// Recursos estáticos públicos que no requieren autenticación y garantizan status 200
 const urlsToCache = [
-  '/vendedor/dashboard',
-  '/vendedor/mis-rutas',
-  '/vendedor/inventario',
-  '/vendedor/ventas',
-  '/vendedor/venta/crear',
-  '/vendedor/clientes',
-  '/vendedor/gastos',
-  '/vendedor/caja/mis_movimientos',
-  '/vendedor/movimientos/historial',
-  '/vendedor/movimientos/entrada-bodega',
-  '/vendedor/movimientos/devolucion-bodega',
-  '/vendedor/movimientos/merma',
+  '/static/css/styles.css',
   '/static/icon/icon-192.png',
-  '/static/ferdel.png'
+  '/static/ferdel.png',
+  '/static/manifest.json'
 ];
 
-// Instalación: precachea los recursos estáticos
+// Instalación: precachea SOLO los recursos estáticos públicos
 self.addEventListener('install', event => {
   console.log('[Service Worker] Instalando...');
   event.waitUntil(
     caches.open(CACHE_NAME)
       .then(cache => {
-        console.log('[Service Worker] Cacheando recursos estáticos');
+        console.log('[Service Worker] Cacheando recursos estáticos públicos');
         return cache.addAll(urlsToCache);
       })
       .catch(error => {
         console.error('[Service Worker] Error en instalación:', error);
-        // Intentar cachear individualmente para identificar el error
-        urlsToCache.forEach(url => {
-          fetch(url).catch(e => console.error(`Error cacheando ${url}:`, e));
-        });
       })
   );
   // Activar inmediatamente
@@ -64,8 +50,19 @@ self.addEventListener('fetch', event => {
   const url = new URL(event.request.url);
   const request = event.request;
 
-  // Solo interceptar peticiones GET (las peticiones POST/PUT/DELETE deben pasar directo a la red)
+  // 1. Solo interceptar peticiones GET (POST/PUT/DELETE pasan directo a la red)
   if (request.method !== 'GET') {
+    return;
+  }
+
+  // 2. Bypassear rutas de administración, bodega, autenticación y diagnósticos para evitar lentitud y conflictos de sesión
+  if (url.pathname.startsWith('/admin/') ||
+    url.pathname.startsWith('/bodega/') ||
+    url.pathname.startsWith('/auth/') || // Evita almacenar en caché el formulario de login (evitando tokens CSRF vencidos)
+    url.pathname === '/health' ||
+    url.pathname === '/debug-db' ||
+    url.pathname === '/diagnostico' ||
+    url.pathname === '/sw.js') {
     return;
   }
 
@@ -78,14 +75,14 @@ self.addEventListener('fetch', event => {
             console.log('[Service Worker] ✅ Imagen desde caché:', url.pathname);
             return cachedResponse;
           }
-          
+
           console.log('[Service Worker] 🌐 Imagen desde red:', url.pathname);
           return fetch(request)
             .then(networkResponse => {
-              if (!networkResponse || networkResponse.status !== 200) {
+              if (!networkResponse || networkResponse.status !== 200 || networkResponse.redirected) {
                 return networkResponse;
               }
-              
+
               const responseToCache = networkResponse.clone();
               caches.open(CACHE_NAME)
                 .then(cache => {
@@ -95,7 +92,7 @@ self.addEventListener('fetch', event => {
                 .catch(error => {
                   console.error('[Service Worker] Error guardando imagen en caché:', error);
                 });
-              
+
               return networkResponse;
             })
             .catch(error => {
@@ -128,39 +125,35 @@ self.addEventListener('fetch', event => {
         })
     );
   }
-  
-  // 🔧 Estrategia 2: API y datos dinámicos (Network First)
-  else if (url.pathname.includes('/api/') || 
-           url.pathname.includes('/ajax/') ||
-           url.pathname.startsWith('/vendedor/') ||
-           url.pathname.startsWith('/admin/') ||
-           url.pathname.startsWith('/bodega/')) {
+
+  // 🔧 Estrategia 2: API de vendedores y páginas del vendedor (Network First)
+  else if (url.pathname.startsWith('/vendedor/')) {
     event.respondWith(
       fetch(request)
         .then(networkResponse => {
-          if (networkResponse && networkResponse.status === 200) {
+          if (networkResponse && networkResponse.status === 200 && !networkResponse.redirected) {
             const responseToCache = networkResponse.clone();
             caches.open(CACHE_NAME)
               .then(cache => {
                 cache.put(request, responseToCache);
               })
               .catch(error => {
-                console.error('[Service Worker] Error guardando API en caché:', error);
+                console.error('[Service Worker] Error guardando ruta del vendedor en caché:', error);
               });
           }
           return networkResponse;
         })
         .catch(() => {
-          console.log('[Service Worker] 📦 API desde caché (offline):', url.pathname);
+          console.log('[Service Worker] 📦 Ruta del vendedor desde caché (offline):', url.pathname);
           return caches.match(request);
         })
     );
   }
-  
-  // 🔧 Estrategia 3: HTML y recursos principales (Cache First con revalidación)
+
+  // 🔧 Estrategia 3: HTML de páginas públicas y recursos principales (Cache First con revalidación)
   else if (url.pathname.match(/\.(html|css|js)$/i) ||
-           url.pathname === '/' ||
-           url.pathname === '/index.html') {
+    url.pathname === '/' ||
+    url.pathname === '/index.html') {
     event.respondWith(
       caches.match(request)
         .then(cachedResponse => {
@@ -168,7 +161,7 @@ self.addEventListener('fetch', event => {
             // Revalidación en segundo plano
             fetch(request)
               .then(networkResponse => {
-                if (networkResponse && networkResponse.status === 200) {
+                if (networkResponse && networkResponse.status === 200 && !networkResponse.redirected) {
                   const responseToCache = networkResponse.clone();
                   caches.open(CACHE_NAME)
                     .then(cache => {
@@ -180,35 +173,35 @@ self.addEventListener('fetch', event => {
               .catch(error => {
                 console.error('[Service Worker] Error revalidando recurso:', error);
               });
-            
+
             return cachedResponse;
           }
-          
+
           return fetch(request)
             .then(networkResponse => {
-              if (!networkResponse || networkResponse.status !== 200) {
+              if (!networkResponse || networkResponse.status !== 200 || networkResponse.redirected) {
                 return networkResponse;
               }
-              
+
               const responseToCache = networkResponse.clone();
               caches.open(CACHE_NAME)
                 .then(cache => {
                   cache.put(request, responseToCache);
                   console.log('[Service Worker] 💾 Cacheado:', url.pathname);
                 });
-              
+
               return networkResponse;
             });
         })
     );
   }
-  
-  // 🔧 Estrategia 4: Otros recursos (Network First con fallback a caché)
+
+  // 🔧 Estrategia 4: Otros recursos generales (Network First con fallback a caché)
   else {
     event.respondWith(
       fetch(request)
         .then(networkResponse => {
-          if (networkResponse && networkResponse.status === 200) {
+          if (networkResponse && networkResponse.status === 200 && !networkResponse.redirected) {
             const responseToCache = networkResponse.clone();
             caches.open(CACHE_NAME)
               .then(cache => {
@@ -234,7 +227,7 @@ self.addEventListener('message', event => {
     self.skipWaiting();
     console.log('[Service Worker] Skip waiting ejecutado');
   }
-  
+
   if (event.data && event.data.type === 'CLEAR_CACHE') {
     event.waitUntil(
       caches.delete(CACHE_NAME).then(() => {
@@ -245,14 +238,14 @@ self.addEventListener('message', event => {
       })
     );
   }
-  
+
   if (event.data && event.data.type === 'CHECK_IMAGE_CACHE' && event.data.url) {
     event.waitUntil(
       caches.match(event.data.url).then(response => {
         if (event.ports && event.ports[0]) {
-          event.ports[0].postMessage({ 
+          event.ports[0].postMessage({
             cached: !!response,
-            url: event.data.url 
+            url: event.data.url
           });
         }
       })

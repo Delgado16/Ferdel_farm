@@ -3,18 +3,18 @@
 {% block title %}Monitoreo de Vendedores{% endblock %}
 
 {% block content %}
-<div class="container-fluid mt-4">
-    <div class="card shadow">
-        <div class="card-header bg-primary text-white">
-            <h4 class="mb-0">
+<div class="container-fluid mt-4 px-2 px-md-3">
+    <div class="card shadow-sm border-0">
+        <div class="card-header bg-primary text-white py-3">
+            <h4 class="mb-0 fs-5 fs-md-4">
                 <i class="fas fa-truck-moving"></i> Monitoreo de Vendedores en Ruta
             </h4>
         </div>
-        <div class="card-body">
+        <div class="card-body p-3 p-md-4">
             
             <!-- Selector de Vendedor y Fecha -->
-            <div class="row mb-4">
-                <div class="col-md-5">
+            <div class="row g-3 mb-4">
+                <div class="col-12 col-md-5">
                     <label class="form-label fw-bold">
                         <i class="fas fa-user"></i> Seleccionar Vendedor:
                     </label>
@@ -25,18 +25,35 @@
                         {% endfor %}
                     </select>
                 </div>
-                <div class="col-md-3">
+                <div class="col-12 col-md-3">
                     <label class="form-label fw-bold">
                         <i class="fas fa-calendar"></i> Fecha:
                     </label>
                     <input type="date" id="fechaSelector" class="form-control form-select-lg" 
                            value="{{ hoy }}" max="{{ hoy }}">
                 </div>
-                <div class="col-md-4 d-flex align-items-end">
-                    <button id="btnRefrescar" class="btn btn-secondary btn-lg w-100">
-                        <i class="fas fa-sync-alt"></i> Refrescar Datos
-                    </button>
+                <div class="col-12 col-md-4">
+                    <label class="form-label fw-bold d-none d-md-block">&nbsp;</label>
+                    <div class="input-group">
+                        <button id="btnRefrescar" class="btn btn-secondary btn-lg" title="Refrescar manualmente">
+                            <i class="fas fa-sync-alt"></i> Refrescar
+                        </button>
+                        <select id="autoRefreshInterval" class="form-select form-select-lg">
+                            <option value="0">Autorefresco: Apagado</option>
+                            <option value="15000">Autorefresco: 15s</option>
+                            <option value="30000" selected>Autorefresco: 30s</option>
+                            <option value="60000">Autorefresco: 1 min</option>
+                            <option value="300000">Autorefresco: 5 min</option>
+                        </select>
+                    </div>
                 </div>
+            </div>
+
+            <!-- Status de Auto-refresh -->
+            <div class="d-flex justify-content-between align-items-center mb-3 mt-1 px-1">
+                <small id="refreshStatus" class="text-muted">
+                    <i class="fas fa-info-circle"></i> Seleccione un vendedor para activar el monitoreo en tiempo real.
+                </small>
             </div>
 
             <!-- Spinner de carga -->
@@ -70,9 +87,28 @@
         box-shadow: 0 4px 15px rgba(0,0,0,0.2);
     }
     .card-caja h3 {
-        font-size: 2.5rem;
+        font-size: 1.8rem;
         margin: 10px 0;
         font-weight: bold;
+        word-wrap: break-word;
+    }
+    @media (min-width: 768px) {
+        .card-caja h3 {
+            font-size: 2.5rem;
+        }
+    }
+    .caja-divider {
+        border-bottom: 1px solid rgba(255,255,255,0.2);
+        padding-bottom: 15px;
+        margin-bottom: 15px;
+    }
+    @media (min-width: 768px) {
+        .caja-divider {
+            border-bottom: none;
+            border-right: 1px solid rgba(255,255,255,0.2);
+            padding-bottom: 0;
+            margin-bottom: 0;
+        }
     }
     .card-caja small {
         font-size: 0.85rem;
@@ -130,6 +166,14 @@
     .badge-transferencia {
         background-color: #6c757d;
     }
+    @media (max-width: 576px) {
+        .table-responsive table {
+            font-size: 0.82rem;
+        }
+        .table-responsive th, .table-responsive td {
+            padding: 0.35rem 0.4rem;
+        }
+    }
 </style>
 
 <script>
@@ -140,28 +184,35 @@ const API_URL = "{{ api_url }}";
 const selector = document.getElementById('selectorVendedor');
 const fechaSelector = document.getElementById('fechaSelector');
 const btnRefrescar = document.getElementById('btnRefrescar');
+const autoRefreshInterval = document.getElementById('autoRefreshInterval');
+const refreshStatus = document.getElementById('refreshStatus');
 const dashboardDiv = document.getElementById('dashboardVendedor');
 const loadingSpinner = document.getElementById('loadingSpinner');
 const mensajeInicial = document.getElementById('mensajeInicial');
 
 let vendedorActual = null;
+let refreshTimer = null;
 
 // Eventos
 selector.addEventListener('change', function() {
     vendedorActual = this.value;
     if (vendedorActual) {
         mensajeInicial.style.display = 'none';
-        cargarDatosVendedor();
+        cargarDatosVendedor(false);
+        iniciarAutoRefresh();
     } else {
         dashboardDiv.style.display = 'none';
         dashboardDiv.innerHTML = '';
         mensajeInicial.style.display = 'block';
+        detenerAutoRefresh();
+        actualizarEstadoRefresh('<i class="fas fa-info-circle"></i> Seleccione un vendedor para activar el monitoreo en tiempo real.');
     }
 });
 
 btnRefrescar.addEventListener('click', function() {
     if (vendedorActual) {
-        cargarDatosVendedor();
+        cargarDatosVendedor(false); // Carga completa con spinner
+        iniciarAutoRefresh(); // Reinicia el temporizador
     } else {
         mostrarNotificacion('Por favor seleccione un vendedor primero', 'warning');
     }
@@ -169,9 +220,43 @@ btnRefrescar.addEventListener('click', function() {
 
 fechaSelector.addEventListener('change', function() {
     if (vendedorActual) {
-        cargarDatosVendedor();
+        cargarDatosVendedor(false);
+        iniciarAutoRefresh(); // Reinicia el temporizador para la nueva fecha
     }
 });
+
+autoRefreshInterval.addEventListener('change', function() {
+    iniciarAutoRefresh();
+});
+
+function iniciarAutoRefresh() {
+    detenerAutoRefresh();
+    
+    if (!vendedorActual) return;
+    
+    const interval = parseInt(autoRefreshInterval.value);
+    if (interval > 0) {
+        refreshTimer = setInterval(function() {
+            cargarDatosVendedor(true); // Carga silenciosa en segundo plano
+        }, interval);
+        console.log(`Auto-refresh activado cada ${interval / 1000}s`);
+    } else {
+        actualizarEstadoRefresh(`<i class="fas fa-info-circle text-muted"></i> Autorefresco apagado.`);
+    }
+}
+
+function detenerAutoRefresh() {
+    if (refreshTimer) {
+        clearInterval(refreshTimer);
+        refreshTimer = null;
+    }
+}
+
+function actualizarEstadoRefresh(htmlContent) {
+    if (refreshStatus) {
+        refreshStatus.innerHTML = htmlContent;
+    }
+}
 
 function mostrarNotificacion(mensaje, tipo = 'info') {
     const notificacionesAnteriores = document.querySelectorAll('.notificacion-flotante');
@@ -195,12 +280,19 @@ function mostrarNotificacion(mensaje, tipo = 'info') {
     }, 3000);
 }
 
-function cargarDatosVendedor() {
+function cargarDatosVendedor(esSilencioso = false) {
     if (!vendedorActual) return;
     
-    loadingSpinner.classList.remove('d-none');
-    dashboardDiv.style.display = 'none';
-    mensajeInicial.style.display = 'none';
+    const btnIcon = btnRefrescar.querySelector('i');
+    
+    if (esSilencioso) {
+        if (btnIcon) btnIcon.classList.add('fa-spin');
+        btnRefrescar.disabled = true;
+    } else {
+        loadingSpinner.classList.remove('d-none');
+        dashboardDiv.style.display = 'none';
+        mensajeInicial.style.display = 'none';
+    }
     
     const fecha = fechaSelector.value;
     const url = `${API_URL}?id=${vendedorActual}&fecha=${fecha}`;
@@ -222,21 +314,52 @@ function cargarDatosVendedor() {
             return response.json();
         })
         .then(data => {
-            loadingSpinner.classList.add('d-none');
+            if (esSilencioso) {
+                if (btnIcon) btnIcon.classList.remove('fa-spin');
+                btnRefrescar.disabled = false;
+            } else {
+                loadingSpinner.classList.add('d-none');
+            }
             
             if (!data.success) {
                 mostrarError(data.error);
                 return;
             }
             
+            // Guardamos la posición del scroll antes de renderizar
+            const scrollPos = window.scrollY;
+            
             renderizarDashboard(data);
             dashboardDiv.style.display = 'block';
-            dashboardDiv.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            
+            // Si NO es silencioso, hacemos scroll suave hasta el dashboard
+            if (!esSilencioso) {
+                dashboardDiv.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            } else {
+                // En modo silencioso restauramos la posición
+                window.scrollTo(0, scrollPos);
+            }
+            
+            const ahora = new Date().toLocaleTimeString('es-NI');
+            const interval = parseInt(autoRefreshInterval.value);
+            if (interval > 0) {
+                actualizarEstadoRefresh(`<i class="fas fa-sync-alt fa-spin text-primary"></i> Monitoreo activo. Última actualización: <b>${ahora}</b> (refresco cada ${interval / 1000}s)`);
+            } else {
+                actualizarEstadoRefresh(`<i class="fas fa-check-circle text-success"></i> Última actualización manual: <b>${ahora}</b>`);
+            }
         })
         .catch(error => {
-            loadingSpinner.classList.add('d-none');
+            if (esSilencioso) {
+                if (btnIcon) btnIcon.classList.remove('fa-spin');
+                btnRefrescar.disabled = false;
+            } else {
+                loadingSpinner.classList.add('d-none');
+            }
             console.error('Error:', error);
             mostrarError(error.message || 'Error al cargar los datos del vendedor.');
+            
+            const ahora = new Date().toLocaleTimeString('es-NI');
+            actualizarEstadoRefresh(`<i class="fas fa-exclamation-triangle text-danger"></i> Error al actualizar a las ${ahora}`);
         });
 }
 
@@ -298,39 +421,39 @@ function renderizarDashboard(data) {
     
     let html = `
         <!-- Header con información del vendedor -->
-        <div class="row mb-4">
-            <div class="col-md-12">
-                <div class="alerta-info">
-                    <div class="d-flex justify-content-between align-items-center flex-wrap">
+        <div class="row g-3 mb-4">
+            <div class="col-12">
+                <div class="alerta-info mb-0">
+                    <div class="d-flex justify-content-between align-items-start align-items-md-center flex-column flex-md-row gap-2">
                         <div>
-                            <h2 class="mb-1">
+                            <h2 class="mb-1 fs-3 fs-md-2 text-break">
                                 <i class="fas fa-user-circle text-primary"></i> ${escapeHtml(v.nombre)}
                             </h2>
                             <p class="text-muted mb-0">
                                 <small><i class="fas fa-id-badge"></i> ID: ${v.id}</small>
                             </p>
                         </div>
-                        <div class="text-end">
+                        <div class="text-start text-md-end mt-2 mt-md-0">
                             <span class="badge bg-success fs-6 mb-1">
                                 <i class="fas fa-check-circle"></i> Ruta Activa
                             </span>
-                            <br>
-                            <small class="text-muted">
+                            <br class="d-none d-md-inline">
+                            <small class="text-muted d-block d-md-inline-block">
                                 <i class="fas fa-calendar-alt"></i> ${data.fecha_consulta}
                             </small>
                         </div>
                     </div>
                     <hr class="my-2">
-                    <div class="row">
-                        <div class="col-md-4">
+                    <div class="row g-2">
+                        <div class="col-12 col-md-4 mb-1 mb-md-0">
                             <i class="fas fa-route text-primary"></i> 
                             <strong>Ruta:</strong> ${escapeHtml(r.nombre)}
                         </div>
-                        <div class="col-md-4">
+                        <div class="col-12 col-md-4 mb-1 mb-md-0">
                             <i class="fas fa-truck text-primary"></i> 
                             <strong>Vehículo:</strong> ${escapeHtml(vehiculoInfo)}
                         </div>
-                        <div class="col-md-4">
+                        <div class="col-12 col-md-4">
                             <i class="fas fa-clock text-primary"></i> 
                             <strong>Horario:</strong> 
                             ${r.hora_inicio || 'No definido'} - ${r.hora_fin || 'No definido'}
@@ -343,31 +466,31 @@ function renderizarDashboard(data) {
         <!-- Tarjeta de CAJA TOTAL -->
         <div class="card-caja">
             <div class="row">
-                <div class="col-md-12 text-center">
-                    <small>
+                <div class="col-12 text-center">
+                    <small class="d-block mb-1">
                         <i class="fas fa-money-bill-wave"></i> 
                         EFECTIVO TOTAL EN PODER DEL VENDEDOR
                     </small>
-                    <h3>${formatCurrency(c.total)}</h3>
+                    <h3 class="text-break">${formatCurrency(c.total)}</h3>
                     <hr style="background-color: rgba(255,255,255,0.2); margin: 10px 0;">
-                    <div class="row">
-                        <div class="col-md-6 border-end border-white">
-                            <small>💵 Ventas de contado (hoy)</small><br>
-                            <strong class="fs-4">${formatCurrency(c.ventas_efectivo)}</strong>
+                    <div class="row g-3">
+                        <div class="col-12 col-md-6 caja-divider text-center mb-2 mb-md-0">
+                            <small class="d-block mb-1">💵 Ventas de contado (hoy)</small>
+                            <strong class="fs-4 d-block text-break">${formatCurrency(c.ventas_efectivo)}</strong>
                         </div>
-                        <div class="col-md-6">
-                            <small>💰 Abonos en efectivo (hoy)</small><br>
-                            <strong class="fs-4">+ ${formatCurrency(c.abonos_efectivo)}</strong>
+                        <div class="col-12 col-md-6 text-center">
+                            <small class="d-block mb-1">💰 Abonos en efectivo (hoy)</small>
+                            <strong class="fs-4 d-block text-break">+ ${formatCurrency(c.abonos_efectivo)}</strong>
                         </div>
                     </div>
                 </div>
             </div>
         </div>
         
-        <div class="row">
+        <div class="row g-4 mb-4">
             <!-- INVENTARIO DE RUTA -->
-            <div class="col-md-6">
-                <div class="card card-inventario info-card">
+            <div class="col-12 col-md-6">
+                <div class="card card-inventario info-card h-100 mb-0">
                     <div class="card-header bg-info text-white">
                         <i class="fas fa-boxes"></i> Inventario Actual en Ruta
                         <span class="badge bg-light text-dark float-end">
@@ -381,8 +504,8 @@ function renderizarDashboard(data) {
             </div>
             
             <!-- FACTURAS PENDIENTES -->
-            <div class="col-md-6">
-                <div class="card card-facturas info-card">
+            <div class="col-12 col-md-6">
+                <div class="card card-facturas info-card h-100 mb-0">
                     <div class="card-header bg-warning text-dark">
                         <i class="fas fa-file-invoice-dollar"></i> Facturas Pendientes por Cobrar
                         <span class="badge bg-danger text-white float-end">
@@ -396,10 +519,10 @@ function renderizarDashboard(data) {
             </div>
         </div>
         
-        <div class="row">
+        <div class="row g-4 mb-4">
             <!-- ABONOS REGISTRADOS HOY -->
-            <div class="col-md-6">
-                <div class="card card-abonos info-card">
+            <div class="col-12 col-md-6">
+                <div class="card card-abonos info-card h-100 mb-0">
                     <div class="card-header bg-success text-white">
                         <i class="fas fa-hand-holding-usd"></i> Abonos Registrados Hoy
                         <span class="badge bg-light text-dark float-end">
@@ -413,40 +536,42 @@ function renderizarDashboard(data) {
             </div>
             
             <!-- RESUMEN DEL DÍA -->
-            <div class="col-md-6">
-                <div class="card info-card">
+            <div class="col-12 col-md-6">
+                <div class="card info-card h-100 mb-0">
                     <div class="card-header bg-secondary text-white">
                         <i class="fas fa-chart-line"></i> Resumen del Día
                     </div>
                     <div class="card-body">
-                        <table class="table table-bordered mb-0">
-                            <tbody>
-                                <tr class="table-light">
-                                    <td><i class="fas fa-file-invoice"></i> <strong>Facturas emitidas:</strong></td>
-                                    <td class="text-end fw-bold">
-                                        ${formatNumber(data.resumen ? data.resumen.total_facturas : 0, 0)}
-                                    </td>
-                                </tr>
-                                <tr class="border-left-success">
-                                    <td><i class="fas fa-dollar-sign"></i> <strong>Total vendido:</strong></td>
-                                    <td class="text-end text-success fw-bold fs-5">
-                                        ${formatCurrency(data.resumen ? data.resumen.total_vendido : 0)}
-                                    </td>
-                                </tr>
-                                <tr class="border-left-info">
-                                    <td><i class="fas fa-hand-holding-usd"></i> <strong>Total abonos recibidos:</strong></td>
-                                    <td class="text-end text-primary fw-bold">
-                                        ${formatCurrency(data.resumen ? data.resumen.total_abonos_monto : 0)}
-                                    </td>
-                                 </tr>
-                                <tr class="border-left-warning">
-                                    <td><i class="fas fa-receipt"></i> <strong>Cantidad de abonos:</strong></td>
-                                    <td class="text-end fw-bold">
-                                        ${formatNumber(data.resumen ? data.resumen.total_abonos : 0, 0)}
-                                    </td>
-                                 </tr>
-                            </tbody>
-                        </table>
+                        <div class="table-responsive">
+                            <table class="table table-bordered mb-0">
+                                <tbody>
+                                    <tr class="table-light">
+                                        <td><i class="fas fa-file-invoice"></i> <strong>Facturas emitidas:</strong></td>
+                                        <td class="text-end fw-bold text-break">
+                                            ${formatNumber(data.resumen ? data.resumen.total_facturas : 0, 0)}
+                                        </td>
+                                    </tr>
+                                    <tr class="border-left-success">
+                                        <td><i class="fas fa-dollar-sign"></i> <strong>Total vendido:</strong></td>
+                                        <td class="text-end text-success fw-bold fs-5 text-break">
+                                            ${formatCurrency(data.resumen ? data.resumen.total_vendido : 0)}
+                                        </td>
+                                    </tr>
+                                    <tr class="border-left-info">
+                                        <td><i class="fas fa-hand-holding-usd"></i> <strong>Total abonos recibidos:</strong></td>
+                                        <td class="text-end text-primary fw-bold text-break">
+                                            ${formatCurrency(data.resumen ? data.resumen.total_abonos_monto : 0)}
+                                        </td>
+                                     </tr>
+                                    <tr class="border-left-warning">
+                                        <td><i class="fas fa-receipt"></i> <strong>Cantidad de abonos:</strong></td>
+                                        <td class="text-end fw-bold text-break">
+                                            ${formatNumber(data.resumen ? data.resumen.total_abonos : 0, 0)}
+                                        </td>
+                                     </tr>
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
                 </div>
             </div>
