@@ -195,7 +195,8 @@
     }
     .dashboard-ventas-wrapper .table-responsive {
         border-radius: 0 0 16px 16px;
-        overflow: hidden;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
     }
     .dashboard-ventas-wrapper table {
         width: 100%;
@@ -442,6 +443,44 @@
         font-weight: 600;
         font-size: 0.85rem;
     }
+
+    /* ===== RESPONSIVENESS ===== */
+    @media (max-width: 768px) {
+        .dashboard-ventas-wrapper .nav-tabs {
+            flex-wrap: nowrap;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            border-bottom: 2px solid var(--slate-200);
+        }
+        .dashboard-ventas-wrapper .nav-tabs::-webkit-scrollbar {
+            display: none; /* Ocultar barra en Chrome, Safari y Opera */
+        }
+        .dashboard-ventas-wrapper .nav-tabs {
+            -ms-overflow-style: none;  /* IE y Edge */
+            scrollbar-width: none;  /* Firefox */
+        }
+        .dashboard-ventas-wrapper .nav-tabs .nav-link {
+            white-space: nowrap;
+        }
+    }
+
+    @media (max-width: 576px) {
+        .dashboard-ventas-wrapper table {
+            font-size: 0.75rem;
+        }
+        .dashboard-ventas-wrapper table tbody td,
+        .dashboard-ventas-wrapper table thead.table-dark th {
+            padding: 0.55rem 0.75rem;
+        }
+        .dashboard-ventas-wrapper .card-stats .stats-icon {
+            font-size: 1.8rem;
+            right: 0.75rem;
+            top: 0.75rem;
+        }
+        .dashboard-ventas-wrapper .card-stats .h5 {
+            font-size: 1.15rem;
+        }
+    }
 </style>
 {% endblock %}
 
@@ -449,8 +488,8 @@
 <div class="dashboard-ventas-wrapper">
 <div class="container-fluid">
     <!-- Encabezado -->
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <h1 class="h3 text-gray-800">
+    <div class="d-flex flex-column flex-sm-row justify-content-between align-items-start align-items-sm-center gap-3 mb-4">
+        <h1 class="h3 text-gray-800 mb-0">
             <i class="fas fa-chart-line"></i> 
             {% if vista_actual == 'general' %}Dashboard de Ventas
             {% elif vista_actual == 'vendedores' %}Vendedores Asignados
@@ -458,13 +497,13 @@
             {% elif vista_actual == 'detalle_factura' %}<i class="fas fa-file-invoice"></i> Factura #{{ factura_detalle.ID_FacturaRuta if tipo_factura == 'ruta' else factura_detalle.ID_Factura }}
             {% endif %}
         </h1>
-        <div>
+        <div class="d-flex flex-wrap gap-2">
             {% if vista_actual == 'detalle_vendedor' %}
-            <a href="{{ url_for('admin.admin_facturas_ventas', vista='vendedores', filtro=filtro_actual) }}" class="btn btn-outline-secondary me-2">
+            <a href="{{ url_for('admin.admin_facturas_ventas', vista='vendedores', filtro=filtro_actual) }}" class="btn btn-outline-secondary">
                 <i class="fas fa-arrow-left"></i> Volver a Vendedores
             </a>
             {% elif vista_actual == 'detalle_factura' %}
-            <a href="{{ url_for('admin.admin_facturas_ventas', vista='detalle_vendedor', id_vendedor=id_vendedor, filtro=filtro_actual) }}" class="btn btn-outline-secondary me-2">
+            <a href="{{ url_for('admin.admin_facturas_ventas', vista='detalle_vendedor', id_vendedor=id_vendedor, filtro=filtro_actual) }}" class="btn btn-outline-secondary">
                 <i class="fas fa-arrow-left"></i> Volver
             </a>
             {% endif %}
@@ -501,7 +540,7 @@
                 {% if vista_actual == 'detalle_vendedor' %}
                 <input type="hidden" name="id_vendedor" value="{{ vendedor.ID_Usuario }}">
                 {% endif %}
-                <div class="col-md-3">
+                <div class="col-12 col-sm-6 col-md-3">
                     <label class="form-label fw-bold"><i class="fas fa-calendar-alt"></i> Período:</label>
                     <select name="filtro" class="form-select" id="filtroSelect">
                         <option value="hoy" {% if filtro_actual == 'hoy' %}selected{% endif %}>Hoy</option>
@@ -511,16 +550,16 @@
                         <option value="rango" {% if filtro_actual == 'rango' %}selected{% endif %}>Rango personalizado</option>
                     </select>
                 </div>
-                <div class="col-md-3" id="div_fecha_inicio" style="display: {% if filtro_actual == 'rango' %}block{% else %}none{% endif %};">
+                <div class="col-12 col-sm-6 col-md-3" id="div_fecha_inicio" style="display: {% if filtro_actual == 'rango' %}block{% else %}none{% endif %};">
                     <label class="form-label fw-bold"><i class="fas fa-play-circle"></i> Desde:</label>
                     <input type="date" name="fecha_inicio" class="form-control" value="{{ fecha_inicio|default('') }}">
                 </div>
-                <div class="col-md-3" id="div_fecha_fin" style="display: {% if filtro_actual == 'rango' %}block{% else %}none{% endif %};">
+                <div class="col-12 col-sm-6 col-md-3" id="div_fecha_fin" style="display: {% if filtro_actual == 'rango' %}block{% else %}none{% endif %};">
                     <label class="form-label fw-bold"><i class="fas fa-stop-circle"></i> Hasta:</label>
                     <input type="date" name="fecha_fin" class="form-control" value="{{ fecha_fin|default('') }}">
                 </div>
                 {% if vista_actual == 'detalle_vendedor' %}
-                <div class="col-md-2">
+                <div class="col-12 col-sm-6 col-md-2">
                     <label class="form-label fw-bold"><i class="fas fa-filter"></i> Estado:</label>
                     <select name="estado" class="form-select" onchange="this.form.submit()">
                         <option value="todas" {% if estado_actual == 'todas' %}selected{% endif %}>Todas</option>
@@ -529,7 +568,7 @@
                     </select>
                 </div>
                 {% endif %}
-                <div class="col-md-{% if vista_actual == 'detalle_vendedor' %}1{% else %}2{% endif %}" id="div_boton_aplicar" style="display: {% if filtro_actual == 'rango' %}block{% else %}none{% endif %};">
+                <div class="col-12 col-sm-6 col-md-2" id="div_boton_aplicar" style="display: {% if filtro_actual == 'rango' %}block{% else %}none{% endif %};">
                     <label class="form-label fw-bold">&nbsp;</label>
                     <button type="submit" class="btn btn-light w-100 btn-filter"><i class="fas fa-search"></i> Aplicar</button>
                 </div>
@@ -541,7 +580,7 @@
     <!-- ==================== VISTA GENERAL ==================== -->
     {% if vista_actual == 'general' %}
     <div class="row">
-        <div class="col-xl-3 col-md-6 mb-4">
+        <div class="col-12 col-sm-6 col-xl-3 mb-4">
             <div class="card border-left-primary shadow h-100 py-2 card-stats">
                 <div class="card-body">
                     <div class="row no-gutters align-items-center">
@@ -554,7 +593,7 @@
                 </div>
             </div>
         </div>
-        <div class="col-xl-3 col-md-6 mb-4">
+        <div class="col-12 col-sm-6 col-xl-3 mb-4">
             <div class="card border-left-success shadow h-100 py-2 card-stats">
                 <div class="card-body">
                     <div class="row no-gutters align-items-center">
@@ -567,7 +606,7 @@
                 </div>
             </div>
         </div>
-        <div class="col-xl-3 col-md-6 mb-4">
+        <div class="col-12 col-sm-6 col-xl-3 mb-4">
             <div class="card border-left-info shadow h-100 py-2 card-stats">
                 <div class="card-body">
                     <div class="row no-gutters align-items-center">
@@ -580,7 +619,7 @@
                 </div>
             </div>
         </div>
-        <div class="col-xl-3 col-md-6 mb-4">
+        <div class="col-12 col-sm-6 col-xl-3 mb-4">
             <div class="card border-left-warning shadow h-100 py-2 card-stats">
                 <div class="card-body">
                     <div class="row no-gutters align-items-center">
@@ -617,13 +656,13 @@
     </div>
 
     <div class="row">
-        <div class="col-xl-6 mb-4">
+        <div class="col-12 col-lg-6 mb-4">
             <div class="card shadow">
                 <div class="card-header py-3"><h6 class="m-0 font-weight-bold text-primary"><i class="fas fa-trophy"></i> Top 5 Vendedores</h6></div>
                 <div class="card-body"><div class="chart-container" style="height: 300px;"><canvas id="topVendedoresChart"></canvas></div></div>
             </div>
         </div>
-        <div class="col-xl-6 mb-4">
+        <div class="col-12 col-lg-6 mb-4">
             <div class="card shadow">
                 <div class="card-header py-3"><h6 class="m-0 font-weight-bold text-primary"><i class="fas fa-chart-bar"></i> Resumen por Tipo</h6></div>
                 <div class="card-body">
@@ -647,7 +686,7 @@
     </div>
 
     <div class="card shadow mb-4">
-        <div class="card-header py-3 d-flex justify-content-between align-items-center">
+        <div class="card-header py-3 d-flex flex-column flex-sm-row justify-content-between align-items-start align-items-sm-center gap-2">
             <h6 class="m-0 font-weight-bold text-primary"><i class="fas fa-table"></i> Detalle de Ventas por Ruta y Local</h6>
             <a href="{{ url_for('admin.admin_facturas_ventas', vista='vendedores', filtro=filtro_actual) }}" class="btn btn-sm btn-outline-primary"><i class="fas fa-users"></i> Ver Vendedores</a>
         </div>
@@ -702,10 +741,10 @@
     <!-- ==================== VISTA VENDEDORES ==================== -->
     {% if vista_actual == 'vendedores' %}
     <div class="row">
-        <div class="col-xl-3 col-md-6 mb-4"><div class="card border-left-primary shadow h-100 py-2 card-stats"><div class="card-body"><div class="text-xs font-weight-bold text-primary text-uppercase mb-1">Vendedores Ruta</div><div class="h5 mb-0">{{ total_vendedores_ruta|default(0) }}</div></div></div></div>
-        <div class="col-xl-3 col-md-6 mb-4"><div class="card border-left-success shadow h-100 py-2 card-stats"><div class="card-body"><div class="text-xs font-weight-bold text-success text-uppercase mb-1">Vendedores Local</div><div class="h5 mb-0">{{ total_vendedores_local|default(0) }}</div></div></div></div>
-        <div class="col-xl-3 col-md-6 mb-4"><div class="card border-left-info shadow h-100 py-2 card-stats"><div class="card-body"><div class="text-xs font-weight-bold text-info text-uppercase mb-1">Total Vendido Rutas</div><div class="h5 mb-0">C${{ "{:,.2f}".format((total_vendido_ruta|default(0))|float) }}</div></div></div></div>
-        <div class="col-xl-3 col-md-6 mb-4"><div class="card border-left-warning shadow h-100 py-2 card-stats"><div class="card-body"><div class="text-xs font-weight-bold text-warning text-uppercase mb-1">Facturas Anuladas</div><div class="h5 mb-0">{{ total_anuladas|default(0) }}</div></div></div></div>
+        <div class="col-12 col-sm-6 col-xl-3 mb-4"><div class="card border-left-primary shadow h-100 py-2 card-stats"><div class="card-body"><div class="text-xs font-weight-bold text-primary text-uppercase mb-1">Vendedores Ruta</div><div class="h5 mb-0">{{ total_vendedores_ruta|default(0) }}</div></div></div></div>
+        <div class="col-12 col-sm-6 col-xl-3 mb-4"><div class="card border-left-success shadow h-100 py-2 card-stats"><div class="card-body"><div class="text-xs font-weight-bold text-success text-uppercase mb-1">Vendedores Local</div><div class="h5 mb-0">{{ total_vendedores_local|default(0) }}</div></div></div></div>
+        <div class="col-12 col-sm-6 col-xl-3 mb-4"><div class="card border-left-info shadow h-100 py-2 card-stats"><div class="card-body"><div class="text-xs font-weight-bold text-info text-uppercase mb-1">Total Vendido Rutas</div><div class="h5 mb-0">C${{ "{:,.2f}".format((total_vendido_ruta|default(0))|float) }}</div></div></div></div>
+        <div class="col-12 col-sm-6 col-xl-3 mb-4"><div class="card border-left-warning shadow h-100 py-2 card-stats"><div class="card-body"><div class="text-xs font-weight-bold text-warning text-uppercase mb-1">Facturas Anuladas</div><div class="h5 mb-0">{{ total_anuladas|default(0) }}</div></div></div></div>
     </div>
 
     <div class="card shadow mb-4">
@@ -786,10 +825,10 @@
     <!-- ==================== VISTA DETALLE VENDEDOR ==================== -->
     {% if vista_actual == 'detalle_vendedor' %}
     <div class="row">
-        <div class="col-xl-3 col-md-6 mb-4"><div class="card border-left-primary shadow h-100 py-2"><div class="card-body"><div class="text-xs font-weight-bold text-primary text-uppercase mb-1">Total Facturas</div><div class="h5 mb-0">{{ total_ventas|default(0) }}</div></div></div></div>
-        <div class="col-xl-3 col-md-6 mb-4"><div class="card border-left-success shadow h-100 py-2"><div class="card-body"><div class="text-xs font-weight-bold text-success text-uppercase mb-1">Activas</div><div class="h5 mb-0">{{ total_ventas_activas|default(0) }}</div></div></div></div>
-        <div class="col-xl-3 col-md-6 mb-4"><div class="card border-left-danger shadow h-100 py-2"><div class="card-body"><div class="text-xs font-weight-bold text-danger text-uppercase mb-1">Anuladas</div><div class="h5 mb-0">{{ total_ventas_anuladas|default(0) }}</div></div></div></div>
-        <div class="col-xl-3 col-md-6 mb-4"><div class="card border-left-warning shadow h-100 py-2"><div class="card-body"><div class="text-xs font-weight-bold text-warning text-uppercase mb-1">Monto Activo</div><div class="h5 mb-0">C${{ "{:,.2f}".format((total_monto_activo|default(0))|float) }}</div></div></div></div>
+        <div class="col-12 col-sm-6 col-xl-3 mb-4"><div class="card border-left-primary shadow h-100 py-2 card-stats"><div class="card-body"><div class="text-xs font-weight-bold text-primary text-uppercase mb-1">Total Facturas</div><div class="h5 mb-0 font-weight-bold">{{ total_ventas|default(0) }}</div></div></div></div>
+        <div class="col-12 col-sm-6 col-xl-3 mb-4"><div class="card border-left-success shadow h-100 py-2 card-stats"><div class="card-body"><div class="text-xs font-weight-bold text-success text-uppercase mb-1">Activas</div><div class="h5 mb-0 font-weight-bold">{{ total_ventas_activas|default(0) }}</div></div></div></div>
+        <div class="col-12 col-sm-6 col-xl-3 mb-4"><div class="card border-left-danger shadow h-100 py-2 card-stats"><div class="card-body"><div class="text-xs font-weight-bold text-danger text-uppercase mb-1">Anuladas</div><div class="h5 mb-0 font-weight-bold">{{ total_ventas_anuladas|default(0) }}</div></div></div></div>
+        <div class="col-12 col-sm-6 col-xl-3 mb-4"><div class="card border-left-warning shadow h-100 py-2 card-stats"><div class="card-body"><div class="text-xs font-weight-bold text-warning text-uppercase mb-1">Monto Activo</div><div class="h5 mb-0 font-weight-bold">C${{ "{:,.2f}".format((total_monto_activo|default(0))|float) }}</div></div></div></div>
     </div>
 
     <div class="card shadow mb-4">

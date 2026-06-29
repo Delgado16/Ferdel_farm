@@ -8,6 +8,8 @@ from auth.decorators import vendedor_required
 from . import vendedor_bp
 from .utils import convertir_hora_db, procesar_asignacion, procesar_lista_asignaciones
 
+@vendedor_bp.route('/vendedor/dashboard')
+@vendedor_required
 def vendedor_dashboard():
     # Obtener el ID del usuario logueado (asumiendo que está en session)
     user_id = current_user.id
@@ -275,6 +277,8 @@ def vendedor_dashboard():
                          resumen_cartera=resumen_cartera,
                          alertas=alertas)
 
+@vendedor_bp.route('/vendedor/mis-rutas')
+@vendedor_required
 def vendedor_mis_rutas():
     """Vista principal para que el vendedor vea y gestione sus rutas asignadas"""
     try:
@@ -328,6 +332,8 @@ def vendedor_mis_rutas():
         flash(f'Error al cargar rutas: {str(e)}', 'error')
         return redirect(url_for('vendedor.vendedor_dashboard'))
 
+@vendedor_bp.route('/vendedor/ruta/iniciar/<int:id>', methods=['POST'])
+@vendedor_required
 def vendedor_iniciar_ruta(id):
     """Permite al vendedor iniciar su ruta asignada"""
     try:
@@ -380,6 +386,8 @@ def vendedor_iniciar_ruta(id):
     
     return redirect(url_for('vendedor.vendedor_mis_rutas'))
 
+@vendedor_bp.route('/vendedor/ruta/finalizar/<int:id>', methods=['POST'])
+@vendedor_required
 def vendedor_finalizar_ruta(id):
     """Permite al vendedor finalizar su ruta"""
     try:
@@ -445,6 +453,8 @@ def vendedor_finalizar_ruta(id):
     
     return redirect(url_for('vendedor.vendedor_mis_rutas'))
 
+@vendedor_bp.route('/vendedor/ruta/detalle/<int:id>')
+@vendedor_required
 def vendedor_detalle_ruta(id):
     """Detalle de una ruta específica del vendedor"""
     try:
@@ -491,6 +501,8 @@ def vendedor_detalle_ruta(id):
         flash(f'Error al cargar detalle: {str(e)}', 'error')
         return redirect(url_for('vendedor.vendedor_mis_rutas'))
 
+@vendedor_bp.route('/api/asignacion_actual', methods=['GET'])
+@vendedor_required
 def api_asignacion_actual():
     """Obtener la asignación actual del vendedor"""
     try:
@@ -522,6 +534,8 @@ def api_asignacion_actual():
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
 
+@vendedor_bp.route('/api/resumen_diario', methods=['GET'])
+@vendedor_required
 def resumen_diario_vendedor():
     """Resumen diario de actividades del vendedor"""
     try:
