@@ -43,19 +43,9 @@ def verify_credentials_debug(username, password):
                 print(f"   Estado: {user_data['Estado']}")
                 print(f"   Hash contraseña: {user_data['Contraseña'][:20]}...")
                 
-                # Verificar si la contraseña está hasheada
-                is_hashed = user_data['Contraseña'].startswith(('scrypt:', 'pbkdf2:', 'bcrypt:'))
-                print(f"   ¿Contraseña hasheada?: {is_hashed}")
-                
-                if is_hashed:
-                    # Verificar contraseña hasheada
-                    password_match = check_password_hash(user_data['Contraseña'], password)
-                    print(f"🔐 Contraseña coincide (hash): {password_match}")
-                else:
-                    # Verificar contraseña en texto plano (temporal)
-                    password_match = (user_data['Contraseña'] == password)
-                    print(f"🔐 Contraseña coincide (texto plano): {password_match}")
-                    print("⚠️ ADVERTENCIA: Contraseña en texto plano - debe ser hasheada")
+                # Verificar contraseña hasheada
+                password_match = check_password_hash(user_data['Contraseña'], password)
+                print(f"🔐 Contraseña coincide (hash): {password_match}")
                 
                 if password_match:
                     print("✅ Credenciales válidas")

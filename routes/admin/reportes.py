@@ -4,7 +4,7 @@ from datetime import datetime
 from config.database import get_db_cursor
 from auth.decorators import admin_required, admin_or_bodega_required
 from helpers.bitacora import bitacora_decorator, registrar_bitacora
-from helpers.export import exportar_csv, exportar_json
+from helpers.export import exportar_csv, exportar_json, exportar_excel, exportar_pdf
 from . import admin_bp
 import functools
 
@@ -70,11 +70,15 @@ def report_handler(filename):
                     datos, template_name, context = result
                     formato = request.args.get('formato', 'html')
                     
-                    if formato in ['csv', 'json']:
+                    if formato in ['csv', 'json', 'excel', 'pdf']:
                         if formato == 'csv':
                             return exportar_csv(datos, filename)
-                        else:
+                        elif formato == 'json':
                             return exportar_json(datos, filename)
+                        elif formato == 'excel':
+                            return exportar_excel(datos, filename)
+                        elif formato == 'pdf':
+                            return exportar_pdf(datos, filename)
                     
                     if 'now' not in context:
                         context['now'] = datetime.now()

@@ -20,6 +20,9 @@ SECRET_KEY = os.environ.get("SECRET_KEY", "dev-secret-key-change-in-production")
 RENDER_ENV = os.environ.get('RENDER', False)
 RAILWAY_ENV = os.environ.get('RAILWAY_STATIC_URL', None) is not None
 
+DB_SSL_DISABLED = os.environ.get('DB_SSL_DISABLED', 'True') == 'True'
+DB_SSL_CA = os.environ.get('DB_SSL_CA', None)
+
 DB_CONFIG = {
     'user': os.environ.get('DB_USER', 'root'),
     'password': os.environ.get('DB_PASSWORD', ''),
@@ -33,8 +36,13 @@ DB_CONFIG = {
     'connect_timeout': 30,
     'use_pure': True,
     'charset': 'utf8mb4',
-    'collation': 'utf8mb4_general_ci'
+    'collation': 'utf8mb4_general_ci',
+    'ssl_disabled': DB_SSL_DISABLED
 }
+
+if DB_SSL_CA:
+    DB_CONFIG['ssl_ca'] = DB_SSL_CA
+
 
 # ===== CONFIGURACIÓN DE SESIÓN =====
 SESSION_CONFIG = {
@@ -51,7 +59,8 @@ CORS_CONFIG = {
 
 def print_db_config():
     """Imprimir configuración de BD (sin mostrar contraseña)"""
-    print("📋 Configuración de BD (SIN SSL):")
+    ssl_status = "DESHABILITADO" if DB_CONFIG.get('ssl_disabled', True) else "HABILITADO"
+    print(f"📋 Configuración de BD (SSL: {ssl_status}):")
     print(f"   Host: {DB_CONFIG['host']}:{DB_CONFIG['port']}")
     print(f"   Database: {DB_CONFIG['database']}")
     print(f"   User: {DB_CONFIG['user']}")

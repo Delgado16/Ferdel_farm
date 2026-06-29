@@ -52,33 +52,18 @@ def login():
                 user_data = cursor.fetchone()
                 
                 if user_data:
-                    # Verificar si la contraseña está hasheada
-                    if user_data['Contraseña'].startswith(('scrypt:', 'pbkdf2:', 'bcrypt:')):
-                        # Contraseña hasheada
-                        if check_password_hash(user_data['Contraseña'], password):
-                            user = User(user_data['ID_Usuario'], user_data['NombreUsuario'], user_data['Nombre_Rol'])
-                            login_user(user)
-                            registrar_login_exitoso(username, user_data['ID_Usuario'])
-                            print(f"✅ Usuario {username} ha iniciado sesión - Rol: {user_data['Nombre_Rol']}")
-                            flash(f"¡Bienvenido {user.username}!", "success")
-                            return redirect(url_for('main.dashboard'))
-                        else:
-                            print("❌ Contraseña incorrecta (hash)")
-                            registrar_login_fallido(username, "contraseña incorrecta")
-                            flash("Credenciales incorrectas. Por favor verifique sus datos.", "danger")
+                    # Verificar contraseña utilizando hash
+                    if check_password_hash(user_data['Contraseña'], password):
+                        user = User(user_data['ID_Usuario'], user_data['NombreUsuario'], user_data['Nombre_Rol'])
+                        login_user(user)
+                        registrar_login_exitoso(username, user_data['ID_Usuario'])
+                        print(f"✅ Usuario {username} ha iniciado sesión - Rol: {user_data['Nombre_Rol']}")
+                        flash(f"¡Bienvenido {user.username}!", "success")
+                        return redirect(url_for('main.dashboard'))
                     else:
-                        # Contraseña en texto plano (temporal)
-                        if user_data['Contraseña'] == password:
-                            user = User(user_data['ID_Usuario'], user_data['NombreUsuario'], user_data['Nombre_Rol'])
-                            login_user(user)
-                            registrar_login_exitoso(username, user_data['ID_Usuario'])
-                            print(f"✅ Usuario {username} ha iniciado sesión (texto plano) - Rol: {user_data['Nombre_Rol']}")
-                            flash(f"¡Bienvenido {user.username}!", "success")
-                            return redirect(url_for('main.dashboard'))
-                        else:
-                            print("❌ Contraseña incorrecta (texto plano)")
-                            registrar_login_fallido(username, "contraseña incorrecta")
-                            flash("Credenciales incorrectas. Por favor verifique sus datos.", "danger")
+                        print("❌ Contraseña incorrecta")
+                        registrar_login_fallido(username, "contraseña incorrecta")
+                        flash("Credenciales incorrectas. Por favor verifique sus datos.", "danger")
                 else:
                     print("❌ Usuario no encontrado o inactivo")
                     registrar_login_fallido(username, "usuario no encontrado o inactivo")

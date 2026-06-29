@@ -178,6 +178,8 @@ def diagnose_db():
     print(f"   DB_USER: {os.environ.get('DB_USER')}")
     print(f"   DB_NAME: {os.environ.get('DB_NAME')}")
     print(f"   DB_HOST: {os.environ.get('DB_HOST')}")
+    print(f"   DB_SSL_DISABLED: {os.environ.get('DB_SSL_DISABLED')}")
+    print(f"   DB_SSL_CA: {os.environ.get('DB_SSL_CA')}")
     print(f"   RENDER: {RENDER_ENV}")
     print(f"   RAILWAY: {RAILWAY_ENV}")
     

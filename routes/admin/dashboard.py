@@ -44,6 +44,25 @@ def admin_dashboard():
         
         now = datetime.now()
         
+        # Calcular alertas
+        alertas = []
+        if kpis['productos_bajo_stock'] > 0:
+            alertas.append({
+                'tipo': 'warning',
+                'titulo': 'Stock Crítico',
+                'mensaje': f"Hay {kpis['productos_bajo_stock']} productos con existencias por debajo del stock mínimo.",
+                'icono': 'bi-exclamation-triangle-fill',
+                'enlace': url_for('admin.admin_productos')
+            })
+        if kpis['facturas_vencidas'] > 0:
+            alertas.append({
+                'tipo': 'danger',
+                'titulo': 'Cartera Vencida',
+                'mensaje': f"Existen {kpis['facturas_vencidas']} facturas vencidas en el sistema.",
+                'icono': 'bi-flag-fill',
+                'enlace': url_for('admin.admin_cuentascobrar', estado='vencidas')
+            })
+        
         return render_template('admin/dashboard.html',
                              # KPIs
                              usuarios_count=kpis['usuarios_count'],
@@ -53,6 +72,8 @@ def admin_dashboard():
                              saldo_pendiente=kpis['saldo_pendiente'],
                              facturas_vencidas=kpis['facturas_vencidas'],
                              productos_bajo_stock=kpis['productos_bajo_stock'],
+                             # Alertas
+                             alertas=alertas,
                              # Tablas
                              top_clientes=top_clientes,
                              productos_stock=productos_stock,
