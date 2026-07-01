@@ -2,6 +2,16 @@
 Archivo principal de la aplicación Flask
 Inicializa la app, configura middleware, y registra blueprints
 """
+import sys
+
+# Configurar encoding a UTF-8 para evitar errores de codificación con emojis en Windows
+if sys.platform.startswith('win'):
+    try:
+        sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+        sys.stderr.reconfigure(encoding='utf-8', errors='replace')
+    except Exception:
+        pass
+
 from flask import Flask, jsonify, request, render_template, g
 from flask_cors import CORS
 from flask_session import Session

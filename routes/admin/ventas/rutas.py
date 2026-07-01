@@ -847,7 +847,7 @@ def eliminar_asignacion_ruta(id):
 def api_disponibilidad_asignaciones():
     """API para verificar disponibilidad de vendedores y vehículos en una fecha"""
     try:
-        empresa_id = session.get('id_empresa')
+        empresa_id = session.get('id_empresa', 1)
         fecha = request.args.get('fecha')
         
         if not fecha:

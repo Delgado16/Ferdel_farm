@@ -43,7 +43,7 @@ def login():
             with get_db_cursor() as cursor:
                 # Consulta case-insensitive para estado
                 cursor.execute("""
-                    SELECT u.ID_Usuario, u.NombreUsuario, u.Contraseña, r.Nombre_Rol 
+                    SELECT u.ID_Usuario, u.NombreUsuario, u.Contraseña, r.Nombre_Rol, u.ID_Empresa 
                     FROM usuarios u 
                     JOIN roles r ON u.ID_Rol = r.ID_Rol 
                     WHERE u.NombreUsuario = %s AND UPPER(u.Estado) = 'ACTIVO' AND r.Estado = 'Activo'
@@ -56,6 +56,7 @@ def login():
                     if check_password_hash(user_data['Contraseña'], password):
                         user = User(user_data['ID_Usuario'], user_data['NombreUsuario'], user_data['Nombre_Rol'])
                         login_user(user)
+                        session['id_empresa'] = user_data['ID_Empresa']
                         registrar_login_exitoso(username, user_data['ID_Usuario'])
                         print(f"✅ Usuario {username} ha iniciado sesión - Rol: {user_data['Nombre_Rol']}")
                         flash(f"¡Bienvenido {user.username}!", "success")

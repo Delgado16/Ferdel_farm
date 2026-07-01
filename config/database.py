@@ -3,6 +3,15 @@ Configuración específica de base de datos
 """
 import os
 import sys
+
+# Configurar encoding a UTF-8 para evitar errores de codificación con emojis en Windows
+if sys.platform.startswith('win'):
+    try:
+        sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+        sys.stderr.reconfigure(encoding='utf-8', errors='replace')
+    except Exception:
+        pass
+
 import warnings
 import collections.abc
 import time
