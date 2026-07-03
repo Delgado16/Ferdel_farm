@@ -192,8 +192,8 @@
     }
 
     .proforma-preview {
-        font-family: 'Courier New', monospace;
-        font-size: 11px;
+        font-family: Arial, Helvetica, sans-serif;
+        font-size: 10.5px;
         max-width: 100%;
         overflow-x: auto;
     }
@@ -869,7 +869,42 @@
 
         document.getElementById('btnImprimirModal').addEventListener('click', () => {
             const printWindow = window.open('', '_blank');
-            printWindow.document.write('<html><head><title>Proforma</title><style>body{font-family:monospace;padding:20px;}</style></head><body>' + document.getElementById('proformaModalBody').innerHTML + '</body></html>');
+            printWindow.document.write(`
+                <html>
+                <head>
+                    <title>Proforma</title>
+                    <style>
+                        @media print {
+                            @page {
+                                margin: 0;
+                                size: 58mm auto;
+                            }
+                            body {
+                                margin: 0;
+                                padding: 2px 2px 45px 2px !important;
+                            }
+                        }
+                        body {
+                            font-family: Arial, Helvetica, sans-serif;
+                            font-size: 10.5px;
+                            width: 58mm;
+                            margin: 0 auto;
+                            padding: 10px;
+                        }
+                        table { width: 100%; border-collapse: collapse; margin: 10px 0; font-size: 9.5px; }
+                        th, td { border: 1px solid #ddd; padding: 4px 2px; text-align: left; }
+                        th { background: #f0f0f0; }
+                        hr { border-top: 1px dashed #000; border-bottom: none; }
+                        .fw-bold { font-weight: bold; }
+                        .text-center { text-align: center; }
+                        .bg-light { background: #f0f0f0; padding: 8px; font-size: 9.5px; }
+                    </style>
+                </head>
+                <body>
+                    ` + document.getElementById('proformaModalBody').innerHTML + `
+                </body>
+                </html>
+            `);
             printWindow.document.close();
             printWindow.print();
         });
