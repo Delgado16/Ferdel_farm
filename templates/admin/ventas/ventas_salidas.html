@@ -8,11 +8,29 @@
     .stat-card {
         transition: transform 0.2s, box-shadow 0.2s;
         cursor: pointer;
+        border-radius: 10px !important;
     }
 
     .stat-card:hover {
         transform: translateY(-5px);
-        box-shadow: 0 0.5rem 1.5rem rgba(0, 0, 0, 0.1) !important;
+        box-shadow: 0 0.5rem 1.5rem rgba(15, 23, 42, 0.15) !important;
+    }
+
+    /* Gradientes temáticos alineados */
+    .bg-facturado-gradient {
+        background: linear-gradient(135deg, var(--primary-color, #2c5e2e) 0%, var(--secondary-color, #10b981) 100%) !important;
+    }
+
+    .bg-contado-gradient {
+        background: linear-gradient(135deg, #059669 0%, #10b981 100%) !important;
+    }
+
+    .bg-credito-gradient {
+        background: linear-gradient(135deg, #d97706 0%, #f59e0b 100%) !important;
+    }
+
+    .bg-cobrar-gradient {
+        background: linear-gradient(135deg, #dc2626 0%, #ef4444 100%) !important;
     }
 
     .table-inactive {
@@ -33,6 +51,8 @@
         filter: drop-shadow(0 0 2px currentColor);
     }
 
+
+
     /* Mejoras para la tabla responsiva */
     @media (max-width: 768px) {
         .btn-group-sm .btn {
@@ -46,11 +66,6 @@
         .btn-group-sm .btn i {
             margin: 0;
         }
-    }
-
-    .table-responsive {
-        overflow-x: auto !important;
-        -webkit-overflow-scrolling: touch;
     }
 
     /* Animaciones */
@@ -78,14 +93,6 @@
     #anularVentaContent {
         transition: opacity 0.3s ease;
     }
-
-    .was-validated .form-control:invalid {
-        border-color: #dc3545;
-    }
-
-    .was-validated .form-control:valid {
-        border-color: #198754;
-    }
 </style>
 {% endblock %}
 
@@ -96,11 +103,11 @@
         <ol class="breadcrumb">
             <li class="breadcrumb-item">
                 <a href="{{ url_for('admin.admin_dashboard') }}" class="text-decoration-none">
-                    <i class="fas fa-home me-1"></i>Dashboard
+                    <i class="bi bi-house me-1"></i>Dashboard
                 </a>
             </li>
             <li class="breadcrumb-item active" aria-current="page">
-                <i class="fas fa-chart-line me-1"></i>Gestión de Ventas
+                <i class="bi bi-graph-up me-1"></i>Gestión de Ventas
             </li>
         </ol>
     </nav>
@@ -109,17 +116,17 @@
     <div
         class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center mb-4 gap-3">
         <h1 class="h2 mb-0">
-            <i class="fas fa-chart-line text-primary me-2"></i>
+            <i class="bi bi-graph-up text-primary me-2"></i>
             Gestión de Ventas
             <span class="badge bg-secondary fs-6 ms-2" id="totalVentasCount">{{ ventas|length }}</span>
         </h1>
         <div class="d-flex gap-2 w-100 w-md-auto">
             <a href="{{ url_for('admin.admin_dashboard') }}"
                 class="btn btn-outline-secondary flex-grow-1 flex-md-grow-0">
-                <i class="fas fa-arrow-left me-1"></i> Volver
+                <i class="bi bi-arrow-left me-1"></i> Volver
             </a>
             <a href="{{ url_for('admin.admin_crear_venta') }}" class="btn btn-primary flex-grow-1 flex-md-grow-0">
-                <i class="fas fa-plus-circle me-1"></i> Nueva Venta
+                <i class="bi bi-plus-circle me-1"></i> Nueva Venta
             </a>
         </div>
     </div>
@@ -128,26 +135,30 @@
     <div class="row mb-4 g-3">
         <!-- Tarjeta 1: Total Facturado -->
         <div class="col-12 col-sm-6 col-xl-3">
-            <div class="card border-0 shadow-sm h-100 text-white" style="background: linear-gradient(135deg, #0d6efd, #024ebb); border-radius: 10px;">
+            <div class="card border-0 shadow-sm h-100 text-white bg-facturado-gradient">
                 <div class="card-body p-4 d-flex flex-column justify-content-between">
                     <div class="d-flex justify-content-between align-items-start mb-3">
                         <div>
                             <span class="text-white-50 text-uppercase fw-bold small" style="letter-spacing: 0.5px;">
-                                <i class="fas fa-wallet me-1"></i> Total Facturado
+                                <i class="bi bi-wallet2 me-1"></i> Total Facturado
                             </span>
-                            <h3 class="fw-bold mb-1 mt-2 money-value" data-value="{{ ventas_totales or 0 }}" style="font-size: 1.6rem;">
+                            <h3 class="fw-bold mb-1 mt-2 money-value" data-value="{{ ventas_totales or 0 }}"
+                                style="font-size: 1.6rem;">
                                 C$ {{ "{:,.2f}".format(ventas_totales or 0) }}
                             </h3>
                             <small class="text-white-50">Monto total de ventas activas</small>
                         </div>
                         <div class="rounded-circle bg-white bg-opacity-20 p-3 text-white">
-                            <i class="fas fa-chart-line fa-lg"></i>
+                            <i class="bi bi-graph-up fa-lg"></i>
                         </div>
                     </div>
-                    <div class="border-top border-white border-opacity-20 pt-3 mt-2 d-flex justify-content-between align-items-center small">
+                    <div
+                        class="border-top border-white border-opacity-20 pt-3 mt-2 d-flex justify-content-between align-items-center small">
                         <span class="text-white-50">Total: <strong class="text-white">{{ total_ventas }}</strong></span>
-                        <span class="text-white fw-bold"><i class="fas fa-check-circle me-1"></i>{{ ventas_activas }} Act.</span>
-                        <span class="text-white-50 fw-bold"><i class="fas fa-ban me-1"></i>{{ ventas_anuladas }} Anul.</span>
+                        <span class="text-white fw-bold"><i class="bi bi-check-circle me-1"></i>{{ ventas_activas }}
+                            Act.</span>
+                        <span class="text-white-50 fw-bold"><i class="bi bi-slash-circle me-1"></i>{{ ventas_anuladas }}
+                            Anul.</span>
                     </div>
                 </div>
             </div>
@@ -155,24 +166,27 @@
 
         <!-- Tarjeta 2: Ventas al Contado -->
         <div class="col-12 col-sm-6 col-xl-3">
-            <div class="card border-0 shadow-sm h-100 text-white" style="background: linear-gradient(135deg, #198754, #0f663d); border-radius: 10px;">
+            <div class="card border-0 shadow-sm h-100 text-white bg-contado-gradient">
                 <div class="card-body p-4 d-flex flex-column justify-content-between">
                     <div class="d-flex justify-content-between align-items-start mb-3">
                         <div>
                             <span class="text-white-50 text-uppercase fw-bold small" style="letter-spacing: 0.5px;">
-                                <i class="fas fa-money-bill-wave me-1"></i> Ventas Contado
+                                <i class="bi bi-cash-stack me-1"></i> Ventas Contado
                             </span>
-                            <h3 class="fw-bold mb-1 mt-2 money-value" data-value="{{ ventas_contado_total or 0 }}" style="font-size: 1.6rem;">
+                            <h3 class="fw-bold mb-1 mt-2 money-value" data-value="{{ ventas_contado_total or 0 }}"
+                                style="font-size: 1.6rem;">
                                 C$ {{ "{:,.2f}".format(ventas_contado_total or 0) }}
                             </h3>
                             <small class="text-white-50">Recibido al momento</small>
                         </div>
                         <div class="rounded-circle bg-white bg-opacity-20 p-3 text-white">
-                            <i class="fas fa-coins fa-lg"></i>
+                            <i class="bi bi-coin fa-lg"></i>
                         </div>
                     </div>
-                    <div class="border-top border-white border-opacity-20 pt-3 mt-2 d-flex justify-content-between align-items-center small">
-                        <span class="text-white-50">Transacciones: <strong class="text-white">{{ ventas_contado }}</strong></span>
+                    <div
+                        class="border-top border-white border-opacity-20 pt-3 mt-2 d-flex justify-content-between align-items-center small">
+                        <span class="text-white-50">Transacciones: <strong class="text-white">{{ ventas_contado
+                                }}</strong></span>
                         <span class="badge bg-white bg-opacity-25 text-white fw-bold">
                             {{ ((ventas_contado_total / ventas_totales * 100) if ventas_totales > 0 else 0)|round(1) }}%
                         </span>
@@ -183,24 +197,27 @@
 
         <!-- Tarjeta 3: Ventas a Crédito -->
         <div class="col-12 col-sm-6 col-xl-3">
-            <div class="card border-0 shadow-sm h-100 text-white" style="background: linear-gradient(135deg, #fd7e14, #d95f00); border-radius: 10px;">
+            <div class="card border-0 shadow-sm h-100 text-white bg-credito-gradient">
                 <div class="card-body p-4 d-flex flex-column justify-content-between">
                     <div class="d-flex justify-content-between align-items-start mb-3">
                         <div>
                             <span class="text-white-50 text-uppercase fw-bold small" style="letter-spacing: 0.5px;">
-                                <i class="fas fa-credit-card me-1"></i> Ventas Crédito
+                                <i class="bi bi-credit-card me-1"></i> Ventas Crédito
                             </span>
-                            <h3 class="fw-bold mb-1 mt-2 money-value" data-value="{{ ventas_credito_total or 0 }}" style="font-size: 1.6rem;">
+                            <h3 class="fw-bold mb-1 mt-2 money-value" data-value="{{ ventas_credito_total or 0 }}"
+                                style="font-size: 1.6rem;">
                                 C$ {{ "{:,.2f}".format(ventas_credito_total or 0) }}
                             </h3>
                             <small class="text-white-50">Facturado a crédito</small>
                         </div>
                         <div class="rounded-circle bg-white bg-opacity-20 p-3 text-white">
-                            <i class="fas fa-credit-card fa-lg"></i>
+                            <i class="bi bi-credit-card fa-lg"></i>
                         </div>
                     </div>
-                    <div class="border-top border-white border-opacity-20 pt-3 mt-2 d-flex justify-content-between align-items-center small">
-                        <span class="text-white-50">Transacciones: <strong class="text-white">{{ ventas_credito }}</strong></span>
+                    <div
+                        class="border-top border-white border-opacity-20 pt-3 mt-2 d-flex justify-content-between align-items-center small">
+                        <span class="text-white-50">Transacciones: <strong class="text-white">{{ ventas_credito
+                                }}</strong></span>
                         <span class="badge bg-white bg-opacity-25 text-white fw-bold">
                             {{ ((ventas_credito_total / ventas_totales * 100) if ventas_totales > 0 else 0)|round(1) }}%
                         </span>
@@ -211,33 +228,40 @@
 
         <!-- Tarjeta 4: Cartera & Cobros -->
         <div class="col-12 col-sm-6 col-xl-3">
-            <div class="card border-0 shadow-sm h-100 text-white" style="background: linear-gradient(135deg, #dc3545, #b02a37); border-radius: 10px;">
+            <div class="card border-0 shadow-sm h-100 text-white bg-cobrar-gradient">
                 <div class="card-body p-4 d-flex flex-column justify-content-between">
                     <div class="d-flex justify-content-between align-items-start mb-2">
                         <div>
                             <span class="text-white-50 text-uppercase fw-bold small" style="letter-spacing: 0.5px;">
-                                <i class="fas fa-clock me-1"></i> Saldo por Cobrar
+                                <i class="bi bi-clock me-1"></i> Saldo por Cobrar
                             </span>
-                            <h3 class="fw-bold mb-1 mt-2 money-value" data-value="{{ creditos_pendientes or 0 }}" style="font-size: 1.6rem;">
+                            <h3 class="fw-bold mb-1 mt-2 money-value" data-value="{{ creditos_pendientes or 0 }}"
+                                style="font-size: 1.6rem;">
                                 C$ {{ "{:,.2f}".format(creditos_pendientes or 0) }}
                             </h3>
                             <small class="text-white-50">Pendiente de recuperación</small>
                         </div>
                         <div class="rounded-circle bg-white bg-opacity-20 p-3 text-white">
-                            <i class="fas fa-clock fa-lg"></i>
+                            <i class="bi bi-clock fa-lg"></i>
                         </div>
                     </div>
-                    
+
                     <div class="border-top border-white border-opacity-20 pt-2 mt-2">
                         <div class="d-flex justify-content-between align-items-center mb-1 small text-white-50">
-                            <span>Cobrado: <strong class="text-white">{{ ((creditos_cobrados / ventas_credito_total * 100) if ventas_credito_total > 0 else 0)|round(1) }}%</strong></span>
-                            <span class="money-value text-white fw-bold font-monospace" data-value="{{ creditos_cobrados or 0 }}">C$ {{ "{:,.2f}".format(creditos_cobrados or 0) }}</span>
+                            <span>Cobrado: <strong class="text-white">{{ ((creditos_cobrados / ventas_credito_total *
+                                    100) if ventas_credito_total > 0 else 0)|round(1) }}%</strong></span>
+                            <span class="money-value text-white fw-bold font-monospace"
+                                data-value="{{ creditos_cobrados or 0 }}">C$ {{ "{:,.2f}".format(creditos_cobrados or 0)
+                                }}</span>
                         </div>
-                        <div class="progress" style="height: 6px; border-radius: 3px; background-color: rgba(255, 255, 255, 0.25);">
+                        <div class="progress"
+                            style="height: 6px; border-radius: 3px; background-color: rgba(255, 255, 255, 0.25);">
                             {% set total_credito = ventas_credito_total|default(0) %}
                             {% if total_credito > 0 %}
                             {% set porcentaje_cobrado = (creditos_cobrados|default(0) / total_credito * 100)|round(1) %}
-                            <div class="progress-bar bg-white" role="progressbar" style="width: {{ porcentaje_cobrado }}%" aria-valuenow="{{ porcentaje_cobrado }}" aria-valuemin="0" aria-valuemax="100"></div>
+                            <div class="progress-bar bg-white" role="progressbar"
+                                style="width: {{ porcentaje_cobrado }}%" aria-valuenow="{{ porcentaje_cobrado }}"
+                                aria-valuemin="0" aria-valuemax="100"></div>
                             {% else %}
                             <div class="progress-bar bg-white bg-opacity-25 w-100" role="progressbar"></div>
                             {% endif %}
@@ -249,13 +273,13 @@
     </div>
 
     <!-- Card Principal -->
-    <div class="card shadow-sm">
-        <div class="card-header bg-white py-3">
+    <div class="card border-0 shadow-sm">
+        <div class="card-header bg-white py-3 border-0 pb-0">
             <div
-                class="d-flex flex-column flex-lg-row justify-content-between align-items-start align-items-lg-center gap-3">
+                class="d-flex flex-column flex-lg-row justify-content-between align-items-start align-items-lg-center gap-3 w-100">
                 <div>
                     <h5 class="card-title fw-bold mb-1 text-dark">
-                        <i class="fas fa-receipt me-2 text-primary"></i>
+                        <i class="bi bi-receipt me-2 text-primary"></i>
                         Registro de Ventas
                     </h5>
                     <p class="text-muted small mb-0">Gestión completa de transacciones de salida</p>
@@ -347,170 +371,166 @@
         </div>
 
         <div class="card-body p-0">
-            <!-- Tabla con mejoras -->
             <div class="table-responsive">
                 <table class="table table-striped table-hover align-middle mb-0" id="dataTable">
-                    <thead class="table-dark">
-                        <tr>
-                            <th style="width: 60px;">ID</th>
-                            <th style="width: 100px;">Fecha</th>
-                            <th>Cliente</th>
-                            <th style="width: 100px;">Identificación</th>
-                            <th style="width: 100px;" class="text-center">Tipo</th>
-                            <th>Bodega</th>
-                            <th style="width: 80px;" class="text-center">Productos</th>
-                            <th style="width: 130px;" class="text-end">Total</th>
-                            <th>Vendedor</th>
-                            <th style="width: 100px;" class="text-center">Estado</th>
-                            <th style="width: 140px;" class="text-center">Acciones</th>
-                        </tr>
-                    </thead>
-                    <tbody id="tableBody">
-                        {% for venta in ventas %}
-                        <tr class="{% if venta.Estado_Formateado == 'ANULADA' %}table-inactive{% endif %}"
-                            data-id="{{ venta.ID_Factura }}"
-                            data-fecha="{{ venta.Fecha.strftime('%Y-%m-%d') if venta.Fecha else '' }}"
-                            data-estado="{{ venta.Estado_Formateado }}"
-                            data-tipo="{% if venta.Credito_Contado == 0 %}CONTADO{% else %}CREDITO{% endif %}">
-                            <td class="fw-bold">
-                                <span class="badge bg-secondary">#{{ venta.ID_Factura }}</span>
-                            </td>
-                            <td>
-                                <div>
-                                    <i class="fas fa-calendar-alt text-muted small"></i>
-                                    {{ venta.Fecha.strftime('%d/%m/%Y') if venta.Fecha else 'N/A' }}
-                                </div>
-                                <small class="text-muted">
-                                    <i class="far fa-clock"></i> {{ venta.Fecha.strftime('%H:%M') if venta.Fecha else ''
-                                    }}
-                                </small>
-                            </td>
-                            <td>
-                                <div class="fw-bold">{{ venta.Cliente or 'Consumidor Final' }}</div>
-                                {% if venta.Cliente and venta.RUC_Cliente %}
-                                <small class="text-muted">{{ venta.RUC_Cliente }}</small>
-                                {% endif %}
-                            </td>
-                            <td>
-                                {{ venta.RUC_Cliente or 'N/A' }}
-                            </td>
-                            <td class="text-center">
-                                {% if venta.Credito_Contado == 0 %}
-                                <span class="badge bg-success">
-                                    <i class="fas fa-money-bill-wave me-1"></i> CONTADO
-                                </span>
-                                {% else %}
-                                <span class="badge bg-warning text-dark">
-                                    <i class="fas fa-credit-card me-1"></i> CRÉDITO
-                                </span>
-                                {% endif %}
-                            </td>
-                            <td>
-                                <span class="badge bg-secondary">
-                                    <i class="fas fa-warehouse me-1"></i>
-                                    {{ venta.Bodega or 'N/A' }}
-                                </span>
-                            </td>
-                            <td class="text-center">
-                                <span class="badge bg-info">
-                                    <i class="fas fa-boxes me-1"></i>
-                                    {{ venta.Total_Productos or 0 }}
-                                </span>
-                            </td>
-                            <td class="text-end fw-bold text-success money-value"
-                                data-value="{{ venta.Total_Venta or 0 }}">
-                                C$ {{ "{:,.2f}".format(venta.Total_Venta or 0) }}
-                            </td>
-                            <td>
-                                <i class="fas fa-user-circle text-secondary me-1"></i>
-                                {{ venta.Usuario_Creacion or 'Sistema' }}
-                            </td>
-                            <td class="text-center">
-                                {% if venta.Estado_Formateado == 'ACTIVA' %}
-                                <span class="badge bg-success">
-                                    <i class="fas fa-check-circle me-1"></i> ACTIVA
-                                </span>
-                                {% else %}
-                                <span class="badge bg-danger">
-                                    <i class="fas fa-ban me-1"></i> ANULADA
-                                </span>
-                                {% endif %}
-                            </td>
-                            <td class="text-center">
-                                <div class="btn-group btn-group-sm" role="group">
-                                    <a href="{{ url_for('admin.admin_generar_ticket', id_factura=venta.ID_Factura) }}"
-                                        class="btn btn-outline-info" title="Ver ticket">
-                                        <i class="fas fa-receipt"></i>
-                                        <span class="d-none d-md-inline ms-1">Ticket</span>
-                                    </a>
-                                    <a href="{{ url_for('admin.admin_detalles_venta', id_factura=venta.ID_Factura) }}"
-                                        class="btn btn-outline-primary" title="Ver detalles">
-                                        <i class="fas fa-eye"></i>
-                                        <span class="d-none d-md-inline ms-1">Ver</span>
-                                    </a>
-                                </div>
-                            </td>
-                        </tr>
-                        {% else %}
-                        <tr>
-                            <td colspan="11" class="text-center py-5">
-                                <div class="text-center">
-                                    <i class="fas fa-inbox fa-4x text-muted mb-3"></i>
-                                    <h5 class="text-muted mb-2">No hay ventas registradas</h5>
-                                    <p class="text-muted small mb-4">Comience creando su primera venta</p>
-                                    <a href="{{ url_for('admin.admin_crear_venta') }}" class="btn btn-primary">
-                                        <i class="fas fa-plus me-2"></i> Crear Venta
-                                    </a>
-                                </div>
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                    <tfoot class="table-light">
-                        <tr>
-                            <td colspan="6" class="text-end fw-bold">
-                                <small>Resumen de las <span id="visibleCount">0</span> ventas mostradas:</small>
-                            </td>
-                            <td class="text-center fw-bold text-primary">
-                                <small><span id="totalProductosVisible">0</span></small>
-                            </td>
-                            <td class="text-end fw-bold text-success">
-                                <small><span id="totalMontoVisible">C$ 0.00</span></small>
-                            </td>
-                            <td colspan="3" class="text-end">
-                                <small class="text-muted">
-                                    <span id="contadoCount">0</span> contado / <span id="creditoCount">0</span> crédito
-                                </small>
-                            </td>
-                        </tr>
-                    </tfoot>
-                </table>
-            </div>
-
-            <!-- Información adicional mejorada -->
-            {% if ventas and ventas|length > 0 %}
-            <div class="card-footer bg-white">
-                <div class="d-flex flex-column flex-md-row justify-content-between align-items-center gap-2">
-                    <div class="text-muted small">
-                        <i class="fas fa-chart-line me-1"></i>
-                        Mostrando <span id="footerVisibleCount">{{ ventas|length }}</span> de {{ ventas|length }}
-                        venta(s)
-                    </div>
-                    <div class="text-muted small">
-                        <i class="fas fa-chart-pie me-1"></i>
-                        Distribución:
-                        <span class="text-success">{{ ventas_contado|default(0) }} contado</span> |
-                        <span class="text-warning">{{ ventas_credito|default(0) }} crédito</span>
-                    </div>
-                    <div class="text-muted small">
-                        <i class="fas fa-percent me-1"></i>
-                        % Crédito: <span id="porcentajeCredito">{{ ((ventas_credito / total_ventas * 100) if
-                            total_ventas > 0 else 0)|round(1) }}</span>%
-                    </div>
+                <thead>
+                    <tr>
+                        <th style="width: 60px;">ID</th>
+                        <th style="width: 100px;">Fecha</th>
+                        <th>Cliente</th>
+                        <th style="width: 100px;">Identificación</th>
+                        <th style="width: 100px;" class="text-center">Tipo</th>
+                        <th>Bodega</th>
+                        <th style="width: 80px;" class="text-center">Productos</th>
+                        <th style="width: 130px;" class="text-end">Total</th>
+                        <th>Vendedor</th>
+                        <th style="width: 100px;" class="text-center">Estado</th>
+                        <th style="width: 140px;" class="text-center">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody id="tableBody">
+                    {% for venta in ventas %}
+                    <tr class="{% if venta.Estado_Formateado == 'ANULADA' %}table-inactive{% endif %}"
+                        data-id="{{ venta.ID_Factura }}"
+                        data-fecha="{{ venta.Fecha.strftime('%Y-%m-%d') if venta.Fecha else '' }}"
+                        data-estado="{{ venta.Estado_Formateado }}"
+                        data-tipo="{% if venta.Credito_Contado == 0 %}CONTADO{% else %}CREDITO{% endif %}">
+                        <td class="fw-bold">
+                            <span class="badge bg-secondary">#{{ venta.ID_Factura }}</span>
+                        </td>
+                        <td>
+                            <div>
+                                <i class="bi bi-calendar3 text-muted small"></i>
+                                {{ venta.Fecha.strftime('%d/%m/%Y') if venta.Fecha else 'N/A' }}
+                            </div>
+                            <small class="text-muted">
+                                <i class="bi bi-clock"></i> {{ venta.Fecha.strftime('%H:%M') if venta.Fecha else ''
+                                }}
+                            </small>
+                        </td>
+                        <td>
+                            <div class="fw-bold">{{ venta.Cliente or 'Consumidor Final' }}</div>
+                            {% if venta.Cliente and venta.RUC_Cliente %}
+                            <small class="text-muted">{{ venta.RUC_Cliente }}</small>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {{ venta.RUC_Cliente or 'N/A' }}
+                        </td>
+                        <td class="text-center">
+                            {% if venta.Credito_Contado == 0 %}
+                            <span class="badge bg-success">
+                                <i class="bi bi-cash-stack me-1"></i> CONTADO
+                            </span>
+                            {% else %}
+                            <span class="badge bg-warning text-dark">
+                                <i class="bi bi-credit-card me-1"></i> CRÉDITO
+                            </span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <span class="badge bg-secondary">
+                                <i class="bi bi-building me-1"></i>
+                                {{ venta.Bodega or 'N/A' }}
+                            </span>
+                        </td>
+                        <td class="text-center">
+                            <span class="badge bg-info">
+                                <i class="bi bi-box-seam me-1"></i>
+                                {{ venta.Total_Productos or 0 }}
+                            </span>
+                        </td>
+                        <td class="text-end fw-bold text-success money-value" data-value="{{ venta.Total_Venta or 0 }}">
+                            C$ {{ "{:,.2f}".format(venta.Total_Venta or 0) }}
+                        </td>
+                        <td>
+                            <i class="bi bi-person-circle text-secondary me-1"></i>
+                            {{ venta.Usuario_Creacion or 'Sistema' }}
+                        </td>
+                        <td class="text-center">
+                            {% if venta.Estado_Formateado == 'ACTIVA' %}
+                            <span class="badge bg-success">
+                                <i class="bi bi-check-circle me-1"></i> ACTIVA
+                            </span>
+                            {% else %}
+                            <span class="badge bg-danger">
+                                <i class="bi bi-slash-circle me-1"></i> ANULADA
+                            </span>
+                            {% endif %}
+                        </td>
+                        <td class="text-center">
+                            <div class="btn-group btn-group-sm" role="group">
+                                <a href="{{ url_for('admin.admin_generar_ticket', id_factura=venta.ID_Factura) }}"
+                                    class="btn btn-outline-info" title="Ver ticket">
+                                    <i class="bi bi-receipt"></i>
+                                    <span class="d-none d-md-inline ms-1">Ticket</span>
+                                </a>
+                                <a href="{{ url_for('admin.admin_detalles_venta', id_factura=venta.ID_Factura) }}"
+                                    class="btn btn-outline-primary" title="Ver detalles">
+                                    <i class="bi bi-eye"></i>
+                                    <span class="d-none d-md-inline ms-1">Ver</span>
+                                </a>
+                            </div>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="11" class="text-center py-5">
+                            <div class="text-center">
+                                <i class="fas fa-inbox fa-4x text-muted mb-3"></i>
+                                <h5 class="text-muted mb-2">No hay ventas registradas</h5>
+                                <p class="text-muted small mb-4">Comience creando su primera venta</p>
+                                <a href="{{ url_for('admin.admin_crear_venta') }}" class="btn btn-primary">
+                                    <i class="fas fa-plus me-2"></i> Crear Venta
+                                </a>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+                <tfoot class="table-light">
+                    <tr>
+                        <td colspan="6" class="text-end fw-bold">
+                            <small>Resumen de las <span id="visibleCount">0</span> ventas mostradas:</small>
+                        </td>
+                        <td class="text-center fw-bold text-primary">
+                            <small><span id="totalProductosVisible">0</span></small>
+                        </td>
+                        <td class="text-end fw-bold text-success">
+                            <small><span id="totalMontoVisible">C$ 0.00</span></small>
+                        </td>
+                        <td colspan="3" class="text-end">
+                            <small class="text-muted">
+                                <span id="contadoCount">0</span> contado / <span id="creditoCount">0</span> crédito
+                            </small>
+                        </td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div></div>
+        <!-- Información adicional mejorada -->
+        {% if ventas and ventas|length > 0 %}
+        <div class="card-footer bg-white border-top py-3 px-4">
+            <div class="d-flex flex-column flex-md-row justify-content-between align-items-center gap-2">
+                <div class="text-muted small">
+                    <i class="fas fa-chart-line me-1"></i>
+                    Mostrando <span id="footerVisibleCount">{{ ventas|length }}</span> de {{ ventas|length }}
+                    venta(s)
+                </div>
+                <div class="text-muted small">
+                    <i class="fas fa-chart-pie me-1"></i>
+                    Distribución:
+                    <span class="text-success">{{ ventas_contado|default(0) }} contado</span> |
+                    <span class="text-warning">{{ ventas_credito|default(0) }} crédito</span>
+                </div>
+                <div class="text-muted small">
+                    <i class="fas fa-percent me-1"></i>
+                    % Crédito: <span id="porcentajeCredito">{{ ((ventas_credito / total_ventas * 100) if
+                        total_ventas > 0 else 0)|round(1) }}</span>%
                 </div>
             </div>
-            {% endif %}
         </div>
+        {% endif %}
     </div>
 </div>
 
@@ -548,19 +568,22 @@
                         <!-- Columna Izquierda: Alerta, Datos y Formulario de Confirmación -->
                         <div class="col-12 col-lg-6">
                             <!-- Alerta de advertencia -->
-                            <div class="alert alert-warning border-start border-4 border-warning d-flex align-items-start gap-3 p-3 mb-3" style="border-radius: 8px;">
+                            <div class="alert alert-warning border-start border-4 border-warning d-flex align-items-start gap-3 p-3 mb-3"
+                                style="border-radius: 8px;">
                                 <div class="text-warning">
                                     <i class="fas fa-exclamation-triangle fa-2x"></i>
                                 </div>
                                 <div>
                                     <h6 class="alert-heading mb-1 fw-bold">¡Atención! Acción irreversible</h6>
-                                    <p class="mb-0 small">Está a punto de anular una venta. Se revertirá el inventario, movimientos de caja y cuentas por cobrar si aplica.</p>
+                                    <p class="mb-0 small">Está a punto de anular una venta. Se revertirá el inventario,
+                                        movimientos de caja y cuentas por cobrar si aplica.</p>
                                 </div>
                             </div>
 
                             <!-- Tarjeta con información de la venta -->
                             <div class="card mb-3 border shadow-sm" style="border-radius: 10px;">
-                                <div class="card-header bg-light d-flex justify-content-between align-items-center py-2" style="border-radius: 10px 10px 0 0;">
+                                <div class="card-header bg-light d-flex justify-content-between align-items-center py-2"
+                                    style="border-radius: 10px 10px 0 0;">
                                     <h6 class="mb-0 fw-bold small text-dark">
                                         <i class="fas fa-file-invoice me-2 text-primary"></i>
                                         Datos de la Venta a Anular
@@ -573,7 +596,8 @@
                             </div>
 
                             <!-- Información de caja y créditos -->
-                            <div class="card mb-3 border shadow-sm" id="infoFinancieraCard" style="display: none; border-radius: 10px;">
+                            <div class="card mb-3 border shadow-sm" id="infoFinancieraCard"
+                                style="display: none; border-radius: 10px;">
                                 <div class="card-header bg-light py-2" style="border-radius: 10px 10px 0 0;">
                                     <h6 class="mb-0 fw-bold small text-dark">
                                         <i class="fas fa-money-bill-wave me-2 text-success"></i>
@@ -586,7 +610,8 @@
                             </div>
 
                             <!-- Formulario de anulación -->
-                            <form id="formAnularVenta" method="POST" novalidate class="card mb-0 border shadow-sm" style="border-radius: 10px;">
+                            <form id="formAnularVenta" method="POST" novalidate class="card mb-0 border shadow-sm"
+                                style="border-radius: 10px;">
                                 <div class="card-header bg-light py-2" style="border-radius: 10px 10px 0 0;">
                                     <h6 class="mb-0 text-danger fw-bold small">
                                         <i class="fas fa-ban me-2"></i>
@@ -601,17 +626,20 @@
 
                                     <!-- Campo de motivo de anulación -->
                                     <div class="mb-3">
-                                        <label for="motivoAnulacion" class="form-label fw-bold text-secondary small mb-2">
+                                        <label for="motivoAnulacion"
+                                            class="form-label fw-bold text-secondary small mb-2">
                                             <i class="fas fa-comment-alt me-1 text-danger"></i>
                                             Motivo de la Anulación <span class="text-danger">*</span>
                                         </label>
-                                        <textarea class="form-control" id="motivoAnulacion" name="motivo_anulacion" rows="3"
-                                            maxlength="500"
+                                        <textarea class="form-control" id="motivoAnulacion" name="motivo_anulacion"
+                                            rows="3" maxlength="500"
                                             placeholder="Describa detalladamente el motivo por el cual anula esta venta (mínimo 10 caracteres)..."
-                                            required minlength="10" style="resize: none; border-radius: 6px;"></textarea>
+                                            required minlength="10"
+                                            style="resize: none; border-radius: 6px;"></textarea>
                                         <div class="d-flex justify-content-between align-items-center mt-2 px-1">
                                             <small class="text-muted">
-                                                <span id="motivoMinLength" class="text-danger">Mínimo 10 caracteres</span>
+                                                <span id="motivoMinLength" class="text-danger">Mínimo 10
+                                                    caracteres</span>
                                             </small>
                                             <small class="text-muted">
                                                 <span id="charCount" class="fw-bold">0</span> / 500 caracteres
@@ -623,10 +651,14 @@
                                     </div>
 
                                     <!-- Checkbox de confirmación y términos -->
-                                    <div class="alert alert-danger bg-danger bg-opacity-10 border-danger border-opacity-25 mb-0 p-3" style="border-radius: 8px;">
+                                    <div class="alert alert-danger bg-danger bg-opacity-10 border-danger border-opacity-25 mb-0 p-3"
+                                        style="border-radius: 8px;">
                                         <div class="form-check d-flex align-items-center gap-2">
-                                            <input class="form-check-input border-danger" type="checkbox" id="confirmarAnulacion" required style="width: 1.25em; height: 1.25em; cursor: pointer; margin-top: 0;">
-                                            <label class="form-check-label fw-bold text-danger cursor-pointer ms-1" for="confirmarAnulacion" style="cursor: pointer; user-select: none;">
+                                            <input class="form-check-input border-danger" type="checkbox"
+                                                id="confirmarAnulacion" required
+                                                style="width: 1.25em; height: 1.25em; cursor: pointer; margin-top: 0;">
+                                            <label class="form-check-label fw-bold text-danger cursor-pointer ms-1"
+                                                for="confirmarAnulacion" style="cursor: pointer; user-select: none;">
                                                 CONFIRMO que deseo anular esta venta
                                             </label>
                                         </div>
@@ -635,10 +667,13 @@
                                                 Entiendo y acepto que al proceder:
                                             </small>
                                             <ul class="text-muted small ps-3 mb-0" style="line-height: 1.5;">
-                                                <li>Todos los productos serán devueltos al inventario de la bodega correspondiente.</li>
+                                                <li>Todos los productos serán devueltos al inventario de la bodega
+                                                    correspondiente.</li>
                                                 <li>Los movimientos de caja asociados serán revertidos/anulados.</li>
-                                                <li>Las cuentas por cobrar relacionadas serán canceladas (si aplica).</li>
-                                                <li><strong class="text-danger">Esta acción es irreversible y quedará registrada en la bitácora.</strong></li>
+                                                <li>Las cuentas por cobrar relacionadas serán canceladas (si aplica).
+                                                </li>
+                                                <li><strong class="text-danger">Esta acción es irreversible y quedará
+                                                        registrada en la bitácora.</strong></li>
                                             </ul>
                                         </div>
                                     </div>
@@ -649,7 +684,8 @@
                         <!-- Columna Derecha: Detalle de Productos -->
                         <div class="col-12 col-lg-6">
                             <!-- Tabla de productos (se llena dinámicamente) -->
-                            <div class="card mb-0 border shadow-sm" id="productosCard" style="display: none; border-radius: 10px; overflow: hidden;">
+                            <div class="card mb-0 border shadow-sm" id="productosCard"
+                                style="display: none; border-radius: 10px; overflow: hidden;">
                                 <div class="card-header bg-light py-2">
                                     <h6 class="mb-0 fw-bold text-dark small">
                                         <i class="fas fa-boxes me-2 text-info"></i>
@@ -674,7 +710,8 @@
                                             <tfoot class="table-light sticky-bottom">
                                                 <tr>
                                                     <td colspan="4" class="text-end fw-bold">Total:</td>
-                                                    <td class="text-end fw-bold text-danger" id="productosTotal">C$ 0.00</td>
+                                                    <td class="text-end fw-bold text-danger" id="productosTotal">C$ 0.00
+                                                    </td>
                                                 </tr>
                                             </tfoot>
                                         </table>

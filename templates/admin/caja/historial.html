@@ -12,7 +12,7 @@
         padding: clamp(4px, 1.5vw, 8px) clamp(8px, 2vw, 12px);
         border-radius: 20px;
         background-color: #f8f9fa;
-        color: #495057;
+        color: #475569;
         text-decoration: none;
         transition: all 0.2s;
         border: 1px solid #dee2e6;
@@ -22,13 +22,13 @@
     }
     
     .fecha-badge:hover {
-        background-color: #e9ecef;
+        background-color: #f1f5f9;
         transform: translateY(-1px);
-        color: #0d6efd;
+        color: var(--secondary-color, #10b981);
     }
     
     .fecha-badge.active {
-        background: linear-gradient(135deg, #6a11cb 0%, #2575fc 100%);
+        background: linear-gradient(135deg, var(--primary-color, #2c5e2e) 0%, var(--secondary-color, #10b981) 100%);
         color: white;
         border-color: transparent;
     }
@@ -44,13 +44,13 @@
     
     .summary-card:hover {
         transform: translateY(-3px);
-        box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        box-shadow: 0 5px 15px rgba(15, 23, 42, 0.08);
     }
     
     .summary-card h6 {
         font-size: clamp(0.7rem, 2.2vw, 0.85rem);
         margin-bottom: 8px;
-        opacity: 0.9;
+        opacity: 0.95;
     }
     
     .summary-card h4 {
@@ -61,10 +61,10 @@
     }
     
     /* Gradientes personalizados */
-    .bg-info-gradient { background: linear-gradient(135deg, #17a2b8 0%, #138496 100%); }
-    .bg-success-gradient { background: linear-gradient(135deg, #28a745 0%, #218838 100%); }
-    .bg-danger-gradient { background: linear-gradient(135deg, #dc3545 0%, #c82333 100%); }
-    .bg-primary-gradient { background: linear-gradient(135deg, #6a11cb 0%, #2575fc 100%); }
+    .bg-info-gradient { background: linear-gradient(135deg, #0284c7 0%, #0ea5e9 100%); }
+    .bg-success-gradient { background: linear-gradient(135deg, #059669 0%, #10b981 100%); }
+    .bg-danger-gradient { background: linear-gradient(135deg, #dc2626 0%, #ef4444 100%); }
+    .bg-primary-gradient { background: linear-gradient(135deg, var(--primary-color, #2c5e2e) 0%, var(--secondary-color, #10b981) 100%); }
     
     /* Contenedor de fechas */
     .fechas-container {
@@ -81,7 +81,7 @@
     }
     
     .fechas-container::-webkit-scrollbar-thumb {
-        background: #0d6efd;
+        background: var(--secondary-color, #10b981);
         border-radius: 4px;
     }
     
@@ -92,7 +92,7 @@
     }
     
     .table thead th {
-        background: linear-gradient(135deg, #6a11cb 0%, #2575fc 100%);
+        background: linear-gradient(135deg, var(--primary-color, #2c5e2e) 0%, var(--secondary-color, #10b981) 100%);
         color: white;
         font-weight: 600;
         padding: 12px 10px;
@@ -101,11 +101,11 @@
     }
     
     .table tbody tr:hover {
-        background-color: rgba(106, 17, 203, 0.05);
+        background-color: rgba(16, 185, 129, 0.04);
     }
     
     .table tfoot {
-        background-color: #f8f9fa;
+        background-color: #f8fafc;
         font-weight: 600;
     }
     
@@ -173,7 +173,7 @@
         }
     }
     
-    .card {
+    .form-container {
         animation: fadeInUp 0.3s ease-out;
     }
     
@@ -183,9 +183,10 @@
             display: none !important;
         }
         
-        .card {
+        .form-container {
             border: none !important;
             box-shadow: none !important;
+            padding: 0 !important;
         }
         
         .table thead th {
@@ -207,23 +208,19 @@
 {% endblock %}
 
 {% block content %}
-<div class="container-fluid px-2 px-md-3">
-    <div class="card border-0 shadow-sm">
+<div class="container-fluid">
+    <div class="form-container">
         <!-- Header -->
-        <div class="card-header bg-white border-0 pt-4 pb-0 px-4">
-            <div class="d-flex flex-wrap justify-content-between align-items-center gap-3">
-                <h4 class="mb-0 fw-bold text-primary">
-                    <i class="bi bi-clock-history me-2"></i>Historial de Caja
-                </h4>
-                <a href="{{ url_for('admin.admin_caja') }}" class="btn btn-outline-secondary">
-                    <i class="bi bi-arrow-left me-1"></i>
-                    <span class="d-none d-sm-inline">Volver a Caja</span>
-                    <span class="d-inline d-sm-none">Volver</span>
+        <div class="form-header">
+            <h4 class="mb-0 fw-bold text-primary">
+                <i class="bi bi-clock-history me-2"></i>Historial de Caja
+            </h4>
+            <div>
+                <a href="{{ url_for('admin.admin_caja') }}" class="btn btn-secondary btn-action">
+                    <i class="bi bi-arrow-left me-1"></i> Volver a Caja
                 </a>
             </div>
         </div>
-
-        <div class="card-body p-4">
             <!-- Formulario de búsqueda por fecha -->
             <form method="GET" class="mb-4 no-print">
                 <div class="row g-3">
@@ -524,7 +521,6 @@
             </div>
         </div>
     </div>
-</div>
 {% endblock %}
 
 {% block extra_js %}
@@ -545,7 +541,7 @@ $(document).ready(function() {
                     icon: 'warning',
                     title: 'Fecha no válida',
                     text: 'No puedes seleccionar una fecha futura',
-                    confirmButtonColor: '#6a11cb'
+                    confirmButtonColor: '#2c5e2e'
                 });
                 $(this).val(fechaMax);
             }
