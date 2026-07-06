@@ -271,11 +271,102 @@
     <!-- BOTONES (NO SE IMPRIMEN) -->
     <div class="no-print text-center" style="margin-top: 15px;">
         <button onclick="window.print()" class="btn">🖨️ Imprimir</button>
+        <button onclick="imprimirRapidoRawBT(event)" class="btn" style="background: #ff9800; color: white;">⚡ Imprimir Rápido (Bluetooth)</button>
         <button onclick="window.location.href='{{ url_for('vendedor.vendedor_clientes') }}'" class="btn btn-secondary">📋
             Volver</button>
     </div>
 
+    <script src="{{ url_for('static', filename='js/html2canvas.min.js') }}"></script>
     <script>
+        function imprimirRapidoRawBT(event) {
+            const btn = event ? event.currentTarget : null;
+            let originalText = '';
+            if (btn) {
+                originalText = btn.innerHTML;
+                btn.disabled = true;
+                btn.innerHTML = '⌛ Generando...';
+            }
+
+            const element = document.querySelector('.ticket');
+            if (!element) {
+                alert("Error: No se encontró el contenedor del ticket.");
+                if (btn) {
+                    btn.disabled = false;
+                    btn.innerHTML = originalText;
+                }
+                return;
+            }
+
+            // Usamos html2canvas para renderizar la imagen con estilos escalados
+            html2canvas(element, {
+                scale: 2.5, // Aumentar resolución para mayor nitidez
+                useCORS: true,
+                allowTaint: true,
+                backgroundColor: '#ffffff',
+                onclone: function(clonedDoc) {
+                    const clonedContainer = clonedDoc.querySelector('.ticket');
+                    if (clonedContainer) {
+                        // Forzar fuente base más grande
+                        clonedContainer.style.setProperty('font-size', '14px', 'important');
+                        
+                        // Escalar clases de tamaños
+                        const sizes = {
+                            'size-9': '12px',
+                            'size-10': '13.5px',
+                            'size-11': '14.5px',
+                            'size-12': '15.5px',
+                            'size-14': '17.5px',
+                            'size-16': '20px',
+                        };
+                        for (const [className, newSize] of Object.entries(sizes)) {
+                            clonedContainer.querySelectorAll('.' + className).forEach(el => {
+                                el.style.setProperty('font-size', newSize, 'important');
+                            });
+                        }
+                        
+                        // Ajustar filas de saldo y filas de info
+                        clonedContainer.querySelectorAll('.saldo-row').forEach(el => {
+                            el.style.setProperty('font-size', '13.5px', 'important');
+                        });
+                        clonedContainer.querySelectorAll('.info-row').forEach(el => {
+                            el.style.setProperty('font-size', '13px', 'important');
+                        });
+                        clonedContainer.querySelectorAll('.total-row').forEach(el => {
+                            el.style.setProperty('font-size', '16px', 'important');
+                        });
+                        
+                        // Ajustar tamaño del Logo
+                        const logo = clonedContainer.querySelector('.logo-ajustada');
+                        if (logo) {
+                            logo.style.setProperty('max-width', '35%', 'important');
+                            logo.style.setProperty('width', '35%', 'important');
+                        }
+                        
+                        // Darle un poco más de margen interno para que no quede pegado al borde
+                        clonedContainer.style.setProperty('padding', '12px', 'important');
+                    }
+                }
+            }).then(canvas => {
+                const imgData = canvas.toDataURL('image/png');
+                const base64Data = imgData.split(',')[1];
+                const url = "rawbt:data:image/png;base64," + base64Data;
+                
+                if (btn) {
+                    btn.disabled = false;
+                    btn.innerHTML = originalText;
+                }
+                
+                window.location.href = url;
+            }).catch(err => {
+                console.error("Error al capturar ticket:", err);
+                alert("Error al generar imagen de ticket para Bluetooth: " + err.message);
+                if (btn) {
+                    btn.disabled = false;
+                    btn.innerHTML = originalText;
+                }
+            });
+        }
+
         // Auto-impresión
         {% if ticket.auto_print %}
         setTimeout(function () {

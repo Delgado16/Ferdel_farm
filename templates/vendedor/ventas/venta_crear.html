@@ -1238,6 +1238,9 @@
             <button onclick="imprimirTicket()" class="btn btn-primary btn-sm">
                 🖨️ Imprimir Ticket
             </button>
+            <button onclick="imprimirRapidoRawBT(event)" class="btn btn-warning btn-sm">
+                ⚡ Imprimir Rápido (Bluetooth)
+            </button>
             <button onclick="window.close()" class="btn btn-secondary btn-sm">
                 ⬅️ Cerrar
             </button>
@@ -1246,9 +1249,102 @@
             <em>Presione Ctrl+P o use el botón Imprimir</em>
         </p>
     </div>
+    <script src="/static/js/html2canvas.min.js"><\/script>
     <script>
         function imprimirTicket() {
             window.print();
+        }
+        function imprimirRapidoRawBT(event) {
+            const btn = event ? event.currentTarget : null;
+            let originalText = '';
+            if (btn) {
+                originalText = btn.innerHTML;
+                btn.disabled = true;
+                btn.innerHTML = '⌛ Generando...';
+            }
+            const element = document.querySelector('.ticket-container');
+            if (!element) {
+                alert("Error: No se encontró el contenedor del ticket.");
+                if (btn) {
+                    btn.disabled = false;
+                    btn.innerHTML = originalText;
+                }
+                return;
+            }
+            html2canvas(element, {
+                scale: 2.5, // Aumentar resolución para mayor nitidez
+                useCORS: true,
+                allowTaint: true,
+                backgroundColor: '#ffffff',
+                onclone: function(clonedDoc) {
+                    const clonedContainer = clonedDoc.querySelector('.ticket-container');
+                    if (clonedContainer) {
+                        // Forzar fuente base más grande
+                        clonedContainer.style.setProperty('font-size', '13.5px', 'important');
+                        
+                        // Escalar clases de tamaños
+                        const sizes = {
+                            'size-8': '10px',
+                            'size-9': '12px',
+                            'size-10': '13.5px',
+                            'size-11': '15px',
+                            'size-12': '16px',
+                            'size-13': '18px',
+                            'size-14': '20px',
+                        };
+                        for (const [className, newSize] of Object.entries(sizes)) {
+                            clonedContainer.querySelectorAll('.' + className).forEach(el => {
+                                el.style.setProperty('font-size', newSize, 'important');
+                            });
+                        }
+                        
+                        // Ajustar tablas, productos y detalles
+                        clonedContainer.querySelectorAll('table').forEach(el => {
+                            el.style.setProperty('font-size', '12px', 'important');
+                        });
+                        clonedContainer.querySelectorAll('.product-desc').forEach(el => {
+                            el.style.setProperty('font-size', '12px', 'important');
+                        });
+                        clonedContainer.querySelectorAll('.product-code').forEach(el => {
+                            el.style.setProperty('font-size', '10px', 'important');
+                        });
+                        clonedContainer.querySelectorAll('.saldos-container').forEach(el => {
+                            el.style.setProperty('font-size', '12px', 'important');
+                        });
+                        clonedContainer.querySelectorAll('.saldos-title').forEach(el => {
+                            el.style.setProperty('font-size', '14px', 'important');
+                        });
+                        clonedContainer.querySelectorAll('.abono-info').forEach(el => {
+                            el.style.setProperty('font-size', '10px', 'important');
+                        });
+                        
+                        // Ajustar tamaño del Logo
+                        const logo = clonedContainer.querySelector('.logo');
+                        if (logo) {
+                            logo.style.setProperty('max-height', '60px', 'important');
+                        }
+                        
+                        // Darle un poco más de margen interno para que no quede pegado al borde
+                        clonedContainer.style.setProperty('padding', '12px', 'important');
+                    }
+                }
+            }).then(canvas => {
+                const imgData = canvas.toDataURL('image/png');
+                const base64Data = imgData.split(',')[1];
+                const url = "rawbt:data:image/png;base64," + base64Data;
+                if (btn) {
+                    btn.disabled = false;
+                    btn.innerHTML = originalText;
+                }
+                window.location.href = url;
+            }).catch(err => {
+                console.error("Error al capturar ticket:", err);
+                alert("Error al generar imagen de ticket: " + err.message);
+                if (btn) {
+                    btn.disabled = false;
+                    btn.innerHTML = originalText;
+                }
+            });
         }
         document.addEventListener('DOMContentLoaded', function() {
             if (${autoPrint}) {
