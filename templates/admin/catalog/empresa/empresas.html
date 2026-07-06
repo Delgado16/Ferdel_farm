@@ -116,9 +116,9 @@
                     <div class="mb-3">
                         <label for="ruc" class="form-label">RUC</label>
                         <input type="text" class="form-control" id="ruc" name="ruc" 
-                               maxlength="13" pattern="\d*"
-                               placeholder="Ej: 1234567890123">
-                        <div class="form-text">Ingrese solo números (máximo 13 dígitos)</div>
+                               maxlength="20"
+                               placeholder="Ej: J0310000012345 o 203-140785-000U">
+                        <div class="form-text">Debe contener al menos una letra</div>
                     </div>
 
                     <!-- Teléfono -->
@@ -173,10 +173,16 @@ document.addEventListener('DOMContentLoaded', function() {
     const rucInput = document.getElementById('ruc');
     const telefonoInput = document.getElementById('telefono');
     
-    // Validación de RUC (solo números)
+    // Validación de RUC (debe contener al menos una letra)
     function validateRUC() {
-        if (rucInput.value && !/^\d+$/.test(rucInput.value)) {
-            rucInput.setCustomValidity('El RUC debe contener solo números');
+        const val = rucInput.value.trim();
+        if (!val) {
+            rucInput.setCustomValidity('');
+            rucInput.classList.remove('is-invalid');
+            return true;
+        }
+        if (!/[a-zA-Z]/.test(val)) {
+            rucInput.setCustomValidity('El RUC debe contener al menos una letra');
             rucInput.classList.add('is-invalid');
             return false;
         } else {

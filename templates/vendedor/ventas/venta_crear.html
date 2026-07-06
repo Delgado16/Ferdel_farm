@@ -574,14 +574,17 @@
         </div>
     </div>
 </template>
+<img id="logo-ferdel-fuente" src="{{ url_for('static', filename='ferdel.png') }}" style="display: none;"
+    crossorigin="anonymous">
 
 {% endblock %}
 
 
 {% block extra_js %}
-<!-- SweetAlert2 y localForage -->
+<!-- SweetAlert2, localForage y html2canvas -->
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script src="https://cdn.jsdelivr.net/npm/localforage@1.10.0/dist/localforage.min.js"></script>
+<script src="{{ url_for('static', filename='js/html2canvas.min.js') }}"></script>
 
 <script>
     // ============================================
@@ -751,7 +754,18 @@
     function generarVistaPreviaOffline(venta, autoPrint = false, saldoAnteriorReal = null) {
         try {
             const clienteSelect = getElement('cliente');
-            const option = clienteSelect?.options[clienteSelect.selectedIndex];
+            let option = null;
+            if (clienteSelect && venta.datos.cliente) {
+                for (let i = 0; i < clienteSelect.options.length; i++) {
+                    if (clienteSelect.options[i].value == venta.datos.cliente) {
+                        option = clienteSelect.options[i];
+                        break;
+                    }
+                }
+            }
+            if (!option) {
+                option = clienteSelect?.options[clienteSelect.selectedIndex];
+            }
 
             const empresa = {
                 nombre: 'Granja Avicola FERDEL',
@@ -763,7 +777,7 @@
 
             const cliente = {
                 id: venta.datos.cliente,
-                nombre: option?.dataset.nombre || 'Cliente General',
+                nombre: option?.dataset.nombre || venta.datos.cliente_nombre || 'Cliente General',
                 ruc: option?.dataset.ruc || 'N/A',
                 telefono: option?.dataset.telefono || 'N/A',
                 direccion: option?.dataset.direccion || 'N/A'
@@ -825,56 +839,78 @@
 
                 let resolvedUrl = null;
 
-                // 1. Intentar obtener el logo desde localforage
+                // 0. Intentar obtener desde el DOM usando Canvas (100% offline y inmediato)
                 try {
-                    const clavesLogo = ['logo', 'logo_base64', 'empresa_logo', 'logo_empresa', 'logoUrl', 'logo_url'];
-                    for (const clave of clavesLogo) {
-                        const logoLocal = await localforage.getItem(clave);
-                        if (logoLocal) {
-                            if (typeof logoLocal === 'string') {
-                                if (logoLocal.startsWith('data:image') || logoLocal.length > 500) {
-                                    console.log(`✅ Logo obtenido desde localforage (${clave})`);
-                                    resolvedUrl = logoLocal.startsWith('data:image') ? logoLocal : `data:image/png;base64,${logoLocal}`;
-                                    break;
-                                }
-                            } else if (logoLocal instanceof Blob) {
-                                console.log(`✅ Logo (Blob) obtenido desde localforage (${clave})`);
-                                resolvedUrl = await blobToBase64(logoLocal);
-                                break;
-                            }
-                        }
-                    }
-
-                    if (!resolvedUrl) {
-                        // También revisar si está dentro de clientes_saldos.empresa.logo o similar
-                        const clientesLocal = await localforage.getItem('clientes_saldos');
-                        if (clientesLocal && clientesLocal.empresa) {
-                            const logoEmpresa = clientesLocal.empresa.logo || clientesLocal.empresa.logo_base64 || clientesLocal.empresa.logo_url;
-                            if (logoEmpresa) {
-                                if (typeof logoEmpresa === 'string') {
-                                    if (logoEmpresa.startsWith('data:image') || logoEmpresa.length > 500) {
-                                        console.log('✅ Logo obtenido desde localforage (clientes_saldos.empresa)');
-                                        resolvedUrl = logoEmpresa.startsWith('data:image') ? logoEmpresa : `data:image/png;base64,${logoEmpresa}`;
-                                    }
-                                } else if (logoEmpresa instanceof Blob) {
-                                    console.log('✅ Logo (Blob) obtenido desde localforage (clientes_saldos.empresa)');
-                                    resolvedUrl = await blobToBase64(logoEmpresa);
-                                }
-                            }
-                        }
+                    const img = document.getElementById('logo-ferdel-fuente');
+                    if (img && img.complete && img.naturalWidth > 0) {
+                        const canvas = document.createElement('canvas');
+                        canvas.width = img.naturalWidth;
+                        canvas.height = img.naturalHeight;
+                        const ctx = canvas.getContext('2d');
+                        ctx.drawImage(img, 0, 0);
+                        resolvedUrl = canvas.toDataURL('image/png');
+                        console.log('✅ Logo obtenido exitosamente vía Canvas desde el DOM');
                     }
                 } catch (e) {
-                    console.warn('Error al buscar el logo en localforage:', e);
+                    console.warn('No se pudo convertir el logo desde Canvas:', e);
+                }
+
+                // 1. Intentar obtener el logo desde localforage (si falla el Canvas)
+                if (!resolvedUrl) {
+                    try {
+                        const clavesLogo = ['logo', 'logo_base64', 'empresa_logo', 'logo_empresa', 'logoUrl', 'logo_url'];
+                        for (const clave of clavesLogo) {
+                            const logoLocal = await localforage.getItem(clave);
+                            if (logoLocal) {
+                                if (typeof logoLocal === 'string') {
+                                    if (logoLocal.startsWith('data:image') || logoLocal.length > 500) {
+                                        console.log(`✅ Logo obtenido desde localforage (${clave})`);
+                                        resolvedUrl = logoLocal.startsWith('data:image') ? logoLocal : `data:image/png;base64,${logoLocal}`;
+                                        break;
+                                    }
+                                } else if (logoLocal instanceof Blob) {
+                                    console.log(`✅ Logo (Blob) obtenido desde localforage (${clave})`);
+                                    resolvedUrl = await blobToBase64(logoLocal);
+                                    break;
+                                }
+                            }
+                        }
+
+                        if (!resolvedUrl) {
+                            // También revisar si está dentro de clientes_saldos.empresa.logo o similar
+                            const clientesLocal = await localforage.getItem('clientes_saldos');
+                            if (clientesLocal && clientesLocal.empresa) {
+                                const logoEmpresa = clientesLocal.empresa.logo || clientesLocal.empresa.logo_base64 || clientesLocal.empresa.logo_url;
+                                if (logoEmpresa) {
+                                    if (typeof logoEmpresa === 'string') {
+                                        if (logoEmpresa.startsWith('data:image') || logoEmpresa.length > 500) {
+                                            console.log('✅ Logo obtenido desde localforage (clientes_saldos.empresa)');
+                                            resolvedUrl = logoEmpresa.startsWith('data:image') ? logoEmpresa : `data:image/png;base64,${logoEmpresa}`;
+                                        }
+                                    } else if (logoEmpresa instanceof Blob) {
+                                        console.log('✅ Logo (Blob) obtenido desde localforage (clientes_saldos.empresa)');
+                                        resolvedUrl = await blobToBase64(logoEmpresa);
+                                    }
+                                }
+                            }
+                        }
+                    } catch (e) {
+                        console.warn('Error al buscar el logo en localforage:', e);
+                    }
                 }
 
                 // 2. Intentar buscar en caches de service worker
                 if (!resolvedUrl && 'caches' in window) {
                     try {
-                        const cache = await caches.open('vendedor-cache-v2');
-                        const cachedResponse = await cache.match('/static/ferdel.png');
-                        if (cachedResponse && cachedResponse.ok) {
-                            const blob = await cachedResponse.blob();
-                            resolvedUrl = await blobToBase64(blob);
+                        const cacheNames = await caches.keys();
+                        for (const name of cacheNames) {
+                            const cache = await caches.open(name);
+                            const cachedResponse = await cache.match('/static/ferdel.png');
+                            if (cachedResponse && cachedResponse.ok) {
+                                const blob = await cachedResponse.blob();
+                                resolvedUrl = await blobToBase64(blob);
+                                break;
+                            }
                         }
                     } catch (e) {
                         console.warn('Error accediendo a caché:', e);
@@ -908,15 +944,18 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
+    <base href="${window.location.origin}/">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Ticket de Venta #${facturaId}</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
+        /* ===== ESTILOS PARA IMPRESIÓN ===== */
         @media print {
             @page {
                 margin: 0;
                 size: 58mm auto;
             }
+
             body {
                 margin: 0;
                 padding: 0;
@@ -928,12 +967,14 @@
                 -webkit-print-color-adjust: exact !important;
                 print-color-adjust: exact !important;
             }
+
             .no-print,
             .btn-group,
             .container.mt-4,
             .offline-badge {
                 display: none !important;
             }
+
             .ticket-container {
                 width: 58mm !important;
                 max-width: 58mm !important;
@@ -944,6 +985,8 @@
                 page-break-inside: avoid;
             }
         }
+
+        /* ===== ESTILOS GENERALES ===== */
         body {
             font-family: Arial, Helvetica, sans-serif;
             font-size: 10.5px;
@@ -951,19 +994,22 @@
             padding: 10px;
             background: #f8f9fa;
         }
+
         .ticket-container {
             width: 58mm;
-            max-width: 100%;
             margin: 0 auto;
             background: white;
             padding: 6px;
             border: 1px solid #ddd;
-            box-shadow: 0 0 5px rgba(0,0,0,0.1);
+            box-shadow: 0 0 5px rgba(0, 0, 0, 0.1);
         }
+
+        /* ===== UTILIDADES ===== */
         .text-center { text-align: center; }
         .text-right { text-align: right; }
         .text-left { text-align: left; }
         .bold { font-weight: bold; }
+
         .divider {
             border-top: 1px dashed #000;
             margin: 5px 0;
@@ -973,163 +1019,63 @@
             border-top: 2px solid #000;
             margin: 8px 0;
         }
+
         .info-row {
             display: flex;
             justify-content: space-between;
             padding: 2px 0;
             line-height: 1.3;
         }
-        .info-label {
-            font-weight: bold;
-            min-width: 70px;
-        }
-        .info-value {
-            flex: 1;
-            text-align: right;
-            word-break: break-word;
-        }
-        .logo-container {
-            text-align: center;
-            margin-bottom: 5px;
-        }
-        .logo {
-            max-width: 100%;
-            height: auto;
-            max-height: 40px;
-            margin-bottom: 3px;
-        }
-        .logo-text {
-            font-weight: bold;
-            font-size: 14px;
-            text-transform: uppercase;
-            margin-top: 5px;
-        }
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            margin: 0;
-            font-size: 9px;
-        }
-        th, td {
-            padding: 2px 1px;
-            vertical-align: top;
-            line-height: 1.1;
-        }
-        .table-header {
-            border-bottom: 1px dashed #000;
-        }
+        .info-label { font-weight: bold; min-width: 70px; }
+        .info-value { flex: 1; text-align: right; word-break: break-word; }
+
+        /* ===== LOGO Y ENCABEZADO ===== */
+        .logo-container { text-align: center; margin-bottom: 5px; }
+        .logo { max-width: 100%; height: auto; max-height: 40px; margin-bottom: 3px; }
+        .logo-text { font-weight: bold; font-size: 14px; text-transform: uppercase; margin-top: 5px; }
+
+        /* ===== TABLAS ===== */
+        table { width: 100%; border-collapse: collapse; margin: 0; font-size: 9px; }
+        th, td { padding: 2px 1px; vertical-align: top; line-height: 1.1; }
+        .table-header { border-bottom: 1px dashed #000; }
+
+        /* ===== TAMAÑOS DE TEXTO ===== */
         .size-9 { font-size: 9.5px; }
         .size-10 { font-size: 10.5px; }
         .size-11 { font-size: 11.5px; }
         .size-12 { font-size: 12.5px; }
         .size-13 { font-size: 13.5px; }
         .size-14 { font-size: 14.5px; }
-        .product-desc {
-            font-size: 9px;
-            line-height: 1.1;
-            word-break: break-word;
-        }
-        .product-code {
-            font-size: 8px;
-            color: #666;
-        }
-        .total-row {
-            border-top: 1px solid #000;
-            border-bottom: 2px solid #000;
-            font-weight: bold;
-        }
-        .saldos-container {
-            margin: 10px 0;
-            padding: 8px;
-            border: 1px solid #000;
-            background: #fff;
-        }
-        .saldos-row {
-            display: flex;
-            justify-content: space-between;
-            padding: 3px 0;
-            border-bottom: 1px dotted #ccc;
-        }
-        .saldos-total-row {
-            display: flex;
-            justify-content: space-between;
-            padding: 3px 0;
-            border-bottom: 1px dashed #000;
-            font-weight: bold;
-        }
-        .saldos-abono-row {
-            display: flex;
-            justify-content: space-between;
-            padding: 3px 0;
-            border-bottom: 1px dotted #ccc;
-            color: #006600;
-        }
-        .saldos-final-row {
-            display: flex;
-            justify-content: space-between;
-            padding: 5px 0;
-            margin-top: 3px;
-            border-top: 2px solid #000;
-            font-weight: bold;
-            font-size: 12px;
-        }
-        .saldos-title {
-            text-align: center;
-            font-weight: bold;
-            margin-bottom: 8px;
-            font-size: 11px;
-            border-bottom: 1px solid #000;
-            padding-bottom: 3px;
-        }
-        .abono-info {
-            font-size: 8px;
-            text-align: right;
-            color: #555;
-            margin-top: 3px;
-            border-top: 1px dotted #ccc;
-            padding-top: 2px;
-        }
-        .print-controls {
-            margin-top: 20px;
-            text-align: center;
-        }
-        .btn-sm {
-            padding: 4px 8px;
-            font-size: 12px;
-            margin: 2px;
-        }
-        .offline-badge {
-            background: #ffc107;
-            color: #000;
-            padding: 4px 12px;
-            border-radius: 20px;
-            font-size: 10px;
-            display: inline-block;
-            margin-bottom: 8px;
-            font-weight: bold;
-        }
-        @media (max-width: 480px) {
-            .ticket-container {
-                width: 100%;
-                padding: 8px;
-            }
-        }
+
+        /* ===== DETALLES DE PRODUCTOS ===== */
+        .product-desc { font-size: 9px; line-height: 1.1; word-break: break-word; }
+        .product-code { font-size: 8px; color: #666; }
+
+        /* ===== TOTALES ===== */
+        .total-row { border-top: 1px solid #000; border-bottom: 2px solid #000; font-weight: bold; }
+        .subtotal-row { border-top: 1px dashed #000; }
+
+        /* ===== SECCION DE SALDOS ===== */
+        .saldos-container { margin: 10px 0; padding: 8px; border: 1px solid #000; background: #fff; }
+        .saldos-row { display: flex; justify-content: space-between; padding: 3px 0; border-bottom: 1px dotted #ccc; }
+        .saldos-total-row { display: flex; justify-content: space-between; padding: 3px 0; border-bottom: 1px dashed #000; font-weight: bold; }
+        .saldos-abono-row { display: flex; justify-content: space-between; padding: 3px 0; border-bottom: 1px dotted #ccc; color: #006600; }
+        .saldos-final-row { display: flex; justify-content: space-between; padding: 5px 0; margin-top: 3px; border-top: 2px solid #000; font-weight: bold; font-size: 12px; }
+        .saldos-title { text-align: center; font-weight: bold; margin-bottom: 8px; font-size: 11px; border-bottom: 1px solid #000; padding-bottom: 3px; }
+        .abono-info { font-size: 8px; text-align: right; color: #555; margin-top: 3px; border-top: 1px dotted #ccc; padding-top: 2px; }
+
+        /* ===== CONTROLES NO IMPRIMIBLES ===== */
+        .print-controls { margin-top: 20px; text-align: center; }
+        .btn-sm { padding: 4px 8px; font-size: 12px; margin: 2px; }
+        .offline-badge { background: #ffc107; color: #000; padding: 4px 12px; border-radius: 20px; font-size: 10px; display: inline-block; margin-bottom: 8px; font-weight: bold; }
     </style>
 </head>
 <body>
     <div class="ticket-container">
-        <div class="text-center no-print">
-            <span class="offline-badge"><i class="fas fa-cloud-upload-alt"></i> 📱 TICKET OFFLINE - SIN CONEXIÓN</span>
-        </div>
         <div class="logo-container">
-            <img src="${logoUrl}" 
-                 alt="Logo ${empresa.nombre}" 
-                 class="logo"
-                 style="max-width: 180px; max-height: 70px; object-fit: contain;"
-                 onerror="this.style.display='none'; this.parentElement.querySelector('.logo-text-fallback').style.display='block';">
-            <div class="logo-text-fallback" style="display: none;">
-                <div class="logo-text">${empresa.nombre}</div>
-            </div>
+            <img src="${logoUrl}" alt="Logo ${empresa.nombre}" class="logo"
+                 onerror="this.style.display='none'; document.getElementById('logo-text').style.display='block';">
+            <div id="logo-text" class="logo-text" style="display: none;">${empresa.nombre}</div>
             <div class="size-10 bold">${empresa.nombre}</div>
             <div class="size-9">RUC: ${empresa.ruc}</div>
             <div class="size-9">${empresa.direccion}</div>
@@ -1139,9 +1085,11 @@
         <div class="text-center">
             <div class="size-13 bold">FACTURA #${facturaId}</div>
             <div class="size-9">Emision: ${fechaFormateada}</div>
+            <div class="size-9">Atendido por: {{ asignacion.Nombre_Vendedor }}</div>
+            <div class="size-9">Ruta: {{ asignacion.Nombre_Ruta }}</div>
             <div class="divider"></div>
         </div>
-        <section class="size-9" style="background: #f5f5f5; padding: 5px; border-radius: 3px;">
+        <section class="size-9">
             <div class="info-row">
                 <span class="info-label">Cliente:</span>
                 <span class="info-value">${cliente.nombre}</span>
@@ -1183,7 +1131,7 @@
             </tbody>
         </table>
         <div class="double-divider"></div>
-        ${(nuevoSaldo > 0 || abono > 0) ? `
+        ${nuevoSaldo > 0 ? `
         <div class="saldos-container">
             <div class="saldos-title">ESTADO DE CUENTA</div>
             <div class="saldos-row">
@@ -1206,9 +1154,7 @@
             ` : ''}
             <div class="saldos-final-row">
                 <span>Saldo pendiente</span>
-                <span style="color: ${nuevoSaldo > 0 ? '#CC0000' : '#006600'};">
-                    C$ ${nuevoSaldo.toFixed(2)}
-                </span>
+                <span style="color: ${nuevoSaldo > 0 ? '#CC0000' : '#006600'};">C$ ${nuevoSaldo.toFixed(2)}</span>
             </div>
             ${abono > 0 && conceptoAbono ? `
             <div class="abono-info">
@@ -1229,31 +1175,19 @@
             <div class="bold">¡Gracias por su compra!</div>
             <div>Vuelva pronto</div>
             <div style="margin-top: 8px;">
-                <div>--- Original ---</div>
+                <div>--- Original Offline ---</div>
             </div>
         </div>
     </div>
     <div class="no-print print-controls">
         <div class="btn-group" role="group">
-            <button onclick="imprimirTicket()" class="btn btn-primary btn-sm">
-                🖨️ Imprimir Ticket
-            </button>
-            <button onclick="imprimirRapidoRawBT(event)" class="btn btn-warning btn-sm">
-                ⚡ Imprimir Rápido (Bluetooth)
-            </button>
-            <button onclick="window.close()" class="btn btn-secondary btn-sm">
-                ⬅️ Cerrar
-            </button>
+            <button onclick="window.print()" class="btn btn-primary btn-sm">🖨️ Imprimir</button>
+            <button onclick="imprimirRapidoRawBT(event)" class="btn btn-warning btn-sm">⚡ Bluetooth</button>
+            <button onclick="location.reload()" class="btn btn-secondary btn-sm">⬅️ Cerrar</button>
         </div>
-        <p class="size-10 mt-2 text-muted">
-            <em>Presione Ctrl+P o use el botón Imprimir</em>
-        </p>
     </div>
     <script src="/static/js/html2canvas.min.js"><\/script>
     <script>
-        function imprimirTicket() {
-            window.print();
-        }
         function imprimirRapidoRawBT(event) {
             const btn = event ? event.currentTarget : null;
             let originalText = '';
@@ -1271,7 +1205,17 @@
                 }
                 return;
             }
-            html2canvas(element, {
+            // Recuperar html2canvas de la ventana padre (donde está cargado y cacheado en offline)
+            const canvasLib = window.html2canvas || (window.opener && window.opener.html2canvas);
+            if (!canvasLib) {
+                alert("Error: No se pudo iniciar la captura de pantalla. La librería html2canvas no está disponible.");
+                if (btn) {
+                    btn.disabled = false;
+                    btn.innerHTML = originalText;
+                }
+                return;
+            }
+            canvasLib(element, {
                 scale: 2.5, // Aumentar resolución para mayor nitidez
                 useCORS: true,
                 allowTaint: true,
@@ -1339,7 +1283,7 @@
                 window.location.href = url;
             }).catch(err => {
                 console.error("Error al capturar ticket:", err);
-                alert("Error al generar imagen de ticket: " + err.message);
+                alert("Error al generar imagen de ticket para Bluetooth: " + err.message);
                 if (btn) {
                     btn.disabled = false;
                     btn.innerHTML = originalText;
@@ -1366,11 +1310,19 @@
 
             generarTicketConLogo().then(ticketHtml => {
                 try {
-                    // Reemplazar window.close() por location.reload() para el botón Cerrar en la misma ventana
-                    const htmlContent = ticketHtml.replace('window.close()', 'location.reload()');
-                    document.open();
-                    document.write(htmlContent);
-                    document.close();
+                    // Abrir en una nueva ventana/pestaña para heredar un viewport limpio (igual al online)
+                    const printWindow = window.open('', '_blank');
+                    if (printWindow) {
+                        printWindow.document.open();
+                        printWindow.document.write(ticketHtml);
+                        printWindow.document.close();
+                    } else {
+                        // Fallback si es bloqueado por el navegador
+                        const htmlContent = ticketHtml.replace('window.close()', 'location.reload()');
+                        document.open();
+                        document.write(htmlContent);
+                        document.close();
+                    }
                 } catch (error) {
                     console.error('Error al escribir el ticket en la ventana:', error);
                     try {

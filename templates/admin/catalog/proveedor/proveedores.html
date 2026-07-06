@@ -202,9 +202,9 @@
                     <div class="mb-3">
                         <label for="ruc_cedula" class="form-label">RUC/Cédula</label>
                         <input type="text" class="form-control" id="ruc_cedula" name="ruc_cedula" 
-                               maxlength="20" pattern="\d*"
-                               placeholder="Ej: 1234567890123">
-                        <div class="form-text">Opcional. Si se proporciona, debe ser único. Solo números</div>
+                               maxlength="20"
+                               placeholder="Ej: 401-160503-1006T o 203140785000U">
+                        <div class="form-text">Opcional. Si se proporciona, debe ser único y contener al menos una letra.</div>
                     </div>
 
                     <!-- Teléfono -->
@@ -272,10 +272,16 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
     
-    // Validación de RUC/Cédula (solo números)
+    // Validación de RUC/Cédula (debe contener al menos una letra)
     function validateRucCedula() {
-        if (rucCedulaInput.value && !/^\d+C$/.test(rucCedulaInput.value)) {
-            rucCedulaInput.setCustomValidity('Ingrese solo números');
+        const val = rucCedulaInput.value.trim();
+        if (!val) {
+            rucCedulaInput.setCustomValidity('');
+            rucCedulaInput.classList.remove('is-invalid');
+            return true;
+        }
+        if (!/[a-zA-Z]/.test(val)) {
+            rucCedulaInput.setCustomValidity('El RUC/Cédula debe contener al menos una letra');
             rucCedulaInput.classList.add('is-invalid');
             return false;
         } else {

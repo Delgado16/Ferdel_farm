@@ -96,8 +96,9 @@
                         <div class="mb-3">
                             <label for="ruc_cedula" class="form-label">RUC/Cédula</label>
                             <input type="text" class="form-control" id="ruc_cedula" name="ruc_cedula" 
-                                   value="{{ proveedor.RUC_CEDULA or '' }}" maxlength="20">
-                            <div class="form-text">Opcional. Si se proporciona, debe ser único entre proveedores activos.</div>
+                                   value="{{ proveedor.RUC_CEDULA or '' }}" maxlength="20"
+                                   placeholder="Ej: 401-160503-1006T o 203140785000U">
+                            <div class="form-text">Opcional. Si se proporciona, debe ser único y contener al menos una letra.</div>
                         </div>
 
                         <!-- Saldo Pendiente (Deuda con el proveedor) -->
@@ -254,11 +255,11 @@ document.addEventListener('DOMContentLoaded', function() {
                 return false;
             }
             
-            // Validación de RUC/Cédula (solo números, opcional)
+            // Validación de RUC/Cédula (debe contener al menos una letra, opcional)
             const rucCedula = document.getElementById('ruc_cedula').value.trim();
-            if (rucCedula && !/^\d{10,20}$/.test(rucCedula)) {
+            if (rucCedula && !/[a-zA-Z]/.test(rucCedula)) {
                 e.preventDefault();
-                alert('El RUC/Cédula debe contener solo números (10-20 dígitos)');
+                alert('El RUC/Cédula debe contener al menos una letra');
                 document.getElementById('ruc_cedula').focus();
                 return false;
             }

@@ -1,11 +1,12 @@
-const CACHE_NAME = 'vendedor-cache-v5'; // Incrementamos la versión para forzar actualización a v5 y limpiar el caché anterior
+const CACHE_NAME = 'vendedor-cache-v6'; // Incrementamos la versión para forzar actualización a v6 y limpiar el caché anterior
 
 // Recursos estáticos públicos que no requieren autenticación y garantizan status 200
 const urlsToCache = [
   '/static/css/styles.css',
   '/static/icon/icon-192.png',
   '/static/ferdel.png',
-  '/static/manifest.json'
+  '/static/manifest.json',
+  '/static/js/html2canvas.min.js'
 ];
 
 // Instalación: precachea SOLO los recursos estáticos públicos
@@ -191,6 +192,10 @@ self.addEventListener('fetch', event => {
                 });
 
               return networkResponse;
+            })
+            .catch(error => {
+              console.error('[Service Worker] ❌ Falló fetch de recurso offline:', url.pathname, error);
+              return caches.match(request);
             });
         })
     );

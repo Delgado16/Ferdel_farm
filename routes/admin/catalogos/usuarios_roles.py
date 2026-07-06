@@ -345,13 +345,30 @@ def crear_empresa():
             nombre = request.form.get('nombre_empresa')
             direccion = request.form.get('direccion')
             telefono = request.form.get('telefono')
-            ruc = request.form.get('ruc')
+            ruc = request.form.get('ruc', '').strip().upper()
             estado = request.form.get('estado', 'Activo')
             
             # Validaciones básicas
             if not nombre:
                 flash('El nombre de la empresa es obligatorio', 'error')
                 return redirect(url_for('admin.admin_empresas'))
+
+            if ruc:
+                import re
+                if not re.search(r'[A-Za-z]', ruc):
+                    flash('El RUC debe contener al menos una letra', 'error')
+                    return redirect(url_for('admin.admin_empresas'))
+                
+                clean_ruc = ruc.replace("-", "").replace(" ", "")
+                with get_db_cursor() as cursor:
+                    cursor.execute("""
+                        SELECT 1 FROM empresa 
+                        WHERE REPLACE(REPLACE(RUC, '-', ''), ' ', '') = %s 
+                        AND Estado = 'Activo'
+                    """, (clean_ruc,))
+                    if cursor.fetchone():
+                        flash('Ya existe una empresa activa con este RUC', 'error')
+                        return redirect(url_for('admin.admin_empresas'))
             
             with get_db_cursor(commit=True) as cursor:
                 cursor.execute("""
@@ -380,12 +397,30 @@ def editar_empresa(id):
             nombre = request.form.get('nombre_empresa')
             direccion = request.form.get('direccion')
             telefono = request.form.get('telefono')
-            ruc = request.form.get('ruc')
+            ruc = request.form.get('ruc', '').strip().upper()
             estado = request.form.get('estado')
             
             if not nombre:
                 flash('El nombre de la empresa es obligatorio', 'error')
                 return redirect(url_for('admin.editar_empresa', id=id))
+            
+            if ruc:
+                import re
+                if not re.search(r'[A-Za-z]', ruc):
+                    flash('El RUC debe contener al menos una letra', 'error')
+                    return redirect(url_for('admin.editar_empresa', id=id))
+                
+                clean_ruc = ruc.replace("-", "").replace(" ", "")
+                with get_db_cursor() as cursor:
+                    cursor.execute("""
+                        SELECT 1 FROM empresa 
+                        WHERE REPLACE(REPLACE(RUC, '-', ''), ' ', '') = %s 
+                        AND ID_Empresa != %s
+                        AND Estado = 'Activo'
+                    """, (clean_ruc, id))
+                    if cursor.fetchone():
+                        flash('Ya existe otra empresa activa con este RUC', 'error')
+                        return redirect(url_for('admin.editar_empresa', id=id))
             
             with get_db_cursor(commit=True) as cursor:
                 cursor.execute("""

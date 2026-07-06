@@ -68,9 +68,9 @@
                                 <div class="mb-3">
                                     <label for="ruc" class="form-label fw-bold">RUC</label>
                                     <input type="text" class="form-control" id="ruc" name="ruc" 
-                                           value="{{ empresa.RUC or '' }}" 
-                                           placeholder="Ingrese el RUC">
-                                    <div class="form-text">Número de RUC de la empresa</div>
+                                           value="{{ empresa.RUC or '' }}" maxlength="20"
+                                           placeholder="Ej: J0310000012345 o 203-140785-000U">
+                                    <div class="form-text">Número de RUC de la empresa (debe contener al menos una letra)</div>
                                 </div>
                             </div>
                         </div>
@@ -193,10 +193,10 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
-    // Validación del RUC (solo números)
+    // Validación del RUC (debe contener al menos una letra)
     rucInput.addEventListener('blur', function() {
         const ruc = this.value.trim();
-        if (ruc !== '' && !/^\d+$/.test(ruc)) {
+        if (ruc !== '' && !/[a-zA-Z]/.test(ruc)) {
             this.classList.add('is-invalid');
             this.classList.remove('is-valid');
         } else {
@@ -236,11 +236,11 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // Validar RUC
         const ruc = rucInput.value.trim();
-        if (ruc !== '' && !/^\d+$/.test(ruc)) {
+        if (ruc !== '' && !/[a-zA-Z]/.test(ruc)) {
             e.preventDefault();
             rucInput.classList.add('is-invalid');
             rucInput.focus();
-            alert('El RUC debe contener solo números');
+            alert('El RUC debe contener al menos una letra');
             return false;
         }
         

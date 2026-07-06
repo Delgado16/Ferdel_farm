@@ -84,7 +84,7 @@ def admin_crear_proveedor():
         nombre = request.form.get('nombre','').strip()
         telefono = request.form.get('telefono','').strip()
         direccion = request.form.get('direccion','').strip()
-        ruc_cedula = request.form.get('ruc_cedula','').strip()
+        ruc_cedula = request.form.get('ruc_cedula','').strip().upper()
         saldo_pendiente = request.form.get('saldo_pendiente', '0.00').strip()
         id_usuario = session.get('id_usuario',1)
         id_empresa = session.get('id_empresa',1)
@@ -102,9 +102,18 @@ def admin_crear_proveedor():
         with get_db_cursor() as cursor:
             # Verificar si el RUC/Cédula ya existe (solo si se proporcionó)
             if ruc_cedula:
+                import re
+                if not re.search(r'[A-Za-z]', ruc_cedula):
+                    flash("El RUC/Cédula debe contener al menos una letra", "danger")
+                    return redirect(url_for('admin.admin_proveedores'))
+                
+                clean_ruc = ruc_cedula.replace("-", "").replace(" ", "")
                 cursor.execute(
-                    "SELECT 1 FROM proveedores WHERE RUC_CEDULA = %s AND ID_Empresa = %s AND Estado = 'ACTIVO'", 
-                    (ruc_cedula, id_empresa)
+                    """SELECT 1 FROM proveedores 
+                    WHERE REPLACE(REPLACE(RUC_CEDULA, '-', ''), ' ', '') = %s 
+                    AND ID_Empresa = %s 
+                    AND Estado = 'ACTIVO'""", 
+                    (clean_ruc, id_empresa)
                 )
                 existe = cursor.fetchone()
                 if existe:
@@ -152,7 +161,7 @@ def admin_editar_proveedor(id):
                 nombre = request.form.get('nombre','').strip()
                 telefono = request.form.get('telefono','').strip()
                 direccion = request.form.get('direccion','').strip()
-                ruc_cedula = request.form.get('ruc_cedula','').strip()
+                ruc_cedula = request.form.get('ruc_cedula','').strip().upper()
                 estado = request.form.get('estado','ACTIVO').strip()
                 saldo_pendiente = request.form.get('saldo_pendiente', '0.00').strip()
                 
@@ -169,9 +178,20 @@ def admin_editar_proveedor(id):
                 
                 # Verificar si el RUC/Cédula ya existe en otro proveedor activo
                 if ruc_cedula and estado == 'ACTIVO':
+                    import re
+                    if not re.search(r'[A-Za-z]', ruc_cedula):
+                        flash("El RUC/Cédula debe contener al menos una letra", "danger")
+                        return render_template("admin/catalog/proveedor/editar_proveedor.html",
+                                               proveedor=proveedor)
+                    
+                    clean_ruc = ruc_cedula.replace("-", "").replace(" ", "")
                     cursor.execute(
-                        "SELECT 1 FROM proveedores WHERE RUC_CEDULA = %s AND ID_Proveedor != %s AND ID_Empresa = %s AND Estado = 'ACTIVO'",
-                        (ruc_cedula, id, id_empresa)
+                        """SELECT 1 FROM proveedores 
+                        WHERE REPLACE(REPLACE(RUC_CEDULA, '-', ''), ' ', '') = %s 
+                        AND ID_Proveedor != %s 
+                        AND ID_Empresa = %s 
+                        AND Estado = 'ACTIVO'""",
+                        (clean_ruc, id, id_empresa)
                     )
                     ruc_existente = cursor.fetchone()
                     if ruc_existente:

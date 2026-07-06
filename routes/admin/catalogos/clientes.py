@@ -143,7 +143,7 @@ def admin_crear_cliente():
         nombre = request.form.get("nombre", "").strip()
         telefono = request.form.get("telefono", "").strip()
         direccion = request.form.get("direccion", "").strip()
-        ruc_cedula = request.form.get("ruc_cedula", "").strip()
+        ruc_cedula = request.form.get("ruc_cedula", "").strip().upper()
         tipo_cliente = request.form.get("tipo_cliente", "Comun").strip()
         perfil_cliente = request.form.get("perfil_cliente", "Mercado").strip()
         id_ruta = request.form.get("id_ruta", "").strip()
@@ -256,12 +256,18 @@ def admin_crear_cliente():
             
             # Verificar si el RUC/Cédula ya existe (solo si se proporcionó)
             if ruc_cedula:
+                import re
+                if not re.search(r'[A-Za-z]', ruc_cedula):
+                    flash("El RUC/Cédula debe contener al menos una letra.", "danger")
+                    return redirect(url_for("admin.admin_clientes"))
+                
+                clean_ruc = ruc_cedula.replace("-", "").replace(" ", "")
                 cursor.execute(
                     """SELECT 1 FROM clientes 
-                    WHERE RUC_CEDULA = %s 
+                    WHERE REPLACE(REPLACE(RUC_CEDULA, '-', ''), ' ', '') = %s 
                     AND ID_Empresa = %s 
                     AND Estado = 'ACTIVO'""", 
-                    (ruc_cedula, id_empresa)
+                    (clean_ruc, id_empresa)
                 )
                 existe = cursor.fetchone()
                 if existe:
@@ -363,7 +369,7 @@ def admin_editar_cliente(id):
                 nombre = request.form.get("nombre", "").strip()
                 telefono = request.form.get("telefono", "").strip()
                 direccion = request.form.get("direccion", "").strip()
-                ruc_cedula = request.form.get("ruc_cedula", "").strip()
+                ruc_cedula = request.form.get("ruc_cedula", "").strip().upper()
                 estado = request.form.get("estado", "ACTIVO").strip()
                 tipo_cliente = request.form.get("tipo_cliente", "Comun").strip()
                 perfil_cliente = request.form.get("perfil_cliente", "Mercado").strip()
@@ -483,13 +489,20 @@ def admin_editar_cliente(id):
 
                 # Verificar si el RUC/Cédula ya existe en otro cliente activo
                 if ruc_cedula and estado == 'ACTIVO':
+                    import re
+                    if not re.search(r'[A-Za-z]', ruc_cedula):
+                        flash("El RUC/Cédula debe contener al menos una letra", "danger")
+                        return render_template("admin/catalog/client/editar_clientes.html", 
+                                             cliente=cliente, rutas=rutas, productos=productos)
+                    
+                    clean_ruc = ruc_cedula.replace("-", "").replace(" ", "")
                     cursor.execute(
                         """SELECT 1 FROM clientes 
-                        WHERE RUC_CEDULA = %s 
+                        WHERE REPLACE(REPLACE(RUC_CEDULA, '-', ''), ' ', '') = %s 
                         AND ID_Cliente != %s 
                         AND ID_Empresa = %s 
                         AND Estado = 'ACTIVO'""",
-                        (ruc_cedula, id, id_empresa)
+                        (clean_ruc, id, id_empresa)
                     )
                     ruc_existente = cursor.fetchone()
                     if ruc_existente:
@@ -1235,5 +1248,3 @@ def admin_sucursales_get(id_sucursal):
     except Exception as e:
         logging.error(f"Error al obtener sucursal {id_sucursal}: {str(e)}")
         return jsonify({'success': False, 'error': str(e)})
-
-

@@ -138,14 +138,13 @@
                     <label for="ruc_cedula" class="form-label">RUC/Cédula</label>
                     <input type="text" name="ruc_cedula" id="ruc_cedula" class="form-control" 
                            value="{{ cliente.RUC_CEDULA or '' }}"
-                           maxlength="13" pattern="\d*"
-                           placeholder="Ej: 1234567890123 o 1234567890"
-                           oninput="this.value = this.value.replace(/[^0-9]/g, '')">
+                           maxlength="20"
+                           placeholder="Ej: 401-160503-1006T o 203140785000U">
                     <div class="form-text">
-                        Solo números. Cédula: 10 dígitos | RUC: 13 dígitos
+                        Opcional. Debe contener al menos una letra.
                     </div>
                     <div class="invalid-feedback" id="rucErrorEditar">
-                        El RUC/Cédula debe tener 10 (cédula) o 13 (RUC) dígitos numéricos.
+                        El RUC/Cédula debe contener al menos una letra.
                     </div>
                 </div>
 
@@ -435,15 +434,15 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Validación de RUC/Cédula
     function validateRucCedula() {
-        if (!rucCedulaInput.value) {
+        const val = rucCedulaInput.value.trim();
+        if (!val) {
             rucCedulaInput.setCustomValidity('');
             rucCedulaInput.classList.remove('is-invalid');
             return true;
         }
         
-        const value = rucCedulaInput.value.replace(/\D/g, '');
-        if (value.length !== 10 && value.length !== 13) {
-            rucCedulaInput.setCustomValidity('Debe tener 10 (cédula) o 13 (RUC) dígitos');
+        if (!/[a-zA-Z]/.test(val)) {
+            rucCedulaInput.setCustomValidity('El RUC/Cédula debe contener al menos una letra');
             rucCedulaInput.classList.add('is-invalid');
             return false;
         } else {
