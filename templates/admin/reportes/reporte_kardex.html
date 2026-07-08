@@ -9,11 +9,11 @@
     </h1>
     <div class="btn-toolbar mb-2 mb-md-0">
         <div class="btn-group">
-            <a href="{{ url_for('admin.reporte_kardex', fecha_inicio=fecha_inicio, fecha_fin=fecha_fin, bodega_id=bodega_id, producto_id=producto_id, formato='csv') }}" 
+            <a href="{{ url_for('admin.reporte_kardex', fecha_inicio=fecha_inicio, fecha_fin=fecha_fin, bodega_id=bodega_id, producto_id=producto_id, tipo_movimiento_id=tipo_movimiento_id, formato='csv') }}" 
                class="btn btn-sm btn-success">
                 <i class="bi bi-file-earmark-spreadsheet"></i> Exportar CSV
             </a>
-            <a href="{{ url_for('admin.reporte_kardex', fecha_inicio=fecha_inicio, fecha_fin=fecha_fin, bodega_id=bodega_id, producto_id=producto_id, formato='json') }}" 
+            <a href="{{ url_for('admin.reporte_kardex', fecha_inicio=fecha_inicio, fecha_fin=fecha_fin, bodega_id=bodega_id, producto_id=producto_id, tipo_movimiento_id=tipo_movimiento_id, formato='json') }}" 
                class="btn btn-sm btn-info text-white">
                 <i class="bi bi-file-earmark-code"></i> Exportar JSON
             </a>
@@ -31,11 +31,11 @@
     </div>
     <div class="card-body">
         <form method="GET" action="{{ url_for('admin.reporte_kardex') }}" class="row g-3">
-            <div class="col-md-3">
+            <div class="col-md-2">
                 <label class="form-label small fw-semibold">Fecha Inicio</label>
                 <input type="date" name="fecha_inicio" class="form-control form-control-sm" value="{{ fecha_inicio }}">
             </div>
-            <div class="col-md-3">
+            <div class="col-md-2">
                 <label class="form-label small fw-semibold">Fecha Fin</label>
                 <input type="date" name="fecha_fin" class="form-control form-control-sm" value="{{ fecha_fin }}">
             </div>
@@ -57,6 +57,17 @@
                     {% for p in productos %}
                     <option value="{{ p.ID_Producto }}" {% if producto_id|int == p.ID_Producto %}selected{% endif %}>
                         {{ p.Descripcion }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label small fw-semibold">Tipo Movimiento</label>
+                <select name="tipo_movimiento_id" class="form-select form-select-sm">
+                    <option value="">Todos</option>
+                    {% for tm in tipos_movimiento %}
+                    <option value="{{ tm.ID_TipoMovimiento }}" {% if tipo_movimiento_id|int == tm.ID_TipoMovimiento %}selected{% endif %}>
+                        {{ tm.Descripcion }}
                     </option>
                     {% endfor %}
                 </select>

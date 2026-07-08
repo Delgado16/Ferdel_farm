@@ -69,8 +69,7 @@ def bodega_dashboard():
                 INNER JOIN bodegas b ON mi.ID_Bodega = b.ID_Bodega
                 WHERE mi.Estado = 'Activa'
                     AND mi.Fecha = CURDATE()
-                ORDER BY dmi.Fecha_Creacion DESC
-                LIMIT 100
+                ORDER BY mi.ID_Movimiento DESC
             """)
             kardex_hoy = cursor.fetchall()
             

@@ -793,6 +793,7 @@ def reporte_kardex():
     fecha_inicio, fecha_fin = get_date_filters(default_monthly=True)
     bodega_id = request.args.get('bodega_id', '')
     producto_id = request.args.get('producto_id', '')
+    tipo_movimiento_id = request.args.get('tipo_movimiento_id', '')
     
     with get_db_cursor() as cursor:
         query = """
@@ -804,15 +805,15 @@ def reporte_kardex():
                 p.COD_Producto AS Codigo,
                 p.Descripcion AS Producto,
                 CASE 
-                    WHEN cm.Adicion LIKE '%%SUMA%%' OR cm.Adicion = '+' OR cm.Letra IN ('E', 'C') THEN dmi.Cantidad 
+                    WHEN cm.Letra IN ('E', 'C', 'TE') THEN ABS(dmi.Cantidad) 
                     ELSE 0.00 
                 END AS Cantidad_Entrada,
                 CASE 
-                    WHEN cm.Adicion LIKE '%%RESTA%%' OR cm.Adicion = '-' OR cm.Letra IN ('S', 'V') THEN dmi.Cantidad 
+                    WHEN cm.Letra IN ('S', 'V', 'TS', 'T') THEN ABS(dmi.Cantidad) 
                     ELSE 0.00 
                 END AS Cantidad_Salida,
                 dmi.Costo_Unitario,
-                dmi.Subtotal AS Subtotal_Movimiento,
+                ABS(dmi.Subtotal) AS Subtotal_Movimiento,
                 u.NombreUsuario AS Creado_Por
             FROM movimientos_inventario mi
             JOIN detalle_movimientos_inventario dmi ON mi.ID_Movimiento = dmi.ID_Movimiento
@@ -831,6 +832,9 @@ def reporte_kardex():
         if producto_id:
             query += " AND dmi.ID_Producto = %s"
             params.append(producto_id)
+        if tipo_movimiento_id:
+            query += " AND mi.ID_TipoMovimiento = %s"
+            params.append(tipo_movimiento_id)
             
         query += " ORDER BY mi.Fecha DESC, mi.ID_Movimiento DESC"
         
@@ -844,14 +848,19 @@ def reporte_kardex():
         cursor.execute("SELECT ID_Producto, Descripcion FROM productos WHERE Estado = 'activo'")
         productos = cursor.fetchall()
         
+        cursor.execute("SELECT ID_TipoMovimiento, Descripcion FROM catalogo_movimientos ORDER BY Descripcion")
+        tipos_movimiento = cursor.fetchall()
+        
         return resultados, 'admin/reportes/reporte_kardex.html', {
             'resultados': resultados,
             'bodegas': bodegas,
             'productos': productos,
+            'tipos_movimiento': tipos_movimiento,
             'fecha_inicio': fecha_inicio,
             'fecha_fin': fecha_fin,
             'bodega_id': bodega_id,
-            'producto_id': producto_id
+            'producto_id': producto_id,
+            'tipo_movimiento_id': tipo_movimiento_id
         }
 
 @admin_bp.route('/admin/reporte/gastos_vehiculos')
