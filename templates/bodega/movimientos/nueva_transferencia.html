@@ -493,6 +493,35 @@ function agregarProducto(producto = null) {
     // ID único para este producto
     const productoId = `prod-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
     
+    const esCajilla = parseInt(producto.Unidad_Medida) === 7;
+    let cantidadHTML = '';
+    
+    if (esCajilla) {
+        cantidadHTML = `
+            <div class="cajilla-huevos-input-container d-flex align-items-center gap-1">
+                <input type="number" min="0" step="1" max="${Math.floor(stock)}"
+                       class="form-control form-control-sm input-cajillas" 
+                       value="1" oninput="recalcularCantidadCajillaTransferencia('${productoId}')" style="width: 70px;">
+                <span class="small text-muted">cj</span>
+                <input type="number" min="0" max="29" step="1" 
+                       class="form-control form-control-sm input-unidades" 
+                       value="0" oninput="recalcularCantidadCajillaTransferencia('${productoId}')" style="width: 70px;">
+                <span class="small text-muted">ud</span>
+            </div>
+            <input type="hidden" class="form-control form-control-sm cantidad-producto" 
+                   value="1" data-stock="${stock}" data-id="${producto.ID_Producto}">
+        `;
+    } else {
+        cantidadHTML = `
+            <input type="number" step="0.0" min="0.0" max="${stock}"
+                   class="form-control form-control-sm cantidad-producto" 
+                   value="1.000" 
+                   oninput="actualizarCantidad('${productoId}', this.value)" 
+                   data-id="${producto.ID_Producto}"
+                   required>
+        `;
+    }
+    
     const fila = document.createElement('tr');
     fila.id = productoId;
     fila.innerHTML = `
@@ -508,12 +537,7 @@ function agregarProducto(producto = null) {
             <span class="badge bg-success stock-disponible">${stock.toFixed(2)}</span>
         </td>
         <td>
-            <input type="number" step="0.0" min="0.0" max="${stock}"
-                   class="form-control form-control-sm cantidad-producto" 
-                   value="1.000" 
-                   oninput="actualizarCantidad('${productoId}', this.value)" 
-                   data-id="${producto.ID_Producto}"
-                   required>
+            ${cantidadHTML}
         </td>
         <td class="text-center">
             <button type="button" class="btn btn-danger btn-sm" 
@@ -537,6 +561,43 @@ function agregarProducto(producto = null) {
     actualizarResumen();
     habilitarBotonGuardar();
     mostrarProductos(productosDisponibles);
+}
+
+// Recalcular cantidad para productos medidos en cajillas (Transferencia)
+function recalcularCantidadCajillaTransferencia(filaId) {
+    const fila = document.getElementById(filaId);
+    if (!fila) return;
+    const inputCajillas = fila.querySelector('.input-cajillas');
+    const inputUnidades = fila.querySelector('.input-unidades');
+    const cantidadInput = fila.querySelector('.cantidad-producto');
+    
+    if (inputCajillas && inputUnidades && cantidadInput) {
+        const cajillas = parseInt(inputCajillas.value) || 0;
+        const unidades = parseInt(inputUnidades.value) || 0;
+        
+        let total = cajillas + (unidades / 30);
+        total = Math.round(total * 100) / 100; // Redondear a 2 decimales
+        
+        // Validar stock disponible
+        const stockMax = parseFloat(cantidadInput.dataset.stock) || 0;
+        if (total > stockMax) {
+            alert(`⚠️ Cantidad a transferir (${total} cajillas) supera el stock disponible (${stockMax.toFixed(2)} cajillas). Se ajustará al máximo.`);
+            const maxCajillas = Math.floor(stockMax);
+            const maxUnidades = Math.round((stockMax - maxCajillas) * 30);
+            inputCajillas.value = maxCajillas;
+            inputUnidades.value = maxUnidades;
+            total = stockMax;
+        }
+        
+        cantidadInput.value = total;
+        
+        // Actualizar directamente en la estructura de datos
+        const producto = productosTransferencia.find(p => p.filaId === filaId);
+        if (producto) {
+            producto.cantidad = total;
+            actualizarResumen();
+        }
+    }
 }
 
 // Actualizar cantidad

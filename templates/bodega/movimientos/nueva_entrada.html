@@ -329,6 +329,33 @@ function agregarProducto(producto = null) {
         const codigo = producto.COD_Producto || 'Sin código';
         const categoria = producto.Categoria_Descripcion || '';
         const existencias = producto.Existencias_Totales || '0';
+        const esCajilla = parseInt(producto.Unidad_Medida) === 7;
+        
+        let cantidadHTML = '';
+        if (esCajilla) {
+            cantidadHTML = `
+                <div class="cajilla-huevos-input-container d-flex align-items-center gap-1">
+                    <input type="number" min="0" step="1" 
+                           class="form-control form-control-sm input-cajillas" 
+                           value="1" oninput="recalcularCantidadCajilla(${index})" style="width: 70px;">
+                    <span class="small text-muted">cj</span>
+                    <input type="number" min="0" max="29" step="1" 
+                           class="form-control form-control-sm input-unidades" 
+                           value="0" oninput="recalcularCantidadCajilla(${index})" style="width: 70px;">
+                    <span class="small text-muted">ud</span>
+                </div>
+                <input type="hidden" name="productos[${index}][cantidad]" 
+                       class="form-control form-control-sm cantidad" 
+                       value="1" required>
+            `;
+        } else {
+            cantidadHTML = `
+                <input type="number" step="0.001" min="0.001" 
+                       name="productos[${index}][cantidad]" 
+                       class="form-control form-control-sm cantidad" 
+                       value="1" onchange="calcularSubtotal(${index})" oninput="calcularSubtotal(${index})" required>
+            `;
+        }
         
         fila.innerHTML = `
             <td>
@@ -341,10 +368,7 @@ function agregarProducto(producto = null) {
                 </div>
             </td>
             <td>
-                <input type="number" step="0.001" min="0.001" 
-                       name="productos[${index}][cantidad]" 
-                       class="form-control form-control-sm cantidad" 
-                       value="1" onchange="calcularSubtotal(${index})" oninput="calcularSubtotal(${index})" required>
+                ${cantidadHTML}
             </td>
             <td class="celda-costo">
                 <input type="number" step="0.01" min="0" 
@@ -373,6 +397,7 @@ function agregarProducto(producto = null) {
             options += `<option value="${prod.ID_Producto}" 
                                data-codigo="${escapeHtml(codigo)}"
                                data-descripcion="${escapeHtml(prod.Descripcion)}"
+                               data-unidad="${prod.Unidad_Medida}"
                                data-stock="${prod.Existencias_Totales || '0'}">
                             ${escapeHtml(prod.Descripcion)} (${escapeHtml(codigo)})
                         </option>`;
@@ -453,7 +478,55 @@ function seleccionarProductoDesdeLista(index, productoId) {
         stockBadge.className = 'badge bg-info stock-badge';
     }
     
+    // Cambiar celda de cantidad dinámicamente si es Cajilla (ID_Unidad = 7)
+    const esCajilla = parseInt(option.dataset.unidad) === 7;
+    const celdaCantidad = fila.cells[1];
+    if (esCajilla) {
+        celdaCantidad.innerHTML = `
+            <div class="cajilla-huevos-input-container d-flex align-items-center gap-1">
+                <input type="number" min="0" step="1" 
+                       class="form-control form-control-sm input-cajillas" 
+                       value="1" oninput="recalcularCantidadCajilla(${index})" style="width: 70px;">
+                <span class="small text-muted">cj</span>
+                <input type="number" min="0" max="29" step="1" 
+                       class="form-control form-control-sm input-unidades" 
+                       value="0" oninput="recalcularCantidadCajilla(${index})" style="width: 70px;">
+                <span class="small text-muted">ud</span>
+            </div>
+            <input type="hidden" name="productos[${index}][cantidad]" 
+                   class="form-control form-control-sm cantidad" 
+                   value="1" required>
+        `;
+    } else {
+        celdaCantidad.innerHTML = `
+            <input type="number" step="0.001" min="0.001" 
+                   name="productos[${index}][cantidad]" 
+                   class="form-control form-control-sm cantidad" 
+                   value="1" onchange="calcularSubtotal(${index})" oninput="calcularSubtotal(${index})" required>
+        `;
+    }
+    
     calcularSubtotal(index);
+}
+
+// Recalcular cantidad para productos medidos en cajillas (Huevos)
+function recalcularCantidadCajilla(index) {
+    const fila = document.getElementById(`producto-${index}`);
+    if (!fila) return;
+    const inputCajillas = fila.querySelector('.input-cajillas');
+    const inputUnidades = fila.querySelector('.input-unidades');
+    const cantidadInput = fila.querySelector('.cantidad');
+    
+    if (inputCajillas && inputUnidades && cantidadInput) {
+        const cajillas = parseInt(inputCajillas.value) || 0;
+        const unidades = parseInt(inputUnidades.value) || 0;
+        
+        let total = cajillas + (unidades / 30);
+        total = Math.round(total * 100) / 100; // Redondear a 2 decimales
+        
+        cantidadInput.value = total;
+        calcularSubtotal(index);
+    }
 }
 
 // Calcular subtotal
