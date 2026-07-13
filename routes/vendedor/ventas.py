@@ -938,6 +938,9 @@ def vendedor_generar_ticket_ruta(id_venta):
                 subtotal = float(detalle['Subtotal'] or 0)
                 total_venta += subtotal
             
+            # Filtrar productos con precio 0 para que no se muestren en la factura
+            detalles = [detalle for detalle in detalles if float(detalle['Precio'] or 0) > 0]
+            
             # Calcular subtotales por producto
             for detalle in detalles:
                 detalle['Subtotal_Calculado'] = float(detalle['Cantidad']) * float(detalle['Precio'])

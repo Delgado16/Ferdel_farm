@@ -1869,7 +1869,7 @@ def admin_procesar_venta_pedido(id_pedido):
                 
                 # Obtener tipo de cliente y saldo actual
                 cursor.execute("""
-                    SELECT tipo_cliente, Saldo_Pendiente_Total 
+                    SELECT tipo_cliente, perfil_cliente, Saldo_Pendiente_Total 
                     FROM clientes 
                     WHERE ID_Cliente = %s
                 """, (pedido['ID_Cliente'],))
@@ -1880,8 +1880,9 @@ def admin_procesar_venta_pedido(id_pedido):
                     return redirect(url_for('admin.admin_pedidos_venta'))
                 
                 tipo_cliente = cliente_data['tipo_cliente']
+                perfil_cliente = cliente_data['perfil_cliente']
                 saldo_actual_cliente = float(cliente_data['Saldo_Pendiente_Total'] or 0)
-                print(f"👤 Tipo de cliente: {tipo_cliente} | Saldo actual: {saldo_actual_cliente}")
+                print(f"👤 Tipo de cliente: {tipo_cliente} | Perfil: {perfil_cliente} | Saldo actual: {saldo_actual_cliente}")
                 
                 # Validar cada producto contra la visibilidad del cliente
                 productos_invalidos = []
@@ -1952,7 +1953,7 @@ def admin_procesar_venta_pedido(id_pedido):
                     VALUES (CURDATE(), %s, %s, %s, %s, %s, %s)
                 """, (
                     pedido['ID_Cliente'],
-                    1 if tipo_venta == 'credito' else 0,
+                    2 if tipo_venta == 'reparto' else (1 if tipo_venta == 'credito' else 0),
                     observacion_completa,
                     id_empresa,
                     id_usuario,
@@ -2006,7 +2007,8 @@ def admin_procesar_venta_pedido(id_pedido):
                 separadores_totales = 0
                 if total_cajillas_huevos > 0:
                     separadores_entre_cajillas = total_cajillas_huevos
-                    separadores_base_extra = total_cajillas_huevos // 10
+                    # Se regalan 2 separadores extras por cada 10 cajillas vendidas
+                    separadores_base_extra = (total_cajillas_huevos // 10) * 2
                     separadores_totales = separadores_entre_cajillas + separadores_base_extra
                     
                     print(f"\n🔢 CÁLCULO DE SEPARADORES:")
@@ -2067,7 +2069,7 @@ def admin_procesar_venta_pedido(id_pedido):
                 """, (
                     id_tipo_movimiento,
                     id_bodega_principal,
-                    'CREDITO' if tipo_venta == 'credito' else 'CONTADO',
+                    'CREDITO' if tipo_venta == 'reparto' else ('CREDITO' if tipo_venta == 'credito' else 'CONTADO'),
                     observacion_completa,
                     id_empresa,
                     id_usuario,
@@ -2175,6 +2177,15 @@ def admin_procesar_venta_pedido(id_pedido):
                         WHERE ID_Cliente = %s
                     """, (id_factura, pedido['ID_Cliente']))
                     print(f"💰 Registro de última factura y fecha actualizado en el cliente.")
+                
+                if tipo_venta == 'reparto':
+                    cursor.execute("""
+                        UPDATE clientes 
+                        SET Fecha_Ultimo_Movimiento = NOW(),
+                            ID_Ultima_Factura = %s
+                        WHERE ID_Cliente = %s
+                    """, (id_factura, pedido['ID_Cliente']))
+                    print(f"📦 Registro de última factura y fecha de reparto actualizado en el cliente.")
                 
                 # 11. Actualizar el estado del pedido a "Entregado"
                 cursor.execute("""

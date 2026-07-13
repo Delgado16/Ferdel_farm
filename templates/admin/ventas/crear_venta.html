@@ -823,6 +823,7 @@
                             <select class="form-select" id="tipo_venta" name="tipo_venta" required>
                                 <option value="contado">CONTADO</option>
                                 <option value="credito">CRÉDITO</option>
+                                <option value="reparto">EN REPARTO / POR CONFIRMAR</option>
                             </select>
                             <div class="invalid-feedback">Por favor seleccione el tipo de venta</div>
                         </div>
@@ -830,7 +831,7 @@
                         <input type="hidden" id="id_bodega" name="id_bodega"
                             value="{{ bodega_principal.ID_Bodega if bodega_principal else 1 }}">
 
-                        <div class="col-md-8">
+                        <div class="col-md-8" style="display: none;">
                             <label for="filtro_categoria" class="form-label">Filtrar Productos por Categoría</label>
                             <select class="form-select" id="filtro_categoria" name="filtro_categoria">
                                 <option value="0">Todas las categorías</option>
@@ -840,7 +841,7 @@
                             </select>
                         </div>
 
-                        <div class="col-md-4">
+                        <div class="col-md-4" style="display: none;">
                             <label class="form-label">&nbsp;</label>
                             <div class="d-flex gap-2 mt-2">
                                 <button type="button" class="btn btn-outline-primary btn-sm" id="btn-aplicar-filtro">
@@ -914,12 +915,11 @@
                                     <th>Monto Original</th>
                                     <th>Saldo Pendiente</th>
                                     <th>Estado</th>
-                                    <th>Días Mora</th>
                                 </tr>
                             </thead>
                             <tbody id="facturas-pendientes-body">
                                 <tr>
-                                    <td colspan="7" class="text-center text-muted">Seleccione un cliente para ver sus
+                                    <td colspan="6" class="text-center text-muted">Seleccione un cliente para ver sus
                                         facturas pendientes</td>
                                 </tr>
                             </tbody>
@@ -1601,7 +1601,7 @@
                 const tbody = document.getElementById('facturas-pendientes-body');
 
                 if (facturasPendientesGlobal.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="7" class="text-center text-success">✅ No hay facturas pendientes - Cliente al día</td></tr>';
+                    tbody.innerHTML = '<tr><td colspan="6" class="text-center text-success">✅ No hay facturas pendientes - Cliente al día</td></tr>';
                 } else {
                     let html = '';
                     let tieneVencidas = false;
@@ -1615,7 +1615,6 @@
                             <td>${formatearMoneda(factura.monto_original)}</td>
                             <td><strong>${formatearMoneda(factura.saldo)}</strong></td>
                             <td>${esVencida ? '<span class="badge-vencida">VENCIDA</span>' : '<span class="badge-pendiente">Pendiente</span>'}</td>
-                            <td>${esVencida ? factura.dias_vencido + ' días' : '-'}</td>
                         </tr>`;
                     });
                     tbody.innerHTML = html;
@@ -1656,6 +1655,7 @@
                 throw new Error(data.error || 'Error al cargar productos');
             }
             actualizarTodosLosSelectsProductosConPerfil();
+            actualizarPreciosProductosPorPerfil();
         } catch (error) {
             console.error('Error cargando productos:', error);
             try {
@@ -1663,6 +1663,7 @@
                 const data = await response.json();
                 productosFiltradosPorCliente = Array.isArray(data) ? data : (data.productos || []);
                 actualizarTodosLosSelectsProductosConPerfil();
+                actualizarPreciosProductosPorPerfil();
             } catch (e) {
                 productosFiltradosPorCliente = [];
                 mostrarAlerta('danger', '❌ Error', 'No se pudieron cargar los productos');
@@ -1676,16 +1677,20 @@
     function actualizarTodosLosSelectsProductosConPerfil() {
         const selectsProductos = document.querySelectorAll('.producto-select');
         selectsProductos.forEach(select => {
-            if (!select.value || select.value === "") {
-                llenarSelectProductos(select);
-            }
+            llenarSelectProductos(select);
         });
     }
 
     function llenarSelectProductos(select) {
         if (!select) return;
+        const valorGuardado = select.value;
         select.innerHTML = '';
-        const productosAMostrar = productosFiltradosPorCliente.length > 0 ? productosFiltradosPorCliente : productosBase;
+        let productosAMostrar = productosFiltradosPorCliente.length > 0 ? productosFiltradosPorCliente : productosBase;
+
+        // Aplicar filtro de categoría si está activo
+        if (filtroCategoriaActual && filtroCategoriaActual !== '0') {
+            productosAMostrar = productosAMostrar.filter(p => (p.ID_Categoria || p.id_categoria) == filtroCategoriaActual);
+        }
 
         if (productosAMostrar.length === 0) {
             const opcion = document.createElement('option');
@@ -1696,7 +1701,10 @@
         }
 
         const opcionDefault = document.createElement('option');
-        opcionDefault.value = ""; opcionDefault.disabled = true; opcionDefault.selected = true;
+        opcionDefault.value = ""; opcionDefault.disabled = true;
+        if (!valorGuardado) {
+            opcionDefault.selected = true;
+        }
         opcionDefault.textContent = "Seleccionar producto...";
         select.appendChild(opcionDefault);
 
@@ -1715,15 +1723,23 @@
                 .forEach(producto => {
                     const option = document.createElement('option');
                     const precioPerfil = obtenerPrecioPorPerfil(producto, perfilClienteActual);
-                    option.value = producto.ID_Producto || producto.id;
+                    const prodId = producto.ID_Producto || producto.id;
+                    option.value = prodId;
                     option.textContent = `${producto.Descripcion || 'Sin descripción'} (${producto.COD_Producto || 'S/C'}) - Stock: ${producto.Existencias || 0}`;
                     option.dataset.precio = precioPerfil;
                     option.dataset.existencia = producto.Existencias || 0;
                     option.dataset.categoria = producto.ID_Categoria || '';
+                    if (valorGuardado && valorGuardado == prodId) {
+                        option.selected = true;
+                    }
                     optgroup.appendChild(option);
                 });
             select.appendChild(optgroup);
         });
+
+        if (valorGuardado) {
+            select.value = valorGuardado;
+        }
     }
 
     function actualizarPreciosProductosPorPerfil() {
@@ -1912,64 +1928,23 @@
             btnFiltro.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> Cargando...';
             btnFiltro.disabled = true;
 
-            let productosAMostrar = productosFiltradosPorCliente.length > 0 ? [...productosFiltradosPorCliente] : [...productosBase];
-            if (idCategoria != '0') {
-                productosAMostrar = productosAMostrar.filter(p => (p.ID_Categoria || p.id_categoria) == idCategoria);
-            }
             filtroCategoriaActual = idCategoria;
-
-            const selectsProductos = document.querySelectorAll('.producto-select');
-            selectsProductos.forEach(select => {
-                const valorActual = select.value;
-                select.innerHTML = '';
-                if (productosAMostrar.length === 0) {
-                    const opcion = document.createElement('option');
-                    opcion.value = ''; opcion.disabled = true; opcion.selected = true;
-                    opcion.textContent = 'No hay productos en esta categoría';
-                    select.appendChild(opcion);
-                } else {
-                    const opcionDefault = document.createElement('option');
-                    opcionDefault.value = ''; opcionDefault.disabled = true; opcionDefault.selected = !valorActual;
-                    opcionDefault.textContent = 'Seleccionar producto...';
-                    select.appendChild(opcionDefault);
-                    const productosPorCategoria = {};
-                    productosAMostrar.forEach(producto => {
-                        const cat = producto.Categoria || producto.categoria || 'Sin categoría';
-                        if (!productosPorCategoria[cat]) productosPorCategoria[cat] = [];
-                        productosPorCategoria[cat].push(producto);
-                    });
-                    Object.keys(productosPorCategoria).sort().forEach(categoria => {
-                        const optgroup = document.createElement('optgroup');
-                        optgroup.label = categoria;
-                        productosPorCategoria[categoria]
-                            .sort((a, b) => (a.Descripcion || '').localeCompare(b.Descripcion || ''))
-                            .forEach(producto => {
-                                const option = document.createElement('option');
-                                const precio = obtenerPrecioPorPerfil(producto, perfilClienteActual);
-                                option.value = producto.ID_Producto || producto.id;
-                                option.textContent = `${producto.Descripcion || ''} (${producto.COD_Producto || 'S/C'}) - Stock: ${producto.Existencias || 0}`;
-                                option.dataset.precio = precio;
-                                option.dataset.existencia = producto.Existencias || 0;
-                                if (producto.ID_Producto == valorActual || producto.id == valorActual) option.selected = true;
-                                optgroup.appendChild(option);
-                            });
-                        select.appendChild(optgroup);
-                    });
-                }
-            });
+            actualizarTodosLosSelectsProductosConPerfil();
+            actualizarPreciosProductosPorPerfil();
 
             const filtroInfo = document.getElementById('filtro-info');
             const filtroActual = document.getElementById('filtro-actual');
             if (idCategoria === '0') {
-                filtroInfo.style.display = 'none';
+                if (filtroInfo) filtroInfo.style.display = 'none';
             } else {
-                filtroInfo.style.display = 'block';
-                filtroActual.textContent = nombreCategoria;
+                if (filtroInfo) filtroInfo.style.display = 'block';
+                if (filtroActual) filtroActual.textContent = nombreCategoria;
             }
         } catch (error) {
             console.error('Error aplicando filtro:', error);
             mostrarAlerta('danger', '❌ Error', 'No se pudo aplicar el filtro');
         } finally {
+            const btnFiltro = document.getElementById('btn-aplicar-filtro');
             btnFiltro.innerHTML = '<i class="fas fa-filter me-1"></i>Aplicar Filtro';
             btnFiltro.disabled = false;
         }
@@ -1991,10 +1966,12 @@
         const defaultPagoInfo = document.getElementById('defaultPagoInfo');
         const pagosAvanzadosCard = document.getElementById('pagosAvanzadosCard');
         const abonoInput = document.getElementById('abono_inicial');
+        const seccionMetodosPago = document.getElementById('seccion-metodos-pago');
 
         if (tipoVenta === 'credito') {
             fechaGroup.style.display = 'block';
             abonoGroup.style.display = 'block';
+            if (seccionMetodosPago) seccionMetodosPago.style.display = 'block';
             if (defaultPagoInfo) defaultPagoInfo.style.display = 'flex';
             if (pagosAvanzadosCard) pagosAvanzadosCard.classList.remove('show');
             document.getElementById('usar_pagos_avanzados').value = '0';
@@ -2004,9 +1981,18 @@
             fecha.setDate(fecha.getDate() + 30);
             document.getElementById('fecha_vencimiento').value = fecha.toISOString().split('T')[0];
             if (abonoInput) abonoInput.value = '0';
+        } else if (tipoVenta === 'reparto') {
+            fechaGroup.style.display = 'none';
+            abonoGroup.style.display = 'none';
+            if (seccionMetodosPago) seccionMetodosPago.style.display = 'none';
+            document.getElementById('usar_pagos_avanzados').value = '0';
+            document.getElementById('fecha_vencimiento').value = '';
+            if (abonoInput) abonoInput.value = '0';
+            resetearMetodosPago();
         } else {
             fechaGroup.style.display = 'none';
             abonoGroup.style.display = 'none';
+            if (seccionMetodosPago) seccionMetodosPago.style.display = 'block';
             if (defaultPagoInfo) defaultPagoInfo.style.display = 'flex';
             if (pagosAvanzadosCard) pagosAvanzadosCard.classList.remove('show');
             document.getElementById('usar_pagos_avanzados').value = '0';

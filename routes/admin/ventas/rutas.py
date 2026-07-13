@@ -32,30 +32,45 @@ def admin_monitoreo_vendedores():
                 else:
                     fecha_consulta = date.today()
                 
-                # Obtener asignación activa del vendedor
+                # Obtener asignación del vendedor (activa o finalizada en la fecha consultada)
                 cursor.execute("""
                     SELECT av.ID_Asignacion, av.ID_Ruta, av.ID_Vehiculo, 
                            r.Nombre_Ruta, r.Descripcion,
                            av.Fecha_Asignacion, av.Hora_Inicio, av.Hora_Fin,
-                           v.Placa as VehiculoPlaca
+                           v.Placa as VehiculoPlaca, av.Estado
                     FROM asignacion_vendedores av
                     LEFT JOIN rutas r ON av.ID_Ruta = r.ID_Ruta
                     LEFT JOIN vehiculos v ON av.ID_Vehiculo = v.ID_Vehiculo
                     WHERE av.ID_Usuario = %s 
-                      AND av.Estado = 'Activa'
-                      AND av.Fecha_Asignacion <= %s
+                      AND (
+                        (av.Estado = 'Activa' AND av.Fecha_Asignacion <= %s)
+                        OR
+                        (av.Estado = 'Finalizada' AND av.Fecha_Asignacion <= %s AND av.Fecha_Finalizacion >= %s)
+                      )
                     ORDER BY av.Fecha_Asignacion DESC
                     LIMIT 1
-                """, (vendedor_id, fecha_consulta))
+                """, (vendedor_id, fecha_consulta, fecha_consulta, fecha_consulta))
                 asignacion = cursor.fetchone()
                 
                 if not asignacion:
                     return jsonify({
                         'success': False, 
-                        'error': 'El vendedor no tiene una ruta activa asignada en esta fecha'
+                        'error': 'El vendedor no tiene una ruta asignada en esta fecha'
                     }), 404
                 
                 id_asignacion = asignacion['ID_Asignacion']
+                
+                # Monto de APERTURA (¡NUEVO!)
+                cursor.execute("""
+                    SELECT COALESCE(SUM(Monto), 0) as total_apertura
+                    FROM movimientos_caja_ruta
+                    WHERE ID_Asignacion = %s 
+                      AND DATE(Fecha) = %s
+                      AND Tipo = 'APERTURA'
+                      AND Estado = 'ACTIVO'
+                """, (id_asignacion, fecha_consulta))
+                apertura = cursor.fetchone()['total_apertura']
+                apertura = float(apertura) if apertura else 0.0
                 
                 # ABONOS EN EFECTIVO (solo de la tabla abonos_detalle)
                 cursor.execute("""
@@ -92,8 +107,8 @@ def admin_monitoreo_vendedores():
                 gastos = cursor.fetchone()['total_gastos']
                 gastos = float(gastos) if gastos else 0.0
                 
-                # Total de efectivo en caja = ventas + abonos - gastos
-                caja_total = ventas_efectivo + abonos_efectivo - gastos
+                # Total de efectivo en caja = apertura + ventas + abonos - gastos
+                caja_total = apertura + ventas_efectivo + abonos_efectivo - gastos
                 
                 # LISTA DE ABONOS EN EFECTIVO (para mostrar en la tabla)
                 cursor.execute("""
@@ -181,9 +196,11 @@ def admin_monitoreo_vendedores():
                         'nombre': asignacion['Nombre_Ruta'] or 'Sin nombre',
                         'vehiculo': asignacion.get('VehiculoPlaca', 'N/A'),
                         'hora_inicio': str(asignacion['Hora_Inicio']) if asignacion['Hora_Inicio'] else None,
-                        'hora_fin': str(asignacion['Hora_Fin']) if asignacion['Hora_Fin'] else None
+                        'hora_fin': str(asignacion['Hora_Fin']) if asignacion['Hora_Fin'] else None,
+                        'estado': asignacion.get('Estado', 'Activa')
                     },
                     'caja': {
+                        'apertura': apertura,
                         'ventas_efectivo': ventas_efectivo,
                         'abonos_efectivo': abonos_efectivo,
                         'gastos': gastos,
@@ -630,12 +647,38 @@ def editar_asignacion_ruta(id):
             """, (empresa_id,))
             asignadores = cursor.fetchall()
             
+            # Obtener vendedores disponibles + vendedor actual
+            cursor.execute("""
+                SELECT 
+                    u.ID_Usuario, 
+                    u.NombreUsuario AS Nombre,
+                    rol.Nombre_Rol AS Rol
+                FROM usuarios u
+                LEFT JOIN roles rol ON u.ID_Rol = rol.ID_Rol
+                WHERE u.ID_Empresa = %s 
+                AND u.Estado = 'ACTIVO'
+                AND (
+                    rol.Nombre_Rol LIKE '%%Vendedor%%' 
+                    AND NOT EXISTS (
+                        SELECT 1 
+                        FROM asignacion_vendedores av
+                        WHERE av.ID_Usuario = u.ID_Usuario 
+                        AND av.Estado = 'Activa'
+                        AND av.ID_Empresa = %s
+                    )
+                    OR u.ID_Usuario = %s
+                )
+                ORDER BY u.NombreUsuario
+            """, (empresa_id, empresa_id, asignacion['ID_Usuario']))
+            vendedores = cursor.fetchall()
+            
         return render_template(
             'admin/catalog/rutas/editar_asignacion.html',
             asignacion=asignacion,
             rutas=rutas,
             vehiculos=vehiculos,
-            asignadores=asignadores
+            asignadores=asignadores,
+            vendedores=vendedores
         )
         
     except Exception as e:

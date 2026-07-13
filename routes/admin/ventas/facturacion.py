@@ -259,16 +259,7 @@ def admin_ventas_salidas():
 @admin_or_bodega_required
 @bitacora_decorator("CREAR_VENTA")
 def admin_crear_venta():
-    """
-    Crear nueva venta con precios según perfil del cliente (Ruta, Mayorista, Mercado)
-    
-    LÓGICA:
-    - Si el cliente paga el 100% (contado): Solo caja, NO cuenta por cobrar
-    - Si el cliente paga solo una parte (contado parcial): 
-        * Lo pagado va a caja
-        * El saldo pendiente se registra automáticamente como CUENTA POR COBRAR
-        * Se ACTUALIZA el Saldo_Pendiente_Total del cliente
-    """
+
     try:
         # Obtener ID de empresa y usuario desde la sesión
         id_empresa = session.get('id_empresa', 1)
@@ -518,7 +509,7 @@ def admin_crear_venta():
                     cantidad = float(cantidades[i]) if cantidades[i] else 0
                     precio = float(precios[i]) if precios[i] else 0
                     
-                    if cantidad <= 0 or precio <= 0:
+                    if cantidad <= 0 or precio < 0:
                         continue
                     
                     total_linea = cantidad * precio
@@ -563,19 +554,28 @@ def admin_crear_venta():
                     raise Exception(f'El monto total pagado (C${total_pagado:,.2f}) no puede exceder el total de la venta (C${total_venta:,.2f})')
                 
                 # 🔥 LÓGICA PRINCIPAL: Determinar el saldo a crédito
-                saldo_pendiente = total_venta - total_pagado
-                
-                # Si hay saldo pendiente, necesitamos una fecha de vencimiento
-                if saldo_pendiente > 0:
-                    if not fecha_vencimiento:
-                        from datetime import date, timedelta
-                        fecha_vencimiento = (date.today() + timedelta(days=30)).isoformat()
-                        print(f"📅 Fecha de vencimiento asignada: {fecha_vencimiento}")
-                    
-                    # Agregar a la observación
-                    observacion = f"{observacion} | PAGO PARCIAL: Pagó C${total_pagado:,.2f}, Saldo pendiente C${saldo_pendiente:,.2f} (Vence: {fecha_vencimiento})"
+                if tipo_venta == 'reparto':
+                    saldo_pendiente = 0
+                    total_pagado = 0
+                    monto_efectivo = 0
+                    metodos_pago_list = []
+                    metodos_pago_json = None
+                    observacion = f"{observacion} | EN REPARTO / POR CONFIRMAR"
+                    fecha_vencimiento = None
                 else:
-                    observacion = f"{observacion} | PAGO COMPLETO: Canceló el 100% de la factura"
+                    saldo_pendiente = total_venta - total_pagado
+                    
+                    # Si hay saldo pendiente, necesitamos una fecha de vencimiento
+                    if saldo_pendiente > 0:
+                        if not fecha_vencimiento:
+                            from datetime import date, timedelta
+                            fecha_vencimiento = (date.today() + timedelta(days=30)).isoformat()
+                            print(f"📅 Fecha de vencimiento asignada: {fecha_vencimiento}")
+                        
+                        # Agregar a la observación
+                        observacion = f"{observacion} | PAGO PARCIAL: Pagó C${total_pagado:,.2f}, Saldo pendiente C${saldo_pendiente:,.2f} (Vence: {fecha_vencimiento})"
+                    else:
+                        observacion = f"{observacion} | PAGO COMPLETO: Canceló el 100% de la factura"
                 
                 print(f"💰 Saldo pendiente a crédito: C${saldo_pendiente:,.2f}")
                 
@@ -585,8 +585,11 @@ def admin_crear_venta():
                 # Guardar métodos de pago en JSON
                 metodos_pago_json = json.dumps(metodos_pago_list, ensure_ascii=False) if metodos_pago_list else None
                 
-                # Credito_Contado: 1 si hay saldo pendiente, 0 si pagó todo
-                es_credito = 1 if saldo_pendiente > 0 else 0
+                # Credito_Contado: 1 si hay saldo pendiente, 0 si pagó todo, 2 si es reparto
+                if tipo_venta == 'reparto':
+                    es_credito = 2
+                else:
+                    es_credito = 1 if saldo_pendiente > 0 else 0
                 
                 cursor.execute("""
                     INSERT INTO facturacion (
@@ -662,7 +665,8 @@ def admin_crear_venta():
                 separadores_totales = 0
                 if total_cajillas_huevos > 0:
                     separadores_entre_cajillas = total_cajillas_huevos
-                    separadores_base_extra = total_cajillas_huevos // 10
+                    # Se regalan 2 separadores extras por cada 10 cajillas vendidas
+                    separadores_base_extra = (total_cajillas_huevos // 10) * 2
                     separadores_totales = separadores_entre_cajillas + separadores_base_extra
                     
                     print(f"📦 Separadores necesarios: {separadores_totales}")
@@ -701,7 +705,7 @@ def admin_crear_venta():
                         """, (warning_msg, id_factura))
                 
                 # 4. Registrar movimiento de inventario
-                tipo_movimiento_str = 'CREDITO' if saldo_pendiente > 0 else 'CONTADO'
+                tipo_movimiento_str = 'CREDITO' if es_credito == 2 else ('CREDITO' if saldo_pendiente > 0 else 'CONTADO')
                 cursor.execute("""
                     INSERT INTO movimientos_inventario (
                         ID_TipoMovimiento, ID_Bodega, Fecha, Tipo_Compra,
@@ -833,7 +837,9 @@ def admin_crear_venta():
                     print(f"ℹ️ No hay saldo pendiente - No se crea cuenta por cobrar")
                 
                 # Construir mensaje de éxito
-                if saldo_pendiente > 0:
+                if es_credito == 2:
+                    success_msg = f'✅ Venta {perfil_cliente} creada para reparto! Factura #{id_factura} - Total: C${total_venta:,.2f}'
+                elif saldo_pendiente > 0:
                     success_msg = f'✅ Venta {perfil_cliente} creada! Factura #{id_factura} - Total: C${total_venta:,.2f} - Pagado: C${total_pagado:,.2f} - Saldo pendiente (crédito): C${saldo_pendiente:,.2f} - Vence: {fecha_vencimiento}'
                 else:
                     success_msg = f'✅ Venta {perfil_cliente} completada! Factura #{id_factura} - Total: C${total_venta:,.2f} - Pagado: C${total_pagado:,.2f}'
@@ -965,6 +971,9 @@ def admin_generar_ticket(id_factura):
             
             # Calcular total de la venta actual
             total_venta_actual = sum(float(detalle['Subtotal'] or 0) for detalle in detalles)
+            
+            # Filtrar productos con precio 0 para que no se muestren en la factura
+            detalles = [detalle for detalle in detalles if float(detalle['Precio'] or 0) > 0]
             
             # (El saldo pendiente se calculará después de obtener el abono)
             
@@ -3575,5 +3584,359 @@ def obtener_categorias_productos_venta():
     except Exception as e:
         print(f" [VENTAS] Error al obtener categorías: {str(e)}")
         return jsonify({'error': str(e)}), 500
+
+
+@admin_bp.route('/ventas/confirmar-entrega/<int:id_factura>', methods=['GET', 'POST'])
+@admin_or_bodega_required
+@bitacora_decorator("CONFIRMAR_ENTREGA")
+def admin_confirmar_entrega(id_factura):
+    try:
+        id_empresa = session.get('id_empresa', 1)
+        id_usuario = current_user.id
+        
+        # CONSTANTES de huevo y separadores
+        ID_SEPARADOR = 11
+        ID_CATEGORIA_HUEVOS = 1
+        ID_BODEGA_EMPAQUE = 1
+        
+        with get_db_cursor(True) as cursor:
+            # 1. Obtener factura y cliente
+            cursor.execute("""
+                SELECT f.*, c.Nombre as Cliente, c.RUC_CEDULA as RUC_Cliente,
+                       c.tipo_cliente, c.perfil_cliente, c.Saldo_Pendiente_Total
+                FROM facturacion f
+                LEFT JOIN clientes c ON f.IDCliente = c.ID_Cliente
+                WHERE f.ID_Factura = %s AND f.ID_Empresa = %s
+            """, (id_factura, id_empresa))
+            factura = cursor.fetchone()
+            
+            if not factura:
+                flash('Factura no encontrada', 'error')
+                return redirect(url_for('admin.admin_ventas_salidas'))
+                
+            if factura['Estado'] != 'Activa':
+                flash('La factura no está activa', 'error')
+                return redirect(url_for('admin.admin_ventas_salidas'))
+                
+            if factura['Credito_Contado'] != 2:
+                flash('Esta factura ya ha sido liquidada / no está en reparto', 'error')
+                return redirect(url_for('admin.admin_ventas_salidas'))
+                
+            # Obtener detalles de la factura (productos)
+            cursor.execute("""
+                SELECT df.*, p.Descripcion, p.COD_Producto, p.ID_Categoria
+                FROM detalle_facturacion df
+                INNER JOIN productos p ON df.ID_Producto = p.ID_Producto
+                WHERE df.ID_Factura = %s
+            """, (id_factura,))
+            detalles = cursor.fetchall()
+            
+            # Obtener métodos de pago
+            cursor.execute("SELECT ID_MetodoPago, Nombre FROM metodos_pago ORDER BY ID_MetodoPago")
+            metodos_pago = cursor.fetchall()
+            
+        if request.method == 'POST':
+            tipo_venta = request.form.get('tipo_venta') # 'contado' o 'credito'
+            fecha_vencimiento = request.form.get('fecha_vencimiento')
+            observacion_adicional = request.form.get('observacion_adicional', '')
+            
+            # Métodos de pago
+            metodos_pago_ids = request.form.getlist('metodo_pago_id[]')
+            metodos_pago_nombres = request.form.getlist('metodo_pago_nombre[]')
+            montos_pago = request.form.getlist('monto_pago[]')
+            referencias_pago = request.form.getlist('referencia_pago[]')
+            
+            # Validar tipo_venta
+            if tipo_venta not in ['contado', 'credito']:
+                flash('Debe seleccionar el tipo de venta (Contado o Crédito)', 'error')
+                return redirect(url_for('admin.admin_confirmar_entrega', id_factura=id_factura))
+            # Obtener bodega principal de la factura desde el movimiento original
+            with get_db_cursor(True) as cursor:
+                cursor.execute("""
+                    SELECT ID_Bodega FROM movimientos_inventario 
+                    WHERE ID_Factura_Venta = %s AND Estado = 1 LIMIT 1
+                """, (id_factura,))
+                bodega_info = cursor.fetchone()
+                id_bodega_principal = bodega_info['ID_Bodega'] if bodega_info else 1
+                
+                # Obtener tipo de movimiento de devolución (priorizando "Devolución Venta")
+                cursor.execute("""
+                    SELECT ID_TipoMovimiento FROM catalogo_movimientos 
+                    WHERE Descripcion LIKE '%Devolución Venta%' 
+                    LIMIT 1
+                """)
+                tipo_dev_info = cursor.fetchone()
+                id_tipo_devolucion = tipo_dev_info['ID_TipoMovimiento'] if tipo_dev_info else 11
+                
+                # Procesar cada detalle original
+                total_venta_final = Decimal('0.00')
+                total_cajillas_huevos_final = 0
+                devoluciones_a_realizar = [] # lista de dicts
+                
+                for det in detalles:
+                    id_producto = det['ID_Producto']
+                    if id_producto == ID_SEPARADOR:
+                        continue # Los separadores los calculamos al final
+                        
+                    cant_original = Decimal(str(det['Cantidad']))
+                    precio = Decimal(str(det['Costo']))
+                    
+                    # Leer cantidad entregada del form
+                    cant_entregada_str = request.form.get(f'cantidad_{id_producto}', str(cant_original))
+                    cant_entregada = Decimal(cant_entregada_str)
+                    
+                    if cant_entregada < 0:
+                        raise Exception("La cantidad entregada no puede ser negativa")
+                    if cant_entregada > cant_original:
+                        raise Exception(f"La cantidad entregada ({cant_entregada}) no puede ser mayor a la cantidad original ({cant_original})")
+                        
+                    cant_devuelta = cant_original - cant_entregada
+                    
+                    # Calcular el total de la línea
+                    total_linea = cant_entregada * precio
+                    total_venta_final += total_linea
+                    
+                    # Actualizar detalle de factura
+                    cursor.execute("""
+                        UPDATE detalle_facturacion 
+                        SET Cantidad = %s, Total = %s
+                        WHERE ID_Factura = %s AND ID_Producto = %s
+                    """, (float(cant_entregada), float(total_linea), id_factura, id_producto))
+                    
+                    if cant_devuelta > 0:
+                        devoluciones_a_realizar.append({
+                            'id_producto': id_producto,
+                            'cantidad': cant_devuelta,
+                            'precio': precio,
+                            'subtotal': cant_devuelta * precio
+                        })
+                        # Devolver stock a la bodega principal
+                        cursor.execute("""
+                            UPDATE inventario_bodega 
+                            SET Existencias = Existencias + %s
+                            WHERE ID_Bodega = %s AND ID_Producto = %s
+                        """, (float(cant_devuelta), id_bodega_principal, id_producto))
+                        
+                    if det['ID_Categoria'] == ID_CATEGORIA_HUEVOS:
+                        total_cajillas_huevos_final += float(cant_entregada)
+                        
+                # Procesar separadores si corresponde
+                separadores_detalle = next((d for d in detalles if d['ID_Producto'] == ID_SEPARADOR), None)
+                if separadores_detalle:
+                    cant_separadores_original = Decimal(str(separadores_detalle['Cantidad']))
+                    
+                    # Calcular nuevos separadores
+                    separadores_entre_cajillas = total_cajillas_huevos_final
+                    separadores_base_extra = (total_cajillas_huevos_final // 10) * 2
+                    new_separadores_qty = Decimal(str(separadores_entre_cajillas + separadores_base_extra))
+                    
+                    if new_separadores_qty < cant_separadores_original:
+                        separadores_devueltos = cant_separadores_original - new_separadores_qty
+                        
+                        # Actualizar detalle de separadores en la factura
+                        cursor.execute("""
+                            UPDATE detalle_facturacion 
+                            SET Cantidad = %s, Total = 0
+                            WHERE ID_Factura = %s AND ID_Producto = %s
+                        """, (float(new_separadores_qty), id_factura, ID_SEPARADOR))
+                        
+                        # Devolver separadores a la bodega de empaque (ID_BODEGA_EMPAQUE)
+                        cursor.execute("""
+                            UPDATE inventario_bodega 
+                            SET Existencias = Existencias + %s
+                            WHERE ID_Bodega = %s AND ID_Producto = %s
+                        """, (float(separadores_devueltos), ID_BODEGA_EMPAQUE, ID_SEPARADOR))
+                        
+                        devoluciones_a_realizar.append({
+                            'id_producto': ID_SEPARADOR,
+                            'cantidad': separadores_devueltos,
+                            'precio': Decimal('0.00'),
+                            'subtotal': Decimal('0.00')
+                        })
+                        
+                # Registrar movimiento de inventario por devolución si hubo cambios
+                if devoluciones_a_realizar:
+                    observacion_dev = f"Devolución parcial por ajuste en entrega - Factura #{id_factura}"
+                    cursor.execute("""
+                        INSERT INTO movimientos_inventario (
+                            ID_TipoMovimiento, ID_Bodega, Fecha, Tipo_Compra,
+                            Observacion, ID_Empresa, ID_Usuario_Creacion, Estado,
+                            ID_Factura_Venta
+                        )
+                        VALUES (%s, %s, CURDATE(), NULL, %s, %s, %s, 1, %s)
+                    """, (id_tipo_devolucion, id_bodega_principal, observacion_dev, id_empresa, id_usuario, id_factura))
+                    
+                    cursor.execute("SELECT LAST_INSERT_ID() as id_mov_dev")
+                    id_mov_dev = cursor.fetchone()['id_mov_dev']
+                    
+                    for dev in devoluciones_a_realizar:
+                        cursor.execute("""
+                            INSERT INTO detalle_movimientos_inventario (
+                                ID_Movimiento, ID_Producto, Cantidad, 
+                                Costo_Unitario, Precio_Unitario, Subtotal,
+                                ID_Usuario_Creacion
+                            )
+                            VALUES (%s, %s, %s, %s, %s, %s, %s)
+                        """, (id_mov_dev, dev['id_producto'], float(dev['cantidad']), 
+                              float(dev['precio']), float(dev['precio']), float(dev['subtotal']), id_usuario))
+                              
+                # Modificar el movimiento de inventario original (VENTA) para reflejar las nuevas cantidades reales entregadas
+                cursor.execute("""
+                    SELECT ID_Movimiento FROM movimientos_inventario 
+                    WHERE ID_Factura_Venta = %s AND ID_TipoMovimiento != %s AND Estado = 1 LIMIT 1
+                """, (id_factura, id_tipo_devolucion))
+                mov_venta = cursor.fetchone()
+                if mov_venta:
+                    id_mov_venta = mov_venta['ID_Movimiento']
+                    # Actualizar tipo de compra
+                    tipo_compra_final = 'CREDITO' if tipo_venta == 'credito' else 'CONTADO'
+                    cursor.execute("""
+                        UPDATE movimientos_inventario 
+                        SET Tipo_Compra = %s
+                        WHERE ID_Movimiento = %s
+                    """, (tipo_compra_final, id_mov_venta))
+                    
+                    # Eliminar detalles viejos e insertar los nuevos de venta reales
+                    cursor.execute("DELETE FROM detalle_movimientos_inventario WHERE ID_Movimiento = %s", (id_mov_venta,))
+                    
+                    # Obtener detalles actualizados de la factura
+                    cursor.execute("SELECT ID_Producto, Cantidad, Costo, Total FROM detalle_facturacion WHERE ID_Factura = %s", (id_factura,))
+                    detalles_nuevos = cursor.fetchall()
+                    for dn in detalles_nuevos:
+                        cursor.execute("""
+                            INSERT INTO detalle_movimientos_inventario (
+                                ID_Movimiento, ID_Producto, Cantidad, 
+                                Costo_Unitario, Precio_Unitario, Subtotal,
+                                ID_Usuario_Creacion
+                            )
+                            VALUES (%s, %s, %s, %s, %s, %s, %s)
+                        """, (id_mov_venta, dn['ID_Producto'], dn['Cantidad'], dn['Costo'], dn['Costo'], dn['Total'], id_usuario))
+                        
+                # Actualizar observaciones de la factura
+                nueva_obs = factura['Observacion'] or ''
+                if 'EN REPARTO / POR CONFIRMAR' in nueva_obs:
+                    nueva_obs = nueva_obs.replace('EN REPARTO / POR CONFIRMAR', f'ENTREGA CONFIRMADA ({tipo_venta.upper()})')
+                else:
+                    nueva_obs += f" | ENTREGA CONFIRMADA ({tipo_venta.upper()})"
+                    
+                if observacion_adicional:
+                    nueva_obs += f" | {observacion_adicional}"
+                    
+                # PROCESAR PAGOS/CXC según tipo de venta final
+                import json
+                metodos_pago_list = []
+                total_pagado = Decimal('0.00')
+                monto_efectivo = Decimal('0.00')
+                
+                if tipo_venta == 'contado':
+                    for i in range(len(metodos_pago_ids)):
+                        if i < len(montos_pago) and montos_pago[i]:
+                            monto = Decimal(montos_pago[i])
+                            if monto > 0:
+                                nombre_metodo = metodos_pago_nombres[i] if i < len(metodos_pago_nombres) else ''
+                                metodos_pago_list.append({
+                                    'id_metodo': int(metodos_pago_ids[i]),
+                                    'nombre': nombre_metodo,
+                                    'monto': float(monto),
+                                    'referencia': referencias_pago[i] if i < len(referencias_pago) else ''
+                                })
+                                total_pagado += monto
+                                if nombre_metodo.upper() in ['EFECTIVO', 'EFECTIVO CORDODAS', 'EFECTIVO DOLARES', 'CASH']:
+                                    monto_efectivo += monto
+                                    
+                    # Si no se ingresaron pagos detallados, asumir efectivo por defecto
+                    if not metodos_pago_list:
+                        total_pagado = total_venta_final
+                        monto_efectivo = total_venta_final
+                        metodos_pago_list.append({
+                            'id_metodo': 1,
+                            'nombre': 'Efectivo',
+                            'monto': float(total_venta_final),
+                            'referencia': ''
+                        })
+                        
+                    if total_pagado > total_venta_final:
+                        raise Exception("El total pagado no puede exceder el monto de la venta")
+                        
+                    # Registrar pago en caja si hay efectivo
+                    if monto_efectivo > 0:
+                        desc_pago = f"Pago entrega - Factura #{id_factura} - Cliente: {factura['Cliente']}"
+                        cursor.execute("""
+                            INSERT INTO caja_movimientos (
+                                Fecha, Tipo_Movimiento, Descripcion, Monto, 
+                                ID_Factura, ID_Usuario, Referencia_Documento
+                            )
+                            VALUES (NOW(), 'ENTRADA', %s, %s, %s, %s, %s)
+                        """, (desc_pago, float(monto_efectivo), id_factura, id_usuario, f'FAC-{id_factura:05d}'))
+                        
+                    # Actualizar cliente
+                    cursor.execute("""
+                        UPDATE clientes 
+                        SET Fecha_Ultimo_Movimiento = NOW(),
+                            ID_Ultima_Factura = %s
+                        WHERE ID_Cliente = %s
+                    """, (id_factura, factura['IDCliente']))
+                    
+                elif tipo_venta == 'credito':
+                    saldo_pendiente = total_venta_final
+                    if not fecha_vencimiento:
+                        from datetime import date, timedelta
+                        fecha_vencimiento = (date.today() + timedelta(days=30)).isoformat()
+                        
+                    # Crear cuenta por cobrar
+                    cursor.execute("""
+                        INSERT INTO cuentas_por_cobrar (
+                            Fecha, ID_Cliente, Num_Documento, Observacion,
+                            Fecha_Vencimiento, Tipo_Movimiento, Monto_Movimiento,
+                            ID_Empresa, Saldo_Pendiente, ID_Factura, ID_Usuario_Creacion
+                        )
+                        VALUES (CURDATE(), %s, %s, %s, %s, 1, %s, %s, %s, %s, %s)
+                    """, (factura['IDCliente'], f'FAC-{id_factura:05d}', f"Saldo de entrega factura #{id_factura}",
+                          fecha_vencimiento, float(saldo_pendiente), id_empresa, float(saldo_pendiente), id_factura, id_usuario))
+                          
+                    # Actualizar saldo del cliente
+                    nuevo_saldo_cliente = float(factura['Saldo_Pendiente_Total'] or 0) + float(saldo_pendiente)
+                    cursor.execute("""
+                        UPDATE clientes 
+                        SET Saldo_Pendiente_Total = %s,
+                            Fecha_Ultimo_Movimiento = NOW(),
+                            ID_Ultima_Factura = %s
+                        WHERE ID_Cliente = %s
+                    """, (nuevo_saldo_cliente, id_factura, factura['IDCliente']))
+                    
+                # Finalizar factura
+                metodos_pago_json = json.dumps(metodos_pago_list, ensure_ascii=False) if metodos_pago_list else None
+                es_credito_final = 1 if tipo_venta == 'credito' else 0
+                
+                cursor.execute("""
+                    UPDATE facturacion 
+                    SET Credito_Contado = %s,
+                        Observacion = %s,
+                        metodos_pago = %s
+                    WHERE ID_Factura = %s
+                """, (es_credito_final, nueva_obs, metodos_pago_json, id_factura))
+                
+                flash(f'✅ Entrega de Factura #{id_factura} confirmada exitosamente como {tipo_venta.upper()}!', 'success')
+                return jsonify({
+                    'success': True,
+                    'redirect_url': url_for('admin.admin_generar_ticket', id_factura=id_factura)
+                })
+                
+        # GET request: renderizar formulario de liquidación
+        return render_template('admin/ventas/confirmar_entrega.html',
+                             factura=factura,
+                             detalles=detalles,
+                             metodos_pago=metodos_pago,
+                             total_productos=len(detalles),
+                             total_cajillas_huevos=sum(float(d['Cantidad']) for d in detalles if d['ID_Categoria'] == ID_CATEGORIA_HUEVOS))
+                             
+    except Exception as e:
+        print(f"Error al confirmar entrega: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        if request.method == 'POST':
+            return jsonify({'success': False, 'error': str(e)}), 500
+        flash(f'Error al cargar pantalla de confirmación: {str(e)}', 'error')
+        return redirect(url_for('admin.admin_ventas_salidas'))
 
 

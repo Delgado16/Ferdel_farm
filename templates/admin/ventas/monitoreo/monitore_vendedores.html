@@ -5,7 +5,7 @@
 {% block content %}
 <div class="container-fluid mt-4 px-2 px-md-3">
     <div class="card shadow-sm border-0">
-        <div class="card-header bg-primary text-white py-3">
+        <div class="card-header bg-brand-gradient text-white py-3">
             <h4 class="mb-0 fs-5 fs-md-4">
                 <i class="fas fa-truck-moving"></i> Monitoreo de Vendedores en Ruta
             </h4>
@@ -78,13 +78,17 @@
 </div>
 
 <style>
+    .bg-brand-gradient {
+        background: linear-gradient(135deg, var(--primary-color) 0%, #3e8140 100%) !important;
+    }
     .card-caja {
-        background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+        background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+        border-left: 5px solid var(--secondary-color);
         color: white;
         border-radius: 15px;
-        padding: 20px;
+        padding: 22px;
         margin-bottom: 20px;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        box-shadow: 0 4px 15px rgba(0,0,0,0.15);
     }
     .card-caja h3 {
         font-size: 1.8rem;
@@ -98,14 +102,14 @@
         }
     }
     .caja-divider {
-        border-bottom: 1px solid rgba(255,255,255,0.2);
+        border-bottom: 1px solid rgba(255,255,255,0.15);
         padding-bottom: 15px;
         margin-bottom: 15px;
     }
     @media (min-width: 768px) {
         .caja-divider {
             border-bottom: none;
-            border-right: 1px solid rgba(255,255,255,0.2);
+            border-right: 1px solid rgba(255,255,255,0.15);
             padding-bottom: 0;
             margin-bottom: 0;
         }
@@ -114,15 +118,33 @@
         font-size: 0.85rem;
         opacity: 0.9;
     }
-    .card-inventario, .card-facturas, .card-abonos {
+    .card-inventario, .card-facturas, .card-abonos, .card-gastos {
         border-radius: 12px;
-        box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+        box-shadow: 0 4px 15px rgba(0,0,0,0.05);
         margin-bottom: 20px;
         border: none;
+        overflow: hidden;
+    }
+    .card-inventario .card-header {
+        background: linear-gradient(135deg, #06b6d4 0%, #0891b2 100%) !important;
+        color: white;
+    }
+    .card-facturas .card-header {
+        background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%) !important;
+        color: white;
+    }
+    .card-abonos .card-header {
+        background: linear-gradient(135deg, #10b981 0%, #059669 100%) !important;
+        color: white;
+    }
+    .card-gastos .card-header {
+        background: linear-gradient(135deg, #f43f5e 0%, #e11d48 100%) !important;
+        color: white;
     }
     .card-header {
         border-radius: 12px 12px 0 0 !important;
         font-weight: 600;
+        border-bottom: none !important;
     }
     .table-responsive {
         max-height: 300px;
@@ -154,8 +176,14 @@
     .border-left-warning {
         border-left: 4px solid #ffc107;
     }
+    .border-left-danger {
+        border-left: 4px solid #dc3545;
+    }
     .border-left-info {
         border-left: 4px solid #17a2b8;
+    }
+    .border-left-secondary {
+        border-left: 4px solid #6c757d;
     }
     .badge-efectivo {
         background-color: #28a745;
@@ -301,6 +329,12 @@ function cargarDatosVendedor(esSilencioso = false) {
     
     fetch(url)
         .then(response => {
+            if (response.status === 404) {
+                return response.json().then(data => {
+                    mostrarMensajeSinRuta(data.error || 'El vendedor no tiene una ruta asignada en esta fecha.');
+                    return null;
+                });
+            }
             if (!response.ok) {
                 return response.json().then(data => {
                     throw new Error(data.error || `Error HTTP: ${response.status}`);
@@ -314,6 +348,19 @@ function cargarDatosVendedor(esSilencioso = false) {
             return response.json();
         })
         .then(data => {
+            if (data === null) {
+                // Fue un 404 manejado (Sin Ruta)
+                if (esSilencioso) {
+                    if (btnIcon) btnIcon.classList.remove('fa-spin');
+                    btnRefrescar.disabled = false;
+                } else {
+                    loadingSpinner.classList.add('d-none');
+                }
+                const ahora = new Date().toLocaleTimeString('es-NI');
+                actualizarEstadoRefresh(`<i class="fas fa-info-circle text-muted"></i> Última actualización: <b>${ahora}</b> (Vendedor sin ruta activa)`);
+                return;
+            }
+            
             if (esSilencioso) {
                 if (btnIcon) btnIcon.classList.remove('fa-spin');
                 btnRefrescar.disabled = false;
@@ -373,6 +420,21 @@ function mostrarError(mensaje) {
     dashboardDiv.style.display = 'block';
 }
 
+function mostrarMensajeSinRuta(mensaje) {
+    dashboardDiv.innerHTML = `
+        <div class="card shadow-sm border-0 text-center py-5 px-4" style="border-radius: 15px; background-color: #f8fafc;">
+            <div class="card-body">
+                <div class="mb-3">
+                    <i class="fas fa-route fa-3x text-muted" style="opacity: 0.5;"></i>
+                </div>
+                <h5 class="fw-bold text-muted mb-2">Sin Ruta Asignada</h5>
+                <p class="text-muted mb-0 fs-6">${escapeHtml(mensaje)}</p>
+            </div>
+        </div>
+    `;
+    dashboardDiv.style.display = 'block';
+}
+
 function formatCurrency(amount) {
     if (amount === undefined || amount === null || isNaN(amount)) return 'C$ 0.00';
     const formatted = parseFloat(amount).toLocaleString('es-NI', {
@@ -419,11 +481,29 @@ function renderizarDashboard(data) {
     
     let vehiculoInfo = (r.vehiculo && r.vehiculo !== 'N/A') ? r.vehiculo : 'No asignado';
     
+    let badgeEstadoHtml = '';
+    if (r.estado === 'Finalizada') {
+        badgeEstadoHtml = `
+            <span class="badge bg-secondary fs-6 mb-1">
+                <i class="fas fa-flag"></i> Ruta Finalizada
+            </span>`;
+    } else if (r.estado === 'Suspendida') {
+        badgeEstadoHtml = `
+            <span class="badge bg-warning text-dark fs-6 mb-1">
+                <i class="fas fa-exclamation-triangle"></i> Ruta Suspendida
+            </span>`;
+    } else {
+        badgeEstadoHtml = `
+            <span class="badge bg-success fs-6 mb-1">
+                <i class="fas fa-check-circle"></i> Ruta Activa
+            </span>`;
+    }
+    
     let html = `
         <!-- Header con información del vendedor -->
         <div class="row g-3 mb-4">
             <div class="col-12">
-                <div class="alerta-info mb-0">
+                <div class="alerta-info mb-0" style="border-left: 4px solid var(--primary-color);">
                     <div class="d-flex justify-content-between align-items-start align-items-md-center flex-column flex-md-row gap-2">
                         <div>
                             <h2 class="mb-1 fs-3 fs-md-2 text-break">
@@ -434,9 +514,7 @@ function renderizarDashboard(data) {
                             </p>
                         </div>
                         <div class="text-start text-md-end mt-2 mt-md-0">
-                            <span class="badge bg-success fs-6 mb-1">
-                                <i class="fas fa-check-circle"></i> Ruta Activa
-                            </span>
+                            ${badgeEstadoHtml}
                             <br class="d-none d-md-inline">
                             <small class="text-muted d-block d-md-inline-block">
                                 <i class="fas fa-calendar-alt"></i> ${data.fecha_consulta}
@@ -466,21 +544,31 @@ function renderizarDashboard(data) {
         <!-- Tarjeta de CAJA TOTAL -->
         <div class="card-caja">
             <div class="row">
-                <div class="col-12 text-center">
-                    <small class="d-block mb-1">
+                <div class="col-12 text-center mb-3">
+                    <small class="d-block mb-1 text-white-50">
                         <i class="fas fa-money-bill-wave"></i> 
                         EFECTIVO TOTAL EN PODER DEL VENDEDOR
                     </small>
-                    <h3 class="text-break">${formatCurrency(c.total)}</h3>
-                    <hr style="background-color: rgba(255,255,255,0.2); margin: 10px 0;">
+                    <h3 class="text-break mb-0" style="font-size: 2.2rem; font-weight: 800;">${formatCurrency(c.total)}</h3>
+                </div>
+                <hr style="background-color: rgba(255,255,255,0.15); margin: 10px 0;">
+                <div class="col-12">
                     <div class="row g-3">
-                        <div class="col-12 col-md-6 caja-divider text-center mb-2 mb-md-0">
-                            <small class="d-block mb-1">💵 Ventas de contado (hoy)</small>
-                            <strong class="fs-4 d-block text-break">${formatCurrency(c.ventas_efectivo)}</strong>
+                        <div class="col-6 col-md-3 caja-divider text-center mb-2 mb-md-0">
+                            <small class="d-block mb-1 text-white-50">💵 Apertura de caja</small>
+                            <strong class="fs-5 d-block text-break">${formatCurrency(c.apertura)}</strong>
                         </div>
-                        <div class="col-12 col-md-6 text-center">
-                            <small class="d-block mb-1">💰 Abonos en efectivo (hoy)</small>
-                            <strong class="fs-4 d-block text-break">+ ${formatCurrency(c.abonos_efectivo)}</strong>
+                        <div class="col-6 col-md-3 caja-divider text-center mb-2 mb-md-0">
+                            <small class="d-block mb-1 text-white-50">💵 Ventas (Contado)</small>
+                            <strong class="fs-5 d-block text-break">+ ${formatCurrency(c.ventas_efectivo)}</strong>
+                        </div>
+                        <div class="col-6 col-md-3 caja-divider text-center mb-2 mb-md-0">
+                            <small class="d-block mb-1 text-white-50">💰 Abonos recibidos</small>
+                            <strong class="fs-5 d-block text-break">+ ${formatCurrency(c.abonos_efectivo)}</strong>
+                        </div>
+                        <div class="col-6 col-md-3 text-center">
+                            <small class="d-block mb-1 text-white-50">💸 Gastos de ruta</small>
+                            <strong class="fs-5 d-block text-break text-warning">- ${formatCurrency(c.gastos)}</strong>
                         </div>
                     </div>
                 </div>
@@ -491,7 +579,7 @@ function renderizarDashboard(data) {
             <!-- INVENTARIO DE RUTA -->
             <div class="col-12 col-md-6">
                 <div class="card card-inventario info-card h-100 mb-0">
-                    <div class="card-header bg-info text-white">
+                    <div class="card-header">
                         <i class="fas fa-boxes"></i> Inventario Actual en Ruta
                         <span class="badge bg-light text-dark float-end">
                             ${data.inventario ? data.inventario.length : 0} productos
@@ -506,7 +594,7 @@ function renderizarDashboard(data) {
             <!-- FACTURAS PENDIENTES -->
             <div class="col-12 col-md-6">
                 <div class="card card-facturas info-card h-100 mb-0">
-                    <div class="card-header bg-warning text-dark">
+                    <div class="card-header">
                         <i class="fas fa-file-invoice-dollar"></i> Facturas Pendientes por Cobrar
                         <span class="badge bg-danger text-white float-end">
                             ${data.facturas_pendientes ? data.facturas_pendientes.length : 0} pendientes
@@ -523,7 +611,7 @@ function renderizarDashboard(data) {
             <!-- ABONOS REGISTRADOS HOY -->
             <div class="col-12 col-md-6">
                 <div class="card card-abonos info-card h-100 mb-0">
-                    <div class="card-header bg-success text-white">
+                    <div class="card-header">
                         <i class="fas fa-hand-holding-usd"></i> Abonos Registrados Hoy
                         <span class="badge bg-light text-dark float-end">
                             ${data.abonos_hoy ? data.abonos_hoy.length : 0} abonos
@@ -535,8 +623,25 @@ function renderizarDashboard(data) {
                 </div>
             </div>
             
-            <!-- RESUMEN DEL DÍA -->
+            <!-- GASTOS REGISTRADOS HOY -->
             <div class="col-12 col-md-6">
+                <div class="card card-gastos info-card h-100 mb-0">
+                    <div class="card-header">
+                        <i class="fas fa-receipt"></i> Gastos Registrados Hoy
+                        <span class="badge bg-light text-dark float-end">
+                            ${data.gastos_hoy ? data.gastos_hoy.length : 0} gastos
+                        </span>
+                    </div>
+                    <div class="card-body p-0">
+                        ${renderizarGastos(data.gastos_hoy, data.resumen ? data.resumen.total_gastos : 0)}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row g-4 mb-4">
+            <!-- RESUMEN DEL DÍA -->
+            <div class="col-12">
                 <div class="card info-card h-100 mb-0">
                     <div class="card-header bg-secondary text-white">
                         <i class="fas fa-chart-line"></i> Resumen del Día
@@ -552,23 +657,35 @@ function renderizarDashboard(data) {
                                         </td>
                                     </tr>
                                     <tr class="border-left-success">
-                                        <td><i class="fas fa-dollar-sign"></i> <strong>Total vendido:</strong></td>
+                                        <td><i class="fas fa-dollar-sign text-success"></i> <strong>Total vendido:</strong></td>
                                         <td class="text-end text-success fw-bold fs-5 text-break">
                                             ${formatCurrency(data.resumen ? data.resumen.total_vendido : 0)}
                                         </td>
                                     </tr>
                                     <tr class="border-left-info">
-                                        <td><i class="fas fa-hand-holding-usd"></i> <strong>Total abonos recibidos:</strong></td>
+                                        <td><i class="fas fa-hand-holding-usd text-primary"></i> <strong>Total abonos recibidos:</strong></td>
                                         <td class="text-end text-primary fw-bold text-break">
                                             ${formatCurrency(data.resumen ? data.resumen.total_abonos_monto : 0)}
                                         </td>
                                      </tr>
                                     <tr class="border-left-warning">
-                                        <td><i class="fas fa-receipt"></i> <strong>Cantidad de abonos:</strong></td>
+                                        <td><i class="fas fa-receipt text-warning"></i> <strong>Cantidad de abonos:</strong></td>
                                         <td class="text-end fw-bold text-break">
                                             ${formatNumber(data.resumen ? data.resumen.total_abonos : 0, 0)}
                                         </td>
                                      </tr>
+                                     <tr class="border-left-danger">
+                                         <td><i class="fas fa-receipt text-danger"></i> <strong>Total gastos:</strong></td>
+                                         <td class="text-end text-danger fw-bold text-break">
+                                             ${formatCurrency(data.resumen ? data.resumen.total_gastos : 0)}
+                                         </td>
+                                      </tr>
+                                     <tr class="border-left-secondary">
+                                         <td><i class="fas fa-tags text-secondary"></i> <strong>Cantidad de gastos:</strong></td>
+                                         <td class="text-end fw-bold text-break">
+                                             ${formatNumber(data.resumen ? data.resumen.total_gastos_cantidad : 0, 0)}
+                                         </td>
+                                      </tr>
                                 </tbody>
                             </table>
                         </div>
@@ -701,6 +818,57 @@ function renderizarAbonos(abonos, totalMonto) {
                 <td><strong>${escapeHtml(a.cliente)}</strong></td>
                 <td class="text-end text-success fw-bold">${formatCurrency(a.monto)}</td>
                 <td><span class="badge bg-${badgeClass}">${escapeHtml(a.metodo_pago)}</span></td>
+             </tr>`;
+    });
+    
+    html += `
+                </tbody>
+            </table>
+        </div>`;
+    
+    return html;
+}
+
+function renderizarGastos(gastos, totalMonto) {
+    if (!gastos || gastos.length === 0) {
+        return `
+            <div class="alert alert-secondary m-3 mb-0">
+                <i class="fas fa-receipt"></i> No hay gastos registrados en esta fecha
+            </div>`;
+    }
+    
+    let html = `
+        <div class="alert alert-danger m-2 mb-0 text-white bg-danger border-0">
+            <div class="text-center">
+                <strong>TOTAL GASTOS: ${formatCurrency(totalMonto)}</strong>
+            </div>
+        </div>
+        <div class="table-responsive">
+            <table class="table table-sm table-hover mb-0">
+                <thead>
+                    <tr>
+                        <th>Concepto</th>
+                        <th class="text-end">Monto</th>
+                        <th>Hora</th>
+                    </tr>
+                </thead>
+                <tbody>`;
+    
+    gastos.forEach(g => {
+        let horaStr = 'N/A';
+        if (g.fecha) {
+            try {
+                const dateObj = new Date(g.fecha);
+                horaStr = dateObj.toLocaleTimeString('es-NI', { hour: '2-digit', minute: '2-digit' });
+            } catch (e) {
+                console.error(e);
+            }
+        }
+        html += `
+            <tr>
+                <td><strong>${escapeHtml(g.concepto)}</strong></td>
+                <td class="text-end text-danger fw-bold">${formatCurrency(g.monto)}</td>
+                <td>${escapeHtml(horaStr)}</td>
              </tr>`;
     });
     

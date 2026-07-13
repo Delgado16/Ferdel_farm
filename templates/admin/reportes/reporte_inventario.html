@@ -70,7 +70,7 @@
 
 <!-- Tarjetas de Resumen -->
 <div class="row mb-4">
-    <div class="col-md-3 mb-3">
+    <div class="col-md-4 mb-3">
         <div class="card bg-primary text-white">
             <div class="card-body">
                 <h6 class="card-title">Total Productos</h6>
@@ -79,7 +79,7 @@
             </div>
         </div>
     </div>
-    <div class="col-md-3 mb-3">
+    <div class="col-md-4 mb-3">
         <div class="card bg-danger text-white">
             <div class="card-body">
                 <h6 class="card-title">Stock Crítico</h6>
@@ -88,21 +88,12 @@
             </div>
         </div>
     </div>
-    <div class="col-md-3 mb-3">
+    <div class="col-md-4 mb-3">
         <div class="card bg-warning text-dark">
             <div class="card-body">
                 <h6 class="card-title">Stock Cero</h6>
                 <h3>{{ resumen.Stock_Cero|default(0) }}</h3>
                 <small>Productos agotados</small>
-            </div>
-        </div>
-    </div>
-    <div class="col-md-3 mb-3">
-        <div class="card bg-success text-white">
-            <div class="card-body">
-                <h6 class="card-title">Valor Inventario</h6>
-                <h3>C${{ "{:,.0f}".format(resumen.Valor_Inventario|default(0)) }}</h3>
-                <small>Valor total en bodega</small>
             </div>
         </div>
     </div>
@@ -125,11 +116,11 @@
     <div class="col-md-6 mb-3">
         <div class="card shadow-sm h-100">
             <div class="card-header bg-white py-3">
-                <i class="bi bi-bar-chart-fill text-success me-2"></i><strong>Top 5 Productos de Mayor Valor en Almacén</strong>
+                <i class="bi bi-bar-chart-fill text-success me-2"></i><strong>Top 5 Productos con Mayor Stock en Almacén</strong>
             </div>
             <div class="card-body">
                 <div style="position: relative; height: 260px; width: 100%;">
-                    <canvas id="topStockValueChart"></canvas>
+                    <canvas id="topStockChart"></canvas>
                 </div>
             </div>
         </div>
@@ -150,13 +141,10 @@
                         <th>Código</th>
                         <th>Producto</th>
                         <th>Categoría</th>
-                        <th>Stock Actual</th>
+                        <th>Bodegas (Stock)</th>
                         <th>Stock Mínimo</th>
                         <th>Estado Stock</th>
-                        <th>Precio Mercado</th>
-                        <th>Precio Mayorista</th>
                         <th>Vendido (30 días)</th>
-                        <th>Valor Inventario</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -166,9 +154,16 @@
                         <td><strong>{{ item.Producto }}</strong></td>
                         <td>{{ item.Categoria }}</td>
                         <td>
-                            <span class="fw-bold {% if item.Stock_Actual <= item.Stock_Minimo %}text-danger{% endif %}">
-                                {{ "%.0f"|format(item.Stock_Actual) }}
-                            </span>
+                            {% if item.Bodegas_Stock %}
+                                {% for b_s in item.Bodegas_Stock.split('; ') %}
+                                    {% set b_parts = b_s.split(': ') %}
+                                    <span class="badge bg-secondary text-white mb-1" style="font-size: 0.85em;">
+                                        {{ b_parts[0] }}: <strong class="text-warning">{{ "%.0f"|format(b_parts[1]|float) }}</strong>
+                                    </span>
+                                {% endfor %}
+                            {% else %}
+                                <span class="text-muted small">Sin bodega asignada</span>
+                            {% endif %}
                         </td>
                         <td>{{ "%.0f"|format(item.Stock_Minimo) }}</td>
                         <td>
@@ -176,8 +171,6 @@
                                 {{ item.Estado_Stock }}
                             </span>
                         </td>
-                        <td>C${{ "{:,.0f}".format(item.Precio_Mercado or 0) }}</td>
-                        <td>C${{ "{:,.0f}".format(item.Precio_Mayorista or 0) }}</td>
                         <td>
                             {% if item.Vendido_Ultimo_Mes > 0 %}
                                 {{ "%.0f"|format(item.Vendido_Ultimo_Mes) }} unidades
@@ -185,22 +178,15 @@
                                 <span class="text-muted">Sin ventas</span>
                             {% endif %}
                         </td>
-                        <td>C${{ "{:,.0f}".format(item.Valor_Inventario|default(0)) }}</td>
                     </tr>
                     {% else %}
                     <tr>
-                        <td colspan="10" class="text-center text-muted">
+                        <td colspan="7" class="text-center text-muted">
                             <i class="bi bi-box"></i> No hay productos que coincidan con los filtros
                         </td>
                     </tr>
                     {% endfor %}
                 </tbody>
-                <tfoot class="table-light">
-                    <tr>
-                        <td colspan="9" class="text-end fw-bold">VALOR TOTAL INVENTARIO:</td>
-                        <td class="fw-bold">C${{ "{:,.0f}".format(inventario|sum(attribute='Valor_Inventario')|default(0)) }}</td>
-                    </tr>
-                </tfoot>
             </table>
         </div>
     </div>
@@ -227,8 +213,7 @@
             producto: "{{ item.Producto }}",
             stock: {{ item.Stock_Actual|default(0)|float }},
             minimo: {{ item.Stock_Minimo|default(0)|float }},
-            estado: "{{ item.Estado_Stock }}",
-            valor: {{ item.Valor_Inventario|default(0)|float }}
+            estado: "{{ item.Estado_Stock }}"
         },
         {% endfor %}
     ];
@@ -263,19 +248,19 @@
         }
     });
 
-    // Procesar datos para Top 5 Productos por Valor de Inventario
+    // Procesar datos para Top 5 Productos con Mayor Stock
     const sortedProducts = [...rawInventario]
-        .sort((a, b) => b.valor - a.valor)
+        .sort((a, b) => b.stock - a.stock)
         .slice(0, 5);
 
-    const ctxValue = document.getElementById('topStockValueChart').getContext('2d');
+    const ctxValue = document.getElementById('topStockChart').getContext('2d');
     new Chart(ctxValue, {
         type: 'bar',
         data: {
             labels: sortedProducts.map(p => p.producto.substring(0, 18) + (p.producto.length > 18 ? '...' : '')),
             datasets: [{
-                label: 'Valor de Inventario (C$)',
-                data: sortedProducts.map(p => p.valor),
+                label: 'Stock Actual',
+                data: sortedProducts.map(p => p.stock),
                 backgroundColor: '#10b981',
                 borderRadius: 6,
                 maxBarThickness: 35
@@ -289,7 +274,7 @@
                 tooltip: {
                     callbacks: {
                         label: function(context) {
-                            return 'C$ ' + context.raw.toLocaleString('es-NI', { maximumFractionDigits: 0 });
+                            return context.raw.toLocaleString('es-NI', { maximumFractionDigits: 0 }) + ' unidades';
                         }
                     }
                 }
@@ -299,7 +284,7 @@
                     beginAtZero: true,
                     ticks: {
                         callback: function(value) {
-                            return 'C$' + value.toLocaleString('es-NI');
+                            return value.toLocaleString('es-NI') + ' und';
                         }
                     }
                 }

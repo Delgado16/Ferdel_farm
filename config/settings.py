@@ -32,7 +32,7 @@ DB_CONFIG = {
     'pool_name': 'ferdel_pool',
     'pool_size': int(os.environ.get('DB_POOL_SIZE', 5)),
     'pool_reset_session': True,
-    'autocommit': True,
+    'autocommit': os.environ.get('DB_AUTOCOMMIT', 'False') == 'True',
     'connect_timeout': 30,
     'use_pure': True,
     'charset': 'utf8mb4',
@@ -47,7 +47,7 @@ if DB_SSL_CA:
 # ===== CONFIGURACIÓN DE SESIÓN =====
 SESSION_CONFIG = {
     'PERMANENT': False,
-    'TYPE': 'filesystem',
+    'TYPE': os.environ.get('SESSION_TYPE', None),
     'PERMANENT_LIFETIME': timedelta(hours=12),
     'TEMPLATES_AUTO_RELOAD': True,
 }

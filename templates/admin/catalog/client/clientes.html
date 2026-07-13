@@ -265,30 +265,13 @@
                     <div class="row">
                         <div class="col-md-6">
                             <div class="mb-3">
-                                <label for="telefono" class="form-label">Teléfono</label>
+                                <label for="telefono" class="form-label">Teléfono <span class="text-danger">*</span></label>
                                 <input type="tel" class="form-control" id="telefono" name="telefono" 
-                                       maxlength="20"
+                                       required maxlength="20"
                                        placeholder="Ej: 0991234567">
                                 <div class="form-text">Número de contacto principal</div>
                             </div>
                         </div>
-                        <div class="col-md-6">
-                            <div class="mb-3">
-                                <label for="id_sucursal" class="form-label">Sucursal <span class="text-danger">*</span></label>
-                                <select class="form-select" id="id_sucursal" name="id_sucursal" required>
-                                    <option value="">Seleccione una sucursal</option>
-                                    {% if sucursales %}
-                                        {% for sucursal in sucursales %}
-                                        <option value="{{ sucursal.ID_Sucursal }}">{{ sucursal.Nombre_Sucursal }}</option>
-                                        {% endfor %}
-                                    {% endif %}
-                                </select>
-                                <div class="form-text">Seleccione la sucursal asignada</div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="row">
                         <div class="col-md-6">
                             <div class="mb-3">
                                 <label for="id_ruta" class="form-label">Ruta <span class="text-danger">*</span></label>
@@ -301,7 +284,10 @@
                                 <div class="form-text">Asigne el cliente a una ruta</div>
                             </div>
                         </div>
-                        <div class="col-md-6">
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-12">
                             <div class="mb-3">
                                 <label for="direccion" class="form-label">Dirección</label>
                                 <textarea class="form-control" id="direccion" name="direccion" rows="2" 
@@ -318,19 +304,19 @@
                             <div class="mb-3">
                                 <label for="tipo_cliente" class="form-label">Tipo de Cliente <span class="text-danger">*</span></label>
                                 <select class="form-select" id="tipo_cliente" name="tipo_cliente" required>
-                                    <option value="MINORISTA">Minorista</option>
-                                    <option value="DISTRIBUIDOR">Distribuidor</option>
+                                    <option value="Comun">Cliente Común</option>
+                                    <option value="Especial">Cliente Especial</option>
                                 </select>
                             </div>
                         </div>
                         <div class="col-md-6">
                             <div class="mb-3">
-                                <label for="perfil_cliente" class="form-label">Perfil de Cliente</label>
-                                <select class="form-select" id="perfil_cliente" name="perfil_cliente">
-                                    <option value="">Seleccione un perfil</option>
-                                    <option value="REGULAR">Regular</option>
-                                    <option value="PREMIUM">Premium</option>
-                                    <option value="VIP">VIP</option>
+                                <label for="perfil_cliente" class="form-label">Perfil de Cliente <span class="text-danger">*</span></label>
+                                <select class="form-select" id="perfil_cliente" name="perfil_cliente" required>
+                                    <option value="Mercado">Mercado</option>
+                                    <option value="Ruta">Ruta</option>
+                                    <option value="Mayorista">Mayorista</option>
+                                    <option value="Especial">Especial</option>
                                 </select>
                             </div>
                         </div>
@@ -353,15 +339,23 @@
 
                             <div id="anticipo-config" style="display: none;">
                                 <div class="row">
-                                    <div class="col-md-6">
+                                    <div class="col-md-4">
                                         <div class="mb-3">
                                             <label for="limite_anticipo_cajas" class="form-label">Límite de Cajas</label>
                                             <input type="number" class="form-control" id="limite_anticipo_cajas" 
                                                    name="limite_anticipo_cajas" min="1" max="100" value="1">
-                                            <div class="form-text">Número máximo de cajas que puede recibir en anticipo</div>
+                                            <div class="form-text">Número máximo de cajas en anticipo</div>
                                         </div>
                                     </div>
-                                    <div class="col-md-6">
+                                    <div class="col-md-4">
+                                        <div class="mb-3">
+                                            <label for="saldo_anticipos" class="form-label">Saldo de Anticipos (C$)</label>
+                                            <input type="number" class="form-control" id="saldo_anticipos" 
+                                                   name="saldo_anticipos" min="0" step="0.01" value="0.00">
+                                            <div class="form-text">Saldo inicial de anticipo</div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
                                         <div class="mb-3">
                                             <label for="producto_anticipado" class="form-label">Producto Anticipado</label>
                                             <select class="form-select" id="producto_anticipado" name="producto_anticipado">
@@ -550,20 +544,7 @@ document.addEventListener('DOMContentLoaded', function() {
         searchInput.focus();
     }
     
-    // Filtrar rutas por sucursal seleccionada (opcional)
-    const sucursalSelect = document.getElementById('id_sucursal');
-    const rutaSelect = document.getElementById('id_ruta');
-    
-    if (sucursalSelect && rutaSelect) {
-        sucursalSelect.addEventListener('change', function() {
-            const sucursalId = this.value;
-            if (sucursalId) {
-                // Aquí puedes hacer una llamada AJAX para cargar rutas por sucursal
-                // o simplemente mostrar un mensaje
-                console.log('Sucursal seleccionada:', sucursalId);
-            }
-        });
-    }
+    // Event listener para cambios en la selección de ruta si es necesario en el futuro
 });
 </script>
 {% endblock %}

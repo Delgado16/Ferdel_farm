@@ -121,7 +121,7 @@ def close_db(exception=None):
 
 
 @contextlib.contextmanager
-def get_db_cursor(commit=False):
+def get_db_cursor(commit=True):
     """Context manager para manejar cursor automáticamente"""
     db = get_db()
     if db is None:

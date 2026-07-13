@@ -29,7 +29,7 @@
                     </h6>
                 </div>
                 <div class="card-body">
-                    <form id="formEditarAsignacion" action="{{ url_for('admin.editar_asignacion_ruta', id=asignacion.ID_Asignacion) }}" method="POST">
+                    <form id="formEditarAsignacion" action="{{ url_for('admin.actualizar_asignacion_ruta', id=asignacion.ID_Asignacion) }}" method="POST">
                         
                         <!-- Información General -->
                         <div class="row mb-4">
@@ -54,17 +54,14 @@
                                     <option value="{{ vendedor.ID_Usuario }}" 
                                             data-rol="{{ vendedor.Rol|default('Sin rol') }}"
                                             {{ 'selected' if vendedor.ID_Usuario == asignacion.ID_Usuario }}>
-                                        {{ vendedor.NombreUsuario }} 
-                                        {% if vendedor.Rol %}
-                                        <span class="badge bg-info ms-1">{{ vendedor.Rol }}</span>
-                                        {% endif %}
+                                        {{ vendedor.Nombre }} 
                                     </option>
                                     {% endfor %}
                                 </select>
                                 <div class="form-text">
-                                    Usuario actual: <strong>{{ asignacion.NombreUsuario }}</strong>
-                                    {% if asignacion.Rol_Usuario %}
-                                    | Rol: <span class="badge bg-info">{{ asignacion.Rol_Usuario }}</span>
+                                    Usuario actual: <strong>{{ asignacion.Nombre_Vendedor }}</strong>
+                                    {% if asignacion.Rol_Vendedor %}
+                                    | Rol: <span class="badge bg-info">{{ asignacion.Rol_Vendedor }}</span>
                                     {% endif %}
                                 </div>
                             </div>
@@ -100,7 +97,7 @@
                                     {% for vehiculo in vehiculos %}
                                     <option value="{{ vehiculo.ID_Vehiculo }}" 
                                             {{ 'selected' if vehiculo.ID_Vehiculo == asignacion.ID_Vehiculo }}>
-                                        {{ vehiculo.Placa }} - {{ vehiculo.Vehiculo }}
+                                        {{ vehiculo.Descripcion }}
                                     </option>
                                     {% endfor %}
                                 </select>
@@ -203,57 +200,7 @@
                             </div>
                         </div>
                         
-                        <!-- Información del Sistema -->
-                        <div class="row mt-5">
-                            <div class="col-12">
-                                <div class="card border-start-info border-3 shadow-sm">
-                                    <div class="card-body">
-                                        <div class="row align-items-center">
-                                            <div class="col">
-                                                <div class="text-xs fw-bold text-info text-uppercase mb-2">
-                                                    <i class="bi bi-database"></i> Información del Sistema
-                                                </div>
-                                                <div class="row">
-                                                    <div class="col-md-6">
-                                                        <div class="mb-2">
-                                                            <i class="bi bi-hash me-2"></i>
-                                                            <strong>ID Asignación:</strong> {{ asignacion.ID_Asignacion }}
-                                                        </div>
-                                                        <div class="mb-2">
-                                                            <i class="bi bi-calendar-plus me-2"></i>
-                                                            <strong>Creado el:</strong> 
-                                                            {% if asignacion.Fecha_Creacion %}
-                                                            {{ asignacion.Fecha_Creacion.strftime('%d/%m/%Y %H:%M:%S') }}
-                                                            {% else %}
-                                                            N/A
-                                                            {% endif %}
-                                                        </div>
-                                                    </div>
-                                                    <div class="col-md-6">
-                                                        {% if asignacion.Asignado_Por %}
-                                                        <div class="mb-2">
-                                                            <i class="bi bi-person-check me-2"></i>
-                                                            <strong>Asignado por:</strong> {{ asignacion.Asignado_Por }}
-                                                        </div>
-                                                        {% endif %}
-                                                        {% if asignacion.ID_Vehiculo %}
-                                                        <div class="mb-2">
-                                                            <i class="bi bi-car-front me-2"></i>
-                                                            <strong>ID Vehículo:</strong> {{ asignacion.ID_Vehiculo }}
-                                                        </div>
-                                                        {% endif %}
-                                                    </div>
-                                                </div>
-                                            </div>
-                                            <div class="col-auto">
-                                                <i class="bi bi-server display-4 text-gray-300"></i>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        
+
                         <!-- Botones de Acción -->
                         <div class="row mt-5">
                             <div class="col-12 text-center">

@@ -370,24 +370,27 @@ def reporte_inventario():
                 p.COD_Producto AS Codigo,
                 p.Descripcion AS Producto,
                 cp.Descripcion AS Categoria,
-                COALESCE(ib.Existencias, 0) AS Stock_Actual,
+                GROUP_CONCAT(CONCAT(b.Nombre, ': ', COALESCE(ib.Existencias, 0)) ORDER BY b.Nombre SEPARATOR '; ') AS Bodegas_Stock,
+                SUM(COALESCE(ib.Existencias, 0)) AS Stock_Actual,
                 p.Stock_Minimo,
                 CASE 
-                    WHEN COALESCE(ib.Existencias, 0) <= p.Stock_Minimo THEN 'STOCK BAJO'
-                    WHEN COALESCE(ib.Existencias, 0) <= p.Stock_Minimo * 2 THEN 'STOCK MINIMO'
+                    WHEN SUM(COALESCE(ib.Existencias, 0)) <= p.Stock_Minimo THEN 'STOCK BAJO'
+                    WHEN SUM(COALESCE(ib.Existencias, 0)) <= p.Stock_Minimo * 2 THEN 'STOCK MINIMO'
                     ELSE 'NORMAL'
                 END AS Estado_Stock,
-                p.Precio_Mercado,
-                p.Precio_Mayorista,
-                COALESCE(SUM(df.Cantidad), 0) AS Vendido_Ultimo_Mes,
-                COALESCE(ib.Existencias, 0) * COALESCE(p.Precio_Mercado, 0) AS Valor_Inventario
+                MAX(COALESCE(Vendido.Vendido_Ultimo_Mes, 0)) AS Vendido_Ultimo_Mes
             FROM productos p
             INNER JOIN categorias_producto cp ON p.ID_Categoria = cp.ID_Categoria
             LEFT JOIN inventario_bodega ib ON p.ID_Producto = ib.ID_Producto
-            LEFT JOIN detalle_facturacion df ON p.ID_Producto = df.ID_Producto
-            LEFT JOIN facturacion fac ON df.ID_Factura = fac.ID_Factura 
-                AND fac.Fecha_Creacion >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
-                AND fac.Estado = 'Activa'
+            LEFT JOIN bodegas b ON ib.ID_Bodega = b.ID_Bodega AND b.Estado = 'activa'
+            LEFT JOIN (
+                SELECT df.ID_Producto, SUM(df.Cantidad) AS Vendido_Ultimo_Mes
+                FROM detalle_facturacion df
+                INNER JOIN facturacion fac ON df.ID_Factura = fac.ID_Factura 
+                WHERE fac.Fecha_Creacion >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
+                  AND fac.Estado = 'Activa'
+                GROUP BY df.ID_Producto
+            ) Vendido ON p.ID_Producto = Vendido.ID_Producto
             WHERE p.Estado = 'activo'
         """
         params = []
@@ -396,7 +399,7 @@ def reporte_inventario():
             query += " AND p.ID_Categoria = %s"
             params.append(categoria_id)
         
-        query += " GROUP BY p.ID_Producto, ib.Existencias"
+        query += " GROUP BY p.ID_Producto, p.COD_Producto, p.Descripcion, cp.Descripcion, p.Stock_Minimo"
         
         if stock_status == 'critico':
             query += " HAVING Stock_Actual <= Stock_Minimo"
@@ -419,17 +422,16 @@ def reporte_inventario():
             SELECT 
                 COUNT(*) AS Total_Productos,
                 SUM(CASE WHEN Stock_Actual <= Stock_Minimo THEN 1 ELSE 0 END) AS Stock_Critico,
-                SUM(CASE WHEN Stock_Actual <= 0 THEN 1 ELSE 0 END) AS Stock_Cero,
-                SUM(Stock_Actual * COALESCE(Precio_Mercado, 0)) AS Valor_Inventario
+                SUM(CASE WHEN Stock_Actual <= 0 THEN 1 ELSE 0 END) AS Stock_Cero
             FROM (
                 SELECT 
                     p.ID_Producto,
                     p.Stock_Minimo,
-                    COALESCE(ib.Existencias, 0) AS Stock_Actual,
-                    p.Precio_Mercado
+                    SUM(COALESCE(ib.Existencias, 0)) AS Stock_Actual
                 FROM productos p
                 LEFT JOIN inventario_bodega ib ON p.ID_Producto = ib.ID_Producto
                 WHERE p.Estado = 'activo'
+                GROUP BY p.ID_Producto, p.Stock_Minimo
             ) AS calculo
         """)
         resumen = cursor.fetchone()

@@ -122,75 +122,23 @@ def admin_anticipo_nuevo():
                     flash('Producto no encontrado o no pertenece a su empresa', 'error')
                     return redirect(url_for('admin.admin_anticipo_nuevo'))
                 
-                # Determinar precio unitario según el perfil del cliente
+                # Determinar precio unitario
                 precio_unitario = 0
-                perfil_cliente = cliente['perfil_cliente']
-                
-                # LÓGICA PRINCIPAL: Según el perfil del cliente
-                if perfil_cliente == 'Especial':
-                    # CLIENTE PERFIL ESPECIAL: El usuario ingresa el precio
-                    if calcular_precio_auto == 'on':
-                        # Calcular precio automáticamente: monto_pagado / cantidad_cajas
-                        precio_unitario = monto_pagado / cantidad_cajas
-                        flash(f'💰 Precio calculado automáticamente: ${precio_unitario:.2f} por caja (${monto_pagado:,.2f} / {cantidad_cajas} cajas)', 'info')
-                    elif precio_especial and float(precio_especial) > 0:
-                        # Usar precio especial ingresado manualmente
+                if precio_especial:
+                    try:
                         precio_unitario = float(precio_especial)
-                        flash(f'💰 Precio especial ingresado: ${precio_unitario:.2f} por caja', 'info')
-                    else:
-                        # Si no hay precio especial, calcular automáticamente como fallback
-                        precio_unitario = monto_pagado / cantidad_cajas
-                        flash(f'💰 Precio calculado automáticamente: ${precio_unitario:.2f} por caja', 'info')
-                    
-                    # Validar que el precio sea positivo
-                    if precio_unitario <= 0:
-                        flash('El precio por caja debe ser mayor a 0', 'error')
-                        return redirect(url_for('admin.admin_anticipo_nuevo'))
-                        
-                elif perfil_cliente == 'Mayorista':
-                    # Obtener precio mayorista del producto
-                    cursor.execute("SELECT Precio_Mayorista FROM productos WHERE ID_Producto = %s", (id_producto,))
-                    precio_data = cursor.fetchone()
-                    precio_unitario = float(precio_data['Precio_Mayorista']) if precio_data and precio_data['Precio_Mayorista'] else 0
-                    
-                    if precio_unitario <= 0:
-                        flash('El producto no tiene precio mayorista configurado', 'error')
-                        return redirect(url_for('admin.admin_anticipo_nuevo'))
-                    
-                    # Verificar que el monto corresponda
-                    monto_esperado = cantidad_cajas * precio_unitario
-                    if abs(monto_pagado - monto_esperado) > 0.01:
-                        flash(f'⚠️ Atención: El monto pagado (${monto_pagado:,.2f}) no corresponde con el precio mayorista (${monto_esperado:,.2f}). Se usará el monto ingresado.', 'warning')
-                        
-                elif perfil_cliente == 'Ruta':
-                    # Obtener precio ruta del producto
-                    cursor.execute("SELECT Precio_Ruta FROM productos WHERE ID_Producto = %s", (id_producto,))
-                    precio_data = cursor.fetchone()
-                    precio_unitario = float(precio_data['Precio_Ruta']) if precio_data and precio_data['Precio_Ruta'] else 0
-                    
-                    if precio_unitario <= 0:
-                        flash('El producto no tiene precio ruta configurado', 'error')
-                        return redirect(url_for('admin.admin_anticipo_nuevo'))
-                    
-                    # Verificar que el monto corresponda
-                    monto_esperado = cantidad_cajas * precio_unitario
-                    if abs(monto_pagado - monto_esperado) > 0.01:
-                        flash(f'⚠️ Atención: El monto pagado (${monto_pagado:,.2f}) no corresponde con el precio ruta (${monto_esperado:,.2f}). Se usará el monto ingresado.', 'warning')
-                        
-                else:  # perfil_cliente == 'Mercado' o cualquier otro
-                    # Obtener precio mercado del producto
-                    cursor.execute("SELECT Precio_Mercado FROM productos WHERE ID_Producto = %s", (id_producto,))
-                    precio_data = cursor.fetchone()
-                    precio_unitario = float(precio_data['Precio_Mercado']) if precio_data and precio_data['Precio_Mercado'] else 0
-                    
-                    if precio_unitario <= 0:
-                        flash('El producto no tiene precio mercado configurado', 'error')
-                        return redirect(url_for('admin.admin_anticipo_nuevo'))
-                    
-                    # Verificar que el monto corresponda
-                    monto_esperado = cantidad_cajas * precio_unitario
-                    if abs(monto_pagado - monto_esperado) > 0.01:
-                        flash(f'⚠️ Atención: El monto pagado (${monto_pagado:,.2f}) no corresponde con el precio mercado (${monto_esperado:,.2f}). Se usará el monto ingresado.', 'warning')
+                    except ValueError:
+                        pass
+                
+                if precio_unitario <= 0:
+                    precio_unitario = monto_pagado / cantidad_cajas
+                
+                # Validar que el precio sea positivo
+                if precio_unitario <= 0:
+                    flash('El precio por caja debe ser mayor a 0', 'error')
+                    return redirect(url_for('admin.admin_anticipo_nuevo'))
+                
+                flash(f'💰 Precio establecido: C${precio_unitario:.2f} por caja', 'info')
                 
                 # Calcular saldo restante
                 saldo_restante = monto_pagado
@@ -217,7 +165,7 @@ def admin_anticipo_nuevo():
                     WHERE ID_Cliente = %s
                 """, (cantidad_cajas, monto_pagado, id_producto, id_cliente))
                 
-                flash(f'✅ Anticipo registrado exitosamente. ID: {id_anticipo} - Precio por caja: ${precio_unitario:.2f}', 'success')
+                flash(f'✅ Anticipo registrado exitosamente. ID: {id_anticipo} - Precio por caja: C${precio_unitario:.2f}', 'success')
                 return redirect(url_for('admin.admin_clientes_anticipos'))
                 
         except Exception as e:
@@ -340,20 +288,23 @@ def admin_anticipo_cancelar(id_anticipo):
                 WHERE ID_Anticipo = %s
             """, (motivo, id_anticipo))
             
-            # Calcular cajas no consumidas
+            # Calcular cajas no consumidas y valores a restar del cliente
             cajas_no_consumidas = anticipo['Cantidad_Cajas'] - anticipo['Cajas_Consumidas']
+            cajas_consumidas_a_restar = anticipo['Cajas_Consumidas']
+            saldo_a_restar = anticipo['Saldo_Restante']
             
-            # Actualizar datos del cliente (restar solo lo no consumido)
+            # Actualizar datos del cliente (restar saldo restante y ajustar acumulados del anticipo cancelado)
             cursor.execute("""
                 UPDATE clientes 
-                SET Limite_Anticipo_Cajas = COALESCE(Limite_Anticipo_Cajas, 0) - %s,
+                SET Limite_Anticipo_Cajas = GREATEST(0, COALESCE(Limite_Anticipo_Cajas, 0) - %s),
+                    Cajas_Consumidas_Anticipo = GREATEST(0, COALESCE(Cajas_Consumidas_Anticipo, 0) - %s),
                     Saldo_Anticipos = COALESCE(Saldo_Anticipos, 0) - %s,
                     Anticipo_Activo = CASE 
                         WHEN (COALESCE(Limite_Anticipo_Cajas, 0) - %s) <= 0 THEN 0 
-                        ELSE 1 
+                        ELSE Anticipo_Activo 
                     END
                 WHERE ID_Cliente = %s
-            """, (cajas_no_consumidas, anticipo['Monto_Pagado'], 
+            """, (cajas_no_consumidas, cajas_consumidas_a_restar, saldo_a_restar, 
                   cajas_no_consumidas, anticipo['ID_Cliente']))
             
             flash('Anticipo cancelado exitosamente', 'success')

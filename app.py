@@ -51,7 +51,8 @@ def create_app():
     
     # ===== EXTENSIONES =====
     CORS(app)
-    Session(app)
+    if app.config['SESSION_TYPE'] is not None:
+        Session(app)
     
     # Resolver la IP real del cliente detrás de proxies inversos (como Railway/Render)
     app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_port=1, x_prefix=1)

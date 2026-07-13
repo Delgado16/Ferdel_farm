@@ -394,7 +394,7 @@
                         data-id="{{ venta.ID_Factura }}"
                         data-fecha="{{ venta.Fecha.strftime('%Y-%m-%d') if venta.Fecha else '' }}"
                         data-estado="{{ venta.Estado_Formateado }}"
-                        data-tipo="{% if venta.Credito_Contado == 0 %}CONTADO{% else %}CREDITO{% endif %}">
+                        data-tipo="{% if venta.Credito_Contado == 0 %}CONTADO{% elif venta.Credito_Contado == 2 %}REPARTO{% else %}CREDITO{% endif %}">
                         <td class="fw-bold">
                             <span class="badge bg-secondary">#{{ venta.ID_Factura }}</span>
                         </td>
@@ -421,6 +421,10 @@
                             {% if venta.Credito_Contado == 0 %}
                             <span class="badge bg-success">
                                 <i class="bi bi-cash-stack me-1"></i> CONTADO
+                            </span>
+                            {% elif venta.Credito_Contado == 2 %}
+                            <span class="badge bg-info text-white">
+                                <i class="bi bi-truck me-1"></i> EN REPARTO
                             </span>
                             {% else %}
                             <span class="badge bg-warning text-dark">
@@ -460,6 +464,13 @@
                         </td>
                         <td class="text-center">
                             <div class="btn-group btn-group-sm" role="group">
+                                {% if venta.Credito_Contado == 2 and venta.Estado_Formateado == 'ACTIVA' %}
+                                <a href="{{ url_for('admin.admin_confirmar_entrega', id_factura=venta.ID_Factura) }}"
+                                    class="btn btn-warning text-dark" title="Confirmar entrega / Liquidar">
+                                    <i class="bi bi-truck"></i>
+                                    <span class="d-none d-md-inline ms-1">Liquidar</span>
+                                </a>
+                                {% endif %}
                                 <a href="{{ url_for('admin.admin_generar_ticket', id_factura=venta.ID_Factura) }}"
                                     class="btn btn-outline-info" title="Ver ticket">
                                     <i class="bi bi-receipt"></i>
@@ -501,7 +512,7 @@
                         </td>
                         <td colspan="3" class="text-end">
                             <small class="text-muted">
-                                <span id="contadoCount">0</span> contado / <span id="creditoCount">0</span> crédito
+                                <span id="contadoCount">0</span> contado / <span id="creditoCount">0</span> crédito / <span id="repartoCount">0</span> en reparto
                             </small>
                         </td>
                     </tr>
@@ -812,6 +823,7 @@
         let totalMontoVisible = 0;
         let contadoCount = 0;
         let creditoCount = 0;
+        let repartoCount = 0;
 
         rows.forEach(row => {
             let show = true;
@@ -863,6 +875,7 @@
                     const tipoTexto = tipoBadge.textContent;
                     if (tipoTexto.includes('CONTADO')) contadoCount++;
                     else if (tipoTexto.includes('CRÉDITO')) creditoCount++;
+                    else if (tipoTexto.includes('REPARTO')) repartoCount++;
                 }
             }
         });
@@ -873,6 +886,7 @@
         document.getElementById('totalMontoVisible').innerHTML = formatearMoneda(totalMontoVisible);
         document.getElementById('contadoCount').textContent = contadoCount;
         document.getElementById('creditoCount').textContent = creditoCount;
+        document.getElementById('repartoCount').textContent = repartoCount;
 
         const totalVentasSpan = document.getElementById('totalVentasCount');
         if (totalVentasSpan) totalVentasSpan.textContent = visibleCount;

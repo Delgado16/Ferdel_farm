@@ -329,12 +329,17 @@
                                 <label class="btn btn-outline-warning" for="credito">
                                     <i class="fas fa-credit-card me-1"></i> Crédito
                                 </label>
+                                <input type="radio" class="btn-check" name="tipo_venta" id="reparto" value="reparto">
+                                <label class="btn btn-outline-info" for="reparto">
+                                    <i class="fas fa-truck me-1"></i> En Reparto
+                                </label>
                             </div>
                             <div class="form-text">
                                 <small>
                                     <i class="fas fa-info-circle me-1"></i>
                                     <span id="tipoContadoInfo">Pago inmediato, se registra entrada en caja</span>
                                     <span id="tipoCreditoInfo" class="d-none">Pago diferido, se crea cuenta por cobrar (30 días)</span>
+                                    <span id="tipoRepartoInfo" class="d-none">Venta en reparto: no afecta caja ni genera deuda de inmediato. Se liquidará al retorno del repartidor.</span>
                                 </small>
                             </div>
                         </div>
@@ -467,15 +472,20 @@
         // Cambiar información según tipo de venta seleccionado
         const tipoContadoInfo = document.getElementById('tipoContadoInfo');
         const tipoCreditoInfo = document.getElementById('tipoCreditoInfo');
+        const tipoRepartoInfo = document.getElementById('tipoRepartoInfo');
         
         document.querySelectorAll('input[name="tipo_venta"]').forEach(function(radio) {
             radio.addEventListener('change', function() {
+                tipoContadoInfo.classList.add('d-none');
+                tipoCreditoInfo.classList.add('d-none');
+                tipoRepartoInfo.classList.add('d-none');
+                
                 if (this.value === 'contado') {
                     tipoContadoInfo.classList.remove('d-none');
-                    tipoCreditoInfo.classList.add('d-none');
-                } else {
-                    tipoContadoInfo.classList.add('d-none');
+                } else if (this.value === 'credito') {
                     tipoCreditoInfo.classList.remove('d-none');
+                } else if (this.value === 'reparto') {
+                    tipoRepartoInfo.classList.remove('d-none');
                 }
             });
         });
@@ -489,7 +499,9 @@
                 e.preventDefault();
                 
                 const tipoVenta = document.querySelector('input[name="tipo_venta"]:checked').value;
-                const tipoVentaTexto = tipoVenta === 'contado' ? 'CONTADO' : 'CRÉDITO';
+                let tipoVentaTexto = 'CONTADO';
+                if (tipoVenta === 'credito') tipoVentaTexto = 'CRÉDITO';
+                else if (tipoVenta === 'reparto') tipoVentaTexto = 'EN REPARTO';
                 
                 // Obtener información del perfil para mostrar en confirmación
                 const perfilInfo = document.querySelector('.alert-info, .alert-primary, .alert-success, .alert-warning, .alert-secondary')?.querySelector('strong')?.textContent || 'desconocido';
