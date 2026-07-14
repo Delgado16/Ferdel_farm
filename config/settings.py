@@ -12,7 +12,7 @@ os.environ['TZ'] = 'America/Managua'
 if hasattr(time, 'tzset'):
     time.tzset()
 
-load_dotenv()
+load_dotenv(override=True)
 
 # ===== VARIABLES DE ENTORNO =====
 DEBUG = os.environ.get('DEBUG', 'False') == 'True'

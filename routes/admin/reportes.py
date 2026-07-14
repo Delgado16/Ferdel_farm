@@ -1298,7 +1298,7 @@ def reporte_rotacion_productos():
 @report_handler('reporte_consolidado_carga_ventas')
 def reporte_consolidado_carga_ventas():
     """Reporte consolidado de carga en camiones vs vendido por facturas en ruta"""
-    fecha_inicio, fecha_fin = get_date_filters(default_monthly=True)
+    fecha_inicio, fecha_fin = get_date_filters(default_monthly=False)
     vendedor_id = request.args.get('vendedor_id', '')
     categoria_id = request.args.get('categoria_id', '')
     
@@ -1352,6 +1352,7 @@ def reporte_consolidado_carga_ventas():
         params_carga = [fecha_inicio, fecha_fin, vendedor_id]
         params_venta = [fecha_inicio, fecha_fin, vendedor_id]
         params_devolucion = [fecha_inicio, fecha_fin, vendedor_id]
+        params_merma = [fecha_inicio, fecha_fin, vendedor_id]
         params_stock = [fecha_inicio, fecha_fin, vendedor_id]
         
         query = """
@@ -1363,10 +1364,12 @@ def reporte_consolidado_carga_ventas():
                 COALESCE(carga.Total_Cargado, 0.00) AS Total_Cargado,
                 COALESCE(venta.Total_Vendido, 0.00) AS Total_Vendido,
                 COALESCE(devolucion.Total_Devuelto, 0.00) AS Total_Devuelto,
+                COALESCE(merma.Total_Mermado, 0.00) AS Total_Mermado,
                 COALESCE(stock.Stock_Camion, 0.00) AS Stock_Camion,
                 (COALESCE(carga.Total_Cargado, 0.00) 
                  - COALESCE(venta.Total_Vendido, 0.00) 
                  - COALESCE(devolucion.Total_Devuelto, 0.00) 
+                 - COALESCE(merma.Total_Mermado, 0.00) 
                  - COALESCE(stock.Stock_Camion, 0.00)) AS Diferencia
             FROM productos p
             JOIN categorias_producto cp ON p.ID_Categoria = cp.ID_Categoria
@@ -1414,6 +1417,20 @@ def reporte_consolidado_carga_ventas():
             ) devolucion ON p.ID_Producto = devolucion.ID_Producto
             LEFT JOIN (
                 SELECT 
+                    mrd.ID_Producto,
+                    SUM(mrd.Cantidad) AS Total_Mermado
+                FROM movimientos_ruta_cabecera mrc
+                JOIN movimientos_ruta_detalle mrd ON mrc.ID_Movimiento = mrd.ID_Movimiento
+                JOIN asignacion_vendedores av ON mrc.ID_Asignacion = av.ID_Asignacion
+                WHERE mrc.Estado = 'ACTIVO'
+                  AND mrc.ID_TipoMovimiento = 7 -- Merma Ruta
+                  AND av.Fecha_Asignacion BETWEEN %s AND %s
+                  AND av.Estado IN ('Activa', 'Finalizada')
+                  AND av.ID_Usuario = %s
+                GROUP BY mrd.ID_Producto
+            ) merma ON p.ID_Producto = merma.ID_Producto
+            LEFT JOIN (
+                SELECT 
                     ir.ID_Producto,
                     SUM(ir.Cantidad) AS Stock_Camion
                 FROM inventario_ruta ir
@@ -1423,10 +1440,10 @@ def reporte_consolidado_carga_ventas():
                   AND av.ID_Usuario = %s
                 GROUP BY ir.ID_Producto
             ) stock ON p.ID_Producto = stock.ID_Producto
-            WHERE (carga.Total_Cargado > 0 OR venta.Total_Vendido > 0 OR devolucion.Total_Devuelto > 0 OR stock.Stock_Camion > 0)
+            WHERE (carga.Total_Cargado > 0 OR venta.Total_Vendido > 0 OR devolucion.Total_Devuelto > 0 OR merma.Total_Mermado > 0 OR stock.Stock_Camion > 0)
         """
         
-        params = params_carga + params_venta + params_devolucion + params_stock
+        params = params_carga + params_venta + params_devolucion + params_merma + params_stock
         
         if categoria_id:
             query += " AND p.ID_Categoria = %s"
@@ -1612,10 +1629,45 @@ def reporte_consolidado_carga_ventas_detalle():
                 if 'Cantidad' in d and d['Cantidad'] is not None:
                     d['Cantidad'] = float(d['Cantidad'])
                     
+            # 4. Cargar detalles de Mermas
+            params_merma = [producto_id, fecha_inicio, fecha_fin]
+            if vendedor_id:
+                params_merma.append(vendedor_id)
+                
+            query_mermas = f"""
+                SELECT 
+                    mrc.ID_Movimiento AS Movimiento_ID,
+                    DATE_FORMAT(mrc.Fecha_Movimiento, '%%Y-%%m-%%d') AS Fecha,
+                    u.NombreUsuario AS Vendedor,
+                    r.Nombre_Ruta AS Ruta,
+                    mrd.Cantidad,
+                    mrc.Documento_Numero AS Observaciones
+                FROM movimientos_ruta_detalle mrd
+                JOIN movimientos_ruta_cabecera mrc ON mrd.ID_Movimiento = mrc.ID_Movimiento
+                JOIN asignacion_vendedores av ON mrc.ID_Asignacion = av.ID_Asignacion
+                JOIN usuarios u ON av.ID_Usuario = u.ID_Usuario
+                JOIN rutas r ON av.ID_Ruta = r.ID_Ruta
+                WHERE mrd.ID_Producto = %s
+                  AND mrc.Estado = 'ACTIVO'
+                  AND mrc.ID_TipoMovimiento = 7 -- Merma
+                  AND av.Fecha_Asignacion BETWEEN %s AND %s
+                  AND av.Estado IN ('Activa', 'Finalizada')
+                  {filter_vendedor}
+                ORDER BY mrc.Fecha_Movimiento DESC
+            """
+            cursor.execute(query_mermas, params_merma)
+            mermas = cursor.fetchall()
+            
+            # Formatear Decimales para mermas
+            for m in mermas:
+                if 'Cantidad' in m and m['Cantidad'] is not None:
+                    m['Cantidad'] = float(m['Cantidad'])
+                    
             return jsonify({
                 'cargas': cargas,
                 'ventas': ventas,
-                'devoluciones': devoluciones
+                'devoluciones': devoluciones,
+                'mermas': mermas
             })
     except Exception as e:
         return jsonify({'error': str(e)}), 500

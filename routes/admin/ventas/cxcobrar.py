@@ -1001,6 +1001,11 @@ def admin_crear_abono():
 
                 nombre_metodo = metodo['Nombre']
 
+                # Obtener nombre del cliente para registrarlo en el concepto de caja
+                cursor.execute("SELECT Nombre FROM clientes WHERE ID_Cliente = %s", (int(id_cliente),))
+                cliente_row = cursor.fetchone()
+                nombre_cliente = cliente_row['Nombre'] if cliente_row else f"ID {id_cliente}"
+
                 # Facturas pendientes
                 cursor.execute("""
                 SELECT ID_Movimiento, Num_Documento, Saldo_Pendiente,
@@ -1021,6 +1026,8 @@ def admin_crear_abono():
                 if not facturas:
                     return jsonify({'success': False, 'error': 'No hay facturas pendientes para este cliente'}), 400
             
+                caja_mov_ref = "SIN_CAJA"
+                id_movimiento_caja = None
                 if id_metodo_pago == 1:
                     cursor.execute("""
                     SELECT COALESCE(SUM(CASE
@@ -1036,7 +1043,7 @@ def admin_crear_abono():
                     saldo_actual = float(saldo_actual_caja['Saldo_Actual'] if saldo_actual_caja else 0)
                     nuevo_saldo = saldo_actual + monto_aplicado
 
-                    concepto_caja = f"Abono de Cliente - {nombre_metodo} - Monto: C${monto_aplicado:.2f}"
+                    concepto_caja = f"Abono de Cliente: {nombre_cliente} - {nombre_metodo} - Monto: C${monto_aplicado:.2f}"
 
                     cursor.execute("""
                     INSERT INTO caja_movimientos 
@@ -1046,7 +1053,7 @@ def admin_crear_abono():
                         concepto_caja,
                         monto_aplicado,
                         id_usuario,
-                        f"Abono Cxc Cliente {id_cliente}"
+                        f"Abono Cxc - {nombre_cliente}"
                     ))
 
                     id_movimiento_caja = cursor.lastrowid

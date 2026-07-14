@@ -116,7 +116,7 @@ def close_db(exception=None):
                 print("🔒 Conexión a BD cerrada")
             else:
                 print("ℹ️ Conexión ya estaba cerrada")
-        except Error as e:
+        except Exception as e:
             print(f"❌ Error al cerrar conexión: {e}")
 
 

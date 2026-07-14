@@ -2,7 +2,14 @@
 Archivo principal de la aplicación Flask
 Inicializa la app, configura middleware, y registra blueprints
 """
+import os
+import time
 import sys
+
+# Configurar zona horaria del proceso (Nicaragua UTC-6)
+os.environ['TZ'] = 'America/Managua'
+if hasattr(time, 'tzset'):
+    time.tzset()
 
 # Configurar encoding a UTF-8 para evitar errores de codificación con emojis en Windows
 if sys.platform.startswith('win'):

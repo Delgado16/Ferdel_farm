@@ -155,6 +155,7 @@
 {% set total_cargado = resultados|sum(attribute='Total_Cargado')|default(0)|float %}
 {% set total_vendido = resultados|sum(attribute='Total_Vendido')|default(0)|float %}
 {% set total_devuelto = resultados|sum(attribute='Total_Devuelto')|default(0)|float %}
+{% set total_mermado = resultados|sum(attribute='Total_Mermado')|default(0)|float %}
 {% set total_stock = resultados|sum(attribute='Stock_Camion')|default(0)|float %}
 {% set total_diferencia = resultados|sum(attribute='Diferencia')|default(0)|float %}
 
@@ -167,7 +168,7 @@
 {% endfor %}
 
 <div class="row mb-4">
-    <div class="col-md-3 mb-3">
+    <div class="col-md-2 mb-3">
         <div class="card bg-primary text-white shadow-sm h-100">
             <div class="card-body d-flex flex-column justify-content-between">
                 <div>
@@ -180,7 +181,7 @@
             </div>
         </div>
     </div>
-    <div class="col-md-3 mb-3">
+    <div class="col-md-2 mb-3">
         <div class="card bg-success text-white shadow-sm h-100">
             <div class="card-body d-flex flex-column justify-content-between">
                 <div>
@@ -202,6 +203,19 @@
                 </div>
                 <div class="mt-3 text-dark-50" style="font-size: 0.85rem;">
                     <i class="bi bi-arrow-return-left"></i> Retornado a bodega
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-2 mb-3">
+        <div class="card bg-danger text-white shadow-sm h-100" style="background-color: #ef4444 !important;">
+            <div class="card-body d-flex flex-column justify-content-between">
+                <div>
+                    <h6 class="card-subtitle mb-2 text-white-50 text-uppercase" style="font-size: 0.75rem; letter-spacing: 0.05em;">Mermas</h6>
+                    <h3 class="card-title mb-0 fw-bold text-white">{{ "{:,.0f}".format(total_mermado) }} Cajas</h3>
+                </div>
+                <div class="mt-3 text-white-50" style="font-size: 0.85rem;">
+                    <i class="bi bi-trash"></i> Descartado en ruta
                 </div>
             </div>
         </div>
@@ -269,6 +283,7 @@
                         <th class="text-center py-3 text-primary">Cargado</th>
                         <th class="text-center py-3 text-success">Vendido</th>
                         <th class="text-center py-3 text-warning">Devuelto</th>
+                        <th class="text-center py-3 text-danger">Mermado</th>
                         <th class="text-center py-3 text-info">Stock Camión</th>
                         <th class="text-center py-3">Diferencia</th>
                         <th class="text-center py-3">Estado</th>
@@ -284,6 +299,7 @@
                         <td class="text-center fw-bold text-primary">{{ "%.0f"|format(item.Total_Cargado) }}</td>
                         <td class="text-center fw-bold text-success">{{ "%.0f"|format(item.Total_Vendido) }}</td>
                         <td class="text-center fw-bold text-warning">{{ "%.0f"|format(item.Total_Devuelto) }}</td>
+                        <td class="text-center fw-bold text-danger">{{ "%.0f"|format(item.Total_Mermado) }}</td>
                         <td class="text-center fw-bold text-info">{{ "%.0f"|format(item.Stock_Camion) }}</td>
                         <td class="text-center fw-bold {% if item.Diferencia|float == 0 %}text-success{% else %}text-danger{% endif %}">
                             {{ "%.0f"|format(item.Diferencia) }}
@@ -305,7 +321,7 @@
                     </tr>
                     {% else %}
                     <tr>
-                        <td colspan="10" class="text-center text-muted py-4">
+                        <td colspan="11" class="text-center text-muted py-4">
                             <i class="bi bi-inbox fs-1"></i><br>
                             No se encontraron datos de productos en la ruta para el período seleccionado.
                         </td>
@@ -319,6 +335,7 @@
                         <td class="text-center text-primary">{{ "%.0f"|format(total_cargado) }}</td>
                         <td class="text-center text-success">{{ "%.0f"|format(total_vendido) }}</td>
                         <td class="text-center text-warning">{{ "%.0f"|format(total_devuelto) }}</td>
+                        <td class="text-center text-danger">{{ "%.0f"|format(total_mermado) }}</td>
                         <td class="text-center text-info">{{ "%.0f"|format(total_stock) }}</td>
                         <td class="text-center {% if total_diferencia == 0 %}text-success{% else %}text-danger{% endif %}">
                             {{ "%.0f"|format(total_diferencia) }}
@@ -470,6 +487,11 @@
                             <i class="bi bi-arrow-return-left me-2 text-warning"></i>Devoluciones Bodega (<span id="countDevoluciones" class="badge bg-warning text-dark">0</span>)
                         </button>
                     </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link fw-bold px-4 py-2.5" id="mermas-tab" data-bs-toggle="tab" data-bs-target="#modalMermas" type="button" role="tab" aria-controls="modalMermas" aria-selected="false" style="border: none; border-bottom: 3px solid transparent; transition: all 0.2s;">
+                            <i class="bi bi-trash me-2 text-danger"></i>Mermas en Ruta (<span id="countMermas" class="badge bg-danger">0</span>)
+                        </button>
+                    </li>
                 </ul>
                 
                 <!-- Tab panes -->
@@ -535,6 +557,26 @@
                             </table>
                         </div>
                     </div>
+
+                    <!-- Tab Mermas -->
+                    <div class="tab-pane fade" id="modalMermas" role="tabpanel" aria-labelledby="mermas-tab">
+                        <div class="table-responsive">
+                            <table class="table table-hover align-middle mb-0 border">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th class="py-2.5">Fecha</th>
+                                        <th class="py-2.5">Vendedor</th>
+                                        <th class="py-2.5">Ruta</th>
+                                        <th class="py-2.5">Documento / Observación</th>
+                                        <th class="text-center py-2.5 text-danger">Cantidad (Cajas)</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tableMermasBody">
+                                    <!-- Dinámico -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
                 </div>
             </div>
             <div class="modal-footer bg-light">
@@ -557,6 +599,7 @@
             cargado: {{ item.Total_Cargado|float }},
             vendido: {{ item.Total_Vendido|float }},
             devuelto: {{ item.Total_Devuelto|float }},
+            mermado: {{ item.Total_Mermado|float }},
             stock: {{ item.Stock_Camion|float }}
         },
         {% endfor %}
@@ -589,6 +632,14 @@
                     data: chartData.map(d => d.devuelto),
                     backgroundColor: 'rgba(245, 158, 11, 0.85)',
                     borderColor: 'rgb(245, 158, 11)',
+                    borderWidth: 1,
+                    borderRadius: 4
+                },
+                {
+                    label: 'Mermado (Ruta)',
+                    data: chartData.map(d => d.mermado),
+                    backgroundColor: 'rgba(239, 68, 68, 0.85)',
+                    borderColor: 'rgb(239, 68, 68)',
                     borderWidth: 1,
                     borderRadius: 4
                 },
@@ -655,10 +706,12 @@
         document.getElementById('tableCargasBody').innerHTML = '<tr><td colspan="5" class="text-center py-4"><div class="spinner-border text-primary" role="status"></div><br><span class="mt-2 d-block text-muted">Obteniendo cargas...</span></td></tr>';
         document.getElementById('tableVentasBody').innerHTML = '<tr><td colspan="7" class="text-center py-4"><div class="spinner-border text-success" role="status"></div><br><span class="mt-2 d-block text-muted">Obteniendo facturas...</span></td></tr>';
         document.getElementById('tableDevolucionesBody').innerHTML = '<tr><td colspan="5" class="text-center py-4"><div class="spinner-border text-warning" role="status"></div><br><span class="mt-2 d-block text-muted">Obteniendo devoluciones...</span></td></tr>';
+        document.getElementById('tableMermasBody').innerHTML = '<tr><td colspan="5" class="text-center py-4"><div class="spinner-border text-danger" role="status"></div><br><span class="mt-2 d-block text-muted">Obteniendo mermas...</span></td></tr>';
         
         document.getElementById('countCargas').innerText = '0';
         document.getElementById('countVentas').innerText = '0';
         document.getElementById('countDevoluciones').innerText = '0';
+        document.getElementById('countMermas').innerText = '0';
         
         // Abrir Modal
         const modalEl = document.getElementById('detalleModal');
@@ -740,12 +793,34 @@
                     });
                 }
                 document.getElementById('tableDevolucionesBody').innerHTML = htmlDevoluciones;
+
+                // 4. Mermas
+                const mermas = data.mermas || [];
+                document.getElementById('countMermas').innerText = mermas.length;
+                let htmlMermas = '';
+                if (mermas.length === 0) {
+                    htmlMermas = '<tr><td colspan="5" class="text-center text-muted py-4"><i class="bi bi-inbox fs-4"></i><br>No se registraron mermas para este producto.</td></tr>';
+                } else {
+                    mermas.forEach(m => {
+                        htmlMermas += `
+                            <tr>
+                                <td>${m.Fecha}</td>
+                                <td>${m.Vendedor}</td>
+                                <td><span class="badge bg-light text-dark border">${m.Ruta}</span></td>
+                                <td><code>${m.Observaciones || '-'}</code></td>
+                                <td class="text-center fw-bold text-danger">${m.Cantidad.toFixed(0)}</td>
+                            </tr>
+                        `;
+                    });
+                }
+                document.getElementById('tableMermasBody').innerHTML = htmlMermas;
             })
             .catch(err => {
                 console.error(err);
                 document.getElementById('tableCargasBody').innerHTML = '<tr><td colspan="5" class="text-center text-danger py-4">Error al cargar datos.</td></tr>';
                 document.getElementById('tableVentasBody').innerHTML = '<tr><td colspan="7" class="text-center text-danger py-4">Error al cargar datos.</td></tr>';
                 document.getElementById('tableDevolucionesBody').innerHTML = '<tr><td colspan="5" class="text-center text-danger py-4">Error al cargar datos.</td></tr>';
+                document.getElementById('tableMermasBody').innerHTML = '<tr><td colspan="5" class="text-center text-danger py-4">Error al cargar datos.</td></tr>';
             });
     }
 </script>
