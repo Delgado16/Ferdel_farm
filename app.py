@@ -5,11 +5,53 @@ Inicializa la app, configura middleware, y registra blueprints
 import os
 import time
 import sys
+import datetime
 
-# Configurar zona horaria del proceso (Nicaragua UTC-6)
+# ===== CONFIGURAR PARCHE DE ZONA HORARIA GLOBAL (Nicaragua UTC-6) =====
+if not hasattr(datetime, '__patched__'):
+    from zoneinfo import ZoneInfo
+    _original_datetime = datetime.datetime
+    _original_date = datetime.date
+
+    class SafeDatetime(_original_datetime):
+        @classmethod
+        def now(cls, tz=None):
+            if tz is None:
+                try:
+                    dt = _original_datetime.now(ZoneInfo('America/Managua')).replace(tzinfo=None)
+                except Exception:
+                    dt = _original_datetime.now()
+            else:
+                dt = _original_datetime.now(tz)
+            return cls(dt.year, dt.month, dt.day, dt.hour, dt.minute, dt.second, dt.microsecond, dt.tzinfo)
+        
+        @classmethod
+        def utcnow(cls):
+            try:
+                dt = _original_datetime.now(ZoneInfo('UTC')).replace(tzinfo=None)
+            except Exception:
+                dt = _original_datetime.utcnow()
+            return cls(dt.year, dt.month, dt.day, dt.hour, dt.minute, dt.second, dt.microsecond, dt.tzinfo)
+
+    class SafeDate(_original_date):
+        @classmethod
+        def today(cls):
+            try:
+                dt = _original_datetime.now(ZoneInfo('America/Managua'))
+                return cls(dt.year, dt.month, dt.day)
+            except Exception:
+                d = _original_date.today()
+                return cls(d.year, d.month, d.day)
+
+    datetime.datetime = SafeDatetime
+    datetime.date = SafeDate
+    datetime.__patched__ = True
+
+# También configurar a nivel de sistema operativo
 os.environ['TZ'] = 'America/Managua'
 if hasattr(time, 'tzset'):
     time.tzset()
+
 
 # Configurar encoding a UTF-8 para evitar errores de codificación con emojis en Windows
 if sys.platform.startswith('win'):
@@ -127,7 +169,9 @@ def create_app():
         return render_template('errors/500.html'), 500
     
     # ===== MENSAJES DE INICIALIZACIÓN =====
+    from datetime import datetime
     print("📋 Configuración de aplicación:")
+    print(f"   Hora local del servidor: {datetime.now()}")
     print(f"   Secret Key: {'✅ Configurado' if SECRET_KEY else '❌ No configurado'}")
     print(f"   CORS: ✅ Habilitado")
     print(f"   Autenticación: ✅ Flask-Login configurado")

@@ -7,10 +7,52 @@ from dotenv import load_dotenv
 from datetime import timedelta
 import urllib.parse
 
-# ===== CONFIGURAR ZONA HORARIA DEL PROCESO (Nicaragua UTC-6) =====
+# ===== CONFIGURAR PARCHE DE ZONA HORARIA GLOBAL (Nicaragua UTC-6) =====
+import datetime
+if not hasattr(datetime, '__patched__'):
+    from zoneinfo import ZoneInfo
+    _original_datetime = datetime.datetime
+    _original_date = datetime.date
+
+    class SafeDatetime(_original_datetime):
+        @classmethod
+        def now(cls, tz=None):
+            if tz is None:
+                try:
+                    dt = _original_datetime.now(ZoneInfo('America/Managua')).replace(tzinfo=None)
+                except Exception:
+                    dt = _original_datetime.now()
+            else:
+                dt = _original_datetime.now(tz)
+            return cls(dt.year, dt.month, dt.day, dt.hour, dt.minute, dt.second, dt.microsecond, dt.tzinfo)
+        
+        @classmethod
+        def utcnow(cls):
+            try:
+                dt = _original_datetime.now(ZoneInfo('UTC')).replace(tzinfo=None)
+            except Exception:
+                dt = _original_datetime.utcnow()
+            return cls(dt.year, dt.month, dt.day, dt.hour, dt.minute, dt.second, dt.microsecond, dt.tzinfo)
+
+    class SafeDate(_original_date):
+        @classmethod
+        def today(cls):
+            try:
+                dt = _original_datetime.now(ZoneInfo('America/Managua'))
+                return cls(dt.year, dt.month, dt.day)
+            except Exception:
+                d = _original_date.today()
+                return cls(d.year, d.month, d.day)
+
+    datetime.datetime = SafeDatetime
+    datetime.date = SafeDate
+    datetime.__patched__ = True
+
+# También configurar a nivel de sistema operativo
 os.environ['TZ'] = 'America/Managua'
 if hasattr(time, 'tzset'):
     time.tzset()
+
 
 load_dotenv(override=True)
 
