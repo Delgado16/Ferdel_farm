@@ -1,78 +1,185 @@
 {% extends "layout.html" %}
 
-{% block title %}Cargas Pendientes de Recepción{% endblock %}
+{% block title %}Cargas Pendientes de Recepción - FerDel{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<style>
+    .page-header-box {
+        background: #ffffff;
+        border-radius: 16px;
+        padding: 1.5rem 2rem;
+        margin-bottom: 2rem;
+        border: 1px solid rgba(226, 232, 240, 0.8);
+        box-shadow: 0 4px 15px -3px rgba(0, 0, 0, 0.03);
+    }
+
+    .card-custom-section {
+        background: #ffffff;
+        border-radius: 16px;
+        border: 1px solid rgba(226, 232, 240, 0.8);
+        box-shadow: 0 4px 12px -2px rgba(15, 23, 42, 0.03);
+        margin-bottom: 2rem;
+        overflow: hidden;
+    }
+
+    .card-header-warning {
+        background: #fffbeb;
+        border-bottom: 1px solid #fef3c7;
+        padding: 1.25rem 1.5rem;
+    }
+
+    .card-header-secondary {
+        background: #f8fafc;
+        border-bottom: 1px solid #e2e8f0;
+        padding: 1.25rem 1.5rem;
+    }
+
+    .table-modern th {
+        font-weight: 700;
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        background-color: #f8fafc;
+        color: #475569;
+        padding: 0.85rem 1rem;
+        border-bottom: 2px solid #e2e8f0;
+    }
+
+    .table-modern td {
+        vertical-align: middle;
+        padding: 0.85rem 1rem;
+        color: #334155;
+    }
+
+    .badge-wait-urgent {
+        background-color: #fee2e2;
+        color: #dc2626;
+        border: 1px solid #fca5a5;
+        border-radius: 20px;
+        padding: 0.35rem 0.75rem;
+        font-weight: 700;
+        font-size: 0.75rem;
+    }
+
+    .badge-wait-warning {
+        background-color: #fef3c7;
+        color: #d97706;
+        border: 1px solid #fcd34d;
+        border-radius: 20px;
+        padding: 0.35rem 0.75rem;
+        font-weight: 700;
+        font-size: 0.75rem;
+    }
+
+    .badge-wait-ok {
+        background-color: #dcfce7;
+        color: #15803d;
+        border: 1px solid #86efac;
+        border-radius: 20px;
+        padding: 0.35rem 0.75rem;
+        font-weight: 700;
+        font-size: 0.75rem;
+    }
+
+    .empty-state-card {
+        text-align: center;
+        padding: 3.5rem 1rem;
+        color: #94a3b8;
+    }
+
+    .empty-state-card i {
+        font-size: 3.5rem;
+        margin-bottom: 1rem;
+        opacity: 0.4;
+    }
+</style>
+{% endblock %}
 
 {% block content %}
-<div class="container-fluid mt-3">
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <h2>
-            <i class="fas fa-clipboard-list text-primary me-2"></i>
-            Recepción de Cargas
-        </h2>
-        <a href="{{ url_for('bodega.bodega_dashboard') }}" class="btn btn-outline-secondary">
-            <i class="fas fa-arrow-left me-1"></i> Volver al Dashboard
-        </a>
+<div class="container-fluid py-3">
+
+    <!-- Encabezado Principal -->
+    <div class="page-header-box d-flex flex-wrap justify-content-between align-items-center gap-3">
+        <div>
+            <h3 class="fw-bold text-slate-800 mb-1">
+                <i class="fas fa-clipboard-check text-primary me-2"></i>Recepción de Cargas a Bodega
+            </h3>
+            <p class="text-muted small mb-0">Gestión de mercancías despachadas pendientes de verificación física e historial</p>
+        </div>
+        <div class="d-flex gap-2">
+            <a href="{{ url_for('bodega.bodega_dashboard') }}" class="btn btn-outline-secondary btn-sm px-3 py-2 rounded-3">
+                <i class="fas fa-arrow-left me-1"></i> Volver al Dashboard
+            </a>
+            <button type="button" class="btn btn-light btn-sm border px-3 py-2 rounded-3" onclick="window.location.reload()">
+                <i class="fas fa-sync-alt me-1"></i> Actualizar
+            </button>
+        </div>
     </div>
 
-    <!-- CARGAS PENDIENTES -->
-    <div class="card mb-4">
-        <div class="card-header bg-warning text-dark">
-            <h5 class="mb-0">
-                <i class="fas fa-clock me-2"></i>
-                Cargas Pendientes de Recepción
-                <span class="badge bg-dark ms-2">{{ cargas_pendientes|length }}</span>
-            </h5>
+    <!-- SECCIÓN 1: CARGAS PENDIENTES DE RECEPCIÓN -->
+    <div class="card-custom-section">
+        <div class="card-header-warning d-flex justify-content-between align-items-center">
+            <div class="d-flex align-items-center gap-2">
+                <i class="fas fa-exclamation-circle text-warning fs-5"></i>
+                <h5 class="fw-bold text-amber-900 mb-0">Cargas Pendientes de Recepción</h5>
+                <span class="badge bg-warning text-dark rounded-pill px-3 py-1">{{ cargas_pendientes|length }}</span>
+            </div>
         </div>
-        <div class="card-body">
+        <div class="card-body p-0">
             {% if cargas_pendientes %}
             <div class="table-responsive">
-                <table class="table table-hover">
-                    <thead class="table-light">
+                <table class="table table-hover table-modern align-middle mb-0">
+                    <thead>
                         <tr>
-                            <th>ID</th>
+                            <th style="width: 80px;">ID</th>
                             <th>Fecha Carga</th>
-                            <th>Factura</th>
+                            <th>Nº Factura / Doc</th>
                             <th>Proveedor</th>
-                            <th>Vendedor</th>
-                            <th>Productos</th>
-                            <th class="text-end">Cantidad</th>
-                            <th class="text-end">Monto</th>
-                            <th>Espera</th>
-                            <th>Acciones</th>
+                            <th>Registrado Por</th>
+                            <th class="text-center">Ítems</th>
+                            <th class="text-end">Cant. Total</th>
+                            <th class="text-end">Monto Estimado</th>
+                            <th class="text-center">Tiempo Espera</th>
+                            <th class="text-center" style="width: 180px;">Acción</th>
                         </tr>
                     </thead>
                     <tbody>
                         {% for carga in cargas_pendientes %}
-                        <tr class="{% if carga.dias_espera > 3 %}table-danger{% elif carga.dias_espera > 1 %}table-warning{% endif %}">
-                            <td class="fw-bold">#{{ carga.ID_Carga }}</td>
-                            <td>{{ carga.Fecha_Carga.strftime('%d/%m/%Y') }}</td>
+                        <tr>
+                            <td><strong class="text-primary">#{{ carga.ID_Carga }}</strong></td>
                             <td>
-                                <span class="badge bg-info">{{ carga.Num_Factura }}</span>
+                                <span class="fw-semibold"><i class="fas fa-calendar-alt text-muted me-1"></i>{{ carga.Fecha_Carga.strftime('%d/%m/%Y') if carga.Fecha_Carga else 'N/A' }}</span>
                             </td>
-                            <td>{{ carga.proveedor_nombre }}</td>
-                            <td>{{ carga.vendedor_nombre }}</td>
-                            <td class="text-center">{{ carga.total_productos }}</td>
-                            <td class="text-end">{{ "%.2f"|format(carga.total_cantidad) }}</td>
+                            <td>
+                                <span class="badge bg-light text-dark border font-monospace fs-6">{{ carga.Num_Factura }}</span>
+                            </td>
+                            <td><strong>{{ carga.proveedor_nombre or 'N/A' }}</strong></td>
+                            <td><small class="text-muted"><i class="fas fa-user me-1"></i>{{ carga.vendedor_nombre or 'Sistema' }}</small></td>
+                            <td class="text-center">
+                                <span class="badge bg-secondary rounded-pill">{{ carga.total_productos }}</span>
+                            </td>
+                            <td class="text-end fw-bold">{{ "%.2f"|format(carga.total_cantidad) }}</td>
                             <td class="text-end">
-                                <strong class="text-success">C$ {{ "%.2f"|format(carga.total_monto) }}</strong>
+                                <strong class="text-success fs-6">C$ {{ "%.2f"|format(carga.total_monto) }}</strong>
                             </td>
-                            <td>
+                            <td class="text-center">
                                 {% if carga.dias_espera == 0 %}
-                                <span class="badge bg-success">Hoy</span>
+                                    <span class="badge-wait-ok"><i class="fas fa-check me-1"></i>Hoy</span>
                                 {% elif carga.dias_espera <= 3 %}
-                                <span class="badge bg-warning">{{ carga.dias_espera }} días</span>
+                                    <span class="badge-wait-warning"><i class="fas fa-clock me-1"></i>{{ carga.dias_espera }} días</span>
                                 {% else %}
-                                <span class="badge bg-danger">{{ carga.dias_espera }} días</span>
+                                    <span class="badge-wait-urgent"><i class="fas fa-exclamation-triangle me-1"></i>{{ carga.dias_espera }} días</span>
                                 {% endif %}
                             </td>
-                            <td>
-                                <div class="btn-group btn-group-sm">
+                            <td class="text-center">
+                                <div class="btn-group btn-group-sm" role="group">
                                     <a href="{{ url_for('bodega.recibir_carga', id_carga=carga.ID_Carga) }}" 
-                                       class="btn btn-success">
-                                        <i class="fas fa-check-circle me-1"></i> Recibir
+                                       class="btn btn-success px-3 rounded-3" title="Ingresar Conteo Físico">
+                                        <i class="fas fa-box-open me-1"></i> Recibir
                                     </a>
                                     <a href="{{ url_for('bodega.carga_detalle', id_carga=carga.ID_Carga) }}" 
-                                       class="btn btn-info">
+                                       class="btn btn-outline-secondary rounded-3" title="Ver Detalle">
                                         <i class="fas fa-eye"></i>
                                     </a>
                                 </div>
@@ -82,75 +189,68 @@
                     </tbody>
                     <tfoot class="table-light">
                         <tr class="fw-bold">
-                            <td colspan="6" class="text-end">TOTALES:</td>
+                            <td colspan="6" class="text-end">TOTALES PENDIENTES:</td>
                             <td class="text-end">{{ "%.2f"|format(cargas_pendientes|sum(attribute='total_cantidad')) }}</td>
-                            <td class="text-end text-success">C$ {{ "%.2f"|format(cargas_pendientes|sum(attribute='total_monto')) }}</td>
+                            <td class="text-end text-success fs-6">C$ {{ "%.2f"|format(cargas_pendientes|sum(attribute='total_monto')) }}</td>
                             <td colspan="2"></td>
                         </tr>
                     </tfoot>
                 </table>
             </div>
             {% else %}
-            <div class="alert alert-success mb-0 text-center py-5">
-                <i class="fas fa-check-circle fa-4x mb-3 text-success"></i>
-                <h4>¡No hay cargas pendientes!</h4>
-                <p class="mb-0">Todas las cargas han sido recibidas correctamente.</p>
+            <div class="empty-state-card">
+                <i class="fas fa-check-circle text-success"></i>
+                <h5 class="fw-bold text-slate-800">¡Excelente! No hay cargas pendientes</h5>
+                <p class="text-muted small">Todas las mercancías despachadas han sido verificadas y recibidas en bodega.</p>
             </div>
             {% endif %}
         </div>
     </div>
 
-    <!-- HISTORIAL DE CARGAS RECIBIDAS -->
-    <div class="card">
-        <div class="card-header bg-secondary text-white">
-            <h5 class="mb-0">
-                <i class="fas fa-history me-2"></i>
-                Historial de Cargas Recibidas
-                <span class="badge bg-light text-dark ms-2">{{ cargas_recibidas|length }}</span>
-            </h5>
+    <!-- SECCIÓN 2: HISTORIAL DE CARGAS PROCESADAS -->
+    <div class="card-custom-section">
+        <div class="card-header-secondary d-flex justify-content-between align-items-center">
+            <div class="d-flex align-items-center gap-2">
+                <i class="fas fa-history text-slate-500 fs-5"></i>
+                <h5 class="fw-bold text-slate-800 mb-0">Historial de Cargas Procesadas</h5>
+                <span class="badge bg-light text-dark border rounded-pill">{{ cargas_recibidas|length }}</span>
+            </div>
         </div>
-        <div class="card-body">
+        <div class="card-body p-0">
             {% if cargas_recibidas %}
             <div class="table-responsive">
-                <table class="table table-sm">
-                    <thead class="table-light">
+                <table class="table table-hover table-modern align-middle mb-0">
+                    <thead>
                         <tr>
-                            <th>ID</th>
-                            <th>Factura</th>
+                            <th style="width: 80px;">ID</th>
+                            <th>Factura / Doc</th>
                             <th>Proveedor</th>
-                            <th>Vendedor</th>
                             <th>Fecha Carga</th>
                             <th>Fecha Recepción</th>
-                            <th>Estado</th>
-                            <th>Recibido por</th>
-                            <th>Cantidad</th>
-                            <th>Acciones</th>
+                            <th>Estado Final</th>
+                            <th class="text-center">Detalle</th>
                         </tr>
                     </thead>
                     <tbody>
                         {% for carga in cargas_recibidas %}
                         <tr>
-                            <td>#{{ carga.ID_Carga }}</td>
-                            <td>{{ carga.Num_Factura }}</td>
-                            <td>{{ carga.proveedor_nombre }}</td>
-                            <td>{{ carga.vendedor_nombre }}</td>
-                            <td>{{ carga.Fecha_Carga.strftime('%d/%m/%Y') }}</td>
-                            <td>{{ carga.Fecha_Recepcion.strftime('%d/%m/%Y') if carga.Fecha_Recepcion else '-' }}</td>
+                            <td><strong class="text-muted">#{{ carga.ID_Carga }}</strong></td>
+                            <td><span class="badge bg-light text-dark border font-monospace">{{ carga.Num_Factura }}</span></td>
+                            <td>{{ carga.proveedor_nombre or 'N/A' }}</td>
+                            <td><small class="text-muted">{{ carga.Fecha_Carga.strftime('%d/%m/%Y') if carga.Fecha_Carga else 'N/A' }}</small></td>
+                            <td><small class="text-slate-700 fw-semibold">{{ carga.Fecha_Recepcion.strftime('%d/%m/%Y') if carga.Fecha_Recepcion else 'N/A' }}</small></td>
                             <td>
                                 {% if carga.Estado == 'RECIBIDA_TOTAL' %}
-                                <span class="badge bg-success">Recibida Total</span>
+                                    <span class="badge bg-success"><i class="fas fa-check-double me-1"></i>Recibida Total</span>
                                 {% elif carga.Estado == 'RECIBIDA_PARCIAL' %}
-                                <span class="badge bg-warning">Recibida Parcial</span>
+                                    <span class="badge bg-warning text-dark"><i class="fas fa-adjust me-1"></i>Recibida Parcial</span>
                                 {% else %}
-                                <span class="badge bg-danger">Rechazada</span>
+                                    <span class="badge bg-danger"><i class="fas fa-times me-1"></i>Rechazada</span>
                                 {% endif %}
                             </td>
-                            <td>{{ carga.recibido_por or '-' }}</td>
-                            <td>{{ "%.2f"|format(carga.total_recibida) }}/{{ "%.2f"|format(carga.total_cantidad) }}</td>
-                            <td>
-                                <a href="{{ url_for('bodega.carga_detalle', id_carga=carga.ID_Carga) }}" 
-                                   class="btn btn-sm btn-info">
-                                    <i class="fas fa-eye"></i> Ver
+                            <td class="text-center">
+                                <a href="{{ url_for('bodega.carga_detalle', id_carga=carga.ID_Carga) }}" class="btn btn-sm btn-outline-secondary rounded-3">
+                                    <i class="fas fa-eye me-1"></i> Ver
                                 </a>
                             </td>
                         </tr>
@@ -159,13 +259,12 @@
                 </table>
             </div>
             {% else %}
-            <div class="alert alert-info mb-0 text-center py-4">
-                <i class="fas fa-info-circle fa-3x mb-3 text-info"></i>
-                <h5>No hay cargas en el historial</h5>
-                <p class="mb-0">Las cargas que recibas aparecerán aquí.</p>
+            <div class="p-4 text-center text-muted">
+                <small>No hay registros en el historial de cargas recibidas.</small>
             </div>
             {% endif %}
         </div>
     </div>
+
 </div>
 {% endblock %}

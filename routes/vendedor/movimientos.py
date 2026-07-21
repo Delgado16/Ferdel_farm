@@ -1141,7 +1141,9 @@ def vendedor_carga_directa_proveedor():
             id_movimiento_entrada = None
             with get_db_cursor(commit=True) as cursor:
                 try:
-                    estado_movimiento = 'Activa'
+                    # Si el destino es BODEGA, el movimiento se guarda como 'Pendiente'
+                    # hasta que el encargado de bodega confirme la recepción física
+                    estado_movimiento = 'Pendiente' if tipo_destino == 'BODEGA' else 'Activa'
                     
                     # Insertar compra
                     cursor.execute("""
@@ -1166,13 +1168,15 @@ def vendedor_carga_directa_proveedor():
                         """, (id_movimiento_entrada, prod['id_producto'], prod['cantidad'], 
                               prod['costo'], subtotal, id_usuario))
                     
-                    # ACTUALIZAR INVENTARIO DE BODEGA (SUMA)
-                    for prod in productos_procesar:
-                        cursor.execute("""
-                            INSERT INTO inventario_bodega (ID_Bodega, ID_Producto, Existencias)
-                            VALUES (%s, %s, %s)
-                            ON DUPLICATE KEY UPDATE Existencias = Existencias + VALUES(Existencias)
-                        """, (ID_BODEGA_CENTRAL, prod['id_producto'], prod['cantidad']))
+                    # ACTUALIZAR INVENTARIO DE BODEGA (SUMA) SOLO SI NO ES BODEGA PENDIENTE DE RECEPCIÓN
+                    # (Si es BODEGA, la bodega actualizará las existencias reales al recibir la carga)
+                    if tipo_destino != 'BODEGA':
+                        for prod in productos_procesar:
+                            cursor.execute("""
+                                INSERT INTO inventario_bodega (ID_Bodega, ID_Producto, Existencias)
+                                VALUES (%s, %s, %s)
+                                ON DUPLICATE KEY UPDATE Existencias = Existencias + VALUES(Existencias)
+                            """, (ID_BODEGA_CENTRAL, prod['id_producto'], prod['cantidad']))
                     
                     # Cuenta por pagar si es crédito
                     if tipo_compra == 'CREDITO':

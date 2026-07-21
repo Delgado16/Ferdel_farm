@@ -247,8 +247,29 @@ def admin_anticipo_detalle(id_anticipo):
                 flash('Anticipo no encontrado', 'error')
                 return redirect(url_for('admin.admin_clientes_anticipos'))
             
+            # Obtener historial de entregas registradas para este anticipo
+            cursor.execute("""
+                SELECT 
+                    e.ID_Entrega,
+                    e.Cantidad_Cajas,
+                    e.Total,
+                    e.Fecha_Entrega,
+                    DATE_FORMAT(e.Fecha_Entrega, '%%d/%%m/%%Y %%H:%%i') as Fecha_Formato,
+                    DATE_FORMAT(e.Fecha_Entrega, '%%Y-%%m-%%d') as Fecha_Raw,
+                    e.Notas,
+                    s.Nombre_Sucursal,
+                    u.NombreUsuario as Registrado_Por
+                FROM entregas e
+                INNER JOIN sucursales s ON e.ID_Sucursal = s.ID_Sucursal
+                LEFT JOIN usuarios u ON e.ID_Usuario = u.ID_Usuario
+                WHERE e.ID_Anticipo = %s
+                ORDER BY e.Fecha_Entrega DESC
+            """, (id_anticipo,))
+            entregas = cursor.fetchall()
+            
             return render_template('admin/ventas/anticipos/detalle_anticipo.html',
-                                 anticipo=anticipo)
+                                 anticipo=anticipo,
+                                 entregas=entregas)
     except Exception as e:
         print(f" Error obteniendo detalle: {str(e)}")
         traceback.print_exc()
@@ -616,13 +637,17 @@ def admin_anticipo_entregas():
             """)
             anticipos_disponibles = cursor.fetchall()
             
-            # 2. Obtener sucursales
+            # 2. Obtener sucursales de clientes que poseen anticipos activos
             cursor.execute("""
-                SELECT s.ID_Sucursal, s.Nombre_Sucursal, s.Direccion, s.Encargado,
+                SELECT DISTINCT s.ID_Sucursal, s.Nombre_Sucursal, s.Direccion, s.Encargado,
                        c.Nombre as Nombre_Cliente, c.ID_Cliente
                 FROM sucursales s
                 INNER JOIN clientes c ON s.ID_Cliente = c.ID_Cliente
-                WHERE s.Estado = 'ACTIVO' AND c.Estado = 'ACTIVO'
+                INNER JOIN anticipos_clientes a ON a.ID_Cliente = c.ID_Cliente
+                WHERE s.Estado = 'ACTIVO' 
+                  AND c.Estado = 'ACTIVO'
+                  AND a.Estado = 'ACTIVO'
+                  AND (a.Cantidad_Cajas - a.Cajas_Consumidas) > 0
                 ORDER BY c.Nombre, s.Nombre_Sucursal
             """)
             sucursales = cursor.fetchall()
@@ -651,6 +676,7 @@ def admin_anticipo_entregas():
             cursor.execute("""
                 SELECT 
                     DATE_FORMAT(e.Fecha_Entrega, '%d/%m/%Y') as Fecha_Dia,
+                    DATE_FORMAT(e.Fecha_Entrega, '%Y-%m-%d') as Fecha_Raw,
                     c.Nombre as Nombre_Cliente,
                     c.Telefono as Cliente_Telefono,
                     p.Descripcion as Nombre_Producto,
@@ -668,7 +694,7 @@ def admin_anticipo_entregas():
                 LEFT JOIN anticipos_clientes a ON e.ID_Anticipo = a.ID_Anticipo
                 LEFT JOIN usuarios u ON e.ID_Usuario = u.ID_Usuario
                 WHERE e.Usa_Anticipo = 1
-                GROUP BY DATE(e.Fecha_Entrega), DATE_FORMAT(e.Fecha_Entrega, '%d/%m/%Y'), 
+                GROUP BY DATE(e.Fecha_Entrega), DATE_FORMAT(e.Fecha_Entrega, '%d/%m/%Y'), DATE_FORMAT(e.Fecha_Entrega, '%Y-%m-%d'),
                          c.ID_Cliente, c.Nombre, c.Telefono, c.Saldo_Anticipos,
                          p.ID_Producto, p.Descripcion
                 ORDER BY DATE(e.Fecha_Entrega) DESC, c.Nombre
@@ -742,9 +768,13 @@ def admin_anticipo_entregas():
 @admin_bp.route('/admin/ventas/anticipos/entregas/ticket/<int:id_anticipo>')
 @admin_required
 def ticket_entregas(id_anticipo):
-    """Generar ticket SOLO con las entregas del día actual"""
+    """Generar ticket de entregas del anticipo (soporta entregas de hoy, entregas pasadas por fecha o historial completo)"""
     try:
         from datetime import datetime
+        
+        fecha_param = request.args.get('fecha')
+        id_entrega_param = request.args.get('id_entrega')
+        filtro_param = request.args.get('filtro')
         
         with get_db_cursor(True) as cursor:
             # Obtener información del anticipo y cliente
@@ -778,8 +808,7 @@ def ticket_entregas(id_anticipo):
                 flash('Anticipo no encontrado', 'error')
                 return redirect(url_for('admin.admin_anticipo_entregas'))
             
-            # Obtener SOLO las entregas de HOY
-            cursor.execute("""
+            base_sql = """
                 SELECT 
                     e.ID_Entrega,
                     e.Cantidad_Cajas,
@@ -793,14 +822,53 @@ def ticket_entregas(id_anticipo):
                 FROM entregas e
                 INNER JOIN sucursales s ON e.ID_Sucursal = s.ID_Sucursal
                 LEFT JOIN usuarios u ON e.ID_Usuario = u.ID_Usuario
-                WHERE e.ID_Anticipo = %s AND DATE(e.Fecha_Entrega) = CURDATE()
-                ORDER BY e.Fecha_Entrega ASC
-            """, (id_anticipo,))
-            entregas_hoy = cursor.fetchall()
+                WHERE e.ID_Anticipo = %s
+            """
             
-            if not entregas_hoy:
-                flash('No hay entregas registradas hoy para este anticipo', 'warning')
+            entregas_seleccionadas = []
+            titulo_rango = ""
+            
+            if id_entrega_param:
+                cursor.execute(base_sql + " AND e.ID_Entrega = %s ORDER BY e.Fecha_Entrega ASC", (id_anticipo, id_entrega_param))
+                entregas_seleccionadas = cursor.fetchall()
+                titulo_rango = f"Entrega #{id_entrega_param}"
+            elif fecha_param and fecha_param.lower() not in ['todas', 'historial', 'all']:
+                fecha_filtro = fecha_param
+                if '/' in fecha_param:
+                    try:
+                        partes = fecha_param.split('/')
+                        if len(partes) == 3:
+                            fecha_filtro = f"{partes[2]}-{partes[1]}-{partes[0]}"
+                    except Exception:
+                        pass
+                cursor.execute(base_sql + " AND (DATE(e.Fecha_Entrega) = %s OR DATE_FORMAT(e.Fecha_Entrega, '%%d/%%m/%%Y') = %s) ORDER BY e.Fecha_Entrega ASC", (id_anticipo, fecha_filtro, fecha_param))
+                entregas_seleccionadas = cursor.fetchall()
+                try:
+                    fecha_obj = datetime.strptime(fecha_filtro, '%Y-%m-%d')
+                    titulo_rango = f"Entregas del {fecha_obj.strftime('%d/%m/%Y')}"
+                except Exception:
+                    titulo_rango = f"Entregas del {fecha_param}"
+            elif (fecha_param and fecha_param.lower() in ['todas', 'historial', 'all']) or filtro_param == 'todas':
+                cursor.execute(base_sql + " ORDER BY e.Fecha_Entrega ASC", (id_anticipo,))
+                entregas_seleccionadas = cursor.fetchall()
+                titulo_rango = "Historial Completo de Entregas"
+            else:
+                # Intento inicial: entregas de hoy
+                cursor.execute(base_sql + " AND DATE(e.Fecha_Entrega) = CURDATE() ORDER BY e.Fecha_Entrega ASC", (id_anticipo,))
+                entregas_seleccionadas = cursor.fetchall()
+                if entregas_seleccionadas:
+                    titulo_rango = f"Hoy - {datetime.now().strftime('%d/%m/%Y')}"
+                else:
+                    # Si no hay entregas hoy, traer todas las entregas pasadas
+                    cursor.execute(base_sql + " ORDER BY e.Fecha_Entrega ASC", (id_anticipo,))
+                    entregas_seleccionadas = cursor.fetchall()
+                    titulo_rango = "Historial de Entregas Pasadas"
+            
+            if not entregas_seleccionadas:
+                flash('No hay entregas registradas para este anticipo', 'warning')
                 return redirect(url_for('admin.admin_anticipo_entregas'))
+            
+            entregas_hoy = entregas_seleccionadas
             
             # Agrupar entregas por fecha (para el detalle)
             entregas_por_fecha = {}
@@ -832,7 +900,8 @@ def ticket_entregas(id_anticipo):
                 SELECT b.Nombre
                 FROM movimientos_inventario m
                 INNER JOIN bodegas b ON m.ID_Bodega = b.ID_Bodega
-                WHERE m.Observacion LIKE %s AND DATE(m.Fecha_Creacion) = CURDATE()
+                WHERE m.Observacion LIKE %s
+                ORDER BY m.Fecha_Creacion DESC
                 LIMIT 1
             """, (f'%Anticipo #{id_anticipo}%',))
             bodega = cursor.fetchone()
@@ -860,8 +929,8 @@ def ticket_entregas(id_anticipo):
                                  empresa=empresa,
                                  bodega_nombre=bodega_nombre,
                                  notas_entregas=notas_entregas,
-                                 titulo_rango=f"Hoy - {datetime.now().strftime('%d/%m/%Y')}",
-                                 mostrar_detalle=False,
+                                 titulo_rango=titulo_rango,
+                                 mostrar_detalle=True if len(entregas_por_fecha) > 1 else False,
                                  fecha_actual=datetime.now())
                                  
     except Exception as e:

@@ -144,7 +144,7 @@ def admin_editar_bodega(id):
                     (nombre, ubicacion, estado, id_empresa, id)
                 )
                 flash("Bodega actualizada exitosamente", "success")
-                return redirect(url_for('admin.admin.admin_bodega'))
+                return redirect(url_for('admin.admin_bodega'))
         except Exception as e:
             flash(f"Error al actualizar bodega: {str(e)}", "danger")
             return redirect(url_for('admin.admin_editar_bodega', id=id))

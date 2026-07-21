@@ -252,7 +252,7 @@
                 <div class="card-body">
                     <h6 class="card-title mb-1">Entregas Hoy</h6>
                     <h3 class="mb-1">{{ estadisticas.Total_Entregas_Hoy or 0 }}</h3>
-                    <small>📦 entregas</small>
+                    <small>entregas</small>
                 </div>
             </div>
         </div>
@@ -261,7 +261,7 @@
                 <div class="card-body">
                     <h6 class="card-title mb-1">Monto Entregado</h6>
                     <h3 class="mb-1">C${{ "{:,.2f}".format(estadisticas.Monto_Total_Entregado_Hoy or 0) }}</h3>
-                    <small>💰 total hoy</small>
+                    <small>total hoy</small>
                 </div>
             </div>
         </div>
@@ -270,7 +270,7 @@
                 <div class="card-body">
                     <h6 class="card-title mb-1">Anticipos Activos</h6>
                     <h3 class="mb-1">{{ estadisticas.Anticipos_Activos or 0 }}</h3>
-                    <small>🎯 activos</small>
+                    <small>activos</small>
                 </div>
             </div>
         </div>
@@ -279,7 +279,7 @@
                 <div class="card-body">
                     <h6 class="card-title mb-1">Cajas Disponibles</h6>
                     <h3 class="mb-1">{{ estadisticas.Cajas_Disponibles_Total or 0 }}</h3>
-                    <small>📦 en anticipos</small>
+                    <small>en anticipos</small>
                 </div>
             </div>
         </div>
@@ -288,7 +288,7 @@
     <!-- Alertas de anticipos bajos -->
     {% if anticipos_bajos %}
     <div class="alert alert-warning mb-3 mb-md-4 shadow-sm">
-        <h5 class="mb-2"><i class="fas fa-exclamation-triangle"></i> ⚠️ Anticipos por agotarse:</h5>
+        <h5 class="mb-2"><i class="fas fa-exclamation-triangle me-1"></i> Anticipos por agotarse:</h5>
         {% for a in anticipos_bajos %}
         <div class="d-flex flex-wrap align-items-center gap-2 p-2 bg-light rounded mb-2"
             data-anticipo-id="{{ a.ID_Anticipo }}">
@@ -325,7 +325,7 @@
                                 data-cajas="{{ a.Cajas_Disponibles }}" data-precio="{{ a.Precio_Unitario }}"
                                 data-cliente="{{ a.Nombre_Cliente }}" data-cliente-telefono="{{ a.Telefono }}"
                                 data-cliente-perfil="{{ a.perfil_cliente }}" data-cliente-id="{{ a.ID_Cliente }}">
-                                👤 {{ a.Nombre_Cliente }} - 📦 {{ a.Nombre_Producto }} ({{ a.Cajas_Disponibles }} cajas)
+                                {{ a.Nombre_Cliente }} - {{ a.Nombre_Producto }} ({{ a.Cajas_Disponibles }} cajas)
                             </option>
                             {% endfor %}
                         </select>
@@ -340,7 +340,7 @@
                             <option value="">-- Seleccione bodega --</option>
                             {% for b in bodegas %}
                             <option value="{{ b.ID_Bodega }}">
-                                🏪 {{ b.Nombre }}{% if b.Ubicacion %} - 📍 {{ b.Ubicacion }}{% endif %}
+                                {{ b.Nombre }}{% if b.Ubicacion %} - {{ b.Ubicacion }}{% endif %}
                             </option>
                             {% endfor %}
                         </select>
@@ -425,7 +425,7 @@
                                             <option value="">-- Seleccione sucursal --</option>
                                             {% for s in sucursales %}
                                             <option value="{{ s.ID_Sucursal }}" data-cliente-id="{{ s.ID_Cliente }}">
-                                                👤 {{ s.Nombre_Cliente }} - 🏢 {{ s.Nombre_Sucursal }}
+                                                {{ s.Nombre_Cliente }} - {{ s.Nombre_Sucursal }}
                                             </option>
                                             {% endfor %}
                                         </select>
@@ -457,11 +457,11 @@
                             <div class="card-body">
                                 <h6 class="mb-2">Resumen de Entregas</h6>
                                 <div class="d-flex justify-content-between mb-1">
-                                    <span>📦 Cajas a entregar:</span>
+                                    <span>Cajas a entregar:</span>
                                     <strong><span id="resumen_total_cajas">0</span> cajas</strong>
                                 </div>
                                 <div class="d-flex justify-content-between">
-                                    <span>✅ Cajas restantes:</span>
+                                    <span>Cajas restantes:</span>
                                     <strong><span id="resumen_cajas_restantes">0</span> cajas</strong>
                                 </div>
                             </div>
@@ -522,8 +522,8 @@
                             <td><small>{{ e.Usuarios or 'N/A' }}</small></td>
                             <td class="text-center">
                                 {% if e.ID_Anticipo %}
-                                <a href="{{ url_for('admin.ticket_entregas', id_anticipo=e.ID_Anticipo) }}"
-                                    class="btn btn-sm btn-outline-success" title="Ver Ticket">
+                                <a href="{{ url_for('admin.ticket_entregas', id_anticipo=e.ID_Anticipo, fecha=e.Fecha_Raw) }}"
+                                    class="btn btn-sm btn-outline-success" title="Ver Ticket de esta Fecha">
                                     <i class="fas fa-receipt"></i> Ticket
                                 </a>
                                 <button type="button" class="btn btn-sm btn-outline-info btn-ver-proforma"
@@ -596,7 +596,7 @@
     // ========== PROFORMA ==========
     window.verProformaAnticipo = function (idAnticipo) {
         if (!idAnticipo) {
-            mostrarNotificacion('❌ No se especificó un anticipo', 'danger');
+            mostrarNotificacion('No se especificó un anticipo', 'danger');
             return;
         }
 
@@ -647,7 +647,7 @@
     // ========== FILTRADO DE SUCURSALES ==========
     function filtrarSucursalesPorCliente(clienteId) {
         if (!clienteId) {
-            mostrarTodasSucursales();
+            ocultarTodasSucursales();
             return;
         }
 
@@ -675,10 +675,16 @@
         });
     }
 
-    function mostrarTodasSucursales() {
+    function ocultarTodasSucursales() {
         document.querySelectorAll('select[name="sucursales[]"]').forEach(select => {
+            select.value = "";
             for (let i = 0; i < select.options.length; i++) {
-                select.options[i].style.display = '';
+                const option = select.options[i];
+                if (option.value === "") {
+                    option.style.display = '';
+                } else {
+                    option.style.display = 'none';
+                }
             }
         });
     }
@@ -742,7 +748,7 @@
         clienteIdActual = null;
         cajasDisponiblesActual = 0;
         precioUnitarioActual = 0;
-        mostrarTodasSucursales();
+        ocultarTodasSucursales();
         actualizarResumen();
         mostrarNotificacion('Formulario limpiado', 'success');
     }
@@ -834,6 +840,9 @@
         const selectAnticipo = document.getElementById('id_anticipo');
         const detalleAnticipo = document.getElementById('detalle_anticipo');
 
+        // Ocultar sucursales hasta seleccionar un cliente con anticipo activo
+        ocultarTodasSucursales();
+
         selectAnticipo.addEventListener('change', function () {
             const opt = this.options[this.selectedIndex];
             if (this.value) {
@@ -856,7 +865,7 @@
             } else {
                 detalleAnticipo.style.display = 'none';
                 clienteIdActual = null;
-                mostrarTodasSucursales();
+                ocultarTodasSucursales();
                 actualizarResumen();
             }
         });

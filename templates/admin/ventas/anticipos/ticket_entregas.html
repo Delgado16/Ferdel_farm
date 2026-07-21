@@ -240,6 +240,9 @@
         <!-- TIPO DE DOCUMENTO -->
         <div class="text-center">
             <div class="size-13 bold">COMPROBANTE DE ENTREGAS</div>
+            {% if titulo_rango %}
+            <div class="size-10 bold text-uppercase mt-1" style="color: #333;">{{ titulo_rango }}</div>
+            {% endif %}
             <div class="size-9">Emisión: {{ fecha_actual.strftime('%d/%m/%Y %H:%M:%S') }}</div>
             <div class="size-9">Atendido por: {{ entregas[0].Registrado_Por if entregas else 'Sistema' }}</div>
             <div class="divider"></div>
@@ -260,6 +263,27 @@
             <div><strong>Código:</strong> {{ anticipo.COD_Producto or 'N/A' }}</div>
         </div>
         <div class="divider"></div>
+
+        {% if mostrar_detalle or entregas_por_fecha|length > 1 %}
+        <!-- DESGLOSE POR FECHA -->
+        <div class="size-9 bold text-center">DESGLOSE DE ENTREGAS</div>
+        {% for fecha_item, lista_entregas in entregas_por_fecha.items() %}
+        <div class="size-8 bold mt-1" style="border-bottom: 1px dashed #666; padding-bottom: 2px;">
+            📅 {{ fecha_item }}
+        </div>
+        <table>
+            <tbody>
+                {% for item in lista_entregas %}
+                <tr class="size-8">
+                    <td class="text-left">{{ item.Hora_Entrega }} - {{ item.Nombre_Sucursal }}</td>
+                    <td class="text-right bold">{{ item.Cantidad_Cajas }} cajas</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% endfor %}
+        <div class="divider"></div>
+        {% endif %}
 
         <!-- SUCURSALES ATENDIDAS Y TOTALES CONSOLIDADOS -->
         <div class="size-9 bold text-center">SUCURSALES ATENDIDAS</div>

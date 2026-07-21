@@ -22,7 +22,15 @@ def bodega_dashboard():
     """Dashboard del bodeguero con todas las estadísticas"""
 
     try:
-        with get_db_cursor() as cursor:
+        with get_db_cursor(commit=True) as cursor:
+            # Sincronizar estado de movimientos de cargas pendientes de recepción
+            cursor.execute("""
+                UPDATE movimientos_inventario mi
+                INNER JOIN cargas_pendientes_recepcion cp ON mi.ID_Movimiento = cp.ID_Movimiento
+                SET mi.Estado = 'Pendiente'
+                WHERE cp.Estado = 'PENDIENTE' AND mi.Estado = 'Activa'
+            """)
+
             # 1. Productos que han salido hoy
             cursor.execute("""
                 SELECT 
@@ -220,17 +228,16 @@ def bodega_dashboard():
                 SELECT 
                     b.Nombre AS Bodega,
                     cp.Descripcion AS Categoria,
-                    COUNT(p.ID_Producto) AS Total_Productos,
+                    COUNT(DISTINCT ib.ID_Producto) AS Total_Productos,
                     COALESCE(SUM(ib.Existencias), 0) AS Stock_Total,
-                    COUNT(CASE WHEN ib.Existencias <= p.Stock_Minimo THEN 1 END) AS Productos_Criticos,
-                    COUNT(CASE WHEN ib.Existencias <= (p.Stock_Minimo * 1.5) AND ib.Existencias > p.Stock_Minimo THEN 1 END) AS Productos_Bajos
+                    COUNT(DISTINCT CASE WHEN ib.Existencias <= p.Stock_Minimo THEN ib.ID_Producto END) AS Productos_Criticos,
+                    COUNT(DISTINCT CASE WHEN ib.Existencias <= (p.Stock_Minimo * 1.5) AND ib.Existencias > p.Stock_Minimo THEN ib.ID_Producto END) AS Productos_Bajos
                 FROM bodegas b
-                CROSS JOIN categorias_producto cp
-                LEFT JOIN productos p ON p.ID_Categoria = cp.ID_Categoria AND p.Estado = 'activo'
-                LEFT JOIN inventario_bodega ib ON p.ID_Producto = ib.ID_Producto AND ib.ID_Bodega = b.ID_Bodega
+                INNER JOIN inventario_bodega ib ON b.ID_Bodega = ib.ID_Bodega
+                INNER JOIN productos p ON ib.ID_Producto = p.ID_Producto AND p.Estado = 'activo'
+                INNER JOIN categorias_producto cp ON p.ID_Categoria = cp.ID_Categoria
                 WHERE b.Estado = 'activa'
-                GROUP BY b.Nombre, cp.Descripcion
-                HAVING Total_Productos > 0
+                GROUP BY b.ID_Bodega, b.Nombre, cp.ID_Categoria, cp.Descripcion
                 ORDER BY b.Nombre, cp.Descripcion
             """)
             resumen_categorias = cursor.fetchall()
@@ -2908,10 +2915,11 @@ def recibir_carga(id_carga):
                 
                 # Si se recibió mercancía, actualizar inventario real
                 if total_recibido > 0:
-                    # Actualizar movimiento de inventario a Activa
+                    # Actualizar movimiento de inventario a Activa y asignar fecha de recepción real
                     cursor.execute("""
                         UPDATE movimientos_inventario
                         SET Estado = 'Activa',
+                            Fecha = CURDATE(),
                             Fecha_Modificacion = NOW(),
                             ID_Usuario_Modificacion = %s
                         WHERE ID_Movimiento = %s
