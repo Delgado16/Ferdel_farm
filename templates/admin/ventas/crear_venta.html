@@ -672,6 +672,9 @@
                 <div class="confirm-summary-item" id="confirm-saldo-container" style="display: none;">
                     <span>SALDO A CRÉDITO:</span> <strong id="confirm-saldo" style="color: #dc3545;"></strong>
                 </div>
+                <div class="confirm-summary-item" id="confirm-saldo-favor-container" style="display: none;">
+                    <span>SALDO A FAVOR:</span> <strong id="confirm-saldo-favor" style="color: #28a745;"></strong>
+                </div>
             </div>
 
             <h6 class="mb-2">Productos incluidos:</h6>
@@ -761,6 +764,7 @@
                                         data-perfil="{{ cliente.perfil_cliente }}"
                                         data-tipo="{{ cliente.tipo_cliente }}"
                                         data-saldo="{{ cliente.Saldo_Pendiente_Total }}"
+                                        data-anticipos="{{ cliente.Saldo_Anticipos or 0.00 }}"
                                         data-ruta="{{ cliente.Nombre_Ruta if cliente.Nombre_Ruta else '' }}"
                                         data-searchtext="{{ cliente.Nombre|lower }} {{ cliente.RUC_CEDULA|lower }} {{ cliente.perfil_cliente|lower }} {% if cliente.Nombre_Ruta %}{{ cliente.Nombre_Ruta|lower }}{% endif %}">
                                         <span class="cliente-item-nombre">{{ cliente.Nombre }}</span>
@@ -778,8 +782,18 @@
                                         </span>
                                         {% endif %}
                                         <span class="cliente-item-saldo">
-                                            C$ {{ "%.2f"|format(cliente.Saldo_Pendiente_Total|float) }}
-                                        </span>
+                                             {% set saldo_deuda = cliente.Saldo_Pendiente_Total|float %}
+                                             {% set saldo_favor = cliente.Saldo_Anticipos|float %}
+                                             {% if saldo_favor > 0 %}
+                                             <span class="text-success me-2" title="Saldo a Favor (Anticipo)"><i class="bi bi-piggy-bank me-1"></i>C$ {{ "%.2f"|format(saldo_favor) }}</span>
+                                             {% endif %}
+                                             {% if saldo_deuda > 0 %}
+                                             <span class="text-danger" title="Saldo Pendiente (Deuda)"><i class="bi bi-graph-up me-1"></i>C$ {{ "%.2f"|format(saldo_deuda) }}</span>
+                                             {% endif %}
+                                             {% if saldo_favor <= 0 and saldo_deuda <= 0 %}
+                                             <span class="text-muted">C$ 0.00</span>
+                                             {% endif %}
+                                         </span>
                                     </div>
                                     {% endfor %}
                                 </div>
@@ -808,6 +822,9 @@
                                     <span><i class="bi bi-tag"></i> <span id="cliente_selected_perfil"></span></span>
                                     <span><i class="bi bi-cash-stack"></i> Saldo: <span
                                             id="cliente_selected_saldo"></span></span>
+                                    <span id="cliente_selected_anticipos_span" style="display:none; color: var(--success-color); font-weight: bold;">
+                                        <i class="bi bi-piggy-bank"></i> Saldo a Favor: <span id="cliente_selected_anticipos"></span>
+                                    </span>
                                     <span id="cliente_selected_ruta_span" style="display:none;">
                                         <i class="bi bi-geo-alt"></i> <span id="cliente_selected_ruta"></span>
                                     </span>
@@ -823,7 +840,7 @@
                             <select class="form-select" id="tipo_venta" name="tipo_venta" required>
                                 <option value="contado">CONTADO</option>
                                 <option value="credito">CRÉDITO</option>
-                                <option value="reparto">EN REPARTO / POR CONFIRMAR</option>
+                                <option value="reparto">REPARTO / POR CONFIRMAR</option>
                             </select>
                             <div class="invalid-feedback">Por favor seleccione el tipo de venta</div>
                         </div>
@@ -888,16 +905,46 @@
                 <!-- 2. SALDO CONSOLIDADO DEL CLIENTE -->
                 <!-- ============================================ -->
                 <div id="saldo-consolidado-container" style="display: none;">
-                    <div class="saldo-consolidado-card">
-                        <div class="row align-items-center">
-                            <div class="col-8">
-                                <small><i class="bi bi-graph-up me-1"></i> SALDO PENDIENTE CONSOLIDADO</small>
-                                <h2 id="saldo-consolidado">C$ 0.00</h2>
-                                <small id="cliente-nombre">Cliente no seleccionado</small>
+                    <div class="row g-3 mb-3">
+                        <div class="col-12" id="deuda-consolidada-col">
+                            <div class="saldo-consolidado-card" style="margin-bottom: 0;">
+                                <div class="row align-items-center">
+                                    <div class="col-8">
+                                        <small><i class="bi bi-graph-up me-1"></i> SALDO PENDIENTE (DEUDA)</small>
+                                        <h2 id="saldo-consolidado">C$ 0.00</h2>
+                                        <small class="cliente-nombre-label"><i class="fas fa-user me-1"></i>Cliente no seleccionado</small>
+                                    </div>
+                                    <div class="col-4 text-end"><i class="bi bi-cash-coin fs-1"></i></div>
+                                </div>
                             </div>
-                            <div class="col-4 text-end"><i class="bi bi-cash-coin fs-1"></i></div>
+                        </div>
+                        <div class="col-md-6" id="saldo-favor-consolidado-col" style="display: none;">
+                            <div class="saldo-favor-card" style="background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); color: white; border-radius: 12px; padding: 1.25rem; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);">
+                                <div class="row align-items-center">
+                                    <div class="col-8">
+                                        <small><i class="bi bi-piggy-bank me-1"></i> SALDO A FAVOR (ANTICIPO)</small>
+                                        <h2 id="saldo-favor-consolidado">C$ 0.00</h2>
+                                        <small class="cliente-nombre-label"><i class="fas fa-user me-1"></i>Cliente no seleccionado</small>
+                                    </div>
+                                    <div class="col-4 text-end"><i class="bi bi-arrow-up-right-circle fs-1"></i></div>
+                                </div>
+                            </div>
                         </div>
                     </div>
+                </div>
+
+                <!-- Alerta para aplicar Saldo a Favor disponible automáticamente -->
+                <div class="alert alert-success d-flex justify-content-between align-items-center mt-2" id="aplicar-anticipo-alert" style="display: none !important;">
+                    <div class="d-flex align-items-center">
+                        <i class="bi bi-piggy-bank-fill me-3 fs-4 text-success"></i>
+                        <div>
+                            <span class="d-block fw-bold">El cliente tiene un Saldo a Favor de <span id="anticipo-disponible-alerta">C$ 0.00</span></span>
+                            <small class="text-muted">¿Desea aplicar este saldo como abono automático para esta venta?</small>
+                        </div>
+                    </div>
+                    <button type="button" class="btn btn-success btn-sm px-3" id="btn-aplicar-anticipo-auto">
+                        <i class="bi bi-check-circle me-1"></i> Aplicar Abono
+                    </button>
                 </div>
 
                 <!-- ============================================ -->
@@ -1085,6 +1132,7 @@
     let perfilClienteActual = '';
     let tipoClienteActual = '';
     let saldoConsolidadoActual = 0;
+    let saldoAnticiposActual = 0;
     let facturasPendientesGlobal = [];
     let clienteSeleccionado = null;
     let selectedIndex = -1;
@@ -1168,6 +1216,9 @@
         } else {
             const validacionDiv = document.getElementById('validacion-pago');
             if (usarAvanzados && totalPagado > totalVenta) {
+                const exceso = totalPagado - totalVenta;
+                validacionDiv.innerHTML = `<i class="bi bi-info-circle me-1"></i> El total pagado excede la venta. Se guardará un Saldo a Favor de <strong>${formatearMoneda(exceso)}</strong> para el cliente.`;
+                validacionDiv.className = "text-success d-block mt-1";
                 validacionDiv.style.display = 'block';
             } else {
                 validacionDiv.style.display = 'none';
@@ -1210,6 +1261,7 @@
         </div>`;
         container.insertAdjacentHTML('beforeend', template);
         actualizarNombresMetodosPago();
+        actualizarOpcionesMetodosPago();
     }
 
     function eliminarMetodoPago(btn) {
@@ -1228,15 +1280,64 @@
         selects.forEach(select => {
             const hiddenInput = select.parentElement.querySelector('.metodo-pago-nombre');
             if (hiddenInput) {
-                select.addEventListener('change', function () {
+                // Usamos la asignación onchange directa para evitar que se acumulen múltiples callbacks al llamar la función
+                select.onchange = function () {
                     const selectedOption = this.options[this.selectedIndex];
-                    hiddenInput.value = selectedOption.text;
-                });
+                    hiddenInput.value = selectedOption ? selectedOption.text : '';
+
+                    const card = this.closest('.metodo-pago-card');
+                    const inputMonto = card ? card.querySelector('.monto-pago') : null;
+
+                    if (this.value === '5') {
+                        if (saldoAnticiposActual <= 0) {
+                            mostrarAlerta('danger', '❌ Sin Saldo a Favor', 'El cliente seleccionado no tiene Saldo a Favor disponible.');
+                            this.value = '';
+                            if (hiddenInput) hiddenInput.value = '';
+                            if (inputMonto) inputMonto.value = '';
+                            actualizarTotalPagado();
+                            return;
+                        }
+                        const totalVenta = parseFloat(extraerNumeroDeMoneda(document.getElementById('total-venta').textContent)) || 0;
+                        const montoAplicar = Math.min(totalVenta, saldoAnticiposActual);
+                        if (inputMonto) {
+                            inputMonto.value = montoAplicar.toFixed(2);
+                            actualizarTotalPagado();
+                        }
+                    }
+                };
+
                 if (select.value) {
                     const selectedOption = select.options[select.selectedIndex];
-                    hiddenInput.value = selectedOption.text;
+                    hiddenInput.value = selectedOption ? selectedOption.text : '';
                 }
             }
+        });
+    }
+
+    function actualizarOpcionesMetodosPago() {
+        const selects = document.querySelectorAll('.metodo-pago-select');
+        selects.forEach(select => {
+            Array.from(select.options).forEach(option => {
+                if (option.value === '5' || option.text.toUpperCase().includes('SALDO A FAVOR')) {
+                    if (saldoAnticiposActual > 0) {
+                        option.disabled = false;
+                        option.style.display = 'block';
+                    } else {
+                        option.disabled = true;
+                        option.style.display = 'none';
+                        // Si ya estaba seleccionado pero el cliente no tiene saldo, lo limpiamos
+                        if (select.value === option.value) {
+                            select.value = '';
+                            const card = select.closest('.metodo-pago-card');
+                            const inputMonto = card ? card.querySelector('.monto-pago') : null;
+                            if (inputMonto) inputMonto.value = '';
+                            const hiddenInput = select.parentElement.querySelector('.metodo-pago-nombre');
+                            if (hiddenInput) hiddenInput.value = '';
+                            actualizarTotalPagado();
+                        }
+                    }
+                }
+            });
         });
     }
 
@@ -1279,6 +1380,7 @@
         </div>`;
         container.insertAdjacentHTML('beforeend', template);
         actualizarNombresMetodosPago();
+        actualizarOpcionesMetodosPago();
 
         const tipoVenta = document.getElementById('tipo_venta').value;
         if (tipoVenta === 'credito') {
@@ -1332,6 +1434,7 @@
                 </div>
             </div>`;
             actualizarNombresMetodosPago();
+            actualizarOpcionesMetodosPago();
         }
     }
 
@@ -1349,6 +1452,7 @@
                 perfil: item.dataset.perfil,
                 tipo: item.dataset.tipo,
                 saldo: item.dataset.saldo,
+                anticipos: item.dataset.anticipos,
                 ruta: item.dataset.ruta,
                 searchtext: item.dataset.searchtext
             });
@@ -1490,12 +1594,14 @@
         const perfil = item.dataset.perfil;
         const tipo = item.dataset.tipo;
         const saldo = item.dataset.saldo;
+        const anticipos = item.dataset.anticipos;
         const ruta = item.dataset.ruta;
 
-        clienteSeleccionado = { id, nombre, ruc, perfil, tipo, saldo, ruta };
+        clienteSeleccionado = { id, nombre, ruc, perfil, tipo, saldo, anticipos, ruta };
         perfilClienteActual = perfil;
         tipoClienteActual = tipo;
         saldoConsolidadoActual = parseFloat(saldo) || 0;
+        saldoAnticiposActual = parseFloat(anticipos) || 0;
 
         document.getElementById('id_cliente').value = id;
         searchInput.value = `${nombre} - ${ruc} [${perfil}]`;
@@ -1507,6 +1613,14 @@
         document.getElementById('cliente_selected_perfil').textContent = perfil;
         document.getElementById('cliente_selected_saldo').textContent = formatearMoneda(saldo);
 
+        const anticiposSpan = document.getElementById('cliente_selected_anticipos_span');
+        if (saldoAnticiposActual > 0) {
+            anticiposSpan.style.display = 'inline';
+            document.getElementById('cliente_selected_anticipos').textContent = formatearMoneda(saldoAnticiposActual);
+        } else {
+            anticiposSpan.style.display = 'none';
+        }
+
         const rutaSpan = document.getElementById('cliente_selected_ruta_span');
         if (ruta) {
             rutaSpan.style.display = 'inline';
@@ -1516,7 +1630,7 @@
         }
         document.getElementById('cliente_selected_info').classList.add('show');
 
-        manejarCambioCliente({ id, nombre, ruc, perfil, tipo, saldo, ruta });
+        manejarCambioCliente({ id, nombre, ruc, perfil, tipo, saldo, anticipos, ruta });
         cargarFacturasPendientes(id);
         cargarProductosPorCliente(id);
         actualizarPreciosProductosPorPerfil();
@@ -1547,10 +1661,15 @@
         document.getElementById('cliente_selected_info').classList.remove('show');
         document.getElementById('saldo-consolidado-container').style.display = 'none';
         document.getElementById('facturas-pendientes-section').style.display = 'none';
+        
+        const aplicarAlert = document.getElementById('aplicar-anticipo-alert');
+        if (aplicarAlert) aplicarAlert.style.setProperty('display', 'none', 'important');
+        
         document.getElementById('info-perfil-cliente').innerHTML = '';
         searchInput.value = '';
         perfilClienteActual = '';
         saldoConsolidadoActual = 0;
+        saldoAnticiposActual = 0;
         searchInput.focus();
         dropdown.classList.add('show');
         filtrarClientes('');
@@ -1567,8 +1686,56 @@
         saldoConsolidadoActual = parseFloat(cliente.saldo) || 0;
 
         document.getElementById('saldo-consolidado').textContent = formatearMoneda(saldoConsolidadoActual);
-        document.getElementById('cliente-nombre').innerHTML = `<i class="fas fa-user me-1"></i>${cliente.nombre}`;
+        
+        const saldoFavorEl = document.getElementById('saldo-favor-consolidado');
+        if (saldoFavorEl) {
+            saldoFavorEl.textContent = formatearMoneda(saldoAnticiposActual);
+        }
+
+        document.querySelectorAll('.cliente-nombre-label').forEach(el => {
+            el.innerHTML = `<i class="fas fa-user me-1"></i>${cliente.nombre}`;
+        });
+
+        const deudaCol = document.getElementById('deuda-consolidada-col');
+        const favorCol = document.getElementById('saldo-favor-consolidado-col');
+
+        if (saldoAnticiposActual > 0) {
+            if (deudaCol) {
+                deudaCol.className = 'col-md-6';
+            }
+            if (favorCol) {
+                favorCol.className = 'col-md-6';
+                favorCol.style.display = 'block';
+            }
+        } else {
+            if (deudaCol) {
+                deudaCol.className = 'col-12';
+            }
+            if (favorCol) {
+                favorCol.style.display = 'none';
+            }
+        }
+
         document.getElementById('saldo-consolidado-container').style.display = 'block';
+
+        const aplicarAlert = document.getElementById('aplicar-anticipo-alert');
+        if (aplicarAlert) {
+            if (saldoAnticiposActual > 0) {
+                aplicarAlert.style.setProperty('display', 'flex', 'important');
+                document.getElementById('anticipo-disponible-alerta').textContent = formatearMoneda(saldoAnticiposActual);
+                
+                // Resetear el botón de abono automático por si se había aplicado a otro cliente
+                const btnAuto = document.getElementById('btn-aplicar-anticipo-auto');
+                if (btnAuto) {
+                    btnAuto.className = "btn btn-success btn-sm px-3";
+                    btnAuto.innerHTML = '<i class="bi bi-check-circle me-1"></i> Aplicar Abono';
+                    btnAuto.disabled = false;
+                }
+            } else {
+                aplicarAlert.style.setProperty('display', 'none', 'important');
+            }
+        }
+        actualizarOpcionesMetodosPago();
 
         let badgeClass = 'bg-secondary', icono = 'fas fa-user';
         switch (perfilClienteActual) {
@@ -1966,38 +2133,37 @@
         const defaultPagoInfo = document.getElementById('defaultPagoInfo');
         const pagosAvanzadosCard = document.getElementById('pagosAvanzadosCard');
         const abonoInput = document.getElementById('abono_inicial');
-        const seccionMetodosPago = document.getElementById('seccion-metodos-pago');
+        const seccionMetodos = document.getElementById('seccion-metodos-pago');
 
         if (tipoVenta === 'credito') {
             fechaGroup.style.display = 'block';
             abonoGroup.style.display = 'block';
-            if (seccionMetodosPago) seccionMetodosPago.style.display = 'block';
             if (defaultPagoInfo) defaultPagoInfo.style.display = 'flex';
             if (pagosAvanzadosCard) pagosAvanzadosCard.classList.remove('show');
             document.getElementById('usar_pagos_avanzados').value = '0';
+            if (seccionMetodos) seccionMetodos.style.display = 'block';
             resetearMetodosPago();
 
             const fecha = new Date();
             fecha.setDate(fecha.getDate() + 30);
-            document.getElementById('fecha_vencimiento').value = fecha.toLocaleDateString('sv-SE');
+            document.getElementById('fecha_vencimiento').value = fecha.toISOString().split('T')[0];
             if (abonoInput) abonoInput.value = '0';
         } else if (tipoVenta === 'reparto') {
             fechaGroup.style.display = 'none';
             abonoGroup.style.display = 'none';
-            if (seccionMetodosPago) seccionMetodosPago.style.display = 'none';
+            if (seccionMetodos) seccionMetodos.style.display = 'none';
             document.getElementById('usar_pagos_avanzados').value = '0';
             document.getElementById('fecha_vencimiento').value = '';
             if (abonoInput) abonoInput.value = '0';
-            resetearMetodosPago();
         } else {
             fechaGroup.style.display = 'none';
             abonoGroup.style.display = 'none';
-            if (seccionMetodosPago) seccionMetodosPago.style.display = 'block';
             if (defaultPagoInfo) defaultPagoInfo.style.display = 'flex';
             if (pagosAvanzadosCard) pagosAvanzadosCard.classList.remove('show');
             document.getElementById('usar_pagos_avanzados').value = '0';
             document.getElementById('fecha_vencimiento').value = '';
             if (abonoInput) abonoInput.value = '0';
+            if (seccionMetodos) seccionMetodos.style.display = 'block';
             resetearMetodosPago();
         }
         actualizarTotalPagado();
@@ -2063,7 +2229,7 @@
 
         if (tipoVenta === 'credito') {
             const fechaVencimiento = document.getElementById('fecha_vencimiento').value;
-            const hoy = new Date().toLocaleDateString('sv-SE');
+            const hoy = new Date().toISOString().split('T')[0];
             if (!fechaVencimiento) {
                 mostrarAlerta('danger', '❌ Error!', 'Para ventas a crédito debe especificar una fecha de vencimiento');
                 return false;
@@ -2107,6 +2273,8 @@
                     }
                 }
             }
+        } else if (tipoVenta === 'reparto') {
+            // Reparto no requiere abono inicial, métodos de pago ni validaciones adicionales
         } else {
             const usarAvanzados = document.getElementById('usar_pagos_avanzados').value === '1';
             let totalPagado = 0;
@@ -2126,25 +2294,38 @@
                 return false;
             }
 
-            if (totalPagado < totalVenta) {
-                mostrarAlerta('danger', '❌ Error!', `En ventas de contado debe pagar el total. Faltan ${formatearMoneda(totalVenta - totalPagado)}`);
-                return false;
-            }
-
-            if (totalPagado > totalVenta) {
-                mostrarAlerta('danger', '❌ Error!', 'El total pagado no puede exceder el total de la venta');
-                return false;
-            }
-
             if (usarAvanzados) {
                 const metodosPago = document.querySelectorAll('.metodo-pago-select');
                 let hayMetodosValidos = false;
-                metodosPago.forEach(select => {
-                    if (select.value) hayMetodosValidos = true;
+                let totalSaldoFavorUsado = 0;
+
+                metodosPago.forEach((select, idx) => {
+                    if (select.value) {
+                        hayMetodosValidos = true;
+                        const text = select.options[select.selectedIndex].text.toUpperCase();
+                        if (select.value === '5' || text.includes('SALDO A FAVOR')) {
+                            const montoInput = document.querySelectorAll('.monto-pago')[idx];
+                            if (montoInput) {
+                                totalSaldoFavorUsado += parseFloat(montoInput.value) || 0;
+                            }
+                        }
+                    }
                 });
 
                 if (!hayMetodosValidos) {
                     mostrarAlerta('danger', '❌ Error!', 'Debe seleccionar al menos un método de pago válido');
+                    return false;
+                }
+
+                if (totalSaldoFavorUsado > saldoAnticiposActual) {
+                    mostrarAlerta('danger', '❌ Error!', `El monto pagado con Saldo a Favor (${formatearMoneda(totalSaldoFavorUsado)}) no puede ser mayor al saldo disponible del cliente (${formatearMoneda(saldoAnticiposActual)})`);
+                    return false;
+                }
+            }
+
+            if (totalPagado < totalVenta) {
+                let continuar = confirm(`El pago ingresado (${formatearMoneda(totalPagado)}) es menor al total de la venta (${formatearMoneda(totalVenta)}). Se generará automáticamente una Cuenta por Cobrar por la diferencia de ${formatearMoneda(totalVenta - totalPagado)} con vencimiento a 30 días. ¿Desea continuar?`);
+                if (!continuar) {
                     return false;
                 }
             }
@@ -2155,7 +2336,8 @@
 
     function mostrarModalConfirmacion() {
         const cliente = clienteSeleccionado ? clienteSeleccionado.nombre : 'Cliente no seleccionado';
-        const tipoVenta = document.getElementById('tipo_venta').value === 'credito' ? 'CRÉDITO' : 'CONTADO';
+        const tipoVentaVal = document.getElementById('tipo_venta').value;
+        const tipoVenta = tipoVentaVal === 'credito' ? 'CRÉDITO' : (tipoVentaVal === 'reparto' ? 'REPARTO' : 'CONTADO');
         const totalProductos = document.getElementById('total-productos').textContent;
         const totalVenta = document.getElementById('total-venta').textContent;
         const fechaVencimiento = document.getElementById('fecha_vencimiento')?.value;
@@ -2175,6 +2357,8 @@
             } else {
                 totalPagadoNum = abonoInicial;
             }
+        } else if (tipoVenta === 'REPARTO') {
+            totalPagadoNum = 0;
         } else {
             if (usarAvanzados) {
                 const montos = document.querySelectorAll('.monto-pago');
@@ -2196,23 +2380,46 @@
         document.getElementById('confirm-total-venta').textContent = totalVenta;
 
         const totalPagadoContainer = document.getElementById('confirm-total-pagado-container');
-        if (tipoVenta === 'CRÉDITO') {
+        const saldoContainer = document.getElementById('confirm-saldo-container');
+        const saldoFavorContainer = document.getElementById('confirm-saldo-favor-container');
+
+        if (tipoVenta === 'REPARTO') {
+            totalPagadoContainer.style.display = 'none';
+            saldoContainer.style.display = 'none';
+            saldoFavorContainer.style.display = 'none';
+        } else if (tipoVenta === 'CRÉDITO') {
             if (totalPagadoNum > 0) {
                 totalPagadoContainer.style.display = 'block';
                 document.getElementById('confirm-total-pagado').textContent = formatearMoneda(totalPagadoNum);
             } else {
                 totalPagadoContainer.style.display = 'none';
             }
-            document.getElementById('confirm-saldo').textContent = formatearMoneda(saldoPendiente);
-            document.getElementById('confirm-saldo-container').style.display = 'block';
+            if (saldoPendiente > 0) {
+                document.getElementById('confirm-saldo').textContent = formatearMoneda(saldoPendiente);
+                saldoContainer.style.display = 'block';
+                saldoFavorContainer.style.display = 'none';
+            } else if (saldoPendiente < 0) {
+                document.getElementById('confirm-saldo-favor').textContent = formatearMoneda(Math.abs(saldoPendiente));
+                saldoContainer.style.display = 'none';
+                saldoFavorContainer.style.display = 'block';
+            } else {
+                saldoContainer.style.display = 'none';
+                saldoFavorContainer.style.display = 'none';
+            }
         } else {
             totalPagadoContainer.style.display = 'block';
             document.getElementById('confirm-total-pagado').textContent = formatearMoneda(totalPagadoNum);
             if (saldoPendiente > 0) {
                 document.getElementById('confirm-saldo').textContent = formatearMoneda(saldoPendiente);
-                document.getElementById('confirm-saldo-container').style.display = 'block';
+                saldoContainer.style.display = 'block';
+                saldoFavorContainer.style.display = 'none';
+            } else if (saldoPendiente < 0) {
+                document.getElementById('confirm-saldo-favor').textContent = formatearMoneda(Math.abs(saldoPendiente));
+                saldoContainer.style.display = 'none';
+                saldoFavorContainer.style.display = 'block';
             } else {
-                document.getElementById('confirm-saldo-container').style.display = 'none';
+                saldoContainer.style.display = 'none';
+                saldoFavorContainer.style.display = 'none';
             }
         }
 
@@ -2249,7 +2456,16 @@
         const metodosPagoList = document.getElementById('confirm-metodos-pago-list');
         metodosPagoList.innerHTML = '';
 
-        if (tipoVenta === 'CRÉDITO') {
+        if (tipoVenta === 'REPARTO') {
+            const repartoDiv = document.createElement('div');
+            repartoDiv.className = 'alert alert-info text-center mb-0';
+            repartoDiv.innerHTML = `
+                <i class="bi bi-truck me-2"></i>
+                <strong>Venta para Reparto (Por Confirmar)</strong><br>
+                <small>El pago se registrará cuando se confirme la entrega en ruta.</small>
+            `;
+            metodosPagoList.appendChild(repartoDiv);
+        } else if (tipoVenta === 'CRÉDITO') {
             if (abonoInicial > 0) {
                 const abonoDiv = document.createElement('div');
                 abonoDiv.className = 'alert alert-success';
@@ -2401,6 +2617,8 @@
                     formData.append('referencia_pago[]', '');
                 }
             }
+        } else if (tipoVenta === 'reparto') {
+            // Reparto no envía ningún detalle de abono o métodos de pago al backend
         } else {
             const usarAvanzados = document.getElementById('usar_pagos_avanzados').value === '1';
 
@@ -2501,6 +2719,92 @@
 
     document.getElementById('btnMostrarPagosAvanzados').addEventListener('click', mostrarPagosAvanzados);
     document.getElementById('btnVolverDefault').addEventListener('click', volverModoDefault);
+
+    document.getElementById('btn-aplicar-anticipo-auto').addEventListener('click', function () {
+        const totalVenta = parseFloat(extraerNumeroDeMoneda(document.getElementById('total-venta').textContent)) || 0;
+        if (totalVenta <= 0) {
+            mostrarAlerta('danger', '❌ Error!', 'Por favor agregue productos a la venta antes de aplicar el saldo a favor.');
+            return;
+        }
+
+        // 1. Mostrar pagos avanzados
+        mostrarPagosAvanzados();
+
+        // 2. Buscar si ya existe una fila de pago con método "Saldo a Favor" (ID 5)
+        const container = document.getElementById('metodos-pago-container');
+        const rows = container.querySelectorAll('.metodo-pago-card');
+        
+        let rowFavor = null;
+        rows.forEach(row => {
+            const select = row.querySelector('.metodo-pago-select');
+            if (select && select.value === '5') {
+                rowFavor = row;
+            }
+        });
+
+        // 3. Determinar el monto a aplicar (el menor de totalVenta y el saldoAnticiposActual)
+        const montoAplicar = Math.min(totalVenta, saldoAnticiposActual);
+
+        if (rowFavor) {
+            // Ya existe, actualizar monto
+            const inputMonto = rowFavor.querySelector('.monto-pago');
+            if (inputMonto) {
+                inputMonto.value = montoAplicar.toFixed(2);
+            }
+        } else {
+            // No existe, usar la primera fila vacía o agregar una nueva
+            let rowToUse = null;
+            if (rows.length === 1) {
+                const firstSelect = rows[0].querySelector('.metodo-pago-select');
+                if (firstSelect && !firstSelect.value) {
+                    rowToUse = rows[0];
+                }
+            }
+            
+            if (!rowToUse) {
+                agregarMetodoPago();
+                const newRows = container.querySelectorAll('.metodo-pago-card');
+                rowToUse = newRows[newRows.length - 1];
+            }
+
+            const select = rowToUse.querySelector('.metodo-pago-select');
+            const inputMonto = rowToUse.querySelector('.monto-pago');
+            if (select) {
+                select.value = '5';
+                actualizarNombresMetodosPago();
+            }
+            if (inputMonto) {
+                inputMonto.value = montoAplicar.toFixed(2);
+            }
+        }
+
+        // Si el abono es menor que el total de venta y solo tenemos ese pago,
+        // agregar una segunda fila para el efectivo restante
+        const updatedRows = container.querySelectorAll('.metodo-pago-card');
+        if (montoAplicar < totalVenta && updatedRows.length === 1) {
+            agregarMetodoPago();
+            const newRows = container.querySelectorAll('.metodo-pago-card');
+            const secondRow = newRows[newRows.length - 1];
+            const secondSelect = secondRow.querySelector('.metodo-pago-select');
+            const secondMonto = secondRow.querySelector('.monto-pago');
+            if (secondSelect) {
+                secondSelect.value = '1'; // Efectivo
+                actualizarNombresMetodosPago();
+            }
+            if (secondMonto) {
+                secondMonto.value = (totalVenta - montoAplicar).toFixed(2);
+            }
+        }
+
+        actualizarTotalPagado();
+
+        // 4. Cambiar el botón para indicar que ya se aplicó
+        this.className = "btn btn-outline-success btn-sm px-3";
+        this.innerHTML = '<i class="bi bi-check-all me-1"></i> Aplicado';
+        this.disabled = true;
+        
+        mostrarAlerta('success', '✅ Éxito!', `Se ha aplicado C$ ${montoAplicar.toFixed(2)} del Saldo a Favor del cliente como abono.`);
+    });
 
     document.getElementById('tipo_venta').addEventListener('change', function () {
         manejarCambioTipoVenta(this.value);

@@ -1,65 +1,221 @@
 {% extends "layout.html" %}
 
-{% block title %}Historial de Movimientos{% endblock %}
+{% block title %}Historial de Movimientos de Bodega - FerDel{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<style>
+    :root {
+        --primary-gradient: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%);
+        --success-gradient: linear-gradient(135deg, #059669 0%, #10b981 100%);
+        --danger-gradient: linear-gradient(135deg, #991b1b 0%, #ef4444 100%);
+        --warning-gradient: linear-gradient(135deg, #d97706 0%, #f59e0b 100%);
+    }
+
+    .historial-header {
+        background: #ffffff;
+        border-radius: 16px;
+        padding: 1.5rem 2rem;
+        margin-bottom: 2rem;
+        border: 1px solid rgba(226, 232, 240, 0.8);
+        box-shadow: 0 4px 15px -3px rgba(0, 0, 0, 0.03);
+    }
+
+    .card-premium-section {
+        background: #ffffff;
+        border-radius: 16px;
+        border: 1px solid rgba(226, 232, 240, 0.8);
+        box-shadow: 0 4px 12px -2px rgba(15, 23, 42, 0.03);
+        margin-bottom: 2rem;
+        overflow: hidden;
+    }
+
+    .card-premium-header {
+        background: #f8fafc;
+        border-bottom: 1px solid #e2e8f0;
+        padding: 1.25rem 1.5rem;
+    }
+
+    .filter-label-premium {
+        font-size: 0.75rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: #64748b;
+        margin-bottom: 0.4rem;
+    }
+
+    .form-control-premium,
+    .form-select-premium {
+        border-radius: 10px;
+        border: 1px solid #cbd5e1;
+        padding: 0.45rem 0.75rem;
+        font-size: 0.875rem;
+        transition: all 0.2s ease;
+    }
+
+    .form-control-premium:focus,
+    .form-select-premium:focus {
+        border-color: #3b82f6;
+        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+    }
+
+    .table-modern th {
+        font-weight: 700;
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        background-color: #f8fafc;
+        color: #475569;
+        padding: 0.85rem 1rem;
+        border-bottom: 2px solid #e2e8f0;
+    }
+
+    .table-modern td {
+        vertical-align: middle;
+        padding: 0.85rem 1rem;
+        color: #334155;
+    }
+
+    .table-modern tbody tr:hover {
+        background-color: #f8fafc;
+    }
+
+    .badge-status-active {
+        background-color: #dcfce7;
+        color: #15803d;
+        border: 1px solid #bbf7d0;
+        padding: 0.35rem 0.75rem;
+        border-radius: 20px;
+        font-weight: 700;
+        font-size: 0.75rem;
+    }
+
+    .badge-status-void {
+        background-color: #fee2e2;
+        color: #b91c1c;
+        border: 1px solid #fca5a5;
+        padding: 0.35rem 0.75rem;
+        border-radius: 20px;
+        font-weight: 700;
+        font-size: 0.75rem;
+        text-decoration: line-through;
+    }
+
+    .badge-type-in {
+        background-color: #dcfce7;
+        color: #15803d;
+        border: 1px solid #bbf7d0;
+        border-radius: 8px;
+        padding: 0.25rem 0.65rem;
+        font-weight: 700;
+        font-size: 0.75rem;
+    }
+
+    .badge-type-out {
+        background-color: #fee2e2;
+        color: #b91c1c;
+        border: 1px solid #fca5a5;
+        border-radius: 8px;
+        padding: 0.25rem 0.65rem;
+        font-weight: 700;
+        font-size: 0.75rem;
+    }
+
+    .badge-type-trans {
+        background-color: #fef3c7;
+        color: #b45309;
+        border: 1px solid #fde68a;
+        border-radius: 8px;
+        padding: 0.25rem 0.65rem;
+        font-weight: 700;
+        font-size: 0.75rem;
+    }
+
+    .empty-state {
+        text-align: center;
+        padding: 3.5rem 1rem;
+        color: #94a3b8;
+    }
+
+    .empty-state i {
+        font-size: 3.5rem;
+        margin-bottom: 1rem;
+        opacity: 0.4;
+    }
+</style>
+{% endblock %}
 
 {% block content %}
-<div class="container-fluid">
-    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-4">
-        <h1 class="h3 mb-0 text-gray-800">
-            <i class="fas fa-history me-2"></i>Historial de Movimientos
-        </h1>
-        <div class="btn-group btn-group-sm flex-wrap" role="group">
-            <a href="{{ url_for('bodega.bodega_reportes_movimientos') }}" class="btn btn-info">
-                <i class="fas fa-chart-bar me-1"></i> Reportes
+<div class="container-fluid py-3">
+
+    <!-- Encabezado -->
+    <div class="historial-header d-flex flex-wrap justify-content-between align-items-center gap-3">
+        <div>
+            <h3 class="fw-bold text-slate-800 mb-1">
+                <i class="fas fa-history text-primary me-2"></i>Historial de Movimientos de Bodega
+            </h3>
+            <p class="text-muted small mb-0">Listado general de entradas, salidas y transferencias de productos
+                registrados</p>
+        </div>
+        <div class="d-flex gap-2 flex-wrap">
+            <a href="{{ url_for('bodega.bodega_reportes_movimientos') }}"
+                class="btn btn-outline-info btn-sm px-3 py-2 rounded-3">
+                <i class="fas fa-chart-line me-1"></i> Reportes
             </a>
-            <a href="{{ url_for('bodega.inventario_vendedores') }}" class="btn btn-info">
-                <i class="fas fa-chart-bar me-1"></i> Vendedores
+            <a href="{{ url_for('bodega.inventario_vendedores') }}"
+                class="btn btn-outline-info btn-sm px-3 py-2 rounded-3">
+                <i class="fas fa-truck me-1"></i> Inventario Vendedores
             </a>
         </div>
     </div>
 
-    <!-- Filtros - Versión Responsiva -->
-    <div class="card shadow mb-4">
-        <div class="card-header py-3">
-            <h6 class="m-0 font-weight-bold text-primary">
-                <i class="fas fa-filter me-1"></i>Filtros
+    <!-- Barra de Filtros -->
+    <div class="card-premium-section">
+        <div class="card-premium-header">
+            <h6 class="fw-bold text-slate-800 mb-0">
+                <i class="fas fa-filter text-primary me-2"></i>Filtros de Búsqueda
             </h6>
         </div>
-        <div class="card-body">
-            <form method="GET" class="row g-2 g-md-3">
+        <div class="card-body p-4">
+            <form method="GET" class="row g-3">
                 <div class="col-12 col-md-6 col-lg-3">
-                    <label class="form-label small">Tipo de Movimiento</label>
-                    <select name="tipo" class="form-select form-select-sm">
+                    <label class="form-label-premium filter-label-premium">Tipo de Movimiento</label>
+                    <select name="tipo" class="form-select form-select-premium">
                         <option value="todos" {% if tipo_filtro=='todos' %}selected{% endif %}>Todos</option>
                         {% for tipo in tipos_movimiento %}
-                        <option value="{{ tipo.ID_TipoMovimiento }}" {% if tipo_filtro==tipo.ID_TipoMovimiento|string %}selected{% endif %}>
+                        <option value="{{ tipo.ID_TipoMovimiento }}" {% if tipo_filtro==tipo.ID_TipoMovimiento|string
+                            %}selected{% endif %}>
                             {{ tipo.Descripcion }}
                         </option>
                         {% endfor %}
                     </select>
                 </div>
                 <div class="col-12 col-md-6 col-lg-2">
-                    <label class="form-label small">Estado</label>
-                    <select name="estado" class="form-select form-select-sm">
+                    <label class="form-label-premium filter-label-premium">Estado</label>
+                    <select name="estado" class="form-select form-select-premium">
                         <option value="todas" {% if estado_filtro=='todas' %}selected{% endif %}>Todos</option>
-                        <option value="Activa" {% if estado_filtro=='Activa' %}selected{% endif %}>Activos</option>
-                        <option value="Anulada" {% if estado_filtro=='Anulada' %}selected{% endif %}>Anulados</option>
+                        <option value="Activa" {% if estado_filtro=='Activa' %}selected{% endif %}>Activas</option>
+                        <option value="Anulada" {% if estado_filtro=='Anulada' %}selected{% endif %}>Anuladas</option>
                     </select>
                 </div>
                 <div class="col-12 col-md-6 col-lg-2">
-                    <label class="form-label small">Fecha Desde</label>
-                    <input type="date" name="fecha_inicio" class="form-control form-control-sm" value="{{ fecha_inicio }}">
+                    <label class="form-label-premium filter-label-premium">Fecha Inicio</label>
+                    <input type="date" name="fecha_inicio" class="form-control form-control-premium"
+                        value="{{ fecha_inicio }}">
                 </div>
                 <div class="col-12 col-md-6 col-lg-2">
-                    <label class="form-label small">Fecha Hasta</label>
-                    <input type="date" name="fecha_fin" class="form-control form-control-sm" value="{{ fecha_fin }}">
+                    <label class="form-label-premium filter-label-premium">Fecha Fin</label>
+                    <input type="date" name="fecha_fin" class="form-control form-control-premium"
+                        value="{{ fecha_fin }}">
                 </div>
                 <div class="col-12 col-lg-3 d-flex align-items-end">
                     <div class="d-flex gap-2 w-100">
-                        <button type="submit" class="btn btn-primary btn-sm flex-grow-1">
+                        <button type="submit" class="btn btn-primary btn-sm flex-grow-1 rounded-3 py-2 fw-semibold">
                             <i class="fas fa-search me-1"></i> Filtrar
                         </button>
-                        <a href="{{ url_for('bodega.bodega_historial_movimientos') }}" class="btn btn-secondary btn-sm">
+                        <a href="{{ url_for('bodega.bodega_historial_movimientos') }}"
+                            class="btn btn-outline-secondary btn-sm rounded-3 py-2">
                             <i class="fas fa-eraser me-1"></i> Limpiar
                         </a>
                     </div>
@@ -68,102 +224,105 @@
         </div>
     </div>
 
-    <!-- Tabla de Movimientos - SIN PRECIOS -->
-    <div class="card shadow">
-        <div class="card-header py-3 d-flex flex-column flex-sm-row justify-content-between align-items-sm-center gap-2">
-            <h6 class="m-0 font-weight-bold text-primary">
-                <i class="fas fa-list me-1"></i>Movimientos Registrados
-                <span class="badge bg-primary ms-2">{{ total }}</span>
+    <!-- Resultados -->
+    <div class="card-premium-section">
+        <div class="card-premium-header d-flex flex-wrap justify-content-between align-items-center gap-3">
+            <h6 class="fw-bold text-slate-800 mb-0">
+                <i class="fas fa-list text-primary me-2"></i>Movimientos Registrados
+                <span class="badge bg-light text-dark border font-monospace ms-2">{{ total }}</span>
             </h6>
-            <div class="btn-group btn-group-sm flex-wrap" role="group">
-                <a href="{{ url_for('bodega.bodega_nueva_entrada_form') }}" class="btn btn-success">
-                    <i class="fas fa-plus-circle me-1"></i> Entrada
+            <div class="d-flex gap-2 flex-wrap">
+                <a href="{{ url_for('bodega.bodega_nueva_entrada_form') }}"
+                    class="btn btn-success btn-sm px-3 rounded-3 fw-bold">
+                    <i class="fas fa-plus-circle me-1"></i> + Entrada
                 </a>
-                <a href="{{ url_for('bodega.bodega_nueva_salida_form') }}" class="btn btn-danger">
-                    <i class="fas fa-minus-circle me-1"></i> Salida
+                <a href="{{ url_for('bodega.bodega_nueva_salida_form') }}"
+                    class="btn btn-danger btn-sm px-3 rounded-3 fw-bold">
+                    <i class="fas fa-minus-circle me-1"></i> - Salida
                 </a>
-                <a href="{{ url_for('bodega.bodega_nueva_transferencia_form') }}" class="btn btn-warning">
+                <a href="{{ url_for('bodega.bodega_nueva_transferencia_form') }}"
+                    class="btn btn-warning btn-sm px-3 rounded-3 fw-bold text-dark">
                     <i class="fas fa-exchange-alt me-1"></i> Transferencia
                 </a>
             </div>
         </div>
+
         <div class="card-body p-0">
             {% if movimientos %}
-            
-            <!-- VERSIÓN DESKTOP: Tabla completa -->
+
+            <!-- VISTA DE ESCRITORIO -->
             <div class="d-none d-lg-block">
                 <div class="table-responsive">
-                    <table class="table table-hover table-striped mb-0">
-                        <thead class="table-dark">
+                    <table class="table table-hover table-modern align-middle mb-0">
+                        <thead>
                             <tr>
-                                <th>ID</th>
-                                <th>Fecha</th>
-                                <th>Tipo</th>
+                                <th style="width: 80px;">ID</th>
+                                <th>Fecha / Hora</th>
+                                <th>Tipo de Movimiento</th>
                                 <th>Estado</th>
-                                <th>Bodega</th>
-                                <th>Productos</th>
-                                <th>Usuario</th>
-                                <th>Acciones</th>
+                                <th>Bodegas / Ruta</th>
+                                <th class="text-center" style="width: 100px;">Productos</th>
+                                <th>Registrado Por</th>
+                                <th class="text-center" style="width: 180px;">Acciones</th>
                             </tr>
                         </thead>
                         <tbody>
                             {% for mov in movimientos %}
-                            <tr {% if mov.Estado=='Anulada' %}class="table-danger text-muted" style="text-decoration: line-through;" {% endif %}>
+                            <tr {% if mov.Estado=='Anulada' %}class="text-muted table-light" {% endif %}>
                                 <td>
-                                    <strong>#{{ mov.ID_Movimiento }}</strong>
-                                    {% if mov.Estado == 'Anulada' %}
-                                    <i class="fas fa-ban text-danger ms-1" title="Movimiento Anulado"></i>
-                                    {% endif %}
-                                </td>
-                                <td>{{ mov.Fecha.strftime('%d/%m/%Y %H:%M') if mov.Fecha else mov.Fecha }}</td>
-                                <td>
-                                    <span class="badge 
-                                        {% if mov.Letra == 'E' %}bg-success
-                                        {% elif mov.Letra == 'S' %}bg-danger
-                                        {% else %}bg-warning text-dark{% endif %}">
-                                        {{ mov.Tipo_Movimiento_Descripcion }}
-                                    </span>
+                                    <strong class="text-slate-700">#{{ mov.ID_Movimiento }}</strong>
                                 </td>
                                 <td>
-                                    {% if mov.Estado == 'Anulada' %}
-                                    <span class="badge bg-danger">
-                                        <i class="fas fa-ban me-1"></i>ANULADA
-                                    </span>
+                                    <span class="fw-semibold"><i class="fas fa-calendar-alt text-muted me-1"></i>{{
+                                        mov.Fecha.strftime('%d/%m/%Y %H:%M') if mov.Fecha else mov.Fecha }}</span>
+                                </td>
+                                <td>
+                                    {% if mov.Letra == 'E' %}
+                                    <span class="badge-type-in"><i class="fas fa-sign-in-alt me-1"></i>{{
+                                        mov.Tipo_Movimiento_Descripcion }}</span>
+                                    {% elif mov.Letra == 'S' %}
+                                    <span class="badge-type-out"><i class="fas fa-sign-out-alt me-1"></i>{{
+                                        mov.Tipo_Movimiento_Descripcion }}</span>
                                     {% else %}
-                                    <span class="badge bg-success">
-                                        <i class="fas fa-check-circle me-1"></i>ACTIVA
-                                    </span>
+                                    <span class="badge-type-trans"><i class="fas fa-exchange-alt me-1"></i>{{
+                                        mov.Tipo_Movimiento_Descripcion }}</span>
                                     {% endif %}
                                 </td>
                                 <td>
-                                    {{ mov.Bodega_Origen_Nombre }}
+                                    {% if mov.Estado == 'Anulada' %}
+                                    <span class="badge-status-void"><i class="fas fa-ban me-1"></i>Anulada</span>
+                                    {% else %}
+                                    <span class="badge-status-active"><i
+                                            class="fas fa-check-circle me-1"></i>Activa</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <strong class="text-slate-800">{{ mov.Bodega_Origen_Nombre }}</strong>
                                     {% if mov.Bodega_Destino_Nombre %}
-                                    <i class="fas fa-arrow-right text-muted mx-1"></i>
-                                    {{ mov.Bodega_Destino_Nombre }}
+                                    <i class="fas fa-arrow-right text-muted mx-2"></i>
+                                    <strong class="text-slate-800">{{ mov.Bodega_Destino_Nombre }}</strong>
                                     {% endif %}
                                 </td>
-                                <td>
-                                    <span class="badge bg-info">{{ mov.Cantidad_Productos }}</span>
+                                <td class="text-center">
+                                    <span class="badge bg-light text-dark border rounded-pill">{{ mov.Cantidad_Productos
+                                        }}</span>
                                 </td>
-                                <td><small>{{ mov.Usuario_Creacion_Nombre }}</small></td>
-                                <td>
-                                    <div class="btn-group btn-group-sm">
+                                <td><small class="text-muted"><i class="fas fa-user me-1"></i>{{
+                                        mov.Usuario_Creacion_Nombre }}</small></td>
+                                <td class="text-center">
+                                    <div class="btn-group btn-group-sm" role="group">
                                         <a href="{{ url_for('bodega.bodega_detalle_movimiento', id_movimiento=mov.ID_Movimiento) }}"
-                                            class="btn btn-info" title="Ver Detalle">
+                                            class="btn btn-outline-primary" title="Ver Detalle">
                                             <i class="fas fa-eye"></i>
                                         </a>
-                                        <a href="{{ url_for('bodega.bodega_imprimir_movimiento', id_movimiento=mov.ID_Movimiento) }}"
-                                            class="btn btn-secondary" title="Imprimir" target="_blank">
-                                            <i class="fas fa-print"></i>
-                                        </a>
                                         {% if mov.Estado == 'Activa' %}
-                                        <button type="button" class="btn btn-danger" data-bs-toggle="modal"
+                                        <button type="button" class="btn btn-outline-danger" data-bs-toggle="modal"
                                             data-bs-target="#anularModal{{ mov.ID_Movimiento }}" title="Anular">
                                             <i class="fas fa-ban"></i>
                                         </button>
                                         {% else %}
-                                        <button type="button" class="btn btn-secondary" disabled
-                                            title="Movimiento ya anulado">
+                                        <button type="button" class="btn btn-outline-light text-muted border-0" disabled
+                                            title="Movimiento Anulado">
                                             <i class="fas fa-ban"></i>
                                         </button>
                                         {% endif %}
@@ -175,139 +334,71 @@
                     </table>
                 </div>
             </div>
-            
-            <!-- VERSIÓN TABLET: Tabla compacta -->
-            <div class="d-none d-md-block d-lg-none">
-                <div class="table-responsive">
-                    <table class="table table-sm table-hover table-striped mb-0">
-                        <thead class="table-dark">
-                            <tr>
-                                <th>ID/Fecha</th>
-                                <th>Tipo/Estado</th>
-                                <th>Bodega</th>
-                                <th>Productos</th>
-                                <th>Acciones</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for mov in movimientos %}
-                            <tr {% if mov.Estado=='Anulada' %}class="table-danger text-muted" style="text-decoration: line-through;" {% endif %}>
-                                <td>
-                                    <strong>#{{ mov.ID_Movimiento }}</strong><br>
-                                    <small class="text-muted">{{ mov.Fecha.strftime('%d/%m/%y') if mov.Fecha else mov.Fecha }}</small>
-                                </td>
-                                <td>
-                                    <span class="badge 
-                                        {% if mov.Letra == 'E' %}bg-success
-                                        {% elif mov.Letra == 'S' %}bg-danger
-                                        {% else %}bg-warning text-dark{% endif %}" 
-                                        style="font-size: 0.7rem;">
-                                        {{ mov.Tipo_Movimiento_Descripcion|truncate(12) }}
-                                    </span><br>
-                                    {% if mov.Estado == 'Anulada' %}
-                                    <span class="badge bg-danger mt-1">ANULADA</span>
-                                    {% else %}
-                                    <span class="badge bg-success mt-1">ACTIVA</span>
-                                    {% endif %}
-                                </td>
-                                <td>
-                                    <small>
-                                        {{ mov.Bodega_Origen_Nombre|truncate(15) }}
-                                        {% if mov.Bodega_Destino_Nombre %}
-                                        <i class="fas fa-arrow-right"></i>
-                                        {{ mov.Bodega_Destino_Nombre|truncate(15) }}
-                                        {% endif %}
-                                    </small>
-                                </td>
-                                <td class="text-center">
-                                    <span class="badge bg-info">{{ mov.Cantidad_Productos }}</span>
-                                </td>
-                                <td>
-                                    <div class="btn-group-vertical btn-group-sm">
-                                        <a href="{{ url_for('bodega.bodega_detalle_movimiento', id_movimiento=mov.ID_Movimiento) }}"
-                                            class="btn btn-info" title="Ver Detalle">
-                                            <i class="fas fa-eye"></i>
-                                        </a>
-                                        {% if mov.Estado == 'Activa' %}
-                                        <button type="button" class="btn btn-danger" data-bs-toggle="modal"
-                                            data-bs-target="#anularModal{{ mov.ID_Movimiento }}" title="Anular">
-                                            <i class="fas fa-ban"></i>
-                                        </button>
-                                        {% endif %}
-                                    </div>
-                                </td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-            
-            <!-- VERSIÓN MÓVIL: Tarjetas -->
-            <div class="d-block d-md-none">
+
+            <!-- VISTA DE TABLET / MÓVIL (TARJETAS ADAPTADAS) -->
+            <div class="d-block d-lg-none">
                 <div class="list-group list-group-flush">
                     {% for mov in movimientos %}
                     <div class="list-group-item p-3 {% if mov.Estado=='Anulada' %}bg-light text-muted{% endif %}">
-                        <div class="d-flex justify-content-between align-items-start mb-2">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
                             <div>
-                                <strong class="fs-6">#{{ mov.ID_Movimiento }}</strong>
-                                <br>
-                                <small class="text-muted">{{ mov.Fecha }}</small>
+                                <strong class="fs-6 text-slate-800">Movimiento #{{ mov.ID_Movimiento }}</strong>
+                                <div class="text-muted small mt-1"><i class="fas fa-calendar-alt me-1"></i>{{ mov.Fecha
+                                    }}</div>
                             </div>
                             <div>
                                 {% if mov.Estado == 'Anulada' %}
-                                <span class="badge bg-danger">ANULADA</span>
+                                <span class="badge-status-void"><i class="fas fa-ban me-1"></i>Anulada</span>
                                 {% else %}
-                                <span class="badge bg-success">ACTIVA</span>
+                                <span class="badge-status-active"><i class="fas fa-check-circle me-1"></i>Activa</span>
                                 {% endif %}
                             </div>
                         </div>
-                        
-                        <div class="row mt-2">
+
+                        <div class="row g-2 my-2">
                             <div class="col-6">
-                                <small class="text-muted d-block">Tipo</small>
-                                <span class="badge 
-                                    {% if mov.Letra == 'E' %}bg-success
-                                    {% elif mov.Letra == 'S' %}bg-danger
-                                    {% else %}bg-warning text-dark{% endif %}" 
-                                    style="font-size: 0.7rem;">
-                                    {{ mov.Tipo_Movimiento_Descripcion }}
-                                </span>
+                                <span class="small text-muted d-block">Tipo:</span>
+                                {% if mov.Letra == 'E' %}
+                                <span class="badge bg-success bg-opacity-10 text-success fw-bold"><i
+                                        class="fas fa-sign-in-alt me-1"></i>{{ mov.Tipo_Movimiento_Descripcion }}</span>
+                                {% elif mov.Letra == 'S' %}
+                                <span class="badge bg-danger bg-opacity-10 text-danger fw-bold"><i
+                                        class="fas fa-sign-out-alt me-1"></i>{{ mov.Tipo_Movimiento_Descripcion
+                                    }}</span>
+                                {% else %}
+                                <span class="badge bg-warning bg-opacity-10 text-warning text-dark fw-bold"><i
+                                        class="fas fa-exchange-alt me-1"></i>{{ mov.Tipo_Movimiento_Descripcion
+                                    }}</span>
+                                {% endif %}
                             </div>
                             <div class="col-6">
-                                <small class="text-muted d-block">Productos</small>
-                                <strong class="badge bg-info">{{ mov.Cantidad_Productos }}</strong>
+                                <span class="small text-muted d-block">Productos:</span>
+                                <span class="badge bg-light text-dark border">{{ mov.Cantidad_Productos }} ítems</span>
                             </div>
                         </div>
-                        
-                        <div class="mt-2">
-                            <small class="text-muted d-block">Bodega</small>
-                            <span class="small">
+
+                        <div class="my-2">
+                            <span class="small text-muted d-block">Ruta / Bodega:</span>
+                            <span class="small fw-semibold text-slate-800">
                                 {{ mov.Bodega_Origen_Nombre }}
                                 {% if mov.Bodega_Destino_Nombre %}
-                                <i class="fas fa-arrow-right mx-1"></i>
-                                {{ mov.Bodega_Destino_Nombre }}
+                                <i class="fas fa-arrow-right mx-1 text-muted"></i>{{ mov.Bodega_Destino_Nombre }}
                                 {% endif %}
                             </span>
                         </div>
-                        
-                        <div class="mt-2">
-                            <small class="text-muted d-block">Usuario</small>
-                            <span class="small">{{ mov.Usuario_Creacion_Nombre }}</span>
-                        </div>
-                        
+
                         <div class="mt-3 d-flex gap-2">
-                            <a href="{{ url_for('bodega.bodega_detalle_movimiento', id_movimiento=mov.ID_Movimiento) }}" 
-                               class="btn btn-info btn-sm flex-grow-1">
-                                <i class="fas fa-eye me-1"></i> Ver
+                            <a href="{{ url_for('bodega.bodega_detalle_movimiento', id_movimiento=mov.ID_Movimiento) }}"
+                                class="btn btn-outline-primary btn-sm flex-grow-1 rounded-3">
+                                <i class="fas fa-eye me-1"></i> Ver Detalle
                             </a>
-                            <a href="{{ url_for('bodega.bodega_imprimir_movimiento', id_movimiento=mov.ID_Movimiento) }}" 
-                               class="btn btn-secondary btn-sm flex-grow-1" target="_blank">
+                            <a href="{{ url_for('bodega.bodega_imprimir_movimiento', id_movimiento=mov.ID_Movimiento) }}"
+                                class="btn btn-outline-secondary btn-sm flex-grow-1 rounded-3" target="_blank">
                                 <i class="fas fa-print me-1"></i> Imprimir
                             </a>
                             {% if mov.Estado == 'Activa' %}
-                            <button type="button" class="btn btn-danger btn-sm flex-grow-1" 
-                                    data-bs-toggle="modal" data-bs-target="#anularModal{{ mov.ID_Movimiento }}">
+                            <button type="button" class="btn btn-outline-danger btn-sm flex-grow-1 rounded-3"
+                                data-bs-toggle="modal" data-bs-target="#anularModal{{ mov.ID_Movimiento }}">
                                 <i class="fas fa-ban me-1"></i> Anular
                             </button>
                             {% endif %}
@@ -316,37 +407,41 @@
                     {% endfor %}
                 </div>
             </div>
-            
-            <!-- Modal para anular (se mantienen igual) -->
+
+            <!-- Modales de Anulación -->
             {% for mov in movimientos %}
             {% if mov.Estado == 'Activa' %}
-            <div class="modal fade" id="anularModal{{ mov.ID_Movimiento }}" tabindex="-1">
+            <div class="modal fade" id="anularModal{{ mov.ID_Movimiento }}" tabindex="-1" aria-hidden="true">
                 <div class="modal-dialog modal-dialog-centered">
-                    <div class="modal-content">
-                        <div class="modal-header bg-danger text-white">
-                            <h5 class="modal-title">
-                                <i class="fas fa-exclamation-triangle me-2"></i>
-                                Confirmar Anulación
+                    <div class="modal-content border-0 shadow-lg" style="border-radius: 16px;">
+                        <div class="modal-header bg-danger text-white" style="border-radius: 16px 16px 0 0;">
+                            <h5 class="modal-title fw-bold">
+                                <i class="fas fa-exclamation-triangle me-2"></i>Confirmar Anulación
                             </h5>
-                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
+                                aria-label="Cerrar"></button>
                         </div>
-                        <form method="POST" action="{{ url_for('bodega.bodega_anular_movimiento', id_movimiento=mov.ID_Movimiento) }}">
-                            <div class="modal-body">
-                                <p>¿Está seguro que desea anular el movimiento
-                                    <strong>#{{ mov.ID_Movimiento }}</strong>?
-                                </p>
-                                <div class="alert alert-danger">
+                        <form method="POST"
+                            action="{{ url_for('bodega.bodega_anular_movimiento', id_movimiento=mov.ID_Movimiento) }}">
+                            <div class="modal-body p-4">
+                                <p>¿Está seguro de que desea anular el movimiento de inventario **#{{ mov.ID_Movimiento
+                                    }}**?</p>
+                                <div class="alert alert-danger border-0 small rounded-3">
                                     <i class="fas fa-exclamation-circle me-1"></i>
-                                    Esta acción revertirá los cambios en el inventario.
+                                    **Atención:** Esta acción es irreversible y revertirá las existencias afectadas en
+                                    las bodegas.
                                 </div>
                                 <div class="mb-3">
-                                    <label class="form-label">Motivo de anulación:</label>
-                                    <textarea name="motivo" class="form-control" rows="3" required></textarea>
+                                    <label class="form-label fw-bold text-slate-700">Escriba el motivo de la anulación
+                                        *</label>
+                                    <textarea name="motivo" class="form-control rounded-3" rows="3" required
+                                        placeholder="Explique brevemente por qué anula este movimiento..."></textarea>
                                 </div>
                             </div>
-                            <div class="modal-footer">
-                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                                <button type="submit" class="btn btn-danger">
+                            <div class="modal-footer bg-light" style="border-radius: 0 0 16px 16px;">
+                                <button type="button" class="btn btn-secondary"
+                                    data-bs-dismiss="modal">Cancelar</button>
+                                <button type="submit" class="btn btn-danger px-4 fw-bold">
                                     <i class="fas fa-ban me-1"></i> Anular Movimiento
                                 </button>
                             </div>
@@ -357,122 +452,81 @@
             {% endif %}
             {% endfor %}
 
-            <!-- Paginación Responsiva -->
+            <!-- Paginación -->
             {% if total_pages > 1 %}
-            <div class="card-footer bg-white">
-                <nav aria-label="Page navigation">
-                    <ul class="pagination justify-content-center mb-0 flex-wrap">
+            <div class="card-footer bg-white border-top py-3">
+                <nav aria-label="Paginación de movimientos">
+                    <ul class="pagination pagination-sm justify-content-center mb-0 flex-wrap">
                         {% if page > 1 %}
                         <li class="page-item">
-                            <a class="page-link" href="?page=1&tipo={{ tipo_filtro }}&estado={{ estado_filtro }}&fecha_inicio={{ fecha_inicio }}&fecha_fin={{ fecha_fin }}">
+                            <a class="page-link rounded-3 me-1"
+                                href="?page=1&tipo={{ tipo_filtro }}&estado={{ estado_filtro }}&fecha_inicio={{ fecha_inicio }}&fecha_fin={{ fecha_fin }}">
                                 <i class="fas fa-angle-double-left"></i>
                             </a>
                         </li>
                         <li class="page-item">
-                            <a class="page-link" href="?page={{ page-1 }}&tipo={{ tipo_filtro }}&estado={{ estado_filtro }}&fecha_inicio={{ fecha_inicio }}&fecha_fin={{ fecha_fin }}">
+                            <a class="page-link rounded-3 me-1"
+                                href="?page={{ page-1 }}&tipo={{ tipo_filtro }}&estado={{ estado_filtro }}&fecha_inicio={{ fecha_inicio }}&fecha_fin={{ fecha_fin }}">
                                 <i class="fas fa-angle-left"></i>
                             </a>
                         </li>
                         {% endif %}
-                        
+
                         {% for p in range(1, total_pages + 1) %}
-                            {% if p == page %}
-                            <li class="page-item active"><span class="page-link">{{ p }}</span></li>
-                            {% elif p >= page-2 and p <= page+2 %}
-                            <li class="page-item">
-                                <a class="page-link" href="?page={{ p }}&tipo={{ tipo_filtro }}&estado={{ estado_filtro }}&fecha_inicio={{ fecha_inicio }}&fecha_fin={{ fecha_fin }}">
-                                    {{ p }}
-                                </a>
+                        {% if p == page %}
+                        <li class="page-item active"><span class="page-link rounded-3 me-1">{{ p }}</span></li>
+                        {% elif p >= page-2 and p <= page+2 %} <li class="page-item">
+                            <a class="page-link rounded-3 me-1"
+                                href="?page={{ p }}&tipo={{ tipo_filtro }}&estado={{ estado_filtro }}&fecha_inicio={{ fecha_inicio }}&fecha_fin={{ fecha_fin }}">
+                                {{ p }}
+                            </a>
                             </li>
                             {% endif %}
-                        {% endfor %}
-                        
-                        {% if page < total_pages %}
-                        <li class="page-item">
-                            <a class="page-link" href="?page={{ page+1 }}&tipo={{ tipo_filtro }}&estado={{ estado_filtro }}&fecha_inicio={{ fecha_inicio }}&fecha_fin={{ fecha_fin }}">
-                                <i class="fas fa-angle-right"></i>
-                            </a>
-                        </li>
-                        <li class="page-item">
-                            <a class="page-link" href="?page={{ total_pages }}&tipo={{ tipo_filtro }}&estado={{ estado_filtro }}&fecha_inicio={{ fecha_inicio }}&fecha_fin={{ fecha_fin }}">
-                                <i class="fas fa-angle-double-right"></i>
-                            </a>
-                        </li>
-                        {% endif %}
+                            {% endfor %}
+
+                            {% if page < total_pages %} <li class="page-item">
+                                <a class="page-link rounded-3 me-1"
+                                    href="?page={{ page+1 }}&tipo={{ tipo_filtro }}&estado={{ estado_filtro }}&fecha_inicio={{ fecha_inicio }}&fecha_fin={{ fecha_fin }}">
+                                    <i class="fas fa-angle-right"></i>
+                                </a>
+                                </li>
+                                <li class="page-item">
+                                    <a class="page-link rounded-3"
+                                        href="?page={{ total_pages }}&tipo={{ tipo_filtro }}&estado={{ estado_filtro }}&fecha_inicio={{ fecha_inicio }}&fecha_fin={{ fecha_fin }}">
+                                        <i class="fas fa-angle-double-right"></i>
+                                    </a>
+                                </li>
+                                {% endif %}
                     </ul>
                 </nav>
             </div>
             {% endif %}
 
             {% else %}
-            <div class="text-center py-5">
-                <i class="fas fa-inbox fa-4x text-muted mb-3"></i>
-                <h4 class="text-muted">No hay movimientos registrados</h4>
-                <p class="text-muted">Comience registrando un nuevo movimiento</p>
-                <div class="d-flex flex-column flex-sm-row gap-2 justify-content-center">
-                    <a href="{{ url_for('bodega.bodega_nueva_entrada_form') }}" class="btn btn-success">
-                        <i class="fas fa-plus-circle me-1"></i> Nueva Entrada
-                    </a>
-                    <a href="{{ url_for('bodega.bodega_nueva_salida_form') }}" class="btn btn-danger">
-                        <i class="fas fa-minus-circle me-1"></i> Nueva Salida
-                    </a>
-                    <a href="{{ url_for('bodega.bodega_nueva_transferencia_form') }}" class="btn btn-warning">
-                        <i class="fas fa-exchange-alt me-1"></i> Transferencia
-                    </a>
-                </div>
+            <div class="empty-state">
+                <i class="fas fa-inbox"></i>
+                <h5 class="fw-bold text-slate-800">No se encontraron movimientos</h5>
+                <p class="text-muted small">Intente cambiar los filtros o registre un nuevo movimiento de inventario.
+                </p>
             </div>
             {% endif %}
         </div>
     </div>
 </div>
+{% endblock %}
 
-<!-- JavaScript -->
+{% block scripts %}
 <script>
-    document.addEventListener('DOMContentLoaded', function() {
-        // Fecha de hoy por defecto en filtros (solo si no hay fechas seleccionadas)
-        if (!document.querySelector('input[name="fecha_inicio"]').value) {
-            var today = new Date().toLocaleDateString('sv-SE');
-            document.querySelector('input[name="fecha_inicio"]').value = today;
+    document.addEventListener('DOMContentLoaded', function () {
+        // Configurar fechas de hoy si están vacías
+        const iniInput = document.querySelector('input[name="fecha_inicio"]');
+        const finInput = document.querySelector('input[name="fecha_fin"]');
+        if (iniInput && !iniInput.value) {
+            iniInput.value = new Date().toLocaleDateString('sv-SE');
         }
-        if (!document.querySelector('input[name="fecha_fin"]').value) {
-            var today = new Date().toLocaleDateString('sv-SE');
-            document.querySelector('input[name="fecha_fin"]').value = today;
+        if (finInput && !finInput.value) {
+            finInput.value = new Date().toLocaleDateString('sv-SE');
         }
     });
 </script>
-
-<!-- Estilos adicionales -->
-<style>
-    .table-danger.text-muted {
-        opacity: 0.85;
-    }
-    .table-danger.text-muted:hover {
-        opacity: 1;
-    }
-    .btn-group-sm .btn {
-        padding: 0.25rem 0.5rem;
-        font-size: 0.875rem;
-    }
-    .badge {
-        font-size: 0.8rem;
-        padding: 0.35rem 0.65rem;
-    }
-    
-    /* Mejoras responsivas */
-    @media (max-width: 768px) {
-        .btn-group-sm .btn {
-            font-size: 0.75rem;
-            padding: 0.2rem 0.4rem;
-        }
-        .table-sm td, .table-sm th {
-            font-size: 0.8rem;
-        }
-    }
-    
-    @media (max-width: 576px) {
-        .btn-group-sm .btn {
-            font-size: 0.7rem;
-        }
-    }
-</style>
 {% endblock %}

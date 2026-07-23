@@ -502,20 +502,27 @@
         SECCIÓN DE SALDOS - Lógica mejorada
         ========================================================== -->
         {% set mostrar_estado_cuenta = false %}
+        {% set es_reparto_confirmar = false %}
 
-        <!-- Caso 1: Venta a crédito - SIEMPRE mostrar estado de cuenta -->
-        {% if ticket.tipo_venta == 'CREDITO' or ticket.tipo_venta == 'CRÉDITO' %}
-        {% set mostrar_estado_cuenta = true %}
+        {% if ticket.credito_contado == 2 or (ticket.observacion and ('EN REPARTO' in ticket.observacion or 'POR CONFIRMAR' in ticket.observacion)) %}
+            {% set es_reparto_confirmar = true %}
         {% endif %}
 
-        <!-- Caso 2: Venta al contado con saldo anterior -->
-        {% if ticket.tipo_venta == 'CONTADO' and saldo_anterior is defined and saldo_anterior > 0 %}
-        {% set mostrar_estado_cuenta = true %}
-        {% endif %}
+        {% if not es_reparto_confirmar %}
+            <!-- Caso 1: Venta a crédito - SIEMPRE mostrar estado de cuenta -->
+            {% if ticket.tipo_venta == 'CREDITO' or ticket.tipo_venta == 'CRÉDITO' %}
+            {% set mostrar_estado_cuenta = true %}
+            {% endif %}
 
-        <!-- Caso 3: Si existe nuevo saldo pendiente (cualquier tipo de venta) -->
-        {% if nuevo_saldo_pendiente is defined and nuevo_saldo_pendiente > 0 %}
-        {% set mostrar_estado_cuenta = true %}
+            <!-- Caso 2: Venta al contado con saldo anterior -->
+            {% if ticket.tipo_venta == 'CONTADO' and saldo_anterior is defined and saldo_anterior > 0 %}
+            {% set mostrar_estado_cuenta = true %}
+            {% endif %}
+
+            <!-- Caso 3: Si existe nuevo saldo pendiente (cualquier tipo de venta) -->
+            {% if nuevo_saldo_pendiente is defined and nuevo_saldo_pendiente > 0 %}
+            {% set mostrar_estado_cuenta = true %}
+            {% endif %}
         {% endif %}
 
         {% if mostrar_estado_cuenta %}

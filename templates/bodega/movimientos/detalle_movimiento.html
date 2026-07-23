@@ -1,360 +1,375 @@
 {% extends "layout.html" %}
 
-{% block title %}Detalle de Movimiento #{{ movimiento.ID_Movimiento }}{% endblock %}
+{% block title %}Detalle de Movimiento #{{ movimiento.ID_Movimiento }} - FerDel{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<style>
+    :root {
+        --primary-gradient: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%);
+        --success-gradient: linear-gradient(135deg, #059669 0%, #10b981 100%);
+        --danger-gradient: linear-gradient(135deg, #991b1b 0%, #ef4444 100%);
+        --warning-gradient: linear-gradient(135deg, #d97706 0%, #f59e0b 100%);
+    }
+
+    .detalle-header {
+        background: #ffffff;
+        border-radius: 16px;
+        padding: 1.5rem 2rem;
+        margin-bottom: 2rem;
+        border: 1px solid rgba(226, 232, 240, 0.8);
+        box-shadow: 0 4px 15px -3px rgba(0, 0, 0, 0.03);
+    }
+
+    .card-premium-section {
+        background: #ffffff;
+        border-radius: 16px;
+        border: 1px solid rgba(226, 232, 240, 0.8);
+        box-shadow: 0 4px 12px -2px rgba(15, 23, 42, 0.03);
+        margin-bottom: 1.5rem;
+        overflow: hidden;
+    }
+
+    .card-premium-header {
+        background: #f8fafc;
+        border-bottom: 1px solid #e2e8f0;
+        padding: 1.1rem 1.5rem;
+        font-weight: 700;
+        font-size: 0.95rem;
+        color: #1e293b;
+    }
+
+    .info-label {
+        font-size: 0.75rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: #64748b;
+    }
+
+    .info-value {
+        font-size: 0.9rem;
+        color: #1e293b;
+        font-weight: 600;
+    }
+
+    .table-modern th {
+        font-size: 0.75rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        background-color: #f8fafc;
+        color: #475569;
+        padding: 0.85rem 1rem;
+        border-bottom: 2px solid #e2e8f0;
+    }
+
+    .table-modern td {
+        vertical-align: middle;
+        padding: 0.85rem 1rem;
+        color: #334155;
+    }
+
+    .badge-status-active {
+        background-color: #dcfce7;
+        color: #15803d;
+        border: 1px solid #bbf7d0;
+        padding: 0.25rem 0.65rem;
+        border-radius: 20px;
+        font-weight: 700;
+        font-size: 0.75rem;
+    }
+
+    .badge-status-void {
+        background-color: #fee2e2;
+        color: #b91c1c;
+        border: 1px solid #fca5a5;
+        padding: 0.25rem 0.65rem;
+        border-radius: 20px;
+        font-weight: 700;
+        font-size: 0.75rem;
+    }
+
+    .badge-type-in {
+        background-color: #dcfce7;
+        color: #15803d;
+        border: 1px solid #bbf7d0;
+        border-radius: 8px;
+        padding: 0.25rem 0.65rem;
+        font-weight: 700;
+        font-size: 0.75rem;
+    }
+
+    .badge-type-out {
+        background-color: #fee2e2;
+        color: #b91c1c;
+        border: 1px solid #fca5a5;
+        border-radius: 8px;
+        padding: 0.25rem 0.65rem;
+        font-weight: 700;
+        font-size: 0.75rem;
+    }
+
+    .badge-type-trans {
+        background-color: #fef3c7;
+        color: #b45309;
+        border: 1px solid #fde68a;
+        border-radius: 8px;
+        padding: 0.25rem 0.65rem;
+        font-weight: 700;
+        font-size: 0.75rem;
+    }
+</style>
+{% endblock %}
 
 {% block content %}
-<div class="container-fluid">
-    <div class="d-flex flex-column flex-sm-row justify-content-between align-items-sm-center gap-2 mb-4">
-        <h1 class="h3 mb-0 text-gray-800">
-            <i class="fas fa-file-invoice me-2"></i>Movimiento #{{ movimiento.ID_Movimiento }}
-        </h1>
-        <div class="btn-group" role="group">
-            <a href="{{ url_for('bodega.bodega_historial_movimientos') }}" class="btn btn-secondary btn-sm">
-                <i class="fas fa-arrow-left me-1"></i> Volver
-            </a>
-            <a href="{{ url_for('bodega.bodega_imprimir_movimiento', id_movimiento=movimiento.ID_Movimiento) }}" 
-               class="btn btn-primary btn-sm" target="_blank">
-                <i class="fas fa-print me-1"></i> Imprimir
+<div class="container-fluid py-3">
+
+    <!-- Encabezado -->
+    <div class="detalle-header d-flex flex-wrap justify-content-between align-items-center gap-3">
+        <div>
+            <h3 class="fw-bold text-slate-800 mb-1">
+                <i class="fas fa-file-invoice text-primary me-2"></i>Movimiento #{{ movimiento.ID_Movimiento }}
+            </h3>
+            <p class="text-muted small mb-0">Detalle técnico e histórico de la entrada, salida o traslado registrado</p>
+        </div>
+        <div class="d-flex gap-2 flex-wrap">
+            <a href="{{ url_for('bodega.bodega_historial_movimientos') }}"
+                class="btn btn-outline-secondary btn-sm px-3 py-2 rounded-3">
+                <i class="fas fa-arrow-left me-1"></i> Volver al Historial
             </a>
             {% if movimiento.Estado == 'Activa' %}
-            <button type="button" class="btn btn-danger btn-sm" 
-                    data-bs-toggle="modal" data-bs-target="#anularModal">
-                <i class="fas fa-ban me-1"></i> Anular
+            <button type="button" class="btn btn-outline-danger btn-sm px-3 py-2 rounded-3" data-bs-toggle="modal"
+                data-bs-target="#anularModal">
+                <i class="fas fa-ban me-1"></i> Anular Registro
             </button>
             {% endif %}
         </div>
     </div>
 
     <div class="row g-3">
-        <!-- Información General -->
+        <!-- Columna Lateral: Info del Movimiento -->
         <div class="col-12 col-lg-4">
-            <div class="card shadow mb-3">
-                <div class="card-header py-3 
-                    {% if movimiento.Letra == 'E' %}bg-success text-white
-                    {% elif movimiento.Letra == 'S' %}bg-danger text-white
-                    {% else %}bg-warning text-dark{% endif %}">
-                    <h6 class="m-0 font-weight-bold">
-                        <i class="fas fa-info-circle me-1"></i>Información General
-                    </h6>
+            <div class="card-premium-section">
+                <div class="card-premium-header">
+                    <i class="fas fa-info-circle text-primary me-2"></i>Resumen de Cabecera
                 </div>
-                <div class="card-body p-2 p-sm-3">
-                    <div class="row g-2">
-                        <div class="col-6 col-sm-4 col-lg-5">
-                            <small class="text-muted">ID:</small>
+                <div class="card-body p-4">
+                    <div class="row g-3">
+                        <div class="col-6">
+                            <span class="info-label d-block">ID Registro</span>
+                            <span class="info-value font-monospace">#{{ movimiento.ID_Movimiento }}</span>
                         </div>
-                        <div class="col-6 col-sm-8 col-lg-7">
-                            <strong>#{{ movimiento.ID_Movimiento }}</strong>
-                        </div>
-                        
-                        <div class="col-6 col-sm-4 col-lg-5">
-                            <small class="text-muted">Fecha:</small>
-                        </div>
-                        <div class="col-6 col-sm-8 col-lg-7">
-                            {{ movimiento.Fecha }}
-                        </div>
-                        
-                        <div class="col-6 col-sm-4 col-lg-5">
-                            <small class="text-muted">Tipo:</small>
-                        </div>
-                        <div class="col-6 col-sm-8 col-lg-7">
-                            <span class="badge 
-                                {% if movimiento.Letra == 'E' %}bg-success
-                                {% elif movimiento.Letra == 'S' %}bg-danger
-                                {% else %}bg-warning{% endif %}">
-                                {{ movimiento.Tipo_Movimiento_Descripcion }}
+                        <div class="col-6">
+                            <span class="info-label d-block">Estado</span>
+                            <span>
+                                {% if movimiento.Estado == 'Activa' %}
+                                <span class="badge-status-active"><i class="fas fa-check-circle me-1"></i>Activa</span>
+                                {% else %}
+                                <span class="badge-status-void"><i class="fas fa-ban me-1"></i>Anulada</span>
+                                {% endif %}
                             </span>
                         </div>
-                        
-                        <div class="col-6 col-sm-4 col-lg-5">
-                            <small class="text-muted">Bodega:</small>
+
+                        <div class="col-12">
+                            <span class="info-label d-block">Fecha y Hora</span>
+                            <span class="info-value">{{ movimiento.Fecha }}</span>
                         </div>
-                        <div class="col-6 col-sm-8 col-lg-7">
-                            {{ movimiento.Bodega_Origen_Nombre }}
-                            {% if movimiento.Bodega_Destino_Nombre %}
-                            <i class="fas fa-arrow-right text-muted mx-1"></i>
-                            {{ movimiento.Bodega_Destino_Nombre }}
-                            {% endif %}
+
+                        <div class="col-12">
+                            <span class="info-label d-block">Tipo Movimiento</span>
+                            <span>
+                                {% if movimiento.Letra == 'E' %}
+                                <span class="badge-type-in"><i class="fas fa-sign-in-alt me-1"></i>{{
+                                    movimiento.Tipo_Movimiento_Descripcion }}</span>
+                                {% elif movimiento.Letra == 'S' %}
+                                <span class="badge-type-out"><i class="fas fa-sign-out-alt me-1"></i>{{
+                                    movimiento.Tipo_Movimiento_Descripcion }}</span>
+                                {% else %}
+                                <span class="badge-type-trans"><i class="fas fa-exchange-alt me-1"></i>{{
+                                    movimiento.Tipo_Movimiento_Descripcion }}</span>
+                                {% endif %}
+                            </span>
                         </div>
-                        
+
+                        <div class="col-12">
+                            <span class="info-label d-block">Bodegas Afectadas</span>
+                            <span class="info-value">
+                                <i class="fas fa-warehouse text-muted me-1"></i> {{ movimiento.Bodega_Origen_Nombre }}
+                                {% if movimiento.Bodega_Destino_Nombre %}
+                                <i class="fas fa-arrow-right text-muted mx-1"></i> {{ movimiento.Bodega_Destino_Nombre
+                                }}
+                                {% endif %}
+                            </span>
+                        </div>
+
                         {% if movimiento.Proveedor_Nombre %}
-                        <div class="col-6 col-sm-4 col-lg-5">
-                            <small class="text-muted">Proveedor:</small>
-                        </div>
-                        <div class="col-6 col-sm-8 col-lg-7">
-                            {{ movimiento.Proveedor_Nombre }}
+                        <div class="col-12">
+                            <span class="info-label d-block">Proveedor</span>
+                            <span class="info-value"><i class="fas fa-building text-muted me-1"></i> {{
+                                movimiento.Proveedor_Nombre }}</span>
                         </div>
                         {% endif %}
-                        
+
                         {% if movimiento.Cliente_Nombre %}
-                        <div class="col-6 col-sm-4 col-lg-5">
-                            <small class="text-muted">Cliente:</small>
-                        </div>
-                        <div class="col-6 col-sm-8 col-lg-7">
-                            {{ movimiento.Cliente_Nombre }}
+                        <div class="col-12">
+                            <span class="info-label d-block">Cliente</span>
+                            <span class="info-value"><i class="fas fa-user text-muted me-1"></i> {{
+                                movimiento.Cliente_Nombre }}</span>
                         </div>
                         {% endif %}
-                        
+
                         {% if movimiento.Tipo_Compra %}
-                        <div class="col-6 col-sm-4 col-lg-5">
-                            <small class="text-muted">Tipo Compra:</small>
-                        </div>
-                        <div class="col-6 col-sm-8 col-lg-7">
-                            <span class="badge 
-                                {% if movimiento.Tipo_Compra == 'CONTADO' %}bg-success
-                                {% else %}bg-warning text-dark{% endif %}">
-                                {{ movimiento.Tipo_Compra }}
+                        <div class="col-12">
+                            <span class="info-label d-block">Tipo Compra / Factura</span>
+                            <span class="info-value">
+                                <span class="badge bg-light text-dark border">{{ movimiento.Tipo_Compra }}</span>
+                                {% if movimiento.N_Factura_Externa %}
+                                <span class="ms-1 font-monospace">#{{ movimiento.N_Factura_Externa }}</span>
+                                {% endif %}
                             </span>
                         </div>
                         {% endif %}
-                        
-                        {% if movimiento.N_Factura_Externa %}
-                        <div class="col-6 col-sm-4 col-lg-5">
-                            <small class="text-muted">Factura Externa:</small>
-                        </div>
-                        <div class="col-6 col-sm-8 col-lg-7">
-                            {{ movimiento.N_Factura_Externa }}
-                        </div>
-                        {% endif %}
-                        
-                        <div class="col-6 col-sm-4 col-lg-5">
-                            <small class="text-muted">Usuario:</small>
-                        </div>
-                        <div class="col-6 col-sm-8 col-lg-7">
-                            {{ movimiento.Usuario_Creacion_Nombre }}
-                        </div>
-                        
-                        <div class="col-6 col-sm-4 col-lg-5">
-                            <small class="text-muted">Estado:</small>
-                        </div>
-                        <div class="col-6 col-sm-8 col-lg-7">
-                            {% if movimiento.Estado == 'Activa' %}
-                            <span class="badge bg-success">Activa</span>
-                            {% else %}
-                            <span class="badge bg-danger">Anulada</span>
-                            {% endif %}
+
+                        <div class="col-12">
+                            <span class="info-label d-block">Registrado Por</span>
+                            <span class="info-value text-muted small"><i class="fas fa-user-circle me-1"></i> {{
+                                movimiento.Usuario_Creacion_Nombre }}</span>
                         </div>
                     </div>
                 </div>
             </div>
-            
-            <!-- Totales - SIN PRECIOS -->
-            <div class="card shadow mb-3">
-                <div class="card-header py-3 bg-info text-white">
-                    <h6 class="m-0 font-weight-bold">
-                        <i class="fas fa-calculator me-1"></i>Resumen
-                    </h6>
+
+            <!-- Resumen de Cantidades -->
+            <div class="card-premium-section">
+                <div class="card-premium-header">
+                    <i class="fas fa-calculator text-info me-2"></i>Totales de Control
                 </div>
-                <div class="card-body p-2 p-sm-3">
-                    <div class="row g-2">
-                        <div class="col-6 col-sm-4 col-lg-5">
-                            <small class="text-muted">Productos:</small>
+                <div class="card-body p-4">
+                    <div class="row g-3">
+                        <div class="col-6">
+                            <span class="info-label d-block">Total Ítems</span>
+                            <span class="info-value fs-5">{{ detalle|length }}</span>
                         </div>
-                        <div class="col-6 col-sm-8 col-lg-7 text-end text-sm-start">
-                            <strong>{{ detalle|length }}</strong>
+                        <div class="col-6">
+                            <span class="info-label d-block">Unidades Totales</span>
+                            <span class="info-value fs-5 text-primary">{{ "%.3f"|format(total_cantidad|abs) }}</span>
                         </div>
-                        
-                        <div class="col-6 col-sm-4 col-lg-5">
-                            <small class="text-muted">Total Unidades:</small>
-                        </div>
-                        <div class="col-6 col-sm-8 col-lg-7 text-end text-sm-start">
-                            <strong class="text-primary">{{ "%.3f"|format(total_cantidad|abs) }}</strong>
-                        </div>
-                        
+
                         <div class="col-12 mt-2">
-                            <div class="alert alert-info alert-sm mb-0 py-2">
-                                <small>
-                                    <i class="fas fa-info-circle me-1"></i>
-                                    Los precios no se muestran por políticas de la bodega
-                                </small>
+                            <div class="alert alert-info border-0 rounded-3 small py-2 mb-0">
+                                <i class="fas fa-info-circle me-1"></i> Los costos y precios de bodega son internos y se
+                                omiten en esta consulta.
                             </div>
                         </div>
                     </div>
                 </div>
             </div>
         </div>
-        
-        <!-- Detalle de Productos - SIN PRECIOS (VERSIÓN RESPONSIVA) -->
+
+        <!-- Columna Detalle de Artículos -->
         <div class="col-12 col-lg-8">
-            <div class="card shadow mb-3">
-                <div class="card-header py-3 d-flex flex-column flex-sm-row justify-content-between align-items-sm-center gap-2">
-                    <h6 class="m-0 font-weight-bold text-primary">
-                        <i class="fas fa-boxes me-1"></i>Productos
-                        <span class="badge bg-primary ms-2">{{ detalle|length }}</span>
-                    </h6>
+            <div class="card-premium-section">
+                <div class="card-premium-header d-flex justify-content-between align-items-center">
                     <div>
-                        <span class="text-muted small">
-                            {% if movimiento.Letra == 'E' %}
-                            <i class="fas fa-sign-in-alt text-success me-1"></i>Entrada
-                            {% elif movimiento.Letra == 'S' %}
-                            <i class="fas fa-sign-out-alt text-danger me-1"></i>Salida
-                            {% else %}
-                            <i class="fas fa-exchange-alt text-warning me-1"></i>Transferencia
-                            {% endif %}
-                        </span>
+                        <i class="fas fa-boxes text-primary me-2"></i>Productos Afectados
                     </div>
+                    <span class="badge bg-light text-dark border">{{ detalle|length }} productos</span>
                 </div>
                 <div class="card-body p-0">
                     {% if detalle %}
-                    
-                    <!-- VERSIÓN DESKTOP: Tabla normal -->
+
+                    <!-- ESCRITORIO -->
                     <div class="d-none d-md-block">
                         <div class="table-responsive">
-                            <table class="table table-hover mb-0">
-                                <thead class="table-light">
+                            <table class="table table-hover table-modern align-middle mb-0">
+                                <thead>
                                     <tr>
-                                        <th>Código</th>
-                                        <th>Producto</th>
-                                        <th class="text-end">Cantidad</th>
-                                        <th>Unidad</th>
-                                        <th class="text-center">Stock Actual</th>
+                                        <th style="width: 130px;">Código</th>
+                                        <th>Descripción Producto</th>
+                                        <th class="text-end" style="width: 140px;">Cantidad</th>
+                                        <th style="width: 100px;">Unidad</th>
+                                        <th class="text-center" style="width: 120px;">Stock Actual</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     {% for item in detalle %}
                                     <tr>
+                                        <td class="font-monospace small">{{ item.COD_Producto or 'N/A' }}</td>
                                         <td>
-                                            <small class="text-muted">{{ item.COD_Producto or 'N/A' }}</small>
+                                            <strong class="text-slate-800">{{ item.Producto_Descripcion }}</strong><br>
+                                            <small class="text-muted">{{ item.Categoria_Descripcion or 'Sin categoría'
+                                                }}</small>
                                         </td>
-                                        <td>
-                                            <strong>{{ item.Producto_Descripcion }}</strong>
-                                            <br>
-                                            <small class="text-muted">{{ item.Categoria_Descripcion or 'Sin categoría' }}</small>
-                                        </td>
-                                        <td class="text-end">
-                                            <strong>
-                                                {% if item.Unidad_Abreviatura == 'CJI' or item.Unidad_Medida_Descripcion == 'Cajilla' %}
-                                                    {% set whole_cajillas = (item.Cantidad|abs)|int %}
-                                                    {% set loose_units = ((item.Cantidad|abs % 1) * 30)|round|int %}
-                                                    {{ whole_cajillas }} cj{% if loose_units > 0 %} y {{ loose_units }} ud{% endif %}
-                                                {% else %}
-                                                    {{ "%.3f"|format(item.Cantidad|abs) }}
-                                                {% endif %}
-                                            </strong>
+                                        <td class="text-end fw-bold text-slate-800">
+                                            {% if item.Unidad_Abreviatura == 'CJI' or item.Unidad_Medida_Descripcion ==
+                                            'Cajilla' %}
+                                            {% set whole_cajillas = (item.Cantidad|abs)|int %}
+                                            {% set loose_units = ((item.Cantidad|abs % 1) * 30)|round|int %}
+                                            {{ whole_cajillas }} cj{% if loose_units > 0 %} y {{ loose_units }} ud{%
+                                            endif %}
+                                            {% else %}
+                                            {{ "%.3f"|format(item.Cantidad|abs) }}
+                                            {% endif %}
                                         </td>
                                         <td>{{ item.Unidad_Abreviatura or item.Unidad_Medida_Descripcion }}</td>
                                         <td class="text-center">
-                                            <span class="badge 
-                                                {% if item.Stock_Actual and item.Stock_Actual > 0 %}bg-success
-                                                {% else %}bg-danger{% endif %}">
-                                                {{ item.Stock_Actual or 0 }}
-                                            </span>
+                                            <span class="badge bg-light text-dark border font-monospace">{{
+                                                item.Stock_Actual or 0 }}</span>
                                         </td>
                                     </tr>
                                     {% endfor %}
                                 </tbody>
-                                <tfoot class="table-secondary">
-                                    <tr>
-                                        <td colspan="2" class="text-end"><strong>Total:</strong></td>
-                                        <td class="text-end"><strong>{{ "%.3f"|format(total_cantidad|abs) }}</strong></td>
+                                <tfoot>
+                                    <tr class="table-light fw-bold border-top">
+                                        <td colspan="2" class="text-end">Total Unidades Afectadas:</td>
+                                        <td class="text-end text-primary fs-6">{{ "%.3f"|format(total_cantidad|abs) }}
+                                        </td>
                                         <td colspan="2"></td>
                                     </tr>
                                 </tfoot>
                             </table>
                         </div>
                     </div>
-                    
-                    <!-- VERSIÓN TABLET: Tabla compacta -->
-                    <div class="d-none d-sm-block d-md-none">
-                        <div class="table-responsive">
-                            <table class="table table-sm table-hover mb-0">
-                                <thead class="table-light">
-                                    <tr>
-                                        <th>Producto</th>
-                                        <th class="text-end">Cant</th>
-                                        <th>Unidad</th>
-                                        <th class="text-center">Stock</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {% for item in detalle %}
-                                    <tr>
-                                        <td>
-                                            <strong>{{ item.Producto_Descripcion|truncate(30) }}</strong>
-                                            <br>
-                                            <small class="text-muted">{{ item.COD_Producto or 'N/A' }}</small>
-                                        </td>
-                                        <td class="text-end">
-                                            <strong>
-                                                {% if item.Unidad_Abreviatura == 'CJI' or item.Unidad_Medida_Descripcion == 'Cajilla' %}
-                                                    {% set whole_cajillas = (item.Cantidad|abs)|int %}
-                                                    {% set loose_units = ((item.Cantidad|abs % 1) * 30)|round|int %}
-                                                    {{ whole_cajillas }} cj{% if loose_units > 0 %} y {{ loose_units }} ud{% endif %}
-                                                {% else %}
-                                                    {{ "%.3f"|format(item.Cantidad|abs) }}
-                                                {% endif %}
-                                            </strong>
-                                        </td>
-                                        <td>{{ item.Unidad_Abreviatura or item.Unidad_Medida_Descripcion }}</td>
-                                        <td class="text-center">
-                                            <span class="badge 
-                                                {% if item.Stock_Actual and item.Stock_Actual > 0 %}bg-success
-                                                {% else %}bg-danger{% endif %}">
-                                                {{ item.Stock_Actual or 0 }}
-                                            </span>
-                                        </td>
-                                    </tr>
-                                    {% endfor %}
-                                </tbody>
-                                <tfoot class="table-secondary">
-                                    <tr>
-                                        <td class="text-end"><strong>Total:</strong></td>
-                                        <td class="text-end"><strong>{{ "%.3f"|format(total_cantidad|abs) }}</strong></td>
-                                        <td colspan="2"></td>
-                                    </tr>
-                                </tfoot>
-                            </table>
-                        </div>
-                    </div>
-                    
-                    <!-- VERSIÓN MÓVIL: Tarjetas -->
-                    <div class="d-block d-sm-none">
+
+                    <!-- MÓVIL -->
+                    <div class="d-block d-md-none">
                         <div class="list-group list-group-flush">
                             {% for item in detalle %}
                             <div class="list-group-item p-3">
                                 <div class="d-flex justify-content-between align-items-start mb-2">
-                                    <div class="flex-grow-1">
-                                        <strong class="fs-6">{{ item.Producto_Descripcion }}</strong>
-                                        <div>
-                                            <small class="text-muted">{{ item.COD_Producto or 'N/A' }}</small>
-                                            {% if item.Categoria_Descripcion %}
-                                            <br>
-                                            <small class="text-muted">
-                                                <i class="fas fa-tag me-1"></i>{{ item.Categoria_Descripcion }}
-                                            </small>
-                                            {% endif %}
-                                        </div>
+                                    <div>
+                                        <strong class="text-slate-800">{{ item.Producto_Descripcion }}</strong>
+                                        <div class="micro-text text-muted font-monospace mt-1">Cód: {{ item.COD_Producto
+                                            or 'N/A' }}</div>
                                     </div>
-                                    <div class="text-end">
-                                        <span class="badge 
-                                            {% if item.Stock_Actual and item.Stock_Actual > 0 %}bg-success
-                                            {% else %}bg-danger{% endif %}">
-                                            Stock: {{ item.Stock_Actual or 0 }}
-                                        </span>
-                                    </div>
+                                    <span class="badge bg-light text-dark border micro-text">Stock: {{ item.Stock_Actual
+                                        or 0 }}</span>
                                 </div>
-                                <div class="row mt-2">
+                                <div class="row g-2 mt-2">
                                     <div class="col-6">
-                                        <small class="text-muted d-block">Cantidad</small>
-                                        <strong class="text-primary fs-5">
-                                            {% if item.Unidad_Abreviatura == 'CJI' or item.Unidad_Medida_Descripcion == 'Cajilla' %}
-                                                {% set whole_cajillas = (item.Cantidad|abs)|int %}
-                                                {% set loose_units = ((item.Cantidad|abs % 1) * 30)|round|int %}
-                                                {{ whole_cajillas }} cj{% if loose_units > 0 %} y {{ loose_units }} ud{% endif %}
+                                        <span class="micro-text text-muted d-block">Cantidad:</span>
+                                        <strong class="text-slate-800">
+                                            {% if item.Unidad_Abreviatura == 'CJI' or item.Unidad_Medida_Descripcion ==
+                                            'Cajilla' %}
+                                            {% set whole_cajillas = (item.Cantidad|abs)|int %}
+                                            {% set loose_units = ((item.Cantidad|abs % 1) * 30)|round|int %}
+                                            {{ whole_cajillas }} cj{% if loose_units > 0 %} y {{ loose_units }} ud{%
+                                            endif %}
                                             {% else %}
-                                                {{ "%.3f"|format(item.Cantidad|abs) }}
+                                            {{ "%.3f"|format(item.Cantidad|abs) }}
                                             {% endif %}
                                         </strong>
                                     </div>
                                     <div class="col-6">
-                                        <small class="text-muted d-block">Unidad</small>
-                                        <span>{{ item.Unidad_Abreviatura or item.Unidad_Medida_Descripcion }}</span>
+                                        <span class="micro-text text-muted d-block">Unidad:</span>
+                                        <span class="small">{{ item.Unidad_Abreviatura or item.Unidad_Medida_Descripcion
+                                            }}</span>
                                     </div>
                                 </div>
                             </div>
                             {% endfor %}
-                            
-                            <!-- Total en móvil -->
-                            <div class="list-group-item bg-light">
+                            <div class="list-group-item bg-light p-3">
                                 <div class="d-flex justify-content-between align-items-center">
                                     <strong>Total Unidades:</strong>
                                     <strong class="text-primary fs-5">{{ "%.3f"|format(total_cantidad|abs) }}</strong>
@@ -362,54 +377,45 @@
                             </div>
                         </div>
                     </div>
-                    
+
                     {% else %}
-                    <div class="text-center py-5">
-                        <i class="fas fa-box-open fa-3x text-muted mb-3"></i>
-                        <h5 class="text-muted">No hay productos en este movimiento</h5>
+                    <div class="text-center py-4 text-muted">
+                        <i class="fas fa-box-open fa-2x mb-2"></i><br>No se encontraron detalles
                     </div>
                     {% endif %}
                 </div>
             </div>
-            
+
             <!-- Observaciones -->
             {% if movimiento.Observacion %}
-            <div class="card shadow mb-3">
-                <div class="card-header py-3">
-                    <h6 class="m-0 font-weight-bold text-primary">
-                        <i class="fas fa-sticky-note me-1"></i>Observaciones
-                    </h6>
+            <div class="card-premium-section">
+                <div class="card-premium-header">
+                    <i class="fas fa-sticky-note text-warning me-2"></i>Observaciones y Notas
                 </div>
-                <div class="card-body">
-                    <p class="mb-0 small">{{ movimiento.Observacion }}</p>
+                <div class="card-body p-4 text-slate-700">
+                    <p class="mb-0 small" style="white-space: pre-line;">{{ movimiento.Observacion }}</p>
                 </div>
             </div>
             {% endif %}
-            
-            <!-- MOSTRAR FACTURA DEL PROVEEDOR (SI EXISTE) - VERSIÓN RESPONSIVA -->
+
+            <!-- Factura Adjunta del Proveedor -->
             {% if foto_url %}
-            <div class="card shadow mb-3">
-                <div class="card-header py-3 bg-info text-white">
-                    <h6 class="m-0 font-weight-bold">
-                        <i class="fas fa-file-invoice me-2"></i>
-                        Factura del Proveedor
-                    </h6>
+            <div class="card-premium-section">
+                <div class="card-premium-header">
+                    <i class="fas fa-file-invoice text-success me-2"></i>Factura del Proveedor Adjunta
                 </div>
-                <div class="card-body text-center p-2 p-sm-3">
-                    <a href="/static/{{ foto_url }}" target="_blank" class="btn btn-primary btn-sm mb-2">
-                        <i class="fas fa-external-link-alt me-1"></i> Ver Factura Completa
-                    </a>
-                    <div class="mt-2">
-                        <img src="/static/{{ foto_url }}" 
-                             class="img-fluid img-thumbnail" 
-                             style="max-height: 300px; width: auto; cursor: pointer; max-width: 100%;" 
-                             onclick="window.open('/static/{{ foto_url }}', '_blank')"
-                             alt="Factura del proveedor"
-                             onerror="this.onerror=null; this.style.display='none'; this.parentElement.innerHTML += '<div class=\'alert alert-danger mt-2\'><i class=\'fas fa-exclamation-triangle me-1\'></i> No se pudo cargar la imagen de la factura. El archivo podría no existir o la ruta es incorrecta.</div>';">
-                        <p class="text-muted mt-2 small">
-                            <i class="fas fa-info-circle me-1"></i> 
-                            Haz clic en la imagen para verla en tamaño completo
-                        </p>
+                <div class="card-body p-4 text-center">
+                    <div class="mb-3">
+                        <a href="/static/{{ foto_url }}" target="_blank"
+                            class="btn btn-outline-primary btn-sm rounded-3 px-3">
+                            <i class="fas fa-external-link-alt me-1"></i> Abrir Factura en Nueva Ventana
+                        </a>
+                    </div>
+                    <div class="border rounded-3 p-2 bg-light d-inline-block">
+                        <img src="/static/{{ foto_url }}" class="img-fluid img-thumbnail"
+                            style="max-height: 380px; width: auto; cursor: pointer; max-width: 100%; border-radius: 12px;"
+                            onclick="window.open('/static/{{ foto_url }}', '_blank')" alt="Factura del proveedor"
+                            onerror="this.onerror=null; this.style.display='none'; this.parentElement.innerHTML += '<div class=\'alert alert-danger mt-2\'><i class=\'fas fa-exclamation-triangle me-1\'></i> No se pudo cargar la imagen de la factura.</div>';">
                     </div>
                 </div>
             </div>
@@ -420,35 +426,34 @@
 
 <!-- Modal para anular -->
 {% if movimiento.Estado == 'Activa' %}
-<div class="modal fade" id="anularModal" tabindex="-1">
+<div class="modal fade" id="anularModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content">
-            <div class="modal-header bg-danger text-white">
-                <h5 class="modal-title">
-                    <i class="fas fa-exclamation-triangle me-2"></i>
-                    Confirmar Anulación
+        <div class="modal-content border-0 shadow-lg" style="border-radius: 16px;">
+            <div class="modal-header bg-danger text-white" style="border-radius: 16px 16px 0 0;">
+                <h5 class="modal-title fw-bold">
+                    <i class="fas fa-exclamation-triangle me-2"></i>Confirmar Anulación
                 </h5>
-                <button type="button" class="btn-close btn-close-white" 
-                        data-bs-dismiss="modal"></button>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
+                    aria-label="Cerrar"></button>
             </div>
-            <form method="POST" 
-                  action="{{ url_for('bodega.bodega_anular_movimiento', id_movimiento=movimiento.ID_Movimiento) }}">
-                <div class="modal-body">
-                    <p>¿Está seguro que desea anular el movimiento 
-                        <strong>#{{ movimiento.ID_Movimiento }}</strong>?</p>
-                    <div class="alert alert-danger">
+            <form method="POST"
+                action="{{ url_for('bodega.bodega_anular_movimiento', id_movimiento=movimiento.ID_Movimiento) }}">
+                <div class="modal-body p-4">
+                    <p>¿Está seguro de que desea anular el movimiento de inventario **#{{ movimiento.ID_Movimiento }}**?
+                    </p>
+                    <div class="alert alert-danger border-0 small rounded-3">
                         <i class="fas fa-exclamation-circle me-1"></i>
-                        Esta acción revertirá los cambios en el inventario y no se puede deshacer.
+                        **Atención:** Esta acción es irreversible y revertirá las existencias afectadas en las bodegas.
                     </div>
                     <div class="mb-3">
-                        <label class="form-label">Motivo de anulación:</label>
-                        <textarea name="motivo" class="form-control" rows="3" required></textarea>
+                        <label class="form-label fw-bold text-slate-700">Escriba el motivo de la anulación *</label>
+                        <textarea name="motivo" class="form-control rounded-3" rows="3" required
+                            placeholder="Explique brevemente por qué anula este movimiento..."></textarea>
                     </div>
                 </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" 
-                            data-bs-dismiss="modal">Cancelar</button>
-                    <button type="submit" class="btn btn-danger">
+                <div class="modal-footer bg-light" style="border-radius: 0 0 16px 16px;">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-danger px-4 fw-bold">
                         <i class="fas fa-ban me-1"></i> Anular Movimiento
                     </button>
                 </div>
@@ -457,50 +462,4 @@
     </div>
 </div>
 {% endif %}
-
-<!-- JavaScript -->
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    const urlParams = new URLSearchParams(window.location.search);
-    if (urlParams.has('success')) {
-        if (typeof toastr !== 'undefined') {
-            toastr.success('Movimiento procesado exitosamente');
-        } else {
-            console.log('Movimiento procesado exitosamente');
-        }
-    }
-    
-    window.verFactura = function(url) {
-        window.open(url, '_blank');
-    };
-});
-</script>
-
-<style>
-/* Mejoras responsivas adicionales */
-@media (max-width: 576px) {
-    .btn-group {
-        width: 100%;
-    }
-    .btn-group .btn {
-        flex: 1;
-    }
-    .card-header h6 {
-        font-size: 0.9rem;
-    }
-}
-
-@media (min-width: 768px) and (max-width: 991px) {
-    .table-sm td, .table-sm th {
-        padding: 0.5rem;
-        font-size: 0.85rem;
-    }
-}
-
-/* Mejora para scroll horizontal en tablas si es necesario */
-.table-responsive {
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-}
-</style>
 {% endblock %}

@@ -298,6 +298,7 @@ def admin_crear_venta():
                     c.tipo_cliente,
                     c.perfil_cliente,
                     c.Saldo_Pendiente_Total,
+                    c.Saldo_Anticipos,
                     r.Nombre_Ruta
                 FROM clientes c
                 LEFT JOIN rutas r ON c.ID_Ruta = r.ID_Ruta
@@ -413,7 +414,7 @@ def admin_crear_venta():
             with get_db_cursor(True) as cursor:
                 # Obtener perfil del cliente y saldo actual
                 cursor.execute("""
-                    SELECT tipo_cliente, perfil_cliente, Nombre, Saldo_Pendiente_Total
+                    SELECT tipo_cliente, perfil_cliente, Nombre, Saldo_Pendiente_Total, Saldo_Anticipos
                     FROM clientes 
                     WHERE ID_Cliente = %s
                 """, (id_cliente,))
@@ -426,6 +427,7 @@ def admin_crear_venta():
                 perfil_cliente = cliente_data['perfil_cliente']
                 nombre_cliente = cliente_data['Nombre']
                 saldo_actual_cliente = float(cliente_data['Saldo_Pendiente_Total'] or 0)
+                saldo_anticipos_cliente = float(cliente_data['Saldo_Anticipos'] or 0)
                 
                 print(f"👤 Cliente: {nombre_cliente}")
                 print(f"📊 Perfil: {perfil_cliente} | Tipo: {tipo_cliente}")
@@ -526,15 +528,17 @@ def admin_crear_venta():
                 metodos_pago_list = []
                 total_pagado = 0
                 monto_efectivo = 0
+                monto_usado_saldo_favor = 0
                 
                 for i in range(len(metodos_pago_ids)):
                     if i < len(montos_pago) and montos_pago[i]:
                         monto = float(montos_pago[i])
                         if monto > 0:
+                            id_metodo = int(metodos_pago_ids[i])
                             nombre_metodo = metodos_pago_nombres[i] if i < len(metodos_pago_nombres) else ''
                             
                             metodo_pago = {
-                                'id_metodo': int(metodos_pago_ids[i]),
+                                'id_metodo': id_metodo,
                                 'nombre': nombre_metodo,
                                 'monto': monto,
                                 'referencia': referencias_pago[i] if i < len(referencias_pago) else ''
@@ -542,16 +546,25 @@ def admin_crear_venta():
                             metodos_pago_list.append(metodo_pago)
                             total_pagado += monto
                             
+                            if id_metodo == 5 or 'SALDO A FAVOR' in nombre_metodo.upper():
+                                monto_usado_saldo_favor += monto
+                            
                             if nombre_metodo.upper() in ['EFECTIVO', 'EFECTIVO CORDODAS', 'EFECTIVO DOLARES', 'CASH']:
                                 monto_efectivo += monto
+                
+                # Validar que si usó "Saldo a Favor", el cliente tenga suficiente
+                if monto_usado_saldo_favor > saldo_anticipos_cliente:
+                    raise Exception(f'El monto pagado con Saldo a Favor (C${monto_usado_saldo_favor:,.2f}) excede el saldo disponible del cliente (C${saldo_anticipos_cliente:,.2f})')
                 
                 print(f"📊 Total venta: C${total_venta:,.2f}")
                 print(f"💵 Total pagado: C${total_pagado:,.2f}")
                 print(f"💰 Monto en EFECTIVO: C${monto_efectivo:,.2f}")
+                print(f"💳 Monto usado de Saldo a Favor: C${monto_usado_saldo_favor:,.2f}")
                 
-                # 🔥 VALIDACIÓN: El pago no puede exceder el total
+                exceso_pago = 0
                 if total_pagado > total_venta:
-                    raise Exception(f'El monto total pagado (C${total_pagado:,.2f}) no puede exceder el total de la venta (C${total_venta:,.2f})')
+                    exceso_pago = total_pagado - total_venta
+                    print(f"💰 Pago en exceso detectado: C${exceso_pago:,.2f}")
                 
                 # 🔥 LÓGICA PRINCIPAL: Determinar el saldo a crédito
                 if tipo_venta == 'reparto':
@@ -562,8 +575,11 @@ def admin_crear_venta():
                     metodos_pago_json = None
                     observacion = f"{observacion} | EN REPARTO / POR CONFIRMAR"
                     fecha_vencimiento = None
+                    exceso_pago = 0
+                    monto_usado_saldo_favor = 0
                 else:
-                    saldo_pendiente = total_venta - total_pagado
+                    total_pago_imputable = min(total_pagado, total_venta)
+                    saldo_pendiente = total_venta - total_pago_imputable
                     
                     # Si hay saldo pendiente, necesitamos una fecha de vencimiento
                     if saldo_pendiente > 0:
@@ -575,7 +591,10 @@ def admin_crear_venta():
                         # Agregar a la observación
                         observacion = f"{observacion} | PAGO PARCIAL: Pagó C${total_pagado:,.2f}, Saldo pendiente C${saldo_pendiente:,.2f} (Vence: {fecha_vencimiento})"
                     else:
-                        observacion = f"{observacion} | PAGO COMPLETO: Canceló el 100% de la factura"
+                        if exceso_pago > 0:
+                            observacion = f"{observacion} | PAGO EN EXCESO: Pagó C${total_pagado:,.2f}, Total Venta C${total_venta:,.2f} (Exceso C${exceso_pago:,.2f} acumulado a Saldo a Favor)"
+                        else:
+                            observacion = f"{observacion} | PAGO COMPLETO: Canceló el 100% de la factura"
                 
                 print(f"💰 Saldo pendiente a crédito: C${saldo_pendiente:,.2f}")
                 
@@ -786,6 +805,8 @@ def admin_crear_venta():
                     print(f"ℹ️ No hay pago en efectivo - No se registra movimiento en caja")
                 
                 # 7. Crear cuenta por cobrar si hay saldo pendiente
+                nuevo_saldo_anticipos = max(0.0, saldo_anticipos_cliente - monto_usado_saldo_favor + exceso_pago)
+                
                 if saldo_pendiente > 0:
                     print(f"🔴 Creando cuenta por cobrar por saldo pendiente: C${saldo_pendiente:,.2f}")
                     
@@ -795,15 +816,17 @@ def admin_crear_venta():
                     cursor.execute("""
                         UPDATE clientes 
                         SET Saldo_Pendiente_Total = %s,
+                            Saldo_Anticipos = %s,
                             Fecha_Ultimo_Movimiento = NOW(),
                             ID_Ultima_Factura = %s
                         WHERE ID_Cliente = %s
-                    """, (nuevo_saldo, id_factura, id_cliente))
+                    """, (nuevo_saldo, nuevo_saldo_anticipos, id_factura, id_cliente))
                     
                     print(f"💰 Saldo cliente actualizado:")
                     print(f"   Saldo anterior: C${saldo_actual_cliente:,.2f}")
                     print(f"   + Nuevo crédito: C${saldo_pendiente:,.2f}")
                     print(f"   = Nuevo saldo total: C${nuevo_saldo:,.2f}")
+                    print(f"   = Nuevo saldo anticipos: C${nuevo_saldo_anticipos:,.2f}")
                     
                     # Insertar registro en cuentas por cobrar
                     cursor.execute("""
@@ -827,14 +850,15 @@ def admin_crear_venta():
                     ))
                     print(f"💳 Cuenta por cobrar creada por C${saldo_pendiente:,.2f} con vencimiento {fecha_vencimiento}")
                 else:
-                    # No hay crédito, solo actualizar última factura
+                    # No hay crédito, solo actualizar última factura y saldo a favor
                     cursor.execute("""
                         UPDATE clientes 
-                        SET Fecha_Ultimo_Movimiento = NOW(),
+                        SET Saldo_Anticipos = %s,
+                            Fecha_Ultimo_Movimiento = NOW(),
                             ID_Ultima_Factura = %s
                         WHERE ID_Cliente = %s
-                    """, (id_factura, id_cliente))
-                    print(f"ℹ️ No hay saldo pendiente - No se crea cuenta por cobrar")
+                    """, (nuevo_saldo_anticipos, id_factura, id_cliente))
+                    print(f"ℹ️ No hay saldo pendiente - No se crea cuenta por cobrar. Nuevo saldo anticipos: C${nuevo_saldo_anticipos:,.2f}")
                 
                 # Construir mensaje de éxito
                 if es_credito == 2:
@@ -856,6 +880,7 @@ def admin_crear_venta():
                     'monto_efectivo': monto_efectivo,
                     'saldo_pendiente': saldo_pendiente,
                     'nuevo_saldo_cliente': nuevo_saldo if saldo_pendiente > 0 else saldo_actual_cliente,
+                    'nuevo_saldo_anticipos': nuevo_saldo_anticipos,
                     'metodos_pago': metodos_pago_list,
                     'perfil_cliente': perfil_cliente,
                     'cajillas_huevos': total_cajillas_huevos,
@@ -1127,6 +1152,7 @@ def admin_generar_ticket(id_factura):
                     'telefono': factura['Telefono_Empresa']
                 },
                 'es_credito': factura['Credito_Contado'] == 1,
+                'credito_contado': factura['Credito_Contado'],
                 'cuenta_cobrar': cuenta_cobrar,
                 'facturas_pendientes': facturas_pendientes
             }
@@ -3938,5 +3964,3 @@ def admin_confirmar_entrega(id_factura):
             return jsonify({'success': False, 'error': str(e)}), 500
         flash(f'Error al cargar pantalla de confirmación: {str(e)}', 'error')
         return redirect(url_for('admin.admin_ventas_salidas'))
-
-

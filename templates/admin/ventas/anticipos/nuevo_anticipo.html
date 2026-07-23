@@ -101,24 +101,24 @@
                 </div>
                 <div class="col-md-8">
                     <div class="mb-3">
-                        <label class="form-label required">Monto Pagado (C$)</label>
+                        <label class="form-label required">Monto Pagado ($)</label>
                         <input type="number" name="monto_pagado" id="monto_pagado" 
                                class="form-control" step="0.01" min="0.01" required>
                     </div>
                 </div>
             </div>
 
-            <!-- Sección de Precio por Caja -->
-            <div>
-                <div class="precio-especial-box" style="background-color: #e8f0fe; border: 1px solid #b5d0ff; color: #1e429f;">
+            <!-- Sección simplificada para perfil especial -->
+            <div id="precioEspecialSection" style="display: none;">
+                <div class="precio-especial-box">
                     <div class="row align-items-center">
                         <div class="col-md-4">
-                            <label class="form-label mb-0"><strong>Precio por caja (C$)</strong></label>
+                            <label class="form-label mb-0">Precio por caja ($)</label>
                         </div>
                         <div class="col-md-5">
                             <input type="number" name="precio_especial" id="precio_especial" 
-                                   class="form-control form-control-sm" step="0.0001" 
-                                   placeholder="Precio por caja (se calcula solo o ingréselo)" required>
+                                   class="form-control form-control-sm" step="0.01" 
+                                   placeholder="Ingrese precio">
                         </div>
                         <div class="col-md-3">
                             <button type="button" class="btn btn-sm btn-outline-secondary w-100" id="btnCalcular">
@@ -126,7 +126,7 @@
                             </button>
                         </div>
                     </div>
-                    <input type="hidden" name="calcular_precio_auto" id="calcular_precio_auto" value="on">
+                    <input type="hidden" name="calcular_precio_auto" id="calcular_precio_auto" value="">
                 </div>
             </div>
 
@@ -152,13 +152,13 @@
                         <small class="text-muted">Perfil:</small>
                         <strong id="perfilCliente">-</strong><br>
                         <small class="text-muted">Precio unitario:</small>
-                        <strong id="precioUnitario">C$0.00</strong>
+                        <strong id="precioUnitario">$0.00</strong>
                         <span id="precioNota" class="small"></span>
                     </div>
                     <div class="col-md-6 text-end">
                         <div class="precio-card">
                             <small>MONTO PAGADO</small>
-                            <h3 class="mb-0" id="montoMostrar">C$0.00</h3>
+                            <h3 class="mb-0" id="montoMostrar">$0.00</h3>
                         </div>
                     </div>
                 </div>
@@ -185,44 +185,23 @@ document.getElementById('id_cliente').addEventListener('change', function() {
     const perfil = this.options[this.selectedIndex]?.dataset.perfil;
     esPerfilEspecial = (perfil === 'Especial');
     
-    // We always show the section now, so no need to hide/show or clear values
-    updatePrecio();
-});
-
-document.getElementById('id_producto').addEventListener('change', function() {
-    const clienteSelect = document.getElementById('id_cliente');
-    const productoSelect = this;
+    const section = document.getElementById('precioEspecialSection');
+    section.style.display = esPerfilEspecial ? 'block' : 'none';
     
-    if (clienteSelect.value && productoSelect.value) {
-        const perfil = clienteSelect.options[clienteSelect.selectedIndex].dataset.perfil;
-        const opt = productoSelect.options[productoSelect.selectedIndex];
-        
-        let precio = 0;
-        if (perfil === 'Mayorista') precio = parseFloat(opt.dataset.precioMayorista) || 0;
-        else if (perfil === 'Ruta') precio = parseFloat(opt.dataset.precioRuta) || 0;
-        else precio = parseFloat(opt.dataset.precioMercado) || 0;
-        
-        // Populate default product price if amount and qty are not set yet
-        const cantidad = parseFloat(document.getElementById('cantidad_cajas').value) || 0;
-        const monto = parseFloat(document.getElementById('monto_pagado').value) || 0;
-        if (cantidad <= 0 && monto <= 0 && precio > 0) {
-            document.getElementById('precio_especial').value = precio.toFixed(4);
-        }
+    if (!esPerfilEspecial) {
+        document.getElementById('precio_especial').value = '';
+        document.getElementById('calcular_precio_auto').value = '';
     }
+    
     updatePrecio();
 });
 
-document.getElementById('cantidad_cajas').addEventListener('input', function() {
-    updateMontoMostrar();
-    calcularPrecio();
-});
-
+document.getElementById('id_producto').addEventListener('change', updatePrecio);
+document.getElementById('cantidad_cajas').addEventListener('input', updateMontoMostrar);
 document.getElementById('monto_pagado').addEventListener('input', function() {
     updateMontoMostrar();
-    calcularPrecio();
+    if (esPerfilEspecial) calcularPrecio();
 });
-
-document.getElementById('precio_especial').addEventListener('input', updatePrecio);
 
 document.getElementById('btnCalcular').addEventListener('click', function() {
     const cantidad = parseFloat(document.getElementById('cantidad_cajas').value) || 0;
@@ -230,7 +209,8 @@ document.getElementById('btnCalcular').addEventListener('click', function() {
     
     if (cantidad > 0 && monto > 0) {
         const precio = monto / cantidad;
-        document.getElementById('precio_especial').value = precio.toFixed(4);
+        document.getElementById('precio_especial').value = precio.toFixed(2);
+        document.getElementById('calcular_precio_auto').value = 'on';
         updatePrecio();
     } else {
         alert('Ingrese cantidad y monto primero');
@@ -241,18 +221,11 @@ function calcularPrecio() {
     const cantidad = parseFloat(document.getElementById('cantidad_cajas').value) || 0;
     const monto = parseFloat(document.getElementById('monto_pagado').value) || 0;
     
-    if (cantidad > 0 && monto > 0) {
+    if (cantidad > 0 && monto > 0 && !document.getElementById('precio_especial').value) {
         const precio = monto / cantidad;
-        document.getElementById('precio_especial').value = precio.toFixed(4);
-        updatePrecio();
+        document.getElementById('precio_especial').value = precio.toFixed(2);
+        document.getElementById('calcular_precio_auto').value = 'on';
     }
-}
-
-function formatCurrency(value, decimals = 2) {
-    return 'C$' + parseFloat(value).toLocaleString('en-US', {
-        minimumFractionDigits: decimals,
-        maximumFractionDigits: decimals
-    });
 }
 
 function updatePrecio() {
@@ -265,9 +238,9 @@ function updatePrecio() {
         
         let precio = 0;
         
-        if (precioEspecial) {
+        if (esPerfilEspecial && precioEspecial) {
             precio = parseFloat(precioEspecial);
-            document.getElementById('precioNota').innerHTML = '<span class="badge bg-success ms-2">Personalizado</span>';
+            document.getElementById('precioNota').innerHTML = '<span class="badge bg-warning text-dark ms-2">Especial</span>';
         } else {
             const opt = productoSelect.options[productoSelect.selectedIndex];
             if (perfil === 'Mayorista') precio = parseFloat(opt.dataset.precioMayorista) || 0;
@@ -277,7 +250,7 @@ function updatePrecio() {
         }
         
         document.getElementById('perfilCliente').textContent = perfil;
-        document.getElementById('precioUnitario').innerHTML = formatCurrency(precio, 4);
+        document.getElementById('precioUnitario').innerHTML = `$${precio.toFixed(2)}`;
         document.getElementById('infoPrecios').style.display = 'block';
         
         const cantidad = parseInt(document.getElementById('cantidad_cajas').value) || 0;
@@ -291,14 +264,13 @@ function updatePrecio() {
 
 function updateMontoMostrar() {
     const monto = parseFloat(document.getElementById('monto_pagado').value) || 0;
-    document.getElementById('montoMostrar').innerHTML = formatCurrency(monto, 2);
+    document.getElementById('montoMostrar').innerHTML = `$${monto.toFixed(2)}`;
 }
 
 // Validación simple antes de enviar
 document.getElementById('formAnticipo').addEventListener('submit', function(e) {
     const cantidad = parseInt(document.getElementById('cantidad_cajas').value) || 0;
     const monto = parseFloat(document.getElementById('monto_pagado').value) || 0;
-    const precio = parseFloat(document.getElementById('precio_especial').value) || 0;
     
     if (cantidad <= 0 || monto <= 0) {
         e.preventDefault();
@@ -306,10 +278,13 @@ document.getElementById('formAnticipo').addEventListener('submit', function(e) {
         return false;
     }
     
-    if (precio <= 0) {
-        e.preventDefault();
-        alert('El precio por caja debe ser mayor a 0');
-        return false;
+    if (esPerfilEspecial) {
+        const precio = document.getElementById('precio_especial').value;
+        if (!precio || parseFloat(precio) <= 0) {
+            e.preventDefault();
+            alert('Para clientes especiales debe ingresar el precio por caja');
+            return false;
+        }
     }
     
     return confirm('¿Guardar anticipo?');

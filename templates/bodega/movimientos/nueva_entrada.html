@@ -1,42 +1,163 @@
 {% extends "layout.html" %}
 
-{% block title %}Nueva Entrada de Inventario{% endblock %}
+{% block title %}Nueva Entrada de Inventario - FerDel{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<style>
+    :root {
+        --primary-gradient: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%);
+        --success-gradient: linear-gradient(135deg, #059669 0%, #10b981 100%);
+        --info-gradient: linear-gradient(135deg, #0284c7 0%, #06b6d4 100%);
+    }
+
+    .movimiento-header {
+        background: #ffffff;
+        border-radius: 16px;
+        padding: 1.5rem 2rem;
+        margin-bottom: 2rem;
+        border: 1px solid rgba(226, 232, 240, 0.8);
+        box-shadow: 0 4px 15px -3px rgba(0, 0, 0, 0.03);
+    }
+
+    .card-premium-form {
+        background: #ffffff;
+        border-radius: 16px;
+        border: 1px solid rgba(226, 232, 240, 0.8);
+        box-shadow: 0 4px 12px -2px rgba(15, 23, 42, 0.03);
+        margin-bottom: 1.5rem;
+        overflow: hidden;
+    }
+
+    .card-premium-header {
+        background: #f8fafc;
+        border-bottom: 1px solid #e2e8f0;
+        padding: 1.1rem 1.5rem;
+        font-weight: 700;
+        font-size: 0.95rem;
+        color: #1e293b;
+    }
+
+    .form-label-premium {
+        font-size: 0.75rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: #64748b;
+        margin-bottom: 0.4rem;
+    }
+
+    .form-control-premium, .form-select-premium {
+        border-radius: 10px;
+        border: 1px solid #cbd5e1;
+        padding: 0.55rem 0.85rem;
+        font-size: 0.9rem;
+        transition: all 0.2s ease;
+    }
+
+    .form-control-premium:focus, .form-select-premium:focus {
+        border-color: #3b82f6;
+        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+    }
+
+    .required-star::after {
+        content: " *";
+        color: #ef4444;
+        font-weight: bold;
+    }
+
+    .table-modern th {
+        font-size: 0.75rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        background-color: #f8fafc;
+        color: #475569;
+        padding: 0.85rem 1rem;
+        border-bottom: 2px solid #e2e8f0;
+    }
+
+    .table-modern td {
+        vertical-align: middle;
+        padding: 0.85rem 1rem;
+        color: #334155;
+    }
+
+    .product-search-item {
+        transition: all 0.2s ease;
+        border-radius: 10px !important;
+        margin-bottom: 0.35rem;
+        border: 1px solid #e2e8f0 !important;
+    }
+
+    .product-search-item:hover {
+        background-color: #f1f5f9;
+        border-color: #3b82f6 !important;
+        transform: translateX(2px);
+    }
+
+    .summary-box-premium {
+        background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+        color: #ffffff;
+        border-radius: 16px;
+        padding: 1.25rem 1.5rem;
+    }
+
+    .stock-badge-premium {
+        font-weight: 700;
+        border-radius: 20px;
+        padding: 0.25rem 0.65rem;
+        font-size: 0.75rem;
+    }
+
+    /* Cajilla styling */
+    .cajilla-huevos-input-container {
+        border: 1px solid #cbd5e1;
+        border-radius: 8px;
+        padding: 2px;
+        background: #f8fafc;
+    }
+</style>
+{% endblock %}
 
 {% block content %}
-<div class="container-fluid">
-    <div class="d-flex flex-column flex-sm-row justify-content-between align-items-sm-center gap-2 mb-4">
-        <h1 class="h3 mb-0 text-gray-800">
-            <i class="fas fa-sign-in-alt text-success me-2"></i>Nueva Entrada
-        </h1>
+<div class="container-fluid py-3">
+
+    <!-- Encabezado -->
+    <div class="movimiento-header d-flex flex-wrap justify-content-between align-items-center gap-3">
         <div>
-            <a href="{{ url_for('bodega.bodega_historial_movimientos') }}" class="btn btn-secondary">
-                <i class="fas fa-arrow-left me-1"></i> Volver
+            <h3 class="fw-bold text-slate-800 mb-1">
+                <i class="fas fa-sign-in-alt text-success me-2"></i>Nueva Entrada de Inventario
+            </h3>
+            <p class="text-muted small mb-0">Registre ingresos de productos a bodega por compras, devoluciones o ajustes de stock</p>
+        </div>
+        <div>
+            <a href="{{ url_for('bodega.bodega_historial_movimientos') }}" class="btn btn-outline-secondary btn-sm px-3 py-2 rounded-3">
+                <i class="fas fa-arrow-left me-1"></i> Volver al Historial
             </a>
         </div>
     </div>
 
     <div class="row g-3">
+        <!-- Columna Formulario Principal -->
         <div class="col-12 col-lg-8">
-            <!-- Formulario Principal -->
-            <div class="card shadow mb-4">
-                <div class="card-header py-3 bg-success text-white">
-                    <h6 class="m-0 font-weight-bold">
-                        <i class="fas fa-info-circle me-1"></i>Información de Entrada
-                    </h6>
+            <div class="card-premium-form">
+                <div class="card-premium-header">
+                    <i class="fas fa-info-circle text-primary me-2"></i>Información del Movimiento
                 </div>
-                <div class="card-body">
+                <div class="card-body p-4">
                     <form id="formEntrada" method="POST" action="{{ url_for('bodega.bodega_procesar_entrada') }}">
                         <div class="row g-3">
                             <div class="col-12 col-md-6">
-                                <label class="form-label required">Fecha</label>
-                                <input type="date" name="fecha" class="form-control" 
+                                <label class="form-label-premium required-star">Fecha de Registro</label>
+                                <input type="date" name="fecha" class="form-control form-control-premium" 
                                        value="{{ fecha_hoy }}" required>
                             </div>
                             
                             <div class="col-12 col-md-6">
-                                <label class="form-label required">Tipo de Movimiento</label>
-                                <select name="id_tipo_movimiento" class="form-select" required id="tipo-movimiento">
-                                    <option value="">Seleccionar...</option>
+                                <label class="form-label-premium required-star">Tipo de Movimiento</label>
+                                <select name="id_tipo_movimiento" class="form-select form-select-premium" required id="tipo-movimiento">
+                                    <option value="">-- Seleccionar --</option>
                                     {% for tipo in tipos_movimiento %}
                                     <option value="{{ tipo.ID_TipoMovimiento }}">
                                         {{ tipo.Descripcion }}
@@ -46,9 +167,9 @@
                             </div>
                             
                             <div class="col-12 col-md-6" id="proveedor-container" style="display: none;">
-                                <label class="form-label">Proveedor</label>
-                                <select name="id_proveedor" class="form-select" id="select-proveedor">
-                                    <option value="">Seleccionar...</option>
+                                <label class="form-label-premium">Proveedor</label>
+                                <select name="id_proveedor" class="form-select form-select-premium" id="select-proveedor">
+                                    <option value="">-- Seleccionar --</option>
                                     {% for proveedor in proveedores %}
                                     <option value="{{ proveedor.ID_Proveedor }}">
                                         {{ proveedor.Nombre }}
@@ -58,9 +179,9 @@
                             </div>
                             
                             <div class="col-12 col-md-6">
-                                <label class="form-label required">Bodega Destino</label>
-                                <select name="id_bodega" class="form-select" required id="select-bodega">
-                                    <option value="">Seleccionar...</option>
+                                <label class="form-label-premium required-star">Bodega Destino</label>
+                                <select name="id_bodega" class="form-select form-select-premium" required id="select-bodega">
+                                    <option value="">-- Seleccionar --</option>
                                     {% for bodega in bodegas %}
                                     <option value="{{ bodega.ID_Bodega }}">
                                         {{ bodega.Nombre }}
@@ -70,62 +191,62 @@
                             </div>
                             
                             <div class="col-12 col-md-6" id="tipo-compra-container" style="display: none;">
-                                <label class="form-label">Tipo de Compra</label>
-                                <select name="tipo_compra" class="form-select" id="select-tipo-compra">
-                                    <option value="">Seleccionar...</option>
+                                <label class="form-label-premium">Tipo de Compra</label>
+                                <select name="tipo_compra" class="form-select form-select-premium" id="select-tipo-compra">
+                                    <option value="">-- Seleccionar --</option>
                                     <option value="CONTADO">Contado</option>
                                     <option value="CREDITO">Crédito</option>
                                 </select>
                             </div>
                             
                             <div class="col-12 col-md-6" id="factura-container" style="display: none;">
-                                <label class="form-label">N° Factura Externa</label>
-                                <input type="text" name="n_factura_externa" class="form-control" id="input-factura">
+                                <label class="form-label-premium">N° Factura Externa</label>
+                                <input type="text" name="n_factura_externa" class="form-control form-control-premium" id="input-factura" placeholder="Ej: F-10029">
                             </div>
                             
                             <div class="col-12">
-                                <label class="form-label">Observaciones</label>
-                                <textarea name="observacion" class="form-control" rows="3"></textarea>
+                                <label class="form-label-premium">Observaciones / Detalles</label>
+                                <textarea name="observacion" class="form-control form-control-premium" rows="2" placeholder="Ingrese comentarios sobre esta entrada de inventario..."></textarea>
                             </div>
                         </div>
                         
-                        <!-- Productos -->
-                        <div class="mt-4">
-                            <div class="d-flex flex-column flex-sm-row justify-content-between align-items-sm-center gap-2 mb-3">
-                                <h5 class="mb-0">
-                                    <i class="fas fa-boxes me-2"></i>Productos
+                        <!-- Listado de Productos Seleccionados -->
+                        <div class="mt-4 pt-3 border-top">
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <h5 class="fw-bold text-slate-800 mb-0">
+                                    <i class="fas fa-boxes text-success me-2"></i>Productos a Ingresar
                                 </h5>
-                                <button type="button" class="btn btn-primary btn-sm" 
+                                <button type="button" class="btn btn-outline-primary btn-sm rounded-3" 
                                         onclick="agregarProducto()">
-                                    <i class="fas fa-plus me-1"></i> Agregar Producto
+                                    <i class="fas fa-plus me-1"></i> Agregar Fila Manual
                                 </button>
                             </div>
                             
-                            <div class="alert alert-info" id="alerta-productos">
+                            <div class="alert alert-info border-0 rounded-3" id="alerta-productos">
                                 <i class="fas fa-info-circle me-2"></i>
-                                Agregue productos usando el botón "Agregar Producto" o buscando en el panel derecho
+                                Busque y agregue productos desde el panel derecho o haga clic en "Agregar Fila Manual".
                             </div>
                             
-                            <div id="productos-container" class="table-responsive" style="display: none;">
-                                <table class="table table-sm table-hover">
+                            <div id="productos-container" class="table-responsive border rounded-3" style="display: none;">
+                                <table class="table table-hover table-modern mb-0">
                                     <thead>
                                         <tr class="table-light" id="tabla-headers">
                                             <th>Producto</th>
-                                            <th width="120">Cantidad</th>
-                                            <th width="150" id="col-costo">Costo Unitario (C$)</th>
-                                            <th width="120" id="col-subtotal">Subtotal (C$)</th>
-                                            <th width="100">Stock Actual</th>
-                                            <th width="50">Acciones</th>
+                                            <th style="width: 140px;">Cantidad</th>
+                                            <th style="width: 140px;" id="col-costo">Costo Unit.</th>
+                                            <th style="width: 140px;" id="col-subtotal">Subtotal</th>
+                                            <th class="text-center" style="width: 100px;">Stock Actual</th>
+                                            <th class="text-center" style="width: 60px;"></th>
                                         </tr>
                                     </thead>
                                     <tbody id="productos-tbody">
-                                        <!-- Productos se agregarán aquí dinámicamente -->
+                                        <!-- Se agregan dinámicamente -->
                                     </tbody>
                                     <tfoot id="tabla-footer">
-                                        <tr class="table-secondary">
-                                            <td colspan="2" class="text-end"><strong>Total:</strong></td>
-                                            <td class="text-end"><strong id="total-costo-unitario">C$0.00</strong></td>
-                                            <td class="text-end"><strong id="total-entrada">C$0.00</strong></td>
+                                        <tr class="table-light fw-bold border-top">
+                                            <td colspan="2" class="text-end">Totales:</td>
+                                            <td class="text-end text-muted" id="total-costo-unitario">C$0.00</td>
+                                            <td class="text-end text-success fs-6" id="total-entrada">C$0.00</td>
                                             <td colspan="2"></td>
                                         </tr>
                                     </tfoot>
@@ -135,69 +256,63 @@
                             <input type="hidden" name="productos" id="productos-json" required>
                         </div>
                         
-                        <div class="mt-4 pt-3 border-top">
-                            <div class="d-flex flex-column flex-sm-row gap-2 justify-content-end">
-                                <button type="button" class="btn btn-secondary" 
-                                        onclick="window.history.back()">
-                                    <i class="fas fa-times me-1"></i> Cancelar
-                                </button>
-                                <button type="submit" class="btn btn-success" id="btn-guardar" disabled>
-                                    <i class="fas fa-save me-1"></i> Guardar Entrada
-                                </button>
-                            </div>
+                        <!-- Acciones del Formulario -->
+                        <div class="mt-4 pt-3 border-top d-flex justify-content-end gap-2">
+                            <button type="button" class="btn btn-secondary px-4 rounded-3" 
+                                    onclick="window.history.back()">
+                                Cancelar
+                            </button>
+                            <button type="submit" class="btn btn-success px-4 rounded-3 fw-bold" id="btn-guardar" disabled>
+                                <i class="fas fa-save me-1"></i> Guardar Entrada
+                            </button>
                         </div>
                     </form>
                 </div>
             </div>
         </div>
         
+        <!-- Columna Búsqueda de Productos -->
         <div class="col-12 col-lg-4">
-            <!-- Lista de Productos Disponibles -->
-            <div class="card shadow mb-4">
-                <div class="card-header py-3 bg-primary text-white">
-                    <h6 class="m-0 font-weight-bold">
-                        <i class="fas fa-search me-1"></i>Buscar Productos
-                    </h6>
+            <div class="card-premium-form">
+                <div class="card-premium-header">
+                    <i class="fas fa-search text-primary me-2"></i>Buscador de Productos
                 </div>
-                <div class="card-body">
-                    <div class="input-group mb-3">
-                        <input type="text" id="buscar-producto" class="form-control" 
-                               placeholder="Código o nombre del producto...">
-                        <button class="btn btn-outline-primary" type="button" 
-                                onclick="buscarProductos()">
+                <div class="card-body p-3">
+                    <div class="input-group input-group-sm mb-3">
+                        <input type="text" id="buscar-producto" class="form-control form-control-premium" 
+                               placeholder="Código o descripción...">
+                        <button class="btn btn-primary" type="button" onclick="buscarProductos()">
                             <i class="fas fa-search"></i>
                         </button>
                     </div>
                     
-                    <div id="resultados-productos" class="list-group" style="max-height: 400px; overflow-y: auto;">
-                        <div class="text-center text-muted p-3">
-                            <i class="fas fa-box-open fa-2x mb-2"></i><br>
-                            Use el buscador para encontrar productos
+                    <div id="resultados-productos" class="list-group rounded-3" style="max-height: 380px; overflow-y: auto;">
+                        <div class="text-center text-muted py-4">
+                            <i class="fas fa-search fa-2x mb-2 text-slate-300"></i>
+                            <p class="small mb-0">Escriba el nombre o código para iniciar búsqueda</p>
                         </div>
                     </div>
                 </div>
             </div>
             
-            <!-- Resumen -->
-            <div class="card shadow">
-                <div class="card-header py-3 bg-info text-white">
-                    <h6 class="m-0 font-weight-bold">
-                        <i class="fas fa-clipboard-check me-1"></i>Resumen
-                    </h6>
+            <!-- Resumen Informativo -->
+            <div class="card-premium-form">
+                <div class="card-premium-header">
+                    <i class="fas fa-clipboard-check text-info me-2"></i>Resumen General
                 </div>
-                <div class="card-body">
-                    <ul class="list-group list-group-flush">
-                        <li class="list-group-item d-flex justify-content-between align-items-center">
-                            <span>Productos:</span>
+                <div class="card-body p-3">
+                    <ul class="list-group list-group-flush small mb-3">
+                        <li class="list-group-item d-flex justify-content-between align-items-center px-0">
+                            <span class="text-muted">Total Ítems:</span>
                             <strong id="resumen-cantidad">0</strong>
                         </li>
-                        <li class="list-group-item d-flex justify-content-between align-items-center">
-                            <span>Total Unidades:</span>
+                        <li class="list-group-item d-flex justify-content-between align-items-center px-0">
+                            <span class="text-muted">Unidades/Cajas Totales:</span>
                             <strong id="resumen-unidades">0.000</strong>
                         </li>
-                        <li class="list-group-item d-flex justify-content-between align-items-center" id="resumen-costo-item">
-                            <span>Total Costo:</span>
-                            <strong class="text-success" id="resumen-total">C$0.00</strong>
+                        <li class="list-group-item d-flex justify-content-between align-items-center px-0" id="resumen-costo-item">
+                            <span class="text-muted">Costo Estimado:</span>
+                            <strong class="text-success fs-5" id="resumen-total">C$0.00</strong>
                         </li>
                     </ul>
                 </div>
@@ -206,16 +321,12 @@
     </div>
 </div>
 
-<!-- JavaScript -->
 <script>
-// Productos disponibles desde el backend
 const productosDisponibles = {{ productos | tojson }};
-
 let productos = [];
 let contadorProductos = 0;
 let esTipoProduccion = false;
 
-// Función para escapar HTML
 function escapeHtml(text) {
     if (!text) return '';
     const div = document.createElement('div');
@@ -223,14 +334,12 @@ function escapeHtml(text) {
     return div.innerHTML;
 }
 
-// Mostrar/ocultar campos según tipo de movimiento
 function configurarCamposPorTipo() {
     const selectTipo = document.getElementById('tipo-movimiento');
     const tipoMovimiento = selectTipo.value;
     const selectedOption = selectTipo.options[selectTipo.selectedIndex];
     const textoTipo = selectedOption ? selectedOption.textContent.toUpperCase() : '';
     
-    // Detectar si es producción por el texto
     esTipoProduccion = textoTipo.includes('PRODUCCIÓN') || 
                        textoTipo.includes('PRODUCCION') || 
                        textoTipo.includes('FABRICACIÓN') ||
@@ -238,29 +347,24 @@ function configurarCamposPorTipo() {
     
     const esCompra = tipoMovimiento === '1';
     
-    // Mostrar/ocultar campos de proveedor (solo para compras que no son producción)
     const proveedorContainer = document.getElementById('proveedor-container');
     if (proveedorContainer) {
         proveedorContainer.style.display = (esCompra && !esTipoProduccion && tipoMovimiento) ? 'block' : 'none';
     }
     
-    // Mostrar/ocultar campos de tipo de compra (solo para compras que no son producción)
     const tipoCompraContainer = document.getElementById('tipo-compra-container');
     if (tipoCompraContainer) {
         tipoCompraContainer.style.display = (esCompra && !esTipoProduccion && tipoMovimiento) ? 'block' : 'none';
     }
     
-    // Mostrar/ocultar campo de factura (solo para compras que no son producción)
     const facturaContainer = document.getElementById('factura-container');
     if (facturaContainer) {
         facturaContainer.style.display = (esCompra && !esTipoProduccion && tipoMovimiento) ? 'block' : 'none';
     }
     
-    // Configurar visibilidad de columnas de costo según tipo
     configurarColumnasPorTipo();
 }
 
-// Configurar qué columnas mostrar según el tipo de movimiento
 function configurarColumnasPorTipo() {
     const colCosto = document.getElementById('col-costo');
     const colSubtotal = document.getElementById('col-subtotal');
@@ -269,7 +373,6 @@ function configurarColumnasPorTipo() {
     const totalEntrada = document.getElementById('total-entrada');
     
     if (esTipoProduccion) {
-        // Para producción: ocultar columnas de costo
         if (colCosto) colCosto.style.display = 'none';
         if (colSubtotal) colSubtotal.style.display = 'none';
         if (totalCostoUnitario) {
@@ -279,7 +382,6 @@ function configurarColumnasPorTipo() {
         if (resumenCostoItem) resumenCostoItem.style.display = 'none';
         if (totalEntrada) totalEntrada.textContent = 'C$0.00';
     } else {
-        // Para otros tipos: mostrar columnas de costo
         if (colCosto) colCosto.style.display = 'table-cell';
         if (colSubtotal) colSubtotal.style.display = 'table-cell';
         if (totalCostoUnitario) {
@@ -289,7 +391,6 @@ function configurarColumnasPorTipo() {
         if (resumenCostoItem) resumenCostoItem.style.display = 'flex';
     }
     
-    // Actualizar todas las filas existentes
     document.querySelectorAll('#productos-tbody tr').forEach(fila => {
         const celdaCosto = fila.querySelector('.celda-costo');
         const celdaSubtotal = fila.querySelector('.celda-subtotal');
@@ -307,7 +408,6 @@ function configurarColumnasPorTipo() {
             }
         }
         
-        // Si es producción, recalcular subtotal con costo 0
         if (esTipoProduccion) {
             const index = fila.id.split('-')[1];
             if (index) calcularSubtotal(parseInt(index));
@@ -315,7 +415,6 @@ function configurarColumnasPorTipo() {
     });
 }
 
-// Agregar producto vacío al formulario
 function agregarProducto(producto = null) {
     const tbody = document.getElementById('productos-tbody');
     const index = contadorProductos++;
@@ -325,7 +424,6 @@ function agregarProducto(producto = null) {
     fila.className = 'fila-producto';
     
     if (producto) {
-        // Si se pasa un producto específico
         const codigo = producto.COD_Producto || 'Sin código';
         const categoria = producto.Categoria_Descripcion || '';
         const existencias = producto.Existencias_Totales || '0';
@@ -337,12 +435,12 @@ function agregarProducto(producto = null) {
                 <div class="cajilla-huevos-input-container d-flex align-items-center gap-1">
                     <input type="number" min="0" step="1" 
                            class="form-control form-control-sm input-cajillas" 
-                           value="1" oninput="recalcularCantidadCajilla(${index})" style="width: 70px;">
-                    <span class="small text-muted">cj</span>
+                           value="1" oninput="recalcularCantidadCajilla(${index})" style="width: 55px; padding: 2px;">
+                    <span class="micro-text text-muted">cj</span>
                     <input type="number" min="0" max="29" step="1" 
                            class="form-control form-control-sm input-unidades" 
-                           value="0" oninput="recalcularCantidadCajilla(${index})" style="width: 70px;">
-                    <span class="small text-muted">ud</span>
+                           value="0" oninput="recalcularCantidadCajilla(${index})" style="width: 55px; padding: 2px;">
+                    <span class="micro-text text-muted">ud</span>
                 </div>
                 <input type="hidden" name="productos[${index}][cantidad]" 
                        class="form-control form-control-sm cantidad" 
@@ -352,8 +450,8 @@ function agregarProducto(producto = null) {
             cantidadHTML = `
                 <input type="number" step="0.001" min="0.001" 
                        name="productos[${index}][cantidad]" 
-                       class="form-control form-control-sm cantidad" 
-                       value="1" onchange="calcularSubtotal(${index})" oninput="calcularSubtotal(${index})" required>
+                       class="form-control form-control-sm form-control-premium cantidad" 
+                       value="1" onchange="calcularSubtotal(${index})" oninput="calcularSubtotal(${index})" required style="max-width: 100px;">
             `;
         }
         
@@ -362,9 +460,8 @@ function agregarProducto(producto = null) {
                 <input type="hidden" name="productos[${index}][id_producto]" 
                        value="${producto.ID_Producto}" class="id-producto">
                 <div>
-                    <strong>${escapeHtml(producto.Descripcion)}</strong><br>
-                    <small class="text-muted">${escapeHtml(codigo)}</small><br>
-                    <small class="text-muted">${escapeHtml(categoria)}</small>
+                    <strong class="text-slate-800">${escapeHtml(producto.Descripcion)}</strong><br>
+                    <small class="text-muted font-monospace">${escapeHtml(codigo)}</small> | <small class="text-muted">${escapeHtml(categoria)}</small>
                 </div>
             </td>
             <td>
@@ -373,39 +470,38 @@ function agregarProducto(producto = null) {
             <td class="celda-costo">
                 <input type="number" step="0.01" min="0" 
                        name="productos[${index}][costo_unitario]" 
-                       class="form-control form-control-sm costo" 
+                       class="form-control form-control-sm form-control-premium costo" 
                        value="0.00" 
                        ${esTipoProduccion ? 'disabled' : ''}
-                       onchange="calcularSubtotal(${index})" oninput="calcularSubtotal(${index})" ${!esTipoProduccion ? 'required' : ''}>
+                       onchange="calcularSubtotal(${index})" oninput="calcularSubtotal(${index})" ${!esTipoProduccion ? 'required' : ''} style="max-width: 100px;">
             </td>
-            <td class="subtotal-cell celda-subtotal text-end align-middle">C$0.00</td>
+            <td class="subtotal-cell celda-subtotal text-end align-middle fw-semibold text-slate-800">C$0.00</td>
             <td class="text-center">
-                <span class="badge bg-info stock-badge">${existencias}</span>
+                <span class="badge bg-light text-dark border stock-badge-premium">${existencias}</span>
             </td>
             <td class="text-center">
-                <button type="button" class="btn btn-danger btn-sm" 
+                <button type="button" class="btn btn-outline-danger btn-sm rounded-3" 
                         onclick="eliminarProducto(${index})" title="Eliminar">
                     <i class="fas fa-trash"></i>
                 </button>
             </td>
         `;
     } else {
-        // Producto vacío para selección manual
-        let options = '<option value="">Seleccionar producto...</option>';
+        let options = '<option value="">-- Buscar producto --</option>';
         for (let prod of productosDisponibles) {
             const codigo = prod.COD_Producto || 'Sin código';
             options += `<option value="${prod.ID_Producto}" 
-                               data-codigo="${escapeHtml(codigo)}"
-                               data-descripcion="${escapeHtml(prod.Descripcion)}"
-                               data-unidad="${prod.Unidad_Medida}"
-                               data-stock="${prod.Existencias_Totales || '0'}">
+                                data-codigo="${escapeHtml(codigo)}"
+                                data-descripcion="${escapeHtml(prod.Descripcion)}"
+                                data-unidad="${prod.Unidad_Medida}"
+                                data-stock="${prod.Existencias_Totales || '0'}">
                             ${escapeHtml(prod.Descripcion)} (${escapeHtml(codigo)})
                         </option>`;
         }
         
         fila.innerHTML = `
             <td>
-                <select class="form-select form-select-sm select-producto" 
+                <select class="form-select form-select-sm form-select-premium select-producto" 
                         onchange="seleccionarProductoDesdeLista(${index}, this.value)" required>
                     ${options}
                 </select>
@@ -414,23 +510,23 @@ function agregarProducto(producto = null) {
             <td>
                 <input type="number" step="0.001" min="0.001" 
                        name="productos[${index}][cantidad]" 
-                       class="form-control form-control-sm cantidad" 
-                       value="1" onchange="calcularSubtotal(${index})" oninput="calcularSubtotal(${index})" required>
+                       class="form-control form-control-sm form-control-premium cantidad" 
+                       value="1" onchange="calcularSubtotal(${index})" oninput="calcularSubtotal(${index})" required style="max-width: 100px;">
             </td>
             <td class="celda-costo">
                 <input type="number" step="0.01" min="0" 
                        name="productos[${index}][costo_unitario]" 
-                       class="form-control form-control-sm costo" 
+                       class="form-control form-control-sm form-control-premium costo" 
                        value="0.00" 
                        ${esTipoProduccion ? 'disabled' : ''}
-                       onchange="calcularSubtotal(${index})" oninput="calcularSubtotal(${index})" ${!esTipoProduccion ? 'required' : ''}>
+                       onchange="calcularSubtotal(${index})" oninput="calcularSubtotal(${index})" ${!esTipoProduccion ? 'required' : ''} style="max-width: 100px;">
             </td>
-            <td class="subtotal-cell celda-subtotal text-end align-middle">C$0.00</td>
+            <td class="subtotal-cell celda-subtotal text-end align-middle fw-semibold text-slate-800">C$0.00</td>
             <td class="text-center">
-                <span class="badge bg-secondary stock-badge">-</span>
+                <span class="badge bg-light text-dark border stock-badge-premium">-</span>
             </td>
             <td class="text-center">
-                <button type="button" class="btn btn-danger btn-sm" 
+                <button type="button" class="btn btn-outline-danger btn-sm rounded-3" 
                         onclick="eliminarProducto(${index})" title="Eliminar">
                     <i class="fas fa-trash"></i>
                 </button>
@@ -440,7 +536,6 @@ function agregarProducto(producto = null) {
     
     tbody.appendChild(fila);
     
-    // Ocultar columnas si es producción
     if (esTipoProduccion) {
         const celdaCosto = fila.querySelector('.celda-costo');
         const celdaSubtotal = fila.querySelector('.celda-subtotal');
@@ -448,7 +543,6 @@ function agregarProducto(producto = null) {
         if (celdaSubtotal) celdaSubtotal.style.display = 'none';
     }
     
-    // Mostrar tabla y ocultar alerta
     document.getElementById('productos-container').style.display = 'block';
     document.getElementById('alerta-productos').style.display = 'none';
     
@@ -457,10 +551,8 @@ function agregarProducto(producto = null) {
     }
     
     actualizarResumen();
-    habilitarBotonGuardar();
 }
 
-// Seleccionar producto desde lista desplegable
 function seleccionarProductoDesdeLista(index, productoId) {
     if (!productoId) return;
     
@@ -468,17 +560,13 @@ function seleccionarProductoDesdeLista(index, productoId) {
     const option = select.selectedOptions[0];
     const fila = document.getElementById(`producto-${index}`);
     
-    // Actualizar campos ocultos
     fila.querySelector('.id-producto').value = productoId;
     
-    // Actualizar stock visual
-    const stockBadge = fila.querySelector('.stock-badge');
+    const stockBadge = fila.querySelector('.stock-badge-premium');
     if (option.dataset.stock) {
         stockBadge.textContent = option.dataset.stock;
-        stockBadge.className = 'badge bg-info stock-badge';
     }
     
-    // Cambiar celda de cantidad dinámicamente si es Cajilla (ID_Unidad = 7)
     const esCajilla = parseInt(option.dataset.unidad) === 7;
     const celdaCantidad = fila.cells[1];
     if (esCajilla) {
@@ -486,12 +574,12 @@ function seleccionarProductoDesdeLista(index, productoId) {
             <div class="cajilla-huevos-input-container d-flex align-items-center gap-1">
                 <input type="number" min="0" step="1" 
                        class="form-control form-control-sm input-cajillas" 
-                       value="1" oninput="recalcularCantidadCajilla(${index})" style="width: 70px;">
-                <span class="small text-muted">cj</span>
+                       value="1" oninput="recalcularCantidadCajilla(${index})" style="width: 55px; padding: 2px;">
+                <span class="micro-text text-muted">cj</span>
                 <input type="number" min="0" max="29" step="1" 
                        class="form-control form-control-sm input-unidades" 
-                       value="0" oninput="recalcularCantidadCajilla(${index})" style="width: 70px;">
-                <span class="small text-muted">ud</span>
+                       value="0" oninput="recalcularCantidadCajilla(${index})" style="width: 55px; padding: 2px;">
+                <span class="micro-text text-muted">ud</span>
             </div>
             <input type="hidden" name="productos[${index}][cantidad]" 
                    class="form-control form-control-sm cantidad" 
@@ -501,15 +589,14 @@ function seleccionarProductoDesdeLista(index, productoId) {
         celdaCantidad.innerHTML = `
             <input type="number" step="0.001" min="0.001" 
                    name="productos[${index}][cantidad]" 
-                   class="form-control form-control-sm cantidad" 
-                   value="1" onchange="calcularSubtotal(${index})" oninput="calcularSubtotal(${index})" required>
+                   class="form-control form-control-sm form-control-premium cantidad" 
+                   value="1" onchange="calcularSubtotal(${index})" oninput="calcularSubtotal(${index})" required style="max-width: 100px;">
         `;
     }
     
     calcularSubtotal(index);
 }
 
-// Recalcular cantidad para productos medidos en cajillas (Huevos)
 function recalcularCantidadCajilla(index) {
     const fila = document.getElementById(`producto-${index}`);
     if (!fila) return;
@@ -522,14 +609,13 @@ function recalcularCantidadCajilla(index) {
         const unidades = parseInt(inputUnidades.value) || 0;
         
         let total = cajillas + (unidades / 30);
-        total = Math.round(total * 100) / 100; // Redondear a 2 decimales
+        total = Math.round(total * 100) / 100;
         
         cantidadInput.value = total;
         calcularSubtotal(index);
     }
 }
 
-// Calcular subtotal
 function calcularSubtotal(index) {
     const fila = document.getElementById(`producto-${index}`);
     if (!fila) return;
@@ -550,25 +636,20 @@ function calcularSubtotal(index) {
     actualizarResumen();
 }
 
-// Eliminar producto
 function eliminarProducto(index) {
     const fila = document.getElementById(`producto-${index}`);
     if (fila) {
         fila.remove();
         actualizarResumen();
         
-        // Si no quedan productos, mostrar alerta
         const tbody = document.getElementById('productos-tbody');
         if (tbody.children.length === 0) {
             document.getElementById('productos-container').style.display = 'none';
             document.getElementById('alerta-productos').style.display = 'block';
         }
     }
-    
-    habilitarBotonGuardar();
 }
 
-// Actualizar resumen
 function actualizarResumen() {
     let totalCosto = 0;
     let unidades = 0;
@@ -598,7 +679,6 @@ function actualizarResumen() {
         document.getElementById('total-costo-unitario').textContent = `C$0.00`;
     }
     
-    // Actualizar JSON oculto
     const productosData = [];
     document.querySelectorAll('#productos-tbody tr').forEach(fila => {
         const idProductoInput = fila.querySelector('.id-producto');
@@ -620,28 +700,23 @@ function actualizarResumen() {
     habilitarBotonGuardar();
 }
 
-// Habilitar o deshabilitar botón guardar
 function habilitarBotonGuardar() {
     const productosData = JSON.parse(document.getElementById('productos-json').value || '[]');
     const btnGuardar = document.getElementById('btn-guardar');
     
     if (productosData.length > 0) {
-        // Verificar que todos los productos tengan datos válidos
         const todosValidos = productosData.every(p => 
             p.id_producto && 
             p.cantidad && parseFloat(p.cantidad) > 0
         );
-        
         btnGuardar.disabled = !todosValidos;
     } else {
         btnGuardar.disabled = true;
     }
 }
 
-// Buscar productos
 function buscarProductos() {
     const termino = document.getElementById('buscar-producto').value.trim();
-    
     if (!termino) {
         alert('Ingrese un término de búsqueda');
         return;
@@ -650,7 +725,6 @@ function buscarProductos() {
     const resultadosDiv = document.getElementById('resultados-productos');
     resultadosDiv.innerHTML = '';
     
-    // Filtrar productos
     const productosFiltrados = productosDisponibles.filter(p => 
         p.Descripcion.toLowerCase().includes(termino.toLowerCase()) ||
         (p.COD_Producto && p.COD_Producto.toLowerCase().includes(termino.toLowerCase()))
@@ -658,22 +732,19 @@ function buscarProductos() {
     
     if (productosFiltrados.length === 0) {
         resultadosDiv.innerHTML = `
-            <div class="alert alert-warning">
-                <i class="fas fa-exclamation-triangle me-1"></i>
-                No se encontraron productos con "${escapeHtml(termino)}"
+            <div class="alert alert-warning border-0 small">
+                <i class="fas fa-exclamation-triangle me-1"></i> No se encontraron productos.
             </div>
         `;
         return;
     }
     
-    // Mostrar resultados
     productosFiltrados.forEach(producto => {
         const item = document.createElement('a');
-        item.className = 'list-group-item list-group-item-action';
+        item.className = 'list-group-item list-group-item-action product-search-item p-2';
         item.href = '#';
         item.onclick = (e) => {
             e.preventDefault();
-            // Verificar si ya existe en la tabla
             const existente = Array.from(document.querySelectorAll('.id-producto'))
                 .find(input => input.value == producto.ID_Producto);
             
@@ -684,31 +755,23 @@ function buscarProductos() {
             
             agregarProducto(producto);
             document.getElementById('buscar-producto').value = '';
-            resultadosDiv.innerHTML = '<div class="text-center text-muted p-3"><i class="fas fa-check-circle text-success fa-2x mb-2"></i><br>Producto agregado</div>';
+            resultadosDiv.innerHTML = '<div class="text-center text-muted py-3"><i class="fas fa-check-circle text-success fa-2x mb-1"></i><br><small>Agregado</small></div>';
         };
         
         const codigo = producto.COD_Producto || 'Sin código';
-        const categoria = producto.Categoria_Descripcion || 'Sin categoría';
-        const unidad = producto.Unidad_Descripcion || '';
+        const existencias = producto.Existencias_Totales || '0';
         
         item.innerHTML = `
             <div class="d-flex w-100 justify-content-between">
-                <h6 class="mb-1">${escapeHtml(producto.Descripcion)}</h6>
-                <small class="text-muted">Stock: ${producto.Existencias_Totales || '0'}</small>
+                <strong class="small text-slate-800">${escapeHtml(producto.Descripcion)}</strong>
+                <span class="badge bg-light text-dark border micro-text">Stock: ${existencias}</span>
             </div>
-            <p class="mb-1">
-                <small>Código: ${escapeHtml(codigo)}</small><br>
-                <small>Categoría: ${escapeHtml(categoria)}</small>
-            </p>
-            <small class="text-muted">
-                ${escapeHtml(unidad)}
-            </small>
+            <div class="micro-text text-muted font-monospace mt-1">Cód: ${escapeHtml(codigo)}</div>
         `;
         resultadosDiv.appendChild(item);
     });
 }
 
-// Validar formulario antes de enviar
 document.getElementById('formEntrada').addEventListener('submit', function(e) {
     const productosData = JSON.parse(document.getElementById('productos-json').value || '[]');
     
@@ -718,7 +781,6 @@ document.getElementById('formEntrada').addEventListener('submit', function(e) {
         return false;
     }
     
-    // Validar bodega destino
     const bodegaDestino = document.getElementById('select-bodega').value;
     if (!bodegaDestino) {
         e.preventDefault();
@@ -726,7 +788,6 @@ document.getElementById('formEntrada').addEventListener('submit', function(e) {
         return false;
     }
     
-    // Validar tipo de movimiento
     const tipoMovimiento = document.getElementById('tipo-movimiento').value;
     if (!tipoMovimiento) {
         e.preventDefault();
@@ -734,7 +795,6 @@ document.getElementById('formEntrada').addEventListener('submit', function(e) {
         return false;
     }
     
-    // Validar que todos los productos tengan costo unitario > 0 (solo si no es producción)
     if (!esTipoProduccion) {
         for (let prod of productosData) {
             if (parseFloat(prod.costo_unitario) <= 0) {
@@ -745,7 +805,6 @@ document.getElementById('formEntrada').addEventListener('submit', function(e) {
         }
     }
     
-    // Confirmar envío
     if (!confirm('¿Está seguro de guardar esta entrada de inventario?')) {
         e.preventDefault();
         return false;
@@ -754,16 +813,13 @@ document.getElementById('formEntrada').addEventListener('submit', function(e) {
     return true;
 });
 
-// Event listeners
 document.addEventListener('DOMContentLoaded', function() {
-    // Configurar fecha actual si no hay valor
     const fechaInput = document.querySelector('input[name="fecha"]');
     if (!fechaInput.value) {
         const hoy = new Date().toLocaleDateString('sv-SE');
         fechaInput.value = hoy;
     }
     
-    // Configurar cambios en tipo de movimiento
     const tipoMovimiento = document.getElementById('tipo-movimiento');
     if (tipoMovimiento) {
         tipoMovimiento.addEventListener('change', function() {
@@ -771,7 +827,6 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
     
-    // Configurar búsqueda por Enter
     const buscarInput = document.getElementById('buscar-producto');
     if (buscarInput) {
         buscarInput.addEventListener('keypress', function(e) {
@@ -782,59 +837,7 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
     
-    // Inicializar configuración de campos
     configurarCamposPorTipo();
 });
 </script>
-
-<style>
-.required:after {
-    content: " *";
-    color: red;
-}
-
-#productos-container table th {
-    white-space: nowrap;
-    font-size: 0.875rem;
-}
-
-#productos-container table td {
-    vertical-align: middle;
-}
-
-.list-group-item:hover {
-    background-color: #f8f9fa;
-    cursor: pointer;
-}
-
-.badge {
-    font-size: 0.75rem;
-    min-width: 60px;
-}
-
-input[type="number"] {
-    min-width: 80px;
-}
-
-.form-control-sm {
-    padding: 0.25rem 0.5rem;
-    font-size: 0.875rem;
-}
-
-/* Mejoras responsivas */
-@media (max-width: 768px) {
-    .table-sm {
-        font-size: 0.8rem;
-    }
-    
-    .btn-sm {
-        padding: 0.2rem 0.4rem;
-        font-size: 0.7rem;
-    }
-    
-    .form-control-sm {
-        font-size: 0.8rem;
-    }
-}
-</style>
 {% endblock %}

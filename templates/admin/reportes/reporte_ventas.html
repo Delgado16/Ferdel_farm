@@ -8,27 +8,9 @@
         <i class="bi bi-graph-up"></i> Reporte de Ventas
     </h1>
     <div class="btn-toolbar mb-2 mb-md-0">
-        <div class="btn-group">
-            <a href="{{ url_for('admin.reporte_ventas', fecha_inicio=fecha_inicio, fecha_fin=fecha_fin, tipo_venta=tipo_venta, vendedor_id=vendedor_id, formato='excel') }}" 
-               class="btn btn-sm btn-success">
-                <i class="bi bi-file-earmark-excel"></i> Excel
-            </a>
-            <a href="{{ url_for('admin.reporte_ventas', fecha_inicio=fecha_inicio, fecha_fin=fecha_fin, tipo_venta=tipo_venta, vendedor_id=vendedor_id, formato='pdf') }}" 
-               class="btn btn-sm btn-danger">
-                <i class="bi bi-file-pdf"></i> PDF
-            </a>
-            <a href="{{ url_for('admin.reporte_ventas', fecha_inicio=fecha_inicio, fecha_fin=fecha_fin, tipo_venta=tipo_venta, vendedor_id=vendedor_id, formato='csv') }}" 
-               class="btn btn-sm btn-outline-secondary">
-                CSV
-            </a>
-            <a href="{{ url_for('admin.reporte_ventas', fecha_inicio=fecha_inicio, fecha_fin=fecha_fin, tipo_venta=tipo_venta, vendedor_id=vendedor_id, formato='json') }}" 
-               class="btn btn-sm btn-outline-secondary">
-                JSON
-            </a>
-            <button class="btn btn-sm btn-secondary" onclick="window.print()">
-                <i class="bi bi-printer"></i> Imprimir
-            </button>
-        </div>
+        <a href="{{ url_for('admin.reportes') }}" class="btn btn-sm btn-outline-secondary">
+            <i class="bi bi-arrow-left"></i> Volver
+        </a>
     </div>
 </div>
 
@@ -193,7 +175,7 @@
     </div>
     <div class="card-body p-0">
         <div class="table-responsive">
-            <table class="table table-hover mb-0">
+            <table id="tablaReporteVentas" class="table table-hover mb-0">
                 <thead class="table-light">
                     <tr>
                         <th>Fecha</th>
@@ -286,6 +268,11 @@
 {% endblock %}
 
 {% block extra_js %}
+<!-- DataTables CSS y JS -->
+<link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.11.5/css/dataTables.bootstrap5.min.css">
+<script type="text/javascript" src="https://cdn.datatables.net/1.11.5/js/jquery.dataTables.min.js"></script>
+<script type="text/javascript" src="https://cdn.datatables.net/1.11.5/js/dataTables.bootstrap5.min.js"></script>
+
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
     // Tooltips para los badges
@@ -299,7 +286,7 @@
         {% for venta in ventas %}
         {
             fecha: "{{ venta.Fecha.strftime('%d/%m/%Y') if venta.Fecha else '' }}",
-            total: {{ venta.Total_Venta|default(0)|float }},
+            total: parseFloat("{{ venta.Total_Venta|default(0)|float }}"),
             tipo: "{{ venta.Tipo_Venta }}",
             origen: "{{ venta.Origen }}"
         },
@@ -462,6 +449,18 @@
         document.getElementById('btnChartType').classList.remove('active');
         salesChart.data.datasets = datasetsOrigin;
         salesChart.update();
+    });
+
+    // Inicializar DataTable
+    $(document).ready(function() {
+        $('#tablaReporteVentas').DataTable({
+            "language": {
+                "url": "//cdn.datatables.net/plug-ins/1.11.5/i18n/es-ES.json"
+            },
+            "pageLength": 10,
+            "responsive": true,
+            "ordering": true
+        });
     });
 </script>
 {% endblock %}

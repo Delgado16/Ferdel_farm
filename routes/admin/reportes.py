@@ -27,10 +27,10 @@ def get_corte_filter():
     """Retorna fecha_corte desde request.args con valor por defecto"""
     return request.args.get('fecha_corte', datetime.now().strftime('%Y-%m-%d'))
 
-def get_period_date_range():
+def get_period_date_range(default_period='mes'):
     """Retorna fecha_inicio, fecha_fin y periodo según los filtros rápidos"""
     from datetime import timedelta
-    periodo = request.args.get('periodo', 'mes')
+    periodo = request.args.get('periodo', default_period)
     today = datetime.now()
     
     if periodo == 'dia':
@@ -103,7 +103,7 @@ def reportes():
 @report_handler('reporte_ventas')
 def reporte_ventas():
     """Reporte de ventas con filtros (incluye facturación normal y de ruta)"""
-    fecha_inicio, fecha_fin = get_date_filters(default_monthly=True)
+    fecha_inicio, fecha_fin = get_date_filters(default_monthly=False)
     tipo_venta = request.args.get('tipo_venta', 'todos')
     vendedor_id = request.args.get('vendedor_id', '')
     
@@ -1677,7 +1677,7 @@ def reporte_consolidado_carga_ventas_detalle():
 @report_handler('reporte_categoria_compras')
 def reporte_categoria_compras():
     """Reporte de Compras por Categoría y Proveedor"""
-    fecha_inicio, fecha_fin, periodo = get_period_date_range()
+    fecha_inicio, fecha_fin, periodo = get_period_date_range('dia')
     categoria_id = request.args.get('categoria_id', '')
     proveedor_id = request.args.get('proveedor_id', '')
     
@@ -1748,7 +1748,7 @@ def reporte_categoria_compras():
 @report_handler('reporte_categoria_ventas')
 def reporte_categoria_ventas():
     """Reporte de Ventas por Categoría"""
-    fecha_inicio, fecha_fin, periodo = get_period_date_range()
+    fecha_inicio, fecha_fin, periodo = get_period_date_range('dia')
     categoria_id = request.args.get('categoria_id', '')
     
     with get_db_cursor() as cursor:
