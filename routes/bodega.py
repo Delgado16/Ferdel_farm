@@ -2248,7 +2248,8 @@ def bodega_reportes_avanzados():
         tipo_reporte = request.form.get('tipo_reporte', 'resumen_diario')
         
         with get_db_cursor(True) as cursor:
-            # Consulta 1: Control de Productos (Existencia por Bodega)
+            # Consulta 1: Control de Productos (Existencia por Bodega Consolidado)
+            # Prioridad de ordenamiento: 1. Agotados, 2. Bajo Stock, 3. OK
             cursor.execute("""
                 SELECT 
                     p.ID_Producto,
@@ -2256,161 +2257,201 @@ def bodega_reportes_avanzados():
                     p.Descripcion AS Producto,
                     cp.Descripcion AS Categoria,
                     um.Descripcion AS Unidad_Medida,
-                    b.Nombre AS Bodega,
-                    ib.Existencias AS Stock_Actual,
+                    GROUP_CONCAT(CONCAT(b.Nombre, ': ', COALESCE(ib.Existencias, 0)) ORDER BY b.Nombre SEPARATOR ' | ') AS Bodega,
+                    SUM(COALESCE(ib.Existencias, 0)) AS Stock_Actual,
                     p.Stock_Minimo,
                     p.Precio_Mercado AS Precio_Venta,
                     CASE 
-                        WHEN ib.Existencias <= p.Stock_Minimo THEN 'BAJO STOCK'
-                        WHEN ib.Existencias = 0 THEN 'AGOTADO'
+                        WHEN SUM(COALESCE(ib.Existencias, 0)) = 0 THEN 'AGOTADO'
+                        WHEN SUM(COALESCE(ib.Existencias, 0)) <= p.Stock_Minimo THEN 'BAJO STOCK'
                         ELSE 'OK'
                     END AS Estado_Stock
-                FROM inventario_bodega ib
-                INNER JOIN productos p ON ib.ID_Producto = p.ID_Producto
+                FROM productos p
+                INNER JOIN inventario_bodega ib ON p.ID_Producto = ib.ID_Producto
                 INNER JOIN bodegas b ON ib.ID_Bodega = b.ID_Bodega
                 LEFT JOIN categorias_producto cp ON p.ID_Categoria = cp.ID_Categoria
                 LEFT JOIN unidades_medida um ON p.Unidad_Medida = um.ID_Unidad
                 WHERE p.Estado = 'activo' AND b.Estado = 'activa'
-                ORDER BY p.COD_Producto
+                GROUP BY p.ID_Producto, p.COD_Producto, p.Descripcion, cp.Descripcion, um.Descripcion, p.Stock_Minimo, p.Precio_Mercado
+                ORDER BY 
+                    CASE 
+                        WHEN SUM(COALESCE(ib.Existencias, 0)) = 0 THEN 1
+                        WHEN SUM(COALESCE(ib.Existencias, 0)) <= p.Stock_Minimo THEN 2
+                        ELSE 3
+                    END,
+                    p.COD_Producto
             """)
             inventario = cursor.fetchall()
             
-            # Consulta 2: Producto Más Vendido
+            # Consulta 2: Producto Más Vendido usando CTE para agregación previa
             cursor.execute("""
+                WITH cte_ventas AS (
+                    SELECT 
+                        dmi.ID_Producto,
+                        SUM(dmi.Cantidad) AS Total_Vendido,
+                        SUM(dmi.Subtotal) AS Total_Ingresos,
+                        COUNT(DISTINCT mi.ID_Movimiento) AS Total_Ventas
+                    FROM detalle_movimientos_inventario dmi
+                    INNER JOIN movimientos_inventario mi ON dmi.ID_Movimiento = mi.ID_Movimiento
+                    INNER JOIN catalogo_movimientos cm ON mi.ID_TipoMovimiento = cm.ID_TipoMovimiento
+                    WHERE cm.Letra = 'S'
+                        AND mi.Estado = 'Activa'
+                        AND mi.Fecha BETWEEN %s AND %s
+                    GROUP BY dmi.ID_Producto
+                )
                 SELECT 
                     p.ID_Producto,
                     p.COD_Producto,
                     p.Descripcion AS Producto,
                     cp.Descripcion AS Categoria,
-                    SUM(dmi.Cantidad) AS Total_Vendido,
-                    SUM(dmi.Subtotal) AS Total_Ingresos,
-                    COUNT(DISTINCT mi.ID_Movimiento) AS Total_Ventas
-                FROM detalle_movimientos_inventario dmi
-                INNER JOIN movimientos_inventario mi ON dmi.ID_Movimiento = mi.ID_Movimiento
-                INNER JOIN productos p ON dmi.ID_Producto = p.ID_Producto
-                INNER JOIN catalogo_movimientos cm ON mi.ID_TipoMovimiento = cm.ID_TipoMovimiento
+                    v.Total_Vendido,
+                    v.Total_Ingresos,
+                    v.Total_Ventas
+                FROM cte_ventas v
+                INNER JOIN productos p ON v.ID_Producto = p.ID_Producto
                 LEFT JOIN categorias_producto cp ON p.ID_Categoria = cp.ID_Categoria
-                WHERE cm.Letra = 'S'
-                    AND mi.Estado = 'Activa'
-                    AND mi.Fecha BETWEEN %s AND %s
-                GROUP BY p.ID_Producto, p.COD_Producto, p.Descripcion, cp.Descripcion
-                ORDER BY Total_Vendido DESC
+                ORDER BY v.Total_Vendido DESC
                 LIMIT 10
             """, (fecha_inicio, fecha_fin))
             mas_vendidos = cursor.fetchall()
             
-            # Consulta 3: Productos Vendidos por Categoría (con filtro)
+            # Consulta 3: Productos Vendidos por Categoría (con filtro opcional y CTE)
             query_categorias = """
+                WITH cte_ventas_cat AS (
+                    SELECT 
+                        p.ID_Categoria,
+                        mi.Fecha AS Fecha_Venta,
+                        mi.Tipo_Compra,
+                        COUNT(DISTINCT p.ID_Producto) AS Cantidad_Productos_Diferentes,
+                        SUM(dmi.Cantidad) AS Total_Unidades_Vendidas,
+                        SUM(dmi.Subtotal) AS Total_Ventas
+                    FROM detalle_movimientos_inventario dmi
+                    INNER JOIN movimientos_inventario mi ON dmi.ID_Movimiento = mi.ID_Movimiento
+                    INNER JOIN productos p ON dmi.ID_Producto = p.ID_Producto
+                    INNER JOIN catalogo_movimientos cm ON mi.ID_TipoMovimiento = cm.ID_TipoMovimiento
+                    WHERE cm.Letra = 'S'
+                        AND mi.Estado = 'Activa'
+                        AND mi.Fecha BETWEEN %s AND %s
+                    GROUP BY p.ID_Categoria, mi.Fecha, mi.Tipo_Compra
+                )
                 SELECT 
-                    cp.ID_Categoria,
+                    c.ID_Categoria,
                     cp.Descripcion AS Categoria,
-                    mi.Fecha AS Fecha_Venta,
-                    mi.Tipo_Compra,
-                    COUNT(DISTINCT p.ID_Producto) AS Cantidad_Productos_Diferentes,
-                    SUM(dmi.Cantidad) AS Total_Unidades_Vendidas,
-                    SUM(dmi.Subtotal) AS Total_Ventas
-                FROM detalle_movimientos_inventario dmi
-                INNER JOIN movimientos_inventario mi ON dmi.ID_Movimiento = mi.ID_Movimiento
-                INNER JOIN productos p ON dmi.ID_Producto = p.ID_Producto
-                INNER JOIN categorias_producto cp ON p.ID_Categoria = cp.ID_Categoria
-                INNER JOIN catalogo_movimientos cm ON mi.ID_TipoMovimiento = cm.ID_TipoMovimiento
-                WHERE cm.Letra = 'S'
-                    AND mi.Estado = 'Activa'
-                    AND mi.Fecha BETWEEN %s AND %s
+                    c.Fecha_Venta,
+                    c.Tipo_Compra,
+                    c.Cantidad_Productos_Diferentes,
+                    c.Total_Unidades_Vendidas,
+                    c.Total_Ventas
+                FROM cte_ventas_cat c
+                INNER JOIN categorias_producto cp ON c.ID_Categoria = cp.ID_Categoria
             """
             params_categorias = [fecha_inicio, fecha_fin]
             
             if categoria_id and categoria_id != 'todas':
-                query_categorias += " AND cp.ID_Categoria = %s"
+                query_categorias += " WHERE cp.ID_Categoria = %s"
                 params_categorias.append(categoria_id)
             
             query_categorias += """
-                GROUP BY cp.ID_Categoria, cp.Descripcion, mi.Fecha, mi.Tipo_Compra
-                ORDER BY mi.Fecha DESC, Total_Ventas DESC
+                ORDER BY c.Fecha_Venta DESC, c.Total_Ventas DESC
             """
             
             cursor.execute(query_categorias, tuple(params_categorias))
             ventas_categorias = cursor.fetchall()
             
-            # Consulta 4: Productos con Bajo Stock
+            # Consulta 4: Productos con Bajo Stock (Priorizando los agotados y consolidando bodegas)
             cursor.execute("""
                 SELECT 
                     p.ID_Producto,
                     p.COD_Producto,
                     p.Descripcion AS Producto,
                     cp.Descripcion AS Categoria,
-                    b.Nombre AS Bodega,
-                    ib.Existencias AS Stock_Actual,
+                    GROUP_CONCAT(CONCAT(b.Nombre, ': ', COALESCE(ib.Existencias, 0)) ORDER BY b.Nombre SEPARATOR ' | ') AS Bodega,
+                    SUM(COALESCE(ib.Existencias, 0)) AS Stock_Actual,
                     p.Stock_Minimo AS Stock_Minimo,
-                    ROUND((ib.Existencias / p.Stock_Minimo) * 100, 2) AS Porcentaje_Stock,
+                    ROUND((SUM(COALESCE(ib.Existencias, 0)) / p.Stock_Minimo) * 100, 2) AS Porcentaje_Stock,
                     CASE 
-                        WHEN ib.Existencias = 0 THEN 'AGOTADO'
-                        WHEN ib.Existencias < p.Stock_Minimo THEN 'BAJO STOCK'
+                        WHEN SUM(COALESCE(ib.Existencias, 0)) = 0 THEN 'AGOTADO'
+                        WHEN SUM(COALESCE(ib.Existencias, 0)) <= p.Stock_Minimo THEN 'BAJO STOCK'
                     END AS Alerta
-                FROM inventario_bodega ib
-                INNER JOIN productos p ON ib.ID_Producto = p.ID_Producto
+                FROM productos p
+                INNER JOIN inventario_bodega ib ON p.ID_Producto = ib.ID_Producto
                 INNER JOIN bodegas b ON ib.ID_Bodega = b.ID_Bodega
                 LEFT JOIN categorias_producto cp ON p.ID_Categoria = cp.ID_Categoria
                 WHERE p.Estado = 'activo' 
                     AND b.Estado = 'activa'
-                    AND ib.Existencias <= p.Stock_Minimo
-                ORDER BY ib.Existencias ASC
+                GROUP BY p.ID_Producto, p.COD_Producto, p.Descripcion, cp.Descripcion, p.Stock_Minimo
+                HAVING SUM(COALESCE(ib.Existencias, 0)) <= p.Stock_Minimo
+                ORDER BY Stock_Actual ASC
             """)
             bajo_stock = cursor.fetchall()
             
-            # Consulta 5: Productos No Vendidos en más de 4 Días - VERSIÓN CORREGIDA
+            # Consulta 5: Productos No Vendidos en más de 4 Días (Prioriza los que NUNCA se han vendido)
             cursor.execute("""
+                WITH cte_ultima_venta AS (
+                    SELECT 
+                        dmi.ID_Producto, 
+                        MAX(mi.Fecha) AS Ultima_Venta,
+                        DATEDIFF(CURDATE(), MAX(mi.Fecha)) AS Dias_Sin_Venta
+                    FROM detalle_movimientos_inventario dmi
+                    INNER JOIN movimientos_inventario mi ON dmi.ID_Movimiento = mi.ID_Movimiento
+                    INNER JOIN catalogo_movimientos cm ON mi.ID_TipoMovimiento = cm.ID_TipoMovimiento
+                    WHERE mi.Estado = 'Activa' AND cm.Letra = 'S'
+                    GROUP BY dmi.ID_Producto
+                )
                 SELECT 
                     p.ID_Producto,
                     p.COD_Producto,
                     p.Descripcion AS Producto,
                     cp.Descripcion AS Categoria,
-                    MAX(mi.Fecha) AS Ultima_Venta,
-                    DATEDIFF(CURDATE(), MAX(mi.Fecha)) AS Dias_Sin_Venta,
+                    v.Ultima_Venta,
+                    COALESCE(v.Dias_Sin_Venta, 9999) AS Dias_Sin_Venta,
                     COALESCE(ib.Existencias, 0) AS Stock_Actual
                 FROM productos p
                 LEFT JOIN categorias_producto cp ON p.ID_Categoria = cp.ID_Categoria
                 LEFT JOIN inventario_bodega ib ON p.ID_Producto = ib.ID_Producto
-                LEFT JOIN (
-                    SELECT dmi.ID_Producto, mi.Fecha
-                    FROM detalle_movimientos_inventario dmi
-                    INNER JOIN movimientos_inventario mi ON dmi.ID_Movimiento = mi.ID_Movimiento
-                    INNER JOIN catalogo_movimientos cm ON mi.ID_TipoMovimiento = cm.ID_TipoMovimiento
-                    WHERE mi.Estado = 'Activa'
-                        AND cm.Letra = 'S'
-                ) mi ON p.ID_Producto = mi.ID_Producto
+                LEFT JOIN cte_ultima_venta v ON p.ID_Producto = v.ID_Producto
                 WHERE p.Estado = 'activo'
-                GROUP BY p.ID_Producto, p.COD_Producto, p.Descripcion, cp.Descripcion, ib.Existencias
-                HAVING Ultima_Venta IS NULL 
-                    OR DATEDIFF(CURDATE(), Ultima_Venta) > 4
-                ORDER BY Dias_Sin_Venta DESC
+                  AND (v.Ultima_Venta IS NULL OR v.Dias_Sin_Venta > 4)
+                ORDER BY 
+                    CASE WHEN v.Ultima_Venta IS NULL THEN 1 ELSE 0 END DESC, 
+                    Dias_Sin_Venta DESC
             """)
             sin_ventas = cursor.fetchall()
             
-            # Consulta 6: Total Productos Vendidos a Contado y Crédito
+            # Consulta 6: Total Productos Vendidos a Contado y Crédito (Con CTE)
             cursor.execute("""
+                WITH cte_ventas_detalle AS (
+                    SELECT 
+                        mi.Fecha,
+                        dmi.ID_Producto,
+                        mi.Tipo_Compra,
+                        SUM(dmi.Cantidad) AS Cantidad_Vendida,
+                        SUM(dmi.Subtotal) AS Total_Venta,
+                        GROUP_CONCAT(
+                            CONCAT('Venta #', mi.ID_Movimiento, ': ', ROUND(dmi.Cantidad, 2), ' unidades')
+                            SEPARATOR '; '
+                        ) AS Detalle_Ventas
+                    FROM detalle_movimientos_inventario dmi
+                    INNER JOIN movimientos_inventario mi ON dmi.ID_Movimiento = mi.ID_Movimiento
+                    INNER JOIN catalogo_movimientos cm ON mi.ID_TipoMovimiento = cm.ID_TipoMovimiento
+                    WHERE cm.Letra = 'S'
+                        AND mi.Estado = 'Activa'
+                        AND mi.Fecha BETWEEN %s AND %s
+                    GROUP BY mi.Fecha, dmi.ID_Producto, mi.Tipo_Compra
+                )
                 SELECT 
-                    mi.Fecha,
+                    d.Fecha,
                     p.COD_Producto,
                     p.Descripcion AS Producto,
                     cp.Descripcion AS Categoria,
-                    mi.Tipo_Compra,
-                    SUM(dmi.Cantidad) AS Cantidad_Vendida,
-                    SUM(dmi.Subtotal) AS Total_Venta,
-                    GROUP_CONCAT(
-                        CONCAT('Venta #', mi.ID_Movimiento, ': ', ROUND(dmi.Cantidad, 2), ' unidades')
-                        SEPARATOR '; '
-                    ) AS Detalle_Ventas
-                FROM detalle_movimientos_inventario dmi
-                INNER JOIN movimientos_inventario mi ON dmi.ID_Movimiento = mi.ID_Movimiento
-                INNER JOIN productos p ON dmi.ID_Producto = p.ID_Producto
-                INNER JOIN catalogo_movimientos cm ON mi.ID_TipoMovimiento = cm.ID_TipoMovimiento
+                    d.Tipo_Compra,
+                    d.Cantidad_Vendida,
+                    d.Total_Venta,
+                    d.Detalle_Ventas
+                FROM cte_ventas_detalle d
+                INNER JOIN productos p ON d.ID_Producto = p.ID_Producto
                 LEFT JOIN categorias_producto cp ON p.ID_Categoria = cp.ID_Categoria
-                WHERE cm.Letra = 'S'
-                    AND mi.Estado = 'Activa'
-                    AND mi.Fecha BETWEEN %s AND %s
-                GROUP BY mi.Fecha, p.ID_Producto, p.COD_Producto, p.Descripcion, cp.Descripcion, mi.Tipo_Compra
-                ORDER BY mi.Fecha DESC, Producto, mi.Tipo_Compra
+                ORDER BY d.Fecha DESC, Producto, d.Tipo_Compra
             """, (fecha_inicio, fecha_fin))
             ventas_contado_credito = cursor.fetchall()
             
@@ -2418,15 +2459,24 @@ def bodega_reportes_avanzados():
             cursor.execute("SELECT ID_Categoria, Descripcion FROM categorias_producto ORDER BY Descripcion")
             categorias = cursor.fetchall()
             
-            # Resumen estadístico CORREGIDO (sin FILTER)
+            # Resumen estadístico consolidado por producto a través de todas las bodegas activas
             cursor.execute("""
+                WITH cte_consolidado AS (
+                    SELECT 
+                        p.ID_Producto,
+                        SUM(COALESCE(ib.Existencias, 0)) AS Stock_Total,
+                        p.Stock_Minimo
+                    FROM productos p
+                    LEFT JOIN inventario_bodega ib ON p.ID_Producto = ib.ID_Producto
+                    LEFT JOIN bodegas b ON ib.ID_Bodega = b.ID_Bodega AND b.Estado = 'activa'
+                    WHERE p.Estado = 'activo'
+                    GROUP BY p.ID_Producto, p.Stock_Minimo
+                )
                 SELECT 
-                    COUNT(DISTINCT p.ID_Producto) as total_productos,
-                    SUM(CASE WHEN ib.Existencias <= p.Stock_Minimo THEN 1 ELSE 0 END) as productos_bajo_stock,
-                    SUM(CASE WHEN ib.Existencias = 0 THEN 1 ELSE 0 END) as productos_agotados
-                FROM productos p
-                LEFT JOIN inventario_bodega ib ON p.ID_Producto = ib.ID_Producto
-                WHERE p.Estado = 'activo'
+                    COUNT(DISTINCT ID_Producto) AS total_productos,
+                    SUM(CASE WHEN Stock_Total <= Stock_Minimo THEN 1 ELSE 0 END) AS productos_bajo_stock,
+                    SUM(CASE WHEN Stock_Total = 0 THEN 1 ELSE 0 END) AS productos_agotados
+                FROM cte_consolidado
             """)
             resumen = cursor.fetchone()
             
@@ -2482,8 +2532,16 @@ def bodega_listar_movimientos():
 def inventario_vendedores():
     try:
         with get_db_cursor() as cursor:
-            # Obtener vendedores activos con asignación activa
+            # Obtener vendedores activos con asignación activa usando un CTE para el inventario agrupado
             cursor.execute("""
+                WITH cte_inventario AS (
+                    SELECT 
+                        ID_Asignacion,
+                        COUNT(CASE WHEN Cantidad > 0 THEN ID_Producto END) AS Total_Productos,
+                        COALESCE(SUM(Cantidad), 0) AS Total_Unidades
+                    FROM inventario_ruta
+                    GROUP BY ID_Asignacion
+                )
                 SELECT 
                     u.ID_Usuario,
                     u.NombreUsuario AS Vendedor,
@@ -2495,21 +2553,18 @@ def inventario_vendedores():
                     av.Hora_Fin,
                     v.Placa AS Vehiculo,
                     av.Estado AS Estado_Asignacion,
-                    COUNT(CASE WHEN ir.Cantidad > 0 THEN ir.ID_Producto END) AS Total_Productos,
-                    COALESCE(SUM(ir.Cantidad), 0) AS Total_Unidades
+                    COALESCE(inv.Total_Productos, 0) AS Total_Productos,
+                    COALESCE(inv.Total_Unidades, 0) AS Total_Unidades
                 FROM usuarios u
                 INNER JOIN roles r ON u.ID_Rol = r.ID_Rol
                 INNER JOIN asignacion_vendedores av ON u.ID_Usuario = av.ID_Usuario
                 LEFT JOIN rutas rut ON av.ID_Ruta = rut.ID_Ruta
                 LEFT JOIN vehiculos v ON av.ID_Vehiculo = v.ID_Vehiculo
-                LEFT JOIN inventario_ruta ir ON av.ID_Asignacion = ir.ID_Asignacion
+                LEFT JOIN cte_inventario inv ON av.ID_Asignacion = inv.ID_Asignacion
                 WHERE r.Nombre_Rol = 'Vendedor'
                     AND u.Estado = 'ACTIVO'
                     AND av.Estado = 'Activa'
                     AND u.ID_Empresa = %s
-                GROUP BY u.ID_Usuario, u.NombreUsuario, u.Estado, av.ID_Asignacion, 
-                         rut.Nombre_Ruta, av.Fecha_Asignacion, av.Hora_Inicio, 
-                         av.Hora_Fin, v.Placa, av.Estado
                 ORDER BY u.NombreUsuario
             """, (session.get('id_empresa', 1),))
             vendedores_raw = cursor.fetchall()
@@ -2523,6 +2578,9 @@ def inventario_vendedores():
                         v_dict['Fecha_Asignacion'] = datetime.strptime(v_dict['Fecha_Asignacion'][:10], '%Y-%m-%d').date()
                     except ValueError:
                         pass
+                elif isinstance(v_dict.get('Fecha_Asignacion'), (datetime, date)):
+                    if isinstance(v_dict['Fecha_Asignacion'], datetime):
+                        v_dict['Fecha_Asignacion'] = v_dict['Fecha_Asignacion'].date()
                 vendedores.append(v_dict)
         
         return render_template('bodega/ruta/inventario_vendedores.html', vendedores=vendedores)
@@ -2568,6 +2626,8 @@ def inventario_vendedor_detalle(id_usuario):
                     vendedor['Fecha_Asignacion'] = datetime.strptime(vendedor['Fecha_Asignacion'][:10], '%Y-%m-%d').date()
                 except ValueError:
                     pass
+            elif isinstance(vendedor.get('Fecha_Asignacion'), datetime):
+                vendedor['Fecha_Asignacion'] = vendedor['Fecha_Asignacion'].date()
             
             # Inventario actual desde la tabla inventario_ruta
             cursor.execute("""
@@ -2602,7 +2662,7 @@ def inventario_vendedor_detalle(id_usuario):
                             pass
                 inventario.append(item_dict)
             
-            # Resumen del inventario
+            # Resumen del inventario usando agregaciones SQL directas
             cursor.execute("""
                 SELECT 
                     COUNT(*) AS Productos_Diferentes,
@@ -2664,16 +2724,35 @@ def historial_vendedor(id_usuario):
                     vendedor['Fecha_Asignacion'] = datetime.strptime(vendedor['Fecha_Asignacion'][:10], '%Y-%m-%d').date()
                 except ValueError:
                     pass
+            elif isinstance(vendedor.get('Fecha_Asignacion'), datetime):
+                vendedor['Fecha_Asignacion'] = vendedor['Fecha_Asignacion'].date()
             
-            # Historial de movimientos de la asignación
+            # Historial de movimientos de la asignación usando un CTE para filtrar y ordenar de forma óptima (solo hoy)
             cursor.execute("""
+                WITH cte_movimientos AS (
+                    SELECT 
+                        mrc.ID_Movimiento,
+                        mrc.Fecha_Movimiento,
+                        mrc.Documento_Numero,
+                        mrc.ID_Cliente,
+                        mrc.Total_Productos AS Total_Venta,
+                        mrc.Monto_Efectivo,
+                        mrc.ID_Usuario_Registra,
+                        mrc.ID_TipoMovimiento
+                    FROM movimientos_ruta_cabecera mrc
+                    WHERE mrc.ID_Asignacion = %s 
+                      AND mrc.Estado = 'ACTIVO'
+                      AND DATE(mrc.Fecha_Movimiento) = CURDATE()
+                    ORDER BY mrc.Fecha_Movimiento DESC, mrc.ID_Movimiento DESC
+                    LIMIT 200
+                )
                 SELECT 
-                    mrc.ID_Movimiento,
-                    mrc.Fecha_Movimiento,
+                    m.ID_Movimiento,
+                    m.Fecha_Movimiento,
                     cm.Descripcion AS Tipo_Movimiento,
                     cm.Adicion AS Impacto,
                     cm.Letra AS Simbolo,
-                    mrc.Documento_Numero,
+                    m.Documento_Numero,
                     c.Nombre as Nombre_Cliente,
                     p.COD_Producto,
                     p.Descripcion AS Producto,
@@ -2681,35 +2760,42 @@ def historial_vendedor(id_usuario):
                     mrd.Precio_Unitario,
                     mrd.Subtotal,
                     um.Descripcion AS Unidad_Medida,
-                    mrc.Total_Productos AS Total_Venta,
-                    mrc.Monto_Efectivo,
+                    m.Total_Venta,
+                    m.Monto_Efectivo,
                     u_reg.NombreUsuario AS Registrado_Por
-                FROM movimientos_ruta_cabecera mrc
-                INNER JOIN movimientos_ruta_detalle mrd ON mrc.ID_Movimiento = mrd.ID_Movimiento
-                INNER JOIN catalogo_movimientos cm ON mrc.ID_TipoMovimiento = cm.ID_TipoMovimiento
+                FROM cte_movimientos m
+                INNER JOIN movimientos_ruta_detalle mrd ON m.ID_Movimiento = mrd.ID_Movimiento
+                INNER JOIN catalogo_movimientos cm ON m.ID_TipoMovimiento = cm.ID_TipoMovimiento
                 INNER JOIN productos p ON mrd.ID_Producto = p.ID_Producto
                 LEFT JOIN unidades_medida um ON p.Unidad_Medida = um.ID_Unidad
-                LEFT JOIN clientes c ON mrc.ID_Cliente = c.ID_Cliente
-                LEFT JOIN usuarios u_reg ON mrc.ID_Usuario_Registra = u_reg.ID_Usuario
-                WHERE mrc.ID_Asignacion = %s 
-                    AND mrc.Estado = 'ACTIVO'
-                ORDER BY mrc.Fecha_Movimiento DESC, mrc.ID_Movimiento DESC
-                LIMIT 200
+                LEFT JOIN clientes c ON m.ID_Cliente = c.ID_Cliente
+                LEFT JOIN usuarios u_reg ON m.ID_Usuario_Registra = u_reg.ID_Usuario
+                ORDER BY m.Fecha_Movimiento DESC, m.ID_Movimiento DESC
             """, (vendedor['ID_Asignacion'],))
             movimientos = cursor.fetchall()
             
-            # Resumen de movimientos
+            # Resumen de movimientos con un CTE para precargar subtotales y cantidades (solo hoy)
             cursor.execute("""
+                WITH cte_resumen_detalles AS (
+                    SELECT 
+                        mrc.ID_Movimiento,
+                        cm.Adicion,
+                        mrd.Cantidad,
+                        mrd.Subtotal
+                    FROM movimientos_ruta_cabecera mrc
+                    INNER JOIN movimientos_ruta_detalle mrd ON mrc.ID_Movimiento = mrd.ID_Movimiento
+                    INNER JOIN catalogo_movimientos cm ON mrc.ID_TipoMovimiento = cm.ID_TipoMovimiento
+                    WHERE mrc.ID_Asignacion = %s 
+                      AND mrc.Estado = 'ACTIVO'
+                      AND DATE(mrc.Fecha_Movimiento) = CURDATE()
+                )
                 SELECT 
-                    COUNT(*) AS Total_Movimientos,
-                    SUM(CASE WHEN cm.Adicion = '+' THEN mrd.Cantidad ELSE 0 END) AS Total_Entradas,
-                    SUM(CASE WHEN cm.Adicion = '-' THEN mrd.Cantidad ELSE 0 END) AS Total_Salidas,
-                    SUM(CASE WHEN cm.Adicion = '+' THEN mrd.Subtotal ELSE 0 END) AS Monto_Entradas,
-                    SUM(CASE WHEN cm.Adicion = '-' THEN mrd.Subtotal ELSE 0 END) AS Monto_Salidas
-                FROM movimientos_ruta_cabecera mrc
-                INNER JOIN movimientos_ruta_detalle mrd ON mrc.ID_Movimiento = mrd.ID_Movimiento
-                INNER JOIN catalogo_movimientos cm ON mrc.ID_TipoMovimiento = cm.ID_TipoMovimiento
-                WHERE mrc.ID_Asignacion = %s AND mrc.Estado = 'ACTIVO'
+                    COUNT(DISTINCT ID_Movimiento) AS Total_Movimientos,
+                    SUM(CASE WHEN Adicion = '+' THEN Cantidad ELSE 0 END) AS Total_Entradas,
+                    SUM(CASE WHEN Adicion = '-' THEN Cantidad ELSE 0 END) AS Total_Salidas,
+                    SUM(CASE WHEN Adicion = '+' THEN Subtotal ELSE 0 END) AS Monto_Entradas,
+                    SUM(CASE WHEN Adicion = '-' THEN Subtotal ELSE 0 END) AS Monto_Salidas
+                FROM cte_resumen_detalles
             """, (vendedor['ID_Asignacion'],))
             resumen_mov = cursor.fetchone()
         
@@ -2729,8 +2815,17 @@ def cargas_pendientes():
     id_empresa = session.get('id_empresa', 1)
     
     with get_db_cursor(True) as cursor:
-        # Obtener cargas pendientes con cálculo de días de espera
+        # Obtener cargas pendientes con cálculo de días de espera y CTE para detalles agregados
         cursor.execute("""
+            WITH cte_detalle_cargas AS (
+                SELECT 
+                    ID_Carga,
+                    COUNT(ID_Detalle) AS total_productos,
+                    SUM(Cantidad_Cargada) AS total_cantidad,
+                    SUM(Cantidad_Cargada * Costo_Unitario) AS total_monto
+                FROM cargas_pendientes_detalle
+                GROUP BY ID_Carga
+            )
             SELECT 
                 cp.ID_Carga,
                 cp.Num_Factura,
@@ -2740,24 +2835,31 @@ def cargas_pendientes():
                 p.ID_Proveedor,
                 p.Nombre as proveedor_nombre,
                 u.NombreUsuario as vendedor_nombre,
-                COUNT(cpd.ID_Detalle) as total_productos,
-                SUM(cpd.Cantidad_Cargada) as total_cantidad,
-                SUM(cpd.Cantidad_Cargada * cpd.Costo_Unitario) as total_monto,
+                COALESCE(d.total_productos, 0) AS total_productos,
+                COALESCE(d.total_cantidad, 0) AS total_cantidad,
+                COALESCE(d.total_monto, 0) AS total_monto,
                 DATEDIFF(NOW(), cp.Fecha_Carga) as dias_espera
             FROM cargas_pendientes_recepcion cp
             LEFT JOIN proveedores p ON cp.ID_Proveedor = p.ID_Proveedor
             LEFT JOIN usuarios u ON cp.ID_Usuario_Carga = u.ID_Usuario
-            LEFT JOIN cargas_pendientes_detalle cpd ON cp.ID_Carga = cpd.ID_Carga
+            LEFT JOIN cte_detalle_cargas d ON cp.ID_Carga = d.ID_Carga
             WHERE cp.Estado = 'PENDIENTE'
             AND p.ID_Empresa = %s
-            GROUP BY cp.ID_Carga
             ORDER BY cp.Fecha_Carga DESC
         """, (id_empresa,))
         
         cargas_pendientes = cursor.fetchall()
         
-        # Obtener también cargas ya recibidas (historial)
+        # Obtener también cargas ya recibidas (historial) con CTE
         cursor.execute("""
+            WITH cte_recibidas_detalles AS (
+                SELECT 
+                    ID_Carga,
+                    SUM(Cantidad_Cargada) AS total_cantidad,
+                    SUM(Cantidad_Recibida) AS total_recibida
+                FROM cargas_pendientes_detalle
+                GROUP BY ID_Carga
+            )
             SELECT 
                 cp.ID_Carga,
                 cp.Num_Factura,
@@ -2767,16 +2869,15 @@ def cargas_pendientes():
                 p.Nombre as proveedor_nombre,
                 u.NombreUsuario as vendedor_nombre,
                 u2.NombreUsuario as recibido_por,
-                SUM(cpd.Cantidad_Cargada) as total_cantidad,
-                SUM(cpd.Cantidad_Recibida) as total_recibida
+                COALESCE(d.total_cantidad, 0) AS total_cantidad,
+                COALESCE(d.total_recibida, 0) AS total_recibida
             FROM cargas_pendientes_recepcion cp
             LEFT JOIN proveedores p ON cp.ID_Proveedor = p.ID_Proveedor
             LEFT JOIN usuarios u ON cp.ID_Usuario_Carga = u.ID_Usuario
             LEFT JOIN usuarios u2 ON cp.ID_Usuario_Recepcion = u2.ID_Usuario
-            LEFT JOIN cargas_pendientes_detalle cpd ON cp.ID_Carga = cpd.ID_Carga
+            LEFT JOIN cte_recibidas_detalles d ON cp.ID_Carga = d.ID_Carga
             WHERE cp.Estado IN ('RECIBIDA_TOTAL', 'RECIBIDA_PARCIAL', 'RECHAZADA')
             AND p.ID_Empresa = %s
-            GROUP BY cp.ID_Carga
             ORDER BY cp.Fecha_Recepcion DESC
             LIMIT 50
         """, (id_empresa,))
@@ -3003,7 +3104,6 @@ def recibir_carga(id_carga):
                              carga=carga, 
                              detalles=detalles,
                              now=datetime.now())
-
 
 @bodega_bp.route('/carga-detalle/<int:id_carga>', methods=['GET'])
 @login_required

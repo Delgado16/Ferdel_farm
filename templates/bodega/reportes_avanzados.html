@@ -1,146 +1,132 @@
 {% extends "layout.html" %}
 
-{% block title %}Reportes Avanzados de Inventario{% endblock %}
+{% block title %}Reportes Avanzados de Inventario - FerDel{% endblock %}
 
 {% block content %}
-<div class="container-fluid">
-    <h1 class="h3 mb-4 text-gray-800">📊 Reportes Avanzados de Inventario</h1>
+<div class="container-fluid py-4 fade-in-up">
+    <!-- Encabezado -->
+    <div class="historial-header d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+        <div>
+            <h3 class="fw-bold text-slate-800 mb-1">
+                <i class="fas fa-chart-line text-primary me-2"></i>Reportes Avanzados de Inventario
+            </h3>
+            <p class="text-muted small mb-0">Análisis detallado de existencias, rotación de productos, alertas de stock y comportamiento comercial</p>
+        </div>
+    </div>
 
     <!-- Formulario de Filtros -->
-    <div class="card shadow mb-4">
-        <div class="card-header py-3 bg-primary text-white">
-            <h6 class="m-0 font-weight-bold">Filtros de Reportes</h6>
-        </div>
-        <div class="card-body">
+    <div class="card-premium-section mb-4">
+        <div class="card-body p-4">
+            <h5 class="fw-bold text-slate-800 border-bottom border-light pb-3 mb-3">
+                <i class="fas fa-filter text-primary me-2"></i>Filtros de Reportes
+            </h5>
             <form method="POST" id="filtroForm">
-                <div class="row">
+                <div class="row g-3">
                     <div class="col-md-3">
-                        <div class="form-group">
-                            <label for="fecha_inicio"><strong>Fecha Inicio:</strong></label>
-                            <input type="date" class="form-control" id="fecha_inicio" name="fecha_inicio" 
-                                   value="{{ fecha_inicio }}" required>
-                        </div>
+                        <label for="fecha_inicio" class="form-label-premium fw-bold mb-1">Fecha Inicio</label>
+                        <input type="date" class="form-control form-control-premium" id="fecha_inicio" name="fecha_inicio" 
+                               value="{{ fecha_inicio }}" required>
                     </div>
                     
                     <div class="col-md-3">
-                        <div class="form-group">
-                            <label for="fecha_fin"><strong>Fecha Fin:</strong></label>
-                            <input type="date" class="form-control" id="fecha_fin" name="fecha_fin" 
-                                   value="{{ fecha_fin }}" required>
-                        </div>
+                        <label for="fecha_fin" class="form-label-premium fw-bold mb-1">Fecha Fin</label>
+                        <input type="date" class="form-control form-control-premium" id="fecha_fin" name="fecha_fin" 
+                               value="{{ fecha_fin }}" required>
                     </div>
                     
                     <div class="col-md-3">
-                        <div class="form-group">
-                            <label for="categoria_id"><strong>Categoría:</strong></label>
-                            <select class="form-control" id="categoria_id" name="categoria_id">
-                                <option value="todas">Todas las Categorías</option>
-                                {% for cat in categorias %}
-                                <option value="{{ cat.ID_Categoria }}" 
-                                        {% if categoria_seleccionada == cat.ID_Categoria|string %}selected{% endif %}>
-                                    {{ cat.Descripcion }}
-                                </option>
-                                {% endfor %}
-                            </select>
-                        </div>
+                        <label for="categoria_id" class="form-label-premium fw-bold mb-1">Categoría</label>
+                        <select class="form-select form-select-premium" id="categoria_id" name="categoria_id">
+                            <option value="todas">Todas las Categorías</option>
+                            {% for cat in categorias %}
+                            <option value="{{ cat.ID_Categoria }}" 
+                                    {% if categoria_seleccionada == cat.ID_Categoria|string %}selected{% endif %}>
+                                {{ cat.Descripcion }}
+                            </option>
+                            {% endfor %}
+                        </select>
                     </div>
                     
                     <div class="col-md-3">
-                        <div class="form-group">
-                            <label for="tipo_reporte"><strong>Tipo de Reporte:</strong></label>
-                            <select class="form-control" id="tipo_reporte" name="tipo_reporte">
-                                <option value="resumen_diario" {% if tipo_reporte == 'resumen_diario' %}selected{% endif %}>Resumen Diario</option>
-                                <option value="detallado" {% if tipo_reporte == 'detallado' %}selected{% endif %}>Detallado por Producto</option>
-                            </select>
-                        </div>
+                        <label for="tipo_reporte" class="form-label-premium fw-bold mb-1">Tipo de Reporte</label>
+                        <select class="form-select form-select-premium" id="tipo_reporte" name="tipo_reporte">
+                            <option value="resumen_diario" {% if tipo_reporte == 'resumen_diario' %}selected{% endif %}>Resumen Diario</option>
+                            <option value="detallado" {% if tipo_reporte == 'detallado' %}selected{% endif %}>Detallado por Producto</option>
+                        </select>
                     </div>
                 </div>
                 
-                <div class="row mt-3">
-                    <div class="col-md-12">
-                        <button type="submit" class="btn btn-primary">
-                            <i class="fas fa-filter"></i> Aplicar Filtros
-                        </button>
-                        <button type="button" class="btn btn-success ml-2" onclick="exportarExcel()">
-                            <i class="fas fa-file-excel"></i> Exportar a Excel
-                        </button>
-                        <button type="button" class="btn btn-secondary ml-2" onclick="resetearFiltros()">
-                            <i class="fas fa-redo"></i> Resetear
-                        </button>
-                    </div>
+                <div class="d-flex flex-wrap gap-2 mt-4">
+                    <button type="submit" class="btn btn-outline-primary px-4 py-2 rounded-3 fw-bold">
+                        <i class="fas fa-filter me-1"></i> Aplicar Filtros
+                    </button>
+                    <button type="button" class="btn btn-outline-success px-4 py-2 rounded-3 fw-bold" onclick="exportarExcel()">
+                        <i class="fas fa-file-excel me-1"></i> Exportar a Excel
+                    </button>
+                    <button type="button" class="btn btn-outline-secondary px-4 py-2 rounded-3 fw-bold" onclick="resetearFiltros()">
+                        <i class="fas fa-redo me-1"></i> Resetear
+                    </button>
                 </div>
             </form>
         </div>
     </div>
 
-    <!-- Resumen Estadístico -->
+    <!-- Resumen Estadístico (KPIs) -->
     {% if resumen %}
-    <div class="row mb-4">
-        <div class="col-xl-3 col-md-6 mb-4">
-            <div class="card border-left-primary shadow h-100 py-2">
-                <div class="card-body">
-                    <div class="row no-gutters align-items-center">
-                        <div class="col mr-2">
-                            <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">
-                                Productos Activos</div>
-                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ resumen.total_productos or 0 }}</div>
+    <div class="row mb-4 g-3">
+        <div class="col-xl-3 col-md-6">
+            <div class="card-premium-section border-start border-3 border-primary h-100">
+                <div class="card-body p-3">
+                    <div class="d-flex align-items-center justify-content-between">
+                        <div>
+                            <small class="text-muted d-block mb-1 text-uppercase fw-bold small">Productos Activos</small>
+                            <h3 class="fw-bold text-slate-800 mb-0">{{ resumen.total_productos or 0 }}</h3>
                         </div>
-                        <div class="col-auto">
-                            <i class="fas fa-boxes fa-2x text-gray-300"></i>
-                        </div>
+                        <i class="fas fa-boxes fa-2x text-primary opacity-50"></i>
                     </div>
                 </div>
             </div>
         </div>
         
-        <div class="col-xl-3 col-md-6 mb-4">
-            <div class="card border-left-warning shadow h-100 py-2">
-                <div class="card-body">
-                    <div class="row no-gutters align-items-center">
-                        <div class="col mr-2">
-                            <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">
-                                Bajo Stock</div>
-                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ resumen.productos_bajo_stock or 0 }}</div>
+        <div class="col-xl-3 col-md-6">
+            <div class="card-premium-section border-start border-3 border-warning h-100">
+                <div class="card-body p-3">
+                    <div class="d-flex align-items-center justify-content-between">
+                        <div>
+                            <small class="text-muted d-block mb-1 text-uppercase fw-bold small">Bajo Stock</small>
+                            <h3 class="fw-bold text-warning mb-0">{{ resumen.productos_bajo_stock or 0 }}</h3>
                         </div>
-                        <div class="col-auto">
-                            <i class="fas fa-exclamation-triangle fa-2x text-gray-300"></i>
-                        </div>
+                        <i class="fas fa-exclamation-triangle fa-2x text-warning opacity-50"></i>
                     </div>
                 </div>
             </div>
         </div>
         
-        <div class="col-xl-3 col-md-6 mb-4">
-            <div class="card border-left-danger shadow h-100 py-2">
-                <div class="card-body">
-                    <div class="row no-gutters align-items-center">
-                        <div class="col mr-2">
-                            <div class="text-xs font-weight-bold text-danger text-uppercase mb-1">
-                                Agotados</div>
-                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ resumen.productos_agotados or 0 }}</div>
+        <div class="col-xl-3 col-md-6">
+            <div class="card-premium-section border-start border-3 border-danger h-100">
+                <div class="card-body p-3">
+                    <div class="d-flex align-items-center justify-content-between">
+                        <div>
+                            <small class="text-muted d-block mb-1 text-uppercase fw-bold small">Agotados</small>
+                            <h3 class="fw-bold text-danger mb-0">{{ resumen.productos_agotados or 0 }}</h3>
                         </div>
-                        <div class="col-auto">
-                            <i class="fas fa-times-circle fa-2x text-gray-300"></i>
-                        </div>
+                        <i class="fas fa-times-circle fa-2x text-danger opacity-50"></i>
                     </div>
                 </div>
             </div>
         </div>
         
-        <div class="col-xl-3 col-md-6 mb-4">
-            <div class="card border-left-success shadow h-100 py-2">
-                <div class="card-body">
-                    <div class="row no-gutters align-items-center">
-                        <div class="col mr-2">
-                            <div class="text-xs font-weight-bold text-success text-uppercase mb-1">
-                                Período</div>
-                            <div class="h6 mb-0 font-weight-bold text-gray-800">
-                                {{ fecha_inicio }}<br>a {{ fecha_fin }}
-                            </div>
+        <div class="col-xl-3 col-md-6">
+            <div class="card-premium-section border-start border-3 border-success h-100">
+                <div class="card-body p-3">
+                    <div class="d-flex align-items-center justify-content-between">
+                        <div>
+                            <small class="text-muted d-block mb-1 text-uppercase fw-bold small">Período</small>
+                            <h6 class="fw-bold text-slate-800 mb-0 font-monospace" style="font-size: 0.85rem;">
+                                {{ fecha_inicio }} a {{ fecha_fin }}
+                            </h6>
                         </div>
-                        <div class="col-auto">
-                            <i class="fas fa-calendar-alt fa-2x text-gray-300"></i>
-                        </div>
+                        <i class="fas fa-calendar-alt fa-2x text-success opacity-50"></i>
                     </div>
                 </div>
             </div>
@@ -149,39 +135,39 @@
     {% endif %}
 
     <!-- Sistema de Pestañas Mejorado -->
-    <div class="card shadow mb-4">
-        <div class="card-header py-3">
-            <ul class="nav nav-pills" id="myTab" role="tablist">
+    <div class="card-premium-section mb-4">
+        <div class="card-header border-0 bg-transparent py-3">
+            <ul class="nav nav-pills gap-1" id="myTab" role="tablist">
                 <li class="nav-item" role="presentation">
-                    <button class="nav-link active" id="inventario-tab" data-bs-toggle="tab" 
+                    <button class="nav-link active rounded-pill px-3 py-2 small fw-bold" id="inventario-tab" data-bs-toggle="tab" 
                             data-bs-target="#inventario" type="button" role="tab" aria-controls="inventario" 
                             aria-selected="true">
                         <i class="fas fa-boxes me-1"></i> Inventario
                     </button>
                 </li>
                 <li class="nav-item" role="presentation">
-                    <button class="nav-link" id="ventas-tab" data-bs-toggle="tab" 
+                    <button class="nav-link rounded-pill px-3 py-2 small fw-bold" id="ventas-tab" data-bs-toggle="tab" 
                             data-bs-target="#ventas" type="button" role="tab" aria-controls="ventas" 
                             aria-selected="false">
                         <i class="fas fa-chart-line me-1"></i> Ventas
                     </button>
                 </li>
                 <li class="nav-item" role="presentation">
-                    <button class="nav-link" id="stock-tab" data-bs-toggle="tab" 
+                    <button class="nav-link rounded-pill px-3 py-2 small fw-bold" id="stock-tab" data-bs-toggle="tab" 
                             data-bs-target="#stock" type="button" role="tab" aria-controls="stock" 
                             aria-selected="false">
                         <i class="fas fa-exclamation-triangle me-1"></i> Bajo Stock
                     </button>
                 </li>
                 <li class="nav-item" role="presentation">
-                    <button class="nav-link" id="pagos-tab" data-bs-toggle="tab" 
+                    <button class="nav-link rounded-pill px-3 py-2 small fw-bold" id="pagos-tab" data-bs-toggle="tab" 
                             data-bs-target="#pagos" type="button" role="tab" aria-controls="pagos" 
                             aria-selected="false">
                         <i class="fas fa-credit-card me-1"></i> Contado vs Crédito
                     </button>
                 </li>
                 <li class="nav-item" role="presentation">
-                    <button class="nav-link" id="sinventas-tab" data-bs-toggle="tab" 
+                    <button class="nav-link rounded-pill px-3 py-2 small fw-bold" id="sinventas-tab" data-bs-toggle="tab" 
                             data-bs-target="#sinventas" type="button" role="tab" aria-controls="sinventas" 
                             aria-selected="false">
                         <i class="fas fa-clock me-1"></i> Sin Ventas
@@ -190,55 +176,55 @@
             </ul>
         </div>
         
-        <div class="card-body">
-            <div class="tab-content" id="myTabContent">
+        <div class="card-body p-0">
+            <div class="tab-content p-4" id="myTabContent">
                 
                 <!-- Pestaña 1: Inventario -->
                 <div class="tab-pane fade show active" id="inventario" role="tabpanel" aria-labelledby="inventario-tab">
-                    <h5 class="card-title mb-4">
+                    <h5 class="fw-bold text-slate-800 mb-4">
                         <i class="fas fa-boxes text-primary me-2"></i>Control de Inventario por Bodega
                     </h5>
                     <div class="table-responsive">
-                        <table class="table table-bordered table-striped table-hover" id="tablaInventario">
-                            <thead class="table-dark">
+                        <table class="table table-hover table-modern align-middle mb-0" id="tablaInventario">
+                            <thead class="table-light">
                                 <tr>
                                     <th>Código</th>
                                     <th>Producto</th>
                                     <th>Categoría</th>
                                     <th>Bodega</th>
-                                    <th>Stock Actual</th>
-                                    <th>Stock Mínimo</th>
-                                    <th>Estado</th>
-                                    <th>Precio Venta</th>
+                                    <th class="text-center">Stock Actual</th>
+                                    <th class="text-center">Stock Mínimo</th>
+                                    <th class="text-center">Estado</th>
+                                    <th class="text-end">Precio Venta</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {% if inventario %}
                                     {% for item in inventario %}
                                     <tr>
-                                        <td>{{ item.COD_Producto or 'N/A' }}</td>
-                                        <td>{{ item.Producto }}</td>
-                                        <td>{{ item.Categoria or 'Sin categoría' }}</td>
-                                        <td>{{ item.Bodega }}</td>
-                                        <td class="text-center">
-                                            <span class="badge bg-primary rounded-pill">{{ item.Stock_Actual }}</span>
+                                        <td><code class="font-monospace bg-light text-dark border px-2 py-1 rounded small">{{ item.COD_Producto or 'N/A' }}</code></td>
+                                        <td><strong class="text-slate-800">{{ item.Producto }}</strong></td>
+                                        <td class="text-muted small">{{ item.Categoria or 'Sin categoría' }}</td>
+                                        <td class="text-slate-800 small">{{ item.Bodega }}</td>
+                                        <td class="text-center font-monospace text-slate-800">
+                                            <span class="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25 rounded-pill px-2.5 py-1.5 fw-bold">{{ item.Stock_Actual }}</span>
                                         </td>
-                                        <td class="text-center">{{ item.Stock_Minimo }}</td>
+                                        <td class="text-center font-monospace text-muted">{{ item.Stock_Minimo }}</td>
                                         <td class="text-center">
                                             {% if item.Estado_Stock == 'BAJO STOCK' %}
-                                            <span class="badge bg-warning text-dark">{{ item.Estado_Stock }}</span>
+                                            <span class="badge bg-warning bg-opacity-10 text-warning border border-warning border-opacity-25 rounded-pill px-2.5 py-1.5 fw-bold">BAJO STOCK</span>
                                             {% elif item.Estado_Stock == 'AGOTADO' %}
-                                            <span class="badge bg-danger">{{ item.Estado_Stock }}</span>
+                                            <span class="badge bg-danger bg-opacity-10 text-danger border border-danger border-opacity-25 rounded-pill px-2.5 py-1.5 fw-bold">AGOTADO</span>
                                             {% else %}
-                                            <span class="badge bg-success">{{ item.Estado_Stock }}</span>
+                                            <span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 rounded-pill px-2.5 py-1.5 fw-bold">OK</span>
                                             {% endif %}
                                         </td>
-                                        <td class="text-end">C${{ "%.2f"|format(item.Precio_Venta or 0) }}</td>
+                                        <td class="text-end font-monospace text-slate-800">C$ {{ "%.2f"|format(item.Precio_Venta or 0) }}</td>
                                     </tr>
                                     {% endfor %}
                                 {% else %}
                                     <tr>
-                                        <td colspan="8" class="text-center text-muted">No hay datos de inventario</td>
+                                        <td colspan="8" class="text-center text-muted py-4">No hay datos de inventario registrados</td>
                                     </tr>
                                 {% endif %}
                             </tbody>
@@ -248,40 +234,40 @@
                 
                 <!-- Pestaña 2: Ventas -->
                 <div class="tab-pane fade" id="ventas" role="tabpanel" aria-labelledby="ventas-tab">
-                    <h5 class="card-title mb-4">
+                    <h5 class="fw-bold text-slate-800 mb-4">
                         <i class="fas fa-chart-line text-success me-2"></i>Análisis de Ventas
                     </h5>
                     
-                    <div class="row mb-4">
+                    <div class="row g-4">
                         <div class="col-md-6">
-                            <div class="card">
-                                <div class="card-header bg-success text-white">
-                                    <h6 class="mb-0">Top 10 Productos Más Vendidos</h6>
+                            <div class="card-premium-section">
+                                <div class="card-header border-0 bg-transparent py-3">
+                                    <h6 class="fw-bold text-slate-800 mb-0">Top 10 Productos Más Vendidos</h6>
                                 </div>
-                                <div class="card-body">
+                                <div class="card-body p-0">
                                     <div class="table-responsive">
-                                        <table class="table table-sm table-hover">
-                                            <thead>
+                                        <table class="table table-hover table-modern align-middle mb-0">
+                                            <thead class="table-light">
                                                 <tr>
                                                     <th>#</th>
                                                     <th>Producto</th>
-                                                    <th>Cantidad</th>
-                                                    <th>Ingresos</th>
+                                                    <th class="text-end">Cantidad</th>
+                                                    <th class="text-end">Ingresos</th>
                                                 </tr>
                                             </thead>
                                             <tbody>
                                                 {% if mas_vendidos %}
                                                     {% for item in mas_vendidos %}
                                                     <tr>
-                                                        <td>{{ loop.index }}</td>
-                                                        <td>{{ item.Producto }}</td>
-                                                        <td class="text-end">{{ item.Total_Vendido|round(2) if item.Total_Vendido else 0 }}</td>
-                                                        <td class="text-end">C${{ "%.2f"|format(item.Total_Ingresos or 0) }}</td>
+                                                        <td class="font-monospace text-muted">{{ loop.index }}</td>
+                                                        <td><strong class="text-slate-800 small">{{ item.Producto }}</strong></td>
+                                                        <td class="text-end font-monospace text-slate-800 small">{{ item.Total_Vendido|round(2) if item.Total_Vendido else 0 }}</td>
+                                                        <td class="text-end font-monospace text-primary fw-bold small">C$ {{ "%.2f"|format(item.Total_Ingresos or 0) }}</td>
                                                     </tr>
                                                     {% endfor %}
                                                 {% else %}
                                                     <tr>
-                                                        <td colspan="4" class="text-center text-muted">No hay datos de ventas</td>
+                                                        <td colspan="4" class="text-center text-muted py-3 small">No hay datos de ventas registrados</td>
                                                     </tr>
                                                 {% endif %}
                                             </tbody>
@@ -292,40 +278,40 @@
                         </div>
                         
                         <div class="col-md-6">
-                            <div class="card">
-                                <div class="card-header bg-info text-white">
-                                    <h6 class="mb-0">Ventas por Categoría</h6>
+                            <div class="card-premium-section">
+                                <div class="card-header border-0 bg-transparent py-3">
+                                    <h6 class="fw-bold text-slate-800 mb-0">Ventas por Categoría</h6>
                                 </div>
-                                <div class="card-body">
+                                <div class="card-body p-0">
                                     <div class="table-responsive">
-                                        <table class="table table-sm table-hover">
-                                            <thead>
+                                        <table class="table table-hover table-modern align-middle mb-0">
+                                            <thead class="table-light">
                                                 <tr>
                                                     <th>Categoría</th>
                                                     <th>Fecha</th>
                                                     <th>Tipo</th>
-                                                    <th>Ventas</th>
+                                                    <th class="text-end">Ventas</th>
                                                 </tr>
                                             </thead>
                                             <tbody>
                                                 {% if ventas_categorias %}
                                                     {% for item in ventas_categorias %}
                                                     <tr>
-                                                        <td>{{ item.Categoria }}</td>
-                                                        <td>{{ item.Fecha_Venta.strftime('%d/%m/%Y') if item.Fecha_Venta else 'N/A' }}</td>
+                                                        <td><strong class="text-slate-800 small">{{ item.Categoria }}</strong></td>
+                                                        <td class="font-monospace text-muted small">{{ item.Fecha_Venta.strftime('%d/%m/%Y') if item.Fecha_Venta else 'N/A' }}</td>
                                                         <td>
                                                             {% if item.Tipo_Compra == 'CONTADO' %}
-                                                            <span class="badge bg-success">Contado</span>
+                                                            <span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 rounded-pill px-2.5 py-1 fw-bold small">Contado</span>
                                                             {% else %}
-                                                            <span class="badge bg-info">Crédito</span>
+                                                            <span class="badge bg-info bg-opacity-10 text-info border border-info border-opacity-25 rounded-pill px-2.5 py-1 fw-bold small">Crédito</span>
                                                             {% endif %}
                                                         </td>
-                                                        <td class="text-end">C${{ "%.2f"|format(item.Total_Ventas or 0) }}</td>
+                                                        <td class="text-end font-monospace text-primary fw-bold small">C$ {{ "%.2f"|format(item.Total_Ventas or 0) }}</td>
                                                     </tr>
                                                     {% endfor %}
                                                 {% else %}
                                                     <tr>
-                                                        <td colspan="4" class="text-center text-muted">No hay datos por categoría</td>
+                                                        <td colspan="4" class="text-center text-muted py-3 small">No hay datos de ventas por categoría</td>
                                                     </tr>
                                                 {% endif %}
                                             </tbody>
@@ -339,46 +325,46 @@
                 
                 <!-- Pestaña 3: Bajo Stock -->
                 <div class="tab-pane fade" id="stock" role="tabpanel" aria-labelledby="stock-tab">
-                    <h5 class="card-title mb-4">
+                    <h5 class="fw-bold text-slate-800 mb-4">
                         <i class="fas fa-exclamation-triangle text-warning me-2"></i>Productos con Bajo Stock o Agotados
                     </h5>
                     <div class="table-responsive">
-                        <table class="table table-bordered table-hover">
-                            <thead class="table-warning">
+                        <table class="table table-hover table-modern align-middle mb-0">
+                            <thead class="table-light">
                                 <tr>
                                     <th>Código</th>
                                     <th>Producto</th>
                                     <th>Categoría</th>
                                     <th>Bodega</th>
-                                    <th>Stock Actual</th>
-                                    <th>Stock Mínimo</th>
+                                    <th class="text-center">Stock Actual</th>
+                                    <th class="text-center">Stock Mínimo</th>
                                     <th>% Stock</th>
-                                    <th>Alerta</th>
+                                    <th class="text-center">Alerta</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {% if bajo_stock %}
                                     {% for item in bajo_stock %}
                                     <tr>
-                                        <td>{{ item.COD_Producto or 'N/A' }}</td>
-                                        <td>{{ item.Producto }}</td>
-                                        <td>{{ item.Categoria or 'Sin categoría' }}</td>
-                                        <td>{{ item.Bodega }}</td>
-                                        <td class="text-center">
+                                        <td><code class="font-monospace bg-light text-dark border px-2 py-1 rounded small">{{ item.COD_Producto or 'N/A' }}</code></td>
+                                        <td><strong class="text-slate-800">{{ item.Producto }}</strong></td>
+                                        <td class="text-muted small">{{ item.Categoria or 'Sin categoría' }}</td>
+                                        <td class="text-slate-800 small">{{ item.Bodega }}</td>
+                                        <td class="text-center font-monospace text-slate-800">
                                             <strong>{{ item.Stock_Actual }}</strong>
                                         </td>
-                                        <td class="text-center">{{ item.Stock_Minimo }}</td>
-                                        <td class="text-center">
+                                        <td class="text-center font-monospace text-muted">{{ item.Stock_Minimo }}</td>
+                                        <td>
                                             {% if item.Porcentaje_Stock %}
                                                 {% set porcentaje = item.Porcentaje_Stock|float %}
                                                 {% set ancho_barra = porcentaje if porcentaje <= 100 else 100 %}
-                                                <div class="progress" style="height: 20px;">
-                                                    <div class="progress-bar 
+                                                <div class="progress" style="height: 16px; border-radius: 10px; background-color: #f1f3f5;">
+                                                    <div class="progress-bar rounded-pill
                                                         {% if porcentaje == 0 %}bg-danger
-                                                        {% elif porcentaje < 50 %}bg-warning
+                                                        {% elif porcentaje < 50 %}bg-warning text-dark
                                                         {% else %}bg-success{% endif %}" 
                                                         role="progressbar" 
-                                                        style="width: {{ ancho_barra }}%"
+                                                        style="width: {{ ancho_barra }}%; font-size: 10px; line-height: 16px; font-weight: bold;"
                                                         aria-valuenow="{{ porcentaje }}" 
                                                         aria-valuemin="0" 
                                                         aria-valuemax="100">
@@ -386,25 +372,25 @@
                                                     </div>
                                                 </div>
                                             {% else %}
-                                                <span class="text-muted">N/A</span>
+                                                <span class="text-muted small">N/A</span>
                                             {% endif %}
                                         </td>
                                         <td class="text-center">
                                             {% if item.Alerta == 'AGOTADO' %}
-                                            <span class="badge bg-danger p-2">{{ item.Alerta }}</span>
+                                            <span class="badge bg-danger bg-opacity-10 text-danger border border-danger border-opacity-25 rounded-pill px-2.5 py-1.5 fw-bold">AGOTADO</span>
                                             {% elif item.Alerta == 'BAJO STOCK' %}
-                                            <span class="badge bg-warning text-dark p-2">{{ item.Alerta }}</span>
+                                            <span class="badge bg-warning bg-opacity-10 text-warning border border-warning border-opacity-25 rounded-pill px-2.5 py-1.5 fw-bold">BAJO STOCK</span>
                                             {% else %}
-                                            <span class="badge bg-secondary p-2">{{ item.Alerta or 'N/A' }}</span>
+                                            <span class="badge bg-secondary bg-opacity-10 text-secondary border border-secondary border-opacity-25 rounded-pill px-2.5 py-1.5 fw-bold">{{ item.Alerta or 'N/A' }}</span>
                                             {% endif %}
                                         </td>
                                     </tr>
                                     {% endfor %}
                                 {% else %}
                                     <tr>
-                                        <td colspan="8" class="text-center text-muted">
+                                        <td colspan="8" class="text-center text-muted py-4">
                                             <i class="fas fa-check-circle text-success me-2"></i>
-                                            ¡Excelente! No hay productos con bajo stock
+                                            ¡Excelente! Todos los productos cuentan con existencias suficientes.
                                         </td>
                                     </tr>
                                 {% endif %}
@@ -415,20 +401,20 @@
                 
                 <!-- Pestaña 4: Contado vs Crédito -->
                 <div class="tab-pane fade" id="pagos" role="tabpanel" aria-labelledby="pagos-tab">
-                    <h5 class="card-title mb-4">
+                    <h5 class="fw-bold text-slate-800 mb-4">
                         <i class="fas fa-credit-card text-info me-2"></i>Ventas por Tipo de Pago (Detallado por Producto)
                     </h5>
                     <div class="table-responsive">
-                        <table class="table table-bordered table-hover" id="tablaPagos">
-                            <thead class="table-info">
+                        <table class="table table-hover table-modern align-middle mb-0" id="tablaPagos">
+                            <thead class="table-light">
                                 <tr>
                                     <th>Fecha</th>
                                     <th>Código</th>
                                     <th>Producto</th>
                                     <th>Categoría</th>
-                                    <th>Tipo Pago</th>
-                                    <th>Cantidad Vendida</th>
-                                    <th>Total Venta</th>
+                                    <th class="text-center">Tipo Pago</th>
+                                    <th class="text-center">Cantidad Vendida</th>
+                                    <th class="text-end">Total Venta</th>
                                     <th>Detalle</th>
                                 </tr>
                             </thead>
@@ -436,63 +422,57 @@
                                 {% if ventas_contado_credito %}
                                     {% for item in ventas_contado_credito %}
                                     <tr>
-                                        <td>{{ item.Fecha.strftime('%d/%m/%Y') if item.Fecha else 'N/A' }}</td>
-                                        <td>{{ item.COD_Producto or 'N/A' }}</td>
-                                        <td>{{ item.Producto }}</td>
-                                        <td>{{ item.Categoria or 'Sin categoría' }}</td>
+                                        <td class="font-monospace text-slate-800 small">{{ item.Fecha.strftime('%d/%m/%Y') if item.Fecha else 'N/A' }}</td>
+                                        <td><code class="font-monospace bg-light text-dark border px-2 py-1 rounded small">{{ item.COD_Producto or 'N/A' }}</code></td>
+                                        <td><strong class="text-slate-800">{{ item.Producto }}</strong></td>
+                                        <td class="text-muted small">{{ item.Categoria or 'Sin categoría' }}</td>
                                         <td class="text-center">
                                             {% if item.Tipo_Compra == 'CONTADO' %}
-                                            <span class="badge bg-success p-2">CONTADO</span>
+                                            <span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 rounded-pill px-2.5 py-1.5 fw-bold">CONTADO</span>
                                             {% else %}
-                                            <span class="badge bg-info p-2">CRÉDITO</span>
+                                            <span class="badge bg-info bg-opacity-10 text-info border border-info border-opacity-25 rounded-pill px-2.5 py-1.5 fw-bold">CRÉDITO</span>
                                             {% endif %}
                                         </td>
-                                        <td class="text-center">
-                                            <span class="badge bg-primary rounded-pill">{{ item.Cantidad_Vendida|round(2) if item.Cantidad_Vendida else 0 }}</span>
+                                        <td class="text-center font-monospace text-slate-800">
+                                            <span class="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25 rounded-pill px-2.5 py-1.5 fw-bold">{{ item.Cantidad_Vendida|round(2) if item.Cantidad_Vendida else 0 }}</span>
                                         </td>
-                                        <td class="text-end">
-                                            <strong>C${{ "%.2f"|format(item.Total_Venta or 0) }}</strong>
-                                        </td>
-                                        <td class="small">
+                                        <td class="text-end font-monospace text-primary fw-bold">C$ {{ "%.2f"|format(item.Total_Venta or 0) }}</td>
+                                        <td>
                                             {% if item.Detalle_Ventas %}
-                                            <button type="button" class="btn btn-sm btn-outline-info" 
+                                            <button type="button" class="btn btn-sm btn-outline-info rounded-3 px-2.5" 
                                                     data-bs-toggle="popover" 
                                                     title="Detalle de Ventas" 
                                                     data-bs-content="{{ item.Detalle_Ventas }}">
-                                                <i class="fas fa-eye"></i> Ver Detalle
+                                                <i class="fas fa-eye"></i> Detalle
                                             </button>
                                             {% else %}
-                                            <span class="text-muted">Sin detalle</span>
+                                            <span class="text-muted small">Sin detalle</span>
                                             {% endif %}
                                         </td>
                                     </tr>
                                     {% endfor %}
                                 {% else %}
                                     <tr>
-                                        <td colspan="8" class="text-center text-muted">No hay datos de ventas por tipo de pago</td>
+                                        <td colspan="8" class="text-center text-muted py-4">No hay datos de ventas registrados para este período</td>
                                     </tr>
                                 {% endif %}
                             </tbody>
-                            <tfoot class="table-secondary">
-                                <tr>
-                                    <td colspan="5" class="text-end"><strong>Totales:</strong></td>
-                                    <td class="text-center">
-                                        <strong>
-                                            {% set total_cantidad = 0 %}
-                                            {% for item in ventas_contado_credito %}
-                                                {% set total_cantidad = total_cantidad + (item.Cantidad_Vendida or 0) %}
-                                            {% endfor %}
-                                            {{ "%.2f"|format(total_cantidad) }}
-                                        </strong>
+                            <tfoot class="table-light">
+                                <tr class="fw-bold">
+                                    <td colspan="5" class="text-end text-slate-800">Totales:</td>
+                                    <td class="text-center font-monospace text-slate-800">
+                                        {% set total_cantidad = 0 %}
+                                        {% for item in ventas_contado_credito %}
+                                            {% set total_cantidad = total_cantidad + (item.Cantidad_Vendida or 0) %}
+                                        {% endfor %}
+                                        {{ "%.2f"|format(total_cantidad) }}
                                     </td>
-                                    <td class="text-end">
-                                        <strong>
-                                            {% set total_venta = 0 %}
-                                            {% for item in ventas_contado_credito %}
-                                                {% set total_venta = total_venta + (item.Total_Venta or 0) %}
-                                            {% endfor %}
-                                            C${{ "%.2f"|format(total_venta) }}
-                                        </strong>
+                                    <td class="text-end font-monospace text-primary">
+                                        {% set total_venta = 0 %}
+                                        {% for item in ventas_contado_credito %}
+                                            {% set total_venta = total_venta + (item.Total_Venta or 0) %}
+                                        {% endfor %}
+                                        C$ {{ "%.2f"|format(total_venta) }}
                                     </td>
                                     <td></td>
                                 </tr>
@@ -503,34 +483,42 @@
                 
                 <!-- Pestaña 5: Sin Ventas -->
                 <div class="tab-pane fade" id="sinventas" role="tabpanel" aria-labelledby="sinventas-tab">
-                    <h5 class="card-title mb-4">
+                    <h5 class="fw-bold text-slate-800 mb-4">
                         <i class="fas fa-clock text-secondary me-2"></i>Productos Sin Ventas en más de 4 Días
                     </h5>
-                    <div class="alert alert-warning">
-                        <i class="fas fa-info-circle me-2"></i>
-                        Estos productos no han tenido movimiento de ventas en los últimos 4 días. Considera revisar su stock o estrategia de ventas.
+                    
+                    <div class="card-premium-section mb-4 border-start border-3 border-warning bg-light bg-opacity-50">
+                        <div class="card-body p-3">
+                            <div class="d-flex align-items-center gap-2">
+                                <i class="fas fa-info-circle text-warning fa-lg"></i>
+                                <p class="text-slate-800 small mb-0 fw-medium">
+                                    Estos productos no han tenido movimientos de ventas en los últimos 4 días. Te recomendamos auditar su stock o reajustar los precios.
+                                </p>
+                            </div>
+                        </div>
                     </div>
+
                     <div class="table-responsive">
-                        <table class="table table-bordered table-hover">
-                            <thead class="table-secondary">
+                        <table class="table table-hover table-modern align-middle mb-0">
+                            <thead class="table-light">
                                 <tr>
                                     <th>Código</th>
                                     <th>Producto</th>
                                     <th>Categoría</th>
                                     <th>Última Venta</th>
-                                    <th>Días Sin Venta</th>
-                                    <th>Stock Actual</th>
-                                    <th>Acción</th>
+                                    <th class="text-center">Días Sin Venta</th>
+                                    <th class="text-center">Stock Actual</th>
+                                    <th class="text-center">Acción</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {% if sin_ventas %}
                                     {% for item in sin_ventas %}
                                     <tr>
-                                        <td>{{ item.COD_Producto or 'N/A' }}</td>
-                                        <td>{{ item.Producto }}</td>
-                                        <td>{{ item.Categoria or 'Sin categoría' }}</td>
-                                        <td>
+                                        <td><code class="font-monospace bg-light text-dark border px-2 py-1 rounded small">{{ item.COD_Producto or 'N/A' }}</code></td>
+                                        <td><strong class="text-slate-800">{{ item.Producto }}</strong></td>
+                                        <td class="text-muted small">{{ item.Categoria or 'Sin categoría' }}</td>
+                                        <td class="font-monospace small text-slate-800">
                                             {% if item.Ultima_Venta %}
                                                 {{ item.Ultima_Venta.strftime('%d/%m/%Y') }}
                                             {% else %}
@@ -540,29 +528,29 @@
                                         <td class="text-center">
                                             {% if item.Ultima_Venta %}
                                                 {% if item.Dias_Sin_Venta > 10 %}
-                                                <span class="badge bg-danger p-2">{{ item.Dias_Sin_Venta }} días</span>
+                                                <span class="badge bg-danger bg-opacity-10 text-danger border border-danger border-opacity-25 rounded-pill px-2.5 py-1.5 fw-bold">{{ item.Dias_Sin_Venta }} días</span>
                                                 {% elif item.Dias_Sin_Venta > 5 %}
-                                                <span class="badge bg-warning text-dark p-2">{{ item.Dias_Sin_Venta }} días</span>
+                                                <span class="badge bg-warning bg-opacity-10 text-warning border border-warning border-opacity-25 rounded-pill px-2.5 py-1.5 fw-bold text-dark">{{ item.Dias_Sin_Venta }} días</span>
                                                 {% else %}
-                                                <span class="badge bg-info p-2">{{ item.Dias_Sin_Venta }} días</span>
+                                                <span class="badge bg-info bg-opacity-10 text-info border border-info border-opacity-25 rounded-pill px-2.5 py-1.5 fw-bold">{{ item.Dias_Sin_Venta }} días</span>
                                                 {% endif %}
                                             {% else %}
-                                                <span class="badge bg-secondary p-2">Nunca</span>
+                                                <span class="badge bg-secondary bg-opacity-10 text-secondary border border-secondary border-opacity-25 rounded-pill px-2.5 py-1.5 fw-bold">Nunca</span>
                                             {% endif %}
                                         </td>
-                                        <td class="text-center">{{ item.Stock_Actual or 0 }}</td>
+                                        <td class="text-center font-monospace text-slate-800">{{ item.Stock_Actual or 0 }}</td>
                                         <td class="text-center">
-                                            <button class="btn btn-sm btn-outline-primary" onclick="verHistorial('{{ item.ID_Producto }}')">
-                                                <i class="fas fa-chart-line"></i> Ver Historial
+                                            <button class="btn btn-outline-primary btn-sm rounded-3 px-3 py-1.5" onclick="verHistorial('{{ item.ID_Producto }}')">
+                                                <i class="fas fa-chart-line me-1"></i> Ver Historial
                                             </button>
                                         </td>
                                     </tr>
                                     {% endfor %}
                                 {% else %}
                                     <tr>
-                                        <td colspan="7" class="text-center text-muted">
+                                        <td colspan="7" class="text-center text-muted py-4">
                                             <i class="fas fa-check-circle text-success me-2"></i>
-                                            ¡Todos los productos han tenido ventas recientemente!
+                                            ¡Todos los productos se han comercializado recientemente!
                                         </td>
                                     </tr>
                                 {% endif %}
@@ -574,6 +562,27 @@
         </div>
     </div>
 </div>
+
+<!-- Estilos personalizados para las pestañas y visuales -->
+<style>
+.nav-pills .nav-link {
+    color: #495057;
+    border: 1px solid #dee2e6;
+    transition: all 0.2s ease-in-out;
+}
+.nav-pills .nav-link:hover {
+    background-color: #f8f9fa;
+    color: #212529;
+}
+.nav-pills .nav-link.active {
+    background-color: var(--bs-primary);
+    color: #fff;
+    border-color: var(--bs-primary);
+}
+.progress-bar {
+    transition: width 0.6s ease;
+}
+</style>
 
 <!-- Scripts para funcionalidad mejorada -->
 <script>
@@ -727,76 +736,4 @@ cargarLibrerias();
 <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.10.24/css/jquery.dataTables.min.css">
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 <script src="https://cdn.datatables.net/1.10.24/js/jquery.dataTables.min.js"></script>
-
-<style>
-/* Estilos personalizados para las pestañas */
-.nav-pills .nav-link {
-    color: #495057;
-    border-radius: 0.375rem;
-    margin-right: 5px;
-    transition: all 0.3s;
-    border: 1px solid #dee2e6;
-}
-
-.nav-pills .nav-link:hover {
-    background-color: #e9ecef;
-    border-color: #adb5bd;
-}
-
-.nav-pills .nav-link.active {
-    background-color: #0d6efd;
-    color: white;
-    border-color: #0d6efd;
-}
-
-.card-header {
-    background-color: #f8f9fa;
-    border-bottom: 1px solid #dee2e6;
-}
-
-.table-hover tbody tr:hover {
-    background-color: rgba(0, 123, 255, 0.1);
-}
-
-.badge {
-    font-size: 0.85em;
-}
-
-.progress {
-    margin-bottom: 0;
-    min-width: 100px;
-}
-
-.tab-pane {
-    padding-top: 20px;
-}
-
-/* Estilos para botones de acción */
-.btn-outline-info:hover {
-    background-color: #0dcaf0;
-    color: white;
-}
-
-/* Estilos para tablas */
-.table th {
-    background-color: #f8f9fa;
-    font-weight: 600;
-}
-
-/* Responsive */
-@media (max-width: 768px) {
-    .nav-pills {
-        flex-wrap: wrap;
-    }
-    
-    .nav-pills .nav-link {
-        margin-bottom: 5px;
-        font-size: 0.9rem;
-    }
-    
-    .card-body {
-        padding: 10px;
-    }
-}
-</style>
 {% endblock %}

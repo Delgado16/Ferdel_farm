@@ -68,8 +68,8 @@ DB_SSL_CA = os.environ.get('DB_SSL_CA', None)
 DB_CONFIG = {
     'user': os.environ.get('DB_USER', 'root'),
     'password': os.environ.get('DB_PASSWORD', ''),
-    'host': os.environ.get('DB_HOST', 'reseau.proxy.rlwy.net'),
-    'port': int(os.environ.get('DB_PORT', 41024)),
+    'host': os.environ.get('DB_HOST', 'sakura.proxy.rlwy.net'),
+    'port': int(os.environ.get('DB_PORT', 13968)),
     'database': os.environ.get('DB_NAME', 'db_ferdel'),
     'pool_name': 'ferdel_pool',
     'pool_size': int(os.environ.get('DB_POOL_SIZE', 5)),
