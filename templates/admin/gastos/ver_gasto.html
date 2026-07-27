@@ -3,241 +3,245 @@
 {% block title %}Detalle de Gasto - FerDel Sistema{% endblock %}
 
 {% block content %}
-<div class="container-fluid">
-    <div class="form-container">
-        <div class="form-header">
-            <h4><i class="bi bi-eye"></i> Detalle del Gasto</h4>
-            <div>
-                <a href="{{ url_for('admin.admin_gastos_operativos') }}" class="btn btn-secondary btn-action">
-                    <i class="bi bi-arrow-left"></i> Volver
-                </a>
-                {% if gasto.Estado == 'Activo' %}
-                <button type="button" class="btn btn-danger btn-action" data-bs-toggle="modal" data-bs-target="#modalAnular">
-                    <i class="bi bi-trash"></i> Anular
-                </button>
-                {% endif %}
-            </div>
+<div class="container-fluid py-4 fade-in-up">
+    <!-- Encabezado -->
+    <div class="historial-header d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+        <div>
+            <h3 class="fw-bold text-slate-800 mb-1">
+                <i class="fas fa-eye text-primary me-2"></i>Detalle del Gasto
+            </h3>
+            <p class="text-muted small mb-0">Visualizar la información completa y auditoría del gasto operativo</p>
         </div>
-
-        <div class="row">
-            <div class="col-md-6">
-                <div class="card">
-                    <div class="card-header bg-light">
-                        <strong><i class="bi bi-info-circle"></i> Información General</strong>
-                    </div>
-                    <div class="card-body">
-                        <table class="table table-bordered mb-0">
-                            <tr>
-                                <th style="width: 40%">ID Gasto:</th>
-                                <td>{{ gasto.ID_Gasto }}</td>
-                            </tr>
-                            <tr>
-                                <th>Fecha:</th>
-                                <td>{{ gasto.Fecha.strftime('%d/%m/%Y') if gasto.Fecha else gasto.Fecha }}</td>
-                            </tr>
-                            <tr>
-                                <th>Tipo de Gasto:</th>
-                                <td><strong>{{ gasto.tipo_gasto_nombre }}</strong></td>
-                            </tr>
-                            <tr>
-                                <th>Subcategoría:</th>
-                                <td>{{ gasto.subcategoria_nombre or '-' }}</td>
-                            </tr>
-                            <tr>
-                                <th>Monto:</th>
-                                <td class="text-success fw-bold">C$ {{ "{:,.2f}".format(gasto.Monto) }}</td>
-                            </tr>
-                            <tr>
-                                <th>Método de Pago:</th>
-                                <td>
-                                    {% if gasto.Metodo_Pago == 'EFECTIVO' %}
-                                        <i class="bi bi-cash"></i> Efectivo
-                                    {% elif gasto.Metodo_Pago == 'TRANSFERENCIA' %}
-                                        <i class="bi bi-bank"></i> Transferencia
-                                    {% elif gasto.Metodo_Pago == 'TARJETA' %}
-                                        <i class="bi bi-credit-card"></i> Tarjeta
-                                    {% elif gasto.Metodo_Pago == 'CHEQUE' %}
-                                        <i class="bi bi-file-text"></i> Cheque
-                                    {% else %}
-                                        {{ gasto.Metodo_Pago }}
-                                    {% endif %}
-                                </td>
-                            </tr>
-                        </table>
-                    </div>
-                </div>
-            </div>
-            
-            <div class="col-md-6">
-                <div class="card">
-                    <div class="card-header bg-light">
-                        <strong><i class="bi bi-building"></i> Información Adicional</strong>
-                    </div>
-                    <div class="card-body">
-                        <table class="table table-bordered mb-0">
-                            <tr>
-                                <th style="width: 40%">N° Factura:</th>
-                                <td>{{ gasto.N_Factura or '-' }}</td>
-                            </tr>
-                            <tr>
-                                <th>Proveedor:</th>
-                                <td>{{ gasto.proveedor_nombre or '-' }}</td>
-                            </tr>
-                            <tr>
-                                <th>Vehículo:</th>
-                                <td>
-                                    {% if gasto.vehiculo_placa %}
-                                        <i class="bi bi-truck"></i> {{ gasto.vehiculo_placa }}
-                                    {% else %}
-                                        -
-                                    {% endif %}
-                                </td>
-                            </tr>
-                            <tr>
-                                <th>Estado:</th>
-                                <td>
-                                    <span class="badge {% if gasto.Estado == 'Activo' %}bg-success{% else %}bg-danger{% endif %}">
-                                        {{ gasto.Estado }}
-                                    </span>
-                                </td>
-                            </tr>
-                            <tr>
-                                <th>Registrado por:</th>
-                                <td>{{ gasto.usuario_registro_nombre or '-' }}</td>
-                            </tr>
-                            <tr>
-                                <th>Fecha Registro:</th>
-                                <td>{{ gasto.Fecha_Registro.strftime('%d/%m/%Y %H:%M') if gasto.Fecha_Registro else '-' }}</td>
-                            </tr>
-                        </table>
-                    </div>
-                </div>
-            </div>
+        <div class="d-flex gap-2">
+            <a href="{{ url_for('admin.admin_gastos_operativos') }}" class="btn btn-outline-secondary btn-sm px-3 py-2 rounded-3">
+                <i class="fas fa-arrow-left me-1"></i> Volver a Gastos
+            </a>
+            {% if gasto.Estado == 'Activo' %}
+            <button type="button" class="btn btn-outline-danger btn-sm px-3 py-2 rounded-3" data-bs-toggle="modal" data-bs-target="#modalAnular">
+                <i class="fas fa-trash-alt me-1"></i> Anular Gasto
+            </button>
+            {% endif %}
         </div>
-
-        <!-- Detalle de Vehículo (si aplica) -->
-        {% if detalle_vehiculo %}
-        <div class="row mt-4">
-            <div class="col-12">
-                <div class="card">
-                    <div class="card-header bg-light">
-                        <strong><i class="bi bi-truck"></i> Detalle del Vehículo</strong>
-                    </div>
-                    <div class="card-body">
-                        <div class="table-responsive">
-                            <table class="table table-bordered mb-0">
-                                <tr>
-                                    <th style="width: 40%">Kilometraje:</th>
-                                    <td>{{ detalle_vehiculo.Kilometraje or '-' }} km</td>
-                                </tr>
-                                <tr>
-                                    <th>Tipo de Mantenimiento:</th>
-                                    <td>
-                                        {% if detalle_vehiculo.Tipo_Mantenimiento == 'PREVENTIVO' %}
-                                            <i class="bi bi-wrench"></i> Preventivo
-                                        {% elif detalle_vehiculo.Tipo_Mantenimiento == 'CORRECTIVO' %}
-                                            <i class="bi bi-tools"></i> Correctivo
-                                        {% elif detalle_vehiculo.Tipo_Mantenimiento == 'REPARACION' %}
-                                            <i class="bi bi-hammer"></i> Reparación
-                                        {% elif detalle_vehiculo.Tipo_Mantenimiento == 'LLANTAS' %}
-                                            <i class="bi bi-circle"></i> Llantas
-                                        {% elif detalle_vehiculo.Tipo_Mantenimiento == 'COMBUSTIBLE' %}
-                                            <i class="bi bi-fuel-pump"></i> Combustible
-                                        {% else %}
-                                            {{ detalle_vehiculo.Tipo_Mantenimiento or '-' }}
-                                        {% endif %}
-                                    </td>
-                                </tr>
-                                <tr>
-                                    <th>Taller / Estación:</th>
-                                    <td>{{ detalle_vehiculo.Taller or '-' }}</td>
-                                </tr>
-                                <tr>
-                                    <th>Próximo Mantenimiento KM:</th>
-                                    <td>{{ detalle_vehiculo.Proxima_Mantenimiento_KM or '-' }} km</td>
-                                </tr>
-                            </table>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-        {% endif %}
-
-        <!-- Descripción -->
-        <div class="row mt-4">
-            <div class="col-12">
-                <div class="card">
-                    <div class="card-header bg-light">
-                        <strong><i class="bi bi-file-text"></i> Descripción</strong>
-                    </div>
-                    <div class="card-body">
-                        {{ gasto.Descripcion or 'Sin descripción' }}
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Observaciones -->
-        <div class="row mt-4">
-            <div class="col-12">
-                <div class="card">
-                    <div class="card-header bg-light">
-                        <strong><i class="bi bi-chat"></i> Observaciones</strong>
-                    </div>
-                    <div class="card-body">
-                        {{ gasto.Observaciones or 'Sin observaciones' }}
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Comprobante (si existe) -->
-        {% if gasto.Comprobante %}
-        <div class="row mt-4">
-            <div class="col-12">
-                <div class="card">
-                    <div class="card-header bg-light">
-                        <strong><i class="bi bi-paperclip"></i> Comprobante</strong>
-                    </div>
-                    <div class="card-body">
-                        <a href="{{ url_for('static', filename='uploads/' + gasto.Comprobante) }}" target="_blank" class="btn btn-info">
-                            <i class="bi bi-download"></i> Ver Comprobante
-                        </a>
-                    </div>
-                </div>
-            </div>
-        </div>
-        {% endif %}
     </div>
+
+    <div class="row g-4">
+        <div class="col-md-6">
+            <div class="card-premium-section mb-4">
+                <div class="card-premium-header">
+                    <h6 class="fw-bold text-slate-800 mb-0"><i class="fas fa-info-circle text-primary me-2"></i>Información General</h6>
+                </div>
+                <div class="card-body p-4">
+                    <table class="table table-modern align-middle mb-0">
+                        <tr>
+                            <td class="text-secondary small fw-bold" style="width: 40%">ID Gasto:</td>
+                            <td class="text-slate-800 fw-bold">{{ gasto.ID_Gasto }}</td>
+                        </tr>
+                        <tr>
+                            <td class="text-secondary small fw-bold">Fecha:</td>
+                            <td class="text-slate-800">{{ gasto.Fecha.strftime('%d/%m/%Y') if gasto.Fecha else gasto.Fecha }}</td>
+                        </tr>
+                        <tr>
+                            <td class="text-secondary small fw-bold">Tipo de Gasto:</td>
+                            <td><strong class="text-slate-800">{{ gasto.tipo_gasto_nombre }}</strong></td>
+                        </tr>
+                        <tr>
+                            <td class="text-secondary small fw-bold">Subcategoría:</td>
+                            <td class="text-slate-800">{{ gasto.subcategoria_nombre or '-' }}</td>
+                        </tr>
+                        <tr>
+                            <td class="text-secondary small fw-bold">Monto:</td>
+                            <td class="text-success fw-bold font-monospace" style="font-size: 1.1rem;">C$ {{ "{:,.2f}".format(gasto.Monto) }}</td>
+                        </tr>
+                        <tr>
+                            <td class="text-secondary small fw-bold">Método de Pago:</td>
+                            <td class="text-slate-800">
+                                {% if gasto.Metodo_Pago == 'EFECTIVO' %}
+                                    <i class="fas fa-money-bill-wave text-success me-1"></i> Efectivo
+                                {% elif gasto.Metodo_Pago == 'TRANSFERENCIA' %}
+                                    <i class="fas fa-university text-primary me-1"></i> Transferencia
+                                {% elif gasto.Metodo_Pago == 'TARJETA' %}
+                                    <i class="fas fa-credit-card text-info me-1"></i> Tarjeta
+                                {% elif gasto.Metodo_Pago == 'CHEQUE' %}
+                                    <i class="fas fa-money-check text-secondary me-1"></i> Cheque
+                                {% else %}
+                                    {{ gasto.Metodo_Pago }}
+                                {% endif %}
+                            </td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-6">
+            <div class="card-premium-section mb-4">
+                <div class="card-premium-header">
+                    <h6 class="fw-bold text-slate-800 mb-0"><i class="fas fa-building text-primary me-2"></i>Información Adicional</h6>
+                </div>
+                <div class="card-body p-4">
+                    <table class="table table-modern align-middle mb-0">
+                        <tr>
+                            <td class="text-secondary small fw-bold" style="width: 40%">N° Factura:</td>
+                            <td>
+                                {% if gasto.N_Factura %}
+                                    <span class="badge bg-light text-dark border">{{ gasto.N_Factura }}</span>
+                                {% else %}
+                                    -
+                                {% endif %}
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="text-secondary small fw-bold">Proveedor:</td>
+                            <td class="text-slate-800 fw-bold">{{ gasto.proveedor_nombre or '-' }}</td>
+                        </tr>
+                        <tr>
+                            <td class="text-secondary small fw-bold">Vehículo:</td>
+                            <td class="text-slate-800">
+                                {% if gasto.vehiculo_placa %}
+                                    <i class="fas fa-truck text-secondary me-1"></i> <span class="badge bg-light text-dark border">{{ gasto.vehiculo_placa }}</span>
+                                {% else %}
+                                    -
+                                {% endif %}
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="text-secondary small fw-bold">Estado:</td>
+                            <td>
+                                <span class="badge {% if gasto.Estado == 'Activo' %}bg-success bg-opacity-10 text-success border border-success border-opacity-25{% else %}bg-danger bg-opacity-10 text-danger border border-danger border-opacity-25{% endif %} rounded-pill px-2.5 py-1.5 fw-bold">
+                                    {{ gasto.Estado }}
+                                </span>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="text-secondary small fw-bold">Registrado por:</td>
+                            <td class="text-slate-800 small">{{ gasto.usuario_registro_nombre or '-' }}</td>
+                        </tr>
+                        <tr>
+                            <td class="text-secondary small fw-bold">Fecha Registro:</td>
+                            <td class="text-slate-800 small">{{ gasto.Fecha_Registro.strftime('%d/%m/%Y %H:%M') if gasto.Fecha_Registro else '-' }}</td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Detalle de Vehículo (si aplica) -->
+    {% if detalle_vehiculo %}
+    <div class="row mt-2">
+        <div class="col-12">
+            <div class="card-premium-section mb-4">
+                <div class="card-premium-header">
+                    <h6 class="fw-bold text-slate-800 mb-0"><i class="fas fa-truck text-primary me-2"></i>Detalle del Vehículo</h6>
+                </div>
+                <div class="card-body p-4">
+                    <div class="table-responsive">
+                        <table class="table table-modern align-middle mb-0">
+                            <tr>
+                                <td class="text-secondary small fw-bold" style="width: 40%">Kilometraje:</td>
+                                <td class="text-slate-800 fw-bold font-monospace">{{ detalle_vehiculo.Kilometraje or '-' }} km</td>
+                            </tr>
+                            <tr>
+                                <td class="text-secondary small fw-bold">Tipo de Mantenimiento:</td>
+                                <td class="text-slate-800">
+                                    {% if detalle_vehiculo.Tipo_Mantenimiento == 'PREVENTIVO' %}
+                                        <i class="fas fa-tools text-primary me-1"></i> Preventivo
+                                    {% elif detalle_vehiculo.Tipo_Mantenimiento == 'CORRECTIVO' %}
+                                        <i class="fas fa-wrench text-warning me-1"></i> Correctivo
+                                    {% elif detalle_vehiculo.Tipo_Mantenimiento == 'REPARACION' %}
+                                        <i class="fas fa-hammer text-danger me-1"></i> Reparación
+                                    {% elif detalle_vehiculo.Tipo_Mantenimiento == 'LLANTAS' %}
+                                        <i class="fas fa-ring text-secondary me-1"></i> Llantas
+                                    {% elif detalle_vehiculo.Tipo_Mantenimiento == 'COMBUSTIBLE' %}
+                                        <i class="fas fa-gas-pump text-success me-1"></i> Combustible
+                                    {% else %}
+                                        {{ detalle_vehiculo.Tipo_Mantenimiento or '-' }}
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            <tr>
+                                <td class="text-secondary small fw-bold">Taller / Estación:</td>
+                                <td class="text-slate-800">{{ detalle_vehiculo.Taller or '-' }}</td>
+                            </tr>
+                            <tr>
+                                <td class="text-secondary small fw-bold">Próximo Mantenimiento KM:</td>
+                                <td class="text-slate-800 font-monospace">{{ detalle_vehiculo.Proxima_Mantenimiento_KM or '-' }} km</td>
+                            </tr>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Descripción y Observaciones -->
+    <div class="row g-4 mt-2">
+        <div class="col-md-6">
+            <div class="card-premium-section mb-4">
+                <div class="card-premium-header">
+                    <h6 class="fw-bold text-slate-800 mb-0"><i class="fas fa-align-left text-primary me-2"></i>Descripción</h6>
+                </div>
+                <div class="card-body p-4 text-slate-700">
+                    {{ gasto.Descripcion or 'Sin descripción' }}
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card-premium-section mb-4">
+                <div class="card-premium-header">
+                    <h6 class="fw-bold text-slate-800 mb-0"><i class="fas fa-comment-alt text-primary me-2"></i>Observaciones</h6>
+                </div>
+                <div class="card-body p-4 text-slate-700">
+                    {{ gasto.Observaciones or 'Sin observaciones' }}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Comprobante (si existe) -->
+    {% if gasto.Comprobante %}
+    <div class="row mt-2">
+        <div class="col-12">
+            <div class="card-premium-section mb-4">
+                <div class="card-premium-header">
+                    <h6 class="fw-bold text-slate-800 mb-0"><i class="fas fa-paperclip text-primary me-2"></i>Comprobante Adjunto</h6>
+                </div>
+                <div class="card-body p-4">
+                    <a href="{{ url_for('static', filename='uploads/' + gasto.Comprobante) }}" target="_blank" class="btn btn-outline-info rounded-3">
+                        <i class="fas fa-download me-1"></i> Ver Comprobante Cargado
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
 </div>
 
 <!-- Modal para anular -->
 <div class="modal fade" id="modalAnular" tabindex="-1">
     <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">Confirmar Anulación</h5>
+        <div class="modal-content border-0 shadow-lg rounded-3">
+            <div class="modal-header border-bottom-0 pb-0">
+                <h5 class="modal-title fw-bold text-slate-800">Confirmar Anulación</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
-                <p>¿Está seguro que desea anular este gasto?</p>
-                <div class="alert alert-warning">
-                    <i class="bi bi-exclamation-triangle"></i>
-                    <strong>Gasto:</strong> {{ gasto.tipo_gasto_nombre }}<br>
-                    <strong>Monto:</strong> C${{ "{:,.2f}".format(gasto.Monto) }}<br>
-                    <strong>Fecha:</strong> {{ gasto.Fecha.strftime('%d/%m/%Y') if gasto.Fecha else gasto.Fecha }}
+                <p class="text-muted mb-3">¿Está seguro que desea anular este gasto de manera definitiva?</p>
+                <div class="alert alert-warning bg-warning bg-opacity-10 text-warning border border-warning border-opacity-20 py-2 px-3 small rounded-3 mb-3">
+                    <div class="mb-1"><strong>Gasto:</strong> <span class="text-slate-800">{{ gasto.tipo_gasto_nombre }}</span></div>
+                    <div class="mb-1"><strong>Monto:</strong> <span class="text-slate-800 font-monospace fw-bold">C${{ "{:,.2f}".format(gasto.Monto) }}</span></div>
+                    <div><strong>Fecha:</strong> <span class="text-slate-800">{{ gasto.Fecha.strftime('%d/%m/%Y') if gasto.Fecha else gasto.Fecha }}</span></div>
                 </div>
-                <p class="text-danger mt-2">
-                    <i class="bi bi-exclamation-circle"></i> 
-                    <strong>Esta acción no se puede deshacer.</strong>
+                <p class="text-danger small fw-bold mb-0">
+                    <i class="fas fa-exclamation-circle me-1"></i> Esta acción no se puede deshacer.
                 </p>
             </div>
-            <div class="modal-footer">
+            <div class="modal-footer border-top-0 pt-0">
                 <form method="POST" action="{{ url_for('admin.anular_gasto', id_gasto=gasto.ID_Gasto) }}">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="submit" class="btn btn-danger">
-                        <i class="bi bi-trash"></i> Sí, Anular
+                    <button type="button" class="btn btn-outline-secondary px-3 py-1.5 rounded-3" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-outline-danger px-3 py-1.5 rounded-3">
+                        <i class="fas fa-trash-alt me-1"></i> Sí, Anular
                     </button>
                 </form>
             </div>

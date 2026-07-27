@@ -11,8 +11,9 @@
         margin-bottom: 1.5rem;
     }
     .detail-header {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        color: white;
+        background: rgba(79, 70, 229, 0.08) !important;
+        color: var(--primary) !important;
+        border-bottom: 1px solid rgba(79, 70, 229, 0.15) !important;
         border-radius: 12px 12px 0 0;
         padding: 1.5rem;
     }
@@ -37,14 +38,18 @@
         height: 8px;
         border-radius: 4px;
     }
+    .bg-danger-soft {
+        background-color: rgba(239, 68, 68, 0.08) !important;
+        color: var(--danger) !important;
+    }
 </style>
 {% endblock %}
 
 {% block content %}
 <div class="container-fluid">
     <div class="mb-3">
-        <a href="{{ url_for('admin.admin_clientes_anticipos') }}" class="btn btn-secondary btn-sm">
-            <i class="bi bi-arrow-left"></i> Volver a Anticipos
+        <a href="{{ url_for('admin.admin_clientes_anticipos') }}" class="btn btn-outline-secondary btn-sm px-3 rounded-3">
+            <i class="bi bi-arrow-left me-1"></i> Volver a Anticipos
         </a>
     </div>
 
@@ -52,23 +57,23 @@
         <div class="detail-header">
             <div class="d-flex justify-content-between align-items-center flex-wrap">
                 <div>
-                    <h3 class="mb-0">
-                        <i class="bi bi-cash-coin"></i> Anticipo #{{ anticipo.ID_Anticipo }}
+                    <h3 class="mb-0 fw-bold">
+                        <i class="bi bi-cash-coin me-2"></i> Anticipo #{{ anticipo.ID_Anticipo }}
                     </h3>
-                    <p class="mb-0 opacity-75">Registrado el {{ anticipo.Fecha_Anticipo.strftime('%d/%m/%Y %H:%M') if anticipo.Fecha_Anticipo else '' }}</p>
+                    <p class="mb-0 text-muted small mt-1">Registrado el {{ anticipo.Fecha_Anticipo.strftime('%d/%m/%Y %H:%M') if anticipo.Fecha_Anticipo else '' }}</p>
                 </div>
                 <div>
                     {% if anticipo.Estado == 'ACTIVO' %}
-                        <span class="badge bg-success status-badge">
-                            <i class="bi bi-check-circle-fill"></i> ACTIVO
+                        <span class="badge border border-success border-opacity-25 status-badge" style="color: #16a34a !important; background-color: rgba(22, 163, 74, 0.08) !important;">
+                            <i class="bi bi-check-circle-fill me-1"></i> ACTIVO
                         </span>
                     {% elif anticipo.Estado == 'COMPLETADO' %}
-                        <span class="badge bg-info status-badge">
-                            <i class="bi bi-check2-circle"></i> COMPLETADO
+                        <span class="badge border border-info border-opacity-25 status-badge" style="color: #0891b2 !important; background-color: rgba(6, 182, 212, 0.08) !important;">
+                            <i class="bi bi-check2-circle me-1"></i> COMPLETADO
                         </span>
                     {% else %}
-                        <span class="badge bg-danger status-badge">
-                            <i class="bi bi-x-circle-fill"></i> CANCELADO
+                        <span class="badge border border-danger border-opacity-25 status-badge" style="color: #dc2626 !important; background-color: rgba(220, 38, 38, 0.08) !important;">
+                            <i class="bi bi-x-circle-fill me-1"></i> CANCELADO
                         </span>
                     {% endif %}
                 </div>
@@ -190,8 +195,8 @@
             </div>
 
             <div class="table-responsive mb-3">
-                <table class="table table-sm table-striped table-hover align-middle">
-                    <thead class="table-light">
+                <table class="table table-modern table-hover align-middle">
+                    <thead>
                         <tr>
                             <th>Fecha / Hora</th>
                             <th>Sucursal</th>
@@ -204,14 +209,14 @@
                     <tbody>
                         {% for e in entregas %}
                         <tr>
-                            <td><small class="fw-bold">{{ e.Fecha_Formato }}</small></td>
+                            <td><span class="badge border border-slate-200" style="color: #475569 !important; background-color: #f1f5f9 !important;">{{ e.Fecha_Formato }}</span></td>
                             <td>{{ e.Nombre_Sucursal }}</td>
-                            <td class="text-center"><span class="badge bg-primary fs-6">{{ e.Cantidad_Cajas }}</span></td>
+                            <td class="text-center"><span class="badge border border-primary border-opacity-25 fs-6" style="color: #4f46e5 !important; background-color: rgba(79, 70, 229, 0.08) !important;">{{ e.Cantidad_Cajas }}</span></td>
                             <td><small>{{ e.Registrado_Por or 'Sistema' }}</small></td>
                             <td><small class="text-muted">{{ e.Notas or '-' }}</small></td>
                             <td class="text-center">
                                 <a href="{{ url_for('admin.ticket_entregas', id_anticipo=anticipo.ID_Anticipo, fecha=e.Fecha_Raw) }}" 
-                                   class="btn btn-sm btn-success" title="Ver / Imprimir Ticket de esta fecha">
+                                   class="btn btn-sm btn-outline-success" title="Ver / Imprimir Ticket de esta fecha">
                                     <i class="bi bi-receipt me-1"></i> Ticket
                                 </a>
                             </td>
@@ -229,7 +234,7 @@
             
             {% if anticipo.Estado == 'ACTIVO' %}
             <div class="mt-4 d-flex justify-content-end">
-                <button type="button" class="btn btn-danger" onclick="cancelarAnticipo()">
+                <button type="button" class="btn btn-outline-danger" onclick="cancelarAnticipo()">
                     <i class="bi bi-x-circle"></i> Cancelar Anticipo
                 </button>
             </div>
@@ -241,26 +246,26 @@
 <!-- Modal para cancelar -->
 <div class="modal fade" id="cancelarModal" tabindex="-1">
     <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title"><i class="bi bi-exclamation-triangle text-danger"></i> Cancelar Anticipo</h5>
+        <div class="modal-content border-0 rounded-4">
+            <div class="modal-header bg-danger-soft text-danger py-3 border-bottom">
+                <h5 class="modal-title fw-bold"><i class="bi bi-exclamation-triangle text-danger me-2"></i> Cancelar Anticipo</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <form method="POST" action="{{ url_for('admin.admin_anticipo_cancelar', id_anticipo=anticipo.ID_Anticipo) }}">
                 <div class="modal-body">
-                    <p>¿Está seguro que desea cancelar el anticipo #{{ anticipo.ID_Anticipo }}?</p>
-                    <div class="alert alert-warning">
-                        <i class="bi bi-info-circle"></i>
+                    <p class="text-muted">¿Está seguro que desea cancelar el anticipo #{{ anticipo.ID_Anticipo }}?</p>
+                    <div class="alert alert-warning bg-warning bg-opacity-10 text-warning border border-warning border-opacity-20 shadow-xs mb-3">
+                        <i class="bi bi-info-circle me-1"></i>
                         Esta acción restará <strong>C${{ "{:,.2f}".format(anticipo.Saldo_Restante) }}</strong> del saldo del cliente.
                     </div>
                     <div class="mb-3">
-                        <label class="form-label">Motivo de cancelación</label>
-                        <textarea name="motivo" class="form-control" rows="2" placeholder="Ingrese el motivo..." required></textarea>
+                        <label class="form-label-premium">Motivo de cancelación</label>
+                        <textarea name="motivo" class="form-control form-control-premium" rows="2" placeholder="Ingrese el motivo..." required></textarea>
                     </div>
                 </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
-                    <button type="submit" class="btn btn-danger">Confirmar Cancelación</button>
+                <div class="modal-footer bg-light">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cerrar</button>
+                    <button type="submit" class="btn btn-outline-danger">Confirmar Cancelación</button>
                 </div>
             </form>
         </div>

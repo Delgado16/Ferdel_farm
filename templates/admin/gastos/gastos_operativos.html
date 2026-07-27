@@ -1,240 +1,286 @@
-<!-- templates/admin/gastos/gastos_operativos.html -->
 {% extends "layout.html" %}
 {% block title %}Control de Gastos - FerDel Sistema{% endblock %}
 
 {% block content %}
-<div class="container-fluid">
+<div class="container-fluid py-4 fade-in-up">
+    <!-- Encabezado con botones de acción -->
+    <div class="historial-header d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+        <div>
+            <h3 class="fw-bold text-slate-800 mb-1">
+                <i class="fas fa-calculator text-primary me-2"></i>Control de Gastos Operativos
+            </h3>
+            <p class="text-muted small mb-0">Seguimiento de compras de inventario, egresos directos y balance general
+            </p>
+        </div>
+        <div class="d-flex gap-2 flex-wrap">
+            <a href="{{ url_for('admin.registrar_gasto') }}" class="btn btn-outline-success btn-sm px-3 py-2 rounded-3">
+                <i class="fas fa-plus-circle me-1"></i> Nuevo Gasto
+            </a>
+            <button class="btn btn-outline-secondary btn-sm px-3 py-2 rounded-3" onclick="window.print()">
+                <i class="fas fa-print me-1"></i> Imprimir
+            </button>
+        </div>
+    </div>
+
     <!-- Tarjetas de resumen -->
-    <div class="row mb-4">
+    <div class="row mb-4 g-3">
         <div class="col-md-4">
-            <div class="card dashboard-card bg-primary text-white">
-                <div class="card-body">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <div>
-                            <h6 class="card-title">Total Compras</h6>
-                            <h3>C$ {{ "{:,.2f}".format(totales_acumulados.get('total_compras', 0)) }}</h3>
-                            <small>Inventario</small>
-                        </div>
-                        <i class="bi bi-box-seam card-icon"></i>
+            <div class="card-premium-section h-100"
+                style="background: rgba(3, 105, 161, 0.04) !important; border: 1px solid rgba(3, 105, 161, 0.15) !important;">
+                <div class="card-body p-4 d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="small fw-bold text-uppercase mb-1"
+                            style="color: #0369a1 !important; letter-spacing: 0.5px;">Total Compras</h6>
+                        <h3 class="fw-bold mb-0 text-slate-800 font-monospace">C$ {{
+                            "{:,.2f}".format(totales_acumulados.get('total_compras', 0)) }}</h3>
+                        <small class="text-muted small">Inventario</small>
+                    </div>
+                    <div class="rounded-circle p-3" style="background: rgba(3, 105, 161, 0.1); color: #0369a1;">
+                        <i class="fas fa-box-open fa-lg"></i>
                     </div>
                 </div>
             </div>
         </div>
         <div class="col-md-4">
-            <div class="card dashboard-card bg-success text-white">
-                <div class="card-body">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <div>
-                            <h6 class="card-title">Total Gastos</h6>
-                            <h3>C$ {{ "{:,.2f}".format(totales_acumulados.get('total_gastos', 0)) }}</h3>
-                            <small>Generales</small>
-                        </div>
-                        <i class="bi bi-cash-stack card-icon"></i>
+            <div class="card-premium-section h-100"
+                style="background: rgba(22, 163, 74, 0.04) !important; border: 1px solid rgba(22, 163, 74, 0.15) !important;">
+                <div class="card-body p-4 d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="small fw-bold text-uppercase mb-1"
+                            style="color: #16a34a !important; letter-spacing: 0.5px;">Total Gastos</h6>
+                        <h3 class="fw-bold mb-0 text-slate-800 font-monospace">C$ {{
+                            "{:,.2f}".format(totales_acumulados.get('total_gastos', 0)) }}</h3>
+                        <small class="text-muted small">Generales</small>
+                    </div>
+                    <div class="rounded-circle p-3" style="background: rgba(22, 163, 74, 0.1); color: #16a34a;">
+                        <i class="fas fa-wallet fa-lg"></i>
                     </div>
                 </div>
             </div>
         </div>
         <div class="col-md-4">
-            <div class="card dashboard-card bg-info text-white">
-                <div class="card-body">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <div>
-                            <h6 class="card-title">Total General</h6>
-                            <h3>C$ {{ "{:,.2f}".format(totales_acumulados.get('total_compras', 0) + totales_acumulados.get('total_gastos', 0)) }}</h3>
-                            <small>Compras + Gastos</small>
-                        </div>
-                        <i class="bi bi-graph-up card-icon"></i>
+            <div class="card-premium-section h-100"
+                style="background: rgba(79, 70, 229, 0.04) !important; border: 1px solid rgba(79, 70, 229, 0.15) !important;">
+                <div class="card-body p-4 d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="small fw-bold text-uppercase mb-1"
+                            style="color: #4f46e5 !important; letter-spacing: 0.5px;">Total General</h6>
+                        <h3 class="fw-bold mb-0 text-slate-800 font-monospace">C$ {{
+                            "{:,.2f}".format(totales_acumulados.get('total_compras', 0) +
+                            totales_acumulados.get('total_gastos', 0)) }}</h3>
+                        <small class="text-muted small">Compras + Gastos</small>
+                    </div>
+                    <div class="rounded-circle p-3" style="background: rgba(79, 70, 229, 0.1); color: #4f46e5;">
+                        <i class="fas fa-chart-line fa-lg"></i>
                     </div>
                 </div>
             </div>
         </div>
     </div>
 
-    <div class="form-container">
-        <div class="form-header">
-            <h4><i class="bi bi-file-earmark-text"></i> {{ titulo }}</h4>
-            <div>
-                <a href="{{ url_for('admin.registrar_gasto') }}" class="btn btn-success btn-action">
-                    <i class="bi bi-plus-circle"></i> Nuevo Gasto
-                </a>
-                <button class="btn btn-secondary btn-action" onclick="window.print()">
-                    <i class="bi bi-printer"></i> Imprimir
-                </button>
-            </div>
+    <!-- Filtros y Tabla -->
+    <div class="card-premium-section mb-4">
+        <div class="card-premium-header py-3">
+            <h5 class="fw-bold text-slate-800 mb-0"><i class="fas fa-filter me-2 text-primary"></i>Filtros y Búsqueda
+            </h5>
         </div>
+        <div class="card-body p-4">
+            <!-- FILTROS -->
+            <form method="GET" class="mb-4">
+                <div class="row g-3">
+                    <!-- Período -->
+                    <div class="col-md-2">
+                        <label class="form-label-premium fw-bold mb-1">Período:</label>
+                        <select name="filtro_periodo" class="form-select form-select-premium"
+                            onchange="this.form.submit()">
+                            <option value="dia" {% if filtro_periodo=='dia' %}selected{% endif %}>📅 Día</option>
+                            <option value="semana" {% if filtro_periodo=='semana' %}selected{% endif %}>📊 Semana
+                            </option>
+                            <option value="mes" {% if filtro_periodo=='mes' %}selected{% endif %}>📈 Mes</option>
+                            <option value="acumulado" {% if filtro_periodo=='acumulado' %}selected{% endif %}>💰
+                                Acumulado Año</option>
+                            <option value="anual" {% if filtro_periodo=='anual' %}selected{% endif %}>📉 Anual</option>
+                            <option value="todo" {% if filtro_periodo=='todo' %}selected{% endif %}>📋 Todo</option>
+                        </select>
+                    </div>
 
-        <!-- FILTROS -->
-        <form method="GET" class="mb-4">
-            <div class="row">
-                <!-- Período -->
-                <div class="col-md-2 mb-2">
-                    <label class="form-label">Período:</label>
-                    <select name="filtro_periodo" class="form-select" onchange="this.form.submit()">
-                        <option value="dia" {% if filtro_periodo == 'dia' %}selected{% endif %}>📅 Día</option>
-                        <option value="semana" {% if filtro_periodo == 'semana' %}selected{% endif %}>📊 Semana</option>
-                        <option value="mes" {% if filtro_periodo == 'mes' %}selected{% endif %}>📈 Mes</option>
-                        <option value="acumulado" {% if filtro_periodo == 'acumulado' %}selected{% endif %}>💰 Acumulado Año</option>
-                        <option value="anual" {% if filtro_periodo == 'anual' %}selected{% endif %}>📉 Anual</option>
-                        <option value="todo" {% if filtro_periodo == 'todo' %}selected{% endif %}>📋 Todo</option>
-                    </select>
+                    <!-- Fecha según período -->
+                    {% if filtro_periodo == 'dia' %}
+                    <div class="col-md-2">
+                        <label class="form-label-premium fw-bold mb-1">Fecha:</label>
+                        <input type="date" name="fecha" value="{{ fecha_especifica }}"
+                            class="form-control form-control-premium">
+                    </div>
+                    {% elif filtro_periodo == 'semana' %}
+                    <div class="col-md-2">
+                        <label class="form-label-premium fw-bold mb-1">Año:</label>
+                        <select name="anio_semana" class="form-select form-select-premium">
+                            {% for año in años_disponibles %}
+                            <option value="{{ año }}" {% if anio_semana==año|string %}selected{% endif %}>{{ año }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label-premium fw-bold mb-1">Semana:</label>
+                        <select name="semana" class="form-select form-select-premium">
+                            {% for sem in semanas_disponibles %}
+                            <option value="{{ sem }}" {% if semana_num==sem|string %}selected{% endif %}>Semana {{ sem
+                                }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    {% elif filtro_periodo == 'mes' %}
+                    <div class="col-md-2">
+                        <label class="form-label-premium fw-bold mb-1">Mes:</label>
+                        <input type="month" name="mes" value="{{ mes_filtro }}"
+                            class="form-control form-control-premium">
+                    </div>
+                    {% elif filtro_periodo in ['acumulado', 'anual'] %}
+                    <div class="col-md-2">
+                        <label class="form-label-premium fw-bold mb-1">Año:</label>
+                        <select name="anio" class="form-select form-select-premium">
+                            {% for año in años_disponibles %}
+                            <option value="{{ año }}" {% if anio_filtro==año|string %}selected{% endif %}>{{ año }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    {% endif %}
+
+                    <!-- Tipo de Gasto -->
+                    <div class="col-md-3">
+                        <label class="form-label-premium fw-bold mb-1">Tipo Gasto:</label>
+                        <select name="tipo_gasto" class="form-select form-select-premium">
+                            <option value="">Todos</option>
+                            {% for tipo in tipos_gasto_disponibles %}
+                            <option value="{{ tipo.id_tipo }}" {% if tipo_gasto_id==tipo.id_tipo|string %}selected{%
+                                endif %}>
+                                {{ tipo.tipo_gasto }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <!-- Origen -->
+                    <div class="col-md-2">
+                        <label class="form-label-premium fw-bold mb-1">Origen:</label>
+                        <select name="origen" class="form-select form-select-premium">
+                            <option value="">Todos</option>
+                            <option value="INVENTARIO" {% if origen=='INVENTARIO' %}selected{% endif %}>📦 Inventario
+                            </option>
+                            <option value="GASTO_DIRECTO" {% if origen=='GASTO_DIRECTO' %}selected{% endif %}>💸 Gasto
+                                Directo</option>
+                        </select>
+                    </div>
+
+                    <!-- Botones -->
+                    <div class="col-md-2 d-flex align-items-end">
+                        <div class="d-flex gap-2 w-100">
+                            <button type="submit" class="btn btn-outline-primary flex-grow-1 py-2 rounded-3">
+                                <i class="fas fa-search me-1"></i>Filtrar
+                            </button>
+                            <a href="{{ url_for('admin.admin_gastos_operativos') }}"
+                                class="btn btn-outline-secondary py-2 rounded-3 px-3">
+                                <i class="fas fa-eraser"></i>
+                            </a>
+                        </div>
+                    </div>
                 </div>
-                
-                <!-- Fecha según período -->
-                {% if filtro_periodo == 'dia' %}
-                <div class="col-md-2 mb-2">
-                    <label class="form-label">Fecha:</label>
-                    <input type="date" name="fecha" value="{{ fecha_especifica }}" class="form-control">
-                </div>
-                {% elif filtro_periodo == 'semana' %}
-                <div class="col-md-2 mb-2">
-                    <label class="form-label">Año:</label>
-                    <select name="anio_semana" class="form-select">
-                        {% for año in años_disponibles %}
-                        <option value="{{ año }}" {% if anio_semana == año|string %}selected{% endif %}>{{ año }}</option>
-                        {% endfor %}
-                    </select>
-                </div>
-                <div class="col-md-2 mb-2">
-                    <label class="form-label">Semana:</label>
-                    <select name="semana" class="form-select">
-                        {% for sem in semanas_disponibles %}
-                        <option value="{{ sem }}" {% if semana_num == sem|string %}selected{% endif %}>Semana {{ sem }}</option>
-                        {% endfor %}
-                    </select>
-                </div>
-                {% elif filtro_periodo == 'mes' %}
-                <div class="col-md-2 mb-2">
-                    <label class="form-label">Mes:</label>
-                    <input type="month" name="mes" value="{{ mes_filtro }}" class="form-control">
-                </div>
-                {% elif filtro_periodo in ['acumulado', 'anual'] %}
-                <div class="col-md-2 mb-2">
-                    <label class="form-label">Año:</label>
-                    <select name="anio" class="form-select">
-                        {% for año in años_disponibles %}
-                        <option value="{{ año }}" {% if anio_filtro == año|string %}selected{% endif %}>{{ año }}</option>
-                        {% endfor %}
-                    </select>
+
+                <!-- Filtro de Proveedor (solo si hay datos) -->
+                {% if proveedores_lista %}
+                <div class="row mt-3">
+                    <div class="col-md-4">
+                        <label class="form-label-premium fw-bold mb-1">Proveedor:</label>
+                        <select name="proveedor" class="form-select form-select-premium">
+                            <option value="">Todos los proveedores</option>
+                            {% for prov in proveedores_lista %}
+                            <option value="{{ prov.id_proveedor }}" {% if proveedor_id==prov.id_proveedor|string
+                                %}selected{% endif %}>
+                                {{ prov.proveedor }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
                 </div>
                 {% endif %}
-                
-                <!-- Tipo de Gasto -->
-                <div class="col-md-3 mb-2">
-                    <label class="form-label">Tipo Gasto:</label>
-                    <select name="tipo_gasto" class="form-select">
-                        <option value="">Todos</option>
-                        {% for tipo in tipos_gasto_disponibles %}
-                        <option value="{{ tipo.id_tipo }}" {% if tipo_gasto_id == tipo.id_tipo|string %}selected{% endif %}>
-                            {{ tipo.tipo_gasto }}
-                        </option>
-                        {% endfor %}
-                    </select>
-                </div>
-                
-                <!-- Origen -->
-                <div class="col-md-2 mb-2">
-                    <label class="form-label">Origen:</label>
-                    <select name="origen" class="form-select">
-                        <option value="">Todos</option>
-                        <option value="INVENTARIO" {% if origen == 'INVENTARIO' %}selected{% endif %}>📦 Inventario</option>
-                        <option value="GASTO_DIRECTO" {% if origen == 'GASTO_DIRECTO' %}selected{% endif %}>💸 Gasto Directo</option>
-                    </select>
-                </div>
-                
-                <!-- Botones -->
-                <div class="col-md-2 mb-2">
-                    <label class="form-label">&nbsp;</label>
-                    <button type="submit" class="btn btn-primary w-100">
-                        <i class="bi bi-search"></i> Filtrar
-                    </button>
-                </div>
-                <div class="col-md-1 mb-2">
-                    <label class="form-label">&nbsp;</label>
-                    <a href="{{ url_for('admin.admin_gastos_operativos') }}" class="btn btn-secondary w-100">
-                        <i class="bi bi-eraser"></i>
-                    </a>
-                </div>
+            </form>
+
+            <!-- TOTAL DEL PERÍODO -->
+            <div
+                class="alert alert-info text-center mb-4 bg-info bg-opacity-10 text-info border border-info border-opacity-20 py-3 rounded-3">
+                <h5 class="fw-bold mb-1">{{ titulo_periodo }}</h5>
+                <h2 class="fw-bold text-success font-monospace mb-0">C$ {{ "{:,.2f}".format(total_periodo) }}</h2>
             </div>
-            
-            <!-- Filtro de Proveedor (solo si hay datos) -->
-            {% if proveedores_lista %}
-            <div class="row mt-2">
-                <div class="col-md-4 mb-2">
-                    <label class="form-label">Proveedor:</label>
-                    <select name="proveedor" class="form-select">
-                        <option value="">Todos los proveedores</option>
-                        {% for prov in proveedores_lista %}
-                        <option value="{{ prov.id_proveedor }}" {% if proveedor_id == prov.id_proveedor|string %}selected{% endif %}>
-                            {{ prov.proveedor }}
-                        </option>
+
+            <!-- TABLA DE GASTOS -->
+            <div class="table-responsive">
+                <table class="table table-hover table-modern align-middle mb-0" id="tablaGastos">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Fecha</th>
+                            <th>Origen</th>
+                            <th>Tipo Gasto</th>
+                            <th>Subcategoría</th>
+                            <th>Proveedor</th>
+                            <th class="text-end">Monto</th>
+                            <th>Factura</th>
+                            <th>Vehículo</th>
+                            <th class="text-center">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for gasto in resultados %}
+                        <tr>
+                            <td data-order="{{ gasto.fecha }}" class="fw-bold text-slate-700">{{
+                                gasto.fecha.strftime('%d/%m/%Y') if gasto.fecha else gasto.fecha }}</td>
+                            <td>
+                                <span
+                                    class="badge {% if gasto.origen == 'INVENTARIO' %}bg-info bg-opacity-10 text-info border border-info border-opacity-25{% else %}bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25{% endif %} rounded-pill px-2.5 py-1.5 fw-bold">
+                                    {{ '📦 Inventario' if gasto.origen == 'INVENTARIO' else '💸 Gasto Directo' }}
+                                </span>
+                            </td>
+                            <td><strong>{{ gasto.tipo_gasto }}</strong></td>
+                            <td>{{ gasto.subcategoria or '-' }}</td>
+                            <td>{{ gasto.proveedor or '-' }}</td>
+                            <td class="text-end text-success fw-bold font-monospace">C$ {{ "{:,.2f}".format(gasto.monto)
+                                }}</td>
+                            <td>
+                                {% if gasto.factura %}
+                                <span class="badge bg-light text-dark border">{{ gasto.factura }}</span>
+                                {% else %}
+                                -
+                                {% endif %}
+                            </td>
+                            <td>{{ gasto.vehiculo or '-' }}</td>
+                            <td class="text-center">
+                                {% if gasto.origen == 'GASTO_DIRECTO' and gasto.id_gasto %}
+                                <a href="{{ url_for('admin.ver_gasto', id_gasto=gasto.id_gasto) }}"
+                                    class="btn btn-sm btn-outline-primary rounded-3 px-2">
+                                    <i class="fas fa-eye"></i>
+                                </a>
+                                {% else %}
+                                <span class="text-muted">-</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="9" class="text-center py-4">No hay gastos registrados en este período</td>
+                        </tr>
                         {% endfor %}
-                    </select>
-                </div>
+                    </tbody>
+                    <thead class="table-light border-top">
+                        <tr class="fw-bold text-slate-800">
+                            <td colspan="5" class="text-end">TOTAL PERÍODO:</td>
+                            <td class="text-end text-success font-monospace" style="font-size: 1.1rem;">C$ {{
+                                "{:,.2f}".format(total_periodo) }}</td>
+                            <td colspan="3"></td>
+                        </tr>
+                    </thead>
+                </table>
             </div>
-            {% endif %}
-        </form>
-        
-        <!-- TOTAL DEL PERÍODO -->
-        <div class="alert alert-info text-center mb-4">
-            <h5>{{ titulo_periodo }}</h5>
-            <h2 class="text-success">C$ {{ "{:,.2f}".format(total_periodo) }}</h2>
-        </div>
-        
-        <!-- TABLA DE GASTOS -->
-        <div class="table-container">
-            <table class="table table-hover" id="tablaGastos">
-                <thead>
-                    <tr>
-                        <th>Fecha</th>
-                        <th>Origen</th>
-                        <th>Tipo Gasto</th>
-                        <th>Subcategoría</th>
-                        <th>Proveedor</th>
-                        <th>Monto</th>
-                        <th>Factura</th>
-                        <th>Vehículo</th>
-                        <th>Acciones</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for gasto in resultados %}
-                    <tr>
-                        <td data-order="{{ gasto.fecha }}">{{ gasto.fecha.strftime('%d/%m/%Y') if gasto.fecha else gasto.fecha }}</td>
-                        <td>
-                            <span class="badge {% if gasto.origen == 'INVENTARIO' %}bg-info{% else %}bg-primary{% endif %}">
-                                {{ '📦 Inventario' if gasto.origen == 'INVENTARIO' else '💸 Gasto Directo' }}
-                            </span>
-                        </td>
-                        <td><strong>{{ gasto.tipo_gasto }}</strong></td>
-                        <td>{{ gasto.subcategoria or '-' }}</td>
-                        <td>{{ gasto.proveedor or '-' }}</td>
-                        <td class="text-end text-success fw-bold">C$ {{ "{:,.2f}".format(gasto.monto) }}</td>
-                        <td>{{ gasto.factura or '-' }}</td>
-                        <td>{{ gasto.vehiculo or '-' }}</td>
-                        <td>
-                            {% if gasto.origen == 'GASTO_DIRECTO' and gasto.id_gasto %}
-                            <a href="{{ url_for('admin.ver_gasto', id_gasto=gasto.id_gasto) }}" class="btn btn-sm btn-info">
-                                <i class="bi bi-eye"></i>
-                            </a>
-                            {% else %}
-                            <span class="text-muted">-</span>
-                            {% endif %}
-                        </td>
-                    </tr>
-                    {% else %}
-                    <tr>
-                        <td colspan="9" class="text-center">No hay gastos registrados en este período</td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-                <tfoot class="table-secondary">
-                    <tr>
-                        <th colspan="4" class="text-end">TOTAL:</th>
-                        <th class="text-end">C$ {{ "{:,.2f}".format(total_periodo) }}</th>
-                        <th colspan="4"></th>
-                    </tr>
-                </tfoot>
-            </table>
         </div>
     </div>
 </div>
@@ -242,30 +288,30 @@
 
 {% block extra_js %}
 <script>
-$(document).ready(function() {
-    if ($.fn.DataTable) {
-        $('#tablaGastos').DataTable({
-            language: {
-                "sProcessing": "Procesando...",
-                "sLengthMenu": "Mostrar _MENU_ registros",
-                "sZeroRecords": "No se encontraron resultados",
-                "sEmptyTable": "Ningún dato disponible en esta tabla",
-                "sInfo": "Mostrando registros del _START_ al _END_ de un total de _TOTAL_ registros",
-                "sInfoEmpty": "Mostrando registros del 0 al 0 de un total de 0 registros",
-                "sInfoFiltered": "(filtrado de un total de _MAX_ registros)",
-                "sSearch": "Buscar:",
-                "oPaginate": {
-                    "sFirst": "Primero",
-                    "sLast": "Último",
-                    "sNext": "Siguiente",
-                    "sPrevious": "Anterior"
-                }
-            },
-            order: [[0, 'desc']],
-            pageLength: 25,
-            responsive: true
-        });
-    }
-});
+    $(document).ready(function () {
+        if ($.fn.DataTable) {
+            $('#tablaGastos').DataTable({
+                language: {
+                    "sProcessing": "Procesando...",
+                    "sLengthMenu": "Mostrar _MENU_ registros",
+                    "sZeroRecords": "No se encontraron resultados",
+                    "sEmptyTable": "Ningún dato disponible en esta tabla",
+                    "sInfo": "Mostrando registros del _START_ al _END_ de un total de _TOTAL_ registros",
+                    "sInfoEmpty": "Mostrando registros del 0 al 0 de un total de 0 registros",
+                    "sInfoFiltered": "(filtrado de un total de _MAX_ registros)",
+                    "sSearch": "Buscar:",
+                    "oPaginate": {
+                        "sFirst": "Primero",
+                        "sLast": "Último",
+                        "sNext": "Siguiente",
+                        "sPrevious": "Anterior"
+                    }
+                },
+                order: [[0, 'desc']],
+                pageLength: 25,
+                responsive: true
+            });
+        }
+    });
 </script>
 {% endblock %}

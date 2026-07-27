@@ -3,40 +3,43 @@
 {% block title %}Cuentas por Pagar - FerDel{% endblock %}
 
 {% block content %}
-<div class="container-fluid py-4">
+<div class="container-fluid py-4 fade-in-up">
     <!-- Encabezado con botones de acción -->
-    <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-3">
-        <h1>
-            <i class="fas fa-file-invoice-dollar"></i> Cuentas por Pagar
-        </h1>
-        <div class="d-flex gap-2">
-            <a href="{{ url_for('admin.registrar_abono_proveedor_global') }}" class="btn btn-success">
+    <div class="historial-header d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+        <div>
+            <h3 class="fw-bold text-slate-800 mb-1">
+                <i class="fas fa-file-invoice-dollar text-primary me-2"></i>Cuentas por Pagar
+            </h3>
+            <p class="text-muted small mb-0">Gestión y control de saldos y créditos pendientes con proveedores</p>
+        </div>
+        <div class="d-flex gap-2 flex-wrap">
+            <a href="{{ url_for('admin.registrar_abono_proveedor_global') }}" class="btn btn-outline-success btn-sm px-3 py-2 rounded-3">
                 <i class="fas fa-money-bill-wave me-1"></i> Registrar Abono General
             </a>
-            <a href="{{ url_for('admin.admin_dashboard') }}" class="btn btn-outline-secondary">
-                <i class="fas fa-arrow-left"></i> Volver al Dashboard
+            <a href="{{ url_for('admin.admin_dashboard') }}" class="btn btn-outline-secondary btn-sm px-3 py-2 rounded-3">
+                <i class="fas fa-arrow-left me-1"></i> Volver al Dashboard
             </a>
         </div>
     </div>
 
     <!-- Panel de Filtros Avanzados -->
-    <div class="card shadow-sm mb-4">
-        <div class="card-header bg-white">
-            <h5 class="card-title fw-bold mb-0">
+    <div class="card-premium-section mb-4">
+        <div class="card-premium-header py-3 d-flex justify-content-between align-items-center">
+            <h5 class="fw-bold text-slate-800 mb-0">
                 <i class="fas fa-filter me-2 text-primary"></i>Filtros de Búsqueda
             </h5>
-            <button class="btn btn-sm btn-link float-end" type="button" data-bs-toggle="collapse" data-bs-target="#filtrosCollapse">
+            <button class="btn btn-sm btn-link text-slate-600" type="button" data-bs-toggle="collapse" data-bs-target="#filtrosCollapse">
                 <i class="fas fa-chevron-down"></i>
             </button>
         </div>
         <div class="collapse show" id="filtrosCollapse">
-            <div class="card-body">
+            <div class="card-body p-4">
                 <form method="GET" action="{{ url_for('admin.admin_cuentas_por_pagar') }}" id="filtrosForm">
-                    <div class="row">
+                    <div class="row g-3">
                         <!-- Filtro Estado -->
-                        <div class="col-md-3 mb-3">
-                            <label class="form-label fw-bold">Estado</label>
-                            <select name="estado" class="form-select" id="filtroEstado">
+                        <div class="col-md-3">
+                            <label class="form-label-premium fw-bold mb-1">Estado</label>
+                            <select name="estado" class="form-select form-select-premium" id="filtroEstado">
                                 <option value="Pendiente" {% if filtro_estado == 'Pendiente' %}selected{% endif %}>Pendientes</option>
                                 <option value="Pagada" {% if filtro_estado == 'Pagada' %}selected{% endif %}>Pagadas</option>
                                 <option value="Anulada" {% if filtro_estado == 'Anulada' %}selected{% endif %}>Anuladas</option>
@@ -45,9 +48,9 @@
                         </div>
                         
                         <!-- Filtro Proveedor -->
-                        <div class="col-md-3 mb-3">
-                            <label class="form-label fw-bold">Proveedor</label>
-                            <select name="proveedor" class="form-select select2" id="filtroProveedor">
+                        <div class="col-md-3">
+                            <label class="form-label-premium fw-bold mb-1">Proveedor</label>
+                            <select name="proveedor" class="form-select form-select-premium select2" id="filtroProveedor">
                                 <option value="">Todos los proveedores</option>
                                 {% for proveedor in proveedores %}
                                 <option value="{{ proveedor.ID_Proveedor }}" {% if filtro_proveedor|string == proveedor.ID_Proveedor|string %}selected{% endif %}>
@@ -58,9 +61,9 @@
                         </div>
                         
                         <!-- Filtro por Vencimiento -->
-                        <div class="col-md-3 mb-3">
-                            <label class="form-label fw-bold">Vencimiento</label>
-                            <select name="rango_dias" class="form-select" id="filtroRangoDias">
+                        <div class="col-md-3">
+                            <label class="form-label-premium fw-bold mb-1">Vencimiento</label>
+                            <select name="rango_dias" class="form-select form-select-premium" id="filtroRangoDias">
                                 <option value="">Todos</option>
                                 <option value="vencidas" {% if filtro_rango_dias == 'vencidas' %}selected{% endif %}>Vencidas</option>
                                 <option value="hoy" {% if filtro_rango_dias == 'hoy' %}selected{% endif %}>Vencen hoy</option>
@@ -72,51 +75,50 @@
                         </div>
                         
                         <!-- Búsqueda por documento -->
-                        <div class="col-md-3 mb-3">
-                            <label class="form-label fw-bold">N° Documento</label>
-                            <input type="text" name="num_documento" class="form-control" 
+                        <div class="col-md-3">
+                            <label class="form-label-premium fw-bold mb-1">N° Documento</label>
+                            <input type="text" name="num_documento" class="form-control form-control-premium" 
                                    value="{{ filtro_num_documento }}" placeholder="Buscar por documento...">
                         </div>
                     </div>
                     
-                    <div class="row">
+                    <div class="row g-3 mt-1">
                         <!-- Filtro Rango de Fechas Desde -->
-                        <div class="col-md-3 mb-3">
-                            <label class="form-label fw-bold">Fecha Vencimiento Desde</label>
-                            <input type="date" name="fecha_desde" class="form-control" 
+                        <div class="col-md-3">
+                            <label class="form-label-premium fw-bold mb-1">Fecha Vencimiento Desde</label>
+                            <input type="date" name="fecha_desde" class="form-control form-control-premium" 
                                    value="{{ filtro_fecha_desde }}">
                         </div>
                         
                         <!-- Filtro Rango de Fechas Hasta -->
-                        <div class="col-md-3 mb-3">
-                            <label class="form-label fw-bold">Fecha Vencimiento Hasta</label>
-                            <input type="date" name="fecha_hasta" class="form-control" 
+                        <div class="col-md-3">
+                            <label class="form-label-premium fw-bold mb-1">Fecha Vencimiento Hasta</label>
+                            <input type="date" name="fecha_hasta" class="form-control form-control-premium" 
                                    value="{{ filtro_fecha_hasta }}">
                         </div>
                         
                         <!-- Filtro Monto Mínimo -->
-                        <div class="col-md-2 mb-3">
-                            <label class="form-label fw-bold">Monto Mínimo</label>
-                            <input type="number" step="0.01" name="monto_min" class="form-control" 
+                        <div class="col-md-2">
+                            <label class="form-label-premium fw-bold mb-1">Monto Mínimo</label>
+                            <input type="number" step="0.01" name="monto_min" class="form-control form-control-premium" 
                                    value="{{ filtro_monto_min }}" placeholder="0.00">
                         </div>
                         
                         <!-- Filtro Monto Máximo -->
-                        <div class="col-md-2 mb-3">
-                            <label class="form-label fw-bold">Monto Máximo</label>
-                            <input type="number" step="0.01" name="monto_max" class="form-control" 
+                        <div class="col-md-2">
+                            <label class="form-label-premium fw-bold mb-1">Monto Máximo</label>
+                            <input type="number" step="0.01" name="monto_max" class="form-control form-control-premium" 
                                    value="{{ filtro_monto_max }}" placeholder="999999.99">
                         </div>
                         
                         <!-- Botones de acción -->
-                        <div class="col-md-2 mb-3">
-                            <label class="form-label fw-bold">&nbsp;</label>
-                            <div class="d-grid gap-2">
-                                <button type="submit" class="btn btn-primary">
-                                    <i class="fas fa-search me-2"></i>Filtrar
+                        <div class="col-md-2 d-flex align-items-end">
+                            <div class="d-flex gap-2 w-100">
+                                <button type="submit" class="btn btn-outline-primary flex-grow-1 py-2 rounded-3">
+                                    <i class="fas fa-search me-1"></i>Filtrar
                                 </button>
-                                <a href="{{ url_for('admin.admin_cuentas_por_pagar') }}" class="btn btn-secondary">
-                                    <i class="fas fa-eraser me-2"></i>Limpiar
+                                <a href="{{ url_for('admin.admin_cuentas_por_pagar') }}" class="btn btn-outline-secondary flex-grow-1 py-2 rounded-3">
+                                    <i class="fas fa-eraser me-1"></i>Limpiar
                                 </a>
                             </div>
                         </div>
@@ -124,34 +126,34 @@
                     
                     <!-- Filtros activos -->
                     {% if filtro_estado != 'Pendiente' or filtro_proveedor or filtro_fecha_desde or filtro_fecha_hasta or filtro_rango_dias or filtro_monto_min or filtro_monto_max or filtro_num_documento %}
-                    <div class="row mt-2">
+                    <div class="row mt-3">
                         <div class="col-12">
-                            <div class="alert alert-info mb-0">
+                            <div class="alert alert-info mb-0 bg-info bg-opacity-10 text-info border border-info border-opacity-20 py-2 px-3 small rounded-3">
                                 <i class="fas fa-filter me-2"></i>
                                 <strong>Filtros activos:</strong>
                                 {% if filtro_estado != 'Pendiente' %}
-                                    <span class="badge bg-primary ms-1">Estado: {{ filtro_estado }}</span>
+                                    <span class="badge ms-1" style="color: #0369a1 !important; background-color: rgba(3, 105, 161, 0.08) !important; border: 1px solid rgba(3, 105, 161, 0.15) !important;">Estado: {{ filtro_estado }}</span>
                                 {% endif %}
                                 {% if filtro_proveedor %}
-                                    <span class="badge bg-primary ms-1">Proveedor ID: {{ filtro_proveedor }}</span>
+                                    <span class="badge ms-1" style="color: #0369a1 !important; background-color: rgba(3, 105, 161, 0.08) !important; border: 1px solid rgba(3, 105, 161, 0.15) !important;">Proveedor ID: {{ filtro_proveedor }}</span>
                                 {% endif %}
                                 {% if filtro_rango_dias %}
-                                    <span class="badge bg-primary ms-1">Vencimiento: {{ filtro_rango_dias }}</span>
+                                    <span class="badge ms-1" style="color: #0369a1 !important; background-color: rgba(3, 105, 161, 0.08) !important; border: 1px solid rgba(3, 105, 161, 0.15) !important;">Vencimiento: {{ filtro_rango_dias }}</span>
                                 {% endif %}
                                 {% if filtro_num_documento %}
-                                    <span class="badge bg-primary ms-1">Doc: {{ filtro_num_documento }}</span>
+                                    <span class="badge ms-1" style="color: #0369a1 !important; background-color: rgba(3, 105, 161, 0.08) !important; border: 1px solid rgba(3, 105, 161, 0.15) !important;">Doc: {{ filtro_num_documento }}</span>
                                 {% endif %}
                                 {% if filtro_fecha_desde %}
-                                    <span class="badge bg-primary ms-1">Desde: {{ filtro_fecha_desde }}</span>
+                                    <span class="badge ms-1" style="color: #0369a1 !important; background-color: rgba(3, 105, 161, 0.08) !important; border: 1px solid rgba(3, 105, 161, 0.15) !important;">Desde: {{ filtro_fecha_desde }}</span>
                                 {% endif %}
                                 {% if filtro_fecha_hasta %}
-                                    <span class="badge bg-primary ms-1">Hasta: {{ filtro_fecha_hasta }}</span>
+                                    <span class="badge ms-1" style="color: #0369a1 !important; background-color: rgba(3, 105, 161, 0.08) !important; border: 1px solid rgba(3, 105, 161, 0.15) !important;">Hasta: {{ filtro_fecha_hasta }}</span>
                                 {% endif %}
                                 {% if filtro_monto_min %}
-                                    <span class="badge bg-primary ms-1">Monto ≥ {{ filtro_monto_min }}</span>
+                                    <span class="badge ms-1" style="color: #0369a1 !important; background-color: rgba(3, 105, 161, 0.08) !important; border: 1px solid rgba(3, 105, 161, 0.15) !important;">Monto ≥ {{ filtro_monto_min }}</span>
                                 {% endif %}
                                 {% if filtro_monto_max %}
-                                    <span class="badge bg-primary ms-1">Monto ≤ {{ filtro_monto_max }}</span>
+                                    <span class="badge ms-1" style="color: #0369a1 !important; background-color: rgba(3, 105, 161, 0.08) !important; border: 1px solid rgba(3, 105, 161, 0.15) !important;">Monto ≤ {{ filtro_monto_max }}</span>
                                 {% endif %}
                             </div>
                         </div>
@@ -163,69 +165,61 @@
     </div>
 
     <!-- Resumen General -->
-    <div class="row mb-4">
-        <div class="col-xl-3 col-md-6 mb-3">
-            <div class="card border-primary">
-                <div class="card-body">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <div>
-                            <h6 class="text-muted mb-1">Total Pendiente</h6>
-                            <h2 class="fw-bold text-primary mb-0">C${{ "{:,.2f}".format(total_pendiente) if total_pendiente else '0.00' }}</h2>
-                        </div>
-                        <div class="text-primary">
-                            <i class="fas fa-dollar-sign fa-2x"></i>
-                        </div>
+    <div class="row mb-4 g-3">
+        <div class="col-xl-3 col-md-6">
+            <div class="card-premium-section h-100" style="background: rgba(3, 105, 161, 0.04) !important; border: 1px solid rgba(3, 105, 161, 0.15) !important;">
+                <div class="card-body p-4 d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="small fw-bold text-uppercase mb-1" style="color: #0369a1 !important; letter-spacing: 0.5px;">Total Pendiente</h6>
+                        <h2 class="fw-bold mb-0 text-slate-800">C${{ "{:,.2f}".format(total_pendiente) if total_pendiente else '0.00' }}</h2>
+                    </div>
+                    <div class="rounded-circle p-3" style="background: rgba(3, 105, 161, 0.1); color: #0369a1;">
+                        <i class="fas fa-dollar-sign fa-lg"></i>
                     </div>
                 </div>
             </div>
         </div>
         
-        <div class="col-xl-3 col-md-6 mb-3">
-            <div class="card border-warning">
-                <div class="card-body">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <div>
-                            <h6 class="text-muted mb-1">Cuentas Vencidas</h6>
-                            <h2 class="fw-bold text-warning mb-0">{{ cuentas_vencidas or 0 }}</h2>
-                        </div>
-                        <div class="text-warning">
-                            <i class="fas fa-clock fa-2x"></i>
-                        </div>
+        <div class="col-xl-3 col-md-6">
+            <div class="card-premium-section h-100" style="background: rgba(220, 38, 38, 0.04) !important; border: 1px solid rgba(220, 38, 38, 0.15) !important;">
+                <div class="card-body p-4 d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="small fw-bold text-uppercase mb-1" style="color: #dc2626 !important; letter-spacing: 0.5px;">Cuentas Vencidas</h6>
+                        <h2 class="fw-bold mb-0 text-slate-800">{{ cuentas_vencidas or 0 }}</h2>
+                    </div>
+                    <div class="rounded-circle p-3" style="background: rgba(220, 38, 38, 0.1); color: #dc2626;">
+                        <i class="fas fa-clock fa-lg"></i>
                     </div>
                 </div>
             </div>
         </div>
         
-        <div class="col-xl-3 col-md-6 mb-3">
-            <div class="card border-success">
-                <div class="card-body">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <div>
-                            <h6 class="text-muted mb-1">Cuentas Pagadas</h6>
-                            <h2 class="fw-bold text-success mb-0">
-                                {% set cuentas_pagadas = cuentas|selectattr('Estado', 'equalto', 'Pagada')|list %}
-                                {{ cuentas_pagadas|length or 0 }}
-                            </h2>
-                        </div>
-                        <div class="text-success">
-                            <i class="fas fa-check-circle fa-2x"></i>
-                        </div>
+        <div class="col-xl-3 col-md-6">
+            <div class="card-premium-section h-100" style="background: rgba(22, 163, 74, 0.04) !important; border: 1px solid rgba(22, 163, 74, 0.15) !important;">
+                <div class="card-body p-4 d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="small fw-bold text-uppercase mb-1" style="color: #16a34a !important; letter-spacing: 0.5px;">Cuentas Pagadas</h6>
+                        <h2 class="fw-bold mb-0 text-slate-800">
+                            {% set cuentas_pagadas = cuentas|selectattr('Estado', 'equalto', 'Pagada')|list %}
+                            {{ cuentas_pagadas|length or 0 }}
+                        </h2>
+                    </div>
+                    <div class="rounded-circle p-3" style="background: rgba(22, 163, 74, 0.1); color: #16a34a;">
+                        <i class="fas fa-check-circle fa-lg"></i>
                     </div>
                 </div>
             </div>
         </div>
         
-        <div class="col-xl-3 col-md-6 mb-3">
-            <div class="card border-info">
-                <div class="card-body">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <div>
-                            <h6 class="text-muted mb-1">Total Registros</h6>
-                            <h2 class="fw-bold text-info mb-0">{{ total_cuentas or 0 }}</h2>
-                        </div>
-                        <div class="text-info">
-                            <i class="fas fa-list fa-2x"></i>
-                        </div>
+        <div class="col-xl-3 col-md-6">
+            <div class="card-premium-section h-100" style="background: rgba(75, 85, 99, 0.04) !important; border: 1px solid rgba(75, 85, 99, 0.15) !important;">
+                <div class="card-body p-4 d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="small fw-bold text-uppercase mb-1" style="color: #4b5563 !important; letter-spacing: 0.5px;">Total Registros</h6>
+                        <h2 class="fw-bold mb-0 text-slate-800">{{ total_cuentas or 0 }}</h2>
+                    </div>
+                    <div class="rounded-circle p-3" style="background: rgba(75, 85, 99, 0.1); color: #4b5563;">
+                        <i class="fas fa-list fa-lg"></i>
                     </div>
                 </div>
             </div>
@@ -233,36 +227,35 @@
     </div>
 
     <!-- Tabla Principal -->
-    <div class="card shadow-sm">
-        <div class="card-header bg-white">
-            <div class="d-flex justify-content-between align-items-center flex-wrap">
-                <h5 class="card-title fw-bold mb-0">
+    <div class="card-premium-section">
+        <div class="card-premium-header py-3">
+            <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+                <h5 class="fw-bold text-slate-800 mb-0">
                     <i class="fas fa-table me-2 text-primary"></i>Lista de Cuentas por Pagar
                 </h5>
-                <div class="d-flex align-items-center mt-2 mt-md-0">
+                <div class="d-flex align-items-center gap-2 flex-wrap">
                     <div class="input-group input-group-sm" style="width: 250px;">
                         <input type="text" class="form-control" placeholder="Buscar en tabla..." id="searchInput">
                         <button class="btn btn-outline-secondary" type="button" id="clearSearch">
                             <i class="fas fa-times"></i>
                         </button>
                     </div>
-                    <button onclick="exportarExcel()" class="btn btn-success btn-sm ms-2">
+                    <button onclick="exportarExcel()" class="btn btn-outline-success btn-sm px-3 rounded-3 py-2">
                         <i class="fas fa-file-excel me-1"></i> Exportar
                     </button>
-                    <button onclick="imprimirTabla()" class="btn btn-primary btn-sm ms-2">
+                    <button onclick="imprimirTabla()" class="btn btn-outline-primary btn-sm px-3 rounded-3 py-2">
                         <i class="fas fa-print me-1"></i> Imprimir
                     </button>
-                    <span class="badge bg-secondary ms-2">{{ total_cuentas or 0 }} registros</span>
+                    <span class="badge" style="color: #4b5563 !important; background-color: rgba(75, 85, 99, 0.08) !important; border: 1px solid rgba(75, 85, 99, 0.15) !important;">{{ total_cuentas or 0 }} registros</span>
                 </div>
             </div>
         </div>
         
-        <div class="card-body p-0">
             <div class="table-responsive">
-                <table class="table table-striped table-hover mb-0" id="dataTable">
-                    <thead class="table-dark">
+                <table class="table table-hover table-modern align-middle mb-0" id="dataTable">
+                    <thead class="table-light">
                         <tr>
-                            <th>ID</th>
+                            <th style="width: 80px;">ID</th>
                             <th>Proveedor</th>
                             <th>Documento</th>
                             <th class="text-end">Monto</th>
@@ -282,14 +275,14 @@
                             
                             <!-- Proveedor -->
                             <td>
-                                <div class="fw-bold mb-1">{{ cuenta.Proveedor or 'N/A' }}</div>
+                                <div class="fw-bold mb-1 text-slate-800">{{ cuenta.Proveedor or 'N/A' }}</div>
                                 <small class="text-muted">
                                     <i class="fas fa-calendar-alt me-1"></i>
                                     {{ cuenta.Fecha.strftime('%d/%m/%Y') if cuenta.Fecha else 'Sin fecha' }}
                                 </small>
                                 {% if cuenta.Observacion %}
                                 <div class="mt-1">
-                                    <small class="text-muted">
+                                    <small class="text-muted italic">
                                         <i class="fas fa-comment fa-xs me-1"></i>{{ cuenta.Observacion|truncate(30) }}
                                     </small>
                                 </div>
@@ -299,29 +292,29 @@
                             <!-- Documento -->
                             <td>
                                 {% if cuenta.Num_Documento %}
-                                    <span class="badge bg-info">
+                                    <span class="badge bg-info bg-opacity-10 text-info border border-info border-opacity-25 rounded-pill px-2.5 py-1.5 fw-bold">
                                         <i class="fas fa-file-invoice me-1"></i>
                                         {{ cuenta.Num_Documento }}
                                     </span>
                                 {% else %}
-                                    <span class="text-muted">Sin documento</span>
+                                    <span class="text-muted small">Sin documento</span>
                                 {% endif %}
                             </td>
                             
                             <!-- Monto -->
-                            <td class="text-end fw-bold">
+                            <td class="text-end fw-bold text-slate-700 font-monospace">
                                 C${{ "{:,.2f}".format(cuenta.Monto_Movimiento) if cuenta.Monto_Movimiento else '0.00' }}
                             </td>
                             
                             <!-- Saldo -->
-                            <td class="text-end">
+                            <td class="text-end font-monospace">
                                 <div class="mb-1">
                                     <span class="fw-bold {% if cuenta.Saldo_Pendiente and cuenta.Saldo_Pendiente > 0 %}text-danger{% else %}text-success{% endif %}">
                                         C${{ "{:,.2f}".format(cuenta.Saldo_Pendiente) if cuenta.Saldo_Pendiente else '0.00' }}
                                     </span>
                                 </div>
                                 {% if cuenta.Saldo_Pendiente < cuenta.Monto_Movimiento and cuenta.Saldo_Pendiente > 0 %}
-                                <small class="text-muted">
+                                <small class="text-muted block-detail">
                                     Pagado: C${{ "{:,.2f}".format(cuenta.Monto_Movimiento - cuenta.Saldo_Pendiente) }}
                                 </small>
                                 {% endif %}
@@ -330,12 +323,12 @@
                             <!-- Vencimiento -->
                             <td>
                                 {% if cuenta.Fecha_Vencimiento %}
-                                    <div class="mb-1">
-                                        <i class="fas fa-calendar-alt me-1"></i>
+                                    <div class="small text-slate-800 fw-bold">
+                                        <i class="fas fa-calendar-alt me-1 text-muted"></i>
                                         {{ cuenta.Fecha_Vencimiento.strftime('%d/%m/%Y') }}
                                     </div>
                                 {% else %}
-                                    <span class="text-muted">Sin fecha</span>
+                                    <span class="text-muted small">Sin fecha</span>
                                 {% endif %}
                             </td>
                             
@@ -343,50 +336,50 @@
                             <td>
                                 {% if dias_vencimiento is not none %}
                                     {% if dias_vencimiento < 0 %}
-                                        <span class="badge bg-danger">
+                                        <span class="badge bg-danger bg-opacity-10 text-danger border border-danger border-opacity-25 rounded-pill px-2 py-1 fw-bold">
                                             <i class="fas fa-exclamation-triangle me-1"></i>
                                             Vencido: {{ -dias_vencimiento }} días
                                         </span>
                                     {% elif dias_vencimiento == 0 %}
-                                        <span class="badge bg-warning text-dark">
+                                        <span class="badge bg-warning bg-opacity-10 text-warning border border-warning border-opacity-25 rounded-pill px-2 py-1 fw-bold">
                                             <i class="fas fa-bell me-1"></i>
                                             Vence hoy
                                         </span>
                                     {% elif dias_vencimiento <= 7 %}
-                                        <span class="badge bg-info">
+                                        <span class="badge bg-info bg-opacity-10 text-info border border-info border-opacity-25 rounded-pill px-2 py-1 fw-bold">
                                             <i class="fas fa-hourglass-half me-1"></i>
                                             {{ dias_vencimiento }} días
                                         </span>
                                     {% else %}
-                                        <span class="badge bg-secondary">
+                                        <span class="badge bg-secondary bg-opacity-10 text-secondary border border-secondary border-opacity-25 rounded-pill px-2 py-1 fw-bold">
                                             <i class="fas fa-calendar-week me-1"></i>
                                             {{ dias_vencimiento }} días
                                         </span>
                                     {% endif %}
                                 {% else %}
-                                    <span class="badge bg-secondary">N/A</span>
+                                    <span class="badge bg-secondary bg-opacity-10 text-secondary border border-secondary border-opacity-25 rounded-pill px-2 py-1 fw-bold">N/A</span>
                                 {% endif %}
                             </td>
                             
                             <!-- Estado -->
                             <td class="text-center">
                                 {% if cuenta.Estado == 'Pagada' %}
-                                    <span class="badge bg-success">
+                                    <span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 rounded-pill px-2.5 py-1.5 fw-bold">
                                         <i class="fas fa-check-circle me-1"></i>
                                         Pagada
                                     </span>
                                 {% elif cuenta.Estado == 'Anulada' %}
-                                    <span class="badge bg-secondary">
+                                    <span class="badge bg-secondary bg-opacity-10 text-secondary border border-secondary border-opacity-25 rounded-pill px-2.5 py-1.5 fw-bold">
                                         <i class="fas fa-ban me-1"></i>
                                         Anulada
                                     </span>
                                 {% elif dias_vencimiento is not none and dias_vencimiento < 0 %}
-                                    <span class="badge bg-danger">
+                                    <span class="badge bg-danger bg-opacity-10 text-danger border border-danger border-opacity-25 rounded-pill px-2.5 py-1.5 fw-bold">
                                         <i class="fas fa-exclamation-circle me-1"></i>
                                         Vencida
                                     </span>
                                 {% else %}
-                                    <span class="badge bg-warning text-dark">
+                                    <span class="badge bg-warning bg-opacity-10 text-warning border border-warning border-opacity-25 rounded-pill px-2.5 py-1.5 fw-bold">
                                         <i class="fas fa-clock me-1"></i>
                                         Pendiente
                                     </span>
@@ -398,20 +391,20 @@
                                 <div class="btn-group btn-group-sm" role="group">
                                     {% if cuenta.Estado == 'Pendiente' %}
                                     <a href="{{ url_for('admin.registrar_pago_cuenta', id_cuenta=cuenta.ID_Cuenta) }}" 
-                                       class="btn btn-outline-success" title="Registrar pago">
+                                       class="btn btn-outline-success px-2 rounded-3" title="Registrar pago">
                                         <i class="fas fa-money-bill-wave"></i>
                                         <span class="ms-1">Pagar</span>
                                     </a>
                                     {% endif %}
                                     
                                     <a href="{{ url_for('admin.historial_pagos_cuenta', id_cuenta=cuenta.ID_Cuenta) }}" 
-                                       class="btn btn-outline-primary" title="Ver historial de pagos">
+                                       class="btn btn-outline-primary px-2 rounded-3 ms-1" title="Ver historial de pagos">
                                         <i class="fas fa-eye"></i>
                                         <span class="ms-1">Historial</span>
                                     </a>
                                     
                                     {% if cuenta.Estado == 'Pendiente' %}
-                                    <button class="btn btn-outline-danger anular-cuenta" 
+                                    <button class="btn btn-outline-danger anular-cuenta px-2 rounded-3 ms-1" 
                                             data-bs-toggle="modal" data-bs-target="#anularCuentaModal"
                                             data-id="{{ cuenta.ID_Cuenta }}"
                                             data-proveedor="{{ cuenta.Proveedor or 'N/A' }}"
@@ -427,10 +420,10 @@
                         {% else %}
                         <tr>
                             <td colspan="9" class="text-center py-5">
-                                <i class="fas fa-check-circle fa-3x text-success mb-3"></i>
+                                <i class="fas fa-check-circle fa-3x text-success mb-3 opacity-50"></i>
                                 <h5 class="text-muted">¡Excelente!</h5>
                                 <p class="text-muted">No hay cuentas que coincidan con los filtros seleccionados</p>
-                                <a href="{{ url_for('admin.admin_cuentas_por_pagar') }}" class="btn btn-primary btn-sm">
+                                <a href="{{ url_for('admin.admin_cuentas_por_pagar') }}" class="btn btn-outline-primary btn-sm">
                                     <i class="fas fa-eraser me-1"></i>Limpiar filtros
                                 </a>
                             </td>
@@ -440,8 +433,8 @@
                     <tfoot class="table-light">
                         <tr>
                             <td colspan="3" class="text-end fw-bold">TOTALES:</td>
-                            <td class="text-end fw-bold">C${{ "{:,.2f}".format(total_monto) if total_monto else '0.00' }}</td>
-                            <td class="text-end fw-bold">C${{ "{:,.2f}".format(total_saldo) if total_saldo else '0.00' }}</td>
+                            <td class="text-end fw-bold font-monospace text-slate-800">C${{ "{:,.2f}".format(total_monto) if total_monto else '0.00' }}</td>
+                            <td class="text-end fw-bold font-monospace text-danger">C${{ "{:,.2f}".format(total_saldo) if total_saldo else '0.00' }}</td>
                             <td colspan="4"></td>
                         </tr>
                     </tfoot>

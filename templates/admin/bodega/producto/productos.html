@@ -1,355 +1,350 @@
 {% extends "layout.html" %}
 
-{% block title %}Gestión de Productos{% endblock %}
+{% block title %}Gestión de Productos - FerDel{% endblock %}
 
 {% block extra_css %}
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 <style>
-    /* Estilos compactos y profesionales */
-    .stats-card {
-        background: white;
-        border-radius: 8px;
-        padding: 0.75rem;
-        margin-bottom: 1rem;
-        border: 1px solid #e5e7eb;
+    /* Estilos compactos y profesionales premium */
+    .stats-card-premium {
+        background: #ffffff;
+        border-radius: 16px;
+        padding: 1.25rem;
+        border: 1px solid rgba(226, 232, 240, 0.8);
+        box-shadow: 0 4px 12px -2px rgba(15, 23, 42, 0.03);
         text-align: center;
+        transition: all 0.2s ease;
+    }
+    
+    .stats-card-premium:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 16px -2px rgba(15, 23, 42, 0.08);
+    }
+    
+    .stats-icon {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto;
+        font-size: 1.2rem;
     }
 
     .stats-number {
-        font-size: 1.5rem;
-        font-weight: 700;
-        margin-bottom: 0;
-        color: #1f2937;
+        font-size: 1.75rem;
+        font-weight: 800;
+        margin-bottom: 0.20rem;
+        color: #1e293b;
     }
 
     .stats-label {
-        font-size: 0.7rem;
-        color: #6b7280;
+        font-size: 0.75rem;
+        font-weight: 700;
         text-transform: uppercase;
-    }
-
-    .filter-bar {
-        background: white;
-        border-radius: 8px;
-        padding: 0.75rem;
-        margin-bottom: 1rem;
-        border: 1px solid #e5e7eb;
-    }
-
-    .table th {
-        background: #f8f9fa;
-        font-size: 0.7rem;
-        text-transform: uppercase;
-        padding: 0.5rem;
-    }
-
-    .table td {
-        font-size: 0.8rem;
-        padding: 0.5rem;
-        vertical-align: middle;
+        letter-spacing: 0.05em;
+        color: #64748b;
     }
 
     .badge-stock {
-        padding: 0.25rem 0.5rem;
+        padding: 0.35rem 0.75rem;
         border-radius: 20px;
-        font-size: 0.7rem;
-        font-weight: 500;
+        font-size: 0.75rem;
+        font-weight: 700;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.25rem;
     }
 
     .badge-critical {
-        background: #fee2e2;
-        color: #991b1b;
+        background-color: #fee2e2;
+        color: #b91c1c;
+        border: 1px solid #fca5a5;
     }
 
     .badge-low {
-        background: #fed7aa;
-        color: #92400e;
+        background-color: #fef3c7;
+        color: #b45309;
+        border: 1px solid #fde68a;
     }
 
     .badge-normal {
-        background: #d1fae5;
-        color: #065f46;
+        background-color: #dcfce7;
+        color: #15803d;
+        border: 1px solid #bbf7d0;
     }
 
     .badge-out {
-        background: #f1f5f9;
+        background-color: #f1f5f9;
         color: #475569;
+        border: 1px solid #cbd5e1;
     }
 
-    .btn-sm-custom {
-        padding: 0.2rem 0.5rem;
-        font-size: 0.7rem;
-    }
-
-    .search-box {
-        position: relative;
-        max-width: 250px;
-    }
-
-    .search-box i {
-        position: absolute;
-        left: 8px;
-        top: 50%;
-        transform: translateY(-50%);
-        font-size: 0.7rem;
-        color: #9ca3af;
-    }
-
-    .search-box input {
-        padding-left: 28px;
-        font-size: 0.8rem;
-        height: 32px;
-    }
-
-    .form-label-small {
-        font-size: 0.7rem;
-        font-weight: 500;
-        margin-bottom: 0.25rem;
-    }
-
-    .modal-body {
-        padding: 1rem;
-    }
-
-    @media (max-width: 768px) {
-        .stats-number {
-            font-size: 1rem;
-        }
-
-        .table-responsive {
-            font-size: 0.7rem;
-        }
+    .required-star::after {
+        content: " *";
+        color: #ef4444;
+        font-weight: bold;
     }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="container-fluid px-3 py-2">
-    <!-- Título y botón nuevo -->
-    <div class="d-flex justify-content-between align-items-center mb-3">
+<div class="container-fluid py-3">
+    <!-- Encabezado -->
+    <div class="historial-header d-flex flex-wrap justify-content-between align-items-center gap-3">
         <div>
-            <h5 class="mb-0 fw-bold">📦 Productos</h5>
-            <small class="text-muted">Gestión de inventario</small>
+            <h3 class="fw-bold text-slate-800 mb-1">
+                <i class="fas fa-boxes text-primary me-2"></i>Gestión de Productos
+            </h3>
+            <p class="text-muted small mb-0">Listado general de productos, precios y existencias en inventario</p>
         </div>
-        <button type="button" class="btn btn-primary btn-sm" data-bs-toggle="modal"
-            data-bs-target="#modalCrearProducto">
-            <i class="fas fa-plus me-1"></i>Nuevo Producto
-        </button>
+        <div>
+            <button type="button" class="btn btn-primary btn-sm px-3 py-2 rounded-3 fw-bold" data-bs-toggle="modal"
+                data-bs-target="#modalCrearProducto">
+                <i class="fas fa-plus-circle me-1"></i> Nuevo Producto
+            </button>
+        </div>
     </div>
 
     <!-- Tarjetas de estadísticas -->
-    <div class="row mb-3">
-        <div class="col-3">
-            <div class="stats-card">
+    <div class="row g-3 mb-4">
+        <div class="col-6 col-md-3">
+            <div class="stats-card-premium">
+                <div class="stats-icon text-primary bg-primary bg-opacity-10 mb-2">
+                    <i class="fas fa-box"></i>
+                </div>
                 <div class="stats-number">{{ stats.total|default(0) }}</div>
-                <div class="stats-label">Total</div>
+                <div class="stats-label">Total Productos</div>
             </div>
         </div>
-        <div class="col-3">
-            <div class="stats-card">
+        <div class="col-6 col-md-3">
+            <div class="stats-card-premium">
+                <div class="stats-icon text-warning bg-warning bg-opacity-10 mb-2">
+                    <i class="fas fa-exclamation-triangle"></i>
+                </div>
                 <div class="stats-number text-warning">{{ stats.critico|default(0) }}</div>
-                <div class="stats-label">Crítico</div>
+                <div class="stats-label">Stock Crítico</div>
             </div>
         </div>
-        <div class="col-3">
-            <div class="stats-card">
+        <div class="col-6 col-md-3">
+            <div class="stats-card-premium">
+                <div class="stats-icon text-danger bg-danger bg-opacity-10 mb-2">
+                    <i class="fas fa-times-circle"></i>
+                </div>
                 <div class="stats-number text-danger">{{ stats.sin_stock|default(0) }}</div>
                 <div class="stats-label">Sin Stock</div>
             </div>
         </div>
-        <div class="col-3">
-            <div class="stats-card">
-                <div class="stats-number">{{ "%.0f"|format(stats.total_stock|default(0)) }}</div>
-                <div class="stats-label">Unidades</div>
+        <div class="col-6 col-md-3">
+            <div class="stats-card-premium">
+                <div class="stats-icon text-success bg-success bg-opacity-10 mb-2">
+                    <i class="fas fa-cubes"></i>
+                </div>
+                <div class="stats-number text-success">{{ "%.0f"|format(stats.total_stock|default(0)) }}</div>
+                <div class="stats-label">Total Unidades</div>
             </div>
         </div>
     </div>
 
-    <!-- Barra de filtros -->
-    <div class="filter-bar">
-        <form method="GET" action="{{ url_for('admin.admin_productos') }}" id="filterForm">
-            <div class="row g-2">
-                <div class="col-md-3 col-6">
-                    <select name="categoria" class="form-select form-select-sm" onchange="this.form.submit()">
-                        <option value="todos" {% if categoria_seleccionada=='todos' %}selected{% endif %}>📁 Categoría
-                        </option>
+    <!-- Barra de Filtros -->
+    <div class="card-premium-section">
+        <div class="card-premium-header">
+            <h6 class="fw-bold text-slate-800 mb-0">
+                <i class="fas fa-filter text-primary me-2"></i>Filtros de Búsqueda
+            </h6>
+        </div>
+        <div class="card-body p-4">
+            <form method="GET" action="{{ url_for('admin.admin_productos') }}" id="filterForm" class="row g-3">
+                <div class="col-12 col-md-6 col-lg-3">
+                    <label class="form-label-premium filter-label-premium">Categoría</label>
+                    <select name="categoria" class="form-select form-select-premium" onchange="this.form.submit()">
+                        <option value="todos" {% if categoria_seleccionada=='todos' %}selected{% endif %}>Todas</option>
                         {% for cat in categorias %}
-                        <option value="{{ cat.id }}" {% if categoria_seleccionada|string==cat.id|string %}selected{%
-                            endif %}>
+                        <option value="{{ cat.id }}" {% if categoria_seleccionada|string==cat.id|string %}selected{% endif %}>
                             {{ cat.nombre }}
                         </option>
                         {% endfor %}
                     </select>
                 </div>
-                <div class="col-md-3 col-6">
-                    <select name="empresa" class="form-select form-select-sm" onchange="this.form.submit()">
-                        <option value="todas" {% if empresa_seleccionada=='todas' %}selected{% endif %}>🏢 Empresa
-                        </option>
+                <div class="col-12 col-md-6 col-lg-3">
+                    <label class="form-label-premium filter-label-premium">Empresa</label>
+                    <select name="empresa" class="form-select form-select-premium" onchange="this.form.submit()">
+                        <option value="todas" {% if empresa_seleccionada=='todas' %}selected{% endif %}>Todas</option>
                         {% for emp in empresas %}
-                        <option value="{{ emp.id }}" {% if empresa_seleccionada|string==emp.id|string %}selected{% endif
-                            %}>
+                        <option value="{{ emp.id }}" {% if empresa_seleccionada|string==emp.id|string %}selected{% endif %}>
                             {{ emp.nombre }}
                         </option>
                         {% endfor %}
                     </select>
                 </div>
-                <div class="col-md-3 col-6">
-                    <select name="bodega" class="form-select form-select-sm" onchange="this.form.submit()">
-                        <option value="todas" {% if bodega_seleccionada=='todas' %}selected{% endif %}>🏪 Bodega
-                        </option>
+                <div class="col-12 col-md-6 col-lg-3">
+                    <label class="form-label-premium filter-label-premium">Bodega</label>
+                    <select name="bodega" class="form-select form-select-premium" onchange="this.form.submit()">
+                        <option value="todas" {% if bodega_seleccionada=='todas' %}selected{% endif %}>Todas</option>
                         {% for bod in bodegas %}
-                        <option value="{{ bod.id }}" {% if bodega_seleccionada|string==bod.id|string %}selected{% endif
-                            %}>
+                        <option value="{{ bod.id }}" {% if bodega_seleccionada|string==bod.id|string %}selected{% endif %}>
                             {{ bod.nombre }}
                         </option>
                         {% endfor %}
                     </select>
                 </div>
-                <div class="col-md-3 col-6">
-                    <select name="stock" class="form-select form-select-sm" onchange="this.form.submit()">
-                        <option value="todos" {% if stock_seleccionado=='todos' %}selected{% endif %}>📊 Estado Stock
-                        </option>
-                        <option value="critico" {% if stock_seleccionado=='critico' %}selected{% endif %}>🔴 Crítico
-                        </option>
+                <div class="col-12 col-md-6 col-lg-3">
+                    <label class="form-label-premium filter-label-premium">Estado Stock</label>
+                    <select name="stock" class="form-select form-select-premium" onchange="this.form.submit()">
+                        <option value="todos" {% if stock_seleccionado=='todos' %}selected{% endif %}>Todos</option>
+                        <option value="critico" {% if stock_seleccionado=='critico' %}selected{% endif %}>🔴 Crítico</option>
                         <option value="bajo" {% if stock_seleccionado=='bajo' %}selected{% endif %}>🟡 Bajo</option>
-                        <option value="normal" {% if stock_seleccionado=='normal' %}selected{% endif %}>🟢 Normal
-                        </option>
-                        <option value="sin_stock" {% if stock_seleccionado=='sin_stock' %}selected{% endif %}>⚪ Sin
-                            Stock</option>
+                        <option value="normal" {% if stock_seleccionado=='normal' %}selected{% endif %}>🟢 Normal</option>
+                        <option value="sin_stock" {% if stock_seleccionado=='sin_stock' %}selected{% endif %}>⚪ Sin Stock</option>
                     </select>
                 </div>
-            </div>
-            <div class="row mt-2">
-                <div class="col-12">
-                    <div class="search-box">
-                        <i class="fas fa-search"></i>
-                        <input type="text" id="searchInput" class="form-control form-control-sm"
+                <div class="col-12 col-lg-9">
+                    <label class="form-label-premium filter-label-premium">Buscar Producto</label>
+                    <div class="position-relative">
+                        <input type="text" id="searchInput" class="form-control form-control-premium ps-5"
                             placeholder="Buscar por código o descripción..." value="{{ search_term }}">
+                        <i class="fas fa-search position-absolute start-0 top-50 translate-middle-y ms-3 text-muted"></i>
                     </div>
                 </div>
-            </div>
-            {% if categoria_seleccionada != 'todos' or empresa_seleccionada != 'todas' or bodega_seleccionada != 'todas'
-            or stock_seleccionado != 'todos' %}
-            <div class="row mt-2">
-                <div class="col-12">
-                    <a href="{{ url_for('admin.admin_productos') }}" class="btn btn-secondary btn-sm w-100">
-                        <i class="fas fa-times me-1"></i>Limpiar filtros
+                {% if categoria_seleccionada != 'todos' or empresa_seleccionada != 'todas' or bodega_seleccionada != 'todas' or stock_seleccionado != 'todos' or search_term %}
+                <div class="col-12 col-lg-3 d-flex align-items-end">
+                    <a href="{{ url_for('admin.admin_productos') }}" class="btn btn-outline-secondary btn-sm w-100 rounded-3 py-2">
+                        <i class="fas fa-eraser me-1"></i> Limpiar Filtros
                     </a>
                 </div>
-            </div>
-            {% endif %}
-        </form>
+                {% endif %}
+            </form>
+        </div>
     </div>
 
-    <!-- Tabla de productos -->
-    <div class="table-responsive">
-        <table class="table table-hover table-sm">
-            <thead>
-                <tr>
-                    <th>Código</th>
-                    <th>Producto</th>
-                    <th>Unidad</th>
-                    <th>Stock</th>
-                    <th>Precio</th>
-                    <th>Categoría</th>
-                    <th>Empresa</th>
-                    <th>Stock Mín</th>
-                    <th>Acciones</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for prod in productos %}
-                {% set stock_class = 'normal' %}
-                {% if prod.stock == 0 %}
-                {% set stock_class = 'out' %}
-                {% elif prod.stock <= prod.stock_minimo %} {% set stock_class='critical' %} {% elif prod.stock
-                    <=prod.stock_minimo * 2 %} {% set stock_class='low' %} {% endif %} <tr>
-                    <td>
-                        <code class="small">{{ prod.codigo }}</code>
-                    </td>
-                    <td>
-                        <strong>{{ prod.nombre }}</strong>
-                    </td>
-                    <td>{{ prod.unidad }}</td>
-                    <td>
-                        <span class="badge-stock badge-{{ stock_class }}">
-                            {% if prod.stock == 0 %}Sin Stock
-                            {% elif prod.stock <= prod.stock_minimo %}Crítico {{ "%.0f" |format(prod.stock) }} {% elif
-                                prod.stock <=prod.stock_minimo * 2 %}Bajo {{ "%.0f" |format(prod.stock) }} {% else
-                                %}Normal {{ "%.0f" |format(prod.stock) }} {% endif %} </span>
-                    </td>
-                    <td>C${{ "%.2f"|format(prod.precio_mercado) }}</td>
-                    <td>{{ prod.categoria }}</td>
-                    <td>{{ prod.empresa }}</td>
-                    <td>{{ "%.0f"|format(prod.stock_minimo) }}</td>
-                    <td>
-                        <div class="btn-group btn-group-sm">
-                            <a href="{{ url_for('admin.admin_editar_producto', id_producto=prod.id) }}"
-                                class="btn btn-outline-warning" title="Editar">
-                                <i class="fas fa-edit"></i>
-                            </a>
-                            {% if prod.estado == 'activo' %}
-                            <form method="POST"
-                                action="{{ url_for('admin.admin_desactivar_producto', id_producto=prod.id) }}"
-                                class="d-inline" onsubmit="return confirm('¿Desactivar este producto?')">
-                                <button type="submit" class="btn btn-outline-danger" title="Desactivar">
-                                    <i class="fas fa-ban"></i>
-                                </button>
-                            </form>
-                            {% else %}
-                            <form method="POST"
-                                action="{{ url_for('admin.admin_activar_producto', id_producto=prod.id) }}"
-                                class="d-inline" onsubmit="return confirm('¿Activar este producto?')">
-                                <button type="submit" class="btn btn-outline-success" title="Activar">
-                                    <i class="fas fa-check"></i>
-                                </button>
-                            </form>
-                            {% endif %}
-                        </div>
-                    </td>
-                    </tr>
-                    {% else %}
-                    <tr>
-                        <td colspan="9" class="text-center py-4 text-muted">
-                            <i class="fas fa-box-open fa-2x mb-2 d-block"></i>
-                            No hay productos registrados
-                        </td>
-                    </tr>
-                    {% endfor %}
-            </tbody>
-        </table>
+    <!-- Resultados -->
+    <div class="card-premium-section">
+        <div class="card-premium-header">
+            <h6 class="fw-bold text-slate-800 mb-0">
+                <i class="fas fa-list text-primary me-2"></i>Productos Registrados
+            </h6>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover table-modern align-middle mb-0">
+                    <thead>
+                        <tr>
+                            <th style="width: 100px;">Código</th>
+                            <th>Producto</th>
+                            <th>Unidad</th>
+                            <th>Estado Stock</th>
+                            <th>Precio</th>
+                            <th>Categoría</th>
+                            <th>Empresa</th>
+                            <th class="text-center" style="width: 100px;">Stock Mín</th>
+                            <th class="text-center" style="width: 120px;">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for prod in productos %}
+                        {% set stock_class = 'normal' %}
+                        {% if prod.stock == 0 %}
+                        {% set stock_class = 'out' %}
+                        {% elif prod.stock <= prod.stock_minimo %}
+                        {% set stock_class = 'critical' %}
+                        {% elif prod.stock <= prod.stock_minimo * 2 %}
+                        {% set stock_class = 'low' %}
+                        {% endif %}
+                        <tr>
+                            <td>
+                                <code class="small text-primary fw-bold">{{ prod.codigo }}</code>
+                            </td>
+                            <td>
+                                <strong class="text-slate-800">{{ prod.nombre }}</strong>
+                            </td>
+                            <td><span class="text-muted">{{ prod.unidad }}</span></td>
+                            <td>
+                                {% if prod.stock == 0 %}
+                                <span class="badge-stock badge-out"><i class="fas fa-times-circle me-1"></i>Sin Stock</span>
+                                {% elif prod.stock <= prod.stock_minimo %}
+                                <span class="badge-stock badge-critical"><i class="fas fa-exclamation-triangle me-1"></i>Crítico ({{ "%.0f" |format(prod.stock) }})</span>
+                                {% elif prod.stock <= prod.stock_minimo * 2 %}
+                                <span class="badge-stock badge-low"><i class="fas fa-exclamation-circle me-1"></i>Bajo ({{ "%.0f" |format(prod.stock) }})</span>
+                                {% else %}
+                                <span class="badge-stock badge-normal"><i class="fas fa-check-circle me-1"></i>Normal ({{ "%.0f" |format(prod.stock) }})</span>
+                                {% endif %}
+                            </td>
+                            <td><span class="fw-bold text-slate-800">C${{ "%.2f"|format(prod.precio_mercado) }}</span></td>
+                            <td>{{ prod.categoria }}</td>
+                            <td>{{ prod.empresa }}</td>
+                            <td class="text-center">{{ "%.0f"|format(prod.stock_minimo) }}</td>
+                            <td class="text-center">
+                                <div class="btn-group btn-group-sm" role="group">
+                                    <a href="{{ url_for('admin.admin_editar_producto', id_producto=prod.id) }}"
+                                        class="btn btn-outline-primary" title="Editar">
+                                        <i class="fas fa-edit"></i>
+                                    </a>
+                                    {% if prod.estado == 'activo' %}
+                                    <form method="POST"
+                                        action="{{ url_for('admin.admin_desactivar_producto', id_producto=prod.id) }}"
+                                        class="d-inline" onsubmit="return confirm('¿Desactivar este producto?')">
+                                        <button type="submit" class="btn btn-outline-danger" title="Desactivar">
+                                            <i class="fas fa-ban"></i>
+                                        </button>
+                                    </form>
+                                    {% else %}
+                                    <form method="POST"
+                                        action="{{ url_for('admin.admin_activar_producto', id_producto=prod.id) }}"
+                                        class="d-inline" onsubmit="return confirm('¿Activar este producto?')">
+                                        <button type="submit" class="btn btn-outline-success" title="Activar">
+                                            <i class="fas fa-check"></i>
+                                        </button>
+                                    </form>
+                                    {% endif %}
+                                </div>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="9" class="text-center py-5 text-muted">
+                                <i class="fas fa-box-open fa-3x mb-3 d-block opacity-40"></i>
+                                No hay productos registrados
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
     </div>
 </div>
 
 <!-- Modal Crear Producto -->
 <div class="modal fade" id="modalCrearProducto" tabindex="-1">
-    <div class="modal-dialog modal-md">
-        <div class="modal-content">
+    <div class="modal-dialog modal-dialog-centered modal-md">
+        <div class="modal-content border-0 shadow-lg" style="border-radius: 16px;">
             <form method="POST" action="{{ url_for('admin.admin_crear_producto') }}" id="createProductForm">
-                <div class="modal-header bg-light">
-                    <h6 class="modal-title"><i class="fas fa-plus me-2"></i>Crear Nuevo Producto</h6>
-                    <button type="button" class="btn-close btn-close-sm" data-bs-dismiss="modal"></button>
+                <div class="modal-header bg-primary text-white" style="border-radius: 16px 16px 0 0; border-bottom: none;">
+                    <h6 class="modal-title fw-bold"><i class="fas fa-plus-circle me-2"></i>Crear Nuevo Producto</h6>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                 </div>
-                <div class="modal-body">
+                <div class="modal-body p-4">
                     <!-- Datos básicos -->
-                    <div class="row g-2 mb-2">
+                    <div class="row g-3 mb-3">
                         <div class="col-12">
-                            <label class="form-label-small">Código Producto</label>
-                            <input type="text" class="form-control form-control-sm" name="COD_Producto"
+                            <label class="form-label-premium filter-label-premium">Código Producto</label>
+                            <input type="text" class="form-control form-control-premium" name="COD_Producto"
                                 placeholder="Ej: PROD-001">
                         </div>
                     </div>
 
-                    <div class="row g-2 mb-2">
+                    <div class="row g-3 mb-3">
                         <div class="col-12">
-                            <label class="form-label-small">Descripción *</label>
-                            <input type="text" class="form-control form-control-sm" name="Descripcion" required>
+                            <label class="form-label-premium filter-label-premium required-star">Descripción</label>
+                            <input type="text" class="form-control form-control-premium" name="Descripcion" required placeholder="Nombre o descripción del producto...">
                         </div>
                     </div>
 
-                    <div class="row g-2 mb-2">
+                    <div class="row g-3 mb-3">
                         <div class="col-6">
-                            <label class="form-label-small">Unidad de Medida *</label>
-                            <select class="form-select form-select-sm" name="Unidad_Medida" required>
+                            <label class="form-label-premium filter-label-premium required-star">Unidad de Medida</label>
+                            <select class="form-select form-select-premium" name="Unidad_Medida" required>
                                 <option value="">Seleccionar</option>
                                 {% for unidad in unidades %}
                                 <option value="{{ unidad.id }}">{{ unidad.nombre }} ({{ unidad.abreviatura }})</option>
@@ -357,8 +352,8 @@
                             </select>
                         </div>
                         <div class="col-6">
-                            <label class="form-label-small">Categoría *</label>
-                            <select class="form-select form-select-sm" name="ID_Categoria" required>
+                            <label class="form-label-premium filter-label-premium required-star">Categoría</label>
+                            <select class="form-select form-select-premium" name="ID_Categoria" required>
                                 <option value="">Seleccionar</option>
                                 {% for cat in categorias %}
                                 <option value="{{ cat.id }}">{{ cat.nombre }}</option>
@@ -368,49 +363,49 @@
                     </div>
 
                     <!-- Precios y stock -->
-                    <div class="row g-2 mb-2">
+                    <div class="row g-3 mb-3">
                         <div class="col-4">
-                            <label class="form-label-small">Stock Inicial</label>
-                            <input type="number" class="form-control form-control-sm" name="Cantidad_Inicial" value="0"
+                            <label class="form-label-premium filter-label-premium">Stock Inicial</label>
+                            <input type="number" class="form-control form-control-premium" name="Cantidad_Inicial" value="0"
                                 step="0.01">
                         </div>
                         <div class="col-4">
-                            <label class="form-label-small">Stock Mínimo</label>
-                            <input type="number" class="form-control form-control-sm" name="Stock_Minimo" value="5"
+                            <label class="form-label-premium filter-label-premium">Stock Mínimo</label>
+                            <input type="number" class="form-control form-control-premium" name="Stock_Minimo" value="5"
                                 step="0.01">
                         </div>
                         <div class="col-4">
-                            <label class="form-label-small">Estado</label>
-                            <select class="form-select form-select-sm" name="Estado">
+                            <label class="form-label-premium filter-label-premium">Estado</label>
+                            <select class="form-select form-select-premium" name="Estado">
                                 <option value="activo">Activo</option>
                                 <option value="inactivo">Inactivo</option>
                             </select>
                         </div>
                     </div>
 
-                    <div class="row g-2 mb-2">
+                    <div class="row g-3 mb-3">
                         <div class="col-4">
-                            <label class="form-label-small">Precio Mercado</label>
-                            <input type="number" class="form-control form-control-sm" name="Precio_Mercado" value="0"
+                            <label class="form-label-premium filter-label-premium">Precio Mercado</label>
+                            <input type="number" class="form-control form-control-premium" name="Precio_Mercado" value="0"
                                 step="0.01">
                         </div>
                         <div class="col-4">
-                            <label class="form-label-small">Precio Mayorista</label>
-                            <input type="number" class="form-control form-control-sm" name="Precio_Mayorista" value="0"
+                            <label class="form-label-premium filter-label-premium">Precio Mayorista</label>
+                            <input type="number" class="form-control form-control-premium" name="Precio_Mayorista" value="0"
                                 step="0.01">
                         </div>
                         <div class="col-4">
-                            <label class="form-label-small">Precio Ruta</label>
-                            <input type="number" class="form-control form-control-sm" name="Precio_Ruta" value="0"
+                            <label class="form-label-premium filter-label-premium">Precio Ruta</label>
+                            <input type="number" class="form-control form-control-premium" name="Precio_Ruta" value="0"
                                 step="0.01">
                         </div>
                     </div>
 
                     <!-- Empresa y bodega -->
-                    <div class="row g-2 mb-2">
+                    <div class="row g-3">
                         <div class="col-6">
-                            <label class="form-label-small">Empresa *</label>
-                            <select class="form-select form-select-sm" name="ID_Empresa" id="empresaSelect" required>
+                            <label class="form-label-premium filter-label-premium required-star">Empresa</label>
+                            <select class="form-select form-select-premium" name="ID_Empresa" id="empresaSelect" required>
                                 <option value="">Seleccionar</option>
                                 {% for emp in empresas %}
                                 <option value="{{ emp.id }}">{{ emp.nombre }}</option>
@@ -418,17 +413,17 @@
                             </select>
                         </div>
                         <div class="col-6">
-                            <label class="form-label-small">Bodega *</label>
-                            <select class="form-select form-select-sm" name="ID_Bodega" id="bodegaSelect" required
+                            <label class="form-label-premium filter-label-premium required-star">Bodega</label>
+                            <select class="form-select form-select-premium" name="ID_Bodega" id="bodegaSelect" required
                                 disabled>
                                 <option value="">Primero seleccione empresa</option>
                             </select>
                         </div>
                     </div>
                 </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="submit" class="btn btn-primary btn-sm">Crear Producto</button>
+                <div class="modal-footer bg-light" style="border-radius: 0 0 16px 16px;">
+                    <button type="button" class="btn btn-secondary rounded-3" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary px-4 fw-bold rounded-3">Crear Producto</button>
                 </div>
             </form>
         </div>

@@ -1,150 +1,172 @@
 {% extends "layout.html" %}
 
-{% block title %}Inventario - {{ vendedor.NombreUsuario }}{% endblock %}
+{% block title %}Inventario - {{ vendedor.NombreUsuario }} - FerDel{% endblock %}
 
 {% block content %}
-<div class="container-fluid">
-    <!-- Navegación -->
-    <div class="mb-3">
-        <a href="{{ url_for('bodega.inventario_vendedores') }}" class="btn btn-secondary">
-            <i class="fas fa-arrow-left"></i> Volver
-        </a>
-        <a href="{{ url_for('bodega.historial_vendedor', id_usuario=vendedor.ID_Usuario) }}" class="btn btn-primary">
-            <i class="fas fa-history"></i> Ver Historial
-        </a>
+<div class="container-fluid py-4 fade-in-up">
+    <!-- Encabezado con navegación -->
+    <div class="historial-header d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+        <div>
+            <h3 class="fw-bold text-slate-800 mb-1">
+                <i class="fas fa-boxes text-primary me-2"></i>Inventario: {{ vendedor.NombreUsuario }}
+            </h3>
+            <p class="text-muted small mb-0">Detalle de existencias y control de mercancías del vendedor en ruta</p>
+        </div>
+        <div class="d-flex gap-2">
+            <a href="{{ url_for('bodega.historial_vendedor', id_usuario=vendedor.ID_Usuario) }}" class="btn btn-outline-primary btn-sm px-3 py-2 rounded-3">
+                <i class="fas fa-history me-1"></i> Ver Historial
+            </a>
+            <a href="{{ url_for('bodega.inventario_vendedores') }}" class="btn btn-outline-secondary btn-sm px-3 py-2 rounded-3">
+                <i class="fas fa-arrow-left me-1"></i> Volver a Vendedores
+            </a>
+        </div>
     </div>
 
     <!-- Datos del Vendedor -->
-    <div class="card mb-4">
-        <div class="card-header bg-primary text-white">
-            <h3 class="mb-0">
-                <i class="fas fa-boxes"></i> 
-                Inventario: {{ vendedor.NombreUsuario }}
-                <span class="badge badge-light float-right">Asignación #{{ vendedor.ID_Asignacion }}</span>
-            </h3>
-        </div>
-        <div class="card-body">
-            <div class="row">
-                <div class="col-md-3">
-                    <p><strong>Ruta:</strong> {{ vendedor.Nombre_Ruta or 'No asignada' }}</p>
+    <div class="card-premium-section mb-4">
+        <div class="card-body p-4">
+            <div class="d-flex justify-content-between align-items-center border-bottom border-light pb-3 mb-3">
+                <h5 class="fw-bold text-slate-800 mb-0">
+                    <i class="fas fa-user-circle text-primary me-2"></i>Ficha de Asignación
+                </h5>
+                <span class="badge bg-light text-dark border font-monospace">Asignación #{{ vendedor.ID_Asignacion }}</span>
+            </div>
+            
+            <div class="row g-3">
+                <div class="col-md-6 col-lg-3">
+                    <small class="text-muted d-block uppercase-detail">Ruta:</small>
+                    <strong class="text-slate-800">{{ vendedor.Nombre_Ruta or 'No asignada' }}</strong>
                 </div>
-                <div class="col-md-3">
-                    <p><strong>Vehículo:</strong> {{ vendedor.Vehiculo or 'No asignado' }}</p>
+                <div class="col-md-6 col-lg-3">
+                    <small class="text-muted d-block uppercase-detail">Vehículo:</small>
+                    <strong class="text-slate-800">{{ vendedor.Vehiculo or 'No asignado' }}</strong>
                 </div>
-                <div class="col-md-3">
-                    <p><strong>Horario:</strong> {{ vendedor.Hora_Inicio or '--:--' }} - {{ vendedor.Hora_Fin or '--:--' }}</p>
+                <div class="col-md-6 col-lg-3">
+                    <small class="text-muted d-block uppercase-detail">Horario:</small>
+                    <strong class="text-slate-800 font-monospace">{{ vendedor.Hora_Inicio or '--:--' }} a {{ vendedor.Hora_Fin or '--:--' }}</strong>
                 </div>
-                <div class="col-md-3">
-                    <p><strong>Asignado desde:</strong> {{ vendedor.Fecha_Asignacion.strftime('%d/%m/%Y') if vendedor.Fecha_Asignacion else 'N/A' }}</p>
+                <div class="col-md-6 col-lg-3">
+                    <small class="text-muted d-block uppercase-detail">Asignado desde:</small>
+                    <strong class="text-slate-800 font-monospace">{{ vendedor.Fecha_Asignacion.strftime('%d/%m/%Y') if vendedor.Fecha_Asignacion else 'N/A' }}</strong>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- KPIs -->
-    <div class="row mb-4">
+    <!-- KPIs de Existencias -->
+    {% if resumen %}
+    <div class="row mb-4 g-3">
         <div class="col-md-3">
-            <div class="card bg-primary text-white text-center">
-                <div class="card-body">
-                    <h6>Productos</h6>
-                    <h2>{{ resumen.Productos_Diferentes if resumen else 0 }}</h2>
+            <div class="card-premium-section border-start border-3 border-primary">
+                <div class="card-body p-3 text-center">
+                    <i class="fas fa-cubes text-primary fa-2x mb-2 opacity-75"></i>
+                    <h6 class="text-muted small mb-1">Productos Diferentes</h6>
+                    <h3 class="fw-bold text-slate-800 mb-0">{{ resumen.Productos_Diferentes|default(0)|int }}</h3>
                 </div>
             </div>
         </div>
         <div class="col-md-3">
-            <div class="card bg-success text-white text-center">
-                <div class="card-body">
-                    <h6>Unidades Totales</h6>
-                    <h2>{{ resumen.Total_Unidades|int if resumen else 0 }}</h2>
+            <div class="card-premium-section border-start border-3 border-success">
+                <div class="card-body p-3 text-center">
+                    <i class="fas fa-boxes text-success fa-2x mb-2 opacity-75"></i>
+                    <h6 class="text-muted small mb-1">Unidades Totales</h6>
+                    <h3 class="fw-bold text-slate-800 mb-0">{{ resumen.Total_Unidades|int|default(0) }}</h3>
                 </div>
             </div>
         </div>
         <div class="col-md-3">
-            <div class="card bg-info text-white text-center">
-                <div class="card-body">
-                    <h6>Valor Inventario</h6>
-                    <h2>C${{ "%.2f"|format(resumen.Valor_Inventario if resumen else 0) }}</h2>
+            <div class="card-premium-section border-start border-3 border-info">
+                <div class="card-body p-3 text-center">
+                    <i class="fas fa-wallet text-info fa-2x mb-2 opacity-75"></i>
+                    <h6 class="text-muted small mb-1">Valor Inventario</h6>
+                    <h3 class="fw-bold text-slate-800 mb-0 font-monospace">C$ {{ "%.2f"|format(resumen.Valor_Inventario|default(0)) }}</h3>
                 </div>
             </div>
         </div>
         <div class="col-md-3">
-            <div class="card bg-warning text-center">
-                <div class="card-body">
-                    <h6>Movimientos</h6>
-                    <h2>{{ total_movimientos }}</h2>
+            <div class="card-premium-section border-start border-3 border-warning">
+                <div class="card-body p-3 text-center">
+                    <i class="fas fa-history text-warning fa-2x mb-2 opacity-75"></i>
+                    <h6 class="text-muted small mb-1">Movimientos Totales</h6>
+                    <h3 class="fw-bold text-slate-800 mb-0">{{ total_movimientos|default(0)|int }}</h3>
                 </div>
             </div>
         </div>
     </div>
+    {% endif %}
 
     <!-- Tabla de Inventario -->
-    <div class="card">
-        <div class="card-header bg-dark text-white">
-            <h4 class="mb-0">Stock Actual en Ruta</h4>
+    <div class="card-premium-section mb-4">
+        <div class="card-header border-0 bg-transparent py-3">
+            <h5 class="fw-bold text-slate-800 mb-0">Existencias Actuales en Ruta</h5>
         </div>
-        <div class="card-body table-responsive">
+        <div class="card-body p-0">
             {% if inventario %}
-            <table class="table table-striped table-hover" id="tablaInventario">
-                <thead class="thead-light">
-                    <tr>
-                        <th>Código</th>
-                        <th>Producto</th>
-                        <th>Unidad</th>
-                        <th>Stock Actual</th>
-                        <th>Stock Mínimo</th>
-                        <th>Precio Venta</th>
-                        <th>Valor Total</th>
-                        <th>Última Actualización</th>
-                        <th>Estado</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for item in inventario %}
-                    <tr>
-                        <td><code>{{ item.COD_Producto }}</code></td>
-                        <td>{{ item.Producto }}</td>
-                        <td>{{ item.Unidad_Medida }}</td>
-                        <td>
-                            {% if item.Stock_Actual > item.Stock_Minimo * 2 %}
-                                <span class="badge badge-success font-size-100">{{ item.Stock_Actual|int }}</span>
-                            {% elif item.Stock_Actual > item.Stock_Minimo %}
-                                <span class="badge badge-warning font-size-100">{{ item.Stock_Actual|int }}</span>
-                            {% else %}
-                                <span class="badge badge-danger font-size-100">{{ item.Stock_Actual|int }}</span>
-                            {% endif %}
-                        </td>
-                        <td>{{ item.Stock_Minimo|int }}</td>
-                        <td>C${{ "%.2f"|format(item.Precio_Venta) }}</td>
-                        <td><strong>C${{ "%.2f"|format(item.Valor_Total) }}</strong></td>
-                        <td><small>{{ item.Fecha_Actualizacion.strftime('%d/%m/%Y %H:%M') if item.Fecha_Actualizacion else 'N/A' }}</small></td>
-                        <td>
-                            {% if item.Stock_Actual > item.Stock_Minimo * 2 %}
-                                <span class="badge badge-success">Abastecido</span>
-                            {% elif item.Stock_Actual > item.Stock_Minimo %}
-                                <span class="badge badge-warning">Medio</span>
-                            {% else %}
-                                <span class="badge badge-danger">Crítico</span>
-                            {% endif %}
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-                <tfoot class="bg-light font-weight-bold">
-                    <tr>
-                        <td colspan="3">Totales:</td>
-                        <td>{{ inventario|sum(attribute='Stock_Actual')|int }}</td>
-                        <td></td>
-                        <td></td>
-                        <td>C${{ "%.2f"|format(inventario|sum(attribute='Valor_Total')) }}</td>
-                        <td colspan="2"></td>
-                    </tr>
-                </tfoot>
-            </table>
+            <div class="table-responsive">
+                <table class="table table-hover table-modern align-middle mb-0" id="tablaInventario">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Código</th>
+                            <th>Producto</th>
+                            <th>Unidad</th>
+                            <th>Stock Actual</th>
+                            <th>Stock Mínimo</th>
+                            <th>Precio Venta</th>
+                            <th>Valor Total</th>
+                            <th>Última Actualización</th>
+                            <th>Estado</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in inventario %}
+                        <tr>
+                            <td><code class="font-monospace bg-light text-dark border px-2 py-1 rounded small">{{ item.COD_Producto }}</code></td>
+                            <td><strong class="text-slate-800">{{ item.Producto }}</strong></td>
+                            <td class="text-muted small">{{ item.Unidad_Medida }}</td>
+                            <td>
+                                {% if item.Stock_Actual > item.Stock_Minimo * 2 %}
+                                    <span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 rounded-pill px-2.5 py-1.5 fw-bold">{{ item.Stock_Actual|int }}</span>
+                                {% elif item.Stock_Actual > item.Stock_Minimo %}
+                                    <span class="badge bg-warning bg-opacity-10 text-warning border border-warning border-opacity-25 rounded-pill px-2.5 py-1.5 fw-bold">{{ item.Stock_Actual|int }}</span>
+                                {% else %}
+                                    <span class="badge bg-danger bg-opacity-10 text-danger border border-danger border-opacity-25 rounded-pill px-2.5 py-1.5 fw-bold">{{ item.Stock_Actual|int }}</span>
+                                {% endif %}
+                            </td>
+                            <td class="font-monospace text-slate-800">{{ item.Stock_Minimo|int }}</td>
+                            <td class="font-monospace text-slate-800">C$ {{ "%.2f"|format(item.Precio_Venta) }}</td>
+                            <td><strong class="text-primary font-monospace">C$ {{ "%.2f"|format(item.Valor_Total) }}</strong></td>
+                            <td class="font-monospace small text-muted">
+                                {{ item.Fecha_Actualizacion.strftime('%d/%m/%Y %H:%M') if item.Fecha_Actualizacion else 'N/A' }}
+                            </td>
+                            <td>
+                                {% if item.Stock_Actual > item.Stock_Minimo * 2 %}
+                                    <span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 rounded-pill px-2.5 py-1.5 fw-bold">Abastecido</span>
+                                {% elif item.Stock_Actual > item.Stock_Minimo %}
+                                    <span class="badge bg-warning bg-opacity-10 text-warning border border-warning border-opacity-25 rounded-pill px-2.5 py-1.5 fw-bold">Medio</span>
+                                {% else %}
+                                    <span class="badge bg-danger bg-opacity-10 text-danger border border-danger border-opacity-25 rounded-pill px-2.5 py-1.5 fw-bold">Crítico</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                    <tfoot class="table-light">
+                        <tr class="fw-bold">
+                            <td colspan="3" class="text-end text-slate-800">Totales:</td>
+                            <td class="text-slate-800">{{ inventario|sum(attribute='Stock_Actual')|int }}</td>
+                            <td></td>
+                            <td></td>
+                            <td class="text-primary font-monospace">C$ {{ "%.2f"|format(inventario|sum(attribute='Valor_Total')) }}</td>
+                            <td colspan="2"></td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
             {% else %}
             <div class="text-center py-5">
-                <i class="fas fa-box-open fa-4x text-muted mb-3"></i>
-                <h5>Sin inventario</h5>
-                <p>Este vendedor no tiene productos asignados en su ruta actual.</p>
+                <i class="fas fa-box-open text-muted fa-4x mb-3"></i>
+                <h5 class="fw-bold text-slate-800">Sin existencias asignadas</h5>
+                <p class="text-muted small">Este vendedor no cuenta con stock o productos cargados en su ruta actual.</p>
             </div>
             {% endif %}
         </div>

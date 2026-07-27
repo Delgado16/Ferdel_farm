@@ -3,185 +3,190 @@
 {% block title %}Detalle Cliente: {{ cliente.Nombre }}{% endblock %}
 
 {% block content %}
-<div class="container-fluid py-4">
+<div class="container-fluid py-4 fade-in-up">
     <!-- Encabezado -->
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <h1>
-            <i class="fas fa-user"></i> {{ cliente.Nombre }}
-        </h1>
+    <div class="historial-header d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4 no-print">
         <div>
-            <a href="{{ url_for('admin.admin_editar_cliente', id=cliente.ID_Cliente) }}" class="btn btn-warning me-2">
-                <i class="fas fa-edit"></i> Editar
+            <h3 class="fw-bold text-slate-800 mb-1">
+                <i class="fas fa-user text-primary me-2"></i>{{ cliente.Nombre }}
+            </h3>
+            <p class="text-muted small mb-0">Detalle del expediente del cliente, saldos, abonos e historial transaccional</p>
+        </div>
+        <div>
+            <a href="{{ url_for('admin.admin_editar_cliente', id=cliente.ID_Cliente) }}" class="btn btn-outline-warning btn-sm px-3 py-2 rounded-3 me-2">
+                <i class="fas fa-edit me-1"></i> Editar
             </a>
-            <a href="{{ url_for('admin.admin_clientes') }}" class="btn btn-outline-secondary">
-                <i class="fas fa-arrow-left"></i> Volver
+            <a href="{{ url_for('admin.admin_clientes') }}" class="btn btn-outline-secondary btn-sm px-3 py-2 rounded-3">
+                <i class="fas fa-arrow-left me-1"></i> Volver
             </a>
         </div>
     </div>
 
     <!-- KPIs Cards -->
-    <div class="row mb-4">
+    <div class="row g-3 mb-4">
         <div class="col-md-3">
-            <div class="card bg-info text-white shadow-sm">
-                <div class="card-body">
-                    <h5 class="card-title">Saldo Pendiente</h5>
-                    <h2 class="mb-0">C$ {{ "{:,.2f}".format(stats.saldo_total) }}</h2>
-                </div>
+            <div class="card-premium-section p-3 border-start border-3 border-info">
+                <small class="text-muted fw-bold d-block mb-1">SALDO PENDIENTE</small>
+                <h3 class="fw-bold text-slate-800 mb-0 font-monospace">C$ {{ "{:,.2f}".format(stats.saldo_total) }}</h3>
             </div>
         </div>
         <div class="col-md-3">
-            <div class="card bg-danger text-white shadow-sm">
-                <div class="card-body">
-                    <h5 class="card-title">Monto Vencido</h5>
-                    <h2 class="mb-0">C$ {{ "{:,.2f}".format(stats.monto_vencido) }}</h2>
-                    <small>{{ stats.facturas_vencidas }} facturas vencidas</small>
-                </div>
+            <div class="card-premium-section p-3 border-start border-3 border-danger">
+                <small class="text-muted fw-bold d-block mb-1">MONTO VENCIDO</small>
+                <h3 class="fw-bold text-danger mb-0 font-monospace">C$ {{ "{:,.2f}".format(stats.monto_vencido) }}</h3>
+                <span class="text-muted small">{{ stats.facturas_vencidas }} facturas vencidas</span>
             </div>
         </div>
         <div class="col-md-3">
-            <div class="card bg-success text-white shadow-sm">
-                <div class="card-body">
-                    <h5 class="card-title">Total Ventas</h5>
-                    <h2 class="mb-0">C$ {{ "{:,.2f}".format(stats.total_ventas) }}</h2>
-                    <small>Histórico de compras</small>
-                </div>
+            <div class="card-premium-section p-3 border-start border-3 border-success">
+                <small class="text-muted fw-bold d-block mb-1">TOTAL VENTAS</small>
+                <h3 class="fw-bold text-success mb-0 font-monospace">C$ {{ "{:,.2f}".format(stats.total_ventas) }}</h3>
+                <span class="text-muted small">Histórico de compras</span>
             </div>
         </div>
         <div class="col-md-3">
-            <div class="card bg-warning text-white shadow-sm">
-                <div class="card-body">
-                    <h5 class="card-title">Último Año</h5>
-                    <h2 class="mb-0">C$ {{ "{:,.2f}".format(stats.total_ultimo_anio) }}</h2>
-                    <small>Compras últimos 12 meses</small>
-                </div>
+            <div class="card-premium-section p-3 border-start border-3 border-warning">
+                <small class="text-muted fw-bold d-block mb-1">ÚLTIMO AÑO</small>
+                <h3 class="fw-bold text-warning mb-0 font-monospace">C$ {{ "{:,.2f}".format(stats.total_ultimo_anio) }}</h3>
+                <span class="text-muted small">Últimos 12 meses</span>
             </div>
         </div>
     </div>
 
     <!-- Último Abono -->
     {% if ultimo_abono %}
-    <div class="card mb-4 shadow-sm border-success">
-        <div class="card-header bg-success text-white">
-            <h5 class="mb-0"><i class="fas fa-hand-holding-usd"></i> Último Abono Registrado</h5>
+    <div class="card-premium-section mb-4 border-start border-3 border-success">
+        <div class="card-premium-header py-3 px-4 border-bottom-0 pb-0">
+            <h5 class="fw-bold text-slate-800 mb-0">
+                <i class="fas fa-hand-holding-usd text-success me-2"></i>Último Abono Registrado
+            </h5>
         </div>
-        <div class="card-body">
-            <div class="row">
-                <div class="col-md-3 mb-2">
-                    <strong>Fecha:</strong><br>
-                    <span class="fs-5">{{ ultimo_abono.Fecha.strftime('%d/%m/%Y %H:%M') if ultimo_abono.Fecha else 'N/A' }}</span>
+        <div class="card-body p-4">
+            <div class="row g-3">
+                <div class="col-md-3">
+                    <span class="text-muted small d-block mb-1">Fecha:</span>
+                    <span class="fw-bold text-slate-800">{{ ultimo_abono.Fecha.strftime('%d/%m/%Y %H:%M') if ultimo_abono.Fecha else 'N/A' }}</span>
                 </div>
-                <div class="col-md-3 mb-2">
-                    <strong>Monto Abonado:</strong><br>
-                    <span class="fs-4 text-success fw-bold">C$ {{ "{:,.2f}".format(ultimo_abono.Monto_Aplicado) }}</span>
+                <div class="col-md-3">
+                    <span class="text-muted small d-block mb-1">Monto Abonado:</span>
+                    <span class="fw-bold text-success fs-5 font-monospace">C$ {{ "{:,.2f}".format(ultimo_abono.Monto_Aplicado) }}</span>
                 </div>
-                <div class="col-md-3 mb-2">
-                    <strong>Método de Pago:</strong><br>
-                    <span class="badge bg-info fs-6">{{ ultimo_abono.Metodo_Pago or 'N/A' }}</span>
+                <div class="col-md-3">
+                    <span class="text-muted small d-block mb-1">Método de Pago:</span>
+                    <span class="badge bg-info bg-opacity-10 text-info border border-info border-opacity-25 rounded-pill px-2.5 py-1.5 fw-bold">{{ ultimo_abono.Metodo_Pago or 'N/A' }}</span>
                 </div>
-                <div class="col-md-3 mb-2">
-                    <strong>Vendedor / Ruta:</strong><br>
-                    <small>{{ ultimo_abono.Vendedor or 'N/A' }} - {{ ultimo_abono.Ruta or 'N/A' }}</small>
+                <div class="col-md-3">
+                    <span class="text-muted small d-block mb-1">Vendedor / Ruta:</span>
+                    <span class="text-slate-800 small">{{ ultimo_abono.Vendedor or 'N/A' }} - {{ ultimo_abono.Ruta or 'N/A' }}</span>
                 </div>
             </div>
-            <div class="row mt-2">
+            <div class="row mt-2 g-3">
                 <div class="col-md-4">
-                    <strong>Documento asociado:</strong><br>
-                    {{ ultimo_abono.Documento or 'N/A' }}
+                    <span class="text-muted small d-block mb-1">Documento asociado:</span>
+                    <span class="text-slate-800 small">{{ ultimo_abono.Documento or 'N/A' }}</span>
                 </div>
                 <div class="col-md-4">
-                    <strong>Saldo Anterior:</strong><br>
-                    C$ {{ "{:,.2f}".format(ultimo_abono.Saldo_Anterior) }}
+                    <span class="text-muted small d-block mb-1">Saldo Anterior:</span>
+                    <span class="text-slate-800 small font-monospace">C$ {{ "{:,.2f}".format(ultimo_abono.Saldo_Anterior) }}</span>
                 </div>
                 <div class="col-md-4">
-                    <strong>Saldo Nuevo:</strong><br>
-                    C$ {{ "{:,.2f}".format(ultimo_abono.Saldo_Nuevo) }}
+                    <span class="text-muted small d-block mb-1">Saldo Nuevo:</span>
+                    <span class="text-slate-800 small font-monospace">C$ {{ "{:,.2f}".format(ultimo_abono.Saldo_Nuevo) }}</span>
                 </div>
             </div>
         </div>
     </div>
     {% else %}
-    <div class="card mb-4 shadow-sm">
-        <div class="card-header bg-secondary text-white">
-            <h5 class="mb-0"><i class="fas fa-hand-holding-usd"></i> Último Abono</h5>
+    <div class="card-premium-section mb-4">
+        <div class="card-premium-header py-3 px-4 border-bottom-0 pb-0">
+            <h5 class="fw-bold text-slate-800 mb-0">
+                <i class="fas fa-hand-holding-usd text-secondary me-2"></i>Último Abono
+            </h5>
         </div>
-        <div class="card-body text-center">
+        <div class="card-body p-4 text-center">
             <p class="text-muted mb-0">No hay abonos registrados para este cliente</p>
         </div>
     </div>
     {% endif %}
 
     <!-- Información del cliente -->
-    <div class="card mb-4 shadow-sm">
-        <div class="card-header bg-light">
-            <h5 class="mb-0"><i class="fas fa-info-circle"></i> Información del Cliente</h5>
+    <div class="card-premium-section mb-4">
+        <div class="card-premium-header py-3 px-4 border-bottom-0 pb-0">
+            <h5 class="fw-bold text-slate-800 mb-0">
+                <i class="fas fa-info-circle text-primary me-2"></i>Información del Cliente
+            </h5>
         </div>
-        <div class="card-body">
-            <div class="row">
-                <div class="col-md-3 mb-3">
-                    <strong>RUC/Cédula:</strong><br>
-                    {{ cliente.RUC_CEDULA or 'N/A' }}
+        <div class="card-body p-4">
+            <div class="row g-3">
+                <div class="col-md-3">
+                    <span class="text-muted small d-block mb-1">RUC/Cédula:</span>
+                    <span class="fw-bold text-slate-800 font-monospace">{{ cliente.RUC_CEDULA or 'N/A' }}</span>
                 </div>
-                <div class="col-md-3 mb-3">
-                    <strong>Teléfono:</strong><br>
-                    {{ cliente.Telefono or 'N/A' }}
-                </div>
-                <div class="col-md-3 mb-3">
-                    <strong>Ruta:</strong><br>
-                    {{ cliente.Nombre_Ruta or 'N/A' }}
-                </div>
-                <div class="col-md-3 mb-3">
-                    <strong>Estado:</strong><br>
-                    {% if cliente.Estado == 'ACTIVO' %}
-                        <span class="badge bg-success">ACTIVO</span>
+                <div class="col-md-3">
+                    <span class="text-muted small d-block mb-1">Teléfono:</span>
+                    {% if cliente.Telefono %}
+                        <a href="tel:{{ cliente.Telefono }}" class="text-decoration-none fw-bold text-primary">
+                            <i class="fas fa-phone-alt me-1 text-secondary"></i> {{ cliente.Telefono }}
+                        </a>
                     {% else %}
-                        <span class="badge bg-danger">INACTIVO</span>
+                        <span class="text-muted font-monospace">N/A</span>
                     {% endif %}
+                </div>
+                <div class="col-md-3">
+                    <span class="text-muted small d-block mb-1">Ruta:</span>
+                    <span class="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25 rounded-pill px-2.5 py-1.5 fw-bold">{{ cliente.Nombre_Ruta or 'N/A' }}</span>
+                </div>
+                <div class="col-md-3">
+                    <span class="text-muted small d-block mb-1">Estado:</span>
+                    <span class="badge {% if cliente.Estado == 'ACTIVO' %}bg-success bg-opacity-10 text-success border border-success border-opacity-25{% else %}bg-danger bg-opacity-10 text-danger border border-danger border-opacity-25{% endif %} rounded-pill px-2.5 py-1.5 fw-bold">
+                        {{ cliente.Estado }}
+                    </span>
                 </div>
             </div>
-            <div class="row">
-                <div class="col-md-3 mb-3">
-                    <strong>Tipo Cliente:</strong><br>
-                    <span class="badge bg-secondary">{{ cliente.tipo_cliente }}</span>
+            <div class="row mt-3 g-3">
+                <div class="col-md-3">
+                    <span class="text-muted small d-block mb-1">Tipo Cliente:</span>
+                    <span class="badge bg-secondary bg-opacity-10 text-secondary border border-secondary border-opacity-25 rounded-pill px-2.5 py-1.5 fw-bold">{{ cliente.tipo_cliente }}</span>
                 </div>
-                <div class="col-md-3 mb-3">
-                    <strong>Perfil:</strong><br>
-                    <span class="badge bg-info">{{ cliente.perfil_cliente }}</span>
+                <div class="col-md-3">
+                    <span class="text-muted small d-block mb-1">Perfil:</span>
+                    <span class="badge bg-info bg-opacity-10 text-info border border-info border-opacity-25 rounded-pill px-2.5 py-1.5 fw-bold">{{ cliente.perfil_cliente }}</span>
                 </div>
-                <div class="col-md-3 mb-3">
-                    <strong>Anticipo Activo:</strong><br>
-                    {% if cliente.Anticipo_Activo %}
-                        <span class="badge bg-success">SÍ</span>
-                    {% else %}
-                        <span class="badge bg-secondary">NO</span>
-                    {% endif %}
+                <div class="col-md-3">
+                    <span class="text-muted small d-block mb-1">Anticipo Activo:</span>
+                    <span class="badge {% if cliente.Anticipo_Activo %}bg-success bg-opacity-10 text-success border border-success border-opacity-25{% else %}bg-secondary bg-opacity-10 text-secondary border border-secondary border-opacity-25{% endif %} rounded-pill px-2.5 py-1.5 fw-bold">
+                        {{ 'SÍ' if cliente.Anticipo_Activo else 'NO' }}
+                    </span>
                 </div>
-                <div class="col-md-3 mb-3">
-                    <strong>Fecha Creación:</strong><br>
-                    {{ cliente.Fecha_Creacion.strftime('%d/%m/%Y %H:%M') if cliente.Fecha_Creacion else 'N/A' }}
+                <div class="col-md-3">
+                    <span class="text-muted small d-block mb-1">Fecha Creación:</span>
+                    <span class="text-slate-800 small">{{ cliente.Fecha_Creacion.strftime('%d/%m/%Y %H:%M') if cliente.Fecha_Creacion else 'N/A' }}</span>
                 </div>
             </div>
             {% if cliente.Direccion %}
-            <div class="row">
+            <div class="row mt-3">
                 <div class="col-md-12">
-                    <strong>Dirección:</strong><br>
-                    {{ cliente.Direccion }}
+                    <span class="text-muted small d-block mb-1">Dirección:</span>
+                    <span class="text-slate-800 small">{{ cliente.Direccion }}</span>
                 </div>
             </div>
             {% endif %}
         </div>
     </div>
 
-    <div class="row">
+    <div class="row g-4">
         <!-- Cuentas por Cobrar Pendientes -->
-        <div class="col-md-6 mb-4">
-            <div class="card h-100 shadow-sm">
-                <div class="card-header bg-light">
-                    <h5 class="mb-0"><i class="fas fa-file-invoice"></i> Cuentas por Cobrar</h5>
+        <div class="col-md-6">
+            <div class="card-premium-section h-100">
+                <div class="card-premium-header py-3 px-4 border-bottom-0 pb-0">
+                    <h5 class="fw-bold text-slate-800 mb-0">
+                        <i class="fas fa-file-invoice text-primary me-2"></i>Cuentas por Cobrar
+                    </h5>
                 </div>
-                <div class="card-body">
+                <div class="card-body p-4">
                     {% if cuentas_pendientes %}
                     <div class="table-responsive">
-                        <table class="table table-sm table-hover">
+                        <table class="table table-hover table-modern align-middle mb-0">
                             <thead class="table-light">
                                 <tr>
                                     <th>N° Documento</th>
@@ -193,28 +198,28 @@
                             </thead>
                             <tbody>
                                 {% for cuenta in cuentas_pendientes %}
-                                <tr class="table-{{ cuenta.Color_Estado }}">
-                                    <td>{{ cuenta.Num_Documento or 'N/A' }}</td>
+                                <tr>
+                                    <td class="font-monospace small fw-bold">{{ cuenta.Num_Documento or 'N/A' }}</td>
                                     <td>
                                         {% if cuenta.Fecha_Vencimiento %}
                                             {% if cuenta.Estado == 'Vencida' %}
-                                                <span class="text-danger">{{ cuenta.Fecha_Vencimiento.strftime('%d/%m/%Y') }}</span>
+                                                <span class="text-danger fw-bold font-monospace">{{ cuenta.Fecha_Vencimiento.strftime('%d/%m/%Y') }}</span>
                                             {% else %}
-                                                {{ cuenta.Fecha_Vencimiento.strftime('%d/%m/%Y') }}
+                                                <span class="font-monospace">{{ cuenta.Fecha_Vencimiento.strftime('%d/%m/%Y') }}</span>
                                             {% endif %}
                                         {% else %}
-                                            N/A
+                                            <span class="text-muted small">-</span>
                                         {% endif %}
                                     </td>
-                                    <td>C$ {{ "{:,.2f}".format(cuenta.Monto_Movimiento) }}</td>
-                                    <td>C$ {{ "{:,.2f}".format(cuenta.Saldo_Pendiente) }}</td>
+                                    <td class="font-monospace text-slate-800">C$ {{ "{:,.2f}".format(cuenta.Monto_Movimiento) }}</td>
+                                    <td class="font-monospace fw-bold text-danger">C$ {{ "{:,.2f}".format(cuenta.Saldo_Pendiente) }}</td>
                                     <td>
                                         {% if cuenta.Estado == 'Vencida' %}
-                                            <span class="badge bg-danger">Vencida</span>
+                                            <span class="badge bg-danger bg-opacity-10 text-danger border border-danger border-opacity-25 rounded-pill px-2.5 py-1.5 fw-bold">Vencida</span>
                                         {% elif cuenta.Estado == 'Pendiente' %}
-                                            <span class="badge bg-warning">Pendiente</span>
+                                            <span class="badge bg-warning bg-opacity-10 text-warning border border-warning border-opacity-25 rounded-pill px-2.5 py-1.5 fw-bold">Pendiente</span>
                                         {% else %}
-                                            <span class="badge bg-secondary">{{ cuenta.Estado }}</span>
+                                            <span class="badge bg-secondary bg-opacity-10 text-secondary border border-secondary border-opacity-25 rounded-pill px-2.5 py-1.5 fw-bold">{{ cuenta.Estado }}</span>
                                         {% endif %}
                                     </td>
                                 </tr>
@@ -223,63 +228,63 @@
                         </table>
                     </div>
                     {% else %}
-                    <p class="text-muted text-center">No hay cuentas pendientes</p>
+                    <p class="text-muted text-center py-4 mb-0">No hay cuentas pendientes</p>
                     {% endif %}
                 </div>
             </div>
         </div>
 
         <!-- Antigüedad de Saldos -->
-        <div class="col-md-6 mb-4">
-            <div class="card h-100 shadow-sm">
-                <div class="card-header bg-light">
-                    <h5 class="mb-0"><i class="fas fa-chart-line"></i> Antigüedad de Saldos</h5>
+        <div class="col-md-6">
+            <div class="card-premium-section h-100">
+                <div class="card-premium-header py-3 px-4 border-bottom-0 pb-0">
+                    <h5 class="fw-bold text-slate-800 mb-0">
+                        <i class="fas fa-chart-line text-primary me-2"></i>Antigüedad de Saldos
+                    </h5>
                 </div>
-                <div class="card-body">
-                    <div class="row text-center">
-                        <div class="col-md-2 col-6 mb-3">
-                            <div class="border rounded p-2">
-                                <small class="text-muted">0-30 días</small>
-                                <h6 class="text-info mb-0">C$ {{ "{:,.0f}".format(aging.Rango_0_30) }}</h6>
+                <div class="card-body p-4">
+                    <div class="row g-2 text-center">
+                        <div class="col-md-2 col-6">
+                            <div class="border rounded-3 p-2 bg-light bg-opacity-50">
+                                <small class="text-muted small d-block mb-1">0-30 días</small>
+                                <h6 class="text-info fw-bold mb-0 font-monospace">C$ {{ "{:,.0f}".format(aging.Rango_0_30) }}</h6>
                             </div>
                         </div>
-                        <div class="col-md-2 col-6 mb-3">
-                            <div class="border rounded p-2">
-                                <small class="text-muted">31-60 días</small>
-                                <h6 class="text-info mb-0">C$ {{ "{:,.0f}".format(aging.Rango_31_60) }}</h6>
+                        <div class="col-md-2 col-6">
+                            <div class="border rounded-3 p-2 bg-light bg-opacity-50">
+                                <small class="text-muted small d-block mb-1">31-60 días</small>
+                                <h6 class="text-info fw-bold mb-0 font-monospace">C$ {{ "{:,.0f}".format(aging.Rango_31_60) }}</h6>
                             </div>
                         </div>
-                        <div class="col-md-2 col-6 mb-3">
-                            <div class="border rounded p-2">
-                                <small class="text-muted">61-90 días</small>
-                                <h6 class="text-warning mb-0">C$ {{ "{:,.0f}".format(aging.Rango_61_90) }}</h6>
+                        <div class="col-md-2 col-6">
+                            <div class="border rounded-3 p-2 bg-light bg-opacity-50">
+                                <small class="text-muted small d-block mb-1">61-90 días</small>
+                                <h6 class="text-warning fw-bold mb-0 font-monospace">C$ {{ "{:,.0f}".format(aging.Rango_61_90) }}</h6>
                             </div>
                         </div>
-                        <div class="col-md-3 col-6 mb-3">
-                            <div class="border rounded p-2 bg-danger text-white">
-                                <small>Vencido</small>
-                                <h6 class="mb-0">C$ {{ "{:,.0f}".format(aging.Vencido) }}</h6>
+                        <div class="col-md-3 col-6">
+                            <div class="bg-danger bg-opacity-10 text-danger border border-danger border-opacity-25 rounded-3 p-2">
+                                <small class="fw-bold small d-block mb-1">Vencido</small>
+                                <h6 class="fw-bold mb-0 font-monospace">C$ {{ "{:,.0f}".format(aging.Vencido) }}</h6>
                             </div>
                         </div>
-                        <div class="col-md-3 col-6 mb-3">
-                            <div class="border rounded p-2">
-                                <small class="text-muted">90+ días</small>
-                                <h6 class="text-danger mb-0">C$ {{ "{:,.0f}".format(aging.Mas_90) }}</h6>
+                        <div class="col-md-3 col-6">
+                            <div class="border rounded-3 p-2 bg-light bg-opacity-50">
+                                <small class="text-muted small d-block mb-1">90+ días</small>
+                                <h6 class="text-danger fw-bold mb-0 font-monospace">C$ {{ "{:,.0f}".format(aging.Mas_90) }}</h6>
                             </div>
                         </div>
                     </div>
                     {% set total_aging = aging.Rango_0_30 + aging.Rango_31_60 + aging.Rango_61_90 + aging.Vencido + aging.Mas_90 %}
                     {% if total_aging > 0 %}
-                    <div class="progress mt-3" style="height: 20px;">
-                        <div class="progress-bar bg-info" style="width: {{ (aging.Rango_0_30 / total_aging * 100)|round }}%">
-                            {{ (aging.Rango_0_30 / total_aging * 100)|round|int if (aging.Rango_0_30 / total_aging * 100) > 10 else '' }}%
-                        </div>
+                    <div class="progress mt-4 rounded-pill" style="height: 12px;">
+                        <div class="progress-bar bg-info" style="width: {{ (aging.Rango_0_30 / total_aging * 100)|round }}%"></div>
                         <div class="progress-bar bg-primary" style="width: {{ (aging.Rango_31_60 / total_aging * 100)|round }}%"></div>
                         <div class="progress-bar bg-warning" style="width: {{ (aging.Rango_61_90 / total_aging * 100)|round }}%"></div>
                         <div class="progress-bar bg-danger" style="width: {{ ((aging.Vencido + aging.Mas_90) / total_aging * 100)|round }}%"></div>
                     </div>
-                    <div class="mt-2 text-center">
-                        <small class="text-muted">Total adeudado: C$ {{ "{:,.2f}".format(total_aging) }}</small>
+                    <div class="mt-3 text-center">
+                        <small class="text-muted fw-bold">Total adeudado: <span class="text-danger font-monospace">C$ {{ "{:,.2f}".format(total_aging) }}</span></small>
                     </div>
                     {% endif %}
                 </div>
@@ -289,50 +294,44 @@
 
     <!-- Anticipos Activos con Barra de Progreso -->
     {% if anticipos %}
-    <div class="card mb-4 shadow-sm">
-        <div class="card-header bg-light">
-            <h5 class="mb-0"><i class="fas fa-gift"></i> Anticipos Activos</h5>
+    <div class="card-premium-section mb-4">
+        <div class="card-premium-header py-3 px-4 border-bottom-0 pb-0">
+            <h5 class="fw-bold text-slate-800 mb-0">
+                <i class="fas fa-gift text-primary me-2"></i>Anticipos Activos
+            </h5>
         </div>
-        <div class="card-body">
+        <div class="card-body p-4">
             {% for anticipo in anticipos %}
-            <div class="card mb-3 border-{{ 'danger' if anticipo.Fecha_Vencimiento and anticipo.Fecha_Vencimiento < today else 'success' }}">
-                <div class="card-body">
-                    <div class="row">
+            <div class="card-premium-section mb-3 border-start border-3 {% if anticipo.Fecha_Vencimiento and anticipo.Fecha_Vencimiento < today %}border-danger{% else %}border-success{% endif %}">
+                <div class="card-body p-3">
+                    <div class="row g-3 align-items-center">
                         <div class="col-md-4">
-                            <strong><i class="fas fa-box"></i> Producto:</strong><br>
-                            <span class="fs-5">{{ anticipo.Producto }}</span>
-                            <br>
-                            <small class="text-muted">Código: {{ anticipo.COD_Producto or 'N/A' }}</small>
+                            <span class="text-muted small d-block mb-1"><i class="fas fa-box me-1"></i> Producto:</span>
+                            <span class="fw-bold text-slate-800">{{ anticipo.Producto }}</span>
+                            <small class="text-muted d-block small">Código: {{ anticipo.COD_Producto or 'N/A' }}</small>
                         </div>
                         <div class="col-md-2">
-                            <strong><i class="fas fa-cubes"></i> Cajas:</strong><br>
-                            <span class="badge bg-primary fs-6">{{ anticipo.Cantidad_Cajas }}</span>
-                            <br>
-                            <small>Total cajas</small>
+                            <span class="text-muted small d-block mb-1"><i class="fas fa-cubes me-1"></i> Cajas:</span>
+                            <span class="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25 rounded-pill px-2.5 py-1.5 fw-bold">{{ anticipo.Cantidad_Cajas }}</span>
                         </div>
                         <div class="col-md-2">
-                            <strong><i class="fas fa-check-circle"></i> Consumidas:</strong><br>
-                            <span class="badge bg-success fs-6">{{ anticipo.Cajas_Consumidas }}</span>
-                            <br>
-                            <small>{{ anticipo.Porcentaje_Consumido }}% usado</small>
+                            <span class="text-muted small d-block mb-1"><i class="fas fa-check-circle me-1"></i> Consumidas:</span>
+                            <span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 rounded-pill px-2.5 py-1.5 fw-bold">{{ anticipo.Cajas_Consumidas }}</span>
                         </div>
                         <div class="col-md-2">
-                            <strong><i class="fas fa-clock"></i> Restantes:</strong><br>
-                            <span class="badge bg-warning fs-6">{{ anticipo.Cajas_Restantes }}</span>
-                            <br>
-                            <small>{{ anticipo.Porcentaje_Restante }}% disponible</small>
+                            <span class="text-muted small d-block mb-1"><i class="fas fa-clock me-1"></i> Restantes:</span>
+                            <span class="badge bg-warning bg-opacity-10 text-warning border border-warning border-opacity-25 rounded-pill px-2.5 py-1.5 fw-bold">{{ anticipo.Cajas_Restantes }}</span>
                         </div>
                         <div class="col-md-2">
-                            <strong><i class="fas fa-calendar-alt"></i> Vencimiento:</strong><br>
+                            <span class="text-muted small d-block mb-1"><i class="fas fa-calendar-alt me-1"></i> Vencimiento:</span>
                             {% if anticipo.Fecha_Vencimiento %}
                                 {% if anticipo.Fecha_Vencimiento < today %}
-                                    <span class="badge bg-danger">{{ anticipo.Fecha_Vencimiento.strftime('%d/%m/%Y') }}</span>
-                                    <small>(Vencido)</small>
+                                    <span class="badge bg-danger bg-opacity-10 text-danger border border-danger border-opacity-25 rounded-pill px-2.5 py-1.5 fw-bold">{{ anticipo.Fecha_Vencimiento.strftime('%d/%m/%Y') }} (Vencido)</span>
                                 {% else %}
-                                    <span class="badge bg-info">{{ anticipo.Fecha_Vencimiento.strftime('%d/%m/%Y') }}</span>
+                                    <span class="badge bg-info bg-opacity-10 text-info border border-info border-opacity-25 rounded-pill px-2.5 py-1.5 fw-bold">{{ anticipo.Fecha_Vencimiento.strftime('%d/%m/%Y') }}</span>
                                 {% endif %}
                             {% else %}
-                                <span class="badge bg-secondary">Sin fecha</span>
+                                <span class="badge bg-secondary bg-opacity-10 text-secondary border border-secondary border-opacity-25 rounded-pill px-2.5 py-1.5 fw-bold">Sin fecha</span>
                             {% endif %}
                         </div>
                     </div>
@@ -340,39 +339,36 @@
                     <!-- Barra de progreso -->
                     <div class="row mt-3">
                         <div class="col-md-12">
-                            <div class="progress" style="height: 35px;">
+                            <div class="progress rounded-pill" style="height: 24px;">
                                 <div class="progress-bar bg-success progress-bar-striped progress-bar-animated" 
                                      role="progressbar" 
                                      style="width: {{ anticipo.Porcentaje_Consumido }}%"
                                      title="Consumidas: {{ anticipo.Cajas_Consumidas }} de {{ anticipo.Cantidad_Cajas }} cajas">
-                                    <strong>✓ {{ anticipo.Porcentaje_Consumido }}% Consumidas</strong>
+                                    <span class="fw-bold small px-2">{{ anticipo.Porcentaje_Consumido }}% Usado</span>
                                 </div>
                                 <div class="progress-bar bg-warning" 
                                      role="progressbar" 
                                      style="width: {{ anticipo.Porcentaje_Restante }}%"
                                      title="Restantes: {{ anticipo.Cajas_Restantes }} de {{ anticipo.Cantidad_Cajas }} cajas">
-                                    <strong>📦 {{ anticipo.Porcentaje_Restante }}% Disponibles</strong>
+                                    <span class="fw-bold small text-slate-800 px-2">{{ anticipo.Porcentaje_Restante }}% Restante</span>
                                 </div>
-                            </div>
-                            <div class="text-center mt-2">
-                                <small class="text-muted">
-                                    Progreso del anticipo: {{ anticipo.Cajas_Consumidas }} de {{ anticipo.Cantidad_Cajas }} cajas consumidas
-                                    ({{ anticipo.Porcentaje_Consumido }}%)
-                                </small>
                             </div>
                         </div>
                     </div>
                     
                     <!-- Detalles monetarios -->
-                    <div class="row mt-3">
+                    <div class="row mt-3 g-2">
                         <div class="col-md-4">
-                            <small><strong>💰 Monto Pagado:</strong> C$ {{ "{:,.2f}".format(anticipo.Monto_Pagado) }}</small>
+                            <span class="text-muted small">Monto Pagado:</span>
+                            <span class="fw-bold text-slate-800 font-monospace"> C$ {{ "{:,.2f}".format(anticipo.Monto_Pagado) }}</span>
                         </div>
                         <div class="col-md-4">
-                            <small><strong>💵 Saldo Restante:</strong> C$ {{ "{:,.2f}".format(anticipo.Saldo_Restante) }}</small>
+                            <span class="text-muted small">Saldo Restante:</span>
+                            <span class="fw-bold text-success font-monospace"> C$ {{ "{:,.2f}".format(anticipo.Saldo_Restante) }}</span>
                         </div>
-                        <div class="col-md-4">
-                            <small><strong>📅 Fecha Anticipo:</strong> {{ anticipo.Fecha_Anticipo.strftime('%d/%m/%Y') if anticipo.Fecha_Anticipo else 'N/A' }}</small>
+                        <div class="col-md-4 text-md-end">
+                            <span class="text-muted small">Fecha Anticipo:</span>
+                            <span class="fw-bold text-slate-800"> {{ anticipo.Fecha_Anticipo.strftime('%d/%m/%Y') if anticipo.Fecha_Anticipo else 'N/A' }}</span>
                         </div>
                     </div>
                 </div>
@@ -380,15 +376,15 @@
             {% endfor %}
             
             <!-- Totales de anticipos -->
-            <div class="alert alert-info mt-2">
-                <div class="row">
+            <div class="alert alert-info bg-info bg-opacity-10 text-info border border-info border-opacity-25 rounded-3 mt-3">
+                <div class="row g-2">
                     <div class="col-md-6">
-                        <strong><i class="fas fa-chart-line"></i> Resumen de Anticipos:</strong><br>
-                        Total anticipado: <strong>C$ {{ "{:,.2f}".format(stats.total_anticipado) }}</strong>
+                        <strong><i class="fas fa-chart-line me-2"></i>Resumen de Anticipos:</strong>
+                        Total anticipado: <strong class="font-monospace">C$ {{ "{:,.2f}".format(stats.total_anticipado) }}</strong>
                     </div>
-                    <div class="col-md-6">
-                        <strong><i class="fas fa-cubes"></i> Total de cajas:</strong><br>
-                        {{ anticipos|sum(attribute='Cantidad_Cajas') }} cajas en anticipos activos
+                    <div class="col-md-6 text-md-end">
+                        <strong><i class="fas fa-cubes me-2"></i>Total de cajas:</strong>
+                        <strong>{{ anticipos|sum(attribute='Cantidad_Cajas') }}</strong> cajas en anticipos activos
                     </div>
                 </div>
             </div>
@@ -396,15 +392,17 @@
     </div>
     {% endif %}
 
-    <!-- Últimas Entregas (Consumos de Anticipos) -->
+    <!-- Últimas Entregas -->
     {% if ultimas_entregas %}
-    <div class="card mb-4 shadow-sm">
-        <div class="card-header bg-light">
-            <h5 class="mb-0"><i class="fas fa-truck"></i> Últimas Entregas (Consumo de Anticipos)</h5>
+    <div class="card-premium-section mb-4">
+        <div class="card-premium-header py-3 px-4 border-bottom-0 pb-0">
+            <h5 class="fw-bold text-slate-800 mb-0">
+                <i class="fas fa-truck text-primary me-2"></i>Últimas Entregas (Consumo de Anticipos)
+            </h5>
         </div>
-        <div class="card-body">
+        <div class="card-body p-0">
             <div class="table-responsive">
-                <table class="table table-sm table-hover">
+                <table class="table table-hover table-modern align-middle mb-0">
                     <thead class="table-light">
                         <tr>
                             <th>Fecha</th>
@@ -419,15 +417,15 @@
                     <tbody>
                         {% for entrega in ultimas_entregas %}
                         <tr>
-                            <td>{{ entrega.Fecha_Entrega.strftime('%d/%m/%Y') if entrega.Fecha_Entrega else 'N/A' }}</td>
-                            <td>{{ entrega.Producto }}</td>
-                            <td>{{ entrega.COD_Producto or 'N/A' }}</td>
+                            <td class="font-monospace small">{{ entrega.Fecha_Entrega.strftime('%d/%m/%Y') if entrega.Fecha_Entrega else 'N/A' }}</td>
+                            <td class="fw-bold text-slate-800">{{ entrega.Producto }}</td>
+                            <td class="font-monospace small text-muted">{{ entrega.COD_Producto or 'N/A' }}</td>
                             <td class="text-center">
-                                <span class="badge bg-success">{{ entrega.Cantidad_Cajas }}</span>
+                                <span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 rounded-pill px-2.5 py-1.5 fw-bold">{{ entrega.Cantidad_Cajas }}</span>
                             </td>
-                            <td class="text-end">C$ {{ "{:,.2f}".format(entrega.Precio_Unitario) }}</td>
-                            <td class="text-end">C$ {{ "{:,.2f}".format(entrega.Total) }}</td>
-                            <td>{{ entrega.Notas or '-' }}</td>
+                            <td class="text-end font-monospace">C$ {{ "{:,.2f}".format(entrega.Precio_Unitario) }}</td>
+                            <td class="text-end font-monospace fw-bold text-slate-800">C$ {{ "{:,.2f}".format(entrega.Total) }}</td>
+                            <td class="text-slate-800 small">{{ entrega.Notas or '-' }}</td>
                         </tr>
                         {% endfor %}
                     </tbody>
@@ -438,46 +436,50 @@
     {% endif %}
 
     <!-- Resumen rápido de ventas por tipo de pago -->
-    <div class="row mb-4">
+    <div class="row g-4 mb-4">
         <div class="col-md-6">
-            <div class="card border-success shadow-sm">
-                <div class="card-header bg-success text-white">
-                    <h5 class="mb-0"><i class="fas fa-money-bill-wave"></i> Ventas de Contado</h5>
+            <div class="card-premium-section border-start border-3 border-success h-100">
+                <div class="card-premium-header py-3 px-4 border-bottom-0 pb-0">
+                    <h5 class="fw-bold text-slate-800 mb-0">
+                        <i class="fas fa-money-bill-wave text-success me-2"></i>Ventas de Contado
+                    </h5>
                 </div>
-                <div class="card-body">
-                    <h2 class="text-success">C$ {{ "{:,.2f}".format(ventas_por_mes|sum(attribute='Total_Contado') if ventas_por_mes else 0) }}</h2>
-                    <small>Total histórico de ventas al contado</small>
-                    <hr>
-                    <div class="row">
+                <div class="card-body p-4">
+                    <h2 class="text-success fw-bold font-monospace mb-1">C$ {{ "{:,.2f}".format(ventas_por_mes|sum(attribute='Total_Contado') if ventas_por_mes else 0) }}</h2>
+                    <small class="text-muted small d-block mb-3">Total histórico de ventas al contado</small>
+                    <hr class="text-muted opacity-25">
+                    <div class="row text-center mt-3 g-2">
                         <div class="col-6">
-                            <small>Facturas contado:</small>
-                            <h4>{{ ventas_por_mes|sum(attribute='Cantidad_Contado') if ventas_por_mes else 0 }}</h4>
+                            <span class="text-muted small d-block mb-1">Facturas contado:</span>
+                            <span class="fs-4 fw-bold text-slate-800 font-monospace">{{ ventas_por_mes|sum(attribute='Cantidad_Contado') if ventas_por_mes else 0 }}</span>
                         </div>
                         <div class="col-6">
-                            <small>Ticket promedio:</small>
-                            <h4>C$ {{ "{:,.2f}".format((ventas_por_mes|sum(attribute='Total_Contado') / ventas_por_mes|sum(attribute='Cantidad_Contado')) if ventas_por_mes and ventas_por_mes|sum(attribute='Cantidad_Contado') > 0 else 0) }}</h4>
+                            <span class="text-muted small d-block mb-1">Ticket promedio:</span>
+                            <span class="fs-4 fw-bold text-slate-800 font-monospace">C$ {{ "{:,.2f}".format((ventas_por_mes|sum(attribute='Total_Contado') / ventas_por_mes|sum(attribute='Cantidad_Contado')) if ventas_por_mes and ventas_por_mes|sum(attribute='Cantidad_Contado') > 0 else 0) }}</span>
                         </div>
                     </div>
                 </div>
             </div>
         </div>
         <div class="col-md-6">
-            <div class="card border-warning shadow-sm">
-                <div class="card-header bg-warning text-dark">
-                    <h5 class="mb-0"><i class="fas fa-credit-card"></i> Ventas a Crédito</h5>
+            <div class="card-premium-section border-start border-3 border-warning h-100">
+                <div class="card-premium-header py-3 px-4 border-bottom-0 pb-0">
+                    <h5 class="fw-bold text-slate-800 mb-0">
+                        <i class="fas fa-credit-card text-warning me-2"></i>Ventas a Crédito
+                    </h5>
                 </div>
-                <div class="card-body">
-                    <h2 class="text-warning">C$ {{ "{:,.2f}".format(ventas_por_mes|sum(attribute='Total_Credito') if ventas_por_mes else 0) }}</h2>
-                    <small>Total histórico de ventas a crédito</small>
-                    <hr>
-                    <div class="row">
+                <div class="card-body p-4">
+                    <h2 class="text-warning fw-bold font-monospace mb-1">C$ {{ "{:,.2f}".format(ventas_por_mes|sum(attribute='Total_Credito') if ventas_por_mes else 0) }}</h2>
+                    <small class="text-muted small d-block mb-3">Total histórico de ventas a crédito</small>
+                    <hr class="text-muted opacity-25">
+                    <div class="row text-center mt-3 g-2">
                         <div class="col-6">
-                            <small>Facturas crédito:</small>
-                            <h4>{{ ventas_por_mes|sum(attribute='Cantidad_Credito') if ventas_por_mes else 0 }}</h4>
+                            <span class="text-muted small d-block mb-1">Facturas crédito:</span>
+                            <span class="fs-4 fw-bold text-slate-800 font-monospace">{{ ventas_por_mes|sum(attribute='Cantidad_Credito') if ventas_por_mes else 0 }}</span>
                         </div>
                         <div class="col-6">
-                            <small>Ticket promedio:</small>
-                            <h4>C$ {{ "{:,.2f}".format((ventas_por_mes|sum(attribute='Total_Credito') / ventas_por_mes|sum(attribute='Cantidad_Credito')) if ventas_por_mes and ventas_por_mes|sum(attribute='Cantidad_Credito') > 0 else 0) }}</h4>
+                            <span class="text-muted small d-block mb-1">Ticket promedio:</span>
+                            <span class="fs-4 fw-bold text-slate-800 font-monospace">C$ {{ "{:,.2f}".format((ventas_por_mes|sum(attribute='Total_Credito') / ventas_por_mes|sum(attribute='Cantidad_Credito')) if ventas_por_mes and ventas_por_mes|sum(attribute='Cantidad_Credito') > 0 else 0) }}</span>
                         </div>
                     </div>
                 </div>
@@ -486,17 +488,17 @@
     </div>
 
     <!-- TABLA DE VENTAS POR MES -->
-    <div class="card mb-4 shadow-sm">
-        <div class="card-header bg-light">
-            <h5 class="mb-0">
-                <i class="fas fa-chart-bar"></i> Historial de Ventas por Mes
+    <div class="card-premium-section mb-4">
+        <div class="card-premium-header py-3 px-4 border-bottom-0 pb-0">
+            <h5 class="fw-bold text-slate-800 mb-0">
+                <i class="fas fa-chart-bar text-primary me-2"></i>Historial de Ventas por Mes
             </h5>
         </div>
-        <div class="card-body">
+        <div class="card-body p-4">
             {% if ventas_por_mes %}
             <div class="table-responsive">
-                <table class="table table-bordered table-hover">
-                    <thead class="table-dark">
+                <table class="table table-hover table-modern align-middle mb-0">
+                    <thead class="table-light">
                         <tr>
                             <th>Mes</th>
                             <th class="text-center">Facturas</th>
@@ -511,7 +513,7 @@
                         {% for mes in ventas_por_mes %}
                         <tr>
                             <td>
-                                <strong>
+                                <strong class="text-slate-800">
                                     {% if mes.Numero_Mes == 1 %}Enero
                                     {% elif mes.Numero_Mes == 2 %}Febrero
                                     {% elif mes.Numero_Mes == 3 %}Marzo
@@ -530,44 +532,34 @@
                                 <small class="text-muted">{{ mes.Anio }}-{{ "%02d"|format(mes.Numero_Mes) }}</small>
                             </td>
                             <td class="text-center">
-                                <span class="badge bg-primary" data-bs-toggle="tooltip" title="Total facturas: {{ mes.Cantidad_Facturas }}">
+                                <span class="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25 rounded-pill px-2 py-1 fw-bold" data-bs-toggle="tooltip" title="Total facturas: {{ mes.Cantidad_Facturas }}">
                                     {{ mes.Cantidad_Facturas }}
                                 </span>
                                 <br>
-                                <small>
-                                    <span class="text-success" data-bs-toggle="tooltip" title="Facturas de Contado">
-                                        <i class="fas fa-money-bill-wave"></i> {{ mes.Cantidad_Contado }}
+                                <small class="d-block mt-1">
+                                    <span class="text-success" data-bs-toggle="tooltip" title="Contado">
+                                        <i class="fas fa-money-bill-wave small"></i> {{ mes.Cantidad_Contado }}
                                     </span> |
-                                    <span class="text-warning" data-bs-toggle="tooltip" title="Facturas de Crédito">
-                                        <i class="fas fa-credit-card"></i> {{ mes.Cantidad_Credito }}
+                                    <span class="text-warning" data-bs-toggle="tooltip" title="Crédito">
+                                        <i class="fas fa-credit-card small"></i> {{ mes.Cantidad_Credito }}
                                     </span>
                                 </small>
                             </td>
-                            <td class="text-end text-success">
-                                <i class="fas fa-money-bill-wave"></i> C$ {{ "{:,.2f}".format(mes.Total_Contado) }}
-                            </td>
-                            <td class="text-end text-warning">
-                                <i class="fas fa-credit-card"></i> C$ {{ "{:,.2f}".format(mes.Total_Credito) }}
-                            </td>
-                            <td class="text-end fw-bold bg-light">
-                                C$ {{ "{:,.2f}".format(mes.Total_Ventas) }}
-                            </td>
-                            <td class="text-center small">
-                                {{ mes.Primera_Factura_Mes.strftime('%d/%m/%Y') if mes.Primera_Factura_Mes else 'N/A' }}
-                            </td>
-                            <td class="text-center small">
-                                {{ mes.Ultima_Factura_Mes.strftime('%d/%m/%Y') if mes.Ultima_Factura_Mes else 'N/A' }}
-                            </td>
+                            <td class="text-end text-success font-monospace">C$ {{ "{:,.2f}".format(mes.Total_Contado) }}</td>
+                            <td class="text-end text-warning font-monospace">C$ {{ "{:,.2f}".format(mes.Total_Credito) }}</td>
+                            <td class="text-end fw-bold font-monospace bg-light bg-opacity-50">C$ {{ "{:,.2f}".format(mes.Total_Ventas) }}</td>
+                            <td class="text-center small font-monospace">{{ mes.Primera_Factura_Mes.strftime('%d/%m/%Y') if mes.Primera_Factura_Mes else 'N/A' }}</td>
+                            <td class="text-center small font-monospace">{{ mes.Ultima_Factura_Mes.strftime('%d/%m/%Y') if mes.Ultima_Factura_Mes else 'N/A' }}</td>
                         </tr>
                         {% endfor %}
                     </tbody>
-                    <tfoot class="table-secondary">
-                        <tr>
+                    <tfoot class="table-light">
+                        <tr class="fw-bold">
                             <th>TOTALES</th>
                             <th class="text-center">{{ ventas_por_mes|sum(attribute='Cantidad_Facturas') }}</th>
-                            <th class="text-end">C$ {{ "{:,.2f}".format(ventas_por_mes|sum(attribute='Total_Contado')) }}</th>
-                            <th class="text-end">C$ {{ "{:,.2f}".format(ventas_por_mes|sum(attribute='Total_Credito')) }}</th>
-                            <th class="text-end">C$ {{ "{:,.2f}".format(ventas_por_mes|sum(attribute='Total_Ventas')) }}</th>
+                            <th class="text-end text-success font-monospace">C$ {{ "{:,.2f}".format(ventas_por_mes|sum(attribute='Total_Contado')) }}</th>
+                            <th class="text-end text-warning font-monospace">C$ {{ "{:,.2f}".format(ventas_por_mes|sum(attribute='Total_Credito')) }}</th>
+                            <th class="text-end font-monospace text-slate-800">C$ {{ "{:,.2f}".format(ventas_por_mes|sum(attribute='Total_Ventas')) }}</th>
                             <th colspan="2"></th>
                         </tr>
                     </tfoot>
@@ -577,42 +569,38 @@
             <!-- Distribución por tipo de pago -->
             <div class="row mt-4">
                 <div class="col-md-12">
-                    <div class="card bg-light">
-                        <div class="card-body">
-                            <h6 class="card-title"><i class="fas fa-chart-pie"></i> Distribución por Tipo de Pago</h6>
-                            {% set total_contado = ventas_por_mes|sum(attribute='Total_Contado') %}
-                            {% set total_credito = ventas_por_mes|sum(attribute='Total_Credito') %}
-                            {% set total_general = total_contado + total_credito %}
-                            {% if total_general > 0 %}
-                            <div class="progress mb-3" style="height: 30px;">
-                                <div class="progress-bar bg-success" style="width: {{ (total_contado / total_general * 100)|round }}%">
-                                    Contado {{ (total_contado / total_general * 100)|round(1) }}%
-                                </div>
-                                <div class="progress-bar bg-warning" style="width: {{ (total_credito / total_general * 100)|round }}%">
-                                    Crédito {{ (total_credito / total_general * 100)|round(1) }}%
-                                </div>
+                    <div class="card bg-light bg-opacity-50 border-0 rounded-3 p-3">
+                        <h6 class="fw-bold text-slate-800 mb-3"><i class="fas fa-chart-pie text-primary me-2"></i>Distribución por Tipo de Pago</h6>
+                        {% set total_contado = ventas_por_mes|sum(attribute='Total_Contado') %}
+                        {% set total_credito = ventas_por_mes|sum(attribute='Total_Credito') %}
+                        {% set total_general = total_contado + total_credito %}
+                        {% if total_general > 0 %}
+                        <div class="progress rounded-pill mb-3" style="height: 18px;">
+                            <div class="progress-bar bg-success" style="width: {{ (total_contado / total_general * 100)|round }}%">
+                                Contado {{ (total_contado / total_general * 100)|round(1) }}%
                             </div>
-                            <div class="row text-center">
-                                <div class="col-6">
-                                    <div class="border rounded p-2 bg-success text-white">
-                                        <small>Ventas de Contado</small>
-                                        <h5 class="mb-0">C$ {{ "{:,.2f}".format(total_contado) }}</h5>
-                                    </div>
-                                </div>
-                                <div class="col-6">
-                                    <div class="border rounded p-2 bg-warning">
-                                        <small>Ventas a Crédito</small>
-                                        <h5 class="mb-0">C$ {{ "{:,.2f}".format(total_credito) }}</h5>
-                                    </div>
-                                </div>
+                            <div class="progress-bar bg-warning" style="width: {{ (total_credito / total_general * 100)|round }}%">
+                                Crédito {{ (total_credito / total_general * 100)|round(1) }}%
                             </div>
-                            <div class="row text-center mt-3">
-                                <div class="col-12">
-                                    <small class="text-muted">Promedio mensual: C$ {{ "{:,.2f}".format(total_general / ventas_por_mes|length if ventas_por_mes|length > 0 else 0) }}</small>
-                                </div>
-                            </div>
-                            {% endif %}
                         </div>
+                        <div class="row g-3 text-center">
+                            <div class="col-6">
+                                <div class="border rounded-3 p-2 bg-success bg-opacity-10 text-success border-success border-opacity-20">
+                                    <small class="small d-block mb-1">Ventas de Contado</small>
+                                    <h5 class="mb-0 fw-bold font-monospace">C$ {{ "{:,.2f}".format(total_contado) }}</h5>
+                                </div>
+                            </div>
+                            <div class="col-6">
+                                <div class="border rounded-3 p-2 bg-warning bg-opacity-10 text-warning border-warning border-opacity-20">
+                                    <small class="small d-block mb-1">Ventas a Crédito</small>
+                                    <h5 class="mb-0 fw-bold font-monospace">C$ {{ "{:,.2f}".format(total_credito) }}</h5>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="text-center mt-3">
+                            <small class="text-muted">Promedio mensual de compra: <span class="fw-bold font-monospace">C$ {{ "{:,.2f}".format(total_general / ventas_por_mes|length if ventas_por_mes|length > 0 else 0) }}</span></small>
+                        </div>
+                        {% endif %}
                     </div>
                 </div>
             </div>
@@ -626,14 +614,16 @@
     </div>
 
     <!-- Últimas Facturas -->
-    <div class="card mb-4 shadow-sm">
-        <div class="card-header bg-light">
-            <h5 class="mb-0"><i class="fas fa-shopping-cart"></i> Últimas Facturas</h5>
+    <div class="card-premium-section mb-4">
+        <div class="card-premium-header py-3 px-4 border-bottom-0 pb-0">
+            <h5 class="fw-bold text-slate-800 mb-0">
+                <i class="fas fa-shopping-cart text-primary me-2"></i>Últimas Facturas
+            </h5>
         </div>
-        <div class="card-body">
+        <div class="card-body p-0">
             {% if ultimas_facturas %}
             <div class="table-responsive">
-                <table class="table table-hover">
+                <table class="table table-hover table-modern align-middle mb-0">
                     <thead class="table-light">
                         <tr>
                             <th>Fecha</th>
@@ -648,36 +638,36 @@
                     <tbody>
                         {% for factura in ultimas_facturas %}
                         <tr>
-                            <td>{{ factura.Fecha.strftime('%d/%m/%Y') if factura.Fecha else 'N/A' }}</td>
-                            <td>{{ factura.ID_Factura }}</td>
+                            <td class="font-monospace small">{{ factura.Fecha.strftime('%d/%m/%Y') if factura.Fecha else 'N/A' }}</td>
+                            <td class="font-monospace fw-bold text-slate-800">#{{ factura.ID_Factura }}</td>
                             <td>
-                                <span class="badge {% if factura.Tipo_Factura == 'RUTA' %}bg-info{% else %}bg-primary{% endif %}">
+                                <span class="badge {% if factura.Tipo_Factura == 'RUTA' %}bg-info bg-opacity-10 text-info border border-info border-opacity-25{% else %}bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25{% endif %} rounded-pill px-2.5 py-1.5 fw-bold">
                                     {{ factura.Tipo_Factura }}
                                 </span>
                             </td>
                             <td>
                                 {% if factura.Tipo_Pago == 'CONTADO' %}
-                                    <span class="badge bg-success">
-                                        <i class="fas fa-money-bill-wave"></i> CONTADO
+                                    <span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 rounded-pill px-2.5 py-1.5 fw-bold">
+                                        <i class="fas fa-money-bill-wave me-1"></i> CONTADO
                                     </span>
                                 {% elif factura.Tipo_Pago == 'CRÉDITO' %}
-                                    <span class="badge bg-warning">
-                                        <i class="fas fa-credit-card"></i> CRÉDITO
+                                    <span class="badge bg-warning bg-opacity-10 text-warning border border-warning border-opacity-25 rounded-pill px-2.5 py-1.5 fw-bold">
+                                        <i class="fas fa-credit-card me-1"></i> CRÉDITO
                                     </span>
                                 {% else %}
-                                    <span class="badge bg-secondary">DESCONOCIDO</span>
+                                    <span class="badge bg-secondary bg-opacity-10 text-secondary border border-secondary border-opacity-25 rounded-pill px-2.5 py-1.5 fw-bold">DESCONOCIDO</span>
                                 {% endif %}
                             </td>
-                            <td class="text-end fw-bold">C$ {{ "{:,.2f}".format(factura.Total_Factura) }}</td>
-                            <td>{{ factura.Cantidad_Productos }} productos{% if factura.Cantidad_Productos == 0 %} (sin detalle){% endif %}</td>
-                            <td>{{ factura.Observacion or '-' }}</td>
+                            <td class="text-end fw-bold font-monospace text-slate-800">C$ {{ "{:,.2f}".format(factura.Total_Factura) }}</td>
+                            <td class="text-slate-800 small">{{ factura.Cantidad_Productos }} productos{% if factura.Cantidad_Productos == 0 %} (sin detalle){% endif %}</td>
+                            <td class="text-slate-800 small">{{ factura.Observacion or '-' }}</td>
                         </tr>
                         {% endfor %}
                     </tbody>
                 </table>
             </div>
             {% else %}
-            <p class="text-muted text-center">No hay facturas registradas</p>
+            <p class="text-muted text-center py-4 mb-0">No hay facturas registradas</p>
             {% endif %}
         </div>
     </div>
@@ -685,14 +675,16 @@
     <!-- Top Productos -->
     <div class="row">
         <div class="col-md-12 mb-4">
-            <div class="card h-100 shadow-sm">
-                <div class="card-header bg-light">
-                    <h5 class="mb-0"><i class="fas fa-trophy"></i> Top 10 Productos Más Comprados</h5>
+            <div class="card-premium-section">
+                <div class="card-premium-header py-3 px-4 border-bottom-0 pb-0">
+                    <h5 class="fw-bold text-slate-800 mb-0">
+                        <i class="fas fa-trophy text-warning me-2"></i>Top 10 Productos Más Comprados
+                    </h5>
                 </div>
-                <div class="card-body">
+                <div class="card-body p-0">
                     {% if top_productos %}
                     <div class="table-responsive">
-                        <table class="table table-sm table-hover">
+                        <table class="table table-hover table-modern align-middle mb-0">
                             <thead class="table-light">
                                 <tr>
                                     <th>Código</th>
@@ -704,40 +696,34 @@
                             <tbody>
                                 {% for producto in top_productos %}
                                 <tr>
-                                    <td><small>{{ producto.COD_Producto or 'N/A' }}</small></td>
-                                    <td>{{ producto.Producto }}</td>
-                                    <td class="text-end">{{ "{:,.0f}".format(producto.Cantidad_Total) }}</td>
-                                    <td class="text-end text-primary">C$ {{ "{:,.2f}".format(producto.Total_Vendido) }}</td>
+                                    <td class="font-monospace small text-muted">{{ producto.COD_Producto or 'N/A' }}</td>
+                                    <td class="fw-bold text-slate-800">{{ producto.Producto }}</td>
+                                    <td class="text-end font-monospace">{{ "{:,.0f}".format(producto.Cantidad_Total) }}</td>
+                                    <td class="text-end text-primary font-monospace fw-bold">C$ {{ "{:,.2f}".format(producto.Total_Vendido) }}</td>
                                 </tr>
                                 {% endfor %}
                             </tbody>
                         </table>
                     </div>
                     {% else %}
-                    <p class="text-muted text-center">No hay productos registrados</p>
+                    <p class="text-muted text-center py-4 mb-0">No hay productos registrados</p>
                     {% endif %}
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Botones de acción -->
-    <div class="row mt-3">
-        <div class="col-12">
-            <div class="card shadow-sm">
-                <div class="card-body text-center">
-                    <a href="{{ url_for('admin.admin_editar_cliente', id=cliente.ID_Cliente) }}" class="btn btn-warning mx-2">
-                        <i class="fas fa-edit"></i> Editar Cliente
-                    </a>
-                    <button type="button" class="btn btn-info mx-2" onclick="window.print()">
-                        <i class="fas fa-print"></i> Imprimir Reporte
-                    </button>
-                    <a href="{{ url_for('admin.admin_clientes') }}" class="btn btn-secondary mx-2">
-                        <i class="fas fa-list"></i> Lista de Clientes
-                    </a>
-                </div>
-            </div>
-        </div>
+    <!-- Botones de acción finales -->
+    <div class="d-flex justify-content-center gap-2 mt-4 no-print">
+        <a href="{{ url_for('admin.admin_editar_cliente', id=cliente.ID_Cliente) }}" class="btn btn-outline-warning px-4 py-2 rounded-3">
+            <i class="fas fa-edit me-1"></i> Editar Cliente
+        </a>
+        <button type="button" class="btn btn-outline-info px-4 py-2 rounded-3" onclick="window.print()">
+            <i class="fas fa-print me-1"></i> Imprimir Reporte
+        </button>
+        <a href="{{ url_for('admin.admin_clientes') }}" class="btn btn-outline-secondary px-4 py-2 rounded-3">
+            <i class="fas fa-list me-1"></i> Lista de Clientes
+        </a>
     </div>
 </div>
 {% endblock %}

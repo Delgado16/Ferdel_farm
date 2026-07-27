@@ -1,27 +1,33 @@
 {% extends "layout.html" %}
 
+{% block title %}Gestión de Vehículos - FerDel{% endblock %}
+
 {% block content %}
-<div class="container-fluid px-4">
-    <h1 class="mt-4">Gestión de Vehículos</h1>
-    <ol class="breadcrumb mb-4">
-        <li class="breadcrumb-item"><a href="{{ url_for('admin.admin_dashboard') }}">Dashboard</a></li>
-        <li class="breadcrumb-item active">Vehículos</li>
-    </ol>
-    
-    <!-- Botón para agregar nuevo vehículo -->
-    <div class="card mb-4">
-        <div class="card-header">
-            <div class="d-flex justify-content-between align-items-center">
-                <h5 class="mb-0">Lista de Vehículos</h5>
-                <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#modalCrearVehiculo">
-                    <i class="fas fa-plus me-1"></i> Nuevo Vehículo
-                </button>
-            </div>
+<div class="container-fluid py-4 fade-in-up">
+    <!-- Encabezado con botón de volver -->
+    <div class="historial-header d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+        <div>
+            <h3 class="fw-bold text-slate-800 mb-1">
+                <i class="fas fa-truck text-primary me-2"></i>Gestión de Vehículos
+            </h3>
+            <p class="text-muted small mb-0">Control de la flota de camiones y vehículos, vigencia del seguro y asignación de empresas</p>
         </div>
-        <div class="card-body">
+        <div class="d-flex gap-2">
+            <a href="{{ url_for('admin.admin_dashboard') }}" class="btn btn-outline-secondary btn-sm px-3 py-2 rounded-3">
+                <i class="fas fa-arrow-left me-1"></i> Volver al Dashboard
+            </a>
+            <button type="button" class="btn btn-outline-primary btn-sm px-3 py-2 rounded-3" data-bs-toggle="modal" data-bs-target="#modalCrearVehiculo">
+                <i class="fas fa-plus me-1"></i> Nuevo Vehículo
+            </button>
+        </div>
+    </div>
+    
+    <!-- Tabla de vehículos -->
+    <div class="card-premium-section mb-4">
+        <div class="card-body p-0">
             <div class="table-responsive">
-                <table class="table table-bordered table-striped" id="dataTable" width="100%" cellspacing="0">
-                    <thead>
+                <table class="table table-hover table-modern align-middle mb-0" id="dataTable" width="100%">
+                    <thead class="table-light">
                         <tr>
                             <th>ID</th>
                             <th>Placa</th>
@@ -32,70 +38,80 @@
                             <th>Combustible</th>
                             <th>Estado</th>
                             <th>Vencimiento Seguro</th>
-                            <th>Acciones</th>
+                            <th class="text-center">Acciones</th>
                         </tr>
                     </thead>
                     <tbody>
                         {% for vehiculo in vehiculos %}
                         <tr>
-                            <td>{{ vehiculo.ID_Vehiculo }}</td>
-                            <td><strong>{{ vehiculo.Placa }}</strong></td>
-                            <td>{{ vehiculo.Marca or 'N/A' }}</td>
-                            <td>{{ vehiculo.Modelo or 'N/A' }}</td>
-                            <td>{{ vehiculo.Anio or 'N/A' }}</td>
-                            <td>{{ vehiculo.Nombre_Empresa or 'Sin empresa' }}</td>
+                            <td><span class="badge bg-light text-dark border">#{{ vehiculo.ID_Vehiculo }}</span></td>
+                            <td><strong class="font-monospace text-slate-800">{{ vehiculo.Placa }}</strong></td>
+                            <td class="text-slate-800">{{ vehiculo.Marca or 'N/A' }}</td>
+                            <td class="text-slate-800">{{ vehiculo.Modelo or 'N/A' }}</td>
+                            <td class="text-slate-800">{{ vehiculo.Anio or 'N/A' }}</td>
                             <td>
-                                <span class="badge bg-info">{{ vehiculo.Tipo_Combustible or 'N/A' }}</span>
+                                {% if vehiculo.Nombre_Empresa %}
+                                <span class="badge bg-secondary bg-opacity-10 text-secondary border border-secondary border-opacity-25 rounded-pill px-2.5 py-1.5 fw-bold">{{ vehiculo.Nombre_Empresa }}</span>
+                                {% else %}
+                                <span class="text-muted small">Sin empresa</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if vehiculo.Tipo_Combustible %}
+                                <span class="badge bg-info bg-opacity-10 text-info border border-info border-opacity-25 rounded-pill px-2.5 py-1.5 fw-bold">{{ vehiculo.Tipo_Combustible }}</span>
+                                {% else %}
+                                <span class="text-muted small">N/A</span>
+                                {% endif %}
                             </td>
                             <td>
                                 {% if vehiculo.Estado == 'Disponible' %}
-                                    <span class="badge bg-success">Disponible</span>
+                                    <span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 rounded-pill px-2.5 py-1.5 fw-bold">Disponible</span>
                                 {% elif vehiculo.Estado == 'En Ruta' %}
-                                    <span class="badge bg-primary">En Ruta</span>
+                                    <span class="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25 rounded-pill px-2.5 py-1.5 fw-bold">En Ruta</span>
                                 {% elif vehiculo.Estado == 'Mantenimiento' %}
-                                    <span class="badge bg-warning">Mantenimiento</span>
+                                    <span class="badge bg-warning bg-opacity-10 text-warning border border-warning border-opacity-25 rounded-pill px-2.5 py-1.5 fw-bold">Mantenimiento</span>
                                 {% else %}
-                                    <span class="badge bg-secondary">Inactivo</span>
+                                    <span class="badge bg-secondary bg-opacity-10 text-secondary border border-secondary border-opacity-25 rounded-pill px-2.5 py-1.5 fw-bold">Inactivo</span>
                                 {% endif %}
                             </td>
-                            <td>
+                            <td class="font-monospace small">
                                 {% if vehiculo.Fecha_Vencimiento_Seguro %}
                                     {{ vehiculo.Fecha_Vencimiento_Seguro.strftime('%d/%m/%Y') }}
                                 {% else %}
-                                    N/A
+                                    <span class="text-muted small">N/A</span>
                                 {% endif %}
                             </td>
-                            <td>
-                                <div class="btn-group" role="group">
-                                    <!-- Botón Editar - Usa la nueva ruta GET -->
+                            <td class="text-center">
+                                <div class="d-flex justify-content-center gap-1">
+                                    <!-- Botón Editar -->
                                     <a href="{{ url_for('admin.mostrar_editar_vehiculo', id=vehiculo.ID_Vehiculo) }}" 
-                                       class="btn btn-sm btn-warning" title="Editar">
-                                        <i class="fas fa-edit"></i>
+                                       class="btn btn-sm btn-outline-warning rounded-3" title="Editar">
+                                        <i class="fas fa-edit me-1"></i> Editar
                                     </a>
                                     
-                                    <!-- Botón para cambiar estado - Dropdown con las 4 opciones -->
+                                    <!-- Botón para cambiar estado - Dropdown -->
                                     <div class="btn-group" role="group">
-                                        <button type="button" class="btn btn-sm btn-secondary dropdown-toggle" 
+                                        <button type="button" class="btn btn-sm btn-outline-secondary dropdown-toggle rounded-3" 
                                                 data-bs-toggle="dropdown" aria-expanded="false">
-                                            <i class="fas fa-exchange-alt"></i>
+                                            <i class="fas fa-exchange-alt me-1"></i> Estado
                                         </button>
-                                        <ul class="dropdown-menu">
+                                        <ul class="dropdown-menu border-0 shadow-sm">
                                             {% for estado_opcion in ['Disponible', 'En Ruta', 'Mantenimiento', 'Inactivo'] %}
                                             <li>
                                                 <form method="POST" action="{{ url_for('admin.cambiar_estado_vehiculo', id=vehiculo.ID_Vehiculo) }}" 
-                                                      class="dropdown-item-form">
+                                                      class="dropdown-item-form mb-0">
                                                     <input type="hidden" name="nuevo_estado" value="{{ estado_opcion }}">
                                                     <button type="submit" 
-                                                            class="dropdown-item {{ 'active' if vehiculo.Estado == estado_opcion else '' }}"
+                                                            class="dropdown-item py-2 {{ 'active' if vehiculo.Estado == estado_opcion else '' }}"
                                                             onclick="return confirm('¿Cambiar estado a {{ estado_opcion }}?')">
                                                         {% if estado_opcion == 'Disponible' %}
-                                                            <i class="fas fa-check-circle text-success me-1"></i>
+                                                            <i class="fas fa-check-circle text-success me-2"></i>
                                                         {% elif estado_opcion == 'En Ruta' %}
-                                                            <i class="fas fa-truck text-primary me-1"></i>
+                                                            <i class="fas fa-truck text-primary me-2"></i>
                                                         {% elif estado_opcion == 'Mantenimiento' %}
-                                                            <i class="fas fa-tools text-warning me-1"></i>
+                                                            <i class="fas fa-tools text-warning me-2"></i>
                                                         {% else %}
-                                                            <i class="fas fa-ban text-secondary me-1"></i>
+                                                            <i class="fas fa-ban text-secondary me-2"></i>
                                                         {% endif %}
                                                         {{ estado_opcion }}
                                                     </button>
@@ -118,26 +134,28 @@
 <!-- Modal para crear vehículo -->
 <div class="modal fade" id="modalCrearVehiculo" tabindex="-1" aria-labelledby="modalCrearVehiculoLabel" aria-hidden="true">
     <div class="modal-dialog modal-lg">
-        <div class="modal-content">
+        <div class="modal-content border-0 shadow-lg rounded-3">
             <form method="POST" action="{{ url_for('admin.crear_vehiculo') }}" id="formCrearVehiculo" class="needs-validation" novalidate>
-                <div class="modal-header">
-                    <h5 class="modal-title" id="modalCrearVehiculoLabel">Nuevo Vehículo</h5>
+                <div class="modal-header border-bottom-0 pb-0">
+                    <h5 class="modal-title fw-bold text-slate-800" id="modalCrearVehiculoLabel">
+                        <i class="fas fa-plus-circle text-primary me-2"></i>Nuevo Vehículo
+                    </h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
-                    <div class="row">
-                        <div class="col-md-6 mb-3">
-                            <label for="placa" class="form-label">Placa *</label>
-                            <input type="text" class="form-control" id="placa" name="placa" required 
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label for="placa" class="form-label-premium fw-bold mb-1">Placa *</label>
+                            <input type="text" class="form-control form-control-premium" id="placa" name="placa" required 
                                    maxlength="20"
                                    pattern="^[A-Z0-9-]+$"
                                    title="Solo letras mayúsculas, números y guiones"
                                    placeholder="Ej: ABC-123">
                             <div class="invalid-feedback">Por favor ingrese una placa válida (máx. 20 caracteres)</div>
                         </div>
-                        <div class="col-md-6 mb-3">
-                            <label for="id_empresa" class="form-label">Empresa *</label>
-                            <select class="form-select" id="id_empresa" name="id_empresa" required>
+                        <div class="col-md-6">
+                            <label for="id_empresa" class="form-label-premium fw-bold mb-1">Empresa *</label>
+                            <select class="form-select form-select-premium" id="id_empresa" name="id_empresa" required>
                                 <option value="">Seleccionar empresa</option>
                                 {% for empresa in empresas %}
                                 <option value="{{ empresa.ID_Empresa }}">{{ empresa.Nombre_Empresa }}</option>
@@ -147,32 +165,32 @@
                         </div>
                     </div>
                     
-                    <div class="row">
-                        <div class="col-md-6 mb-3">
-                            <label for="marca" class="form-label">Marca</label>
-                            <input type="text" class="form-control" id="marca" name="marca" 
+                    <div class="row g-3 mt-1">
+                        <div class="col-md-6">
+                            <label for="marca" class="form-label-premium fw-bold mb-1">Marca</label>
+                            <input type="text" class="form-control form-control-premium" id="marca" name="marca" 
                                    maxlength="100"
                                    placeholder="Ej: Toyota, Ford">
                         </div>
-                        <div class="col-md-6 mb-3">
-                            <label for="modelo" class="form-label">Modelo</label>
-                            <input type="text" class="form-control" id="modelo" name="modelo" 
+                        <div class="col-md-6">
+                            <label for="modelo" class="form-label-premium fw-bold mb-1">Modelo</label>
+                            <input type="text" class="form-control form-control-premium" id="modelo" name="modelo" 
                                    maxlength="100"
                                    placeholder="Ej: Corolla, Ranger">
                         </div>
                     </div>
                     
-                    <div class="row">
-                        <div class="col-md-6 mb-3">
-                            <label for="anio" class="form-label">Año</label>
-                            <input type="number" class="form-control" id="anio" name="anio" 
+                    <div class="row g-3 mt-1">
+                        <div class="col-md-6">
+                            <label for="anio" class="form-label-premium fw-bold mb-1">Año</label>
+                            <input type="number" class="form-control form-control-premium" id="anio" name="anio" 
                                    min="1900" max="{{ current_year }}"
                                    placeholder="Ej: {{ current_year }}">
-                            <div class="form-text">Año de fabricación (1900-{{ current_year }})</div>
+                            <div class="form-text small text-muted">Año de fabricación (1900-{{ current_year }})</div>
                         </div>
-                        <div class="col-md-6 mb-3">
-                            <label for="tipo_combustible" class="form-label">Tipo de Combustible *</label>
-                            <select class="form-select" id="tipo_combustible" name="tipo_combustible" required>
+                        <div class="col-md-6">
+                            <label for="tipo_combustible" class="form-label-premium fw-bold mb-1">Tipo de Combustible *</label>
+                            <select class="form-select form-select-premium" id="tipo_combustible" name="tipo_combustible" required>
                                 <option value="">Seleccionar tipo...</option>
                                 <option value="Gasolina">Gasolina</option>
                                 <option value="Diesel">Diesel</option>
@@ -181,18 +199,22 @@
                         </div>
                     </div>
                     
-                    <div class="row">
-                        <div class="col-md-6 mb-3">
-                            <label for="fecha_vencimiento_seguro" class="form-label">Vencimiento Seguro</label>
-                            <input type="date" class="form-control" id="fecha_vencimiento_seguro" 
+                    <div class="row g-3 mt-1">
+                        <div class="col-md-6">
+                            <label for="fecha_vencimiento_seguro" class="form-label-premium fw-bold mb-1">Vencimiento Seguro</label>
+                            <input type="date" class="form-control form-control-premium" id="fecha_vencimiento_seguro" 
                                    name="fecha_vencimiento_seguro">
-                            <div class="form-text">Fecha de vencimiento del seguro del vehículo</div>
+                            <div class="form-text small text-muted">Fecha de vencimiento del seguro del vehículo</div>
                         </div>
                     </div>
                 </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="submit" class="btn btn-primary">Guardar Vehículo</button>
+                <div class="modal-footer border-top-0 pt-0">
+                    <button type="button" class="btn btn-outline-secondary px-3 py-1.5 rounded-3" data-bs-dismiss="modal">
+                        <i class="fas fa-times-circle me-1"></i> Cancelar
+                    </button>
+                    <button type="submit" class="btn btn-outline-primary px-3 py-1.5 rounded-3">
+                        <i class="fas fa-save me-1"></i> Guardar Vehículo
+                    </button>
                 </div>
             </form>
         </div>
@@ -341,43 +363,4 @@ if (document.readyState === 'loading') {
     formatearFechas();
 }
 </script>
-
-<style>
-.dropdown-item-form {
-    margin: 0;
-    padding: 0;
-}
-
-.dropdown-item-form .dropdown-item {
-    border-radius: 0;
-    cursor: pointer;
-}
-
-.dropdown-item-form .dropdown-item:hover {
-    background-color: #f8f9fa;
-}
-
-.dropdown-item-form .dropdown-item.active {
-    background-color: #007bff;
-    color: white;
-}
-
-.dropdown-item-form .dropdown-item.active:hover {
-    background-color: #0069d9;
-}
-
-.btn-group-sm > .btn {
-    padding: 0.25rem 0.5rem;
-    font-size: 0.875rem;
-}
-
-/* Estilos para DataTables */
-.dataTables_wrapper .dataTables_length,
-.dataTables_wrapper .dataTables_filter,
-.dataTables_wrapper .dataTables_info,
-.dataTables_wrapper .dataTables_processing,
-.dataTables_wrapper .dataTables_paginate {
-    margin: 1rem 0;
-}
-</style>
 {% endblock %}

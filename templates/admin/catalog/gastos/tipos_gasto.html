@@ -1,98 +1,117 @@
-<!-- templates/admin/gastos/tipos_gasto.html -->
 {% extends "layout.html" %}
 {% block title %}Tipos de Gastos - FerDel Sistema{% endblock %}
 
 {% block content %}
-<div class="container-fluid">
-    <div class="form-container">
-        <div class="form-header">
-            <h4><i class="bi bi-tags"></i> {{ titulo }}</h4>
-            <div>
-                <a href="{{ url_for('admin.admin_subcategorias') }}" class="btn btn-success btn-action">
-                    <i class="bi bi-list"></i> Subcategorias
-                </a>
-                <a href="{{ url_for('admin.crear_tipo_gasto') }}" class="btn btn-success btn-action">
-                    <i class="bi bi-plus-circle"></i> Nuevo Tipo
-                </a>
-                <a href="{{ url_for('admin.admin_gastos_operativos') }}" class="btn btn-secondary btn-action">
-                    <i class="bi bi-arrow-left"></i> Volver
-                </a>
-            </div>
+<div class="container-fluid py-4 fade-in-up">
+    <!-- Encabezado con botones de acción -->
+    <div class="historial-header d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+        <div>
+            <h3 class="fw-bold text-slate-800 mb-1">
+                <i class="fas fa-tags text-primary me-2"></i>{{ titulo }}
+            </h3>
+            <p class="text-muted small mb-0">Gestión de categorías y tipos de gastos operativos e inventario del sistema</p>
         </div>
+        <div class="d-flex gap-2">
+            <a href="{{ url_for('admin.admin_subcategorias') }}" class="btn btn-outline-success btn-sm px-3 py-2 rounded-3">
+                <i class="fas fa-list me-1"></i> Subcategorías
+            </a>
+            <a href="{{ url_for('admin.crear_tipo_gasto') }}" class="btn btn-outline-primary btn-sm px-3 py-2 rounded-3">
+                <i class="fas fa-plus-circle me-1"></i> Nuevo Tipo
+            </a>
+            <a href="{{ url_for('admin.admin_gastos_operativos') }}" class="btn btn-outline-secondary btn-sm px-3 py-2 rounded-3">
+                <i class="fas fa-arrow-left me-1"></i> Volver
+            </a>
+        </div>
+    </div>
 
-        <div class="table-container">
-            <table class="table table-hover" id="tablaTipos">
-                <thead>
-                    <tr>
-                        <th>ID</th>
-                        <th>Nombre</th>
-                        <th>Origen</th>
-                        <th>Descripción</th>
-                        <th>Estado</th>
-                        <th>Acciones</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for tipo in tipos_gasto %}
-                    <tr>
-                        <td>{{ tipo.ID_Tipo_Gasto }}</td>
-                        <td><strong>{{ tipo.Nombre }}</strong></td>
-                        <td>
-                            {% if tipo.Origen == 'INVENTARIO' %}
-                            <span class="badge bg-info"> Inventario</span>
-                            {% else %}
-                            <span class="badge bg-primary"> Gasto Directo</span>
-                            {% endif %}
-                        </td>
-                        <td>{{ tipo.Descripcion or '-' }}</td>
-                        <td>
-                            <span
-                                class="badge {% if tipo.Estado == 'Activo' %}bg-success{% else %}bg-secondary{% endif %}">
-                                {{ tipo.Estado }}
-                            </span>
-                        </td>
-                        <td>
-                            <a href="{{ url_for('admin.editar_tipo_gasto', id_tipo=tipo.ID_Tipo_Gasto) }}"
-                                class="btn btn-sm btn-warning">
-                                <i class="bi bi-pencil"></i>
-                            </a>
-                            <button type="button" class="btn btn-sm btn-danger" data-bs-toggle="modal"
-                                data-bs-target="#modalEliminar{{ tipo.ID_Tipo_Gasto }}">
-                                <i class="bi bi-trash"></i>
-                            </button>
-                        </td>
-                    </tr>
+    <!-- Tabla de tipos de gastos -->
+    {% if tipos_gasto %}
+    <div class="card-premium-section mb-4">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover table-modern align-middle mb-0" id="tablaTipos">
+                    <thead class="table-light">
+                        <tr>
+                            <th>ID</th>
+                            <th>Nombre</th>
+                            <th>Origen</th>
+                            <th>Descripción</th>
+                            <th>Estado</th>
+                            <th class="text-center">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for tipo in tipos_gasto %}
+                        <tr>
+                            <td><span class="badge bg-light text-dark border">#{{ tipo.ID_Tipo_Gasto }}</span></td>
+                            <td><strong class="text-slate-800">{{ tipo.Nombre }}</strong></td>
+                            <td>
+                                {% if tipo.Origen == 'INVENTARIO' %}
+                                <span class="badge bg-info bg-opacity-10 text-info border border-info border-opacity-25 rounded-pill px-2.5 py-1.5 fw-bold"><i class="fas fa-boxes me-1"></i> Inventario</span>
+                                {% else %}
+                                <span class="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25 rounded-pill px-2.5 py-1.5 fw-bold"><i class="fas fa-wallet me-1"></i> Gasto Directo</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-slate-800 small">{{ tipo.Descripcion or '-' }}</td>
+                            <td>
+                                <span class="badge {% if tipo.Estado == 'Activo' %}bg-success bg-opacity-10 text-success border border-success border-opacity-25{% else %}bg-secondary bg-opacity-10 text-secondary border border-secondary border-opacity-25{% endif %} rounded-pill px-2.5 py-1.5 fw-bold">
+                                    {{ tipo.Estado }}
+                                </span>
+                            </td>
+                            <td class="text-center">
+                                <div class="d-flex justify-content-center gap-1">
+                                    <a href="{{ url_for('admin.editar_tipo_gasto', id_tipo=tipo.ID_Tipo_Gasto) }}"
+                                       class="btn btn-sm btn-outline-warning rounded-3" title="Editar">
+                                        <i class="fas fa-edit me-1"></i> Editar
+                                    </a>
+                                    <button type="button" class="btn btn-sm btn-outline-danger rounded-3" data-bs-toggle="modal"
+                                            data-bs-target="#modalEliminar{{ tipo.ID_Tipo_Gasto }}">
+                                        <i class="fas fa-trash me-1"></i> Desactivar
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
 
-                    <!-- Modal Eliminar -->
-                    <div class="modal fade" id="modalEliminar{{ tipo.ID_Tipo_Gasto }}" tabindex="-1">
-                        <div class="modal-dialog">
-                            <div class="modal-content">
-                                <div class="modal-header">
-                                    <h5 class="modal-title">Confirmar Desactivación</h5>
-                                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                                </div>
-                                <div class="modal-body">
-                                    <p>¿Está seguro que desea desactivar el tipo de gasto <strong>{{ tipo.Nombre
-                                            }}</strong>?</p>
-                                    <p class="text-warning">Los gastos existentes no se verán afectados, pero no se
-                                        podrán crear nuevos con este tipo.</p>
-                                </div>
-                                <div class="modal-footer">
-                                    <form method="POST"
-                                        action="{{ url_for('admin.eliminar_tipo_gasto', id_tipo=tipo.ID_Tipo_Gasto) }}">
-                                        <button type="button" class="btn btn-secondary"
-                                            data-bs-dismiss="modal">Cancelar</button>
-                                        <button type="submit" class="btn btn-danger">Desactivar</button>
-                                    </form>
+                        <!-- Modal Eliminar -->
+                        <div class="modal fade" id="modalEliminar{{ tipo.ID_Tipo_Gasto }}" tabindex="-1" aria-hidden="true">
+                            <div class="modal-dialog">
+                                <div class="modal-content border-0 shadow-lg rounded-3">
+                                    <div class="modal-header border-bottom-0 pb-0">
+                                        <h5 class="modal-title fw-bold text-slate-800">
+                                            <i class="fas fa-exclamation-triangle text-danger me-2"></i>Confirmar Desactivación
+                                        </h5>
+                                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                    </div>
+                                    <div class="modal-body">
+                                        <p>¿Está seguro que desea desactivar el tipo de gasto <strong>{{ tipo.Nombre }}</strong>?</p>
+                                        <div class="alert alert-warning bg-warning bg-opacity-10 text-warning border border-warning border-opacity-20 rounded-3 p-3 mb-0 small">
+                                            <i class="fas fa-info-circle me-1"></i> Los gastos históricos existentes no se verán afectados, pero ya no se podrán clasificar nuevos gastos bajo este tipo.
+                                        </div>
+                                    </div>
+                                    <div class="modal-footer border-top-0 pt-0">
+                                        <button type="button" class="btn btn-outline-secondary px-3 py-1.5 rounded-3" data-bs-dismiss="modal">
+                                            <i class="fas fa-times-circle me-1"></i> Cancelar
+                                        </button>
+                                        <form method="POST" action="{{ url_for('admin.eliminar_tipo_gasto', id_tipo=tipo.ID_Tipo_Gasto) }}" class="d-inline">
+                                            <button type="submit" class="btn btn-outline-danger px-3 py-1.5 rounded-3">
+                                                <i class="fas fa-trash me-1"></i> Desactivar
+                                            </button>
+                                        </form>
+                                    </div>
                                 </div>
                             </div>
                         </div>
-                    </div>
-                    {% endfor %}
-                </tbody>
-            </table>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
         </div>
     </div>
+    {% else %}
+    <div class="alert alert-warning bg-warning bg-opacity-10 text-warning border border-warning border-opacity-20 rounded-3">
+        <i class="fas fa-exclamation-triangle me-2"></i> No se encontraron tipos de gastos registrados en el sistema.
+    </div>
+    {% endif %}
 </div>
 {% endblock %}
 

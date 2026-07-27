@@ -1,52 +1,67 @@
 {% extends "layout.html" %}
 
+{% block title %}Editar Bodega - FerDel{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<style>
+    .required-star::after {
+        content: " *";
+        color: #ef4444;
+        font-weight: bold;
+    }
+</style>
+{% endblock %}
+
 {% block content %}
-<div class="container-fluid">
+<div class="container-fluid py-3">
     <!-- Encabezado de la página -->
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <h1 class="h3 mb-0 text-gray-800">Editar Bodega</h1>
-        <a href="{{ url_for('admin.admin_bodega') }}" class="btn btn-secondary">
-            <i class="fas fa-arrow-left mr-2"></i>Volver a Bodegas
-        </a>
+    <div class="historial-header d-flex flex-wrap justify-content-between align-items-center gap-3">
+        <div>
+            <h3 class="fw-bold text-slate-800 mb-1">
+                <i class="fas fa-edit text-primary me-2"></i>Editar Bodega
+            </h3>
+            <p class="text-muted small mb-0">Modifica la información general de la bodega y su estado en el sistema</p>
+        </div>
+        <div>
+            <a href="{{ url_for('admin.admin_bodega') }}" class="btn btn-outline-secondary btn-sm px-3 py-2 rounded-3">
+                <i class="fas fa-arrow-left me-1"></i> Volver a Bodegas
+            </a>
+        </div>
     </div>
 
     <!-- Formulario de edición -->
-    <div class="card shadow mb-4">
-        <div class="card-header py-3">
-            <h6 class="m-0 font-weight-bold text-primary">Información de la Bodega</h6>
+    <div class="card-premium-section">
+        <div class="card-premium-header">
+            <h5 class="fw-bold text-slate-800 mb-0"><i class="fas fa-warehouse text-primary me-2"></i>Información de la Bodega</h5>
         </div>
-        <div class="card-body">
-            <form action="{{ url_for('admin.admin_editar_bodega', id=bodega.ID_Bodega) }}" method="POST">
-                <div class="row">
-                    <div class="col-md-6">
-                        <div class="form-group">
-                            <label for="id_bodega">ID de Bodega</label>
-                            <input type="text" class="form-control" id="id_bodega" 
-                                   value="{{ bodega.ID_Bodega }}" readonly disabled>
-                            <small class="form-text text-muted">El ID de la bodega no se puede modificar</small>
-                        </div>
-                    </div>
-                    <div class="col-md-6">
-                        <div class="form-group">
-                            <label for="estado">Estado</label>
-                            <select class="form-control" id="estado" name="estado">
-                                <option value="activa" {% if bodega.Estado == 'activa' %}selected{% endif %}>Activa</option>
-                                <option value="inactiva" {% if bodega.Estado == 'inactiva' %}selected{% endif %}>Inactiva</option>
-                            </select>
-                        </div>
-                    </div>
+        <div class="card-body p-4">
+            <form action="{{ url_for('admin.admin_editar_bodega', id=bodega.ID_Bodega) }}" method="POST" class="row g-3">
+                <div class="col-md-6">
+                    <label for="id_bodega" class="form-label-premium filter-label-premium">ID de Bodega</label>
+                    <input type="text" class="form-control form-control-premium" id="id_bodega" 
+                           value="{{ bodega.ID_Bodega }}" readonly disabled>
+                    <div class="form-text">El ID de la bodega no se puede modificar</div>
+                </div>
+                <div class="col-md-6">
+                    <label for="estado" class="form-label-premium filter-label-premium">Estado</label>
+                    <select class="form-select form-select-premium" id="estado" name="estado">
+                        <option value="activa" {% if bodega.Estado == 'activa' %}selected{% endif %}>Activa</option>
+                        <option value="inactiva" {% if bodega.Estado == 'inactiva' %}selected{% endif %}>Inactiva</option>
+                    </select>
+                    <div class="form-text">Define si la bodega está activa para operaciones</div>
                 </div>
 
-                <div class="form-group">
-                    <label for="nombre">Nombre de la Bodega *</label>
-                    <input type="text" class="form-control" id="nombre" name="nombre" 
+                <div class="col-12">
+                    <label for="nombre" class="form-label-premium filter-label-premium required-star">Nombre de la Bodega</label>
+                    <input type="text" class="form-control form-control-premium" id="nombre" name="nombre" 
                            value="{{ bodega.Nombre }}" required placeholder="Ingrese el nombre de la bodega">
-                    <small class="form-text text-muted">El nombre es obligatorio</small>
+                    <div class="form-text">El nombre es obligatorio y debe ser descriptivo</div>
                 </div>
 
-                <div class="form-group">
-                    <label for="id_empresa">Empresa *</label>
-                    <select class="form-control" id="id_empresa" name="id_empresa" required>
+                <div class="col-12">
+                    <label for="id_empresa" class="form-label-premium filter-label-premium required-star">Empresa</label>
+                    <select class="form-select form-select-premium" id="id_empresa" name="id_empresa" required>
                         <option value="">Seleccione una empresa</option>
                         {% for empresa in empresas %}
                         <option value="{{ empresa.ID_Empresa }}" 
@@ -55,23 +70,23 @@
                         </option>
                         {% endfor %}
                     </select>
-                    <small class="form-text text-muted">Seleccione la empresa a la que pertenece la bodega.</small>
+                    <div class="form-text">Seleccione la empresa a la que pertenece la bodega</div>
                 </div>
 
-                <div class="form-group">
-                    <label for="ubicacion">Ubicación</label>
-                    <textarea class="form-control" id="ubicacion" name="ubicacion" 
+                <div class="col-12">
+                    <label for="ubicacion" class="form-label-premium filter-label-premium">Ubicación</label>
+                    <textarea class="form-control form-control-premium" id="ubicacion" name="ubicacion" 
                               rows="3" placeholder="Ingrese la ubicación de la bodega">{{ bodega.Ubicacion or '' }}</textarea>
-                    <small class="form-text text-muted">Descripción de la ubicación física</small>
+                    <div class="form-text">Descripción o dirección física detallada de la bodega</div>
                 </div>
 
-                <div class="form-group mt-4">
-                    <button type="submit" class="btn btn-primary">
-                        <i class="fas fa-save mr-2"></i>Guardar Cambios
-                    </button>
-                    <a href="{{ url_for('admin.admin_bodega') }}" class="btn btn-secondary">
-                        <i class="fas fa-times mr-2"></i>Cancelar
+                <div class="col-12 d-flex gap-2 justify-content-end mt-4">
+                    <a href="{{ url_for('admin.admin_bodega') }}" class="btn btn-outline-secondary rounded-3 py-2 px-4">
+                        <i class="fas fa-times me-1"></i> Cancelar
                     </a>
+                    <button type="submit" class="btn btn-primary rounded-3 py-2 px-4 fw-semibold">
+                        <i class="fas fa-save me-1"></i> Guardar Cambios
+                    </button>
                 </div>
             </form>
         </div>

@@ -5,16 +5,22 @@
 {% block extra_css %}
 <style>
     .precio-card {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        color: white;
-        border-radius: 10px;
-        padding: 1rem;
-        margin-top: 1rem;
+        background-color: rgba(79, 70, 229, 0.08) !important;
+        color: #4f46e5 !important;
+        border: 1px solid rgba(79, 70, 229, 0.15) !important;
+        border-radius: 10px !important;
+        padding: 1rem !important;
+        margin-top: 1rem !important;
+    }
+    .precio-card h3 {
+        color: #4f46e5 !important;
+        font-weight: 700 !important;
     }
     .info-cliente {
-        background-color: #f8f9fa;
-        border-radius: 10px;
-        padding: 1rem;
+        background-color: #f8fafc !important;
+        border: 1px solid #cbd5e1 !important;
+        border-radius: 10px !important;
+        padding: 1rem !important;
     }
     .calculo-item {
         border-bottom: 1px solid #e9ecef;
@@ -40,16 +46,16 @@
 {% block content %}
 <div class="container-fluid">
     <div class="form-container">
-        <div class="form-header">
+        <div class="historial-header d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
             <div>
-                <h4 class="mb-0">
-                    <i class="bi bi-plus-circle text-primary"></i> Nuevo Anticipo
+                <h4 class="mb-0 fw-bold text-slate-800">
+                    <i class="bi bi-plus-circle text-primary me-2"></i>Nuevo Anticipo
                 </h4>
                 <p class="text-muted small mb-0">Registrar anticipo de cliente</p>
             </div>
             <div>
-                <a href="{{ url_for('admin.admin_clientes_anticipos') }}" class="btn btn-secondary">
-                    <i class="bi bi-arrow-left me-2"></i>Volver
+                <a href="{{ url_for('admin.admin_clientes_anticipos') }}" class="btn btn-outline-secondary btn-sm px-3 py-2 rounded-3">
+                    <i class="bi bi-arrow-left me-1"></i> Volver
                 </a>
             </div>
         </div>
@@ -58,12 +64,11 @@
             <div class="row">
                 <div class="col-md-6">
                     <div class="mb-3">
-                        <label class="form-label required">Cliente</label>
-                        <select name="id_cliente" id="id_cliente" class="form-select" required>
+                        <label class="form-label-premium required">Cliente</label>
+                        <select name="id_cliente" id="id_cliente" class="form-select form-select-premium" required>
                             <option value="">Seleccione un cliente...</option>
                             {% for cliente in clientes %}
-                            <option value="{{ cliente.ID_Cliente }}" 
-                                    data-perfil="{{ cliente.perfil_cliente }}">
+                            <option value="{{ cliente.ID_Cliente }}" data-perfil="{{ cliente.perfil_cliente }}">
                                 {{ cliente.Nombre }} - {{ cliente.RUC_CEDULA or 'Sin RUC' }}
                                 {% if cliente.perfil_cliente == 'Especial' %}
                                 <span class="badge badge-especial ms-1">Especial</span>
@@ -75,14 +80,14 @@
                 </div>
                 <div class="col-md-6">
                     <div class="mb-3">
-                        <label class="form-label required">Producto</label>
-                        <select name="id_producto" id="id_producto" class="form-select" required>
+                        <label class="form-label-premium required">Producto</label>
+                        <select name="id_producto" id="id_producto" class="form-select form-select-premium" required>
                             <option value="">Seleccione un producto...</option>
                             {% for producto in productos %}
                             <option value="{{ producto.ID_Producto }}"
-                                    data-precio-mercado="{{ producto.Precio_Mercado }}"
-                                    data-precio-mayorista="{{ producto.Precio_Mayorista }}"
-                                    data-precio-ruta="{{ producto.Precio_Ruta }}">
+                                data-precio-mercado="{{ producto.Precio_Mercado }}"
+                                data-precio-mayorista="{{ producto.Precio_Mayorista }}"
+                                data-precio-ruta="{{ producto.Precio_Ruta }}">
                                 {{ producto.Descripcion }}
                             </option>
                             {% endfor %}
@@ -94,31 +99,30 @@
             <div class="row">
                 <div class="col-md-4">
                     <div class="mb-3">
-                        <label class="form-label required">Cantidad</label>
-                        <input type="number" name="cantidad_cajas" id="cantidad_cajas" 
-                               class="form-control" step="1" min="1" required>
+                        <label class="form-label-premium required">Cantidad</label>
+                        <input type="number" name="cantidad_cajas" id="cantidad_cajas" class="form-control form-control-premium" step="1"
+                            min="1" required>
                     </div>
                 </div>
                 <div class="col-md-8">
                     <div class="mb-3">
-                        <label class="form-label required">Monto Pagado ($)</label>
-                        <input type="number" name="monto_pagado" id="monto_pagado" 
-                               class="form-control" step="0.01" min="0.01" required>
+                        <label class="form-label-premium required">Monto Pagado ($)</label>
+                        <input type="number" name="monto_pagado" id="monto_pagado" class="form-control form-control-premium" step="0.01"
+                            min="0.01" required>
                     </div>
                 </div>
             </div>
 
             <!-- Sección simplificada para perfil especial -->
-            <div id="precioEspecialSection" style="display: none;">
+            <div id="precioEspecialSection">
                 <div class="precio-especial-box">
                     <div class="row align-items-center">
                         <div class="col-md-4">
-                            <label class="form-label mb-0">Precio por caja ($)</label>
+                            <label class="form-label-premium mb-0">Precio por caja ($)</label>
                         </div>
                         <div class="col-md-5">
-                            <input type="number" name="precio_especial" id="precio_especial" 
-                                   class="form-control form-control-sm" step="0.01" 
-                                   placeholder="Ingrese precio">
+                            <input type="number" name="precio_especial" id="precio_especial"
+                                class="form-control form-control-premium form-control-sm" step="0.01" placeholder="Ingrese precio">
                         </div>
                         <div class="col-md-3">
                             <button type="button" class="btn btn-sm btn-outline-secondary w-100" id="btnCalcular">
@@ -133,42 +137,41 @@
             <div class="row">
                 <div class="col-md-6">
                     <div class="mb-3">
-                        <label class="form-label">Fecha Vencimiento</label>
-                        <input type="datetime-local" name="fecha_vencimiento" class="form-control">
+                        <label class="form-label-premium">Fecha Vencimiento</label>
+                        <input type="datetime-local" name="fecha_vencimiento" class="form-control form-control-premium">
                     </div>
                 </div>
             </div>
 
             <div class="mb-3">
-                <label class="form-label">Notas</label>
-                <textarea name="notas" class="form-control" rows="2" 
-                          placeholder="Observaciones..."></textarea>
+                <label class="form-label-premium">Notas</label>
+                <textarea name="notas" class="form-control form-control-premium" rows="2" placeholder="Observaciones..."></textarea>
             </div>
 
             <!-- Información resumida -->
-            <div class="info-cliente mt-3" id="infoPrecios" style="display: none;">
-                <div class="row">
+            <div class="info-cliente mt-3 border" id="infoPrecios" style="display: none;">
+                <div class="row align-items-center">
                     <div class="col-md-6">
                         <small class="text-muted">Perfil:</small>
-                        <strong id="perfilCliente">-</strong><br>
+                        <strong id="perfilCliente" class="text-dark">-</strong><br>
                         <small class="text-muted">Precio unitario:</small>
-                        <strong id="precioUnitario">$0.00</strong>
+                        <strong id="precioUnitario" class="text-dark">$0.00</strong>
                         <span id="precioNota" class="small"></span>
                     </div>
                     <div class="col-md-6 text-end">
-                        <div class="precio-card">
-                            <small>MONTO PAGADO</small>
-                            <h3 class="mb-0" id="montoMostrar">$0.00</h3>
+                        <div class="precio-card border-0">
+                            <small class="text-muted text-uppercase fw-bold">Monto Pagado</small>
+                            <h3 class="mb-0 fw-bold text-primary" id="montoMostrar">$0.00</h3>
                         </div>
                     </div>
                 </div>
             </div>
 
             <div class="mt-4 d-flex justify-content-end gap-2">
-                <a href="{{ url_for('admin.admin_clientes_anticipos') }}" class="btn btn-secondary">
+                <a href="{{ url_for('admin.admin_clientes_anticipos') }}" class="btn btn-outline-secondary">
                     Cancelar
                 </a>
-                <button type="submit" class="btn btn-primary">
+                <button type="submit" class="btn btn-outline-primary">
                     <i class="bi bi-save"></i> Guardar
                 </button>
             </div>
@@ -179,115 +182,83 @@
 
 {% block extra_js %}
 <script>
-let esPerfilEspecial = false;
+    document.getElementById('id_cliente').addEventListener('change', updatePrecioPorDefecto);
+    document.getElementById('id_producto').addEventListener('change', updatePrecioPorDefecto);
+    
+    document.getElementById('cantidad_cajas').addEventListener('input', function() {
+        recalcularMonto();
+    });
+    
+    document.getElementById('precio_especial').addEventListener('input', function() {
+        recalcularMonto();
+    });
+    
+    document.getElementById('monto_pagado').addEventListener('input', function() {
+        recalcularPrecioUnitario();
+    });
 
-document.getElementById('id_cliente').addEventListener('change', function() {
-    const perfil = this.options[this.selectedIndex]?.dataset.perfil;
-    esPerfilEspecial = (perfil === 'Especial');
-    
-    const section = document.getElementById('precioEspecialSection');
-    section.style.display = esPerfilEspecial ? 'block' : 'none';
-    
-    if (!esPerfilEspecial) {
-        document.getElementById('precio_especial').value = '';
-        document.getElementById('calcular_precio_auto').value = '';
-    }
-    
-    updatePrecio();
-});
+    document.getElementById('btnCalcular').addEventListener('click', function () {
+        recalcularPrecioUnitario();
+    });
 
-document.getElementById('id_producto').addEventListener('change', updatePrecio);
-document.getElementById('cantidad_cajas').addEventListener('input', updateMontoMostrar);
-document.getElementById('monto_pagado').addEventListener('input', function() {
-    updateMontoMostrar();
-    if (esPerfilEspecial) calcularPrecio();
-});
-
-document.getElementById('btnCalcular').addEventListener('click', function() {
-    const cantidad = parseFloat(document.getElementById('cantidad_cajas').value) || 0;
-    const monto = parseFloat(document.getElementById('monto_pagado').value) || 0;
-    
-    if (cantidad > 0 && monto > 0) {
-        const precio = monto / cantidad;
-        document.getElementById('precio_especial').value = precio.toFixed(2);
-        document.getElementById('calcular_precio_auto').value = 'on';
-        updatePrecio();
-    } else {
-        alert('Ingrese cantidad y monto primero');
-    }
-});
-
-function calcularPrecio() {
-    const cantidad = parseFloat(document.getElementById('cantidad_cajas').value) || 0;
-    const monto = parseFloat(document.getElementById('monto_pagado').value) || 0;
-    
-    if (cantidad > 0 && monto > 0 && !document.getElementById('precio_especial').value) {
-        const precio = monto / cantidad;
-        document.getElementById('precio_especial').value = precio.toFixed(2);
-        document.getElementById('calcular_precio_auto').value = 'on';
-    }
-}
-
-function updatePrecio() {
-    const clienteSelect = document.getElementById('id_cliente');
-    const productoSelect = document.getElementById('id_producto');
-    
-    if (clienteSelect.value && productoSelect.value) {
-        const perfil = clienteSelect.options[clienteSelect.selectedIndex].dataset.perfil;
-        const precioEspecial = document.getElementById('precio_especial').value;
+    function updatePrecioPorDefecto() {
+        const clienteSelect = document.getElementById('id_cliente');
+        const productoSelect = document.getElementById('id_producto');
         
-        let precio = 0;
-        
-        if (esPerfilEspecial && precioEspecial) {
-            precio = parseFloat(precioEspecial);
-            document.getElementById('precioNota').innerHTML = '<span class="badge bg-warning text-dark ms-2">Especial</span>';
-        } else {
+        if (clienteSelect.value && productoSelect.value) {
+            const perfil = clienteSelect.options[clienteSelect.selectedIndex].dataset.perfil;
             const opt = productoSelect.options[productoSelect.selectedIndex];
+            
+            let precio = 0;
             if (perfil === 'Mayorista') precio = parseFloat(opt.dataset.precioMayorista) || 0;
             else if (perfil === 'Ruta') precio = parseFloat(opt.dataset.precioRuta) || 0;
             else precio = parseFloat(opt.dataset.precioMercado) || 0;
-            document.getElementById('precioNota').innerHTML = '';
+            
+            document.getElementById('precio_especial').value = precio.toFixed(2);
+            document.getElementById('perfilCliente').textContent = perfil;
+            document.getElementById('precioUnitario').innerHTML = `$${precio.toFixed(2)}`;
+            document.getElementById('infoPrecios').style.display = 'block';
+            
+            recalcularMonto();
         }
-        
-        document.getElementById('perfilCliente').textContent = perfil;
-        document.getElementById('precioUnitario').innerHTML = `$${precio.toFixed(2)}`;
-        document.getElementById('infoPrecios').style.display = 'block';
-        
+    }
+
+    function recalcularMonto() {
         const cantidad = parseInt(document.getElementById('cantidad_cajas').value) || 0;
-        if (cantidad > 0 && precio > 0 && !document.getElementById('monto_pagado').value) {
-            document.getElementById('monto_pagado').value = (cantidad * precio).toFixed(2);
-        }
+        const precio = parseFloat(document.getElementById('precio_especial').value) || 0;
         
-        updateMontoMostrar();
+        if (cantidad > 0 && precio > 0) {
+            const total = cantidad * precio;
+            document.getElementById('monto_pagado').value = total.toFixed(2);
+            document.getElementById('montoMostrar').innerHTML = `$${total.toFixed(2)}`;
+        }
     }
-}
 
-function updateMontoMostrar() {
-    const monto = parseFloat(document.getElementById('monto_pagado').value) || 0;
-    document.getElementById('montoMostrar').innerHTML = `$${monto.toFixed(2)}`;
-}
-
-// Validación simple antes de enviar
-document.getElementById('formAnticipo').addEventListener('submit', function(e) {
-    const cantidad = parseInt(document.getElementById('cantidad_cajas').value) || 0;
-    const monto = parseFloat(document.getElementById('monto_pagado').value) || 0;
-    
-    if (cantidad <= 0 || monto <= 0) {
-        e.preventDefault();
-        alert('Complete todos los campos requeridos');
-        return false;
+    function recalcularPrecioUnitario() {
+        const cantidad = parseFloat(document.getElementById('cantidad_cajas').value) || 0;
+        const monto = parseFloat(document.getElementById('monto_pagado').value) || 0;
+        
+        if (cantidad > 0 && monto > 0) {
+            const precio = monto / cantidad;
+            document.getElementById('precio_especial').value = precio.toFixed(2);
+            document.getElementById('precioUnitario').innerHTML = `$${precio.toFixed(2)}`;
+            document.getElementById('montoMostrar').innerHTML = `$${monto.toFixed(2)}`;
+        }
     }
-    
-    if (esPerfilEspecial) {
-        const precio = document.getElementById('precio_especial').value;
-        if (!precio || parseFloat(precio) <= 0) {
+
+    // Validación simple antes de enviar
+    document.getElementById('formAnticipo').addEventListener('submit', function (e) {
+        const cantidad = parseInt(document.getElementById('cantidad_cajas').value) || 0;
+        const monto = parseFloat(document.getElementById('monto_pagado').value) || 0;
+        const precio = parseFloat(document.getElementById('precio_especial').value) || 0;
+
+        if (cantidad <= 0 || monto <= 0 || precio <= 0) {
             e.preventDefault();
-            alert('Para clientes especiales debe ingresar el precio por caja');
+            alert('Complete todos los campos requeridos y asegúrese que la cantidad, precio y monto sean mayores a cero.');
             return false;
         }
-    }
-    
-    return confirm('¿Guardar anticipo?');
-});
+
+        return confirm('¿Guardar anticipo?');
+    });
 </script>
 {% endblock %}

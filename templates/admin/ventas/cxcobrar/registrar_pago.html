@@ -4,14 +4,29 @@
 
 {% block content %}
 <div class="container-fluid">
-    <h1 class="h3 mb-4 text-gray-800">Registrar Pago</h1>
+    <!-- Header -->
+    <div class="historial-header d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+        <div>
+            <h3 class="fw-bold text-slate-800 mb-1">
+                <i class="fas fa-money-check-alt text-primary me-2"></i>Registrar Pago
+            </h3>
+            <p class="text-muted small mb-0">Registre pagos parciales o totales del movimiento #{{ cuenta.ID_Movimiento }}</p>
+        </div>
+        <div class="d-flex gap-2 flex-wrap">
+            <a href="{{ url_for('admin.admin_detalle_cuentacobrar', id_movimiento=cuenta.ID_Movimiento) }}" class="btn btn-outline-secondary btn-sm px-3 py-2 rounded-3">
+                <i class="bi bi-arrow-left me-1"></i>Volver al Detalle
+            </a>
+        </div>
+    </div>
 
     <div class="row">
         <div class="col-lg-8">
             <!-- Información de la Cuenta -->
-            <div class="card shadow mb-4">
-                <div class="card-header py-3 bg-info text-white">
-                    <h6 class="m-0 font-weight-bold">Información de la Cuenta por Cobrar</h6>
+            <div class="card-premium-section mb-4">
+                <div class="card-premium-header py-3">
+                    <h6 class="m-0 fw-bold text-slate-800">
+                        <i class="bi bi-info-circle-fill text-primary me-2"></i>Información de la Cuenta por Cobrar
+                    </h6>
                 </div>
                 <div class="card-body">
                     <div class="row">
@@ -21,26 +36,26 @@
                             <p><strong>Fecha Emisión:</strong> {{ cuenta.Fecha.strftime('%d/%m/%Y') if cuenta.Fecha }}</p>
                             <p><strong>Estado Actual:</strong> 
                                 {% if cuenta.Estado == 'Pagada' %}
-                                    <span class="badge badge-success">Pagada</span>
+                                    <span class="badge" style="color: #16a34a !important; background-color: rgba(22, 163, 74, 0.08) !important; border: 1px solid rgba(22, 163, 74, 0.15) !important;">Pagada</span>
                                 {% elif cuenta.Estado == 'Vencida' %}
-                                    <span class="badge badge-danger">Vencida</span>
+                                    <span class="badge" style="color: #dc2626 !important; background-color: rgba(220, 38, 38, 0.08) !important; border: 1px solid rgba(220, 38, 38, 0.15) !important;">Vencida</span>
                                 {% elif cuenta.Estado == 'Anulada' %}
-                                    <span class="badge badge-secondary">Anulada</span>
+                                    <span class="badge" style="color: #475569 !important; background-color: rgba(71, 85, 105, 0.08) !important; border: 1px solid rgba(71, 85, 105, 0.15) !important;">Anulada</span>
                                 {% else %}
-                                    <span class="badge badge-warning">Pendiente</span>
+                                    <span class="badge" style="color: #d97706 !important; background-color: rgba(245, 158, 11, 0.08) !important; border: 1px solid rgba(245, 158, 11, 0.15) !important;">Pendiente</span>
                                 {% endif %}
                             </p>
                         </div>
                         <div class="col-md-6">
-                            <p><strong>Monto Total:</strong> <span class="font-weight-bold">C${{ "%.2f"|format(cuenta.Monto_Movimiento) }}</span></p>
+                            <p><strong>Monto Total:</strong> <span class="fw-bold">C${{ "%.2f"|format(cuenta.Monto_Movimiento) }}</span></p>
                             <p><strong>Saldo Pendiente:</strong> 
-                                <span class="text-danger font-weight-bold" style="font-size: 1.2rem;">C${{ "%.2f"|format(cuenta.Saldo_Pendiente) }}</span>
+                                <span class="text-danger fw-bold" style="font-size: 1.2rem;">C${{ "%.2f"|format(cuenta.Saldo_Pendiente) }}</span>
                             </p>
                             <p><strong>Fecha Vencimiento:</strong> 
                                 {% if cuenta.Fecha_Vencimiento %}
                                     {{ cuenta.Fecha_Vencimiento.strftime('%d/%m/%Y') }}
                                     {% if cuenta.Fecha_Vencimiento < today %}
-                                    <span class="badge badge-danger ml-2">Vencido</span>
+                                    <span class="badge ml-2" style="color: #dc2626 !important; background-color: rgba(220, 38, 38, 0.08) !important; border: 1px solid rgba(220, 38, 38, 0.15) !important;">Vencido</span>
                                     {% endif %}
                                 {% else %}
                                     N/A
@@ -52,19 +67,19 @@
                     <!-- NUEVO: Saldo Pendiente Consolidado del Cliente -->
                     <div class="row mt-2">
                         <div class="col-12">
-                            <div class="alert alert-warning mb-0 py-2">
+                            <div class="alert alert-warning mb-0 py-2 bg-warning bg-opacity-10 text-warning border border-warning border-opacity-20">
                                 <div class="d-flex justify-content-between align-items-center">
                                     <div>
-                                        <i class="fas fa-chart-line fa-lg mr-2"></i>
+                                        <i class="fas fa-chart-line fa-lg me-2"></i>
                                         <strong>SALDO TOTAL DEL CLIENTE:</strong>
                                     </div>
                                     <div>
-                                        <span class="font-weight-bold" style="font-size: 1.1rem; color: #856404;">
+                                        <span class="fw-bold" style="font-size: 1.1rem; color: #d97706;">
                                             C${{ "%.2f"|format(cuenta.Saldo_Total_Cliente) if cuenta.Saldo_Total_Cliente else "0.00" }}
                                         </span>
                                     </div>
                                 </div>
-                                <small class="text-muted">
+                                <small class="text-muted d-block mt-1">
                                     <i class="fas fa-info-circle"></i> 
                                     Este es el saldo pendiente TOTAL que el cliente tiene en todas sus cuentas por cobrar.
                                     {% if cuenta.Saldo_Total_Cliente and cuenta.Saldo_Total_Cliente > cuenta.Saldo_Pendiente %}
@@ -107,26 +122,28 @@
             </div>
 
             <!-- Formulario de Pago -->
-            <div class="card shadow mb-4">
-                <div class="card-header py-3 bg-success text-white">
-                    <h6 class="m-0 font-weight-bold">Registrar Pago</h6>
+            <div class="card-premium-section mb-4">
+                <div class="card-premium-header py-3">
+                    <h6 class="m-0 fw-bold text-slate-800">
+                        <i class="bi bi-cash-stack text-success me-2"></i>Registrar Pago
+                    </h6>
                 </div>
                 <div class="card-body">
                     <form method="POST" action="{{ url_for('admin.admin_registrar_pago', id_movimiento=cuenta.ID_Movimiento) }}" id="formPago">
-                        <div class="form-group">
-                            <label for="monto" class="font-weight-bold">Monto del Pago *</label>
-                            <input type="number" class="form-control form-control-lg" id="monto" name="monto" 
+                        <div class="form-group mb-3">
+                            <label for="monto" class="form-label-premium fw-bold">Monto del Pago *</label>
+                            <input type="number" class="form-control form-control-premium form-control-lg" id="monto" name="monto" 
                                    step="0.01" min="0.01" max="{{ "%.2f"|format(cuenta.Saldo_Pendiente) }}" 
                                    required placeholder="0.00" style="font-size: 1.2rem;"
                                    value="{{ "%.2f"|format(cuenta.Saldo_Pendiente) if cuenta.Saldo_Pendiente > 0 else '' }}">
-                            <small class="form-text text-muted">
-                                Saldo disponible de esta cuenta: <span class="font-weight-bold text-danger">C${{ "%.2f"|format(cuenta.Saldo_Pendiente) }}</span>
+                            <small class="form-text text-muted d-block mt-1">
+                                Saldo disponible de esta cuenta: <span class="fw-bold text-danger">C${{ "%.2f"|format(cuenta.Saldo_Pendiente) }}</span>
                             </small>
                         </div>
 
-                        <div class="form-group">
-                            <label for="metodo_pago" class="font-weight-bold">Método de Pago *</label>
-                            <select class="form-control" id="metodo_pago" name="metodo_pago" required>
+                        <div class="form-group mb-3">
+                            <label for="metodo_pago" class="form-label-premium fw-bold">Método de Pago *</label>
+                            <select class="form-select form-select-premium" id="metodo_pago" name="metodo_pago" required>
                                 <option value="">Seleccionar método de pago...</option>
                                 {% for metodo in metodos_pago %}
                                 <option value="{{ metodo.ID_MetodoPago }}" 
@@ -140,7 +157,7 @@
                         <!-- Sección dinámica para detalles del método de pago -->
                         <div id="detalles-metodo-container" class="mt-4">
                             <!-- Se mostrarán los campos específicos según el método seleccionado -->
-                            <div class="alert alert-info">
+                            <div class="alert alert-info bg-info bg-opacity-10 text-info border border-info border-opacity-20">
                                 <i class="fas fa-info-circle"></i> Seleccione un método de pago para ver los campos específicos
                             </div>
                         </div>
@@ -148,18 +165,18 @@
                         <!-- Campo oculto para enviar los detalles finales -->
                         <input type="hidden" id="detalles_metodo" name="detalles_metodo">
 
-                        <div class="form-group mt-4">
-                            <label for="comentarios" class="font-weight-bold">Comentarios u Observaciones</label>
-                            <textarea class="form-control" id="comentarios" name="comentarios" 
+                        <div class="form-group mt-4 mb-3">
+                            <label for="comentarios" class="form-label-premium fw-bold">Comentarios u Observaciones</label>
+                            <textarea class="form-control form-control-premium" id="comentarios" name="comentarios" 
                                       rows="3" placeholder="Observaciones adicionales sobre el pago..."></textarea>
                         </div>
 
                         <div class="form-group mt-4">
-                            <button type="submit" class="btn btn-success btn-lg mr-2" id="btnRegistrar">
+                            <button type="submit" class="btn btn-outline-success btn-lg me-2 rounded-3" id="btnRegistrar">
                                 <i class="fas fa-check-circle"></i> Registrar Pago
                             </button>
                             <a href="{{ url_for('admin.admin_detalle_cuentacobrar', id_movimiento=cuenta.ID_Movimiento) }}" 
-                               class="btn btn-secondary btn-lg">
+                               class="btn btn-outline-secondary btn-lg rounded-3">
                                 <i class="fas fa-times"></i> Cancelar
                             </a>
                         </div>
@@ -170,18 +187,20 @@
 
         <div class="col-lg-4">
             <!-- Resumen del Pago -->
-            <div class="card shadow mb-4">
-                <div class="card-header py-3 bg-primary text-white">
-                    <h6 class="m-0 font-weight-bold">Resumen del Pago</h6>
+            <div class="card-premium-section mb-4">
+                <div class="card-premium-header py-3">
+                    <h6 class="m-0 fw-bold text-slate-800">
+                        <i class="bi bi-graph-up text-primary me-2"></i>Resumen del Pago
+                    </h6>
                 </div>
                 <div class="card-body">
                     <div class="text-center mb-4">
                         <i class="fas fa-money-bill-wave fa-3x text-success mb-3"></i>
-                        <h5 class="font-weight-bold">Información Importante</h5>
+                        <h5 class="font-weight-bold text-slate-800">Información Importante</h5>
                     </div>
                     
-                    <div class="alert alert-info">
-                        <h6><i class="fas fa-info-circle"></i> Notas:</h6>
+                    <div class="alert alert-info bg-info bg-opacity-10 text-info border border-info border-opacity-20">
+                        <h6 class="fw-bold"><i class="fas fa-info-circle"></i> Notas:</h6>
                         <ul class="mb-0 pl-3">
                             <li>El pago se registrará inmediatamente</li>
                             <li>El saldo pendiente de esta cuenta se actualizará automáticamente</li>
@@ -192,19 +211,19 @@
                     </div>
 
                     <div class="border-top pt-3 mt-3">
-                        <h6 class="font-weight-bold">Datos Actuales:</h6>
+                        <h6 class="font-weight-bold text-slate-800">Datos Actuales:</h6>
                         <table class="table table-sm table-borderless">
                             <tr>
                                 <td>Monto Original Esta Cuenta:</td>
-                                <td class="text-right font-weight-bold">C${{ "%.2f"|format(cuenta.Monto_Movimiento) }}</td>
+                                <td class="text-right font-weight-bold text-slate-800">C${{ "%.2f"|format(cuenta.Monto_Movimiento) }}</td>
                             </tr>
                             <tr>
                                 <td>Saldo Pendiente Esta Cuenta:</td>
                                 <td class="text-right font-weight-bold text-danger">C${{ "%.2f"|format(cuenta.Saldo_Pendiente) }}</td>
                             </tr>
-                            <tr class="table-warning">
+                            <tr class="table-warning bg-warning bg-opacity-10">
                                 <td>Saldo TOTAL Cliente:</td>
-                                <td class="text-right font-weight-bold" style="color: #856404;">
+                                <td class="text-right font-weight-bold" style="color: #d97706;">
                                     C${{ "%.2f"|format(cuenta.Saldo_Total_Cliente) if cuenta.Saldo_Total_Cliente else "0.00" }}
                                 </td>
                             </tr>
@@ -219,7 +238,7 @@
 
                     <!-- Simulación de nuevo saldo -->
                     <div class="border-top pt-3 mt-3">
-                        <h6 class="font-weight-bold">Después del Pago:</h6>
+                        <h6 class="font-weight-bold text-slate-800">Después del Pago:</h6>
                         <div id="simulacionSaldo" class="mt-2 p-2 bg-light rounded">
                             <p class="mb-1">
                                 <strong>Saldo de esta cuenta:</strong> 
@@ -233,14 +252,14 @@
                             </p>
                             <p class="mb-0">
                                 <strong>Estado:</strong> 
-                                <span id="nuevoEstado" class="badge badge-warning">Pendiente</span>
+                                <span id="nuevoEstado" class="badge" style="color: #d97706 !important; background-color: rgba(245, 158, 11, 0.08) !important; border: 1px solid rgba(245, 158, 11, 0.15) !important;">Pendiente</span>
                             </p>
                         </div>
                     </div>
 
                     <!-- Detalles del método seleccionado -->
                     <div class="border-top pt-3 mt-3" id="resumenDetalles" style="display: none;">
-                        <h6 class="font-weight-bold">Detalles del Método:</h6>
+                        <h6 class="font-weight-bold text-slate-800">Detalles del Método:</h6>
                         <div id="resumenDetallesContenido" class="mt-2 p-2 bg-light rounded">
                             <!-- Se llenará con JavaScript -->
                         </div>
@@ -250,9 +269,11 @@
 
             <!-- Información de Contacto -->
             {% if cuenta.TelefonoCliente or cuenta.DireccionCliente %}
-            <div class="card shadow mb-4">
-                <div class="card-header py-3 bg-warning text-dark">
-                    <h6 class="m-0 font-weight-bold">Información del Cliente</h6>
+            <div class="card-premium-section mb-4">
+                <div class="card-premium-header py-3">
+                    <h6 class="m-0 fw-bold text-slate-800">
+                        <i class="bi bi-person text-warning me-2"></i>Información del Cliente
+                    </h6>
                 </div>
                 <div class="card-body">
                     {% if cuenta.TelefonoCliente %}
@@ -269,17 +290,19 @@
             {% endif %}
 
             <!-- Acciones Rápidas -->
-            <div class="card shadow">
-                <div class="card-header py-3 bg-secondary text-white">
-                    <h6 class="m-0 font-weight-bold">Acciones Rápidas</h6>
+            <div class="card-premium-section mb-4">
+                <div class="card-premium-header py-3">
+                    <h6 class="m-0 fw-bold text-slate-800">
+                        <i class="bi bi-lightning-charge text-secondary me-2"></i>Acciones Rápidas
+                    </h6>
                 </div>
-                <div class="card-body text-center">
+                <div class="card-body text-center d-grid gap-2">
                     <a href="{{ url_for('admin.admin_detalle_cuentacobrar', id_movimiento=cuenta.ID_Movimiento) }}" 
-                       class="btn btn-info btn-block mb-2">
+                       class="btn btn-outline-info rounded-3">
                         <i class="fas fa-history"></i> Ver Historial
                     </a>
                     <a href="{{ url_for('admin.admin_cuentascobrar') }}" 
-                       class="btn btn-outline-secondary btn-block">
+                       class="btn btn-outline-secondary rounded-3">
                         <i class="fas fa-list"></i> Volver a Lista
                     </a>
                 </div>
@@ -795,13 +818,16 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // Actualizar estado
         if (nuevoSaldo === 0) {
-            nuevoEstadoSpan.className = 'badge badge-success';
+            nuevoEstadoSpan.className = 'badge';
+            nuevoEstadoSpan.style = 'color: #16a34a !important; background-color: rgba(22, 163, 74, 0.08) !important; border: 1px solid rgba(22, 163, 74, 0.15) !important;';
             nuevoEstadoSpan.textContent = 'Pagada';
         } else if (nuevoSaldo > 0) {
-            nuevoEstadoSpan.className = 'badge badge-warning';
+            nuevoEstadoSpan.className = 'badge';
+            nuevoEstadoSpan.style = 'color: #d97706 !important; background-color: rgba(245, 158, 11, 0.08) !important; border: 1px solid rgba(245, 158, 11, 0.15) !important;';
             nuevoEstadoSpan.textContent = 'Pendiente';
         } else {
-            nuevoEstadoSpan.className = 'badge badge-danger';
+            nuevoEstadoSpan.className = 'badge';
+            nuevoEstadoSpan.style = 'color: #dc2626 !important; background-color: rgba(220, 38, 38, 0.08) !important; border: 1px solid rgba(220, 38, 38, 0.15) !important;';
             nuevoEstadoSpan.textContent = 'Error';
         }
         

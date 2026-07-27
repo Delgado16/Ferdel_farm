@@ -3,30 +3,37 @@
 {% block title %}Gestión de Categorías - FerDel{% endblock %}
 
 {% block content %}
-<div class="container-fluid py-4">
+<div class="container-fluid py-4 fade-in-up">
     <!-- Encabezado con botón de volver -->
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <h1>
-            <i class="bi bi-tags"></i> Gestión de Categorías de Productos
-        </h1>
-        <a href="{{ url_for('admin.admin_dashboard') }}" class="btn btn-outline-secondary">
-            <i class="bi bi-arrow-left"></i> Volver al Dashboard
-        </a>
+    <div class="historial-header d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+        <div>
+            <h3 class="fw-bold text-slate-800 mb-1">
+                <i class="fas fa-tags text-primary me-2"></i>Gestión de Categorías
+            </h3>
+            <p class="text-muted small mb-0">Administración de agrupaciones lógicas para el catálogo de productos</p>
+        </div>
+        <div>
+            <a href="{{ url_for('admin.admin_dashboard') }}" class="btn btn-outline-secondary btn-sm px-3 py-2 rounded-3">
+                <i class="fas fa-arrow-left me-1"></i> Volver al Dashboard
+            </a>
+        </div>
     </div>
 
     <!-- Botón crear categoría -->
-    <button class="btn btn-primary mb-3" data-bs-toggle="modal" data-bs-target="#crearCategoriaModal">
-        <i class="bi bi-plus-lg"></i> Nueva Categoría
-    </button>
+    <div class="mb-3">
+        <button class="btn btn-outline-primary rounded-3 px-3 py-2" data-bs-toggle="modal" data-bs-target="#crearCategoriaModal">
+            <i class="fas fa-plus me-1"></i> Nueva Categoría
+        </button>
+    </div>
 
     <!-- Tabla de categorías -->
     {% if categorias %}
-    <div class="card shadow-sm">
-        <div class="card-body">
+    <div class="card-premium-section">
+        <div class="card-body p-0">
             <div class="table-responsive">
-                <table class="table table-striped table-hover">
-                    <thead class="table-dark">
-                        2
+                <table class="table table-hover table-modern align-middle mb-0">
+                    <thead class="table-light">
+                        <tr>
                             <th>ID</th>
                             <th>Descripción</th>
                             <th>Estado</th>
@@ -36,34 +43,34 @@
                     <tbody>
                         {% for categoria in categorias %}
                         <tr>
-                            <td class="fw-bold">#{{ categoria.ID_Categoria }}</td>
-                            <td>{{ categoria.Descripcion }}</td>
+                            <td class="fw-bold text-slate-700">#{{ categoria.ID_Categoria }}</td>
+                            <td class="fw-bold text-slate-800">{{ categoria.Descripcion }}</td>
                             <td>
                                 {% if categoria.Estado == 'Activo' %}
-                                    <span class="badge bg-success">Activo</span>
+                                    <span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 rounded-pill px-2.5 py-1.5 fw-bold">Activo</span>
                                 {% else %}
-                                    <span class="badge bg-danger">Inactivo</span>
+                                    <span class="badge bg-danger bg-opacity-10 text-danger border border-danger border-opacity-25 rounded-pill px-2.5 py-1.5 fw-bold">Inactivo</span>
                                 {% endif %}
                             </td>
                             <td class="text-center">
-                                <div class="btn-group btn-group-sm" role="group">
+                                <div class="d-flex justify-content-center gap-1">
                                     <!-- Botón Editar -->
                                     <a href="{{ url_for('admin.admin_categorias_editar', id=categoria.ID_Categoria) }}" 
-                                       class="btn btn-outline-primary">
-                                        <i class="bi bi-pencil"></i> Editar
+                                       class="btn btn-sm btn-outline-primary rounded-3">
+                                        <i class="fas fa-pencil-alt me-1"></i> Editar
                                     </a>
                                     
                                     <!-- Botón para cambiar estado -->
                                     <form action="{{ url_for('admin.admin_categorias_toggle_estado', id=categoria.ID_Categoria) }}" 
-                                          method="POST" class="d-inline-block ms-1">
+                                          method="POST" class="d-inline-block">
                                         {% if csrf_token %}
                                         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                         {% endif %}
-                                        <button type="submit" class="btn btn-outline-warning btn-cambiar-estado"
+                                        <button type="submit" class="btn btn-sm btn-outline-warning btn-cambiar-estado rounded-3"
                                                 data-id="{{ categoria.ID_Categoria }}"
                                                 data-descripcion="{{ categoria.Descripcion }}"
                                                 data-estado="{{ categoria.Estado }}">
-                                            <i class="bi bi-arrow-repeat"></i>
+                                            <i class="fas fa-sync-alt me-1"></i>
                                             {% if categoria.Estado == 'Activo' %}
                                                 Desactivar
                                             {% else %}
@@ -74,14 +81,14 @@
                                     
                                     <!-- Botón Eliminar -->
                                     <form action="{{ url_for('admin.admin_categorias_eliminar', id=categoria.ID_Categoria) }}" 
-                                          method="POST" class="d-inline-block ms-1">
+                                          method="POST" class="d-inline-block">
                                         {% if csrf_token %}
                                         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                         {% endif %}
-                                        <button type="submit" class="btn btn-outline-danger btn-eliminar" 
+                                        <button type="submit" class="btn btn-sm btn-outline-danger btn-eliminar rounded-3" 
                                                 data-id="{{ categoria.ID_Categoria }}"
                                                 data-descripcion="{{ categoria.Descripcion }}">
-                                            <i class="bi bi-trash"></i> Eliminar
+                                            <i class="fas fa-trash-alt me-1"></i> Eliminar
                                         </button>
                                     </form>
                                 </div>
@@ -94,8 +101,8 @@
         </div>
     </div>
     {% else %}
-    <div class="alert alert-warning">
-        <i class="bi bi-exclamation-triangle"></i> No se encontraron categorías en el sistema.
+    <div class="alert alert-warning bg-warning bg-opacity-10 text-warning border border-warning border-opacity-20 rounded-3">
+        <i class="fas fa-exclamation-triangle me-2"></i> No se encontraron categorías en el sistema.
     </div>
     {% endif %}
 </div>
@@ -103,10 +110,10 @@
 <!-- Modal para crear categoría -->
 <div class="modal fade" id="crearCategoriaModal" tabindex="-1" aria-labelledby="crearCategoriaModalLabel" aria-hidden="true">
     <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="crearCategoriaModalLabel">
-                    <i class="bi bi-plus-lg"></i> Crear Nueva Categoría
+        <div class="modal-content border-0 shadow-lg rounded-3">
+            <div class="modal-header border-bottom-0 pb-0">
+                <h5 class="modal-title fw-bold text-slate-800" id="crearCategoriaModalLabel">
+                    <i class="fas fa-plus me-2 text-primary"></i>Crear Nueva Categoría
                 </h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
@@ -117,11 +124,11 @@
                 <div class="modal-body">
                     <!-- Descripción -->
                     <div class="mb-3">
-                        <label for="descripcion" class="form-label">Descripción <span class="text-danger">*</span></label>
-                        <input type="text" class="form-control" id="descripcion" name="descripcion" 
+                        <label for="descripcion" class="form-label-premium fw-bold mb-1">Descripción *</label>
+                        <input type="text" class="form-control form-control-premium" id="descripcion" name="descripcion" 
                                required minlength="2" maxlength="255"
                                placeholder="Ingrese la descripción de la categoría">
-                        <div class="form-text">Mínimo 2 caracteres, máximo 255 (según la base de datos)</div>
+                        <div class="form-text small text-muted">Mínimo 2 caracteres, máximo 255</div>
                         <div class="invalid-feedback">
                             Por favor ingrese una descripción válida (2-255 caracteres).
                         </div>
@@ -129,20 +136,20 @@
                     
                     <!-- Campo de Estado -->
                     <div class="mb-3">
-                        <label for="estado" class="form-label">Estado</label>
-                        <select class="form-control" id="estado" name="estado" required>
+                        <label for="estado" class="form-label-premium fw-bold mb-1">Estado</label>
+                        <select class="form-select form-select-premium" id="estado" name="estado" required>
                             <option value="Activo" selected>Activo</option>
                             <option value="Inactivo">Inactivo</option>
                         </select>
-                        <div class="form-text">Define si la categoría estará disponible para usar en productos</div>
+                        <div class="form-text small text-muted">Define si la categoría estará disponible para usar en productos</div>
                     </div>
                 </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
-                        <i class="bi bi-x-lg"></i> Cancelar
+                <div class="modal-footer border-top-0 pt-0">
+                    <button type="button" class="btn btn-outline-secondary px-3 py-1.5 rounded-3" data-bs-dismiss="modal">
+                        <i class="fas fa-times me-1"></i> Cancelar
                     </button>
-                    <button type="submit" class="btn btn-primary">
-                        <i class="bi bi-check-lg"></i> Guardar Categoría
+                    <button type="submit" class="btn btn-outline-primary px-3 py-1.5 rounded-3">
+                        <i class="fas fa-check me-1"></i> Guardar Categoría
                     </button>
                 </div>
             </form>
@@ -280,408 +287,4 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }, 3000);
 });
-</script>
-
-<style>
-/* Estilos generales */
-.container-fluid {
-    max-width: 1400px;
-    margin: 0 auto;
-}
-
-/* Estilos para badges de estado */
-.badge {
-    padding: 0.5rem 0.75rem;
-    font-weight: 500;
-    font-size: 0.75rem;
-    border-radius: 6px;
-}
-
-.badge.bg-success {
-    background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
-}
-
-.badge.bg-danger {
-    background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
-}
-
-/* Estilos para modales */
-.modal-content {
-    border-radius: 12px;
-    border: none;
-    box-shadow: 0 8px 30px rgba(0,0,0,0.25);
-    overflow: hidden;
-}
-
-.modal-header {
-    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
-    border-bottom: 1px solid #dee2e6;
-}
-
-.modal-body {
-    padding: 1.5rem;
-}
-
-.modal-footer {
-    padding: 1rem 1.5rem;
-    border-top: 1px solid #e9ecef;
-    background-color: #f8f9fa;
-}
-
-/* Estilos para formularios */
-.form-label {
-    font-weight: 600;
-    color: #495057;
-    margin-bottom: 0.5rem;
-}
-
-.form-control {
-    border: 1px solid #ced4da;
-    border-radius: 6px;
-    padding: 0.75rem;
-    transition: all 0.2s;
-}
-
-.form-control:focus {
-    border-color: #0d6efd;
-    box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
-}
-
-.form-text {
-    font-size: 0.85rem;
-    color: #6c757d;
-    margin-top: 0.25rem;
-}
-
-.invalid-feedback {
-    font-size: 0.875rem;
-}
-
-/* Estilos para botones */
-.btn {
-    border-radius: 6px;
-    padding: 0.5rem 1.25rem;
-    font-weight: 500;
-    transition: all 0.2s;
-    border-width: 1px;
-}
-
-.btn-primary {
-    background-color: #0d6efd;
-    border-color: #0d6efd;
-}
-
-.btn-primary:hover {
-    background-color: #0b5ed7;
-    border-color: #0a58ca;
-    transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(13, 110, 253, 0.25);
-}
-
-.btn-outline-primary {
-    color: #0d6efd;
-    border-color: #0d6efd;
-}
-
-.btn-outline-primary:hover {
-    background-color: #0d6efd;
-    border-color: #0d6efd;
-    color: white;
-    transform: translateY(-1px);
-}
-
-.btn-outline-warning {
-    color: #ffc107;
-    border-color: #ffc107;
-}
-
-.btn-outline-warning:hover {
-    background-color: #ffc107;
-    border-color: #ffc107;
-    color: #000;
-    transform: translateY(-1px);
-}
-
-.btn-outline-danger {
-    color: #dc3545;
-    border-color: #dc3545;
-}
-
-.btn-outline-danger:hover {
-    background-color: #dc3545;
-    border-color: #dc3545;
-    color: white;
-    transform: translateY(-1px);
-}
-
-.btn-secondary {
-    background-color: #6c757d;
-    border-color: #6c757d;
-}
-
-.btn-secondary:hover {
-    background-color: #5c636a;
-    border-color: #565e64;
-    transform: translateY(-1px);
-}
-
-.btn-outline-secondary {
-    color: #6c757d;
-    border-color: #6c757d;
-}
-
-.btn-outline-secondary:hover {
-    background-color: #6c757d;
-    border-color: #6c757d;
-    color: white;
-}
-
-/* Estilos para la tabla */
-.card {
-    border: none;
-    border-radius: 12px;
-    overflow: hidden;
-    box-shadow: 0 4px 20px rgba(0,0,0,0.08);
-}
-
-.card-body {
-    padding: 1.5rem;
-}
-
-.table {
-    margin-bottom: 0;
-}
-
-.table th {
-    background: linear-gradient(135deg, #4a6fa5 0%, #6d5baa 100%);
-    color: white;
-    border: none;
-    padding: 1rem;
-    font-weight: 600;
-    text-transform: uppercase;
-    font-size: 0.875rem;
-    letter-spacing: 0.5px;
-}
-
-.table td {
-    padding: 1rem;
-    vertical-align: middle;
-    border-color: #f1f3f4;
-}
-
-.table-striped tbody tr:nth-of-type(odd) {
-    background-color: rgba(13, 110, 253, 0.03);
-}
-
-.table-hover tbody tr:hover {
-    background-color: rgba(13, 110, 253, 0.08);
-    transition: background-color 0.2s ease;
-}
-
-/* Estilos para grupos de botones */
-.btn-group {
-    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-    border-radius: 6px;
-    overflow: hidden;
-}
-
-.btn-group .btn {
-    border-radius: 0;
-    border-width: 1px;
-    padding: 0.375rem 0.75rem;
-}
-
-.btn-group .btn:first-child {
-    border-top-left-radius: 6px;
-    border-bottom-left-radius: 6px;
-}
-
-.btn-group .btn:last-child {
-    border-top-right-radius: 6px;
-    border-bottom-right-radius: 6px;
-}
-
-/* Estilos para alertas */
-.alert {
-    border: none;
-    border-radius: 8px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-    padding: 1rem 1.25rem;
-    margin-bottom: 1rem;
-}
-
-.alert-success {
-    background-color: #d1e7dd;
-    color: #0f5132;
-    border-left: 4px solid #198754;
-}
-
-.alert-danger {
-    background-color: #f8d7da;
-    color: #842029;
-    border-left: 4px solid #dc3545;
-}
-
-.alert-warning {
-    background-color: #fff3cd;
-    color: #664d03;
-    border-left: 4px solid #ffc107;
-}
-
-.alert .btn-close {
-    padding: 0.75rem;
-}
-
-/* Animaciones */
-@keyframes fadeIn {
-    from { opacity: 0; transform: translateY(-10px); }
-    to { opacity: 1; transform: translateY(0); }
-}
-
-.modal.fade .modal-dialog {
-    animation: fadeIn 0.3s ease-out;
-}
-
-/* Efectos de hover en filas de tabla */
-.table-hover tbody tr:hover {
-    transform: translateX(2px);
-    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-}
-
-/* Responsive improvements */
-@media (max-width: 768px) {
-    .container-fluid {
-        padding: 1rem;
-    }
-    
-    .d-flex {
-        flex-direction: column;
-        align-items: flex-start !important;
-    }
-    
-    .d-flex h1 {
-        margin-bottom: 1rem;
-        font-size: 1.5rem;
-    }
-    
-    .btn-group {
-        flex-direction: column;
-        width: 100%;
-    }
-    
-    .btn-group .btn {
-        width: 100%;
-        margin: 0 !important;
-        border-radius: 6px !important;
-        margin-bottom: 0.5rem !important;
-    }
-    
-    .btn-group .btn:last-child {
-        margin-bottom: 0 !important;
-    }
-    
-    .btn-group .ms-1 {
-        margin-left: 0 !important;
-    }
-    
-    .table-responsive {
-        font-size: 0.875rem;
-        border: 1px solid #dee2e6;
-        border-radius: 8px;
-        overflow: hidden;
-    }
-    
-    .table th, .table td {
-        padding: 0.75rem;
-    }
-    
-    .modal-dialog {
-        margin: 0.5rem;
-    }
-}
-
-@media (max-width: 576px) {
-    .modal-body, .modal-footer {
-        padding: 1rem;
-    }
-    
-    .modal-header {
-        padding: 1rem;
-    }
-    
-    .modal-footer {
-        flex-direction: column;
-        gap: 0.5rem;
-    }
-    
-    .modal-footer .btn {
-        width: 100%;
-    }
-}
-
-/* Scrollbar personalizado */
-.table-responsive::-webkit-scrollbar {
-    height: 8px;
-}
-
-.table-responsive::-webkit-scrollbar-track {
-    background: #f1f1f1;
-    border-radius: 4px;
-}
-
-.table-responsive::-webkit-scrollbar-thumb {
-    background: linear-gradient(135deg, #4a6fa5 0%, #6d5baa 100%);
-    border-radius: 4px;
-}
-
-.table-responsive::-webkit-scrollbar-thumb:hover {
-    background: linear-gradient(135deg, #3d5c8c 0%, #5a4a8a 100%);
-}
-
-/* Estilos para el estado de carga */
-.bi-hourglass-split {
-    animation: spin 1s linear infinite;
-    display: inline-block;
-}
-
-@keyframes spin {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
-}
-
-/* Transiciones suaves */
-.modal-backdrop {
-    transition: opacity 0.3s ease;
-}
-
-/* Mejoras en la accesibilidad */
-.btn:focus, .form-control:focus {
-    outline: none;
-    box-shadow: 0 0 0 3px rgba(13, 110, 253, 0.25);
-}
-
-/* Mejora visual para iconos en botones */
-.btn .bi {
-    margin-right: 0.375rem;
-    font-size: 0.9em;
-}
-
-/* Efecto de carga en botones */
-.btn[disabled] {
-    opacity: 0.7;
-    cursor: not-allowed;
-}
-
-/* Estilo para el encabezado de la página */
-h1 .bi {
-    color: #0d6efd;
-    margin-right: 0.5rem;
-}
-
-/* Estilo para alerta de "sin datos" */
-.alert-warning .bi {
-    color: #ffc107;
-    margin-right: 0.5rem;
-}
-</style>
-{% endblock %}
+</script>{% endblock %}

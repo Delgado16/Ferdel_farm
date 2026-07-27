@@ -1,102 +1,110 @@
-<!-- templates/admin/gastos/subcategoria_form.html -->
 {% extends "layout.html" %}
 {% block title %}{{ titulo }} - FerDel Sistema{% endblock %}
 
 {% block content %}
-<div class="container-fluid">
-    <div class="form-container">
-        <div class="form-header">
-            <h4><i class="bi bi-list"></i> {{ titulo }}</h4>
-            <div>
-                <a href="{{ url_for('admin.admin_subcategorias') }}" class="btn btn-secondary btn-action">
-                    <i class="bi bi-arrow-left"></i> Volver
-                </a>
+<div class="container-fluid py-4 fade-in-up">
+    <!-- Encabezado con botón de volver -->
+    <div class="historial-header d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+        <div>
+            <h3 class="fw-bold text-slate-800 mb-1">
+                <i class="fas fa-list-ul text-primary me-2"></i>{{ titulo }}
+            </h3>
+            <p class="text-muted small mb-0">Completar la información básica de la subcategoría de gasto</p>
+        </div>
+        <div>
+            <a href="{{ url_for('admin.admin_subcategorias') }}" class="btn btn-outline-secondary btn-sm px-3 py-2 rounded-3">
+                <i class="fas fa-arrow-left me-1"></i> Volver a Lista
+            </a>
+        </div>
+    </div>
+
+    <!-- Contenedor del Formulario -->
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="card-premium-section mb-4">
+                <div class="card-body p-4">
+                    <form method="POST" novalidate>
+                        <div class="row g-3">
+                            <!-- Tipo de Gasto -->
+                            <div class="col-md-6">
+                                <label for="id_tipo_gasto" class="form-label-premium fw-bold mb-1">Tipo de Gasto *</label>
+                                <select name="id_tipo_gasto" id="id_tipo_gasto" class="form-select form-select-premium" required>
+                                    <option value="">Seleccione...</option>
+                                    {% for tipo in tipos_gasto %}
+                                    <option value="{{ tipo.ID_Tipo_Gasto }}" 
+                                            {% if subcategoria and subcategoria.ID_Tipo_Gasto == tipo.ID_Tipo_Gasto %}selected{% endif %}>
+                                        {{ tipo.Nombre }} 
+                                        {% if tipo.Origen == 'INVENTARIO' %}
+                                            (📦 Inventario)
+                                        {% else %}
+                                            (💸 Gasto Directo)
+                                        {% endif %}
+                                    </option>
+                                    {% endfor %}
+                                </select>
+                                <div class="form-text small text-muted">Seleccione a qué tipo de gasto pertenece esta subcategoría</div>
+                            </div>
+                            
+                            <!-- Nombre -->
+                            <div class="col-md-6">
+                                <label class="form-label-premium fw-bold mb-1">Nombre *</label>
+                                <input type="text" name="nombre" class="form-control form-control-premium" 
+                                       value="{{ subcategoria.Nombre if subcategoria else '' }}" 
+                                       placeholder="Ej: Combustible, Mantenimiento, Reparaciones" required>
+                            </div>
+                            
+                            <!-- Estado -->
+                            <div class="col-md-6">
+                                <label class="form-label-premium fw-bold mb-1">Estado</label>
+                                <select name="estado" class="form-select form-select-premium">
+                                    <option value="Activo" {% if subcategoria and subcategoria.Estado == 'Activo' %}selected{% endif %}>
+                                        Activo
+                                    </option>
+                                    <option value="Inactivo" {% if subcategoria and subcategoria.Estado == 'Inactivo' %}selected{% endif %}>
+                                        Inactivo
+                                    </option>
+                                </select>
+                                <div class="form-text small text-muted">Las subcategorías inactivas no aparecerán en los formularios de registro de gasto.</div>
+                            </div>
+                            
+                            <!-- Descripción -->
+                            <div class="col-12">
+                                <label class="form-label-premium fw-bold mb-1">Descripción</label>
+                                <textarea name="descripcion" class="form-control form-control-premium" rows="4" 
+                                          placeholder="Describa en qué consiste esta subcategoría...">{{ subcategoria.Descripcion if subcategoria else '' }}</textarea>
+                                <div class="form-text small text-muted">Descripción opcional pero recomendada para facilitar la clasificación de gastos.</div>
+                            </div>
+                        </div>
+                        
+                        <!-- Información adicional (solo en edición) -->
+                        {% if subcategoria %}
+                        <div class="alert alert-info bg-info bg-opacity-10 text-info border border-info border-opacity-20 rounded-3 p-3 mt-4 mb-0 small">
+                            <i class="fas fa-info-circle me-2"></i>
+                            <strong>Información:</strong> Esta subcategoría pertenece al tipo de gasto 
+                            <strong>{{ subcategoria.tipo_nombre if subcategoria.tipo_nombre else 'desconocido' }}</strong>
+                        </div>
+                        {% endif %}
+                        
+                        <!-- Botones -->
+                        <div class="d-flex justify-content-between align-items-center mt-4 pt-3 border-top border-light">
+                            <a href="{{ url_for('admin.admin_subcategorias') }}" class="btn btn-outline-secondary px-3 py-2 rounded-3">
+                                <i class="fas fa-times-circle me-1"></i> Cancelar
+                            </a>
+                            <button type="submit" class="btn btn-outline-primary px-3 py-2 rounded-3">
+                                <i class="fas fa-save me-1"></i> Guardar Subcategoría
+                            </button>
+                        </div>
+                    </form>
+                </div>
             </div>
         </div>
-
-        <form method="POST">
-            <div class="row">
-                <!-- Tipo de Gasto -->
-                <div class="col-md-6 mb-3">
-                    <label class="form-label">Tipo de Gasto <span class="text-danger">*</span></label>
-                    <select name="id_tipo_gasto" id="id_tipo_gasto" class="form-select" required>
-                        <option value="">Seleccione...</option>
-                        {% for tipo in tipos_gasto %}
-                        <option value="{{ tipo.ID_Tipo_Gasto }}" 
-                                {% if subcategoria and subcategoria.ID_Tipo_Gasto == tipo.ID_Tipo_Gasto %}selected{% endif %}>
-                            {{ tipo.Nombre }} 
-                            {% if tipo.Origen == 'INVENTARIO' %}
-                                (📦 Inventario)
-                            {% else %}
-                                (💸 Gasto Directo)
-                            {% endif %}
-                        </option>
-                        {% endfor %}
-                    </select>
-                    <small class="text-muted">Seleccione a qué tipo de gasto pertenece esta subcategoría</small>
-                </div>
-                
-                <!-- Nombre -->
-                <div class="col-md-6 mb-3">
-                    <label class="form-label">Nombre <span class="text-danger">*</span></label>
-                    <input type="text" name="nombre" class="form-control" 
-                           value="{{ subcategoria.Nombre if subcategoria else '' }}" 
-                           placeholder="Ej: Combustible, Mantenimiento, Reparaciones" required>
-                </div>
-                
-                <!-- Estado -->
-                <div class="col-md-6 mb-3">
-                    <label class="form-label">Estado</label>
-                    <select name="estado" class="form-select">
-                        <option value="Activo" {% if subcategoria and subcategoria.Estado == 'Activo' %}selected{% endif %}>
-                            ✅ Activo
-                        </option>
-                        <option value="Inactivo" {% if subcategoria and subcategoria.Estado == 'Inactivo' %}selected{% endif %}>
-                            ❌ Inactivo
-                        </option>
-                    </select>
-                    <small class="text-muted">Los subcategorías inactivas no aparecerán en los formularios</small>
-                </div>
-                
-                <!-- Descripción -->
-                <div class="col-12 mb-3">
-                    <label class="form-label">Descripción</label>
-                    <textarea name="descripcion" class="form-control" rows="4" 
-                              placeholder="Describa en qué consiste esta subcategoría...">{{ subcategoria.Descripcion if subcategoria else '' }}</textarea>
-                    <small class="text-muted">Descripción opcional pero recomendada</small>
-                </div>
-            </div>
-            
-            <!-- Información adicional (solo en edición) -->
-            {% if subcategoria %}
-            <div class="row mt-3">
-                <div class="col-12">
-                    <div class="alert alert-info">
-                        <i class="bi bi-info-circle"></i>
-                        <strong>Información:</strong> Esta subcategoría pertenece al tipo de gasto 
-                        <strong>{{ subcategoria.tipo_nombre if subcategoria.tipo_nombre else 'desconocido' }}</strong>
-                    </div>
-                </div>
-            </div>
-            {% endif %}
-            
-            <!-- Botones -->
-            <div class="row mt-4">
-                <div class="col-12">
-                    <button type="submit" class="btn btn-success">
-                        <i class="bi bi-save"></i> Guardar Subcategoría
-                    </button>
-                    <a href="{{ url_for('admin.admin_subcategorias') }}" class="btn btn-secondary">
-                        <i class="bi bi-x-circle"></i> Cancelar
-                    </a>
-                </div>
-            </div>
-        </form>
     </div>
 </div>
 {% endblock %}
 
-{% block extra_js %}
+{% block scripts %}
+<!-- jQuery (necesario para el callback de validación) -->
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 <script>
 $(document).ready(function() {
     // Validación adicional antes de enviar

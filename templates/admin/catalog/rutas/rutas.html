@@ -1,99 +1,112 @@
 {% extends 'layout.html' %}
 
+{% block title %}Gestión de Rutas - FerDel{% endblock %}
+
 {% block content %}
-<div class="container-fluid">
-    <h2 class="mt-4">Gestión de Rutas</h2>
-    
-    <div class="card mb-4">
-        <div class="card-header">
-            <div class="d-flex justify-content-between align-items-center">
-                <span><i class="bi bi-signpost-split me-1"></i> Lista de Rutas</span>
-                <div>
-                    <a href="{{ url_for('admin.admin_asignacion_rutas') }}" class="btn btn-secondary me-2" title="Asignar rutas">
-                        <i class="bi bi-diagram-3"></i> Asignar Rutas
-                    </a>
-                    <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#crearRutaModal">
-                        <i class="bi bi-plus-circle"></i> Nueva Ruta
-                    </button>
-                </div>
-            </div>
+<div class="container-fluid py-4 fade-in-up">
+    <!-- Encabezado con botones de acción -->
+    <div class="historial-header d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+        <div>
+            <h3 class="fw-bold text-slate-800 mb-1">
+                <i class="fas fa-route text-primary me-2"></i>Gestión de Rutas
+            </h3>
+            <p class="text-muted small mb-0">Administración de rutas de entrega comerciales y asignación de empresas responsables</p>
         </div>
-            
-        <div class="table-responsive">
-            <table class="table table-bordered table-hover" id="tablaRutas" width="100%" cellspacing="0">
-                <thead class="table-dark">
-                    <tr>
-                        <th>ID</th>
-                        <th>Nombre</th>
-                        <th>Descripción</th>
-                        <th>Empresa</th>
-                        <th>Estado</th>
-                        <th>Fecha Creación</th>
-                        <th>Acciones</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for ruta in rutas %}
-                    <tr>
-                        <td>{{ ruta.ID_Ruta }}</td>
-                        <td>{{ ruta.Nombre_Ruta }}</td>
-                        <td>{{ ruta.Descripcion or 'Sin descripción' }}</td>
-                        <td>{{ ruta.Nombre_Empresa or 'Sin empresa' }}</td>
-                        <td>
-                            <span class="badge bg-{{ 'success' if ruta.Estado == 'Activa' else 'secondary' }}">
-                                {{ ruta.Estado }}
-                            </span>
-                        </td>
-                        <td>{{ ruta.Fecha_Creacion or 'N/A' }}</td>
-                        <td>
-                            <div class="btn-group btn-group-sm" role="group">
-                                <!-- BOTÓN EDITAR - AHORA ES UN ENLACE A PÁGINA SEPARADA -->
-                                <a href="{{ url_for('admin.admin_editar_ruta', id_ruta=ruta.ID_Ruta) }}" 
-                                   class="btn btn-outline-warning me-1"
-                                   title="Editar Ruta">
-                                    <i class="bi bi-pencil-square"></i>
-                                </a>
-                                
-                                <!-- Botón Cambiar Estado -->
-                                <form action="{{ url_for('admin.cambiar_estado_ruta', id_ruta=ruta.ID_Ruta) }}" 
-                                      method="POST" class="d-inline me-1">
-                                    <button type="submit" class="btn btn-{{ 'outline-warning' if ruta.Estado == 'Activa' else 'outline-success' }}"
-                                            title="{{ 'Desactivar' if ruta.Estado == 'Activa' else 'Activar' }}">
-                                        <i class="bi bi-{{ 'slash-circle' if ruta.Estado == 'Activa' else 'check-circle' }}"></i>
+        <div class="d-flex gap-2">
+            <a href="{{ url_for('admin.admin_asignacion_rutas') }}" class="btn btn-outline-secondary btn-sm px-3 py-2 rounded-3" title="Asignar rutas">
+                <i class="fas fa-network-wired me-1"></i> Asignar Rutas
+            </a>
+            <button type="button" class="btn btn-outline-primary btn-sm px-3 py-2 rounded-3" data-bs-toggle="modal" data-bs-target="#crearRutaModal">
+                <i class="fas fa-plus-circle me-1"></i> Nueva Ruta
+            </button>
+        </div>
+    </div>
+
+    <!-- Tabla de rutas -->
+    <div class="card-premium-section mb-4">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover table-modern align-middle mb-0" id="tablaRutas" width="100%">
+                    <thead class="table-light">
+                        <tr>
+                            <th>ID</th>
+                            <th>Nombre</th>
+                            <th>Descripción</th>
+                            <th>Empresa</th>
+                            <th>Estado</th>
+                            <th>Fecha Creación</th>
+                            <th class="text-center">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for ruta in rutas %}
+                        <tr>
+                            <td><span class="badge bg-light text-dark border">#{{ ruta.ID_Ruta }}</span></td>
+                            <td class="fw-bold text-slate-800">{{ ruta.Nombre_Ruta }}</td>
+                            <td class="text-slate-800 small">{{ ruta.Descripcion or 'Sin descripción' }}</td>
+                            <td>
+                                {% if ruta.Nombre_Empresa %}
+                                <span class="badge bg-secondary bg-opacity-10 text-secondary border border-secondary border-opacity-25 rounded-pill px-2.5 py-1.5 fw-bold">{{ ruta.Nombre_Empresa }}</span>
+                                {% else %}
+                                <span class="text-muted small">Sin empresa</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <span class="badge {% if ruta.Estado == 'Activa' %}bg-success bg-opacity-10 text-success border border-success border-opacity-25{% else %}bg-secondary bg-opacity-10 text-secondary border border-secondary border-opacity-25{% endif %} rounded-pill px-2.5 py-1.5 fw-bold">
+                                    {{ ruta.Estado }}
+                                </span>
+                            </td>
+                            <td class="font-monospace small">{{ ruta.Fecha_Creacion or 'N/A' }}</td>
+                            <td class="text-center">
+                                <div class="d-flex justify-content-center gap-1">
+                                    <!-- BOTÓN EDITAR -->
+                                    <a href="{{ url_for('admin.admin_editar_ruta', id_ruta=ruta.ID_Ruta) }}" 
+                                       class="btn btn-sm btn-outline-warning rounded-3"
+                                       title="Editar Ruta">
+                                        <i class="fas fa-edit me-1"></i> Editar
+                                    </a>
+                                    
+                                    <!-- Botón Cambiar Estado -->
+                                    <form action="{{ url_for('admin.cambiar_estado_ruta', id_ruta=ruta.ID_Ruta) }}" 
+                                          method="POST" class="d-inline">
+                                        <button type="submit" class="btn btn-sm btn-{{ 'outline-secondary' if ruta.Estado == 'Activa' else 'outline-success' }} rounded-3"
+                                                title="{{ 'Desactivar' if ruta.Estado == 'Activa' else 'Activar' }}">
+                                            <i class="fas fa-{{ 'ban' if ruta.Estado == 'Activa' else 'check-circle' }} me-1"></i> {{ 'Desactivar' if ruta.Estado == 'Activa' else 'Activar' }}
+                                        </button>
+                                    </form>
+                                    
+                                    <!-- Botón Eliminar -->
+                                    <button type="button" class="btn btn-sm btn-outline-danger btn-eliminar rounded-3"
+                                            data-ruta-id="{{ ruta.ID_Ruta }}"
+                                            data-ruta-nombre="{{ ruta.Nombre_Ruta }}"
+                                            title="Eliminar Ruta">
+                                        <i class="fas fa-trash me-1"></i> Eliminar
                                     </button>
-                                </form>
-                                
-                                <!-- Botón Eliminar -->
-                                <button type="button" class="btn btn-outline-danger btn-eliminar"
-                                        data-ruta-id="{{ ruta.ID_Ruta }}"
-                                        data-ruta-nombre="{{ ruta.Nombre_Ruta }}"
-                                        title="Eliminar Ruta">
-                                    <i class="bi bi-trash"></i>
-                                </button>
-                                
-                                <!-- Botón Detalles -->
-                                <button type="button" class="btn btn-outline-info btn-detalles"
-                                        data-ruta-id="{{ ruta.ID_Ruta }}"
-                                        data-ruta-nombre="{{ ruta.Nombre_Ruta }}"
-                                        data-ruta-descripcion="{{ ruta.Descripcion or 'Sin descripción' }}"
-                                        data-ruta-empresa="{{ ruta.Nombre_Empresa or 'Sin empresa' }}"
-                                        data-ruta-estado="{{ ruta.Estado }}"
-                                        data-ruta-fecha="{{ ruta.Fecha_Creacion or 'No disponible' }}"
-                                        title="Ver Detalles">
-                                    <i class="bi bi-info-circle"></i>
-                                </button>
-                            </div>
-                        </td>
-                    </tr>
-                    {% else %}
-                    <tr>
-                        <td colspan="7" class="text-center text-muted">
-                            No hay rutas registradas. Crea una nueva ruta para comenzar.
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+                                    
+                                    <!-- Botón Detalles -->
+                                    <button type="button" class="btn btn-sm btn-outline-info btn-detalles rounded-3"
+                                            data-ruta-id="{{ ruta.ID_Ruta }}"
+                                            data-ruta-nombre="{{ ruta.Nombre_Ruta }}"
+                                            data-ruta-descripcion="{{ ruta.Descripcion or 'Sin descripción' }}"
+                                            data-ruta-empresa="{{ ruta.Nombre_Empresa or 'Sin empresa' }}"
+                                            data-ruta-estado="{{ ruta.Estado }}"
+                                            data-ruta-fecha="{{ ruta.Fecha_Creacion or 'No disponible' }}"
+                                            title="Ver Detalles">
+                                        <i class="fas fa-info-circle me-1"></i> Detalles
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="7" class="text-center text-muted py-4">
+                                No hay rutas registradas. Crea una nueva ruta para comenzar.
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
         </div>
     </div>
 </div>
@@ -103,39 +116,39 @@
 <!-- 1. MODAL PARA CREAR RUTA -->
 <div class="modal fade" id="crearRutaModal" tabindex="-1" aria-labelledby="crearRutaModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-lg">
-        <div class="modal-content">
-            <form method="POST" action="{{ url_for('admin.crear_ruta') }}" id="formCrearRuta">
-                <div class="modal-header bg-primary text-white">
-                    <h5 class="modal-title" id="crearRutaModalLabel">
-                        <i class="bi bi-plus-circle"></i> Crear Nueva Ruta
+        <div class="modal-content border-0 shadow-lg rounded-3">
+            <form method="POST" action="{{ url_for('admin.crear_ruta') }}" id="formCrearRuta" novalidate>
+                <div class="modal-header border-bottom-0 pb-0">
+                    <h5 class="modal-title fw-bold text-slate-800" id="crearRutaModalLabel">
+                        <i class="fas fa-plus-circle text-primary me-2"></i>Crear Nueva Ruta
                     </h5>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
                     
-                    <div class="row">
+                    <div class="row g-3">
                         <!-- Columna izquierda -->
                         <div class="col-md-6">
                             <div class="mb-3">
-                                <label for="nombre_ruta" class="form-label fw-bold">Nombre de la Ruta *</label>
-                                <input type="text" class="form-control" id="nombre_ruta" name="nombre_ruta" 
+                                <label for="nombre_ruta" class="form-label-premium fw-bold mb-1">Nombre de la Ruta *</label>
+                                <input type="text" class="form-control form-control-premium" id="nombre_ruta" name="nombre_ruta" 
                                        placeholder="Ej: Ruta Norte, Ruta Centro, etc." required
                                        maxlength="255" autocomplete="off">
-                                <div class="form-text">Nombre único para identificar la ruta</div>
+                                <div class="form-text small text-muted">Nombre único para identificar la ruta</div>
                             </div>
                         </div>
                         
                         <!-- Columna derecha -->
                         <div class="col-md-6">
                             <div class="mb-3">
-                                <label for="id_empresa" class="form-label fw-bold">Empresa Asignada *</label>
-                                <select class="form-select" id="id_empresa" name="id_empresa" required>
+                                <label for="id_empresa" class="form-label-premium fw-bold mb-1">Empresa Asignada *</label>
+                                <select class="form-select form-select-premium" id="id_empresa" name="id_empresa" required>
                                     <option value="" selected disabled>-- Seleccione una empresa --</option>
                                     {% for empresa in empresas %}
                                     <option value="{{ empresa.ID_Empresa }}">{{ empresa.Nombre_Empresa }}</option>
                                     {% endfor %}
                                 </select>
-                                <div class="form-text">Seleccione la empresa responsable de esta ruta</div>
+                                <div class="form-text small text-muted">Seleccione la empresa responsable de esta ruta</div>
                             </div>
                         </div>
                     </div>
@@ -144,28 +157,28 @@
                     <div class="row">
                         <div class="col-12">
                             <div class="mb-3">
-                                <label for="descripcion" class="form-label fw-bold">Descripción</label>
-                                <textarea class="form-control" id="descripcion" name="descripcion" 
+                                <label for="descripcion" class="form-label-premium fw-bold mb-1">Descripción</label>
+                                <textarea class="form-control form-control-premium" id="descripcion" name="descripcion" 
                                           rows="3" placeholder="Descripción detallada de la ruta..."></textarea>
-                                <div class="form-text">Opcional: Detalles sobre municipios cubiertos, características, etc.</div>
+                                <div class="form-text small text-muted">Opcional: Detalles sobre municipios cubiertos, características, etc.</div>
                             </div>
                         </div>
                     </div>
                     
-                    <div class="alert alert-info">
+                    <div class="alert alert-info bg-info bg-opacity-10 text-info border border-info border-opacity-20 rounded-3 p-3 mb-0 small">
                         <small>
-                            <i class="bi bi-info-circle"></i> 
+                            <i class="fas fa-info-circle me-1"></i> 
                             Los campos marcados con (*) son obligatorios. 
                             La ruta se creará con estado "Activa" por defecto.
                         </small>
                     </div>
                 </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
-                        <i class="bi bi-x-circle"></i> Cancelar
+                <div class="modal-footer border-top-0 pt-0">
+                    <button type="button" class="btn btn-outline-secondary px-3 py-1.5 rounded-3" data-bs-dismiss="modal">
+                        <i class="fas fa-times-circle me-1"></i> Cancelar
                     </button>
-                    <button type="submit" class="btn btn-primary" id="btnCrearRuta">
-                        <i class="bi bi-save"></i> Guardar Ruta
+                    <button type="submit" class="btn btn-outline-primary px-3 py-1.5 rounded-3" id="btnCrearRuta">
+                        <i class="fas fa-save me-1"></i> Guardar Ruta
                     </button>
                 </div>
             </form>
@@ -176,44 +189,40 @@
 <!-- 2. MODAL PARA ELIMINAR RUTA -->
 <div class="modal fade" id="eliminarRutaModal" tabindex="-1" aria-labelledby="eliminarRutaModalLabel" aria-hidden="true">
     <div class="modal-dialog">
-        <div class="modal-content">
+        <div class="modal-content border-0 shadow-lg rounded-3">
             <form method="POST" action="{{ url_for('admin.eliminar_ruta') }}" id="formEliminarRuta">
-                <div class="modal-header bg-danger text-white">
-                    <h5 class="modal-title" id="eliminarRutaModalLabel">
-                        <i class="bi bi-exclamation-triangle"></i> Confirmar Eliminación
+                <div class="modal-header border-bottom-0 pb-0">
+                    <h5 class="modal-title fw-bold text-slate-800" id="eliminarRutaModalLabel">
+                        <i class="fas fa-exclamation-triangle text-danger me-2"></i>Confirmar Eliminación
                     </h5>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
                     <!-- Campo oculto para el ID de la ruta -->
                     <input type="hidden" name="id_ruta" id="delete_id_ruta">
                     
                     <div class="text-center mb-3">
-                        <i class="bi bi-trash text-danger" style="font-size: 3rem;"></i>
-                        <h5 class="mt-3">¿Está seguro de eliminar esta ruta?</h5>
+                        <i class="fas fa-trash-alt text-danger fa-3x"></i>
+                        <h5 class="mt-3 fw-bold text-slate-800">¿Está seguro de eliminar esta ruta?</h5>
                     </div>
                     
-                    <div class="alert alert-warning">
-                        <h6>Ruta a eliminar:</h6>
-                        <p class="mb-1"><strong>ID:</strong> <span id="delete_ruta_id"></span></p>
-                        <p class="mb-1"><strong>Nombre:</strong> <span id="delete_ruta_nombre"></span></p>
-                        <p class="mb-0"><strong>Esta acción no se puede deshacer.</strong></p>
+                    <div class="card-premium-section bg-light p-3 mb-3">
+                        <p class="mb-1 text-slate-800 small"><strong>ID de Ruta:</strong> <span class="font-monospace" id="delete_ruta_id"></span></p>
+                        <p class="mb-0 text-slate-800 small"><strong>Nombre:</strong> <span id="delete_ruta_nombre"></span></p>
                     </div>
                     
-                    <div class="alert alert-danger">
-                        <small>
-                            <i class="bi bi-exclamation-circle"></i>
-                            <strong>Advertencia:</strong> Si esta ruta está siendo utilizada en otros módulos del sistema, 
-                            podría afectar su funcionamiento.
-                        </small>
+                    <div class="alert alert-warning bg-warning bg-opacity-10 text-warning border border-warning border-opacity-20 rounded-3 p-3 small mb-0">
+                        <i class="fas fa-exclamation-circle me-1"></i>
+                        <strong>Advertencia:</strong> Si esta ruta está asignada a clientes activos en el sistema, 
+                        es preferible desactivarla en lugar de eliminarla del todo. Esta acción no se puede deshacer.
                     </div>
                 </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
-                        <i class="bi bi-x-circle"></i> Cancelar
+                <div class="modal-footer border-top-0 pt-0">
+                    <button type="button" class="btn btn-outline-secondary px-3 py-1.5 rounded-3" data-bs-dismiss="modal">
+                        <i class="fas fa-times-circle me-1"></i> Cancelar
                     </button>
-                    <button type="submit" class="btn btn-danger" id="btnEliminarRuta">
-                        <i class="bi bi-trash"></i> Sí, Eliminar
+                    <button type="submit" class="btn btn-outline-danger px-3 py-1.5 rounded-3" id="btnEliminarRuta">
+                        <i class="fas fa-trash me-1"></i> Sí, Eliminar
                     </button>
                 </div>
             </form>
@@ -224,39 +233,39 @@
 <!-- 3. MODAL PARA VER DETALLES -->
 <div class="modal fade" id="detallesRutaModal" tabindex="-1" aria-labelledby="detallesRutaModalLabel" aria-hidden="true">
     <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header bg-info text-white">
-                <h5 class="modal-title" id="detallesRutaModalLabel">
-                    <i class="bi bi-info-circle"></i> Detalles de la Ruta
+        <div class="modal-content border-0 shadow-lg rounded-3">
+            <div class="modal-header border-bottom-0 pb-0">
+                <h5 class="modal-title fw-bold text-slate-800" id="detallesRutaModalLabel">
+                    <i class="fas fa-info-circle text-primary me-2"></i>Detalles de la Ruta
                 </h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
-                <dl class="row">
-                    <dt class="col-sm-4">ID Ruta:</dt>
-                    <dd class="col-sm-8" id="detalle_id">-</dd>
+                <dl class="row mb-0 small">
+                    <dt class="col-sm-4 text-muted mb-2">ID Ruta:</dt>
+                    <dd class="col-sm-8 text-slate-800 mb-2 font-monospace" id="detalle_id">-</dd>
                     
-                    <dt class="col-sm-4">Nombre:</dt>
-                    <dd class="col-sm-8" id="detalle_nombre">-</dd>
+                    <dt class="col-sm-4 text-muted mb-2">Nombre:</dt>
+                    <dd class="col-sm-8 text-slate-800 fw-bold mb-2" id="detalle_nombre">-</dd>
                     
-                    <dt class="col-sm-4">Descripción:</dt>
-                    <dd class="col-sm-8" id="detalle_descripcion">-</dd>
+                    <dt class="col-sm-4 text-muted mb-2">Descripción:</dt>
+                    <dd class="col-sm-8 text-slate-800 mb-2" id="detalle_descripcion">-</dd>
                     
-                    <dt class="col-sm-4">Empresa:</dt>
-                    <dd class="col-sm-8" id="detalle_empresa">-</dd>
+                    <dt class="col-sm-4 text-muted mb-2">Empresa:</dt>
+                    <dd class="col-sm-8 text-slate-800 mb-2" id="detalle_empresa">-</dd>
                     
-                    <dt class="col-sm-4">Estado:</dt>
-                    <dd class="col-sm-8">
+                    <dt class="col-sm-4 text-muted mb-2">Estado:</dt>
+                    <dd class="col-sm-8 mb-2">
                         <span class="badge" id="detalle_estado_badge">-</span>
                     </dd>
                     
-                    <dt class="col-sm-4">Fecha Creación:</dt>
-                    <dd class="col-sm-8" id="detalle_fecha">-</dd>
+                    <dt class="col-sm-4 text-muted mb-0">Fecha Creación:</dt>
+                    <dd class="col-sm-8 text-slate-800 mb-0 font-monospace" id="detalle_fecha">-</dd>
                 </dl>
             </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
-                    <i class="bi bi-x-circle"></i> Cerrar
+            <div class="modal-footer border-top-0 pt-0">
+                <button type="button" class="btn btn-outline-secondary px-3 py-1.5 rounded-3" data-bs-dismiss="modal">
+                    <i class="fas fa-times-circle me-1"></i> Cerrar
                 </button>
             </div>
         </div>
@@ -264,78 +273,6 @@
 </div>
 
 <style>
-/* Estilos adicionales */
-.btn-group-sm .btn {
-    padding: 0.25rem 0.5rem;
-    font-size: 0.875rem;
-    border-radius: 0.25rem !important;
-    margin-right: 2px;
-}
-
-.btn-group .btn:last-child {
-    margin-right: 0;
-}
-
-.btn-outline-warning:hover {
-    background-color: #ffc107;
-    color: #000;
-    border-color: #ffc107;
-}
-
-.btn-outline-danger:hover {
-    background-color: #dc3545;
-    color: #fff;
-    border-color: #dc3545;
-}
-
-.btn-outline-success:hover {
-    background-color: #198754;
-    color: #fff;
-    border-color: #198754;
-}
-
-.btn-outline-info:hover {
-    background-color: #0dcaf0;
-    color: #000;
-    border-color: #0dcaf0;
-}
-
-#tablaRutas td, #tablaRutas th {
-    padding: 0.5rem 0.75rem;
-    vertical-align: middle;
-}
-
-#tablaRutas tbody tr:hover {
-    background-color: rgba(0, 0, 0, 0.02);
-}
-
-/* Estilos para enlaces en la tabla */
-#tablaRutas a.btn {
-    text-decoration: none;
-    transition: all 0.2s ease;
-}
-
-#tablaRutas a.btn:hover, #tablaRutas button.btn:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-}
-
-/* Badges mejorados */
-.badge {
-    font-size: 0.85em;
-    padding: 0.4em 0.8em;
-    font-weight: 500;
-    letter-spacing: 0.3px;
-}
-
-.bg-success {
-    background-color: #198754 !important;
-}
-
-.bg-secondary {
-    background-color: #6c757d !important;
-}
-
 /* Ajustar altura del textarea de descripción */
 textarea#descripcion {
     min-height: 100px;
@@ -343,56 +280,8 @@ textarea#descripcion {
 }
 
 /* Estilos para lista de detalles */
-dl.row {
-    margin-bottom: 0;
-}
-
 dl.row dt {
     font-weight: 600;
-    color: #495057;
-}
-
-dl.row dd {
-    color: #212529;
-    word-break: break-word;
-}
-
-/* Responsive para la tabla */
-@media (max-width: 768px) {
-    .table-responsive {
-        font-size: 0.85rem;
-    }
-    
-    .btn-group-sm .btn {
-        padding: 0.2rem 0.4rem;
-        font-size: 0.75rem;
-    }
-    
-    .badge {
-        font-size: 0.75em;
-        padding: 0.3em 0.6em;
-    }
-    
-    .modal-dialog {
-        margin: 0.5rem;
-    }
-    
-    dl.row dt, dl.row dd {
-        padding: 0.25rem 0;
-        font-size: 0.9rem;
-    }
-}
-
-/* Mejorar visualización de modales en móviles */
-@media (max-width: 576px) {
-    .modal-body .row {
-        flex-direction: column;
-    }
-    
-    .modal-body .col-md-6 {
-        width: 100%;
-        margin-bottom: 1rem;
-    }
 }
 
 /* Ajustes específicos para la tabla */
@@ -505,11 +394,11 @@ $(document).ready(function() {
         
         // Establecer color del badge según el estado
         var badge = $('#detalle_estado_badge');
-        badge.removeClass('bg-success bg-secondary');
+        badge.removeClass('bg-success bg-secondary bg-opacity-10 text-success text-secondary border border-success border-secondary border-opacity-25 rounded-pill px-2.5 py-1 fw-bold');
         if (estado === 'Activa') {
-            badge.addClass('bg-success');
+            badge.addClass('bg-success bg-opacity-10 text-success border border-success border-opacity-25 rounded-pill px-2.5 py-1 fw-bold');
         } else {
-            badge.addClass('bg-secondary');
+            badge.addClass('bg-secondary bg-opacity-10 text-secondary border border-secondary border-opacity-25 rounded-pill px-2.5 py-1 fw-bold');
         }
         
         // Mostrar el modal
@@ -605,14 +494,14 @@ $(document).ready(function() {
     // Limpiar formularios al cerrar modales
     $('#crearRutaModal').on('hidden.bs.modal', function() {
         $(this).find('form')[0].reset();
-        $('#btnCrearRuta').html('<i class="bi bi-save"></i> Guardar Ruta').prop('disabled', false);
+        $('#btnCrearRuta').html('<i class="fas fa-save me-1"></i> Guardar Ruta').prop('disabled', false);
         limpiarErroresModal('crear');
         // Limpiar mensajes flash
         $(this).find('.alert').remove();
     });
     
     $('#eliminarRutaModal').on('hidden.bs.modal', function() {
-        $('#btnEliminarRuta').html('<i class="bi bi-trash"></i> Sí, Eliminar').prop('disabled', false);
+        $('#btnEliminarRuta').html('<i class="fas fa-trash me-1"></i> Sí, Eliminar').prop('disabled', false);
     });
     
     // Función para mostrar errores en modales
@@ -626,7 +515,7 @@ $(document).ready(function() {
         // Crear mensaje de error
         var errorDiv = $('<div>', {
             class: 'invalid-feedback d-block',
-            html: '<i class="bi bi-exclamation-circle"></i> ' + mensaje
+            html: '<i class="fas fa-exclamation-circle me-1"></i> ' + mensaje
         });
         
         $(selector).after(errorDiv);
@@ -652,8 +541,8 @@ $(document).ready(function() {
     });
     
     // Búsqueda rápida con DataTables
-    $('#tablaRutas_filter input').addClass('form-control form-control-sm');
-    $('#tablaRutas_length select').addClass('form-select form-select-sm');
+    $('#tablaRutas_filter input').addClass('form-control form-control-sm form-control-premium');
+    $('#tablaRutas_length select').addClass('form-select form-select-sm form-select-premium');
     
     console.log('✅ Sistema de gestión de rutas cargado correctamente');
     console.log('Total de rutas cargadas:', {{ rutas|length }});

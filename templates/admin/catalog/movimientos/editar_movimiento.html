@@ -1,53 +1,75 @@
 {% extends "layout.html" %}
 
+{% block title %}Editar Movimiento de Inventario - FerDel{% endblock %}
+
 {% block content %}
-<div class="container-fluid">
-    <div class="d-sm-flex align-items-center justify-content-between mb-4">
-        <h1 class="h3 mb-0 text-gray-800">Editar Movimiento de Inventario</h1>
-        <!-- CORREGIR: Cambiar el nombre del endpoint -->
-        <a href="{{ url_for('admin.admin_movimientos_inventario') }}" class="btn btn-secondary">
-            <i class="fas fa-arrow-left"></i> Volver a Movimientos
-        </a>
+<div class="container-fluid py-4 fade-in-up">
+    <!-- Encabezado con botón de volver -->
+    <div class="historial-header d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+        <div>
+            <h3 class="fw-bold text-slate-800 mb-1">
+                <i class="fas fa-exchange-alt text-primary me-2"></i>Editar Movimiento de Inventario
+            </h3>
+            <p class="text-muted small mb-0">Modificar la descripción, letra y tipo de adición para el control de inventario</p>
+        </div>
+        <div>
+            <a href="{{ url_for('admin.admin_movimientos_inventario') }}" class="btn btn-outline-secondary btn-sm px-3 py-2 rounded-3">
+                <i class="fas fa-arrow-left me-1"></i> Volver a Movimientos
+            </a>
+        </div>
     </div>
 
-    <!-- Resto del código igual -->
-    <div class="card shadow mb-4">
-        <div class="card-header py-3">
-            <h6 class="m-0 font-weight-bold text-primary">Editando Movimiento: {{ movimiento.ID_TipoMovimiento }}</h6>
-        </div>
-        <div class="card-body">
-            <form method="POST">
-                <div class="row">
-                    <div class="col-md-6">
-                        <div class="form-group">
-                            <label for="descripcion">Descripción *</label>
-                            <input type="text" class="form-control" id="descripcion" name="descripcion" 
-                                   value="{{ movimiento.Descripcion }}" required>
-                        </div>
+    <!-- Contenedor del Formulario -->
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="card-premium-section mb-4">
+                <div class="card-body p-4">
+                    <!-- Detalle / ID de edición -->
+                    <div class="card-premium-section p-3 border-start border-3 border-primary mb-4">
+                        <small class="text-muted d-block">ID Tipo Movimiento:</small>
+                        <span class="badge bg-light text-dark border fw-bold font-monospace mt-1">#{{ movimiento.ID_TipoMovimiento }}</span>
                     </div>
-                    <div class="col-md-6">
-                        <div class="form-group">
-                            <label for="letra">Letra *</label>
-                            <input type="text" class="form-control" id="letra" name="letra" 
-                                   value="{{ movimiento.Letra }}" maxlength="10" required>
+
+                    <form method="POST" novalidate>
+                        <div class="row g-3 mb-3">
+                            <!-- Descripción -->
+                            <div class="col-md-6">
+                                <label for="descripcion" class="form-label-premium fw-bold mb-1">Descripción *</label>
+                                <input type="text" class="form-control form-control-premium" id="descripcion" name="descripcion" 
+                                       value="{{ movimiento.Descripcion }}" required placeholder="Ingrese la descripción del movimiento">
+                            </div>
+
+                            <!-- Letra -->
+                            <div class="col-md-6">
+                                <label for="letra" class="form-label-premium fw-bold mb-1">Letra *</label>
+                                <input type="text" class="form-control form-control-premium" id="letra" name="letra" 
+                                       value="{{ movimiento.Letra }}" maxlength="10" required placeholder="Ej: A, B, C">
+                            </div>
                         </div>
-                    </div>
+
+                        <!-- Adición -->
+                        <div class="mb-4">
+                            <label for="adicion" class="form-label-premium fw-bold mb-1">Adición</label>
+                            <select class="form-select form-select-premium" id="adicion" name="adicion">
+                                <option value="" {% if not movimiento.Adicion %}selected{% endif %}>Seleccione un tipo...</option>
+                                <option value="ENTRADA" {% if movimiento.Adicion == 'ENTRADA' %}selected{% endif %}>ENTRADA</option>
+                                <option value="SALIDA" {% if movimiento.Adicion == 'SALIDA' %}selected{% endif %}>SALIDA</option>
+                                <option value="AJUSTE" {% if movimiento.Adicion == 'AJUSTE' %}selected{% endif %}>AJUSTE</option>
+                            </select>
+                        </div>
+                        
+                        <!-- Botones de Acción -->
+                        <div class="d-flex justify-content-between align-items-center pt-3 border-top border-light">
+                            <a href="{{ url_for('admin.admin_movimientos_inventario') }}" class="btn btn-outline-secondary px-3 py-2 rounded-3">
+                                <i class="fas fa-times-circle me-1"></i> Cancelar
+                            </a>
+                            <button type="submit" class="btn btn-outline-primary px-3 py-2 rounded-3">
+                                <i class="fas fa-save me-1"></i> Guardar Cambios
+                            </button>
+                        </div>
+                    </form>
                 </div>
-                <div class="form-group">
-                    <label for="adicion">Adición</label>
-                    <input type="text" class="form-control" id="adicion" name="adicion" 
-                           value="{{ movimiento.Adicion or '' }}">
-                </div>
-                
-                <div class="form-group mt-4">
-                    <button type="submit" class="btn btn-primary">
-                        <i class="fas fa-save"></i> Actualizar Movimiento
-                    </button>
-                    <a href="{{ url_for('admin.admin_movimientos_inventario') }}" class="btn btn-secondary">
-                        <i class="fas fa-times"></i> Cancelar
-                    </a>
-                </div>
-            </form>
+            </div>
         </div>
     </div>
 </div>

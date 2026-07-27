@@ -1,98 +1,123 @@
-<!-- templates/admin/gastos/subcategorias.html -->
 {% extends "layout.html" %}
 {% block title %}Subcategorías de Gastos - FerDel Sistema{% endblock %}
 
 {% block content %}
-<div class="container-fluid">
-    <div class="form-container">
-        <div class="form-header">
-            <h4><i class="bi bi-list-ul"></i> {{ titulo }}</h4>
-            <div>
-                <a href="{{ url_for('admin.crear_subcategoria') }}" class="btn btn-success btn-action">
-                    <i class="bi bi-plus-circle"></i> Nueva Subcategoría
-                </a>
-                <a href="{{ url_for('admin.admin_gastos_operativos') }}" class="btn btn-secondary btn-action">
-                    <i class="bi bi-arrow-left"></i> Volver
-                </a>
-            </div>
+<div class="container-fluid py-4 fade-in-up">
+    <!-- Encabezado con botones de acción -->
+    <div class="historial-header d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+        <div>
+            <h3 class="fw-bold text-slate-800 mb-1">
+                <i class="fas fa-list-ul text-primary me-2"></i>{{ titulo }}
+            </h3>
+            <p class="text-muted small mb-0">Gestión de subcategorías específicas para clasificar los gastos de la empresa</p>
         </div>
+        <div class="d-flex gap-2">
+            <a href="{{ url_for('admin.crear_subcategoria') }}" class="btn btn-outline-primary btn-sm px-3 py-2 rounded-3">
+                <i class="fas fa-plus-circle me-1"></i> Nueva Subcategoría
+            </a>
+            <a href="{{ url_for('admin.admin_gastos_operativos') }}" class="btn btn-outline-secondary btn-sm px-3 py-2 rounded-3">
+                <i class="fas fa-arrow-left me-1"></i> Volver
+            </a>
+        </div>
+    </div>
 
-        <!-- Filtro por Tipo de Gasto -->
-        <form method="GET" class="mb-3">
-            <div class="row">
-                <div class="col-md-3">
-                    <label class="form-label">Filtrar por Tipo:</label>
-                    <select name="tipo" class="form-select" onchange="this.form.submit()">
-                        <option value="">Todos</option>
-                        {% for tipo in tipos_gasto %}
-                        <option value="{{ tipo.ID_Tipo_Gasto }}" {% if tipo_filtro == tipo.ID_Tipo_Gasto|string %}selected{% endif %}>
-                            {{ tipo.Nombre }}
-                        </option>
-                        {% endfor %}
-                    </select>
-                </div>
+    <!-- Filtro por Tipo de Gasto -->
+    <div class="card-premium-section mb-4 p-3">
+        <form method="GET" class="row align-items-end g-3">
+            <div class="col-md-4 col-lg-3">
+                <label class="form-label-premium fw-bold mb-1">Filtrar por Tipo de Gasto:</label>
+                <select name="tipo" class="form-select form-select-premium" onchange="this.form.submit()">
+                    <option value="">Todos los tipos</option>
+                    {% for tipo in tipos_gasto %}
+                    <option value="{{ tipo.ID_Tipo_Gasto }}" {% if tipo_filtro == tipo.ID_Tipo_Gasto|string %}selected{% endif %}>
+                        {{ tipo.Nombre }}
+                    </option>
+                    {% endfor %}
+                </select>
             </div>
         </form>
+    </div>
 
-        <div class="table-container">
-            <table class="table table-hover" id="tablaSubcategorias">
-                <thead>
-                    <tr>
-                        <th>ID</th>
-                        <th>Tipo de Gasto</th>
-                        <th>Nombre</th>
-                        <th>Descripción</th>
-                        <th>Estado</th>
-                        <th>Acciones</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for sub in subcategorias %}
-                    <tr>
-                        <td>{{ sub.ID_Subcategoria }}</td>
-                        <td><strong>{{ sub.tipo_gasto_nombre }}</strong></td>
-                        <td>{{ sub.Nombre }}</td>
-                        <td>{{ sub.Descripcion or '-' }}</td>
-                        <td>
-                            <span class="badge {% if sub.Estado == 'Activo' %}bg-success{% else %}bg-secondary{% endif %}">
-                                {{ sub.Estado }}
-                            </span>
-                        </td>
-                        <td>
-                            <a href="{{ url_for('admin.editar_subcategoria', id_sub=sub.ID_Subcategoria) }}" class="btn btn-sm btn-warning">
-                                <i class="bi bi-pencil"></i>
-                            </a>
-                            <button type="button" class="btn btn-sm btn-danger" data-bs-toggle="modal" data-bs-target="#modalEliminar{{ sub.ID_Subcategoria }}">
-                                <i class="bi bi-trash"></i>
-                            </button>
-                        </td>
-                    </tr>
-                    
-                    <!-- Modal Eliminar -->
-                    <div class="modal fade" id="modalEliminar{{ sub.ID_Subcategoria }}" tabindex="-1">
-                        <div class="modal-dialog">
-                            <div class="modal-content">
-                                <div class="modal-header">
-                                    <h5 class="modal-title">Confirmar Desactivación</h5>
-                                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+    <!-- Tabla de subcategorías -->
+    {% if subcategorias %}
+    <div class="card-premium-section mb-4">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover table-modern align-middle mb-0" id="tablaSubcategorias">
+                    <thead class="table-light">
+                        <tr>
+                            <th>ID</th>
+                            <th>Tipo de Gasto</th>
+                            <th>Nombre</th>
+                            <th>Descripción</th>
+                            <th>Estado</th>
+                            <th class="text-center">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for sub in subcategorias %}
+                        <tr>
+                            <td><span class="badge bg-light text-dark border">#{{ sub.ID_Subcategoria }}</span></td>
+                            <td><strong class="text-slate-800">{{ sub.tipo_gasto_nombre }}</strong></td>
+                            <td class="text-slate-800 fw-bold">{{ sub.Nombre }}</td>
+                            <td class="text-slate-800 small">{{ sub.Descripcion or '-' }}</td>
+                            <td>
+                                <span class="badge {% if sub.Estado == 'Activo' %}bg-success bg-opacity-10 text-success border border-success border-opacity-25{% else %}bg-secondary bg-opacity-10 text-secondary border border-secondary border-opacity-25{% endif %} rounded-pill px-2.5 py-1.5 fw-bold">
+                                    {{ sub.Estado }}
+                                </span>
+                            </td>
+                            <td class="text-center">
+                                <div class="d-flex justify-content-center gap-1">
+                                    <a href="{{ url_for('admin.editar_subcategoria', id_sub=sub.ID_Subcategoria) }}" class="btn btn-sm btn-outline-warning rounded-3">
+                                        <i class="fas fa-edit me-1"></i> Editar
+                                    </a>
+                                    <button type="button" class="btn btn-sm btn-outline-danger rounded-3" data-bs-toggle="modal" data-bs-target="#modalEliminar{{ sub.ID_Subcategoria }}">
+                                        <i class="fas fa-trash me-1"></i> Desactivar
+                                    </button>
                                 </div>
-                                <div class="modal-body">
-                                    <p>¿Está seguro que desea desactivar la subcategoría <strong>{{ sub.Nombre }}</strong>?</p>
-                                </div>
-                                <div class="modal-footer">
-                                    <form method="POST" action="{{ url_for('admin.eliminar_subcategoria', id_sub=sub.ID_Subcategoria) }}">
-                                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                                        <button type="submit" class="btn btn-danger">Desactivar</button>
-                                    </form>
+                            </td>
+                        </tr>
+                        
+                        <!-- Modal Eliminar -->
+                        <div class="modal fade" id="modalEliminar{{ sub.ID_Subcategoria }}" tabindex="-1" aria-hidden="true">
+                            <div class="modal-dialog">
+                                <div class="modal-content border-0 shadow-lg rounded-3">
+                                    <div class="modal-header border-bottom-0 pb-0">
+                                        <h5 class="modal-title fw-bold text-slate-800">
+                                            <i class="fas fa-exclamation-triangle text-danger me-2"></i>Confirmar Desactivación
+                                        </h5>
+                                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                    </div>
+                                    <div class="modal-body">
+                                        <p>¿Está seguro que desea desactivar la subcategoría <strong>{{ sub.Nombre }}</strong>?</p>
+                                        <div class="alert alert-warning bg-warning bg-opacity-10 text-warning border border-warning border-opacity-20 rounded-3 p-3 mb-0 small">
+                                            <i class="fas fa-info-circle me-1"></i> Los registros históricos asignados a esta subcategoría no se verán afectados, pero ya no estará disponible para registrar nuevos gastos.
+                                        </div>
+                                    </div>
+                                    <div class="modal-footer border-top-0 pt-0">
+                                        <button type="button" class="btn btn-outline-secondary px-3 py-1.5 rounded-3" data-bs-dismiss="modal">
+                                            <i class="fas fa-times-circle me-1"></i> Cancelar
+                                        </button>
+                                        <form method="POST" action="{{ url_for('admin.eliminar_subcategoria', id_sub=sub.ID_Subcategoria) }}" class="d-inline">
+                                            <button type="submit" class="btn btn-outline-danger px-3 py-1.5 rounded-3">
+                                                <i class="fas fa-trash me-1"></i> Desactivar
+                                            </button>
+                                        </form>
+                                    </div>
                                 </div>
                             </div>
                         </div>
-                    </div>
-                    {% endfor %}
-                </tbody>
-            </table>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
         </div>
     </div>
+    {% else %}
+    <div class="alert alert-warning bg-warning bg-opacity-10 text-warning border border-warning border-opacity-20 rounded-3">
+        <i class="fas fa-exclamation-triangle me-2"></i> No se encontraron subcategorías registradas para el filtro seleccionado.
+    </div>
+    {% endif %}
 </div>
 {% endblock %}
 

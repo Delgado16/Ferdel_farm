@@ -5,46 +5,64 @@
 {% block content %}
 <div class="container-fluid">
     <!-- Encabezado -->
-    <h2 class="mt-4">Asignación de Rutas</h2>
-    <p class="text-muted mb-4">Gestione las asignaciones de rutas a vendedores</p>
+    <div class="historial-header d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+        <div>
+            <h3 class="fw-bold text-slate-800 mb-1">
+                <i class="bi bi-diagram-3 text-primary me-2"></i>Asignación de Rutas
+            </h3>
+            <p class="text-muted small mb-0">Gestione las asignaciones de rutas a vendedores</p>
+        </div>
+        <div class="d-flex gap-2 flex-wrap">
+            <button type="button" class="btn btn-outline-primary btn-sm px-3 py-2 rounded-3" data-bs-toggle="modal"
+                data-bs-target="#crearAsignacionModal">
+                <i class="bi bi-plus-circle me-1"></i> Nueva Asignación
+            </button>
+        </div>
+    </div>
 
     <!-- Botones y contadores -->
-    <div class="card mb-4">
-        <div class="card-header">
-            <div class="d-flex justify-content-between align-items-center">
-                <span><i class="bi bi-diagram-3 me-1"></i> Asignaciones</span>
-                <div>
-                    <span class="badge bg-info me-2">Vendedores: {{ vendedores|length }}</span>
-                    <span class="badge bg-secondary me-2">Rutas: {{ rutas|length }}</span>
-                    <span class="badge bg-success me-2">Vehículos: {{ vehiculos|length }}</span>
-                    <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#crearAsignacionModal">
-                        <i class="bi bi-plus-circle"></i> Nueva Asignación
-                    </button>
+    <div class="card-premium-section mb-4">
+        <div class="card-premium-header py-3">
+            <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+                <span class="fw-bold text-slate-800"><i class="bi bi-bar-chart-line me-1 text-primary"></i> Resumen de
+                    Asignaciones</span>
+                <div class="d-flex gap-2 flex-wrap">
+                    <span class="badge"
+                        style="color: #0369a1 !important; background-color: rgba(3, 105, 161, 0.08) !important; border: 1px solid rgba(3, 105, 161, 0.15) !important;">Vendedores:
+                        {{ vendedores|length }}</span>
+                    <span class="badge"
+                        style="color: #4b5563 !important; background-color: rgba(75, 85, 99, 0.08) !important; border: 1px solid rgba(75, 85, 99, 0.15) !important;">Rutas:
+                        {{ rutas|length }}</span>
+                    <span class="badge"
+                        style="color: #16a34a !important; background-color: rgba(22, 163, 74, 0.08) !important; border: 1px solid rgba(22, 163, 74, 0.15) !important;">Vehículos:
+                        {{ vehiculos|length }}</span>
                 </div>
             </div>
         </div>
     </div>
 
     <!-- Modal para crear nueva asignación -->
-    <div class="modal fade" id="crearAsignacionModal" tabindex="-1" aria-labelledby="crearAsignacionModalLabel" aria-hidden="true">
+    <div class="modal fade" id="crearAsignacionModal" tabindex="-1" aria-labelledby="crearAsignacionModalLabel"
+        aria-hidden="true">
         <div class="modal-dialog modal-lg">
-            <div class="modal-content">
+            <div class="modal-content card-premium-section border-0">
                 <form id="formCrearAsignacion" action="{{ url_for('admin.crear_asignacion_ruta') }}" method="POST">
-                    <div class="modal-header bg-primary text-white">
-                        <h5 class="modal-title" id="crearAsignacionModalLabel">
-                            <i class="bi bi-plus-circle"></i> Nueva Asignación
+                    <div class="modal-header border-bottom border-light py-3">
+                        <h5 class="modal-title fw-bold text-slate-800" id="crearAsignacionModalLabel">
+                            <i class="bi bi-plus-circle text-primary me-2"></i>Nueva Asignación
                         </h5>
-                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                     </div>
                     <div class="modal-body">
-                        
+
                         <div class="row g-3">
                             <!-- Vendedor -->
                             <div class="col-md-6">
-                                <label for="id_usuario" class="form-label fw-bold">
-                                    <i class="bi bi-person"></i> Vendedor *
+                                <label for="id_usuario" class="form-label-premium fw-bold mb-1">
+                                    <i class="bi bi-person text-primary me-1"></i>Vendedor *
                                 </label>
-                                <select class="form-select" id="id_usuario" name="id_usuario" required>
+                                <select class="form-select form-select-premium" id="id_usuario" name="id_usuario"
+                                    required>
                                     <option value="" selected disabled>-- Seleccione un vendedor --</option>
                                     {% if vendedores %}
                                     {% for vendedor in vendedores %}
@@ -56,9 +74,8 @@
                                     <option value="" disabled>No hay vendedores disponibles</option>
                                     {% endif %}
                                 </select>
-                                <div class="form-text">
-                                    <i class="bi bi-info-circle"></i>
-                                    Vendedores disponibles para asignar
+                                <div class="form-text small mt-1">
+                                    <i class="bi bi-info-circle me-1"></i>Vendedores disponibles para asignar
                                 </div>
                                 <div id="usuarioFeedback" class="invalid-feedback">
                                     Seleccione un vendedor válido
@@ -67,17 +84,17 @@
 
                             <!-- Ruta -->
                             <div class="col-md-6">
-                                <label for="id_ruta" class="form-label fw-bold">
-                                    <i class="bi bi-signpost"></i> Ruta *
+                                <label for="id_ruta" class="form-label-premium fw-bold mb-1">
+                                    <i class="bi bi-signpost text-primary me-1"></i>Ruta *
                                 </label>
-                                <select class="form-select" id="id_ruta" name="id_ruta" required>
+                                <select class="form-select form-select-premium" id="id_ruta" name="id_ruta" required>
                                     <option value="" selected disabled>-- Seleccione una ruta --</option>
                                     {% for ruta in rutas %}
                                     <option value="{{ ruta.ID_Ruta }}">{{ ruta.Nombre_Ruta }}</option>
                                     {% endfor %}
                                 </select>
-                                <div class="form-text">
-                                    <i class="bi bi-info-circle"></i> Seleccione la ruta a asignar
+                                <div class="form-text small mt-1">
+                                    <i class="bi bi-info-circle me-1"></i>Seleccione la ruta a asignar
                                 </div>
                                 <div id="rutaFeedback" class="invalid-feedback">
                                     Seleccione una ruta válida
@@ -86,10 +103,10 @@
 
                             <!-- Vehículo -->
                             <div class="col-md-6">
-                                <label for="id_vehiculo" class="form-label fw-bold">
-                                    <i class="bi bi-truck"></i> Vehículo (Opcional)
+                                <label for="id_vehiculo" class="form-label-premium fw-bold mb-1">
+                                    <i class="bi bi-truck text-primary me-1"></i>Vehículo (Opcional)
                                 </label>
-                                <select class="form-select" id="id_vehiculo" name="id_vehiculo">
+                                <select class="form-select form-select-premium" id="id_vehiculo" name="id_vehiculo">
                                     <option value="" selected>-- Sin vehículo --</option>
                                     {% for vehiculo in vehiculos %}
                                     <option value="{{ vehiculo.ID_Vehiculo }}">
@@ -97,20 +114,20 @@
                                     </option>
                                     {% endfor %}
                                 </select>
-                                <div class="form-text">
-                                    <i class="bi bi-info-circle"></i> Solo vehículos con estado "Disponible"
+                                <div class="form-text small mt-1">
+                                    <i class="bi bi-info-circle me-1"></i>Solo vehículos con estado "Disponible"
                                 </div>
                             </div>
 
                             <!-- Fecha de Asignación -->
                             <div class="col-md-6">
-                                <label for="fecha_asignacion" class="form-label fw-bold">
-                                    <i class="bi bi-calendar"></i> Fecha de Asignación *
+                                <label for="fecha_asignacion" class="form-label-premium fw-bold mb-1">
+                                    <i class="bi bi-calendar text-primary me-1"></i>Fecha de Asignación *
                                 </label>
-                                <input type="date" class="form-control" id="fecha_asignacion" name="fecha_asignacion"
-                                    value="{{ hoy }}" required min="{{ hoy }}">
-                                <div class="form-text">
-                                    <i class="bi bi-info-circle"></i> No se permiten fechas pasadas
+                                <input type="date" class="form-control form-control-premium" id="fecha_asignacion"
+                                    name="fecha_asignacion" value="{{ hoy }}" required min="{{ hoy }}">
+                                <div class="form-text small mt-1">
+                                    <i class="bi bi-info-circle me-1"></i>No se permiten fechas pasadas
                                 </div>
                                 <div id="fechaFeedback" class="invalid-feedback">
                                     Seleccione una fecha válida
@@ -119,29 +136,32 @@
 
                             <!-- Hora de Inicio -->
                             <div class="col-md-6">
-                                <label for="hora_inicio" class="form-label fw-bold">
-                                    <i class="bi bi-clock"></i> Hora de Inicio (Opcional)
+                                <label for="hora_inicio" class="form-label-premium fw-bold mb-1">
+                                    <i class="bi bi-clock text-primary me-1"></i>Hora de Inicio (Opcional)
                                 </label>
-                                <input type="time" class="form-control" id="hora_inicio" name="hora_inicio">
-                                <div class="form-text">
-                                    <i class="bi bi-info-circle"></i> Hora prevista para iniciar la ruta
+                                <input type="time" class="form-control form-control-premium" id="hora_inicio"
+                                    name="hora_inicio">
+                                <div class="form-text small mt-1">
+                                    <i class="bi bi-info-circle me-1"></i>Hora prevista para iniciar la ruta
                                 </div>
                             </div>
 
                             <!-- Hora de Fin -->
                             <div class="col-md-6">
-                                <label for="hora_fin" class="form-label fw-bold">
-                                    <i class="bi bi-clock-fill"></i> Hora de Fin (Opcional)
+                                <label for="hora_fin" class="form-label-premium fw-bold mb-1">
+                                    <i class="bi bi-clock-fill text-primary me-1"></i>Hora de Fin (Opcional)
                                 </label>
-                                <input type="time" class="form-control" id="hora_fin" name="hora_fin">
-                                <div class="form-text">
-                                    <i class="bi bi-info-circle"></i> Hora prevista para finalizar la ruta
+                                <input type="time" class="form-control form-control-premium" id="hora_fin"
+                                    name="hora_fin">
+                                <div class="form-text small mt-1">
+                                    <i class="bi bi-info-circle me-1"></i>Hora prevista para finalizar la ruta
                                 </div>
                             </div>
 
                             <!-- Panel de validación -->
                             <div class="col-12 mt-3">
-                                <div class="alert alert-info d-none" id="validacionPanel">
+                                <div class="alert alert-info d-none bg-info bg-opacity-10 text-info border border-info border-opacity-20"
+                                    id="validacionPanel">
                                     <div class="d-flex align-items-center">
                                         <div class="spinner-border spinner-border-sm me-2" role="status"
                                             id="validacionSpinner" style="display: none;">
@@ -153,20 +173,21 @@
                             </div>
                         </div>
 
-                        <div class="alert alert-info mt-3">
+                        <div
+                            class="alert alert-info mt-3 bg-info bg-opacity-10 text-info border border-info border-opacity-20">
                             <small>
-                                <i class="bi bi-info-circle"></i> 
-                                Los campos marcados con (*) son obligatorios. 
+                                <i class="bi bi-info-circle me-1"></i>
+                                Los campos marcados con (*) son obligatorios.
                                 Verifique la disponibilidad del vendedor antes de crear la asignación.
                             </small>
                         </div>
                     </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
-                            <i class="bi bi-x-circle"></i> Cancelar
+                    <div class="modal-footer border-top border-light py-2">
+                        <button type="button" class="btn btn-outline-secondary rounded-3" data-bs-dismiss="modal">
+                            <i class="bi bi-x-circle me-1"></i> Cancelar
                         </button>
-                        <button type="submit" class="btn btn-primary" id="btnCrearAsignacion">
-                            <i class="bi bi-save"></i> Crear Asignación
+                        <button type="submit" class="btn btn-outline-primary rounded-3" id="btnCrearAsignacion">
+                            <i class="bi bi-save me-1"></i> Crear Asignación
                         </button>
                     </div>
                 </form>
@@ -186,7 +207,7 @@
                 </div>
             </div>
         </div>
-            
+
         <div class="table-responsive">
             <table class="table table-bordered table-hover" id="tablaAsignaciones" width="100%" cellspacing="0">
                 <thead class="table-dark">
@@ -248,10 +269,12 @@
                             {% if asignacion.Hora_Inicio_fmt or asignacion.Hora_Fin_fmt %}
                             <div class="d-flex flex-column">
                                 {% if asignacion.Hora_Inicio_fmt %}
-                                <small><i class="bi bi-clock text-primary"></i> Inicio: {{ asignacion.Hora_Inicio_fmt }}</small>
+                                <small><i class="bi bi-clock text-primary"></i> Inicio: {{ asignacion.Hora_Inicio_fmt
+                                    }}</small>
                                 {% endif %}
                                 {% if asignacion.Hora_Fin_fmt %}
-                                <small><i class="bi bi-clock-fill text-success"></i> Fin: {{ asignacion.Hora_Fin_fmt }}</small>
+                                <small><i class="bi bi-clock-fill text-success"></i> Fin: {{ asignacion.Hora_Fin_fmt
+                                    }}</small>
                                 {% endif %}
                             </div>
                             {% else %}
@@ -292,40 +315,36 @@
                             <div class="btn-group btn-group-sm" role="group">
                                 <!-- Botón Ver detalles -->
                                 <button type="button" class="btn btn-outline-info btn-detalles"
-                                        data-asignacion-id="{{ asignacion.ID_Asignacion }}"
-                                        data-vendedor="{{ asignacion.Vendedor }}"
-                                        data-ruta="{{ asignacion.Nombre_Ruta }}"
-                                        data-vehiculo="{{ asignacion.Placa or 'Sin vehículo' }}"
-                                        data-fecha-asignacion="{{ asignacion.Fecha_Asignacion_fmt or 'Sin fecha' }}"
-                                        data-fecha-finalizacion="{{ asignacion.Fecha_Finalizacion_fmt or 'En curso' }}"
-                                        data-hora-inicio="{{ asignacion.Hora_Inicio_fmt or 'Sin definir' }}"
-                                        data-hora-fin="{{ asignacion.Hora_Fin_fmt or 'Sin definir' }}"
-                                        data-asignado-por="{{ asignacion.Asignado_Por or 'Sistema' }}"
-                                        data-estado="{{ asignacion.Estado_Asignacion }}"
-                                        title="Ver Detalles">
+                                    data-asignacion-id="{{ asignacion.ID_Asignacion }}"
+                                    data-vendedor="{{ asignacion.Vendedor }}" data-ruta="{{ asignacion.Nombre_Ruta }}"
+                                    data-vehiculo="{{ asignacion.Placa or 'Sin vehículo' }}"
+                                    data-fecha-asignacion="{{ asignacion.Fecha_Asignacion_fmt or 'Sin fecha' }}"
+                                    data-fecha-finalizacion="{{ asignacion.Fecha_Finalizacion_fmt or 'En curso' }}"
+                                    data-hora-inicio="{{ asignacion.Hora_Inicio_fmt or 'Sin definir' }}"
+                                    data-hora-fin="{{ asignacion.Hora_Fin_fmt or 'Sin definir' }}"
+                                    data-asignado-por="{{ asignacion.Asignado_Por or 'Sistema' }}"
+                                    data-estado="{{ asignacion.Estado_Asignacion }}" title="Ver Detalles">
                                     <i class="bi bi-eye"></i>
                                 </button>
 
                                 {% if asignacion.Estado_Asignacion == 'Activa' %}
                                 <!-- Botón Editar -->
-                                <a href="{{ url_for('admin.editar_asignacion_ruta', id=asignacion.ID_Asignacion) }}" 
-                                   class="btn btn-outline-warning me-1"
-                                   title="Editar Asignación">
+                                <a href="{{ url_for('admin.editar_asignacion_ruta', id=asignacion.ID_Asignacion) }}"
+                                    class="btn btn-outline-warning me-1" title="Editar Asignación">
                                     <i class="bi bi-pencil"></i>
                                 </a>
-                                
+
                                 <!-- Botón Finalizar -->
-                                <a href="{{ url_for('admin.finalizar_asignacion_ruta', id=asignacion.ID_Asignacion) }}" 
-                                   class="btn btn-outline-success me-1 btn-finalizar-directo"
-                                   title="Finalizar Asignación">
+                                <a href="{{ url_for('admin.finalizar_asignacion_ruta', id=asignacion.ID_Asignacion) }}"
+                                    class="btn btn-outline-success me-1 btn-finalizar-directo"
+                                    title="Finalizar Asignación">
                                     <i class="bi bi-flag-fill"></i>
                                 </a>
 
                                 {% elif asignacion.Estado_Asignacion == 'Suspendida' %}
                                 <!-- Para asignaciones suspendidas, solo mostrar editar -->
-                                <a href="{{ url_for('admin.editar_asignacion_ruta', id=asignacion.ID_Asignacion) }}" 
-                                   class="btn btn-outline-warning me-1"
-                                   title="Editar Asignación">
+                                <a href="{{ url_for('admin.editar_asignacion_ruta', id=asignacion.ID_Asignacion) }}"
+                                    class="btn btn-outline-warning me-1" title="Editar Asignación">
                                     <i class="bi bi-pencil"></i>
                                 </a>
                                 {% endif %}
@@ -333,10 +352,9 @@
                                 <!-- Botón Eliminar (solo para estados no activos) -->
                                 {% if asignacion.Estado_Asignacion in ['Finalizada', 'Suspendida'] %}
                                 <button type="button" class="btn btn-outline-danger btn-eliminar-asignacion"
-                                        data-asignacion-id="{{ asignacion.ID_Asignacion }}"
-                                        data-vendedor="{{ asignacion.Vendedor }}"
-                                        data-ruta="{{ asignacion.Nombre_Ruta }}"
-                                        title="Eliminar Asignación">
+                                    data-asignacion-id="{{ asignacion.ID_Asignacion }}"
+                                    data-vendedor="{{ asignacion.Vendedor }}" data-ruta="{{ asignacion.Nombre_Ruta }}"
+                                    title="Eliminar Asignación">
                                     <i class="bi bi-trash"></i>
                                 </button>
                                 {% endif %}
@@ -353,7 +371,7 @@
                 </tbody>
             </table>
         </div>
-        
+
         {% if asignaciones %}
         <div class="card-footer text-muted d-flex justify-content-between">
             <div>
@@ -377,44 +395,46 @@
 <!-- ========== MODALES ADICIONALES ========== -->
 
 <!-- Modal para ver detalles -->
-<div class="modal fade" id="detallesAsignacionModal" tabindex="-1" aria-labelledby="detallesAsignacionModalLabel" aria-hidden="true">
+<div class="modal fade" id="detallesAsignacionModal" tabindex="-1" aria-labelledby="detallesAsignacionModalLabel"
+    aria-hidden="true">
     <div class="modal-dialog">
         <div class="modal-content">
             <div class="modal-header bg-info text-white">
                 <h5 class="modal-title" id="detallesAsignacionModalLabel">
                     <i class="bi bi-info-circle"></i> Detalles de la Asignación
                 </h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
+                    aria-label="Close"></button>
             </div>
             <div class="modal-body">
                 <dl class="row">
                     <dt class="col-sm-4">ID Asignación:</dt>
                     <dd class="col-sm-8" id="detalle_asignacion_id">-</dd>
-                    
+
                     <dt class="col-sm-4">Vendedor:</dt>
                     <dd class="col-sm-8" id="detalle_vendedor">-</dd>
-                    
+
                     <dt class="col-sm-4">Ruta:</dt>
                     <dd class="col-sm-8" id="detalle_ruta">-</dd>
-                    
+
                     <dt class="col-sm-4">Vehículo:</dt>
                     <dd class="col-sm-8" id="detalle_vehiculo">-</dd>
-                    
+
                     <dt class="col-sm-4">Fecha Asignación:</dt>
                     <dd class="col-sm-8" id="detalle_fecha_asignacion">-</dd>
-                    
+
                     <dt class="col-sm-4">Hora Inicio:</dt>
                     <dd class="col-sm-8" id="detalle_hora_inicio">-</dd>
-                    
+
                     <dt class="col-sm-4">Hora Fin:</dt>
                     <dd class="col-sm-8" id="detalle_hora_fin">-</dd>
-                    
+
                     <dt class="col-sm-4">Fecha Finalización:</dt>
                     <dd class="col-sm-8" id="detalle_fecha_finalizacion">-</dd>
-                    
+
                     <dt class="col-sm-4">Asignado Por:</dt>
                     <dd class="col-sm-8" id="detalle_asignado_por">-</dd>
-                    
+
                     <dt class="col-sm-4">Estado:</dt>
                     <dd class="col-sm-8">
                         <span class="badge" id="detalle_estado_badge">-</span>
@@ -431,24 +451,27 @@
 </div>
 
 <!-- Modal para eliminar asignación -->
-<div class="modal fade" id="eliminarAsignacionModal" tabindex="-1" aria-labelledby="eliminarAsignacionModalLabel" aria-hidden="true">
+<div class="modal fade" id="eliminarAsignacionModal" tabindex="-1" aria-labelledby="eliminarAsignacionModalLabel"
+    aria-hidden="true">
     <div class="modal-dialog">
         <div class="modal-content">
-            <form method="POST" action="{{ url_for('admin.eliminar_asignacion_ruta', id=0) }}" id="formEliminarAsignacion">
+            <form method="POST" action="{{ url_for('admin.eliminar_asignacion_ruta', id=0) }}"
+                id="formEliminarAsignacion">
                 <div class="modal-header bg-danger text-white">
                     <h5 class="modal-title" id="eliminarAsignacionModalLabel">
                         <i class="bi bi-exclamation-triangle"></i> Confirmar Eliminación
                     </h5>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
+                        aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
                     <input type="hidden" name="id_asignacion" id="delete_asignacion_id">
-                    
+
                     <div class="text-center mb-3">
                         <i class="bi bi-trash text-danger" style="font-size: 3rem;"></i>
                         <h5 class="mt-3">¿Está seguro de eliminar esta asignación?</h5>
                     </div>
-                    
+
                     <div class="alert alert-warning">
                         <h6>Asignación a eliminar:</h6>
                         <p class="mb-1"><strong>ID:</strong> <span id="delete_asignacion_id_text"></span></p>
@@ -456,11 +479,11 @@
                         <p class="mb-1"><strong>Ruta:</strong> <span id="delete_ruta"></span></p>
                         <p class="mb-0"><strong>Esta acción no se puede deshacer.</strong></p>
                     </div>
-                    
+
                     <div class="alert alert-danger">
                         <small>
                             <i class="bi bi-exclamation-circle"></i>
-                            <strong>Advertencia:</strong> La eliminación de asignaciones puede afectar 
+                            <strong>Advertencia:</strong> La eliminación de asignaciones puede afectar
                             el historial de actividades del vendedor.
                         </small>
                     </div>
@@ -479,155 +502,202 @@
 </div>
 
 <style>
-/* Estilos adicionales consistentes con el diseño anterior */
-.btn-group-sm .btn {
-    padding: 0.25rem 0.5rem;
-    font-size: 0.875rem;
-    border-radius: 0.25rem !important;
-    margin-right: 2px;
-}
-
-.btn-group .btn:last-child {
-    margin-right: 0;
-}
-
-.btn-outline-warning:hover {
-    background-color: #ffc107;
-    color: #000;
-    border-color: #ffc107;
-}
-
-.btn-outline-danger:hover {
-    background-color: #dc3545;
-    color: #fff;
-    border-color: #dc3545;
-}
-
-.btn-outline-success:hover {
-    background-color: #198754;
-    color: #fff;
-    border-color: #198754;
-}
-
-.btn-outline-info:hover {
-    background-color: #0dcaf0;
-    color: #000;
-    border-color: #0dcaf0;
-}
-
-.btn-outline-primary:hover {
-    background-color: #0d6efd;
-    color: #fff;
-    border-color: #0d6efd;
-}
-
-#tablaAsignaciones td, #tablaAsignaciones th {
-    padding: 0.5rem 0.75rem;
-    vertical-align: middle;
-}
-
-#tablaAsignaciones tbody tr:hover {
-    background-color: rgba(0, 0, 0, 0.02);
-}
-
-#tablaAsignaciones a.btn:hover, #tablaAsignaciones button.btn:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-}
-
-/* Badges mejorados */
-.badge {
-    font-size: 0.85em;
-    padding: 0.4em 0.8em;
-    font-weight: 500;
-    letter-spacing: 0.3px;
-}
-
-/* Ajustar altura del textarea */
-textarea#comentario {
-    min-height: 80px;
-    resize: vertical;
-}
-
-/* Estilos para lista de detalles */
-dl.row {
-    margin-bottom: 0;
-}
-
-dl.row dt {
-    font-weight: 600;
-    color: #495057;
-}
-
-dl.row dd {
-    color: #212529;
-    word-break: break-word;
-}
-
-/* Responsive para la tabla */
-@media (max-width: 768px) {
-    .table-responsive {
-        font-size: 0.85rem;
-    }
-    
+    /* Estilos adicionales consistentes con el diseño anterior */
     .btn-group-sm .btn {
-        padding: 0.2rem 0.4rem;
-        font-size: 0.75rem;
+        padding: 0.25rem 0.5rem;
+        font-size: 0.875rem;
+        border-radius: 0.25rem !important;
+        margin-right: 2px;
     }
-    
+
+    .btn-group .btn:last-child {
+        margin-right: 0;
+    }
+
+    .btn-outline-warning:hover {
+        background-color: #ffc107;
+        color: #000;
+        border-color: #ffc107;
+    }
+
+    .btn-outline-danger:hover {
+        background-color: #dc3545;
+        color: #fff;
+        border-color: #dc3545;
+    }
+
+    .btn-outline-success:hover {
+        background-color: #198754;
+        color: #fff;
+        border-color: #198754;
+    }
+
+    .btn-outline-info:hover {
+        background-color: #0dcaf0;
+        color: #000;
+        border-color: #0dcaf0;
+    }
+
+    .btn-outline-primary:hover {
+        background-color: #0d6efd;
+        color: #fff;
+        border-color: #0d6efd;
+    }
+
+    #tablaAsignaciones td,
+    #tablaAsignaciones th {
+        padding: 0.5rem 0.75rem;
+        vertical-align: middle;
+    }
+
+    #tablaAsignaciones tbody tr:hover {
+        background-color: rgba(0, 0, 0, 0.02);
+    }
+
+    #tablaAsignaciones a.btn:hover,
+    #tablaAsignaciones button.btn:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+
+    /* Badges mejorados */
     .badge {
-        font-size: 0.75em;
-        padding: 0.3em 0.6em;
+        font-size: 0.85em;
+        padding: 0.4em 0.8em;
+        font-weight: 500;
+        letter-spacing: 0.3px;
     }
-    
-    .modal-dialog {
-        margin: 0.5rem;
+
+    /* Ajustar altura del textarea */
+    textarea#comentario {
+        min-height: 80px;
+        resize: vertical;
     }
-    
-    dl.row dt, dl.row dd {
-        padding: 0.25rem 0;
-        font-size: 0.9rem;
+
+    /* Estilos para lista de detalles */
+    dl.row {
+        margin-bottom: 0;
     }
-}
 
-/* Mejorar visualización de modales en móviles */
-@media (max-width: 576px) {
-    .modal-body .row {
-        flex-direction: column;
+    dl.row dt {
+        font-weight: 600;
+        color: #495057;
     }
-    
-    .modal-body .col-md-6 {
-        width: 100%;
-        margin-bottom: 1rem;
+
+    dl.row dd {
+        color: #212529;
+        word-break: break-word;
     }
-}
 
-/* Ajustes específicos para la tabla */
-#tablaAsignaciones th:nth-child(1) { width: 5%; }    /* ID */
-#tablaAsignaciones th:nth-child(2) { width: 12%; }   /* Vendedor */
-#tablaAsignaciones th:nth-child(3) { width: 8%; }    /* Rol */
-#tablaAsignaciones th:nth-child(4) { width: 12%; }   /* Ruta */
-#tablaAsignaciones th:nth-child(5) { width: 12%; }   /* Vehículo */
-#tablaAsignaciones th:nth-child(6) { width: 10%; }   /* Fecha Asignación */
-#tablaAsignaciones th:nth-child(7) { width: 12%; }   /* Horario */
-#tablaAsignaciones th:nth-child(8) { width: 10%; }   /* Fecha Finalización */
-#tablaAsignaciones th:nth-child(9) { width: 10%; }   /* Asignado Por */
-#tablaAsignaciones th:nth-child(10) { width: 5%; }   /* Estado */
-#tablaAsignaciones th:nth-child(11) { width: 4%; }   /* Acciones */
+    /* Responsive para la tabla */
+    @media (max-width: 768px) {
+        .table-responsive {
+            font-size: 0.85rem;
+        }
 
-/* Estilos para mostrar el horario en la tabla */
-#tablaAsignaciones td:nth-child(7) small {
-    font-size: 0.75rem;
-    line-height: 1.2;
-}
+        .btn-group-sm .btn {
+            padding: 0.2rem 0.4rem;
+            font-size: 0.75rem;
+        }
 
-#tablaAsignaciones td:nth-child(7) .bi-clock {
-    margin-right: 2px;
-}
+        .badge {
+            font-size: 0.75em;
+            padding: 0.3em 0.6em;
+        }
 
-#tablaAsignaciones td:nth-child(7) .bi-clock-fill {
-    margin-right: 2px;
-}
+        .modal-dialog {
+            margin: 0.5rem;
+        }
+
+        dl.row dt,
+        dl.row dd {
+            padding: 0.25rem 0;
+            font-size: 0.9rem;
+        }
+    }
+
+    /* Mejorar visualización de modales en móviles */
+    @media (max-width: 576px) {
+        .modal-body .row {
+            flex-direction: column;
+        }
+
+        .modal-body .col-md-6 {
+            width: 100%;
+            margin-bottom: 1rem;
+        }
+    }
+
+    /* Ajustes específicos para la tabla */
+    #tablaAsignaciones th:nth-child(1) {
+        width: 5%;
+    }
+
+    /* ID */
+    #tablaAsignaciones th:nth-child(2) {
+        width: 12%;
+    }
+
+    /* Vendedor */
+    #tablaAsignaciones th:nth-child(3) {
+        width: 8%;
+    }
+
+    /* Rol */
+    #tablaAsignaciones th:nth-child(4) {
+        width: 12%;
+    }
+
+    /* Ruta */
+    #tablaAsignaciones th:nth-child(5) {
+        width: 12%;
+    }
+
+    /* Vehículo */
+    #tablaAsignaciones th:nth-child(6) {
+        width: 10%;
+    }
+
+    /* Fecha Asignación */
+    #tablaAsignaciones th:nth-child(7) {
+        width: 12%;
+    }
+
+    /* Horario */
+    #tablaAsignaciones th:nth-child(8) {
+        width: 10%;
+    }
+
+    /* Fecha Finalización */
+    #tablaAsignaciones th:nth-child(9) {
+        width: 10%;
+    }
+
+    /* Asignado Por */
+    #tablaAsignaciones th:nth-child(10) {
+        width: 5%;
+    }
+
+    /* Estado */
+    #tablaAsignaciones th:nth-child(11) {
+        width: 4%;
+    }
+
+    /* Acciones */
+
+    /* Estilos para mostrar el horario en la tabla */
+    #tablaAsignaciones td:nth-child(7) small {
+        font-size: 0.75rem;
+        line-height: 1.2;
+    }
+
+    #tablaAsignaciones td:nth-child(7) .bi-clock {
+        margin-right: 2px;
+    }
+
+    #tablaAsignaciones td:nth-child(7) .bi-clock-fill {
+        margin-right: 2px;
+    }
 </style>
 {% endblock %}
 
@@ -640,352 +710,352 @@ dl.row dd {
 <script type="text/javascript" src="https://cdn.datatables.net/1.11.5/js/dataTables.bootstrap5.min.js"></script>
 
 <script>
-$(document).ready(function() {
-    // Inicializar DataTable
-    var table = $('#tablaAsignaciones').DataTable({
-        "order": [[0, "desc"]],
-        "language": {
-            "url": "//cdn.datatables.net/plug-ins/1.11.5/i18n/es-ES.json",
-            "search": "Buscar:",
-            "lengthMenu": "Mostrar _MENU_ registros por página",
-            "zeroRecords": "No se encontraron registros",
-            "info": "Mostrando página _PAGE_ de _PAGES_",
-            "infoEmpty": "No hay registros disponibles",
-            "infoFiltered": "(filtrado de _MAX_ registros totales)",
-            "paginate": {
-                "first": "Primera",
-                "last": "Última",
-                "next": "Siguiente",
-                "previous": "Anterior"
-            }
-        },
-        "responsive": true,
-        "pageLength": 10,
-        "lengthMenu": [10, 25, 50, 100],
-        "columnDefs": [
-            { 
-                "orderable": false, 
-                "targets": [10], // Deshabilitar orden en columna Acciones
-                "className": "text-center"
+    $(document).ready(function () {
+        // Inicializar DataTable
+        var table = $('#tablaAsignaciones').DataTable({
+            "order": [[0, "desc"]],
+            "language": {
+                "url": "//cdn.datatables.net/plug-ins/1.11.5/i18n/es-ES.json",
+                "search": "Buscar:",
+                "lengthMenu": "Mostrar _MENU_ registros por página",
+                "zeroRecords": "No se encontraron registros",
+                "info": "Mostrando página _PAGE_ de _PAGES_",
+                "infoEmpty": "No hay registros disponibles",
+                "infoFiltered": "(filtrado de _MAX_ registros totales)",
+                "paginate": {
+                    "first": "Primera",
+                    "last": "Última",
+                    "next": "Siguiente",
+                    "previous": "Anterior"
+                }
             },
-            { 
-                "width": "5%", 
-                "targets": 0, // ID
-                "className": "text-center"
-            },
-            { "width": "12%", "targets": 1 }, // Vendedor
-            { "width": "8%", "targets": 2 },  // Rol
-            { "width": "12%", "targets": 3 }, // Ruta
-            { "width": "12%", "targets": 4 }, // Vehículo
-            { "width": "10%", "targets": 5 }, // Fecha Asignación
-            { "width": "12%", "targets": 6 }, // Horario
-            { "width": "10%", "targets": 7 }, // Fecha Finalización
-            { "width": "10%", "targets": 8 }, // Asignado Por
-            { "width": "5%", "targets": 9 },  // Estado
-            { 
-                "width": "4%", 
-                "targets": 10, // Acciones
-                "className": "text-center"
+            "responsive": true,
+            "pageLength": 10,
+            "lengthMenu": [10, 25, 50, 100],
+            "columnDefs": [
+                {
+                    "orderable": false,
+                    "targets": [10], // Deshabilitar orden en columna Acciones
+                    "className": "text-center"
+                },
+                {
+                    "width": "5%",
+                    "targets": 0, // ID
+                    "className": "text-center"
+                },
+                { "width": "12%", "targets": 1 }, // Vendedor
+                { "width": "8%", "targets": 2 },  // Rol
+                { "width": "12%", "targets": 3 }, // Ruta
+                { "width": "12%", "targets": 4 }, // Vehículo
+                { "width": "10%", "targets": 5 }, // Fecha Asignación
+                { "width": "12%", "targets": 6 }, // Horario
+                { "width": "10%", "targets": 7 }, // Fecha Finalización
+                { "width": "10%", "targets": 8 }, // Asignado Por
+                { "width": "5%", "targets": 9 },  // Estado
+                {
+                    "width": "4%",
+                    "targets": 10, // Acciones
+                    "className": "text-center"
+                }
+            ],
+            "dom": '<"row mb-3"<"col-sm-12 col-md-6"l><"col-sm-12 col-md-6 d-flex justify-content-md-end"f>>rt<"row"<"col-sm-12 col-md-6"i><"col-sm-12 col-md-6"p>>',
+            "initComplete": function (settings, json) {
+                console.log('✅ DataTable de asignaciones inicializado');
             }
-        ],
-        "dom": '<"row mb-3"<"col-sm-12 col-md-6"l><"col-sm-12 col-md-6 d-flex justify-content-md-end"f>>rt<"row"<"col-sm-12 col-md-6"i><"col-sm-12 col-md-6"p>>',
-        "initComplete": function(settings, json) {
-            console.log('✅ DataTable de asignaciones inicializado');
-        }
-    });
-    
-    // ========== EVENTO PARA BOTONES DETALLES ==========
-    $(document).on('click', '.btn-detalles', function() {
-        var asignacionId = $(this).data('asignacion-id');
-        var vendedor = $(this).data('vendedor');
-        var ruta = $(this).data('ruta');
-        var vehiculo = $(this).data('vehiculo');
-        var fechaAsignacion = $(this).data('fecha-asignacion');
-        var fechaFinalizacion = $(this).data('fecha-finalizacion');
-        var horaInicio = $(this).data('hora-inicio');
-        var horaFin = $(this).data('hora-fin');
-        var asignadoPor = $(this).data('asignado-por');
-        var estado = $(this).data('estado');
-        
-        // Llenar el modal de detalles
-        $('#detalle_asignacion_id').text('#' + asignacionId);
-        $('#detalle_vendedor').text(vendedor);
-        $('#detalle_ruta').text(ruta);
-        $('#detalle_vehiculo').text(vehiculo);
-        $('#detalle_fecha_asignacion').text(fechaAsignacion);
-        $('#detalle_hora_inicio').text(horaInicio);
-        $('#detalle_hora_fin').text(horaFin);
-        $('#detalle_fecha_finalizacion').text(fechaFinalizacion);
-        $('#detalle_asignado_por').text(asignadoPor);
-        $('#detalle_estado_badge').text(estado);
-        
-        // Establecer color del badge según el estado
-        var badge = $('#detalle_estado_badge');
-        badge.removeClass('bg-success bg-secondary bg-warning');
-        if (estado === 'Activa') {
-            badge.addClass('bg-success');
-        } else if (estado === 'Finalizada') {
-            badge.addClass('bg-secondary');
-        } else if (estado === 'Suspendida') {
-            badge.addClass('bg-warning');
-        }
-        
-        // Mostrar el modal
-        var detallesModal = new bootstrap.Modal(document.getElementById('detallesAsignacionModal'));
-        detallesModal.show();
-    });
-    
-    // ========== EVENTO PARA BOTONES ELIMINAR ==========
-    $(document).on('click', '.btn-eliminar-asignacion', function() {
-        var asignacionId = $(this).data('asignacion-id');
-        var vendedor = $(this).data('vendedor');
-        var ruta = $(this).data('ruta');
-        
-        console.log('Solicitando eliminación de asignación:', {asignacionId, vendedor, ruta});
-        
-        // Actualizar la acción del formulario con el ID correcto
-        var formAction = "{{ url_for('admin.eliminar_asignacion_ruta', id=0) }}".replace('/0', '/' + asignacionId);
-        $('#formEliminarAsignacion').attr('action', formAction);
-        
-        // Llenar el modal de eliminar con los datos
-        $('#delete_asignacion_id').val(asignacionId);
-        $('#delete_asignacion_id_text').text('#' + asignacionId);
-        $('#delete_vendedor').text(vendedor);
-        $('#delete_ruta').text(ruta);
-        
-        // Mostrar el modal
-        var eliminarModal = new bootstrap.Modal(document.getElementById('eliminarAsignacionModal'));
-        eliminarModal.show();
-    });
-    
-    // ========== EVENTO PARA BOTÓN FINALIZAR ==========
-    $(document).on('click', '.btn-finalizar-directo', function(e) {
-        var asignacionId = $(this).attr('href').split('/').pop();
-        var vendedor = $(this).closest('tr').find('td:nth-child(2) .fw-bold').text().trim();
-        
-        var confirmMessage = `¿Está seguro de finalizar la asignación del vendedor ${vendedor}?\n\n` +
-                            `Esta acción cambiará el estado a "Finalizada" y liberará el vehículo si tiene uno asignado.`;
-        
-        if (!confirm(confirmMessage)) {
-            e.preventDefault();
-            return false;
-        }
-        
-        // Mostrar indicador de carga
-        var originalHTML = $(this).html();
-        $(this).html('<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Finalizando...').prop('disabled', true);
-        
-        // Restaurar botón después de 5 segundos (por si falla la redirección)
-        setTimeout(function() {
-            $(this).html(originalHTML).prop('disabled', false);
-        }.bind(this), 5000);
-        
-        console.log('Finalizando asignación:', {asignacionId, vendedor});
-        return true;
-    });
-    
-    // ========== VALIDACIONES PARA CREAR ASIGNACIÓN ==========
-    $('#formCrearAsignacion').on('submit', function(e) {
-        var usuario = $('#id_usuario').val();
-        var ruta = $('#id_ruta').val();
-        var fecha = $('#fecha_asignacion').val();
-        var hoy = new Date().toLocaleDateString('sv-SE');
-        var horaInicio = $('#hora_inicio').val();
-        var horaFin = $('#hora_fin').val();
-        
-        // Validar usuario
-        if (!usuario) {
-            e.preventDefault();
-            mostrarErrorModal('crear', 'Debe seleccionar un vendedor', '#id_usuario');
-            return false;
-        }
-        
-        // Validar ruta
-        if (!ruta) {
-            e.preventDefault();
-            mostrarErrorModal('crear', 'Debe seleccionar una ruta', '#id_ruta');
-            return false;
-        }
-        
-        // Validar fecha
-        if (!fecha) {
-            e.preventDefault();
-            mostrarErrorModal('crear', 'Debe seleccionar una fecha', '#fecha_asignacion');
-            return false;
-        }
-        
-        if (fecha < hoy) {
-            e.preventDefault();
-            mostrarErrorModal('crear', 'No se permiten fechas pasadas', '#fecha_asignacion');
-            return false;
-        }
-        
-        // Validar horarios si ambos están llenos
-        if (horaInicio && horaFin) {
-            if (horaFin <= horaInicio) {
+        });
+
+        // ========== EVENTO PARA BOTONES DETALLES ==========
+        $(document).on('click', '.btn-detalles', function () {
+            var asignacionId = $(this).data('asignacion-id');
+            var vendedor = $(this).data('vendedor');
+            var ruta = $(this).data('ruta');
+            var vehiculo = $(this).data('vehiculo');
+            var fechaAsignacion = $(this).data('fecha-asignacion');
+            var fechaFinalizacion = $(this).data('fecha-finalizacion');
+            var horaInicio = $(this).data('hora-inicio');
+            var horaFin = $(this).data('hora-fin');
+            var asignadoPor = $(this).data('asignado-por');
+            var estado = $(this).data('estado');
+
+            // Llenar el modal de detalles
+            $('#detalle_asignacion_id').text('#' + asignacionId);
+            $('#detalle_vendedor').text(vendedor);
+            $('#detalle_ruta').text(ruta);
+            $('#detalle_vehiculo').text(vehiculo);
+            $('#detalle_fecha_asignacion').text(fechaAsignacion);
+            $('#detalle_hora_inicio').text(horaInicio);
+            $('#detalle_hora_fin').text(horaFin);
+            $('#detalle_fecha_finalizacion').text(fechaFinalizacion);
+            $('#detalle_asignado_por').text(asignadoPor);
+            $('#detalle_estado_badge').text(estado);
+
+            // Establecer color del badge según el estado
+            var badge = $('#detalle_estado_badge');
+            badge.removeClass('bg-success bg-secondary bg-warning');
+            if (estado === 'Activa') {
+                badge.addClass('bg-success');
+            } else if (estado === 'Finalizada') {
+                badge.addClass('bg-secondary');
+            } else if (estado === 'Suspendida') {
+                badge.addClass('bg-warning');
+            }
+
+            // Mostrar el modal
+            var detallesModal = new bootstrap.Modal(document.getElementById('detallesAsignacionModal'));
+            detallesModal.show();
+        });
+
+        // ========== EVENTO PARA BOTONES ELIMINAR ==========
+        $(document).on('click', '.btn-eliminar-asignacion', function () {
+            var asignacionId = $(this).data('asignacion-id');
+            var vendedor = $(this).data('vendedor');
+            var ruta = $(this).data('ruta');
+
+            console.log('Solicitando eliminación de asignación:', { asignacionId, vendedor, ruta });
+
+            // Actualizar la acción del formulario con el ID correcto
+            var formAction = "{{ url_for('admin.eliminar_asignacion_ruta', id=0) }}".replace('/0', '/' + asignacionId);
+            $('#formEliminarAsignacion').attr('action', formAction);
+
+            // Llenar el modal de eliminar con los datos
+            $('#delete_asignacion_id').val(asignacionId);
+            $('#delete_asignacion_id_text').text('#' + asignacionId);
+            $('#delete_vendedor').text(vendedor);
+            $('#delete_ruta').text(ruta);
+
+            // Mostrar el modal
+            var eliminarModal = new bootstrap.Modal(document.getElementById('eliminarAsignacionModal'));
+            eliminarModal.show();
+        });
+
+        // ========== EVENTO PARA BOTÓN FINALIZAR ==========
+        $(document).on('click', '.btn-finalizar-directo', function (e) {
+            var asignacionId = $(this).attr('href').split('/').pop();
+            var vendedor = $(this).closest('tr').find('td:nth-child(2) .fw-bold').text().trim();
+
+            var confirmMessage = `¿Está seguro de finalizar la asignación del vendedor ${vendedor}?\n\n` +
+                `Esta acción cambiará el estado a "Finalizada" y liberará el vehículo si tiene uno asignado.`;
+
+            if (!confirm(confirmMessage)) {
                 e.preventDefault();
-                mostrarErrorModal('crear', 'La hora de fin debe ser posterior a la hora de inicio', '#hora_fin');
                 return false;
             }
-        }
-        
-        // Mostrar indicador de carga
-        $('#btnCrearAsignacion').html('<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Guardando...').prop('disabled', true);
-        
-        console.log('Creando nueva asignación:', {
-            usuario: usuario,
-            ruta: ruta,
-            fecha: fecha,
-            hora_inicio: horaInicio,
-            hora_fin: horaFin,
-            vehiculo: $('#id_vehiculo').val()
+
+            // Mostrar indicador de carga
+            var originalHTML = $(this).html();
+            $(this).html('<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Finalizando...').prop('disabled', true);
+
+            // Restaurar botón después de 5 segundos (por si falla la redirección)
+            setTimeout(function () {
+                $(this).html(originalHTML).prop('disabled', false);
+            }.bind(this), 5000);
+
+            console.log('Finalizando asignación:', { asignacionId, vendedor });
+            return true;
         });
-        
-        return true;
-    });
-    
-    // Confirmación para eliminar asignación
-    $('#formEliminarAsignacion').on('submit', function(e) {
-        var asignacionId = $('#delete_asignacion_id_text').text();
-        var vendedor = $('#delete_vendedor').text();
-        var ruta = $('#delete_ruta').text();
-        
-        var confirmMessage = `¿Está completamente seguro de eliminar la asignación ${asignacionId}?\n\n` +
-                            `Vendedor: ${vendedor}\n` +
-                            `Ruta: ${ruta}\n\n` +
-                            `Esta acción es permanente y no se puede deshacer.`;
-        
-        if (!confirm(confirmMessage)) {
-            e.preventDefault();
-            return false;
-        }
-        
-        // Mostrar indicador de carga
-        $('#btnEliminarAsignacion').html('<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Eliminando...').prop('disabled', true);
-        
-        console.log('Eliminando asignación:', {asignacionId, vendedor, ruta});
-        
-        return true;
-    });
-    
-    // ========== VALIDACIÓN EN TIEMPO REAL ==========
-    // Verificar disponibilidad cuando cambien los campos
-    $('#id_usuario, #fecha_asignacion').on('change', verificarDisponibilidad);
-    
-    function verificarDisponibilidad() {
-        const usuario = $('#id_usuario').val();
-        const fecha = $('#fecha_asignacion').val();
-        const validacionPanel = $('#validacionPanel');
-        const validacionMensaje = $('#validacionMensaje');
-        const validacionSpinner = $('#validacionSpinner');
-        const btnCrear = $('#btnCrearAsignacion');
 
-        if (!usuario || !fecha) return;
+        // ========== VALIDACIONES PARA CREAR ASIGNACIÓN ==========
+        $('#formCrearAsignacion').on('submit', function (e) {
+            var usuario = $('#id_usuario').val();
+            var ruta = $('#id_ruta').val();
+            var fecha = $('#fecha_asignacion').val();
+            var hoy = new Date().toLocaleDateString('sv-SE');
+            var horaInicio = $('#hora_inicio').val();
+            var horaFin = $('#hora_fin').val();
 
-        validacionPanel.removeClass('d-none');
-        validacionPanel.removeClass('alert-danger alert-success');
-        validacionPanel.addClass('alert-info');
-        validacionSpinner.show();
-        validacionMensaje.html('Validando disponibilidad...');
-        btnCrear.prop('disabled', true);
+            // Validar usuario
+            if (!usuario) {
+                e.preventDefault();
+                mostrarErrorModal('crear', 'Debe seleccionar un vendedor', '#id_usuario');
+                return false;
+            }
 
-        // Hacer petición AJAX a la API de disponibilidad
-        $.ajax({
-            url: "{{ url_for('admin.api_disponibilidad_asignaciones') }}",
-            method: 'GET',
-            data: {
-                fecha: fecha
-            },
-            success: function(response) {
-                validacionSpinner.hide();
-                
-                // Verificar si el vendedor seleccionado está en la lista de disponibles
-                var vendedorDisponible = false;
-                if (response.vendedores && response.vendedores.length > 0) {
-                    for (var i = 0; i < response.vendedores.length; i++) {
-                        if (response.vendedores[i].ID_Usuario == usuario) {
-                            vendedorDisponible = true;
-                            break;
+            // Validar ruta
+            if (!ruta) {
+                e.preventDefault();
+                mostrarErrorModal('crear', 'Debe seleccionar una ruta', '#id_ruta');
+                return false;
+            }
+
+            // Validar fecha
+            if (!fecha) {
+                e.preventDefault();
+                mostrarErrorModal('crear', 'Debe seleccionar una fecha', '#fecha_asignacion');
+                return false;
+            }
+
+            if (fecha < hoy) {
+                e.preventDefault();
+                mostrarErrorModal('crear', 'No se permiten fechas pasadas', '#fecha_asignacion');
+                return false;
+            }
+
+            // Validar horarios si ambos están llenos
+            if (horaInicio && horaFin) {
+                if (horaFin <= horaInicio) {
+                    e.preventDefault();
+                    mostrarErrorModal('crear', 'La hora de fin debe ser posterior a la hora de inicio', '#hora_fin');
+                    return false;
+                }
+            }
+
+            // Mostrar indicador de carga
+            $('#btnCrearAsignacion').html('<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Guardando...').prop('disabled', true);
+
+            console.log('Creando nueva asignación:', {
+                usuario: usuario,
+                ruta: ruta,
+                fecha: fecha,
+                hora_inicio: horaInicio,
+                hora_fin: horaFin,
+                vehiculo: $('#id_vehiculo').val()
+            });
+
+            return true;
+        });
+
+        // Confirmación para eliminar asignación
+        $('#formEliminarAsignacion').on('submit', function (e) {
+            var asignacionId = $('#delete_asignacion_id_text').text();
+            var vendedor = $('#delete_vendedor').text();
+            var ruta = $('#delete_ruta').text();
+
+            var confirmMessage = `¿Está completamente seguro de eliminar la asignación ${asignacionId}?\n\n` +
+                `Vendedor: ${vendedor}\n` +
+                `Ruta: ${ruta}\n\n` +
+                `Esta acción es permanente y no se puede deshacer.`;
+
+            if (!confirm(confirmMessage)) {
+                e.preventDefault();
+                return false;
+            }
+
+            // Mostrar indicador de carga
+            $('#btnEliminarAsignacion').html('<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Eliminando...').prop('disabled', true);
+
+            console.log('Eliminando asignación:', { asignacionId, vendedor, ruta });
+
+            return true;
+        });
+
+        // ========== VALIDACIÓN EN TIEMPO REAL ==========
+        // Verificar disponibilidad cuando cambien los campos
+        $('#id_usuario, #fecha_asignacion').on('change', verificarDisponibilidad);
+
+        function verificarDisponibilidad() {
+            const usuario = $('#id_usuario').val();
+            const fecha = $('#fecha_asignacion').val();
+            const validacionPanel = $('#validacionPanel');
+            const validacionMensaje = $('#validacionMensaje');
+            const validacionSpinner = $('#validacionSpinner');
+            const btnCrear = $('#btnCrearAsignacion');
+
+            if (!usuario || !fecha) return;
+
+            validacionPanel.removeClass('d-none');
+            validacionPanel.removeClass('alert-danger alert-success');
+            validacionPanel.addClass('alert-info');
+            validacionSpinner.show();
+            validacionMensaje.html('Validando disponibilidad...');
+            btnCrear.prop('disabled', true);
+
+            // Hacer petición AJAX a la API de disponibilidad
+            $.ajax({
+                url: "{{ url_for('admin.api_disponibilidad_asignaciones') }}",
+                method: 'GET',
+                data: {
+                    fecha: fecha
+                },
+                success: function (response) {
+                    validacionSpinner.hide();
+
+                    // Verificar si el vendedor seleccionado está en la lista de disponibles
+                    var vendedorDisponible = false;
+                    if (response.vendedores && response.vendedores.length > 0) {
+                        for (var i = 0; i < response.vendedores.length; i++) {
+                            if (response.vendedores[i].ID_Usuario == usuario) {
+                                vendedorDisponible = true;
+                                break;
+                            }
                         }
                     }
-                }
-                
-                if (vendedorDisponible) {
-                    validacionPanel.removeClass('alert-info alert-danger');
-                    validacionPanel.addClass('alert-success');
-                    validacionMensaje.html('<i class="bi bi-check-circle"></i> Vendedor disponible para la fecha seleccionada');
-                    btnCrear.prop('disabled', false);
-                } else {
+
+                    if (vendedorDisponible) {
+                        validacionPanel.removeClass('alert-info alert-danger');
+                        validacionPanel.addClass('alert-success');
+                        validacionMensaje.html('<i class="bi bi-check-circle"></i> Vendedor disponible para la fecha seleccionada');
+                        btnCrear.prop('disabled', false);
+                    } else {
+                        validacionPanel.removeClass('alert-info alert-success');
+                        validacionPanel.addClass('alert-danger');
+                        validacionMensaje.html('<i class="bi bi-exclamation-circle"></i> El vendedor no está disponible para esta fecha');
+                        btnCrear.prop('disabled', true);
+                    }
+                },
+                error: function () {
+                    validacionSpinner.hide();
                     validacionPanel.removeClass('alert-info alert-success');
                     validacionPanel.addClass('alert-danger');
-                    validacionMensaje.html('<i class="bi bi-exclamation-circle"></i> El vendedor no está disponible para esta fecha');
-                    btnCrear.prop('disabled', true);
+                    validacionMensaje.html('<i class="bi bi-exclamation-circle"></i> Error al verificar disponibilidad');
+                    btnCrear.prop('disabled', false);
                 }
-            },
-            error: function() {
-                validacionSpinner.hide();
-                validacionPanel.removeClass('alert-info alert-success');
-                validacionPanel.addClass('alert-danger');
-                validacionMensaje.html('<i class="bi bi-exclamation-circle"></i> Error al verificar disponibilidad');
-                btnCrear.prop('disabled', false);
-            }
-        });
-    }
-    
-    // Función para mostrar errores en modales
-    function mostrarErrorModal(tipo, mensaje, selector) {
-        // Remover errores anteriores
-        if (tipo === 'crear') {
-            $('#crearAsignacionModal .is-invalid').removeClass('is-invalid');
-            $('#crearAsignacionModal .invalid-feedback').remove();
+            });
         }
-        
-        // Agregar clase de error al campo
-        $(selector).addClass('is-invalid');
-        
-        // Crear mensaje de error
-        var errorDiv = $('<div>', {
-            class: 'invalid-feedback d-block',
-            html: '<i class="bi bi-exclamation-circle"></i> ' + mensaje
+
+        // Función para mostrar errores en modales
+        function mostrarErrorModal(tipo, mensaje, selector) {
+            // Remover errores anteriores
+            if (tipo === 'crear') {
+                $('#crearAsignacionModal .is-invalid').removeClass('is-invalid');
+                $('#crearAsignacionModal .invalid-feedback').remove();
+            }
+
+            // Agregar clase de error al campo
+            $(selector).addClass('is-invalid');
+
+            // Crear mensaje de error
+            var errorDiv = $('<div>', {
+                class: 'invalid-feedback d-block',
+                html: '<i class="bi bi-exclamation-circle"></i> ' + mensaje
+            });
+
+            $(selector).after(errorDiv);
+            $(selector).focus();
+
+            // Remover error después de 5 segundos
+            setTimeout(function () {
+                $(selector).removeClass('is-invalid');
+                errorDiv.remove();
+            }, 5000);
+        }
+
+        // Limpiar formularios al cerrar modales
+        $('#crearAsignacionModal').on('hidden.bs.modal', function () {
+            $(this).find('form')[0].reset();
+            $('#btnCrearAsignacion').html('<i class="bi bi-save"></i> Crear Asignación').prop('disabled', false);
+            $('#validacionPanel').addClass('d-none');
+            $(this).find('.alert').remove();
         });
-        
-        $(selector).after(errorDiv);
-        $(selector).focus();
-        
-        // Remover error después de 5 segundos
-        setTimeout(function() {
-            $(selector).removeClass('is-invalid');
-            errorDiv.remove();
-        }, 5000);
-    }
-    
-    // Limpiar formularios al cerrar modales
-    $('#crearAsignacionModal').on('hidden.bs.modal', function() {
-        $(this).find('form')[0].reset();
-        $('#btnCrearAsignacion').html('<i class="bi bi-save"></i> Crear Asignación').prop('disabled', false);
-        $('#validacionPanel').addClass('d-none');
-        $(this).find('.alert').remove();
-    });
-    
-    $('#eliminarAsignacionModal').on('hidden.bs.modal', function() {
-        $('#btnEliminarAsignacion').html('<i class="bi bi-trash"></i> Sí, Eliminar').prop('disabled', false);
-    });
-    
-    // Auto-focus en el campo de vendedor cuando se abre el modal de crear
-    $('#crearAsignacionModal').on('shown.bs.modal', function() {
-        $('#id_usuario').focus();
-    });
-    
-    console.log(' Sistema de asignación de rutas cargado correctamente');
-    console.log('Total de asignaciones cargadas:', {{ asignaciones|length }});
-    
+
+        $('#eliminarAsignacionModal').on('hidden.bs.modal', function () {
+            $('#btnEliminarAsignacion').html('<i class="bi bi-trash"></i> Sí, Eliminar').prop('disabled', false);
+        });
+
+        // Auto-focus en el campo de vendedor cuando se abre el modal de crear
+        $('#crearAsignacionModal').on('shown.bs.modal', function () {
+            $('#id_usuario').focus();
+        });
+
+        console.log(' Sistema de asignación de rutas cargado correctamente');
+        console.log('Total de asignaciones cargadas:', {{ asignaciones| length }});
+
     // Mostrar mensajes flash en consola para debugging
-    {% with messages = get_flashed_messages(with_categories=true) %}
-        {% if messages %}
-            {% for category, message in messages %}
-                console.log('Flash message ({{ category }}):', '{{ message }}');
-            {% endfor %}
-        {% endif %}
+    {% with messages = get_flashed_messages(with_categories = true) %}
+    {% if messages %}
+    {% for category, message in messages %}
+    console.log('Flash message ({{ category }}):', '{{ message }}');
+    {% endfor %}
+    {% endif %}
     {% endwith %}
 });
 </script>

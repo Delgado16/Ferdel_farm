@@ -2,37 +2,37 @@
 
 {% block title %}Gestión de Empresas - FerDel{% endblock %}
 
-{% block head %}
-<!-- Bootstrap CSS -->
-<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
-<!-- Bootstrap Icons -->
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.8.1/font/bootstrap-icons.css">
-{% endblock %}
-
 {% block content %}
-<div class="container-fluid py-4">
+<div class="container-fluid py-4 fade-in-up">
     <!-- Encabezado con botón de volver -->
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <h1>
-            <i class="bi bi-building"></i> Gestión de Empresas
-        </h1>
-        <a href="{{ url_for('admin.admin_dashboard') }}" class="btn btn-outline-secondary">
-            <i class="bi bi-arrow-left"></i> Volver al Dashboard
-        </a>
+    <div class="historial-header d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+        <div>
+            <h3 class="fw-bold text-slate-800 mb-1">
+                <i class="fas fa-building text-primary me-2"></i>Gestión de Empresas
+            </h3>
+            <p class="text-muted small mb-0">Administración de entidades jurídicas y sucursales en el sistema</p>
+        </div>
+        <div>
+            <a href="{{ url_for('admin.admin_dashboard') }}" class="btn btn-outline-secondary btn-sm px-3 py-2 rounded-3">
+                <i class="fas fa-arrow-left me-1"></i> Volver al Dashboard
+            </a>
+        </div>
     </div>
 
     <!-- Botón crear empresa -->
-    <button class="btn btn-primary mb-3" data-bs-toggle="modal" data-bs-target="#crearEmpresaModal">
-        <i class="bi bi-plus-circle"></i> Agregar Nueva Empresa
-    </button>
+    <div class="mb-3">
+        <button class="btn btn-outline-primary rounded-3 px-3 py-2" data-bs-toggle="modal" data-bs-target="#crearEmpresaModal">
+            <i class="fas fa-plus-circle me-1"></i> Agregar Nueva Empresa
+        </button>
+    </div>
 
     <!-- Tabla de empresas -->
     {% if empresas %}
-    <div class="card shadow">
-        <div class="card-body">
+    <div class="card-premium-section mb-4">
+        <div class="card-body p-0">
             <div class="table-responsive">
-                <table class="table table-striped table-hover">
-                    <thead class="table-dark">
+                <table class="table table-hover table-modern align-middle mb-0">
+                    <thead class="table-light">
                         <tr>
                             <th>ID</th>
                             <th>Nombre</th>
@@ -40,40 +40,40 @@
                             <th>Teléfono</th>
                             <th>Dirección</th>
                             <th>Estado</th>
-                            <th>Acciones</th>
+                            <th class="text-center">Acciones</th>
                         </tr>
                     </thead>
                     <tbody>
                         {% for empresa in empresas %}
                         <tr>
-                            <td><strong>#{{ empresa.ID_Empresa }}</strong></td>
-                            <td>{{ empresa.Nombre_Empresa }}</td>
-                            <td>{{ empresa.RUC or '-' }}</td>
+                            <td><span class="badge bg-light text-dark border">#{{ empresa.ID_Empresa }}</span></td>
+                            <td class="fw-bold text-slate-800">{{ empresa.Nombre_Empresa }}</td>
+                            <td class="font-monospace">{{ empresa.RUC or '-' }}</td>
                             <td>
                                 {% if empresa.Telefono %}
-                                    <a href="tel:{{ empresa.Telefono }}" class="text-decoration-none">
-                                        {{ empresa.Telefono }}
+                                    <a href="tel:{{ empresa.Telefono }}" class="text-decoration-none fw-bold text-primary">
+                                        <i class="fas fa-phone-alt me-1 text-secondary"></i> {{ empresa.Telefono }}
                                     </a>
                                 {% else %}
                                     <span class="text-muted">-</span>
                                 {% endif %}
                             </td>
-                            <td>{{ empresa.Direccion or '-' }}</td>
+                            <td class="text-slate-800 small">{{ empresa.Direccion or '-' }}</td>
                             <td>
-                                <span class="badge bg-{% if empresa.Estado == 'Activo' %}success{% else %}danger{% endif %}">
+                                <span class="badge {% if empresa.Estado == 'Activo' %}bg-success bg-opacity-10 text-success border border-success border-opacity-25{% else %}bg-danger bg-opacity-10 text-danger border border-danger border-opacity-25{% endif %} rounded-pill px-2.5 py-1.5 fw-bold">
                                     {{ empresa.Estado }}
                                 </span>
                             </td>
-                            <td>
-                                <div class="btn-group btn-group-sm" role="group">
+                            <td class="text-center">
+                                <div class="d-flex justify-content-center gap-1">
                                     <a href="{{ url_for('admin.editar_empresa', id=empresa.ID_Empresa) }}" 
-                                       class="btn btn-outline-primary" title="Editar empresa">
-                                        <i class="bi bi-pencil"></i> Editar
+                                       class="btn btn-sm btn-outline-primary rounded-3" title="Editar empresa">
+                                        <i class="fas fa-pencil-alt me-1"></i> Editar
                                     </a>
                                     
                                     <a href="#" 
-                                       class="btn btn-outline-secondary" title="Ver detalles">
-                                        <i class="bi bi-eye"></i> Detalles
+                                       class="btn btn-sm btn-outline-secondary rounded-3" title="Ver detalles">
+                                        <i class="fas fa-eye me-1"></i> Detalles
                                     </a>
                                 </div>
                             </td>
@@ -85,8 +85,8 @@
         </div>
     </div>
     {% else %}
-    <div class="alert alert-warning">
-        <i class="bi bi-exclamation-triangle"></i> No se encontraron empresas en el sistema.
+    <div class="alert alert-warning bg-warning bg-opacity-10 text-warning border border-warning border-opacity-20 rounded-3">
+        <i class="fas fa-exclamation-triangle me-2"></i> No se encontraron empresas en el sistema.
     </div>
     {% endif %}
 </div>
@@ -94,10 +94,10 @@
 <!-- Modal para crear empresa -->
 <div class="modal fade" id="crearEmpresaModal" tabindex="-1" aria-labelledby="crearEmpresaModalLabel" aria-hidden="true">
     <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="crearEmpresaModalLabel">
-                    <i class="bi bi-plus-circle"></i> Agregar Nueva Empresa
+        <div class="modal-content border-0 shadow-lg rounded-3">
+            <div class="modal-header border-bottom-0 pb-0">
+                <h5 class="modal-title fw-bold text-slate-800" id="crearEmpresaModalLabel">
+                    <i class="fas fa-plus-circle text-primary me-2"></i>Agregar Nueva Empresa
                 </h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
@@ -105,57 +105,57 @@
                 <div class="modal-body">
                     <!-- Nombre de Empresa -->
                     <div class="mb-3">
-                        <label for="nombre_empresa" class="form-label">Nombre de la Empresa <span class="text-danger">*</span></label>
-                        <input type="text" class="form-control" id="nombre_empresa" name="nombre_empresa" 
+                        <label for="nombre_empresa" class="form-label-premium fw-bold mb-1">Nombre de la Empresa *</label>
+                        <input type="text" class="form-control form-control-premium" id="nombre_empresa" name="nombre_empresa" 
                                required minlength="2" maxlength="100"
                                placeholder="Ingrese el nombre de la empresa">
-                        <div class="form-text">Mínimo 2 caracteres</div>
+                        <div class="form-text small text-muted">Mínimo 2 caracteres</div>
                     </div>
                     
                     <!-- RUC -->
                     <div class="mb-3">
-                        <label for="ruc" class="form-label">RUC</label>
-                        <input type="text" class="form-control" id="ruc" name="ruc" 
+                        <label for="ruc" class="form-label-premium fw-bold mb-1">RUC</label>
+                        <input type="text" class="form-control form-control-premium" id="ruc" name="ruc" 
                                maxlength="20"
                                placeholder="Ej: J0310000012345 o 203-140785-000U">
-                        <div class="form-text">Debe contener al menos una letra</div>
+                        <div class="form-text small text-muted">Debe contener al menos una letra</div>
                     </div>
 
                     <!-- Teléfono -->
                     <div class="mb-3">
-                        <label for="telefono" class="form-label">Teléfono</label>
-                        <input type="tel" class="form-control" id="telefono" name="telefono" 
+                        <label for="telefono" class="form-label-premium fw-bold mb-1">Teléfono</label>
+                        <input type="tel" class="form-control form-control-premium" id="telefono" name="telefono" 
                                maxlength="20"
                                placeholder="Ej: 0991234567">
-                        <div class="form-text">Número de contacto principal</div>
+                        <div class="form-text small text-muted">Número de contacto principal</div>
                     </div>
                     
                     <!-- Dirección -->
                     <div class="mb-3">
-                        <label for="direccion" class="form-label">Dirección</label>
-                        <textarea class="form-control" id="direccion" name="direccion" rows="3" 
+                        <label for="direccion" class="form-label-premium fw-bold mb-1">Dirección</label>
+                        <textarea class="form-control form-control-premium" id="direccion" name="direccion" rows="3" 
                                   maxlength="200"
                                   placeholder="Ingrese la dirección completa de la empresa"></textarea>
-                        <div class="form-text">Máximo 200 caracteres</div>
+                        <div class="form-text small text-muted">Máximo 200 caracteres</div>
                     </div>
                     
                     <!-- Estado -->
                     <div class="mb-3">
-                        <label for="estado" class="form-label">Estado <span class="text-danger">*</span></label>
-                        <select class="form-select" id="estado" name="estado" required>
+                        <label for="estado" class="form-label-premium fw-bold mb-1">Estado *</label>
+                        <select class="form-select form-select-premium" id="estado" name="estado" required>
                             <option value="" selected disabled>Seleccione un estado...</option>
                             <option value="Activo">Activo</option>
                             <option value="Inactivo">Inactivo</option>
                         </select>
-                        <div class="form-text">Estado inicial de la empresa en el sistema</div>
+                        <div class="form-text small text-muted">Estado inicial de la empresa en el sistema</div>
                     </div>
                 </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
-                        <i class="bi bi-x-circle"></i> Cancelar
+                <div class="modal-footer border-top-0 pt-0">
+                    <button type="button" class="btn btn-outline-secondary px-3 py-1.5 rounded-3" data-bs-dismiss="modal">
+                        <i class="fas fa-times-circle me-1"></i> Cancelar
                     </button>
-                    <button type="submit" class="btn btn-primary" id="submitBtn">
-                        <i class="bi bi-check-circle"></i> Guardar Empresa
+                    <button type="submit" class="btn btn-outline-primary px-3 py-1.5 rounded-3" id="submitBtn">
+                        <i class="fas fa-check-circle me-1"></i> Guardar Empresa
                     </button>
                 </div>
             </form>
@@ -165,8 +165,6 @@
 {% endblock %}
 
 {% block scripts %}
-<!-- Bootstrap JS -->
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     const form = document.getElementById('crearEmpresaForm');

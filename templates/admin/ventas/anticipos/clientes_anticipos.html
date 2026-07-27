@@ -47,60 +47,65 @@
         margin-bottom: 1.5rem;
         box-shadow: 0 0.15rem 0.5rem rgba(0, 0, 0, 0.05);
     }
+    .bg-danger-soft {
+        background-color: rgba(239, 68, 68, 0.08) !important;
+        color: var(--danger) !important;
+    }
 </style>
 {% endblock %}
 
 {% block content %}
 <div class="container-fluid">
     <div class="form-container">
-        <div class="form-header">
+        <div class="historial-header d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
             <div>
-                <h4 class="mb-0">
-                    <i class="bi bi-cash-coin text-primary"></i> Anticipos de Clientes
-                </h4>
+                <h3 class="fw-bold text-slate-800 mb-1">
+                    <i class="bi bi-cash-coin text-primary me-2"></i>Anticipos de Clientes
+                </h3>
                 <p class="text-muted small mb-0">Gestión de anticipos pagados por clientes</p>
             </div>
-            <div>
-                <a href="{{ url_for('admin.admin_anticipo_nuevo') }}" class="btn btn-primary">
-                    <i class="bi bi-plus-circle me-2"></i>Nuevo Anticipo
+            <div class="d-flex gap-2 flex-wrap">
+                <a href="{{ url_for('admin.admin_anticipo_nuevo') }}" class="btn btn-outline-primary btn-sm px-3 py-2 rounded-3">
+                    <i class="bi bi-plus-circle me-1"></i> Nuevo Anticipo
                 </a>
-                <!-- Entregas de anticipo -->
-                <a href="{{ url_for('admin.admin_anticipo_entregas') }}" class="btn btn-outline-secondary">
-                    <i class="bi bi-truck me-2"></i>Entregas
+                <a href="{{ url_for('admin.admin_anticipo_entregas') }}" class="btn btn-outline-secondary btn-sm px-3 py-2 rounded-3">
+                    <i class="bi bi-truck me-1"></i> Entregas
                 </a>
             </div>
         </div>
 
         <!-- Filtros -->
-        <div class="filter-section">
-            <div class="row g-3 align-items-end">
-                <div class="col-md-3">
-                    <label class="form-label small">Estado</label>
-                    <select id="filterEstado" class="form-select">
-                        <option value="todos">Todos</option>
-                        <option value="ACTIVO">Activos</option>
-                        <option value="COMPLETADO">Completados</option>
-                        <option value="CANCELADO">Cancelados</option>
-                    </select>
-                </div>
-                <div class="col-md-3">
-                    <label class="form-label small">Cliente</label>
-                    <input type="text" id="filterCliente" class="form-control" placeholder="Buscar cliente...">
-                </div>
-                <div class="col-md-3">
-                    <label class="form-label small">Fecha desde</label>
-                    <input type="date" id="filterFechaDesde" class="form-control">
-                </div>
-                <div class="col-md-3">
-                    <label class="form-label small">Fecha hasta</label>
-                    <input type="date" id="filterFechaHasta" class="form-control">
+        <div class="card-premium-section mb-4">
+            <div class="card-body p-3">
+                <div class="row g-2 align-items-end">
+                    <div class="col-md-3">
+                        <label class="form-label-premium filter-label-premium">Estado</label>
+                        <select id="filterEstado" class="form-select form-select-premium">
+                            <option value="todos">Todos</option>
+                            <option value="ACTIVO">Activos</option>
+                            <option value="COMPLETADO">Completados</option>
+                            <option value="CANCELADO">Cancelados</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label-premium filter-label-premium">Cliente</label>
+                        <input type="text" id="filterCliente" class="form-control form-control-premium" placeholder="Buscar cliente...">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label-premium filter-label-premium">Fecha desde</label>
+                        <input type="date" id="filterFechaDesde" class="form-control form-control-premium">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label-premium filter-label-premium">Fecha hasta</label>
+                        <input type="date" id="filterFechaHasta" class="form-control form-control-premium">
+                    </div>
                 </div>
             </div>
         </div>
 
         <!-- Tabla de anticipos -->
         <div class="table-container">
-            <table class="table table-hover table-anticipos" id="tablaAnticipos">
+            <table class="table table-modern table-hover table-anticipos" id="tablaAnticipos">
                 <thead>
                     <tr>
                         <th style="width: 60px;">ID</th>
@@ -118,9 +123,9 @@
                 <tbody>
                     {% for anticipo in anticipos %}
                     <tr data-estado="{{ anticipo.Estado }}" data-cliente="{{ anticipo.NombreCliente|lower }}">
-                        <td class="fw-bold">{{ anticipo.ID_Anticipo }}</td>
+                        <td class="fw-bold text-slate-800">{{ anticipo.ID_Anticipo }}</td>
                         <td>
-                            <small>{{ anticipo.Fecha.strftime('%d/%m/%Y') if anticipo.Fecha else '' }}</small>
+                            <span class="badge border border-slate-200" style="color: #475569 !important; background-color: #f1f5f9 !important;">{{ anticipo.Fecha.strftime('%d/%m/%Y') if anticipo.Fecha else '' }}</span>
                             {% if anticipo.Dias_Transcurridos > 30 and anticipo.Estado == 'ACTIVO' %}
                             <i class="bi bi-exclamation-triangle-fill text-warning ms-1" title="Anticipo antiguo"></i>
                             {% endif %}
@@ -153,15 +158,15 @@
                         </td>
                         <td class="text-center">
                             {% if anticipo.Estado == 'ACTIVO' %}
-                                <span class="badge bg-success estado-badge">
+                                <span class="badge border border-success border-opacity-25 estado-badge" style="color: #16a34a !important; background-color: rgba(22, 163, 74, 0.08) !important;">
                                     <i class="bi bi-check-circle-fill me-1"></i>Activo
                                 </span>
                             {% elif anticipo.Estado == 'COMPLETADO' %}
-                                <span class="badge bg-info estado-badge">
+                                <span class="badge border border-info border-opacity-25 estado-badge" style="color: #0891b2 !important; background-color: rgba(6, 182, 212, 0.08) !important;">
                                     <i class="bi bi-check2-circle me-1"></i>Completado
                                 </span>
                             {% else %}
-                                <span class="badge bg-danger estado-badge">
+                                <span class="badge border border-danger border-opacity-25 estado-badge" style="color: #dc2626 !important; background-color: rgba(220, 38, 38, 0.08) !important;">
                                     <i class="bi bi-x-circle-fill me-1"></i>Cancelado
                                 </span>
                             {% endif %}
@@ -194,7 +199,7 @@
         <div class="text-center py-5">
             <i class="bi bi-inbox fs-1 text-muted"></i>
             <p class="text-muted mt-2">No hay anticipos registrados</p>
-            <a href="{{ url_for('admin.admin_anticipo_nuevo') }}" class="btn btn-sm btn-primary">
+            <a href="{{ url_for('admin.admin_anticipo_nuevo') }}" class="btn btn-sm btn-outline-primary">
                 <i class="bi bi-plus-circle"></i> Registrar primer anticipo
             </a>
         </div>
@@ -205,26 +210,26 @@
 <!-- Modal para cancelar anticipo -->
 <div class="modal fade" id="cancelarModal" tabindex="-1">
     <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title"><i class="bi bi-exclamation-triangle text-danger"></i> Cancelar Anticipo</h5>
+        <div class="modal-content border-0 rounded-4">
+            <div class="modal-header bg-danger-soft text-danger py-3 border-bottom">
+                <h5 class="modal-title fw-bold"><i class="bi bi-exclamation-triangle text-danger me-2"></i> Cancelar Anticipo</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <form id="cancelarForm" method="POST">
                 <div class="modal-body">
-                    <p>¿Está seguro que desea cancelar este anticipo?</p>
-                    <div class="alert alert-warning">
-                        <i class="bi bi-info-circle"></i>
+                    <p class="text-muted">¿Está seguro que desea cancelar este anticipo?</p>
+                    <div class="alert alert-warning bg-warning bg-opacity-10 text-warning border border-warning border-opacity-20 shadow-xs mb-3">
+                        <i class="bi bi-info-circle me-1"></i>
                         Se restará el saldo pendiente del cliente.
                     </div>
                     <div class="mb-3">
-                        <label class="form-label">Motivo de cancelación</label>
-                        <textarea name="motivo" class="form-control" rows="2" placeholder="Ingrese el motivo..."></textarea>
+                        <label class="form-label-premium">Motivo de cancelación</label>
+                        <textarea name="motivo" class="form-control form-control-premium" rows="2" placeholder="Ingrese el motivo..."></textarea>
                     </div>
                 </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
-                    <button type="submit" class="btn btn-danger">Confirmar Cancelación</button>
+                <div class="modal-footer bg-light">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cerrar</button>
+                    <button type="submit" class="btn btn-outline-danger">Confirmar Cancelación</button>
                 </div>
             </form>
         </div>

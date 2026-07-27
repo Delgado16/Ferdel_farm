@@ -1,41 +1,46 @@
 {% extends "layout.html" %}
 
+{% block title %}Configurar Visibilidad de Categorías - FerDel{% endblock %}
+
 {% block content %}
-<div class="container-fluid">
-    <!-- Encabezado -->
-    <div class="d-sm-flex align-items-center justify-content-between mb-4">
-        <h1 class="h3 mb-0 text-gray-800">
-            <i class="fas fa-eye mr-2"></i>Configurar Visibilidad
-        </h1>
-        <a href="{{ url_for('admin.admin_dashboard') }}" class="btn btn-sm btn-secondary">
-            <i class="fas fa-arrow-left mr-2"></i>Volver
-        </a>
+<div class="container-fluid py-4 fade-in-up">
+    <!-- Encabezado con botón de volver -->
+    <div class="historial-header d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+        <div>
+            <h3 class="fw-bold text-slate-800 mb-1">
+                <i class="fas fa-eye text-primary me-2"></i>Configurar Visibilidad
+            </h3>
+            <p class="text-muted small mb-0">Controlar qué categorías de productos son visibles para clientes comunes y especiales</p>
+        </div>
+        <div>
+            <a href="{{ url_for('admin.admin_dashboard') }}" class="btn btn-outline-secondary btn-sm px-3 py-2 rounded-3">
+                <i class="fas fa-arrow-left me-1"></i> Volver al Dashboard
+            </a>
+        </div>
     </div>
     
-    <!-- Formulario Principal -->
-    <div class="card shadow mb-4">
-        <div class="card-header py-3 bg-primary">
-            <h6 class="m-0 font-weight-bold text-white">
-                <i class="fas fa-cog mr-2"></i>¿Qué categorías puede ver cada cliente?
-            </h6>
-        </div>
-        <div class="card-body">
+    <!-- Contenedor Principal de Configuración -->
+    <div class="card-premium-section mb-4">
+        <div class="card-body p-4">
+            <div class="card-premium-section p-3 border-start border-3 border-primary mb-4 bg-light bg-opacity-50">
+                <h5 class="fw-bold text-slate-800 mb-1"><i class="fas fa-cog text-primary me-2"></i>Reglas de Visibilidad</h5>
+                <p class="text-muted small mb-0">Active o desactive los interruptores para permitir o denegar el acceso a los productos de cada categoría.</p>
+            </div>
+
             {% if categorias %}
             <form method="POST">
                 <div class="table-responsive">
-                    <table class="table table-bordered table-hover">
-                        <thead class="thead-light">
+                    <table class="table table-hover table-modern align-middle mb-0">
+                        <thead class="table-light">
                             <tr>
                                 <th style="width: 40%">Categoría</th>
                                 <th class="text-center" style="width: 30%">
-                                    <i class="fas fa-users text-primary mr-1"></i>Clientes Comunes
-                                    <br>
-                                    <small class="text-muted">Pueden ver</small>
+                                    <span class="d-block fw-bold text-slate-800"><i class="fas fa-users text-primary me-1"></i>Clientes Comunes</span>
+                                    <small class="text-muted font-monospace small">Acceso general</small>
                                 </th>
                                 <th class="text-center" style="width: 30%">
-                                    <i class="fas fa-crown text-success mr-1"></i>Clientes Especiales
-                                    <br>
-                                    <small class="text-muted">Pueden ver</small>
+                                    <span class="d-block fw-bold text-slate-800"><i class="fas fa-crown text-warning me-1"></i>Clientes Especiales</span>
+                                    <small class="text-muted font-monospace small">Acceso exclusivo</small>
                                 </th>
                             </tr>
                         </thead>
@@ -43,26 +48,25 @@
                             {% for cat in categorias %}
                             <tr>
                                 <td>
-                                    <strong>{{ cat.nombre }}</strong>
-                                    <br>
-                                    <small class="text-muted">ID: {{ cat.ID_Categoria }}</small>
+                                    <strong class="text-slate-800 d-block">{{ cat.nombre }}</strong>
+                                    <span class="badge bg-light text-dark border font-monospace mt-1">ID: #{{ cat.ID_Categoria }}</span>
                                 </td>
                                 
                                 <td class="text-center align-middle">
-                                    <div class="custom-control custom-switch">
+                                    <div class="form-check form-switch d-inline-block">
                                         <input type="checkbox" 
-                                               class="custom-control-input" 
+                                               class="form-check-input" 
                                                id="comun_{{ cat.ID_Categoria }}"
                                                name="cat_{{ cat.ID_Categoria }}_Comun"
                                                {% if cat.comun_visible == 1 %}checked{% endif %}>
-                                        <label class="custom-control-label" for="comun_{{ cat.ID_Categoria }}">
+                                        <label class="form-check-label fw-bold small ms-2" for="comun_{{ cat.ID_Categoria }}">
                                             {% if cat.comun_visible == 1 %}
-                                            <span class="text-success">
-                                                <i class="fas fa-check-circle"></i> Visible
+                                            <span class="text-success text-visible-status">
+                                                <i class="fas fa-check-circle me-1"></i>Visible
                                             </span>
                                             {% else %}
-                                            <span class="text-danger">
-                                                <i class="fas fa-times-circle"></i> Oculto
+                                            <span class="text-danger text-visible-status">
+                                                <i class="fas fa-times-circle me-1"></i>Oculto
                                             </span>
                                             {% endif %}
                                         </label>
@@ -70,20 +74,20 @@
                                 </td>
                                 
                                 <td class="text-center align-middle">
-                                    <div class="custom-control custom-switch">
+                                    <div class="form-check form-switch d-inline-block">
                                         <input type="checkbox" 
-                                               class="custom-control-input" 
+                                               class="form-check-input" 
                                                id="especial_{{ cat.ID_Categoria }}"
                                                name="cat_{{ cat.ID_Categoria }}_Especial"
                                                {% if cat.especial_visible == 1 %}checked{% endif %}>
-                                        <label class="custom-control-label" for="especial_{{ cat.ID_Categoria }}">
+                                        <label class="form-check-label fw-bold small ms-2" for="especial_{{ cat.ID_Categoria }}">
                                             {% if cat.especial_visible == 1 %}
-                                            <span class="text-success">
-                                                <i class="fas fa-check-circle"></i> Visible
+                                            <span class="text-success text-visible-status">
+                                                <i class="fas fa-check-circle me-1"></i>Visible
                                             </span>
                                             {% else %}
-                                            <span class="text-danger">
-                                                <i class="fas fa-times-circle"></i> Oculto
+                                            <span class="text-danger text-visible-status">
+                                                <i class="fas fa-times-circle me-1"></i>Oculto
                                             </span>
                                             {% endif %}
                                         </label>
@@ -95,84 +99,76 @@
                     </table>
                 </div>
                 
-                <!-- Botones de acción -->
-                <div class="row mt-4">
-                    <div class="col-md-6">
+                <!-- Botones de acción masiva y guardado -->
+                <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mt-4 pt-3 border-top border-light">
+                    <div class="d-flex flex-wrap gap-2">
                         <div class="btn-group" role="group">
-                            <button type="button" class="btn btn-outline-primary" onclick="marcarTodos('Comun')">
-                                <i class="fas fa-check mr-1"></i> Todos Comunes
+                            <button type="button" class="btn btn-sm btn-outline-primary" onclick="marcarTodos('Comun')">
+                                <i class="fas fa-check me-1"></i> Todos Comunes
                             </button>
-                            <button type="button" class="btn btn-outline-primary" onclick="desmarcarTodos('Comun')">
-                                <i class="fas fa-times mr-1"></i> Ninguno Común
+                            <button type="button" class="btn btn-sm btn-outline-primary" onclick="desmarcarTodos('Comun')">
+                                <i class="fas fa-times me-1"></i> Ninguno Común
+                            </button>
+                        </div>
+                        <div class="btn-group" role="group">
+                            <button type="button" class="btn btn-sm btn-outline-success" onclick="marcarTodos('Especial')">
+                                <i class="fas fa-check me-1"></i> Todos Especiales
+                            </button>
+                            <button type="button" class="btn btn-sm btn-outline-success" onclick="desmarcarTodos('Especial')">
+                                <i class="fas fa-times me-1"></i> Ninguno Especial
                             </button>
                         </div>
                     </div>
-                    <div class="col-md-6 text-right">
-                        <div class="btn-group" role="group">
-                            <button type="button" class="btn btn-outline-success" onclick="marcarTodos('Especial')">
-                                <i class="fas fa-check mr-1"></i> Todos Especiales
-                            </button>
-                            <button type="button" class="btn btn-outline-success" onclick="desmarcarTodos('Especial')">
-                                <i class="fas fa-times mr-1"></i> Ninguno Especial
-                            </button>
-                        </div>
-                        <button type="submit" class="btn btn-primary ml-3">
-                            <i class="fas fa-save mr-2"></i>Guardar Cambios
+                    <div>
+                        <button type="submit" class="btn btn-outline-primary px-4 py-2 rounded-3 fw-bold">
+                            <i class="fas fa-save me-2"></i>Guardar Cambios
                         </button>
                     </div>
                 </div>
             </form>
             {% else %}
-            <div class="alert alert-warning text-center">
-                <i class="fas fa-exclamation-triangle mr-2"></i>
-                No hay categorías registradas en el sistema.
+            <div class="alert alert-warning bg-warning bg-opacity-10 text-warning border border-warning border-opacity-20 rounded-3 text-center my-3">
+                <i class="fas fa-exclamation-triangle me-2"></i> No hay categorías registradas en el sistema.
             </div>
             {% endif %}
         </div>
     </div>
     
-    <!-- Información -->
-    <div class="card border-info shadow">
-        <div class="card-header bg-info text-white">
-            <h6 class="m-0 font-weight-bold">
-                <i class="fas fa-question-circle mr-2"></i>Instrucciones
-            </h6>
-        </div>
-        <div class="card-body">
-            <p><strong>¿Para qué sirve esta configuración?</strong></p>
-            <p>Controla qué productos pueden ver los clientes al realizar una compra.</p>
+    <!-- Panel Informativo de Instrucciones -->
+    <div class="card-premium-section bg-light border-start border-3 border-info mb-4">
+        <div class="card-body p-4">
+            <h5 class="fw-bold text-slate-800 mb-3">
+                <i class="fas fa-question-circle text-info me-2"></i>¿Cómo funciona este módulo?
+            </h5>
+            <p class="text-slate-800 mb-4">Esta configuración restringe la visibilidad de los productos del catálogo general según el perfil del cliente al momento de realizar sus compras.</p>
             
-            <div class="row mt-3">
+            <div class="row g-3">
                 <div class="col-md-6">
-                    <div class="card border-primary">
-                        <div class="card-body">
-                            <h6 class="card-title text-primary">
-                                <i class="fas fa-users mr-2"></i>Clientes Comunes
-                            </h6>
-                            <p class="card-text">Solo ven productos de categorías marcadas como "Visible".</p>
-                            <p class="card-text"><small>Por defecto: NO ven nada (seguro)</small></p>
-                        </div>
+                    <div class="card-premium-section bg-white p-3 border border-light h-100">
+                        <h6 class="fw-bold text-primary mb-2">
+                            <i class="fas fa-users me-2"></i>Clientes Comunes
+                        </h6>
+                        <p class="text-slate-800 small mb-1">Únicamente pueden visualizar los productos cuyas categorías estén marcadas como <strong>Visible</strong> en esta columna.</p>
+                        <span class="text-muted small d-block mt-2"><i class="fas fa-shield-alt me-1"></i>Por defecto: Acceso restringido a categorías básicas.</span>
                     </div>
                 </div>
                 <div class="col-md-6">
-                    <div class="card border-success">
-                        <div class="card-body">
-                            <h6 class="card-title text-success">
-                                <i class="fas fa-crown mr-2"></i>Clientes Especiales
-                            </h6>
-                            <p class="card-text">Ven productos de categorías marcadas como "Visible".</p>
-                            <p class="card-text"><small>Por defecto: SÍ ven todo (privilegiados)</small></p>
-                        </div>
+                    <div class="card-premium-section bg-white p-3 border border-light h-100">
+                        <h6 class="fw-bold text-success mb-2">
+                            <i class="fas fa-crown me-2"></i>Clientes Especiales
+                        </h6>
+                        <p class="text-slate-800 small mb-1">Tienen visibilidad sobre los productos de categorías marcadas como <strong>Visible</strong> en esta columna.</p>
+                        <span class="text-muted small d-block mt-2"><i class="fas fa-star me-1"></i>Por defecto: Acceso habilitado a categorías preferenciales y premium.</span>
                     </div>
                 </div>
             </div>
             
-            <hr class="my-4">
-            
-            <p class="mb-0 text-muted">
-                <i class="fas fa-lightbulb mr-2"></i>
-                <strong>Consejo:</strong> Marque solo las categorías esenciales para clientes comunes, y más categorías para especiales.
-            </p>
+            <div class="mt-4 pt-3 border-top border-light d-flex align-items-center">
+                <i class="fas fa-lightbulb text-warning me-2 fa-lg"></i>
+                <p class="mb-0 text-muted small">
+                    <strong>Consejo de uso:</strong> Ajuste periódicamente las categorías de temporada o especiales para maximizar el dinamismo comercial en los clientes prioritarios.
+                </p>
+            </div>
         </div>
     </div>
 </div>
@@ -184,43 +180,46 @@
 function marcarTodos(tipo) {
     document.querySelectorAll(`input[name$="_${tipo}"]`).forEach(checkbox => {
         checkbox.checked = true;
+        actualizarLabelSwitch(checkbox);
     });
-    alert(`Todos los ${tipo.toLowerCase()} marcados como VISIBLES`);
 }
 
 function desmarcarTodos(tipo) {
     document.querySelectorAll(`input[name$="_${tipo}"]`).forEach(checkbox => {
         checkbox.checked = false;
+        actualizarLabelSwitch(checkbox);
     });
-    alert(`Todos los ${tipo.toLowerCase()} marcados como OCULTOS`);
 }
 
-// Confirmar antes de guardar
-document.querySelector('form').addEventListener('submit', function(e) {
+function actualizarLabelSwitch(checkbox) {
+    const label = checkbox.nextElementSibling;
+    if (checkbox.checked) {
+        label.innerHTML = '<span class="text-success text-visible-status"><i class="fas fa-check-circle me-1"></i>Visible</span>';
+    } else {
+        label.innerHTML = '<span class="text-danger text-visible-status"><i class="fas fa-times-circle me-1"></i>Oculto</span>';
+    }
+}
+
+// Escuchar cambios individuales en los switches para actualizar el texto dinámicamente
+document.querySelectorAll('.form-check-input').forEach(checkbox => {
+    checkbox.addEventListener('change', function() {
+        actualizarLabelSwitch(this);
+    });
+});
+
+// Confirmar y cambiar texto al guardar
+document.querySelector('form')?.addEventListener('submit', function(e) {
     const btn = this.querySelector('button[type="submit"]');
     const originalText = btn.innerHTML;
     
-    btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Guardando...';
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Guardando cambios...';
     btn.disabled = true;
     
-    // Si el usuario cancela, restaurar botón
+    // Auto restauración de respaldo en caso de demora
     setTimeout(() => {
         btn.innerHTML = originalText;
         btn.disabled = false;
     }, 5000);
 });
 </script>
-
-<style>
-.custom-switch {
-    padding-left: 2.5rem;
-}
-.custom-control-input:checked ~ .custom-control-label::before {
-    background-color: #28a745;
-    border-color: #28a745;
-}
-.table tbody tr:hover {
-    background-color: rgba(0, 0, 0, 0.02);
-}
-</style>
 {% endblock %}

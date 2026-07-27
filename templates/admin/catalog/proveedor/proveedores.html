@@ -3,40 +3,48 @@
 {% block title %}Gestión de Proveedores - FerDel{% endblock %}
 
 {% block content %}
-<div class="container-fluid py-4">
+<div class="container-fluid py-4 fade-in-up">
     <!-- Encabezado con botón de volver -->
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <h1>
-            <i class="fas fa-truck"></i> Gestión de Proveedores
-        </h1>
-        <a href="{{ url_for('admin.admin_dashboard') }}" class="btn btn-outline-secondary">
-            <i class="fas fa-arrow-left"></i> Volver al Dashboard
-        </a>
+    <div class="historial-header d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+        <div>
+            <h3 class="fw-bold text-slate-800 mb-1">
+                <i class="fas fa-truck text-primary me-2"></i>Gestión de Proveedores
+            </h3>
+            <p class="text-muted small mb-0">Administración de la red de proveedores, saldos y cuentas de facturación</p>
+        </div>
+        <div>
+            <a href="{{ url_for('admin.admin_dashboard') }}" class="btn btn-outline-secondary btn-sm px-3 py-2 rounded-3">
+                <i class="fas fa-arrow-left me-1"></i> Volver al Dashboard
+            </a>
+        </div>
     </div>
 
     <!-- Botón crear proveedor -->
-    <button class="btn btn-primary mb-3" data-bs-toggle="modal" data-bs-target="#crearProveedorModal">
-        <i class="fas fa-plus-circle"></i> Agregar Nuevo Proveedor
-    </button>
+    <div class="mb-3">
+        <button class="btn btn-outline-primary rounded-3 px-3 py-2" data-bs-toggle="modal" data-bs-target="#crearProveedorModal">
+            <i class="fas fa-plus-circle me-1"></i> Agregar Nuevo Proveedor
+        </button>
+    </div>
 
     <!-- Formulario de búsqueda -->
-    <div class="card mb-4">
-        <div class="card-body">
+    <div class="card-premium-section mb-4">
+        <div class="card-body p-4">
             <form method="get" class="mb-0">
-                <div class="row g-2">
+                <div class="row g-3 align-items-end">
                     <div class="col-md-8">
-                        <input type="text" name="q" class="form-control" placeholder="Buscar por nombre, RUC/Cédula o teléfono..." 
+                        <label for="buscador" class="form-label-premium fw-bold mb-1">Buscar Proveedor</label>
+                        <input type="text" id="buscador" name="q" class="form-control form-control-premium" placeholder="Buscar por nombre, RUC/Cédula o teléfono..." 
                                value="{{ search }}">
                     </div>
                     <div class="col-md-2">
-                        <button class="btn btn-primary w-100" type="submit">
-                            <i class="fas fa-search"></i> Buscar
+                        <button class="btn btn-outline-primary w-100 py-2 rounded-3" type="submit">
+                            <i class="fas fa-search me-1"></i> Buscar
                         </button>
                     </div>
                     <div class="col-md-2">
                         {% if search %}
-                        <a href="{{ url_for('admin.admin_proveedores') }}" class="btn btn-outline-secondary w-100">
-                            <i class="fas fa-arrow-clockwise"></i> Limpiar
+                        <a href="{{ url_for('admin.admin_proveedores') }}" class="btn btn-outline-secondary w-100 py-2 rounded-3">
+                            <i class="fas fa-sync-alt me-1"></i> Limpiar
                         </a>
                         {% endif %}
                     </div>
@@ -47,7 +55,7 @@
 
     <!-- Información de resultados -->
     {% if search %}
-    <div class="alert alert-info d-flex align-items-center mb-3">
+    <div class="alert alert-info bg-info bg-opacity-10 text-info border border-info border-opacity-20 py-2.5 px-3 small rounded-3 mb-3 d-flex align-items-center">
         <i class="fas fa-info-circle me-2"></i>
         <div>
             <strong>{{ total }}</strong> proveedor(es) encontrado(s) 
@@ -58,11 +66,11 @@
 
     <!-- Tabla de proveedores -->
     {% if proveedores %}
-    <div class="card shadow-sm">
-        <div class="card-body">
+    <div class="card-premium-section mb-4">
+        <div class="card-body p-0">
             <div class="table-responsive">
-                <table class="table table-striped table-hover">
-                    <thead class="table-dark">
+                <table class="table table-hover table-modern align-middle mb-0">
+                    <thead class="table-light">
                         <tr>
                             <th>ID</th>
                             <th>Nombre</th>
@@ -78,48 +86,48 @@
                     <tbody>
                         {% for proveedor in proveedores %}
                         <tr>
-                            <td class="fw-bold">#{{ proveedor.ID_Proveedor }}</td>
+                            <td><span class="badge bg-light text-dark border">#{{ proveedor.ID_Proveedor }}</span></td>
                             <td>
-                                <strong>{{ proveedor.Nombre }}</strong>
+                                <strong class="text-slate-800">{{ proveedor.Nombre }}</strong>
                             </td>
-                            <td>{{ proveedor.RUC_CEDULA or '-' }}</td>
+                            <td class="font-monospace small text-slate-800">{{ proveedor.RUC_CEDULA or '-' }}</td>
                             <td>
                                 {% if proveedor.Telefono %}
-                                    <a href="tel:{{ proveedor.Telefono }}" class="text-decoration-none">
-                                        {{ proveedor.Telefono }}
+                                    <a href="tel:{{ proveedor.Telefono }}" class="text-decoration-none fw-bold text-primary">
+                                        <i class="fas fa-phone-alt me-1 text-secondary"></i> {{ proveedor.Telefono }}
                                     </a>
                                 {% else %}
                                     <span class="text-muted">-</span>
                                 {% endif %}
                             </td>
-                            <td>{{ proveedor.Direccion or '-' }}</td>
+                            <td class="text-slate-800 small">{{ proveedor.Direccion or '-' }}</td>
                             <td>
                                 {% if proveedor.Nombre_Empresa %}
-                                <span class="badge bg-secondary">{{ proveedor.Nombre_Empresa }}</span>
+                                <span class="badge bg-secondary bg-opacity-10 text-secondary border border-secondary border-opacity-25 rounded-pill px-2.5 py-1.5 fw-bold">{{ proveedor.Nombre_Empresa }}</span>
                                 {% else %}
-                                <span class="text-muted">-</span>
+                                <span class="text-muted small">-</span>
                                 {% endif %}
                             </td>
                             <td>
                                 {% set saldo = proveedor.Saldo_Pendiente|float %}
-                                <span class="fw-bold {% if saldo > 0 %}text-danger{% elif saldo < 0 %}text-success{% else %}text-muted{% endif %}">
+                                <span class="fw-bold font-monospace {% if saldo > 0 %}text-danger{% elif saldo < 0 %}text-success{% else %}text-muted{% endif %}">
                                     C$ {{ "{:,.2f}".format(saldo) }}
                                 </span>
                             </td>
                             <td>
-                                <span class="badge bg-{% if proveedor.Estado == 'ACTIVO' %}success{% else %}danger{% endif %}">
+                                <span class="badge {% if proveedor.Estado == 'ACTIVO' %}bg-success bg-opacity-10 text-success border border-success border-opacity-25{% else %}bg-danger bg-opacity-10 text-danger border border-danger border-opacity-25{% endif %} rounded-pill px-2.5 py-1.5 fw-bold">
                                     {{ proveedor.Estado }}
                                 </span>
                             </td>
                             <td class="text-center">
-                                <div class="btn-group btn-group-sm" role="group">
+                                <div class="d-flex justify-content-center gap-1">
                                     <a href="{{ url_for('admin.admin_detalle_proveedor', id=proveedor.ID_Proveedor) }}"
-                                       class="btn btn-outline-primary" title="Ver detalles">
-                                        <i class="fas fa-eye"></i> Detalles
+                                       class="btn btn-sm btn-outline-primary rounded-3" title="Ver detalles">
+                                        <i class="fas fa-eye me-1"></i> Detalles
                                     </a>
                                     <a href="{{ url_for('admin.admin_editar_proveedor', id=proveedor.ID_Proveedor) }}"
-                                       class="btn btn-outline-secondary" title="Editar">
-                                        <i class="fas fa-edit"></i> Editar
+                                       class="btn btn-sm btn-outline-secondary rounded-3" title="Editar">
+                                        <i class="fas fa-edit me-1"></i> Editar
                                     </a>
                                 </div>
                             </td>
@@ -131,8 +139,8 @@
         </div>
     </div>
     {% else %}
-    <div class="alert alert-warning">
-        <i class="fas fa-exclamation-triangle"></i>
+    <div class="alert alert-warning bg-warning bg-opacity-10 text-warning border border-warning border-opacity-20 rounded-3">
+        <i class="fas fa-exclamation-triangle me-2"></i>
         {% if search %}
         No se encontraron proveedores para "<strong>{{ search }}</strong>".
         {% else %}
@@ -143,11 +151,11 @@
 
     <!-- Paginación -->
     {% if total > per_page %}
-    <nav aria-label="Page navigation">
+    <nav aria-label="Page navigation" class="mt-4">
         <ul class="pagination justify-content-center">
             {% if page > 1 %}
             <li class="page-item">
-                <a class="page-link" href="{{ url_for('admin.admin_proveedores', page=page-1, q=search) }}" aria-label="Previous">
+                <a class="page-link rounded-3 border-0 bg-light text-slate-800 px-3 py-2 mx-1" href="{{ url_for('admin.admin_proveedores', page=page-1, q=search) }}" aria-label="Previous">
                     <span aria-hidden="true">&laquo;</span>
                 </a>
             </li>
@@ -156,15 +164,15 @@
             {% set total_pages = (total / per_page)|round(0, 'ceil')|int %}
             {% for p in range(1, total_pages + 1) %}
                 {% if p >= page - 2 and p <= page + 2 %}
-                <li class="page-item {% if p == page %}active{% endif %}">
-                    <a class="page-link" href="{{ url_for('admin.admin_proveedores', page=p, q=search) }}">{{ p }}</a>
+                <li class="page-item">
+                    <a class="page-link rounded-3 border-0 px-3 py-2 mx-1 {% if p == page %}bg-primary text-white fw-bold{% else %}bg-light text-slate-800{% endif %}" href="{{ url_for('admin.admin_proveedores', page=p, q=search) }}">{{ p }}</a>
                 </li>
                 {% endif %}
             {% endfor %}
             
             {% if page < total_pages %}
             <li class="page-item">
-                <a class="page-link" href="{{ url_for('admin.admin_proveedores', page=page+1, q=search) }}" aria-label="Next">
+                <a class="page-link rounded-3 border-0 bg-light text-slate-800 px-3 py-2 mx-1" href="{{ url_for('admin.admin_proveedores', page=page+1, q=search) }}" aria-label="Next">
                     <span aria-hidden="true">&raquo;</span>
                 </a>
             </li>
@@ -180,10 +188,10 @@
 <!-- Modal para crear proveedor -->
 <div class="modal fade" id="crearProveedorModal" tabindex="-1" aria-labelledby="crearProveedorModalLabel" aria-hidden="true">
     <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="crearProveedorModalLabel">
-                    <i class="fas fa-plus-circle"></i> Agregar Nuevo Proveedor
+        <div class="modal-content border-0 shadow-lg rounded-3">
+            <div class="modal-header border-bottom-0 pb-0">
+                <h5 class="modal-title fw-bold text-slate-800" id="crearProveedorModalLabel">
+                    <i class="fas fa-plus-circle text-primary me-2"></i>Agregar Nuevo Proveedor
                 </h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
@@ -191,58 +199,58 @@
                 <div class="modal-body">
                     <!-- Nombre -->
                     <div class="mb-3">
-                        <label for="nombre" class="form-label">Nombre del Proveedor <span class="text-danger">*</span></label>
-                        <input type="text" class="form-control" id="nombre" name="nombre" 
+                        <label for="nombre" class="form-label-premium fw-bold mb-1">Nombre del Proveedor *</label>
+                        <input type="text" class="form-control form-control-premium" id="nombre" name="nombre" 
                                required minlength="2" maxlength="255"
                                placeholder="Ingrese el nombre del proveedor">
-                        <div class="form-text">Mínimo 2 caracteres, máximo 255</div>
+                        <div class="form-text small text-muted">Mínimo 2 caracteres, máximo 255</div>
                     </div>
                     
                     <!-- RUC/Cédula -->
                     <div class="mb-3">
-                        <label for="ruc_cedula" class="form-label">RUC/Cédula</label>
-                        <input type="text" class="form-control" id="ruc_cedula" name="ruc_cedula" 
+                        <label for="ruc_cedula" class="form-label-premium fw-bold mb-1">RUC/Cédula</label>
+                        <input type="text" class="form-control form-control-premium" id="ruc_cedula" name="ruc_cedula" 
                                maxlength="20"
                                placeholder="Ej: 401-160503-1006T o 203140785000U">
-                        <div class="form-text">Opcional. Si se proporciona, debe ser único y contener al menos una letra.</div>
+                        <div class="form-text small text-muted">Opcional. Si se proporciona, debe ser único y contener al menos una letra.</div>
                     </div>
 
                     <!-- Teléfono -->
                     <div class="mb-3">
-                        <label for="telefono" class="form-label">Teléfono</label>
-                        <input type="tel" class="form-control" id="telefono" name="telefono" 
+                        <label for="telefono" class="form-label-premium fw-bold mb-1">Teléfono</label>
+                        <input type="tel" class="form-control form-control-premium" id="telefono" name="telefono" 
                                maxlength="20"
                                placeholder="Ej: 0991234567">
-                        <div class="form-text">Número de contacto principal</div>
+                        <div class="form-text small text-muted">Número de contacto principal</div>
                     </div>
                     
                     <!-- Dirección -->
                     <div class="mb-3">
-                        <label for="direccion" class="form-label">Dirección</label>
-                        <textarea class="form-control" id="direccion" name="direccion" rows="3" 
+                        <label for="direccion" class="form-label-premium fw-bold mb-1">Dirección</label>
+                        <textarea class="form-control form-control-premium" id="direccion" name="direccion" rows="3" 
                                   maxlength="500"
                                   placeholder="Ingrese la dirección completa del proveedor"></textarea>
-                        <div class="form-text">Máximo 500 caracteres</div>
+                        <div class="form-text small text-muted">Máximo 500 caracteres</div>
                     </div>
 
                     <!-- Saldo Pendiente -->
                     <div class="mb-3">
-                        <label for="saldo_pendiente" class="form-label">Saldo Pendiente</label>
+                        <label for="saldo_pendiente" class="form-label-premium fw-bold mb-1">Saldo Pendiente</label>
                         <div class="input-group">
-                            <span class="input-group-text">C$</span>
-                            <input type="number" class="form-control" id="saldo_pendiente" name="saldo_pendiente" 
+                            <span class="input-group-text bg-light border-end-0">C$</span>
+                            <input type="number" class="form-control form-control-premium" id="saldo_pendiente" name="saldo_pendiente" 
                                    step="0.01" min="0" value="0.00"
                                    placeholder="0.00">
                         </div>
-                        <div class="form-text">Saldo inicial del proveedor (opcional, por defecto 0.00)</div>
+                        <div class="form-text small text-muted">Saldo inicial del proveedor (opcional, por defecto 0.00)</div>
                     </div>
                 </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
-                        <i class="fas fa-times"></i> Cancelar
+                <div class="modal-footer border-top-0 pt-0">
+                    <button type="button" class="btn btn-outline-secondary px-3 py-1.5 rounded-3" data-bs-dismiss="modal">
+                        <i class="fas fa-times-circle me-1"></i> Cancelar
                     </button>
-                    <button type="submit" class="btn btn-primary">
-                        <i class="fas fa-check"></i> Guardar Proveedor
+                    <button type="submit" class="btn btn-outline-primary px-3 py-1.5 rounded-3">
+                        <i class="fas fa-check-circle me-1"></i> Guardar Proveedor
                     </button>
                 </div>
             </form>
@@ -339,7 +347,7 @@ document.addEventListener('DOMContentLoaded', function() {
     });
     
     // Limpiar formulario al cerrar modal
-    document.getElementById('crearProveedorModal').addEventListener('hidden.bs-modal', function () {
+    document.getElementById('crearProveedorModal').addEventListener('hidden.bs.modal', function () {
         form.reset();
         form.classList.remove('was-validated');
         telefonoInput.setCustomValidity('');
@@ -353,7 +361,7 @@ document.addEventListener('DOMContentLoaded', function() {
     });
     
     // Auto-focus en el campo nombre cuando se abre el modal
-    document.getElementById('crearProveedorModal').addEventListener('shown.bs-modal', function () {
+    document.getElementById('crearProveedorModal').addEventListener('shown.bs.modal', function () {
         document.getElementById('nombre').focus();
     });
     

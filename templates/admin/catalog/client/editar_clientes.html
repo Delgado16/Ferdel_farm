@@ -2,68 +2,35 @@
 
 {% block title %}Editar Cliente - FerDel{% endblock %}
 
-{% block head %}
-<!-- Bootstrap CSS -->
-<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
-<!-- Bootstrap Icons -->
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.8.1/font/bootstrap-icons.css">
-<style>
-    .client-card {
-        border-left: 4px solid #0d6efd;
-    }
-    .form-label.required::after {
-        content: " *";
-        color: #dc3545;
-    }
-    .saldo-card {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        color: white;
-        border-radius: 10px;
-        padding: 15px;
-        margin-bottom: 20px;
-    }
-    .saldo-card .saldo-monto {
-        font-size: 1.8rem;
-        font-weight: bold;
-    }
-    .anticipo-card {
-        background: #f8f9fa;
-        border-radius: 8px;
-        padding: 15px;
-        margin-top: 10px;
-        border-left: 3px solid #28a745;
-    }
-    .progress-anticipo {
-        height: 8px;
-        border-radius: 4px;
-    }
-</style>
-{% endblock %}
-
 {% block content %}
-<div class="container-fluid py-4">
+<div class="container-fluid py-4 fade-in-up">
     <!-- Encabezado con botón de volver -->
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <h1>
-            <i class="bi bi-pencil-square"></i> Editar Cliente
-        </h1>
-        <a href="{{ url_for('admin.admin_clientes') }}" class="btn btn-outline-secondary">
-            <i class="bi bi-arrow-left"></i> Volver a Clientes
-        </a>
+    <div class="historial-header d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+        <div>
+            <h3 class="fw-bold text-slate-800 mb-1">
+                <i class="fas fa-user-edit text-primary me-2"></i>Editar Cliente
+            </h3>
+            <p class="text-muted small mb-0">Modificar información del perfil, tipo de facturación, estado y límites de anticipo</p>
+        </div>
+        <div>
+            <a href="{{ url_for('admin.admin_clientes') }}" class="btn btn-outline-secondary btn-sm px-3 py-2 rounded-3">
+                <i class="fas fa-arrow-left me-1"></i> Volver a Clientes
+            </a>
+        </div>
     </div>
 
     <!-- Información del cliente -->
-    <div class="card client-card mb-4">
-        <div class="card-body">
-            <div class="row">
+    <div class="card-premium-section mb-4">
+        <div class="card-body p-4">
+            <div class="row g-4">
                 <div class="col-md-6">
-                    <h5 class="card-title">
-                        Cliente #{{ cliente.ID_Cliente }}
-                        <span class="badge bg-{% if cliente.Estado == 'ACTIVO' %}success{% else %}danger{% endif %}">
+                    <h5 class="fw-bold text-slate-800 mb-3">
+                        Cliente <span class="text-primary">#{{ cliente.ID_Cliente }}</span>
+                        <span class="badge {% if cliente.Estado == 'ACTIVO' %}bg-success bg-opacity-10 text-success border border-success border-opacity-25{% else %}bg-danger bg-opacity-10 text-danger border border-danger border-opacity-25{% endif %} rounded-pill px-2.5 py-1.5 fw-bold ms-2">
                             {{ cliente.Estado }}
                         </span>
                     </h5>
-                    <p class="card-text">
+                    <p class="text-slate-800 mb-0 small">
                         <strong>Nombre:</strong> {{ cliente.Nombre }}<br>
                         <strong>Identificación:</strong> {{ cliente.RUC_CEDULA or 'No especificada' }}<br>
                         <strong>Teléfono:</strong> {{ cliente.Telefono or 'No especificado' }}<br>
@@ -75,31 +42,27 @@
                 </div>
                 <div class="col-md-6">
                     <!-- Tarjeta de saldo - SOLO VISUAL, NO EDITABLE -->
-                    <div class="saldo-card">
+                    <div class="card-premium-section p-3 border-start border-3 border-primary mb-3">
                         <div class="d-flex justify-content-between align-items-center">
                             <div>
-                                <i class="bi bi-wallet2 fs-2"></i>
-                                <h6 class="mb-0">Saldo Pendiente Total</h6>
+                                <i class="fas fa-wallet fa-2x text-primary mb-1 opacity-75"></i>
+                                <h6 class="text-muted small mb-0">Saldo Pendiente Total</h6>
                             </div>
-                            <div class="saldo-monto">
-                                C${{ "{:,.2f}".format(cliente.Saldo_Pendiente_Total) }}
+                            <div class="fs-3 fw-bold text-slate-800 font-monospace">
+                                C$ {{ "{:,.2f}".format(cliente.Saldo_Pendiente_Total) }}
                             </div>
                         </div>
-                        <div class="mt-2 small opacity-75">
-                            <i class="bi bi-shield-lock"></i> 
-                            Este saldo no es editable manualmente. Se actualiza automáticamente con facturas y pagos.
+                        <div class="mt-2 text-muted small">
+                            <i class="fas fa-lock me-1"></i> Este saldo no es editable. Se actualiza mediante transacciones de facturación y abonos.
                         </div>
                     </div>
                     
-                    <div class="alert alert-info mb-0">
-                        <small>
-                            <i class="bi bi-info-circle"></i> <strong>Notas importantes:</strong><br>
-                            1. Los clientes inactivos no aparecerán en las listas de selección<br>
-                            2. El RUC/Cédula debe ser único solo entre clientes activos<br>
-                            3. Puedes reactivar un cliente cambiando su estado a "Activo"<br>
-                            4. El perfil determina el tratamiento comercial del cliente<br>
-                            5. La ruta es opcional y ayuda en la organización de entregas
-                        </small>
+                    <div class="alert alert-info bg-info bg-opacity-10 text-info border border-info border-opacity-20 rounded-3 mb-0 p-3 small">
+                        <strong class="d-block mb-1"><i class="fas fa-info-circle me-1"></i> Notas importantes:</strong>
+                        1. Los clientes inactivos no aparecerán en las listas de selección.<br>
+                        2. El RUC/Cédula debe ser único solo entre clientes activos.<br>
+                        3. El perfil determina el tratamiento comercial y de precios del cliente.<br>
+                        4. La ruta ayuda en la organización de repartos y cobros.
                     </div>
                 </div>
             </div>
@@ -107,15 +70,15 @@
     </div>
 
     <!-- Formulario de edición -->
-    <div class="card shadow">
-        <div class="card-body">
+    <div class="card-premium-section">
+        <div class="card-body p-4">
             <form method="post" action="{{ url_for('admin.admin_editar_cliente', id=cliente.ID_Cliente) }}" 
                   id="editarClienteForm" class="row g-3" novalidate>
                 
                 <!-- Nombre Completo -->
                 <div class="col-md-6">
-                    <label for="nombre" class="form-label required">Nombre Completo</label>
-                    <input type="text" name="nombre" id="nombre" class="form-control" 
+                    <label for="nombre" class="form-label-premium fw-bold mb-1">Nombre Completo *</label>
+                    <input type="text" name="nombre" id="nombre" class="form-control form-control-premium" 
                            value="{{ cliente.Nombre }}" 
                            required minlength="2" maxlength="255"
                            placeholder="Ingrese el nombre completo">
@@ -124,8 +87,8 @@
 
                 <!-- Teléfono -->
                 <div class="col-md-6">
-                    <label for="telefono" class="form-label required">Teléfono</label>
-                    <input type="tel" name="telefono" id="telefono" class="form-control" 
+                    <label for="telefono" class="form-label-premium fw-bold mb-1">Teléfono *</label>
+                    <input type="tel" name="telefono" id="telefono" class="form-control form-control-premium" 
                            value="{{ cliente.Telefono or '' }}"
                            required maxlength="20"
                            placeholder="Ej: 0991234567"
@@ -135,78 +98,65 @@
 
                 <!-- RUC/Cédula -->
                 <div class="col-md-6">
-                    <label for="ruc_cedula" class="form-label">RUC/Cédula</label>
-                    <input type="text" name="ruc_cedula" id="ruc_cedula" class="form-control" 
+                    <label for="ruc_cedula" class="form-label-premium fw-bold mb-1">RUC/Cédula</label>
+                    <input type="text" name="ruc_cedula" id="ruc_cedula" class="form-control form-control-premium" 
                            value="{{ cliente.RUC_CEDULA or '' }}"
                            maxlength="20"
                            placeholder="Ej: 401-160503-1006T o 203140785000U">
-                    <div class="form-text">
-                        Opcional. Debe contener al menos una letra.
-                    </div>
-                    <div class="invalid-feedback" id="rucErrorEditar">
-                        El RUC/Cédula debe contener al menos una letra.
-                    </div>
+                    <div class="form-text small text-muted">Opcional. Debe contener al menos una letra.</div>
+                    <div class="invalid-feedback" id="rucErrorEditar">El RUC/Cédula debe contener al menos una letra.</div>
                 </div>
 
                 <!-- Dirección -->
                 <div class="col-md-6">
-                    <label for="direccion" class="form-label">Dirección</label>
-                    <textarea name="direccion" id="direccion" class="form-control" 
+                    <label for="direccion" class="form-label-premium fw-bold mb-1">Dirección</label>
+                    <textarea name="direccion" id="direccion" class="form-control form-control-premium" 
                               rows="2" maxlength="200"
                               placeholder="Ingrese la dirección completa">{{ cliente.Direccion or '' }}</textarea>
-                    <div class="form-text">Máximo 200 caracteres</div>
+                    <div class="form-text small text-muted">Máximo 200 caracteres</div>
                 </div>
 
                 <!-- Tipo de Cliente -->
                 <div class="col-md-4">
-                    <label for="tipo_cliente" class="form-label required">Tipo de Cliente</label>
-                    <select name="tipo_cliente" id="tipo_cliente" class="form-select" required>
+                    <label for="tipo_cliente" class="form-label-premium fw-bold mb-1">Tipo de Cliente *</label>
+                    <select name="tipo_cliente" id="tipo_cliente" class="form-select form-select-premium" required>
                         <option value="" disabled {% if not cliente.tipo_cliente %}selected{% endif %}>Seleccione...</option>
                         <option value="Comun" {% if cliente.tipo_cliente == 'Comun' %}selected{% endif %}>Cliente Común</option>
                         <option value="Especial" {% if cliente.tipo_cliente == 'Especial' %}selected{% endif %}>Cliente Especial</option>
                     </select>
-                    <div class="form-text">
-                        Los clientes especiales pueden tener condiciones diferentes
-                    </div>
+                    <div class="form-text small text-muted">Los clientes especiales tienen condiciones diferentes de crédito.</div>
                     <div class="invalid-feedback">Por favor seleccione el tipo de cliente.</div>
                 </div>
 
                 <!-- Perfil de Cliente -->
                 <div class="col-md-4">
-                    <label for="perfil_cliente" class="form-label required">Perfil de Cliente</label>
-                    <select name="perfil_cliente" id="perfil_cliente" class="form-select" required>
+                    <label for="perfil_cliente" class="form-label-premium fw-bold mb-1">Perfil de Cliente *</label>
+                    <select name="perfil_cliente" id="perfil_cliente" class="form-select form-select-premium" required>
                         <option value="" disabled {% if not cliente.perfil_cliente %}selected{% endif %}>Seleccione un perfil...</option>
                         <option value="Ruta" {% if cliente.perfil_cliente == 'Ruta' %}selected{% endif %}>Ruta</option>
                         <option value="Mayorista" {% if cliente.perfil_cliente == 'Mayorista' %}selected{% endif %}>Mayorista</option>
                         <option value="Mercado" {% if cliente.perfil_cliente == 'Mercado' %}selected{% endif %}>Mercado</option>
                         <option value="Especial" {% if cliente.perfil_cliente == 'Especial' %}selected{% endif %}>Especial</option>
                     </select>
-                    <div class="form-text">
-                        <small>
-                            <i class="bi bi-info-circle"></i> 
-                            El perfil define el tratamiento comercial
-                        </small>
-                    </div>
+                    <div class="form-text small text-muted">El perfil define el tratamiento de facturación comercial.</div>
                     <div class="invalid-feedback">Por favor seleccione el perfil del cliente.</div>
                 </div>
 
                 <!-- Estado -->
                 <div class="col-md-4">
-                    <label for="estado" class="form-label required">Estado</label>
-                    <select name="estado" id="estado" class="form-select" required>
+                    <label for="estado" class="form-label-premium fw-bold mb-1">Estado *</label>
+                    <select name="estado" id="estado" class="form-select form-select-premium" required>
                         <option value="ACTIVO" {% if cliente.Estado == 'ACTIVO' %}selected{% endif %}>Activo</option>
                         <option value="INACTIVO" {% if cliente.Estado == 'INACTIVO' %}selected{% endif %}>Inactivo</option>
                     </select>
-                    <div class="form-text">
-                        Los clientes inactivos no aparecerán en listas
-                    </div>
+                    <div class="form-text small text-muted">Los clientes inactivos no aparecerán en listas de facturación.</div>
                     <div class="invalid-feedback">Por favor seleccione el estado del cliente.</div>
                 </div>
                 
                 <!-- Ruta de Entrega -->
                 <div class="col-md-6">
-                    <label for="id_ruta" class="form-label">Ruta de Entrega</label>
-                    <select name="id_ruta" id="id_ruta" class="form-select">
+                    <label for="id_ruta" class="form-label-premium fw-bold mb-1">Ruta de Entrega</label>
+                    <select name="id_ruta" id="id_ruta" class="form-select form-select-premium">
                         <option value="">Sin ruta asignada</option>
                         {% for ruta in rutas %}
                         <option value="{{ ruta.ID_Ruta }}" 
@@ -215,17 +165,15 @@
                         </option>
                         {% endfor %}
                     </select>
-                    <div class="form-text">Seleccione una ruta para la entrega de productos (opcional)</div>
+                    <div class="form-text small text-muted">Seleccione una ruta para la entrega de productos (opcional)</div>
                 </div>
 
-                <!-- ========================================== -->
-                <!-- SECCIÓN DE ANTICIPOS -->
-                <!-- ========================================== -->
+                <!-- Configuración de Anticipos -->
                 <div class="col-12 mt-4">
-                    <hr class="my-3">
-                    <h5 class="mb-3">
-                        <i class="bi bi-cash-stack"></i> Configuración de Anticipos
-                        <small class="text-muted">(Opcional)</small>
+                    <hr class="text-muted opacity-25 my-3">
+                    <h5 class="fw-bold text-slate-800 mb-3">
+                        <i class="fas fa-money-bill-wave text-primary me-2"></i>Configuración de Anticipos
+                        <small class="text-muted small fs-6 fw-normal">(Opcional)</small>
                     </h5>
                 </div>
 
@@ -234,35 +182,35 @@
                         <input class="form-check-input" type="checkbox" id="anticipo_activo" name="anticipo_activo" value="1" 
                                style="transform: scale(1.2);"
                                {% if cliente.Anticipo_Activo %}checked{% endif %}>
-                        <label class="form-check-label fw-bold ms-2" for="anticipo_activo">
+                        <label class="form-check-label fw-bold text-slate-800 ms-2" for="anticipo_activo">
                             Activar Anticipo
                         </label>
-                        <div class="form-text small">Permite anticipos para este cliente</div>
+                        <div class="form-text small text-muted">Permite habilitar anticipos de producto.</div>
                     </div>
                 </div>
 
                 <div class="col-md-3 mb-3">
-                    <label for="limite_anticipo_cajas" class="form-label">Límite de Cajas</label>
-                    <input type="number" class="form-control" id="limite_anticipo_cajas" name="limite_anticipo_cajas" 
+                    <label for="limite_anticipo_cajas" class="form-label-premium fw-bold mb-1">Límite de Cajas</label>
+                    <input type="number" class="form-control form-control-premium" id="limite_anticipo_cajas" name="limite_anticipo_cajas" 
                            value="{{ cliente.Limite_Anticipo_Cajas or 0 }}" min="0" step="1"
                            placeholder="Número de cajas">
-                    <div class="form-text small">Máximo de cajas permitidas</div>
+                    <div class="form-text small text-muted">Máximo de cajas permitidas</div>
                 </div>
 
                 <div class="col-md-3 mb-3">
-                    <label for="saldo_anticipos" class="form-label">Saldo de Anticipos (C$)</label>
+                    <label for="saldo_anticipos" class="form-label-premium fw-bold mb-1">Saldo de Anticipos (C$)</label>
                     <div class="input-group">
-                        <span class="input-group-text">C$</span>
-                        <input type="number" class="form-control" id="saldo_anticipos" name="saldo_anticipos" 
+                        <span class="input-group-text bg-light border-end-0">C$</span>
+                        <input type="number" class="form-control form-control-premium" id="saldo_anticipos" name="saldo_anticipos" 
                                value="{{ cliente.Saldo_Anticipos or 0 }}" min="0" step="0.01"
                                placeholder="0.00">
                     </div>
-                    <div class="form-text small">Monto disponible para anticipos</div>
+                    <div class="form-text small text-muted">Monto disponible para anticipos</div>
                 </div>
 
                 <div class="col-md-3 mb-3">
-                    <label for="producto_anticipado" class="form-label">Producto Anticipado</label>
-                    <select class="form-select" id="producto_anticipado" name="producto_anticipado">
+                    <label for="producto_anticipado" class="form-label-premium fw-bold mb-1">Producto Anticipado</label>
+                    <select class="form-select form-select-premium" id="producto_anticipado" name="producto_anticipado">
                         <option value="">Sin producto asignado</option>
                         {% for producto in productos %}
                         <option value="{{ producto.ID_Producto }}" 
@@ -271,32 +219,30 @@
                         </option>
                         {% endfor %}
                     </select>
-                    <div class="form-text small">Producto asociado al anticipo</div>
+                    <div class="form-text small text-muted">Producto asociado al anticipo</div>
                 </div>
 
-                <!-- Cajas Consumidas (visible solo si anticipo activo) -->
+                <!-- Cajas Consumidas -->
                 <div class="col-md-3 mb-3" id="cajas_consumidas_container" style="{% if not cliente.Anticipo_Activo %}display:none;{% endif %}">
-                    <label for="cajas_consumidas_anticipo" class="form-label">Cajas Consumidas</label>
-                    <input type="number" class="form-control" id="cajas_consumidas_anticipo" name="cajas_consumidas_anticipo" 
+                    <label for="cajas_consumidas_anticipo" class="form-label-premium fw-bold mb-1">Cajas Consumidas</label>
+                    <input type="number" class="form-control form-control-premium" id="cajas_consumidas_anticipo" name="cajas_consumidas_anticipo" 
                            value="{{ cliente.Cajas_Consumidas_Anticipo or 0 }}" min="0" step="1"
                            placeholder="Cajas consumidas">
-                    <div class="form-text small">Cajas ya consumidas del anticipo</div>
+                    <div class="form-text small text-muted">Cajas ya consumidas del anticipo</div>
                 </div>
 
-                <!-- Información adicional de anticipo (progreso) -->
+                <!-- Progreso del consumo de anticipo -->
                 {% if cliente.Anticipo_Activo and cliente.Limite_Anticipo_Cajas > 0 %}
                 <div class="col-12 mb-3">
-                    <div class="anticipo-card">
+                    <div class="card-premium-section p-3 border-start border-3 border-success">
                         <div class="d-flex justify-content-between align-items-center mb-2">
-                            <small class="text-muted">
-                                <i class="bi bi-box-seam"></i> Progreso de consumo
-                            </small>
-                            <small class="text-muted">
+                            <small class="text-muted small"><i class="fas fa-box me-1"></i> Progreso de consumo</small>
+                            <small class="text-muted fw-bold">
                                 {{ cliente.Cajas_Consumidas_Anticipo or 0 }} de {{ cliente.Limite_Anticipo_Cajas }} cajas
                                 ({{ ((cliente.Cajas_Consumidas_Anticipo or 0) / cliente.Limite_Anticipo_Cajas * 100)|round }}%)
                             </small>
                         </div>
-                        <div class="progress progress-anticipo">
+                        <div class="progress rounded-pill" style="height: 12px;">
                             <div class="progress-bar bg-success" 
                                  role="progressbar" 
                                  style="width: {{ ((cliente.Cajas_Consumidas_Anticipo or 0) / cliente.Limite_Anticipo_Cajas * 100)|round }}%"
@@ -306,17 +252,13 @@
                             </div>
                         </div>
                         {% if cliente.Saldo_Anticipos and cliente.Saldo_Anticipos > 0 %}
-                        <div class="mt-2">
-                            <small class="text-success">
-                                <i class="bi bi-cash"></i> Saldo disponible: C${{ "{:,.2f}".format(cliente.Saldo_Anticipos) }}
-                            </small>
+                        <div class="mt-2 small">
+                            <span class="text-success fw-bold"><i class="fas fa-cash-register me-1"></i> Saldo disponible: C$ {{ "{:,.2f}".format(cliente.Saldo_Anticipos) }}</span>
                         </div>
                         {% endif %}
                         {% if cliente.Nombre_Producto_Anticipado %}
-                        <div class="mt-1">
-                            <small class="text-info">
-                                <i class="bi bi-tag"></i> Producto: {{ cliente.Nombre_Producto_Anticipado }}
-                            </small>
+                        <div class="mt-1 small">
+                            <span class="text-info fw-bold"><i class="fas fa-tag me-1"></i> Producto: {{ cliente.Nombre_Producto_Anticipado }}</span>
                         </div>
                         {% endif %}
                     </div>
@@ -324,30 +266,28 @@
                 {% endif %}
 
                 <!-- Botones -->
-                <div class="col-12 mt-4 pt-3 border-top">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <div>
-                            <button type="submit" class="btn btn-primary">
-                                <i class="bi bi-check-circle"></i> Guardar Cambios
-                            </button>
-                            <a href="{{ url_for('admin.admin_clientes') }}" class="btn btn-outline-secondary ms-2">
-                                <i class="bi bi-x-circle"></i> Cancelar
+                <div class="col-12 mt-4 pt-3 border-top border-light">
+                    <div class="d-flex flex-wrap justify-content-between align-items-center gap-3">
+                        <div class="d-flex gap-2">
+                            <a href="{{ url_for('admin.admin_clientes') }}" class="btn btn-outline-secondary px-3 py-2 rounded-3">
+                                <i class="fas fa-times-circle me-1"></i> Cancelar
                             </a>
+                            <button type="submit" class="btn btn-outline-primary px-3 py-2 rounded-3">
+                                <i class="fas fa-check-circle me-1"></i> Guardar Cambios
+                            </button>
                         </div>
                         
-                        <div class="d-flex align-items-center">
-                            <!-- Mostrar última actividad si está disponible -->
+                        <div class="d-flex align-items-center gap-3">
                             {% if cliente.Fecha_Ultimo_Movimiento %}
-                            <small class="text-muted me-3">
-                                <i class="bi bi-clock-history"></i> 
-                                Último movimiento: {{ cliente.Fecha_Ultimo_Movimiento|default('', true) }}
+                            <small class="text-muted small">
+                                <i class="fas fa-history me-1"></i> Último movimiento: {{ cliente.Fecha_Ultimo_Movimiento|default('', true) }}
                             </small>
                             {% endif %}
                             
                             {% if cliente.Estado == 'ACTIVO' %}
-                            <button type="button" class="btn btn-outline-danger" 
+                            <button type="button" class="btn btn-outline-danger px-3 py-2 rounded-3" 
                                     data-bs-toggle="modal" data-bs-target="#eliminarClienteModal">
-                                <i class="bi bi-trash"></i> Eliminar Cliente
+                                <i class="fas fa-trash me-1"></i> Eliminar Cliente
                             </button>
                             {% endif %}
                         </div>
@@ -358,54 +298,51 @@
     </div>
 </div>
 
-<!-- Modal de confirmación para eliminar -->
+<!-- Modal de confirmación para desactivar/eliminar -->
 <div class="modal fade" id="eliminarClienteModal" tabindex="-1" aria-labelledby="eliminarClienteModalLabel" aria-hidden="true">
     <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header bg-danger text-white">
-                <h5 class="modal-title" id="eliminarClienteModalLabel">
-                    <i class="bi bi-exclamation-triangle"></i> Confirmar Eliminación
+        <div class="modal-content border-0 shadow-lg rounded-3">
+            <div class="modal-header border-bottom-0 pb-0">
+                <h5 class="modal-title fw-bold text-slate-800" id="eliminarClienteModalLabel">
+                    <i class="fas fa-exclamation-triangle text-danger me-2"></i>Confirmar Eliminación
                 </h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
                 <p>¿Está seguro que desea eliminar al cliente <strong>{{ cliente.Nombre }}</strong>?</p>
                 
                 {% if cliente.Saldo_Pendiente_Total > 0 %}
-                <div class="alert alert-danger">
-                    <i class="bi bi-exclamation-triangle-fill"></i>
-                    <strong>¡Atención!</strong> Este cliente tiene un saldo pendiente de 
-                    <strong>C${{ "{:,.2f}".format(cliente.Saldo_Pendiente_Total) }}</strong>.
-                    Se recomienda gestionar el cobro antes de desactivar el cliente.
+                <div class="alert alert-danger bg-danger bg-opacity-10 text-danger border border-danger border-opacity-20 rounded-3 p-3">
+                    <strong class="d-block mb-1"><i class="fas fa-exclamation-circle me-1"></i> ¡Atención!</strong>
+                    Este cliente tiene un saldo pendiente de <strong>C$ {{ "{:,.2f}".format(cliente.Saldo_Pendiente_Total) }}</strong>.
+                    Se recomienda gestionar el cobro y saldar cuentas antes de proceder.
                 </div>
                 {% endif %}
                 
                 {% if cliente.Anticipo_Activo %}
-                <div class="alert alert-warning">
-                    <i class="bi bi-exclamation-triangle-fill"></i>
-                    <strong>¡Atención!</strong> Este cliente tiene anticipos activos.
-                    Al desactivarlo, los anticipos quedarán suspendidos.
+                <div class="alert alert-warning bg-warning bg-opacity-10 text-warning border border-warning border-opacity-20 rounded-3 p-3">
+                    <strong class="d-block mb-1"><i class="fas fa-exclamation-triangle me-1"></i> ¡Atención!</strong>
+                    Este cliente tiene anticipos configurados. Al desactivarlo, los anticipos quedarán suspendidos.
                 </div>
                 {% endif %}
                 
                 <p class="text-danger small">
-                    <i class="bi bi-info-circle"></i> Esta acción cambiará el estado del cliente a INACTIVO y no podrá ser seleccionado en nuevas operaciones.
+                    <i class="fas fa-info-circle me-1"></i> Esta acción cambiará el estado del cliente a <strong>INACTIVO</strong> y no podrá ser seleccionado en nuevas operaciones.
                 </p>
-                <div class="alert alert-warning">
+                <div class="alert alert-warning bg-warning bg-opacity-10 text-warning border border-warning border-opacity-20 rounded-3 p-3 mb-0">
                     <small>
-                        <i class="bi bi-exclamation-triangle"></i> 
-                        <strong>Advertencia:</strong> Si el cliente tiene facturas o transacciones pendientes, 
-                        es recomendable cambiar el estado a "Inactivo" en lugar de eliminar.
+                        <strong>Advertencia:</strong> Si el cliente tiene facturas o transacciones pendientes en el histórico, 
+                        es recomendable cambiar el estado a "Inactivo" en lugar de eliminar del todo.
                     </small>
                 </div>
             </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
-                    <i class="bi bi-x-circle"></i> Cancelar
+            <div class="modal-footer border-top-0 pt-0">
+                <button type="button" class="btn btn-outline-secondary px-3 py-1.5 rounded-3" data-bs-dismiss="modal">
+                    <i class="fas fa-times-circle me-1"></i> Cancelar
                 </button>
                 <form method="POST" action="{{ url_for('admin.admin_eliminar_cliente', id=cliente.ID_Cliente) }}" class="d-inline">
-                    <button type="submit" class="btn btn-danger">
-                        <i class="bi bi-trash"></i> Sí, Eliminar
+                    <button type="submit" class="btn btn-outline-danger px-3 py-1.5 rounded-3">
+                        <i class="fas fa-trash me-1"></i> Sí, Eliminar
                     </button>
                 </form>
             </div>
@@ -415,8 +352,6 @@
 {% endblock %}
 
 {% block scripts %}
-<!-- Bootstrap JS -->
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     const editarForm = document.getElementById('editarClienteForm');
@@ -612,7 +547,7 @@ document.addEventListener('DOMContentLoaded', function() {
     {% if cliente.Estado == 'ACTIVO' and cliente.RUC_CEDULA %}
     const rucNote = document.createElement('div');
     rucNote.className = 'form-text text-warning';
-    rucNote.innerHTML = '<i class="bi bi-exclamation-triangle"></i> Si cambias este RUC/Cédula, asegúrate que no exista en otro cliente activo.';
+    rucNote.innerHTML = '<i class="fas fa-exclamation-triangle"></i> Si cambias este RUC/Cédula, asegúrate que no exista en otro cliente activo.';
     if (rucCedulaInput) {
         rucCedulaInput.parentNode.insertBefore(rucNote, rucCedulaInput.nextSibling);
     }
