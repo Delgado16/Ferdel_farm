@@ -141,6 +141,23 @@ def create_app():
     app.logger.info('Ferdel Startup')
 
     # ===== CONTROL DE ERRORES GLOBAL =====
+    @app.errorhandler(401)
+    def unauthorized_error(error):
+        app.logger.warning(f"401 No Autorizado: {request.path}")
+        accept = request.headers.get('Accept', '')
+        if request.path.startswith('/api/') or \
+           request.headers.get('X-Requested-With') == 'XMLHttpRequest' or \
+           ('application/json' in accept and 'text/html' not in accept):
+            return jsonify({
+                'status': 'error', 
+                'message': 'Sesión expirada. Inicie sesión nuevamente.',
+                'redirect': '/auth/login'
+            }), 401
+        
+        from flask import redirect, url_for, flash
+        flash("Tu sesión ha expirado o necesitas iniciar sesión para acceder.", "warning")
+        return redirect(url_for('auth.login'))
+
     @app.errorhandler(404)
     def not_found_error(error):
         app.logger.warning(f"404 No Encontrado: {request.path}")

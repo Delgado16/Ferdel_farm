@@ -109,4 +109,20 @@ def setup_login_manager(app):
     def user_loader(user_id):
         return load_user(user_id)
     
+    @login_manager.unauthorized_handler
+    def unauthorized():
+        from flask import request, jsonify, redirect, url_for, flash
+        accept = request.headers.get('Accept', '')
+        if request.path.startswith('/api/') or \
+           request.headers.get('X-Requested-With') == 'XMLHttpRequest' or \
+           ('application/json' in accept and 'text/html' not in accept):
+            return jsonify({
+                'status': 'error',
+                'message': 'Sesión expirada. Por favor, inicie sesión nuevamente.',
+                'redirect': url_for('auth.login')
+            }), 401
+        
+        flash("Tu sesión ha expirado. Por favor, inicia sesión nuevamente.", "warning")
+        return redirect(url_for('auth.login'))
+    
     return login_manager

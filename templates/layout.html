@@ -1249,6 +1249,36 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
 
     <script>
+        // Interceptor global para redireccionar al login si la sesión expira (status 401)
+        (function() {
+            // Interceptar fetch
+            const originalFetch = window.fetch;
+            window.fetch = async function(...args) {
+                try {
+                    const response = await originalFetch(...args);
+                    if (response.status === 401) {
+                        console.warn('Sesión expirada (401 detectado vía fetch). Redireccionando al login...');
+                        window.location.href = '/auth/login';
+                    }
+                    return response;
+                } catch (error) {
+                    throw error;
+                }
+            };
+
+            // Interceptar XMLHttpRequest
+            const originalOpen = XMLHttpRequest.prototype.open;
+            XMLHttpRequest.prototype.open = function(method, url, ...rest) {
+                this.addEventListener('readystatechange', function() {
+                    if (this.readyState === 4 && this.status === 401) {
+                        console.warn('Sesión expirada (401 detectado vía XHR). Redireccionando al login...');
+                        window.location.href = '/auth/login';
+                    }
+                });
+                return originalOpen.apply(this, [method, url, ...rest]);
+            };
+        })();
+
         // ========== DIAGNÓSTICO PWA ==========
         (function diagnosticPWA() {
             console.log('=== DIAGNÓSTICO PWA FERDEL ===');
