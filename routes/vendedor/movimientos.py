@@ -104,8 +104,8 @@ def vendedor_movimiento_entrada_bodega():
                     INSERT INTO movimientos_ruta_cabecera 
                     (ID_Asignacion, ID_TipoMovimiento, ID_Usuario_Registra, 
                      Documento_Numero, Total_Productos, Total_Items, Total_Subtotal,
-                     ID_Empresa, Estado)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 'ACTIVO')
+                     ID_Empresa, Estado, Fecha_Movimiento)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 'ACTIVO', %s)
                 """, (
                     id_asignacion, 
                     ID_TIPO_ENTRADA, 
@@ -114,7 +114,8 @@ def vendedor_movimiento_entrada_bodega():
                     total_productos, 
                     total_items, 
                     total_subtotal,
-                    id_empresa
+                    id_empresa,
+                    datetime.now()
                 ))
                 
                 id_movimiento = cursor.lastrowid
@@ -318,8 +319,8 @@ def vendedor_movimiento_devolucion_bodega():
                     INSERT INTO movimientos_ruta_cabecera 
                     (ID_Asignacion, ID_TipoMovimiento, ID_Usuario_Registra, 
                      Documento_Numero, Total_Productos, Total_Items, Total_Subtotal,
-                     ID_Empresa, Estado)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 'ACTIVO')
+                     ID_Empresa, Estado, Fecha_Movimiento)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 'ACTIVO', %s)
                 """, (
                     id_asignacion, 
                     ID_TIPO_DEVOLUCION_RUTA, 
@@ -328,7 +329,8 @@ def vendedor_movimiento_devolucion_bodega():
                     total_productos, 
                     total_items, 
                     total_subtotal,
-                    id_empresa
+                    id_empresa,
+                    datetime.now()
                 ))
                 
                 id_movimiento_ruta = cursor.lastrowid
@@ -470,6 +472,162 @@ def vendedor_movimiento_devolucion_bodega():
         return redirect(url_for('vendedor.vendedor_inventario'))
 
 
+@vendedor_bp.route('/vendedor/movimientos/liquidar-jornada', methods=['GET', 'POST'])
+@vendedor_required
+def vendedor_movimiento_liquidar_jornada():
+    """
+    Finaliza la jornada del vendedor, liquidando obligatoriamente todo el inventario restante
+    devolviéndolo a la bodega central e insertando los registros de movimientos.
+    """
+    id_empresa = session.get('id_empresa', 1)
+    user_id = current_user.id
+    
+    try:
+        with get_db_cursor(commit=True) as cursor:
+            # 1. Obtener la asignación activa del vendedor
+            cursor.execute("""
+                SELECT av.ID_Asignacion, av.ID_Ruta, r.Nombre_Ruta, av.ID_Vehiculo
+                FROM asignacion_vendedores av
+                LEFT JOIN rutas r ON av.ID_Ruta = r.ID_Ruta
+                WHERE av.ID_Usuario = %s AND av.Estado = 'Activa'
+                LIMIT 1
+            """, (user_id,))
+            asignacion = cursor.fetchone()
+            
+            if not asignacion:
+                flash('No tienes una asignación activa para liquidar', 'warning')
+                return redirect(url_for('vendedor.vendedor_dashboard'))
+                
+            id_asignacion = asignacion['ID_Asignacion']
+            
+            # Obtener existencias actuales en ruta
+            cursor.execute("""
+                SELECT ir.ID_Producto, ir.Cantidad, p.Descripcion AS Producto, p.COD_Producto,
+                       p.Precio_Ruta, um.Descripcion AS Unidad_Medida
+                FROM inventario_ruta ir
+                INNER JOIN productos p ON ir.ID_Producto = p.ID_Producto
+                LEFT JOIN unidades_medida um ON p.Unidad_Medida = um.ID_Unidad
+                WHERE ir.ID_Asignacion = %s AND ir.Cantidad > 0
+            """, (id_asignacion,))
+            inventario = cursor.fetchall()
+            
+            # Obtener caja acumulada
+            cursor.execute("""
+                SELECT Saldo_Acumulado
+                FROM movimientos_caja_ruta
+                WHERE ID_Usuario = %s AND ID_Asignacion = %s AND Estado = 'ACTIVO'
+                ORDER BY Fecha DESC, ID_Movimiento DESC
+                LIMIT 1
+            """, (user_id, id_asignacion))
+            resultado_saldo = cursor.fetchone()
+            saldo_caja = resultado_saldo['Saldo_Acumulado'] if resultado_saldo else 0
+            
+            # Obtener resumen de ventas
+            cursor.execute("""
+                SELECT COALESCE(SUM(Total_Subtotal), 0) as total_vendido
+                FROM movimientos_ruta_cabecera
+                WHERE ID_Asignacion = %s AND ID_TipoMovimiento = 3 AND Estado = 'ACTIVO'
+            """, (id_asignacion,))
+            ventas_res = cursor.fetchone()
+            total_vendido = ventas_res['total_vendido'] if ventas_res else 0
+            
+            if request.method == 'POST':
+                # Validar si hay productos para devolver
+                if inventario:
+                    ID_TIPO_DEVOLUCION_RUTA = 11  # Devolucion Ruta
+                    ID_TIPO_ENTRADA_BODEGA = 11   # Entrada por devolución
+                    ID_BODEGA_CENTRAL = 1
+                    
+                    total_productos = len(inventario)
+                    total_items = sum(float(item['Cantidad']) for item in inventario)
+                    total_subtotal = sum(float(item['Cantidad']) * float(item['Precio_Ruta']) for item in inventario)
+                    
+                    documento = f"LIQ-{id_asignacion}"
+                    
+                    # 1. Crear cabecera de movimiento en ruta
+                    cursor.execute("""
+                        INSERT INTO movimientos_ruta_cabecera
+                        (ID_Asignacion, ID_TipoMovimiento, ID_Usuario_Registra,
+                        Documento_Numero, Total_Productos, Total_Items, Total_Subtotal,
+                        ID_Empresa, Estado, Fecha_Movimiento)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 'ACTIVO', %s)
+                    """, (id_asignacion, ID_TIPO_DEVOLUCION_RUTA, user_id, documento, total_productos, total_items, total_subtotal, id_empresa, datetime.now()))
+                    id_movimiento_ruta = cursor.lastrowid
+                    
+                    # 2. Crear cabecera general en movimientos_inventario
+                    cursor.execute("""
+                        INSERT INTO movimientos_inventario
+                        (ID_TipoMovimiento, N_Factura_Externa, Fecha, Observacion,
+                        ID_Empresa, ID_Bodega, ID_Usuario_Creacion, Estado)
+                        VALUES (%s, %s, CURDATE(), %s, %s, %s, %s, 'Activa')
+                    """, (ID_TIPO_ENTRADA_BODEGA, documento, f"Liquidación automática de asignación #{id_asignacion}", id_empresa, ID_BODEGA_CENTRAL, user_id))
+                    id_movimiento_inventario = cursor.lastrowid
+                    
+                    # 3. Registrar detalles y actualizar tablas
+                    for item in inventario:
+                        subtotal_item = float(item['Cantidad']) * float(item['Precio_Ruta'])
+                        
+                        # Detalle ruta
+                        cursor.execute("""
+                            INSERT INTO movimientos_ruta_detalle (ID_Movimiento, ID_Producto, Cantidad, Precio_Unitario, Subtotal)
+                            VALUES (%s, %s, %s, %s, %s)
+                        """, (id_movimiento_ruta, item['ID_Producto'], item['Cantidad'], item['Precio_Ruta'], subtotal_item))
+                        
+                        # Detalle inventario general
+                        cursor.execute("""
+                            INSERT INTO detalle_movimientos_inventario
+                            (ID_Movimiento, ID_Producto, Cantidad, Precio_Unitario, Subtotal, ID_Usuario_Creacion)
+                            VALUES (%s, %s, %s, %s, %s, %s)
+                        """, (id_movimiento_inventario, item['ID_Producto'], item['Cantidad'], item['Precio_Ruta'], subtotal_item, user_id))
+                        
+                        # Restar inventario en ruta
+                        cursor.execute("""
+                            UPDATE inventario_ruta
+                            SET Cantidad = 0
+                            WHERE ID_Asignacion = %s AND ID_Producto = %s
+                        """, (id_asignacion, item['ID_Producto']))
+                        
+                        # Sumar inventario en bodega central
+                        cursor.execute("""
+                            INSERT INTO inventario_bodega (ID_Bodega, ID_Producto, Existencias)
+                            VALUES (%s, %s, %s)
+                            ON DUPLICATE KEY UPDATE Existencias = Existencias + %s
+                        """, (ID_BODEGA_CENTRAL, item['ID_Producto'], item['Cantidad'], item['Cantidad']))
+                
+                # 4. Finalizar asignación de ruta
+                cursor.execute("""
+                    UPDATE asignacion_vendedores
+                    SET Estado = 'Finalizada',
+                        Fecha_Finalizacion = CURDATE(),
+                        Hora_Fin = CURTIME()
+                    WHERE ID_Asignacion = %s
+                """, (id_asignacion,))
+                
+                # 5. Liberar el vehículo
+                if asignacion['ID_Vehiculo']:
+                    cursor.execute("""
+                        UPDATE vehiculos
+                        SET Estado = 'Disponible'
+                        WHERE ID_Vehiculo = %s
+                    """, (asignacion['ID_Vehiculo'],))
+                    
+                flash('Liquidación y cierre de jornada realizados con éxito', 'success')
+                return redirect(url_for('vendedor.vendedor_dashboard'))
+                
+            return render_template('vendedor/movimientos/liquidar_jornada.html',
+                                 asignacion=asignacion,
+                                 inventario=inventario,
+                                 saldo_caja=saldo_caja,
+                                 total_vendido=total_vendido,
+                                 now=datetime.now())
+                                 
+    except Exception as e:
+        print(f"Error en liquidacion: {str(e)}")
+        traceback.print_exc()
+        flash(f'Error al liquidar jornada: {str(e)}', 'error')
+        return redirect(url_for('vendedor.vendedor_dashboard'))
+
+
 @vendedor_bp.route('/vendedor/movimientos/merma', methods=['GET', 'POST'])
 @vendedor_required
 def vendedor_movimiento_merma():
@@ -576,8 +734,8 @@ def vendedor_movimiento_merma():
                     INSERT INTO movimientos_ruta_cabecera 
                     (ID_Asignacion, ID_TipoMovimiento, ID_Usuario_Registra, 
                      Documento_Numero, Total_Productos, Total_Items, Total_Subtotal,
-                     ID_Empresa, Estado)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 'ACTIVO')
+                     ID_Empresa, Estado, Fecha_Movimiento)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 'ACTIVO', %s)
                 """, (
                     id_asignacion, 
                     ID_TIPO_MERMA, 
@@ -586,7 +744,8 @@ def vendedor_movimiento_merma():
                     total_productos, 
                     total_items, 
                     total_subtotal,
-                    id_empresa, 
+                    id_empresa,
+                    datetime.now()
                 ))
                 
                 id_movimiento = cursor.lastrowid
@@ -1330,10 +1489,10 @@ def vendedor_carga_directa_proveedor():
                             INSERT INTO movimientos_ruta_cabecera 
                             (ID_Asignacion, ID_TipoMovimiento, ID_Usuario_Registra, 
                              Documento_Numero, Total_Productos, Total_Items, Total_Subtotal,
-                             ID_Empresa, Estado)
-                            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                             ID_Empresa, Estado, Fecha_Movimiento)
+                            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                         """, (id_asignacion, ID_TIPO_ENTRADA_CARGA, id_usuario, factura_proveedor,
-                              total_cantidad, total_items, total_subtotal_venta, id_empresa, 'ACTIVO'))
+                              total_cantidad, total_items, total_subtotal_venta, id_empresa, 'ACTIVO', datetime.now()))
                         
                         id_movimiento_ruta = cursor.lastrowid
                         

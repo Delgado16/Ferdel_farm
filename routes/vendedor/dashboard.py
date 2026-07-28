@@ -28,7 +28,6 @@ def vendedor_dashboard():
             JOIN rutas r ON av.ID_Ruta = r.ID_Ruta
             WHERE av.ID_Usuario = %s 
               AND av.Estado = 'Activa'
-              AND DATE(av.Fecha_Asignacion) = CURDATE()
         """, (user_id,))
         asignacion_activa = cursor.fetchone()
         

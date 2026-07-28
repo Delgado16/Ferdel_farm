@@ -463,15 +463,33 @@ def admin_asignacion_rutas():
             """, (empresa_id,))
             asignadores = cursor.fetchall()
             
-        return render_template(
-            'admin/catalog/rutas/asignacion.html',
-            asignaciones=asignaciones,
-            vendedores=vendedores,
-            rutas=rutas,
-            vehiculos=vehiculos,
-            asignadores=asignadores,
-            hoy=datetime.now().strftime('%Y-%m-%d')
-        )
+            # Obtener asignaciones activas de fechas anteriores (Alertas de Rutas Sin Liquidar)
+            cursor.execute("""
+                SELECT 
+                    a.ID_Asignacion,
+                    u.NombreUsuario AS Vendedor,
+                    r.Nombre_Ruta,
+                    a.Fecha_Asignacion
+                FROM asignacion_vendedores a
+                LEFT JOIN usuarios u ON a.ID_Usuario = u.ID_Usuario
+                LEFT JOIN rutas r ON a.ID_Ruta = r.ID_Ruta
+                WHERE a.ID_Empresa = %s
+                  AND a.Estado = 'Activa'
+                  AND DATE(a.Fecha_Asignacion) < CURDATE()
+                ORDER BY a.Fecha_Asignacion ASC
+            """, (empresa_id,))
+            alertas_sin_liquidar = cursor.fetchall()
+
+            return render_template(
+                'admin/catalog/rutas/asignacion.html',
+                asignaciones=asignaciones,
+                vendedores=vendedores,
+                rutas=rutas,
+                vehiculos=vehiculos,
+                asignadores=asignadores,
+                alertas_sin_liquidar=alertas_sin_liquidar,
+                hoy=datetime.now().strftime('%Y-%m-%d')
+            )
         
     except Exception as e:
         flash(f'Error al cargar asignación de rutas: {str(e)}', 'error')

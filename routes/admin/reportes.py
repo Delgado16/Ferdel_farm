@@ -1331,7 +1331,7 @@ def reporte_consolidado_carga_ventas():
                 FROM asignacion_vendedores av
                 JOIN usuarios u ON av.ID_Usuario = u.ID_Usuario
                 JOIN rutas r ON av.ID_Ruta = r.ID_Ruta
-                WHERE av.Fecha_Asignacion BETWEEN %s AND %s
+                WHERE (av.Fecha_Asignacion BETWEEN %s AND %s OR av.Estado = 'Activa')
                   AND av.Estado IN ('Activa', 'Finalizada')
                 GROUP BY u.ID_Usuario, u.NombreUsuario
                 ORDER BY u.NombreUsuario
@@ -1383,8 +1383,7 @@ def reporte_consolidado_carga_ventas():
                 JOIN asignacion_vendedores av ON mrc.ID_Asignacion = av.ID_Asignacion
                 WHERE mrc.Estado = 'ACTIVO'
                   AND (cm.Descripcion LIKE '%%CARGA%%' OR cm.Letra = 'C' OR mrc.ID_TipoMovimiento = 15)
-                  AND av.Fecha_Asignacion BETWEEN %s AND %s
-                  AND av.Estado IN ('Activa', 'Finalizada')
+                  AND DATE(mrc.Fecha_Movimiento) BETWEEN %s AND %s
                   AND av.ID_Usuario = %s
                 GROUP BY mrd.ID_Producto
             ) carga ON p.ID_Producto = carga.ID_Producto
@@ -1396,8 +1395,7 @@ def reporte_consolidado_carga_ventas():
                 JOIN detalle_facturacion_ruta dfr ON fr.ID_FacturaRuta = dfr.ID_FacturaRuta
                 JOIN asignacion_vendedores av ON fr.ID_Asignacion = av.ID_Asignacion
                 WHERE fr.Estado = 'Activa'
-                  AND av.Fecha_Asignacion BETWEEN %s AND %s
-                  AND av.Estado IN ('Activa', 'Finalizada')
+                  AND DATE(fr.Fecha) BETWEEN %s AND %s
                   AND av.ID_Usuario = %s
                 GROUP BY dfr.ID_Producto
             ) venta ON p.ID_Producto = venta.ID_Producto
@@ -1410,8 +1408,7 @@ def reporte_consolidado_carga_ventas():
                 JOIN asignacion_vendedores av ON mrc.ID_Asignacion = av.ID_Asignacion
                 WHERE mrc.Estado = 'ACTIVO'
                   AND mrc.ID_TipoMovimiento = 11 -- Devolución Ruta
-                  AND av.Fecha_Asignacion BETWEEN %s AND %s
-                  AND av.Estado IN ('Activa', 'Finalizada')
+                  AND DATE(mrc.Fecha_Movimiento) BETWEEN %s AND %s
                   AND av.ID_Usuario = %s
                 GROUP BY mrd.ID_Producto
             ) devolucion ON p.ID_Producto = devolucion.ID_Producto
@@ -1424,8 +1421,7 @@ def reporte_consolidado_carga_ventas():
                 JOIN asignacion_vendedores av ON mrc.ID_Asignacion = av.ID_Asignacion
                 WHERE mrc.Estado = 'ACTIVO'
                   AND mrc.ID_TipoMovimiento = 7 -- Merma Ruta
-                  AND av.Fecha_Asignacion BETWEEN %s AND %s
-                  AND av.Estado IN ('Activa', 'Finalizada')
+                  AND DATE(mrc.Fecha_Movimiento) BETWEEN %s AND %s
                   AND av.ID_Usuario = %s
                 GROUP BY mrd.ID_Producto
             ) merma ON p.ID_Producto = merma.ID_Producto
@@ -1435,8 +1431,7 @@ def reporte_consolidado_carga_ventas():
                     SUM(ir.Cantidad) AS Stock_Camion
                 FROM inventario_ruta ir
                 JOIN asignacion_vendedores av ON ir.ID_Asignacion = av.ID_Asignacion
-                WHERE av.Fecha_Asignacion BETWEEN %s AND %s
-                  AND av.Estado IN ('Activa', 'Finalizada')
+                WHERE (av.Fecha_Asignacion BETWEEN %s AND %s OR av.Estado = 'Activa')
                   AND av.ID_Usuario = %s
                 GROUP BY ir.ID_Producto
             ) stock ON p.ID_Producto = stock.ID_Producto
@@ -1469,7 +1464,7 @@ def reporte_consolidado_carga_ventas():
             JOIN asignacion_vendedores av ON fr.ID_Asignacion = av.ID_Asignacion
             WHERE fr.Estado = 'Activa'
               AND av.ID_Usuario = %s
-              AND av.Fecha_Asignacion BETWEEN %s AND %s
+              AND DATE(fr.Fecha) BETWEEN %s AND %s
             GROUP BY fr.ID_FacturaRuta, fr.Fecha_Creacion, c.Nombre, fr.Credito_Contado
             ORDER BY fr.Fecha_Creacion DESC
         """, (vendedor_id, fecha_inicio, fecha_fin))
@@ -1490,7 +1485,7 @@ def reporte_consolidado_carga_ventas():
             WHERE mrc.Estado = 'ACTIVO'
               AND mrc.ID_TipoMovimiento = 11 -- Devolución Ruta
               AND av.ID_Usuario = %s
-              AND av.Fecha_Asignacion BETWEEN %s AND %s
+              AND DATE(mrc.Fecha_Movimiento) BETWEEN %s AND %s
             ORDER BY mrc.Fecha_Movimiento DESC
         """, (vendedor_id, fecha_inicio, fecha_fin))
         devoluciones_realizadas = cursor.fetchall()
@@ -1545,7 +1540,7 @@ def reporte_consolidado_carga_ventas_detalle():
                 WHERE mrd.ID_Producto = %s
                   AND mrc.Estado = 'ACTIVO'
                   AND (cm.Descripcion LIKE '%%CARGA%%' OR cm.Letra = 'C' OR mrc.ID_TipoMovimiento = 15)
-                  AND av.Fecha_Asignacion BETWEEN %s AND %s
+                  AND DATE(mrc.Fecha_Movimiento) BETWEEN %s AND %s
                   AND av.Estado IN ('Activa', 'Finalizada')
                   {filter_vendedor}
                 ORDER BY mrc.Fecha_Movimiento DESC
@@ -1581,7 +1576,7 @@ def reporte_consolidado_carga_ventas_detalle():
                 JOIN clientes c ON fr.ID_Cliente = c.ID_Cliente
                 WHERE dfr.ID_Producto = %s
                   AND fr.Estado = 'Activa'
-                  AND av.Fecha_Asignacion BETWEEN %s AND %s
+                  AND DATE(fr.Fecha) BETWEEN %s AND %s
                   AND av.Estado IN ('Activa', 'Finalizada')
                   {filter_vendedor}
                 ORDER BY fr.Fecha_Creacion DESC
@@ -1616,7 +1611,7 @@ def reporte_consolidado_carga_ventas_detalle():
                 WHERE mrd.ID_Producto = %s
                   AND mrc.Estado = 'ACTIVO'
                   AND mrc.ID_TipoMovimiento = 11 -- Devolución Ruta
-                  AND av.Fecha_Asignacion BETWEEN %s AND %s
+                  AND DATE(mrc.Fecha_Movimiento) BETWEEN %s AND %s
                   AND av.Estado IN ('Activa', 'Finalizada')
                   {filter_vendedor}
                 ORDER BY mrc.Fecha_Movimiento DESC
@@ -1650,7 +1645,7 @@ def reporte_consolidado_carga_ventas_detalle():
                 WHERE mrd.ID_Producto = %s
                   AND mrc.Estado = 'ACTIVO'
                   AND mrc.ID_TipoMovimiento = 7 -- Merma
-                  AND av.Fecha_Asignacion BETWEEN %s AND %s
+                  AND DATE(mrc.Fecha_Movimiento) BETWEEN %s AND %s
                   AND av.Estado IN ('Activa', 'Finalizada')
                   {filter_vendedor}
                 ORDER BY mrc.Fecha_Movimiento DESC

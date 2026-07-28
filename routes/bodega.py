@@ -2629,7 +2629,17 @@ def inventario_vendedor_detalle(id_usuario):
             elif isinstance(vendedor.get('Fecha_Asignacion'), datetime):
                 vendedor['Fecha_Asignacion'] = vendedor['Fecha_Asignacion'].date()
             
-            # Inventario actual desde la tabla inventario_ruta
+            # Filtros de fecha
+            fecha_inicio = request.args.get('fecha_inicio', '')
+            fecha_fin = request.args.get('fecha_fin', '')
+            
+            # Por defecto, hoy
+            if not fecha_inicio:
+                fecha_inicio = date.today().isoformat()
+            if not fecha_fin:
+                fecha_fin = date.today().isoformat()
+            
+            # Inventario actual y cargas en la fecha seleccionada
             cursor.execute("""
                 SELECT 
                     p.ID_Producto,
@@ -2637,16 +2647,30 @@ def inventario_vendedor_detalle(id_usuario):
                     p.Descripcion AS Producto,
                     um.Descripcion AS Unidad_Medida,
                     COALESCE(p.Precio_Mercado, 0) AS Precio_Venta,
-                    ir.Cantidad AS Stock_Actual,
+                    COALESCE(ir.Cantidad, 0) AS Stock_Actual,
                     p.Stock_Minimo,
+                    COALESCE(carga.Total_Cargado, 0.00) AS Total_Cargado,
                     COALESCE(ir.Cantidad * p.Precio_Mercado, 0) AS Valor_Total,
                     ir.Fecha_Actualizacion
                 FROM inventario_ruta ir
                 INNER JOIN productos p ON ir.ID_Producto = p.ID_Producto
                 LEFT JOIN unidades_medida um ON p.Unidad_Medida = um.ID_Unidad
-                WHERE ir.ID_Asignacion = %s AND ir.Cantidad > 0 AND p.Estado = 'activo'
+                LEFT JOIN (
+                    SELECT 
+                        mrd.ID_Producto,
+                        SUM(mrd.Cantidad) AS Total_Cargado
+                    FROM movimientos_ruta_cabecera mrc
+                    JOIN movimientos_ruta_detalle mrd ON mrc.ID_Movimiento = mrd.ID_Movimiento
+                    WHERE mrc.ID_Asignacion = %s
+                      AND mrc.Estado = 'ACTIVO'
+                      AND mrc.ID_TipoMovimiento = 15 -- Entrada por carga
+                      AND DATE(mrc.Fecha_Movimiento) BETWEEN %s AND %s
+                    GROUP BY mrd.ID_Producto
+                ) carga ON p.ID_Producto = carga.ID_Producto
+                WHERE ir.ID_Asignacion = %s AND p.Estado = 'activo'
+                  AND (ir.Cantidad > 0 OR COALESCE(carga.Total_Cargado, 0) > 0)
                 ORDER BY p.Descripcion
-            """, (vendedor['ID_Asignacion'],))
+            """, (vendedor['ID_Asignacion'], fecha_inicio, fecha_fin, vendedor['ID_Asignacion']))
             inventario_raw = cursor.fetchall()
             
             inventario = []
@@ -2662,7 +2686,7 @@ def inventario_vendedor_detalle(id_usuario):
                             pass
                 inventario.append(item_dict)
             
-            # Resumen del inventario usando agregaciones SQL directas
+            # Resumen del inventario usando existencias actuales
             cursor.execute("""
                 SELECT 
                     COUNT(*) AS Productos_Diferentes,
@@ -2674,19 +2698,22 @@ def inventario_vendedor_detalle(id_usuario):
             """, (vendedor['ID_Asignacion'],))
             resumen = cursor.fetchone()
             
-            # Contar movimientos totales
+            # Contar movimientos totales en el rango de fechas
             cursor.execute("""
                 SELECT COUNT(*) AS Total_Movimientos
                 FROM movimientos_ruta_cabecera
                 WHERE ID_Asignacion = %s AND Estado = 'ACTIVO'
-            """, (vendedor['ID_Asignacion'],))
+                  AND DATE(Fecha_Movimiento) BETWEEN %s AND %s
+            """, (vendedor['ID_Asignacion'], fecha_inicio, fecha_fin))
             total_mov = cursor.fetchone()
-        
-        return render_template('bodega/ruta/inventario_vendedor_detalle.html', 
-                             vendedor=vendedor, 
-                             inventario=inventario,
-                             resumen=resumen,
-                             total_movimientos=total_mov['Total_Movimientos'] if total_mov else 0)
+            
+            return render_template('bodega/ruta/inventario_vendedor_detalle.html', 
+                                 vendedor=vendedor, 
+                                 inventario=inventario,
+                                 resumen=resumen,
+                                 total_movimientos=total_mov['Total_Movimientos'] if total_mov else 0,
+                                 fecha_inicio=fecha_inicio,
+                                 fecha_fin=fecha_fin)
     except Exception as e:
         flash(f"Error al cargar inventario: {e}", "danger")
         return redirect(url_for('bodega.inventario_vendedores'))
@@ -2727,7 +2754,17 @@ def historial_vendedor(id_usuario):
             elif isinstance(vendedor.get('Fecha_Asignacion'), datetime):
                 vendedor['Fecha_Asignacion'] = vendedor['Fecha_Asignacion'].date()
             
-            # Historial de movimientos de la asignación usando un CTE para filtrar y ordenar de forma óptima (solo hoy)
+            # Filtros de fecha
+            fecha_inicio = request.args.get('fecha_inicio', '')
+            fecha_fin = request.args.get('fecha_fin', '')
+            
+            # Por defecto, mostrar hoy
+            if not fecha_inicio:
+                fecha_inicio = date.today().isoformat()
+            if not fecha_fin:
+                fecha_fin = date.today().isoformat()
+                
+            # Historial de movimientos de la asignación usando un CTE para filtrar y ordenar de forma óptima
             cursor.execute("""
                 WITH cte_movimientos AS (
                     SELECT 
@@ -2740,9 +2777,9 @@ def historial_vendedor(id_usuario):
                         mrc.ID_Usuario_Registra,
                         mrc.ID_TipoMovimiento
                     FROM movimientos_ruta_cabecera mrc
-                    WHERE mrc.ID_Asignacion = %s 
+                    WHERE mrc.ID_Asignacion = %s
                       AND mrc.Estado = 'ACTIVO'
-                      AND DATE(mrc.Fecha_Movimiento) = CURDATE()
+                      AND DATE(mrc.Fecha_Movimiento) BETWEEN %s AND %s
                     ORDER BY mrc.Fecha_Movimiento DESC, mrc.ID_Movimiento DESC
                     LIMIT 200
                 )
@@ -2771,10 +2808,10 @@ def historial_vendedor(id_usuario):
                 LEFT JOIN clientes c ON m.ID_Cliente = c.ID_Cliente
                 LEFT JOIN usuarios u_reg ON m.ID_Usuario_Registra = u_reg.ID_Usuario
                 ORDER BY m.Fecha_Movimiento DESC, m.ID_Movimiento DESC
-            """, (vendedor['ID_Asignacion'],))
+            """, (vendedor['ID_Asignacion'], fecha_inicio, fecha_fin))
             movimientos = cursor.fetchall()
             
-            # Resumen de movimientos con un CTE para precargar subtotales y cantidades (solo hoy)
+            # Resumen de movimientos con un CTE para precargar subtotales y cantidades
             cursor.execute("""
                 WITH cte_resumen_detalles AS (
                     SELECT 
@@ -2785,9 +2822,9 @@ def historial_vendedor(id_usuario):
                     FROM movimientos_ruta_cabecera mrc
                     INNER JOIN movimientos_ruta_detalle mrd ON mrc.ID_Movimiento = mrd.ID_Movimiento
                     INNER JOIN catalogo_movimientos cm ON mrc.ID_TipoMovimiento = cm.ID_TipoMovimiento
-                    WHERE mrc.ID_Asignacion = %s 
+                    WHERE mrc.ID_Asignacion = %s
                       AND mrc.Estado = 'ACTIVO'
-                      AND DATE(mrc.Fecha_Movimiento) = CURDATE()
+                      AND DATE(mrc.Fecha_Movimiento) BETWEEN %s AND %s
                 )
                 SELECT 
                     COUNT(DISTINCT ID_Movimiento) AS Total_Movimientos,
@@ -2796,13 +2833,15 @@ def historial_vendedor(id_usuario):
                     SUM(CASE WHEN Adicion = '+' THEN Subtotal ELSE 0 END) AS Monto_Entradas,
                     SUM(CASE WHEN Adicion = '-' THEN Subtotal ELSE 0 END) AS Monto_Salidas
                 FROM cte_resumen_detalles
-            """, (vendedor['ID_Asignacion'],))
+            """, (vendedor['ID_Asignacion'], fecha_inicio, fecha_fin))
             resumen_mov = cursor.fetchone()
         
         return render_template('bodega/ruta/historial_vendedor.html',
                              vendedor=vendedor,
                              movimientos=movimientos,
-                             resumen=resumen_mov)
+                             resumen=resumen_mov,
+                             fecha_inicio=fecha_inicio,
+                             fecha_fin=fecha_fin)
     except Exception as e:
         flash(f"Error al cargar historial: {e}", "danger")
         return redirect(url_for('bodega.inventario_vendedores'))
@@ -3175,3 +3214,271 @@ def carga_detalle(id_carga):
                          detalles=detalles,
                          resumen_movimiento=resumen_movimiento,
                          now=datetime.now())
+
+
+# 7. FORMULARIO CARGA DIRECTA A RUTA
+@bodega_bp.route('/bodega/movimientos/carga-ruta/nueva')
+@admin_or_bodega_required
+def bodega_nueva_carga_ruta_form():
+    """Mostrar formulario para carga directa a ruta sin pedido consolidado"""
+    try:
+        with get_db_cursor(True) as cursor:
+            id_empresa = session.get('id_empresa', 1)
+            # Obtener bodegas de la empresa
+            cursor.execute("""
+                SELECT ID_Bodega, Nombre, Ubicacion
+                FROM bodegas
+                WHERE Estado = 'activa' AND ID_Empresa = %s
+                ORDER BY Nombre
+            """, (id_empresa,))
+            bodegas = cursor.fetchall()
+            
+            # Obtener asignaciones activas (Vendedor - Ruta)
+            cursor.execute("""
+                SELECT 
+                    av.ID_Asignacion,
+                    u.NombreUsuario AS Vendedor,
+                    r.Nombre_Ruta
+                FROM asignacion_vendedores av
+                JOIN usuarios u ON av.ID_Usuario = u.ID_Usuario
+                JOIN rutas r ON av.ID_Ruta = r.ID_Ruta
+                WHERE av.Estado = 'Activa' AND av.ID_Empresa = %s
+                ORDER BY u.NombreUsuario
+            """, (id_empresa,))
+            asignaciones = cursor.fetchall()
+            
+            fecha_actual = datetime.now().strftime('%Y-%m-%d')
+            
+            return render_template('bodega/movimientos/nueva_carga_ruta.html',
+                                 bodegas=bodegas,
+                                 asignaciones=asignaciones,
+                                 fecha_actual=fecha_actual)
+    except Exception as e:
+        flash(f"Error al cargar formulario de carga a ruta: {str(e)}", 'error')
+        return redirect(url_for('bodega.bodega_historial_movimientos'))
+
+
+@bodega_bp.route('/bodega/movimientos/carga-ruta/procesar', methods=['POST'])
+@admin_or_bodega_required
+@bitacora_decorator("PROCESAR-CARGA-RUTA")
+def bodega_procesar_carga_ruta():
+    """Procesa la carga directa a una ruta/vendedor desde bodega"""
+    try:
+        fecha = request.form.get('fecha')
+        id_bodega_origen = request.form.get('id_bodega_origen')
+        id_asignacion = request.form.get('id_asignacion')
+        observacion = request.form.get('observacion', '').strip()
+        
+        if not all([fecha, id_bodega_origen, id_asignacion]):
+            flash("Fecha, bodega de origen y asignación de vendedor son requeridas", 'error')
+            return redirect(url_for('bodega.bodega_nueva_carga_ruta_form'))
+            
+        try:
+            id_bodega_origen = int(id_bodega_origen)
+            id_asignacion = int(id_asignacion)
+        except ValueError:
+            flash("Datos inválidos seleccionados", 'error')
+            return redirect(url_for('bodega.bodega_nueva_carga_ruta_form'))
+            
+        productos_json = request.form.get('productos')
+        if not productos_json or productos_json == '[]':
+            flash("Debe agregar al menos un producto para la carga", 'error')
+            return redirect(url_for('bodega.bodega_nueva_carga_ruta_form'))
+            
+        productos = json.loads(productos_json)
+        if not productos:
+            flash("Debe agregar al menos un producto", 'error')
+            return redirect(url_for('bodega.bodega_nueva_carga_ruta_form'))
+            
+        id_usuario = current_user.id
+        id_empresa = session.get('id_empresa', 1)
+        
+        ID_TS = 12  # Traslado Salida
+        ID_TIPO_ENTRADA_CARGA = 15  # Entrada por carga
+        
+        with get_db_cursor(commit=True) as cursor:
+            # Validar que la bodega de origen exista y esté activa
+            cursor.execute("""
+                SELECT ID_Bodega, Nombre 
+                FROM bodegas 
+                WHERE ID_Bodega = %s AND Estado = 'activa' AND ID_Empresa = %s
+            """, (id_bodega_origen, id_empresa))
+            bodega_origen = cursor.fetchone()
+            if not bodega_origen:
+                flash("La bodega de origen seleccionada no es válida", 'error')
+                return redirect(url_for('bodega.bodega_nueva_carga_ruta_form'))
+                
+            # Validar asignación del vendedor
+            cursor.execute("""
+                SELECT av.ID_Asignacion, av.ID_Usuario, u.NombreUsuario, r.Nombre_Ruta
+                FROM asignacion_vendedores av
+                JOIN usuarios u ON av.ID_Usuario = u.ID_Usuario
+                JOIN rutas r ON av.ID_Ruta = r.ID_Ruta
+                WHERE av.ID_Asignacion = %s AND av.Estado = 'Activa' AND av.ID_Empresa = %s
+            """, (id_asignacion, id_empresa))
+            asignacion = cursor.fetchone()
+            if not asignacion:
+                flash("La asignación del vendedor no se encuentra activa o no existe", 'error')
+                return redirect(url_for('bodega.bodega_nueva_carga_ruta_form'))
+                
+            # Verificar stock de productos
+            productos_insuficientes = []
+            productos_validos = []
+            
+            for prod in productos:
+                producto_id = int(prod['id_producto'])
+                cantidad = Decimal(str(prod['cantidad']))
+                
+                if cantidad <= 0:
+                    flash(f"La cantidad para producto ID {producto_id} debe ser mayor a 0", 'error')
+                    return redirect(url_for('bodega.bodega_nueva_carga_ruta_form'))
+                    
+                # Validar existencia de producto
+                cursor.execute("""
+                    SELECT ID_Producto, Descripcion, Precio_Ruta, COD_Producto
+                    FROM productos 
+                    WHERE ID_Producto = %s AND Estado = 'activo' AND ID_Empresa = %s
+                """, (producto_id, id_empresa))
+                producto_existe = cursor.fetchone()
+                if not producto_existe:
+                    productos_insuficientes.append({
+                        'producto': f'ID {producto_id}',
+                        'error': 'Producto inactivo o no pertenece a la empresa'
+                    })
+                    continue
+                    
+                # Verificar existencias
+                cursor.execute("""
+                    SELECT COALESCE(Existencias, 0) as Existencias 
+                    FROM inventario_bodega 
+                    WHERE ID_Bodega = %s AND ID_Producto = %s
+                """, (id_bodega_origen, producto_id))
+                stock = cursor.fetchone()
+                stock_disponible = Decimal(str(stock['Existencias'])) if stock else Decimal('0')
+                
+                if stock_disponible < cantidad:
+                    productos_insuficientes.append({
+                        'producto': f"{producto_existe['COD_Producto'] or ''} {producto_existe['Descripcion']}",
+                        'solicitado': float(cantidad),
+                        'disponible': float(stock_disponible)
+                    })
+                else:
+                    productos_validos.append({
+                        'id_producto': producto_id,
+                        'cantidad': cantidad,
+                        'descripcion': producto_existe['Descripcion'],
+                        'codigo': producto_existe['COD_Producto'],
+                        'precio_ruta': producto_existe['Precio_Ruta'] if producto_existe['Precio_Ruta'] else Decimal('0'),
+                        'stock_origen': stock_disponible
+                    })
+                    
+            if productos_insuficientes:
+                mensaje_error = f"<strong>Stock insuficiente en bodega '{bodega_origen['Nombre']}':</strong><br><br>"
+                for item in productos_insuficientes:
+                    if 'error' in item:
+                        mensaje_error += f"❌ <strong>{item['producto']}</strong>: {item['error']}<br>"
+                    else:
+                        mensaje_error += f"❌ <strong>{item['producto']}</strong>:<br>"
+                        mensaje_error += f"&nbsp;&nbsp;Solicitado: {item['solicitado']:.2f}<br>"
+                        mensaje_error += f"&nbsp;&nbsp;Disponible: {item['disponible']:.2f}<br>"
+                flash(mensaje_error, 'error')
+                return redirect(url_for('bodega.bodega_nueva_carga_ruta_form'))
+                
+            if not productos_validos:
+                flash("No hay productos válidos para transferir", 'error')
+                return redirect(url_for('bodega.bodega_nueva_carga_ruta_form'))
+                
+            # ============================================
+            # 1. CREAR MOVIMIENTO DE SALIDA EN BODEGA (TS - ID 12)
+            # ============================================
+            obs_salida = f"Traslado salida a ruta {asignacion['Nombre_Ruta']} (Vendedor: {asignacion['NombreUsuario']})"
+            if observacion:
+                obs_salida += f" | Obs: {observacion}"
+                
+            cursor.execute("""
+                INSERT INTO movimientos_inventario
+                (ID_TipoMovimiento, Fecha, ID_Bodega, ID_Bodega_Destino,
+                 UbicacionEntrega, Observacion, ID_Empresa, ID_Usuario_Creacion, Estado)
+                VALUES (%s, %s, %s, NULL, NULL, %s, %s, %s, 'Activa')
+            """, (ID_TS, fecha, id_bodega_origen, obs_salida[:500], id_empresa, id_usuario))
+            
+            id_movimiento_salida = cursor.lastrowid
+            
+            # ============================================
+            # 2. CREAR MOVIMIENTO DE ENTRADA EN RUTA (ID 15)
+            # ============================================
+            total_productos = len(productos_validos)
+            total_items = sum(float(p['cantidad']) for p in productos_validos)
+            total_subtotal_venta = sum(float(p['cantidad'] * p['precio_ruta']) for p in productos_validos)
+            
+            cursor.execute("""
+                INSERT INTO movimientos_ruta_cabecera 
+                (ID_Asignacion, ID_TipoMovimiento, ID_Usuario_Registra, 
+                 Documento_Numero, Total_Productos, Total_Items, Total_Subtotal,
+                 ID_Empresa, Estado, Fecha_Movimiento)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 'ACTIVO', %s)
+            """, (id_asignacion, ID_TIPO_ENTRADA_CARGA, id_usuario, f"TS-{id_movimiento_salida}",
+                  total_productos, total_items, total_subtotal_venta, id_empresa, datetime.now()))
+            
+            id_movimiento_ruta = cursor.lastrowid
+            
+            # ============================================
+            # 3. PROCESAR CADA PRODUCTO
+            # ============================================
+            for prod in productos_validos:
+                producto_id = prod['id_producto']
+                cantidad = prod['cantidad']
+                precio_ruta = prod['precio_ruta']
+                subtotal_venta = cantidad * precio_ruta
+                
+                # Obtener último costo para registro en bodega
+                cursor.execute("""
+                    SELECT dmi.Costo_Unitario 
+                    FROM detalle_movimientos_inventario dmi
+                    JOIN movimientos_inventario mi ON dmi.ID_Movimiento = mi.ID_Movimiento
+                    JOIN catalogo_movimientos cm ON mi.ID_TipoMovimiento = cm.ID_TipoMovimiento
+                    WHERE dmi.ID_Producto = %s
+                    AND (cm.Letra = 'E' OR cm.Descripcion LIKE '%%entrada%%' OR cm.Descripcion LIKE '%%compra%%')
+                    AND mi.Estado = 'Activa'
+                    ORDER BY mi.Fecha DESC, dmi.ID_Detalle_Movimiento DESC
+                    LIMIT 1
+                """, (producto_id,))
+                costo_res = cursor.fetchone()
+                costo_unitario = Decimal(str(costo_res['Costo_Unitario'])) if costo_res and costo_res['Costo_Unitario'] is not None else Decimal('0')
+                subtotal_costo = cantidad * costo_unitario
+                
+                # A. Insertar detalle de salida en bodega
+                cursor.execute("""
+                    INSERT INTO detalle_movimientos_inventario
+                    (ID_Movimiento, ID_Producto, Cantidad, Costo_Unitario, Subtotal, ID_Usuario_Creacion)
+                    VALUES (%s, %s, %s, %s, %s, %s)
+                """, (id_movimiento_salida, producto_id, cantidad, costo_unitario, subtotal_costo, id_usuario))
+                
+                # B. Restar existencias en bodega origen
+                cursor.execute("""
+                    UPDATE inventario_bodega
+                    SET Existencias = Existencias - %s
+                    WHERE ID_Bodega = %s AND ID_Producto = %s
+                """, (cantidad, id_bodega_origen, producto_id))
+                
+                # C. Insertar detalle de entrada en ruta
+                cursor.execute("""
+                    INSERT INTO movimientos_ruta_detalle
+                    (ID_Movimiento, ID_Producto, Cantidad, Precio_Unitario, Subtotal, ID_Movimiento_Origen)
+                    VALUES (%s, %s, %s, %s, %s, %s)
+                """, (id_movimiento_ruta, producto_id, cantidad, precio_ruta, subtotal_venta, id_movimiento_salida))
+                
+                # D. Incrementar inventario de la ruta (inventario_ruta)
+                cursor.execute("""
+                    INSERT INTO inventario_ruta (ID_Asignacion, ID_Producto, Cantidad)
+                    VALUES (%s, %s, %s)
+                    ON DUPLICATE KEY UPDATE Cantidad = Cantidad + VALUES(Cantidad)
+                """, (id_asignacion, producto_id, cantidad))
+                
+            flash(f"✅ Carga a Ruta registrada exitosamente. Salida de bodega TS-{id_movimiento_salida} y Carga de Ruta #{id_movimiento_ruta} creados.", 'success')
+            return redirect(url_for('bodega.bodega_historial_movimientos'))
+            
+    except Exception as e:
+        traceback.print_exc()
+        flash(f"Error procesando la carga a ruta: {str(e)}", 'error')
+        return redirect(url_for('bodega.bodega_nueva_carga_ruta_form'))
