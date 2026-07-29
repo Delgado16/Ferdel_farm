@@ -35,6 +35,19 @@
             <form method="get" class="mb-0">
                 <div class="row g-3">
                     <div class="col-md-3">
+                        <label for="filtroRuta" class="form-label-premium fw-bold mb-1">Filtrar por Ruta</label>
+                        <select name="ruta" class="form-select form-select-premium" id="filtroRuta">
+                            <option value="">Todas las rutas</option>
+                            {% if rutas %}
+                                {% for r_item in rutas %}
+                                <option value="{{ r_item.ID_Ruta }}" {% if ruta_seleccionada == r_item.ID_Ruta|string %}selected{% endif %}>
+                                    {{ r_item.Nombre_Ruta }}
+                                </option>
+                                {% endfor %}
+                            {% endif %}
+                        </select>
+                    </div>
+                    <div class="col-md-3">
                         <label for="filtroSucursal" class="form-label-premium fw-bold mb-1">Filtrar por Sucursal</label>
                         <select name="sucursal" class="form-select form-select-premium" id="filtroSucursal">
                             <option value="">Todas las sucursales</option>
@@ -47,9 +60,9 @@
                             {% endif %}
                         </select>
                     </div>
-                    <div class="col-md-6">
+                    <div class="col-md-3">
                         <label for="buscador" class="form-label-premium fw-bold mb-1">Buscar Cliente</label>
-                        <input type="text" id="buscador" name="q" class="form-control form-control-premium" placeholder="Buscar por nombre, RUC/Cédula o teléfono..." 
+                        <input type="text" id="buscador" name="q" class="form-control form-control-premium" placeholder="Buscar por nombre, RUC/Cédula..." 
                                value="{{ search }}">
                     </div>
                     <div class="col-md-3 d-flex align-items-end">
@@ -57,7 +70,7 @@
                             <button class="btn btn-outline-primary w-100 py-2 rounded-3" type="submit">
                                 <i class="fas fa-search me-1"></i> Buscar
                             </button>
-                            {% if search or sucursal_seleccionada %}
+                            {% if search or sucursal_seleccionada or ruta_seleccionada %}
                             <a href="{{ url_for('admin.admin_clientes') }}" class="btn btn-outline-secondary w-100 py-2 rounded-3">
                                 <i class="fas fa-sync-alt me-1"></i> Limpiar
                             </a>
@@ -70,12 +83,13 @@
     </div>
 
     <!-- Información de resultados -->
-    {% if search or sucursal_seleccionada %}
+    {% if search or sucursal_seleccionada or ruta_seleccionada %}
     <div class="alert alert-info bg-info bg-opacity-10 text-info border border-info border-opacity-20 py-2.5 px-3 small rounded-3 mb-3 d-flex align-items-center">
         <i class="fas fa-info-circle me-2"></i>
         <div>
             <strong>{{ total }}</strong> cliente(s) encontrado(s)
             {% if search %}para "<strong>{{ search }}</strong>"{% endif %}
+            {% if ruta_seleccionada %}en la ruta seleccionada{% endif %}
             {% if sucursal_seleccionada %}en la sucursal seleccionada{% endif %}
         </div>
     </div>
@@ -200,7 +214,7 @@
         <ul class="pagination justify-content-center">
             {% if page > 1 %}
             <li class="page-item">
-                <a class="page-link rounded-3 border-0 bg-light text-slate-800 px-3 py-2 mx-1" href="{{ url_for('admin.admin_clientes', page=page-1, q=search, sucursal=sucursal_seleccionada) }}" aria-label="Previous">
+                <a class="page-link rounded-3 border-0 bg-light text-slate-800 px-3 py-2 mx-1" href="{{ url_for('admin.admin_clientes', page=page-1, q=search, sucursal=sucursal_seleccionada, ruta=ruta_seleccionada) }}" aria-label="Previous">
                     <span aria-hidden="true">&laquo;</span>
                 </a>
             </li>
@@ -209,14 +223,14 @@
             {% for p in range(1, total_pages + 1) %}
                 {% if p >= page - 2 and p <= page + 2 %}
                 <li class="page-item">
-                    <a class="page-link rounded-3 border-0 px-3 py-2 mx-1 {% if p == page %}bg-primary text-whitefw-bold{% else %}bg-light text-slate-800{% endif %}" href="{{ url_for('admin.admin_clientes', page=p, q=search, sucursal=sucursal_seleccionada) }}">{{ p }}</a>
+                    <a class="page-link rounded-3 border-0 px-3 py-2 mx-1 {% if p == page %}bg-primary text-whitefw-bold{% else %}bg-light text-slate-800{% endif %}" href="{{ url_for('admin.admin_clientes', page=p, q=search, sucursal=sucursal_seleccionada, ruta=ruta_seleccionada) }}">{{ p }}</a>
                 </li>
                 {% endif %}
             {% endfor %}
             
             {% if page < total_pages %}
             <li class="page-item">
-                <a class="page-link rounded-3 border-0 bg-light text-slate-800 px-3 py-2 mx-1" href="{{ url_for('admin.admin_clientes', page=page+1, q=search, sucursal=sucursal_seleccionada) }}" aria-label="Next">
+                <a class="page-link rounded-3 border-0 bg-light text-slate-800 px-3 py-2 mx-1" href="{{ url_for('admin.admin_clientes', page=page+1, q=search, sucursal=sucursal_seleccionada, ruta=ruta_seleccionada) }}" aria-label="Next">
                     <span aria-hidden="true">&raquo;</span>
                 </a>
             </li>

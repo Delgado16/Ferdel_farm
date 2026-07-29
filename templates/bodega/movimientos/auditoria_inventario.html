@@ -1,0 +1,226 @@
+{% extends "layout.html" %}
+
+{% block title %}Auditoría e Inventario Diario - FerDel{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<style>
+    .auditoria-card {
+        background: #ffffff;
+        border-radius: 16px;
+        border: 1px solid rgba(226, 232, 240, 0.8);
+        box-shadow: 0 4px 15px -3px rgba(0, 0, 0, 0.03);
+    }
+    .input-fisico {
+        max-width: 120px;
+        font-weight: bold;
+        text-align: right;
+    }
+    .diff-badge {
+        font-size: 0.85rem;
+        font-weight: 700;
+        padding: 0.35rem 0.65rem;
+        border-radius: 8px;
+    }
+    .diff-neutral {
+        background-color: #f1f5f9;
+        color: #475569;
+    }
+    .diff-positive {
+        background-color: #d1fae5;
+        color: #065f46;
+    }
+    .diff-negative {
+        background-color: #fee2e2;
+        color: #991b1b;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Encabezado -->
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4 bg-white p-4 rounded-3 border">
+        <div>
+            <h3 class="fw-bold text-slate-800 mb-1">
+                <i class="fas fa-clipboard-check text-primary me-2"></i>Auditoría e Inventario Diario
+            </h3>
+            <p class="text-muted small mb-0">Compare el stock digital del sistema con el conteo físico real de su bodega y registre los ajustes automáticamente.</p>
+        </div>
+        <div class="d-flex gap-2">
+            <a href="{{ url_for('bodega.bodega_dashboard') }}" class="btn btn-outline-secondary rounded-3">
+                <i class="fas fa-arrow-left me-1"></i> Volver al Dashboard
+            </a>
+        </div>
+    </div>
+
+    <!-- Filtro de Bodega -->
+    <div class="card auditoria-card p-4 mb-4">
+        <form method="GET" action="{{ url_for('bodega.bodega_auditoria_inventario') }}" class="row align-items-end g-3">
+            <div class="col-12 col-md-6 col-lg-4">
+                <label class="form-label fw-bold text-muted small text-uppercase">Bodega a Auditar</label>
+                <select name="id_bodega" class="form-select" onchange="this.form.submit()">
+                    {% for b in bodegas %}
+                    <option value="{{ b.ID_Bodega }}" {% if b.ID_Bodega == bodega_seleccionada.ID_Bodega %}selected{% endif %}>
+                        {{ b.Nombre }} {% if b.Ubicacion %}({{ b.Ubicacion }}){% endif %}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-12 col-md-6 col-lg-4">
+                <span class="badge bg-light text-dark border p-2 w-100 text-start">
+                    <i class="fas fa-cubes me-2 text-primary"></i>Productos Activos: <strong>{{ productos|length }}</strong>
+                </span>
+            </div>
+        </form>
+    </div>
+
+    <!-- Tabla de Auditoría -->
+    <div class="card auditoria-card overflow-hidden">
+        <form id="formAuditoria" method="POST" action="{{ url_for('bodega.bodega_procesar_auditoria') }}">
+            <input type="hidden" name="id_bodega" value="{{ bodega_seleccionada.ID_Bodega }}">
+            
+            <div class="p-3 bg-light border-bottom d-flex justify-content-between align-items-center">
+                <div class="input-group" style="max-width: 300px;">
+                    <span class="input-group-text bg-white border-end-0"><i class="fas fa-search text-muted"></i></span>
+                    <input type="text" id="filtroBuscar" class="form-control border-start-0" placeholder="Buscar producto...">
+                </div>
+                <div class="text-end">
+                    <span class="text-muted small me-3">Diferencias Detectadas: <strong id="totalDiferencias" class="text-danger">0</strong></span>
+                </div>
+            </div>
+
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0" id="tablaAuditoria">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Código</th>
+                            <th>Descripción</th>
+                            <th>Unidad</th>
+                            <th class="text-end" style="width: 150px;">Stock Sistema (Teórico)</th>
+                            <th class="text-center" style="width: 180px;">Stock Físico (Real)</th>
+                            <th class="text-center" style="width: 150px;">Diferencia</th>
+                            <th>Observación de Discrepancia</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% if productos %}
+                        {% for p in productos %}
+                        <tr class="producto-fila">
+                            <td><code class="fw-bold">{{ p.COD_Producto or 'N/A' }}</code></td>
+                            <td>
+                                <div class="fw-bold text-dark">{{ p.Descripcion }}</div>
+                                <input type="hidden" name="id_producto_{{ p.ID_Producto }}" value="{{ p.ID_Producto }}">
+                            </td>
+                            <td><span class="text-muted small">{{ p.Unidad_Descripcion }}</span></td>
+                            <td class="text-end fw-bold text-slate-700">
+                                <span id="sistema-{{ p.ID_Producto }}">{{ "{:,.2f}".format(p.Stock_Actual|float) }}</span>
+                            </td>
+                            <td class="text-center">
+                                <input type="number" step="0.01" min="0" 
+                                       class="form-control input-fisico mx-auto" 
+                                       name="fisico_{{ p.ID_Producto }}"
+                                       id="fisico-{{ p.ID_Producto }}"
+                                       value="{{ "{:.2f}".format(p.Stock_Actual|float) }}"
+                                       oninput="calcularDiferencia({{ p.ID_Producto }})">
+                            </td>
+                            <td class="text-center">
+                                <span id="diff-{{ p.ID_Producto }}" class="diff-badge diff-neutral">0.00</span>
+                            </td>
+                            <td>
+                                <input type="text" class="form-control form-control-sm" 
+                                       name="obs_{{ p.ID_Producto }}" 
+                                       id="obs-{{ p.ID_Producto }}"
+                                       placeholder="Ej: Rotura, pérdida, etc." 
+                                       disabled>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                        {% else %}
+                        <tr>
+                            <td colspan="7" class="text-center py-5 text-muted">
+                                <i class="fas fa-box-open fa-3x mb-3 text-slate-300"></i>
+                                <p class="mb-0">No se encontraron productos activos registrados en esta bodega.</p>
+                            </td>
+                        </tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Panel de Confirmación -->
+            <div class="p-4 bg-light border-top d-flex justify-content-between align-items-center">
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="confirmarAjuste" required>
+                    <label class="form-check-label fw-bold text-danger small" for="confirmarAjuste">
+                        Confirmo que he verificado físicamente las cantidades y autorizo el ajuste de inventario.
+                    </label>
+                </div>
+                <button type="submit" class="btn btn-primary px-5 py-2 fw-bold rounded-3" id="btnGuardar">
+                    <i class="fas fa-save me-2"></i>Aplicar Ajustes y Cerrar Cuadre
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+function calcularDiferencia(id) {
+    const stockSistema = parseFloat(document.getElementById('sistema-' + id).textContent.replace(/,/g, '')) || 0;
+    const inputFisico = document.getElementById('fisico-' + id);
+    const stockFisico = parseFloat(inputFisico.value) || 0;
+    
+    const diff = stockFisico - stockSistema;
+    const badge = document.getElementById('diff-' + id);
+    const obsInput = document.getElementById('obs-' + id);
+    
+    badge.textContent = (diff >= 0 ? '+' : '') + diff.toFixed(2);
+    
+    if (Math.abs(diff) < 0.001) {
+        badge.className = "diff-badge diff-neutral";
+        obsInput.disabled = true;
+        obsInput.value = "";
+    } else {
+        obsInput.disabled = false;
+        if (diff > 0) {
+            badge.className = "diff-badge diff-positive";
+        } else {
+            badge.className = "diff-badge diff-negative";
+        }
+    }
+    
+    actualizarContadorDiferencias();
+}
+
+function actualizarContadorDiferencias() {
+    let count = 0;
+    document.querySelectorAll('.diff-badge').forEach(badge => {
+        const val = parseFloat(badge.textContent) || 0;
+        if (Math.abs(val) > 0.001) {
+            count++;
+        }
+    });
+    const label = document.getElementById('totalDiferencias');
+    label.textContent = count;
+    if (count > 0) {
+        label.className = "text-danger fw-bold fs-5";
+    } else {
+        label.className = "text-muted";
+    }
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    // Filtro de búsqueda en tiempo real
+    const buscador = document.getElementById('filtroBuscar');
+    if (buscador) {
+        buscador.addEventListener('input', function(e) {
+            const term = e.target.value.toLowerCase();
+            document.querySelectorAll('.producto-fila').forEach(fila => {
+                const text = fila.textContent.toLowerCase();
+                fila.style.display = text.includes(term) ? '' : 'none';
+            });
+        });
+    }
+});
+</script>
+{% endblock %}

@@ -1527,7 +1527,7 @@ def reporte_consolidado_carga_ventas_detalle():
             query_cargas = f"""
                 SELECT 
                     mrc.ID_Movimiento AS Movimiento_ID,
-                    DATE_FORMAT(mrc.Fecha_Movimiento, '%%Y-%%m-%%d') AS Fecha,
+                    DATE_FORMAT(mrc.Fecha_Movimiento, '%d/%m/%Y') AS Fecha,
                     u.NombreUsuario AS Vendedor,
                     r.Nombre_Ruta AS Ruta,
                     mrd.Cantidad
@@ -1562,14 +1562,14 @@ def reporte_consolidado_carga_ventas_detalle():
                 SELECT 
                     fr.ID_FacturaRuta AS Factura_ID,
                     CONCAT('R-', fr.ID_FacturaRuta) AS Factura_N,
-                    DATE_FORMAT(fr.Fecha_Creacion, '%%Y-%%m-%%d') AS Fecha,
+                    DATE_FORMAT(fr.Fecha_Creacion, '%d/%m/%Y') AS Fecha,
                     u.NombreUsuario AS Vendedor,
                     r.Nombre_Ruta AS Ruta,
                     c.Nombre AS Cliente_Nombre,
                     dfr.Cantidad,
                     dfr.Total
                 FROM detalle_facturacion_ruta dfr
-                JOIN facturacion_ruta fr ON dfr.ID_FacturaRuta = dfr.ID_FacturaRuta
+                JOIN facturacion_ruta fr ON fr.ID_FacturaRuta = dfr.ID_FacturaRuta
                 JOIN asignacion_vendedores av ON fr.ID_Asignacion = av.ID_Asignacion
                 JOIN usuarios u ON av.ID_Usuario = u.ID_Usuario
                 JOIN rutas r ON av.ID_Ruta = r.ID_Ruta
@@ -1599,7 +1599,7 @@ def reporte_consolidado_carga_ventas_detalle():
             query_devoluciones = f"""
                 SELECT 
                     mrc.ID_Movimiento AS Movimiento_ID,
-                    DATE_FORMAT(mrc.Fecha_Movimiento, '%%Y-%%m-%%d') AS Fecha,
+                    DATE_FORMAT(mrc.Fecha_Movimiento, '%d/%m/%Y') AS Fecha,
                     u.NombreUsuario AS Vendedor,
                     r.Nombre_Ruta AS Ruta,
                     mrd.Cantidad
@@ -1632,7 +1632,7 @@ def reporte_consolidado_carga_ventas_detalle():
             query_mermas = f"""
                 SELECT 
                     mrc.ID_Movimiento AS Movimiento_ID,
-                    DATE_FORMAT(mrc.Fecha_Movimiento, '%%Y-%%m-%%d') AS Fecha,
+                    DATE_FORMAT(mrc.Fecha_Movimiento, '%d/%m/%Y') AS Fecha,
                     u.NombreUsuario AS Vendedor,
                     r.Nombre_Ruta AS Ruta,
                     mrd.Cantidad,

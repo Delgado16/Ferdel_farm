@@ -79,7 +79,7 @@ def vendedor_movimiento_entrada_bodega():
                         if not producto_info:
                             continue
                             
-                        precio = float(producto_info['Precio_Ruta'])
+                        precio = float(producto_info['Precio_Ruta'] or 0.0)
                         subtotal = cantidad * precio
                         
                         productos_procesar.append({
@@ -294,7 +294,7 @@ def vendedor_movimiento_devolucion_bodega():
                         if not producto_info:
                             continue
                             
-                        precio_ruta = float(producto_info['Precio_Ruta'])
+                        precio_ruta = float(producto_info['Precio_Ruta'] or 0.0)
                         subtotal = cantidad * precio_ruta
                         
                         productos_procesar.append({
@@ -513,14 +513,32 @@ def vendedor_movimiento_liquidar_jornada():
             
             # Obtener caja acumulada
             cursor.execute("""
-                SELECT Saldo_Acumulado
+                SELECT Tipo, Monto, Saldo_Acumulado
                 FROM movimientos_caja_ruta
                 WHERE ID_Usuario = %s AND ID_Asignacion = %s AND Estado = 'ACTIVO'
                 ORDER BY Fecha DESC, ID_Movimiento DESC
                 LIMIT 1
             """, (user_id, id_asignacion))
             resultado_saldo = cursor.fetchone()
-            saldo_caja = resultado_saldo['Saldo_Acumulado'] if resultado_saldo else 0
+            
+            if resultado_saldo:
+                if resultado_saldo['Tipo'] == 'CIERRE':
+                    saldo_caja = resultado_saldo['Monto'] if resultado_saldo['Monto'] is not None else 0
+                else:
+                    if resultado_saldo['Saldo_Acumulado'] is not None:
+                        saldo_caja = resultado_saldo['Saldo_Acumulado']
+                    else:
+                        cursor.execute("""
+                            SELECT Saldo_Acumulado 
+                            FROM movimientos_caja_ruta
+                            WHERE ID_Usuario = %s AND ID_Asignacion = %s AND Estado = 'ACTIVO' AND Saldo_Acumulado IS NOT NULL
+                            ORDER BY Fecha DESC, ID_Movimiento DESC
+                            LIMIT 1
+                        """, (user_id, id_asignacion))
+                        res_non_null = cursor.fetchone()
+                        saldo_caja = res_non_null['Saldo_Acumulado'] if res_non_null else 0
+            else:
+                saldo_caja = 0
             
             # Obtener resumen de ventas
             cursor.execute("""
@@ -529,7 +547,7 @@ def vendedor_movimiento_liquidar_jornada():
                 WHERE ID_Asignacion = %s AND ID_TipoMovimiento = 3 AND Estado = 'ACTIVO'
             """, (id_asignacion,))
             ventas_res = cursor.fetchone()
-            total_vendido = ventas_res['total_vendido'] if ventas_res else 0
+            total_vendido = (ventas_res['total_vendido'] if (ventas_res and ventas_res['total_vendido'] is not None) else 0)
             
             if request.method == 'POST':
                 # Validar si hay productos para devolver
@@ -539,8 +557,8 @@ def vendedor_movimiento_liquidar_jornada():
                     ID_BODEGA_CENTRAL = 1
                     
                     total_productos = len(inventario)
-                    total_items = sum(float(item['Cantidad']) for item in inventario)
-                    total_subtotal = sum(float(item['Cantidad']) * float(item['Precio_Ruta']) for item in inventario)
+                    total_items = sum(float(item['Cantidad'] or 0) for item in inventario)
+                    total_subtotal = sum(float(item['Cantidad'] or 0) * float(item['Precio_Ruta'] or 0) for item in inventario)
                     
                     documento = f"LIQ-{id_asignacion}"
                     
@@ -565,20 +583,20 @@ def vendedor_movimiento_liquidar_jornada():
                     
                     # 3. Registrar detalles y actualizar tablas
                     for item in inventario:
-                        subtotal_item = float(item['Cantidad']) * float(item['Precio_Ruta'])
+                        subtotal_item = float(item['Cantidad'] or 0) * float(item['Precio_Ruta'] or 0)
                         
                         # Detalle ruta
                         cursor.execute("""
                             INSERT INTO movimientos_ruta_detalle (ID_Movimiento, ID_Producto, Cantidad, Precio_Unitario, Subtotal)
                             VALUES (%s, %s, %s, %s, %s)
-                        """, (id_movimiento_ruta, item['ID_Producto'], item['Cantidad'], item['Precio_Ruta'], subtotal_item))
+                        """, (id_movimiento_ruta, item['ID_Producto'], item['Cantidad'], item['Precio_Ruta'] or 0, subtotal_item))
                         
                         # Detalle inventario general
                         cursor.execute("""
                             INSERT INTO detalle_movimientos_inventario
                             (ID_Movimiento, ID_Producto, Cantidad, Precio_Unitario, Subtotal, ID_Usuario_Creacion)
                             VALUES (%s, %s, %s, %s, %s, %s)
-                        """, (id_movimiento_inventario, item['ID_Producto'], item['Cantidad'], item['Precio_Ruta'], subtotal_item, user_id))
+                        """, (id_movimiento_inventario, item['ID_Producto'], item['Cantidad'], item['Precio_Ruta'] or 0, subtotal_item, user_id))
                         
                         # Restar inventario en ruta
                         cursor.execute("""

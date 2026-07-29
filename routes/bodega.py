@@ -197,50 +197,9 @@ def bodega_dashboard():
             """)
             info_bodegas = cursor.fetchall()
             
-            # 7. Productos por categoría
-            cursor.execute("""
-                SELECT 
-                    b.Nombre AS Bodega,
-                    cp.Descripcion AS Categoria,
-                    p.Descripcion AS Producto,
-                    um.Abreviatura AS Unidad,
-                    p.COD_Producto AS Codigo,
-                    ib.Existencias AS Stock_Actual,
-                    p.Stock_Minimo AS Stock_Minimo,
-                    CASE 
-                        WHEN ib.Existencias <= p.Stock_Minimo THEN 'CRITICO'
-                        WHEN ib.Existencias <= (p.Stock_Minimo * 1.5) THEN 'BAJO'
-                        ELSE 'NORMAL'
-                    END AS Estado_Stock
-                FROM productos p
-                INNER JOIN categorias_producto cp ON p.ID_Categoria = cp.ID_Categoria
-                INNER JOIN unidades_medida um ON p.Unidad_Medida = um.ID_Unidad
-                INNER JOIN inventario_bodega ib ON p.ID_Producto = ib.ID_Producto
-                INNER JOIN bodegas b ON ib.ID_Bodega = b.ID_Bodega
-                WHERE p.Estado = 'activo'
-                ORDER BY b.Nombre, cp.Descripcion, p.Descripcion
-                LIMIT 500
-            """)
-            productos_categorias = cursor.fetchall()
-            
-            # 8. Resumen por bodega y categoría
-            cursor.execute("""
-                SELECT 
-                    b.Nombre AS Bodega,
-                    cp.Descripcion AS Categoria,
-                    COUNT(DISTINCT ib.ID_Producto) AS Total_Productos,
-                    COALESCE(SUM(ib.Existencias), 0) AS Stock_Total,
-                    COUNT(DISTINCT CASE WHEN ib.Existencias <= p.Stock_Minimo THEN ib.ID_Producto END) AS Productos_Criticos,
-                    COUNT(DISTINCT CASE WHEN ib.Existencias <= (p.Stock_Minimo * 1.5) AND ib.Existencias > p.Stock_Minimo THEN ib.ID_Producto END) AS Productos_Bajos
-                FROM bodegas b
-                INNER JOIN inventario_bodega ib ON b.ID_Bodega = ib.ID_Bodega
-                INNER JOIN productos p ON ib.ID_Producto = p.ID_Producto AND p.Estado = 'activo'
-                INNER JOIN categorias_producto cp ON p.ID_Categoria = cp.ID_Categoria
-                WHERE b.Estado = 'activa'
-                GROUP BY b.ID_Bodega, b.Nombre, cp.ID_Categoria, cp.Descripcion
-                ORDER BY b.Nombre, cp.Descripcion
-            """)
-            resumen_categorias = cursor.fetchall()
+            # 7. Resúmenes de inventario y categorías removidos para optimizar rendimiento del Dashboard
+            productos_categorias = []
+            resumen_categorias = []
             
             # 9. Información adicional del sistema
             cursor.execute("""
@@ -3482,3 +3441,163 @@ def bodega_procesar_carga_ruta():
         traceback.print_exc()
         flash(f"Error procesando la carga a ruta: {str(e)}", 'error')
         return redirect(url_for('bodega.bodega_nueva_carga_ruta_form'))
+
+# ============================================
+# AUDITORÍA Y CUADRE DIARIO DE INVENTARIO
+# ============================================
+@bodega_bp.route('/inventario/auditoria', methods=['GET'])
+@admin_or_bodega_required
+def bodega_auditoria_inventario():
+    """Mostrar formulario interactivo de auditoría e inventario físico"""
+    try:
+        id_empresa = session.get('id_empresa', 1)
+        id_bodega = request.args.get('id_bodega', type=int)
+        
+        with get_db_cursor(True) as cursor:
+            # Obtener bodegas disponibles
+            cursor.execute("""
+                SELECT ID_Bodega, Nombre, Ubicacion 
+                FROM bodegas 
+                WHERE Estado = 'activa' AND ID_Empresa = %s
+                ORDER BY Nombre
+            """, (id_empresa,))
+            bodegas = cursor.fetchall()
+            
+            if not bodegas:
+                flash("No hay bodegas activas para auditar", "warning")
+                return redirect(url_for('bodega.bodega_dashboard'))
+                
+            # Seleccionar bodega activa
+            bodega_seleccionada = None
+            if id_bodega:
+                bodega_seleccionada = next((b for b in bodegas if b['ID_Bodega'] == id_bodega), None)
+            if not bodega_seleccionada:
+                bodega_seleccionada = bodegas[0]
+                
+            # Obtener productos con su stock actual en la bodega
+            cursor.execute("""
+                SELECT 
+                    p.ID_Producto,
+                    p.COD_Producto,
+                    p.Descripcion,
+                    um.Abreviatura AS Unidad_Descripcion,
+                    COALESCE(ib.Existencias, 0.00) AS Stock_Actual
+                FROM productos p
+                INNER JOIN unidades_medida um ON p.Unidad_Medida = um.ID_Unidad
+                INNER JOIN inventario_bodega ib ON p.ID_Producto = ib.ID_Producto
+                WHERE p.Estado = 'activo' AND p.ID_Empresa = %s AND ib.ID_Bodega = %s
+                ORDER BY p.COD_Producto
+            """, (id_empresa, bodega_seleccionada['ID_Bodega']))
+            productos = cursor.fetchall()
+            
+            return render_template('bodega/movimientos/auditoria_inventario.html',
+                                 bodegas=bodegas,
+                                 bodega_seleccionada=bodega_seleccionada,
+                                 productos=productos)
+    except Exception as e:
+        traceback.print_exc()
+        flash(f"Error al cargar auditoría: {str(e)}", 'error')
+        return redirect(url_for('bodega.bodega_dashboard'))
+
+
+@bodega_bp.route('/inventario/auditoria/procesar', methods=['POST'])
+@admin_or_bodega_required
+@bitacora_decorator("AUDITORIA-AJUSTE-INVENTARIO")
+def bodega_procesar_auditoria():
+    """Comparar inventario físico con digital y registrar ajustes"""
+    try:
+        id_bodega = request.form.get('id_bodega')
+        if id_bodega:
+            id_bodega = int(id_bodega)
+        id_usuario = current_user.id
+        id_empresa = session.get('id_empresa', 1)
+        TIPO_AJUSTE = 5 # ID del tipo Ajuste en catalogo_movimientos
+        
+        if not id_bodega:
+            flash("Debe seleccionar una bodega válida", "error")
+            return redirect(url_for('bodega.bodega_dashboard'))
+            
+        with get_db_cursor(commit=True) as cursor:
+            # Buscar todos los productos activos de la empresa para contrastar lo que venga por POST
+            cursor.execute("SELECT ID_Producto, Descripcion FROM productos WHERE Estado = 'activo' AND ID_Empresa = %s", (id_empresa,))
+            productos_sistema = cursor.fetchall()
+            
+            ajustes_realizados = 0
+            movimiento_id = None
+            
+            for prod in productos_sistema:
+                prod_id = prod['ID_Producto']
+                input_name = f"fisico_{prod_id}"
+                
+                if input_name in request.form:
+                    # Obtener stock físico digitado
+                    stock_fisico = Decimal(request.form.get(input_name, '0'))
+                    
+                    # Obtener stock actual en base de datos
+                    cursor.execute("""
+                        SELECT COALESCE(Existencias, 0) as Existencias
+                        FROM inventario_bodega
+                        WHERE ID_Bodega = %s AND ID_Producto = %s
+                    """, (id_bodega, prod_id))
+                    stock_result = cursor.fetchone()
+                    stock_sistema = Decimal(str(stock_result['Existencias'])) if stock_result else Decimal('0.00')
+                    
+                    diferencia = stock_fisico - stock_sistema
+                    
+                    # Si hay discrepancia, se aplica el ajuste
+                    if abs(diferencia) > Decimal('0.001'):
+                        # Crear la cabecera de movimiento si no se ha creado todavía
+                        if not movimiento_id:
+                            obs_general = "Ajuste generado automáticamente por proceso de Auditoría y Toma Física de Inventario."
+                            cursor.execute("""
+                                INSERT INTO movimientos_inventario 
+                                (ID_TipoMovimiento, Fecha, ID_Bodega, Observacion, ID_Empresa, ID_Usuario_Creacion, Estado)
+                                VALUES (%s, CURDATE(), %s, %s, %s, %s, 'Activa')
+                            """, (TIPO_AJUSTE, id_bodega, obs_general, id_empresa, id_usuario))
+                            movimiento_id = cursor.lastrowid
+                        
+                        # Obtener costo del producto para el asiento de inventario
+                        cursor.execute("""
+                            SELECT dmi.Costo_Unitario 
+                            FROM detalle_movimientos_inventario dmi
+                            JOIN movimientos_inventario mi ON dmi.ID_Movimiento = mi.ID_Movimiento
+                            JOIN catalogo_movimientos cm ON mi.ID_TipoMovimiento = cm.ID_TipoMovimiento
+                            WHERE dmi.ID_Producto = %s 
+                            AND (cm.Letra = 'E' OR cm.Descripcion LIKE '%%entrada%%')
+                            AND mi.Estado = 'Activa'
+                            ORDER BY mi.Fecha DESC, dmi.ID_Detalle_Movimiento DESC
+                            LIMIT 1
+                        """, (prod_id,))
+                        costo_res = cursor.fetchone()
+                        costo_unitario = Decimal(str(costo_res['Costo_Unitario'])) if costo_res and costo_res['Costo_Unitario'] is not None else Decimal('0')
+                        
+                        subtotal = abs(diferencia) * costo_unitario
+                        obs_individual = request.form.get(f"obs_{prod_id}", "Ajuste por discrepancia física")
+                        
+                        # Registrar detalle del ajuste
+                        cursor.execute("""
+                            INSERT INTO detalle_movimientos_inventario
+                            (ID_Movimiento, ID_Producto, Cantidad, Costo_Unitario, Subtotal, ID_Usuario_Creacion)
+                            VALUES (%s, %s, %s, %s, %s, %s)
+                        """, (movimiento_id, prod_id, diferencia, costo_unitario, subtotal, id_usuario))
+                        
+                        # Actualizar inventario_bodega
+                        cursor.execute("""
+                            INSERT INTO inventario_bodega (ID_Bodega, ID_Producto, Existencias)
+                            VALUES (%s, %s, %s)
+                            ON DUPLICATE KEY UPDATE Existencias = %s
+                        """, (id_bodega, prod_id, stock_fisico, stock_fisico))
+                        
+                        ajustes_realizados += 1
+            
+            if ajustes_realizados > 0:
+                flash(f"✅ Auditoría procesada con éxito. Se generó el Movimiento de Ajuste #{movimiento_id} y se cuadraron {ajustes_realizados} productos.", "success")
+            else:
+                flash("✨ Auditoría completada. No se encontraron discrepancias físicas, por lo que no se requirieron ajustes.", "info")
+                
+            return redirect(url_for('bodega.bodega_dashboard'))
+            
+    except Exception as e:
+        traceback.print_exc()
+        flash(f"❌ Error al procesar auditoría: {str(e)}", 'error')
+        return redirect(url_for('bodega.bodega_auditoria_inventario'))

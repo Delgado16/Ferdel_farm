@@ -29,6 +29,7 @@ def admin_clientes():
     try:
         page = request.args.get("page", 1, type=int)
         search_query = request.args.get("q", "").strip()
+        ruta_id = request.args.get("ruta", "").strip()
         id_empresa = session.get('id_empresa', 1)
         
         with get_db_cursor() as cursor:
@@ -84,6 +85,10 @@ def admin_clientes():
                 search_param = f"%{search_query}%"
                 params.extend([search_param, search_param, search_param])
             
+            if ruta_id:
+                base_query += " AND c.ID_Ruta = %s"
+                params.append(ruta_id)
+            
             # Contar total ACTUALIZADO
             count_query = """
                 SELECT COUNT(*) as total 
@@ -98,6 +103,10 @@ def admin_clientes():
             if search_query:
                 count_query += " AND (c.Nombre LIKE %s OR c.RUC_CEDULA LIKE %s OR c.Telefono LIKE %s)"
                 count_params.extend([search_param, search_param, search_param])
+            
+            if ruta_id:
+                count_query += " AND c.ID_Ruta = %s"
+                count_params.append(ruta_id)
             
             cursor.execute(count_query, count_params)
             total_result = cursor.fetchone()
@@ -132,7 +141,8 @@ def admin_clientes():
                         per_page=per_page,
                         total=total,
                         total_pages=total_pages,
-                        search=search_query)
+                        search=search_query,
+                        ruta_seleccionada=ruta_id)
 
 
 @admin_bp.route('/admin/catalog/client/crear-cliente', methods=['POST'])
@@ -381,6 +391,7 @@ def admin_editar_cliente(id):
                 saldo_anticipos = request.form.get("saldo_anticipos", "0").strip()
                 producto_anticipado = request.form.get("producto_anticipado", "").strip()
                 cajas_consumidas = request.form.get("cajas_consumidas_anticipo", "0").strip()
+                saldo_pendiente_total = request.form.get("saldo_pendiente_total", "0").strip()
 
                 # Validaciones básicas
                 if not nombre:
@@ -510,7 +521,12 @@ def admin_editar_cliente(id):
                         return render_template("admin/catalog/client/editar_clientes.html", 
                                              cliente=cliente, rutas=rutas, productos=productos)
 
-                # UPDATE ACTUALIZADO con campos de anticipo
+                try:
+                    saldo_pendiente_total = float(saldo_pendiente_total) if saldo_pendiente_total else 0.0
+                except ValueError:
+                    saldo_pendiente_total = 0.0
+
+                # UPDATE ACTUALIZADO con campos de anticipo y saldo pendiente
                 cursor.execute("""
                     UPDATE clientes 
                     SET Nombre = %s, 
@@ -525,13 +541,14 @@ def admin_editar_cliente(id):
                         Limite_Anticipo_Cajas = %s,
                         Saldo_Anticipos = %s,
                         Producto_Anticipado = %s,
-                        Cajas_Consumidas_Anticipo = %s
+                        Cajas_Consumidas_Anticipo = %s,
+                        Saldo_Pendiente_Total = %s
                     WHERE ID_Cliente = %s 
                     AND ID_Empresa = %s
                 """, (nombre, telefono, direccion, ruc_cedula, estado, 
                       tipo_cliente, perfil_cliente, id_ruta,
                       anticipo_activo, limite_anticipo_cajas, saldo_anticipos,
-                      producto_anticipado, cajas_consumidas, id, id_empresa))
+                      producto_anticipado, cajas_consumidas, saldo_pendiente_total, id, id_empresa))
                 
                 # Registrar en bitácora
                 accion = "actualizado" if estado == 'ACTIVO' else "desactivado"
