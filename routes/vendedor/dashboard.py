@@ -20,12 +20,14 @@ def vendedor_dashboard():
         return redirect(url_for('auth.login'))
     
     with get_db_cursor() as cursor:
-        # 1. Obtener asignaciones activas del vendedor
+        # 1. Obtener asignaciones activas del vendedor (con info de vehículo si posee)
         cursor.execute("""
             SELECT av.ID_Asignacion, av.ID_Ruta, r.Nombre_Ruta, av.Fecha_Asignacion,
-                   av.Estado, av.Hora_Inicio, av.Hora_Fin
+                   av.Estado, av.Hora_Inicio, av.Hora_Fin, av.ID_Vehiculo,
+                   v.Placa, v.Marca, v.Modelo
             FROM asignacion_vendedores av
             JOIN rutas r ON av.ID_Ruta = r.ID_Ruta
+            LEFT JOIN vehiculos v ON av.ID_Vehiculo = v.ID_Vehiculo
             WHERE av.ID_Usuario = %s 
               AND av.Estado = 'Activa'
         """, (user_id,))
@@ -33,6 +35,49 @@ def vendedor_dashboard():
         
         # ID de asignación actual (si existe)
         asignacion_id = asignacion_activa['ID_Asignacion'] if asignacion_activa else None
+
+        # Si no hay asignación activa, obtener la última asignación en las últimas 2 semanas
+        ultima_asignacion_pasada = None
+        if not asignacion_activa:
+            cursor.execute("""
+                SELECT av.ID_Asignacion, av.ID_Ruta, r.Nombre_Ruta, av.Fecha_Asignacion,
+                       av.Estado, av.Hora_Inicio, av.Hora_Fin, av.ID_Vehiculo,
+                       v.Placa, v.Marca, v.Modelo
+                FROM asignacion_vendedores av
+                JOIN rutas r ON av.ID_Ruta = r.ID_Ruta
+                LEFT JOIN vehiculos v ON av.ID_Vehiculo = v.ID_Vehiculo
+                WHERE av.ID_Usuario = %s 
+                  AND av.Fecha_Asignacion >= DATE_SUB(CURDATE(), INTERVAL 14 DAY)
+                  AND av.Fecha_Asignacion < CURDATE()
+                ORDER BY av.Fecha_Asignacion DESC, av.ID_Asignacion DESC
+                LIMIT 1
+            """, (user_id,))
+            ultima_asignacion_pasada = cursor.fetchone()
+
+        # Verificar si el vendedor posee asignaciones anteriores (en un lapso de las últimas 2 semanas)
+        cursor.execute("""
+            SELECT COUNT(*) AS Conteo
+            FROM asignacion_vendedores
+            WHERE ID_Usuario = %s
+              AND Fecha_Asignacion >= DATE_SUB(CURDATE(), INTERVAL 14 DAY)
+              AND Fecha_Asignacion < CURDATE()
+        """, (user_id,))
+        res_previas = cursor.fetchone()
+        posee_asignaciones_previas = (res_previas['Conteo'] > 0) if res_previas else False
+
+        # Obtener vehículos disponibles + el vehículo actual de la asignación (si existe)
+        vehiculos_disponibles = []
+        if asignacion_activa or ultima_asignacion_pasada:
+            current_vehiculo_id = asignacion_activa['ID_Vehiculo'] if asignacion_activa else ultima_asignacion_pasada['ID_Vehiculo']
+            cursor.execute("""
+                SELECT ID_Vehiculo, Placa, Marca, Modelo,
+                       CONCAT(Placa, ' - ', Marca, ' ', Modelo) AS Descripcion
+                FROM vehiculos
+                WHERE ID_Empresa = %s
+                  AND (Estado = 'Disponible' OR ID_Vehiculo = %s)
+                ORDER BY Placa
+            """, (empresa_id, current_vehiculo_id))
+            vehiculos_disponibles = cursor.fetchall()
         
         # 2. Tarjeta: Ventas de Contado (Hoy) - EFECTIVO QUE ENTRA
         cursor.execute("""
@@ -274,7 +319,111 @@ def vendedor_dashboard():
                          ventas_recientes=ventas_recientes,
                          inventario_ruta=inventario_ruta,
                          resumen_cartera=resumen_cartera,
-                         alertas=alertas)
+                         alertas=alertas,
+                         vehiculos_disponibles=vehiculos_disponibles,
+                         posee_asignaciones_previas=posee_asignaciones_previas,
+                         ultima_asignacion_pasada=ultima_asignacion_pasada)
+
+@vendedor_bp.route('/vendedor/ruta/iniciar_jornada', methods=['POST'])
+@vendedor_required
+def iniciar_jornada_dashboard():
+    """Inicia la jornada del vendedor o actualiza su vehículo asignado"""
+    try:
+        empresa_id = session.get('id_empresa', 1)
+        usuario_id = current_user.id
+        
+        id_asignacion = request.form.get('id_asignacion')
+        id_vehiculo = request.form.get('id_vehiculo')
+        nuevo_vehiculo = int(id_vehiculo) if id_vehiculo and id_vehiculo.isdigit() else None
+        
+        if not id_asignacion:
+            flash('ID de asignación no proporcionado', 'error')
+            return redirect(url_for('vendedor.vendedor_dashboard'))
+            
+        with get_db_cursor(commit=True) as cursor:
+            # 1. Verificar si el vendedor posee asignaciones anteriores (en un lapso de las últimas 2 semanas)
+            cursor.execute("""
+                SELECT COUNT(*) AS Conteo
+                FROM asignacion_vendedores
+                WHERE ID_Usuario = %s
+                  AND Fecha_Asignacion >= DATE_SUB(CURDATE(), INTERVAL 14 DAY)
+                  AND Fecha_Asignacion < CURDATE()
+            """, (usuario_id,))
+            res_previas = cursor.fetchone()
+            posee_previas = (res_previas['Conteo'] > 0) if res_previas else False
+            
+            if not posee_previas:
+                flash('No está autorizado para iniciar jornada o cambiar de vehículo (requiere historial de asignaciones previas).', 'error')
+                return redirect(url_for('vendedor.vendedor_dashboard'))
+                
+            # Obtener la última asignación pasada en las últimas 2 semanas
+            cursor.execute("""
+                SELECT ID_Ruta, ID_Vehiculo
+                FROM asignacion_vendedores
+                WHERE ID_Usuario = %s
+                  AND Fecha_Asignacion >= DATE_SUB(CURDATE(), INTERVAL 14 DAY)
+                  AND Fecha_Asignacion < CURDATE()
+                ORDER BY Fecha_Asignacion DESC, ID_Asignacion DESC
+                LIMIT 1
+            """, (usuario_id,))
+            ultima_pasada = cursor.fetchone()
+            
+            if not ultima_pasada:
+                flash('No se encontró ninguna asignación previa en las últimas 2 semanas.', 'error')
+                return redirect(url_for('vendedor.vendedor_dashboard'))
+
+            if id_asignacion == 'nuevo':
+                # Caso B: Crear nueva asignación activa para hoy usando la última ruta realizada
+                hora_inicio = datetime.now().strftime('%H:%M')
+                id_ruta = ultima_pasada['ID_Ruta']
+                
+                cursor.execute("""
+                    INSERT INTO asignacion_vendedores 
+                    (ID_Usuario, ID_Ruta, ID_Vehiculo, Fecha_Asignacion, Estado, ID_Empresa, ID_Usuario_Asigna, Hora_Inicio)
+                    VALUES (%s, %s, %s, CURDATE(), 'Activa', %s, %s, %s)
+                """, (usuario_id, id_ruta, nuevo_vehiculo, empresa_id, usuario_id, hora_inicio))
+                
+                if nuevo_vehiculo:
+                    cursor.execute("UPDATE vehiculos SET Estado = 'En Ruta' WHERE ID_Vehiculo = %s", (nuevo_vehiculo,))
+                
+                flash('Jornada iniciada correctamente', 'success')
+            else:
+                # Caso A: Modificar/Iniciar asignación activa existente
+                cursor.execute("""
+                    SELECT ID_Asignacion, Estado, ID_Vehiculo, Hora_Inicio
+                    FROM asignacion_vendedores
+                    WHERE ID_Asignacion = %s AND ID_Usuario = %s AND ID_Empresa = %s
+                """, (id_asignacion, usuario_id, empresa_id))
+                asignacion = cursor.fetchone()
+                
+                if not asignacion:
+                    flash('Asignación no encontrada o no le pertenece', 'error')
+                    return redirect(url_for('vendedor.vendedor_dashboard'))
+                    
+                hora_inicio = asignacion['Hora_Inicio']
+                if not hora_inicio:
+                    hora_inicio = datetime.now().strftime('%H:%M')
+                    
+                vehiculo_anterior = asignacion['ID_Vehiculo']
+                
+                if vehiculo_anterior != nuevo_vehiculo:
+                    if vehiculo_anterior:
+                        cursor.execute("UPDATE vehiculos SET Estado = 'Disponible' WHERE ID_Vehiculo = %s", (vehiculo_anterior,))
+                    if nuevo_vehiculo:
+                        cursor.execute("UPDATE vehiculos SET Estado = 'En Ruta' WHERE ID_Vehiculo = %s", (nuevo_vehiculo,))
+                
+                cursor.execute("""
+                    UPDATE asignacion_vendedores
+                    SET Hora_Inicio = %s, ID_Vehiculo = %s
+                    WHERE ID_Asignacion = %s
+                """, (hora_inicio, nuevo_vehiculo, id_asignacion))
+                
+                flash('Jornada actualizada correctamente', 'success')
+        
+    except Exception as e:
+        flash(f'Error al procesar jornada: {str(e)}', 'error')
+        
+    return redirect(url_for('vendedor.vendedor_dashboard'))
 
 @vendedor_bp.route('/vendedor/mis-rutas')
 @vendedor_required

@@ -272,15 +272,51 @@
                     <i class="fas fa-calendar me-1"></i>
                     {{ asignacion_activa.Fecha_Asignacion.strftime('%d/%m/%Y') if asignacion_activa.Fecha_Asignacion else 'N/A' }}
                 </span>
+                {% if asignacion_activa.ID_Vehiculo %}
+                <span class="badge bg-dark py-2 px-3">
+                    <i class="fas fa-truck me-1"></i>
+                    {{ asignacion_activa.Placa }} - {{ asignacion_activa.Marca }} {{ asignacion_activa.Modelo }}
+                </span>
+                {% else %}
+                <span class="badge bg-secondary py-2 px-3">
+                    <i class="fas fa-truck me-1"></i>
+                    Sin Vehículo
+                </span>
+                {% endif %}
+                
+                {% if posee_asignaciones_previas %}
+                    {% if not asignacion_activa.Hora_Inicio %}
+                    <button class="btn btn-sm btn-primary px-3 py-2 rounded-pill fw-bold shadow-sm" data-bs-toggle="modal" data-bs-target="#modalJornadaVehiculo">
+                        <i class="fas fa-play me-1"></i> Iniciar Jornada
+                    </button>
+                    {% else %}
+                    <button class="btn btn-sm btn-outline-primary px-3 py-2 rounded-pill fw-bold shadow-sm bg-white" data-bs-toggle="modal" data-bs-target="#modalJornadaVehiculo">
+                        <i class="fas fa-exchange-alt me-1"></i> Cambiar Vehículo
+                    </button>
+                    {% endif %}
+                {% endif %}
+                
                 <a href="{{ url_for('vendedor.vendedor_movimiento_liquidar_jornada') }}" class="btn btn-sm btn-danger px-3 py-2 rounded-pill fw-bold shadow-sm">
                     <i class="fas fa-power-off me-1"></i> Finalizar Jornada
                 </a>
             </div>
             {% else %}
-            <div class="alert alert-warning py-2 px-3 mb-0 small">
-                <i class="fas fa-exclamation-triangle me-1"></i>
-                Sin asignación activa para hoy
-            </div>
+                {% if posee_asignaciones_previas and ultima_asignacion_pasada %}
+                <div class="d-flex flex-wrap gap-2 align-items-center">
+                    <div class="alert alert-info py-2 px-3 mb-0 small border-0 shadow-sm d-flex align-items-center gap-2" style="border-radius: 12px; background-color: rgba(13, 202, 240, 0.1); color: #087990;">
+                        <i class="fas fa-info-circle text-info"></i>
+                        <span>Última ruta realizada: <strong>{{ ultima_asignacion_pasada.Nombre_Ruta }}</strong></span>
+                    </div>
+                    <button class="btn btn-sm btn-primary px-3 py-2 rounded-pill fw-bold shadow-sm" data-bs-toggle="modal" data-bs-target="#modalJornadaVehiculo">
+                        <i class="fas fa-play me-1"></i> Iniciar Jornada
+                    </button>
+                </div>
+                {% else %}
+                <div class="alert alert-warning py-2 px-3 mb-0 small">
+                    <i class="fas fa-exclamation-triangle me-1"></i>
+                    Sin asignación activa para hoy
+                </div>
+                {% endif %}
             {% endif %}
         </div>
     </div>
@@ -1034,6 +1070,63 @@
         </div>
     </div>
 </div>
+
+<!-- Modal para Iniciar Jornada / Cambiar Vehículo -->
+{% if posee_asignaciones_previas and (asignacion_activa or ultima_asignacion_pasada) %}
+<div class="modal fade" id="modalJornadaVehiculo" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg" style="border-radius: 16px;">
+            {% set info_ruta = asignacion_activa if asignacion_activa else ultima_asignacion_pasada %}
+            <div class="modal-header {% if not asignacion_activa or not asignacion_activa.Hora_Inicio %}bg-primary{% else %}bg-info{% endif %} text-white py-3" style="border-top-left-radius: 16px; border-top-right-radius: 16px;">
+                <h5 class="modal-title fw-bold">
+                    <i class="fas {% if not asignacion_activa or not asignacion_activa.Hora_Inicio %}fa-play-circle{% else %}fa-exchange-alt{% endif %} me-2"></i>
+                    {% if not asignacion_activa or not asignacion_activa.Hora_Inicio %}Iniciar Jornada{% else %}Cambiar Vehículo de Ruta{% endif %}
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form action="{{ url_for('vendedor.iniciar_jornada_dashboard') }}" method="POST">
+                <input type="hidden" name="id_asignacion" value="{{ asignacion_activa.ID_Asignacion if asignacion_activa else 'nuevo' }}">
+                <div class="modal-body p-4">
+                    <div class="mb-3">
+                        <label class="form-label fw-bold text-muted small text-uppercase">Ruta Asignada (Solo Lectura)</label>
+                        <div class="input-group">
+                            <span class="input-group-text bg-light text-muted border-0"><i class="fas fa-route"></i></span>
+                            <input type="text" class="form-control bg-light border-0" value="{{ info_ruta.Nombre_Ruta }}" readonly disabled style="font-weight: 500;">
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="id_vehiculo" class="form-label fw-bold text-muted small text-uppercase">Seleccionar Vehículo / Camión</label>
+                        <div class="input-group">
+                            <span class="input-group-text bg-white border-end-0"><i class="fas fa-truck text-primary"></i></span>
+                            <select class="form-select border-start-0" id="id_vehiculo" name="id_vehiculo" style="font-weight: 500;">
+                                <option value="">-- Sin Vehículo --</option>
+                                {% for vehiculo in vehiculos_disponibles %}
+                                <option value="{{ vehiculo.ID_Vehiculo }}" {% if vehiculo.ID_Vehiculo == info_ruta.ID_Vehiculo %}selected{% endif %}>
+                                    {{ vehiculo.Descripcion }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="form-text text-muted small mt-2">
+                            <i class="fas fa-info-circle me-1"></i>
+                            Solo se muestran vehículos disponibles o asignados actualmente a esta ruta.
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer bg-light border-0 py-3" style="border-bottom-left-radius: 16px; border-bottom-right-radius: 16px;">
+                    <button type="button" class="btn btn-link text-decoration-none text-muted fw-bold" data-bs-dismiss="modal">
+                        Cancelar
+                    </button>
+                    <button type="submit" class="btn {% if not asignacion_activa or not asignacion_activa.Hora_Inicio %}btn-primary{% else %}btn-info text-white{% endif %} px-4 rounded-pill fw-bold shadow-sm">
+                        {% if not asignacion_activa or not asignacion_activa.Hora_Inicio %}Iniciar Jornada{% else %}Guardar Cambios{% endif %}
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endif %}
 {% endblock %}
 
 {% block extra_js %}
