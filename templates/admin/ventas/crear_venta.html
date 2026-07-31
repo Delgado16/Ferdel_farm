@@ -823,6 +823,12 @@
                                 </div>
                             </div>
 
+                            <div class="mt-2">
+                                <button type="button" class="btn btn-sm btn-outline-primary w-100" id="btnRegistrarClienteRapido">
+                                    <i class="bi bi-person-plus me-1"></i>Registrar Nuevo Cliente
+                                </button>
+                            </div>
+
                             <div id="info-perfil-cliente" class="info-perfil-cliente mt-2"></div>
                             <div class="invalid-feedback" id="error-cliente">Seleccione un cliente de la lista</div>
                         </div>
@@ -1600,6 +1606,8 @@
         searchInput.classList.remove('is-invalid');
         document.getElementById('error-cliente').style.display = 'none';
 
+
+
         document.getElementById('cliente_selected_nombre').textContent = nombre;
         document.getElementById('cliente_selected_ruc').textContent = ruc || 'Sin RUC';
         document.getElementById('cliente_selected_perfil').textContent = perfil;
@@ -1651,6 +1659,7 @@
         clienteSeleccionado = null;
         document.getElementById('id_cliente').value = '';
         document.getElementById('cliente_selected_info').classList.remove('show');
+        
         document.getElementById('saldo-consolidado-container').style.display = 'none';
         document.getElementById('facturas-pendientes-section').style.display = 'none';
         
@@ -1666,6 +1675,95 @@
         dropdown.classList.add('show');
         filtrarClientes('');
     });
+
+    const btnRegistrarClienteRapido = document.getElementById('btnRegistrarClienteRapido');
+    if (btnRegistrarClienteRapido) {
+        btnRegistrarClienteRapido.addEventListener('click', function () {
+            Swal.fire({
+                title: 'Registrar Cliente Nuevo',
+                input: 'text',
+                inputLabel: 'Nombre Completo del Cliente',
+                inputPlaceholder: 'Escribe el nombre del cliente...',
+                showCancelButton: true,
+                confirmButtonText: 'Guardar',
+                cancelButtonText: 'Cancelar',
+                inputValidator: (value) => {
+                    if (!value || !value.trim()) {
+                        return '¡El nombre es obligatorio!';
+                    }
+                }
+            }).then(async (result) => {
+                if (result.isConfirmed) {
+                    const nombre = result.value.trim();
+                    try {
+                        Swal.fire({
+                            title: 'Registrando cliente...',
+                            allowOutsideClick: false,
+                            didOpen: () => Swal.showLoading()
+                        });
+
+                        const response = await fetch('/admin/ventas/cliente/crear_rapido', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'X-Requested-With': 'XMLHttpRequest'
+                            },
+                            body: JSON.stringify({ nombre })
+                        });
+
+                        const resData = await response.json();
+                        Swal.close();
+
+                        if (resData.success) {
+                            Swal.fire({
+                                icon: 'success',
+                                title: 'Cliente registrado',
+                                text: 'El cliente se ha guardado en la base de datos',
+                                timer: 1500,
+                                showConfirmButton: false
+                            });
+
+                            // Crear y añadir el elemento al dropdown
+                            const newDiv = document.createElement('div');
+                            newDiv.className = 'cliente-item';
+                            newDiv.dataset.id = resData.cliente.id;
+                            newDiv.dataset.nombre = resData.cliente.nombre;
+                            newDiv.dataset.ruc = '';
+                            newDiv.dataset.perfil = 'Mercado';
+                            newDiv.dataset.tipo = 'Comun';
+                            newDiv.dataset.saldo = '0';
+                            newDiv.dataset.anticipos = '0';
+                            newDiv.dataset.ruta = '';
+                            newDiv.dataset.searchtext = resData.cliente.nombre.toLowerCase();
+
+                            newDiv.innerHTML = `
+                                <span class="cliente-item-nombre">${resData.cliente.nombre}</span>
+                                <span class="cliente-item-ruc"></span>
+                                <span class="cliente-item-perfil perfil-mercado">Mercado</span>
+                                <span class="cliente-item-saldo"><span class="text-muted">C$ 0.00</span></span>
+                            `;
+                            
+                            // Buscar el dropdown para adjuntarlo
+                            const dropdownMenu = document.getElementById('clienteDropdown');
+                            if (dropdownMenu) {
+                                dropdownMenu.appendChild(newDiv);
+                            }
+                            
+                            // Seleccionarlo inmediatamente
+                            seleccionarCliente(newDiv);
+                            dropdown.classList.remove('show');
+                        } else {
+                            Swal.fire('Error', resData.error || 'Error al registrar cliente', 'error');
+                        }
+                    } catch (error) {
+                        Swal.close();
+                        console.error('Error:', error);
+                        Swal.fire('Error', 'Error de red al registrar cliente', 'error');
+                    }
+                }
+            });
+        });
+    }
 
     // ============================================
     // MANEJO DE CAMBIO DE CLIENTE

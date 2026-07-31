@@ -1,11 +1,12 @@
-const CACHE_NAME = 'vendedor-cache-v6'; // Incrementamos la versión para forzar actualización a v6 y limpiar el caché anterior
+const CACHE_NAME = 'vendedor-cache-v9'; // Incrementamos la versión para forzar actualización a v9 y limpiar el caché anterior
 
 // Recursos estáticos públicos que no requieren autenticación y garantizan status 200
 const urlsToCache = [
   '/static/css/styles.css',
   '/static/icon/icon-192.png',
+  '/static/icon/icon-512.png',
   '/static/ferdel.png',
-  '/static/manifest.json',
+  '/manifest.json',
   '/static/js/html2canvas.min.js'
 ];
 
@@ -19,7 +20,7 @@ self.addEventListener('install', event => {
         return cache.addAll(urlsToCache);
       })
       .catch(error => {
-        console.error('[Service Worker] Error en instalación:', error);
+        console.log('[Service Worker] Error en instalación:', error);
       })
   );
   // Activar inmediatamente
@@ -57,13 +58,16 @@ self.addEventListener('fetch', event => {
   }
 
   // 2. Bypassear rutas de administración, bodega, autenticación y diagnósticos para evitar lentitud y conflictos de sesión
+  // IMPORTANTE: Se usa event.respondWith(fetch(request)) en lugar de un return vacío,
+  // para que Chrome valide que el Service Worker controla la página y habilite la instalación PWA.
   if (url.pathname.startsWith('/admin/') ||
     url.pathname.startsWith('/bodega/') ||
-    url.pathname.startsWith('/auth/') || // Evita almacenar en caché el formulario de login (evitando tokens CSRF vencidos)
+    url.pathname.startsWith('/auth/') || 
     url.pathname === '/health' ||
     url.pathname === '/debug-db' ||
     url.pathname === '/diagnostico' ||
     url.pathname === '/sw.js') {
+    event.respondWith(fetch(request));
     return;
   }
 

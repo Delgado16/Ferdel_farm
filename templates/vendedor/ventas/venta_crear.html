@@ -83,8 +83,7 @@
                         {% endfor %}
                     </select>
                     <div class="mt-2">
-                        <button type="button" class="btn btn-sm btn-outline-primary w-100" data-bs-toggle="modal"
-                            data-bs-target="#nuevoClienteModal">
+                        <button type="button" class="btn btn-sm btn-outline-primary w-100" id="btnRegistrarClienteRapido">
                             <i class="bi bi-person-plus me-1"></i>Registrar Nuevo Cliente
                         </button>
                     </div>
@@ -286,49 +285,7 @@
 <!-- MODALES (CON ICONOS BOOTSTRAP)              -->
 <!-- ============================================ -->
 
-<!-- Modal Nuevo Cliente -->
-<div class="modal fade" id="nuevoClienteModal" tabindex="-1">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content">
-            <div class="modal-header bg-primary text-white">
-                <h5 class="modal-title">
-                    <i class="bi bi-person-plus me-2"></i>Registrar Nuevo Cliente
-                </h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body">
-                <form id="formNuevoCliente">
-                    <div class="mb-3">
-                        <label class="form-label fw-semibold required">Nombre/Razón Social</label>
-                        <input type="text" class="form-control" id="cliente_nombre" required>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label fw-semibold required">RUC/Cédula</label>
-                        <input type="text" class="form-control" id="cliente_ruc" required>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label fw-semibold">Teléfono</label>
-                        <input type="text" class="form-control" id="cliente_telefono">
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label fw-semibold">Dirección</label>
-                        <textarea class="form-control" id="cliente_direccion" rows="2"></textarea>
-                    </div>
-                    <div class="alert alert-info small">
-                        <i class="bi bi-info-circle me-2"></i>
-                        El cliente se creará con perfil por defecto "Mercado".
-                    </div>
-                </form>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                <button type="button" class="btn btn-primary" id="btnGuardarCliente">
-                    <i class="bi bi-save me-2"></i>Guardar Cliente
-                </button>
-            </div>
-        </div>
-    </div>
-</div>
+<!-- Modal Nuevo Cliente eliminado -->
 
 <!-- Modal de Confirmación de Venta -->
 <div class="modal fade" id="modalConfirmacionVenta" tabindex="-1" data-bs-backdrop="static">
@@ -3491,7 +3448,7 @@
         const indicadorCredito = getElement('indicadorCredito');
         const btnMostrarConfirmacion = getElement('btnMostrarConfirmacion');
         const btnConfirmarGuardar = getElement('btnConfirmarGuardar');
-        const btnGuardarCliente = getElement('btnGuardarCliente');
+        const btnRegistrarClienteRapido = getElement('btnRegistrarClienteRapido');
         const btnConfirmarConAbono = getElement('btnConfirmarConAbono');
         const btnContinuarSinAbono = getElement('btnContinuarSinAbono');
         const montoAbonoInput = getElement('modalMontoAbono');
@@ -3775,22 +3732,72 @@
             });
         }
 
-        if (btnGuardarCliente) {
-            btnGuardarCliente.addEventListener('click', function () {
-                const nombre = getElement('cliente_nombre')?.value.trim();
-                const ruc = getElement('cliente_ruc')?.value.trim();
-                if (!nombre || !ruc) {
-                    showAlert('warning', 'Nombre y RUC obligatorios');
-                    return;
-                }
-                showAlert('success', 'Cliente registrado (simulado)');
-                const modalElement = getElement('nuevoClienteModal');
-                if (modalElement) {
-                    const modal = bootstrap.Modal.getInstance(modalElement);
-                    if (modal) modal.hide();
-                }
-                const formNuevoCliente = getElement('formNuevoCliente');
-                if (formNuevoCliente) formNuevoCliente.reset();
+        if (btnRegistrarClienteRapido) {
+            btnRegistrarClienteRapido.addEventListener('click', function () {
+                Swal.fire({
+                    title: 'Registrar Cliente Nuevo',
+                    input: 'text',
+                    inputLabel: 'Nombre Completo del Cliente',
+                    inputPlaceholder: 'Escribe el nombre del cliente...',
+                    showCancelButton: true,
+                    confirmButtonText: 'Guardar',
+                    cancelButtonText: 'Cancelar',
+                    inputValidator: (value) => {
+                        if (!value || !value.trim()) {
+                            return '¡El nombre es obligatorio!';
+                        }
+                    }
+                }).then(async (result) => {
+                    if (result.isConfirmed) {
+                        const nombre = result.value.trim();
+                        try {
+                            Swal.fire({
+                                title: 'Registrando cliente...',
+                                allowOutsideClick: false,
+                                didOpen: () => Swal.showLoading()
+                            });
+
+                            const response = await fetch('/vendedor/api/vendedor/cliente/crear_rapido', {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                    'X-Requested-With': 'XMLHttpRequest'
+                                },
+                                body: JSON.stringify({ nombre })
+                            });
+
+                            const resData = await response.json();
+                            Swal.close();
+
+                            if (resData.success) {
+                                showAlert('success', 'Cliente registrado exitosamente');
+                                
+                                // Agregar al select y seleccionarlo
+                                if (clienteSelect) {
+                                    const opt = document.createElement('option');
+                                    opt.value = resData.cliente.id;
+                                    opt.text = resData.cliente.nombre;
+                                    opt.dataset.nombre = resData.cliente.nombre;
+                                    opt.dataset.ruc = '';
+                                    opt.dataset.telefono = '';
+                                    opt.dataset.direccion = '';
+                                    opt.dataset.tipo = 'Comun';
+                                    opt.dataset.perfil = 'Mercado';
+                                    opt.dataset.saldo = '0';
+                                    clienteSelect.add(opt);
+                                    clienteSelect.value = resData.cliente.id;
+                                    clienteSelect.dispatchEvent(new Event('change'));
+                                }
+                            } else {
+                                showAlert('error', resData.error || 'Error al registrar cliente');
+                            }
+                        } catch (error) {
+                            Swal.close();
+                            console.error('Error:', error);
+                            showAlert('error', 'Error de red al registrar cliente');
+                        }
+                    }
+                });
             });
         }
 

@@ -303,28 +303,32 @@ def vendedor_gastos():
     
     # Obtener el ID del usuario actual (asumiendo que está en sesión)
     usuario_actual = current_user.id
+    nombre_ruta = "Ruta No Definida"
     
     # Para GET y POST necesitamos la asignación activa primero
     try:
         with get_db_cursor() as cursor:
-            # Obtener la asignación activa del vendedor para hoy
+            # Obtener la asignación activa del vendedor (compatible con asignaciones continuas)
             cursor.execute("""
-                SELECT ID_Asignacion, ID_Ruta, Fecha_Asignacion 
-                FROM asignacion_vendedores 
-                WHERE ID_Usuario = %s 
-                AND DATE(Fecha_Asignacion) = CURDATE() 
-                AND Estado = 'ACTIVA'
-                ORDER BY Fecha_Asignacion DESC 
+                SELECT av.ID_Asignacion, av.ID_Ruta, av.Fecha_Asignacion, r.Nombre_Ruta
+                FROM asignacion_vendedores av
+                LEFT JOIN rutas r ON av.ID_Ruta = r.ID_Ruta
+                WHERE av.ID_Usuario = %s 
+                AND av.Estado = 'Activa'
+                AND av.Fecha_Asignacion <= CURDATE()
+                AND (av.Fecha_Finalizacion >= CURDATE() OR av.Fecha_Finalizacion IS NULL)
+                ORDER BY av.Fecha_Asignacion DESC 
                 LIMIT 1
             """, (usuario_actual,))
             
             asignacion = cursor.fetchone()
             
             if not asignacion:
-                flash('No tienes una ruta asignada para hoy', 'warning')
+                flash('No tienes una ruta activa asignada para hoy', 'warning')
                 return redirect(url_for('vendedor.vendedor_dashboard'))
             
             id_asignacion = asignacion['ID_Asignacion']
+            nombre_ruta = asignacion['Nombre_Ruta'] or "Ruta Activa"
     except Exception as e:
         flash(f'Error al verificar asignación: {str(e)}', 'error')
         return redirect(url_for('vendedor.vendedor_dashboard'))
@@ -352,23 +356,20 @@ def vendedor_gastos():
         # Usamos get_db_cursor con commit=True para que haga commit automático
         try:
             with get_db_cursor(commit=True) as cursor:
-                # Obtener el saldo acumulado actual
+                # Obtener el saldo acumulado actual dinámicamente sumando todos los movimientos anteriores
                 cursor.execute("""
-                    SELECT Saldo_Acumulado 
+                    SELECT COALESCE(SUM(CASE 
+                        WHEN Tipo = 'GASTO' THEN -Monto 
+                        WHEN Tipo IN ('APERTURA', 'VENTA', 'ABONO') AND Tipo != 'CIERRE' THEN Monto 
+                        ELSE 0 
+                    END), 0) as Saldo_Actual
                     FROM movimientos_caja_ruta 
                     WHERE ID_Asignacion = %s 
                     AND Estado = 'ACTIVO'
-                    ORDER BY Fecha DESC 
-                    LIMIT 1
                 """, (id_asignacion,))
                 
                 ultimo_movimiento = cursor.fetchone()
-                
-                # Convertir Decimal a float para la operación
-                if ultimo_movimiento and ultimo_movimiento['Saldo_Acumulado'] is not None:
-                    saldo_anterior = float(ultimo_movimiento['Saldo_Acumulado'])
-                else:
-                    saldo_anterior = 0.0
+                saldo_anterior = float(ultimo_movimiento['Saldo_Actual']) if ultimo_movimiento else 0.0
                 
                 # Calcular nuevo saldo (el gasto resta del saldo)
                 nuevo_saldo = saldo_anterior - monto
@@ -378,7 +379,7 @@ def vendedor_gastos():
                     INSERT INTO movimientos_caja_ruta 
                     (ID_Asignacion, ID_Usuario, Tipo, Concepto, Monto, Tipo_Pago, Saldo_Acumulado, Estado)
                     VALUES (%s, %s, 'GASTO', %s, %s, %s, %s, 'ACTIVO')
-                """, (id_asignacion, usuario_actual, concepto, monto, tipo_pago, nuevo_saldo))
+                """, (id_asignacion, usuario_actual, concepto[:200], monto, tipo_pago, nuevo_saldo))
                 
                 flash('Gasto registrado exitosamente', 'success')
             
@@ -426,21 +427,20 @@ def vendedor_gastos():
             total_gastos = cursor.fetchone()['Total_Gastos']
             total_gastos = float(total_gastos) if total_gastos is not None else 0
             
-            # Obtener saldo actual
+            # Obtener saldo actual dinámicamente sumando todos los movimientos de la asignación
             cursor.execute("""
-                SELECT Saldo_Acumulado
+                SELECT COALESCE(SUM(CASE 
+                    WHEN Tipo = 'GASTO' THEN -Monto 
+                    WHEN Tipo IN ('APERTURA', 'VENTA', 'ABONO') AND Tipo != 'CIERRE' THEN Monto 
+                    ELSE 0 
+                END), 0) as Saldo_Actual
                 FROM movimientos_caja_ruta
                 WHERE ID_Asignacion = %s 
                 AND Estado = 'ACTIVO'
-                ORDER BY Fecha DESC
-                LIMIT 1
             """, (id_asignacion,))
             
-            saldo_actual = cursor.fetchone()
-            if saldo_actual and saldo_actual['Saldo_Acumulado'] is not None:
-                saldo_actual = float(saldo_actual['Saldo_Acumulado'])
-            else:
-                saldo_actual = 0
+            saldo_actual_res = cursor.fetchone()
+            saldo_actual = float(saldo_actual_res['Saldo_Actual']) if saldo_actual_res else 0.0
             
     except Exception as e:
         print(f"Error en vendedor_gastos GET: {e}")
@@ -453,5 +453,7 @@ def vendedor_gastos():
                          gastos=gastos, 
                          total_gastos=total_gastos,
                          saldo_actual=saldo_actual,
-                         asignacion=asignacion)
+                         asignacion=asignacion,
+                         ruta=nombre_ruta,
+                         fecha_actual=datetime.now().strftime('%d/%m/%Y'))
 

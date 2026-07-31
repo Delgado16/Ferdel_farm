@@ -1127,3 +1127,52 @@ def vendedor_abonos():
         return redirect(url_for('vendedor.vendedor_dashboard'))
 
 
+@vendedor_bp.route('/api/vendedor/cliente/crear_rapido', methods=['POST'])
+@vendedor_required
+def api_vendedor_cliente_crear_rapido():
+    try:
+        data = request.get_json() or {}
+        nombre = data.get('nombre', '').strip()
+        if not nombre:
+            return jsonify({'success': False, 'error': 'El nombre es obligatorio'}), 400
+        
+        id_empresa = session.get('empresa_id', 1)
+        id_vendedor = int(current_user.id)
+        
+        with get_db_cursor(commit=True) as cursor:
+            # Obtener la ruta activa del vendedor
+            cursor.execute("""
+                SELECT ID_Ruta 
+                FROM asignacion_vendedores 
+                WHERE ID_Usuario = %s AND Estado = 'Activa'
+                LIMIT 1
+            """, (id_vendedor,))
+            asignacion = cursor.fetchone()
+            id_ruta = asignacion['ID_Ruta'] if asignacion else None
+
+            # Insertar en la tabla clientes con valores por defecto
+            cursor.execute("""
+                INSERT INTO clientes (Nombre, ID_Empresa, ID_Ruta, Estado, tipo_cliente, perfil_cliente, ID_Usuario_Creacion)
+                VALUES (%s, %s, %s, 'ACTIVO', 'Comun', 'Mercado', %s)
+            """, (nombre, id_empresa, id_ruta, id_vendedor))
+            
+            new_id = cursor.lastrowid
+            
+            return jsonify({
+                'success': True,
+                'cliente': {
+                    'id': new_id,
+                    'nombre': nombre,
+                    'ruc': '',
+                    'telefono': '',
+                    'direccion': '',
+                    'perfil': 'Mercado',
+                    'tipo': 'Comun',
+                    'saldo': 0.00
+                }
+            })
+    except Exception as e:
+        print(f"Error en api_vendedor_cliente_crear_rapido: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+

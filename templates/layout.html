@@ -16,13 +16,100 @@
         rel="stylesheet">
 
     <!-- ========== PWA META TAGS ========== -->
-    <link rel="manifest" href="/static/manifest.json">
+    <link rel="manifest" href="/manifest.json">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="Ferdel">
     <meta name="application-name" content="Ferdel">
     <meta name="theme-color" content="#2c5e2e">
+
+    <!-- PWA Install Banner Style -->
+    <style>
+        .pwa-install-banner {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            z-index: 9999;
+            background: rgba(15, 23, 42, 0.95); /* Slate 900 */
+            color: white;
+            padding: 14px 18px;
+            border-radius: 16px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            max-width: 450px;
+            animation: pwaSlideIn 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+        }
+        
+        .pwa-install-icon img {
+            border-radius: 10px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+        }
+        
+        .pwa-install-content {
+            flex: 1;
+        }
+        
+        .pwa-install-title {
+            margin: 0 0 3px 0;
+            font-size: 0.95rem;
+            font-weight: 700;
+            font-family: var(--font-family);
+        }
+        
+        .pwa-install-desc {
+            margin: 0;
+            font-size: 0.8rem;
+            color: rgba(255, 255, 255, 0.7);
+            line-height: 1.3;
+            font-family: var(--font-family);
+        }
+        
+        .pwa-install-actions {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        .pwa-close-btn {
+            background: none;
+            border: none;
+            color: rgba(255, 255, 255, 0.5);
+            font-size: 1.5rem;
+            cursor: pointer;
+            padding: 0;
+            line-height: 1;
+            transition: color 0.2s;
+        }
+        
+        .pwa-close-btn:hover {
+            color: white;
+        }
+        
+        @keyframes pwaSlideIn {
+            from { transform: translateY(50px) scale(0.95); opacity: 0; }
+            to { transform: translateY(0) scale(1); opacity: 1; }
+        }
+        
+        @media (max-width: 576px) {
+            .pwa-install-banner {
+                bottom: 16px;
+                left: 16px;
+                right: 16px;
+                max-width: none;
+                padding: 12px 14px;
+                gap: 10px;
+            }
+            .pwa-install-desc {
+                font-size: 0.75rem;
+            }
+        }
+    </style>
 
     <!-- FAVICON - Logo en la pestaña del navegador -->
     <link rel="icon" type="image/png" href="{{ url_for('static', filename='ferdel.png') }}">
@@ -1322,6 +1409,7 @@
                 this.setupInstallPrompt();
                 this.setupUpdateNotifications();
                 this.checkConnectivity();
+                this.checkIOSPrompt();
             }
 
             async registerSW() {
@@ -1359,31 +1447,80 @@
                 });
             }
 
-            showInstallButton() {
-                if (!document.getElementById('pwaInstallBtn')) {
-                    const installBtn = document.createElement('div');
-                    installBtn.id = 'pwaInstallBtn';
-                    installBtn.className = 'pwa-install-button';
-                    installBtn.innerHTML = `
-                        <button class="btn btn-success btn-sm">
-                            <i class="bi bi-download"></i> Instalar App
-                        </button>
-                    `;
-                    document.body.appendChild(installBtn);
-
-                    installBtn.querySelector('button').addEventListener('click', async () => {
-                        if (!this.deferredPrompt) return;
-
-                        this.deferredPrompt.prompt();
-                        const { outcome } = await this.deferredPrompt.userChoice;
-
-                        if (outcome === 'accepted') {
-                            console.log('[PWA] Usuario aceptó instalar');
-                        }
-                        this.deferredPrompt = null;
-                        this.hideInstallButton();
-                    });
+            checkIOSPrompt() {
+                const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+                const isStandalone = window.matchMedia('(display-mode: standalone)').matches;
+                
+                if (isIOS && !isStandalone && !sessionStorage.getItem('pwaIOSPromptDismissed')) {
+                    setTimeout(() => {
+                        this.showIOSInstallBanner();
+                    }, 4000);
                 }
+            }
+
+            showIOSInstallBanner() {
+                if (document.getElementById('pwaInstallBtn')) return;
+
+                const banner = document.createElement('div');
+                banner.id = 'pwaInstallBtn';
+                banner.className = 'pwa-install-banner';
+                banner.innerHTML = `
+                    <div class="pwa-install-icon">
+                        <img src="/static/icon/icon-192.png" alt="Ferdel Logo" width="48" height="48">
+                    </div>
+                    <div class="pwa-install-content">
+                        <h6 class="pwa-install-title">Instalar en iPhone</h6>
+                        <p class="pwa-install-desc">Toca <i class="bi bi-share mx-1"></i> y selecciona <strong>"Añadir a pantalla de inicio"</strong>.</p>
+                    </div>
+                    <div class="pwa-install-actions">
+                        <button class="pwa-close-btn" aria-label="Cerrar">&times;</button>
+                    </div>
+                `;
+                document.body.appendChild(banner);
+
+                banner.querySelector('.pwa-close-btn').addEventListener('click', () => {
+                    sessionStorage.setItem('pwaIOSPromptDismissed', 'true');
+                    this.hideInstallButton();
+                });
+            }
+
+            showInstallButton() {
+                if (document.getElementById('pwaInstallBtn')) return;
+
+                const banner = document.createElement('div');
+                banner.id = 'pwaInstallBtn';
+                banner.className = 'pwa-install-banner';
+                banner.innerHTML = `
+                    <div class="pwa-install-icon">
+                        <img src="/static/icon/icon-192.png" alt="Ferdel Logo" width="48" height="48">
+                    </div>
+                    <div class="pwa-install-content">
+                        <h6 class="pwa-install-title">Instalar FerDel App</h6>
+                        <p class="pwa-install-desc">Úsalo como aplicación y trabaja de forma más rápida.</p>
+                    </div>
+                    <div class="pwa-install-actions">
+                        <button class="btn btn-success btn-sm px-3 fw-bold pwa-btn-action">Instalar</button>
+                        <button class="pwa-close-btn" aria-label="Cerrar">&times;</button>
+                    </div>
+                `;
+                document.body.appendChild(banner);
+
+                banner.querySelector('.pwa-btn-action').addEventListener('click', async () => {
+                    if (!this.deferredPrompt) return;
+
+                    this.deferredPrompt.prompt();
+                    const { outcome } = await this.deferredPrompt.userChoice;
+
+                    if (outcome === 'accepted') {
+                        console.log('[PWA] Usuario aceptó instalar');
+                    }
+                    this.deferredPrompt = null;
+                    this.hideInstallButton();
+                });
+
+                banner.querySelector('.pwa-close-btn').addEventListener('click', () => {
+                    this.hideInstallButton();
+                });
             }
 
             hideInstallButton() {

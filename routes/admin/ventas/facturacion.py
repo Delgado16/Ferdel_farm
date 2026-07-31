@@ -3964,3 +3964,42 @@ def admin_confirmar_entrega(id_factura):
             return jsonify({'success': False, 'error': str(e)}), 500
         flash(f'Error al cargar pantalla de confirmación: {str(e)}', 'error')
         return redirect(url_for('admin.admin_ventas_salidas'))
+
+
+@admin_bp.route('/ventas/cliente/crear_rapido', methods=['POST'])
+@admin_required
+def admin_cliente_crear_rapido():
+    try:
+        data = request.get_json() or {}
+        nombre = data.get('nombre', '').strip()
+        if not nombre:
+            return jsonify({'success': False, 'error': 'El nombre es obligatorio'}), 400
+        
+        id_empresa = session.get('empresa_id', 1)
+        id_usuario = int(current_user.id)
+        
+        with get_db_cursor(commit=True) as cursor:
+            # Insertar en la tabla clientes con valores por defecto
+            cursor.execute("""
+                INSERT INTO clientes (Nombre, ID_Empresa, Estado, tipo_cliente, perfil_cliente, ID_Usuario_Creacion)
+                VALUES (%s, %s, 'ACTIVO', 'Comun', 'Mercado', %s)
+            """, (nombre, id_empresa, id_usuario))
+            
+            new_id = cursor.lastrowid
+            
+            return jsonify({
+                'success': True,
+                'cliente': {
+                    'id': new_id,
+                    'nombre': nombre,
+                    'ruc': '',
+                    'telefono': '',
+                    'direccion': '',
+                    'perfil': 'Mercado',
+                    'tipo': 'Comun',
+                    'saldo': 0.00
+                }
+            })
+    except Exception as e:
+        print(f"Error en admin_cliente_crear_rapido: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
