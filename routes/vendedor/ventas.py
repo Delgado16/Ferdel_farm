@@ -731,101 +731,98 @@ def vendedor_venta_crear():
                         
                         facturas_pendientes = cursor.fetchall()
                         
-                        if not facturas_pendientes:
-                            print("⚠️ No hay facturas pendientes para aplicar el abono")
-                        else:
-                            # 6.2 Calcular saldo actual de caja para el abono
-                            cursor.execute("""
-                                SELECT COALESCE(SUM(CASE 
-                                    WHEN Tipo = 'GASTO' THEN -Monto 
-                                    ELSE Monto 
-                                END), 0) as Saldo_Actual
-                                FROM movimientos_caja_ruta
-                                WHERE ID_Asignacion = %s 
-                                  AND Estado = 'ACTIVO'
-                                  AND Tipo != 'CIERRE'
-                            """, (asignacion['ID_Asignacion'],))
-                            
-                            saldo_result = cursor.fetchone()
-                            saldo_actual_abono = float(saldo_result['Saldo_Actual'] if saldo_result else 0)
-                            nuevo_saldo_caja = saldo_actual_abono + abono_monto
-                            
-                            # 6.3 Registrar movimiento de abono en caja (SÍ porque es efectivo real)
-                            cursor.execute("""
-                                INSERT INTO movimientos_caja_ruta
-                                (ID_Asignacion, ID_Usuario, Tipo, Concepto, Monto, 
-                                 Tipo_Pago, ID_FacturaRuta, ID_Cliente, Saldo_Acumulado, Estado)
-                                VALUES (%s, %s, 'ABONO', %s, %s, %s, %s, %s, %s, 'ACTIVO')
-                            """, (
-                                asignacion['ID_Asignacion'],
-                                id_vendedor,
-                                f"Abono a cuenta - Factura #{id_factura}",
-                                abono_monto,
-                                'CONTADO' if tipo_venta == '1' else 'CREDITO',
-                                id_factura,
-                                int(id_cliente),
-                                nuevo_saldo_caja
-                            ))
-                            
-                            id_movimiento_caja = cursor.lastrowid
-                            
-                            # 6.4 Distribuir el abono entre las facturas pendientes
-                            monto_restante = abono_monto
-                            monto_aplicado = 0
-                            
-                            for factura in facturas_pendientes:
-                                if monto_restante <= 0:
-                                    break
-                                    
-                                saldo_factura = float(factura['Saldo_Pendiente'])
-                                monto_aplicar = min(monto_restante, saldo_factura)
-                                nuevo_saldo_factura = saldo_factura - monto_aplicar
-                                nuevo_estado = 'Pagada' if nuevo_saldo_factura <= 0 else 'Pendiente'
+                        # 6.2 Calcular saldo actual de caja para el abono
+                        cursor.execute("""
+                            SELECT COALESCE(SUM(CASE 
+                                WHEN Tipo = 'GASTO' THEN -Monto 
+                                ELSE Monto 
+                            END), 0) as Saldo_Actual
+                            FROM movimientos_caja_ruta
+                            WHERE ID_Asignacion = %s 
+                              AND Estado = 'ACTIVO'
+                              AND Tipo != 'CIERRE'
+                        """, (asignacion['ID_Asignacion'],))
+                        
+                        saldo_result = cursor.fetchone()
+                        saldo_actual_abono = float(saldo_result['Saldo_Actual'] if saldo_result else 0)
+                        nuevo_saldo_caja = saldo_actual_abono + abono_monto
+                        
+                        # 6.3 Registrar movimiento de abono en caja (SÍ porque es efectivo real)
+                        cursor.execute("""
+                            INSERT INTO movimientos_caja_ruta
+                            (ID_Asignacion, ID_Usuario, Tipo, Concepto, Monto, 
+                             Tipo_Pago, ID_FacturaRuta, ID_Cliente, Saldo_Acumulado, Estado)
+                            VALUES (%s, %s, 'ABONO', %s, %s, %s, %s, %s, %s, 'ACTIVO')
+                        """, (
+                            asignacion['ID_Asignacion'],
+                            id_vendedor,
+                            f"Abono a cuenta - Factura #{id_factura}",
+                            abono_monto,
+                            'CONTADO' if tipo_venta == '1' else 'CREDITO',
+                            id_factura,
+                            int(id_cliente),
+                            nuevo_saldo_caja
+                        ))
+                        
+                        id_movimiento_caja = cursor.lastrowid
+                        
+                        # 6.4 Distribuir el abono entre las facturas pendientes
+                        monto_restante = abono_monto
+                        monto_aplicado = 0
+                        
+                        for factura in facturas_pendientes:
+                            if monto_restante <= 0:
+                                break
                                 
-                                # Actualizar factura
+                            saldo_factura = float(factura['Saldo_Pendiente'])
+                            monto_aplicar = min(monto_restante, saldo_factura)
+                            nuevo_saldo_factura = saldo_factura - monto_aplicar
+                            nuevo_estado = 'Pagada' if nuevo_saldo_factura <= 0 else 'Pendiente'
+                            
+                            # Actualizar factura
+                            cursor.execute("""
+                                UPDATE cuentas_por_cobrar
+                                SET Saldo_Pendiente = %s, 
+                                    Estado = %s
+                                WHERE ID_Movimiento = %s
+                            """, (nuevo_saldo_factura, nuevo_estado, factura['ID_Movimiento']))
+                            
+                            # Insertar en abonos_detalle
+                            try:
                                 cursor.execute("""
-                                    UPDATE cuentas_por_cobrar
-                                    SET Saldo_Pendiente = %s, 
-                                        Estado = %s
-                                    WHERE ID_Movimiento = %s
-                                """, (nuevo_saldo_factura, nuevo_estado, factura['ID_Movimiento']))
-                                
-                                # Insertar en abonos_detalle
-                                try:
-                                    cursor.execute("""
-                                        INSERT INTO abonos_detalle
-                                        (ID_Movimiento_Caja, ID_Asignacion, ID_Usuario, ID_Cliente, 
-                                         ID_CuentaCobrar, Monto_Aplicado, Saldo_Anterior, Saldo_Nuevo,
-                                         ID_MetodoPago)
-                                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
-                                    """, (
-                                        id_movimiento_caja,
-                                        asignacion['ID_Asignacion'],
-                                        id_vendedor,
-                                        int(id_cliente),
-                                        factura['ID_Movimiento'],
-                                        monto_aplicar,
-                                        saldo_factura,
-                                        nuevo_saldo_factura,
-                                        id_metodo_pago
-                                    ))
-                                except Exception as e:
-                                    print(f"⚠️ No se pudo insertar en abonos_detalle: {e}")
-                                
-                                monto_restante -= monto_aplicar
-                                monto_aplicado += monto_aplicar
+                                    INSERT INTO abonos_detalle
+                                    (ID_Movimiento_Caja, ID_Asignacion, ID_Usuario, ID_Cliente, 
+                                     ID_CuentaCobrar, Monto_Aplicado, Saldo_Anterior, Saldo_Nuevo,
+                                     ID_MetodoPago)
+                                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                                """, (
+                                    id_movimiento_caja,
+                                    asignacion['ID_Asignacion'],
+                                    id_vendedor,
+                                    int(id_cliente),
+                                    factura['ID_Movimiento'],
+                                    monto_aplicar,
+                                    saldo_factura,
+                                    nuevo_saldo_factura,
+                                    id_metodo_pago
+                                ))
+                            except Exception as e:
+                                print(f"⚠️ No se pudo insertar en abonos_detalle: {e}")
                             
-                            # 6.5 Actualizar saldo del cliente
-                            cursor.execute("""
-                                UPDATE clientes 
-                                SET Saldo_Pendiente_Total = GREATEST(0, COALESCE(Saldo_Pendiente_Total, 0) - %s),
-                                    Fecha_Ultimo_Pago = NOW()
-                                WHERE ID_Cliente = %s AND ID_Empresa = %s
-                            """, (monto_aplicado, int(id_cliente), asignacion['ID_Empresa']))
-                            
-                            print(f"✅ Abono de {abono_monto} procesado exitosamente")
-                            print(f"   - Monto aplicado: {monto_aplicado}")
-                            print(f"   - Vuelto: {monto_restante}")
+                            monto_restante -= monto_aplicar
+                            monto_aplicado += monto_aplicar
+                        
+                        # 6.5 Actualizar saldo del cliente (restando todo el abono)
+                        cursor.execute("""
+                            UPDATE clientes 
+                            SET Saldo_Pendiente_Total = GREATEST(0, COALESCE(Saldo_Pendiente_Total, 0) - %s),
+                                Fecha_Ultimo_Pago = NOW()
+                            WHERE ID_Cliente = %s AND ID_Empresa = %s
+                        """, (abono_monto, int(id_cliente), asignacion['ID_Empresa']))
+                        
+                        print(f"✅ Abono de {abono_monto} procesado exitosamente")
+                        print(f"   - Monto aplicado a facturas: {monto_aplicado}")
+                        print(f"   - Remanente: {monto_restante}")
                             
                     except Exception as e:
                         print(f"❌ Error al procesar abono: {str(e)}")

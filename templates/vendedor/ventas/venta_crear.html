@@ -83,7 +83,8 @@
                         {% endfor %}
                     </select>
                     <div class="mt-2">
-                        <button type="button" class="btn btn-sm btn-outline-primary w-100" id="btnRegistrarClienteRapido">
+                        <button type="button" class="btn btn-sm btn-outline-primary w-100"
+                            id="btnRegistrarClienteRapido">
                             <i class="bi bi-person-plus me-1"></i>Registrar Nuevo Cliente
                         </button>
                     </div>
@@ -2042,14 +2043,19 @@
         const abonoValido = Math.min(montoAbono || 0, totalDeber);
 
         let nuevoSaldo;
+        let nuevaVentaDespues;
         let totalFinal;
 
         if (esContado) {
             nuevoSaldo = Math.max(0, saldoAnterior - abonoValido);
+            nuevaVentaDespues = 0;
             totalFinal = nuevoSaldo;
         } else {
-            nuevoSaldo = Math.max(0, (saldoAnterior + nuevaVenta) - abonoValido);
-            totalFinal = nuevoSaldo;
+            // El abono se aplica primero al saldo anterior, y luego a la nueva venta
+            nuevoSaldo = Math.max(0, saldoAnterior - abonoValido);
+            const abonoRestante = Math.max(0, abonoValido - saldoAnterior);
+            nuevaVentaDespues = Math.max(0, nuevaVenta - abonoRestante);
+            totalFinal = nuevoSaldo + nuevaVentaDespues;
         }
 
         const modalNuevoSaldo = getElement('modalNuevoSaldo');
@@ -2057,7 +2063,7 @@
         const modalTotalFinal = getElement('modalTotalFinal');
 
         if (modalNuevoSaldo) modalNuevoSaldo.textContent = formatoCordoba(nuevoSaldo);
-        if (modalNuevaVentaDespues) modalNuevaVentaDespues.textContent = formatoCordoba(nuevaVenta);
+        if (modalNuevaVentaDespues) modalNuevaVentaDespues.textContent = formatoCordoba(nuevaVentaDespues);
 
         const filaNuevaVentaDespues = document.getElementById('filaNuevaVentaDespues');
         const labelTotalFinal = document.getElementById('labelTotalFinal');
@@ -3771,7 +3777,7 @@
 
                             if (resData.success) {
                                 showAlert('success', 'Cliente registrado exitosamente');
-                                
+
                                 // Agregar al select y seleccionarlo
                                 if (clienteSelect) {
                                     const opt = document.createElement('option');

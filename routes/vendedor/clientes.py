@@ -455,6 +455,15 @@ def api_verificar_saldo_cliente_offline(id_cliente):
                 """, (id_cliente,))
                 facturas_pendientes = cursor.fetchall()
             
+            # Convertir fechas a string para evitar errores de serialización JSON
+            for f in facturas_pendientes:
+                if f.get('Fecha'):
+                    f['Fecha'] = f['Fecha'].isoformat() if hasattr(f['Fecha'], 'isoformat') else str(f['Fecha'])
+                if f.get('Fecha_Vencimiento'):
+                    f['Fecha_Vencimiento'] = f['Fecha_Vencimiento'].isoformat() if hasattr(f['Fecha_Vencimiento'], 'isoformat') else str(f['Fecha_Vencimiento'])
+                if f.get('FechaFactura'):
+                    f['FechaFactura'] = f['FechaFactura'].isoformat() if hasattr(f['FechaFactura'], 'isoformat') else str(f['FechaFactura'])
+
             return jsonify({
                 'success': True,
                 'cliente': {
@@ -535,6 +544,14 @@ def api_sincronizar_clientes_saldos():
             
             # Para cada cliente con saldo, obtener facturas pendientes
             for cliente in clientes:
+                # Convertir fechas de cliente a strings
+                if cliente.get('Fecha_Ultimo_Movimiento'):
+                    cliente['Fecha_Ultimo_Movimiento'] = cliente['Fecha_Ultimo_Movimiento'].isoformat() if hasattr(cliente['Fecha_Ultimo_Movimiento'], 'isoformat') else str(cliente['Fecha_Ultimo_Movimiento'])
+                if cliente.get('Fecha_Ultimo_Pago'):
+                    cliente['Fecha_Ultimo_Pago'] = cliente['Fecha_Ultimo_Pago'].isoformat() if hasattr(cliente['Fecha_Ultimo_Pago'], 'isoformat') else str(cliente['Fecha_Ultimo_Pago'])
+                if cliente.get('Fecha_Creacion'):
+                    cliente['Fecha_Creacion'] = cliente['Fecha_Creacion'].isoformat() if hasattr(cliente['Fecha_Creacion'], 'isoformat') else str(cliente['Fecha_Creacion'])
+
                 if cliente['Saldo_Pendiente_Total'] > 0:
                     cursor.execute("""
                         SELECT cxc.ID_Movimiento, cxc.Num_Documento, 
@@ -550,7 +567,11 @@ def api_sincronizar_clientes_saldos():
                             CASE WHEN cxc.Fecha_Vencimiento < CURDATE() THEN 0 ELSE 1 END,
                             cxc.Fecha_Vencimiento ASC
                     """, (cliente['ID_Cliente'],))
-                    cliente['facturas_pendientes'] = cursor.fetchall()
+                    facturas = cursor.fetchall()
+                    for f in facturas:
+                        if f.get('Fecha_Vencimiento'):
+                            f['Fecha_Vencimiento'] = f['Fecha_Vencimiento'].isoformat() if hasattr(f['Fecha_Vencimiento'], 'isoformat') else str(f['Fecha_Vencimiento'])
+                    cliente['facturas_pendientes'] = facturas
                 else:
                     cliente['facturas_pendientes'] = []
             
@@ -566,11 +587,14 @@ def api_sincronizar_clientes_saldos():
             """, (asignacion['ID_Empresa'], asignacion['ID_Ruta']))
             
             ultima_modificacion = cursor.fetchone()
+            ultima_mod_val = ultima_modificacion['ultima_modificacion'] if ultima_modificacion else None
+            if ultima_mod_val and hasattr(ultima_mod_val, 'isoformat'):
+                ultima_mod_val = ultima_mod_val.isoformat()
             
             return jsonify({
                 'success': True,
                 'clientes': clientes,
-                'ultima_modificacion': ultima_modificacion['ultima_modificacion'] if ultima_modificacion else None,
+                'ultima_modificacion': ultima_mod_val,
                 'asignacion_id': asignacion['ID_Asignacion']
             })
             
