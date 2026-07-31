@@ -389,6 +389,13 @@ def api_sincronizar_inventario():
             
             inventario = cursor.fetchall()
             
+            # Convertir fechas y decimales para serialización JSON
+            for item in inventario:
+                if item.get('Fecha_Actualizacion'):
+                    item['Fecha_Actualizacion'] = item['Fecha_Actualizacion'].isoformat() if hasattr(item['Fecha_Actualizacion'], 'isoformat') else str(item['Fecha_Actualizacion'])
+                if item.get('Precio_Ruta') is not None:
+                    item['Precio_Ruta'] = float(item['Precio_Ruta'])
+            
             # Obtener la fecha de la última modificación para próxima sincronización
             cursor.execute("""
                 SELECT MAX(Fecha_Actualizacion) as ultima_modificacion
@@ -397,11 +404,14 @@ def api_sincronizar_inventario():
             """, (asignacion['ID_Asignacion'],))
             
             ultima_modificacion = cursor.fetchone()
+            ultima_mod_val = ultima_modificacion['ultima_modificacion'] if ultima_modificacion else None
+            if ultima_mod_val and hasattr(ultima_mod_val, 'isoformat'):
+                ultima_mod_val = ultima_mod_val.isoformat()
             
             return jsonify({
                 'success': True,
                 'inventario': inventario,
-                'ultima_modificacion': ultima_modificacion['ultima_modificacion'] if ultima_modificacion else None,
+                'ultima_modificacion': ultima_mod_val,
                 'asignacion_id': asignacion['ID_Asignacion'],
                 'ruta_id': asignacion['ID_Ruta']
             })
