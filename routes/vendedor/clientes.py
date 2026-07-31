@@ -455,7 +455,7 @@ def api_verificar_saldo_cliente_offline(id_cliente):
                 """, (id_cliente,))
                 facturas_pendientes = cursor.fetchall()
             
-            # Convertir fechas a string para evitar errores de serialización JSON
+            # Convertir fechas y decimales a string/float para evitar errores de serialización JSON
             for f in facturas_pendientes:
                 if f.get('Fecha'):
                     f['Fecha'] = f['Fecha'].isoformat() if hasattr(f['Fecha'], 'isoformat') else str(f['Fecha'])
@@ -463,6 +463,10 @@ def api_verificar_saldo_cliente_offline(id_cliente):
                     f['Fecha_Vencimiento'] = f['Fecha_Vencimiento'].isoformat() if hasattr(f['Fecha_Vencimiento'], 'isoformat') else str(f['Fecha_Vencimiento'])
                 if f.get('FechaFactura'):
                     f['FechaFactura'] = f['FechaFactura'].isoformat() if hasattr(f['FechaFactura'], 'isoformat') else str(f['FechaFactura'])
+                if f.get('Monto_Movimiento') is not None:
+                    f['Monto_Movimiento'] = float(f['Monto_Movimiento'])
+                if f.get('Saldo_Pendiente') is not None:
+                    f['Saldo_Pendiente'] = float(f['Saldo_Pendiente'])
 
             return jsonify({
                 'success': True,
@@ -551,6 +555,10 @@ def api_sincronizar_clientes_saldos():
                     cliente['Fecha_Ultimo_Pago'] = cliente['Fecha_Ultimo_Pago'].isoformat() if hasattr(cliente['Fecha_Ultimo_Pago'], 'isoformat') else str(cliente['Fecha_Ultimo_Pago'])
                 if cliente.get('Fecha_Creacion'):
                     cliente['Fecha_Creacion'] = cliente['Fecha_Creacion'].isoformat() if hasattr(cliente['Fecha_Creacion'], 'isoformat') else str(cliente['Fecha_Creacion'])
+                
+                # Convertir Decimal a float
+                if cliente.get('Saldo_Pendiente_Total') is not None:
+                    cliente['Saldo_Pendiente_Total'] = float(cliente['Saldo_Pendiente_Total'])
 
                 if cliente['Saldo_Pendiente_Total'] > 0:
                     cursor.execute("""
@@ -571,6 +579,10 @@ def api_sincronizar_clientes_saldos():
                     for f in facturas:
                         if f.get('Fecha_Vencimiento'):
                             f['Fecha_Vencimiento'] = f['Fecha_Vencimiento'].isoformat() if hasattr(f['Fecha_Vencimiento'], 'isoformat') else str(f['Fecha_Vencimiento'])
+                        if f.get('Monto_Movimiento') is not None:
+                            f['Monto_Movimiento'] = float(f['Monto_Movimiento'])
+                        if f.get('Saldo_Pendiente') is not None:
+                            f['Saldo_Pendiente'] = float(f['Saldo_Pendiente'])
                     cliente['facturas_pendientes'] = facturas
                 else:
                     cliente['facturas_pendientes'] = []
