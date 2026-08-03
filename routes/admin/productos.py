@@ -2,6 +2,7 @@ from datetime import datetime
 import traceback
 
 from flask import render_template, redirect, session, url_for, request, flash, jsonify
+from flask_login import current_user
 from config.database import get_db_cursor
 from auth.decorators import admin_required
 from . import admin_bp
@@ -262,6 +263,7 @@ def admin_crear_producto():
     try:
         # Obtener datos del formulario - Actualizado con nuevos precios
         cod_producto = request.form.get('COD_Producto')
+        cod_producto = cod_producto.strip() if cod_producto else ""
         descripcion = request.form.get('Descripcion')
         id_unidad_medida = request.form.get('Unidad_Medida')
         id_categoria = request.form.get('ID_Categoria')
@@ -273,7 +275,7 @@ def admin_crear_producto():
         cantidad_inicial = request.form.get('Cantidad_Inicial')
         id_bodega = request.form.get('ID_Bodega')
         estado = request.form.get('Estado', 'activo')
-        usuario_creador = session.get('id_usuario', 1)
+        usuario_creador = current_user.id if (current_user and current_user.is_authenticated) else session.get('id_usuario', 1)
 
         print(f"DEBUG: Datos recibidos - Descripcion: {descripcion}, Bodega: {id_bodega}, Empresa: {id_empresa}")
 
@@ -387,7 +389,7 @@ def admin_crear_producto():
                 else:
                     max_cod = result[0] if result else 0
                     
-                cod_producto = str(max_cod + 1) if max_cod else "1"
+                cod_producto = str(max_cod) if max_cod else "1"
                 print(f"DEBUG: Código generado: {cod_producto}")
 
             # Insertar nuevo producto - Actualizado con los nuevos campos de precio
