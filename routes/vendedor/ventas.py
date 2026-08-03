@@ -513,6 +513,38 @@ def vendedor_venta_crear():
                 saldo_anterior = float(saldo_anterior_cliente['Saldo_Anterior'] if saldo_anterior_cliente else 0)
                 print(f"💰 Saldo anterior del cliente {id_cliente}: {saldo_anterior}")
                 
+                # ===== VERIFICAR DISCREPANCIA EN CUENTAS POR COBRAR (SALDO INICIAL) =====
+                if saldo_anterior > 0:
+                    cursor.execute("""
+                        SELECT COALESCE(SUM(Saldo_Pendiente), 0) as Suma_CxC
+                        FROM cuentas_por_cobrar
+                        WHERE ID_Cliente = %s
+                          AND Estado IN ('Pendiente', 'Vencida')
+                          AND Saldo_Pendiente > 0
+                    """, (int(id_cliente),))
+                    suma_cxc_res = cursor.fetchone()
+                    suma_cxc = float(suma_cxc_res['Suma_CxC'] if suma_cxc_res else 0)
+                    
+                    diferencia = saldo_anterior - suma_cxc
+                    if diferencia > 0.01:
+                        print(f"⚠️ Discrepancia detectada: saldo anterior {saldo_anterior} vs sum cxc {suma_cxc}. Creando SALDO-INICIAL de {diferencia}")
+                        fecha_vencimiento = (datetime.now() + timedelta(days=30)).strftime('%Y-%m-%d')
+                        cursor.execute("""
+                            INSERT INTO cuentas_por_cobrar
+                            (Fecha, ID_Cliente, Num_Documento, Observacion, Fecha_Vencimiento,
+                             Tipo_Movimiento, Monto_Movimiento, ID_Empresa, Saldo_Pendiente,
+                             ID_Factura, ID_FacturaRuta, ID_Usuario_Creacion, Estado)
+                            VALUES (CURDATE(), %s, 'SALDO-INICIAL', 'Saldo pendiente inicial', %s,
+                             2, %s, %s, %s, NULL, NULL, %s, 'Pendiente')
+                        """, (
+                            int(id_cliente),
+                            fecha_vencimiento,
+                            diferencia,
+                            asignacion['ID_Empresa'],
+                            diferencia,
+                            id_vendedor
+                        ))
+                
                 # Validar stock
                 error_stock = False
                 productos_sin_stock = []
@@ -1644,7 +1676,40 @@ def api_registrar_venta_offline():
                 FROM clientes 
                 WHERE ID_Cliente = %s
             """, (int(data['cliente_id']),))
-            saldo_anterior = cursor.fetchone()['Saldo_Anterior']
+            saldo_anterior_res = cursor.fetchone()
+            saldo_anterior = float(saldo_anterior_res['Saldo_Anterior'] if saldo_anterior_res else 0)
+            
+            # ===== VERIFICAR DISCREPANCIA EN CUENTAS POR COBRAR (SALDO INICIAL) =====
+            if saldo_anterior > 0:
+                cursor.execute("""
+                    SELECT COALESCE(SUM(Saldo_Pendiente), 0) as Suma_CxC
+                    FROM cuentas_por_cobrar
+                    WHERE ID_Cliente = %s
+                      AND Estado IN ('Pendiente', 'Vencida')
+                      AND Saldo_Pendiente > 0
+                """, (int(data['cliente_id']),))
+                suma_cxc_res = cursor.fetchone()
+                suma_cxc = float(suma_cxc_res['Suma_CxC'] if suma_cxc_res else 0)
+                
+                diferencia = saldo_anterior - suma_cxc
+                if diferencia > 0.01:
+                    print(f"⚠️ Discrepancia detectada (offline): saldo anterior {saldo_anterior} vs sum cxc {suma_cxc}. Creando SALDO-INICIAL de {diferencia}")
+                    fecha_vencimiento = (datetime.now() + timedelta(days=30)).strftime('%Y-%m-%d')
+                    cursor.execute("""
+                        INSERT INTO cuentas_por_cobrar
+                        (Fecha, ID_Cliente, Num_Documento, Observacion, Fecha_Vencimiento,
+                         Tipo_Movimiento, Monto_Movimiento, ID_Empresa, Saldo_Pendiente,
+                         ID_Factura, ID_FacturaRuta, ID_Usuario_Creacion, Estado)
+                        VALUES (CURDATE(), %s, 'SALDO-INICIAL', 'Saldo pendiente inicial', %s,
+                         2, %s, %s, %s, NULL, NULL, %s, 'Pendiente')
+                    """, (
+                        int(data['cliente_id']),
+                        fecha_vencimiento,
+                        diferencia,
+                        asignacion['ID_Empresa'],
+                        diferencia,
+                        id_vendedor
+                    ))
             
             # Insertar factura
             cursor.execute("""

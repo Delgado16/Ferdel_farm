@@ -395,7 +395,7 @@ def admin_crear_producto():
             # Insertar nuevo producto - Actualizado con los nuevos campos de precio
             print(f"DEBUG: Insertando producto...")
             cursor.execute("""
-                INSERT INTO productos (
+                INSERT INTO Productos (
                     COD_Producto, Descripcion, Unidad_Medida, Estado,
                     ID_Categoria, Precio_Mercado, Precio_Mayorista, Precio_Ruta, 
                     ID_Empresa, Usuario_Creador, Stock_Minimo

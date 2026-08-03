@@ -1614,6 +1614,27 @@
         const saldoInfo = getElement('saldo-info');
         if (saldoInfo) saldoInfo.innerHTML = '<div class="alert alert-info text-center py-2"><i class="fas fa-spinner fa-spin me-2"></i><small>Verificando saldo...</small></div>';
 
+        // Intentar leer el saldo anterior inmediatamente desde el dataset de la opción seleccionada
+        const clienteSelect = getElement('cliente');
+        let saldoInicial = 0;
+        let clienteTemp = {};
+        if (clienteSelect) {
+            const option = clienteSelect.options[clienteSelect.selectedIndex];
+            if (option && option.value == idCliente) {
+                saldoInicial = parseFloat(option.dataset.saldo) || 0;
+                saldoClienteActual = saldoInicial;
+                clienteTemp = {
+                    Nombre: option.dataset.nombre || '',
+                    RUC_CEDULA: option.dataset.ruc || '',
+                    Saldo_Pendiente_Total: saldoInicial,
+                    facturas_detalle: []
+                };
+                if (saldoInicial > 0) {
+                    mostrarAlertaSaldoLocal(clienteTemp);
+                }
+            }
+        }
+
         try {
             const clientesLocal = await localforage.getItem('clientes_saldos');
             if (clientesLocal && clientesLocal.data && clientesLocal.data[idCliente]) {

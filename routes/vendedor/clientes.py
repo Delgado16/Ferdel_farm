@@ -343,7 +343,6 @@ def api_verificar_saldo_cliente(id_cliente):
                     LEFT JOIN facturacion_ruta fr ON c.ID_FacturaRuta = fr.ID_FacturaRuta
                     WHERE c.ID_Cliente = %s 
                     AND c.Estado IN ('Pendiente', 'Vencida')
-                    AND c.ID_FacturaRuta IS NOT NULL  -- Solo facturas de ruta
                     ORDER BY c.Fecha_Vencimiento ASC, c.Fecha ASC
                 """, (id_cliente,))
                 facturas_pendientes = cursor.fetchall()
@@ -405,12 +404,7 @@ def api_verificar_saldo_cliente_offline(id_cliente):
                     c.Telefono,
                     c.Direccion,
                     c.perfil_cliente,
-                    COALESCE((
-                        SELECT SUM(Saldo_Pendiente) 
-                        FROM cuentas_por_cobrar 
-                        WHERE ID_Cliente = c.ID_Cliente 
-                        AND Estado IN ('Pendiente', 'Vencida')
-                    ), 0) as Saldo_Pendiente_Total,
+                    COALESCE(c.Saldo_Pendiente_Total, 0) as Saldo_Pendiente_Total,
                     (
                         SELECT COUNT(*) 
                         FROM cuentas_por_cobrar 
@@ -449,7 +443,6 @@ def api_verificar_saldo_cliente_offline(id_cliente):
                     LEFT JOIN facturacion_ruta fr ON c.ID_FacturaRuta = fr.ID_FacturaRuta
                     WHERE c.ID_Cliente = %s 
                     AND c.Estado IN ('Pendiente', 'Vencida')
-                    AND c.ID_FacturaRuta IS NOT NULL
                     ORDER BY c.Fecha_Vencimiento ASC, c.Fecha ASC
                     LIMIT 50
                 """, (id_cliente,))
