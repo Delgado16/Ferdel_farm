@@ -378,6 +378,9 @@ def admin_crear_venta():
             productos_ids = request.form.getlist('producto_id[]')
             cantidades = request.form.getlist('cantidad[]')
             precios = request.form.getlist('precio[]')
+            es_extra_list = request.form.getlist('es_extra[]')
+            es_bonificacion_list = request.form.getlist('es_bonificacion[]')
+            cantidad_sueltos_list = request.form.getlist('cantidad_sueltos[]')
             
             print(f"Datos recibidos - Cliente: {id_cliente}, Tipo: {tipo_venta}")
             print(f"Productos recibidos: {len(productos_ids)}")
@@ -445,6 +448,9 @@ def admin_crear_venta():
                     AND ID_Factura IS NOT NULL
                 """, (id_cliente,))
                 
+                # Definir CONSTANTES locales para validación
+                ID_CATEGORIA_HUEVOS = 1
+                
                 estado_cuenta = cursor.fetchone()
                 facturas_pendientes = estado_cuenta['facturas_pendientes'] or 0
                 total_pendiente = float(estado_cuenta['total_pendiente'] or 0)
@@ -456,8 +462,28 @@ def admin_crear_venta():
                 # Validar visibilidad de productos
                 productos_invalidos = []
                 for i, producto_id in enumerate(productos_ids):
-                    cantidad = float(cantidades[i]) if cantidades[i] else 0
-                    if cantidad <= 0:
+                    is_extra = int(es_extra_list[i]) if i < len(es_extra_list) and es_extra_list[i] else 0
+                    is_bonif = int(es_bonificacion_list[i]) if i < len(es_bonificacion_list) and es_bonificacion_list[i] else 0
+                    sueltos = float(cantidad_sueltos_list[i]) if i < len(cantidad_sueltos_list) and cantidad_sueltos_list[i] else 0
+                    
+                    cursor.execute("SELECT ID_Categoria, Descripcion FROM productos WHERE ID_Producto = %s", (producto_id,))
+                    prod_info = cursor.fetchone()
+                    if not prod_info:
+                        continue
+                    
+                    id_categoria = prod_info['ID_Categoria']
+                    cajillas_qty = float(cantidades[i]) if cantidades[i] else 0
+                    
+                    if id_categoria == ID_CATEGORIA_HUEVOS:
+                        qty_total = cajillas_qty + (sueltos / 30.0)
+                    else:
+                        qty_total = cajillas_qty
+                        
+                    if qty_total <= 0:
+                        continue
+                        
+                    # Omitir validación de visibilidad de categorías para extras/bonificaciones
+                    if is_extra == 1 or is_bonif == 1:
                         continue
                     
                     cursor.execute("""
@@ -478,7 +504,7 @@ def admin_crear_venta():
                     if not resultado or resultado['valido'] == 0:
                         productos_invalidos.append({
                             'id': producto_id,
-                            'nombre': resultado['Descripcion'] if resultado else f"ID:{producto_id}",
+                            'nombre': prod_info['Descripcion'],
                             'categoria': resultado['categoria_nombre'] if resultado else 'Desconocida'
                         })
                 
@@ -508,18 +534,37 @@ def admin_crear_venta():
                 
                 for i in range(len(productos_ids)):
                     id_producto = int(productos_ids[i])
-                    cantidad = float(cantidades[i]) if cantidades[i] else 0
-                    precio = float(precios[i]) if precios[i] else 0
+                    is_extra = int(es_extra_list[i]) if i < len(es_extra_list) and es_extra_list[i] else 0
+                    is_bonif = int(es_bonificacion_list[i]) if i < len(es_bonificacion_list) and es_bonificacion_list[i] else 0
+                    sueltos = float(cantidad_sueltos_list[i]) if i < len(cantidad_sueltos_list) and cantidad_sueltos_list[i] else 0
                     
-                    if cantidad <= 0 or precio < 0:
+                    cursor.execute("SELECT ID_Categoria FROM productos WHERE ID_Producto = %s", (id_producto,))
+                    prod_info = cursor.fetchone()
+                    if not prod_info:
                         continue
+                        
+                    id_categoria = prod_info['ID_Categoria']
+                    cajillas_qty = float(cantidades[i]) if cantidades[i] else 0
                     
-                    total_linea = cantidad * precio
-                    total_venta += total_linea
+                    if id_categoria == ID_CATEGORIA_HUEVOS:
+                        cantidad_total = cajillas_qty + (sueltos / 30.0)
+                    else:
+                        cantidad_total = cajillas_qty
+                        
+                    if cantidad_total <= 0:
+                        continue
+                        
+                    if is_bonif == 1:
+                        precio = 0.0
+                        total_linea = 0.0
+                    else:
+                        precio = float(precios[i]) if precios[i] else 0.0
+                        total_linea = cantidad_total * precio
+                        total_venta += total_linea
                     
                     items_venta.append({
                         'id_producto': id_producto,
-                        'cantidad': cantidad,
+                        'cantidad': cantidad_total,
                         'precio': precio,
                         'total_linea': total_linea
                     })

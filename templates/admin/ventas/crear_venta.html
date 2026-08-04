@@ -3,6 +3,8 @@
 {% block title %}Nueva Venta - Sistema Inventarios{% endblock %}
 
 {% block content %}
+<!-- SweetAlert2 CDN -->
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <style>
     .venta-container {
         max-width: 1400px;
@@ -982,6 +984,12 @@
                             <button type="button" class="btn btn-primary btn-sm" id="btn-agregar-producto">
                                 <i class="bi bi-plus-lg me-1"></i>Agregar Producto
                             </button>
+                            <button type="button" class="btn btn-outline-info btn-sm" id="btn-agregar-extra">
+                                <i class="bi bi-plus-circle me-1"></i>Agregar Producto Extra
+                            </button>
+                            <button type="button" class="btn btn-outline-warning btn-sm" id="btn-agregar-regalia">
+                                <i class="bi bi-gift me-1"></i>Agregar Regalía/Bonificación
+                            </button>
                         </div>
                     </div>
 
@@ -1897,11 +1905,12 @@
     }
 
     async function cargarProductosPorCliente(clienteId) {
-        try {
-            const btnFiltro = document.getElementById('btn-aplicar-filtro');
+        const btnFiltro = document.getElementById('btn-aplicar-filtro');
+        if (btnFiltro) {
             btnFiltro.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> Cargando...';
             btnFiltro.disabled = true;
-
+        }
+        try {
             const response = await fetch(`/admin/api/ventas/productos/cliente/${clienteId}`);
             if (!response.ok) throw new Error(`Error HTTP: ${response.status}`);
             const data = await response.json();
@@ -1926,8 +1935,10 @@
                 mostrarAlerta('danger', '❌ Error', 'No se pudieron cargar los productos');
             }
         } finally {
-            btnFiltro.innerHTML = '<i class="fas fa-filter me-1"></i>Aplicar Filtro';
-            btnFiltro.disabled = false;
+            if (btnFiltro) {
+                btnFiltro.innerHTML = '<i class="fas fa-filter me-1"></i>Aplicar Filtro';
+                btnFiltro.disabled = false;
+            }
         }
     }
 
@@ -2024,10 +2035,137 @@
         }
     }
 
+    async function inicializarProductosBase() {
+        try {
+            const response = await fetch('/admin/ventas/todos-productos');
+            const data = await response.json();
+            productosBase = Array.isArray(data) ? data : (data.productos || []);
+        } catch (e) {
+            console.error('Error cargando productos base:', e);
+        }
+    }
+
+    function llenarSelectCategorias(select) {
+        if (!select) return;
+        select.innerHTML = '<option value="" disabled selected>Seleccione categoría...</option>';
+        
+        // Obtener categorías desde el selector de filtro
+        const catOptions = document.querySelectorAll('#filtro_categoria option');
+        catOptions.forEach(opt => {
+            if (opt.value !== '0') {
+                const newOpt = document.createElement('option');
+                newOpt.value = opt.value;
+                newOpt.textContent = opt.textContent;
+                select.appendChild(newOpt);
+            }
+        });
+    }
+
+    window.actualizarProductosFilaExtra = function(id) {
+        const tarjeta = document.getElementById(`producto-card-${id}`);
+        if (!tarjeta) return;
+        
+        const catSelect = tarjeta.querySelector('.categoria-extra-select');
+        const prodSelect = tarjeta.querySelector('.producto-select');
+        if (!catSelect || !prodSelect) return;
+        
+        const catId = catSelect.value;
+        prodSelect.innerHTML = '<option value="" disabled selected>Seleccione producto...</option>';
+        
+        const productosDeCategoria = productosBase.filter(p => (p.ID_Categoria || p.id_categoria) == catId);
+        
+        if (productosDeCategoria.length === 0) {
+            const opt = document.createElement('option');
+            opt.value = ""; opt.disabled = true; opt.selected = true;
+            opt.textContent = "No disponible o sin stock";
+            prodSelect.appendChild(opt);
+            return;
+        }
+        
+        const productosPorCategoria = {};
+        productosDeCategoria.forEach(producto => {
+            const categoria = producto.Categoria || producto.categoria || 'Sin categoría';
+            if (!productosPorCategoria[categoria]) productosPorCategoria[categoria] = [];
+            productosPorCategoria[categoria].push(producto);
+        });
+
+        Object.keys(productosPorCategoria).sort().forEach(categoria => {
+            const optgroup = document.createElement('optgroup');
+            optgroup.label = categoria;
+            productosPorCategoria[categoria]
+                .sort((a, b) => (a.Descripcion || '').localeCompare(b.Descripcion || ''))
+                .forEach(producto => {
+                    const option = document.createElement('option');
+                    const precioPerfil = obtenerPrecioPorPerfil(producto, perfilClienteActual);
+                    const prodId = producto.ID_Producto || producto.id;
+                    option.value = prodId;
+                    option.textContent = `${producto.Descripcion || 'Sin descripción'} (${producto.COD_Producto || 'S/C'}) - Stock: ${producto.Existencias || 0}`;
+                    option.dataset.precio = precioPerfil;
+                    option.dataset.existencia = producto.Existencias || 0;
+                    option.dataset.categoria = producto.ID_Categoria || '';
+                    optgroup.appendChild(option);
+                });
+            prodSelect.appendChild(optgroup);
+        });
+    };
+
+    function actualizarLayoutCantidad(id, idCategoria) {
+        const tarjeta = document.getElementById(`producto-card-${id}`);
+        if (!tarjeta) return;
+        
+        const cantidadCol = tarjeta.querySelector('.cantidad-col');
+        if (!cantidadCol) return;
+        
+        const esBonif = tarjeta.querySelector('.es-bonificacion-flag')?.value === '1';
+        
+        if (idCategoria === 1 && esBonif) { // 1 es Huevos y es bonificación/regalía
+            cantidadCol.innerHTML = `
+                <label class="form-label required-field">Cantidad (Cajillas y Huevos Sueltos)</label>
+                <div class="row g-2">
+                    <div class="col-6">
+                        <div class="input-group">
+                            <input type="number" class="form-control cantidad" name="cantidad[]" min="0" step="1" value="1" placeholder="Cajillas" required onchange="calcularSubtotal(${id})" oninput="validarStockEnTiempoReal(${id})">
+                            <span class="input-group-text">caj</span>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div class="input-group">
+                            <input type="number" class="form-control sueltos" min="0" max="29" step="1" value="0" placeholder="Sueltos" required onchange="calcularSubtotal(${id})" oninput="validarStockEnTiempoReal(${id})">
+                            <span class="input-group-text">und</span>
+                        </div>
+                    </div>
+                </div>
+                <input type="hidden" name="cantidad_sueltos[]" class="cantidad-sueltos-flag" value="0">
+                <div class="invalid-feedback">Ingrese cantidad válida</div>
+            `;
+            
+            const sueltosInput = cantidadCol.querySelector('.sueltos');
+            const hiddenSueltos = cantidadCol.querySelector('.cantidad-sueltos-flag');
+            sueltosInput.addEventListener('input', function() {
+                hiddenSueltos.value = this.value || 0;
+            });
+            sueltosInput.addEventListener('change', function() {
+                hiddenSueltos.value = this.value || 0;
+            });
+        } else {
+            cantidadCol.innerHTML = `
+                <label class="form-label required-field">Cantidad</label>
+                <div class="input-group">
+                    <input type="number" class="form-control cantidad" name="cantidad[]" min="0.01" step="0.01" value="1" required onchange="calcularSubtotal(${id})" oninput="validarStockEnTiempoReal(${id})">
+                    <span class="input-group-text">und</span>
+                </div>
+                <input type="hidden" name="cantidad_sueltos[]" class="cantidad-sueltos-flag" value="0">
+                <div class="invalid-feedback">Ingrese una cantidad válida</div>
+            `;
+        }
+    }
+
     function agregarProducto() {
         contadorProductos++;
         const productoHTML = `
         <div class="product-card" id="producto-card-${contadorProductos}">
+            <input type="hidden" name="es_extra[]" class="es-extra-flag" value="0">
+            <input type="hidden" name="es_bonificacion[]" class="es-bonificacion-flag" value="0">
             <div class="product-card-header">
                 <h6 class="product-card-title">Producto #${contadorProductos}</h6>
                 <button type="button" class="btn btn-danger btn-sm" onclick="eliminarProducto(${contadorProductos})">
@@ -2035,19 +2173,20 @@
                 </button>
             </div>
             <div class="product-grid">
-                <div>
+                <div class="producto-col">
                     <label class="form-label required-field">Producto</label>
                     <select class="form-select producto-select" name="producto_id[]" required onchange="actualizarInfoProducto(${contadorProductos})">
                         <option value="" disabled selected>Cargando productos...</option>
                     </select>
                     <div class="invalid-feedback">Seleccione un producto</div>
                 </div>
-                <div>
+                <div class="cantidad-col">
                     <label class="form-label required-field">Cantidad</label>
                     <div class="input-group">
                         <input type="number" class="form-control cantidad" name="cantidad[]" min="0.01" step="0.01" value="1" required onchange="calcularSubtotal(${contadorProductos})" oninput="validarStockEnTiempoReal(${contadorProductos})">
                         <span class="input-group-text">und</span>
                     </div>
+                    <input type="hidden" name="cantidad_sueltos[]" class="cantidad-sueltos-flag" value="0">
                     <div class="invalid-feedback">Ingrese una cantidad válida</div>
                 </div>
                 <div>
@@ -2057,6 +2196,120 @@
                         <input type="number" class="form-control precio" name="precio[]" step="0.01" min="0" value="0" required onchange="calcularSubtotal(${contadorProductos})">
                     </div>
                     <div class="invalid-feedback">Ingrese un precio válido</div>
+                </div>
+                <div>
+                    <label class="form-label">Subtotal</label>
+                    <div class="input-group">
+                        <span class="input-group-text">C$</span>
+                        <input type="text" class="form-control subtotal" value="0.00" readonly style="background: #f8f9fa;">
+                    </div>
+                </div>
+            </div>
+            <small class="text-muted stock-info" id="stock-info-${contadorProductos}" style="display: none; margin-top: 0.5rem;"></small>
+        </div>`;
+
+        document.getElementById('productos-container').insertAdjacentHTML('beforeend', productoHTML);
+        const nuevoSelect = document.querySelector(`#producto-card-${contadorProductos} .producto-select`);
+        llenarSelectProductos(nuevoSelect);
+        actualizarTotales();
+    }
+
+    function agregarExtra() {
+        contadorProductos++;
+        const productoHTML = `
+        <div class="product-card" id="producto-card-${contadorProductos}" style="border-left: 5px solid #17a2b8; background-color: #fcfdfe;">
+            <input type="hidden" name="es_extra[]" class="es-extra-flag" value="1">
+            <input type="hidden" name="es_bonificacion[]" class="es-bonificacion-flag" value="0">
+            <div class="product-card-header">
+                <h6 class="product-card-title text-info"><i class="bi bi-plus-circle me-1"></i>Producto Extra #${contadorProductos}</h6>
+                <button type="button" class="btn btn-danger btn-sm" onclick="eliminarProducto(${contadorProductos})">
+                    <i class="fas fa-times"></i> Quitar
+                </button>
+            </div>
+            <div class="product-grid" style="grid-template-columns: 1fr 1.5fr 1.5fr 1fr 1fr;">
+                <div>
+                    <label class="form-label required-field">Categoría</label>
+                    <select class="form-select categoria-extra-select" required onchange="actualizarProductosFilaExtra(${contadorProductos})">
+                        <option value="" disabled selected>Seleccione...</option>
+                    </select>
+                    <div class="invalid-feedback">Seleccione categoría</div>
+                </div>
+                <div class="producto-col">
+                    <label class="form-label required-field">Producto</label>
+                    <select class="form-select producto-select" name="producto_id[]" required onchange="actualizarInfoProducto(${contadorProductos})">
+                        <option value="" disabled selected>Primero elija categoría</option>
+                    </select>
+                    <div class="invalid-feedback">Seleccione producto</div>
+                </div>
+                <div class="cantidad-col">
+                    <label class="form-label required-field">Cantidad</label>
+                    <div class="input-group">
+                        <input type="number" class="form-control cantidad" name="cantidad[]" min="0.01" step="0.01" value="1" required onchange="calcularSubtotal(${contadorProductos})" oninput="validarStockEnTiempoReal(${contadorProductos})">
+                        <span class="input-group-text">und</span>
+                    </div>
+                    <input type="hidden" name="cantidad_sueltos[]" class="cantidad-sueltos-flag" value="0">
+                    <div class="invalid-feedback">Ingrese cantidad</div>
+                </div>
+                <div>
+                    <label class="form-label required-field">Precio</label>
+                    <div class="input-group">
+                        <span class="input-group-text">C$</span>
+                        <input type="number" class="form-control precio" name="precio[]" step="0.01" min="0" value="0" required onchange="calcularSubtotal(${contadorProductos})">
+                    </div>
+                    <div class="invalid-feedback">Ingrese precio</div>
+                </div>
+                <div>
+                    <label class="form-label">Subtotal</label>
+                    <div class="input-group">
+                        <span class="input-group-text">C$</span>
+                        <input type="text" class="form-control subtotal" value="0.00" readonly style="background: #f8f9fa;">
+                    </div>
+                </div>
+            </div>
+            <small class="text-muted stock-info" id="stock-info-${contadorProductos}" style="display: none; margin-top: 0.5rem;"></small>
+        </div>`;
+
+        document.getElementById('productos-container').insertAdjacentHTML('beforeend', productoHTML);
+        const catSelect = document.querySelector(`#producto-card-${contadorProductos} .categoria-extra-select`);
+        llenarSelectCategorias(catSelect);
+        actualizarTotales();
+    }
+
+    function agregarRegalia() {
+        contadorProductos++;
+        const productoHTML = `
+        <div class="product-card" id="producto-card-${contadorProductos}" style="border-left: 5px solid #ffc107; background-color: #fffdf5;">
+            <input type="hidden" name="es_extra[]" class="es-extra-flag" value="0">
+            <input type="hidden" name="es_bonificacion[]" class="es-bonificacion-flag" value="1">
+            <div class="product-card-header">
+                <h6 class="product-card-title text-warning"><i class="bi bi-gift me-1"></i>Regalía / Bonificación #${contadorProductos}</h6>
+                <button type="button" class="btn btn-danger btn-sm" onclick="eliminarProducto(${contadorProductos})">
+                    <i class="fas fa-times"></i> Quitar
+                </button>
+            </div>
+            <div class="product-grid">
+                <div class="producto-col">
+                    <label class="form-label required-field">Producto</label>
+                    <select class="form-select producto-select" name="producto_id[]" required onchange="actualizarInfoProducto(${contadorProductos})">
+                        <option value="" disabled selected>Cargando productos...</option>
+                    </select>
+                    <div class="invalid-feedback">Seleccione producto</div>
+                </div>
+                <div class="cantidad-col">
+                    <label class="form-label required-field">Cantidad</label>
+                    <div class="input-group">
+                        <input type="number" class="form-control cantidad" name="cantidad[]" min="0.01" step="0.01" value="1" required onchange="calcularSubtotal(${contadorProductos})" oninput="validarStockEnTiempoReal(${contadorProductos})">
+                        <span class="input-group-text">und</span>
+                    </div>
+                    <input type="hidden" name="cantidad_sueltos[]" class="cantidad-sueltos-flag" value="0">
+                    <div class="invalid-feedback">Ingrese cantidad</div>
+                </div>
+                <div>
+                    <label class="form-label">Precio</label>
+                    <div class="input-group">
+                        <span class="input-group-text">C$</span>
+                        <input type="number" class="form-control precio" name="precio[]" value="0.00" readonly style="background: #f8f9fa;">
+                    </div>
                 </div>
                 <div>
                     <label class="form-label">Subtotal</label>
@@ -2096,11 +2349,15 @@
         const stockInfo = document.getElementById(`stock-info-${id}`);
         const precioInput = tarjeta.querySelector('.precio');
         const cantidadInput = tarjeta.querySelector('.cantidad');
+        const esBonif = tarjeta.querySelector('.es-bonificacion-flag')?.value === '1';
 
         if (select.value && select.selectedOptions[0] && select.selectedOptions[0].dataset) {
             const dataset = select.selectedOptions[0].dataset;
             const stockActual = await obtenerStockActual(select.value);
-            const precioSugerido = parseFloat(dataset.precio) || 0;
+            const precioSugerido = esBonif ? 0.0 : (parseFloat(dataset.precio) || 0);
+            const idCategoria = parseInt(dataset.categoria) || 0;
+
+            actualizarLayoutCantidad(id, idCategoria);
 
             let stockClass = 'stock-good', stockIcon = '✅', stockText = `Stock disponible: ${stockActual} unidades`;
             if (stockActual <= 5) { stockClass = 'stock-danger'; stockIcon = '⚠️'; stockText = `¡Stock crítico! ${stockActual} unidades`; }
@@ -2109,7 +2366,16 @@
             stockInfo.innerHTML = `<span class="${stockClass}">${stockIcon} ${stockText}</span>`;
             stockInfo.style.display = 'block';
 
-            if (precioSugerido > 0 && precioInput) precioInput.value = precioSugerido.toFixed(2);
+            if (precioInput) {
+                precioInput.value = precioSugerido.toFixed(2);
+                if (esBonif) {
+                    precioInput.readOnly = true;
+                    precioInput.style.background = '#f8f9fa';
+                } else {
+                    precioInput.readOnly = false;
+                    precioInput.style.background = '';
+                }
+            }
             const cantidadActual = parseFloat(cantidadInput?.value) || 0;
             validarCantidadVsStock(cantidadInput, cantidadActual, stockActual, stockInfo);
             calcularSubtotal(id);
@@ -2126,10 +2392,14 @@
         if (!tarjeta) return;
         const select = tarjeta.querySelector('.producto-select');
         const cantidadInput = tarjeta.querySelector('.cantidad');
+        const sueltosInput = tarjeta.querySelector('.sueltos');
         const stockInfo = document.getElementById(`stock-info-${id}`);
-        if (select && select.value && cantidadInput && cantidadInput.value) {
+        if (select && select.value && cantidadInput) {
             const stockActual = await obtenerStockActual(select.value);
-            const cantidadRequerida = parseFloat(cantidadInput.value) || 0;
+            const isHuevos = select.selectedOptions[0]?.dataset.categoria == '1';
+            const cajillas = parseFloat(cantidadInput.value) || 0;
+            const sueltos = parseFloat(sueltosInput?.value) || 0;
+            const cantidadRequerida = isHuevos ? (cajillas + sueltos / 30.0) : cajillas;
             validarCantidadVsStock(cantidadInput, cantidadRequerida, stockActual, stockInfo);
         }
     };
@@ -2151,10 +2421,28 @@
     window.calcularSubtotal = function (id) {
         const tarjeta = document.getElementById(`producto-card-${id}`);
         if (!tarjeta) return;
-        const cantidad = parseFloat(tarjeta.querySelector('.cantidad')?.value) || 0;
+        const esBonif = tarjeta.querySelector('.es-bonificacion-flag')?.value === '1';
+        const subtotalInput = tarjeta.querySelector('.subtotal');
+        if (esBonif) {
+            if (subtotalInput) subtotalInput.value = formatearMoneda(0);
+            actualizarTotales();
+            return;
+        }
+
+        const select = tarjeta.querySelector('.producto-select');
+        const isHuevos = select && select.selectedOptions[0] && select.selectedOptions[0].dataset.categoria == '1';
+
+        let cantidad = 0;
+        if (isHuevos) {
+            const cajillas = parseFloat(tarjeta.querySelector('.cantidad')?.value) || 0;
+            const sueltos = parseFloat(tarjeta.querySelector('.sueltos')?.value) || 0;
+            cantidad = cajillas + (sueltos / 30.0);
+        } else {
+            cantidad = parseFloat(tarjeta.querySelector('.cantidad')?.value) || 0;
+        }
+
         const precio = parseFloat(tarjeta.querySelector('.precio')?.value) || 0;
         const subtotal = cantidad * precio;
-        const subtotalInput = tarjeta.querySelector('.subtotal');
         if (subtotalInput) subtotalInput.value = formatearMoneda(subtotal);
         actualizarTotales();
     };
@@ -2267,12 +2555,17 @@
         for (const tarjeta of document.querySelectorAll(".product-card")) {
             const select = tarjeta.querySelector(".producto-select");
             const cantidadInput = tarjeta.querySelector(".cantidad");
-            if (select && select.value && cantidadInput && cantidadInput.value) {
+            const sueltosInput = tarjeta.querySelector(".sueltos");
+            if (select && select.value) {
                 const stockActual = await obtenerStockActual(select.value);
-                const cantidadRequerida = parseFloat(cantidadInput.value);
+                const isHuevos = select.selectedOptions[0]?.dataset.categoria == '1';
+                const cajillas = parseFloat(cantidadInput?.value) || 0;
+                const sueltos = parseFloat(sueltosInput?.value) || 0;
+                const cantidadRequerida = isHuevos ? (cajillas + sueltos / 30.0) : cajillas;
+                
                 if (stockActual < cantidadRequerida) {
                     productosConProblemas.push({
-                        descripcion: select.options[select.selectedIndex]?.text || 'Producto desconocido',
+                        descripcion: select.options[select.selectedIndex]?.text.split(' - ')[0] || 'Producto desconocido',
                         stockActual, cantidadRequerida
                     });
                 }
@@ -2307,13 +2600,24 @@
             const select = tarjeta.querySelector(".producto-select");
             const cantidad = tarjeta.querySelector(".cantidad");
             const precio = tarjeta.querySelector(".precio");
-            if (select && select.value && cantidad && parseFloat(cantidad.value) > 0 && precio && parseFloat(precio.value) > 0) {
-                hayProductosValidos = true;
+            const esBonif = tarjeta.querySelector('.es-bonificacion-flag')?.value === '1';
+            const sueltosInput = tarjeta.querySelector('.sueltos');
+            
+            const qtyVal = parseFloat(cantidad?.value) || 0;
+            const sueltosVal = parseFloat(sueltosInput?.value) || 0;
+            const precioVal = parseFloat(precio?.value) || 0;
+            
+            if (select && select.value) {
+                if (esBonif && (qtyVal > 0 || sueltosVal > 0)) {
+                    hayProductosValidos = true;
+                } else if (qtyVal > 0 && precioVal > 0) {
+                    hayProductosValidos = true;
+                }
             }
         });
 
         if (!hayProductosValidos) {
-            mostrarAlerta('danger', '❌ Error!', 'Debe agregar al menos un producto con cantidad y precio válidos.');
+            mostrarAlerta('danger', '❌ Error!', 'Debe agregar al menos un producto con cantidad y precio válidos (o una regalía/bonificación válida).');
             valido = false;
         }
 
@@ -2379,7 +2683,7 @@
                 totalPagado = totalVenta;
             }
 
-            if (totalPagado <= 0) {
+            if (totalVenta > 0 && totalPagado <= 0) {
                 mostrarAlerta('danger', '❌ Error!', 'Debe especificar al menos un método de pago con monto mayor a 0.');
                 return false;
             }
@@ -2402,7 +2706,7 @@
                     }
                 });
 
-                if (!hayMetodosValidos) {
+                if (totalPagado > 0 && !hayMetodosValidos) {
                     mostrarAlerta('danger', '❌ Error!', 'Debe seleccionar al menos un método de pago válido');
                     return false;
                 }
@@ -2739,10 +3043,20 @@
             const select = item.querySelector('.producto-select');
             const cantidad = item.querySelector('.cantidad');
             const precio = item.querySelector('.precio');
-            if (select && select.value && cantidad && parseFloat(cantidad.value) > 0 && precio && parseFloat(precio.value) > 0) {
+            const esExtra = item.querySelector('.es-extra-flag')?.value || '0';
+            const esBonif = item.querySelector('.es-bonificacion-flag')?.value || '0';
+            const sueltos = item.querySelector('.cantidad-sueltos-flag')?.value || '0';
+
+            const qtyVal = parseFloat(cantidad?.value) || 0;
+            const sueltosVal = parseFloat(sueltos) || 0;
+
+            if (select && select.value && (qtyVal > 0 || sueltosVal > 0)) {
                 formData.append('producto_id[]', select.value);
-                formData.append('cantidad[]', parseFloat(cantidad.value).toFixed(2));
-                formData.append('precio[]', parseFloat(precio.value).toFixed(2));
+                formData.append('cantidad[]', qtyVal.toFixed(2));
+                formData.append('precio[]', (parseFloat(precio?.value) || 0).toFixed(2));
+                formData.append('es_extra[]', esExtra);
+                formData.append('es_bonificacion[]', esBonif);
+                formData.append('cantidad_sueltos[]', sueltos);
             }
         });
 
@@ -2800,6 +3114,12 @@
     });
 
     document.getElementById('btn-agregar-producto').addEventListener('click', agregarProducto);
+    
+    const btnExtra = document.getElementById('btn-agregar-extra');
+    if (btnExtra) btnExtra.addEventListener('click', agregarExtra);
+    const btnRegalia = document.getElementById('btn-agregar-regalia');
+    if (btnRegalia) btnRegalia.addEventListener('click', agregarRegalia);
+
     document.getElementById('btn-aplicar-filtro').addEventListener('click', aplicarFiltroCategoria);
     document.getElementById('btn-limpiar-filtro').addEventListener('click', limpiarFiltro);
     document.getElementById('btn-quitar-filtro').addEventListener('click', limpiarFiltro);
@@ -2938,6 +3258,7 @@
 
     document.addEventListener('DOMContentLoaded', function () {
         cargarClientesEnMemoria();
+        inicializarProductosBase();
         manejarCambioTipoVenta(document.getElementById('tipo_venta').value);
     });
 </script>
