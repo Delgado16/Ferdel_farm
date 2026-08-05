@@ -48,7 +48,7 @@ def vendedor_dashboard():
                 LEFT JOIN vehiculos v ON av.ID_Vehiculo = v.ID_Vehiculo
                 WHERE av.ID_Usuario = %s 
                   AND av.Fecha_Asignacion >= DATE_SUB(CURDATE(), INTERVAL 14 DAY)
-                  AND av.Fecha_Asignacion < CURDATE()
+                  AND av.Estado = 'Finalizada'
                 ORDER BY av.Fecha_Asignacion DESC, av.ID_Asignacion DESC
                 LIMIT 1
             """, (user_id,))
@@ -60,7 +60,7 @@ def vendedor_dashboard():
             FROM asignacion_vendedores
             WHERE ID_Usuario = %s
               AND Fecha_Asignacion >= DATE_SUB(CURDATE(), INTERVAL 14 DAY)
-              AND Fecha_Asignacion < CURDATE()
+              AND Estado = 'Finalizada'
         """, (user_id,))
         res_previas = cursor.fetchone()
         posee_asignaciones_previas = (res_previas['Conteo'] > 0) if res_previas else False

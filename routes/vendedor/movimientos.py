@@ -544,7 +544,7 @@ def vendedor_movimiento_liquidar_jornada():
             cursor.execute("""
                 SELECT COALESCE(SUM(Total_Subtotal), 0) as total_vendido
                 FROM movimientos_ruta_cabecera
-                WHERE ID_Asignacion = %s AND ID_TipoMovimiento = 3 AND Estado = 'ACTIVO'
+                WHERE ID_Asignacion = %s AND ID_TipoMovimiento = 2 AND Estado = 'ACTIVO'
             """, (id_asignacion,))
             ventas_res = cursor.fetchone()
             total_vendido = (ventas_res['total_vendido'] if (ventas_res and ventas_res['total_vendido'] is not None) else 0)
@@ -629,8 +629,8 @@ def vendedor_movimiento_liquidar_jornada():
                         WHERE ID_Vehiculo = %s
                     """, (asignacion['ID_Vehiculo'],))
                     
-                flash('Liquidación y cierre de jornada realizados con éxito', 'success')
-                return redirect(url_for('vendedor.vendedor_dashboard'))
+                flash('Liquidación y cierre de jornada realizados con éxito.', 'success')
+                return redirect(url_for('vendedor.vendedor_dashboard', download_pdf=id_asignacion))
                 
             return render_template('vendedor/movimientos/liquidar_jornada.html',
                                  asignacion=asignacion,
@@ -1603,5 +1603,553 @@ def vendedor_carga_directa_proveedor():
         traceback.print_exc()
         flash(f'Error al cargar el formulario: {str(e)}', 'error')
         return redirect(url_for('vendedor.vendedor_inventario'))
+
+
+@vendedor_bp.route('/vendedor/movimientos/pdf_cierre/<int:id_asignacion>')
+@vendedor_required
+def vendedor_pdf_cierre(id_asignacion):
+    """Genera un reporte PDF detallado del cierre de jornada para el vendedor"""
+    try:
+        import io
+        from flask import make_response
+        from reportlab.lib.pagesizes import letter
+        from reportlab.lib import colors
+        from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+        from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+        
+        with get_db_cursor(True) as cursor:
+            # 1. Obtener datos de la asignación
+            cursor.execute("""
+                SELECT av.ID_Asignacion, av.Fecha_Asignacion, av.Hora_Inicio, av.Hora_Fin, av.Estado,
+                       u.NombreUsuario as Vendedor, r.Nombre_Ruta as Ruta, av.ID_Usuario,
+                       v.Placa, v.Marca, v.Modelo
+                FROM asignacion_vendedores av
+                INNER JOIN usuarios u ON av.ID_Usuario = u.ID_Usuario
+                INNER JOIN rutas r ON av.ID_Ruta = r.ID_Ruta
+                LEFT JOIN vehiculos v ON av.ID_Vehiculo = v.ID_Vehiculo
+                WHERE av.ID_Asignacion = %s
+            """, (id_asignacion,))
+            asignacion = cursor.fetchone()
+            
+            if not asignacion:
+                flash('Asignación no encontrada', 'error')
+                return redirect(url_for('vendedor.vendedor_dashboard'))
+                
+            vendedor_id = asignacion['ID_Usuario']
+            fecha_ruta = asignacion['Fecha_Asignacion']
+
+            # 2. Obtener movimientos de caja de la asignación por fecha
+            cursor.execute("""
+                SELECT Tipo, Concepto, Monto, Saldo_Acumulado, Fecha
+                FROM movimientos_caja_ruta
+                WHERE ID_Usuario = %s AND DATE(Fecha) = %s AND Estado = 'ACTIVO'
+                ORDER BY ID_Movimiento ASC
+            """, (vendedor_id, fecha_ruta))
+            movimientos_caja = cursor.fetchall()
+            
+            # 3. Obtener facturas/ventas realizadas en el día
+            cursor.execute("""
+                SELECT fr.ID_FacturaRuta, fr.Fecha, fr.Credito_Contado,
+                       c.Nombre as Cliente, fr.Observacion,
+                       (SELECT COALESCE(SUM(Cantidad*Precio), 0) 
+                        FROM detalle_facturacion_ruta 
+                        WHERE ID_FacturaRuta = fr.ID_FacturaRuta) as Total
+                FROM facturacion_ruta fr
+                INNER JOIN asignacion_vendedores av ON fr.ID_Asignacion = av.ID_Asignacion
+                LEFT JOIN clientes c ON fr.ID_Cliente = c.ID_Cliente
+                WHERE av.ID_Usuario = %s AND DATE(fr.Fecha) = %s AND fr.Estado = 'Activa'
+                ORDER BY fr.ID_FacturaRuta ASC
+            """, (vendedor_id, fecha_ruta))
+            ventas = cursor.fetchall()
+            
+            # 4. Obtener abonos detallados recibidos en el día
+            cursor.execute("""
+                SELECT ad.ID_Detalle, ad.Monto_Aplicado, ad.Saldo_Anterior, ad.Saldo_Nuevo,
+                       c.Nombre as Cliente, mp.Nombre as MetodoPago,
+                       COALESCE(cxc.Num_Documento, 'Saldo Inicial/Manual') as Num_Documento,
+                       ad.Fecha
+                FROM abonos_detalle ad
+                LEFT JOIN clientes c ON ad.ID_Cliente = c.ID_Cliente
+                LEFT JOIN metodos_pago mp ON ad.ID_MetodoPago = mp.ID_MetodoPago
+                LEFT JOIN cuentas_por_cobrar cxc ON ad.ID_CuentaCobrar = cxc.ID_Movimiento
+                WHERE ad.ID_Usuario = %s AND DATE(ad.Fecha) = %s
+                ORDER BY ad.ID_Detalle ASC
+            """, (vendedor_id, fecha_ruta))
+            abonos = cursor.fetchall()
+            
+            # 5. Obtener devoluciones y mermas en el día
+            cursor.execute("""
+                SELECT mrc.Documento_Numero, mrc.Fecha_Movimiento, mrc.ID_TipoMovimiento,
+                       p.Descripcion as Producto, mrd.Cantidad, mrd.Precio_Unitario, mrd.Subtotal
+                FROM movimientos_ruta_cabecera mrc
+                INNER JOIN movimientos_ruta_detalle mrd ON mrc.ID_Movimiento = mrd.ID_Movimiento
+                INNER JOIN productos p ON mrd.ID_Producto = p.ID_Producto
+                WHERE mrc.ID_Usuario_Registra = %s 
+                  AND DATE(mrc.Fecha_Movimiento) = %s
+                  AND mrc.ID_TipoMovimiento IN (7, 11)
+                  AND mrc.Estado = 'ACTIVO'
+                ORDER BY mrc.Fecha_Movimiento ASC
+            """, (vendedor_id, fecha_ruta))
+            devoluciones_mermas = cursor.fetchall()
+            
+        # Calcular resúmenes de caja
+        apertura = 0.0
+        cierre = 0.0
+        caja_cerrada = False
+        ventas_contado_monto = 0.0
+        abonos_monto = 0.0
+        gastos_monto = 0.0
+        concepto_cierre = ""
+        
+        for mov in movimientos_caja:
+            if mov['Tipo'] == 'APERTURA':
+                apertura = float(mov['Monto'] or 0)
+            elif mov['Tipo'] == 'CIERRE':
+                cierre = float(mov['Monto'] or 0)
+                caja_cerrada = True
+                concepto_cierre = mov['Concepto'] or ""
+            elif mov['Tipo'] == 'GASTO':
+                gastos_monto += float(mov['Monto'] or 0)
+                
+        # Calcular montos directamente desde las transacciones reales para evitar inconsistencias
+        # Calcular montos directamente desde las transacciones reales para evitar inconsistencias
+        ventas_contado_monto = sum(float(v['Total'] or 0) for v in ventas if v['Credito_Contado'] == 1)
+        abonos_monto = sum(float(a['Monto_Aplicado'] or 0) for a in abonos)
+        abonos_efectivo_monto = sum(float(a['Monto_Aplicado'] or 0) for a in abonos if a['MetodoPago'] == 'Efectivo')
+        abonos_otros_monto = sum(float(a['Monto_Aplicado'] or 0) for a in abonos if a['MetodoPago'] != 'Efectivo')
+
+        # Extraer gastos individuales de caja ruta
+        gastos = [mov for mov in movimientos_caja if mov['Tipo'] == 'GASTO']
+
+        # El saldo esperado de caja física (efectivo) es:
+        # apertura + ventas_contado_monto + abonos_efectivo_monto - gastos_monto
+        efectivo_esperado = apertura + ventas_contado_monto + abonos_efectivo_monto - gastos_monto
+        
+        saldo_esperado = apertura + ventas_contado_monto + abonos_monto - gastos_monto
+        diferencia = cierre - efectivo_esperado if caja_cerrada else 0.0
+        
+        # ReportLab setup
+        buffer = io.BytesIO()
+        doc = SimpleDocTemplate(
+            buffer, 
+            pagesize=letter,
+            rightMargin=36, 
+            leftMargin=36, 
+            topMargin=36, 
+            bottomMargin=36
+        )
+        
+        story = []
+        styles = getSampleStyleSheet()
+        
+        # Custom styles
+        title_style = ParagraphStyle(
+            'PdfTitle',
+            parent=styles['Heading1'],
+            fontName='Helvetica-Bold',
+            fontSize=16,
+            textColor=colors.HexColor('#1b5e20'),
+            spaceAfter=4
+        )
+        subtitle_style = ParagraphStyle(
+            'PdfSubTitle',
+            parent=styles['Normal'],
+            fontName='Helvetica',
+            fontSize=9,
+            textColor=colors.HexColor('#475569'),
+            spaceAfter=15
+        )
+        section_style = ParagraphStyle(
+            'PdfSection',
+            parent=styles['Heading2'],
+            fontName='Helvetica-Bold',
+            fontSize=11,
+            textColor=colors.HexColor('#1b5e20'),
+            spaceBefore=12,
+            spaceAfter=5
+        )
+        cell_style = ParagraphStyle(
+            'PdfCell',
+            parent=styles['Normal'],
+            fontName='Helvetica',
+            fontSize=8,
+            leading=10
+        )
+        cell_bold_style = ParagraphStyle(
+            'PdfCellBold',
+            parent=cell_style,
+            fontName='Helvetica-Bold'
+        )
+        cell_right_style = ParagraphStyle(
+            'PdfCellRight',
+            parent=cell_style,
+            alignment=2
+        )
+        cell_center_style = ParagraphStyle(
+            'PdfCellCenter',
+            parent=cell_style,
+            alignment=1
+        )
+        
+        # Header info
+        story.append(Paragraph("REPORTE DE LIQUIDACIÓN Y CIERRE DE JORNADA", title_style))
+        story.append(Paragraph(f"Vendedor: {asignacion['Vendedor']} | Ruta: {asignacion['Ruta']} | Fecha: {asignacion['Fecha_Asignacion'].strftime('%d/%m/%Y')} | Estado: {asignacion['Estado']}", subtitle_style))
+        
+        # Asignacion & Vehiculo Info
+        story.append(Paragraph("DATOS GENERALES DE LA RUTA", section_style))
+        vehiculo_str = f"{asignacion['Marca'] or ''} {asignacion['Modelo'] or ''} (Placa: {asignacion['Placa'] or 'N/A'})" if asignacion['Placa'] else "Sin vehículo asignado"
+        datos_ruta = [
+            [Paragraph("Vendedor:", cell_bold_style), Paragraph(str(asignacion['Vendedor']), cell_style), Paragraph("Vehículo:", cell_bold_style), Paragraph(vehiculo_str, cell_style)],
+            [Paragraph("Hora Inicio:", cell_bold_style), Paragraph(str(asignacion['Hora_Inicio'] or 'N/A'), cell_style), Paragraph("Hora Cierre:", cell_bold_style), Paragraph(str(asignacion['Hora_Fin'] or 'N/A'), cell_style)]
+        ]
+        t_datos = Table(datos_ruta, colWidths=[80, 190, 80, 190])
+        t_datos.setStyle(TableStyle([
+            ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#cbd5e1')),
+            ('PADDING', (0,0), (-1,-1), 4),
+            ('BACKGROUND', (0,0), (0,-1), colors.HexColor('#f8fafc')),
+            ('BACKGROUND', (2,0), (2,-1), colors.HexColor('#f8fafc')),
+        ]))
+        story.append(t_datos)
+        story.append(Spacer(1, 10))
+        
+        # Resumen Financiero
+        story.append(Paragraph("RESUMEN DE CAJA (EFECTIVO Y GASTOS)", section_style))
+        resumen_data = [
+            [Paragraph("Concepto", cell_bold_style), Paragraph("Cálculo", cell_bold_style), Paragraph("Monto (C$)", cell_bold_style)],
+            [Paragraph("Apertura de Caja", cell_style), Paragraph("Monto inicial de apertura", cell_style), Paragraph(f"C$ {apertura:,.2f}", cell_right_style)],
+            [Paragraph("Ventas al Contado (Efectivo)", cell_style), Paragraph("(+) Ingresos por ventas del día", cell_style), Paragraph(f"C$ {ventas_contado_monto:,.2f}", cell_right_style)],
+            [Paragraph("Abonos de Clientes (Efectivo)", cell_style), Paragraph("(+) Ingresos por pagos a deudas", cell_style), Paragraph(f"C$ {abonos_monto:,.2f}", cell_right_style)],
+            [Paragraph("Gastos de Ruta", cell_style), Paragraph("(-) Salidas de caja reportadas", cell_style), Paragraph(f"C$ {gastos_monto:,.2f}", cell_right_style)],
+            [Paragraph("Saldo de Caja Esperado", cell_bold_style), Paragraph("Apertura + Ventas + Abonos - Gastos", cell_bold_style), Paragraph(f"C$ {saldo_esperado:,.2f}", ParagraphStyle('RightBold', parent=cell_right_style, fontName='Helvetica-Bold'))],
+            [Paragraph("Efectivo de Cierre Real", cell_bold_style), Paragraph("Monto real entregado por vendedor", cell_bold_style), Paragraph(f"C$ {cierre:,.2f}" if caja_cerrada else "PENDIENTE", ParagraphStyle('RightBold', parent=cell_right_style, fontName='Helvetica-Bold'))],
+            [Paragraph("Diferencia de Caja", cell_bold_style), Paragraph("Real - Esperado", cell_bold_style), Paragraph(f"C$ {diferencia:,.2f}" if caja_cerrada else "N/A", ParagraphStyle('RightBold', parent=cell_right_style, fontName='Helvetica-Bold', textColor=colors.HexColor('#006600') if diferencia >= 0 else colors.HexColor('#cc0000')))]
+        ]
+        t_resumen = Table(resumen_data, colWidths=[150, 250, 140])
+        t_resumen.setStyle(TableStyle([
+            ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#e2e8f0')),
+            ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#cbd5e1')),
+            ('PADDING', (0,0), (-1,-1), 4),
+            ('BACKGROUND', (0,5), (-1,5), colors.HexColor('#f1f5f9')),
+            ('BACKGROUND', (0,6), (-1,6), colors.HexColor('#e2e8f0')),
+            ('BACKGROUND', (0,7), (-1,7), colors.HexColor('#fee2e2') if diferencia < -0.01 else (colors.HexColor('#dcfce7') if diferencia > 0.01 else colors.white)),
+        ]))
+        story.append(t_resumen)
+        if concepto_cierre:
+            story.append(Spacer(1, 4))
+            story.append(Paragraph(f"<b>Detalles Cierre:</b> {concepto_cierre}", ParagraphStyle('CierreNote', parent=cell_style, textColor=colors.HexColor('#475569'))))
+        story.append(Spacer(1, 10))
+        
+        # Ventas Realizadas (Facturas)
+        story.append(Paragraph("DETALLE DE VENTAS REALIZADAS", section_style))
+        ventas_headers = ["Factura ID", "Fecha", "Cliente", "Condición", "Total Venta"]
+        t_ventas_data = [[Paragraph(h, cell_bold_style) for h in ventas_headers]]
+        total_ventas_monto = 0.0
+        
+        for v in ventas:
+            tipo = "Contado" if v['Credito_Contado'] == 1 else "Crédito"
+            total_fact = float(v['Total'] or 0)
+            total_ventas_monto += total_fact
+            t_ventas_data.append([
+                Paragraph(f"R-{v['ID_FacturaRuta']:06d}", cell_style),
+                Paragraph(v['Fecha'].strftime('%d/%m/%Y'), cell_style),
+                Paragraph(v['Cliente'] or 'Consumidor Final', cell_style),
+                Paragraph(tipo, cell_style),
+                Paragraph(f"C$ {total_fact:,.2f}", cell_right_style)
+            ])
+            
+        t_ventas_data.append([
+            Paragraph("<b>TOTAL VENTAS</b>", cell_bold_style),
+            Paragraph("", cell_style),
+            Paragraph("", cell_style),
+            Paragraph("", cell_style),
+            Paragraph(f"<b>C$ {total_ventas_monto:,.2f}</b>", cell_right_style)
+        ])
+        
+        t_ventas = Table(t_ventas_data, colWidths=[90, 80, 200, 80, 90])
+        t_ventas_style = [
+            ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#2c5e2e')),
+            ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#cbd5e1')),
+            ('PADDING', (0,0), (-1,-1), 4),
+            ('BACKGROUND', (0,-1), (-1,-1), colors.HexColor('#f1f5f9')),
+        ]
+        for col_idx in range(len(ventas_headers)):
+            t_ventas_data[0][col_idx].style.textColor = colors.white
+        for i in range(1, len(t_ventas_data) - 1):
+            if i % 2 == 0:
+                t_ventas_style.append(('BACKGROUND', (0, i), (-1, i), colors.HexColor('#f8fafc')))
+        t_ventas.setStyle(TableStyle(t_ventas_style))
+        story.append(t_ventas)
+        story.append(Spacer(1, 10))
+        
+        # Abonos Recibidos
+        story.append(Paragraph("DETALLE DE ABONOS RECIBIDOS", section_style))
+        abonos_headers = ["Fecha", "Cliente", "Documento Afectado", "Método Pago", "Monto Aplicado"]
+        t_abonos_data = [[Paragraph(h, cell_bold_style) for h in abonos_headers]]
+        total_abonos_monto = 0.0
+        
+        for a in abonos:
+            monto_ap = float(a['Monto_Aplicado'] or 0)
+            total_abonos_monto += monto_ap
+            t_abonos_data.append([
+                Paragraph(a['Fecha'].strftime('%d/%m/%Y %H:%M'), cell_style),
+                Paragraph(a['Cliente'] or 'N/A', cell_style),
+                Paragraph(a['Num_Documento'], cell_style),
+                Paragraph(a['MetodoPago'] or 'N/A', cell_style),
+                Paragraph(f"C$ {monto_ap:,.2f}", cell_right_style)
+            ])
+            
+        t_abonos_data.append([
+            Paragraph("<b>TOTAL ABONOS</b>", cell_bold_style),
+            Paragraph("", cell_style),
+            Paragraph("", cell_style),
+            Paragraph("", cell_style),
+            Paragraph(f"<b>C$ {total_abonos_monto:,.2f}</b>", cell_right_style)
+        ])
+        
+        t_abonos = Table(t_abonos_data, colWidths=[95, 145, 110, 100, 90])
+        t_abonos_style = [
+            ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#2c5e2e')),
+            ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#cbd5e1')),
+            ('PADDING', (0,0), (-1,-1), 4),
+            ('BACKGROUND', (0,-1), (-1,-1), colors.HexColor('#f1f5f9')),
+        ]
+        for col_idx in range(len(abonos_headers)):
+            t_abonos_data[0][col_idx].style.textColor = colors.white
+        for i in range(1, len(t_abonos_data) - 1):
+            if i % 2 == 0:
+                t_abonos_style.append(('BACKGROUND', (0, i), (-1, i), colors.HexColor('#f8fafc')))
+        t_abonos.setStyle(TableStyle(t_abonos_style))
+        story.append(t_abonos)
+        story.append(Spacer(1, 10))
+        
+        # Devoluciones y Mermas
+        story.append(Paragraph("DEVOLUCIONES Y MERMAS REGISTRADAS", section_style))
+        devs_headers = ["Documento", "Fecha", "Producto", "Tipo", "Cant.", "Precio U.", "Subtotal"]
+        t_devs_data = [[Paragraph(h, cell_bold_style) for h in devs_headers]]
+        total_devs_monto = 0.0
+        
+        for d in devoluciones_mermas:
+            subt = float(d['Subtotal'] or 0)
+            total_devs_monto += subt
+            tipo_mov = "Merma" if d['ID_TipoMovimiento'] == 7 else "Devolución"
+            t_devs_data.append([
+                Paragraph(d['Documento_Numero'], cell_style),
+                Paragraph(d['Fecha_Movimiento'].strftime('%d/%m/%Y'), cell_style),
+                Paragraph(d['Producto'], cell_style),
+                Paragraph(tipo_mov, cell_style),
+                Paragraph(f"{float(d['Cantidad']):.2f}", cell_center_style),
+                Paragraph(f"C$ {float(d['Precio_Unitario'] or 0):,.2f}", cell_right_style),
+                Paragraph(f"C$ {subt:,.2f}", cell_right_style)
+            ])
+            
+        t_devs_data.append([
+            Paragraph("<b>TOTAL VALORIZADO</b>", cell_bold_style),
+            Paragraph("", cell_style),
+            Paragraph("", cell_style),
+            Paragraph("", cell_style),
+            Paragraph("", cell_style),
+            Paragraph("", cell_style),
+            Paragraph(f"<b>C$ {total_devs_monto:,.2f}</b>", cell_right_style)
+        ])
+        
+        t_devs = Table(t_devs_data, colWidths=[80, 65, 145, 80, 50, 60, 60])
+        t_devs_style = [
+            ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#2c5e2e')),
+            ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#cbd5e1')),
+            ('PADDING', (0,0), (-1,-1), 4),
+            ('BACKGROUND', (0,-1), (-1,-1), colors.HexColor('#f1f5f9')),
+        ]
+        for col_idx in range(len(devs_headers)):
+            t_devs_data[0][col_idx].style.textColor = colors.white
+        for i in range(1, len(t_devs_data) - 1):
+            if i % 2 == 0:
+                t_devs_style.append(('BACKGROUND', (0, i), (-1, i), colors.HexColor('#f8fafc')))
+        t_devs.setStyle(TableStyle(t_devs_style))
+        story.append(t_devs)
+        story.append(Spacer(1, 20))
+        
+        # Firmas
+        story.append(Spacer(1, 15))
+        firmas_data = [
+            [Paragraph("___________________________________<br/><b>Firma Vendedor</b>", cell_center_style), 
+             Paragraph("___________________________________<br/><b>Firma Auditor/Cajero</b>", cell_center_style)]
+        ]
+        t_firmas = Table(firmas_data, colWidths=[270, 270])
+        t_firmas.setStyle(TableStyle([
+            ('ALIGN', (0,0), (-1,-1), 'CENTER'),
+            ('VALIGN', (0,0), (-1,-1), 'BOTTOM'),
+            ('PADDING', (0,0), (-1,-1), 10),
+        ]))
+        story.append(t_firmas)
+        
+        doc.build(story)
+        buffer.seek(0)
+        
+        response = make_response(buffer.getvalue())
+        response.headers['Content-Type'] = 'application/pdf'
+        filename = f"reporte_cierre_ruta_{id_asignacion}_{datetime.now().strftime('%Y%m%d')}.pdf"
+        response.headers['Content-Disposition'] = f'inline; filename={filename}'
+        return response
+        
+    except Exception as e:
+        print(f"Error generando PDF de cierre: {str(e)}")
+        traceback.print_exc()
+        flash(f'Error al generar reporte PDF: {str(e)}', 'error')
+        return redirect(url_for('vendedor.vendedor_dashboard'))
+
+
+@vendedor_bp.route('/vendedor/movimientos/ticket_cierre/<int:id_asignacion>')
+@vendedor_required
+def vendedor_ticket_cierre(id_asignacion):
+    """Genera una vista de ticket HTML detallada de 58mm del cierre de jornada"""
+    try:
+        with get_db_cursor(True) as cursor:
+            # 1. Obtener datos de la asignación
+            cursor.execute("""
+                SELECT av.ID_Asignacion, av.Fecha_Asignacion, av.Hora_Inicio, av.Hora_Fin, av.Estado,
+                       u.NombreUsuario as Vendedor, r.Nombre_Ruta as Ruta, av.ID_Usuario,
+                       v.Placa, v.Marca, v.Modelo, emp.Nombre_Empresa, emp.RUC as RUC_Empresa,
+                       emp.Direccion as Direccion_Empresa, emp.Telefono as Telefono_Empresa
+                FROM asignacion_vendedores av
+                INNER JOIN usuarios u ON av.ID_Usuario = u.ID_Usuario
+                INNER JOIN rutas r ON av.ID_Ruta = r.ID_Ruta
+                LEFT JOIN vehiculos v ON av.ID_Vehiculo = v.ID_Vehiculo
+                LEFT JOIN empresa emp ON r.ID_Empresa = emp.ID_Empresa
+                WHERE av.ID_Asignacion = %s
+            """, (id_asignacion,))
+            asignacion = cursor.fetchone()
+            
+            if not asignacion:
+                flash('Asignación no encontrada', 'error')
+                return redirect(url_for('vendedor.vendedor_dashboard'))
+                
+            vendedor_id = asignacion['ID_Usuario']
+            fecha_ruta = asignacion['Fecha_Asignacion']
+
+            # 2. Obtener movimientos de caja de la asignación por fecha
+            cursor.execute("""
+                SELECT Tipo, Concepto, Monto, Saldo_Acumulado, Fecha
+                FROM movimientos_caja_ruta
+                WHERE ID_Usuario = %s AND DATE(Fecha) = %s AND Estado = 'ACTIVO'
+                ORDER BY ID_Movimiento ASC
+            """, (vendedor_id, fecha_ruta))
+            movimientos_caja = cursor.fetchall()
+            
+            # 3. Obtener facturas/ventas realizadas en el día
+            cursor.execute("""
+                SELECT fr.ID_FacturaRuta, fr.Fecha, fr.Credito_Contado,
+                       c.Nombre as Cliente, fr.Observacion,
+                       (SELECT COALESCE(SUM(Cantidad*Precio), 0) 
+                        FROM detalle_facturacion_ruta 
+                        WHERE ID_FacturaRuta = fr.ID_FacturaRuta) as Total
+                FROM facturacion_ruta fr
+                INNER JOIN asignacion_vendedores av ON fr.ID_Asignacion = av.ID_Asignacion
+                LEFT JOIN clientes c ON fr.ID_Cliente = c.ID_Cliente
+                WHERE av.ID_Usuario = %s AND DATE(fr.Fecha) = %s AND fr.Estado = 'Activa'
+                ORDER BY fr.ID_FacturaRuta ASC
+            """, (vendedor_id, fecha_ruta))
+            ventas = cursor.fetchall()
+            
+            # 4. Obtener abonos detallados recibidos en el día
+            cursor.execute("""
+                SELECT ad.ID_Detalle, ad.Monto_Aplicado, ad.Saldo_Anterior, ad.Saldo_Nuevo,
+                       c.Nombre as Cliente, mp.Nombre as MetodoPago,
+                       COALESCE(cxc.Num_Documento, 'Saldo Inicial/Manual') as Num_Documento,
+                       ad.Fecha
+                FROM abonos_detalle ad
+                LEFT JOIN clientes c ON ad.ID_Cliente = c.ID_Cliente
+                LEFT JOIN metodos_pago mp ON ad.ID_MetodoPago = mp.ID_MetodoPago
+                LEFT JOIN cuentas_por_cobrar cxc ON ad.ID_CuentaCobrar = cxc.ID_Movimiento
+                WHERE ad.ID_Usuario = %s AND DATE(ad.Fecha) = %s
+                ORDER BY ad.ID_Detalle ASC
+            """, (vendedor_id, fecha_ruta))
+            abonos = cursor.fetchall()
+            
+            # 5. Obtener devoluciones y mermas en el día
+            cursor.execute("""
+                SELECT mrc.Documento_Numero, mrc.Fecha_Movimiento, mrc.ID_TipoMovimiento,
+                       p.Descripcion as Producto, mrd.Cantidad, mrd.Precio_Unitario, mrd.Subtotal
+                FROM movimientos_ruta_cabecera mrc
+                INNER JOIN movimientos_ruta_detalle mrd ON mrc.ID_Movimiento = mrd.ID_Movimiento
+                INNER JOIN productos p ON mrd.ID_Producto = p.ID_Producto
+                WHERE mrc.ID_Usuario_Registra = %s 
+                  AND DATE(mrc.Fecha_Movimiento) = %s
+                  AND mrc.ID_TipoMovimiento IN (7, 11)
+                  AND mrc.Estado = 'ACTIVO'
+                ORDER BY mrc.Fecha_Movimiento ASC
+            """, (vendedor_id, fecha_ruta))
+            devoluciones_mermas = cursor.fetchall()
+            
+        # Calcular resúmenes de caja
+        apertura = 0.0
+        cierre = 0.0
+        caja_cerrada = False
+        ventas_contado_monto = 0.0
+        abonos_monto = 0.0
+        gastos_monto = 0.0
+        concepto_cierre = ""
+        
+        for mov in movimientos_caja:
+            if mov['Tipo'] == 'APERTURA':
+                apertura = float(mov['Monto'] or 0)
+            elif mov['Tipo'] == 'CIERRE':
+                cierre = float(mov['Monto'] or 0)
+                caja_cerrada = True
+                concepto_cierre = mov['Concepto'] or ""
+            elif mov['Tipo'] == 'GASTO':
+                gastos_monto += float(mov['Monto'] or 0)
+                
+        # Calcular montos directamente desde las transacciones reales para evitar inconsistencias
+        ventas_contado_monto = sum(float(v['Total'] or 0) for v in ventas if v['Credito_Contado'] == 1)
+        abonos_monto = sum(float(a['Monto_Aplicado'] or 0) for a in abonos)
+        abonos_efectivo_monto = sum(float(a['Monto_Aplicado'] or 0) for a in abonos if a['MetodoPago'] == 'Efectivo')
+        abonos_otros_monto = sum(float(a['Monto_Aplicado'] or 0) for a in abonos if a['MetodoPago'] != 'Efectivo')
+
+        # Extraer gastos individuales de caja ruta
+        gastos = [mov for mov in movimientos_caja if mov['Tipo'] == 'GASTO']
+
+        # El saldo esperado de caja física (efectivo) es:
+        # apertura (efectivo) + ventas_contado_monto (efectivo) + abonos_efectivo_monto - gastos_monto (efectivo)
+        efectivo_esperado = apertura + ventas_contado_monto + abonos_efectivo_monto - gastos_monto
+        
+        saldo_esperado = apertura + ventas_contado_monto + abonos_monto - gastos_monto
+        diferencia = cierre - efectivo_esperado if caja_cerrada else 0.0 # La diferencia física contra lo entregado en efectivo
+        
+        # Calcular totales
+        total_ventas_monto = sum(float(v['Total'] or 0) for v in ventas)
+        total_abonos_monto = sum(float(a['Monto_Aplicado'] or 0) for a in abonos)
+        total_devs_monto = sum(float(d['Subtotal'] or 0) for d in devoluciones_mermas)
+
+        ticket_data = {
+            'asignacion': asignacion,
+            'apertura': apertura,
+            'cierre': cierre,
+            'caja_cerrada': caja_cerrada,
+            'concepto_cierre': concepto_cierre,
+            'ventas_contado_monto': ventas_contado_monto,
+            'abonos_monto': abonos_monto,
+            'abonos_efectivo_monto': abonos_efectivo_monto,
+            'abonos_otros_monto': abonos_otros_monto,
+            'gastos_monto': gastos_monto,
+            'gastos': gastos,
+            'saldo_esperado': saldo_esperado,
+            'efectivo_esperado': efectivo_esperado,
+            'diferencia': diferencia,
+            'ventas': ventas,
+            'abonos': abonos,
+            'devoluciones_mermas': devoluciones_mermas,
+            'total_ventas_monto': total_ventas_monto,
+            'total_abonos_monto': total_abonos_monto,
+            'total_devs_monto': total_devs_monto,
+            'fecha_impresion': datetime.now()
+        }
+        
+        return render_template('vendedor/movimientos/ticket_cierre_ruta.html', ticket=ticket_data)
+        
+    except Exception as e:
+        print(f"Error generando ticket de cierre: {str(e)}")
+        traceback.print_exc()
+        flash(f'Error al generar ticket: {str(e)}', 'error')
+        return redirect(url_for('vendedor.vendedor_dashboard'))
 
 

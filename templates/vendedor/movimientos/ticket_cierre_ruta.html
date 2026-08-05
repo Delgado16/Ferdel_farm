@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ticket de Cierre #{{ ticket.asignacion.ID_Asignacion }}</title>
+    <style>
+        /* ===== ESTILOS PARA IMPRESIÓN ===== */
+        @media print {
+            @page {
+                margin: 0;
+                size: auto;
+            }
+            body {
+                margin: 0;
+                padding: 0;
+                font-family: Arial, Helvetica, sans-serif;
+                font-size: 10px !important;
+                line-height: 1.2;
+                color: #000;
+                background: #fff;
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+            }
+            .no-print, .btn-group {
+                display: none !important;
+            }
+            .ticket-container {
+                width: 100% !important;
+                max-width: 100% !important;
+                margin: 0 auto !important;
+                padding: 4px 4px 45px 4px !important;
+                border: none !important;
+                box-shadow: none !important;
+                page-break-inside: avoid;
+            }
+            table {
+                font-size: 8.5px !important;
+            }
+        }
+
+        /* ===== ESTILOS GENERALES ===== */
+        body {
+            font-family: Arial, Helvetica, sans-serif;
+            font-size: 10.5px;
+            margin: 0;
+            padding: 10px;
+            background: #f8f9fa;
+        }
+
+        .ticket-container {
+            width: 58mm;
+            margin: 0 auto;
+            background: white;
+            padding: 6px;
+            border: 1px solid #ddd;
+            box-shadow: 0 0 5px rgba(0, 0, 0, 0.1);
+        }
+
+        /* ===== UTILIDADES ===== */
+        .text-center { text-align: center; }
+        .text-right { text-align: right; }
+        .text-left { text-align: left; }
+        .bold { font-weight: bold; }
+        
+        .divider {
+            border-top: 1px dashed #000;
+            margin: 5px 0;
+            padding-top: 5px;
+        }
+        .double-divider {
+            border-top: 2px solid #000;
+            margin: 8px 0;
+        }
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 1.5px 0;
+            line-height: 1.2;
+        }
+        .info-label {
+            font-weight: bold;
+            min-width: 60px;
+            text-align: left;
+        }
+        .info-value {
+            flex: 1;
+            text-align: right;
+            word-break: break-word;
+        }
+
+        /* ===== ENCABEZADO ===== */
+        .logo-container {
+            text-align: center;
+            margin-bottom: 5px;
+        }
+        .logo {
+            max-width: 100%;
+            height: auto;
+            max-height: 45px;
+            margin-bottom: 3px;
+        }
+        .logo-text {
+            font-weight: bold;
+            font-size: 13px;
+            text-transform: uppercase;
+            margin-top: 3px;
+        }
+        .ticket-title {
+            font-weight: bold;
+            font-size: 11px;
+            margin-top: 6px;
+            margin-bottom: 3px;
+            text-transform: uppercase;
+            border: 1px solid #000;
+            padding: 2px;
+        }
+
+        /* ===== TABLAS ===== */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 0;
+            font-size: 8.5px;
+        }
+        th, td {
+            padding: 1.5px 0.5px;
+            vertical-align: top;
+            line-height: 1.1;
+        }
+        .table-header {
+            border-bottom: 1px dashed #000;
+            font-weight: bold;
+        }
+        .table-footer {
+            border-top: 1px dashed #000;
+            font-weight: bold;
+        }
+
+        /* ===== BOTONES DE ACCION (NO PRINT) ===== */
+        .btn-group {
+            display: flex;
+            gap: 10px;
+            max-width: 58mm;
+            margin: 0 auto 10px auto;
+        }
+        .btn {
+            flex: 1;
+            padding: 8px;
+            font-size: 11px;
+            font-weight: bold;
+            border-radius: 4px;
+            border: none;
+            cursor: pointer;
+            text-align: center;
+            text-decoration: none;
+        }
+        .btn-print { background-color: #2c5e2e; color: white; }
+        .btn-back { background-color: #6c757d; color: white; }
+        .negative { color: #cc0000; }
+        .positive { color: #006600; }
+    </style>
+</head>
+<body>
+
+    <!-- BOTONES DE ACCIÓN (NO IMPRIMIBLES) -->
+    <div class="btn-group no-print">
+        <a href="{{ url_for('vendedor.vendedor_dashboard') }}" class="btn btn-back">Volver</a>
+        <button onclick="window.print();" class="btn btn-print">Imprimir</button>
+    </div>
+
+    <!-- CONTENEDOR TICKET 58MM -->
+    <div class="ticket-container">
+        <!-- CABECERA EMPRESA -->
+        <div class="text-center">
+            <div class="logo-container">
+                <img src="{{ url_for('static', filename='ferdel.png') }}" alt="Logo" class="logo" onerror="this.style.display='none';">
+            </div>
+            <div class="logo-text">{{ ticket.asignacion.Nombre_Empresa or 'GRANJA AVICOLA FERDEL' }}</div>
+            {% if ticket.asignacion.RUC_Empresa %}
+            <div class="size-9">RUC: {{ ticket.asignacion.RUC_Empresa }}</div>
+            {% endif %}
+            {% if ticket.asignacion.Direccion_Empresa %}
+            <div class="size-9">{{ ticket.asignacion.Direccion_Empresa }}</div>
+            {% endif %}
+            {% if ticket.asignacion.Telefono_Empresa %}
+            <div class="size-9">Tel: {{ ticket.asignacion.Telefono_Empresa }}</div>
+            {% endif %}
+            
+            <div class="ticket-title">CIERRE DE JORNADA</div>
+        </div>
+
+        <!-- INFORMACIÓN DE LA RUTA -->
+        <div class="info-row">
+            <span class="info-label">Asignación:</span>
+            <span class="info-value bold">#{{ ticket.asignacion.ID_Asignacion }}</span>
+        </div>
+        <div class="info-row">
+            <span class="info-label">Ruta:</span>
+            <span class="info-value">{{ ticket.asignacion.Ruta }}</span>
+        </div>
+        <div class="info-row">
+            <span class="info-label">Vendedor:</span>
+            <span class="info-value">{{ ticket.asignacion.Vendedor }}</span>
+        </div>
+        {% if ticket.asignacion.Placa %}
+        <div class="info-row">
+            <span class="info-label">Vehículo:</span>
+            <span class="info-value">{{ ticket.asignacion.Marca }} {{ ticket.asignacion.Modelo }} ({{ ticket.asignacion.Placa }})</span>
+        </div>
+        {% endif %}
+        <div class="info-row">
+            <span class="info-label">Fecha:</span>
+            <span class="info-value">{{ ticket.asignacion.Fecha_Asignacion.strftime('%d/%m/%Y') }}</span>
+        </div>
+        <div class="info-row">
+            <span class="info-label">Inicio:</span>
+            <span class="info-value">{{ ticket.asignacion.Hora_Inicio or 'N/A' }}</span>
+        </div>
+        <div class="info-row">
+            <span class="info-label">Fin:</span>
+            <span class="info-value">{{ ticket.asignacion.Hora_Fin or 'N/A' }}</span>
+        </div>
+
+        <div class="divider"></div>
+
+        <!-- RESUMEN FINANCIERO DE CAJA -->
+        <div class="text-center bold size-11" style="margin-bottom: 4px;">RESUMEN DE CAJA</div>
+        
+        <div class="info-row">
+            <span class="info-label">Apertura:</span>
+            <span class="info-value">C$ {{ "{:,.2f}".format(ticket.apertura) }}</span>
+        </div>
+        <div class="info-row">
+            <span class="info-label">Venta Contado:</span>
+            <span class="info-value">(+) C$ {{ "{:,.2f}".format(ticket.ventas_contado_monto) }}</span>
+        </div>
+        <div class="info-row">
+            <span class="info-label">Abonos Efectivo:</span>
+            <span class="info-value">(+) C$ {{ "{:,.2f}".format(ticket.abonos_efectivo_monto) }}</span>
+        </div>
+        <div class="info-row">
+            <span class="info-label">Gastos Ruta:</span>
+            <span class="info-value">(-) C$ {{ "{:,.2f}".format(ticket.gastos_monto) }}</span>
+        </div>
+        
+        <div class="divider"></div>
+        
+        <div class="info-row bold">
+            <span class="info-label">Efectivo Esperado:</span>
+            <span class="info-value">C$ {{ "{:,.2f}".format(ticket.efectivo_esperado) }}</span>
+        </div>
+        
+        {% if ticket.abonos_otros_monto > 0 %}
+        <div class="info-row">
+            <span class="info-label">Otros (Transf/Bancos):</span>
+            <span class="info-value">(+) C$ {{ "{:,.2f}".format(ticket.abonos_otros_monto) }}</span>
+        </div>
+        <div class="info-row italic">
+            <span class="info-label">Total Esperado:</span>
+            <span class="info-value">C$ {{ "{:,.2f}".format(ticket.saldo_esperado) }}</span>
+        </div>
+        {% endif %}
+        
+        <div class="info-row bold">
+            <span class="info-label">Cierre Real (Efec):</span>
+            <span class="info-value">{% if ticket.caja_cerrada %}C$ {{ "{:,.2f}".format(ticket.cierre) }}{% else %}PENDIENTE{% endif %}</span>
+        </div>
+        <div class="info-row bold">
+            <span class="info-label">Diferencia (Efec):</span>
+            <span class="info-value {% if ticket.diferencia < -0.01 %}negative{% elif ticket.diferencia > 0.01 %}positive{% endif %}">
+                {% if ticket.caja_cerrada %}C$ {{ "{:,.2f}".format(ticket.diferencia) }}{% else %}N/A{% endif %}
+            </span>
+        </div>
+        {% if ticket.concepto_cierre %}
+        <div class="size-9 italic text-center" style="margin-top: 3px; color: #444;">
+            ({{ ticket.concepto_cierre }})
+        </div>
+        {% endif %}
+
+        <div class="double-divider"></div>
+
+        <!-- DETALLE DE VENTAS -->
+        <div class="text-center bold size-11" style="margin-bottom: 4px;">DETALLE DE VENTAS</div>
+        <table>
+            <thead>
+                <tr class="table-header">
+                    <th class="text-left">CLIENTE</th>
+                    <th class="text-left">COND.</th>
+                    <th class="text-right">TOTAL</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for v in ticket.ventas %}
+                <tr>
+                    <td class="text-left">{{ v.Cliente or 'Público Gral.' }}</td>
+                    <td class="text-left">{{ 'Contado' if v.Credito_Contado == 1 else 'Crédito' }}</td>
+                    <td class="text-right">C$ {{ "{:,.2f}".format(v.Total) }}</td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="3" class="text-center text-muted">Sin ventas realizadas.</td>
+                </tr>
+                {% endfor %}
+                <tr class="table-footer">
+                    <td colspan="2" class="text-left">TOTAL CONTADO:</td>
+                    <td class="text-right">C$ {{ "{:,.2f}".format(ticket.ventas_contado_monto) }}</td>
+                </tr>
+                <tr class="table-footer">
+                    <td colspan="2" class="text-left">TOTAL CRÉDITO:</td>
+                    <td class="text-right">C$ {{ "{:,.2f}".format(ticket.total_ventas_monto - ticket.ventas_contado_monto) }}</td>
+                </tr>
+                <tr class="table-footer" style="border-top: 1px solid #000;">
+                    <td colspan="2" class="text-left">TOTAL VENTAS:</td>
+                    <td class="text-right">C$ {{ "{:,.2f}".format(ticket.total_ventas_monto) }}</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <div class="double-divider"></div>
+
+        <!-- DETALLE DE ABONOS -->
+        <div class="text-center bold size-11" style="margin-bottom: 4px;">ABONOS RECIBIDOS</div>
+        <table>
+            <thead>
+                <tr class="table-header">
+                    <th class="text-left">CLIENTE</th>
+                    <th class="text-left">PAGO</th>
+                    <th class="text-right">MONTO</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for a in ticket.abonos %}
+                <tr>
+                    <td class="text-left">{{ a.Cliente }}</td>
+                    <td class="text-left">{{ a.MetodoPago or 'N/A' }}</td>
+                    <td class="text-right">C$ {{ "{:,.2f}".format(a.Monto_Aplicado) }}</td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="3" class="text-center text-muted">Sin abonos cobrados.</td>
+                </tr>
+                {% endfor %}
+                <tr class="table-footer">
+                    <td colspan="2" class="text-left">TOTAL ABONOS:</td>
+                    <td class="text-right">C$ {{ "{:,.2f}".format(ticket.total_abonos_monto) }}</td>
+                </tr>
+            </tbody>
+        </table>
+
+        {% if ticket.gastos %}
+        <div class="double-divider"></div>
+        <!-- DETALLE DE GASTOS -->
+        <div class="text-center bold size-11" style="margin-bottom: 4px;">DETALLE DE GASTOS</div>
+        <table>
+            <thead>
+                <tr class="table-header">
+                    <th class="text-left">CONCEPTO</th>
+                    <th class="text-right">MONTO</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for g in ticket.gastos %}
+                <tr>
+                    <td class="text-left">{{ g.Concepto }}</td>
+                    <td class="text-right">C$ {{ "{:,.2f}".format(g.Monto) }}</td>
+                </tr>
+                {% endfor %}
+                <tr class="table-footer">
+                    <td class="text-left">TOTAL GASTOS:</td>
+                    <td class="text-right">C$ {{ "{:,.2f}".format(ticket.gastos_monto) }}</td>
+                </tr>
+            </tbody>
+        </table>
+        {% endif %}
+
+        <div class="double-divider"></div>
+
+        <!-- DEVOLUCIONES Y MERMAS -->
+        <div class="text-center bold size-11" style="margin-bottom: 4px;">DEVOLUCIONES Y MERMAS</div>
+        <table>
+            <thead>
+                <tr class="table-header">
+                    <th class="text-left">PROD.</th>
+                    <th class="text-center">TIPO</th>
+                    <th class="text-right">CANT.</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for d in ticket.devoluciones_mermas %}
+                <tr>
+                    <td class="text-left">{{ d.Producto }}</td>
+                    <td class="text-center">{{ 'Merma' if d.ID_TipoMovimiento == 7 else 'Devol.' }}</td>
+                    <td class="text-right">{{ "{:,.0f}".format(d.Cantidad) }}</td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="3" class="text-center text-muted">Sin movimientos.</td>
+                </tr>
+                {% endfor %}
+                <tr class="table-footer">
+                    <td colspan="2" class="text-left">VALORIZADO:</td>
+                    <td class="text-right">C$ {{ "{:,.2f}".format(ticket.total_devs_monto) }}</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <div class="double-divider"></div>
+
+        <!-- FIRMAS -->
+        <div class="text-center" style="margin-top: 15px;">
+            <div>________________________________</div>
+            <div class="bold" style="margin-bottom: 15px;">Firma Vendedor</div>
+
+            <div>________________________________</div>
+            <div class="bold">Firma Cajero/Auditor</div>
+        </div>
+
+        <div class="divider" style="margin-top: 15px;"></div>
+        <div class="text-center size-9 bold">
+            FERDEL - Cierre generado el<br>
+            {{ ticket.fecha_impresion.strftime('%d/%m/%Y %H:%M') }}
+        </div>
+    </div>
+
+    <!-- AUTO IMPRIMIR AL CARGAR -->
+    <script>
+        window.addEventListener('DOMContentLoaded', () => {
+            // Un pequeño delay para permitir que el renderizado de la impresora se complete
+            setTimeout(() => {
+                window.print();
+            }, 500);
+        });
+    </script>
+</body>
+</html>
