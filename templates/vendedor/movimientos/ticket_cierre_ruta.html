@@ -164,9 +164,10 @@
 <body>
 
     <!-- BOTONES DE ACCIÓN (NO IMPRIMIBLES) -->
-    <div class="btn-group no-print">
-        <a href="{{ url_for('vendedor.vendedor_dashboard') }}" class="btn btn-back">Volver</a>
-        <button onclick="window.print();" class="btn btn-print">Imprimir</button>
+    <div class="btn-group no-print" style="flex-wrap: wrap;">
+        <a href="{{ url_for('vendedor.vendedor_dashboard') }}" class="btn btn-back" style="flex-basis: 100%; margin-bottom: 5px;">Volver</a>
+        <button onclick="window.print();" class="btn btn-print" style="background-color: #007bff; color: white;">Normal</button>
+        <button onclick="imprimirRapidoRawBT(event);" class="btn btn-print">⚡ Bluetooth</button>
     </div>
 
     <!-- CONTENEDOR TICKET 58MM -->
@@ -423,13 +424,68 @@
         </div>
     </div>
 
-    <!-- AUTO IMPRIMIR AL CARGAR -->
+    <script src="{{ url_for('static', filename='js/html2canvas.min.js') }}"></script>
     <script>
-        window.addEventListener('DOMContentLoaded', () => {
-            // Un pequeño delay para permitir que el renderizado de la impresora se complete
-            setTimeout(() => {
-                window.print();
-            }, 500);
+        function imprimirRapidoRawBT(event) {
+            const btn = event ? event.currentTarget : null;
+            let originalText = '';
+            if (btn) {
+                originalText = btn.innerHTML;
+                btn.disabled = true;
+                btn.innerHTML = '⌛ Generando...';
+            }
+
+            const element = document.querySelector('.ticket-container');
+            if (!element) {
+                alert("Error: No se encontró el contenedor del ticket.");
+                if (btn) {
+                    btn.disabled = false;
+                    btn.innerHTML = originalText;
+                }
+                return;
+            }
+
+            // Capturar el ticket usando html2canvas para la redirección a RawBT
+            html2canvas(element, {
+                scale: 2.5,
+                useCORS: true,
+                allowTaint: true,
+                backgroundColor: '#ffffff',
+                onclone: function (clonedDoc) {
+                    const clonedContainer = clonedDoc.querySelector('.ticket-container');
+                    if (clonedContainer) {
+                        clonedContainer.style.setProperty('font-size', '13.5px', 'important');
+                    }
+                }
+            }).then(canvas => {
+                const imgData = canvas.toDataURL('image/png');
+                const base64Data = imgData.split(',')[1];
+                const url = "rawbt:data:image/png;base64," + base64Data;
+
+                if (btn) {
+                    btn.disabled = false;
+                    btn.innerHTML = originalText;
+                }
+
+                window.location.href = url;
+            }).catch(err => {
+                console.error("Error al capturar ticket:", err);
+                alert("Error al generar imagen de ticket para Bluetooth: " + err.message);
+                if (btn) {
+                    btn.disabled = false;
+                    btn.innerHTML = originalText;
+                }
+            });
+        }
+
+        // Auto-impresión estándar solo si viene el parámetro autoPrint
+        document.addEventListener('DOMContentLoaded', function () {
+            var urlParams = new URLSearchParams(window.location.search);
+            if (urlParams.has('autoPrint') && urlParams.get('autoPrint') == '1') {
+                setTimeout(function () {
+                    window.print();
+                }, 500);
+            }
         });
     </script>
 </body>
