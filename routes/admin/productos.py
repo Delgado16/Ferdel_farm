@@ -18,6 +18,7 @@ def admin_productos():
         bodega_filtro = request.args.get('bodega', 'todas')
         stock_filtro = request.args.get('stock', 'todos')
         empresa_filtro = request.args.get('empresa', 'todas')
+        estado_filtro = request.args.get('estado', 'activo')
         search_term = request.args.get('search', '')
         
         with get_db_cursor() as cursor:
@@ -41,10 +42,15 @@ def admin_productos():
                 LEFT JOIN categorias_producto cp ON p.ID_Categoria = cp.ID_Categoria
                 LEFT JOIN empresa e ON p.ID_Empresa = e.ID_Empresa
                 LEFT JOIN inventario_bodega ib ON p.ID_Producto = ib.ID_Producto
-                WHERE p.Estado = 'activo'
+                WHERE 1=1
             """
             
             params = []
+            
+            # Filtro de Estado
+            if estado_filtro != 'todos':
+                query += " AND p.Estado = %s"
+                params.append(estado_filtro)
             
             # Filtros
             if categoria_filtro != 'todos':
@@ -236,6 +242,7 @@ def admin_productos():
                                  stock_seleccionado=stock_filtro,
                                  empresas=empresas,
                                  empresa_seleccionada=empresa_filtro,
+                                 estado_seleccionado=estado_filtro,
                                  unidades=unidades,
                                  search_term=search_term)
                                  
@@ -253,6 +260,7 @@ def admin_productos():
                                 stock_seleccionado='todos',
                                 empresas=[],
                                 empresa_seleccionada='todas',
+                                estado_seleccionado='activo',
                                 unidades=[],
                                 search_term='')
 

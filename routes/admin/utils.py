@@ -76,12 +76,14 @@ def obtener_metricas_kpis():
         """)
         facturas_vencidas = cursor.fetchone()['count'] or 0
         
-        # Productos con stock bajo
+        # Productos con stock bajo (solo productos activos y bodega principal ID_Bodega = 1)
         cursor.execute("""
             SELECT COUNT(*) as count
             FROM inventario_bodega ib
             INNER JOIN productos p ON ib.ID_Producto = p.ID_Producto
-            WHERE ib.Existencias <= p.Stock_Minimo
+            WHERE ib.ID_Bodega = 1
+            AND p.Estado = 'Activo'
+            AND ib.Existencias <= p.Stock_Minimo
         """)
         productos_bajo_stock = cursor.fetchone()['count'] or 0
     
@@ -130,7 +132,7 @@ def obtener_top_clientes_deudores():
         return cursor.fetchall()
 
 def obtener_productos_bajo_stock():
-    """Obtiene productos con stock bajo"""
+    """Obtiene productos con stock bajo (solo activos y de la bodega principal ID_Bodega = 1)"""
     with get_db_cursor() as cursor:
         cursor.execute("""
             SELECT 
@@ -141,7 +143,9 @@ def obtener_productos_bajo_stock():
                 (p.Stock_Minimo - ib.Existencias) AS Faltante
             FROM inventario_bodega ib
             INNER JOIN productos p ON ib.ID_Producto = p.ID_Producto
-            WHERE ib.Existencias <= p.Stock_Minimo
+            WHERE ib.ID_Bodega = 1
+              AND p.Estado = 'Activo'
+              AND ib.Existencias <= p.Stock_Minimo
             ORDER BY ib.Existencias ASC
             LIMIT 10
         """)
