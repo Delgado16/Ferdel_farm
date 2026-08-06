@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="es">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -237,8 +238,13 @@
             font-size: 14.5px;
         }
 
-        .negative { color: #cc0000; }
-        .positive { color: #006600; }
+        .negative {
+            color: #cc0000;
+        }
+
+        .positive {
+            color: #006600;
+        }
 
         /* ===== CONTROLES NO IMPRIMIBLES ===== */
         .print-controls {
@@ -253,6 +259,7 @@
         }
     </style>
 </head>
+
 <body>
 
     <!-- CONTENEDOR TICKET 58MM -->
@@ -260,7 +267,8 @@
         <!-- CABECERA EMPRESA -->
         <div class="text-center">
             <div class="logo-container">
-                <img src="{{ url_for('static', filename='ferdel.png') }}" alt="Logo" class="logo" onerror="this.style.display='none';">
+                <img src="{{ url_for('static', filename='ferdel.png') }}" alt="Logo" class="logo"
+                    onerror="this.style.display='none';">
             </div>
             <div class="logo-text">{{ ticket.asignacion.Nombre_Empresa or 'GRANJA AVICOLA FERDEL' }}</div>
             {% if ticket.asignacion.RUC_Empresa %}
@@ -272,7 +280,7 @@
             {% if ticket.asignacion.Telefono_Empresa %}
             <div class="size-9">Tel: {{ ticket.asignacion.Telefono_Empresa }}</div>
             {% endif %}
-            
+
             <div class="ticket-title">CIERRE DE JORNADA</div>
         </div>
 
@@ -292,7 +300,8 @@
         {% if ticket.asignacion.Placa %}
         <div class="info-row">
             <span class="info-label">Vehículo:</span>
-            <span class="info-value">{{ ticket.asignacion.Marca }} {{ ticket.asignacion.Modelo }} ({{ ticket.asignacion.Placa }})</span>
+            <span class="info-value">{{ ticket.asignacion.Marca }} {{ ticket.asignacion.Modelo }} ({{
+                ticket.asignacion.Placa }})</span>
         </div>
         {% endif %}
         <div class="info-row">
@@ -312,7 +321,7 @@
 
         <!-- RESUMEN FINANCIERO DE CAJA -->
         <div class="text-center bold size-11" style="margin-bottom: 4px;">RESUMEN DE CAJA</div>
-        
+
         <div class="info-row">
             <span class="info-label">Apertura:</span>
             <span class="info-value">C$ {{ "{:,.2f}".format(ticket.apertura) }}</span>
@@ -329,14 +338,14 @@
             <span class="info-label">Gastos Ruta:</span>
             <span class="info-value">(-) C$ {{ "{:,.2f}".format(ticket.gastos_monto) }}</span>
         </div>
-        
+
         <div class="divider"></div>
-        
+
         <div class="info-row bold">
             <span class="info-label">Efectivo Esperado:</span>
             <span class="info-value">C$ {{ "{:,.2f}".format(ticket.efectivo_esperado) }}</span>
         </div>
-        
+
         {% if ticket.abonos_otros_monto > 0 %}
         <div class="info-row">
             <span class="info-label">Otros (Transf/Bancos):</span>
@@ -347,14 +356,16 @@
             <span class="info-value">C$ {{ "{:,.2f}".format(ticket.saldo_esperado) }}</span>
         </div>
         {% endif %}
-        
+
         <div class="info-row bold">
             <span class="info-label">Cierre Real (Efec):</span>
-            <span class="info-value">{% if ticket.caja_cerrada %}C$ {{ "{:,.2f}".format(ticket.cierre) }}{% else %}PENDIENTE{% endif %}</span>
+            <span class="info-value">{% if ticket.caja_cerrada %}C$ {{ "{:,.2f}".format(ticket.cierre) }}{% else
+                %}PENDIENTE{% endif %}</span>
         </div>
         <div class="info-row bold">
             <span class="info-label">Diferencia (Efec):</span>
-            <span class="info-value {% if ticket.diferencia < -0.01 %}negative{% elif ticket.diferencia > 0.01 %}positive{% endif %}">
+            <span
+                class="info-value {% if ticket.diferencia < -0.01 %}negative{% elif ticket.diferencia > 0.01 %}positive{% endif %}">
                 {% if ticket.caja_cerrada %}C$ {{ "{:,.2f}".format(ticket.diferencia) }}{% else %}N/A{% endif %}
             </span>
         </div>
@@ -394,7 +405,8 @@
                 </tr>
                 <tr class="table-footer">
                     <td colspan="2" class="text-left">TOTAL CRÉDITO:</td>
-                    <td class="text-right">C$ {{ "{:,.2f}".format(ticket.total_ventas_monto - ticket.ventas_contado_monto) }}</td>
+                    <td class="text-right">C$ {{ "{:,.2f}".format(ticket.total_ventas_monto -
+                        ticket.ventas_contado_monto) }}</td>
                 </tr>
                 <tr class="table-footer" style="border-top: 1px solid #000;">
                     <td colspan="2" class="text-left">TOTAL VENTAS:</td>
@@ -557,7 +569,7 @@
 
             // Usamos html2canvas para renderizar la imagen con estilos escalados
             html2canvas(element, {
-                scale: 2.5, // Aumentar resolución para mayor nitidez
+                scale: 2.0, // Reducimos ligeramente a 2.0 para evitar URLs excesivamente largas en cierres extensos
                 useCORS: true,
                 allowTaint: true,
                 backgroundColor: '#ffffff',
@@ -608,9 +620,10 @@
                     }
                 }
             }).then(canvas => {
-                const imgData = canvas.toDataURL('image/png');
+                // Usamos image/jpeg con calidad 0.8 para comprimir la imagen y no superar el límite de longitud de URL del navegador/sistema
+                const imgData = canvas.toDataURL('image/jpeg', 0.8);
                 const base64Data = imgData.split(',')[1];
-                const url = "rawbt:data:image/png;base64," + base64Data;
+                const url = "rawbt:data:image/jpeg;base64," + base64Data;
 
                 if (btn) {
                     btn.disabled = false;
@@ -647,4 +660,5 @@
         });
     </script>
 </body>
+
 </html>
