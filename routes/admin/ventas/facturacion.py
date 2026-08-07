@@ -1001,6 +1001,7 @@ def admin_generar_ticket(id_factura):
                     COALESCE(e.Telefono, '') as Telefono_Empresa,
                     CASE 
                         WHEN f.Credito_Contado = 1 THEN 'CRÉDITO'
+                        WHEN f.Credito_Contado = 2 THEN 'REPARTO'
                         ELSE 'CONTADO'
                     END as Tipo_Venta_Formateado
                 FROM facturacion f
@@ -1259,6 +1260,7 @@ def admin_detalles_venta(id_factura):
                     -- Formatear tipo de venta
                     CASE 
                         WHEN f.Credito_Contado = 1 THEN 'CRÉDITO'
+                        WHEN f.Credito_Contado = 2 THEN 'REPARTO'
                         ELSE 'CONTADO'
                     END as Tipo_Venta_Formateado,
                     f.Credito_Contado as Tipo_Venta_Numerico,
