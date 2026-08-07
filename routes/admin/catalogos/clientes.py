@@ -163,9 +163,15 @@ def admin_crear_cliente():
         limite_anticipo_cajas = request.form.get("limite_anticipo_cajas", "0").strip()
         saldo_anticipos = request.form.get("saldo_anticipos", "0").strip()
         producto_anticipado = request.form.get("producto_anticipado", "").strip()
+        saldo_pendiente = request.form.get("saldo_pendiente", "0").strip()
         
         id_usuario = current_user.id
         id_empresa = session.get('id_empresa', 1)
+
+        try:
+            saldo_pendiente = float(saldo_pendiente) if saldo_pendiente else 0.0
+        except ValueError:
+            saldo_pendiente = 0.0
 
         # Validaciones básicas
         if not nombre:
@@ -301,7 +307,7 @@ def admin_crear_cliente():
                 VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             """, (nombre, telefono, direccion, ruc_cedula, id_empresa, 
                   id_usuario, tipo_cliente, perfil_cliente, id_ruta,
-                  0.00, 'ACTIVO',
+                  saldo_pendiente, 'ACTIVO',
                   anticipo_activo, limite_anticipo_cajas, saldo_anticipos,
                   producto_anticipado, 0))
             

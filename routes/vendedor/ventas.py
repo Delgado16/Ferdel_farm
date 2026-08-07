@@ -1460,13 +1460,18 @@ def api_filtrar_ventas():
             from datetime import datetime, timedelta
             
             if fecha == 'hoy':
-                fecha_cond = "AND DATE(fr.Fecha) = CURDATE()"
+                if id_ruta and id_ruta != '' and id_ruta != 'todas':
+                    fecha_cond = ""
+                else:
+                    fecha_cond = "AND DATE(fr.Fecha) = CURDATE()"
             elif fecha == 'ayer':
                 fecha_cond = "AND DATE(fr.Fecha) = CURDATE() - INTERVAL 1 DAY"
             elif fecha == 'semana':
                 fecha_cond = "AND fr.Fecha >= CURDATE() - INTERVAL 7 DAY"
             elif fecha == 'mes':
                 fecha_cond = "AND fr.Fecha >= CURDATE() - INTERVAL 30 DAY"
+            elif fecha == 'todos':
+                fecha_cond = ""
             elif fecha == 'personalizado' and fecha_inicio and fecha_fin:
                 try:
                     # Intentar parsear en DD/MM/YYYY primero
@@ -1498,10 +1503,10 @@ def api_filtrar_ventas():
                 except:
                     pass
             
-            # Consulta SQL
+             # Consulta SQL
             query = f"""
                 SELECT fr.ID_FacturaRuta, 
-                       DATE_FORMAT(fr.Fecha, '%%d/%%m/%%Y') as Fecha,
+                       fr.Fecha,
                        fr.Fecha_Creacion,
                        fr.Credito_Contado,
                        fr.Observacion, 
@@ -1540,9 +1545,21 @@ def api_filtrar_ventas():
             
             # Formatear para JSON
             ventas_list = []
-            from datetime import datetime as dt
+            from datetime import datetime as dt, date as d_type
             
             for v in ventas_raw:
+                # Formatear Fecha
+                fecha_formateada = 'Fecha no disponible'
+                if v.get('Fecha'):
+                    if isinstance(v['Fecha'], (dt, d_type)):
+                        fecha_formateada = v['Fecha'].strftime('%d/%m/%Y')
+                    else:
+                        try:
+                            fecha_obj = dt.strptime(str(v['Fecha']), '%Y-%m-%d')
+                            fecha_formateada = fecha_obj.strftime('%d/%m/%Y')
+                        except:
+                            fecha_formateada = str(v['Fecha'])
+
                 # Calcular hora desde Fecha_Creacion
                 hora = "00:00"
                 if v.get('Fecha_Creacion'):
@@ -1557,7 +1574,7 @@ def api_filtrar_ventas():
                 
                 ventas_list.append({
                     'ID_FacturaRuta': v['ID_FacturaRuta'],
-                    'Fecha': v['Fecha'],
+                    'Fecha': fecha_formateada,
                     'Hora': hora,
                     'Cliente': v['Cliente'],
                     'RUC_CEDULA': v['RUC_CEDULA'] or 'N/A',

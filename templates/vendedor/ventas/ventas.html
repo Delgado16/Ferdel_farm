@@ -47,6 +47,7 @@
                         <option value="ayer">Ayer</option>
                         <option value="semana">Últimos 7 días</option>
                         <option value="mes">Últimos 30 días</option>
+                        <option value="todos">Todos los días</option>
                         <option value="personalizado">Personalizado</option>
                     </select>
                 </div>
@@ -193,154 +194,154 @@
             </h6>
         </div>
         <div class="card-body p-0">
-            {% if ventas %}
-            <!-- VISTA MÓVIL: Tarjetas de ventas -->
-            <div class="d-block d-lg-none">
-                {% for venta in ventas %}
-                <div class="venta-card p-3 border-bottom" data-id="{{ venta.ID_FacturaRuta }}"
-                    data-fecha="{{ venta.Fecha }}" data-tipo="{{ venta.Tipo_Venta }}"
-                    data-monto="{{ venta.Total_Venta }}">
-
-                    <!-- Cabecera de la tarjeta -->
-                    <div class="d-flex justify-content-between align-items-start mb-2">
-                        <div>
-                            <span class="fw-bold fs-6">#{{ venta.ID_FacturaRuta }}</span>
-                            <span
-                                class="badge {% if venta.Tipo_Venta == 'CONTADO' %}bg-success{% else %}bg-warning text-dark{% endif %} ms-2">
-                                {% if venta.Tipo_Venta == 'CONTADO' %}
-                                <i class="fas fa-money-bill me-1"></i> Contado
-                                {% else %}
-                                <i class="fas fa-clock me-1"></i> Crédito
-                                {% endif %}
+            <div id="contenedor_lista_ventas" {% if not ventas %}style="display: none;"{% endif %}>
+                <!-- VISTA MÓVIL: Tarjetas de ventas -->
+                <div class="d-block d-lg-none">
+                    {% for venta in ventas %}
+                    <div class="venta-card p-3 border-bottom" data-id="{{ venta.ID_FacturaRuta }}"
+                        data-fecha="{{ venta.Fecha }}" data-tipo="{{ venta.Tipo_Venta }}"
+                        data-monto="{{ venta.Total_Venta }}">
+    
+                        <!-- Cabecera de la tarjeta -->
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <div>
+                                <span class="fw-bold fs-6">#{{ venta.ID_FacturaRuta }}</span>
+                                <span
+                                    class="badge {% if venta.Tipo_Venta == 'CONTADO' %}bg-success{% else %}bg-warning text-dark{% endif %} ms-2">
+                                    {% if venta.Tipo_Venta == 'CONTADO' %}
+                                    <i class="fas fa-money-bill me-1"></i> Contado
+                                    {% else %}
+                                    <i class="fas fa-clock me-1"></i> Crédito
+                                    {% endif %}
+                                </span>
+                            </div>
+                            <span class="badge {% if venta.Estado == 'Activa' %}bg-success{% else %}bg-danger{% endif %}">
+                                {{ venta.Estado }}
                             </span>
                         </div>
-                        <span class="badge {% if venta.Estado == 'Activa' %}bg-success{% else %}bg-danger{% endif %}">
-                            {{ venta.Estado }}
-                        </span>
-                    </div>
-
-                    <!-- Información del cliente -->
-                    <div class="mb-2">
-                        <strong class="fs-6">{{ venta.Cliente }}</strong>
-                        {% if venta.Telefono %}
-                        <br><small class="text-muted"><i class="fas fa-phone me-1"></i>{{ venta.Telefono }}</small>
-                        {% endif %}
-                    </div>
-
-                    <!-- Detalles de la venta -->
-                    <div class="row g-2 mb-2">
-                        <div class="col-5">
-                            <small class="text-muted d-block">Fecha/Hora</small>
-                            <span class="small">{{ venta.Fecha }} {{ venta.Hora }}</span>
+    
+                        <!-- Información del cliente -->
+                        <div class="mb-2">
+                            <strong class="fs-6">{{ venta.Cliente }}</strong>
+                            {% if venta.Telefono %}
+                            <br><small class="text-muted"><i class="fas fa-phone me-1"></i>{{ venta.Telefono }}</small>
+                            {% endif %}
                         </div>
-                        <div class="col-4">
-                            <small class="text-muted d-block">Ruta</small>
-                            <span class="badge bg-info">{{ venta.Nombre_Ruta }}</span>
-                        </div>
-                        <div class="col-3">
-                            <small class="text-muted d-block">Total</small>
-                            <strong class="text-success">C$ {{ "{:,.2f}".format(venta.Total_Venta) }}</strong>
-                        </div>
-                    </div>
-
-                    <!-- Saldo pendiente si existe -->
-                    {% if venta.Saldo_Pendiente > 0 %}
-                    <div class="alert alert-danger py-2 px-2 mb-2 small">
-                        <i class="fas fa-exclamation-triangle me-1"></i>
-                        Saldo pendiente: C$ {{ "{:,.2f}".format(venta.Saldo_Pendiente) }}
-                    </div>
-                    {% endif %}
-
-                    <!-- Acciones -->
-                    <div class="d-flex gap-2 mt-2">
-                        <a href="{{ url_for('vendedor.vendedor_venta_detalle', id_venta=venta.ID_FacturaRuta) }}"
-                            class="btn btn-info btn-sm flex-fill">
-                            <i class="fas fa-eye me-1"></i> Ver detalle
-                        </a>
-                    </div>
-                </div>
-                {% endfor %}
-            </div>
-
-            <!-- VISTA DESKTOP: Tabla de ventas -->
-            <div class="table-responsive d-none d-lg-block">
-                <table class="table table-bordered table-hover mb-0" id="tablaVentas" width="100%" cellspacing="0">
-                    <thead class="table-light">
-                        <tr>
-                            <th># Factura</th>
-                            <th>Fecha/Hora</th>
-                            <th>Cliente</th>
-                            <th>RUC/Cédula</th>
-                            <th>Ruta</th>
-                            <th class="text-end">Total</th>
-                            <th class="text-center">Tipo</th>
-                            <th class="text-center">Estado</th>
-                            <th class="text-center">Acciones</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for venta in ventas %}
-                        <tr class="venta-row" data-id="{{ venta.ID_FacturaRuta }}" data-fecha="{{ venta.Fecha }}"
-                            data-tipo="{{ venta.Tipo_Venta }}" data-monto="{{ venta.Total_Venta }}">
-                            <td class="fw-bold">#{{ venta.ID_FacturaRuta }}</td>
-                            <td class="small">{{ venta.Fecha }}<br><small class="text-muted">{{ venta.Hora }}</small>
-                            </td>
-                            <td>
-                                <strong>{{ venta.Cliente }}</strong>
-                                {% if venta.Telefono %}
-                                <br><small class="text-muted"><i class="fas fa-phone me-1"></i>{{ venta.Telefono
-                                    }}</small>
-                                {% endif %}
-                            </td>
-                            <td class="small">{{ venta.RUC_CEDULA or 'N/A' }}</td>
-                            <td><span class="badge bg-info">{{ venta.Nombre_Ruta }}</span></td>
-                            <td class="text-end">
+    
+                        <!-- Detalles de la venta -->
+                        <div class="row g-2 mb-2">
+                            <div class="col-5">
+                                <small class="text-muted d-block">Fecha/Hora</small>
+                                <span class="small">{{ venta.Fecha }} {{ venta.Hora }}</span>
+                            </div>
+                            <div class="col-4">
+                                <small class="text-muted d-block">Ruta</small>
+                                <span class="badge bg-info">{{ venta.Nombre_Ruta }}</span>
+                            </div>
+                            <div class="col-3">
+                                <small class="text-muted d-block">Total</small>
                                 <strong class="text-success">C$ {{ "{:,.2f}".format(venta.Total_Venta) }}</strong>
-                                {% if venta.Saldo_Pendiente > 0 %}
-                                <br><small class="text-danger">Saldo: C$ {{ "{:,.2f}".format(venta.Saldo_Pendiente)
-                                    }}</small>
-                                {% endif %}
-                            </td>
-                            <td class="text-center">
-                                {% if venta.Tipo_Venta == 'CONTADO' %}
-                                <span class="badge bg-success">
-                                    <i class="fas fa-money-bill me-1"></i> Contado
-                                </span>
-                                {% else %}
-                                <span class="badge bg-warning text-dark">
-                                    <i class="fas fa-clock me-1"></i> Crédito
-                                </span>
-                                {% endif %}
-                            </td>
-                            <td class="text-center">
-                                {% if venta.Estado == 'Activa' %}
-                                <span class="badge bg-success">Activa</span>
-                                {% else %}
-                                <span class="badge bg-danger">Anulada</span>
-                                {% endif %}
-                            </td>
-                            <td class="text-center">
-                                <div class="btn-group btn-group-sm">
-                                    <a href="{{ url_for('vendedor.vendedor_venta_detalle', id_venta=venta.ID_FacturaRuta) }}"
-                                        class="btn btn-info" title="Ver detalle">
-                                        <i class="fas fa-eye"></i>
-                                    </a>
-                                </div>
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
+                            </div>
+                        </div>
+    
+                        <!-- Saldo pendiente si existe -->
+                        {% if venta.Saldo_Pendiente > 0 %}
+                        <div class="alert alert-danger py-2 px-2 mb-2 small">
+                            <i class="fas fa-exclamation-triangle me-1"></i>
+                            Saldo pendiente: C$ {{ "{:,.2f}".format(venta.Saldo_Pendiente) }}
+                        </div>
+                        {% endif %}
+    
+                        <!-- Acciones -->
+                        <div class="d-flex gap-2 mt-2">
+                            <a href="{{ url_for('vendedor.vendedor_venta_detalle', id_venta=venta.ID_FacturaRuta) }}"
+                                class="btn btn-info btn-sm flex-fill">
+                                <i class="fas fa-eye me-1"></i> Ver detalle
+                            </a>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+    
+                <!-- VISTA DESKTOP: Tabla de ventas -->
+                <div class="table-responsive d-none d-lg-block">
+                    <table class="table table-bordered table-hover mb-0" id="tablaVentas" width="100%" cellspacing="0">
+                        <thead class="table-light">
+                            <tr>
+                                <th># Factura</th>
+                                <th>Fecha/Hora</th>
+                                <th>Cliente</th>
+                                <th>RUC/Cédula</th>
+                                <th>Ruta</th>
+                                <th class="text-end">Total</th>
+                                <th class="text-center">Tipo</th>
+                                <th class="text-center">Estado</th>
+                                <th class="text-center">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for venta in ventas %}
+                            <tr class="venta-row" data-id="{{ venta.ID_FacturaRuta }}" data-fecha="{{ venta.Fecha }}"
+                                data-tipo="{{ venta.Tipo_Venta }}" data-monto="{{ venta.Total_Venta }}">
+                                <td class="fw-bold">#{{ venta.ID_FacturaRuta }}</td>
+                                <td class="small">{{ venta.Fecha }}<br><small class="text-muted">{{ venta.Hora }}</small>
+                                </td>
+                                <td>
+                                    <strong>{{ venta.Cliente }}</strong>
+                                    {% if venta.Telefono %}
+                                    <br><small class="text-muted"><i class="fas fa-phone me-1"></i>{{ venta.Telefono
+                                        }}</small>
+                                    {% endif %}
+                                </td>
+                                <td class="small">{{ venta.RUC_CEDULA or 'N/A' }}</td>
+                                <td><span class="badge bg-info">{{ venta.Nombre_Ruta }}</span></td>
+                                <td class="text-end">
+                                    <strong class="text-success">C$ {{ "{:,.2f}".format(venta.Total_Venta) }}</strong>
+                                    {% if venta.Saldo_Pendiente > 0 %}
+                                    <br><small class="text-danger">Saldo: C$ {{ "{:,.2f}".format(venta.Saldo_Pendiente)
+                                        }}</small>
+                                    {% endif %}
+                                </td>
+                                <td class="text-center">
+                                    {% if venta.Tipo_Venta == 'CONTADO' %}
+                                    <span class="badge bg-success">
+                                        <i class="fas fa-money-bill me-1"></i> Contado
+                                    </span>
+                                    {% else %}
+                                    <span class="badge bg-warning text-dark">
+                                        <i class="fas fa-clock me-1"></i> Crédito
+                                    </span>
+                                    {% endif %}
+                                </td>
+                                <td class="text-center">
+                                    {% if venta.Estado == 'Activa' %}
+                                    <span class="badge bg-success">Activa</span>
+                                    {% else %}
+                                    <span class="badge bg-danger">Anulada</span>
+                                    {% endif %}
+                                </td>
+                                <td class="text-center">
+                                    <div class="btn-group btn-group-sm">
+                                        <a href="{{ url_for('vendedor.vendedor_venta_detalle', id_venta=venta.ID_FacturaRuta) }}"
+                                            class="btn btn-info" title="Ver detalle">
+                                            <i class="fas fa-eye"></i>
+                                        </a>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
             </div>
-            {% else %}
-            <div class="text-center py-4 py-md-5">
+            
+            <div class="text-center py-4 py-md-5" id="sin_ventas_placeholder" {% if ventas %}style="display: none;"{% endif %}>
                 <i class="fas fa-shopping-cart fa-2x fa-md-3x text-muted mb-2 mb-md-3"></i>
                 <p class="text-muted small mb-2">No hay ventas registradas</p>
                 <a href="{{ url_for('vendedor.vendedor_venta_crear') }}" class="btn btn-primary btn-sm">
                     <i class="fas fa-plus me-1"></i> Registrar primera venta
                 </a>
             </div>
-            {% endif %}
         </div>
 
         <!-- Footer con información adicional -->
@@ -487,29 +488,19 @@
         var contadorElement = document.getElementById('contador_ventas');
         if (contadorElement) contadorElement.textContent = ventas.length;
 
-        if (ventas.length === 0) {
-            // Mostrar mensaje de no resultados
-            var movilContainer = document.querySelector('.d-block.d-lg-none');
-            var desktopContainer = document.querySelector('.d-none.d-lg-block');
+        var listaContainer = document.getElementById('contenedor_lista_ventas');
+        var placeholder = document.getElementById('sin_ventas_placeholder');
 
-            if (movilContainer) {
-                movilContainer.innerHTML = `
-                <div class="text-center py-5">
+        if (ventas.length === 0) {
+            // Ocultar listado y mostrar mensaje de no resultados
+            if (listaContainer) listaContainer.style.display = 'none';
+            if (placeholder) {
+                placeholder.style.display = 'block';
+                placeholder.innerHTML = `
                     <i class="fas fa-search fa-3x text-muted mb-3"></i>
                     <p class="text-muted mb-0">No hay ventas para los filtros seleccionados</p>
                     <small class="text-muted">Intente con otros criterios de búsqueda</small>
-                </div>
-            `;
-            }
-
-            if (desktopContainer) {
-                desktopContainer.innerHTML = `
-                <div class="text-center py-5">
-                    <i class="fas fa-search fa-4x text-muted mb-3"></i>
-                    <p class="text-muted mb-0">No hay ventas para los filtros seleccionados</p>
-                    <small class="text-muted">Intente con otros criterios de búsqueda</small>
-                </div>
-            `;
+                `;
             }
 
             // Actualizar resumen a cero
@@ -519,6 +510,10 @@
             document.getElementById('total_credito').textContent = 'C$ 0.00';
             return;
         }
+
+        // Mostrar listado y ocultar placeholder
+        if (listaContainer) listaContainer.style.display = 'block';
+        if (placeholder) placeholder.style.display = 'none';
 
         // Actualizar vista móvil
         actualizarVistaMovil(ventas);

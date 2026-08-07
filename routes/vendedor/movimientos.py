@@ -2080,6 +2080,21 @@ def vendedor_ticket_cierre(id_asignacion):
             """, (vendedor_id, fecha_ruta))
             devoluciones_mermas = cursor.fetchall()
             
+            # 5b. Obtener sumatoria consolidada de productos vendidos en la ruta
+            cursor.execute("""
+                SELECT p.Descripcion as Producto, p.COD_Producto,
+                       SUM(dfr.Cantidad) as Cantidad_Vendida,
+                       um.Abreviatura as Unidad
+                FROM detalle_facturacion_ruta dfr
+                INNER JOIN facturacion_ruta fr ON dfr.ID_FacturaRuta = fr.ID_FacturaRuta
+                INNER JOIN productos p ON dfr.ID_Producto = p.ID_Producto
+                LEFT JOIN unidades_medida um ON p.Unidad_Medida = um.ID_Unidad
+                WHERE fr.ID_Asignacion = %s AND fr.Estado = 'Activa'
+                GROUP BY p.ID_Producto, p.Descripcion, p.COD_Producto, um.Abreviatura
+                ORDER BY p.Descripcion ASC
+            """, (id_asignacion,))
+            productos_vendidos = cursor.fetchall()
+            
         # Calcular resúmenes de caja
         apertura = 0.0
         cierre = 0.0
@@ -2138,6 +2153,7 @@ def vendedor_ticket_cierre(id_asignacion):
             'ventas': ventas,
             'abonos': abonos,
             'devoluciones_mermas': devoluciones_mermas,
+            'productos_vendidos': productos_vendidos,
             'total_ventas_monto': total_ventas_monto,
             'total_abonos_monto': total_abonos_monto,
             'total_devs_monto': total_devs_monto,
@@ -2151,5 +2167,4 @@ def vendedor_ticket_cierre(id_asignacion):
         traceback.print_exc()
         flash(f'Error al generar ticket: {str(e)}', 'error')
         return redirect(url_for('vendedor.vendedor_dashboard'))
-
 
