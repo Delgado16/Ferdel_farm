@@ -194,14 +194,14 @@
             </h6>
         </div>
         <div class="card-body p-0">
-            <div id="contenedor_lista_ventas" {% if not ventas %}style="display: none;"{% endif %}>
+            <div id="contenedor_lista_ventas" {% if not ventas %}style="display: none;" {% endif %}>
                 <!-- VISTA MÓVIL: Tarjetas de ventas -->
                 <div class="d-block d-lg-none">
                     {% for venta in ventas %}
                     <div class="venta-card p-3 border-bottom" data-id="{{ venta.ID_FacturaRuta }}"
                         data-fecha="{{ venta.Fecha }}" data-tipo="{{ venta.Tipo_Venta }}"
                         data-monto="{{ venta.Total_Venta }}">
-    
+
                         <!-- Cabecera de la tarjeta -->
                         <div class="d-flex justify-content-between align-items-start mb-2">
                             <div>
@@ -215,11 +215,12 @@
                                     {% endif %}
                                 </span>
                             </div>
-                            <span class="badge {% if venta.Estado == 'Activa' %}bg-success{% else %}bg-danger{% endif %}">
+                            <span
+                                class="badge {% if venta.Estado == 'Activa' %}bg-success{% else %}bg-danger{% endif %}">
                                 {{ venta.Estado }}
                             </span>
                         </div>
-    
+
                         <!-- Información del cliente -->
                         <div class="mb-2">
                             <strong class="fs-6">{{ venta.Cliente }}</strong>
@@ -227,7 +228,7 @@
                             <br><small class="text-muted"><i class="fas fa-phone me-1"></i>{{ venta.Telefono }}</small>
                             {% endif %}
                         </div>
-    
+
                         <!-- Detalles de la venta -->
                         <div class="row g-2 mb-2">
                             <div class="col-5">
@@ -243,7 +244,7 @@
                                 <strong class="text-success">C$ {{ "{:,.2f}".format(venta.Total_Venta) }}</strong>
                             </div>
                         </div>
-    
+
                         <!-- Saldo pendiente si existe -->
                         {% if venta.Saldo_Pendiente > 0 %}
                         <div class="alert alert-danger py-2 px-2 mb-2 small">
@@ -251,7 +252,7 @@
                             Saldo pendiente: C$ {{ "{:,.2f}".format(venta.Saldo_Pendiente) }}
                         </div>
                         {% endif %}
-    
+
                         <!-- Acciones -->
                         <div class="d-flex gap-2 mt-2">
                             <a href="{{ url_for('vendedor.vendedor_venta_detalle', id_venta=venta.ID_FacturaRuta) }}"
@@ -262,7 +263,7 @@
                     </div>
                     {% endfor %}
                 </div>
-    
+
                 <!-- VISTA DESKTOP: Tabla de ventas -->
                 <div class="table-responsive d-none d-lg-block">
                     <table class="table table-bordered table-hover mb-0" id="tablaVentas" width="100%" cellspacing="0">
@@ -284,7 +285,8 @@
                             <tr class="venta-row" data-id="{{ venta.ID_FacturaRuta }}" data-fecha="{{ venta.Fecha }}"
                                 data-tipo="{{ venta.Tipo_Venta }}" data-monto="{{ venta.Total_Venta }}">
                                 <td class="fw-bold">#{{ venta.ID_FacturaRuta }}</td>
-                                <td class="small">{{ venta.Fecha }}<br><small class="text-muted">{{ venta.Hora }}</small>
+                                <td class="small">{{ venta.Fecha }}<br><small class="text-muted">{{ venta.Hora
+                                        }}</small>
                                 </td>
                                 <td>
                                     <strong>{{ venta.Cliente }}</strong>
@@ -334,8 +336,9 @@
                     </table>
                 </div>
             </div>
-            
-            <div class="text-center py-4 py-md-5" id="sin_ventas_placeholder" {% if ventas %}style="display: none;"{% endif %}>
+
+            <div class="text-center py-4 py-md-5" id="sin_ventas_placeholder" {% if ventas %}style="display: none;" {%
+                endif %}>
                 <i class="fas fa-shopping-cart fa-2x fa-md-3x text-muted mb-2 mb-md-3"></i>
                 <p class="text-muted small mb-2">No hay ventas registradas</p>
                 <a href="{{ url_for('vendedor.vendedor_venta_crear') }}" class="btn btn-primary btn-sm">
@@ -580,7 +583,7 @@
             ` : ''}
             
             <div class="d-flex gap-2 mt-2">
-                <a href="/vendedor/venta/${v.ID_FacturaRuta}/detalle" 
+                <a href="/vendedor/vendedor/venta/${v.ID_FacturaRuta}/detalle" 
                    class="btn btn-info btn-sm flex-fill">
                     <i class="fas fa-eye me-1"></i> Ver detalle
                 </a>
@@ -667,7 +670,7 @@
             </td>
             <td class="text-center">
                 <div class="btn-group btn-group-sm">
-                    <a href="/vendedor/venta/${v.ID_FacturaRuta}/detalle" 
+                    <a href="/vendedor/vendedor/venta/${v.ID_FacturaRuta}/detalle" 
                        class="btn btn-info" title="Ver detalle">
                         <i class="fas fa-eye"></i>
                     </a>
