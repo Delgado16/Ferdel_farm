@@ -185,6 +185,7 @@
                             <span class="input-group-text">C$</span>
                             <input type="number" class="form-control" id="precio" step="0.01" min="0">
                         </div>
+                        <div id="ultimo_precio_info" class="form-text text-muted mt-1 small" style="display: none; font-size: 0.75rem;"></div>
                     </div>
                     <div class="col-12">
                         <div class="d-flex gap-2 mt-2">
@@ -3133,19 +3134,44 @@
     }
 
     window.agregarDesdeInventario = function (id, nombre, codigo, precio, stock, unidad) {
-        agregarProductoALista({
-            id: parseInt(id),
-            codigo: codigo,
-            nombre: nombre,
-            cantidad: 1,
-            precio: parseFloat(precio),
-            stock: stock,
-            unidad: unidad
-        });
-        const modalElement = getElement('modalInventario');
-        if (modalElement) {
-            const modal = bootstrap.Modal.getInstance(modalElement);
-            if (modal) modal.hide();
+        const clienteSelect = getElement('cliente');
+        const idCliente = clienteSelect ? clienteSelect.value : '';
+        const idProducto = parseInt(id);
+        
+        const agregarConPrecio = (precioVenta) => {
+            agregarProductoALista({
+                id: idProducto,
+                codigo: codigo,
+                nombre: nombre,
+                cantidad: 1,
+                precio: parseFloat(precioVenta),
+                stock: stock,
+                unidad: unidad
+            });
+            const modalElement = getElement('modalInventario');
+            if (modalElement) {
+                const modal = bootstrap.Modal.getInstance(modalElement);
+                if (modal) modal.hide();
+            }
+        };
+
+        if (idCliente) {
+            fetch(`/api/ultimo_precio_cliente?id_cliente=${idCliente}&id_producto=${idProducto}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success && data.ultimo_precio !== null && data.ultimo_precio !== undefined) {
+                        agregarConPrecio(data.ultimo_precio);
+                        showToast('info', 'Precio Histórico Aplicado', `Se aplicó el último precio de C$ ${data.ultimo_precio.toFixed(2)}`);
+                    } else {
+                        agregarConPrecio(precio);
+                    }
+                })
+                .catch(err => {
+                    console.error(err);
+                    agregarConPrecio(precio);
+                });
+        } else {
+            agregarConPrecio(precio);
         }
     };
 
@@ -3437,19 +3463,45 @@
     window.agregarProductoBusqueda = function (productoId) {
         const option = document.querySelector(`#producto_select option[value="${productoId}"]`);
         if (option) {
-            agregarProductoALista({
-                id: parseInt(option.value),
-                codigo: option.dataset.codigo,
-                nombre: option.dataset.nombre,
-                cantidad: 1,
-                precio: parseFloat(option.dataset.precio),
-                stock: parseInt(option.dataset.stock),
-                unidad: option.dataset.unidad
-            });
-            const resultadosDiv = getElement('resultadosBusqueda');
-            if (resultadosDiv) resultadosDiv.style.display = 'none';
-            const inputBuscar = getElement('buscarProducto');
-            if (inputBuscar) inputBuscar.value = '';
+            const clienteSelect = getElement('cliente');
+            const idCliente = clienteSelect ? clienteSelect.value : '';
+            const idProducto = parseInt(option.value);
+            const precioRuta = parseFloat(option.dataset.precio) || 0;
+            
+            const agregarConPrecio = (precioVenta) => {
+                agregarProductoALista({
+                    id: idProducto,
+                    codigo: option.dataset.codigo,
+                    nombre: option.dataset.nombre,
+                    cantidad: 1,
+                    precio: parseFloat(precioVenta),
+                    stock: parseInt(option.dataset.stock),
+                    unidad: option.dataset.unidad
+                });
+                const resultadosDiv = getElement('resultadosBusqueda');
+                if (resultadosDiv) resultadosDiv.style.display = 'none';
+                const inputBuscar = getElement('buscarProducto');
+                if (inputBuscar) inputBuscar.value = '';
+            };
+
+            if (idCliente) {
+                fetch(`/api/ultimo_precio_cliente?id_cliente=${idCliente}&id_producto=${idProducto}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success && data.ultimo_precio !== null && data.ultimo_precio !== undefined) {
+                            agregarConPrecio(data.ultimo_precio);
+                            showToast('info', 'Precio Histórico Aplicado', `Se aplicó el último precio de C$ ${data.ultimo_precio.toFixed(2)}`);
+                        } else {
+                            agregarConPrecio(precioRuta);
+                        }
+                    })
+                    .catch(err => {
+                        console.error(err);
+                        agregarConPrecio(precioRuta);
+                    });
+            } else {
+                agregarConPrecio(precioRuta);
+            }
         }
     };
 
@@ -3541,6 +3593,67 @@
             btnConfirmarGuardar.addEventListener('click', btnConfirmarGuardar._clickHandler);
         }
 
+        const ultimoPrecioInfo = document.getElementById('ultimo_precio_info');
+        
+        function mostrarInfoUltimoPrecio(precio) {
+            if (ultimoPrecioInfo) {
+                ultimoPrecioInfo.innerHTML = `<i class="bi bi-clock-history text-info me-1"></i>Último precio vendido: <strong class="text-info">C$ ${parseFloat(precio).toFixed(2)}</strong>`;
+                ultimoPrecioInfo.style.display = 'block';
+            }
+        }
+        
+        function mostrarInfoUltimoPrecioCargando() {
+            if (ultimoPrecioInfo) {
+                ultimoPrecioInfo.innerHTML = `<span class="spinner-border spinner-border-sm text-muted me-1" role="status" style="width: 0.75rem; height: 0.75rem;"></span>Buscando historial...`;
+                ultimoPrecioInfo.style.display = 'block';
+            }
+        }
+        
+        function ocultarInfoUltimoPrecio() {
+            if (ultimoPrecioInfo) {
+                ultimoPrecioInfo.style.display = 'none';
+                ultimoPrecioInfo.innerHTML = '';
+            }
+        }
+
+        function actualizarPrecioSegunHistorial() {
+            if (!clienteSelect || !productoSelect) return;
+            const idCliente = clienteSelect.value;
+            const option = productoSelect.options[productoSelect.selectedIndex];
+            
+            if (!option || !option.value) {
+                if (precioInput) precioInput.value = '';
+                ocultarInfoUltimoPrecio();
+                return;
+            }
+            
+            const idProducto = option.value;
+            const precioRuta = parseFloat(option.dataset.precio) || 0;
+            
+            if (idCliente && idProducto) {
+                mostrarInfoUltimoPrecioCargando();
+                fetch(`/api/ultimo_precio_cliente?id_cliente=${idCliente}&id_producto=${idProducto}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success && data.ultimo_precio !== null && data.ultimo_precio !== undefined) {
+                            if (precioInput) precioInput.value = data.ultimo_precio;
+                            mostrarInfoUltimoPrecio(data.ultimo_precio);
+                        } else {
+                            if (precioInput) precioInput.value = precioRuta;
+                            ocultarInfoUltimoPrecio();
+                        }
+                    })
+                    .catch(err => {
+                        console.error('Error al obtener último precio:', err);
+                        if (precioInput) precioInput.value = precioRuta;
+                        ocultarInfoUltimoPrecio();
+                    });
+            } else {
+                if (precioInput) precioInput.value = precioRuta;
+                ocultarInfoUltimoPrecio();
+            }
+        }
+
         if (clienteSelect) {
             clienteSelect.addEventListener('change', function () {
                 const option = this.options[this.selectedIndex];
@@ -3569,6 +3682,9 @@
                     if (btnBuscar) btnBuscar.disabled = true;
                     ocultarAlertaSaldo();
                 }
+                
+                // Actualizar precio según historial cuando cambia el cliente
+                actualizarPrecioSegunHistorial();
             });
         }
 
@@ -3582,10 +3698,7 @@
 
         if (productoSelect) {
             productoSelect.addEventListener('change', function () {
-                const option = this.options[this.selectedIndex];
-                if (precioInput) {
-                    precioInput.value = option.value ? option.dataset.precio : '';
-                }
+                actualizarPrecioSegunHistorial();
             });
         }
 

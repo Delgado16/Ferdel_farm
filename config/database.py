@@ -50,12 +50,60 @@ def init_pool():
             with pool_lock:
                 connection_pool = mysql.connector.pooling.MySQLConnectionPool(**DB_CONFIG)
             print("✅ Conexión a la base de datos establecida correctamente.")
+            crear_tablas_sistema()
             return True
         except Error as e:
             print(f"❌ Intento {attempt + 1} fallado: {e}")
             if attempt < max_retries - 1:
                 time.sleep(2 * (attempt + 1))  # Espera exponencial
     return False
+
+
+def crear_tablas_sistema():
+    """Crear tablas de configuración del sistema si no existen"""
+    try:
+        conn = connection_pool.get_connection()
+        cursor = conn.cursor(dictionary=True)
+        
+        # Crear tabla config_sistema
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS config_sistema (
+                llave VARCHAR(100) PRIMARY KEY,
+                valor TEXT,
+                descripcion VARCHAR(255),
+                fecha_actualizacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+        """)
+        
+        # Insertar valores por defecto si no existen
+        valores_defecto = [
+            ("empresa_nombre", "FERDEL", "Nombre de la empresa para reportes y comprobantes"),
+            ("empresa_ruc", "J0310000000000", "RUC/Identificación fiscal de la empresa"),
+            ("empresa_direccion", "Managua, Nicaragua", "Dirección física de la empresa"),
+            ("empresa_telefono", "+505 8888-8888", "Teléfono de contacto general"),
+            ("iva_porcentaje", "15.0", "Porcentaje de impuesto al valor agregado (IVA)"),
+            ("smtp_host", "smtp.gmail.com", "Servidor de correo SMTP"),
+            ("smtp_port", "587", "Puerto del servidor SMTP (587 para TLS)"),
+            ("smtp_user", "", "Usuario/Correo del servidor SMTP"),
+            ("smtp_password", "", "Contraseña de aplicación o del servidor SMTP")
+        ]
+        
+        for llave, valor, desc in valores_defecto:
+            # Usar INSERT IGNORE o verificar si existe
+            cursor.execute("SELECT 1 FROM config_sistema WHERE llave = %s", (llave,))
+            if not cursor.fetchone():
+                cursor.execute("""
+                    INSERT INTO config_sistema (llave, valor, descripcion) 
+                    VALUES (%s, %s, %s)
+                """, (llave, valor, desc))
+            
+        conn.commit()
+        cursor.close()
+        conn.close()
+        print("⚙️ Tabla config_sistema inicializada correctamente.")
+    except Exception as e:
+        print(f"⚠️ Error al inicializar tablas de sistema: {e}")
+
 
 
 def get_db():

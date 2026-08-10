@@ -64,6 +64,48 @@ def vendedor_api_productos():
         }), 500
 
 
+@vendedor_bp.route('/api/ultimo_precio_cliente', methods=['GET'])
+@vendedor_required
+def ultimo_precio_cliente():
+    """
+    Obtener el último precio de un producto específico vendido a un cliente
+    """
+    id_cliente = request.args.get('id_cliente', type=int)
+    id_producto = request.args.get('id_producto', type=int)
+    
+    if not id_cliente or not id_producto:
+        return jsonify({'success': False, 'message': 'Parámetros faltantes'}), 400
+        
+    try:
+        with get_db_cursor(True) as cursor:
+            # Consultar en las facturaciones activas el último precio del producto para este cliente
+            cursor.execute("""
+                SELECT dfr.Precio 
+                FROM detalle_facturacion_ruta dfr
+                INNER JOIN facturacion_ruta fr ON dfr.ID_FacturaRuta = fr.ID_FacturaRuta
+                WHERE fr.ID_Cliente = %s 
+                  AND dfr.ID_Producto = %s 
+                  AND fr.Estado = 'Activa'
+                ORDER BY fr.Fecha_Creacion DESC, fr.ID_FacturaRuta DESC
+                LIMIT 1
+            """, (id_cliente, id_producto))
+            row = cursor.fetchone()
+            
+            if row:
+                return jsonify({
+                    'success': True,
+                    'ultimo_precio': float(row['Precio'])
+                })
+            else:
+                return jsonify({
+                    'success': True,
+                    'ultimo_precio': None
+                })
+    except Exception as e:
+        print(f"Error al obtener último precio del cliente: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
 @vendedor_bp.route('/vendedor/ventas')
 @vendedor_required
 def vendedor_ventas():

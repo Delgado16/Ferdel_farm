@@ -1075,21 +1075,6 @@
                 <i class="bi bi-speedometer2"></i> <span>Dashboard</span>
             </a>
 
-            <!-- Caja de movimientos -->
-            <div class="has-submenu {% if 'caja' in request.endpoint %}active{% endif %}"
-                data-tooltip="Caja de Movimientos">
-                <a class="nav-link submenu-toggle-btn" href="#caja-submenu">
-                    <i class="bi bi-cash-stack"></i> <span>Caja de Movimientos</span>
-                    <i class="bi bi-chevron-right submenu-toggle ms-auto"></i>
-                </a>
-                <div class="submenu {% if 'caja' in request.endpoint %}show{% endif %}" id="caja-submenu">
-                    <a class="nav-link {% if request.endpoint == 'admin.admin_caja' %}active{% endif %}"
-                        href="{{ url_for('admin.admin_caja') }}">
-                        <i class="bi bi-list-ul"></i> Movimientos de Caja
-                    </a>
-                </div>
-            </div>
-
             <!-- Ventas -->
             <div class="has-submenu {% if 'ventas' in request.endpoint or 'cuentascobrar' in request.endpoint %}active{% endif %}"
                 data-tooltip="Ventas">
@@ -1154,15 +1139,81 @@
                 </div>
             </div>
 
+            <!-- Bodega e Inventario -->
+            <div class="has-submenu {% if 'bodega' in request.endpoint and request.endpoint != 'admin.admin_bodega' %}active{% endif %}"
+                data-tooltip="Bodega e Inventario">
+                <a class="nav-link submenu-toggle-btn" href="#bodega-submenu">
+                    <i class="bi bi-house-door"></i> <span>Bodega e Inventario</span>
+                    <i class="bi bi-chevron-right submenu-toggle ms-auto"></i>
+                </a>
+                <div class="submenu {% if 'bodega' in request.endpoint and request.endpoint != 'admin.admin_bodega' %}show{% endif %}" id="bodega-submenu">
+                    <a class="nav-link {% if request.endpoint == 'bodega.bodega_dashboard' %}active{% endif %}"
+                        href="{{ url_for('bodega.bodega_dashboard') }}">
+                        <i class="bi bi-clipboard-data"></i> Inventario
+                    </a>
+                    <a class="nav-link {% if request.endpoint == 'bodega.bodega_historial_movimientos' %}active{% endif %}"
+                        href="{{ url_for('bodega.bodega_historial_movimientos') }}">
+                        <i class="bi bi-arrow-left-right"></i> Movimientos
+                    </a>
+                </div>
+            </div>
+
+            <!-- Caja de movimientos -->
+            <div class="has-submenu {% if 'caja' in request.endpoint %}active{% endif %}"
+                data-tooltip="Caja de Movimientos">
+                <a class="nav-link submenu-toggle-btn" href="#caja-submenu">
+                    <i class="bi bi-cash-stack"></i> <span>Caja de Movimientos</span>
+                    <i class="bi bi-chevron-right submenu-toggle ms-auto"></i>
+                </a>
+                <div class="submenu {% if 'caja' in request.endpoint %}show{% endif %}" id="caja-submenu">
+                    <a class="nav-link {% if request.endpoint == 'admin.admin_caja' %}active{% endif %}"
+                        href="{{ url_for('admin.admin_caja') }}">
+                        <i class="bi bi-list-ul"></i> Movimientos de Caja
+                    </a>
+                </div>
+            </div>
+
             <!-- Catálogos -->
-            <div class="has-submenu {% if 'usuarios' in request.endpoint or 'empresas' in request.endpoint or 'clientes' in request.endpoint %}active{% endif %}"
+            <div class="has-submenu {% if request.endpoint in ['admin.admin_productos', 'admin.admin_categorias', 'admin.admin_unidades_medidas', 'admin.admin_clientes', 'admin.admin_proveedores', 'admin.admin_bodega', 'admin.admin_rutas', 'admin.admin_vehiculos', 'admin.admin_roles', 'admin.admin_usuarios', 'admin.admin_empresas', 'admin.admin_metodos_pago', 'admin.admin_tipos_gasto', 'admin.admin_movimientos_inventario'] %}active{% endif %}"
                 data-tooltip="Catálogos">
                 <a class="nav-link submenu-toggle-btn" href="#catalogos-submenu">
                     <i class="bi bi-collection"></i> <span>Catálogos</span>
                     <i class="bi bi-chevron-right submenu-toggle ms-auto"></i>
                 </a>
-                <div class="submenu {% if 'usuarios' in request.endpoint or 'empresas' in request.endpoint %}show{% endif %}"
+                <div class="submenu {% if request.endpoint in ['admin.admin_productos', 'admin.admin_categorias', 'admin.admin_unidades_medidas', 'admin.admin_clientes', 'admin.admin_proveedores', 'admin.admin_bodega', 'admin.admin_rutas', 'admin.admin_vehiculos', 'admin.admin_roles', 'admin.admin_usuarios', 'admin.admin_empresas', 'admin.admin_metodos_pago', 'admin.admin_tipos_gasto', 'admin.admin_movimientos_inventario'] %}show{% endif %}"
                     id="catalogos-submenu">
+                    <a class="nav-link {% if request.endpoint == 'admin.admin_productos' %}active{% endif %}"
+                        href="{{ url_for('admin.admin_productos') }}">
+                        <i class="bi bi-list-ul"></i> Productos
+                    </a>
+                    <a class="nav-link {% if request.endpoint == 'admin.admin_categorias' %}active{% endif %}"
+                        href="{{ url_for('admin.admin_categorias') }}">
+                        <i class="bi bi-tags"></i> Categorías de Productos
+                    </a>
+                    <a class="nav-link {% if request.endpoint == 'admin.admin_unidades_medidas' %}active{% endif %}"
+                        href="{{ url_for('admin.admin_unidades_medidas') }}">
+                        <i class="bi bi-rulers"></i> Unidades de Medida
+                    </a>
+                    <a class="nav-link {% if request.endpoint == 'admin.admin_clientes' %}active{% endif %}"
+                        href="{{ url_for('admin.admin_clientes') }}">
+                        <i class="bi bi-people"></i> Clientes
+                    </a>
+                    <a class="nav-link {% if request.endpoint == 'admin.admin_proveedores' %}active{% endif %}"
+                        href="{{ url_for('admin.admin_proveedores') }}">
+                        <i class="bi bi-people"></i> Proveedores
+                    </a>
+                    <a class="nav-link {% if request.endpoint == 'admin.admin_bodega' %}active{% endif %}"
+                        href="{{ url_for('admin.admin_bodega') }}">
+                        <i class="bi bi-building"></i> Bodegas
+                    </a>
+                    <a class="nav-link {% if request.endpoint == 'admin.admin_rutas' %}active{% endif %}"
+                        href="{{ url_for('admin.admin_rutas') }}">
+                        <i class="bi bi-geo-alt"></i> Rutas
+                    </a>
+                    <a class="nav-link {% if request.endpoint == 'admin.admin_vehiculos' %}active{% endif %}"
+                        href="{{ url_for('admin.admin_vehiculos') }}">
+                        <i class="bi bi-truck"></i> Vehículos
+                    </a>
                     <a class="nav-link {% if request.endpoint == 'admin.admin_roles' %}active{% endif %}"
                         href="{{ url_for('admin.admin_roles') }}">
                         <i class="bi bi-shield-lock"></i> Roles
@@ -1175,80 +1226,17 @@
                         href="{{ url_for('admin.admin_empresas') }}">
                         <i class="bi bi-building"></i> Empresas
                     </a>
-                    <a class="nav-link {% if request.endpoint == 'admin.admin_clientes' %}active{% endif %}"
-                        href="{{ url_for('admin.admin_clientes') }}">
-                        <i class="bi bi-people"></i> Clientes
-                    </a>
-                    <a class="nav-link {% if request.endpoint == 'admin.admin_proveedores' %}active{% endif %}"
-                        href="{{ url_for('admin.admin_proveedores') }}">
-                        <i class="bi bi-people"></i> Proveedores
-                    </a>
-                    <a class="nav-link {% if request.endpoint == 'admin.admin_unidades_medidas' %}active{% endif %}"
-                        href="{{ url_for('admin.admin_unidades_medidas') }}">
-                        <i class="bi bi-rulers"></i> Unidades de Medida
-                    </a>
-                    <a class="nav-link {% if request.endpoint == 'admin.admin_categorias' %}active{% endif %}"
-                        href="{{ url_for('admin.admin_categorias') }}">
-                        <i class="bi bi-tags"></i> Categorías de Productos
-                    </a>
                     <a class="nav-link {% if request.endpoint == 'admin.admin_metodos_pago' %}active{% endif %}"
                         href="{{ url_for('admin.admin_metodos_pago') }}">
                         <i class="bi bi-credit-card"></i> Métodos de Pago
-                    </a>
-                    <a class="nav-link {% if request.endpoint == 'admin.admin_movimientos_inventario' %}active{% endif %}"
-                        href="{{ url_for('admin.admin_movimientos_inventario') }}">
-                        <i class="bi bi-arrow-left-right"></i> Movimientos de Inventario
-                    </a>
-                    <a class="nav-link {% if request.endpoint == 'admin.admin_rutas' %}active{% endif %}"
-                        href="{{ url_for('admin.admin_rutas') }}">
-                        <i class="bi bi-geo-alt"></i> Rutas
-                    </a>
-                    <a class="nav-link {% if request.endpoint == 'admin.admin_vehiculos' %}active{% endif %}"
-                        href="{{ url_for('admin.admin_vehiculos') }}">
-                        <i class="bi bi-truck"></i> Vehículos
                     </a>
                     <a class="nav-link {% if request.endpoint == 'admin.admin_tipos_gasto' %}active{% endif %}"
                         href="{{ url_for('admin.admin_tipos_gasto') }}">
                         <i class="bi bi-list-ul"></i> Tipos de Gastos
                     </a>
-                </div>
-            </div>
-
-            <!-- Productos -->
-            <div class="has-submenu {% if 'admin.admin_productos' in request.endpoint %}active{% endif %}"
-                data-tooltip="Productos">
-                <a class="nav-link submenu-toggle-btn" href="#productos-submenu">
-                    <i class="bi bi-tags"></i> <span>Productos</span>
-                    <i class="bi bi-chevron-right submenu-toggle ms-auto"></i>
-                </a>
-                <div class="submenu {% if 'admin.admin_productos' in request.endpoint %}show{% endif %}"
-                    id="productos-submenu">
-                    <a class="nav-link {% if request.endpoint == 'admin.admin_productos' %}active{% endif %}"
-                        href="{{ url_for('admin.admin_productos') }}">
-                        <i class="bi bi-list-ul"></i> Gestión de Productos
-                    </a>
-                </div>
-            </div>
-
-            <!-- Bodega e Inventario -->
-            <div class="has-submenu {% if 'bodega' in request.endpoint %}active{% endif %}"
-                data-tooltip="Bodega e Inventario">
-                <a class="nav-link submenu-toggle-btn" href="#bodega-submenu">
-                    <i class="bi bi-house-door"></i> <span>Bodega e Inventario</span>
-                    <i class="bi bi-chevron-right submenu-toggle ms-auto"></i>
-                </a>
-                <div class="submenu {% if 'bodega' in request.endpoint %}show{% endif %}" id="bodega-submenu">
-                    <a class="nav-link {% if request.endpoint == 'admin.admin_bodega' %}active{% endif %}"
-                        href="{{ url_for('admin.admin_bodega') }}">
-                        <i class="bi bi-building"></i> Bodegas
-                    </a>
-                    <a class="nav-link {% if request.endpoint == 'bodega.bodega_dashboard' %}active{% endif %}"
-                        href="{{ url_for('bodega.bodega_dashboard') }}">
-                        <i class="bi bi-clipboard-data"></i> Inventario
-                    </a>
-                    <a class="nav-link {% if request.endpoint == 'bodega.bodega_historial_movimientos' %}active{% endif %}"
-                        href="{{ url_for('bodega.bodega_historial_movimientos') }}">
-                        <i class="bi bi-arrow-left-right"></i> Movimientos
+                    <a class="nav-link {% if request.endpoint == 'admin.admin_movimientos_inventario' %}active{% endif %}"
+                        href="{{ url_for('admin.admin_movimientos_inventario') }}">
+                        <i class="bi bi-arrow-left-right"></i> Movimientos de Inventario
                     </a>
                 </div>
             </div>
@@ -1276,6 +1264,14 @@
                         href="{{ url_for('admin.config_visibilidad') }}">
                         <i class="bi bi-gear"></i> Configuración de Clientes
                     </a>
+                    <a class="nav-link {% if request.endpoint == 'admin.config_general' %}active{% endif %}"
+                        href="{{ url_for('admin.config_general') }}">
+                        <i class="bi bi-sliders"></i> Configuración General
+                    </a>
+                    <a class="nav-link {% if request.endpoint == 'admin.admin_backup' %}active{% endif %}"
+                        href="{{ url_for('admin.admin_backup') }}">
+                        <i class="bi bi-database"></i> Respaldos del Sistema
+                    </a>
                 </div>
             </div>
 
@@ -1283,14 +1279,6 @@
             <a class="nav-link {% if request.endpoint == 'vendedor.vendedor_dashboard' %}active{% endif %}"
                 href="{{ url_for('vendedor.vendedor_dashboard') }}" data-tooltip="Dashboard">
                 <i class="bi bi-speedometer2"></i> <span>Dashboard</span>
-            </a>
-            <a class="nav-link {% if request.endpoint == 'vendedor.vendedor_ventas' %}active{% endif %}"
-                href="{{ url_for('vendedor.vendedor_ventas') }}" data-tooltip="Ventas">
-                <i class="bi bi-receipt"></i> <span>Ventas</span>
-            </a>
-            <a class="nav-link {% if request.endpoint == 'vendedor.mis_movimientos_caja' %}active{% endif %}"
-                href="{{ url_for('vendedor.mis_movimientos_caja') }}" data-tooltip="Caja de Efectivo">
-                <i class="bi bi-cash-stack"></i> <span>Caja de Efectivo</span>
             </a>
             <a class="nav-link {% if request.endpoint == 'vendedor.vendedor_mis_rutas' %}active{% endif %}"
                 href="{{ url_for('vendedor.vendedor_mis_rutas') }}" data-tooltip="Mi Ruta">
@@ -1300,23 +1288,35 @@
                 href="{{ url_for('vendedor.vendedor_clientes') }}" data-tooltip="Clientes">
                 <i class="bi bi-people"></i> <span>Clientes</span>
             </a>
-            <a class="nav-link {% if request.endpoint == 'vendedor.vendedor_abonos' %}active{% endif %}"
-                href="{{ url_for('vendedor.vendedor_abonos') }}" data-tooltip="Abonos Recibidos">
-                <i class="bi bi-cash-coin"></i> <span>Abonos Recibidos</span>
-            </a>
             <a class="nav-link {% if request.endpoint == 'vendedor.vendedor_inventario' %}active{% endif %}"
                 href="{{ url_for('vendedor.vendedor_inventario') }}" data-tooltip="Inventario Ruta">
                 <i class="bi bi-box-seam"></i> <span>Inventario Ruta</span>
             </a>
+            <a class="nav-link {% if request.endpoint == 'vendedor.vendedor_ventas' %}active{% endif %}"
+                href="{{ url_for('vendedor.vendedor_ventas') }}" data-tooltip="Ventas">
+                <i class="bi bi-receipt"></i> <span>Ventas</span>
+            </a>
+            <a class="nav-link {% if request.endpoint == 'vendedor.vendedor_abonos' %}active{% endif %}"
+                href="{{ url_for('vendedor.vendedor_abonos') }}" data-tooltip="Abonos Recibidos">
+                <i class="bi bi-cash-coin"></i> <span>Abonos Recibidos</span>
+            </a>
             <a class="nav-link {% if request.endpoint == 'vendedor.vendedor_gastos' %}active{% endif %}"
                 href="{{ url_for('vendedor.vendedor_gastos') }}" data-tooltip="Gastos">
                 <i class="bi bi-file-earmark-text"></i> <span>Gastos</span>
+            </a>
+            <a class="nav-link {% if request.endpoint == 'vendedor.mis_movimientos_caja' %}active{% endif %}"
+                href="{{ url_for('vendedor.mis_movimientos_caja') }}" data-tooltip="Caja de Efectivo">
+                <i class="bi bi-cash-stack"></i> <span>Caja de Efectivo</span>
             </a>
 
             {% elif current_user.rol == 'Bodega' %}
             <a class="nav-link {% if request.endpoint == 'bodega.bodega_dashboard' %}active{% endif %}"
                 href="{{ url_for('bodega.bodega_dashboard') }}" data-tooltip="Dashboard">
                 <i class="bi bi-speedometer2"></i> <span>Dashboard</span>
+            </a>
+            <a class="nav-link {% if request.endpoint == 'bodega.bodega_historial_movimientos' %}active{% endif %}"
+                href="{{ url_for('bodega.bodega_historial_movimientos') }}" data-tooltip="Inventario">
+                <i class="bi bi-box"></i> <span>Inventario</span>
             </a>
             <a class="nav-link {% if request.endpoint == 'admin.admin_pedidos_venta' %}active{% endif %}"
                 href="{{ url_for('admin.admin_pedidos_venta') }}" data-tooltip="Pedidos">
@@ -1330,10 +1330,6 @@
             <a class="nav-link {% if request.endpoint == 'admin.admin_crear_venta' %}active{% endif %}"
                 href="{{ url_for('admin.admin_crear_venta') }}" data-tooltip="Ventas">
                 <i class="bi bi-receipt"></i> <span>Ventas</span>
-            </a>
-            <a class="nav-link {% if request.endpoint == 'bodega.bodega_historial_movimientos' %}active{% endif %}"
-                href="{{ url_for('bodega.bodega_historial_movimientos') }}" data-tooltip="Inventario">
-                <i class="bi bi-box"></i> <span>Inventario</span>
             </a>
             <a class="nav-link {% if request.endpoint == 'bodega.bodega_reportes_avanzados' %}active{% endif %}"
                 href="{{ url_for('bodega.bodega_reportes_avanzados') }}" data-tooltip="Reportes Avanzados">
