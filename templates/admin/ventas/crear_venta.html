@@ -2079,14 +2079,10 @@
 
     function actualizarPreciosProductosPorPerfil() {
         document.querySelectorAll('.product-card').forEach(tarjeta => {
-            const select = tarjeta.querySelector('.producto-select');
-            const precioInput = tarjeta.querySelector('.precio');
-            if (select && select.value && select.selectedOptions[0] && select.selectedOptions[0].dataset) {
-                const nuevoPrecio = parseFloat(select.selectedOptions[0].dataset.precio) || 0;
-                if (nuevoPrecio > 0 && precioInput) precioInput.value = nuevoPrecio.toFixed(2);
-            }
             const id = parseInt(tarjeta.id.split('-')[2]);
-            if (!isNaN(id)) calcularSubtotal(id);
+            if (!isNaN(id)) {
+                actualizarInfoProducto(id);
+            }
         });
     }
 
@@ -2263,6 +2259,7 @@
                         <input type="number" class="form-control precio" name="precio[]" step="0.01" min="0" value="0" required onchange="calcularSubtotal(${contadorProductos})">
                     </div>
                     <div class="invalid-feedback">Ingrese un precio válido</div>
+                    <div class="ultimo-precio-info-admin form-text text-muted mt-1 small" id="ultimo-precio-info-${contadorProductos}" style="display: none; font-size: 0.75rem;"></div>
                 </div>
                 <div>
                     <label class="form-label">Subtotal</label>
@@ -2324,6 +2321,7 @@
                         <input type="number" class="form-control precio" name="precio[]" step="0.01" min="0" value="0" required onchange="calcularSubtotal(${contadorProductos})">
                     </div>
                     <div class="invalid-feedback">Ingrese precio</div>
+                    <div class="ultimo-precio-info-admin form-text text-muted mt-1 small" id="ultimo-precio-info-${contadorProductos}" style="display: none; font-size: 0.75rem;"></div>
                 </div>
                 <div>
                     <label class="form-label">Subtotal</label>
@@ -2433,6 +2431,14 @@
             stockInfo.innerHTML = `<span class="${stockClass}">${stockIcon} ${stockText}</span>`;
             stockInfo.style.display = 'block';
 
+            const idCliente = document.getElementById('id_cliente')?.value;
+            const ultimoPrecioInfoAdmin = document.getElementById(`ultimo-precio-info-${id}`);
+
+            if (precioInput && ultimoPrecioInfoAdmin) {
+                ultimoPrecioInfoAdmin.style.display = 'none';
+                ultimoPrecioInfoAdmin.innerHTML = '';
+            }
+
             if (precioInput) {
                 precioInput.value = precioSugerido.toFixed(2);
                 if (esBonif) {
@@ -2443,12 +2449,50 @@
                     precioInput.style.background = '';
                 }
             }
+
+            if (idCliente && select.value && !esBonif) {
+                if (ultimoPrecioInfoAdmin) {
+                    ultimoPrecioInfoAdmin.innerHTML = `<span class="spinner-border spinner-border-sm text-muted me-1" role="status" style="width: 0.75rem; height: 0.75rem;"></span>Buscando historial...`;
+                    ultimoPrecioInfoAdmin.style.display = 'block';
+                }
+                
+                fetch(`/admin/api/ultimo_precio_cliente?id_cliente=${idCliente}&id_producto=${select.value}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success && data.ultimo_precio !== null && data.ultimo_precio !== undefined) {
+                            if (precioInput) {
+                                precioInput.value = data.ultimo_precio.toFixed(2);
+                                calcularSubtotal(id);
+                            }
+                            if (ultimoPrecioInfoAdmin) {
+                                ultimoPrecioInfoAdmin.innerHTML = `<i class="bi bi-clock-history text-info me-1"></i>Último precio vendido: <strong class="text-info">C$ ${parseFloat(data.ultimo_precio).toFixed(2)}</strong>`;
+                                ultimoPrecioInfoAdmin.style.display = 'block';
+                            }
+                        } else {
+                            if (ultimoPrecioInfoAdmin) {
+                                ultimoPrecioInfoAdmin.style.display = 'none';
+                            }
+                        }
+                    })
+                    .catch(err => {
+                        console.error(err);
+                        if (ultimoPrecioInfoAdmin) {
+                            ultimoPrecioInfoAdmin.style.display = 'none';
+                        }
+                    });
+            }
+
             const cantidadActual = parseFloat(cantidadInput?.value) || 0;
             validarCantidadVsStock(cantidadInput, cantidadActual, stockActual, stockInfo);
             calcularSubtotal(id);
         } else {
             stockInfo.style.display = 'none';
             if (precioInput) precioInput.value = '0';
+            const ultimoPrecioInfoAdmin = document.getElementById(`ultimo-precio-info-${id}`);
+            if (ultimoPrecioInfoAdmin) {
+                ultimoPrecioInfoAdmin.style.display = 'none';
+                ultimoPrecioInfoAdmin.innerHTML = '';
+            }
             calcularSubtotal(id);
         }
         actualizarTotalPagado();

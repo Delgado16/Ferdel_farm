@@ -9,6 +9,55 @@ from auth.decorators import admin_required, admin_or_bodega_required
 from helpers.bitacora import bitacora_decorator
 from .. import admin_bp
 
+@admin_bp.route('/api/ultimo_precio_cliente', methods=['GET'])
+@admin_or_bodega_required
+def admin_ultimo_precio_cliente():
+    """
+    Obtener el último precio de un producto específico vendido a un cliente (desde Admin o Vendedor)
+    """
+    id_cliente = request.args.get('id_cliente', type=int)
+    id_producto = request.args.get('id_producto', type=int)
+    
+    if not id_cliente or not id_producto:
+        return jsonify({'success': False, 'message': 'Parámetros faltantes'}), 400
+        
+    try:
+        with get_db_cursor(True) as cursor:
+            # Consultar en ambos tipos de facturas (Admin y Ruta) el último precio de este cliente
+            cursor.execute("""
+                SELECT Precio FROM (
+                    SELECT df.Costo AS Precio, f.Fecha_Creacion
+                    FROM detalle_facturacion df
+                    INNER JOIN facturacion f ON df.ID_Factura = f.ID_Factura
+                    WHERE f.IDCliente = %s AND df.ID_Producto = %s AND f.Estado = 'Activa'
+                    
+                    UNION ALL
+                    
+                    SELECT dfr.Precio, fr.Fecha_Creacion
+                    FROM detalle_facturacion_ruta dfr
+                    INNER JOIN facturacion_ruta fr ON dfr.ID_FacturaRuta = fr.ID_FacturaRuta
+                    WHERE fr.ID_Cliente = %s AND dfr.ID_Producto = %s AND fr.Estado = 'Activa'
+                ) AS combinado
+                ORDER BY Fecha_Creacion DESC
+                LIMIT 1
+            """, (id_cliente, id_producto, id_cliente, id_producto))
+            row = cursor.fetchone()
+            
+            if row:
+                return jsonify({
+                    'success': True,
+                    'ultimo_precio': float(row['Precio'])
+                })
+            else:
+                return jsonify({
+                    'success': True,
+                    'ultimo_precio': None
+                })
+    except Exception as e:
+        print(f"Error al obtener último precio del cliente (admin): {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
 @admin_bp.route('/ventas/ventas-salidas', methods=['GET'])
 @admin_or_bodega_required
 @bitacora_decorator("VENTAS-SALIDAS")

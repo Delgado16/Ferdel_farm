@@ -78,17 +78,24 @@ def ultimo_precio_cliente():
         
     try:
         with get_db_cursor(True) as cursor:
-            # Consultar en las facturaciones activas el último precio del producto para este cliente
+            # Consultar en ambos tipos de facturas (Admin y Ruta) el último precio de este cliente
             cursor.execute("""
-                SELECT dfr.Precio 
-                FROM detalle_facturacion_ruta dfr
-                INNER JOIN facturacion_ruta fr ON dfr.ID_FacturaRuta = fr.ID_FacturaRuta
-                WHERE fr.ID_Cliente = %s 
-                  AND dfr.ID_Producto = %s 
-                  AND fr.Estado = 'Activa'
-                ORDER BY fr.Fecha_Creacion DESC, fr.ID_FacturaRuta DESC
+                SELECT Precio FROM (
+                    SELECT df.Costo AS Precio, f.Fecha_Creacion
+                    FROM detalle_facturacion df
+                    INNER JOIN facturacion f ON df.ID_Factura = f.ID_Factura
+                    WHERE f.IDCliente = %s AND df.ID_Producto = %s AND f.Estado = 'Activa'
+                    
+                    UNION ALL
+                    
+                    SELECT dfr.Precio, fr.Fecha_Creacion
+                    FROM detalle_facturacion_ruta dfr
+                    INNER JOIN facturacion_ruta fr ON dfr.ID_FacturaRuta = fr.ID_FacturaRuta
+                    WHERE fr.ID_Cliente = %s AND dfr.ID_Producto = %s AND fr.Estado = 'Activa'
+                ) AS combinado
+                ORDER BY Fecha_Creacion DESC
                 LIMIT 1
-            """, (id_cliente, id_producto))
+            """, (id_cliente, id_producto, id_cliente, id_producto))
             row = cursor.fetchone()
             
             if row:
