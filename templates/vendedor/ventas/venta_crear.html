@@ -596,7 +596,7 @@
             text: message,
             timer: 3000,
             showConfirmButton: false,
-            position: isMobile ? 'bottom' : 'top-end',
+            position: isMobile ? 'top' : 'top-end',
             toast: true,
             didOpen: () => {
                 if (isMobile) {
@@ -3245,28 +3245,32 @@
 
         let html = '';
         productos.forEach((prod, index) => {
-            html += `<div class="producto-movil-card p-2 mb-2" data-index="${index}" style="background: #f8f9fa; border-radius: 8px; border-left: 4px solid #007bff;">
+            html += `<div class="producto-movil-card-premium" data-index="${index}" style="border-left: 5px solid #10b981;">
                 <div class="d-flex justify-content-between align-items-start mb-2">
-                    <div><span class="badge bg-secondary me-1">${prod.codigo}</span><span class="badge bg-primary">${index + 1}</span></div>
-                    <span class="fw-bold text-success">${formatoCordoba(prod.cantidad * prod.precio)}</span>
-                </div>
-                <h6 class="mb-2 fw-bold">${prod.nombre}</h6>
-                <div class="row g-2">
-                    <div class="col-12 col-sm-5">
-                        <small class="text-muted d-block">Cantidad</small>
-                        <input type="number" class="form-control text-center cantidad-movil" value="${prod.cantidad}" min="0.01" max="${prod.stock}" step="0.01" onchange="actualizarCantidadMovil(${index}, this.value)">
-                        <small class="text-muted d-block mt-1">Stock: ${formatNumber(prod.stock)}</small>
+                    <div>
+                        <span class="badge bg-secondary me-1 font-monospace">${prod.codigo}</span>
+                        <span class="badge bg-primary rounded-circle">${index + 1}</span>
                     </div>
-                    <div class="col-7 col-sm-4">
-                        <small class="text-muted d-block">Precio</small>
-                        <div class="input-group">
-                            <span class="input-group-text">C$</span>
-                            <input type="number" class="form-control precio-movil" value="${prod.precio.toFixed(2)}" step="0.01" min="0" onchange="actualizarPrecioMovil(${index}, this.value)">
+                    <span class="fw-bold text-success fs-5">${formatoCordoba(prod.cantidad * prod.precio)}</span>
+                </div>
+                <h6 class="mb-3 fw-bold text-slate-800">${prod.nombre}</h6>
+                <div class="row g-2 align-items-end">
+                    <div class="col-5">
+                        <label class="small text-muted mb-1 d-block">Cantidad</label>
+                        <input type="number" class="form-control text-center input-premium-sm w-100" value="${prod.cantidad}" min="0.01" max="${prod.stock}" step="0.01" onchange="actualizarCantidadMovil(${index}, this.value)">
+                        <small class="text-muted d-block mt-1 font-size-xs">Stock: ${formatNumber(prod.stock)}</small>
+                    </div>
+                    <div class="col-5">
+                        <label class="small text-muted mb-1 d-block">Precio</label>
+                        <div class="input-group input-group-sm">
+                            <span class="input-group-text bg-light border-end-0">C$</span>
+                            <input type="number" class="form-control input-premium-sm text-end" value="${prod.precio.toFixed(2)}" step="0.01" min="0" onchange="actualizarPrecioMovil(${index}, this.value)">
                         </div>
                     </div>
-                    <div class="col-5 col-sm-3">
-                        <small class="text-muted d-block">Acción</small>
-                        <button class="btn btn-sm btn-danger w-100" onclick="event.preventDefault(); event.stopPropagation(); eliminarProductoMovil(${index})"><i class="fas fa-trash"></i> Quitar</button>
+                    <div class="col-2">
+                        <button class="btn btn-sm btn-outline-danger w-100 py-2 rounded-3 border-2" onclick="event.preventDefault(); event.stopPropagation(); eliminarProductoMovil(${index})" title="Quitar producto">
+                            <i class="fas fa-trash"></i>
+                        </button>
                     </div>
                 </div>
             </div>`;
@@ -4023,6 +4027,32 @@
 
 {% block extra_css %}
 <style>
+    .producto-movil-card-premium {
+        background: #ffffff;
+        border-radius: 14px;
+        border: 1px solid rgba(226, 232, 240, 0.8);
+        box-shadow: 0 4px 12px -2px rgba(15, 23, 42, 0.04);
+        padding: 1rem;
+        margin-bottom: 1rem;
+        transition: all 0.2s ease;
+    }
+    .producto-movil-card-premium:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 16px -2px rgba(15, 23, 42, 0.08);
+    }
+    .input-premium-sm {
+        border-radius: 8px;
+        border: 1px solid #cbd5e1;
+        padding: 0.35rem 0.5rem;
+        font-size: 0.875rem;
+        font-weight: 600;
+        transition: all 0.2s ease;
+    }
+    .input-premium-sm:focus {
+        border-color: #3b82f6;
+        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+    }
+
     /* ============================================ */
     /* ESTILOS MEJORADOS                           */
     /* ============================================ */

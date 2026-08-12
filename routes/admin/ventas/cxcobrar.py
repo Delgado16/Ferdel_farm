@@ -397,7 +397,7 @@ def admin_registrar_pago(id_movimiento):
                     if detalles_metodo:
                         flash(f"📝 Detalles del pago: {detalles_metodo}")
                     
-                return redirect(url_for('admin.admin_detalle_cuentacobrar', id_movimiento=id_movimiento))
+                return redirect(url_for('admin.admin_pago_recibo', id_pago=id_pago, autoPrint=1))
                 
         except ValueError as e:
             flash(f" Error: El monto ingresado no es válido: {e}")
@@ -974,8 +974,8 @@ def admin_crear_abono():
             monto_aplicado = request.form.get('monto_aplicado')
             id_metodo_pago = request.form.get('id_metodo_pago') or None
 
-            monto_aplicado = float(monto_aplicado)
-            if monto_aplicado <= 0:
+            monto_aplicado = Decimal(str(monto_aplicado))
+            if monto_aplicado <= Decimal('0'):
                 # Cambiado a JSON para mantener la consistencia en el Frontend
                 return jsonify({'success': False, 'error': 'El monto del abono debe ser mayor a 0'}), 400
 
@@ -1023,9 +1023,7 @@ def admin_crear_abono():
 
                 facturas = cursor.fetchall()
 
-                if not facturas:
-                    return jsonify({'success': False, 'error': 'No hay facturas pendientes para este cliente'}), 400
-            
+                # Si no hay facturas, no detenemos el proceso con error. Se aplicará directo al saldo del cliente.
                 caja_mov_ref = "SIN_CAJA"
                 id_movimiento_caja = None
                 if id_metodo_pago == 1:
@@ -1040,7 +1038,7 @@ def admin_crear_abono():
                     """)
 
                     saldo_actual_caja = cursor.fetchone()
-                    saldo_actual = float(saldo_actual_caja['Saldo_Actual'] if saldo_actual_caja else 0)
+                    saldo_actual = Decimal(str(saldo_actual_caja['Saldo_Actual'] if saldo_actual_caja else 0))
                     nuevo_saldo = saldo_actual + monto_aplicado
 
                     concepto_caja = f"Abono de Cliente: {nombre_cliente} - {nombre_metodo} - Monto: C${monto_aplicado:.2f}"
@@ -1051,84 +1049,133 @@ def admin_crear_abono():
                     VALUES (NOW(), 'ENTRADA', %s, %s, %s, 'ACTIVO', %s)
                     """, (
                         concepto_caja,
-                        monto_aplicado,
+                        float(monto_aplicado),
                         id_usuario,
                         f"Abono Cxc - {nombre_cliente}"
                     ))
 
                     id_movimiento_caja = cursor.lastrowid
-                    # La columna caja_movimientos es varchar(100), no podemos guardar un JSON largo.
-                    # Guardaremos una referencia corta al ID del movimiento de caja.
                     caja_mov_ref = f"ADMIN-{id_movimiento_caja}" if id_movimiento_caja else "SIN_CAJA"
 
                 # Distribución del abono entre las facturas
                 monto_restante = monto_aplicado
                 detalle_abono = []
-                monto_aplicado_total = 0  # Usar una nueva variable en vez de sobreescribir 'monto_aplicado'
+                monto_aplicado_total = Decimal('0')
                 ultimo_id_abono = None
                 facturas_canceladas = []
 
-                for factura in facturas: 
-                    if monto_restante <= 0:
-                        break
+                if facturas:
+                    for factura in facturas: 
+                        if monto_restante <= Decimal('0'):
+                            break
 
-                    saldo_factura = float(factura['Saldo_Pendiente'])
-                    monto_aplicar = min(monto_restante, saldo_factura)
-                    nuevo_saldo_factura = saldo_factura - monto_aplicar
-                    nuevo_estado = 'Pagada' if nuevo_saldo_factura == 0 else 'Pendiente'
-                
-                    if nuevo_saldo_factura <= 0.01:
-                        facturas_canceladas.append({
-                            'id_movimiento': factura['ID_Movimiento'],
+                        saldo_factura = Decimal(str(factura['Saldo_Pendiente']))
+                        monto_aplicar = min(monto_restante, saldo_factura)
+                        nuevo_saldo_factura = saldo_factura - monto_aplicar
+                        
+                        # Si el nuevo saldo es menor o igual a 0.01, consideramos la factura totalmente pagada
+                        if nuevo_saldo_factura <= Decimal('0.01'):
+                            nuevo_saldo_factura = Decimal('0')
+                            nuevo_estado = 'Pagada'
+                        else:
+                            nuevo_estado = 'Pendiente'
+                    
+                        if nuevo_estado == 'Pagada':
+                            facturas_canceladas.append({
+                                'id_movimiento': factura['ID_Movimiento'],
+                                'num_documento': factura['Num_Documento'],
+                                'monto_pagado': float(monto_aplicar)
+                            })
+                    
+                        cursor.execute("""
+                        UPDATE cuentas_por_cobrar
+                        SET Saldo_Pendiente = %s,
+                            Estado = %s
+                        WHERE ID_Movimiento = %s
+                        """, (float(nuevo_saldo_factura), nuevo_estado, factura['ID_Movimiento']))
+
+                        saldo_anterior = Decimal(str(factura['Saldo_Pendiente']))
+                        saldo_nuevo = nuevo_saldo_factura
+                    
+                        cursor.execute("""
+                            INSERT INTO abonos_general
+                            (ID_Usuario, ID_Cliente, ID_CuentaCobrar, Monto_Aplicado, 
+                            Saldo_Anterior, Saldo_Nuevo, Fecha, ID_MetodoPago, caja_movimientos)
+                            VALUES (%s, %s, %s, %s, %s, %s, NOW(), %s, %s)
+                        """, (
+                            id_usuario,
+                            id_cliente,
+                            factura['ID_Movimiento'],
+                            float(monto_aplicar),
+                            float(saldo_anterior),
+                            float(saldo_nuevo),
+                            id_metodo_pago,
+                            caja_mov_ref
+                        ))
+                    
+                        detalle_abono.append({
+                            'factura_id': factura['ID_Movimiento'],
                             'num_documento': factura['Num_Documento'],
-                            'monto_pagado': monto_aplicar
+                            'monto_aplicado': float(monto_aplicar),
+                            'saldo_anterior': float(saldo_anterior),
+                            'saldo_nuevo': float(saldo_nuevo)
                         })
-                
-                    cursor.execute("""
-                    UPDATE cuentas_por_cobrar
-                    SET Saldo_Pendiente = %s,
-                        Estado = %s
-                    WHERE ID_Movimiento = %s
-                    """, (nuevo_saldo_factura, nuevo_estado, factura['ID_Movimiento']))
+                    
+                        monto_restante -= monto_aplicar
+                        monto_aplicado_total += monto_aplicar
+                        ultimo_id_abono = cursor.lastrowid
 
-                    saldo_anterior = float(factura['Saldo_Pendiente'])
-                    saldo_nuevo = float(nuevo_saldo_factura)
-                
+                # Si queda un remanente o si el cliente no tenía facturas pendientes
+                if monto_restante > Decimal('0'):
+                    # Creamos un movimiento genérico pagado en cuentas por cobrar para poder asociar el abono sin violar las llaves foráneas NOT NULL
+                    cursor.execute("""
+                        INSERT INTO cuentas_por_cobrar (
+                            Fecha, ID_Cliente, Num_Documento, Observacion,
+                            Fecha_Vencimiento, Tipo_Movimiento, Monto_Movimiento,
+                            ID_Empresa, Saldo_Pendiente, ID_Factura, ID_Usuario_Creacion, Estado
+                        )
+                        VALUES (CURDATE(), %s, %s, %s, NULL, 1, 0.0, %s, 0.0, NULL, %s, 'Pagada')
+                    """, (
+                        id_cliente,
+                        'ABONO-GLOBAL',
+                        'Remanente o abono sin factura asociada (Saldo a favor/anticipo)',
+                        session.get('id_empresa', 1),
+                        id_usuario
+                    ))
+                    id_cxc_generico = cursor.lastrowid
+
                     cursor.execute("""
                         INSERT INTO abonos_general
                         (ID_Usuario, ID_Cliente, ID_CuentaCobrar, Monto_Aplicado, 
                         Saldo_Anterior, Saldo_Nuevo, Fecha, ID_MetodoPago, caja_movimientos)
-                        VALUES (%s, %s, %s, %s, %s, %s, NOW(), %s, %s)
+                        VALUES (%s, %s, %s, %s, 0.0, 0.0, NOW(), %s, %s)
                     """, (
                         id_usuario,
                         id_cliente,
-                        factura['ID_Movimiento'],
-                        monto_aplicar,
-                        saldo_anterior,
-                        saldo_nuevo,
+                        id_cxc_generico,
+                        float(monto_restante),
                         id_metodo_pago,
                         caja_mov_ref
                     ))
-                
-                    detalle_abono.append({
-                        'factura_id': factura['ID_Movimiento'],
-                        'num_documento': factura['Num_Documento'],
-                        'monto_aplicado': monto_aplicar,
-                        'saldo_anterior': saldo_anterior,
-                        'saldo_nuevo': saldo_nuevo
-                    })
-                
-                    monto_restante -= monto_aplicar
-                    monto_aplicado_total += monto_aplicar
                     ultimo_id_abono = cursor.lastrowid
+                    
+                    detalle_abono.append({
+                        'factura_id': id_cxc_generico,
+                        'num_documento': 'ABONO-GLOBAL',
+                        'monto_aplicado': float(monto_restante),
+                        'saldo_anterior': 0.0,
+                        'saldo_nuevo': 0.0
+                    })
+                    
+                    monto_aplicado_total += monto_restante
 
                 # Actualizar saldo del cliente
                 cursor.execute("""
                 UPDATE clientes
-                SET Saldo_Pendiente_Total = GREATEST(0, COALESCE(Saldo_Pendiente_Total,0) - %s),
+                SET Saldo_Pendiente_Total = COALESCE(Saldo_Pendiente_Total, 0) - %s,
                     Fecha_ultimo_pago = NOW()
                 WHERE ID_Cliente = %s
-                """, (monto_aplicado_total, int(id_cliente)))
+                """, (float(monto_aplicado_total), int(id_cliente)))
 
             # Preparamos la respuesta final fuera del WITH una vez cerrado y "commiteado"
             id_abono_para_recibo = ultimo_id_abono if ultimo_id_abono else (id_movimiento_caja if id_movimiento_caja else 0)
@@ -1178,4 +1225,352 @@ def admin_crear_abono():
     except Exception as e:
         print(f' Error al cargar formulario de abono: {e}')
         flash('Error al cargar el formulario', 'danger')
+        return redirect(url_for('admin.admin_cuentascobrar'))
+
+
+@admin_bp.route('/admin/ventas/cxcobrar/abono/recibo/<int:id_abono>')
+@admin_required
+def admin_abono_recibo(id_abono):
+    """Genera el recibo del abono global seleccionado."""
+    try:
+        auto_print = request.args.get('autoPrint', '0') == '1'
+        
+        with get_db_cursor(True) as cursor:
+            # Buscar el abono en abonos_general
+            cursor.execute("""
+                SELECT 
+                    ag.ID_Detalle as id_abono,
+                    ag.Monto_Aplicado,
+                    ag.Fecha,
+                    ag.caja_movimientos,
+                    ag.ID_Cliente,
+                    ag.ID_MetodoPago,
+                    c.Nombre as cliente_nombre,
+                    c.RUC_CEDULA as cliente_ruc,
+                    c.Saldo_Pendiente_Total as saldo_actual_cliente,
+                    u.NombreUsuario as usuario_nombre,
+                    mp.Nombre as metodo_pago_nombre,
+                    e.Nombre_Empresa as empresa_nombre,
+                    e.RUC as empresa_ruc,
+                    e.Direccion as empresa_direccion,
+                    e.Telefono as empresa_telefono
+                FROM abonos_general ag
+                INNER JOIN clientes c ON ag.ID_Cliente = c.ID_Cliente
+                INNER JOIN usuarios u ON ag.ID_Usuario = u.ID_Usuario
+                LEFT JOIN metodos_pago mp ON ag.ID_MetodoPago = mp.ID_MetodoPago
+                LEFT JOIN empresa e ON c.ID_Empresa = e.ID_Empresa
+                WHERE ag.ID_Detalle = %s
+            """, (id_abono,))
+            
+            abono = cursor.fetchone()
+            
+            if not abono:
+                flash('Abono no encontrado', 'error')
+                return redirect(url_for('admin.admin_cuentascobrar'))
+                
+            # Obtener TODOS los abonos del mismo movimiento para calcular el total
+            # Si tiene caja_movimientos diferente de SIN_CAJA, agrupar por esa llave
+            if abono['caja_movimientos'] and abono['caja_movimientos'] != 'SIN_CAJA':
+                cursor.execute("""
+                    SELECT SUM(Monto_Aplicado) as total_abonado
+                    FROM abonos_general
+                    WHERE caja_movimientos = %s
+                """, (abono['caja_movimientos'],))
+            else:
+                # Si no tiene movimiento de caja, buscar por fecha (misma fecha de abono) y cliente
+                cursor.execute("""
+                    SELECT SUM(Monto_Aplicado) as total_abonado
+                    FROM abonos_general
+                    WHERE ID_Cliente = %s 
+                      AND DATE(Fecha) = DATE(%s)
+                """, (abono['ID_Cliente'], abono['Fecha']))
+                
+            total_result = cursor.fetchone()
+            monto_total = float(total_result['total_abonado']) if total_result and total_result['total_abonado'] else float(abono['Monto_Aplicado'])
+            
+            metodo_pago = abono['metodo_pago_nombre'] or 'NO ESPECIFICADO'
+            
+            # Calcular datos financieros
+            saldo_actual = float(abono['saldo_actual_cliente'])
+            saldo_anterior = saldo_actual + monto_total
+            
+            # Formatear fecha
+            fecha_abono = abono['Fecha']
+            if isinstance(fecha_abono, str):
+                from datetime import datetime
+                try:
+                    fecha_abono = datetime.strptime(fecha_abono, '%Y-%m-%d %H:%M:%S')
+                except:
+                    fecha_abono = datetime.now()
+            
+            numero_recibo = f"REC-ADM-{fecha_abono.strftime('%Y%m%d')}-{abono['id_abono']:05d}"
+            
+            # Datos para el template
+            ticket_data = {
+                'numero_recibo': numero_recibo,
+                'id_abono': abono['id_abono'],
+                'fecha': fecha_abono.strftime('%d/%m/%Y %H:%M:%S'),
+                'cliente': abono['cliente_nombre'],
+                'cliente_ruc': abono['cliente_ruc'] or 'N/A',
+                'vendedor': abono['usuario_nombre'],
+                'ruta': 'Administración (Pago Global)',
+                'metodo_pago': metodo_pago,
+                'saldo_anterior_formateado': f"C${saldo_anterior:,.2f}",
+                'monto_total_formateado': f"C${monto_total:,.2f}",
+                'nuevo_saldo_formateado': f"C${saldo_actual:,.2f}",
+                'nuevo_saldo': saldo_actual,
+                'empresa': {
+                    'nombre': abono['empresa_nombre'] or 'FERDEL',
+                    'ruc': abono['empresa_ruc'] or 'N/A',
+                    'direccion': abono['empresa_direccion'] or '',
+                    'telefono': abono['empresa_telefono'] or '',
+                    'logo': '/static/ferdel.png'
+                },
+                'auto_print': auto_print
+            }
+            
+            return render_template('admin/ventas/cxcobrar/recibo_abono.html', ticket=ticket_data)
+            
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        flash(f'Error al generar recibo: {e}', 'error')
+        return redirect(url_for('admin.admin_cuentascobrar'))
+
+
+@admin_bp.route('/admin/ventas/cxcobrar/pago/recibo/<int:id_pago>')
+@admin_required
+def admin_pago_recibo(id_pago):
+    """Genera el recibo del pago a factura específica seleccionado."""
+    try:
+        auto_print = request.args.get('autoPrint', '0') == '1'
+        
+        with get_db_cursor(True) as cursor:
+            # Buscar el pago en pagos_cuentascobrar
+            cursor.execute("""
+                SELECT 
+                    p.ID_Pago as id_pago,
+                    p.Monto as monto_pago,
+                    p.Fecha,
+                    p.Comentarios,
+                    p.Detalles_Metodo,
+                    p.ID_Movimiento as id_movimiento,
+                    mp.Nombre as metodo_pago_nombre,
+                    u.NombreUsuario as usuario_nombre,
+                    cxc.Num_Documento as factura_documento,
+                    cxc.Saldo_Pendiente as factura_saldo_actual,
+                    cxc.Estado as factura_estado,
+                    c.Nombre as cliente_nombre,
+                    c.RUC_CEDULA as cliente_ruc,
+                    e.Nombre_Empresa as empresa_nombre,
+                    e.RUC as empresa_ruc,
+                    e.Direccion as empresa_direccion,
+                    e.Telefono as empresa_telefono
+                FROM pagos_cuentascobrar p
+                INNER JOIN cuentas_por_cobrar cxc ON p.ID_Movimiento = cxc.ID_Movimiento
+                INNER JOIN clientes c ON cxc.ID_Cliente = c.ID_Cliente
+                INNER JOIN usuarios u ON p.ID_Usuario_Creacion = u.ID_Usuario
+                LEFT JOIN metodos_pago mp ON p.ID_MetodoPago = mp.ID_MetodoPago
+                LEFT JOIN empresa e ON cxc.ID_Empresa = e.ID_Empresa
+                WHERE p.ID_Pago = %s
+            """, (id_pago,))
+            
+            pago = cursor.fetchone()
+            
+            if not pago:
+                flash('Pago no encontrado', 'error')
+                return redirect(url_for('admin.admin_cuentascobrar'))
+            
+            metodo_pago = pago['metodo_pago_nombre'] or 'NO ESPECIFICADO'
+            monto_pago = float(pago['monto_pago'])
+            
+            # Calcular datos financieros de la factura
+            saldo_actual = float(pago['factura_saldo_actual'])
+            saldo_anterior = saldo_actual + monto_pago
+            
+            # Formatear fecha
+            fecha_pago = pago['Fecha']
+            if isinstance(fecha_pago, str):
+                from datetime import datetime
+                try:
+                    fecha_pago = datetime.strptime(fecha_pago, '%Y-%m-%d %H:%M:%S')
+                except:
+                    fecha_pago = datetime.now()
+            
+            # Datos para el template
+            ticket_data = {
+                'id_pago': pago['id_pago'],
+                'fecha': fecha_pago.strftime('%d/%m/%Y %H:%M:%S'),
+                'cliente': pago['cliente_nombre'],
+                'cliente_ruc': pago['cliente_ruc'] or 'N/A',
+                'documento': pago['factura_documento'],
+                'vendedor': pago['usuario_nombre'],
+                'metodo_pago': metodo_pago,
+                'comentarios': pago['Comentarios'] or pago['Detalles_Metodo'] or '',
+                'saldo_anterior_formateado': f"C${saldo_anterior:,.2f}",
+                'monto_pago_formateado': f"C${monto_pago:,.2f}",
+                'nuevo_saldo_formateado': f"C${saldo_actual:,.2f}",
+                'nuevo_saldo': saldo_actual,
+                'id_movimiento': pago['id_movimiento'],
+                'empresa': {
+                    'nombre': pago['empresa_nombre'] or 'FERDEL',
+                    'ruc': pago['empresa_ruc'] or 'N/A',
+                    'direccion': pago['empresa_direccion'] or '',
+                    'telefono': pago['empresa_telefono'] or '',
+                    'logo': '/static/ferdel.png'
+                },
+                'auto_print': auto_print
+            }
+            
+            return render_template('admin/ventas/cxcobrar/recibo_pago_factura.html', ticket=ticket_data)
+            
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        flash(f'Error al generar recibo: {e}', 'error')
+        return redirect(url_for('admin.admin_cuentascobrar'))
+
+
+@admin_bp.route('/admin/ventas/cxcobrar/historial-abonos')
+@admin_required
+def admin_historial_abonos():
+    """Muestra el historial de todos los pagos y abonos del día con filtros de fecha y cliente."""
+    try:
+        from datetime import date, datetime
+        
+        # Filtros de fecha (por defecto: HOY)
+        hoy = date.today().strftime('%Y-%m-%d')
+        fecha_inicio = request.args.get('fecha_inicio', hoy)
+        fecha_fin = request.args.get('fecha_fin', hoy)
+        id_cliente = request.args.get('id_cliente', '')
+        
+        # Limpiar si el usuario seleccionó "Todos"
+        if id_cliente == 'todos' or id_cliente == '':
+            id_cliente = None
+            
+        with get_db_cursor(True) as cursor:
+            # 1. Obtener lista de clientes con abonos/pagos para el filtro dropdown
+            cursor.execute("SELECT ID_Cliente, Nombre FROM clientes WHERE Estado = 'ACTIVO' ORDER BY Nombre")
+            clientes = cursor.fetchall()
+            
+            # 2. Armar la consulta base de pagos y abonos unificados
+            # Usamos UNION para consolidar los pagos específicos y abonos multifactura
+            query = """
+                SELECT 
+                    'pago' as tipo_registro,
+                    p.ID_Pago as id_registro,
+                    p.Monto as monto,
+                    p.Fecha,
+                    p.Comentarios as descripcion,
+                    COALESCE(mp.Nombre, 'No especificado') as metodo_pago,
+                    u.NombreUsuario as usuario_registro,
+                    c.Nombre as cliente_nombre,
+                    cxc.Num_Documento as documento_afectado,
+                    c.ID_Cliente
+                FROM pagos_cuentascobrar p
+                INNER JOIN cuentas_por_cobrar cxc ON p.ID_Movimiento = cxc.ID_Movimiento
+                INNER JOIN clientes c ON cxc.ID_Cliente = c.ID_Cliente
+                INNER JOIN usuarios u ON p.ID_Usuario_Creacion = u.ID_Usuario
+                LEFT JOIN metodos_pago mp ON p.ID_MetodoPago = mp.ID_MetodoPago
+                WHERE 1=1
+            """
+            params_pago = []
+            
+            if fecha_inicio:
+                query += " AND DATE(p.Fecha) >= %s"
+                params_pago.append(fecha_inicio)
+            if fecha_fin:
+                query += " AND DATE(p.Fecha) <= %s"
+                params_pago.append(fecha_fin)
+            if id_cliente:
+                query += " AND c.ID_Cliente = %s"
+                params_pago.append(id_cliente)
+                
+            query += """
+                UNION ALL
+                
+                SELECT 
+                    'abono' as tipo_registro,
+                    ag.ID_Detalle as id_registro,
+                    ag.Monto_Aplicado as monto,
+                    ag.Fecha,
+                    CASE 
+                        WHEN ag.ID_CuentaCobrar IS NULL THEN 'Abono libre / Saldo a cuenta'
+                        ELSE CONCAT('Abono en cascada a Doc: ', cxc2.Num_Documento)
+                    END as descripcion,
+                    COALESCE(mp2.Nombre, 'No especificado') as metodo_pago,
+                    u2.NombreUsuario as usuario_registro,
+                    c2.Nombre as cliente_nombre,
+                    COALESCE(cxc2.Num_Documento, 'Saldo a favor') as documento_afectado,
+                    c2.ID_Cliente
+                FROM abonos_general ag
+                INNER JOIN clientes c2 ON ag.ID_Cliente = c2.ID_Cliente
+                INNER JOIN usuarios u2 ON ag.ID_Usuario = u2.ID_Usuario
+                LEFT JOIN metodos_pago mp2 ON ag.ID_MetodoPago = mp2.ID_MetodoPago
+                LEFT JOIN cuentas_por_cobrar cxc2 ON ag.ID_CuentaCobrar = cxc2.ID_Movimiento
+                WHERE 1=1
+            """
+            params_abono = []
+            
+            if fecha_inicio:
+                query += " AND DATE(ag.Fecha) >= %s"
+                params_abono.append(fecha_inicio)
+            if fecha_fin:
+                query += " AND DATE(ag.Fecha) <= %s"
+                params_abono.append(fecha_fin)
+            if id_cliente:
+                query += " AND c2.ID_Cliente = %s"
+                params_abono.append(id_cliente)
+                
+            query += " ORDER BY Fecha DESC"
+            
+            all_params = params_pago + params_abono
+            cursor.execute(query, all_params)
+            registros_raw = cursor.fetchall()
+            
+            # Formatear datos para el template
+            registros = []
+            total_recaudado = Decimal('0')
+            total_cash = Decimal('0')
+            total_transfer = Decimal('0')
+            total_other = Decimal('0')
+            
+            for reg in registros_raw:
+                reg_dict = dict(reg)
+                monto = Decimal(str(reg_dict['monto']))
+                total_recaudado += monto
+                
+                # Clasificar por método de pago para resúmenes
+                mp_upper = reg_dict['metodo_pago'].upper()
+                if 'EFECTIVO' in mp_upper or 'CASH' in mp_upper:
+                    total_cash += monto
+                elif 'TRANSFERENCIA' in mp_upper or 'DEPOSITO' in mp_upper:
+                    total_transfer += monto
+                else:
+                    total_other += monto
+                
+                # Formatear fecha
+                if reg_dict['Fecha'] and hasattr(reg_dict['Fecha'], 'strftime'):
+                    reg_dict['FechaFormateada'] = reg_dict['Fecha'].strftime('%d/%m/%Y %H:%M:%S')
+                else:
+                    reg_dict['FechaFormateada'] = str(reg_dict['Fecha'])
+                    
+                registros.append(reg_dict)
+                
+            return render_template('admin/ventas/cxcobrar/historial_abonos.html',
+                                 registros=registros,
+                                 clientes=clientes,
+                                 fecha_inicio=fecha_inicio,
+                                 fecha_fin=fecha_fin,
+                                 id_cliente_sel=id_cliente or 'todos',
+                                 total_recaudado=float(total_recaudado),
+                                 total_cash=float(total_cash),
+                                 total_transfer=float(total_transfer),
+                                 total_other=float(total_other),
+                                 hoy=hoy)
+                                 
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        flash(f"Error al cargar historial de abonos: {e}", "danger")
         return redirect(url_for('admin.admin_cuentascobrar'))

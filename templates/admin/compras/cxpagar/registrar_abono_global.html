@@ -142,22 +142,35 @@
             if (selectProveedor.value) {
                 saldoProveedorText.textContent = "C$ " + saldo.toLocaleString('es-NI', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
                 saldoInfoContainer.style.display = "block";
-                inputMonto.setAttribute("max", saldo);
             } else {
                 saldoInfoContainer.style.display = "none";
-                inputMonto.removeAttribute("max");
             }
         });
 
-        // Validar que el abono no sea mayor al saldo pendiente
+        // Validar que el abono no sea mayor al saldo pendiente sin confirmación
         form.addEventListener("submit", function(event) {
+            event.preventDefault();
             const selectedOption = selectProveedor.options[selectProveedor.selectedIndex];
             const saldo = parseFloat(selectedOption.getAttribute("data-saldo") || 0);
             const monto = parseFloat(inputMonto.value || 0);
 
             if (monto > saldo) {
-                event.preventDefault();
-                alert("⚠️ Error: El monto del abono (C$ " + monto.toFixed(2) + ") no puede ser superior al saldo pendiente total del proveedor (C$ " + saldo.toFixed(2) + ").");
+                Swal.fire({
+                    title: '¿Confirmar abono mayor al saldo?',
+                    text: `El monto ingresado (C$${monto.toLocaleString('es-NI', {minimumFractionDigits: 2})}) supera el saldo pendiente total del proveedor (C$${saldo.toLocaleString('es-NI', {minimumFractionDigits: 2})}). ¿Desea aplicar el excedente directamente al saldo de cuenta del proveedor?`,
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonColor: '#2e7d32',
+                    cancelButtonColor: '#6c757d',
+                    confirmButtonText: 'Sí, registrar',
+                    cancelButtonText: 'Cancelar'
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        form.submit();
+                    }
+                });
+            } else {
+                form.submit();
             }
         });
     });

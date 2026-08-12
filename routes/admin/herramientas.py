@@ -278,14 +278,17 @@ def admin_backup():
             size_mb = cursor.fetchone()['size_mb'] or 0.0
             
             cursor.execute("""
-                SELECT table_name, 
-                       COALESCE(table_rows, 0) AS table_rows, 
-                       COALESCE((data_length + index_length) / 1024, 0.0) AS size_kb 
+                SELECT TABLE_NAME AS table_name, 
+                       COALESCE(TABLE_ROWS, 0) AS table_rows, 
+                       COALESCE((DATA_LENGTH + INDEX_LENGTH) / 1024, 0.0) AS size_kb 
                 FROM information_schema.TABLES 
                 WHERE table_schema = %s
-                ORDER BY table_name
+                ORDER BY TABLE_NAME
             """, (db_name,))
-            tablas = cursor.fetchall()
+            tablas_raw = cursor.fetchall()
+            tablas = []
+            for row in tablas_raw:
+                tablas.append({k.lower(): v for k, v in row.items()})
             
             return render_template('admin/herramientas/backup.html', 
                                  db_name=db_name, 

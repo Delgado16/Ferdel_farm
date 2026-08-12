@@ -151,10 +151,8 @@
             if (selectElement.value) {
                 saldoClienteText.textContent = "C$ " + saldo.toLocaleString('es-NI', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
                 saldoInfoContainer.style.display = "block";
-                inputMonto.setAttribute("max", saldo);
             } else {
                 saldoInfoContainer.style.display = "none";
-                inputMonto.removeAttribute("max");
             }
         }
 
@@ -168,13 +166,25 @@
 
             if (monto > saldo) {
                 Swal.fire({
+                    title: '¿Confirmar abono mayor al saldo?',
+                    text: "El monto del abono (C$ " + monto.toFixed(2) + ") es superior al saldo pendiente registrado del cliente (C$ " + saldo.toFixed(2) + "). El saldo excedente se registrará a favor del cliente. ¿Desea continuar?",
                     icon: 'warning',
-                    title: 'Monto Excedido',
-                    text: "El monto del abono (C$ " + monto.toFixed(2) + ") no puede ser superior al saldo pendiente total (C$ " + saldo.toFixed(2) + ")."
+                    showCancelButton: true,
+                    confirmButtonColor: '#3085d6',
+                    cancelButtonColor: '#d33',
+                    confirmButtonText: 'Sí, aplicar abono',
+                    cancelButtonText: 'Cancelar'
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        enviarFormulario();
+                    }
                 });
-                return;
+            } else {
+                enviarFormulario();
             }
+        });
 
+        function enviarFormulario() {
             btnSubmit.disabled = true;
             btnSubmit.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> Procesando...';
 
@@ -188,12 +198,20 @@
             .then(data => {
                 if (data.success) {
                     Swal.fire({
-                        icon: 'success',
-                        title: '¡Éxito!',
+                        title: '¡Abono Registrado!',
                         text: data.mensaje,
-                        showConfirmButton: true
-                    }).then(() => {
-                        window.location.href = "{{ url_for('admin.admin_cuentascobrar') }}";
+                        icon: 'success',
+                        showCancelButton: true,
+                        confirmButtonColor: '#2e7d32',
+                        cancelButtonColor: '#6c757d',
+                        confirmButtonText: '🖨️ Ver e Imprimir Recibo',
+                        cancelButtonText: 'Volver a Cuentas por Cobrar'
+                    }).then((result) => {
+                        if (result.isConfirmed) {
+                            window.location.href = "{{ url_for('admin.admin_abono_recibo', id_abono=0) }}".replace('0', data.id_abono);
+                        } else {
+                            window.location.href = "{{ url_for('admin.admin_cuentascobrar') }}";
+                        }
                     });
                 } else {
                     Swal.fire({
@@ -215,7 +233,7 @@
                 btnSubmit.disabled = false;
                 btnSubmit.innerHTML = '<i class="fas fa-check-circle me-1"></i> Confirmar y Aplicar Abono';
             });
-        });
+        }
     });
 </script>
 {% endblock %}

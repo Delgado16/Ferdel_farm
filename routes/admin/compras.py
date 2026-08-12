@@ -1536,15 +1536,12 @@ def registrar_abono_proveedor_global():
         id_empresa = session.get('id_empresa', 1)
         if request.method == 'GET':
             with get_db_cursor(True) as cursor:
-                # Obtener proveedores con saldo pendiente mayor a 0
+                # Obtener todos los proveedores activos de la empresa
                 cursor.execute("""
-                    SELECT p.ID_Proveedor, p.Nombre, 
-                           COALESCE(SUM(cpp.Saldo_Pendiente), 0) as Saldo_Pendiente
-                    FROM proveedores p
-                    INNER JOIN cuentas_por_pagar cpp ON p.ID_Proveedor = cpp.ID_Proveedor
-                    WHERE p.ID_Empresa = %s AND p.Estado = 'ACTIVO' AND cpp.Estado IN ('Pendiente', 'Parcial', 'Vencida') AND cpp.Saldo_Pendiente > 0
-                    GROUP BY p.ID_Proveedor, p.Nombre
-                    ORDER BY p.Nombre
+                    SELECT ID_Proveedor, Nombre, COALESCE(Saldo_Pendiente, 0) as Saldo_Pendiente
+                    FROM proveedores
+                    WHERE ID_Empresa = %s AND Estado = 'ACTIVO'
+                    ORDER BY Nombre
                 """, (id_empresa,))
                 proveedores = cursor.fetchall()
                 
@@ -1561,14 +1558,14 @@ def registrar_abono_proveedor_global():
                                      
         elif request.method == 'POST':
             id_proveedor = int(request.form['id_proveedor'])
-            monto_abono = float(request.form['monto_abono'])
+            monto_abono = Decimal(str(request.form['monto_abono']))
             fecha_pago = request.form['fecha_pago']
             id_metodo_pago = int(request.form['id_metodo_pago'])
             detalles_metodo = request.form.get('detalles_metodo', '')
             comentarios = request.form.get('comentarios_pago', '')
-            id_usuario = session.get('user_id', 1)
+            id_usuario = session.get('user_id', current_user.id if current_user.is_authenticated else 1)
             
-            if monto_abono <= 0:
+            if monto_abono <= Decimal('0'):
                 flash('El monto del abono debe ser mayor a cero', 'error')
                 return redirect(url_for('admin.registrar_abono_proveedor_global'))
                 
@@ -1582,53 +1579,73 @@ def registrar_abono_proveedor_global():
                 """, (id_proveedor,))
                 cuentas = cursor.fetchall()
                 
-                total_pendiente = sum(float(c['Saldo_Pendiente']) for c in cuentas)
-                
-                if not cuentas:
-                    flash('El proveedor no tiene cuentas pendientes de pago', 'error')
-                    return redirect(url_for('admin.admin_cuentas_por_pagar'))
-                    
-                if monto_abono > total_pendiente:
-                    flash(f'El monto a abonar (C${monto_abono:,.2f}) no puede ser mayor al saldo pendiente total (C${total_pendiente:,.2f})', 'error')
-                    return redirect(url_for('admin.registrar_abono_proveedor_global'))
-                
                 saldo_disponible = monto_abono
                 detalles_aplicados = []
                 
+                # 1. Aplicar en cascada a facturas existentes
                 for cuenta in cuentas:
-                    if saldo_disponible <= 0:
+                    if saldo_disponible <= Decimal('0'):
                         break
                         
                     id_cuenta = cuenta['ID_Cuenta']
-                    saldo_pendiente = float(cuenta['Saldo_Pendiente'])
+                    saldo_pendiente = Decimal(str(cuenta['Saldo_Pendiente']))
                     
                     monto_aplicado = min(saldo_disponible, saldo_pendiente)
                     saldo_nuevo = saldo_pendiente - monto_aplicado
-                    estado_nuevo = 'Pagada' if saldo_nuevo == 0 else 'Pendiente'
+                    estado_nuevo = 'Pagada' if saldo_nuevo == Decimal('0') else 'Parcial'
                     
                     # Registrar el detalle del abono
                     cursor.execute("""
                         INSERT INTO abonos_proveedores_detalle 
-                        (ID_Usuario, ID_Proveedor, ID_CuentaPagar, Monto_Aplicado, Saldo_Anterior, Saldo_Nuevo, Fecha, ID_MetodoPago)
-                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
-                    """, (id_usuario, id_proveedor, id_cuenta, monto_aplicado, saldo_pendiente, saldo_nuevo, f"{fecha_pago} 00:00:00", id_metodo_pago))
+                        (ID_Usuario, ID_Proveedor, ID_CuentaPagar, Monto_Aplicado, Saldo_Anterior, Saldo_Nuevo, Fecha, ID_MetodoPago, Detalles_Metodo, Comentarios)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    """, (id_usuario, id_proveedor, id_cuenta, float(monto_aplicado), float(saldo_pendiente), float(saldo_nuevo), f"{fecha_pago} 00:00:00", id_metodo_pago, detalles_metodo, comentarios))
                     
                     # Actualizar la cuenta por pagar
                     cursor.execute("""
                         UPDATE cuentas_por_pagar 
                         SET Saldo_Pendiente = %s, Estado = %s
                         WHERE ID_Cuenta = %s
-                    """, (saldo_nuevo, estado_nuevo, id_cuenta))
+                    """, (float(saldo_nuevo), estado_nuevo, id_cuenta))
                     
                     saldo_disponible -= monto_aplicado
-                    detalles_aplicados.append(f"Factura #{cuenta['Num_Documento'] or id_cuenta}: C${monto_aplicado:,.2f}")
+                    detalles_aplicados.append(f"Doc #{cuenta['Num_Documento'] or id_cuenta}: C${monto_aplicado:,.2f}")
                 
-                # Actualizar el saldo pendiente total del proveedor
+                # 2. Si queda excedente (o si no tiene cuentas por pagar del todo), restar directamente a saldo pendiente global
+                if saldo_disponible > Decimal('0'):
+                    # Insertar un movimiento ficticio en cuentas_por_pagar para satisfacer la FK (NOT NULL)
+                    cursor.execute("""
+                        INSERT INTO cuentas_por_pagar (
+                            Fecha, ID_Proveedor, Num_Documento, Observacion, Fecha_Vencimiento,
+                            Tipo_Movimiento, Monto_Movimiento, ID_Empresa, Saldo_Pendiente,
+                            ID_Usuario_Creacion, Estado
+                        ) VALUES (%s, %s, 'ABONO-GLOBAL', %s, %s, 1, 0.00, %s, 0.00, %s, 'Pagada')
+                    """, (
+                        fecha_pago,
+                        id_proveedor,
+                        f"Excedente de abono global: C${saldo_disponible:,.2f}",
+                        fecha_pago,
+                        id_empresa,
+                        id_usuario
+                    ))
+                    
+                    id_cuenta_comodin = cursor.lastrowid
+                    
+                    # Registrar el abono del remanente ligado al comodín
+                    cursor.execute("""
+                        INSERT INTO abonos_proveedores_detalle 
+                        (ID_Usuario, ID_Proveedor, ID_CuentaPagar, Monto_Aplicado, Saldo_Anterior, Saldo_Nuevo, Fecha, ID_MetodoPago, Detalles_Metodo, Comentarios)
+                        VALUES (%s, %s, %s, %s, 0.00, 0.00, %s, %s, %s, %s)
+                    """, (id_usuario, id_proveedor, id_cuenta_comodin, float(saldo_disponible), f"{fecha_pago} 00:00:00", id_metodo_pago, detalles_metodo, comentarios))
+                    
+                    detalles_aplicados.append(f"Abono directo / Excedente: C${saldo_disponible:,.2f}")
+                
+                # 3. Actualizar el saldo pendiente total del proveedor
                 cursor.execute("""
                     UPDATE proveedores 
                     SET Saldo_Pendiente = COALESCE(Saldo_Pendiente, 0) - %s
                     WHERE ID_Proveedor = %s
-                """, (monto_abono, id_proveedor))
+                """, (float(monto_abono), id_proveedor))
                 
                 # Obtener el nombre del proveedor para el mensaje
                 cursor.execute("SELECT Nombre FROM proveedores WHERE ID_Proveedor = %s", (id_proveedor,))
@@ -2028,3 +2045,154 @@ def anular_gasto(id_gasto):
         flash(f'Error: {str(e)}', 'error')
     
     return redirect(url_for('admin.admin_gastos_operativos'))
+
+
+@admin_bp.route('/admin/compras/cxpagar/historial-abonos')
+@admin_required
+def admin_historial_abonos_proveedores():
+    """Muestra el historial de pagos y abonos realizados a proveedores del día con filtros."""
+    try:
+        from datetime import date, datetime
+        
+        # Filtros de fecha (por defecto: HOY)
+        hoy = date.today().strftime('%Y-%m-%d')
+        fecha_inicio = request.args.get('fecha_inicio', hoy)
+        fecha_fin = request.args.get('fecha_fin', hoy)
+        id_proveedor = request.args.get('id_proveedor', '')
+        
+        # Limpiar si el usuario seleccionó "Todos"
+        if id_proveedor == 'todos' or id_proveedor == '':
+            id_proveedor = None
+            
+        id_empresa = session.get('id_empresa', 1)
+        
+        with get_db_cursor(True) as cursor:
+            # 1. Obtener lista de proveedores para el filtro dropdown
+            cursor.execute("""
+                SELECT ID_Proveedor, Nombre 
+                FROM proveedores 
+                WHERE ID_Empresa = %s AND Estado = 'ACTIVO' 
+                ORDER BY Nombre
+            """, (id_empresa,))
+            proveedores = cursor.fetchall()
+            
+            # 2. Armar la consulta base de pagos y abonos unificados para proveedores
+            query = """
+                SELECT 
+                    'pago' as tipo_registro,
+                    pcp.ID_Pago as id_registro,
+                    pcp.Monto as monto,
+                    pcp.Fecha,
+                    pcp.Comentarios as descripcion,
+                    COALESCE(mp.Nombre, 'No especificado') as metodo_pago,
+                    u.NombreUsuario as usuario_registro,
+                    prov.Nombre as proveedor_nombre,
+                    cpp.Num_Documento as documento_afectado,
+                    prov.ID_Proveedor
+                FROM pagos_cuentaspagar pcp
+                INNER JOIN cuentas_por_pagar cpp ON pcp.ID_Cuenta = cpp.ID_Cuenta
+                INNER JOIN proveedores prov ON cpp.ID_Proveedor = prov.ID_Proveedor
+                INNER JOIN usuarios u ON pcp.ID_Usuario_Creacion = u.ID_Usuario
+                LEFT JOIN metodos_pago mp ON pcp.ID_MetodoPago = mp.ID_MetodoPago
+                WHERE cpp.ID_Empresa = %s
+            """
+            params_pago = [id_empresa]
+            
+            if fecha_inicio:
+                query += " AND DATE(pcp.Fecha) >= %s"
+                params_pago.append(fecha_inicio)
+            if fecha_fin:
+                query += " AND DATE(pcp.Fecha) <= %s"
+                params_pago.append(fecha_fin)
+            if id_proveedor:
+                query += " AND prov.ID_Proveedor = %s"
+                params_pago.append(id_proveedor)
+                
+            query += """
+                UNION ALL
+                
+                SELECT 
+                    'abono' as tipo_registro,
+                    apd.ID_Detalle as id_registro,
+                    apd.Monto_Aplicado as monto,
+                    apd.Fecha,
+                    CASE 
+                        WHEN cpp2.Num_Documento = 'ABONO-GLOBAL' THEN 'Abono directo / Excedente a cuenta'
+                        ELSE CONCAT('Abono en cascada a Doc: ', cpp2.Num_Documento)
+                    END as descripcion,
+                    COALESCE(mp2.Nombre, 'No especificado') as metodo_pago,
+                    u2.NombreUsuario as usuario_registro,
+                    prov2.Nombre as proveedor_nombre,
+                    cpp2.Num_Documento as documento_afectado,
+                    prov2.ID_Proveedor
+                FROM abonos_proveedores_detalle apd
+                INNER JOIN proveedores prov2 ON apd.ID_Proveedor = prov2.ID_Proveedor
+                INNER JOIN usuarios u2 ON apd.ID_Usuario = u2.ID_Usuario
+                LEFT JOIN metodos_pago mp2 ON apd.ID_MetodoPago = mp2.ID_MetodoPago
+                LEFT JOIN cuentas_por_pagar cpp2 ON apd.ID_CuentaPagar = cpp2.ID_Cuenta
+                WHERE prov2.ID_Empresa = %s
+            """
+            params_abono = [id_empresa]
+            
+            if fecha_inicio:
+                query += " AND DATE(apd.Fecha) >= %s"
+                params_abono.append(fecha_inicio)
+            if fecha_fin:
+                query += " AND DATE(apd.Fecha) <= %s"
+                params_abono.append(fecha_fin)
+            if id_proveedor:
+                query += " AND prov2.ID_Proveedor = %s"
+                params_abono.append(id_proveedor)
+                
+            query += " ORDER BY Fecha DESC"
+            
+            all_params = params_pago + params_abono
+            cursor.execute(query, all_params)
+            registros_raw = cursor.fetchall()
+            
+            # Formatear datos para el template
+            registros = []
+            total_egresado = Decimal('0')
+            total_cash = Decimal('0')
+            total_transfer = Decimal('0')
+            total_other = Decimal('0')
+            
+            for reg in registros_raw:
+                reg_dict = dict(reg)
+                monto = Decimal(str(reg_dict['monto']))
+                total_egresado += monto
+                
+                # Clasificar por método de pago para resúmenes
+                mp_upper = reg_dict['metodo_pago'].upper()
+                if 'EFECTIVO' in mp_upper or 'CASH' in mp_upper:
+                    total_cash += monto
+                elif 'TRANSFERENCIA' in mp_upper or 'DEPOSITO' in mp_upper:
+                    total_transfer += monto
+                else:
+                    total_other += monto
+                
+                # Formatear fecha
+                if reg_dict['Fecha'] and hasattr(reg_dict['Fecha'], 'strftime'):
+                    reg_dict['FechaFormateada'] = reg_dict['Fecha'].strftime('%d/%m/%Y %H:%M:%S')
+                else:
+                    reg_dict['FechaFormateada'] = str(reg_dict['Fecha'])
+                    
+                registros.append(reg_dict)
+                
+            return render_template('admin/compras/cxpagar/historial_abonos.html',
+                                 registros=registros,
+                                 proveedores=proveedores,
+                                 fecha_inicio=fecha_inicio,
+                                 fecha_fin=fecha_fin,
+                                 id_proveedor_sel=id_proveedor or 'todos',
+                                 total_egresado=float(total_egresado),
+                                 total_cash=float(total_cash),
+                                 total_transfer=float(total_transfer),
+                                 total_other=float(total_other),
+                                 hoy=hoy)
+                                 
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        flash(f"Error al cargar historial de pagos a proveedores: {e}", "danger")
+        return redirect(url_for('admin.admin_cuentas_por_pagar'))
