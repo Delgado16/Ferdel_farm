@@ -1,0 +1,519 @@
+{% extends "layout.html" %}
+
+{% block title %}Reporte Diario Consolidado - FerDel{% endblock %}
+
+{% block content %}
+<style>
+    .kpi-card {
+        transition: all 0.3s ease;
+        border: none;
+        border-radius: 16px;
+    }
+    .kpi-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 10px 20px rgba(0, 0, 0, 0.08) !important;
+    }
+    .text-indigo { color: #4f46e5; }
+    .bg-indigo-light { background-color: #eeebff; }
+    .bg-gradient-primary {
+        background: linear-gradient(135deg, #4f46e5 0%, #3b82f6 100%);
+    }
+    .bg-gradient-success {
+        background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+    }
+    .bg-gradient-danger {
+        background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+    }
+    .bg-gradient-warning {
+        background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+    }
+    .bg-gradient-dark {
+        background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+    }
+    .section-card {
+        border-radius: 16px;
+        border: 1px solid #e2e8f0;
+        box-shadow: 0 4px 6px rgba(15, 23, 42, 0.015);
+    }
+    .nav-tabs-custom {
+        border-bottom: 2px solid #e2e8f0;
+    }
+    .nav-tabs-custom .nav-link {
+        border: none;
+        color: #64748b;
+        font-weight: 600;
+        padding: 0.75rem 1.25rem;
+        position: relative;
+    }
+    .nav-tabs-custom .nav-link.active {
+        color: #4f46e5;
+        background: none;
+    }
+    .nav-tabs-custom .nav-link.active::after {
+        content: '';
+        position: absolute;
+        bottom: -2px;
+        left: 0;
+        width: 100%;
+        height: 2px;
+        background-color: #4f46e5;
+    }
+</style>
+
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2" style="font-family: 'Outfit', sans-serif; font-weight: 800; letter-spacing: -0.02em;">
+        <i class="bi bi-calendar-check text-indigo"></i> Resumen del Día: {{ fecha_formatted }}
+    </h1>
+    <div class="btn-toolbar mb-2 mb-md-0 gap-2">
+        <div class="btn-group">
+            <a href="{{ url_for('admin.reporte_diario', fecha=fecha, formato='pdf') }}" class="btn btn-sm btn-outline-danger">
+                <i class="bi bi-file-pdf"></i> PDF
+            </a>
+            <a href="{{ url_for('admin.reporte_diario', fecha=fecha, formato='excel') }}" class="btn btn-sm btn-outline-success">
+                <i class="bi bi-file-excel"></i> Excel
+            </a>
+        </div>
+        <a href="{{ url_for('admin.reportes') }}" class="btn btn-sm btn-outline-secondary">
+            <i class="bi bi-arrow-left"></i> Volver a Reportes
+        </a>
+    </div>
+</div>
+
+<!-- Barra de Filtro de Fecha -->
+<div class="card section-card mb-4 bg-light">
+    <div class="card-body py-3">
+        <form method="GET" action="{{ url_for('admin.reporte_diario') }}" class="row g-3 align-items-center justify-content-between">
+            <div class="col-md-4">
+                <span class="text-secondary small fw-semibold d-block mb-1">FECHA DE ANÁLISIS</span>
+                <div class="input-group">
+                    <span class="input-group-text"><i class="bi bi-calendar-event"></i></span>
+                    <input type="date" name="fecha" class="form-control" value="{{ fecha }}">
+                </div>
+            </div>
+            <div class="col-md-3 d-flex align-items-end">
+                <button type="submit" class="btn btn-dark w-100 py-2">
+                    <i class="bi bi-arrow-clockwise"></i> Generar Resumen
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Tarjetas KPI -->
+<div class="row g-4 mb-4">
+    <!-- Ventas -->
+    <div class="col-md-6 col-lg-3">
+        <div class="card kpi-card bg-gradient-primary text-white p-3 shadow-sm">
+            <div class="d-flex justify-content-between align-items-start">
+                <div>
+                    <span class="text-white-50 small fw-bold">VENTAS TOTALES</span>
+                    <h3 class="mb-1 fw-bold mt-1">C${{ "{:,.2f}".format(ventas_total) }}</h3>
+                </div>
+                <div class="bg-white bg-opacity-25 rounded p-2">
+                    <i class="bi bi-cart-check fs-4"></i>
+                </div>
+            </div>
+            <div class="mt-2 text-white-50 small d-flex justify-content-between">
+                <span>Contado: C${{ "{:,.2f}".format(ventas_contado) }}</span>
+                <span>Crédito: C${{ "{:,.2f}".format(ventas_credito) }}</span>
+            </div>
+        </div>
+    </div>
+    <!-- Recaudación / Cobros -->
+    <div class="col-md-6 col-lg-3">
+        <div class="card kpi-card bg-gradient-success text-white p-3 shadow-sm">
+            <div class="d-flex justify-content-between align-items-start">
+                <div>
+                    <span class="text-white-50 small fw-bold">COBROS Y ABONOS</span>
+                    <h3 class="mb-1 fw-bold mt-1">C${{ "{:,.2f}".format(cobros_total) }}</h3>
+                </div>
+                <div class="bg-white bg-opacity-25 rounded p-2">
+                    <i class="bi bi-cash-stack fs-4"></i>
+                </div>
+            </div>
+            <div class="mt-2 text-white-50 small d-flex justify-content-between">
+                <span>Efectivo: C${{ "{:,.2f}".format(cobros_efectivo) }}</span>
+                <span>Bancos: C${{ "{:,.2f}".format(cobros_bancos) }}</span>
+            </div>
+        </div>
+    </div>
+    <!-- Egresos / Gastos + Compras -->
+    <div class="col-md-6 col-lg-3">
+        <div class="card kpi-card bg-gradient-danger text-white p-3 shadow-sm">
+            <div class="d-flex justify-content-between align-items-start">
+                <div>
+                    <span class="text-white-50 small fw-bold">GASTOS Y COMPRAS</span>
+                    <h3 class="mb-1 fw-bold mt-1">C${{ "{:,.2f}".format(gastos_total + compras_total) }}</h3>
+                </div>
+                <div class="bg-white bg-opacity-25 rounded p-2">
+                    <i class="bi bi-box-arrow-right fs-4"></i>
+                </div>
+            </div>
+            <div class="mt-2 text-white-50 small d-flex justify-content-between">
+                <span>Gastos: C${{ "{:,.2f}".format(gastos_total) }}</span>
+                <span>Compras: C${{ "{:,.2f}".format(compras_total) }}</span>
+            </div>
+        </div>
+    </div>
+    <!-- Caja Chica Saldo Neto -->
+    <div class="col-md-6 col-lg-3">
+        <div class="card kpi-card bg-gradient-dark text-white p-3 shadow-sm">
+            <div class="d-flex justify-content-between align-items-start">
+                <div>
+                    <span class="text-white-50 small fw-bold">SALDO NETO CAJA CHICA</span>
+                    <h3 class="mb-1 fw-bold mt-1">C${{ "{:,.2f}".format(caja_saldo_neto) }}</h3>
+                </div>
+                <div class="bg-white bg-opacity-25 rounded p-2">
+                    <i class="bi bi-safe fs-4"></i>
+                </div>
+            </div>
+            <div class="mt-2 text-white-50 small d-flex justify-content-between">
+                <span>Apertura: C${{ "{:,.2f}".format(caja_apertura) }}</span>
+                <span>Flujo Neto: C${{ "{:,.2f}".format((caja_entradas) - caja_salidas) }}</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-4 mb-4">
+    <!-- Gráficos de Resumen Diario -->
+    <div class="col-md-4">
+        <div class="card section-card shadow-sm h-100">
+            <div class="card-header bg-white py-3">
+                <strong class="text-secondary small fw-bold uppercase">Distribución de Ventas</strong>
+            </div>
+            <div class="card-body d-flex flex-column align-items-center justify-content-center">
+                {% if ventas_total > 0 %}
+                <div style="position: relative; height: 180px; width: 100%;">
+                    <canvas id="salesDistributionChart"></canvas>
+                </div>
+                <div class="text-center mt-3">
+                    <span class="badge bg-primary px-2 py-1 me-1">Oficina: {{ "{:.1f}%".format((ventas_normal / ventas_total) * 100) if ventas_total > 0 else 0 }}</span>
+                    <span class="badge bg-info text-dark px-2 py-1">Rutas: {{ "{:.1f}%".format((ventas_ruta / ventas_total) * 100) if ventas_total > 0 else 0 }}</span>
+                </div>
+                {% else %}
+                <div class="text-center py-4">
+                    <i class="bi bi-cart-x fs-1 text-muted"></i>
+                    <p class="text-muted mt-2 small">Sin ventas registradas hoy</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-4">
+        <div class="card section-card shadow-sm h-100">
+            <div class="card-header bg-white py-3">
+                <strong class="text-secondary small fw-bold uppercase">Medios de Pago (Recaudación)</strong>
+            </div>
+            <div class="card-body d-flex flex-column align-items-center justify-content-center">
+                {% if cobros_total > 0 %}
+                <div style="position: relative; height: 180px; width: 100%;">
+                    <canvas id="paymentMethodsChart"></canvas>
+                </div>
+                <div class="text-center mt-3">
+                    <span class="badge bg-success px-2 py-1 me-1">Efectivo: {{ "{:.1f}%".format((cobros_efectivo / cobros_total) * 100) if cobros_total > 0 else 0 }}</span>
+                    <span class="badge bg-warning text-dark px-2 py-1">Bancos: {{ "{:.1f}%".format((cobros_bancos / cobros_total) * 100) if cobros_total > 0 else 0 }}</span>
+                </div>
+                {% else %}
+                <div class="text-center py-4">
+                    <i class="bi bi-cash-coin fs-1 text-muted"></i>
+                    <p class="text-muted mt-2 small">Sin recaudaciones hoy</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Vendedores y Rendimiento de Ruta -->
+    <div class="col-md-4">
+        <div class="card section-card shadow-sm h-100">
+            <div class="card-header bg-white py-3">
+                <strong class="text-secondary small fw-bold uppercase">Rendimiento por Vendedor</strong>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="table-light">
+                            <tr class="small text-secondary">
+                                <th>Vendedor</th>
+                                <th class="text-center">Facturas</th>
+                                <th class="text-end">Total</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for v in vendedores %}
+                            <tr>
+                                <td class="fw-semibold">{{ v.vendedor }}</td>
+                                <td class="text-center">{{ v.facturas }}</td>
+                                <td class="text-end fw-bold text-indigo">C${{ "{:,.2f}".format(v.total_vendido) }}</td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="3" class="text-center py-4 text-muted small">No hay ventas de ruta registradas hoy</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Pestañas Detalladas -->
+<div class="card section-card shadow-sm mb-4">
+    <div class="card-header bg-white py-2">
+        <ul class="nav nav-tabs nav-tabs-custom card-header-tabs border-0" id="detailsTab" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button class="nav-link active" id="caja-tab" data-bs-toggle="tab" data-bs-target="#caja" type="button" role="tab">
+                    <i class="bi bi-safe2"></i> Caja Chica ({{ caja_movimientos|length }})
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="gastos-tab" data-bs-toggle="tab" data-bs-target="#gastos" type="button" role="tab">
+                    <i class="bi bi-receipt"></i> Gastos y Compras ({{ gastos|length + compras|length }})
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="inventario-tab" data-bs-toggle="tab" data-bs-target="#inventario" type="button" role="tab">
+                    <i class="bi bi-box-seam"></i> Movimiento Inventario
+                </button>
+            </li>
+        </ul>
+    </div>
+    <div class="card-body">
+        <div class="tab-content" id="detailsTabContent">
+            <!-- PESTAÑA CAJA -->
+            <div class="tab-pane fade show active" id="caja" role="tabpanel">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h5 class="fw-bold mb-0 text-dark">Historial de Flujo de Caja Chica</h5>
+                    <span class="badge bg-light text-dark border">Apertura: C${{ "{:,.2f}".format(caja_apertura) }}</span>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-striped table-hover align-middle">
+                        <thead>
+                            <tr class="small text-secondary">
+                                <th>Tipo</th>
+                                <th>Descripción</th>
+                                <th>Referencia</th>
+                                <th class="text-end">Monto</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for m in caja_movimientos %}
+                            <tr>
+                                <td>
+                                    {% if m.tipo == 'ENTRADA' %}
+                                    <span class="badge bg-success-soft text-success"><i class="bi bi-arrow-down-left"></i> Entrada</span>
+                                    {% else %}
+                                    <span class="badge bg-danger-soft text-danger"><i class="bi bi-arrow-up-right"></i> Salida</span>
+                                    {% endif %}
+                                </td>
+                                <td>{{ m.descripcion }}</td>
+                                <td>{{ m.referencia }}</td>
+                                <td class="text-end fw-bold {% if m.tipo == 'ENTRADA' %}text-success{% else %}text-danger{% endif %}">
+                                    C${{ "{:,.2f}".format(m.monto) }}
+                                </td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="4" class="text-center py-4 text-muted small">Sin movimientos de caja hoy</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- PESTAÑA GASTOS Y COMPRAS -->
+            <div class="tab-pane fade" id="gastos" role="tabpanel">
+                <!-- Compras a Proveedores -->
+                <h5 class="fw-bold mb-3 text-dark">Compras Realizadas hoy</h5>
+                <div class="table-responsive mb-4">
+                    <table class="table table-striped table-hover align-middle">
+                        <thead>
+                            <tr class="small text-secondary">
+                                <th>Factura Proveedor</th>
+                                <th>Proveedor</th>
+                                <th>Condición</th>
+                                <th class="text-end">Total Compra</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for c in compras %}
+                            <tr>
+                                <td class="fw-bold">{{ c.factura }}</td>
+                                <td>{{ c.proveedor }}</td>
+                                <td>
+                                    <span class="badge {% if c.tipo_compra == 'CREDITO' %}bg-warning text-dark{% else %}bg-secondary{% endif %}">
+                                        {{ c.tipo_compra }}
+                                    </span>
+                                </td>
+                                <td class="text-end fw-bold text-dark">C${{ "{:,.2f}".format(c.total) }}</td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="4" class="text-center py-3 text-muted small">No se registraron compras a proveedores hoy</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Gastos Generales -->
+                <h5 class="fw-bold mb-3 text-dark">Gastos Operativos Registrados</h5>
+                <div class="table-responsive">
+                    <table class="table table-striped table-hover align-middle">
+                        <thead>
+                            <tr class="small text-secondary">
+                                <th>Origen</th>
+                                <th>Tipo de Gasto</th>
+                                <th>Subcategoría</th>
+                                <th>Proveedor / Destinatario</th>
+                                <th>Factura/Referencia</th>
+                                <th class="text-end">Monto</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for g in gastos %}
+                            <tr>
+                                <td><span class="badge bg-light text-dark">{{ g.origen }}</span></td>
+                                <td class="fw-semibold">{{ g.tipo_gasto }}</td>
+                                <td>{{ g.subcategoria }}</td>
+                                <td>{{ g.proveedor }}</td>
+                                <td>{{ g.factura }}</td>
+                                <td class="text-end fw-bold text-danger">C${{ "{:,.2f}".format(g.monto) }}</td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="6" class="text-center py-3 text-muted small">Sin gastos operativos registrados hoy</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- PESTAÑA INVENTARIO -->
+            <div class="tab-pane fade" id="inventario" role="tabpanel">
+                <div class="row g-4">
+                    <!-- Productos más Vendidos Hoy -->
+                    <div class="col-md-7">
+                        <h5 class="fw-bold mb-3 text-dark">Top Productos Vendidos Hoy</h5>
+                        <div class="table-responsive">
+                            <table class="table table-striped table-hover align-middle">
+                                <thead>
+                                    <tr class="small text-secondary">
+                                        <th>Código</th>
+                                        <th>Producto</th>
+                                        <th class="text-center">Cant. Vendida</th>
+                                        <th class="text-end">Total Recaudado</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for p in productos_vendidos %}
+                                    <tr>
+                                        <td class="fw-bold">{{ p.codigo }}</td>
+                                        <td>{{ p.producto }}</td>
+                                        <td class="text-center fw-bold">{{ p.cantidad }}</td>
+                                        <td class="text-end fw-bold text-success">C${{ "{:,.2f}".format(p.total) }}</td>
+                                    </tr>
+                                    {% else %}
+                                    <tr>
+                                        <td colspan="4" class="text-center py-4 text-muted small">Sin movimientos de venta de productos hoy</td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Alertas de Stock Crítico -->
+                    <div class="col-md-5">
+                        <h5 class="fw-bold mb-3 text-danger"><i class="bi bi-exclamation-triangle"></i> Alertas de Stock Bajo (Bodega)</h5>
+                        <div class="table-responsive">
+                            <table class="table table-striped table-hover align-middle">
+                                <thead>
+                                    <tr class="small text-secondary">
+                                        <th>Código</th>
+                                        <th>Producto</th>
+                                        <th class="text-center">Existencias</th>
+                                        <th class="text-center">Mínimo</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for b in bajo_stock %}
+                                    <tr>
+                                        <td class="fw-bold">{{ b.codigo }}</td>
+                                        <td class="small">{{ b.producto }}</td>
+                                        <td class="text-center"><span class="badge bg-danger">{{ b.existencias }}</span></td>
+                                        <td class="text-center text-muted">{{ b.stock_minimo }}</td>
+                                    </tr>
+                                    {% else %}
+                                    <tr>
+                                        <td colspan="4" class="text-center py-4 text-success small"><i class="bi bi-check-circle"></i> Todos los productos con stock suficiente</td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+        // --- 1. GRÁFICO DISTRIBUCIÓN VENTAS ---
+        {% if ventas_total > 0 %}
+        const ctxSales = document.getElementById('salesDistributionChart').getContext('2d');
+        new Chart(ctxSales, {
+            type: 'doughnut',
+            data: {
+                labels: ['Oficina/Local', 'Rutas'],
+                datasets: [{
+                    data: [{{ ventas_normal }}, {{ ventas_ruta }}],
+                    backgroundColor: ['#4f46e5', '#06b6d4'],
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false }
+                },
+                cutout: '70%'
+            }
+        });
+        {% endif %}
+
+        // --- 2. GRÁFICO COBROS MÉTODO PAGO ---
+        {% if cobros_total > 0 %}
+        const ctxPayments = document.getElementById('paymentMethodsChart').getContext('2d');
+        new Chart(ctxPayments, {
+            type: 'pie',
+            data: {
+                labels: ['Efectivo', 'Bancos/Otros'],
+                datasets: [{
+                    data: [{{ cobros_efectivo }}, {{ cobros_bancos }}],
+                    backgroundColor: ['#10b981', '#f59e0b'],
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false }
+                }
+            }
+        });
+        {% endif %}
+    });
+</script>
+{% endblock %}

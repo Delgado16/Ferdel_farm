@@ -45,7 +45,7 @@
         </div>
     </div>
 
-    <div id="connection-status" class="mb-3"></div>
+    <div id="venta-connection-status" class="mb-3"></div>
 
     <!-- Formulario Principal -->
     <form id="ventaForm" method="POST" action="{{ url_for('vendedor.vendedor_venta_crear') }}">
@@ -1797,7 +1797,6 @@
                 const inventarioLocal = await localforage.getItem('inventario_local');
                 if (inventarioLocal && inventarioLocal.data && inventarioLocal.data.length > 0) {
                     actualizarInventarioEnUI(inventarioLocal.data);
-                    showToast('info', 'Modo offline', 'Usando datos almacenados localmente');
                 } else {
                     cargarInventarioDesdeSelect();
                 }
@@ -1806,15 +1805,6 @@
                 return true;
             }
 
-            Swal.fire({
-                title: 'Sincronizando datos...',
-                html: '<div class="progress"><div id="sync-progress-bar" class="progress-bar" style="width: 0%">0%</div></div>',
-                allowOutsideClick: false,
-                showConfirmButton: false,
-                didOpen: () => { Swal.showLoading(); }
-            });
-
-            let progress = 0;
             let inventarioActualizado = false;
             let clientesActualizados = false;
 
@@ -1836,12 +1826,6 @@
                         });
                         actualizarInventarioEnUI(inventarioData.inventario || []);
                         inventarioActualizado = true;
-                        progress += 50;
-                        const progressBar = document.getElementById('sync-progress-bar');
-                        if (progressBar) {
-                            progressBar.style.width = progress + '%';
-                            progressBar.textContent = progress + '%';
-                        }
                     }
                 }
             } catch (error) {
@@ -1882,12 +1866,6 @@
                         });
                         await actualizarSelectClientes();
                         clientesActualizados = true;
-                        progress += 50;
-                        const progressBar = document.getElementById('sync-progress-bar');
-                        if (progressBar) {
-                            progressBar.style.width = progress + '%';
-                            progressBar.textContent = progress + '%';
-                        }
                     }
                 }
             } catch (error) {
@@ -1902,16 +1880,7 @@
                 version: '2.0'
             });
 
-            await new Promise(resolve => setTimeout(resolve, 500));
-            Swal.close();
-
-            if (inventarioActualizado && clientesActualizados) {
-                showToast('success', 'Sincronización completa', 'Datos actualizados correctamente');
-            } else if (inventarioActualizado || clientesActualizados) {
-                showToast('warning', 'Sincronización parcial', 'Usando datos locales disponibles');
-            } else {
-                showToast('warning', 'Datos locales', 'Usando información almacenada localmente');
-            }
+            console.log('✅ Sincronización de datos completada en segundo plano.');
 
             const ventas = await localforage.getItem('ventas_offline') || [];
             const pendientes = ventas.filter(v => v.estado === 'pendiente');
@@ -1936,7 +1905,6 @@
             const inventarioLocal = await localforage.getItem('inventario_local');
             if (inventarioLocal && inventarioLocal.data && inventarioLocal.data.length > 0) {
                 actualizarInventarioEnUI(inventarioLocal.data);
-                showToast('warning', 'Datos locales', 'Usando información almacenada localmente');
             } else {
                 cargarInventarioDesdeSelect();
             }
@@ -4053,106 +4021,10 @@
         box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
     }
 
-    /* ============================================ */
-    /* ESTILOS MEJORADOS                           */
-    /* ============================================ */
-
-    /* Estilos generales */
-    .card {
-        border: none;
-        border-radius: 12px;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-        transition: box-shadow 0.2s ease;
-    }
-
-    .card:hover {
-        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
-    }
-
-    .card-header {
-        border-radius: 12px 12px 0 0 !important;
-        font-weight: 600;
-    }
-
-    /* Tabla de productos */
-    .table {
-        margin-bottom: 0;
-    }
-
-    .table th {
-        background-color: #f8f9fa;
-        font-weight: 600;
-        font-size: 0.85rem;
-        border-top: none;
-        padding: 1rem 0.75rem;
-    }
-
-    .table td {
-        vertical-align: middle;
-        padding: 0.75rem;
-        font-size: 0.85rem;
-    }
-
-    .table tbody tr:hover {
-        background-color: rgba(102, 126, 234, 0.05);
-        cursor: pointer;
-    }
-
-    /* Botones */
-    .btn {
-        border-radius: 8px;
-        font-weight: 500;
-        transition: all 0.2s;
-    }
-
-    .btn-primary {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        border: none;
-    }
-
-    .btn-primary:active {
-        transform: scale(0.98);
-    }
-
-    /* Tamaño de fuente para títulos en móvil */
-    @media (max-width: 768px) {
-        .h3 {
-            font-size: 1.25rem !important;
-        }
-
-        .card-header {
-            padding: 0.75rem 1rem;
-        }
-
-        .card-body {
-            padding: 1rem;
-        }
-
-        .btn-lg {
-            padding: 0.75rem;
-            font-size: 1rem;
-        }
-
-        /* Mejorar inputs táctiles */
-        select,
-        input,
-        textarea,
-        button {
-            font-size: 16px !important;
-        }
-    }
-
-    @media (min-width: 769px) {
-        .container-fluid {
-            max-width: 1200px;
-            margin: 0 auto;
-        }
-    }
-
     /* Tarjetas móviles */
     .producto-movil-card {
         transition: all 0.2s ease;
-        border-left: 3px solid #667eea;
+        border-left: 3px solid #2c5e2e;
     }
 
     .producto-movil-card:active {
@@ -4164,39 +4036,6 @@
         content: " *";
         color: #dc3545;
         font-weight: bold;
-    }
-
-    /* Animaciones */
-    @keyframes fadeIn {
-        from {
-            opacity: 0;
-            transform: translateY(-10px);
-        }
-
-        to {
-            opacity: 1;
-            transform: translateY(0);
-        }
-    }
-
-    .alert {
-        animation: fadeIn 0.3s ease;
-    }
-
-    /* Scrollbar */
-    ::-webkit-scrollbar {
-        width: 6px;
-        height: 6px;
-    }
-
-    ::-webkit-scrollbar-track {
-        background: #f1f1f1;
-        border-radius: 10px;
-    }
-
-    ::-webkit-scrollbar-thumb {
-        background: linear-gradient(135deg, #667eea, #764ba2);
-        border-radius: 10px;
     }
 
     /* Estado vacío */
@@ -4228,21 +4067,6 @@
         to {
             transform: translateY(0);
             opacity: 1;
-        }
-    }
-
-    /* Modales en móvil */
-    @media (max-width: 576px) {
-        .modal-dialog {
-            margin: 0.5rem;
-        }
-
-        .modal-body {
-            padding: 1rem;
-        }
-
-        .modal-footer {
-            padding: 0.75rem;
         }
     }
 </style>

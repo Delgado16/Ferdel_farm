@@ -1814,3 +1814,375 @@ def reporte_categoria_ventas():
             'categoria_id': categoria_id,
             'periodo': periodo
         }
+
+@admin_bp.route('/admin/reporte/diario')
+@admin_required
+@report_handler('reporte_diario')
+def reporte_diario():
+    """Reporte Diario Consolidado del Sistema"""
+    from flask import session
+    fecha_str = request.args.get('fecha', datetime.now().strftime('%Y-%m-%d'))
+    try:
+        fecha_dt = datetime.strptime(fecha_str, '%Y-%m-%d')
+    except ValueError:
+        fecha_dt = datetime.now()
+        fecha_str = fecha_dt.strftime('%Y-%m-%d')
+        
+    id_empresa = session.get('id_empresa', 1)
+    
+    with get_db_cursor() as cursor:
+        # --- 1. RESUMEN DE VENTAS ---
+        cursor.execute("""
+            SELECT 
+                Tipo_Venta,
+                Origen,
+                COUNT(*) as Cantidad,
+                COALESCE(SUM(Total_Venta), 0) as Total
+            FROM (
+                SELECT 
+                    CASE WHEN fac.Credito_Contado = 0 THEN 'CONTADO' ELSE 'CREDITO' END AS Tipo_Venta,
+                    'NORMAL' AS Origen,
+                    COALESCE(df.Total, 0) AS Total_Venta
+                FROM facturacion fac
+                INNER JOIN detalle_facturacion df ON fac.ID_Factura = df.ID_Factura
+                WHERE DATE(fac.Fecha_Creacion) = %s AND fac.Estado = 'Activa'
+                
+                UNION ALL
+                
+                SELECT 
+                    CASE WHEN fr.Credito_Contado = 1 THEN 'CONTADO' ELSE 'CREDITO' END AS Tipo_Venta,
+                    'RUTA' AS Origen,
+                    COALESCE(dfr.Total, 0) AS Total_Venta
+                FROM facturacion_ruta fr
+                INNER JOIN detalle_facturacion_ruta dfr ON fr.ID_FacturaRuta = dfr.ID_FacturaRuta
+                WHERE DATE(fr.Fecha_Creacion) = %s AND fr.Estado = 'Activa'
+            ) AS ventas_resumen
+            GROUP BY Tipo_Venta, Origen
+        """, [fecha_str, fecha_str])
+        ventas_resumen_db = cursor.fetchall()
+        
+        # Procesar ventas
+        ventas_total = 0.0
+        ventas_contado = 0.0
+        ventas_credito = 0.0
+        ventas_normal = 0.0
+        ventas_ruta = 0.0
+        for v in ventas_resumen_db:
+            total_val = float(v['Total'])
+            ventas_total += total_val
+            if v['Tipo_Venta'] == 'CONTADO':
+                ventas_contado += total_val
+            else:
+                ventas_credito += total_val
+                
+            if v['Origen'] == 'NORMAL':
+                ventas_normal += total_val
+            else:
+                ventas_ruta += total_val
+
+        # --- 2. COBROS Y RECAUDACIONES DEL DÍA ---
+        cursor.execute("""
+            SELECT 
+                Metodo_Pago,
+                SUM(Monto_Cobrado) as Total
+            FROM (
+                SELECT COALESCE(mp.Nombre, 'Efectivo') AS Metodo_Pago, ad.Monto_Aplicado AS Monto_Cobrado
+                FROM abonos_detalle ad
+                LEFT JOIN metodos_pago mp ON ad.ID_MetodoPago = mp.ID_MetodoPago
+                WHERE DATE(ad.Fecha) = %s
+                
+                UNION ALL
+                
+                SELECT COALESCE(mp.Nombre, 'Efectivo') AS Metodo_Pago, ag.Monto_Aplicado AS Monto_Cobrado
+                FROM abonos_general ag
+                LEFT JOIN metodos_pago mp ON ag.ID_MetodoPago = mp.ID_MetodoPago
+                WHERE DATE(ag.Fecha) = %s
+                
+                UNION ALL
+                
+                SELECT COALESCE(mp.Nombre, 'Efectivo') AS Metodo_Pago, pc.Monto AS Monto_Cobrado
+                FROM pagos_cuentascobrar pc
+                INNER JOIN cuentas_por_cobrar cxc ON pc.ID_Movimiento = cxc.ID_Movimiento
+                LEFT JOIN metodos_pago mp ON pc.ID_MetodoPago = mp.ID_MetodoPago
+                WHERE DATE(pc.Fecha) = %s AND cxc.Estado != 'Anulada'
+            ) AS cobros_resumen
+            GROUP BY Metodo_Pago
+        """, [fecha_str, fecha_str, fecha_str])
+        cobros_resumen_db = cursor.fetchall()
+        
+        cobros_total = 0.0
+        cobros_efectivo = 0.0
+        cobros_bancos = 0.0
+        for c in cobros_resumen_db:
+            total_val = float(c['Total'])
+            cobros_total += total_val
+            if 'EFECTIVO' in c['Metodo_Pago'].upper():
+                cobros_efectivo += total_val
+            else:
+                cobros_bancos += total_val
+
+        # --- 3. GASTOS DEL DÍA (Solo gastos directos, excluye compras) ---
+        cursor.execute("""
+            SELECT 
+                'GASTO_DIRECTO' AS origen,
+                tg.Nombre AS tipo_gasto,
+                sg.Nombre AS subcategoria,
+                gg.Monto AS monto,
+                gg.N_Factura AS factura,
+                pr.Nombre AS proveedor,
+                v.Placa AS vehiculo
+            FROM gastos_generales gg
+            JOIN tipos_gasto tg ON gg.ID_Tipo_Gasto = tg.ID_Tipo_Gasto
+            LEFT JOIN subcategorias_gasto sg ON gg.ID_Subcategoria = sg.ID_Subcategoria
+            LEFT JOIN proveedores pr ON gg.ID_Proveedor = pr.ID_Proveedor
+            LEFT JOIN vehiculos v ON gg.ID_Vehiculo = v.ID_Vehiculo
+            WHERE gg.Estado = 'Activo' AND gg.ID_Empresa = %s AND DATE(gg.Fecha) = %s
+        """, [id_empresa, fecha_str])
+        gastos_dia_db = cursor.fetchall()
+        
+        gastos_total = 0.0
+        gastos_list = []
+        for g in gastos_dia_db:
+            monto_val = float(g['monto'] or 0)
+            gastos_total += monto_val
+            gastos_list.append({
+                'origen': g['origen'],
+                'tipo_gasto': g['tipo_gasto'],
+                'subcategoria': g['subcategoria'],
+                'monto': monto_val,
+                'factura': g['factura'] or 'N/A',
+                'proveedor': g['proveedor'] or 'N/A',
+                'vehiculo': g['vehiculo'] or 'N/A'
+            })
+
+        # --- 4. COMPRAS DEL DÍA ---
+        cursor.execute("""
+            SELECT 
+                mi.ID_Movimiento,
+                mi.N_Factura_Externa,
+                p.Nombre as Proveedor,
+                mi.Tipo_Compra,
+                COALESCE(detalle.Total_Compra, 0) as Total_Compra,
+                mi.Estado
+            FROM movimientos_inventario mi
+            LEFT JOIN proveedores p ON mi.ID_Proveedor = p.ID_Proveedor
+            LEFT JOIN (
+                SELECT 
+                    ID_Movimiento,
+                    SUM(COALESCE(Subtotal, 0)) as Total_Compra
+                FROM detalle_movimientos_inventario
+                GROUP BY ID_Movimiento
+            ) detalle ON mi.ID_Movimiento = detalle.ID_Movimiento
+            WHERE mi.ID_TipoMovimiento = 1
+              AND (mi.ID_Factura_venta IS NULL OR mi.ID_Factura_venta = '')
+              AND mi.Estado = 'Activa'
+              AND DATE(mi.Fecha) = %s
+        """, [fecha_str])
+        compras_dia_db = cursor.fetchall()
+        
+        compras_total = 0.0
+        compras_list = []
+        for c in compras_dia_db:
+            total_val = float(c['Total_Compra'] or 0)
+            compras_total += total_val
+            compras_list.append({
+                'id_movimiento': c['ID_Movimiento'],
+                'factura': c['N_Factura_Externa'] or 'N/A',
+                'proveedor': c['Proveedor'] or 'N/A',
+                'tipo_compra': c['Tipo_Compra'],
+                'total': total_val
+            })
+
+        # --- 5. MOVIMIENTOS Y SALDO DE CAJA CHICA ---
+        cursor.execute("""
+            SELECT 
+                ID_Movimiento,
+                Tipo_Movimiento,
+                Descripcion,
+                Monto,
+                Referencia_Documento,
+                Fecha
+            FROM caja_movimientos
+            WHERE DATE(Fecha) = %s AND Estado = 'ACTIVO'
+            ORDER BY Fecha ASC
+        """, [fecha_str])
+        caja_movimientos_db = cursor.fetchall()
+        
+        caja_apertura = 0.0
+        caja_entradas = 0.0
+        caja_salidas = 0.0
+        caja_movs = []
+        for m in caja_movimientos_db:
+            monto_val = float(m['Monto'] or 0)
+            if 'APERTURA' in m['Descripcion'].upper():
+                caja_apertura = monto_val
+            elif m['Tipo_Movimiento'] == 'ENTRADA':
+                caja_entradas += monto_val
+            elif m['Tipo_Movimiento'] == 'SALIDA':
+                caja_salidas += monto_val
+                
+            caja_movs.append({
+                'tipo': m['Tipo_Movimiento'],
+                'descripcion': m['Descripcion'],
+                'monto': monto_val,
+                'referencia': m['Referencia_Documento'] or 'N/A',
+                'fecha': m['Fecha']
+            })
+            
+        # Obtener ventas de ruta en efectivo para agregarlas virtualmente (efectivo)
+        cursor.execute("""
+            SELECT 
+                fr.ID_FacturaRuta,
+                fr.Fecha_Creacion AS Fecha,
+                u.NombreUsuario AS Vendedor,
+                SUM(COALESCE(dfr.Total, 0)) AS Monto
+            FROM facturacion_ruta fr
+            INNER JOIN detalle_facturacion_ruta dfr ON fr.ID_FacturaRuta = dfr.ID_FacturaRuta
+            INNER JOIN asignacion_vendedores av ON fr.ID_Asignacion = av.ID_Asignacion
+            INNER JOIN usuarios u ON av.ID_Usuario = u.ID_Usuario
+            WHERE DATE(fr.Fecha_Creacion) = %s AND fr.Estado = 'Activa' AND fr.Credito_Contado = 1
+            GROUP BY fr.ID_FacturaRuta, fr.Fecha_Creacion, u.NombreUsuario
+            ORDER BY fr.Fecha_Creacion ASC
+        """, [fecha_str])
+        ventas_ruta_contado = cursor.fetchall()
+        
+        for vr in ventas_ruta_contado:
+            monto_val = float(vr['Monto'] or 0)
+            caja_entradas += monto_val
+            caja_movs.append({
+                'tipo': 'ENTRADA',
+                'descripcion': f"Venta de Ruta al contado - Vendedor: {vr['Vendedor']}",
+                'monto': monto_val,
+                'referencia': f"RUT-{vr['ID_FacturaRuta']:05d}",
+                'fecha': vr['Fecha']
+            })
+            
+        # Ordenar lista de movimientos por fecha
+        caja_movs.sort(key=lambda x: x['fecha'])
+        caja_saldo_neto = (caja_apertura + caja_entradas) - caja_salidas
+
+        # --- 6. VENDEDORES Y RENDIMIENTO DE RUTA ---
+        cursor.execute("""
+            SELECT 
+                u.NombreUsuario AS Vendedor,
+                COUNT(DISTINCT fr.ID_FacturaRuta) AS Facturas,
+                COALESCE(SUM(dfr.Total), 0) AS Total_Vendido
+            FROM facturacion_ruta fr
+            INNER JOIN detalle_facturacion_ruta dfr ON fr.ID_FacturaRuta = dfr.ID_FacturaRuta
+            INNER JOIN asignacion_vendedores av ON fr.ID_Asignacion = av.ID_Asignacion
+            INNER JOIN usuarios u ON av.ID_Usuario = u.ID_Usuario
+            WHERE DATE(fr.Fecha_Creacion) = %s AND fr.Estado = 'Activa'
+            GROUP BY u.ID_Usuario
+            ORDER BY Total_Vendido DESC
+        """, [fecha_str])
+        vendedores_resumen_db = cursor.fetchall()
+        
+        vendedores_list = []
+        for v in vendedores_resumen_db:
+            vendedores_list.append({
+                'vendedor': v['Vendedor'],
+                'facturas': v['Facturas'],
+                'total_vendido': float(v['Total_Vendido'])
+            })
+
+        # --- 7. PRODUCTOS VENDIDOS HOY ---
+        cursor.execute("""
+            SELECT 
+                p.COD_Producto AS Codigo,
+                p.Descripcion AS Producto,
+                SUM(Cantidad) AS Cantidad_Vendida,
+                SUM(Total) AS Monto_Total
+            FROM (
+                SELECT df.ID_Producto, df.Cantidad, df.Total
+                FROM facturacion fac
+                INNER JOIN detalle_facturacion df ON fac.ID_Factura = df.ID_Factura
+                WHERE DATE(fac.Fecha_Creacion) = %s AND fac.Estado = 'Activa'
+                
+                UNION ALL
+                
+                SELECT dfr.ID_Producto, dfr.Cantidad, dfr.Total
+                FROM facturacion_ruta fr
+                INNER JOIN detalle_facturacion_ruta dfr ON fr.ID_FacturaRuta = dfr.ID_FacturaRuta
+                WHERE DATE(fr.Fecha_Creacion) = %s AND fr.Estado = 'Activa'
+            ) AS det
+            INNER JOIN productos p ON det.ID_Producto = p.ID_Producto
+            GROUP BY p.ID_Producto, p.COD_Producto, p.Descripcion
+            ORDER BY Cantidad_Vendida DESC
+            LIMIT 15
+        """, [fecha_str, fecha_str])
+        productos_vendidos_db = cursor.fetchall()
+        
+        productos_vendidos = []
+        for p in productos_vendidos_db:
+            productos_vendidos.append({
+                'codigo': p['Codigo'],
+                'producto': p['Producto'],
+                'cantidad': float(p['Cantidad_Vendida']),
+                'total': float(p['Monto_Total'])
+            })
+
+        # --- 8. PRODUCTOS BAJO STOCK CRÍTICO ---
+        cursor.execute("""
+            SELECT 
+                p.Descripcion AS Producto,
+                p.COD_Producto AS Codigo,
+                ib.Existencias AS Stock_Actual,
+                p.Stock_Minimo
+            FROM inventario_bodega ib
+            INNER JOIN productos p ON ib.ID_Producto = p.ID_Producto
+            WHERE ib.ID_Bodega = 1
+              AND p.Estado = 'Activo'
+              AND ib.Existencias <= p.Stock_Minimo
+            ORDER BY ib.Existencias ASC
+            LIMIT 10
+        """)
+        bajo_stock_db = cursor.fetchall()
+        bajo_stock = []
+        for b in bajo_stock_db:
+            bajo_stock.append({
+                'codigo': b['Codigo'],
+                'producto': b['Producto'],
+                'existencias': b['Stock_Actual'],
+                'stock_minimo': b['Stock_Minimo']
+            })
+
+        fecha_formatted = fecha_dt.strftime('%d/%m/%Y')
+        
+        context = {
+            'fecha': fecha_str,
+            'fecha_formatted': fecha_formatted,
+            'ventas_total': ventas_total,
+            'ventas_contado': ventas_contado,
+            'ventas_credito': ventas_credito,
+            'ventas_normal': ventas_normal,
+            'ventas_ruta': ventas_ruta,
+            'cobros_total': cobros_total,
+            'cobros_efectivo': cobros_efectivo,
+            'cobros_bancos': cobros_bancos,
+            'cobros_resumen': [dict(c) for c in cobros_resumen_db],
+            'gastos_total': gastos_total,
+            'gastos': gastos_list,
+            'compras_total': compras_total,
+            'compras': compras_list,
+            'caja_apertura': caja_apertura,
+            'caja_entradas': caja_entradas,
+            'caja_salidas': caja_salidas,
+            'caja_saldo_neto': caja_saldo_neto,
+            'caja_movimientos': caja_movs,
+            'vendedores': vendedores_list,
+            'productos_vendidos': productos_vendidos,
+            'bajo_stock': bajo_stock
+        }
+        
+        datos_exportar = [
+            {'Metrica': 'Ventas Totales', 'Valor': ventas_total},
+            {'Metrica': 'Ventas Contado', 'Valor': ventas_contado},
+            {'Metrica': 'Ventas Crédito', 'Valor': ventas_credito},
+            {'Metrica': 'Cobros Totales', 'Valor': cobros_total},
+            {'Metrica': 'Cobros Efectivo', 'Valor': cobros_efectivo},
+            {'Metrica': 'Gastos Generales', 'Valor': gastos_total},
+            {'Metrica': 'Compras Totales', 'Valor': compras_total},
+            {'Metrica': 'Saldo Neto Caja Chica', 'Valor': caja_saldo_neto}
+        ]
+        
+        return datos_exportar, 'admin/reportes/reporte_diario.html', context

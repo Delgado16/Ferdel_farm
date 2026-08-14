@@ -558,10 +558,10 @@
                                     <div id="detalle-verificacion" class="small text-center text-muted mb-3"></div>
                                     
                                     <div class="d-grid gap-2 d-sm-flex">
-                                        <button class="btn btn-primary flex-grow-1" id="btn-verificar">
+                                        <button type="button" class="btn btn-primary flex-grow-1" id="btn-verificar">
                                             <i class="bi bi-check-lg me-2"></i>Verificar
                                         </button>
-                                        <button class="btn btn-outline-secondary" id="btn-limpiar">
+                                        <button type="button" class="btn btn-outline-secondary" id="btn-limpiar">
                                             <i class="bi bi-trash me-2"></i>Limpiar
                                         </button>
                                     </div>
@@ -779,6 +779,8 @@
 
 {% block extra_js %}
 <script>
+let contadorInicializado = false;
+
 // Denominaciones
 const denominaciones = {
     cordobas: {
@@ -789,7 +791,10 @@ const denominaciones = {
             { valor: 100, label: "Cien" },
             { valor: 50, label: "Cincuenta" },
             { valor: 20, label: "Veinte" },
-            { valor: 10, label: "Diez" }
+            { valor: 10, label: "Diez" },
+            { valor: 5, label: "Cinco (Moneda)" },
+            { valor: 1, label: "Un Córdoba (Moneda)" },
+            { valor: 0.5, label: "Cincuenta Centavos" }
         ]
     },
     dolares: {
@@ -830,13 +835,24 @@ function generarInputs(containerId, moneda) {
                     <div class="d-flex align-items-center justify-content-between gap-2 mt-auto">
                         <input type="number" class="form-control denominacion-input text-center fw-bold fs-6 py-1" 
                                data-valor="${item.valor}" data-moneda="${moneda}"
-                               min="0" value="0" step="1" style="max-width: 100px;">
+                               min="0" value="0" step="any" style="max-width: 100px;">
                         <div class="subtotal-valor text-success font-monospace fw-bold">${simbolo}0.00</div>
                     </div>
                 </div>
             </div>
         `;
         container.appendChild(col);
+        
+        // Listener directo a cada input para recalcular en tiempo real
+        const input = col.querySelector('.denominacion-input');
+        if (input) {
+            ['input', 'change', 'keyup'].forEach(eventType => {
+                input.addEventListener(eventType, () => {
+                    calcularTotales();
+                    verificarConSaldo();
+                });
+            });
+        }
     });
 }
 
@@ -846,7 +862,7 @@ function calcularTotales() {
     let totalDolares = 0;
     
     document.querySelectorAll('.denominacion-input[data-moneda="cordobas"]').forEach(input => {
-        const cantidad = parseInt(input.value) || 0;
+        const cantidad = parseFloat(input.value) || 0;
         const valor = parseFloat(input.dataset.valor);
         totalCordobas += cantidad * valor;
         
@@ -859,34 +875,63 @@ function calcularTotales() {
     
     if (incluirDolares && incluirDolares.checked) {
         document.querySelectorAll('.denominacion-input[data-moneda="dolares"]').forEach(input => {
-            const cantidad = parseInt(input.value) || 0;
+            const cantidad = parseFloat(input.value) || 0;
             const valor = parseFloat(input.dataset.valor);
             totalDolares += cantidad * valor;
             
             const subtotalDiv = input.closest('.card-body')?.querySelector('.subtotal-valor');
             if (subtotalDiv) subtotalDiv.textContent = `$ ${(cantidad * valor).toFixed(2)}`;
         });
-        tipoCambio = parseFloat(document.getElementById('tipo-cambio').value) || 36.50;
+        const tcEl = document.getElementById('tipo-cambio');
+        tipoCambio = tcEl ? (parseFloat(tcEl.value) || 36.50) : 36.50;
+    } else {
+        // Si no se incluyen dólares, reiniciar visualmente sus subtotales en la lista
+        document.querySelectorAll('.denominacion-input[data-moneda="dolares"]').forEach(input => {
+            const subtotalDiv = input.closest('.card-body')?.querySelector('.subtotal-valor');
+            if (subtotalDiv) subtotalDiv.textContent = `$ 0.00`;
+        });
     }
     
-    const totalGeneral = totalCordobas + (totalDolares * tipoCambio);
+    totalCordobas = Math.round(totalCordobas * 100) / 100;
+    totalDolares = Math.round(totalDolares * 100) / 100;
+    const totalGeneral = Math.round((totalCordobas + (totalDolares * tipoCambio)) * 100) / 100;
     const maxTotal = Math.max(totalCordobas, totalDolares * tipoCambio, 1);
     
-    // Actualizar UI
-    document.getElementById('subtotal-cordobas').textContent = `C$ ${totalCordobas.toFixed(2)}`;
-    document.getElementById('total-cordobas').textContent = totalCordobas.toFixed(2);
-    document.getElementById('cordobas-badge-total').textContent = `C$${totalCordobas.toFixed(0)}`;
+    // Actualizar UI con comprobación de existencia
+    const subtotalCordobasEl = document.getElementById('subtotal-cordobas');
+    if (subtotalCordobasEl) subtotalCordobasEl.textContent = `C$ ${totalCordobas.toFixed(2)}`;
     
-    document.getElementById('subtotal-dolares').textContent = `$ ${totalDolares.toFixed(2)}`;
-    document.getElementById('total-dolares').textContent = totalDolares.toFixed(2);
-    document.getElementById('dolares-badge-total').textContent = `$${totalDolares.toFixed(0)}`;
+    const totalCordobasEl = document.getElementById('total-cordobas');
+    if (totalCordobasEl) totalCordobasEl.textContent = totalCordobas.toFixed(2);
     
-    document.getElementById('total-general').textContent = totalGeneral.toFixed(2);
-    document.getElementById('dolares-en-cordobas').textContent = `Equivalente: C$ ${(totalDolares * tipoCambio).toFixed(2)}`;
+    const cordobasBadgeTotalEl = document.getElementById('cordobas-badge-total');
+    if (cordobasBadgeTotalEl) cordobasBadgeTotalEl.textContent = `C$${totalCordobas.toFixed(0)}`;
+    
+    const subtotalDolaresEl = document.getElementById('subtotal-dolares');
+    if (subtotalDolaresEl) subtotalDolaresEl.textContent = `$ ${totalDolares.toFixed(2)}`;
+    
+    const totalDolaresEl = document.getElementById('total-dolares');
+    if (totalDolaresEl) totalDolaresEl.textContent = totalDolares.toFixed(2);
+    
+    const dolaresBadgeTotalEl = document.getElementById('dolares-badge-total');
+    if (dolaresBadgeTotalEl) dolaresBadgeTotalEl.textContent = `$${totalDolares.toFixed(0)}`;
+    
+    const totalGeneralEl = document.getElementById('total-general');
+    if (totalGeneralEl) totalGeneralEl.textContent = totalGeneral.toFixed(2);
+    
+    const dolaresEnCordobasEl = document.getElementById('dolares-en-cordobas');
+    if (dolaresEnCordobasEl) {
+        dolaresEnCordobasEl.textContent = `Equivalente: C$ ${(totalDolares * tipoCambio).toFixed(2)}`;
+    }
     
     // Progress bars
-    document.getElementById('progress-cordobas').style.width = `${(totalCordobas / maxTotal) * 100}%`;
-    document.getElementById('progress-dolares').style.width = `${((totalDolares * tipoCambio) / maxTotal) * 100}%`;
+    const progressCordobasEl = document.getElementById('progress-cordobas');
+    if (progressCordobasEl) progressCordobasEl.style.width = `${(totalCordobas / maxTotal) * 100}%`;
+    
+    const progressDolaresEl = document.getElementById('progress-dolares');
+    if (progressDolaresEl) progressDolaresEl.style.width = `${((totalDolares * tipoCambio) / maxTotal) * 100}%`;
+    
+    console.log("calcularTotales: totalCordobas =", totalCordobas, "totalDolares =", totalDolares, "totalGeneral =", totalGeneral);
     
     return { totalCordobas, totalDolares, totalGeneral };
 }
@@ -903,23 +948,66 @@ window.limpiarDenominaciones = function(moneda) {
 // Verificar con saldo
 function verificarConSaldo() {
     const totales = calcularTotales();
-    const saldoSistema = parseFloat('{{ caja.saldo_dia|float }}') || 0;
-    const diferencia = totales.totalGeneral - saldoSistema;
+    const saldoSistema = Math.round((parseFloat('{{ caja.saldo_dia|float }}') || 0) * 100) / 100;
+    const totalGeneral = Math.round(totales.totalGeneral * 100) / 100;
+    const diferencia = Math.round((saldoSistema - totalGeneral) * 100) / 100;
+    
+    console.log("verificarConSaldo: saldoSistema =", saldoSistema, "totalGeneral =", totalGeneral, "diferencia =", diferencia);
     
     const diferenciaEl = document.getElementById('diferencia-valor');
     const estadoEl = document.getElementById('estado-verificacion');
     const detalleEl = document.getElementById('detalle-verificacion');
     
-    diferenciaEl.textContent = `C$ ${diferencia.toFixed(2)}`;
-    diferenciaEl.className = `fw-bold fs-5 ${Math.abs(diferencia) < 0.01 ? 'text-success' : (diferencia > 0 ? 'text-warning' : 'text-danger')}`;
+    if (diferenciaEl) {
+        diferenciaEl.textContent = `C$ ${diferencia.toFixed(2)}`;
+        diferenciaEl.className = `fw-bold fs-5 ${Math.abs(diferencia) < 0.01 ? 'text-success' : (diferencia > 0 ? 'text-warning' : 'text-danger')}`;
+    }
     
-    if (Math.abs(diferencia) < 0.01) {
-        estadoEl.innerHTML = `<div class="badge-verificacion-coincide"><i class="bi bi-check-circle-fill me-2"></i>¡COINCIDEN!</div>`;
-        detalleEl.innerHTML = '✅ El efectivo físico coincide perfectamente con el saldo del sistema';
-    } else {
-        const tipo = diferencia > 0 ? 'Sobrante' : 'Faltante';
-        estadoEl.innerHTML = `<div class="badge-verificacion-diferencia"><i class="bi bi-exclamation-triangle-fill me-2"></i>NO COINCIDEN - ${tipo}: C$ ${Math.abs(diferencia).toFixed(2)}</div>`;
-        detalleEl.innerHTML = `⚠️ Diferencia de C$ ${Math.abs(diferencia).toFixed(2)}. ${diferencia > 0 ? 'Hay más efectivo físico.' : 'Falta efectivo físico.'}`;
+    if (estadoEl && detalleEl) {
+        if (Math.abs(diferencia) < 0.01) {
+            estadoEl.innerHTML = `<div class="badge-verificacion-coincide"><i class="bi bi-check-circle-fill me-2"></i>¡COINCIDEN!</div>`;
+            detalleEl.innerHTML = '✅ El efectivo físico coincide perfectamente con el saldo del sistema';
+        } else {
+            const tipo = diferencia < 0 ? 'Sobrante' : 'Faltante';
+            estadoEl.innerHTML = `<div class="badge-verificacion-diferencia"><i class="bi bi-exclamation-triangle-fill me-2"></i>NO COINCIDEN - ${tipo}: C$ ${Math.abs(diferencia).toFixed(2)}</div>`;
+            detalleEl.innerHTML = `⚠️ Diferencia de C$ ${Math.abs(diferencia).toFixed(2)}. ${diferencia < 0 ? 'Hay más efectivo físico.' : 'Falta efectivo físico.'}`;
+        }
+    }
+}
+
+// Cargar valores guardados de localStorage
+function cargarValoresGuardados() {
+    try {
+        const cordobasGuardados = JSON.parse(localStorage.getItem('conteo_cordobas') || '{}');
+        const dolaresGuardados = JSON.parse(localStorage.getItem('conteo_dolares') || '{}');
+        const incluirDolares = localStorage.getItem('incluir_dolares');
+        const tipoCambio = localStorage.getItem('tipo_cambio');
+        
+        document.querySelectorAll('.denominacion-input[data-moneda="cordobas"]').forEach(input => {
+            const valor = input.dataset.valor;
+            if (cordobasGuardados[valor] !== undefined) {
+                input.value = cordobasGuardados[valor];
+            }
+        });
+        
+        document.querySelectorAll('.denominacion-input[data-moneda="dolares"]').forEach(input => {
+            const valor = input.dataset.valor;
+            if (dolaresGuardados[valor] !== undefined) {
+                input.value = dolaresGuardados[valor];
+            }
+        });
+        
+        if (incluirDolares !== null) {
+            const switchEl = document.getElementById('incluirDolaresSwitch');
+            if (switchEl) switchEl.checked = incluirDolares === 'true';
+        }
+        
+        if (tipoCambio !== null) {
+            const tcEl = document.getElementById('tipo-cambio');
+            if (tcEl) tcEl.value = tipoCambio;
+        }
+    } catch (e) {
+        console.error("Error al cargar valores guardados del contador", e);
     }
 }
 
@@ -930,6 +1018,16 @@ function limpiarTodo() {
     document.getElementById('tipo-cambio').value = '36.50';
     document.getElementById('estado-verificacion').innerHTML = '';
     document.getElementById('detalle-verificacion').innerHTML = '';
+    
+    localStorage.removeItem('conteo_cordobas');
+    localStorage.removeItem('conteo_dolares');
+    localStorage.removeItem('incluir_dolares');
+    localStorage.removeItem('tipo_cambio');
+    localStorage.removeItem('ultimoConteo');
+    document.getElementById('ultimo-conteo').textContent = 'No registrado';
+    
+    calcularTotales();
+    verificarConSaldo();
 }
 
 // Guardar conteo
@@ -937,19 +1035,42 @@ function guardarConteo() {
     const totales = calcularTotales();
     const ahora = new Date();
     const horaActual = ahora.toLocaleTimeString();
-    document.getElementById('ultimo-conteo').textContent = horaActual;
+    
+    const cordobas = {};
+    document.querySelectorAll('.denominacion-input[data-moneda="cordobas"]').forEach(input => {
+        cordobas[input.dataset.valor] = parseFloat(input.value) || 0;
+    });
+    
+    const dolares = {};
+    document.querySelectorAll('.denominacion-input[data-moneda="dolares"]').forEach(input => {
+        dolares[input.dataset.valor] = parseFloat(input.value) || 0;
+    });
+    
+    const incluirDolares = document.getElementById('incluirDolaresSwitch')?.checked;
+    const tipoCambio = document.getElementById('tipo-cambio')?.value;
+    
+    localStorage.setItem('conteo_cordobas', JSON.stringify(cordobas));
+    localStorage.setItem('conteo_dolares', JSON.stringify(dolares));
+    localStorage.setItem('incluir_dolares', incluirDolares ? 'true' : 'false');
+    if (tipoCambio) localStorage.setItem('tipo_cambio', tipoCambio);
     localStorage.setItem('ultimoConteo', horaActual);
+    
+    document.getElementById('ultimo-conteo').textContent = horaActual;
     
     verificarConSaldo();
     
     // Mostrar toast
     const toast = document.createElement('div');
     toast.className = 'custom-toast';
+    toast.style.position = 'fixed';
+    toast.style.bottom = '20px';
+    toast.style.right = '20px';
+    toast.style.zIndex = '1050';
     toast.innerHTML = `
-        <div class="toast-body bg-success text-white rounded">
+        <div class="toast-body bg-success text-white rounded p-3 shadow">
             <i class="bi bi-check-circle-fill me-2"></i>
             Conteo guardado (${horaActual})
-            <button type="button" class="btn-close btn-close-white float-end" data-bs-dismiss="toast"></button>
+            <button type="button" class="btn-close btn-close-white float-end ms-2" data-bs-dismiss="toast" onclick="this.parentElement.parentElement.remove()"></button>
         </div>
     `;
     document.body.appendChild(toast);
@@ -958,28 +1079,57 @@ function guardarConteo() {
 
 // Inicializar
 function initContador() {
+    if (contadorInicializado) {
+        calcularTotales();
+        verificarConSaldo();
+        return;
+    }
+    
     generarInputs('billetes-container', 'cordobas');
     generarInputs('billetes-dolares-container', 'dolares');
     
-    document.addEventListener('input', function(e) {
-        if (e.target.classList.contains('denominacion-input') || e.target.id === 'tipo-cambio') {
-            calcularTotales();
-        }
-    });
+    cargarValoresGuardados();
     
-    document.getElementById('incluirDolaresSwitch')?.addEventListener('change', calcularTotales);
+    // Listeners para cambios en tipo de cambio
+    const tcEl = document.getElementById('tipo-cambio');
+    if (tcEl) {
+        ['input', 'change', 'keyup'].forEach(eventType => {
+            tcEl.addEventListener(eventType, () => {
+                calcularTotales();
+                verificarConSaldo();
+            });
+        });
+    }
+    
+    document.getElementById('incluirDolaresSwitch')?.addEventListener('change', () => {
+        calcularTotales();
+        verificarConSaldo();
+    });
     document.getElementById('btn-verificar')?.addEventListener('click', verificarConSaldo);
     document.getElementById('btn-limpiar')?.addEventListener('click', limpiarTodo);
     document.getElementById('btn-guardar-conteo')?.addEventListener('click', guardarConteo);
     
     calcularTotales();
+    verificarConSaldo();
     
     const ultimo = localStorage.getItem('ultimoConteo');
     if (ultimo) document.getElementById('ultimo-conteo').textContent = ultimo;
+    
+    contadorInicializado = true;
 }
 
-// Evento al abrir modal
-document.getElementById('modalContadorDinero')?.addEventListener('shown.bs.modal', initContador);
+// Inicializar inmediatamente al cargar el DOM
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initContador);
+} else {
+    initContador();
+}
+
+// Actualizar también al mostrarse el modal para sincronizar
+document.getElementById('modalContadorDinero')?.addEventListener('shown.bs.modal', () => {
+    calcularTotales();
+    verificarConSaldo();
+});
 
 // Validar saldo en salidas
 document.querySelector('form[action*="admin_caja_movimiento"]')?.addEventListener('submit', function(e) {

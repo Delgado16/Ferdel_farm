@@ -7,6 +7,8 @@ from . import dashboard
 from . import caja
 from . import ventas
 from . import compras
+from . import cxpagar
+from . import gastos
 from . import catalogos
 from . import productos
 from . import bodega

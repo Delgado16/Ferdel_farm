@@ -1,0 +1,276 @@
+{% extends "layout.html" %}
+
+{% block title %}Detalle de Cliente - {{ super() }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-2 mt-md-4 px-2 px-md-3 py-2 py-md-4">
+    <!-- ENCABEZADO Y ACCIONES -->
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center mb-3 mb-md-4 gap-2">
+        <div>
+            <a href="{{ url_for('vendedor.vendedor_clientes') }}" class="btn btn-outline-secondary btn-sm mb-2">
+                <i class="bi bi-arrow-left me-1"></i> Volver a Clientes
+            </a>
+            <h1 class="h3 mb-1">
+                <i class="bi bi-person-bounding-box text-primary me-2"></i>{{ cliente.Nombre }}
+            </h1>
+            <p class="text-muted small mb-0">
+                Ruta: <span class="badge bg-info text-dark">{{ cliente.Nombre_Ruta or "No Asignada" }}</span>
+                {% if cliente.RUC_CEDULA %}
+                | Cédula/RUC: <span class="fw-bold">{{ cliente.RUC_CEDULA }}</span>
+                {% endif %}
+            </p>
+        </div>
+        
+        <div class="d-flex gap-2 w-100 w-md-auto">
+            {% if cliente.Telefono %}
+            <a href="tel:{{ cliente.Telefono }}" class="btn btn-outline-primary flex-grow-1 flex-md-grow-0">
+                <i class="bi bi-telephone me-1"></i> Llamar
+            </a>
+            {% endif %}
+            {% if cliente.Saldo_Pendiente_Total > 0 %}
+            <a href="{{ url_for('vendedor.vendedor_clientes') }}?q={{ cliente.Nombre }}" class="btn btn-success flex-grow-1 flex-md-grow-0">
+                <i class="bi bi-cash-stack me-1"></i> Registrar Abono
+            </a>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="row g-3">
+        <!-- DETALLE CLIENTE / RESUMEN -->
+        <div class="col-12 col-lg-4">
+            <div class="card shadow-sm border-0 mb-3">
+                <div class="card-header bg-primary text-white py-3">
+                    <h5 class="card-title mb-0">Resumen Financiero</h5>
+                </div>
+                <div class="card-body">
+                    <div class="text-center py-3">
+                        <span class="text-muted d-block small mb-1 text-uppercase fw-bold">Saldo Pendiente Total</span>
+                        <h2 class="fw-bold {% if cliente.Saldo_Pendiente_Total > 0 %}text-danger{% else %}text-success{% endif %}">
+                            C${{ "{:,.2f}".format(cliente.Saldo_Pendiente_Total) }}
+                        </h2>
+                        {% if cliente.Saldo_Pendiente_Total == 0 %}
+                        <span class="badge bg-success py-2 px-3 mt-2"><i class="bi bi-check-circle me-1"></i> Al día</span>
+                        {% endif %}
+                    </div>
+                    <hr>
+                    <div class="mb-2 d-flex justify-content-between">
+                        <span class="text-muted">Perfil de Cliente:</span>
+                        <span class="fw-bold">{{ cliente.perfil_cliente or "Común" }}</span>
+                    </div>
+                    <div class="mb-2 d-flex justify-content-between">
+                        <span class="text-muted">Tipo de Cliente:</span>
+                        <span class="fw-bold">{{ cliente.tipo_cliente or "Normal" }}</span>
+                    </div>
+                    <div class="mb-2 d-flex justify-content-between">
+                        <span class="text-muted">Último Pago:</span>
+                        <span class="fw-bold">
+                            {% if cliente.Fecha_Ultimo_Pago %}
+                            {{ cliente.Fecha_Ultimo_Pago.strftime('%d/%m/%Y') }}
+                            {% else %}
+                            Nunca
+                            {% endif %}
+                        </span>
+                    </div>
+                    {% if cliente.Direccion %}
+                    <div class="mt-3">
+                        <span class="text-muted d-block small mb-1">Dirección:</span>
+                        <p class="small bg-light p-2 rounded mb-0">{{ cliente.Direccion }}</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- ÚLTIMO ABONO REALIZADO -->
+            <div class="card shadow-sm border-0">
+                <div class="card-header bg-dark text-white py-3">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-receipt me-2"></i>Último Abono Realizado
+                    </h5>
+                </div>
+                <div class="card-body">
+                    {% if ultimo_abono %}
+                    <div class="text-center mb-3">
+                        <span class="text-muted d-block small mb-1">Monto del Abono</span>
+                        <h3 class="fw-bold text-success">
+                            C${{ "{:,.2f}".format(ultimo_abono.Monto_Total) }}
+                        </h3>
+                        <span class="badge bg-secondary">{{ ultimo_abono.Metodo_Pago }}</span>
+                    </div>
+                    
+                    <div class="small bg-light p-3 rounded mb-3">
+                        <div class="d-flex justify-content-between mb-1">
+                            <span class="text-muted">Fecha:</span>
+                            <span class="fw-bold">
+                                {{ ultimo_abono.Fecha.strftime('%d/%m/%Y %H:%M') if ultimo_abono.Fecha else '' }}
+                            </span>
+                        </div>
+                        <div class="d-flex justify-content-between">
+                            <span class="text-muted">ID Transacción:</span>
+                            <span class="fw-bold">#{{ ultimo_abono.ID_Detalle }}</span>
+                        </div>
+                    </div>
+                    
+                    <h6 class="fw-bold small text-uppercase text-muted mb-2">Facturas Afectadas:</h6>
+                    <div class="list-group list-group-flush border rounded overflow-hidden">
+                        {% for det in ultimo_abono.Detalles %}
+                        <div class="list-group-item p-2">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <span class="fw-bold small">{{ det.Num_Documento }}</span>
+                                <span class="badge bg-success">C${{ "{:,.2f}".format(det.Monto_Aplicado) }}</span>
+                            </div>
+                            <div class="d-flex justify-content-between small text-muted mt-1" style="font-size: 0.75rem;">
+                                <span>Antes: C${{ "{:,.2f}".format(det.Saldo_Anterior) }}</span>
+                                <span>Nuevo Saldo: C${{ "{:,.2f}".format(det.Saldo_Nuevo) }}</span>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    
+                    <div class="mt-3 text-center">
+                        <a href="{{ url_for('vendedor.vendedor_recibo_abono', id_abono=ultimo_abono.ID_Detalle) }}" target="_blank" class="btn btn-outline-dark btn-sm w-100">
+                            <i class="bi bi-printer me-1"></i> Imprimir Recibo
+                        </a>
+                    </div>
+                    {% else %}
+                    <div class="text-center py-4 text-muted">
+                        <i class="bi bi-credit-card-2-back fs-2 mb-2 d-block"></i>
+                        <p class="mb-0 small">No se registran abonos para este cliente</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- HISTORIAL DE FACTURAS Y ABONOS -->
+        <div class="col-12 col-lg-8">
+            <div class="card shadow-sm border-0 h-100">
+                <div class="card-body p-0">
+                    <!-- TABS -->
+                    <ul class="nav nav-tabs nav-fill bg-light border-bottom" id="detalleTabs" role="tablist">
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link active py-3 fw-bold" id="facturas-tab" data-bs-toggle="tab" data-bs-target="#facturas" type="button" role="tab" aria-controls="facturas" aria-selected="true">
+                                <i class="bi bi-receipt-cutoff me-2"></i>Últimas Facturas / Compras
+                            </button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link py-3 fw-bold" id="abonos-tab" data-bs-toggle="tab" data-bs-target="#abonos" type="button" role="tab" aria-controls="abonos" aria-selected="false">
+                                <i class="bi bi-clock-history me-2"></i>Historial de Abonos
+                            </button>
+                        </li>
+                    </ul>
+                    
+                    <div class="tab-content p-3" id="detalleTabsContent">
+                        <!-- PESTAÑA: FACTURAS -->
+                        <div class="tab-pane fade show active" id="facturas" role="tabpanel" aria-labelledby="facturas-tab">
+                            <div class="table-responsive">
+                                <table class="table table-hover align-middle mb-0">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th>Factura</th>
+                                            <th>Fecha</th>
+                                            <th>Tipo</th>
+                                            <th class="text-end">Total</th>
+                                            <th class="text-end">Saldo Pendiente</th>
+                                            <th class="text-center">Estado</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for f in facturas %}
+                                        <tr>
+                                            <td>
+                                                <span class="fw-bold">{{ f.Num_Documento }}</span>
+                                            </td>
+                                            <td class="small">
+                                                {{ f.Fecha.strftime('%d/%m/%Y') if f.Fecha else '' }}
+                                            </td>
+                                            <td>
+                                                {% if f.Credito_Contado == 1 %}
+                                                <span class="badge bg-success-subtle text-success">CONTADO</span>
+                                                {% else %}
+                                                <span class="badge bg-warning-subtle text-warning">CRÉDITO</span>
+                                                {% endif %}
+                                            </td>
+                                            <td class="text-end fw-bold">C${{ "{:,.2f}".format(f.Total) }}</td>
+                                            <td class="text-end {% if f.Saldo_Pendiente > 0 %}text-danger fw-bold{% else %}text-muted{% endif %}">
+                                                C${{ "{:,.2f}".format(f.Saldo_Pendiente) }}
+                                            </td>
+                                            <td class="text-center">
+                                                {% if f.Saldo_Pendiente == 0 %}
+                                                <span class="badge bg-success">Pagada</span>
+                                                {% else %}
+                                                <span class="badge bg-danger">Pendiente</span>
+                                                {% endif %}
+                                            </td>
+                                        </tr>
+                                        {% else %}
+                                        <tr>
+                                            <td colspan="6" class="text-center py-5 text-muted">
+                                                <i class="bi bi-file-earmark-bar-graph fs-1 d-block mb-2"></i>
+                                                No se registran facturas activas recientes.
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <!-- PESTAÑA: HISTORIAL ABONOS -->
+                        <div class="tab-pane fade" id="abonos" role="tabpanel" aria-labelledby="abonos-tab">
+                            <div class="table-responsive">
+                                <table class="table table-hover align-middle mb-0">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th>Fecha</th>
+                                            <th>Método</th>
+                                            <th class="text-end">Monto Total</th>
+                                            <th>Facturas Afectadas</th>
+                                            <th class="text-center">Acciones</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for abono in abonos %}
+                                        <tr>
+                                            <td class="small fw-bold">
+                                                {{ abono.Fecha.strftime('%d/%m/%Y %H:%M') if abono.Fecha else '' }}
+                                            </td>
+                                            <td>
+                                                <span class="badge bg-secondary">{{ abono.Metodo_Pago }}</span>
+                                            </td>
+                                            <td class="text-end fw-bold text-success">
+                                                C${{ "{:,.2f}".format(abono.Monto_Total) }}
+                                            </td>
+                                            <td class="small">
+                                                <div class="d-flex flex-wrap gap-1">
+                                                    {% for det in abono.Detalles %}
+                                                    <span class="badge bg-light text-dark border small" title="Aplicado: C${{ det.Monto_Aplicado }}">
+                                                        {{ det.Num_Documento }}
+                                                    </span>
+                                                    {% endfor %}
+                                                </div>
+                                            </td>
+                                            <td class="text-center">
+                                                <a href="{{ url_for('vendedor.vendedor_recibo_abono', id_abono=abono.ID_Detalle) }}" target="_blank" class="btn btn-sm btn-outline-dark">
+                                                    <i class="bi bi-printer"></i>
+                                                </a>
+                                            </td>
+                                        </tr>
+                                        {% else %}
+                                        <tr>
+                                            <td colspan="5" class="text-center py-5 text-muted">
+                                                <i class="bi bi-clock fs-1 d-block mb-2"></i>
+                                                No se registran abonos recientes para este cliente.
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

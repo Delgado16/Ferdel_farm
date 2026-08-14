@@ -356,7 +356,7 @@ def vendedor_gastos():
         # Usamos get_db_cursor con commit=True para que haga commit automático
         try:
             with get_db_cursor(commit=True) as cursor:
-                # Obtener el saldo acumulado actual dinámicamente sumando todos los movimientos anteriores
+                # Obtener el saldo acumulado actual dinámicamente sumando todos los movimientos del día del usuario
                 cursor.execute("""
                     SELECT COALESCE(SUM(CASE 
                         WHEN Tipo = 'GASTO' THEN -Monto 
@@ -364,12 +364,18 @@ def vendedor_gastos():
                         ELSE 0 
                     END), 0) as Saldo_Actual
                     FROM movimientos_caja_ruta 
-                    WHERE ID_Asignacion = %s 
+                    WHERE ID_Usuario = %s 
+                    AND DATE(Fecha) = CURDATE()
                     AND Estado = 'ACTIVO'
-                """, (id_asignacion,))
+                """, (usuario_actual,))
                 
                 ultimo_movimiento = cursor.fetchone()
                 saldo_anterior = float(ultimo_movimiento['Saldo_Actual']) if ultimo_movimiento else 0.0
+                
+                # Validar que el gasto no exceda el saldo actual en caja
+                if monto > saldo_anterior:
+                    flash(f'El monto del gasto (Gs. {monto:,.0f}) supera el saldo actual en caja (Gs. {saldo_anterior:,.0f})', 'error')
+                    return redirect(url_for('vendedor.vendedor_gastos'))
                 
                 # Calcular nuevo saldo (el gasto resta del saldo)
                 nuevo_saldo = saldo_anterior - monto
@@ -427,7 +433,7 @@ def vendedor_gastos():
             total_gastos = cursor.fetchone()['Total_Gastos']
             total_gastos = float(total_gastos) if total_gastos is not None else 0
             
-            # Obtener saldo actual dinámicamente sumando todos los movimientos de la asignación
+            # Obtener saldo actual dinámicamente sumando todos los movimientos de la asignación del día
             cursor.execute("""
                 SELECT COALESCE(SUM(CASE 
                     WHEN Tipo = 'GASTO' THEN -Monto 
@@ -435,9 +441,10 @@ def vendedor_gastos():
                     ELSE 0 
                 END), 0) as Saldo_Actual
                 FROM movimientos_caja_ruta
-                WHERE ID_Asignacion = %s 
+                WHERE ID_Usuario = %s 
+                AND DATE(Fecha) = CURDATE()
                 AND Estado = 'ACTIVO'
-            """, (id_asignacion,))
+            """, (usuario_actual,))
             
             saldo_actual_res = cursor.fetchone()
             saldo_actual = float(saldo_actual_res['Saldo_Actual']) if saldo_actual_res else 0.0

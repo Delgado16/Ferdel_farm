@@ -53,6 +53,15 @@ def admin_caja():
         
         resumen = cursor.fetchone()
         
+        # Obtener ventas de ruta en efectivo para agregarlas virtualmente a la caja chica (ya que son efectivo)
+        cursor.execute("""
+            SELECT COALESCE(SUM(dfr.Total), 0) as total_ruta_efectivo
+            FROM facturacion_ruta fr
+            INNER JOIN detalle_facturacion_ruta dfr ON fr.ID_FacturaRuta = dfr.ID_FacturaRuta
+            WHERE DATE(fr.Fecha_Creacion) = %s AND fr.Estado = 'Activa' AND fr.Credito_Contado = 1
+        """, (fecha_actual,))
+        total_ruta_efectivo = float(cursor.fetchone()['total_ruta_efectivo'] or 0)
+        
         # Movimientos del día
         cursor.execute("""
             SELECT 
@@ -74,14 +83,48 @@ def admin_caja():
         """, (fecha_actual,))
         
         movimientos = cursor.fetchall()
+        
+        # Obtener detalle de ventas de ruta para listarlos
+        cursor.execute("""
+            SELECT 
+                fr.ID_FacturaRuta,
+                fr.Fecha_Creacion AS Fecha,
+                u.NombreUsuario AS Vendedor,
+                SUM(COALESCE(dfr.Total, 0)) AS Monto
+            FROM facturacion_ruta fr
+            INNER JOIN detalle_facturacion_ruta dfr ON fr.ID_FacturaRuta = dfr.ID_FacturaRuta
+            INNER JOIN asignacion_vendedores av ON fr.ID_Asignacion = av.ID_Asignacion
+            INNER JOIN usuarios u ON av.ID_Usuario = u.ID_Usuario
+            WHERE DATE(fr.Fecha_Creacion) = %s AND fr.Estado = 'Activa' AND fr.Credito_Contado = 1
+            GROUP BY fr.ID_FacturaRuta, fr.Fecha_Creacion, u.NombreUsuario
+            ORDER BY fr.Fecha_Creacion DESC
+        """, (fecha_actual,))
+        movimientos_ruta = cursor.fetchall()
+        
+        lista_movimientos = list(movimientos)
+        for mr in movimientos_ruta:
+            lista_movimientos.append({
+                'ID_Movimiento': f"RUT-{mr['ID_FacturaRuta']}",
+                'Fecha': mr['Fecha'],
+                'Tipo_Movimiento': 'ENTRADA',
+                'Descripcion': f"Venta de Ruta al contado - Vendedor: {mr['Vendedor']}",
+                'Monto': float(mr['Monto']),
+                'Referencia_Documento': f"RUT-{mr['ID_FacturaRuta']:05d}",
+                'Estado': 'ACTIVO'
+            })
+        
+        lista_movimientos.sort(key=lambda x: x['Fecha'], reverse=True)
+    
+    entradas_totales = float(resumen['entradas'] or 0) + total_ruta_efectivo
+    saldo_dia_total = float(resumen['saldo_dia'] or 0) + total_ruta_efectivo
     
     datos = {
         'fecha': fecha_actual.strftime('%d/%m/%Y'),
         'estado': estado,
-        'entradas': float(resumen['entradas'] or 0),
+        'entradas': entradas_totales,
         'salidas': float(resumen['salidas'] or 0),
-        'saldo_dia': float(resumen['saldo_dia'] or 0),
-        'movimientos': movimientos
+        'saldo_dia': saldo_dia_total,
+        'movimientos': lista_movimientos
     }
     
     return render_template('admin/caja/caja.html', caja=datos)
@@ -93,8 +136,8 @@ def admin_caja_aperturar():
     try:
         monto = float(request.form.get('monto_inicial', 0))
         
-        if monto <= 0:
-            flash('El monto debe ser mayor a 0', 'error')
+        if monto < 0:
+            flash('El monto debe ser mayor o igual a 0', 'error')
             return redirect(url_for('admin.admin_caja'))
         
         fecha_actual = datetime.now().date()
@@ -461,6 +504,15 @@ def admin_caja_exportar_excel():
             """, (fecha_actual,))
             resumen = cursor.fetchone()
             
+            # Obtener ventas de ruta en efectivo para agregarlas virtualmente a la caja chica (ya que son efectivo)
+            cursor.execute("""
+                SELECT COALESCE(SUM(dfr.Total), 0) as total_ruta_efectivo
+                FROM facturacion_ruta fr
+                INNER JOIN detalle_facturacion_ruta dfr ON fr.ID_FacturaRuta = dfr.ID_FacturaRuta
+                WHERE DATE(fr.Fecha_Creacion) = %s AND fr.Estado = 'Activa' AND fr.Credito_Contado = 1
+            """, (fecha_actual,))
+            total_ruta_efectivo = float(cursor.fetchone()['total_ruta_efectivo'] or 0)
+            
             # Movimientos
             cursor.execute("""
                 SELECT 
@@ -479,6 +531,47 @@ def admin_caja_exportar_excel():
                 ORDER BY Fecha ASC
             """, (fecha_actual,))
             movimientos = cursor.fetchall()
+            
+            # Obtener detalle de ventas de ruta para listarlos
+            cursor.execute("""
+                SELECT 
+                    fr.ID_FacturaRuta,
+                    fr.Fecha_Creacion AS Fecha,
+                    u.NombreUsuario AS Vendedor,
+                    SUM(COALESCE(dfr.Total, 0)) AS Monto
+                FROM facturacion_ruta fr
+                INNER JOIN detalle_facturacion_ruta dfr ON fr.ID_FacturaRuta = dfr.ID_FacturaRuta
+                INNER JOIN asignacion_vendedores av ON fr.ID_Asignacion = av.ID_Asignacion
+                INNER JOIN usuarios u ON av.ID_Usuario = u.ID_Usuario
+                WHERE DATE(fr.Fecha_Creacion) = %s AND fr.Estado = 'Activa' AND fr.Credito_Contado = 1
+                GROUP BY fr.ID_FacturaRuta, fr.Fecha_Creacion, u.NombreUsuario
+                ORDER BY fr.Fecha_Creacion ASC
+            """, (fecha_actual,))
+            movimientos_ruta = cursor.fetchall()
+            
+            lista_movimientos = []
+            for m in movimientos:
+                lista_movimientos.append({
+                    'Fecha': m['Fecha'],
+                    'Tipo_Movimiento': m['Tipo_Movimiento'],
+                    'Descripcion': m['Descripcion'],
+                    'Monto': float(m['Monto']),
+                    'Referencia_Documento': m['Referencia_Documento']
+                })
+                
+            for mr in movimientos_ruta:
+                lista_movimientos.append({
+                    'Fecha': mr['Fecha'],
+                    'Tipo_Movimiento': 'ENTRADA',
+                    'Descripcion': f"Venta de Ruta al contado - Vendedor: {mr['Vendedor']}",
+                    'Monto': float(mr['Monto']),
+                    'Referencia_Documento': f"RUT-{mr['ID_FacturaRuta']:05d}"
+                })
+                
+            lista_movimientos.sort(key=lambda x: x['Fecha'])
+            
+            resumen_entradas = float(resumen['entradas'] or 0) + total_ruta_efectivo
+            resumen_saldo_dia = float(resumen['saldo_dia'] or 0) + total_ruta_efectivo
             
         import openpyxl
         from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
@@ -520,7 +613,7 @@ def admin_caja_exportar_excel():
         ws.merge_cells("A4:B4")
         
         ws["A5"] = "Total Entradas"
-        ws["B5"] = float(resumen['entradas'] or 0)
+        ws["B5"] = resumen_entradas
         ws["B5"].number_format = '"C$"#,##0.00'
         ws["A5"].fill = fill_entrada
         ws["B5"].fill = fill_entrada
@@ -536,7 +629,7 @@ def admin_caja_exportar_excel():
         ws["B6"].font = font_bold
         
         ws["A7"] = "Saldo Neto"
-        ws["B7"] = float(resumen['saldo_dia'] or 0)
+        ws["B7"] = resumen_saldo_dia
         ws["B7"].number_format = '"C$"#,##0.00'
         ws["A7"].fill = fill_total
         ws["B7"].fill = fill_total
@@ -562,7 +655,7 @@ def admin_caja_exportar_excel():
         from helpers.formatters import format_hora
         
         current_row = start_row + 1
-        for idx, mov in enumerate(movimientos):
+        for idx, mov in enumerate(lista_movimientos):
             hora_str = format_hora(mov['Fecha'])
             c_hora = ws.cell(row=current_row, column=1, value=hora_str)
             c_hora.alignment = Alignment(horizontal="center")
@@ -654,6 +747,15 @@ def admin_caja_exportar_pdf():
             """, (fecha_actual,))
             resumen = cursor.fetchone()
             
+            # Obtener ventas de ruta en efectivo para agregarlas virtualmente a la caja chica (ya que son efectivo)
+            cursor.execute("""
+                SELECT COALESCE(SUM(dfr.Total), 0) as total_ruta_efectivo
+                FROM facturacion_ruta fr
+                INNER JOIN detalle_facturacion_ruta dfr ON fr.ID_FacturaRuta = dfr.ID_FacturaRuta
+                WHERE DATE(fr.Fecha_Creacion) = %s AND fr.Estado = 'Activa' AND fr.Credito_Contado = 1
+            """, (fecha_actual,))
+            total_ruta_efectivo = float(cursor.fetchone()['total_ruta_efectivo'] or 0)
+            
             # Movimientos
             cursor.execute("""
                 SELECT 
@@ -672,6 +774,47 @@ def admin_caja_exportar_pdf():
                 ORDER BY ID_Movimiento ASC
             """, (fecha_actual,))
             movimientos = cursor.fetchall()
+            
+            # Obtener detalle de ventas de ruta para listarlos
+            cursor.execute("""
+                SELECT 
+                    fr.ID_FacturaRuta,
+                    fr.Fecha_Creacion AS Fecha,
+                    u.NombreUsuario AS Vendedor,
+                    SUM(COALESCE(dfr.Total, 0)) AS Monto
+                FROM facturacion_ruta fr
+                INNER JOIN detalle_facturacion_ruta dfr ON fr.ID_FacturaRuta = dfr.ID_FacturaRuta
+                INNER JOIN asignacion_vendedores av ON fr.ID_Asignacion = av.ID_Asignacion
+                INNER JOIN usuarios u ON av.ID_Usuario = u.ID_Usuario
+                WHERE DATE(fr.Fecha_Creacion) = %s AND fr.Estado = 'Activa' AND fr.Credito_Contado = 1
+                GROUP BY fr.ID_FacturaRuta, fr.Fecha_Creacion, u.NombreUsuario
+                ORDER BY fr.Fecha_Creacion ASC
+            """, (fecha_actual,))
+            movimientos_ruta = cursor.fetchall()
+            
+            lista_movimientos = []
+            for m in movimientos:
+                lista_movimientos.append({
+                    'Fecha': m['Fecha'],
+                    'Tipo_Movimiento': m['Tipo_Movimiento'],
+                    'Descripcion': m['Descripcion'],
+                    'Monto': float(m['Monto']),
+                    'Referencia_Documento': m['Referencia_Documento']
+                })
+                
+            for mr in movimientos_ruta:
+                lista_movimientos.append({
+                    'Fecha': mr['Fecha'],
+                    'Tipo_Movimiento': 'ENTRADA',
+                    'Descripcion': f"Venta de Ruta al contado - Vendedor: {mr['Vendedor']}",
+                    'Monto': float(mr['Monto']),
+                    'Referencia_Documento': f"RUT-{mr['ID_FacturaRuta']:05d}"
+                })
+                
+            lista_movimientos.sort(key=lambda x: x['Fecha'])
+            
+            resumen_entradas = float(resumen['entradas'] or 0) + total_ruta_efectivo
+            resumen_saldo_dia = float(resumen['saldo_dia'] or 0) + total_ruta_efectivo
         
         buffer = io.BytesIO()
         doc = SimpleDocTemplate(
@@ -740,9 +883,9 @@ def admin_caja_exportar_pdf():
         story.append(Paragraph("RESUMEN DE CAJA", section_style))
         resumen_data = [
             [Paragraph("Concepto", cell_bold_style), Paragraph("Monto (C$)", cell_bold_style)],
-            [Paragraph("Total Entradas", cell_style), Paragraph(f"C$ {float(resumen['entradas'] or 0):,.2f}", cell_style)],
+            [Paragraph("Total Entradas", cell_style), Paragraph(f"C$ {resumen_entradas:,.2f}", cell_style)],
             [Paragraph("Total Salidas", cell_style), Paragraph(f"C$ {float(resumen['salidas'] or 0):,.2f}", cell_style)],
-            [Paragraph("Saldo Neto", cell_bold_style), Paragraph(f"C$ {float(resumen['saldo_dia'] or 0):,.2f}", cell_bold_style)]
+            [Paragraph("Saldo Neto", cell_bold_style), Paragraph(f"C$ {resumen_saldo_dia:,.2f}", cell_bold_style)]
         ]
         
         t_resumen = Table(resumen_data, colWidths=[200, 150])
@@ -763,7 +906,7 @@ def admin_caja_exportar_pdf():
         mov_headers = ["Hora", "Tipo", "Descripción", "Referencia", "Monto"]
         table_data = [[Paragraph(h, cell_bold_style) for h in mov_headers]]
         
-        for idx, mov in enumerate(movimientos):
+        for idx, mov in enumerate(lista_movimientos):
             hora_str = format_hora(mov['Fecha'])
             tipo = mov['Tipo_Movimiento']
             monto_val = f"C$ {float(mov['Monto'] or 0):,.2f}"

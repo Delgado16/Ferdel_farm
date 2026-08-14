@@ -43,18 +43,29 @@ def obtener_metricas_kpis():
         """)
         ventas_hoy = cursor.fetchone()['Total_Ventas_Contado_Hoy'] or 0
         
-        # Cobros de hoy
+        # Cobros de hoy (únicamente en efectivo - ID_MetodoPago = 1)
         cursor.execute("""
             SELECT COALESCE(SUM(Monto_Cobrado), 0) AS Total_Cobrado_Hoy
             FROM (
                 SELECT Monto_Aplicado AS Monto_Cobrado
                 FROM abonos_detalle
                 WHERE DATE(Fecha) = CURDATE()
+                AND ID_MetodoPago = 1
+                
                 UNION ALL
+                
+                SELECT Monto_Aplicado AS Monto_Cobrado
+                FROM abonos_general
+                WHERE DATE(Fecha) = CURDATE()
+                AND ID_MetodoPago = 1
+                
+                UNION ALL
+                
                 SELECT pc.Monto AS Monto_Cobrado
                 FROM pagos_cuentascobrar pc
                 INNER JOIN cuentas_por_cobrar cxc ON pc.ID_Movimiento = cxc.ID_Movimiento
                 WHERE DATE(pc.Fecha) = CURDATE()
+                AND pc.ID_MetodoPago = 1
                 AND cxc.Estado != 'Anulada'
             ) AS Cobros
         """)

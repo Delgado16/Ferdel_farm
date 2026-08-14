@@ -1231,3 +1231,132 @@ def api_vendedor_cliente_crear_rapido():
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
+@vendedor_bp.route('/vendedor/cliente/<int:id_cliente>/detalle')
+@vendedor_required
+def vendedor_cliente_detalle(id_cliente):
+    """Muestra la información detallada de un cliente, sus facturas, abonos y el último abono"""
+    try:
+        id_vendedor = int(current_user.id)
+        
+        with get_db_cursor() as cursor:
+            # 1. Obtener la asignación activa del vendedor para validar su ruta
+            cursor.execute("""
+                SELECT av.ID_Asignacion, av.ID_Ruta, r.Nombre_Ruta
+                FROM asignacion_vendedores av
+                INNER JOIN rutas r ON av.ID_Ruta = r.ID_Ruta
+                WHERE av.ID_Usuario = %s AND av.Estado = 'Activa'
+                LIMIT 1
+            """, (id_vendedor,))
+            asignacion = cursor.fetchone()
+            
+            if not asignacion:
+                flash('No tienes una ruta activa asignada', 'warning')
+                return redirect(url_for('vendedor.vendedor_dashboard'))
+                
+            id_ruta = asignacion['ID_Ruta']
+            
+            # 2. Obtener datos del cliente (debe pertenecer a la ruta asignada)
+            cursor.execute("""
+                SELECT c.ID_Cliente, c.Nombre, c.RUC_CEDULA, c.Telefono, c.Direccion,
+                       c.tipo_cliente, c.perfil_cliente, COALESCE(c.Saldo_Pendiente_Total, 0) as Saldo_Pendiente_Total,
+                       c.Fecha_Ultimo_Pago, r.Nombre_Ruta
+                FROM clientes c
+                LEFT JOIN rutas r ON c.ID_Ruta = r.ID_Ruta
+                WHERE c.ID_Cliente = %s AND c.Estado = 'ACTIVO' AND c.ID_Ruta = %s
+            """, (id_cliente, id_ruta))
+            cliente = cursor.fetchone()
+            
+            if not cliente:
+                flash('Cliente no encontrado o no pertenece a tu ruta activa', 'danger')
+                return redirect(url_for('vendedor.vendedor_clientes'))
+                
+            # Convertir Decimal/Float
+            cliente['Saldo_Pendiente_Total'] = float(cliente['Saldo_Pendiente_Total'] or 0)
+            
+            # 3. Obtener las últimas 15 facturas (ventas) de este cliente
+            cursor.execute("""
+                SELECT fr.ID_FacturaRuta, 
+                       CONCAT('FAC-R', fr.ID_FacturaRuta) AS Num_Documento, 
+                       fr.Fecha, 
+                       COALESCE(SUM(dfr.Total), 0) AS Total, 
+                       fr.Credito_Contado, 
+                       fr.Estado,
+                       COALESCE(cxc.Saldo_Pendiente, 0) as Saldo_Pendiente
+                FROM facturacion_ruta fr
+                LEFT JOIN detalle_facturacion_ruta dfr ON fr.ID_FacturaRuta = dfr.ID_FacturaRuta
+                LEFT JOIN cuentas_por_cobrar cxc ON fr.ID_FacturaRuta = cxc.ID_FacturaRuta
+                WHERE fr.ID_Cliente = %s AND fr.Estado = 'Activa'
+                GROUP BY fr.ID_FacturaRuta, fr.Fecha, fr.Credito_Contado, fr.Estado, cxc.Saldo_Pendiente
+                ORDER BY fr.Fecha DESC
+                LIMIT 15
+            """, (id_cliente,))
+            facturas = cursor.fetchall()
+            
+            # Formatear datos de facturas
+            for f in facturas:
+                f['Total'] = float(f['Total'] or 0)
+                f['Saldo_Pendiente'] = float(f['Saldo_Pendiente'] or 0)
+                
+            # 4. Obtener los últimos 15 abonos del cliente
+            cursor.execute("""
+                SELECT 
+                    ad.ID_Detalle,
+                    ad.Monto_Aplicado,
+                    ad.Fecha,
+                    ad.Saldo_Anterior,
+                    ad.Saldo_Nuevo,
+                    COALESCE(mp.Nombre, 'Efectivo') AS Metodo_Pago,
+                    cc.Num_Documento AS Num_Documento
+                FROM abonos_detalle ad
+                LEFT JOIN metodos_pago mp ON ad.ID_MetodoPago = mp.ID_MetodoPago
+                LEFT JOIN cuentas_por_cobrar cc ON ad.ID_CuentaCobrar = cc.ID_Movimiento
+                WHERE ad.ID_Cliente = %s
+                ORDER BY ad.Fecha DESC, ad.ID_Detalle DESC
+                LIMIT 15
+            """, (id_cliente,))
+            abonos_raw = cursor.fetchall()
+            
+            # Agrupar abonos por fecha/método si fueron aplicados a múltiples facturas
+            from collections import OrderedDict
+            grouped_abonos = OrderedDict()
+            for abono in abonos_raw:
+                fecha_str = abono['Fecha'].strftime('%Y-%m-%d %H:%M:%S') if abono['Fecha'] else 'N/A'
+                key = (fecha_str, abono['Metodo_Pago'])
+                if key not in grouped_abonos:
+                    grouped_abonos[key] = {
+                        'ID_Detalle': abono['ID_Detalle'],
+                        'Fecha': abono['Fecha'],
+                        'Metodo_Pago': abono['Metodo_Pago'],
+                        'Monto_Total': 0.0,
+                        'Detalles': []
+                    }
+                grouped_abonos[key]['Monto_Total'] += float(abono['Monto_Aplicado'] or 0)
+                grouped_abonos[key]['Detalles'].append({
+                    'ID_Detalle': abono['ID_Detalle'],
+                    'Num_Documento': abono['Num_Documento'] or 'Saldo Inicial/Manual',
+                    'Monto_Aplicado': float(abono['Monto_Aplicado'] or 0),
+                    'Saldo_Anterior': float(abono['Saldo_Anterior'] or 0),
+                    'Saldo_Nuevo': float(abono['Saldo_Nuevo'] or 0)
+                })
+            abonos_lista = list(grouped_abonos.values())
+            
+            # 5. Obtener detalle extendido del último abono realizado
+            ultimo_abono = None
+            if abonos_lista:
+                ultimo_abono = abonos_lista[0]
+                
+            return render_template('vendedor/clientes/detalle.html',
+                                 cliente=cliente,
+                                 facturas=facturas,
+                                 abonos=abonos_lista,
+                                 ultimo_abono=ultimo_abono,
+                                 fecha_actual=datetime.now().strftime('%d/%m/%Y'))
+                                 
+    except Exception as e:
+        print(f"Error en vendedor_cliente_detalle: {str(e)}")
+        traceback.print_exc()
+        flash('Error al cargar detalles del cliente', 'danger')
+        return redirect(url_for('vendedor.vendedor_clientes'))
+
+
+
