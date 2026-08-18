@@ -1678,74 +1678,97 @@ def bodega_detalle_movimiento(id_movimiento):
                 return redirect(url_for('bodega.bodega_historial_movimientos'))
             
             # ============================================
-            # EXTRAER RUTA DE LA FOTO - CORREGIDO
+            # EXTRAER Y VALIDAR RUTA DE LA FOTO / FACTURA
             # ============================================
             import re
+            import os
+            from flask import current_app
+
             foto_url = None
-            
-            # Buscar en Observación (formato: " | Factura: ruta" o " | Foto: ruta")
-            if movimiento['Observacion']:
-                # Buscar "Factura:" (como se guarda actualmente)
-                match = re.search(r'Factura:\s*([^\s|]+)', movimiento['Observacion'])
+
+            def extraer_ruta_archivo(texto):
+                """Extrae una ruta de archivo válida (uploads/... o con extensión de imagen/pdf)"""
+                if not texto:
+                    return None
+                # 1. Buscar patrón Factura: uploads/... o Foto: uploads/...
+                match = re.search(r'(?:Factura|Foto):\s*(uploads/[^\s|]+)', texto, re.IGNORECASE)
                 if not match:
-                    # También buscar "Foto:" por compatibilidad
-                    match = re.search(r'Foto:\s*([^\s|]+)', movimiento['Observacion'])
-                
+                    # 2. Buscar cualquier archivo con extensión válida dentro de uploads
+                    match = re.search(r'(uploads/[^\s|]+\.(?:jpg|jpeg|png|webp|pdf))', texto, re.IGNORECASE)
+                if not match:
+                    # 3. Buscar cualquier nombre de archivo con extensión de imagen/pdf
+                    match = re.search(r'([a-zA-Z0-9_/-]+\.(?:jpg|jpeg|png|webp|pdf))', texto, re.IGNORECASE)
+
                 if match:
-                    foto_url = match.group(1)
-                    print(f"Foto encontrada en movimiento actual: {foto_url}")
-            
-            # Si no se encontró y es un traslado (ID_TipoMovimiento=6), buscar en el movimiento de compra relacionado
-            if not foto_url and movimiento['ID_TipoMovimiento'] == 6:
-                # Buscar por factura externa
-                if movimiento.get('N_Factura_Externa'):
+                    ruta = match.group(1).replace('\\', '/').strip().lstrip('/')
+                    ruta_fisica = os.path.join(current_app.root_path, 'static', ruta)
+                    if os.path.exists(ruta_fisica):
+                        return ruta
+                return None
+
+            def buscar_en_disco(id_mov, num_factura=None):
+                """Búsqueda directa en carpetas de static/uploads como respaldo"""
+                carpetas = ['uploads/facturas', 'uploads/facturas_proveedor']
+                for rel_folder in carpetas:
+                    abs_folder = os.path.join(current_app.root_path, 'static', rel_folder)
+                    if os.path.exists(abs_folder):
+                        try:
+                            archivos = os.listdir(abs_folder)
+                            # 1. Por ID_Movimiento (ej: factura_705_...)
+                            if id_mov:
+                                prefijo = f"factura_{id_mov}_"
+                                for arch in archivos:
+                                    if arch.startswith(prefijo):
+                                        return f"{rel_folder}/{arch}"
+                            # 2. Por número de factura en el nombre
+                            if num_factura and len(str(num_factura).strip()) >= 3:
+                                fact_sanitized = str(num_factura).strip().lower().replace('/', '_').replace(' ', '_')
+                                for arch in archivos:
+                                    if fact_sanitized in arch.lower():
+                                        return f"{rel_folder}/{arch}"
+                        except Exception:
+                            pass
+                return None
+
+            # 1. Buscar en el movimiento actual
+            foto_url = extraer_ruta_archivo(movimiento.get('Observacion'))
+
+            # 2. Si no se encontró y es un traslado / salida a ruta, buscar en la compra original
+            if not foto_url and movimiento.get('ID_TipoMovimiento') in [6, 12]:
+                match_fact = re.search(r'Factura:\s*([^|]+)', movimiento.get('Observacion') or '')
+                n_factura = movimiento.get('N_Factura_Externa') or (match_fact.group(1).strip() if match_fact else None)
+                
+                if n_factura:
                     cursor.execute("""
-                        SELECT Observacion 
+                        SELECT ID_Movimiento, Observacion 
                         FROM movimientos_inventario 
                         WHERE ID_TipoMovimiento = 1 
-                        AND N_Factura_Externa = %s
-                        AND ID_Proveedor = %s
-                        AND Estado != 'Anulada'
-                        LIMIT 1
-                    """, (movimiento.get('N_Factura_Externa'), movimiento.get('ID_Proveedor')))
-                    
-                    movimiento_compra = cursor.fetchone()
-                    if movimiento_compra and movimiento_compra['Observacion']:
-                        match = re.search(r'Factura:\s*([^\s|]+)', movimiento_compra['Observacion'])
-                        if not match:
-                            match = re.search(r'Foto:\s*([^\s|]+)', movimiento_compra['Observacion'])
-                        if match:
-                            foto_url = match.group(1)
-                            print(f"Foto encontrada en movimiento de compra por factura: {foto_url}")
-            
-            # Si aún no se encontró, buscar por ID_Pedido_Origen
+                          AND TRIM(N_Factura_Externa) = %s
+                          AND Estado != 'Anulada'
+                        ORDER BY ID_Movimiento DESC LIMIT 1
+                    """, (n_factura,))
+                    mov_compra = cursor.fetchone()
+                    if mov_compra:
+                        foto_url = extraer_ruta_archivo(mov_compra.get('Observacion'))
+                        if not foto_url:
+                            foto_url = buscar_en_disco(mov_compra.get('ID_Movimiento'), n_factura)
+
+            # 3. Si aún no se encontró, buscar por ID_Pedido_Origen
             if not foto_url and movimiento.get('ID_Pedido_Origen'):
                 cursor.execute("""
-                    SELECT Observacion 
+                    SELECT ID_Movimiento, Observacion 
                     FROM movimientos_inventario 
                     WHERE ID_Movimiento = %s
                 """, (movimiento['ID_Pedido_Origen'],))
-                movimiento_origen = cursor.fetchone()
-                if movimiento_origen and movimiento_origen['Observacion']:
-                    match = re.search(r'Factura:\s*([^\s|]+)', movimiento_origen['Observacion'])
-                    if not match:
-                        match = re.search(r'Foto:\s*([^\s|]+)', movimiento_origen['Observacion'])
-                    if match:
-                        foto_url = match.group(1)
-                        print(f"Foto encontrada por ID_Pedido_Origen: {foto_url}")
-            
-            # ============================================
-            # VERIFICAR SI LA FOTO EXISTE FÍSICAMENTE (CORREGIDO)
-            # ============================================
-            if foto_url:
-                from flask import current_app  # ← IMPORTANTE: usar current_app
-                import os
-                ruta_completa = os.path.join(current_app.root_path, 'static', foto_url)
-                if not os.path.exists(ruta_completa):
-                    print(f"ADVERTENCIA: La foto no existe en: {ruta_completa}")
-                    foto_url = None  # No mostrar si no existe
-                else:
-                    print(f"Foto encontrada y válida: {ruta_completa}")
+                mov_origen = cursor.fetchone()
+                if mov_origen:
+                    foto_url = extraer_ruta_archivo(mov_origen.get('Observacion'))
+                    if not foto_url:
+                        foto_url = buscar_en_disco(mov_origen.get('ID_Movimiento'))
+
+            # 4. Respaldo final: buscar en disco directamente por ID del movimiento actual o factura externa
+            if not foto_url:
+                foto_url = buscar_en_disco(id_movimiento, movimiento.get('N_Factura_Externa'))
             
             # Detalle de productos
             cursor.execute("""
